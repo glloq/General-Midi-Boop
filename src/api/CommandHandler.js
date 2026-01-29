@@ -101,7 +101,7 @@ class CommandHandler {
       'get_instrument_defaults': (data) => this.getInstrumentDefaults(data),
       'update_instrument_capabilities': (data) => this.updateInstrumentCapabilities(data),
 
-      // ==================== LATENCY (8 commands) ====================
+      // ==================== LATENCY (10 commands) ====================
       'latency_measure': (data) => this.latencyMeasure(data),
       'latency_set': (data) => this.latencySet(data),
       'latency_get': (data) => this.latencyGet(data),
@@ -110,6 +110,8 @@ class CommandHandler {
       'latency_auto_calibrate': (data) => this.latencyAutoCalibrate(data),
       'latency_recommendations': () => this.latencyRecommendations(),
       'latency_export': () => this.latencyExport(),
+      'calibrate_delay': (data) => this.calibrateDelay(data),
+      'calibrate_list_alsa_devices': () => this.calibrateListAlsaDevices(),
 
       // ==================== MIDI MESSAGES (8 commands) ====================
       'midi_send': (data) => this.midiSend(data),
@@ -1004,6 +1006,32 @@ class CommandHandler {
   async latencyExport() {
     const profiles = this.app.latencyCompensator.getAllProfiles();
     return { profiles: profiles };
+  }
+
+  async calibrateDelay(data) {
+    const { deviceId, channel, threshold, alsaDevice, measurements } = data;
+
+    // Configure calibrator if options provided
+    if (threshold !== undefined) {
+      this.app.delayCalibrator.setThreshold(threshold);
+    }
+    if (alsaDevice !== undefined) {
+      this.app.delayCalibrator.setAlsaDevice(alsaDevice);
+    }
+
+    // Run calibration
+    const result = await this.app.delayCalibrator.calibrateInstrument(
+      deviceId,
+      channel,
+      { measurements }
+    );
+
+    return result;
+  }
+
+  async calibrateListAlsaDevices() {
+    const devices = await this.app.delayCalibrator.listAlsaDevices();
+    return { devices: devices };
   }
 
   // ==================== MIDI MESSAGE HANDLERS ====================

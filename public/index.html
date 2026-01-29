@@ -2149,6 +2149,452 @@
             color: #b0b0b0;
         }
 
+        /* ========== CALIBRATION MODAL ========== */
+        .calibration-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calibration-modal-overlay[style*="display: flex"] {
+            display: flex !important;
+        }
+
+        .calibration-modal {
+            background: white;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 90%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        .calibration-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .calibration-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .calibration-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .calibration-modal-close:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .calibration-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .calibration-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .calibration-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .calibration-field {
+            margin-bottom: 16px;
+        }
+
+        .calibration-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .calibration-field label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .calibration-select,
+        .calibration-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .calibration-select:focus,
+        .calibration-input:focus {
+            border-color: #667eea;
+        }
+
+        .calibration-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .calibration-slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .calibration-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .calibration-slider::-webkit-slider-thumb:hover {
+            background: #5568d3;
+        }
+
+        .calibration-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        .calibration-slider::-moz-range-thumb:hover {
+            background: #5568d3;
+        }
+
+        .calibration-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .calibration-hint {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #888;
+            font-style: italic;
+        }
+
+        .calibration-select-all {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .calibration-select-all label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .calibration-select-all input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .calibration-instruments-list {
+            max-height: 250px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .calibration-instrument-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .calibration-instrument-item:last-child {
+            border-bottom: none;
+        }
+
+        .calibration-instrument-item:hover {
+            background: #f9fafb;
+        }
+
+        .calibration-instrument-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .calibration-instrument-info {
+            flex: 1;
+        }
+
+        .calibration-instrument-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .calibration-instrument-details {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .calibration-no-instruments {
+            padding: 24px;
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .calibration-progress-bar {
+            background: #e5e7eb;
+            border-radius: 8px;
+            height: 32px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .calibration-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            transition: width 0.3s ease;
+        }
+
+        .calibration-current-status {
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e5e7eb;
+            font-size: 14px;
+            color: #555;
+            text-align: center;
+        }
+
+        .calibration-results-list {
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .calibration-result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .calibration-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .calibration-result-instrument {
+            flex: 1;
+        }
+
+        .calibration-result-instrument-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .calibration-result-measurements {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .calibration-result-delay {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin-right: 12px;
+        }
+
+        .calibration-result-confidence {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .calibration-result-confidence.high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .calibration-result-confidence.medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .calibration-result-confidence.low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .calibration-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Dark mode */
+        body.theme-dark .calibration-modal {
+            background: #2d2d2d;
+        }
+
+        body.theme-dark .calibration-modal-header {
+            border-bottom-color: #444;
+        }
+
+        body.theme-dark .calibration-modal-title {
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-modal-close {
+            color: #999;
+        }
+
+        body.theme-dark .calibration-modal-close:hover {
+            background: #3d3d3d;
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-section {
+            background: #1f1f1f;
+            border-color: #444;
+        }
+
+        body.theme-dark .calibration-section h3 {
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-field label {
+            color: #b0b0b0;
+        }
+
+        body.theme-dark .calibration-select,
+        body.theme-dark .calibration-input {
+            background: #3d3d3d;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-select-all {
+            background: #3d3d3d;
+            border-color: #555;
+        }
+
+        body.theme-dark .calibration-instruments-list {
+            background: #3d3d3d;
+            border-color: #555;
+        }
+
+        body.theme-dark .calibration-instrument-item {
+            border-bottom-color: #444;
+        }
+
+        body.theme-dark .calibration-instrument-item:hover {
+            background: #2d2d2d;
+        }
+
+        body.theme-dark .calibration-instrument-name {
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-current-status {
+            background: #3d3d3d;
+            border-color: #555;
+            color: #b0b0b0;
+        }
+
+        body.theme-dark .calibration-results-list {
+            background: #3d3d3d;
+            border-color: #555;
+        }
+
+        body.theme-dark .calibration-result-item {
+            border-bottom-color: #444;
+        }
+
+        body.theme-dark .calibration-result-instrument-name {
+            color: #e0e0e0;
+        }
+
+        body.theme-dark .calibration-modal-footer {
+            border-top-color: #444;
+        }
+
         /* ========== FILTERS PANEL ========== */
         .filters-panel {
             position: fixed;
@@ -2479,6 +2925,10 @@
                     🎛️
                 </button>
 
+                <button class="btn-instruments-toggle" id="calibrationBtn" title="Calibration des délais (Microphone)">
+                    🎤
+                </button>
+
                 <div class="header-playback">
                     <div class="header-controls">
                         <span class="header-file-name" id="headerFileName" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
@@ -2687,6 +3137,110 @@
 
     <!-- Filters Panel Overlay -->
     <div id="filtersPanelOverlay" class="modal-overlay" style="display: none;"></div>
+
+    <!-- Delay Calibration Modal -->
+    <div class="calibration-modal-overlay" id="calibrationModal" style="display: none;">
+        <div class="calibration-modal">
+            <div class="calibration-modal-header">
+                <div class="calibration-modal-title">
+                    <span>🎤</span>
+                    <span>Calibration des délais (Microphone)</span>
+                </div>
+                <button class="calibration-modal-close" id="calibrationModalClose">&times;</button>
+            </div>
+
+            <div class="calibration-modal-body">
+                <!-- Microphone Settings Section -->
+                <div class="calibration-section">
+                    <h3>⚙️ Paramètres du microphone</h3>
+
+                    <div class="calibration-field">
+                        <label for="alsaDeviceSelect">Device ALSA:</label>
+                        <select id="alsaDeviceSelect" class="calibration-select">
+                            <option value="hw:1,0">hw:1,0 (Default USB Audio)</option>
+                        </select>
+                        <button class="btn btn-sm" id="refreshAlsaBtn">🔄 Actualiser</button>
+                    </div>
+
+                    <div class="calibration-field">
+                        <label for="thresholdSlider">Seuil de détection:</label>
+                        <div class="calibration-slider-container">
+                            <input type="range" id="thresholdSlider"
+                                   min="0.01" max="0.10" step="0.005" value="0.02"
+                                   class="calibration-slider">
+                            <span id="thresholdValue" class="calibration-value">0.020</span>
+                        </div>
+                        <small class="calibration-hint">
+                            Augmenter si le micro capte du bruit ambiant, diminuer si aucun son n'est détecté
+                        </small>
+                    </div>
+
+                    <div class="calibration-field">
+                        <label for="measurementsInput">Nombre de mesures:</label>
+                        <input type="number" id="measurementsInput"
+                               min="1" max="10" value="5"
+                               class="calibration-input">
+                        <small class="calibration-hint">
+                            Plus de mesures = résultat plus précis mais plus long
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Instruments Selection Section -->
+                <div class="calibration-section">
+                    <h3>🎹 Sélection des instruments</h3>
+
+                    <div class="calibration-select-all">
+                        <label>
+                            <input type="checkbox" id="selectAllInstruments">
+                            <span>Sélectionner tous les instruments</span>
+                        </label>
+                    </div>
+
+                    <div id="instrumentsList" class="calibration-instruments-list">
+                        <!-- Instruments will be populated here dynamically -->
+                        <div class="calibration-no-instruments">
+                            Aucun instrument disponible
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Section (hidden by default) -->
+                <div class="calibration-section calibration-progress-section" id="calibrationProgress" style="display: none;">
+                    <h3>📊 Progression</h3>
+
+                    <div class="calibration-progress-bar">
+                        <div class="calibration-progress-fill" id="calibrationProgressFill" style="width: 0%">
+                            0%
+                        </div>
+                    </div>
+
+                    <div class="calibration-current-status" id="calibrationStatus">
+                        Prêt à commencer...
+                    </div>
+                </div>
+
+                <!-- Results Section (hidden by default) -->
+                <div class="calibration-section calibration-results-section" id="calibrationResults" style="display: none;">
+                    <h3>✅ Résultats</h3>
+
+                    <div id="calibrationResultsList" class="calibration-results-list">
+                        <!-- Results will be populated here dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="calibration-modal-footer">
+                <button class="btn btn-secondary" id="calibrationCancelBtn">Annuler</button>
+                <button class="btn btn-primary" id="calibrationStartBtn">
+                    🎤 Démarrer la calibration
+                </button>
+                <button class="btn btn-success" id="calibrationApplyBtn" style="display: none;">
+                    ✅ Appliquer les délais
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="js/utils/FilterManager.js"></script>
@@ -4536,6 +5090,347 @@
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     hideRenameModal();
+                }
+            });
+        }
+
+        // ==================== CALIBRATION MODAL ====================
+
+        let calibrationState = {
+            selectedInstruments: [],
+            results: {},
+            isRunning: false
+        };
+
+        function showCalibrationModal() {
+            const modal = document.getElementById('calibrationModal');
+            modal.style.display = 'flex';
+
+            // Reset state
+            calibrationState.selectedInstruments = [];
+            calibrationState.results = {};
+            calibrationState.isRunning = false;
+
+            // Load instruments list
+            loadInstrumentsForCalibration();
+
+            // Load ALSA devices
+            loadAlsaDevices();
+
+            // Reset UI
+            document.getElementById('calibrationProgress').style.display = 'none';
+            document.getElementById('calibrationResults').style.display = 'none';
+            document.getElementById('calibrationStartBtn').style.display = 'inline-block';
+            document.getElementById('calibrationApplyBtn').style.display = 'none';
+        }
+
+        function hideCalibrationModal() {
+            const modal = document.getElementById('calibrationModal');
+            modal.style.display = 'none';
+        }
+
+        async function loadInstrumentsForCalibration() {
+            const instrumentsList = document.getElementById('instrumentsList');
+
+            try {
+                // Get all instruments from device list
+                const instruments = [];
+
+                for (const device of Object.values(deviceList)) {
+                    if (!device.connected) continue;
+
+                    // Get channels for this device
+                    const channels = device.channels || 16;
+
+                    for (let ch = 0; ch < channels; ch++) {
+                        instruments.push({
+                            deviceId: device.id,
+                            deviceName: device.name,
+                            channel: ch,
+                            displayName: `${device.name} - Canal ${ch + 1}`
+                        });
+                    }
+                }
+
+                if (instruments.length === 0) {
+                    instrumentsList.innerHTML = `
+                        <div class="calibration-no-instruments">
+                            Aucun instrument connecté
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Render instruments list
+                instrumentsList.innerHTML = instruments.map(inst => `
+                    <div class="calibration-instrument-item" data-device-id="${inst.deviceId}" data-channel="${inst.channel}">
+                        <input type="checkbox" class="calibration-instrument-checkbox"
+                               id="inst_${inst.deviceId}_${inst.channel}"
+                               value="${inst.deviceId}:${inst.channel}">
+                        <div class="calibration-instrument-info">
+                            <div class="calibration-instrument-name">${inst.displayName}</div>
+                            <div class="calibration-instrument-details">Device: ${inst.deviceName}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add event listeners to checkboxes
+                instrumentsList.querySelectorAll('.calibration-instrument-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', updateSelectedInstruments);
+                });
+
+                // Add click listener to items (toggle checkbox)
+                instrumentsList.querySelectorAll('.calibration-instrument-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (e.target.type !== 'checkbox') {
+                            const checkbox = item.querySelector('input[type="checkbox"]');
+                            checkbox.checked = !checkbox.checked;
+                            updateSelectedInstruments();
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.error('[Calibration] Failed to load instruments:', error);
+                instrumentsList.innerHTML = `
+                    <div class="calibration-no-instruments">
+                        Erreur lors du chargement des instruments
+                    </div>
+                `;
+            }
+        }
+
+        async function loadAlsaDevices() {
+            try {
+                const response = await api.sendCommand('calibrate_list_alsa_devices', {});
+
+                if (response.success && response.devices && response.devices.length > 0) {
+                    const select = document.getElementById('alsaDeviceSelect');
+                    select.innerHTML = response.devices.map(device => `
+                        <option value="${device.id}">${device.id} - ${device.name}</option>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('[Calibration] Failed to load ALSA devices:', error);
+            }
+        }
+
+        function updateSelectedInstruments() {
+            const checkboxes = document.querySelectorAll('.calibration-instrument-checkbox:checked');
+            calibrationState.selectedInstruments = Array.from(checkboxes).map(cb => {
+                const [deviceId, channel] = cb.value.split(':');
+                return {
+                    deviceId: deviceId,
+                    channel: parseInt(channel)
+                };
+            });
+
+            // Update start button state
+            const startBtn = document.getElementById('calibrationStartBtn');
+            startBtn.disabled = calibrationState.selectedInstruments.length === 0;
+        }
+
+        async function startCalibration() {
+            if (calibrationState.selectedInstruments.length === 0) {
+                alert('Veuillez sélectionner au moins un instrument');
+                return;
+            }
+
+            calibrationState.isRunning = true;
+            calibrationState.results = {};
+
+            // Get settings
+            const threshold = parseFloat(document.getElementById('thresholdSlider').value);
+            const alsaDevice = document.getElementById('alsaDeviceSelect').value;
+            const measurements = parseInt(document.getElementById('measurementsInput').value);
+
+            // Show progress section
+            document.getElementById('calibrationProgress').style.display = 'block';
+            document.getElementById('calibrationResults').style.display = 'none';
+            document.getElementById('calibrationStartBtn').style.display = 'none';
+
+            const totalInstruments = calibrationState.selectedInstruments.length;
+            let completed = 0;
+
+            for (const instrument of calibrationState.selectedInstruments) {
+                // Update status
+                const statusEl = document.getElementById('calibrationStatus');
+                statusEl.textContent = `Calibration de ${instrument.deviceId} Canal ${instrument.channel + 1}...`;
+
+                try {
+                    const result = await api.sendCommand('calibrate_delay', {
+                        deviceId: instrument.deviceId,
+                        channel: instrument.channel,
+                        threshold: threshold,
+                        alsaDevice: alsaDevice,
+                        measurements: measurements
+                    });
+
+                    calibrationState.results[`${instrument.deviceId}:${instrument.channel}`] = {
+                        ...result,
+                        instrument: instrument
+                    };
+
+                } catch (error) {
+                    console.error('[Calibration] Error:', error);
+                    calibrationState.results[`${instrument.deviceId}:${instrument.channel}`] = {
+                        success: false,
+                        error: error.message,
+                        instrument: instrument
+                    };
+                }
+
+                // Update progress
+                completed++;
+                const progress = Math.round((completed / totalInstruments) * 100);
+                const progressFill = document.getElementById('calibrationProgressFill');
+                progressFill.style.width = `${progress}%`;
+                progressFill.textContent = `${progress}%`;
+            }
+
+            // Calibration complete
+            calibrationState.isRunning = false;
+            displayCalibrationResults();
+        }
+
+        function displayCalibrationResults() {
+            const resultsSection = document.getElementById('calibrationResults');
+            const resultsList = document.getElementById('calibrationResultsList');
+
+            // Build results HTML
+            const resultsHTML = Object.values(calibrationState.results).map(result => {
+                const inst = result.instrument;
+                const instrumentName = `${inst.deviceId} - Canal ${inst.channel + 1}`;
+
+                if (!result.success) {
+                    return `
+                        <div class="calibration-result-item">
+                            <div class="calibration-result-instrument">
+                                <div class="calibration-result-instrument-name">${instrumentName}</div>
+                                <div class="calibration-result-measurements">❌ Erreur: ${result.error}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Determine confidence level
+                let confidenceClass = 'low';
+                if (result.confidence >= 80) confidenceClass = 'high';
+                else if (result.confidence >= 60) confidenceClass = 'medium';
+
+                return `
+                    <div class="calibration-result-item">
+                        <div class="calibration-result-instrument">
+                            <div class="calibration-result-instrument-name">${instrumentName}</div>
+                            <div class="calibration-result-measurements">
+                                ${result.measurements.length} mesures | Moyenne: ${result.mean}ms | Écart: ${result.stdDev}ms
+                            </div>
+                        </div>
+                        <div class="calibration-result-delay">${result.delay}ms</div>
+                        <div class="calibration-result-confidence ${confidenceClass}">
+                            ${result.confidence}%
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            resultsList.innerHTML = resultsHTML;
+
+            // Show results section
+            resultsSection.style.display = 'block';
+
+            // Hide progress, show apply button
+            document.getElementById('calibrationProgress').style.display = 'none';
+            document.getElementById('calibrationApplyBtn').style.display = 'inline-block';
+
+            log('✅ Calibration des délais terminée');
+        }
+
+        async function applyCalibrationResults() {
+            let appliedCount = 0;
+            let failedCount = 0;
+
+            for (const [key, result] of Object.entries(calibrationState.results)) {
+                if (!result.success) {
+                    failedCount++;
+                    continue;
+                }
+
+                try {
+                    // Update instrument delay in database
+                    await api.sendCommand('instrument_update_settings', {
+                        deviceId: result.instrument.deviceId,
+                        channel: result.instrument.channel,
+                        sync_delay: result.delay
+                    });
+
+                    appliedCount++;
+                } catch (error) {
+                    console.error('[Calibration] Failed to apply delay:', error);
+                    failedCount++;
+                }
+            }
+
+            log(`✅ Délais appliqués: ${appliedCount} réussis, ${failedCount} échecs`);
+
+            if (appliedCount > 0) {
+                alert(`Calibration appliquée avec succès pour ${appliedCount} instrument(s)`);
+            }
+
+            hideCalibrationModal();
+        }
+
+        function initCalibrationModal() {
+            const modal = document.getElementById('calibrationModal');
+            const closeBtn = document.getElementById('calibrationModalClose');
+            const cancelBtn = document.getElementById('calibrationCancelBtn');
+            const startBtn = document.getElementById('calibrationStartBtn');
+            const applyBtn = document.getElementById('calibrationApplyBtn');
+            const refreshAlsaBtn = document.getElementById('refreshAlsaBtn');
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            const thresholdValue = document.getElementById('thresholdValue');
+            const selectAllCheckbox = document.getElementById('selectAllInstruments');
+
+            // Close button
+            closeBtn.addEventListener('click', hideCalibrationModal);
+
+            // Cancel button
+            cancelBtn.addEventListener('click', hideCalibrationModal);
+
+            // Start button
+            startBtn.addEventListener('click', startCalibration);
+
+            // Apply button
+            applyBtn.addEventListener('click', applyCalibrationResults);
+
+            // Refresh ALSA devices
+            refreshAlsaBtn.addEventListener('click', loadAlsaDevices);
+
+            // Threshold slider
+            thresholdSlider.addEventListener('input', (e) => {
+                thresholdValue.textContent = parseFloat(e.target.value).toFixed(3);
+            });
+
+            // Select all checkbox
+            selectAllCheckbox.addEventListener('change', (e) => {
+                const checkboxes = document.querySelectorAll('.calibration-instrument-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = e.target.checked;
+                });
+                updateSelectedInstruments();
+            });
+
+            // Close on overlay click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideCalibrationModal();
+                }
+            });
+
+            // ESC key to close
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    hideCalibrationModal();
                 }
             });
         }
@@ -6913,6 +7808,7 @@
         document.getElementById('createFolderBtn').addEventListener('click', createFolder);
         initFolderModal(); // Initialiser le modal de création de dossier
         initRenameModal(); // Initialiser le modal de renommage
+        initCalibrationModal(); // Initialiser le modal de calibration
 
         // Event listener pour le bouton clavier MIDI
         document.getElementById('openKeyboardBtn').addEventListener('click', () => {
@@ -6930,6 +7826,11 @@
             } else {
                 log('Instrument management page not initialized', 'error');
             }
+        });
+
+        // Event listener pour le bouton de calibration
+        document.getElementById('calibrationBtn').addEventListener('click', () => {
+            showCalibrationModal();
         });
 
         // Event listeners pour les contrôles du header

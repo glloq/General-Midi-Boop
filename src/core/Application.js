@@ -7,6 +7,7 @@ import DeviceManager from '../midi/DeviceManager.js';
 import MidiRouter from '../midi/MidiRouter.js';
 import MidiPlayer from '../midi/MidiPlayer.js';
 import LatencyCompensator from '../midi/LatencyCompensator.js';
+import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../storage/FileManager.js';
 import BluetoothManager from '../managers/BluetoothManager.js';
 import NetworkManager from '../managers/NetworkManager.js';
@@ -24,6 +25,7 @@ class Application {
     this.midiRouter = null;
     this.midiPlayer = null;
     this.latencyCompensator = null;
+    this.delayCalibrator = null;
     this.fileManager = null;
     this.bluetoothManager = null;
     this.networkManager = null;
@@ -47,6 +49,7 @@ class Application {
       this.midiRouter = new MidiRouter(this);
       this.midiPlayer = new MidiPlayer(this);
       this.latencyCompensator = new LatencyCompensator(this);
+      this.delayCalibrator = new DelayCalibrator(this.deviceManager, this.logger);
 
       // Initialize storage
       this.fileManager = new FileManager(this);
