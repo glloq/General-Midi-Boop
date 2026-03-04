@@ -7,6 +7,7 @@ import InstrumentCapabilitiesValidator from '../midi/InstrumentCapabilitiesValid
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1233,9 +1234,9 @@ class CommandHandler {
       platform: process.platform,
       arch: process.arch,
       nodeVersion: process.version,
-      cpus: require('os').cpus().length,
-      totalMemory: require('os').totalmem(),
-      freeMemory: require('os').freemem()
+      cpus: os.cpus().length,
+      totalMemory: os.totalmem(),
+      freeMemory: os.freemem()
     };
   }
 
@@ -1719,12 +1720,6 @@ class CommandHandler {
 
         // Mettre à jour les capacités
         if (Object.keys(capabilityFields).length > 0) {
-          // Mapper 'mode' vers 'note_selection_mode' si nécessaire
-          if (capabilityFields.mode && !capabilityFields.note_selection_mode) {
-            capabilityFields.note_selection_mode = capabilityFields.mode;
-            delete capabilityFields.mode;
-          }
-
           this.app.database.updateInstrumentCapabilities(instrument.device_id, capabilityFields);
         }
 

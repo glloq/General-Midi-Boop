@@ -266,23 +266,26 @@ class AutoAssignModal {
     const analysis = this.selectedAssignments[channel]?.channelAnalysis || this.channelAnalyses[channel];
     if (!analysis) return '';
 
+    const noteRange = analysis.noteRange || {};
+    const polyphony = analysis.polyphony || {};
+
     return `
       <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 12px;">
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
           <div>
             <strong>Note Range:</strong><br>
-            ${analysis.noteRange.min} - ${analysis.noteRange.max} (${analysis.noteRange.max - analysis.noteRange.min} semitones)
+            ${noteRange.min != null ? `${noteRange.min} - ${noteRange.max} (${noteRange.max - noteRange.min} semitones)` : 'N/A'}
           </div>
           <div>
             <strong>Polyphony:</strong><br>
-            Max: ${analysis.polyphony.max}${analysis.polyphony.avg !== undefined ? ` | Avg: ${analysis.polyphony.avg.toFixed(1)}` : ''}
+            ${polyphony.max != null ? `Max: ${polyphony.max}${polyphony.avg !== undefined ? ` | Avg: ${polyphony.avg.toFixed(1)}` : ''}` : 'N/A'}
           </div>
           <div>
             <strong>Type:</strong><br>
             ${this.escapeHtml(analysis.estimatedType)} ${analysis.typeConfidence ? `(${analysis.typeConfidence}%)` : ''}
           </div>
         </div>
-        ${this.renderMiniPiano(analysis.noteRange)}
+        ${noteRange.min != null ? this.renderMiniPiano(noteRange) : ''}
       </div>
     `;
   }
@@ -346,12 +349,13 @@ class AutoAssignModal {
       const isSelected = instrument.device_id === selectedDeviceId;
       const escapedName = this.escapeHtml(instrument.custom_name || instrument.name);
       const escapedDeviceId = this.escapeHtml(instrument.device_id);
+      const safeDeviceId = escapedDeviceId.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
       return `
         <div class="instrument-option ${isSelected ? 'selected' : ''}"
              data-channel="${channel}"
              data-device-id="${escapedDeviceId}"
-             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedDeviceId}')"
+             onclick="autoAssignModalInstance.selectInstrument(${channel}, this.dataset.deviceId)"
              style="padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#4CAF50' : '#ddd'};
                     border-radius: 8px; cursor: pointer; background: ${isSelected ? '#f0fff0' : '#fff'};
                     transition: all 0.2s;">
@@ -603,7 +607,8 @@ class AutoAssignModal {
       const skippedMsg = this.skippedChannels.size > 0
         ? `\n${this.skippedChannels.size} channel(s) were skipped.`
         : '';
-      alert(`Assignments applied successfully!\n\nAdapted file created: ${response.filename}\n${response.stats.notesChanged} notes transposed${skippedMsg}`);
+      const notesChanged = response.stats?.notesChanged || 0;
+      alert(`Assignments applied successfully!\n\nAdapted file created: ${response.filename}\n${notesChanged} notes transposed${skippedMsg}`);
 
       this.close();
 

@@ -618,6 +618,10 @@ class InstrumentDatabase {
           fields.push('selected_notes = ?');
           values.push(selectedNotesJson);
         }
+        if (capabilities.polyphony !== undefined) {
+          fields.push('polyphony = ?');
+          values.push(capabilities.polyphony !== null ? parseInt(capabilities.polyphony) : null);
+        }
         if (capabilities.capabilities_source !== undefined) {
           fields.push('capabilities_source = ?');
           values.push(capabilities.capabilities_source);
@@ -788,7 +792,7 @@ class InstrumentDatabase {
       const stmt = this.db.prepare(`
         SELECT
           id, device_id, channel, name, custom_name,
-          gm_program, sync_delay,
+          gm_program, sync_delay, polyphony,
           note_range_min, note_range_max,
           note_selection_mode, selected_notes, supported_ccs,
           capabilities_source, capabilities_updated_at,
@@ -826,6 +830,7 @@ class InstrumentDatabase {
           name: result.name,
           custom_name: result.custom_name,
           gm_program: result.gm_program,
+          polyphony: result.polyphony || 16,
           sync_delay: result.sync_delay || 0,
           note_range_min: result.note_range_min,
           note_range_max: result.note_range_max,
