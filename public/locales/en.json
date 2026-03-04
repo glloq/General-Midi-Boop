@@ -65,6 +65,17 @@
       "enable": "Show debug button",
       "description": "Shows the button to open the debug console"
     },
+    "serialMidi": {
+      "title": "Serial MIDI (GPIO)",
+      "enable": "Enable serial MIDI ports",
+      "description": "Use Raspberry Pi UART GPIO pins as MIDI IN/OUT ports (requires hardware circuit)",
+      "ports": "Available ports",
+      "scan": "Scan",
+      "scanning": "Scanning serial ports...",
+      "clickScan": "Click \"Scan\" to detect available serial ports",
+      "noPorts": "No serial ports detected. Check /boot/config.txt UART overlays",
+      "notAvailable": "serialport package not installed. Run: npm install serialport"
+    },
     "language": {
       "title": "Language",
       "select": "Select language"

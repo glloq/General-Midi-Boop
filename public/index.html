@@ -7014,6 +7014,43 @@
             });
         }
 
+        // ==================== Serial MIDI event bridge ====================
+        window.eventBus.on('settings:serial_midi_changed', async (data) => {
+            log(`Serial MIDI ${data.enabled ? 'enabled' : 'disabled'}`, 'info');
+            try {
+                await api.sendCommand('serial_set_enabled', { enabled: data.enabled });
+            } catch (error) {
+                log(`Serial MIDI toggle error: ${error.message}`, 'error');
+            }
+        });
+
+        window.eventBus.on('serial:scan_requested', async () => {
+            try {
+                const result = await api.sendCommand('serial_scan');
+                window.eventBus.emit('serial:scan_result', result);
+            } catch (error) {
+                window.eventBus.emit('serial:scan_result', { available: false, ports: [], error: error.message });
+            }
+        });
+
+        window.eventBus.on('serial:open_requested', async (data) => {
+            try {
+                await api.sendCommand('serial_open', { path: data.path, name: data.name, direction: data.direction || 'both' });
+                log(`Serial port opened: ${data.path}`, 'info');
+            } catch (error) {
+                log(`Serial port open error: ${error.message}`, 'error');
+            }
+        });
+
+        window.eventBus.on('serial:close_requested', async (data) => {
+            try {
+                await api.sendCommand('serial_close', { path: data.path });
+                log(`Serial port closed: ${data.path}`, 'info');
+            } catch (error) {
+                log(`Serial port close error: ${error.message}`, 'error');
+            }
+        });
+
         // Event listeners pour la zone de drop dédiée (racine)
         const dropZoneRoot = document.getElementById('dropZoneRoot');
 

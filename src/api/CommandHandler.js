@@ -55,6 +55,12 @@ class CommandHandler {
       'network_connected_list': () => this.networkConnectedList(),
       'network_connect': (data) => this.networkConnect(data),
       'network_disconnect': (data) => this.networkDisconnect(data),
+      'serial_scan': () => this.serialScan(),
+      'serial_list': () => this.serialList(),
+      'serial_open': (data) => this.serialOpen(data),
+      'serial_close': (data) => this.serialClose(data),
+      'serial_status': () => this.serialStatus(),
+      'serial_set_enabled': (data) => this.serialSetEnabled(data),
       'virtual_create': (data) => this.virtualCreate(data),
       'virtual_delete': (data) => this.virtualDelete(data),
       'virtual_list': () => this.virtualList(),
@@ -585,6 +591,84 @@ class CommandHandler {
       data: result
     };
   }
+
+  // ==================== SERIAL MIDI HANDLERS ====================
+
+  async serialScan() {
+    if (!this.app.serialMidiManager) {
+      return { success: true, available: false, ports: [], message: 'Serial MIDI not available. Install: npm install serialport' };
+    }
+
+    const ports = await this.app.serialMidiManager.scanPorts();
+    return { success: true, available: true, ports };
+  }
+
+  async serialList() {
+    if (!this.app.serialMidiManager) {
+      return { success: true, ports: [] };
+    }
+
+    return { success: true, ports: this.app.serialMidiManager.getConnectedPorts() };
+  }
+
+  async serialOpen(data) {
+    if (!this.app.serialMidiManager) {
+      throw new Error('Serial MIDI not available');
+    }
+    if (!data.path) {
+      throw new Error('path is required');
+    }
+
+    const result = await this.app.serialMidiManager.openPort(
+      data.path,
+      data.name || null,
+      data.direction || 'both'
+    );
+
+    return {
+      success: true,
+      port: {
+        path: result.path,
+        name: result.name,
+        direction: result.direction
+      }
+    };
+  }
+
+  async serialClose(data) {
+    if (!this.app.serialMidiManager) {
+      throw new Error('Serial MIDI not available');
+    }
+    if (!data.path) {
+      throw new Error('path is required');
+    }
+
+    await this.app.serialMidiManager.closePort(data.path);
+    return { success: true };
+  }
+
+  async serialStatus() {
+    if (!this.app.serialMidiManager) {
+      return { enabled: false, available: false, scanning: false, openPorts: 0, ports: [] };
+    }
+
+    return this.app.serialMidiManager.getStatus();
+  }
+
+  async serialSetEnabled(data) {
+    if (data.enabled === undefined) {
+      throw new Error('enabled is required');
+    }
+
+    if (!this.app.serialMidiManager) {
+      throw new Error('Serial MIDI manager not initialized');
+    }
+
+    const result = await this.app.serialMidiManager.setEnabled(data.enabled);
+    return { success: true, ...result };
+  }
+
+  // ==================== VIRTUAL DEVICE HANDLERS ====================
 
   async virtualCreate(data) {
     const deviceId = this.app.deviceManager.createVirtualDevice(data.name);

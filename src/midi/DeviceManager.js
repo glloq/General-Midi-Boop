@@ -290,6 +290,25 @@ class DeviceManager {
       allDevices.push(...networkDevices);
     }
 
+    // Ajouter les périphériques série MIDI (GPIO UART)
+    if (this.app.serialMidiManager) {
+      const serialPorts = this.app.serialMidiManager.getConnectedPorts()
+        .map(port => ({
+          id: port.path,
+          name: port.name || `Serial MIDI (${port.path})`,
+          manufacturer: 'Serial',
+          type: 'serial',
+          input: port.direction === 'both' || port.direction === 'in',
+          output: port.direction === 'both' || port.direction === 'out',
+          enabled: true,
+          connected: true,
+          status: DEVICE_STATUS.CONNECTED,
+          address: port.path
+        }));
+
+      allDevices.push(...serialPorts);
+    }
+
     // Dédupliquer par nom (évite doublons USB input/output et USB/Bluetooth/Network)
     // Priorité: Network > Bluetooth > USB
     const uniqueDevices = [];
@@ -370,6 +389,24 @@ class DeviceManager {
           return true;
         } catch (error) {
           this.app.logger.error(`Failed to send MIDI message via Network to ${deviceName}: ${error.message}`);
+          return false;
+        }
+      }
+    }
+
+    // Sinon, vérifier si c'est un périphérique série MIDI (GPIO)
+    if (this.app.serialMidiManager) {
+      const serialPorts = this.app.serialMidiManager.getConnectedPorts();
+      const serialPort = serialPorts.find(p =>
+        p.name === deviceName || p.path === deviceName
+      );
+
+      if (serialPort) {
+        try {
+          this.app.serialMidiManager.sendMidiMessage(serialPort.path, type, data);
+          return true;
+        } catch (error) {
+          this.app.logger.error(`Failed to send MIDI message via Serial to ${deviceName}: ${error.message}`);
           return false;
         }
       }
