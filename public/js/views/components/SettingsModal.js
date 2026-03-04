@@ -42,7 +42,8 @@ class SettingsModal {
             noteDisplayTime: 20, // secondes
             virtualInstrument: false,
             showPianoRoll: false, // Afficher le piano roll des notes à venir
-            showDebugButton: true // Afficher le bouton de debug
+            showDebugButton: true, // Afficher le bouton de debug
+            serialMidiEnabled: false // Ports série MIDI GPIO (désactivé par défaut)
         };
 
         try {
@@ -413,6 +414,59 @@ class SettingsModal {
                     </label>
                 </div>
             </div>
+
+            <!-- Serial MIDI GPIO -->
+            <div class="settings-section" style="margin-top: 24px;">
+                <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">${i18n.t('settings.serialMidi.title')}</h3>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.serialMidi.enable')}</p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.serialMidi.description')}</p>
+                    </div>
+                    <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                        <input type="checkbox" id="serialMidiToggle" ${this.settings.serialMidiEnabled ? 'checked' : ''}
+                               style="opacity: 0; width: 0; height: 0;">
+                        <span class="toggle-slider" style="
+                            position: absolute;
+                            cursor: pointer;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background-color: #ccc;
+                            transition: 0.4s;
+                            border-radius: 30px;
+                        "></span>
+                    </label>
+                </div>
+
+                <!-- Serial MIDI port management (shown when enabled) -->
+                <div id="serialMidiPortsSection" style="margin-top: 16px; display: ${this.settings.serialMidiEnabled ? 'block' : 'none'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 14px; color: #333; font-weight: 500;">${i18n.t('settings.serialMidi.ports')}</span>
+                        <button id="serialScanBtn" style="
+                            padding: 6px 14px;
+                            border: 1px solid #667eea;
+                            border-radius: 6px;
+                            background: white;
+                            color: #667eea;
+                            cursor: pointer;
+                            font-size: 13px;
+                            transition: all 0.2s;
+                        ">${i18n.t('settings.serialMidi.scan')}</button>
+                    </div>
+                    <div id="serialPortsList" style="
+                        border: 1px solid #e5e7eb;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        min-height: 60px;
+                    ">
+                        <div style="padding: 16px; text-align: center; color: #999; font-size: 13px;">
+                            ${i18n.t('settings.serialMidi.clickScan')}
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
     }
 
@@ -620,6 +674,128 @@ class SettingsModal {
                 timeValue.textContent = e.target.value + 's';
             });
         }
+
+        // Serial MIDI toggle
+        const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
+        const serialPortsSection = this.modal.querySelector('#serialMidiPortsSection');
+        if (serialMidiToggle && serialPortsSection) {
+            serialMidiToggle.addEventListener('change', (e) => {
+                serialPortsSection.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+
+        // Serial MIDI scan button
+        const serialScanBtn = this.modal.querySelector('#serialScanBtn');
+        if (serialScanBtn) {
+            serialScanBtn.addEventListener('click', () => {
+                this.scanSerialPorts();
+            });
+        }
+    }
+
+    /**
+     * Scan serial ports and display results
+     */
+    async scanSerialPorts() {
+        const listEl = this.modal.querySelector('#serialPortsList');
+        const scanBtn = this.modal.querySelector('#serialScanBtn');
+        if (!listEl) return;
+
+        // Show loading
+        listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #667eea; font-size: 13px;">
+            ${i18n.t('settings.serialMidi.scanning')}
+        </div>`;
+        if (scanBtn) scanBtn.disabled = true;
+
+        try {
+            this.eventBus?.emit('serial:scan_requested');
+
+            // Wait for response via event
+            const result = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Scan timeout')), 10000);
+                const handler = (data) => {
+                    clearTimeout(timeout);
+                    this.eventBus?.off('serial:scan_result', handler);
+                    resolve(data);
+                };
+                this.eventBus?.on('serial:scan_result', handler);
+            });
+
+            if (!result.available) {
+                listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
+                    ${i18n.t('settings.serialMidi.notAvailable')}
+                </div>`;
+                return;
+            }
+
+            if (!result.ports || result.ports.length === 0) {
+                listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #999; font-size: 13px;">
+                    ${i18n.t('settings.serialMidi.noPorts')}
+                </div>`;
+                return;
+            }
+
+            // Render ports list
+            listEl.innerHTML = result.ports.map(port => `
+                <div style="
+                    padding: 12px 16px;
+                    border-bottom: 1px solid #f0f0f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                ">
+                    <div>
+                        <div style="font-size: 14px; font-weight: 500; color: #333;">
+                            <span style="
+                                display: inline-block;
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 50%;
+                                background: ${port.isOpen ? '#38a169' : '#a0aec0'};
+                                margin-right: 8px;
+                            "></span>
+                            ${port.name}
+                        </div>
+                        <div style="font-size: 12px; color: #999; margin-top: 2px;">${port.path}</div>
+                    </div>
+                    <button class="serial-port-toggle-btn" data-path="${port.path}" data-name="${port.name}" data-open="${port.isOpen}" style="
+                        padding: 6px 14px;
+                        border: 1px solid ${port.isOpen ? '#e53e3e' : '#38a169'};
+                        border-radius: 6px;
+                        background: white;
+                        color: ${port.isOpen ? '#e53e3e' : '#38a169'};
+                        cursor: pointer;
+                        font-size: 12px;
+                        transition: all 0.2s;
+                    ">${port.isOpen ? i18n.t('common.disconnect') : i18n.t('common.connect')}</button>
+                </div>
+            `).join('');
+
+            // Attach toggle buttons
+            listEl.querySelectorAll('.serial-port-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const portPath = btn.dataset.path;
+                    const portName = btn.dataset.name;
+                    const isOpen = btn.dataset.open === 'true';
+
+                    if (isOpen) {
+                        this.eventBus?.emit('serial:close_requested', { path: portPath });
+                    } else {
+                        this.eventBus?.emit('serial:open_requested', { path: portPath, name: portName, direction: 'both' });
+                    }
+
+                    // Rescan after action
+                    setTimeout(() => this.scanSerialPorts(), 500);
+                });
+            });
+
+        } catch (error) {
+            listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
+                ${error.message}
+            </div>`;
+        } finally {
+            if (scanBtn) scanBtn.disabled = false;
+        }
     }
 
     /**
@@ -664,6 +840,11 @@ class SettingsModal {
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
         if (debugButtonToggle) debugButtonToggle.checked = this.settings.showDebugButton;
 
+        const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
+        if (serialMidiToggle) serialMidiToggle.checked = this.settings.serialMidiEnabled;
+        const serialPortsSection = this.modal.querySelector('#serialMidiPortsSection');
+        if (serialPortsSection) serialPortsSection.style.display = this.settings.serialMidiEnabled ? 'block' : 'none';
+
         this.logger?.info('Settings modal opened');
     }
 
@@ -687,13 +868,16 @@ class SettingsModal {
         const pianoRollToggle = this.modal.querySelector('#showPianoRollToggle');
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
 
+        const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
+
         const newSettings = {
             theme: activeThemeBtn ? activeThemeBtn.dataset.theme : this.settings.theme,
             keyboardOctaves: keyboardRange ? parseInt(keyboardRange.value) : this.settings.keyboardOctaves,
             noteDisplayTime: timeRange ? parseInt(timeRange.value) : this.settings.noteDisplayTime,
             virtualInstrument: virtualToggle ? virtualToggle.checked : this.settings.virtualInstrument,
             showPianoRoll: pianoRollToggle ? pianoRollToggle.checked : this.settings.showPianoRoll,
-            showDebugButton: debugButtonToggle ? debugButtonToggle.checked : this.settings.showDebugButton
+            showDebugButton: debugButtonToggle ? debugButtonToggle.checked : this.settings.showDebugButton,
+            serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled
         };
 
         // Vérifier les changements
@@ -703,6 +887,7 @@ class SettingsModal {
         const virtualInstrumentChanged = newSettings.virtualInstrument !== this.settings.virtualInstrument;
         const pianoRollChanged = newSettings.showPianoRoll !== this.settings.showPianoRoll;
         const debugButtonChanged = newSettings.showDebugButton !== this.settings.showDebugButton;
+        const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
 
         // Mettre à jour les paramètres
         this.settings = newSettings;
@@ -740,6 +925,9 @@ class SettingsModal {
         if (debugButtonChanged) {
             this.eventBus?.emit('settings:debug_button_changed', { enabled: newSettings.showDebugButton });
             this.applyDebugButton(newSettings.showDebugButton);
+        }
+        if (serialMidiChanged) {
+            this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
         }
 
         this.close();

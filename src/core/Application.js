@@ -27,6 +27,7 @@ class Application {
     this.fileManager = null;
     this.bluetoothManager = null;
     this.networkManager = null;
+    this.serialMidiManager = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -68,6 +69,15 @@ class Application {
         this.logger.info('Network manager initialized');
       } catch (error) {
         this.logger.warn(`Network manager not available: ${error.message}`);
+      }
+
+      // Initialize Serial MIDI (optional - requires serialport package)
+      try {
+        const { default: SerialMidiManager } = await import('../managers/SerialMidiManager.js');
+        this.serialMidiManager = new SerialMidiManager(this);
+        this.logger.info('Serial MIDI manager initialized');
+      } catch (error) {
+        this.logger.warn(`Serial MIDI not available: ${error.message}`);
       }
 
       // Initialize API
@@ -185,6 +195,16 @@ class Application {
       // Close Bluetooth
       if (this.bluetoothManager) {
         await this.bluetoothManager.shutdown();
+      }
+
+      // Close Network
+      if (this.networkManager && this.networkManager.shutdown) {
+        await this.networkManager.shutdown();
+      }
+
+      // Close Serial MIDI
+      if (this.serialMidiManager) {
+        await this.serialMidiManager.shutdown();
       }
 
       // Remove event handlers to prevent leaks on restart

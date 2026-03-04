@@ -29,5 +29,11 @@
   "ble": {
     "enabled": false,
     "scanDuration": 10000
+  },
+  "serial": {
+    "enabled": false,
+    "autoDetect": true,
+    "baudRate": 31250,
+    "ports": []
   }
 }
