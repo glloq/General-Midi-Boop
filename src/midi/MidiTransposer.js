@@ -217,7 +217,7 @@ class MidiTransposer {
         semitones: transposition.semitones || 0,
         octaves: transposition.octaves || 0,
         noteRemapping,
-        reason: assignment.info ? assignment.info.join('; ') : 'Auto-assigned'
+        reason: assignment.info ? (Array.isArray(assignment.info) ? assignment.info.join('; ') : String(assignment.info)) : 'Auto-assigned'
       };
     }
 

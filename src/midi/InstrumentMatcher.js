@@ -62,13 +62,22 @@ class InstrumentMatcher {
     if (programScore.info) info.push(programScore.info);
 
     // 2. Compatibilité de notes (+25 points max)
+    let parsedSelectedNotes = null;
+    if (instrument.selected_notes) {
+      try {
+        parsedSelectedNotes = typeof instrument.selected_notes === 'string'
+          ? JSON.parse(instrument.selected_notes) : instrument.selected_notes;
+      } catch (e) {
+        this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
+      }
+    }
     const noteScore = this.scoreNoteCompatibility(
       channelAnalysis.noteRange,
       {
         min: instrument.note_range_min,
         max: instrument.note_range_max,
         mode: instrument.note_selection_mode || 'range',
-        selected: instrument.selected_notes ? JSON.parse(instrument.selected_notes) : null
+        selected: parsedSelectedNotes
       },
       channelAnalysis // Pass full analysis for intelligent drum mapping
     );
@@ -97,9 +106,18 @@ class InstrumentMatcher {
     if (polyScore.info) info.push(polyScore.info);
 
     // 4. Contrôleurs MIDI (+15 points max)
+    let parsedCCs = null;
+    if (instrument.supported_ccs) {
+      try {
+        parsedCCs = typeof instrument.supported_ccs === 'string'
+          ? JSON.parse(instrument.supported_ccs) : instrument.supported_ccs;
+      } catch (e) {
+        this.logger.warn(`Failed to parse supported_ccs for ${instrument.device_id}`);
+      }
+    }
     const ccScore = this.scoreCCSupport(
       channelAnalysis.usedCCs,
-      instrument.supported_ccs ? JSON.parse(instrument.supported_ccs) : null
+      parsedCCs
     );
     score += ccScore.score;
     if (ccScore.issue) issues.push(ccScore.issue);

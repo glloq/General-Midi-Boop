@@ -1726,12 +1726,6 @@ class CommandHandler {
 
         // Mettre à jour les capacités
         if (Object.keys(capabilityFields).length > 0) {
-          // Mapper 'mode' vers 'note_selection_mode' si nécessaire
-          if (capabilityFields.mode && !capabilityFields.note_selection_mode) {
-            capabilityFields.note_selection_mode = capabilityFields.mode;
-            delete capabilityFields.mode;
-          }
-
           this.app.database.updateInstrumentCapabilities(instrument.device_id, capabilityFields);
         }
 
