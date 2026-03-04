@@ -17,6 +17,8 @@ import path from 'path';
 // MIDI Serial constants
 const MIDI_BAUD_RATE = 31250;
 const HOT_PLUG_CHECK_INTERVAL_MS = 3000;
+const MAX_SYSEX_BUFFER_SIZE = 65536; // 64KB max SysEx message
+const PORT_OPEN_TIMEOUT_MS = 10000;  // 10 seconds max to open a port
 
 // MIDI message lengths by status byte high nibble
 const MIDI_MESSAGE_LENGTHS = {
@@ -252,7 +254,7 @@ class SerialMidiManager extends EventEmitter {
       throw new Error(`Serial device not found: ${portPath}. Check that UART is enabled in /boot/config.txt`);
     }
 
-    return new Promise((resolve, reject) => {
+    const openPromise = new Promise((resolve, reject) => {
       const port = new this.SerialPort({
         path: portPath,
         baudRate: MIDI_BAUD_RATE,
@@ -315,6 +317,13 @@ class SerialMidiManager extends EventEmitter {
         resolve(portInfo);
       });
     });
+
+    // Wrap with timeout to prevent indefinite hang on hardware issues
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Port ${portPath} open timeout after ${PORT_OPEN_TIMEOUT_MS}ms`)), PORT_OPEN_TIMEOUT_MS)
+    );
+
+    return Promise.race([openPromise, timeoutPromise]);
   }
 
   /**
@@ -394,7 +403,13 @@ class SerialMidiManager extends EventEmitter {
         // Process this byte as new message start
         this._parseByte(portPath, byte);
       } else {
-        // SysEx data byte
+        // SysEx data byte - enforce size limit to prevent unbounded growth
+        if (state.sysExBuffer.length >= MAX_SYSEX_BUFFER_SIZE) {
+          this.app.logger.warn(`SysEx buffer overflow on ${portPath} (>${MAX_SYSEX_BUFFER_SIZE} bytes), discarding`);
+          state.inSysEx = false;
+          state.sysExBuffer = [];
+          return;
+        }
         state.sysExBuffer.push(byte);
       }
       return;

@@ -182,10 +182,10 @@ class DeviceManager {
     // Get USB serial numbers for all connected devices
     const serialNumbers = await this.getUsbSerialNumbers();
 
-    // Add USB devices
+    // Add USB devices (reuse serialNumbers fetched above to avoid N redundant calls)
     for (const [name, input] of this.inputs) {
       if (!this.devices.has(name)) {
-        const serialNumber = await this.findSerialNumberForDevice(name);
+        const serialNumber = this._findSerialNumberInMap(name, serialNumbers);
 
         this.devices.set(name, {
           id: name,
@@ -207,7 +207,7 @@ class DeviceManager {
 
     for (const [name, output] of this.outputs) {
       if (!this.devices.has(name)) {
-        const serialNumber = await this.findSerialNumberForDevice(name);
+        const serialNumber = this._findSerialNumberInMap(name, serialNumbers);
 
         this.devices.set(name, {
           id: name,
@@ -848,6 +848,29 @@ class DeviceManager {
   }
 
   /**
+   * Synchronous lookup of serial number from a pre-fetched serial numbers map
+   */
+  _findSerialNumberInMap(deviceName, serialNumbers) {
+    for (const [devicePath, serialNumber] of Object.entries(serialNumbers)) {
+      if (deviceName.includes(path.basename(devicePath)) ||
+          devicePath.includes(deviceName.toLowerCase())) {
+        return serialNumber;
+      }
+    }
+
+    const cardMatch = deviceName.match(/card\s*(\d+)/i) || deviceName.match(/MIDI\s*(\d+)/i);
+    if (cardMatch) {
+      const cardNum = cardMatch[1];
+      const keys = Object.keys(serialNumbers);
+      if (keys.length > 0 && parseInt(cardNum) < keys.length) {
+        return serialNumbers[keys[parseInt(cardNum)]];
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Try to find USB serial number for a MIDI device
    */
   async findSerialNumberForDevice(deviceName) {
@@ -1012,9 +1035,10 @@ class DeviceManager {
     // Stop hot-plug monitoring
     this.stopHotPlugMonitoring();
 
-    // Close all inputs
+    // Close all inputs (remove listeners first to prevent callbacks during close)
     this.inputs.forEach(input => {
       try {
+        input.removeAllListeners();
         input.close();
       } catch (error) {
         this.app.logger.error(`Error closing input: ${error.message}`);
@@ -1030,9 +1054,10 @@ class DeviceManager {
       }
     });
 
-    // Close virtual devices
+    // Close virtual devices (remove listeners first)
     this.virtualDevices.forEach(vdev => {
       try {
+        vdev.input.removeAllListeners();
         vdev.input.close();
         vdev.output.close();
       } catch (error) {

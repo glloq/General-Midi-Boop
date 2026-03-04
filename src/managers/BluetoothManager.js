@@ -29,7 +29,7 @@ class BluetoothManager extends EventEmitter {
     this.adapter = null;
     this.destroy = null;
 
-    this.initializeBluetooth();
+    this._initPromise = this.initializeBluetooth();
 
     this.app.logger.info('BluetoothManager initialized (node-ble)');
   }
@@ -64,6 +64,9 @@ class BluetoothManager extends EventEmitter {
     if (this.scanning) {
       throw new Error('Scan already in progress');
     }
+
+    // Ensure initialization is complete before scanning
+    if (this._initPromise) await this._initPromise;
 
     if (!this.adapter) {
       throw new Error('Bluetooth adapter not ready');
@@ -234,6 +237,9 @@ class BluetoothManager extends EventEmitter {
     const startTime = Date.now();
     this.app.logger.info(`[TIMING] Starting connection to BLE device: ${address}`);
 
+    // Ensure initialization is complete
+    if (this._initPromise) await this._initPromise;
+
     if (!this.adapter) {
       throw new Error('Bluetooth adapter not ready');
     }
@@ -248,33 +254,46 @@ class BluetoothManager extends EventEmitter {
         device = await this.adapter.getDevice(address);
       }
 
-      // Connecter
-      const connectStart = Date.now();
-      this.app.logger.info(`[TIMING] Calling device.connect()...`);
+      // Connecter with timeout to prevent indefinite hang on BLE operations
+      const BLE_CONNECT_TIMEOUT = 20000; // 20 seconds max for entire connection sequence
 
-      await device.connect();
+      const connectWithTimeout = async () => {
+        const connectStart = Date.now();
+        this.app.logger.info(`[TIMING] Calling device.connect()...`);
 
-      this.app.logger.info(`[TIMING] ✅ device.connect() completed in ${Date.now() - connectStart}ms`);
+        await device.connect();
 
-      // Obtenir le serveur GATT
-      const gattStart = Date.now();
-      const gattServer = await device.gatt();
-      this.app.logger.info(`[TIMING] GATT server obtained in ${Date.now() - gattStart}ms`);
+        this.app.logger.info(`[TIMING] ✅ device.connect() completed in ${Date.now() - connectStart}ms`);
 
-      // Obtenir le service MIDI
-      const serviceStart = Date.now();
-      const service = await gattServer.getPrimaryService(this.BLE_MIDI_SERVICE_UUID);
-      this.app.logger.info(`[TIMING] MIDI service found in ${Date.now() - serviceStart}ms`);
+        // Obtenir le serveur GATT
+        const gattStart = Date.now();
+        const gattServer = await device.gatt();
+        this.app.logger.info(`[TIMING] GATT server obtained in ${Date.now() - gattStart}ms`);
 
-      // Obtenir la caractéristique MIDI I/O
-      const charStart = Date.now();
-      const characteristic = await service.getCharacteristic(this.BLE_MIDI_CHARACTERISTIC_UUID);
-      this.app.logger.info(`[TIMING] MIDI characteristic found in ${Date.now() - charStart}ms`);
+        // Obtenir le service MIDI
+        const serviceStart = Date.now();
+        const service = await gattServer.getPrimaryService(this.BLE_MIDI_SERVICE_UUID);
+        this.app.logger.info(`[TIMING] MIDI service found in ${Date.now() - serviceStart}ms`);
 
-      // S'abonner aux notifications
-      characteristic.on('valuechanged', buffer => {
+        // Obtenir la caractéristique MIDI I/O
+        const charStart = Date.now();
+        const characteristic = await service.getCharacteristic(this.BLE_MIDI_CHARACTERISTIC_UUID);
+        this.app.logger.info(`[TIMING] MIDI characteristic found in ${Date.now() - charStart}ms`);
+
+        return { gattServer, characteristic };
+      };
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`BLE connection timeout after ${BLE_CONNECT_TIMEOUT}ms`)), BLE_CONNECT_TIMEOUT)
+      );
+
+      const { gattServer, characteristic } = await Promise.race([connectWithTimeout(), timeoutPromise]);
+
+      // S'abonner aux notifications - store handler reference for cleanup
+      const midiHandler = buffer => {
         this.handleMidiData(address, buffer);
-      });
+      };
+      characteristic.on('valuechanged', midiHandler);
       await characteristic.startNotifications();
 
       const name = await device.getName();
@@ -293,11 +312,12 @@ class BluetoothManager extends EventEmitter {
         });
       }
 
-      // Stocker la connexion
+      // Stocker la connexion (include handler reference for cleanup)
       this.connectedDevices.set(address, {
         device: device,
         gattServer: gattServer,
-        characteristic: characteristic
+        characteristic: characteristic,
+        midiHandler: midiHandler
       });
 
       const totalTime = Date.now() - startTime;
@@ -319,6 +339,10 @@ class BluetoothManager extends EventEmitter {
 
     } catch (error) {
       this.app.logger.error(`Failed to connect to ${address}: ${error.message}`);
+      // Clean up partial connection on failure
+      try {
+        if (device) await device.disconnect().catch(() => {});
+      } catch (_) { /* ignore cleanup errors */ }
       throw error;
     }
   }
@@ -335,10 +359,13 @@ class BluetoothManager extends EventEmitter {
     }
 
     try {
-      const { device, characteristic } = deviceConnection;
+      const { device, characteristic, midiHandler } = deviceConnection;
 
-      // Arrêter les notifications
+      // Remove valuechanged listener before stopping notifications
       if (characteristic) {
+        if (midiHandler) {
+          characteristic.removeListener('valuechanged', midiHandler);
+        }
         await characteristic.stopNotifications();
       }
 

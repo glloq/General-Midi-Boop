@@ -176,9 +176,9 @@ class Application {
       this.logger.info('Stopping application...');
       this.running = false;
 
-      // Stop playback
-      if (this.midiPlayer && this.midiPlayer.playing) {
-        this.midiPlayer.stop();
+      // Stop and destroy player
+      if (this.midiPlayer) {
+        this.midiPlayer.destroy();
       }
 
       // Close servers
@@ -245,12 +245,20 @@ class Application {
 
   // Graceful shutdown
   setupShutdownHandlers() {
+    // Remove any previously registered handlers to prevent accumulation on restart
+    if (this._shutdownHandlers) {
+      for (const { event, handler } of this._shutdownHandlers) {
+        process.removeListener(event, handler);
+      }
+    }
+    this._shutdownHandlers = [];
+
     let shuttingDown = false;
     const shutdown = async (signal) => {
       if (shuttingDown) return; // Prevent concurrent shutdown
       shuttingDown = true;
       this.logger.info(`Received ${signal}, shutting down gracefully...`);
-      
+
       try {
         await this.stop();
         process.exit(0);
@@ -260,19 +268,29 @@ class Application {
       }
     };
 
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-
-    process.on('uncaughtException', (error) => {
+    const onSigterm = () => shutdown('SIGTERM');
+    const onSigint = () => shutdown('SIGINT');
+    const onUncaught = (error) => {
       this.logger.error(`Uncaught exception: ${error.message}`);
       this.logger.error(error.stack);
-      shutdown('uncaughtException');
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
+      shutdown('uncaughtException').catch(() => process.exit(1));
+    };
+    const onUnhandled = (reason) => {
       this.logger.error(`Unhandled rejection: ${reason}`);
-      shutdown('unhandledRejection');
-    });
+      shutdown('unhandledRejection').catch(() => process.exit(1));
+    };
+
+    process.on('SIGTERM', onSigterm);
+    process.on('SIGINT', onSigint);
+    process.on('uncaughtException', onUncaught);
+    process.on('unhandledRejection', onUnhandled);
+
+    this._shutdownHandlers = [
+      { event: 'SIGTERM', handler: onSigterm },
+      { event: 'SIGINT', handler: onSigint },
+      { event: 'uncaughtException', handler: onUncaught },
+      { event: 'unhandledRejection', handler: onUnhandled }
+    ];
   }
 }
 

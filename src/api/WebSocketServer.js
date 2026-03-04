@@ -65,9 +65,10 @@ class WebSocketServer {
       this.handleClose(ws, clientIp);
     });
 
-    // Handle error
+    // Handle error - clean up to prevent leaked connections
     ws.on('error', (error) => {
       this.app.logger.error(`WebSocket client error: ${error.message}`);
+      this.clients.delete(ws);
     });
 
     // Setup ping/pong for keep-alive
@@ -105,7 +106,9 @@ class WebSocketServer {
         // Cannot parse message, send error without ID
       }
 
-      ws.send(JSON.stringify(errorResponse));
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify(errorResponse));
+      }
     }
   }
 
@@ -123,12 +126,19 @@ class WebSocketServer {
     });
 
     let sent = 0;
+    const stale = [];
     this.clients.forEach(client => {
       if (client.readyState === 1) { // OPEN
         client.send(message);
         sent++;
+      } else if (client.readyState > 1) { // CLOSING or CLOSED
+        stale.push(client);
       }
     });
+    // Prune stale clients
+    for (const client of stale) {
+      this.clients.delete(client);
+    }
 
     this.app.logger.debug(`Broadcast ${event} to ${sent} clients`);
   }

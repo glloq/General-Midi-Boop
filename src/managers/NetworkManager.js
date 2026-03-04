@@ -178,6 +178,12 @@ class NetworkManager extends EventEmitter {
 
     // Scanner les IPs de .1 à .254 (exclure .0 et .255)
     for (let i = 1; i <= 254; i++) {
+      // Check cancellation between batches
+      if (!this.scanning) {
+        this.app.logger.info(`[NetworkManager] Subnet scan cancelled at IP .${i}`);
+        break;
+      }
+
       const ip = `${subnet}.${i}`;
 
       // Éviter de scanner notre propre IP
@@ -211,8 +217,8 @@ class NetworkManager extends EventEmitter {
 
       pingPromises.push(pingPromise);
 
-      // Traiter par batch de 50 pour plus de rapidité
-      if (pingPromises.length >= 50) {
+      // Traiter par batch de 15 (limit concurrent child processes for Raspberry Pi)
+      if (pingPromises.length >= 15) {
         await Promise.all(pingPromises);
         pingPromises.length = 0; // Vider le tableau
       }
@@ -390,8 +396,12 @@ class NetworkManager extends EventEmitter {
         this.emit('network:disconnected', { ip });
       });
 
-      // Connecter
-      await session.connect(ip, parseInt(port));
+      // Connecter with timeout to prevent indefinite hang
+      const RTP_CONNECT_TIMEOUT = 10000; // 10 seconds
+      const connectTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`RTP-MIDI connection timeout after ${RTP_CONNECT_TIMEOUT}ms`)), RTP_CONNECT_TIMEOUT)
+      );
+      await Promise.race([session.connect(ip, parseInt(port)), connectTimeout]);
 
       // Stocker la session
       this.rtpSessions.set(ip, session);

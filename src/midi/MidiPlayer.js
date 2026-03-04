@@ -341,6 +341,15 @@ class MidiPlayer {
     this.app.logger.info('Playback stopped');
   }
 
+  destroy() {
+    this.stop();
+    this._syncDelayCache.clear();
+    this.events = [];
+    this.tracks = [];
+    this.channelRouting.clear();
+    this.mutedChannels.clear();
+  }
+
   seek(position) {
     const wasPlaying = this.playing;
     

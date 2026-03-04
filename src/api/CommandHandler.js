@@ -205,27 +205,31 @@ class CommandHandler {
       this.app.logger.info(`Handler executed, sending response for: ${message.command}`);
 
       // Send response with request ID for client to match
-      ws.send(JSON.stringify({
-        id: message.id, // Include request ID
-        type: 'response',
-        command: message.command,
-        data: result,
-        timestamp: Date.now(),
-        duration: Date.now() - startTime
-      }));
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          id: message.id, // Include request ID
+          type: 'response',
+          command: message.command,
+          data: result,
+          timestamp: Date.now(),
+          duration: Date.now() - startTime
+        }));
+      }
 
       this.app.logger.info(`Command ${message.command} completed in ${Date.now() - startTime}ms`);
     } catch (error) {
       this.app.logger.error(`Command ${message.command} failed: ${error.message}`);
       this.app.logger.error(error.stack);
 
-      ws.send(JSON.stringify({
-        id: message.id, // Include request ID even in errors
-        type: 'error',
-        command: message.command,
-        error: error.message,
-        timestamp: Date.now()
-      }));
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          id: message.id, // Include request ID even in errors
+          type: 'error',
+          command: message.command,
+          error: error.message,
+          timestamp: Date.now()
+        }));
+      }
     }
   }
 
