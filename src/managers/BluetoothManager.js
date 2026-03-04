@@ -472,36 +472,35 @@ class BluetoothManager extends EventEmitter {
    * @returns {Array<number>} Bytes MIDI
    */
   convertToMidiBytes(type, data) {
-    const channel = data.channel || 0;
+    const channel = data.channel ?? 0;
 
     switch (type.toLowerCase()) {
       case 'noteon':
-        return [0x90 | channel, data.note, data.velocity];
+        return [0x90 | channel, data.note & 0x7F, (data.velocity ?? 127) & 0x7F];
 
       case 'noteoff':
-        return [0x80 | channel, data.note, data.velocity || 0];
+        return [0x80 | channel, data.note & 0x7F, (data.velocity ?? 0) & 0x7F];
 
       case 'cc':
       case 'controlchange':
-        return [0xB0 | channel, data.controller, data.value];
+        return [0xB0 | channel, data.controller & 0x7F, data.value & 0x7F];
 
       case 'programchange':
       case 'program':
-        return [0xC0 | channel, data.program || data.number];
+        return [0xC0 | channel, (data.program ?? data.number) & 0x7F];
 
-      case 'pitchbend':
-        const value = data.value || 0;
-        const lsb = value & 0x7F;
-        const msb = (value >> 7) & 0x7F;
-        return [0xE0 | channel, lsb, msb];
+      case 'pitchbend': {
+        const value = data.value ?? 8192;
+        return [0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F];
+      }
 
       case 'poly aftertouch':
       case 'polyaftertouch':
-        return [0xA0 | channel, data.note, data.pressure];
+        return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
 
       case 'channel aftertouch':
       case 'channelaftertouch':
-        return [0xD0 | channel, data.pressure];
+        return [0xD0 | channel, data.pressure & 0x7F];
 
       default:
         return null;

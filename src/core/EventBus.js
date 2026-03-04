@@ -42,7 +42,8 @@ class EventBus {
       return;
     }
 
-    const callbacks = this.listeners.get(event);
+    // Copy the array to avoid mutation issues when once() handlers remove themselves during iteration
+    const callbacks = [...this.listeners.get(event)];
     callbacks.forEach(callback => {
       try {
         callback(data);

@@ -327,12 +327,15 @@ class SerialMidiManager extends EventEmitter {
       throw new Error(`Port not open: ${portPath}`);
     }
 
-    return new Promise((resolve, reject) => {
+    // Remove from map BEFORE closing to prevent the 'close' event handler
+    // from emitting a spurious 'serial:disconnected' event
+    this.openPorts.delete(portPath);
+
+    return new Promise((resolve) => {
       portInfo.port.close((err) => {
         if (err) {
           this.app.logger.warn(`Error closing ${portPath}: ${err.message}`);
         }
-        this.openPorts.delete(portPath);
         this._broadcastDeviceList();
         resolve();
       });
@@ -703,8 +706,9 @@ class SerialMidiManager extends EventEmitter {
     this.enabled = enabled;
 
     if (enabled && !this.SerialPort) {
-      // Try to load serialport
-      await this._initialize();
+      // Try to load serialport - update promise so scanPorts awaits correctly
+      this._initPromise = this._initialize();
+      await this._initPromise;
     } else if (!enabled) {
       // Close all ports
       await this.shutdown();

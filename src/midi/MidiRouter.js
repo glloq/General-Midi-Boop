@@ -13,17 +13,23 @@ class MidiRouter {
   loadRoutesFromDB() {
     try {
       const routes = this.app.database.getRoutes();
+      let loadedCount = 0;
       routes.forEach(route => {
-        this.addRoute({
-          id: route.id,
-          source: route.source_device,
-          destination: route.destination_device,
-          channelMap: JSON.parse(route.channel_mapping || '{}'),
-          filter: JSON.parse(route.filter || '{}'),
-          enabled: route.enabled === 1
-        });
+        try {
+          this.addRoute({
+            id: route.id,
+            source: route.source_device,
+            destination: route.destination_device,
+            channelMap: JSON.parse(route.channel_mapping || '{}'),
+            filter: JSON.parse(route.filter || '{}'),
+            enabled: route.enabled === 1
+          });
+          loadedCount++;
+        } catch (routeError) {
+          this.app.logger.error(`Failed to load route ${route.id}: ${routeError.message}`);
+        }
       });
-      this.app.logger.info(`Loaded ${routes.length} routes from database`);
+      this.app.logger.info(`Loaded ${loadedCount}/${routes.length} routes from database`);
     } catch (error) {
       this.app.logger.error(`Failed to load routes: ${error.message}`);
     }

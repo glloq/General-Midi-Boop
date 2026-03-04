@@ -106,11 +106,11 @@ class Application {
       }],
       ['device_connected', (data) => {
         this.logger.info(`Device connected: ${data.deviceId}`);
-        this.wsServer.broadcast('device_connected', data);
+        this.wsServer?.broadcast('device_connected', data);
       }],
       ['device_disconnected', (data) => {
         this.logger.info(`Device disconnected: ${data.deviceId}`);
-        this.wsServer.broadcast('device_disconnected', data);
+        this.wsServer?.broadcast('device_disconnected', data);
       }],
       ['midi_routed', (data) => {
         this.logger.debug(`MIDI routed: ${data.route}`);
@@ -242,7 +242,10 @@ class Application {
 
   // Graceful shutdown
   setupShutdownHandlers() {
+    let shuttingDown = false;
     const shutdown = async (signal) => {
+      if (shuttingDown) return; // Prevent concurrent shutdown
+      shuttingDown = true;
       this.logger.info(`Received ${signal}, shutting down gracefully...`);
       
       try {

@@ -31,6 +31,7 @@ class MidiPlayer {
     this.channelRouting = new Map(); // channel -> device mapping
     this.mutedChannels = new Set(); // Muted channels
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
+    this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
 
     this.app.logger.info('MidiPlayer initialized');
   }
@@ -135,16 +136,18 @@ class MidiPlayer {
 
   buildEventList() {
     this.events = [];
-    let absoluteTime = 0;
+
+    // Build tempo map from all tracks (tempo events are typically on track 0)
+    const tempoMap = this._buildTempoMap();
 
     // Combine all tracks into single event list
     this.tracks.forEach(track => {
-      let trackTime = 0;
+      let trackTicks = 0;
       track.events.forEach(event => {
-        trackTime += event.deltaTime;
+        trackTicks += event.deltaTime;
 
-        // Convert ticks to seconds
-        const timeInSeconds = this.ticksToSeconds(trackTime);
+        // Convert ticks to seconds using tempo map
+        const timeInSeconds = this._ticksToSecondsWithTempoMap(trackTicks, tempoMap);
 
         // Include note events, CC, and pitch bend
         if (event.type === 'noteOn' || event.type === 'noteOff') {
@@ -178,6 +181,78 @@ class MidiPlayer {
     this.events.sort((a, b) => a.time - b.time);
   }
 
+  _buildTempoMap() {
+    // Collect all tempo change events with their absolute tick positions
+    const tempoEvents = [];
+
+    this.tracks.forEach(track => {
+      let trackTicks = 0;
+      track.events.forEach(event => {
+        trackTicks += event.deltaTime;
+        if (event.type === 'setTempo') {
+          tempoEvents.push({
+            tick: trackTicks,
+            microsecondsPerBeat: event.microsecondsPerBeat
+          });
+        }
+      });
+    });
+
+    // Sort by tick position
+    tempoEvents.sort((a, b) => a.tick - b.tick);
+
+    // Build tempo map with cumulative time at each tempo change
+    const tempoMap = [];
+    let cumulativeSeconds = 0;
+    let lastTick = 0;
+    let currentMicrosecondsPerBeat = MICROSECONDS_PER_MINUTE / this.tempo; // default
+
+    for (const te of tempoEvents) {
+      // Calculate time elapsed since last tempo change at the previous tempo
+      const deltaTicks = te.tick - lastTick;
+      const secondsPerTick = currentMicrosecondsPerBeat / (this.ppq * 1000000);
+      cumulativeSeconds += deltaTicks * secondsPerTick;
+
+      tempoMap.push({
+        tick: te.tick,
+        time: cumulativeSeconds,
+        microsecondsPerBeat: te.microsecondsPerBeat
+      });
+
+      lastTick = te.tick;
+      currentMicrosecondsPerBeat = te.microsecondsPerBeat;
+    }
+
+    // If no tempo events found, use default
+    if (tempoMap.length === 0) {
+      tempoMap.push({
+        tick: 0,
+        time: 0,
+        microsecondsPerBeat: currentMicrosecondsPerBeat
+      });
+    }
+
+    return tempoMap;
+  }
+
+  _ticksToSecondsWithTempoMap(ticks, tempoMap) {
+    // Find the last tempo change at or before this tick position
+    let activeEntry = { tick: 0, time: 0, microsecondsPerBeat: MICROSECONDS_PER_MINUTE / this.tempo };
+
+    for (const entry of tempoMap) {
+      if (entry.tick <= ticks) {
+        activeEntry = entry;
+      } else {
+        break;
+      }
+    }
+
+    // Calculate time from the active tempo change point to this tick
+    const deltaTicks = ticks - activeEntry.tick;
+    const secondsPerTick = activeEntry.microsecondsPerBeat / (this.ppq * 1000000);
+    return activeEntry.time + (deltaTicks * secondsPerTick);
+  }
+
   ticksToSeconds(ticks) {
     const beatsPerSecond = this.tempo / 60;
     const ticksPerSecond = beatsPerSecond * this.ppq;
@@ -208,6 +283,7 @@ class MidiPlayer {
     this.position = 0;
     this.currentEventIndex = 0;
     this.startTime = Date.now();
+    this._syncDelayCache.clear(); // Refresh sync_delay cache on each playback start
 
     this.startScheduler();
     this.broadcastStatus();
@@ -255,6 +331,7 @@ class MidiPlayer {
     this.paused = false;
     this.position = 0;
     this.currentEventIndex = 0;
+    this._lastBroadcastPosition = undefined;
     this.stopScheduler();
     
     // Send all notes off
@@ -341,10 +418,36 @@ class MidiPlayer {
       this.currentEventIndex++;
     }
 
-    // Broadcast position update (every 100ms)
-    if (Math.floor(this.position * 10) % 1 === 0) {
+    // Broadcast position update (every 100ms = every 10th tick at 10ms resolution)
+    if (this._lastBroadcastPosition === undefined ||
+        Math.floor(this.position * 10) !== Math.floor(this._lastBroadcastPosition * 10)) {
+      this._lastBroadcastPosition = this.position;
       this.broadcastPosition();
     }
+  }
+
+  _getSyncDelay(deviceId) {
+    if (this._syncDelayCache.has(deviceId)) {
+      return this._syncDelayCache.get(deviceId);
+    }
+
+    let syncDelay = 0;
+    if (this.app.database) {
+      try {
+        const settings = this.app.database.getInstrumentSettings(deviceId);
+        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
+          syncDelay = settings.sync_delay;
+          if (syncDelay !== 0) {
+            this.app.logger.debug(`Cached sync_delay ${syncDelay}ms for device ${deviceId}`);
+          }
+        }
+      } catch (error) {
+        this.app.logger.warn(`Failed to get sync_delay for device ${deviceId}: ${error.message}`);
+      }
+    }
+
+    this._syncDelayCache.set(deviceId, syncDelay);
+    return syncDelay;
   }
 
   scheduleEvent(event) {
@@ -360,23 +463,8 @@ class MidiPlayer {
       return;
     }
 
-    // Get sync_delay from instrument settings (in milliseconds)
-    let syncDelay = 0;
-
-    if (this.app.database) {
-      try {
-        const settings = this.app.database.getInstrumentSettings(targetDevice);
-        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
-          syncDelay = settings.sync_delay;
-          // Log only for non-zero delays to avoid spam
-          if (syncDelay !== 0) {
-            this.app.logger.debug(`Using sync_delay ${syncDelay}ms for device ${targetDevice}, channel ${event.channel + 1}`);
-          }
-        }
-      } catch (error) {
-        this.app.logger.warn(`Failed to get sync_delay for device ${targetDevice}: ${error.message}`);
-      }
-    }
+    // Get sync_delay from cache (populated at playback start) to avoid DB query per event
+    const syncDelay = this._getSyncDelay(targetDevice);
 
     // Apply sync_delay compensation (convert ms to seconds)
     const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
@@ -439,14 +527,22 @@ class MidiPlayer {
     }
 
     const device = this.app.deviceManager;
-    
-    // Send All Notes Off on all 16 MIDI channels
-    for (let channel = 0; channel < 16; channel++) {
-      device.sendMessage(this.outputDevice, 'cc', {
-        channel: channel,
-        controller: MIDI_CC_ALL_NOTES_OFF,
-        value: 0
-      });
+
+    // Collect all unique target devices (default + routed)
+    const targetDevices = new Set([this.outputDevice]);
+    for (const routedDevice of this.channelRouting.values()) {
+      if (routedDevice) targetDevices.add(routedDevice);
+    }
+
+    // Send All Notes Off on all 16 MIDI channels to all target devices
+    for (const targetDevice of targetDevices) {
+      for (let channel = 0; channel < 16; channel++) {
+        device.sendMessage(targetDevice, 'cc', {
+          channel: channel,
+          controller: MIDI_CC_ALL_NOTES_OFF,
+          value: 0
+        });
+      }
     }
   }
 
@@ -521,7 +617,7 @@ class MidiPlayer {
 
   getOutputForChannel(channel) {
     // Get specific device for this channel, or default device
-    return this.channelRouting.get(channel) || this.outputDevice;
+    return this.channelRouting.has(channel) ? this.channelRouting.get(channel) : this.outputDevice;
   }
 
   // Mute a channel

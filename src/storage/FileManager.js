@@ -531,18 +531,16 @@ class FileManager {
         throw new Error(`A file named "${newFilename}" already exists`);
       }
 
-      // Encode MIDI data to buffer
-      const buffer = this.encodeMidiToBuffer(midiData);
+      // Encode MIDI data to buffer using writeMidi
+      const midiBytes = writeMidi(midiData);
+      const buffer = Buffer.from(midiBytes);
       const base64Data = buffer.toString('base64');
 
       // Parse the new MIDI data to extract metadata
       const parsed = parseMidi(buffer);
-
-      // Calculate duration
-      const duration = this.calculateDuration(parsed);
-
-      // Extract tempo
-      const tempo = this.extractTempo(parsed);
+      const metadata = this.extractMetadata(parsed);
+      const duration = metadata.duration;
+      const tempo = metadata.tempo;
 
       // Insert new file
       const newFileId = this.app.database.insertFile({
