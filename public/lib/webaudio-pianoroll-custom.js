@@ -367,7 +367,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this.timestack=[];
             this.time0=this.time1=this.actx.currentTime+0.1;
             this.tick0=this.tick1=this.cursor;
-            this.tick2time=4*60/this.tempo/this.timebase;
+            this.tick2time=60/this.tempo/this.timebase;
             const p=this.findNextEv(this.cursor);
             this.index1=p.i;
             this.timestack.push([0,this.cursor,0]);

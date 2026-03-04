@@ -3,9 +3,12 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+const APP_VERSION = pkg.version;
 
 class HttpServer {
   constructor(app) {
@@ -26,7 +29,7 @@ class HttpServer {
     this.expressApp.get('/api/health', (req, res) => {
       res.json({
         status: 'ok',
-        version: '5.0.0',
+        version: APP_VERSION,
         uptime: process.uptime(),
         timestamp: Date.now()
       });

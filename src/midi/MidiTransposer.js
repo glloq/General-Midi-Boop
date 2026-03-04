@@ -1,5 +1,10 @@
 // src/midi/MidiTransposer.js
 
+// MIDI note constants
+const MIDI_NOTE_MIN = 0;
+const MIDI_NOTE_MAX = 127;
+const MAX_TRANSPOSITION_SEMITONES = 48; // 4 octaves
+
 /**
  * MidiTransposer - Applique des transpositions à des fichiers MIDI
  *
@@ -166,7 +171,7 @@ class MidiTransposer {
    * @returns {number}
    */
   clampNote(note) {
-    return Math.max(0, Math.min(127, Math.round(note)));
+    return Math.max(MIDI_NOTE_MIN, Math.min(MIDI_NOTE_MAX, Math.round(note)));
   }
 
   /**
@@ -234,10 +239,10 @@ class MidiTransposer {
    * @returns {Object} - { valid, reason }
    */
   validateTransposition(midiData, channel, semitones) {
-    if (Math.abs(semitones) > 48) {
+    if (Math.abs(semitones) > MAX_TRANSPOSITION_SEMITONES) {
       return {
         valid: false,
-        reason: 'Transposition too large (max ±48 semitones / 4 octaves)'
+        reason: `Transposition too large (max ±${MAX_TRANSPOSITION_SEMITONES} semitones / ${MAX_TRANSPOSITION_SEMITONES / 12} octaves)`
       };
     }
 

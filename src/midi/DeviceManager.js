@@ -4,6 +4,16 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+// Device connection status constants
+const DEVICE_STATUS = {
+  DISCONNECTED: 0,
+  CONNECTING: 1,
+  CONNECTED: 2
+};
+
+// Timing constants
+const PORT_RELEASE_DELAY_MS = 250; // Delay to ensure MIDI ports are released
+
 class DeviceManager {
   constructor(app) {
     this.app = app;
@@ -56,7 +66,7 @@ class DeviceManager {
 
     // Longer delay to ensure ports are properly released and system recognizes changes
     this.app.logger.info('Waiting for ports to release...');
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, PORT_RELEASE_DELAY_MS));
 
     // USB MIDI devices - get fresh list
     const inputs = easymidi.getInputs();
@@ -185,7 +195,7 @@ class DeviceManager {
           output: this.outputs.has(name),
           enabled: true,
           connected: true,
-          status: 2,  // 0=disconnected, 1=connecting, 2=connected
+          status: DEVICE_STATUS.CONNECTED,
           usbSerialNumber: serialNumber || null
         });
 
@@ -207,7 +217,7 @@ class DeviceManager {
           output: true,
           enabled: true,
           connected: true,
-          status: 2,  // 0=disconnected, 1=connecting, 2=connected
+          status: DEVICE_STATUS.CONNECTED,
           usbSerialNumber: serialNumber || null
         });
 
@@ -253,7 +263,7 @@ class DeviceManager {
           output: true, // BLE MIDI supporte généralement la sortie
           enabled: true,
           connected: true,
-          status: 2,    // Status 2 = Active (requis pour apparaître dans le piano virtuel)
+          status: DEVICE_STATUS.CONNECTED,
           address: device.address
         }));
 
@@ -272,7 +282,7 @@ class DeviceManager {
           output: true, // Network MIDI supporte généralement la sortie
           enabled: true,
           connected: true,
-          status: 2,    // Status 2 = Active
+          status: DEVICE_STATUS.CONNECTED,
           address: device.ip,
           port: device.port
         }));

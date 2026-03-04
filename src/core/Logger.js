@@ -62,13 +62,13 @@ class Logger {
     const reset = '\x1b[0m';
     console.log(`${colors[level]}${logMessage}${reset}`);
 
-    // File output
+    // File output (async to avoid blocking event loop)
     if (this.logFile) {
-      try {
-        fs.appendFileSync(this.logFile, logMessage + '\n', 'utf8');
-      } catch (error) {
-        console.error('Failed to write to log file:', error);
-      }
+      fs.appendFile(this.logFile, logMessage + '\n', 'utf8', (error) => {
+        if (error) {
+          console.error('Failed to write to log file:', error);
+        }
+      });
     }
   }
 

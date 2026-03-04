@@ -4,6 +4,20 @@ import AutoAssigner from '../midi/AutoAssigner.js';
 import MidiTransposer from '../midi/MidiTransposer.js';
 import JsonMidiConverter from '../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../midi/InstrumentCapabilitiesValidator.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
+const APP_VERSION = pkg.version;
+
+// MIDI CC constants
+const MIDI_CC = {
+  ALL_SOUND_OFF: 120,
+  ALL_NOTES_OFF: 123
+};
 
 class CommandHandler {
   constructor(app) {
@@ -915,7 +929,7 @@ class CommandHandler {
   }
 
   async playbackSetChannelRouting(data) {
-    if (!data.channel && data.channel !== 0) {
+    if (data.channel === undefined || data.channel === null) {
       throw new Error('channel is required');
     }
     if (!data.deviceId) {
@@ -1061,12 +1075,12 @@ class CommandHandler {
     for (let channel = 0; channel < 16; channel++) {
       this.app.deviceManager.sendMessage(data.deviceId, 'cc', {
         channel: channel,
-        controller: 120, // All Sound Off
+        controller: MIDI_CC.ALL_SOUND_OFF, // All Sound Off
         value: 0
       });
       this.app.deviceManager.sendMessage(data.deviceId, 'cc', {
         channel: channel,
-        controller: 123, // All Notes Off
+        controller: MIDI_CC.ALL_NOTES_OFF, // All Notes Off
         value: 0
       });
     }
@@ -1077,7 +1091,7 @@ class CommandHandler {
     for (let channel = 0; channel < 16; channel++) {
       this.app.deviceManager.sendMessage(data.deviceId, 'cc', {
         channel: channel,
-        controller: 123,
+        controller: MIDI_CC.ALL_NOTES_OFF,
         value: 0
       });
     }
@@ -1095,7 +1109,7 @@ class CommandHandler {
     return {
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      version: '5.0.0',
+      version: APP_VERSION,
       devices: this.app.deviceManager.getDeviceList().length,
       routes: this.app.midiRouter.getRouteList().length,
       files: this.app.database.getFiles('/').length
@@ -1290,7 +1304,7 @@ class CommandHandler {
     }
 
     // Get MIDI file from database
-    const file = this.app.midiDatabase.getFile(data.fileId);
+    const file = this.app.database.getFile(data.fileId);
     if (!file) {
       throw new Error(`File not found: ${data.fileId}`);
     }
@@ -1305,7 +1319,7 @@ class CommandHandler {
     }
 
     // Create auto-assigner and analyze channel
-    const autoAssigner = new AutoAssigner(this.app.instrumentDatabase, this.app.logger);
+    const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
     const analysis = autoAssigner.analyzeChannel(midiData, data.channel);
 
     return {
@@ -1331,7 +1345,7 @@ class CommandHandler {
     };
 
     // Get MIDI file from database
-    const file = this.app.midiDatabase.getFile(data.fileId);
+    const file = this.app.database.getFile(data.fileId);
     if (!file) {
       throw new Error(`File not found: ${data.fileId}`);
     }
@@ -1346,7 +1360,7 @@ class CommandHandler {
     }
 
     // Generate suggestions
-    const autoAssigner = new AutoAssigner(this.app.instrumentDatabase, this.app.logger);
+    const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
     const result = await autoAssigner.generateSuggestions(midiData, options);
 
     if (!result.success) {
@@ -1384,7 +1398,7 @@ class CommandHandler {
     const createAdaptedFile = data.createAdaptedFile !== false; // Default true
 
     // Get original MIDI file
-    const originalFile = this.app.midiDatabase.getFile(data.originalFileId);
+    const originalFile = this.app.database.getFile(data.originalFileId);
     if (!originalFile) {
       throw new Error(`File not found: ${data.originalFileId}`);
     }
@@ -1447,7 +1461,7 @@ class CommandHandler {
         adaptation_metadata: JSON.stringify(metadata)
       };
 
-      adaptedFileId = this.app.midiDatabase.insertFile(adaptedFile);
+      adaptedFileId = this.app.database.insertFile(adaptedFile);
       this.app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
     }
 
@@ -1503,7 +1517,7 @@ class CommandHandler {
     const validator = new InstrumentCapabilitiesValidator();
 
     // Récupérer tous les instruments
-    const instruments = this.app.instrumentDatabase.getInstrumentsWithCapabilities();
+    const instruments = this.app.database.getInstrumentsWithCapabilities();
 
     // Valider
     const validation = validator.validateInstruments(instruments);
@@ -1527,7 +1541,7 @@ class CommandHandler {
     const validator = new InstrumentCapabilitiesValidator();
 
     // Récupérer l'instrument
-    const instrument = this.app.instrumentDatabase.getInstrument(data.instrumentId);
+    const instrument = this.app.database.getInstrument(data.instrumentId);
 
     if (!instrument) {
       throw new Error(`Instrument not found: ${data.instrumentId}`);
@@ -1561,7 +1575,7 @@ class CommandHandler {
         const id = parseInt(instrumentId);
 
         // Récupérer l'instrument
-        const instrument = this.app.instrumentDatabase.getInstrument(id);
+        const instrument = this.app.database.getInstrument(id);
 
         if (!instrument) {
           failed.push({
@@ -1589,7 +1603,7 @@ class CommandHandler {
 
         // Mettre à jour les champs basiques (type, gm_program, etc.)
         if (Object.keys(basicFields).length > 0) {
-          this.app.instrumentDatabase.updateInstrument(id, basicFields);
+          this.app.database.updateInstrument(id, basicFields);
         }
 
         // Mettre à jour les capacités
@@ -1600,7 +1614,7 @@ class CommandHandler {
             delete capabilityFields.mode;
           }
 
-          this.app.instrumentDatabase.updateInstrumentCapabilities(instrument.device_id, capabilityFields);
+          this.app.database.updateInstrumentCapabilities(instrument.device_id, capabilityFields);
         }
 
         updated.push(id);
