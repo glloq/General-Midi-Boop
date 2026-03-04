@@ -68,6 +68,17 @@
       "title": "디버그 버튼",
       "enable": "디버그 버튼 표시",
       "description": "디버그 콘솔을 여는 버튼을 표시합니다"
+    },
+    "serialMidi": {
+      "title": "시리얼 MIDI (GPIO)",
+      "enable": "시리얼 MIDI 포트 활성화",
+      "description": "Raspberry Pi UART GPIO 핀을 MIDI IN/OUT 포트로 사용 (하드웨어 회로 필요)",
+      "ports": "사용 가능한 포트",
+      "scan": "스캔",
+      "scanning": "시리얼 포트 스캔 중...",
+      "clickScan": "\"스캔\"을 클릭하여 사용 가능한 시리얼 포트 감지",
+      "noPorts": "시리얼 포트가 감지되지 않았습니다. /boot/config.txt의 UART 오버레이를 확인하세요",
+      "notAvailable": "serialport 패키지가 설치되지 않았습니다. 실행: npm install serialport"
     }
   },
   "bluetooth": {

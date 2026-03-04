@@ -68,6 +68,17 @@
       "title": "Hata Ayıklama Düğmesi",
       "enable": "Hata ayıklama düğmesini göster",
       "description": "Hata ayıklama konsolunu açmak için düğmeyi gösterir"
+    },
+    "serialMidi": {
+      "title": "Seri MIDI (GPIO)",
+      "enable": "Seri MIDI bağlantı noktalarını etkinleştir",
+      "description": "Raspberry Pi UART GPIO pinlerini MIDI IN/OUT bağlantı noktası olarak kullan (donanım devresi gerektirir)",
+      "ports": "Kullanılabilir bağlantı noktaları",
+      "scan": "Tara",
+      "scanning": "Seri bağlantı noktaları taranıyor...",
+      "clickScan": "Kullanılabilir seri bağlantı noktalarını tespit etmek için \"Tara\"ya tıklayın",
+      "noPorts": "Seri bağlantı noktası bulunamadı. /boot/config.txt'deki UART overlay'lerini kontrol edin",
+      "notAvailable": "serialport paketi yüklü değil. Çalıştırın: npm install serialport"
     }
   },
   "bluetooth": {

@@ -68,6 +68,17 @@
       "title": "ডিবাগ বোতাম",
       "enable": "ডিবাগ বোতাম দেখান",
       "description": "ডিবাগ কনসোল খুলতে বোতাম দেখায়"
+    },
+    "serialMidi": {
+      "title": "সিরিয়াল MIDI (GPIO)",
+      "enable": "সিরিয়াল MIDI পোর্ট সক্রিয় করুন",
+      "description": "Raspberry Pi UART GPIO পিনগুলি MIDI IN/OUT পোর্ট হিসাবে ব্যবহার করুন (হার্ডওয়্যার সার্কিট প্রয়োজন)",
+      "ports": "উপলব্ধ পোর্ট",
+      "scan": "স্ক্যান",
+      "scanning": "সিরিয়াল পোর্ট স্ক্যান করা হচ্ছে...",
+      "clickScan": "উপলব্ধ সিরিয়াল পোর্ট শনাক্ত করতে \"স্ক্যান\" ক্লিক করুন",
+      "noPorts": "কোনো সিরিয়াল পোর্ট শনাক্ত হয়নি। /boot/config.txt UART ওভারলে পরীক্ষা করুন",
+      "notAvailable": "serialport প্যাকেজ ইনস্টল করা নেই। চালান: npm install serialport"
     }
   },
   "bluetooth": {

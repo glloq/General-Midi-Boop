@@ -68,6 +68,17 @@
       "title": "Felsökningsknapp",
       "enable": "Visa felsökningsknapp",
       "description": "Visar knappen för att öppna felsökningskonsolen"
+    },
+    "serialMidi": {
+      "title": "Seriell MIDI (GPIO)",
+      "enable": "Aktivera seriella MIDI-portar",
+      "description": "Använd Raspberry Pi UART GPIO-pinnar som MIDI IN/OUT-portar (kräver hårdvarukrets)",
+      "ports": "Tillgängliga portar",
+      "scan": "Skanna",
+      "scanning": "Skannar seriella portar...",
+      "clickScan": "Klicka på \"Skanna\" för att upptäcka tillgängliga seriella portar",
+      "noPorts": "Inga seriella portar hittades. Kontrollera UART-overlays i /boot/config.txt",
+      "notAvailable": "serialport-paketet är inte installerat. Kör: npm install serialport"
     }
   },
   "bluetooth": {

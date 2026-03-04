@@ -68,6 +68,17 @@
       "title": "Fejlfindingsknap",
       "enable": "Vis fejlfindingsknap",
       "description": "Viser knappen til at åbne fejlfindingskonsollen"
+    },
+    "serialMidi": {
+      "title": "Seriel MIDI (GPIO)",
+      "enable": "Aktiver serielle MIDI-porte",
+      "description": "Brug Raspberry Pi UART GPIO-pins som MIDI IN/OUT-porte (kræver hardware-kredsløb)",
+      "ports": "Tilgængelige porte",
+      "scan": "Scan",
+      "scanning": "Scanner serielle porte...",
+      "clickScan": "Klik på \"Scan\" for at finde tilgængelige serielle porte",
+      "noPorts": "Ingen serielle porte fundet. Kontroller UART-overlays i /boot/config.txt",
+      "notAvailable": "serialport-pakken er ikke installeret. Kør: npm install serialport"
     }
   },
   "bluetooth": {

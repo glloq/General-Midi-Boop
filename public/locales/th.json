@@ -68,6 +68,17 @@
       "title": "ปุ่มดีบัก",
       "enable": "แสดงปุ่มดีบัก",
       "description": "แสดงปุ่มเพื่อเปิดคอนโซลดีบัก"
+    },
+    "serialMidi": {
+      "title": "ซีเรียล MIDI (GPIO)",
+      "enable": "เปิดใช้งานพอร์ต MIDI ซีเรียล",
+      "description": "ใช้พิน UART GPIO ของ Raspberry Pi เป็นพอร์ต MIDI IN/OUT (ต้องใช้วงจรฮาร์ดแวร์)",
+      "ports": "พอร์ตที่ใช้ได้",
+      "scan": "สแกน",
+      "scanning": "กำลังสแกนพอร์ตซีเรียล...",
+      "clickScan": "คลิก \"สแกน\" เพื่อตรวจจับพอร์ตซีเรียลที่ใช้ได้",
+      "noPorts": "ไม่พบพอร์ตซีเรียล ตรวจสอบ UART overlays ใน /boot/config.txt",
+      "notAvailable": "ไม่ได้ติดตั้งแพ็คเกจ serialport รัน: npm install serialport"
     }
   },
   "bluetooth": {

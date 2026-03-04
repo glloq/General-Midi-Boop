@@ -68,6 +68,17 @@
       "title": "Nút Gỡ lỗi",
       "enable": "Hiển thị nút gỡ lỗi",
       "description": "Hiển thị nút để mở bảng điều khiển gỡ lỗi"
+    },
+    "serialMidi": {
+      "title": "MIDI Nối tiếp (GPIO)",
+      "enable": "Bật cổng MIDI nối tiếp",
+      "description": "Sử dụng chân UART GPIO của Raspberry Pi làm cổng MIDI IN/OUT (yêu cầu mạch phần cứng)",
+      "ports": "Cổng khả dụng",
+      "scan": "Quét",
+      "scanning": "Đang quét cổng nối tiếp...",
+      "clickScan": "Nhấp \"Quét\" để phát hiện các cổng nối tiếp khả dụng",
+      "noPorts": "Không phát hiện cổng nối tiếp nào. Kiểm tra UART overlays trong /boot/config.txt",
+      "notAvailable": "Gói serialport chưa được cài đặt. Chạy: npm install serialport"
     }
   },
   "bluetooth": {

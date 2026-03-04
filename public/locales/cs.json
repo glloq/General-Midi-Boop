@@ -68,6 +68,17 @@
       "title": "Tlačítko ladění",
       "enable": "Zobrazit tlačítko ladění",
       "description": "Zobrazuje tlačítko pro otevření ladicí konzole"
+    },
+    "serialMidi": {
+      "title": "Sériový MIDI (GPIO)",
+      "enable": "Povolit sériové MIDI porty",
+      "description": "Použít UART GPIO piny Raspberry Pi jako MIDI IN/OUT porty (vyžaduje hardwarový obvod)",
+      "ports": "Dostupné porty",
+      "scan": "Skenovat",
+      "scanning": "Skenování sériových portů...",
+      "clickScan": "Klikněte na \"Skenovat\" pro detekci dostupných sériových portů",
+      "noPorts": "Nebyly nalezeny žádné sériové porty. Zkontrolujte UART overlay v /boot/config.txt",
+      "notAvailable": "Balíček serialport není nainstalován. Spusťte: npm install serialport"
     }
   },
   "bluetooth": {

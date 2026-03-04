@@ -68,6 +68,17 @@
       "title": "Debug-Schaltfläche",
       "enable": "Debug-Schaltfläche anzeigen",
       "description": "Zeigt die Schaltfläche zum Öffnen der Debug-Konsole"
+    },
+    "serialMidi": {
+      "title": "Serielles MIDI (GPIO)",
+      "enable": "Serielle MIDI-Ports aktivieren",
+      "description": "Raspberry Pi UART GPIO-Pins als MIDI IN/OUT-Ports verwenden (Hardware-Schaltung erforderlich)",
+      "ports": "Verfügbare Ports",
+      "scan": "Scannen",
+      "scanning": "Serielle Ports werden gescannt...",
+      "clickScan": "Klicken Sie auf \"Scannen\", um verfügbare serielle Ports zu erkennen",
+      "noPorts": "Keine seriellen Ports gefunden. Überprüfen Sie die UART-Overlays in /boot/config.txt",
+      "notAvailable": "serialport-Paket nicht installiert. Ausführen: npm install serialport"
     }
   },
   "bluetooth": {

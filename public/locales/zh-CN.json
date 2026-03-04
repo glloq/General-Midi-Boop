@@ -68,6 +68,17 @@
       "title": "调试按钮",
       "enable": "显示调试按钮",
       "description": "显示打开调试控制台的按钮"
+    },
+    "serialMidi": {
+      "title": "串口MIDI (GPIO)",
+      "enable": "启用串口MIDI端口",
+      "description": "将树莓派UART GPIO引脚用作MIDI IN/OUT端口（需要硬件电路）",
+      "ports": "可用端口",
+      "scan": "扫描",
+      "scanning": "正在扫描串口...",
+      "clickScan": "点击「扫描」以检测可用的串口",
+      "noPorts": "未检测到串口。请检查 /boot/config.txt 中的UART overlay配置",
+      "notAvailable": "serialport 包未安装。请运行：npm install serialport"
     }
   },
   "bluetooth": {

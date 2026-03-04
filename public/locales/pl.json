@@ -68,6 +68,17 @@
       "title": "Przycisk debugowania",
       "enable": "Pokaż przycisk debugowania",
       "description": "Pokazuje przycisk do otwierania konsoli debugowania"
+    },
+    "serialMidi": {
+      "title": "Szeregowy MIDI (GPIO)",
+      "enable": "Włącz porty szeregowe MIDI",
+      "description": "Użyj pinów UART GPIO Raspberry Pi jako portów MIDI IN/OUT (wymagany obwód sprzętowy)",
+      "ports": "Dostępne porty",
+      "scan": "Skanuj",
+      "scanning": "Skanowanie portów szeregowych...",
+      "clickScan": "Kliknij \"Skanuj\", aby wykryć dostępne porty szeregowe",
+      "noPorts": "Nie wykryto portów szeregowych. Sprawdź nakładki UART w /boot/config.txt",
+      "notAvailable": "Pakiet serialport nie jest zainstalowany. Uruchom: npm install serialport"
     }
   },
   "bluetooth": {

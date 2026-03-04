@@ -68,6 +68,17 @@
       "title": "Debug Button",
       "enable": "Ipakita ang debug button",
       "description": "Nagpapakita ng button para buksan ang debug console"
+    },
+    "serialMidi": {
+      "title": "Serial MIDI (GPIO)",
+      "enable": "I-enable ang serial MIDI ports",
+      "description": "Gamitin ang Raspberry Pi UART GPIO pins bilang MIDI IN/OUT ports (kailangan ng hardware circuit)",
+      "ports": "Mga available na port",
+      "scan": "I-scan",
+      "scanning": "Ini-scan ang serial ports...",
+      "clickScan": "I-click ang \"I-scan\" para ma-detect ang available na serial ports",
+      "noPorts": "Walang serial ports na na-detect. Suriin ang UART overlays sa /boot/config.txt",
+      "notAvailable": "Hindi naka-install ang serialport package. Patakbuhin: npm install serialport"
     }
   },
   "bluetooth": {

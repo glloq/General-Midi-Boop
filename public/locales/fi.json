@@ -68,6 +68,17 @@
       "title": "Virheenkorjauspainike",
       "enable": "Näytä virheenkorjauspainike",
       "description": "Näyttää painikkeen virheenkorjauskonsolin avaamiseen"
+    },
+    "serialMidi": {
+      "title": "Sarjamuotoinen MIDI (GPIO)",
+      "enable": "Ota käyttöön sarjamuotoiset MIDI-portit",
+      "description": "Käytä Raspberry Pi:n UART GPIO -nastoja MIDI IN/OUT -portteina (vaatii laitteistopiirin)",
+      "ports": "Käytettävissä olevat portit",
+      "scan": "Skannaa",
+      "scanning": "Skannataan sarjaportteja...",
+      "clickScan": "Napsauta \"Skannaa\" löytääksesi käytettävissä olevat sarjaportit",
+      "noPorts": "Sarjaportteja ei löytynyt. Tarkista UART-overlays tiedostossa /boot/config.txt",
+      "notAvailable": "serialport-pakettia ei ole asennettu. Suorita: npm install serialport"
     }
   },
   "bluetooth": {

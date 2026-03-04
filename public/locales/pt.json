@@ -68,6 +68,17 @@
       "title": "Botão de Depuração",
       "enable": "Mostrar botão de depuração",
       "description": "Mostra o botão para abrir o console de depuração"
+    },
+    "serialMidi": {
+      "title": "MIDI Serial (GPIO)",
+      "enable": "Ativar portas MIDI serial",
+      "description": "Usar os pinos UART GPIO do Raspberry Pi como portas MIDI IN/OUT (requer circuito de hardware)",
+      "ports": "Portas disponíveis",
+      "scan": "Escanear",
+      "scanning": "Escaneando portas seriais...",
+      "clickScan": "Clique em \"Escanear\" para detectar as portas seriais disponíveis",
+      "noPorts": "Nenhuma porta serial detectada. Verifique os overlays UART em /boot/config.txt",
+      "notAvailable": "Pacote serialport não instalado. Execute: npm install serialport"
     }
   },
   "bluetooth": {

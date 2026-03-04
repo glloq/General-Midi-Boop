@@ -68,6 +68,17 @@
       "title": "डिबग बटन",
       "enable": "डिबग बटन दिखाएं",
       "description": "डिबग कंसोल खोलने के लिए बटन दिखाता है"
+    },
+    "serialMidi": {
+      "title": "सीरियल MIDI (GPIO)",
+      "enable": "सीरियल MIDI पोर्ट सक्रिय करें",
+      "description": "Raspberry Pi UART GPIO पिन का MIDI IN/OUT पोर्ट के रूप में उपयोग करें (हार्डवेयर सर्किट आवश्यक)",
+      "ports": "उपलब्ध पोर्ट",
+      "scan": "स्कैन",
+      "scanning": "सीरियल पोर्ट स्कैन हो रहे हैं...",
+      "clickScan": "उपलब्ध सीरियल पोर्ट का पता लगाने के लिए \"स्कैन\" पर क्लिक करें",
+      "noPorts": "कोई सीरियल पोर्ट नहीं मिला। /boot/config.txt में UART ओवरले जांचें",
+      "notAvailable": "serialport पैकेज स्थापित नहीं है। चलाएं: npm install serialport"
     }
   },
   "bluetooth": {

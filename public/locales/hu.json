@@ -68,6 +68,17 @@
       "title": "Hibakereső gomb",
       "enable": "Hibakereső gomb megjelenítése",
       "description": "Megjeleníti a gombot a hibakereső konzol megnyitásához"
+    },
+    "serialMidi": {
+      "title": "Soros MIDI (GPIO)",
+      "enable": "Soros MIDI portok engedélyezése",
+      "description": "Raspberry Pi UART GPIO lábak használata MIDI IN/OUT portként (hardveres áramkör szükséges)",
+      "ports": "Elérhető portok",
+      "scan": "Keresés",
+      "scanning": "Soros portok keresése...",
+      "clickScan": "Kattintson a \"Keresés\" gombra az elérhető soros portok felderítéséhez",
+      "noPorts": "Nem található soros port. Ellenőrizze az UART overlay-eket a /boot/config.txt fájlban",
+      "notAvailable": "A serialport csomag nincs telepítve. Futtatás: npm install serialport"
     }
   },
   "bluetooth": {

@@ -68,6 +68,17 @@
       "title": "Debug-knop",
       "enable": "Debug-knop tonen",
       "description": "Toont de knop om de debug-console te openen"
+    },
+    "serialMidi": {
+      "title": "Seriële MIDI (GPIO)",
+      "enable": "Seriële MIDI-poorten inschakelen",
+      "description": "Raspberry Pi UART GPIO-pinnen gebruiken als MIDI IN/OUT-poorten (hardwarecircuit vereist)",
+      "ports": "Beschikbare poorten",
+      "scan": "Scannen",
+      "scanning": "Seriële poorten scannen...",
+      "clickScan": "Klik op \"Scannen\" om beschikbare seriële poorten te detecteren",
+      "noPorts": "Geen seriële poorten gedetecteerd. Controleer de UART-overlays in /boot/config.txt",
+      "notAvailable": "serialport-pakket niet geïnstalleerd. Voer uit: npm install serialport"
     }
   },
   "bluetooth": {

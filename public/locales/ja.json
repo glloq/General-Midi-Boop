@@ -68,6 +68,17 @@
       "title": "デバッグボタン",
       "enable": "デバッグボタンを表示",
       "description": "デバッグコンソールを開くボタンを表示します"
+    },
+    "serialMidi": {
+      "title": "シリアルMIDI (GPIO)",
+      "enable": "シリアルMIDIポートを有効にする",
+      "description": "Raspberry PiのUART GPIOピンをMIDI IN/OUTポートとして使用（ハードウェア回路が必要）",
+      "ports": "利用可能なポート",
+      "scan": "スキャン",
+      "scanning": "シリアルポートをスキャン中...",
+      "clickScan": "「スキャン」をクリックして利用可能なシリアルポートを検出",
+      "noPorts": "シリアルポートが検出されませんでした。/boot/config.txtのUARTオーバーレイを確認してください",
+      "notAvailable": "serialportパッケージがインストールされていません。実行: npm install serialport"
     }
   },
   "bluetooth": {

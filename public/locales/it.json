@@ -68,6 +68,17 @@
       "title": "Pulsante Debug",
       "enable": "Mostra pulsante debug",
       "description": "Mostra il pulsante per aprire la console di debug"
+    },
+    "serialMidi": {
+      "title": "MIDI Seriale (GPIO)",
+      "enable": "Attiva porte MIDI seriali",
+      "description": "Usa i pin UART GPIO del Raspberry Pi come porte MIDI IN/OUT (richiede circuito hardware)",
+      "ports": "Porte disponibili",
+      "scan": "Scansiona",
+      "scanning": "Scansione porte seriali...",
+      "clickScan": "Clicca su \"Scansiona\" per rilevare le porte seriali disponibili",
+      "noPorts": "Nessuna porta seriale rilevata. Controlla gli overlay UART in /boot/config.txt",
+      "notAvailable": "Pacchetto serialport non installato. Esegui: npm install serialport"
     }
   },
   "bluetooth": {

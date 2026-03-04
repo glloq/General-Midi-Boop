@@ -68,6 +68,17 @@
       "title": "Sencimiga Butono",
       "enable": "Montri sencimigan butonon",
       "description": "Montras la butonon por malfermi la sencimigan konzolon"
+    },
+    "serialMidi": {
+      "title": "Seria MIDI (GPIO)",
+      "enable": "Ebligi seriajn MIDI-pordojn",
+      "description": "Uzi Raspberry Pi UART GPIO-pinglojn kiel MIDI EN/EL-pordojn (bezonas aparataran cirkvitan)",
+      "ports": "Disponeblaj pordoj",
+      "scan": "Skani",
+      "scanning": "Skanado de seriaj pordoj...",
+      "clickScan": "Klaku \"Skani\" por detekti disponeblajn seriajn pordojn",
+      "noPorts": "Neniuj seriaj pordoj detektitaj. Kontrolu la UART-surmetaĵojn en /boot/config.txt",
+      "notAvailable": "serialport-pakaĵo ne instalita. Rulu: npm install serialport"
     }
   },
   "bluetooth": {
