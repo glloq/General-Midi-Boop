@@ -1,5 +1,14 @@
 // src/midi/LatencyCompensator.js
 
+// Latency calibration constants
+const CALIBRATION_TEST_NOTE = 60; // Middle C
+const CALIBRATION_TEST_VELOCITY = 64;
+const CALIBRATION_TEST_CHANNEL = 0;
+const CALIBRATION_TIMEOUT_MS = 5000;
+const CALIBRATION_NOTE_DURATION_MS = 50;
+const CALIBRATION_PAUSE_BETWEEN_MS = 100;
+const RECALIBRATION_DAYS = 7;
+
 class LatencyCompensator {
   constructor(app) {
     this.app = app;
@@ -56,7 +65,7 @@ class LatencyCompensator {
         this.app.logger.debug(`Measurement ${i + 1}/${iterations}: ${latency.toFixed(2)}ms`);
         
         // Wait between measurements
-        await this.sleep(100);
+        await this.sleep(CALIBRATION_PAUSE_BETWEEN_MS);
       }
 
       // Calculate statistics
@@ -99,10 +108,10 @@ class LatencyCompensator {
 
   async measureSingleRoundtrip(deviceId) {
     return new Promise((resolve, reject) => {
-      const testNote = 60; // Middle C
-      const testVelocity = 64;
-      const testChannel = 0;
-      const timeout = 5000; // 5 second timeout
+      const testNote = CALIBRATION_TEST_NOTE;
+      const testVelocity = CALIBRATION_TEST_VELOCITY;
+      const testChannel = CALIBRATION_TEST_CHANNEL;
+      const timeout = CALIBRATION_TIMEOUT_MS;
 
       let timeoutHandle;
       let messageHandler;
@@ -142,14 +151,14 @@ class LatencyCompensator {
         velocity: testVelocity
       });
 
-      // Send note off after 50ms
+      // Send note off after calibration note duration
       setTimeout(() => {
         this.app.deviceManager.sendMessage(deviceId, 'noteoff', {
           channel: testChannel,
           note: testNote,
           velocity: 0
         });
-      }, 50);
+      }, CALIBRATION_NOTE_DURATION_MS);
     });
   }
 
@@ -246,7 +255,7 @@ class LatencyCompensator {
 
     // Recalibrate if older than 7 days
     const daysSinceCalibration = (Date.now() - profile.lastCalibrated.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceCalibration > 7;
+    return daysSinceCalibration > RECALIBRATION_DAYS;
   }
 
   getRecommendedCalibrations() {

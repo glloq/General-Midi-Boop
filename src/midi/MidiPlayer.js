@@ -1,6 +1,14 @@
 // src/midi/MidiPlayer.js
 import { parseMidi } from 'midi-file';
 
+// Playback timing constants
+const SCHEDULER_TICK_MS = 10; // Scheduler resolution in milliseconds
+const LOOKAHEAD_SECONDS = 0.1; // Look-ahead window for event scheduling (100ms)
+const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
+
+// MIDI CC constants
+const MIDI_CC_ALL_NOTES_OFF = 123;
+
 class MidiPlayer {
   constructor(app) {
     this.app = app;
@@ -18,9 +26,11 @@ class MidiPlayer {
     this.pauseTime = 0;
     this.outputDevice = null;
     this.loop = false;
+    this.loadedFileId = null; // ID of currently loaded file
     this.channels = []; // MIDI channels found in file
     this.channelRouting = new Map(); // channel -> device mapping
     this.mutedChannels = new Set(); // Muted channels
+    this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
 
     this.app.logger.info('MidiPlayer initialized');
   }
@@ -41,6 +51,7 @@ class MidiPlayer {
       this.extractChannels(midi);
       this.buildEventList();
       this.calculateDuration();
+      this.loadedFileId = fileId;
 
       this.app.logger.info(`File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`);
 
@@ -78,7 +89,7 @@ class MidiPlayer {
     for (const track of midi.tracks) {
       const tempoEvent = track.find(e => e.type === 'setTempo');
       if (tempoEvent) {
-        this.tempo = 60000000 / tempoEvent.microsecondsPerBeat;
+        this.tempo = MICROSECONDS_PER_MINUTE / tempoEvent.microsecondsPerBeat;
         return;
       }
     }
@@ -282,7 +293,7 @@ class MidiPlayer {
   startScheduler() {
     this.scheduler = setInterval(() => {
       this.tick();
-    }, 10); // 10ms tick rate
+    }, SCHEDULER_TICK_MS);
   }
 
   stopScheduler() {
@@ -290,6 +301,11 @@ class MidiPlayer {
       clearInterval(this.scheduler);
       this.scheduler = null;
     }
+    // Clear all pending event timeouts to prevent stale events
+    for (const timeoutId of this.pendingTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingTimeouts.clear();
   }
 
   tick() {
@@ -312,8 +328,7 @@ class MidiPlayer {
     }
 
     // Process events
-    const lookAhead = 0.1; // 100ms look-ahead
-    const targetTime = this.position + lookAhead;
+    const targetTime = this.position + LOOKAHEAD_SECONDS;
 
     while (this.currentEventIndex < this.events.length) {
       const event = this.events[this.currentEventIndex];
@@ -366,9 +381,11 @@ class MidiPlayer {
     // Apply sync_delay compensation (convert ms to seconds)
     const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
 
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      this.pendingTimeouts.delete(timeoutId);
       this.sendEvent(event);
     }, adjustedDelay * 1000);
+    this.pendingTimeouts.add(timeoutId);
   }
 
   sendEvent(event) {
@@ -423,11 +440,11 @@ class MidiPlayer {
 
     const device = this.app.deviceManager;
     
-    // Send All Notes Off (CC 123) on all channels
+    // Send All Notes Off on all 16 MIDI channels
     for (let channel = 0; channel < 16; channel++) {
       device.sendMessage(this.outputDevice, 'cc', {
         channel: channel,
-        controller: 123,
+        controller: MIDI_CC_ALL_NOTES_OFF,
         value: 0
       });
     }
@@ -518,7 +535,7 @@ class MidiPlayer {
       if (targetDevice) {
         this.app.deviceManager.sendMessage(targetDevice, 'cc', {
           channel: channel,
-          controller: 123, // All Notes Off
+          controller: MIDI_CC_ALL_NOTES_OFF,
           value: 0
         });
       }

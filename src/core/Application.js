@@ -32,6 +32,9 @@ class Application {
     this.commandHandler = null;
     this.running = false;
 
+    // Track bound event handlers for cleanup
+    this._eventHandlers = [];
+
     this.logger.info('=== MidiMind 5.0 Starting ===');
   }
 
@@ -83,45 +86,52 @@ class Application {
   }
 
   setupEventHandlers() {
-    // MIDI message events
-    this.eventBus.on('midi_message', (data) => {
-      this.logger.debug(`MIDI message: ${data.device} ${data.type}`);
-    });
+    // Clear any previously registered handlers (prevents leak on restart)
+    this.removeEventHandlers();
 
-    // Device events
-    this.eventBus.on('device_connected', (data) => {
-      this.logger.info(`Device connected: ${data.deviceId}`);
-      this.wsServer.broadcast('device_connected', data);
-    });
+    // Define handlers with references for cleanup
+    const handlers = [
+      ['midi_message', (data) => {
+        this.logger.debug(`MIDI message: ${data.device} ${data.type}`);
+      }],
+      ['device_connected', (data) => {
+        this.logger.info(`Device connected: ${data.deviceId}`);
+        this.wsServer.broadcast('device_connected', data);
+      }],
+      ['device_disconnected', (data) => {
+        this.logger.info(`Device disconnected: ${data.deviceId}`);
+        this.wsServer.broadcast('device_disconnected', data);
+      }],
+      ['midi_routed', (data) => {
+        this.logger.debug(`MIDI routed: ${data.route}`);
+      }],
+      ['file_uploaded', (data) => {
+        this.logger.info(`File uploaded: ${data.filename}`);
+      }],
+      ['playback_started', () => {
+        this.logger.info('Playback started');
+      }],
+      ['playback_stopped', () => {
+        this.logger.info('Playback stopped');
+      }],
+      ['error', (error) => {
+        this.logger.error(`Application error: ${error.message}`);
+      }]
+    ];
 
-    this.eventBus.on('device_disconnected', (data) => {
-      this.logger.info(`Device disconnected: ${data.deviceId}`);
-      this.wsServer.broadcast('device_disconnected', data);
-    });
+    for (const [event, handler] of handlers) {
+      this.eventBus.on(event, handler);
+      this._eventHandlers.push({ event, handler });
+    }
+  }
 
-    // Routing events
-    this.eventBus.on('midi_routed', (data) => {
-      this.logger.debug(`MIDI routed: ${data.route}`);
-    });
-
-    // File events
-    this.eventBus.on('file_uploaded', (data) => {
-      this.logger.info(`File uploaded: ${data.filename}`);
-    });
-
-    // Playback events
-    this.eventBus.on('playback_started', (data) => {
-      this.logger.info('Playback started');
-    });
-
-    this.eventBus.on('playback_stopped', (data) => {
-      this.logger.info('Playback stopped');
-    });
-
-    // Error events
-    this.eventBus.on('error', (error) => {
-      this.logger.error(`Application error: ${error.message}`);
-    });
+  removeEventHandlers() {
+    if (this._eventHandlers) {
+      for (const { event, handler } of this._eventHandlers) {
+        this.eventBus.off(event, handler);
+      }
+      this._eventHandlers = [];
+    }
   }
 
   async start() {
@@ -176,6 +186,9 @@ class Application {
       if (this.bluetoothManager) {
         await this.bluetoothManager.shutdown();
       }
+
+      // Remove event handlers to prevent leaks on restart
+      this.removeEventHandlers();
 
       // Close database
       if (this.database) {

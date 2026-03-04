@@ -1,5 +1,16 @@
 // src/api/WebSocketServer.js
 import { WebSocketServer as WSServer } from 'ws';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __wsFilename = fileURLToPath(import.meta.url);
+const __wsDirname = dirname(__wsFilename);
+const wsPkg = JSON.parse(readFileSync(join(__wsDirname, '../../package.json'), 'utf8'));
+const APP_VERSION = wsPkg.version;
+
+// WebSocket timing constants
+const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds between heartbeat pings
 
 class WebSocketServer {
   constructor(app, httpServer) {
@@ -39,7 +50,7 @@ class WebSocketServer {
       type: 'event',
       event: 'connected',
       data: {
-        version: '5.0.0',
+        version: APP_VERSION,
         timestamp: Date.now()
       }
     }));
@@ -144,7 +155,7 @@ class WebSocketServer {
         ws.isAlive = false;
         ws.ping();
       });
-    }, 30000); // 30 seconds
+    }, HEARTBEAT_INTERVAL_MS);
   }
 
   close() {
