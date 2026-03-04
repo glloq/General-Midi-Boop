@@ -189,4 +189,4 @@ class AnalysisCache {
   }
 }
 
-module.exports = AnalysisCache;
+export default AnalysisCache;

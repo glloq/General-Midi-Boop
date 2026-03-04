@@ -26,7 +26,7 @@ class MidiTransposer {
    */
   transposeChannels(midiData, transpositions) {
     // Shallow clone + deep clone des tracks seulement (plus performant)
-    const modified = {
+    const modifiedData = {
       ...midiData,
       tracks: midiData.tracks.map(track => ({
         ...track,
@@ -38,7 +38,7 @@ class MidiTransposer {
     let notesRemapped = 0;
     const totalNotes = this.countAllNotes(midiData);
 
-    for (const track of modified.tracks) {
+    for (const track of modifiedData.tracks) {
       if (!track.events) continue;
 
       for (let i = 0; i < track.events.length; i++) {
@@ -48,7 +48,7 @@ class MidiTransposer {
 
         if (!transposition) continue;
 
-        let modified = false;
+        let eventModified = false;
         let newEvent = event; // Par défaut, garder la référence
 
         // Process note events (noteOn, noteOff)
@@ -60,9 +60,9 @@ class MidiTransposer {
           if (transposition.semitones && transposition.semitones !== 0) {
             currentNote = this.clampNote(currentNote + transposition.semitones);
             if (currentNote !== originalNote) {
-              if (!modified) {
+              if (!eventModified) {
                 newEvent = { ...event }; // Clone seulement si modification
-                modified = true;
+                eventModified = true;
               }
               notesChanged++;
             }
@@ -73,17 +73,17 @@ class MidiTransposer {
           if (transposition.noteRemapping && Object.keys(transposition.noteRemapping).length > 0) {
             const remappedNote = transposition.noteRemapping[currentNote];
             if (remappedNote !== undefined) {
-              if (!modified) {
+              if (!eventModified) {
                 newEvent = { ...event };
-                modified = true;
+                eventModified = true;
               }
               currentNote = remappedNote;
               notesRemapped++;
             }
           }
 
-          // Update note in event if modified
-          if (modified) {
+          // Update note in event if eventModified
+          if (eventModified) {
             newEvent.note = currentNote;
             if (newEvent.noteNumber !== undefined) {
               newEvent.noteNumber = currentNote;
@@ -96,24 +96,24 @@ class MidiTransposer {
 
           if (transposition.semitones && transposition.semitones !== 0) {
             currentNote = this.clampNote(currentNote + transposition.semitones);
-            if (!modified) {
+            if (!eventModified) {
               newEvent = { ...event };
-              modified = true;
+              eventModified = true;
             }
           }
 
           if (transposition.noteRemapping && Object.keys(transposition.noteRemapping).length > 0) {
             const remappedNote = transposition.noteRemapping[currentNote];
             if (remappedNote !== undefined) {
-              if (!modified) {
+              if (!eventModified) {
                 newEvent = { ...event };
-                modified = true;
+                eventModified = true;
               }
               currentNote = remappedNote;
             }
           }
 
-          if (modified) {
+          if (eventModified) {
             newEvent.note = currentNote;
             if (newEvent.noteNumber !== undefined) {
               newEvent.noteNumber = currentNote;
@@ -122,14 +122,14 @@ class MidiTransposer {
         }
 
         // Remplacer l'événement si modifié
-        if (modified) {
+        if (eventModified) {
           track.events[i] = newEvent;
         }
       }
     }
 
     return {
-      midiData: modified,
+      midiData: modifiedData,
       stats: {
         notesChanged,
         notesRemapped,
@@ -262,4 +262,4 @@ class MidiTransposer {
   }
 }
 
-module.exports = MidiTransposer;
+export default MidiTransposer;

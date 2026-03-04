@@ -4,7 +4,7 @@
  * AutoAssignModal - Modal for auto-assigning MIDI channels to instruments
  *
  * Displays suggestions for each channel with compatibility scores
- * and allows the user to select the instrument for each channel.
+ * and allows the user to select, modify, or skip the instrument for each channel.
  */
 class AutoAssignModal {
   constructor(apiClient) {
@@ -13,9 +13,30 @@ class AutoAssignModal {
     this.midiData = null; // Store MIDI data for preview
     this.suggestions = {};
     this.autoSelection = {};
+    this.channelAnalyses = {}; // Store analyses indexed by channel
     this.selectedAssignments = {}; // User's selections
+    this.skippedChannels = new Set(); // Channels user chose to skip
     this.modal = null;
     this.audioPreview = null; // Audio preview instance
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+  }
+
+  /**
+   * Safely format info field (can be string or array)
+   */
+  formatInfo(info) {
+    if (!info) return '';
+    if (Array.isArray(info)) return info.map(i => this.escapeHtml(i)).join(' &bull; ');
+    return this.escapeHtml(String(info));
   }
 
   /**
@@ -76,8 +97,16 @@ class AutoAssignModal {
       this.autoSelection = response.autoSelection;
       this.confidenceScore = response.confidenceScore;
 
+      // Store channel analyses indexed by channel number for easy lookup
+      if (response.channelAnalyses) {
+        for (const analysis of response.channelAnalyses) {
+          this.channelAnalyses[analysis.channel] = analysis;
+        }
+      }
+
       // Initialize selected assignments with auto-selection
       this.selectedAssignments = JSON.parse(JSON.stringify(this.autoSelection));
+      this.skippedChannels = new Set();
 
       // Initialize audio preview
       if (!this.audioPreview && window.AudioPreview) {
@@ -126,10 +155,10 @@ class AutoAssignModal {
         <div class="modal-container" style="max-width: 600px;">
           <div class="modal-header">
             <h2>Auto-Assign Error</h2>
-            <button class="modal-close" onclick="document.getElementById('autoAssignModal').remove()">×</button>
+            <button class="modal-close" onclick="document.getElementById('autoAssignModal').remove()">x</button>
           </div>
           <div class="modal-body" style="padding: 40px; text-align: center;">
-            <p style="color: #ff4444; font-size: 16px;">${message}</p>
+            <p style="color: #ff4444; font-size: 16px;">${this.escapeHtml(message)}</p>
             <button class="button button-secondary" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 20px;">
               Close
             </button>
@@ -159,12 +188,14 @@ class AutoAssignModal {
 
     const channelsHTML = channels.map(channel => this.renderChannelSuggestions(parseInt(channel))).join('');
 
+    const activeCount = channels.length - this.skippedChannels.size;
+
     const html = `
       <div class="modal-overlay" id="autoAssignModal">
         <div class="modal-container" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
           <div class="modal-header">
             <h2>Auto-Assign Instruments</h2>
-            <button class="modal-close" onclick="autoAssignModalInstance.close()">×</button>
+            <button class="modal-close" onclick="autoAssignModalInstance.close()">x</button>
           </div>
           <div class="modal-body" style="padding: 0;">
             <div style="padding: 20px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
@@ -177,8 +208,12 @@ class AutoAssignModal {
                   ${this.getScoreStars(this.confidenceScore)}
                 </div>
                 <div style="color: #666; font-size: 14px;">
-                  ${channels.length} channel(s) detected
+                  ${activeCount}/${channels.length} channel(s) will be assigned
+                  ${this.skippedChannels.size > 0 ? ` (${this.skippedChannels.size} skipped)` : ''}
                 </div>
+              </div>
+              <div style="margin-top: 10px; font-size: 13px; color: #888;">
+                Click on an instrument to select it, or use the toggle to skip a channel.
               </div>
             </div>
 
@@ -193,19 +228,19 @@ class AutoAssignModal {
             <div id="previewControls" style="display: flex; gap: 10px; align-items: center;">
               ${this.midiData ? `
                 <button class="button button-secondary" onclick="autoAssignModalInstance.previewOriginal()" title="Preview original MIDI file">
-                  🎵 Preview Original
+                  Preview Original
                 </button>
                 <button class="button button-secondary" onclick="autoAssignModalInstance.previewAdapted()" title="Preview adapted MIDI with transpositions">
-                  🎵 Preview Adapted
+                  Preview Adapted
                 </button>
                 <button class="button button-secondary" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
-                  ⏹ Stop
+                  Stop
                 </button>
               ` : ''}
             </div>
             <div style="display: flex; gap: 10px;">
               <button class="button button-info" onclick="autoAssignModalInstance.quickAssign()" title="Auto-assign and apply in one click">
-                ⚡ Quick Assign & Apply
+                Quick Assign & Apply
               </button>
               <button class="button button-primary" onclick="autoAssignModalInstance.apply()">
                 Apply Assignments
@@ -224,26 +259,27 @@ class AutoAssignModal {
   }
 
   /**
-   * Render channel statistics
+   * Render channel statistics - uses stored channelAnalyses as fallback
    */
   renderChannelStats(channel) {
-    const analysis = this.selectedAssignments[channel]?.channelAnalysis;
+    // Try to get analysis from selectedAssignments first, fallback to stored analyses
+    const analysis = this.selectedAssignments[channel]?.channelAnalysis || this.channelAnalyses[channel];
     if (!analysis) return '';
 
     return `
       <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 12px;">
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
           <div>
-            <strong>📝 Note Range:</strong><br>
+            <strong>Note Range:</strong><br>
             ${analysis.noteRange.min} - ${analysis.noteRange.max} (${analysis.noteRange.max - analysis.noteRange.min} semitones)
           </div>
           <div>
-            <strong>🎵 Polyphony:</strong><br>
-            Max: ${analysis.polyphony.max} | Avg: ${analysis.polyphony.avg.toFixed(1)}
+            <strong>Polyphony:</strong><br>
+            Max: ${analysis.polyphony.max}${analysis.polyphony.avg !== undefined ? ` | Avg: ${analysis.polyphony.avg.toFixed(1)}` : ''}
           </div>
           <div>
-            <strong>🎹 Type:</strong><br>
-            ${analysis.estimatedType} ${this.typeConfidences && this.typeConfidences[channel] ? `(${this.typeConfidences[channel]}% confidence)` : ''}
+            <strong>Type:</strong><br>
+            ${this.escapeHtml(analysis.estimatedType)} ${analysis.typeConfidence ? `(${analysis.typeConfidence}%)` : ''}
           </div>
         </div>
         ${this.renderMiniPiano(analysis.noteRange)}
@@ -255,15 +291,6 @@ class AutoAssignModal {
    * Render mini piano visualization
    */
   renderMiniPiano(noteRange) {
-    const startOctave = Math.floor(noteRange.min / 12);
-    const endOctave = Math.ceil(noteRange.max / 12);
-    const octaves = [];
-
-    for (let oct = startOctave; oct <= endOctave; oct++) {
-      octaves.push(oct);
-    }
-
-    // Simplified piano viz (just showing range)
     return `
       <div style="margin-top: 8px;">
         <div style="display: flex; align-items: center; gap: 4px; font-size: 10px;">
@@ -271,7 +298,7 @@ class AutoAssignModal {
           <div style="flex: 1; height: 20px; background: linear-gradient(to right, #ddd, #4CAF50, #ddd); border-radius: 3px; position: relative;">
             <div style="position: absolute; left: 10%; width: 80%; height: 100%; background: #4CAF50; opacity: 0.5; border-radius: 3px;"></div>
           </div>
-          <span>${noteRange.min} → ${noteRange.max}</span>
+          <span>${noteRange.min} - ${noteRange.max}</span>
         </div>
       </div>
     `;
@@ -282,6 +309,7 @@ class AutoAssignModal {
    */
   renderChannelSuggestions(channel) {
     const options = this.suggestions[channel] || [];
+    const isSkipped = this.skippedChannels.has(channel);
     const selectedDeviceId = this.selectedAssignments[channel]?.deviceId;
 
     if (options.length === 0) {
@@ -291,40 +319,58 @@ class AutoAssignModal {
             Channel ${channel + 1}
             ${channel === 9 ? '<span style="color: #888; font-size: 14px;">(Drums)</span>' : ''}
           </h3>
+          ${this.renderChannelStats(channel)}
           <p style="color: #999;">No compatible instruments found</p>
         </div>
       `;
     }
 
-    const optionsHTML = options.map((option, index) => {
+    // Skip/enable toggle for this channel
+    const skipToggle = `
+      <div style="margin-bottom: 15px; padding: 10px; background: ${isSkipped ? '#fff3f3' : '#f0fff0'}; border: 1px solid ${isSkipped ? '#ffcccc' : '#c8e6c9'}; border-radius: 6px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+          <input type="checkbox"
+                 ${isSkipped ? '' : 'checked'}
+                 onchange="autoAssignModalInstance.toggleChannel(${channel}, this.checked)"
+                 style="cursor: pointer; width: 18px; height: 18px;">
+          <span style="font-size: 14px; font-weight: 600; color: ${isSkipped ? '#cc0000' : '#2e7d32'};">
+            ${isSkipped ? 'Channel skipped - will not be assigned' : 'Assign this channel to an instrument'}
+          </span>
+        </label>
+      </div>
+    `;
+
+    const optionsHTML = isSkipped ? '' : options.map((option, index) => {
       const instrument = option.instrument;
       const compat = option.compatibility;
       const isSelected = instrument.device_id === selectedDeviceId;
+      const escapedName = this.escapeHtml(instrument.custom_name || instrument.name);
+      const escapedDeviceId = this.escapeHtml(instrument.device_id);
 
       return `
         <div class="instrument-option ${isSelected ? 'selected' : ''}"
              data-channel="${channel}"
-             data-device-id="${instrument.device_id}"
-             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${instrument.device_id}')"
+             data-device-id="${escapedDeviceId}"
+             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedDeviceId}')"
              style="padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#4CAF50' : '#ddd'};
                     border-radius: 8px; cursor: pointer; background: ${isSelected ? '#f0fff0' : '#fff'};
                     transition: all 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
               <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">
-                ${instrument.custom_name || instrument.name}
+                ${escapedName}
               </div>
               <div style="color: #666; font-size: 13px; margin-bottom: 8px;">
                 ${this.formatInstrumentInfo(instrument, compat)}
               </div>
-              ${compat.info && compat.info.length > 0 ? `
+              ${compat.info ? `
                 <div style="color: #4CAF50; font-size: 12px;">
-                  ✓ ${compat.info.join(' • ')}
+                  ${this.formatInfo(compat.info)}
                 </div>
               ` : ''}
               ${compat.issues && compat.issues.length > 0 ? `
                 <div style="color: #ff9800; font-size: 12px; margin-top: 4px;">
-                  ⚠ ${compat.issues.map(i => i.message).join(' • ')}
+                  ${compat.issues.map(i => this.escapeHtml(i.message)).join(' &bull; ')}
                 </div>
               ` : ''}
             </div>
@@ -342,9 +388,9 @@ class AutoAssignModal {
       `;
     }).join('');
 
-    // Add octave wrapping toggle if available
+    // Add octave wrapping toggle if available and channel is not skipped
     const assignment = this.selectedAssignments[channel];
-    const octaveWrappingToggle = assignment && assignment.octaveWrappingInfo ? `
+    const octaveWrappingToggle = !isSkipped && assignment && assignment.octaveWrappingInfo ? `
       <div style="margin-top: 15px; padding: 10px; background: #fff9e6; border: 1px solid #ffd700; border-radius: 4px;">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
           <input type="checkbox"
@@ -353,31 +399,33 @@ class AutoAssignModal {
                  onchange="autoAssignModalInstance.toggleOctaveWrapping(${channel}, this.checked)"
                  style="cursor: pointer;">
           <span style="font-size: 13px;">
-            <strong>🔄 Enable Octave Wrapping</strong><br>
-            <span style="color: #666; font-size: 12px;">${assignment.octaveWrappingInfo}</span>
+            <strong>Enable Octave Wrapping</strong><br>
+            <span style="color: #666; font-size: 12px;">${this.escapeHtml(assignment.octaveWrappingInfo)}</span>
           </span>
         </label>
       </div>
     ` : '';
 
-    // Add preview button for this channel
-    const previewButton = this.midiData ? `
+    // Add preview button for this channel (only if not skipped)
+    const previewButton = !isSkipped && this.midiData ? `
       <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
         <button class="button button-secondary"
                 onclick="autoAssignModalInstance.previewChannel(${channel})"
                 style="font-size: 13px; padding: 8px 12px;">
-          🔊 Preview Channel ${channel + 1}
+          Preview Channel ${channel + 1}
         </button>
       </div>
     ` : '';
 
     return `
-      <div class="channel-suggestions" style="margin-bottom: 30px; padding: 20px; background: #fafafa; border: 1px solid #ddd; border-radius: 8px;">
+      <div class="channel-suggestions" style="margin-bottom: 30px; padding: 20px; background: ${isSkipped ? '#fafafa' : '#fafafa'}; border: 1px solid ${isSkipped ? '#e0e0e0' : '#ddd'}; border-radius: 8px; ${isSkipped ? 'opacity: 0.7;' : ''}">
         <h3 style="margin: 0 0 15px 0; color: #333;">
           Channel ${channel + 1}
           ${channel === 9 ? '<span style="color: #888; font-size: 14px;">(MIDI 10 - Drums)</span>' : ''}
+          ${isSkipped ? '<span style="color: #cc0000; font-size: 14px; margin-left: 10px;">[SKIPPED]</span>' : ''}
         </h3>
         ${this.renderChannelStats(channel)}
+        ${skipToggle}
         ${optionsHTML}
         ${octaveWrappingToggle}
         ${previewButton}
@@ -396,8 +444,8 @@ class AutoAssignModal {
     }
 
     if (compat.transposition && compat.transposition.octaves !== 0) {
-      const direction = compat.transposition.octaves > 0 ? '↑' : '↓';
-      parts.push(`${direction} ${Math.abs(compat.transposition.octaves)} octave(s)`);
+      const direction = compat.transposition.octaves > 0 ? 'up' : 'down';
+      parts.push(`${Math.abs(compat.transposition.octaves)} octave(s) ${direction}`);
     } else {
       parts.push('No transposition');
     }
@@ -406,7 +454,7 @@ class AutoAssignModal {
       parts.push(`Range: ${instrument.note_range_min}-${instrument.note_range_max}`);
     }
 
-    return parts.join(' • ');
+    return parts.join(' &bull; ');
   }
 
   /**
@@ -423,11 +471,25 @@ class AutoAssignModal {
    * Get star rating based on score
    */
   getScoreStars(score) {
-    if (score >= 90) return '⭐⭐⭐⭐⭐';
-    if (score >= 75) return '⭐⭐⭐⭐';
-    if (score >= 60) return '⭐⭐⭐';
-    if (score >= 40) return '⭐⭐';
-    return '⭐';
+    const filled = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 40 ? 2 : 1;
+    return '<span style="letter-spacing: 2px;">' + '&#9733;'.repeat(filled) + '&#9734;'.repeat(5 - filled) + '</span>';
+  }
+
+  /**
+   * Toggle a channel on/off (skip or enable assignment)
+   */
+  toggleChannel(channel, enabled) {
+    if (enabled) {
+      this.skippedChannels.delete(channel);
+      // Restore the auto-selection if no manual selection exists
+      if (!this.selectedAssignments[channel] && this.autoSelection[channel]) {
+        this.selectedAssignments[channel] = JSON.parse(JSON.stringify(this.autoSelection[channel]));
+      }
+    } else {
+      this.skippedChannels.add(channel);
+    }
+    // Re-render
+    this.showSuggestions();
   }
 
   /**
@@ -443,6 +505,9 @@ class AutoAssignModal {
       return;
     }
 
+    // Preserve channelAnalysis from existing assignment or from stored analyses
+    const existingAnalysis = this.selectedAssignments[channel]?.channelAnalysis || this.channelAnalyses[channel] || null;
+
     // Update selected assignments
     this.selectedAssignments[channel] = {
       deviceId: deviceId,
@@ -456,8 +521,12 @@ class AutoAssignModal {
       octaveWrappingEnabled: selectedOption.compatibility.octaveWrappingEnabled || false,
       octaveWrappingInfo: selectedOption.compatibility.octaveWrappingInfo,
       issues: selectedOption.compatibility.issues,
-      info: selectedOption.compatibility.info
+      info: selectedOption.compatibility.info,
+      channelAnalysis: existingAnalysis
     };
+
+    // Ensure channel is not skipped when user selects an instrument
+    this.skippedChannels.delete(channel);
 
     // Re-render suggestions to update selection
     this.showSuggestions();
@@ -474,11 +543,19 @@ class AutoAssignModal {
   }
 
   /**
-   * Apply the selected assignments
+   * Apply the selected assignments (only non-skipped channels)
    */
   async apply() {
-    if (Object.keys(this.selectedAssignments).length === 0) {
-      alert('No assignments selected');
+    // Filter out skipped channels
+    const activeAssignments = {};
+    for (const [channel, assignment] of Object.entries(this.selectedAssignments)) {
+      if (!this.skippedChannels.has(parseInt(channel))) {
+        activeAssignments[channel] = assignment;
+      }
+    }
+
+    if (Object.keys(activeAssignments).length === 0) {
+      alert('No assignments selected. All channels are skipped.');
       return;
     }
 
@@ -496,7 +573,7 @@ class AutoAssignModal {
     try {
       // Prepare assignments with octave wrapping if enabled
       const preparedAssignments = {};
-      for (const [channel, assignment] of Object.entries(this.selectedAssignments)) {
+      for (const [channel, assignment] of Object.entries(activeAssignments)) {
         preparedAssignments[channel] = { ...assignment };
 
         // Combine noteRemapping with octaveWrapping if enabled
@@ -523,7 +600,10 @@ class AutoAssignModal {
       }
 
       // Success!
-      alert(`Assignments applied successfully!\n\nAdapted file created: ${response.filename}\n${response.stats.notesChanged} notes transposed`);
+      const skippedMsg = this.skippedChannels.size > 0
+        ? `\n${this.skippedChannels.size} channel(s) were skipped.`
+        : '';
+      alert(`Assignments applied successfully!\n\nAdapted file created: ${response.filename}\n${response.stats.notesChanged} notes transposed${skippedMsg}`);
 
       this.close();
 
@@ -554,6 +634,8 @@ class AutoAssignModal {
       return;
     }
 
+    // Reset skipped channels for quick assign
+    this.skippedChannels.clear();
     // Use auto-selection (already set in this.selectedAssignments)
     await this.apply();
   }
@@ -637,11 +719,13 @@ class AutoAssignModal {
       // Stop any existing playback
       this.stopPreview();
 
-      // Build transpositions object from all selected assignments
+      // Build transpositions object from all selected assignments (excluding skipped)
       const transpositions = {};
 
       for (const [channel, assignment] of Object.entries(this.selectedAssignments)) {
         const channelNum = parseInt(channel);
+        if (this.skippedChannels.has(channelNum)) continue;
+
         if (assignment && assignment.transposition) {
           // Combine noteRemapping with octaveWrapping if enabled
           let noteRemapping = assignment.noteRemapping || {};

@@ -166,4 +166,4 @@ const ScoringConfig = {
   }
 };
 
-module.exports = ScoringConfig;
+export default ScoringConfig;

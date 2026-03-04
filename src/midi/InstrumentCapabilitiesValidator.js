@@ -13,7 +13,7 @@ class InstrumentCapabilitiesValidator {
       'note_range_min',
       'note_range_max',
       'polyphony',
-      'mode'
+      'note_selection_mode'
     ];
 
     // Capacités optionnelles mais recommandées
@@ -24,7 +24,7 @@ class InstrumentCapabilitiesValidator {
 
     // Capacités conditionnelles
     this.conditionalCapabilities = {
-      'selected_notes': (instrument) => instrument.mode === 'discrete'
+      'selected_notes': (instrument) => instrument.note_selection_mode === 'discrete'
     };
   }
 
@@ -126,7 +126,7 @@ class InstrumentCapabilitiesValidator {
       'note_range_min': 'Lowest Note',
       'note_range_max': 'Highest Note',
       'polyphony': 'Maximum Polyphony',
-      'mode': 'Play Mode',
+      'note_selection_mode': 'Play Mode',
       'supported_ccs': 'Supported Control Changes',
       'type': 'Instrument Type',
       'selected_notes': 'Playable Notes (Discrete Mode)'
@@ -146,7 +146,7 @@ class InstrumentCapabilitiesValidator {
       'note_range_min': 'note',
       'note_range_max': 'note',
       'polyphony': 'number',
-      'mode': 'select',
+      'note_selection_mode': 'select',
       'supported_ccs': 'array',
       'type': 'select',
       'selected_notes': 'note-array'
@@ -169,7 +169,7 @@ class InstrumentCapabilitiesValidator {
       defaults.note_range_min = 21; // A0
       defaults.note_range_max = 108; // C8
       defaults.polyphony = 64;
-      defaults.mode = 'continuous';
+      defaults.note_selection_mode = 'continuous';
       defaults.supported_ccs = [1, 7, 10, 11, 64, 71, 91, 93];
     }
     else if (instrument.type === 'drums' || instrument.type === 'percussion') {
@@ -177,7 +177,7 @@ class InstrumentCapabilitiesValidator {
       defaults.note_range_min = 35; // Acoustic Bass Drum
       defaults.note_range_max = 81; // Open Triangle
       defaults.polyphony = 16;
-      defaults.mode = 'discrete';
+      defaults.note_selection_mode = 'discrete';
       defaults.selected_notes = [36, 38, 42, 44, 46, 48, 50, 51]; // Common drum notes
       defaults.supported_ccs = [7, 10]; // Volume, Pan
     }
@@ -186,7 +186,7 @@ class InstrumentCapabilitiesValidator {
       defaults.note_range_min = 28; // E1
       defaults.note_range_max = 60; // C4
       defaults.polyphony = 4;
-      defaults.mode = 'continuous';
+      defaults.note_selection_mode = 'continuous';
       defaults.supported_ccs = [1, 7, 10, 11];
     }
     else if (instrument.type === 'synth') {
@@ -194,7 +194,7 @@ class InstrumentCapabilitiesValidator {
       defaults.note_range_min = 0; // Full MIDI range
       defaults.note_range_max = 127;
       defaults.polyphony = 8;
-      defaults.mode = 'continuous';
+      defaults.note_selection_mode = 'continuous';
       defaults.supported_ccs = [1, 7, 10, 11, 71, 72, 73, 74];
     }
     else {
@@ -203,7 +203,7 @@ class InstrumentCapabilitiesValidator {
       defaults.note_range_min = 48; // C3
       defaults.note_range_max = 84; // C6
       defaults.polyphony = 16;
-      defaults.mode = 'continuous';
+      defaults.note_selection_mode = 'continuous';
       defaults.supported_ccs = [7, 10, 11];
     }
 
@@ -262,4 +262,4 @@ class InstrumentCapabilitiesValidator {
   }
 }
 
-module.exports = InstrumentCapabilitiesValidator;
+export default InstrumentCapabilitiesValidator;

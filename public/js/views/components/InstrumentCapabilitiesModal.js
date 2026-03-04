@@ -223,7 +223,7 @@ class InstrumentCapabilitiesModal {
         break;
 
       case 'select':
-        if (field.field === 'mode') {
+        if (field.field === 'note_selection_mode') {
           inputHTML = `
             <select id="${inputId}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"

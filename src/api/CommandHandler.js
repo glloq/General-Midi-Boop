@@ -1702,8 +1702,7 @@ class CommandHandler {
         const capabilityFields = {};
 
         const capabilityFieldNames = ['note_range_min', 'note_range_max', 'polyphony',
-                                      'mode', 'supported_ccs', 'selected_notes',
-                                      'note_selection_mode'];
+                                      'note_selection_mode', 'supported_ccs', 'selected_notes'];
 
         for (const [field, value] of Object.entries(fields)) {
           if (capabilityFieldNames.includes(field)) {

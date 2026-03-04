@@ -1,8 +1,8 @@
 // src/midi/AutoAssigner.js
 
-const ChannelAnalyzer = require('./ChannelAnalyzer');
-const InstrumentMatcher = require('./InstrumentMatcher');
-const AnalysisCache = require('./AnalysisCache');
+import ChannelAnalyzer from './ChannelAnalyzer.js';
+import InstrumentMatcher from './InstrumentMatcher.js';
+import AnalysisCache from './AnalysisCache.js';
 
 /**
  * AutoAssigner - Génère des suggestions d'assignation automatique
@@ -296,4 +296,4 @@ class AutoAssigner {
   }
 }
 
-module.exports = AutoAssigner;
+export default AutoAssigner;

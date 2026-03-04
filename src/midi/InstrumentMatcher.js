@@ -1,8 +1,8 @@
 // src/midi/InstrumentMatcher.js
 
-const MidiUtils = require('../utils/MidiUtils');
-const ScoringConfig = require('./ScoringConfig');
-const DrumNoteMapper = require('./DrumNoteMapper');
+import MidiUtils from '../utils/MidiUtils.js';
+import ScoringConfig from './ScoringConfig.js';
+import DrumNoteMapper from './DrumNoteMapper.js';
 
 /**
  * InstrumentMatcher - Calcule la compatibilité entre canaux MIDI et instruments
@@ -73,7 +73,13 @@ class InstrumentMatcher {
       channelAnalysis // Pass full analysis for intelligent drum mapping
     );
     score += noteScore.score;
+    // noteScore may return issue (singular object) or issues (array) depending on path
     if (noteScore.issue) issues.push(noteScore.issue);
+    if (noteScore.issues) {
+      for (const iss of noteScore.issues) {
+        issues.push(iss);
+      }
+    }
     if (noteScore.info) info.push(noteScore.info);
 
     // Store drum mapping report if available
@@ -709,4 +715,4 @@ class InstrumentMatcher {
   }
 }
 
-module.exports = InstrumentMatcher;
+export default InstrumentMatcher;

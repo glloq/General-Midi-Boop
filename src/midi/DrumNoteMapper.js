@@ -804,4 +804,4 @@ class DrumNoteMapper {
   }
 }
 
-module.exports = DrumNoteMapper;
+export default DrumNoteMapper;
