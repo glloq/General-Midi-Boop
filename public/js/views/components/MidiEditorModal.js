@@ -1792,7 +1792,7 @@ class MidiEditorModal {
 
             // Send to backend with new filename
             const response = await this.api.sendCommand('file_save_as', {
-                fileId: this.currentFileId,
+                fileId: this.currentFile,
                 newFilename: newFilename,
                 midiData: midiData
             });
@@ -1831,19 +1831,19 @@ class MidiEditorModal {
      */
     showAutoAssignModal() {
         // Check if current file is loaded
-        if (!this.currentFileId) {
-            this.showError('No file loaded. Please load a MIDI file first.');
+        if (!this.currentFile) {
+            this.showErrorModal('No file loaded. Please load a MIDI file first.');
             return;
         }
 
         // Create and show AutoAssignModal
         if (!window.AutoAssignModal) {
-            this.showError('AutoAssignModal component not loaded');
+            this.showErrorModal('AutoAssignModal component not loaded');
             return;
         }
 
         const modal = new window.AutoAssignModal(this.api);
-        modal.show(this.currentFileId);
+        modal.show(this.currentFile);
     }
 
     /**
@@ -3918,7 +3918,7 @@ class MidiEditorModal {
                         ${details ? `<div class="confirm-modal-details">${details}</div>` : ''}
                     </div>
                     <div class="confirm-modal-footer">
-                        <button class="confirm-modal-btn cancel" data-action="cancel">${cancelText}</button>
+                        ${cancelText ? `<button class="confirm-modal-btn cancel" data-action="cancel">${cancelText}</button>` : ''}
                         ${extraButtons.map(btn => `
                             <button class="confirm-modal-btn ${btn.class || 'secondary'}" data-action="extra" data-value="${btn.value}">${btn.text}</button>
                         `).join('')}
@@ -5192,12 +5192,19 @@ class MidiEditorModal {
     }
 
     showError(message) {
-        if (window.app?.notifications) {
-            window.app.notifications.show('Erreur', message, 'error', 5000);
-        } else {
-            this.log('error', message);
-            alert(message);
-        }
+        this.showErrorModal(message);
+    }
+
+    showErrorModal(message, title = 'Erreur') {
+        this.log('error', message);
+        this.showConfirmModal({
+            title: title,
+            message: message,
+            icon: '❌',
+            confirmText: 'OK',
+            confirmClass: 'primary',
+            cancelText: ''
+        }).catch(() => {});
     }
 
     log(level, ...args) {
