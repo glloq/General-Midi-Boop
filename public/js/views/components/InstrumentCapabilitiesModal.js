@@ -5,6 +5,8 @@
  * avant l'auto-assignation.
  */
 
+const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+
 class InstrumentCapabilitiesModal {
   constructor(apiClient) {
     this.apiClient = apiClient;
@@ -13,6 +15,7 @@ class InstrumentCapabilitiesModal {
     this.currentIndex = 0;
     this.updates = {}; // { instrumentId: { field: value, ... } }
     this.onComplete = null;
+    this._escHandler = null;
   }
 
   /**
@@ -44,40 +47,47 @@ class InstrumentCapabilitiesModal {
 
     // Rendre global pour les callbacks onclick
     window.instrumentCapabilitiesModalInstance = this;
+
+    // ESC key handler
+    this._escHandler = (e) => {
+      if (e.key === 'Escape') this.close();
+    };
+    document.addEventListener('keydown', this._escHandler);
   }
 
   /**
    * Crée la structure HTML du modal
    */
   createModal() {
+    const totalCount = this.incompleteInstruments.length;
+
     const modalHTML = `
-      <div class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+      <div class="modal-overlay instrument-capabilities-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
         <div class="modal-container" style="background: white; border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-          <div class="modal-header" style="padding: 24px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-            <h2 style="margin: 0 0 8px 0; font-size: 24px;">⚙️ Complete Instrument Capabilities</h2>
-            <p style="margin: 0; opacity: 0.9; font-size: 14px;">
-              Some instruments are missing information needed for optimal auto-assignment.
-              Please complete the required fields.
+          <div class="modal-header" style="padding: 16px 20px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <h2 style="margin: 0 0 4px 0; font-size: 20px;">${_t('instrumentCapabilities.title')}</h2>
+            <p style="margin: 0; opacity: 0.9; font-size: 13px;">
+              ${_t('instrumentCapabilities.subtitle')}
             </p>
           </div>
 
-          <div id="instrumentCapabilitiesContent" class="modal-body" style="padding: 24px; max-height: 60vh; overflow-y: auto;">
+          <div id="instrumentCapabilitiesContent" class="modal-body" style="padding: 16px 20px; max-height: 60vh; overflow-y: auto;">
             <!-- Contenu dynamique -->
           </div>
 
-          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
-            <div style="color: #666; font-size: 14px;">
-              <span id="progressText">Instrument 1 of X</span>
+          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+            <div style="color: #666; font-size: 13px;">
+              <span id="progressText">${_t('instrumentCapabilities.progress', { current: 1, total: totalCount })}</span>
             </div>
-            <div style="display: flex; gap: 10px;">
-              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.skip()" style="min-width: 100px;">
-                Skip
+            <div style="display: flex; gap: 8px;">
+              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.skip()" style="min-width: 80px;">
+                ${_t('instrumentCapabilities.skip')}
               </button>
-              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.previous()" id="previousBtn" style="min-width: 100px;">
-                ← Previous
+              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.previous()" id="previousBtn" style="min-width: 80px;">
+                ${_t('instrumentCapabilities.previous')}
               </button>
-              <button class="button button-primary" onclick="instrumentCapabilitiesModalInstance.next()" id="nextBtn" style="min-width: 120px;">
-                Next →
+              <button class="button button-primary" onclick="instrumentCapabilitiesModalInstance.next()" id="nextBtn" style="min-width: 100px;">
+                ${_t('instrumentCapabilities.next')}
               </button>
             </div>
           </div>
@@ -91,6 +101,14 @@ class InstrumentCapabilitiesModal {
     document.body.appendChild(modalElement);
 
     this.modal = modalElement;
+
+    // Overlay click to close
+    const overlay = modalElement.querySelector('.modal-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) this.close();
+      });
+    }
   }
 
   /**
@@ -109,7 +127,7 @@ class InstrumentCapabilitiesModal {
     // Mettre à jour la progression
     const progressText = document.getElementById('progressText');
     if (progressText) {
-      progressText.textContent = `Instrument ${index + 1} of ${this.incompleteInstruments.length}`;
+      progressText.textContent = _t('instrumentCapabilities.progress', { current: index + 1, total: this.incompleteInstruments.length });
     }
 
     // Activer/désactiver les boutons
@@ -123,7 +141,7 @@ class InstrumentCapabilitiesModal {
 
     if (nextBtn) {
       const isLast = index === this.incompleteInstruments.length - 1;
-      nextBtn.textContent = isLast ? '✓ Complete' : 'Next →';
+      nextBtn.textContent = isLast ? _t('instrumentCapabilities.complete') : _t('instrumentCapabilities.next');
     }
 
     // Générer le formulaire
@@ -145,35 +163,33 @@ class InstrumentCapabilitiesModal {
    * @returns {string}
    */
   generateInstrumentForm(instrument, validation) {
-    const allFields = [...validation.missing, ...validation.recommended];
-
     return `
-      <div style="margin-bottom: 20px; padding: 16px; background: #f0f7ff; border: 2px solid #3b82f6; border-radius: 8px;">
-        <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 18px;">
+      <div style="margin-bottom: 12px; padding: 12px; background: #f0f7ff; border: 2px solid #3b82f6; border-radius: 8px;">
+        <h3 style="margin: 0 0 4px 0; color: #1e40af; font-size: 16px;">
           ${this.escapeHtml(instrument.custom_name || instrument.name)}
         </h3>
-        <div style="color: #666; font-size: 13px;">
-          Type: ${this.escapeHtml(instrument.type || 'Unknown')} •
-          Manufacturer: ${this.escapeHtml(instrument.manufacturer || 'Unknown')}
+        <div style="color: #666; font-size: 12px;">
+          ${_t('instrumentCapabilities.type')}: ${this.escapeHtml(instrument.type || _t('common.unknown'))} •
+          ${_t('instrumentCapabilities.manufacturer')}: ${this.escapeHtml(instrument.manufacturer || _t('common.unknown'))}
         </div>
       </div>
 
       ${validation.missing.length > 0 ? `
-        <div style="margin-bottom: 24px;">
-          <h4 style="margin: 0 0 16px 0; color: #dc2626; font-size: 16px;">
-            ⚠️ Required Fields
+        <div style="margin-bottom: 16px;">
+          <h4 style="margin: 0 0 10px 0; color: #dc2626; font-size: 14px;">
+            ${_t('instrumentCapabilities.requiredFields')}
           </h4>
           ${validation.missing.map(field => this.generateFieldInput(instrument, field, true)).join('')}
         </div>
       ` : ''}
 
       ${validation.recommended.length > 0 ? `
-        <div style="margin-bottom: 24px;">
-          <h4 style="margin: 0 0 16px 0; color: #f59e0b; font-size: 16px;">
-            💡 Recommended Fields
+        <div style="margin-bottom: 16px;">
+          <h4 style="margin: 0 0 10px 0; color: #f59e0b; font-size: 14px;">
+            ${_t('instrumentCapabilities.recommendedFields')}
           </h4>
-          <p style="margin: 0 0 12px 0; color: #666; font-size: 13px;">
-            These fields improve auto-assignment quality but are not required.
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 12px;">
+            ${_t('instrumentCapabilities.recommendedHint')}
           </p>
           ${validation.recommended.map(field => this.generateFieldInput(instrument, field, false)).join('')}
         </div>
@@ -203,14 +219,14 @@ class InstrumentCapabilitiesModal {
                  id="${inputId}"
                  value="${currentValue !== null && currentValue !== undefined ? currentValue : ''}"
                  onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                 style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                 style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
                  ${required ? 'required' : ''}>
         `;
         break;
 
       case 'note':
         inputHTML = `
-          <div style="display: flex; gap: 10px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center;">
             <input type="number"
                    id="${inputId}"
                    value="${currentValue !== null && currentValue !== undefined ? currentValue : ''}"
@@ -218,9 +234,9 @@ class InstrumentCapabilitiesModal {
                    max="127"
                    onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
                    oninput="(function(el){ var n = instrumentCapabilitiesModalInstance.getNoteNameFromMidi(parseInt(el.value)); document.getElementById('${inputId}_name').textContent = n; })(this)"
-                   style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                   style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
                    ${required ? 'required' : ''}>
-            <span id="${inputId}_name" style="color: #666; font-size: 13px; min-width: 60px;">
+            <span id="${inputId}_name" style="color: #666; font-size: 13px; min-width: 50px;">
               ${currentValue !== null && currentValue !== undefined ? this.getNoteNameFromMidi(currentValue) : ''}
             </span>
           </div>
@@ -232,14 +248,14 @@ class InstrumentCapabilitiesModal {
           inputHTML = `
             <select id="${inputId}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
                     ${required ? 'required' : ''}>
-              <option value="">-- Select --</option>
+              <option value="">-- ${_t('instrumentCapabilities.select')} --</option>
               <option value="range" ${currentValue === 'range' ? 'selected' : ''}>
-                Range (melodic instruments)
+                ${_t('instrumentCapabilities.noteSelectionRange')}
               </option>
               <option value="discrete" ${currentValue === 'discrete' ? 'selected' : ''}>
-                Discrete (drums, pads)
+                ${_t('instrumentCapabilities.noteSelectionDiscrete')}
               </option>
             </select>
           `;
@@ -247,19 +263,19 @@ class InstrumentCapabilitiesModal {
           inputHTML = `
             <select id="${inputId}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-              <option value="">-- Select --</option>
-              <option value="keyboard" ${currentValue === 'keyboard' ? 'selected' : ''}>Keyboard / Piano</option>
-              <option value="synth" ${currentValue === 'synth' ? 'selected' : ''}>Synthesizer</option>
-              <option value="drums" ${currentValue === 'drums' ? 'selected' : ''}>Drums / Percussion</option>
-              <option value="bass" ${currentValue === 'bass' ? 'selected' : ''}>Bass</option>
-              <option value="guitar" ${currentValue === 'guitar' ? 'selected' : ''}>Guitar</option>
-              <option value="strings" ${currentValue === 'strings' ? 'selected' : ''}>Strings</option>
-              <option value="brass" ${currentValue === 'brass' ? 'selected' : ''}>Brass</option>
-              <option value="woodwind" ${currentValue === 'woodwind' ? 'selected' : ''}>Woodwind</option>
-              <option value="pad" ${currentValue === 'pad' ? 'selected' : ''}>Pad / Atmosphere</option>
-              <option value="sampler" ${currentValue === 'sampler' ? 'selected' : ''}>Sampler</option>
-              <option value="other" ${currentValue === 'other' ? 'selected' : ''}>Other</option>
+                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+              <option value="">-- ${_t('instrumentCapabilities.select')} --</option>
+              <option value="keyboard" ${currentValue === 'keyboard' ? 'selected' : ''}>${_t('instrumentCapabilities.typeKeyboard')}</option>
+              <option value="synth" ${currentValue === 'synth' ? 'selected' : ''}>${_t('instrumentCapabilities.typeSynth')}</option>
+              <option value="drums" ${currentValue === 'drums' ? 'selected' : ''}>${_t('instrumentCapabilities.typeDrums')}</option>
+              <option value="bass" ${currentValue === 'bass' ? 'selected' : ''}>${_t('instrumentCapabilities.typeBass')}</option>
+              <option value="guitar" ${currentValue === 'guitar' ? 'selected' : ''}>${_t('instrumentCapabilities.typeGuitar')}</option>
+              <option value="strings" ${currentValue === 'strings' ? 'selected' : ''}>${_t('instrumentCapabilities.typeStrings')}</option>
+              <option value="brass" ${currentValue === 'brass' ? 'selected' : ''}>${_t('instrumentCapabilities.typeBrass')}</option>
+              <option value="woodwind" ${currentValue === 'woodwind' ? 'selected' : ''}>${_t('instrumentCapabilities.typeWoodwind')}</option>
+              <option value="pad" ${currentValue === 'pad' ? 'selected' : ''}>${_t('instrumentCapabilities.typePad')}</option>
+              <option value="sampler" ${currentValue === 'sampler' ? 'selected' : ''}>${_t('instrumentCapabilities.typeSampler')}</option>
+              <option value="other" ${currentValue === 'other' ? 'selected' : ''}>${_t('instrumentCapabilities.typeOther')}</option>
             </select>
           `;
         }
@@ -282,15 +298,15 @@ class InstrumentCapabilitiesModal {
         ];
 
         inputHTML = `
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
             ${commonCCs.map(cc => `
-              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb;">
                 <input type="checkbox"
                        value="${cc.value}"
                        ${currentCCs.includes(cc.value) ? 'checked' : ''}
                        onchange="instrumentCapabilitiesModalInstance.updateCCArray('${field.field}', this)"
                        style="cursor: pointer;">
-                <span style="font-size: 13px;">${cc.label}</span>
+                <span style="font-size: 12px;">${cc.label}</span>
               </label>
             `).join('')}
           </div>
@@ -301,22 +317,22 @@ class InstrumentCapabilitiesModal {
         const currentNotes = Array.isArray(currentValue) ? currentValue.join(', ') : '';
         inputHTML = `
           <textarea id="${inputId}"
-                    placeholder="Enter MIDI note numbers separated by commas (e.g., 36, 38, 42, 46, 48)"
+                    placeholder="${_t('instrumentCapabilities.noteArrayPlaceholder')}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: monospace; min-height: 80px;"
+                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; min-height: 60px;"
                     ${required ? 'required' : ''}>${currentNotes}</textarea>
-          <div style="color: #666; font-size: 12px; margin-top: 4px;">
-            Common drums: 36 (Kick), 38 (Snare), 42 (Closed HH), 46 (Open HH), 48 (Tom1), 50 (Tom2)
+          <div style="color: #666; font-size: 11px; margin-top: 4px;">
+            ${_t('instrumentCapabilities.commonDrums')}
           </div>
         `;
         break;
     }
 
     return `
-      <div style="margin-bottom: 16px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #374151; font-size: 13px;">
           ${field.label}
-          ${required ? '<span style="color: #dc2626;">*</span>' : '<span style="color: #9ca3af; font-weight: normal;">(optional)</span>'}
+          ${required ? '<span style="color: #dc2626;">*</span>' : `<span style="color: #9ca3af; font-weight: normal;">(${_t('instrumentCapabilities.optional')})</span>`}
         </label>
         ${inputHTML}
       </div>
@@ -330,19 +346,19 @@ class InstrumentCapabilitiesModal {
    */
   generateDefaultsButton(instrument) {
     return `
-      <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+      <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
         <button class="button button-secondary"
                 onclick="instrumentCapabilitiesModalInstance.applyDefaults()"
-                style="width: 100%; margin-bottom: 10px;">
-          ✨ Apply Suggested Defaults
+                style="width: 100%; margin-bottom: 8px;">
+          ${_t('instrumentCapabilities.applyDefaults')}
         </button>
         <button class="button button-info"
                 onclick="instrumentCapabilitiesModalInstance.openFullSettings(${instrument.id})"
                 style="width: 100%;">
-          ⚙️ Open Full Instrument Settings
+          ${_t('instrumentCapabilities.openFullSettings')}
         </button>
-        <div style="color: #666; font-size: 12px; margin-top: 8px; text-align: center;">
-          Access advanced configuration, latency settings, and more
+        <div style="color: #666; font-size: 11px; margin-top: 6px; text-align: center;">
+          ${_t('instrumentCapabilities.fullSettingsHint')}
         </div>
       </div>
     `;
@@ -425,7 +441,7 @@ class InstrumentCapabilitiesModal {
       }
     } catch (error) {
       console.error('Failed to get defaults:', error);
-      alert('Failed to load suggested defaults');
+      alert(_t('instrumentCapabilities.defaultsFailed'));
     }
   }
 
@@ -513,11 +529,11 @@ class InstrumentCapabilitiesModal {
           this.onComplete(this.updates);
         }
       } else {
-        alert('Failed to save instrument capabilities: ' + (response?.error || 'Unknown error'));
+        alert(_t('instrumentCapabilities.saveFailed') + ': ' + (response?.error || _t('common.unknownError')));
       }
     } catch (error) {
       console.error('Failed to save capabilities:', error);
-      alert('Failed to save instrument capabilities');
+      alert(_t('instrumentCapabilities.saveFailed'));
     }
   }
 
@@ -526,15 +542,7 @@ class InstrumentCapabilitiesModal {
    * @param {number} instrumentId
    */
   openFullSettings(instrumentId) {
-    // TODO: Implémenter la page de gestion complète des instruments
-    // Pour l'instant, afficher un message
-    alert(`Full instrument settings page coming soon!\n\nInstrument ID: ${instrumentId}\n\nThis feature will allow you to configure:\n- Advanced MIDI settings\n- Latency calibration\n- Bank MSB/LSB\n- Custom note mappings\n- And more...`);
-
-    // Future implementation:
-    // window.location.hash = `#instrument-settings/${instrumentId}`;
-    // ou
-    // const settingsModal = new InstrumentSettingsModal(this.apiClient);
-    // settingsModal.show(instrumentId);
+    alert(_t('instrumentCapabilities.fullSettingsComingSoon'));
   }
 
   /**
@@ -558,6 +566,11 @@ class InstrumentCapabilitiesModal {
    * Ferme le modal
    */
   close() {
+    if (this._escHandler) {
+      document.removeEventListener('keydown', this._escHandler);
+      this._escHandler = null;
+    }
+
     if (this.modal) {
       this.modal.remove();
       this.modal = null;

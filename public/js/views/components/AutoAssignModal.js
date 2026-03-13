@@ -1,5 +1,7 @@
 // public/js/views/components/AutoAssignModal.js
 
+const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+
 /**
  * AutoAssignModal - Modal for auto-assigning MIDI channels to instruments
  *
@@ -18,6 +20,7 @@ class AutoAssignModal {
     this.skippedChannels = new Set(); // Channels user chose to skip
     this.modal = null;
     this.audioPreview = null; // Audio preview instance
+    this._escHandler = null;
   }
 
   /**
@@ -89,7 +92,7 @@ class AutoAssignModal {
       });
 
       if (!response.success) {
-        this.showError(response.error || 'Failed to generate suggestions');
+        this.showError(response.error || _t('autoAssign.generateFailed'));
         return;
       }
 
@@ -116,7 +119,7 @@ class AutoAssignModal {
       // Show suggestions modal
       this.showSuggestions();
     } catch (error) {
-      this.showError(error.message || 'Failed to generate suggestions');
+      this.showError(error.message || _t('autoAssign.generateFailed'));
     }
   }
 
@@ -125,14 +128,14 @@ class AutoAssignModal {
    */
   showLoading() {
     const html = `
-      <div class="modal-overlay" id="autoAssignModal">
+      <div class="modal-overlay auto-assign-modal" id="autoAssignModal">
         <div class="modal-container" style="max-width: 600px;">
           <div class="modal-header">
-            <h2>Auto-Assign Instruments</h2>
+            <h2>${_t('autoAssign.title')}</h2>
           </div>
           <div class="modal-body" style="text-align: center; padding: 40px;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px;">Analyzing channels and instruments...</p>
+            <p style="margin-top: 16px;">${_t('autoAssign.analyzing')}</p>
           </div>
         </div>
       </div>
@@ -151,16 +154,16 @@ class AutoAssignModal {
     }
 
     const html = `
-      <div class="modal-overlay" id="autoAssignModal">
+      <div class="modal-overlay auto-assign-modal" id="autoAssignModal">
         <div class="modal-container" style="max-width: 600px;">
           <div class="modal-header">
-            <h2>Auto-Assign Error</h2>
+            <h2>${_t('autoAssign.error')}</h2>
             <button class="modal-close" onclick="document.getElementById('autoAssignModal').remove()">x</button>
           </div>
-          <div class="modal-body" style="padding: 40px; text-align: center;">
+          <div class="modal-body" style="padding: 32px; text-align: center;">
             <p style="color: #ff4444; font-size: 16px;">${this.escapeHtml(message)}</p>
-            <button class="button button-secondary" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 20px;">
-              Close
+            <button class="button button-secondary" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 16px;">
+              ${_t('common.close')}
             </button>
           </div>
         </div>
@@ -178,11 +181,15 @@ class AutoAssignModal {
     if (this.modal) {
       this.modal.remove();
     }
+    // Clean up previous ESC handler
+    if (this._escHandler) {
+      document.removeEventListener('keydown', this._escHandler);
+    }
 
     const channels = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
 
     if (channels.length === 0) {
-      this.showError('No active channels found in this MIDI file');
+      this.showError(_t('autoAssign.noActiveChannels'));
       return;
     }
 
@@ -191,59 +198,59 @@ class AutoAssignModal {
     const activeCount = channels.length - this.skippedChannels.size;
 
     const html = `
-      <div class="modal-overlay" id="autoAssignModal">
+      <div class="modal-overlay auto-assign-modal" id="autoAssignModal">
         <div class="modal-container" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
           <div class="modal-header">
-            <h2>Auto-Assign Instruments</h2>
+            <h2>${_t('autoAssign.title')}</h2>
             <button class="modal-close" onclick="autoAssignModalInstance.close()">x</button>
           </div>
           <div class="modal-body" style="padding: 0;">
-            <div style="padding: 20px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
+            <div style="padding: 16px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                  <strong>Confidence Score:</strong>
-                  <span style="font-size: 20px; font-weight: bold; color: ${this.getScoreColor(this.confidenceScore)};">
+                  <strong>${_t('autoAssign.confidenceScore')}:</strong>
+                  <span style="font-size: 18px; font-weight: bold; color: ${this.getScoreColor(this.confidenceScore)};">
                     ${this.confidenceScore}/100
                   </span>
                   ${this.getScoreStars(this.confidenceScore)}
                 </div>
-                <div style="color: #666; font-size: 14px;">
-                  ${activeCount}/${channels.length} channel(s) will be assigned
-                  ${this.skippedChannels.size > 0 ? ` (${this.skippedChannels.size} skipped)` : ''}
+                <div style="color: #666; font-size: 13px;">
+                  ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: channels.length})}
+                  ${this.skippedChannels.size > 0 ? ` (${_t('autoAssign.skippedCount', {count: this.skippedChannels.size})})` : ''}
                 </div>
               </div>
-              <div style="margin-top: 10px; font-size: 13px; color: #888;">
-                Click on an instrument to select it, or use the toggle to skip a channel.
+              <div style="margin-top: 8px; font-size: 12px; color: #888;">
+                ${_t('autoAssign.instructions')}
               </div>
             </div>
 
-            <div style="padding: 20px;">
+            <div style="padding: 16px;">
               ${channelsHTML}
             </div>
           </div>
-          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid #ddd;">
+          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border-top: 1px solid #ddd;">
             <button class="button button-secondary" onclick="autoAssignModalInstance.close()">
-              Cancel
+              ${_t('common.cancel')}
             </button>
-            <div id="previewControls" style="display: flex; gap: 10px; align-items: center;">
+            <div id="previewControls" style="display: flex; gap: 8px; align-items: center;">
               ${this.midiData ? `
-                <button class="button button-secondary" onclick="autoAssignModalInstance.previewOriginal()" title="Preview original MIDI file">
-                  Preview Original
+                <button class="button button-secondary" onclick="autoAssignModalInstance.previewOriginal()" title="${_t('autoAssign.previewOriginalTip')}">
+                  ${_t('autoAssign.previewOriginal')}
                 </button>
-                <button class="button button-secondary" onclick="autoAssignModalInstance.previewAdapted()" title="Preview adapted MIDI with transpositions">
-                  Preview Adapted
+                <button class="button button-secondary" onclick="autoAssignModalInstance.previewAdapted()" title="${_t('autoAssign.previewAdaptedTip')}">
+                  ${_t('autoAssign.previewAdapted')}
                 </button>
                 <button class="button button-secondary" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
-                  Stop
+                  ${_t('autoAssign.stop')}
                 </button>
               ` : ''}
             </div>
-            <div style="display: flex; gap: 10px;">
-              <button class="button button-info" onclick="autoAssignModalInstance.quickAssign()" title="Auto-assign and apply in one click">
-                Quick Assign & Apply
+            <div style="display: flex; gap: 8px;">
+              <button class="button button-info" onclick="autoAssignModalInstance.quickAssign()" title="${_t('autoAssign.quickAssignTip')}">
+                ${_t('autoAssign.quickAssign')}
               </button>
               <button class="button button-primary" onclick="autoAssignModalInstance.apply()">
-                Apply Assignments
+                ${_t('autoAssign.apply')}
               </button>
             </div>
           </div>
@@ -256,6 +263,15 @@ class AutoAssignModal {
 
     // Make instance globally accessible for event handlers
     window.autoAssignModalInstance = this;
+
+    // ESC key handler
+    this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
+    document.addEventListener('keydown', this._escHandler);
+
+    // Click overlay to close
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) this.close();
+    });
   }
 
   /**
@@ -270,18 +286,18 @@ class AutoAssignModal {
     const polyphony = analysis.polyphony || {};
 
     return `
-      <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 12px;">
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+      <div style="background: #f0f8ff; padding: 8px 10px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
           <div>
-            <strong>Note Range:</strong><br>
-            ${noteRange.min != null ? `${noteRange.min} - ${noteRange.max} (${noteRange.max - noteRange.min} semitones)` : 'N/A'}
+            <strong>${_t('autoAssign.noteRange')}:</strong><br>
+            ${noteRange.min != null ? `${noteRange.min} - ${noteRange.max} (${noteRange.max - noteRange.min} st)` : 'N/A'}
           </div>
           <div>
-            <strong>Polyphony:</strong><br>
+            <strong>${_t('autoAssign.polyphony')}:</strong><br>
             ${polyphony.max != null ? `Max: ${polyphony.max}${polyphony.avg !== undefined ? ` | Avg: ${polyphony.avg.toFixed(1)}` : ''}` : 'N/A'}
           </div>
           <div>
-            <strong>Type:</strong><br>
+            <strong>${_t('autoAssign.type')}:</strong><br>
             ${this.escapeHtml(analysis.estimatedType)} ${analysis.typeConfidence ? `(${analysis.typeConfidence}%)` : ''}
           </div>
         </div>
@@ -295,10 +311,10 @@ class AutoAssignModal {
    */
   renderMiniPiano(noteRange) {
     return `
-      <div style="margin-top: 8px;">
+      <div style="margin-top: 6px;">
         <div style="display: flex; align-items: center; gap: 4px; font-size: 10px;">
-          <span>Range:</span>
-          <div style="flex: 1; height: 20px; background: linear-gradient(to right, #ddd, #4CAF50, #ddd); border-radius: 3px; position: relative;">
+          <span>${_t('autoAssign.range')}:</span>
+          <div style="flex: 1; height: 16px; background: linear-gradient(to right, #ddd, #4CAF50, #ddd); border-radius: 3px; position: relative;">
             <div style="position: absolute; left: 10%; width: 80%; height: 100%; background: #4CAF50; opacity: 0.5; border-radius: 3px;"></div>
           </div>
           <span>${noteRange.min} - ${noteRange.max}</span>
@@ -317,27 +333,27 @@ class AutoAssignModal {
 
     if (options.length === 0) {
       return `
-        <div class="channel-suggestions" style="margin-bottom: 30px; padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
-          <h3 style="margin: 0 0 15px 0; color: #333;">
-            Channel ${channel + 1}
-            ${channel === 9 ? '<span style="color: #888; font-size: 14px;">(Drums)</span>' : ''}
+        <div class="channel-suggestions" style="margin-bottom: 20px; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
+          <h3 style="margin: 0 0 10px 0; color: #333; font-size: 15px;">
+            ${_t('autoAssign.channel', {num: channel + 1})}
+            ${channel === 9 ? `<span style="color: #888; font-size: 13px;">(${_t('autoAssign.drums')})</span>` : ''}
           </h3>
           ${this.renderChannelStats(channel)}
-          <p style="color: #999;">No compatible instruments found</p>
+          <p style="color: #999; font-size: 13px;">${_t('autoAssign.noCompatible')}</p>
         </div>
       `;
     }
 
     // Skip/enable toggle for this channel
     const skipToggle = `
-      <div style="margin-bottom: 15px; padding: 10px; background: ${isSkipped ? '#fff3f3' : '#f0fff0'}; border: 1px solid ${isSkipped ? '#ffcccc' : '#c8e6c9'}; border-radius: 6px;">
-        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+      <div style="margin-bottom: 10px; padding: 8px 10px; background: ${isSkipped ? '#fff3f3' : '#f0fff0'}; border: 1px solid ${isSkipped ? '#ffcccc' : '#c8e6c9'}; border-radius: 6px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
           <input type="checkbox"
                  ${isSkipped ? '' : 'checked'}
                  onchange="autoAssignModalInstance.toggleChannel(${channel}, this.checked)"
-                 style="cursor: pointer; width: 18px; height: 18px;">
-          <span style="font-size: 14px; font-weight: 600; color: ${isSkipped ? '#cc0000' : '#2e7d32'};">
-            ${isSkipped ? 'Channel skipped - will not be assigned' : 'Assign this channel to an instrument'}
+                 style="cursor: pointer; width: 16px; height: 16px;">
+          <span style="font-size: 13px; font-weight: 600; color: ${isSkipped ? '#cc0000' : '#2e7d32'};">
+            ${isSkipped ? _t('autoAssign.channelSkipped') : _t('autoAssign.assignChannel')}
           </span>
         </label>
       </div>
@@ -349,43 +365,42 @@ class AutoAssignModal {
       const isSelected = instrument.device_id === selectedDeviceId;
       const escapedName = this.escapeHtml(instrument.custom_name || instrument.name);
       const escapedDeviceId = this.escapeHtml(instrument.device_id);
-      const safeDeviceId = escapedDeviceId.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
       return `
         <div class="instrument-option ${isSelected ? 'selected' : ''}"
              data-channel="${channel}"
              data-device-id="${escapedDeviceId}"
              onclick="autoAssignModalInstance.selectInstrument(${channel}, this.dataset.deviceId)"
-             style="padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#4CAF50' : '#ddd'};
-                    border-radius: 8px; cursor: pointer; background: ${isSelected ? '#f0fff0' : '#fff'};
+             style="padding: 10px 12px; margin-bottom: 6px; border: 2px solid ${isSelected ? '#4CAF50' : '#ddd'};
+                    border-radius: 6px; cursor: pointer; background: ${isSelected ? '#f0fff0' : '#fff'};
                     transition: all 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
-              <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">
+              <div style="font-weight: bold; font-size: 14px; margin-bottom: 3px;">
                 ${escapedName}
               </div>
-              <div style="color: #666; font-size: 13px; margin-bottom: 8px;">
+              <div style="color: #666; font-size: 12px; margin-bottom: 4px;">
                 ${this.formatInstrumentInfo(instrument, compat)}
               </div>
               ${compat.info ? `
-                <div style="color: #4CAF50; font-size: 12px;">
+                <div style="color: #4CAF50; font-size: 11px;">
                   ${this.formatInfo(compat.info)}
                 </div>
               ` : ''}
               ${compat.issues && compat.issues.length > 0 ? `
-                <div style="color: #ff9800; font-size: 12px; margin-top: 4px;">
+                <div style="color: #ff9800; font-size: 11px; margin-top: 2px;">
                   ${compat.issues.map(i => this.escapeHtml(i.message)).join(' &bull; ')}
                 </div>
               ` : ''}
             </div>
-            <div style="text-align: right; margin-left: 20px;">
-              <div style="font-size: 24px; font-weight: bold; color: ${this.getScoreColor(compat.score)};">
+            <div style="text-align: right; margin-left: 12px;">
+              <div style="font-size: 20px; font-weight: bold; color: ${this.getScoreColor(compat.score)};">
                 ${compat.score}
               </div>
-              <div style="font-size: 11px; color: #666;">
+              <div style="font-size: 10px; color: #666;">
                 ${this.getScoreStars(compat.score)}
               </div>
-              ${index === 0 ? '<div style="font-size: 11px; color: #4CAF50; margin-top: 4px;">RECOMMENDED</div>' : ''}
+              ${index === 0 ? `<div style="font-size: 10px; color: #4CAF50; margin-top: 2px;">${_t('autoAssign.recommended')}</div>` : ''}
             </div>
           </div>
         </div>
@@ -395,16 +410,16 @@ class AutoAssignModal {
     // Add octave wrapping toggle if available and channel is not skipped
     const assignment = this.selectedAssignments[channel];
     const octaveWrappingToggle = !isSkipped && assignment && assignment.octaveWrappingInfo ? `
-      <div style="margin-top: 15px; padding: 10px; background: #fff9e6; border: 1px solid #ffd700; border-radius: 4px;">
+      <div style="margin-top: 10px; padding: 8px; background: #fff9e6; border: 1px solid #ffd700; border-radius: 4px;">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
           <input type="checkbox"
                  id="octaveWrapping_${channel}"
                  ${assignment.octaveWrappingEnabled ? 'checked' : ''}
                  onchange="autoAssignModalInstance.toggleOctaveWrapping(${channel}, this.checked)"
                  style="cursor: pointer;">
-          <span style="font-size: 13px;">
-            <strong>Enable Octave Wrapping</strong><br>
-            <span style="color: #666; font-size: 12px;">${this.escapeHtml(assignment.octaveWrappingInfo)}</span>
+          <span style="font-size: 12px;">
+            <strong>${_t('autoAssign.enableOctaveWrapping')}</strong><br>
+            <span style="color: #666; font-size: 11px;">${this.escapeHtml(assignment.octaveWrappingInfo)}</span>
           </span>
         </label>
       </div>
@@ -412,21 +427,21 @@ class AutoAssignModal {
 
     // Add preview button for this channel (only if not skipped)
     const previewButton = !isSkipped && this.midiData ? `
-      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
         <button class="button button-secondary"
                 onclick="autoAssignModalInstance.previewChannel(${channel})"
-                style="font-size: 13px; padding: 8px 12px;">
-          Preview Channel ${channel + 1}
+                style="font-size: 12px; padding: 6px 10px;">
+          ${_t('autoAssign.previewChannel', {num: channel + 1})}
         </button>
       </div>
     ` : '';
 
     return `
-      <div class="channel-suggestions" style="margin-bottom: 30px; padding: 20px; background: ${isSkipped ? '#fafafa' : '#fafafa'}; border: 1px solid ${isSkipped ? '#e0e0e0' : '#ddd'}; border-radius: 8px; ${isSkipped ? 'opacity: 0.7;' : ''}">
-        <h3 style="margin: 0 0 15px 0; color: #333;">
-          Channel ${channel + 1}
-          ${channel === 9 ? '<span style="color: #888; font-size: 14px;">(MIDI 10 - Drums)</span>' : ''}
-          ${isSkipped ? '<span style="color: #cc0000; font-size: 14px; margin-left: 10px;">[SKIPPED]</span>' : ''}
+      <div class="channel-suggestions" style="margin-bottom: 20px; padding: 16px; background: #fafafa; border: 1px solid ${isSkipped ? '#e0e0e0' : '#ddd'}; border-radius: 8px; ${isSkipped ? 'opacity: 0.7;' : ''}">
+        <h3 style="margin: 0 0 10px 0; color: #333; font-size: 15px;">
+          ${_t('autoAssign.channel', {num: channel + 1})}
+          ${channel === 9 ? `<span style="color: #888; font-size: 13px;">(MIDI 10 - ${_t('autoAssign.drums')})</span>` : ''}
+          ${isSkipped ? `<span style="color: #cc0000; font-size: 13px; margin-left: 8px;">[${_t('autoAssign.skippedLabel')}]</span>` : ''}
         </h3>
         ${this.renderChannelStats(channel)}
         ${skipToggle}
@@ -444,18 +459,18 @@ class AutoAssignModal {
     const parts = [];
 
     if (instrument.gm_program !== null && instrument.gm_program !== undefined) {
-      parts.push(`GM Program ${instrument.gm_program}`);
+      parts.push(`GM ${instrument.gm_program}`);
     }
 
     if (compat.transposition && compat.transposition.octaves !== 0) {
       const direction = compat.transposition.octaves > 0 ? 'up' : 'down';
-      parts.push(`${Math.abs(compat.transposition.octaves)} octave(s) ${direction}`);
+      parts.push(`${Math.abs(compat.transposition.octaves)} ${_t('common.octave')}(s) ${direction}`);
     } else {
-      parts.push('No transposition');
+      parts.push(_t('autoAssign.noTransposition'));
     }
 
     if (instrument.note_range_min !== null && instrument.note_range_max !== null) {
-      parts.push(`Range: ${instrument.note_range_min}-${instrument.note_range_max}`);
+      parts.push(`${_t('autoAssign.range')}: ${instrument.note_range_min}-${instrument.note_range_max}`);
     }
 
     return parts.join(' &bull; ');
@@ -559,7 +574,7 @@ class AutoAssignModal {
     }
 
     if (Object.keys(activeAssignments).length === 0) {
-      alert('No assignments selected. All channels are skipped.');
+      alert(_t('autoAssign.noAssignments'));
       return;
     }
 
@@ -569,7 +584,7 @@ class AutoAssignModal {
       footer.innerHTML = `
         <div style="width: 100%; text-align: center;">
           <div class="spinner" style="display: inline-block;"></div>
-          <p style="margin-top: 10px;">Creating adapted file and applying assignments...</p>
+          <p style="margin-top: 10px;">${_t('autoAssign.applying')}</p>
         </div>
       `;
     }
@@ -598,17 +613,17 @@ class AutoAssignModal {
       });
 
       if (!response.success) {
-        alert('Failed to apply assignments: ' + (response.error || 'Unknown error'));
+        alert(_t('autoAssign.applyFailed') + ': ' + (response.error || ''));
         this.close();
         return;
       }
 
       // Success!
       const skippedMsg = this.skippedChannels.size > 0
-        ? `\n${this.skippedChannels.size} channel(s) were skipped.`
+        ? `\n${this.skippedChannels.size} ${_t('autoAssign.channelsSkipped')}`
         : '';
       const notesChanged = response.stats?.notesChanged || 0;
-      alert(`Assignments applied successfully!\n\nAdapted file created: ${response.filename}\n${notesChanged} notes transposed${skippedMsg}`);
+      alert(`${_t('autoAssign.applySuccess')}\n\n${response.filename}\n${notesChanged} ${_t('autoAssign.notesTransposed')}${skippedMsg}`);
 
       this.close();
 
@@ -626,7 +641,7 @@ class AutoAssignModal {
         }
       }));
     } catch (error) {
-      alert('Error applying assignments: ' + error.message);
+      alert(_t('autoAssign.applyFailed') + ': ' + error.message);
       this.close();
     }
   }
@@ -635,7 +650,7 @@ class AutoAssignModal {
    * Quick assign: apply auto-selection immediately without manual review
    */
   async quickAssign() {
-    if (!confirm('This will automatically assign all channels to the recommended instruments and apply immediately. Continue?')) {
+    if (!confirm(_t('autoAssign.quickAssignConfirm'))) {
       return;
     }
 
@@ -650,7 +665,7 @@ class AutoAssignModal {
    */
   async previewChannel(channel) {
     if (!this.audioPreview || !this.midiData) {
-      alert('Audio preview not available');
+      alert(_t('autoAssign.previewNotAvailable'));
       return;
     }
 
@@ -683,7 +698,7 @@ class AutoAssignModal {
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);
-      alert('Failed to preview channel: ' + error.message);
+      alert(_t('autoAssign.previewFailed') + ': ' + error.message);
     }
   }
 
@@ -692,7 +707,7 @@ class AutoAssignModal {
    */
   async previewOriginal() {
     if (!this.audioPreview || !this.midiData) {
-      alert('Audio preview not available');
+      alert(_t('autoAssign.previewNotAvailable'));
       return;
     }
 
@@ -707,7 +722,7 @@ class AutoAssignModal {
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);
-      alert('Failed to preview original: ' + error.message);
+      alert(_t('autoAssign.previewFailed') + ': ' + error.message);
     }
   }
 
@@ -716,7 +731,7 @@ class AutoAssignModal {
    */
   async previewAdapted() {
     if (!this.audioPreview || !this.midiData) {
-      alert('Audio preview not available');
+      alert(_t('autoAssign.previewNotAvailable'));
       return;
     }
 
@@ -753,7 +768,7 @@ class AutoAssignModal {
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);
-      alert('Failed to preview adapted: ' + error.message);
+      alert(_t('autoAssign.previewFailed') + ': ' + error.message);
     }
   }
 
@@ -793,6 +808,12 @@ class AutoAssignModal {
   close() {
     // Stop any audio preview
     this.stopPreview();
+
+    // Clean up ESC handler
+    if (this._escHandler) {
+      document.removeEventListener('keydown', this._escHandler);
+      this._escHandler = null;
+    }
 
     if (this.modal) {
       this.modal.remove();
