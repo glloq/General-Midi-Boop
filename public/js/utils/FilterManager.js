@@ -57,6 +57,12 @@ class FilterManager {
       isOriginal: null, // null | true | false
       minCompatibilityScore: null,
 
+      // GM instrument filters
+      gmInstruments: [],    // Specific GM instrument names (e.g., "Acoustic Grand Piano")
+      gmCategories: [],     // GM categories (e.g., "Piano", "Strings", "Brass")
+      gmPrograms: [],       // GM program numbers (0-127)
+      gmMode: 'ANY',        // 'ANY' | 'ALL'
+
       // Quick filters (boolean)
       hasDrums: null,
       hasMelody: null,
@@ -224,6 +230,12 @@ class FilterManager {
         return 'Avec mélodie';
       case 'hasBass':
         return 'Avec basse';
+      case 'gmInstruments':
+        return `GM Instruments: ${value.join(', ')} (${this.filters.gmMode})`;
+      case 'gmCategories':
+        return `GM Catégories: ${value.join(', ')} (${this.filters.gmMode})`;
+      case 'gmPrograms':
+        return `GM Programmes: ${value.join(', ')}`;
       case 'uploadedAfter':
       case 'uploadedBefore':
         return `Date: ${this.filters.uploadedAfter || ''} - ${this.filters.uploadedBefore || ''}`;
@@ -269,6 +281,9 @@ class FilterManager {
 
     return (
       (this.filters.instrumentTypes && this.filters.instrumentTypes.length > 0) ||
+      (this.filters.gmInstruments && this.filters.gmInstruments.length > 0) ||
+      (this.filters.gmCategories && this.filters.gmCategories.length > 0) ||
+      (this.filters.gmPrograms && this.filters.gmPrograms.length > 0) ||
       this.filters.hasRouting !== null ||
       this.filters.minCompatibilityScore !== null ||
       this.filters.hasDrums !== null ||
@@ -559,8 +574,38 @@ class FilterManager {
 
       case 'piano':
         this.resetFilters();
-        this.setFilter('instrumentTypes', ['Melody', 'Harmony']);
-        this.setFilter('instrumentMode', 'ANY');
+        this.setFilter('gmCategories', ['Piano']);
+        this.setFilter('gmMode', 'ANY');
+        break;
+
+      case 'guitar':
+        this.resetFilters();
+        this.setFilter('gmCategories', ['Guitar']);
+        this.setFilter('gmMode', 'ANY');
+        break;
+
+      case 'strings':
+        this.resetFilters();
+        this.setFilter('gmCategories', ['Strings', 'Ensemble']);
+        this.setFilter('gmMode', 'ANY');
+        break;
+
+      case 'brass':
+        this.resetFilters();
+        this.setFilter('gmCategories', ['Brass']);
+        this.setFilter('gmMode', 'ANY');
+        break;
+
+      case 'woodwinds':
+        this.resetFilters();
+        this.setFilter('gmCategories', ['Reed', 'Pipe']);
+        this.setFilter('gmMode', 'ANY');
+        break;
+
+      case 'synth':
+        this.resetFilters();
+        this.setFilter('gmCategories', ['Synth Lead', 'Synth Pad', 'Synth Effects']);
+        this.setFilter('gmMode', 'ANY');
         break;
 
       case 'routed':

@@ -125,6 +125,10 @@ class MidiDatabase {
         fields.push('adaptation_metadata = ?');
         values.push(updates.adaptation_metadata);
       }
+      if (updates.instrument_types !== undefined) {
+        fields.push('instrument_types = ?');
+        values.push(updates.instrument_types);
+      }
 
       if (fields.length === 0) {
         return;
@@ -326,33 +330,71 @@ class MidiDatabase {
         params.push(filters.hasBass ? 1 : 0);
       }
 
-      // Instrument types filter
+      // Instrument types filter (legacy broad categories)
       if (filters.instrumentTypes && filters.instrumentTypes.length > 0) {
         const mode = filters.instrumentMode || 'ANY';
 
         if (mode === 'ANY') {
-          // File contains at least one of the specified instruments
           const orClauses = filters.instrumentTypes.map(() => 'mf.instrument_types LIKE ?');
           wheres.push(`(${orClauses.join(' OR ')})`);
           filters.instrumentTypes.forEach(type => {
             params.push(`%"${type}"%`);
           });
         } else if (mode === 'ALL') {
-          // File contains all of the specified instruments
           filters.instrumentTypes.forEach(type => {
             wheres.push('mf.instrument_types LIKE ?');
             params.push(`%"${type}"%`);
           });
         } else if (mode === 'EXACT') {
-          // File contains exactly these instruments (no more, no less)
-          // This is complex - we need to parse JSON and count
-          // For now, use a simpler approach: all must be present
           filters.instrumentTypes.forEach(type => {
             wheres.push('mf.instrument_types LIKE ?');
             params.push(`%"${type}"%`);
           });
-          // Also check that array length matches (approximate)
-          // This is a limitation of SQLite JSON support
+        }
+      }
+
+      // GM instrument name filter (specific GM instruments via midi_file_channels)
+      if (filters.gmInstruments && filters.gmInstruments.length > 0) {
+        const gmMode = filters.gmMode || 'ANY';
+        if (gmMode === 'ANY') {
+          const placeholders = filters.gmInstruments.map(() => '?').join(', ');
+          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name IN (${placeholders}))`);
+          filters.gmInstruments.forEach(name => params.push(name));
+        } else if (gmMode === 'ALL') {
+          filters.gmInstruments.forEach(name => {
+            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)');
+            params.push(name);
+          });
+        }
+      }
+
+      // GM category filter (instrument families via midi_file_channels)
+      if (filters.gmCategories && filters.gmCategories.length > 0) {
+        const gmMode = filters.gmMode || 'ANY';
+        if (gmMode === 'ANY') {
+          const placeholders = filters.gmCategories.map(() => '?').join(', ');
+          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category IN (${placeholders}))`);
+          filters.gmCategories.forEach(cat => params.push(cat));
+        } else if (gmMode === 'ALL') {
+          filters.gmCategories.forEach(cat => {
+            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)');
+            params.push(cat);
+          });
+        }
+      }
+
+      // GM program number filter
+      if (filters.gmPrograms && filters.gmPrograms.length > 0) {
+        const gmMode = filters.gmMode || 'ANY';
+        if (gmMode === 'ALL') {
+          filters.gmPrograms.forEach(prog => {
+            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program = ?)');
+            params.push(prog);
+          });
+        } else {
+          const placeholders = filters.gmPrograms.map(() => '?').join(', ');
+          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program IN (${placeholders}))`);
+          filters.gmPrograms.forEach(prog => params.push(prog));
         }
       }
 
@@ -416,6 +458,193 @@ class MidiDatabase {
       return results;
     } catch (error) {
       this.logger.error(`Failed to filter files: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ==================== MIDI FILE CHANNELS ====================
+
+  /**
+   * Insert channel analysis data for a MIDI file
+   * @param {number} fileId - MIDI file ID
+   * @param {Array} channels - Channel analysis data
+   */
+  insertFileChannels(fileId, channels) {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO midi_file_channels (
+          midi_file_id, channel, primary_program, gm_instrument_name, gm_category,
+          estimated_type, type_confidence, note_range_min, note_range_max,
+          total_notes, polyphony_max, polyphony_avg, density, track_names
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const insertMany = this.db.transaction((fileId, channels) => {
+        for (const ch of channels) {
+          stmt.run(
+            fileId,
+            ch.channel,
+            ch.primaryProgram !== null && ch.primaryProgram !== undefined ? ch.primaryProgram : null,
+            ch.gmInstrumentName || null,
+            ch.gmCategory || null,
+            ch.estimatedType || null,
+            ch.typeConfidence || 0,
+            ch.noteRangeMin !== undefined ? ch.noteRangeMin : null,
+            ch.noteRangeMax !== undefined ? ch.noteRangeMax : null,
+            ch.totalNotes || 0,
+            ch.polyphonyMax || 0,
+            ch.polyphonyAvg || 0,
+            ch.density || 0,
+            ch.trackNames ? JSON.stringify(ch.trackNames) : '[]'
+          );
+        }
+      });
+
+      insertMany(fileId, channels);
+      this.logger.info(`Inserted ${channels.length} channel analyses for file ${fileId}`);
+    } catch (error) {
+      this.logger.error(`Failed to insert file channels: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get channel analyses for a MIDI file
+   * @param {number} fileId - MIDI file ID
+   * @returns {Array} Channel data
+   */
+  getFileChannels(fileId) {
+    try {
+      const stmt = this.db.prepare(
+        'SELECT * FROM midi_file_channels WHERE midi_file_id = ? ORDER BY channel'
+      );
+      return stmt.all(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to get file channels: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete channel analyses for a MIDI file
+   * @param {number} fileId - MIDI file ID
+   */
+  deleteFileChannels(fileId) {
+    try {
+      const stmt = this.db.prepare('DELETE FROM midi_file_channels WHERE midi_file_id = ?');
+      stmt.run(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to delete file channels: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all distinct GM instrument names present in the collection
+   * @returns {Array<{name: string, count: number}>}
+   */
+  getDistinctInstruments() {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT gm_instrument_name as name, COUNT(DISTINCT midi_file_id) as file_count
+        FROM midi_file_channels
+        WHERE gm_instrument_name IS NOT NULL
+        GROUP BY gm_instrument_name
+        ORDER BY file_count DESC, gm_instrument_name ASC
+      `);
+      return stmt.all();
+    } catch (error) {
+      this.logger.error(`Failed to get distinct instruments: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all distinct GM categories present in the collection
+   * @returns {Array<{category: string, count: number}>}
+   */
+  getDistinctCategories() {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT gm_category as category, COUNT(DISTINCT midi_file_id) as file_count
+        FROM midi_file_channels
+        WHERE gm_category IS NOT NULL
+        GROUP BY gm_category
+        ORDER BY file_count DESC, gm_category ASC
+      `);
+      return stmt.all();
+    } catch (error) {
+      this.logger.error(`Failed to get distinct categories: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Find files by GM instrument name
+   * @param {Array<string>} instruments - GM instrument names
+   * @param {string} mode - 'ANY' or 'ALL'
+   * @returns {Array} Matching files
+   */
+  findFilesByInstrument(instruments, mode = 'ANY') {
+    try {
+      let query;
+      const params = [];
+
+      if (mode === 'ALL') {
+        // File must contain ALL specified instruments
+        const subqueries = instruments.map(() =>
+          'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)'
+        );
+        query = `SELECT mf.* FROM midi_files mf WHERE ${subqueries.join(' AND ')} ORDER BY mf.uploaded_at DESC`;
+        instruments.forEach(name => params.push(name));
+      } else {
+        // File must contain at least one
+        const placeholders = instruments.map(() => '?').join(', ');
+        query = `SELECT DISTINCT mf.* FROM midi_files mf
+          INNER JOIN midi_file_channels mfc ON mf.id = mfc.midi_file_id
+          WHERE mfc.gm_instrument_name IN (${placeholders})
+          ORDER BY mf.uploaded_at DESC`;
+        instruments.forEach(name => params.push(name));
+      }
+
+      const stmt = this.db.prepare(query);
+      return stmt.all(...params);
+    } catch (error) {
+      this.logger.error(`Failed to find files by instrument: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Find files by GM category
+   * @param {Array<string>} categories - GM categories
+   * @param {string} mode - 'ANY' or 'ALL'
+   * @returns {Array} Matching files
+   */
+  findFilesByCategory(categories, mode = 'ANY') {
+    try {
+      let query;
+      const params = [];
+
+      if (mode === 'ALL') {
+        const subqueries = categories.map(() =>
+          'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)'
+        );
+        query = `SELECT mf.* FROM midi_files mf WHERE ${subqueries.join(' AND ')} ORDER BY mf.uploaded_at DESC`;
+        categories.forEach(cat => params.push(cat));
+      } else {
+        const placeholders = categories.map(() => '?').join(', ');
+        query = `SELECT DISTINCT mf.* FROM midi_files mf
+          INNER JOIN midi_file_channels mfc ON mf.id = mfc.midi_file_id
+          WHERE mfc.gm_category IN (${placeholders})
+          ORDER BY mf.uploaded_at DESC`;
+        categories.forEach(cat => params.push(cat));
+      }
+
+      const stmt = this.db.prepare(query);
+      return stmt.all(...params);
+    } catch (error) {
+      this.logger.error(`Failed to find files by category: ${error.message}`);
       throw error;
     }
   }

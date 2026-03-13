@@ -84,7 +84,7 @@ class CommandHandler {
       'route_import': (data) => this.routeImport(data),
       'route_clear_all': () => this.routeClearAll(),
 
-      // ==================== FILE MANAGEMENT (14 commands) ====================
+      // ==================== FILE MANAGEMENT (18 commands) ====================
       'file_upload': (data) => this.fileUpload(data),
       'file_list': (data) => this.fileList(data),
       'file_metadata': (data) => this.fileMetadata(data),
@@ -100,6 +100,10 @@ class CommandHandler {
       'file_export': (data) => this.fileExport(data),
       'file_search': (data) => this.fileSearch(data),
       'file_filter': (data) => this.fileFilter(data),
+      'file_channels': (data) => this.fileChannels(data),
+      'file_reanalyze_all': () => this.fileReanalyzeAll(),
+      'midi_instruments_list': () => this.midiInstrumentsList(),
+      'midi_categories_list': () => this.midiCategoriesList(),
 
       // ==================== PLAYBACK (17 commands) ====================
       'playback_start': (data) => this.playbackStart(data),
@@ -907,6 +911,12 @@ class CommandHandler {
       isOriginal: data.isOriginal,
       minCompatibilityScore: data.minCompatibilityScore,
 
+      // GM instrument filters
+      gmInstruments: data.gmInstruments,
+      gmCategories: data.gmCategories,
+      gmPrograms: data.gmPrograms,
+      gmMode: data.gmMode || 'ANY',
+
       // Quick filters
       hasDrums: data.hasDrums,
       hasMelody: data.hasMelody,
@@ -941,12 +951,58 @@ class CommandHandler {
     if (data.instrumentTypes && data.instrumentTypes.length > 0) {
       appliedFilters.push(`instruments: ${data.instrumentTypes.join(', ')} (${data.instrumentMode || 'ANY'})`);
     }
+    if (data.gmInstruments && data.gmInstruments.length > 0) {
+      appliedFilters.push(`GM instruments: ${data.gmInstruments.join(', ')} (${data.gmMode || 'ANY'})`);
+    }
+    if (data.gmCategories && data.gmCategories.length > 0) {
+      appliedFilters.push(`GM categories: ${data.gmCategories.join(', ')} (${data.gmMode || 'ANY'})`);
+    }
 
     return {
       success: true,
       files: files,
       total: files.length,
       filters: appliedFilters.length > 0 ? appliedFilters.join('; ') : 'none'
+    };
+  }
+
+  async fileChannels(data) {
+    if (!data.fileId) {
+      throw new Error('fileId is required');
+    }
+
+    const channels = this.app.database.getFileChannels(data.fileId);
+    return {
+      success: true,
+      fileId: data.fileId,
+      channels: channels,
+      total: channels.length
+    };
+  }
+
+  async fileReanalyzeAll() {
+    const result = await this.app.fileManager.reanalyzeAllFiles();
+    return {
+      success: true,
+      ...result
+    };
+  }
+
+  async midiInstrumentsList() {
+    const instruments = this.app.database.getDistinctInstruments();
+    return {
+      success: true,
+      instruments: instruments,
+      total: instruments.length
+    };
+  }
+
+  async midiCategoriesList() {
+    const categories = this.app.database.getDistinctCategories();
+    return {
+      success: true,
+      categories: categories,
+      total: categories.length
     };
   }
 
