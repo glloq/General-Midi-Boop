@@ -411,10 +411,21 @@ class DatabaseManager {
   insertFile(file) { return this.midiDB.insertFile(file); }
   getFile(fileId) { return this.midiDB.getFile(fileId); }
   getFiles(folder) { return this.midiDB.getFiles(folder); }
+  getAllFiles() { return this.midiDB.getAllFiles(); }
   updateFile(fileId, updates) { return this.midiDB.updateFile(fileId, updates); }
   deleteFile(fileId) { return this.midiDB.deleteFile(fileId); }
   getFolders() { return this.midiDB.getFolders(); }
   searchFiles(query) { return this.midiDB.searchFiles(query); }
+  filterFiles(filters) { return this.midiDB.filterFiles(filters); }
+
+  // MIDI File Channels
+  insertFileChannels(fileId, channels) { return this.midiDB.insertFileChannels(fileId, channels); }
+  getFileChannels(fileId) { return this.midiDB.getFileChannels(fileId); }
+  deleteFileChannels(fileId) { return this.midiDB.deleteFileChannels(fileId); }
+  getDistinctInstruments() { return this.midiDB.getDistinctInstruments(); }
+  getDistinctCategories() { return this.midiDB.getDistinctCategories(); }
+  findFilesByInstrument(instruments, mode) { return this.midiDB.findFilesByInstrument(instruments, mode); }
+  findFilesByCategory(categories, mode) { return this.midiDB.findFilesByCategory(categories, mode); }
 
   // Instruments
   insertInstrument(instrument) { return this.instrumentDB.insertInstrument(instrument); }

@@ -2,6 +2,7 @@
 import { parseMidi } from 'midi-file';
 import { writeMidi } from 'midi-file';
 import ChannelAnalyzer from '../midi/ChannelAnalyzer.js';
+import MidiUtils from '../utils/MidiUtils.js';
 
 class FileManager {
   constructor(app) {
@@ -42,10 +43,19 @@ class FileManager {
         ppq: midi.header.ticksPerBeat || 480,
         uploaded_at: new Date().toISOString(),
         folder: '/',
-        ...instrumentMetadata
+        ...instrumentMetadata.fileMetadata
       });
 
-      this.app.logger.info(`File uploaded: ${filename} (${fileId}) - Instruments: ${instrumentMetadata.instrument_types}`);
+      // Store per-channel detail in midi_file_channels
+      if (instrumentMetadata.channelDetails && instrumentMetadata.channelDetails.length > 0) {
+        try {
+          this.app.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+        } catch (err) {
+          this.app.logger.warn(`Failed to insert channel details for ${filename}: ${err.message}`);
+        }
+      }
+
+      this.app.logger.info(`File uploaded: ${filename} (${fileId}) - Instruments: ${instrumentMetadata.fileMetadata.instrument_types}`);
 
       // Broadcast file list update
       this.broadcastFileList();
@@ -103,7 +113,7 @@ class FileManager {
    * Extract instrument metadata for filtering
    * Analyzes MIDI channels to determine instrument types, note ranges, etc.
    * @param {Object} midi - Parsed MIDI file
-   * @returns {Object} - Filter metadata
+   * @returns {Object} - { fileMetadata, channelDetails }
    */
   extractInstrumentMetadata(midi) {
     try {
@@ -113,8 +123,9 @@ class FileManager {
       // Analyze all channels
       const channelAnalyses = this.channelAnalyzer.analyzeAllChannels(midiData);
 
-      // Extract instrument types
+      // Extract instrument types (both broad categories and GM categories)
       const instrumentTypes = new Set();
+      const channelDetails = [];
       let hasDrums = false;
       let hasMelody = false;
       let hasBass = false;
@@ -124,7 +135,6 @@ class FileManager {
       for (const analysis of channelAnalyses) {
         // Add estimated type to set
         if (analysis.estimatedType) {
-          // Map internal types to user-friendly names
           const typeMapping = {
             'drums': 'Drums',
             'percussive': 'Percussion',
@@ -136,11 +146,45 @@ class FileManager {
           const friendlyType = typeMapping[analysis.estimatedType] || analysis.estimatedType;
           instrumentTypes.add(friendlyType);
 
-          // Set boolean flags
           if (analysis.estimatedType === 'drums') hasDrums = true;
           if (analysis.estimatedType === 'melody') hasMelody = true;
           if (analysis.estimatedType === 'bass') hasBass = true;
         }
+
+        // Resolve GM instrument name and category from primary program
+        let gmInstrumentName = null;
+        let gmCategory = null;
+
+        if (analysis.channel === 9) {
+          // Channel 10 (0-indexed 9) is always drums in GM
+          gmInstrumentName = 'Drums';
+          gmCategory = 'Drums';
+          instrumentTypes.add('Drums');
+        } else if (analysis.primaryProgram !== null && analysis.primaryProgram !== undefined) {
+          gmInstrumentName = MidiUtils.getGMInstrumentName(analysis.primaryProgram);
+          gmCategory = MidiUtils.getGMCategory(analysis.primaryProgram);
+          // Add GM category to instrument_types for richer searching
+          if (gmCategory) {
+            instrumentTypes.add(gmCategory);
+          }
+        }
+
+        // Build channel detail record
+        channelDetails.push({
+          channel: analysis.channel,
+          primaryProgram: analysis.primaryProgram,
+          gmInstrumentName,
+          gmCategory,
+          estimatedType: analysis.estimatedType,
+          typeConfidence: analysis.typeConfidence || 0,
+          noteRangeMin: analysis.noteRange ? analysis.noteRange.min : null,
+          noteRangeMax: analysis.noteRange ? analysis.noteRange.max : null,
+          totalNotes: analysis.totalNotes || 0,
+          polyphonyMax: analysis.polyphony ? analysis.polyphony.max : 0,
+          polyphonyAvg: analysis.polyphony ? analysis.polyphony.avg : 0,
+          density: analysis.density || 0,
+          trackNames: analysis.trackNames || []
+        });
 
         // Update note range
         if (analysis.noteRange) {
@@ -150,26 +194,31 @@ class FileManager {
       }
 
       return {
-        instrument_types: JSON.stringify(Array.from(instrumentTypes)),
-        channel_count: channelAnalyses.length,
-        note_range_min: noteMin < 127 ? noteMin : null,
-        note_range_max: noteMax > 0 ? noteMax : null,
-        has_drums: hasDrums,
-        has_melody: hasMelody,
-        has_bass: hasBass
+        fileMetadata: {
+          instrument_types: JSON.stringify(Array.from(instrumentTypes)),
+          channel_count: channelAnalyses.length,
+          note_range_min: noteMin < 127 ? noteMin : null,
+          note_range_max: noteMax > 0 ? noteMax : null,
+          has_drums: hasDrums,
+          has_melody: hasMelody,
+          has_bass: hasBass
+        },
+        channelDetails
       };
     } catch (error) {
       this.app.logger.error(`Failed to extract instrument metadata: ${error.message}`);
 
-      // Return default values on error
       return {
-        instrument_types: '[]',
-        channel_count: 0,
-        note_range_min: null,
-        note_range_max: null,
-        has_drums: false,
-        has_melody: false,
-        has_bass: false
+        fileMetadata: {
+          instrument_types: '[]',
+          channel_count: 0,
+          note_range_min: null,
+          note_range_max: null,
+          has_drums: false,
+          has_melody: false,
+          has_bass: false
+        },
+        channelDetails: []
       };
     }
   }
@@ -617,6 +666,56 @@ class FileManager {
       };
     } catch (error) {
       this.app.logger.error(`Get storage stats failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Re-analyze all existing MIDI files to populate midi_file_channels
+   * and update instrument_types with GM categories.
+   * @returns {Object} - { analyzed, failed, total }
+   */
+  async reanalyzeAllFiles() {
+    try {
+      const allFiles = this.app.database.getAllFiles();
+      let analyzed = 0;
+      let failed = 0;
+
+      this.app.logger.info(`Starting re-analysis of ${allFiles.length} MIDI files...`);
+
+      for (const file of allFiles) {
+        try {
+          const buffer = Buffer.from(file.data, 'base64');
+          const midi = parseMidi(buffer);
+          const instrumentMetadata = this.extractInstrumentMetadata(midi);
+
+          // Update file metadata
+          this.app.database.updateFile(file.id, {
+            instrument_types: instrumentMetadata.fileMetadata.instrument_types
+          });
+
+          // Delete old channel data and insert new
+          this.app.database.deleteFileChannels(file.id);
+          if (instrumentMetadata.channelDetails.length > 0) {
+            this.app.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
+          }
+
+          analyzed++;
+        } catch (err) {
+          this.app.logger.warn(`Failed to re-analyze file ${file.id} (${file.filename}): ${err.message}`);
+          failed++;
+        }
+      }
+
+      this.app.logger.info(`Re-analysis complete: ${analyzed} analyzed, ${failed} failed, ${allFiles.length} total`);
+
+      return {
+        analyzed,
+        failed,
+        total: allFiles.length
+      };
+    } catch (error) {
+      this.app.logger.error(`Re-analyze all files failed: ${error.message}`);
       throw error;
     }
   }

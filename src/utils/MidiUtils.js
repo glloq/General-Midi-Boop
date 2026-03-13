@@ -361,6 +361,67 @@ class MidiUtils {
       number: this.clampDataByte(program)
     };
   }
+
+  /**
+   * GM instrument categories by program range
+   */
+  static GMCategories = [
+    'Piano',              // 0-7
+    'Chromatic Percussion', // 8-15
+    'Organ',              // 16-23
+    'Guitar',             // 24-31
+    'Bass',               // 32-39
+    'Strings',            // 40-47
+    'Ensemble',           // 48-55
+    'Brass',              // 56-63
+    'Reed',               // 64-71
+    'Pipe',               // 72-79
+    'Synth Lead',         // 80-87
+    'Synth Pad',          // 88-95
+    'Synth Effects',      // 96-103
+    'Ethnic',             // 104-111
+    'Percussive',         // 112-119
+    'Sound Effects'       // 120-127
+  ];
+
+  /**
+   * Get GM category for a program number
+   * @param {number} program - Program number (0-127)
+   * @returns {string} Category name
+   */
+  static getGMCategory(program) {
+    if (program < 0 || program > 127) return 'Unknown';
+    return this.GMCategories[Math.floor(program / 8)];
+  }
+
+  /**
+   * Get all GM categories
+   * @returns {Array<string>} List of all GM categories
+   */
+  static getGMCategories() {
+    return [...this.GMCategories];
+  }
+
+  /**
+   * Get all GM instruments in a category
+   * @param {string} category - Category name
+   * @returns {Array<{program: number, name: string}>}
+   */
+  static getGMInstrumentsByCategory(category) {
+    const categoryIndex = this.GMCategories.indexOf(category);
+    if (categoryIndex === -1) return [];
+
+    const startProgram = categoryIndex * 8;
+    const instruments = [];
+    for (let i = 0; i < 8; i++) {
+      const program = startProgram + i;
+      instruments.push({
+        program,
+        name: this.getGMInstrumentName(program)
+      });
+    }
+    return instruments;
+  }
 }
 
 export default MidiUtils;
