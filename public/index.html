@@ -3023,6 +3023,21 @@
                     </ul>
                 </div>
 
+                <!-- Périphériques MIDI -->
+                <div class="card">
+                    <h2>🎛️ <span data-i18n="ui.midiDevices">Périphériques MIDI</span></h2>
+
+                    <div class="btn-group">
+                        <button class="btn" id="scanDevicesBtn">🔌&nbsp;&nbsp;<span data-i18n="ui.scanUsb">Scan USB</span></button>
+                        <button class="btn" id="scanBluetoothBtn" style="background: #9b59b6 !important;">📡&nbsp;&nbsp;<span data-i18n="ui.scanBluetooth">Scan Bluetooth</span></button>
+                        <button class="btn" id="scanNetworkBtn" style="background: #3498db !important;">🌐&nbsp;&nbsp;<span data-i18n="ui.scanNetwork">Scan Réseau</span></button>
+                    </div>
+
+                    <ul class="device-list" id="deviceList">
+                        <li class="info-text" data-i18n="ui.noDevices">Aucun périphérique</li>
+                    </ul>
+                </div>
+
             </div>
 
             <!-- Console -->
@@ -7809,6 +7824,23 @@
         initFolderModal(); // Initialiser le modal de création de dossier
         initRenameModal(); // Initialiser le modal de renommage
         initCalibrationModal(); // Initialiser le modal de calibration
+
+        // Event listeners pour les boutons de scan
+        document.getElementById('scanDevicesBtn').addEventListener('click', loadDevices);
+        document.getElementById('scanBluetoothBtn').addEventListener('click', () => {
+            if (bluetoothScanModal) {
+                bluetoothScanModal.open();
+            } else {
+                log('Bluetooth modal not initialized', 'error');
+            }
+        });
+        document.getElementById('scanNetworkBtn').addEventListener('click', () => {
+            if (networkScanModal) {
+                networkScanModal.open();
+            } else {
+                log('Network modal not initialized', 'error');
+            }
+        });
 
         // Event listener pour le bouton clavier MIDI
         document.getElementById('openKeyboardBtn').addEventListener('click', () => {
