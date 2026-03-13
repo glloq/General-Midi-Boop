@@ -458,6 +458,7 @@ class DatabaseManager {
   updateInstrumentCapabilities(deviceId, capabilities) { return this.instrumentDB.updateInstrumentCapabilities(deviceId, capabilities); }
   getInstrumentCapabilities(deviceId) { return this.instrumentDB.getInstrumentCapabilities(deviceId); }
   getAllInstrumentCapabilities() { return this.instrumentDB.getAllInstrumentCapabilities(); }
+  getInstrumentsWithCapabilities() { return this.instrumentDB.getInstrumentsWithCapabilities(); }
 
   // ==================== UTILITIES ====================
 
