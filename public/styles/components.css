@@ -178,8 +178,9 @@
 
 /* ===== MODALES ===== */
 /* ===== MODALES - CENTRAGE FORCÉ POUR TOUS ===== */
-.modal,
-.modal-overlay {
+
+/* Static modals (present in HTML, toggled via .show class) */
+.modal {
     display: none;
     position: fixed !important;
     z-index: 9999 !important;
@@ -195,8 +196,26 @@
     backdrop-filter: blur(5px);
 }
 
-.modal.show,
+.modal.show {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Dynamic modal overlays (added/removed from DOM via JS) */
 .modal-overlay {
+    position: fixed !important;
+    z-index: 9999 !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    backdrop-filter: blur(5px);
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;

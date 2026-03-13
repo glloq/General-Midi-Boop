@@ -1399,17 +1399,17 @@
         }
 
         /* Modale de réglages d'instrument */
-        .modal-overlay {
+        /* Note: .modal-overlay styles are defined in components.css */
+
+        /* Overlay for the filters panel (non-modal, uses display toggle) */
+        .filters-panel-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 999;
         }
 
         .modal-content {
@@ -3136,7 +3136,7 @@
     </div>
 
     <!-- Filters Panel Overlay -->
-    <div id="filtersPanelOverlay" class="modal-overlay" style="display: none;"></div>
+    <div id="filtersPanelOverlay" class="filters-panel-overlay" style="display: none;"></div>
 
     <!-- Delay Calibration Modal -->
     <div class="calibration-modal-overlay" id="calibrationModal" style="display: none;">
