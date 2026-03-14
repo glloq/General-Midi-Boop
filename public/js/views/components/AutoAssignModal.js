@@ -47,6 +47,11 @@ class AutoAssignModal {
       const validationResponse = await this.apiClient.sendCommand('validate_instrument_capabilities', {});
 
       if (validationResponse && validationResponse.incompleteInstruments && validationResponse.incompleteInstruments.length > 0) {
+        if (!window.InstrumentCapabilitiesModal) {
+          console.error('InstrumentCapabilitiesModal not loaded');
+          throw new Error(_t('autoAssign.capabilitiesModalNotAvailable') || 'Le module de capacités instruments n\'est pas disponible');
+        }
+
         // Some instruments have incomplete capabilities
         // Close loading modal
         if (this.modal) {

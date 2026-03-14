@@ -3313,14 +3313,14 @@
     <!-- Audio Preview Component -->
     <script src="js/audio/AudioPreview.js"></script>
 
-    <!-- MIDI Editor Modal Component -->
-    <script src="js/views/components/MidiEditorModal.js"></script>
+    <!-- Instrument Capabilities Modal Component (no modal dependency) -->
+    <script src="js/views/components/InstrumentCapabilitiesModal.js"></script>
 
-    <!-- Auto-Assign Modal Component -->
+    <!-- Auto-Assign Modal Component (depends on InstrumentCapabilitiesModal) -->
     <script src="js/views/components/AutoAssignModal.js"></script>
 
-    <!-- Instrument Capabilities Modal Component -->
-    <script src="js/views/components/InstrumentCapabilitiesModal.js"></script>
+    <!-- MIDI Editor Modal Component (depends on AutoAssignModal) -->
+    <script src="js/views/components/MidiEditorModal.js"></script>
 
     <!-- Instrument Management Page Component -->
     <script src="js/views/components/InstrumentManagementPage.js"></script>
