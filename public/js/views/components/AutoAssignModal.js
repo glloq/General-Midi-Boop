@@ -1,4 +1,6 @@
 // public/js/views/components/AutoAssignModal.js
+(function() {
+'use strict';
 
 const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
@@ -830,3 +832,4 @@ class AutoAssignModal {
 
 // Make available globally
 window.AutoAssignModal = AutoAssignModal;
+})();
