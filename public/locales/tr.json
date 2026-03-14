@@ -223,6 +223,9 @@
     "deleteSelection": "Seçimi sil (Del)",
     "dragToResize": "Yeniden boyutlandırmak için sürükleyin",
     "save": "Kaydet",
+    "autoAssign": "Otomatik atama",
+    "saveAs": "Farklı kaydet...",
+    "noFileLoaded": "Dosya yüklenmedi. Lütfen önce bir MIDI dosyası açın.",
     "cannotSave": "Kaydedilemez: düzenleyici başlatılmadı",
     "cannotOpen": "Dosya açılamıyor: {error}",
     "libraryNotLoaded": "webaudio-pianoroll kütüphanesi yüklenmedi. Betiğin index.html'de dahil edildiğinden emin olun.",
@@ -265,7 +268,15 @@
     "renameFailed": "Yeniden adlandırma başarısız",
     "connectedDevice": "Çıkış:",
     "connectedDeviceTip": "Hangi notaları çalabileceğini görmek için bir çıkış cihazı seçin",
-    "noDeviceFilter": "-- Tüm notalar --"
+    "noDeviceFilter": "-- Tüm notalar --",
+    "saveAsDescription": "Yeni bir adla kopya kaydet",
+    "saveAsSuccess": "Dosya \"{filename}\" olarak kaydedildi",
+    "emptyFilename": "Dosya adı boş olamaz",
+    "curveType": "Eğri türü",
+    "drumKit": "Davul seti",
+    "sameChannel": "Zaten bu kanalda",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Cihaz bulunamadı: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Yaklaşan Notalar",
     "noChannels": "Kanal yok"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Otomatik atama modülü yüklenemedi. Sayfayı yenileyin."
   },
   "instruments": {
     "categories": {

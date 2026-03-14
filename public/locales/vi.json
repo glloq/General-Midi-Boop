@@ -223,6 +223,9 @@
     "deleteSelection": "Xóa vùng chọn (Del)",
     "dragToResize": "Kéo để thay đổi kích thước",
     "save": "Lưu",
+    "autoAssign": "Tự động gán",
+    "saveAs": "Lưu thành...",
+    "noFileLoaded": "Chưa tải tệp nào. Vui lòng mở tệp MIDI trước.",
     "cannotSave": "Không thể lưu: trình chỉnh sửa chưa được khởi tạo",
     "cannotOpen": "Không thể mở tệp: {error}",
     "libraryNotLoaded": "Thư viện webaudio-pianoroll chưa được tải. Kiểm tra xem script đã được bao gồm trong index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Đổi tên thất bại",
     "connectedDevice": "Đầu ra:",
     "connectedDeviceTip": "Chọn thiết bị đầu ra để xem nốt nào có thể phát được",
-    "noDeviceFilter": "-- Tất cả các nốt --"
+    "noDeviceFilter": "-- Tất cả các nốt --",
+    "saveAsDescription": "Lưu bản sao với tên mới",
+    "saveAsSuccess": "Tệp đã lưu thành \"{filename}\"",
+    "emptyFilename": "Tên tệp không được để trống",
+    "curveType": "Loại đường cong",
+    "drumKit": "Bộ trống",
+    "sameChannel": "Đã ở kênh này",
+    "tempo": "Nhịp độ",
+    "tempoTip": "Nhịp độ (BPM)"
   },
   "errors": {
     "deviceNotFound": "Không tìm thấy thiết bị: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Các nốt sắp tới",
     "noChannels": "Không có kênh"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Module tự động gán không tải được. Vui lòng tải lại trang."
   },
   "instruments": {
     "categories": {

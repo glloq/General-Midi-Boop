@@ -223,6 +223,9 @@
     "deleteSelection": "Ta bort markering (Del)",
     "dragToResize": "Dra för att ändra storlek",
     "save": "Spara",
+    "autoAssign": "Auto-tilldelning",
+    "saveAs": "Spara som...",
+    "noFileLoaded": "Ingen fil laddad. Öppna först en MIDI-fil.",
     "cannotSave": "Kan inte spara: redigeraren är inte initierad",
     "cannotOpen": "Kan inte öppna fil: {error}",
     "libraryNotLoaded": "webaudio-pianoroll-biblioteket är inte laddat. Kontrollera att skriptet är inkluderat i index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Namnbyte misslyckades",
     "connectedDevice": "Utgång:",
     "connectedDeviceTip": "Välj en utgångsenhet för att se vilka noter den kan spela",
-    "noDeviceFilter": "-- Alla noter --"
+    "noDeviceFilter": "-- Alla noter --",
+    "saveAsDescription": "Spara en kopia med nytt namn",
+    "saveAsSuccess": "Filen sparad som \"{filename}\"",
+    "emptyFilename": "Filnamnet får inte vara tomt",
+    "curveType": "Kurvtyp",
+    "drumKit": "Trumset",
+    "sameChannel": "Redan på denna kanal",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Enhet hittades inte: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Kommande noter",
     "noChannels": "Inga kanaler"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Auto-tilldelningsmodulen kunde inte laddas. Uppdatera sidan."
   },
   "instruments": {
     "categories": {

@@ -1298,7 +1298,7 @@ class MidiEditorModal {
             const curveHTML = `
                 <div class="cc-toolbar-divider"></div>
                 <div class="curve-section">
-                    <label class="cc-toolbar-label">${this.t('midiEditor.curveType') || 'Curve'}</label>
+                    <label class="cc-toolbar-label">${this.t('midiEditor.curveType')}</label>
                     <div class="cc-curve-buttons-horizontal">
                         <button class="cc-curve-btn active" data-curve="linear" title="Linear">━</button>
                         <button class="cc-curve-btn" data-curve="exponential" title="Exponential (Ease-in)">⌃</button>
@@ -1696,10 +1696,10 @@ class MidiEditorModal {
         dialog.innerHTML = `
             <div class="rename-dialog">
                 <div class="rename-dialog-header">
-                    <h4>💾 ${this.t('midiEditor.saveAs') || 'Save As...'}</h4>
+                    <h4>📄 ${this.t('midiEditor.saveAs')}</h4>
                 </div>
                 <div class="rename-dialog-body">
-                    <p>${this.t('midiEditor.saveAsDescription') || 'Save a copy of this file with a new name'}</p>
+                    <p>${this.t('midiEditor.saveAsDescription')}</p>
                     <div class="rename-input-container">
                         <input type="text" class="rename-input" value="${escapeHtml(baseName)}" />
                         <span class="rename-extension">${extension}</span>
@@ -1733,7 +1733,7 @@ class MidiEditorModal {
         confirmBtn.addEventListener('click', async () => {
             const newBaseName = input.value.trim();
             if (!newBaseName) {
-                this.showError(this.t('midiEditor.emptyFilename') || 'Filename cannot be empty');
+                this.showError(this.t('midiEditor.emptyFilename'));
                 return;
             }
 
@@ -1799,7 +1799,7 @@ class MidiEditorModal {
 
             if (response && response.success) {
                 this.showNotification(
-                    this.t('midiEditor.saveAsSuccess') || `File saved as "${newFilename}"`,
+                    this.t('midiEditor.saveAsSuccess', { filename: newFilename }),
                     'success'
                 );
 
@@ -1832,13 +1832,13 @@ class MidiEditorModal {
     showAutoAssignModal() {
         // Check if current file is loaded
         if (!this.currentFile) {
-            this.showErrorModal('No file loaded. Please load a MIDI file first.');
+            this.showErrorModal(this.t('midiEditor.noFileLoaded'));
             return;
         }
 
         // Create and show AutoAssignModal
         if (!window.AutoAssignModal) {
-            this.showErrorModal('AutoAssignModal component not loaded');
+            this.showErrorModal(this.t('autoAssign.componentNotLoaded'));
             return;
         }
 
@@ -2298,7 +2298,7 @@ class MidiEditorModal {
                         <span class="title-separator">—</span>
                         <div class="tempo-control">
                             <label for="tempo-input">♩ BPM:</label>
-                            <input type="number" id="tempo-input" class="tempo-input" min="20" max="300" step="1" value="${this.tempo || 120}" title="${this.t('midiEditor.tempoTip') || 'Set tempo (BPM)'}">
+                            <input type="number" id="tempo-input" class="tempo-input" min="20" max="300" step="1" value="${this.tempo || 120}" title="${this.t('midiEditor.tempoTip')}">
                         </div>
                     </div>
                     <button class="modal-close" data-action="close">&times;</button>
@@ -2501,7 +2501,7 @@ class MidiEditorModal {
                                             VEL <span class="cc-label">${this.t('midiEditor.velocity')}</span>
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="tempo" title="Tempo Automation">
-                                            ♩ <span class="cc-label">${this.t('midiEditor.tempo') || 'Tempo'}</span>
+                                            ♩ <span class="cc-label">${this.t('midiEditor.tempo')}</span>
                                         </button>
                                     </div>
 
@@ -2543,14 +2543,14 @@ class MidiEditorModal {
                     <!-- Boutons flottants en overlay -->
                     <div class="modal-floating-buttons">
                         <button class="btn btn-secondary" data-action="close">${this.t('common.close')}</button>
-                        <button class="btn btn-info" data-action="auto-assign" id="auto-assign-btn" title="Automatically assign channels to available instruments">
-                            🎯 ${this.t('midiEditor.autoAssign') || 'Auto-Assign Instruments'}
+                        <button class="btn btn-info" data-action="auto-assign" id="auto-assign-btn" title="${this.t('autoAssign.title')}">
+                            🎯 ${this.t('midiEditor.autoAssign')}
                         </button>
                         <button class="btn btn-primary" data-action="save" id="save-btn">
                             💾 ${this.t('midiEditor.save')}
                         </button>
-                        <button class="btn btn-secondary" data-action="save-as" id="save-as-btn" title="Save a copy with a new name">
-                            💾+ ${this.t('midiEditor.saveAs') || 'Save As...'}
+                        <button class="btn btn-secondary" data-action="save-as" id="save-as-btn" title="${this.t('midiEditor.saveAs')}">
+                            📄 ${this.t('midiEditor.saveAs')}
                         </button>
                     </div>
                 </div>
@@ -3063,7 +3063,7 @@ class MidiEditorModal {
 
         // Vérifier si on essaie de déplacer vers le même canal
         if (currentChannel === newChannel) {
-            this.showNotification(this.t('midiEditor.sameChannel') || 'Les notes sont déjà sur ce canal', 'info');
+            this.showNotification(this.t('midiEditor.sameChannel'), 'info');
             return;
         }
 
@@ -3184,7 +3184,7 @@ class MidiEditorModal {
 
         // Vérifier si l'instrument change
         if (channelInfo.program === selectedProgram) {
-            this.showNotification(this.t('midiEditor.sameInstrument') || 'Même instrument', 'info');
+            this.showNotification(this.t('midiEditor.sameInstrument'), 'info');
             return;
         }
 
@@ -3229,7 +3229,7 @@ class MidiEditorModal {
         let newChannel = this.findAvailableChannel(program);
 
         if (newChannel === -1) {
-            this.showNotification(this.t('midiEditor.noChannelAvailable') || 'Aucun canal disponible', 'error');
+            this.showNotification(this.t('midiEditor.noChannelAvailable'), 'error');
             return;
         }
 
@@ -3256,8 +3256,7 @@ class MidiEditorModal {
 
         this.log('info', `Applied instrument ${instrumentName} to ${selectedNotes.length} selected notes (moved to channel ${newChannel + 1})`);
         this.showNotification(
-            this.t('midiEditor.instrumentAppliedToSelection', { count: selectedNotes.length, instrument: instrumentName }) ||
-            `${selectedNotes.length} note(s) → ${instrumentName}`,
+            this.t('midiEditor.instrumentAppliedToSelection', { count: selectedNotes.length, instrument: instrumentName }),
             'success'
         );
 
@@ -3894,12 +3893,12 @@ class MidiEditorModal {
     showConfirmModal(options) {
         return new Promise((resolve) => {
             const {
-                title = this.t('common.confirm') || 'Confirmation',
+                title = this.t('common.confirm'),
                 message = '',
                 details = '',
                 icon = '⚠️',
-                confirmText = this.t('common.confirm') || 'Confirmer',
-                cancelText = this.t('common.cancel') || 'Annuler',
+                confirmText = this.t('common.confirm'),
+                cancelText = this.t('common.cancel'),
                 confirmClass = 'primary',
                 extraButtons = []
             } = options;
@@ -4012,7 +4011,7 @@ class MidiEditorModal {
             : this.getInstrumentName(this.selectedInstrument);
 
         return this.showConfirmModal({
-            title: this.t('midiEditor.changeChannelTitle') || 'Changer de canal',
+            title: this.t('midiEditor.changeChannelTitle'),
             icon: '🎹',
             message: `Déplacer <strong>${noteCount}</strong> note(s) vers le <strong>Canal ${newChannel + 1}</strong> ?`,
             details: `
@@ -4025,7 +4024,7 @@ class MidiEditorModal {
                     <span class="confirm-detail-value">Canal ${newChannel + 1} (${newChannelInstrument})</span>
                 </div>
             `,
-            confirmText: this.t('midiEditor.apply') || 'Appliquer',
+            confirmText: this.t('midiEditor.apply'),
             confirmClass: 'primary'
         });
     }
@@ -4048,7 +4047,7 @@ class MidiEditorModal {
         if (hasSelection && noteCount > 0) {
             // Proposer le choix : sélection ou tout le canal
             return this.showConfirmModal({
-                title: this.t('midiEditor.changeInstrumentTitle') || "Changer d'instrument",
+                title: this.t('midiEditor.changeInstrumentTitle'),
                 icon: '🎵',
                 message: `Changer l'instrument vers <strong>${newInstrument}</strong> ?`,
                 details: `
@@ -4074,7 +4073,7 @@ class MidiEditorModal {
         } else {
             // Pas de sélection, changer tout le canal
             return this.showConfirmModal({
-                title: this.t('midiEditor.changeInstrumentTitle') || "Changer d'instrument",
+                title: this.t('midiEditor.changeInstrumentTitle'),
                 icon: '🎵',
                 message: `Changer l'instrument du <strong>Canal ${channel + 1}</strong> ?`,
                 details: `
@@ -4091,7 +4090,7 @@ class MidiEditorModal {
                         <span class="confirm-detail-value">${channelNoteCount} note(s)</span>
                     </div>
                 `,
-                confirmText: this.t('midiEditor.apply') || 'Appliquer',
+                confirmText: this.t('midiEditor.apply'),
                 confirmClass: 'primary'
             });
         }

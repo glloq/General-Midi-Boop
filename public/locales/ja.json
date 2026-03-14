@@ -223,6 +223,9 @@
     "deleteSelection": "選択を削除 (Del)",
     "dragToResize": "ドラッグしてサイズ変更",
     "save": "保存",
+    "autoAssign": "自動割り当て",
+    "saveAs": "名前を付けて保存...",
+    "noFileLoaded": "ファイルが読み込まれていません。まずMIDIファイルを開いてください。",
     "cannotSave": "保存できません: エディターが初期化されていません",
     "cannotOpen": "ファイルを開けません: {error}",
     "libraryNotLoaded": "webaudio-pianorollライブラリがロードされていません。index.htmlにスクリプトが含まれているか確認してください。",
@@ -265,7 +268,15 @@
     "renameFailed": "名前変更に失敗しました",
     "connectedDevice": "出力:",
     "connectedDeviceTip": "出力デバイスを選択すると、再生可能なノートを確認できます",
-    "noDeviceFilter": "-- 全てのノート --"
+    "noDeviceFilter": "-- 全てのノート --",
+    "saveAsDescription": "新しい名前でコピーを保存",
+    "saveAsSuccess": "\"{filename}\"として保存しました",
+    "emptyFilename": "ファイル名を空にすることはできません",
+    "curveType": "カーブの種類",
+    "drumKit": "ドラムキット",
+    "sameChannel": "すでにこのチャンネルです",
+    "tempo": "テンポ",
+    "tempoTip": "テンポ (BPM)"
   },
   "errors": {
     "deviceNotFound": "デバイスが見つかりません: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "次のノート",
     "noChannels": "チャンネルなし"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "自動割り当てモジュールの読み込みに失敗しました。ページを更新してください。"
   },
   "instruments": {
     "categories": {

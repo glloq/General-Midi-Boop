@@ -223,6 +223,9 @@
     "deleteSelection": "Smazat výběr (Del)",
     "dragToResize": "Tažením změňte velikost",
     "save": "Uložit",
+    "autoAssign": "Automatické přiřazení",
+    "saveAs": "Uložit jako...",
+    "noFileLoaded": "Žádný soubor není načten. Nejprve otevřete MIDI soubor.",
     "cannotSave": "Nelze uložit: editor není inicializován",
     "cannotOpen": "Nelze otevřít soubor: {error}",
     "libraryNotLoaded": "Knihovna webaudio-pianoroll není načtena. Zkontrolujte, že skript je zahrnut v index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Přejmenování selhalo",
     "connectedDevice": "Výstup:",
     "connectedDeviceTip": "Vyberte výstupní zařízení pro zobrazení, jaké noty může hrát",
-    "noDeviceFilter": "-- Všechny noty --"
+    "noDeviceFilter": "-- Všechny noty --",
+    "saveAsDescription": "Uložit kopii s novým názvem",
+    "saveAsSuccess": "Soubor uložen jako \"{filename}\"",
+    "emptyFilename": "Název souboru nesmí být prázdný",
+    "curveType": "Typ křivky",
+    "drumKit": "Bicí souprava",
+    "sameChannel": "Již na tomto kanálu",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Zařízení nenalezeno: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Nadcházející noty",
     "noChannels": "Žádné kanály"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Modul automatického přiřazení se nepodařilo načíst. Obnovte stránku."
   },
   "instruments": {
     "categories": {

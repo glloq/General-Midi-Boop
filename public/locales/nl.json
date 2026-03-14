@@ -223,6 +223,9 @@
     "deleteSelection": "Selectie verwijderen (Del)",
     "dragToResize": "Sleep om grootte te wijzigen",
     "save": "Opslaan",
+    "autoAssign": "Auto-toewijzing",
+    "saveAs": "Opslaan als...",
+    "noFileLoaded": "Geen bestand geladen. Open eerst een MIDI-bestand.",
     "cannotSave": "Kan niet opslaan: editor niet geïnitialiseerd",
     "cannotOpen": "Kan bestand niet openen: {error}",
     "libraryNotLoaded": "De webaudio-pianoroll bibliotheek is niet geladen. Controleer of het script is opgenomen in index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Hernoemen mislukt",
     "connectedDevice": "Uitvoer:",
     "connectedDeviceTip": "Selecteer een uitvoerapparaat om te zien welke noten het kan spelen",
-    "noDeviceFilter": "-- Alle noten --"
+    "noDeviceFilter": "-- Alle noten --",
+    "saveAsDescription": "Een kopie opslaan met een nieuwe naam",
+    "saveAsSuccess": "Bestand opgeslagen als \"{filename}\"",
+    "emptyFilename": "Bestandsnaam mag niet leeg zijn",
+    "curveType": "Curvetype",
+    "drumKit": "Drumkit",
+    "sameChannel": "Al op dit kanaal",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Apparaat niet gevonden: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Aankomende Noten",
     "noChannels": "Geen kanalen"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "De auto-toewijzingsmodule kon niet worden geladen. Vernieuw de pagina."
   },
   "instruments": {
     "categories": {

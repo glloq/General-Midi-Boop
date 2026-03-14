@@ -223,6 +223,9 @@
     "deleteSelection": "चयन हटाएं (Del)",
     "dragToResize": "आकार बदलने के लिए खींचें",
     "save": "सहेजें",
+    "autoAssign": "स्वचालित असाइनमेंट",
+    "saveAs": "इस रूप में सहेजें...",
+    "noFileLoaded": "कोई फ़ाइल लोड नहीं है। पहले एक MIDI फ़ाइल खोलें।",
     "cannotSave": "सहेज नहीं सकते: एडिटर प्रारंभ नहीं हुआ",
     "cannotOpen": "फाइल नहीं खोल सकते: {error}",
     "libraryNotLoaded": "webaudio-pianoroll लाइब्रेरी लोड नहीं हुई। जांचें कि स्क्रिप्ट index.html में शामिल है।",
@@ -265,7 +268,15 @@
     "renameFailed": "नाम बदलना विफल",
     "connectedDevice": "आउटपुट:",
     "connectedDeviceTip": "कौन से नोट बजा सकता है देखने के लिए आउटपुट डिवाइस चुनें",
-    "noDeviceFilter": "-- सभी नोट्स --"
+    "noDeviceFilter": "-- सभी नोट्स --",
+    "saveAsDescription": "नए नाम से प्रतिलिपि सहेजें",
+    "saveAsSuccess": "फ़ाइल \"{filename}\" के रूप में सहेजी गई",
+    "emptyFilename": "फ़ाइल नाम खाली नहीं हो सकता",
+    "curveType": "वक्र प्रकार",
+    "drumKit": "ड्रम किट",
+    "sameChannel": "पहले से इस चैनल पर है",
+    "tempo": "टेम्पो",
+    "tempoTip": "टेम्पो (BPM)"
   },
   "errors": {
     "deviceNotFound": "डिवाइस नहीं मिला: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "आगामी नोट्स",
     "noChannels": "कोई चैनल नहीं"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "स्वचालित असाइनमेंट मॉड्यूल लोड नहीं हो सका। पृष्ठ को रिफ्रेश करें।"
   },
   "instruments": {
     "categories": {

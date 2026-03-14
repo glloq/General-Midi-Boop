@@ -223,6 +223,9 @@
     "deleteSelection": "Poista valinta (Del)",
     "dragToResize": "Vedä muuttaaksesi kokoa",
     "save": "Tallenna",
+    "autoAssign": "Automaattinen määritys",
+    "saveAs": "Tallenna nimellä...",
+    "noFileLoaded": "Ei tiedostoa ladattuna. Avaa ensin MIDI-tiedosto.",
     "cannotSave": "Ei voi tallentaa: editoria ei ole alustettu",
     "cannotOpen": "Tiedostoa ei voi avata: {error}",
     "libraryNotLoaded": "webaudio-pianoroll-kirjastoa ei ole ladattu. Tarkista, että skripti on sisällytetty index.html-tiedostoon.",
@@ -265,7 +268,15 @@
     "renameFailed": "Uudelleennimeäminen epäonnistui",
     "connectedDevice": "Lähtö:",
     "connectedDeviceTip": "Valitse lähtölaite nähdäksesi mitä nuotteja se voi soittaa",
-    "noDeviceFilter": "-- Kaikki nuotit --"
+    "noDeviceFilter": "-- Kaikki nuotit --",
+    "saveAsDescription": "Tallenna kopio uudella nimellä",
+    "saveAsSuccess": "Tiedosto tallennettu nimellä \"{filename}\"",
+    "emptyFilename": "Tiedostonimi ei voi olla tyhjä",
+    "curveType": "Käyrätyyppi",
+    "drumKit": "Rumpusetti",
+    "sameChannel": "Jo tällä kanavalla",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Laitetta ei löytynyt: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Tulevat nuotit",
     "noChannels": "Ei kanavia"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Automaattisen määrityksen moduuli ei latautunut. Päivitä sivu."
   },
   "instruments": {
     "categories": {

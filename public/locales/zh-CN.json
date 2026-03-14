@@ -223,6 +223,9 @@
     "deleteSelection": "删除选择（Del）",
     "dragToResize": "拖动调整大小",
     "save": "保存",
+    "autoAssign": "自动分配",
+    "saveAs": "另存为...",
+    "noFileLoaded": "未加载文件。请先打开MIDI文件。",
     "cannotSave": "无法保存：编辑器未初始化",
     "cannotOpen": "无法打开文件：{error}",
     "libraryNotLoaded": "webaudio-pianoroll库未加载。请检查脚本是否已包含在index.html中。",
@@ -265,7 +268,15 @@
     "renameFailed": "重命名失败",
     "connectedDevice": "输出:",
     "connectedDeviceTip": "选择输出设备以查看它可以播放哪些音符",
-    "noDeviceFilter": "-- 所有音符 --"
+    "noDeviceFilter": "-- 所有音符 --",
+    "saveAsDescription": "以新名称保存副本",
+    "saveAsSuccess": "文件已另存为\"{filename}\"",
+    "emptyFilename": "文件名不能为空",
+    "curveType": "曲线类型",
+    "drumKit": "鼓组",
+    "sameChannel": "已在此通道",
+    "tempo": "速度",
+    "tempoTip": "速度 (BPM)"
   },
   "errors": {
     "deviceNotFound": "未找到设备：{deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "即将到来的音符",
     "noChannels": "无通道"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "自动分配模块加载失败。请刷新页面。"
   },
   "instruments": {
     "categories": {

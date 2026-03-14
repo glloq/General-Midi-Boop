@@ -223,6 +223,9 @@
     "deleteSelection": "Burahin ang selection (Del)",
     "dragToResize": "I-drag para i-resize",
     "save": "I-save",
+    "autoAssign": "Auto-assign",
+    "saveAs": "I-save bilang...",
+    "noFileLoaded": "Walang naka-load na file. Buksan muna ang isang MIDI file.",
     "cannotSave": "Hindi ma-save: hindi pa nasimulan ang editor",
     "cannotOpen": "Hindi mabuksan ang file: {error}",
     "libraryNotLoaded": "Hindi na-load ang webaudio-pianoroll library. Siguraduhing kasama ang script sa index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Nabigo ang pag-rename",
     "connectedDevice": "Output:",
     "connectedDeviceTip": "Pumili ng output device para makita kung anong mga nota ang mai-play nito",
-    "noDeviceFilter": "-- Lahat ng nota --"
+    "noDeviceFilter": "-- Lahat ng nota --",
+    "saveAsDescription": "Mag-save ng kopya na may bagong pangalan",
+    "saveAsSuccess": "File na-save bilang \"{filename}\"",
+    "emptyFilename": "Hindi maaaring walang laman ang pangalan ng file",
+    "curveType": "Uri ng kurba",
+    "drumKit": "Drum kit",
+    "sameChannel": "Nasa channel na ito na",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Hindi nahanap ang device: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Mga Paparating na Nota",
     "noChannels": "Walang mga channel"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Hindi na-load ang auto-assign module. I-refresh ang pahina."
   },
   "instruments": {
     "categories": {

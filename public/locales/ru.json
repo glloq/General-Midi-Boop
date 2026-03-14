@@ -223,6 +223,9 @@
     "deleteSelection": "Удалить выделение (Del)",
     "dragToResize": "Перетащите для изменения размера",
     "save": "Сохранить",
+    "autoAssign": "Авто-назначение",
+    "saveAs": "Сохранить как...",
+    "noFileLoaded": "Файл не загружен. Сначала откройте MIDI-файл.",
     "cannotSave": "Невозможно сохранить: редактор не инициализирован",
     "cannotOpen": "Невозможно открыть файл: {error}",
     "libraryNotLoaded": "Библиотека webaudio-pianoroll не загружена. Проверьте, включён ли скрипт в index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Ошибка переименования",
     "connectedDevice": "Выход:",
     "connectedDeviceTip": "Выберите устройство вывода, чтобы увидеть, какие ноты оно может воспроизводить",
-    "noDeviceFilter": "-- Все ноты --"
+    "noDeviceFilter": "-- Все ноты --",
+    "saveAsDescription": "Сохранить копию с новым именем",
+    "saveAsSuccess": "Файл сохранён как \"{filename}\"",
+    "emptyFilename": "Имя файла не может быть пустым",
+    "curveType": "Тип кривой",
+    "drumKit": "Ударная установка",
+    "sameChannel": "Уже на этом канале",
+    "tempo": "Темп",
+    "tempoTip": "Темп (BPM)"
   },
   "errors": {
     "deviceNotFound": "Устройство не найдено: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Предстоящие ноты",
     "noChannels": "Нет каналов"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Модуль авто-назначения не загрузился. Обновите страницу."
   },
   "instruments": {
     "categories": {

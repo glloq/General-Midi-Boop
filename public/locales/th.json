@@ -223,6 +223,9 @@
     "deleteSelection": "ลบที่เลือก (Del)",
     "dragToResize": "ลากเพื่อปรับขนาด",
     "save": "บันทึก",
+    "autoAssign": "กำหนดอัตโนมัติ",
+    "saveAs": "บันทึกเป็น...",
+    "noFileLoaded": "ไม่มีไฟล์โหลด กรุณาเปิดไฟล์ MIDI ก่อน",
     "cannotSave": "ไม่สามารถบันทึก: ตัวแก้ไขยังไม่ได้เริ่มต้น",
     "cannotOpen": "ไม่สามารถเปิดไฟล์: {error}",
     "libraryNotLoaded": "ไลบรารี webaudio-pianoroll ไม่ได้โหลด ตรวจสอบว่าสคริปต์รวมอยู่ใน index.html",
@@ -265,7 +268,15 @@
     "renameFailed": "การเปลี่ยนชื่อล้มเหลว",
     "connectedDevice": "เอาต์พุต:",
     "connectedDeviceTip": "เลือกอุปกรณ์เอาต์พุตเพื่อดูว่าโน้ตใดที่สามารถเล่นได้",
-    "noDeviceFilter": "-- โน้ตทั้งหมด --"
+    "noDeviceFilter": "-- โน้ตทั้งหมด --",
+    "saveAsDescription": "บันทึกสำเนาด้วยชื่อใหม่",
+    "saveAsSuccess": "บันทึกไฟล์เป็น \"{filename}\"",
+    "emptyFilename": "ชื่อไฟล์ไม่สามารถเว้นว่างได้",
+    "curveType": "ประเภทเส้นโค้ง",
+    "drumKit": "ชุดกลอง",
+    "sameChannel": "อยู่ในช่องนี้แล้ว",
+    "tempo": "เทมโป",
+    "tempoTip": "เทมโป (BPM)"
   },
   "errors": {
     "deviceNotFound": "ไม่พบอุปกรณ์: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "โน้ตที่กำลังจะมาถึง",
     "noChannels": "ไม่มีช่อง"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "โมดูลกำหนดอัตโนมัติโหลดไม่สำเร็จ กรุณารีเฟรชหน้า"
   },
   "instruments": {
     "categories": {

@@ -223,6 +223,9 @@
     "deleteSelection": "নির্বাচন মুছুন (Del)",
     "dragToResize": "আকার পরিবর্তন করতে টানুন",
     "save": "সংরক্ষণ",
+    "autoAssign": "স্বয়ংক্রিয় নির্ধারণ",
+    "saveAs": "এভাবে সংরক্ষণ করুন...",
+    "noFileLoaded": "কোনো ফাইল লোড হয়নি। প্রথমে একটি MIDI ফাইল খুলুন।",
     "cannotSave": "সংরক্ষণ করা যাচ্ছে না: সম্পাদক শুরু হয়নি",
     "cannotOpen": "ফাইল খোলা যাচ্ছে না: {error}",
     "libraryNotLoaded": "webaudio-pianoroll লাইব্রেরি লোড হয়নি। স্ক্রিপ্টটি index.html-এ অন্তর্ভুক্ত আছে কিনা পরীক্ষা করুন।",
@@ -265,7 +268,15 @@
     "renameFailed": "পুনঃনামকরণ ব্যর্থ",
     "connectedDevice": "আউটপুট:",
     "connectedDeviceTip": "কোন নোট বাজানো যায় দেখতে আউটপুট ডিভাইস নির্বাচন করুন",
-    "noDeviceFilter": "-- সব নোট --"
+    "noDeviceFilter": "-- সব নোট --",
+    "saveAsDescription": "নতুন নামে একটি কপি সংরক্ষণ করুন",
+    "saveAsSuccess": "ফাইলটি \"{filename}\" হিসাবে সংরক্ষিত হয়েছে",
+    "emptyFilename": "ফাইলের নাম খালি রাখা যাবে না",
+    "curveType": "বক্ররেখার ধরন",
+    "drumKit": "ড্রাম কিট",
+    "sameChannel": "ইতিমধ্যে এই চ্যানেলে আছে",
+    "tempo": "টেম্পো",
+    "tempoTip": "টেম্পো (BPM)"
   },
   "errors": {
     "deviceNotFound": "ডিভাইস পাওয়া যায়নি: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "আসন্ন নোটগুলি",
     "noChannels": "কোন চ্যানেল নেই"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "স্বয়ংক্রিয় নির্ধারণ মডিউল লোড হয়নি। পৃষ্ঠাটি রিফ্রেশ করুন।"
   },
   "instruments": {
     "categories": {

@@ -223,6 +223,9 @@
     "deleteSelection": "Slett markering (Del)",
     "dragToResize": "Dra for å endre størrelse",
     "save": "Lagre",
+    "autoAssign": "Auto-tildeling",
+    "saveAs": "Lagre som...",
+    "noFileLoaded": "Ingen fil lastet. Åpne først en MIDI-fil.",
     "cannotSave": "Kan ikke lagre: redigereren er ikke initialisert",
     "cannotOpen": "Kan ikke åpne fil: {error}",
     "libraryNotLoaded": "webaudio-pianoroll-biblioteket er ikke lastet. Sjekk at skriptet er inkludert i index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Omdøping mislyktes",
     "connectedDevice": "Utgang:",
     "connectedDeviceTip": "Velg en utgangsenhet for å se hvilke noter den kan spille",
-    "noDeviceFilter": "-- Alle noter --"
+    "noDeviceFilter": "-- Alle noter --",
+    "saveAsDescription": "Lagre en kopi med nytt navn",
+    "saveAsSuccess": "Filen lagret som \"{filename}\"",
+    "emptyFilename": "Filnavnet kan ikke være tomt",
+    "curveType": "Kurvetype",
+    "drumKit": "Trommesett",
+    "sameChannel": "Allerede på denne kanalen",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Enhet ikke funnet: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Kommende noter",
     "noChannels": "Ingen kanaler"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Auto-tildelingsmodulen kunne ikke lastes. Oppdater siden."
   },
   "instruments": {
     "categories": {

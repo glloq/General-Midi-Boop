@@ -223,6 +223,9 @@
     "deleteSelection": "Διαγραφή επιλογής (Del)",
     "dragToResize": "Σύρετε για αλλαγή μεγέθους",
     "save": "Αποθήκευση",
+    "autoAssign": "Αυτόματη ανάθεση",
+    "saveAs": "Αποθήκευση ως...",
+    "noFileLoaded": "Δεν φορτώθηκε αρχείο. Ανοίξτε πρώτα ένα αρχείο MIDI.",
     "cannotSave": "Αδύνατη η αποθήκευση: ο επεξεργαστής δεν έχει αρχικοποιηθεί",
     "cannotOpen": "Αδύνατο το άνοιγμα αρχείου: {error}",
     "libraryNotLoaded": "Η βιβλιοθήκη webaudio-pianoroll δεν φορτώθηκε. Ελέγξτε ότι το script περιλαμβάνεται στο index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Η μετονομασία απέτυχε",
     "connectedDevice": "Έξοδος:",
     "connectedDeviceTip": "Επιλέξτε μια συσκευή εξόδου για να δείτε ποιες νότες μπορεί να παίξει",
-    "noDeviceFilter": "-- Όλες οι νότες --"
+    "noDeviceFilter": "-- Όλες οι νότες --",
+    "saveAsDescription": "Αποθήκευση αντιγράφου με νέο όνομα",
+    "saveAsSuccess": "Αρχείο αποθηκεύτηκε ως \"{filename}\"",
+    "emptyFilename": "Το όνομα αρχείου δεν μπορεί να είναι κενό",
+    "curveType": "Τύπος καμπύλης",
+    "drumKit": "Σετ τυμπάνων",
+    "sameChannel": "Ήδη σε αυτό το κανάλι",
+    "tempo": "Τέμπο",
+    "tempoTip": "Τέμπο (BPM)"
   },
   "errors": {
     "deviceNotFound": "Η συσκευή δεν βρέθηκε: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Επερχόμενες νότες",
     "noChannels": "Δεν υπάρχουν κανάλια"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Η μονάδα αυτόματης ανάθεσης δεν φορτώθηκε. Ανανεώστε τη σελίδα."
   },
   "instruments": {
     "categories": {

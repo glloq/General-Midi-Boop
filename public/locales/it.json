@@ -223,6 +223,9 @@
     "deleteSelection": "Elimina selezione (Canc)",
     "dragToResize": "Trascina per ridimensionare",
     "save": "Salva",
+    "autoAssign": "Auto-assegnazione",
+    "saveAs": "Salva con nome...",
+    "noFileLoaded": "Nessun file caricato. Aprire prima un file MIDI.",
     "cannotSave": "Impossibile salvare: editor non inizializzato",
     "cannotOpen": "Impossibile aprire il file: {error}",
     "libraryNotLoaded": "La libreria webaudio-pianoroll non è caricata. Verifica che lo script sia incluso in index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Rinomina fallita",
     "connectedDevice": "Uscita:",
     "connectedDeviceTip": "Seleziona un dispositivo di uscita per vedere quali note può suonare",
-    "noDeviceFilter": "-- Tutte le note --"
+    "noDeviceFilter": "-- Tutte le note --",
+    "saveAsDescription": "Salvare una copia con un nuovo nome",
+    "saveAsSuccess": "File salvato come \"{filename}\"",
+    "emptyFilename": "Il nome del file non può essere vuoto",
+    "curveType": "Tipo di curva",
+    "drumKit": "Kit batteria",
+    "sameChannel": "Già su questo canale",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Dispositivo non trovato: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Note in arrivo",
     "noChannels": "Nessun canale"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Il modulo di auto-assegnazione non è stato caricato. Aggiornare la pagina."
   },
   "instruments": {
     "categories": {

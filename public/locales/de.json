@@ -223,6 +223,9 @@
     "deleteSelection": "Auswahl löschen (Entf)",
     "dragToResize": "Ziehen zum Größe ändern",
     "save": "Speichern",
+    "autoAssign": "Auto-Zuordnung",
+    "saveAs": "Speichern unter...",
+    "noFileLoaded": "Keine Datei geladen. Bitte öffnen Sie zuerst eine MIDI-Datei.",
     "cannotSave": "Speichern nicht möglich: Editor nicht initialisiert",
     "cannotOpen": "Datei kann nicht geöffnet werden: {error}",
     "libraryNotLoaded": "Die webaudio-pianoroll Bibliothek ist nicht geladen. Überprüfen Sie, ob das Skript in index.html eingebunden ist.",
@@ -265,7 +268,15 @@
     "renameFailed": "Umbenennung fehlgeschlagen",
     "connectedDevice": "Ausgabe:",
     "connectedDeviceTip": "Wählen Sie ein Ausgabegerät, um zu sehen, welche Noten es spielen kann",
-    "noDeviceFilter": "-- Alle Noten --"
+    "noDeviceFilter": "-- Alle Noten --",
+    "saveAsDescription": "Eine Kopie mit neuem Namen speichern",
+    "saveAsSuccess": "Datei gespeichert als \"{filename}\"",
+    "emptyFilename": "Dateiname darf nicht leer sein",
+    "curveType": "Kurventyp",
+    "drumKit": "Schlagzeug-Set",
+    "sameChannel": "Bereits auf diesem Kanal",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Gerät nicht gefunden: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Bevorstehende Noten",
     "noChannels": "Keine Kanäle"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Das Auto-Zuordnungsmodul konnte nicht geladen werden. Bitte aktualisieren Sie die Seite."
   },
   "instruments": {
     "categories": {

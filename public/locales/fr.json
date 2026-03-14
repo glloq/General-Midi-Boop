@@ -230,6 +230,9 @@
     "deleteSelection": "Supprimer la sélection (Del)",
     "dragToResize": "Drag pour redimensionner",
     "save": "Sauvegarder",
+    "autoAssign": "Auto-assignation",
+    "saveAs": "Enregistrer sous...",
+    "noFileLoaded": "Aucun fichier chargé. Veuillez d'abord ouvrir un fichier MIDI.",
     "renameFile": "Renommer le fichier",
     "renameEmpty": "Le nom du fichier ne peut pas être vide",
     "renameSuccess": "Fichier renommé avec succès",
@@ -272,7 +275,15 @@
     "noChannelAvailable": "Aucun canal disponible",
     "connectedDevice": "Sortie :",
     "connectedDeviceTip": "Sélectionnez un appareil de sortie pour voir les notes qu'il peut jouer (grisé = non jouable)",
-    "noDeviceFilter": "-- Toutes les notes --"
+    "noDeviceFilter": "-- Toutes les notes --",
+    "saveAsDescription": "Enregistrer une copie avec un nouveau nom",
+    "saveAsSuccess": "Fichier enregistré sous \"{filename}\"",
+    "emptyFilename": "Le nom du fichier ne peut pas être vide",
+    "curveType": "Type de courbe",
+    "drumKit": "Kit de batterie",
+    "sameChannel": "Déjà sur ce canal",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Périphérique non trouvé: {deviceId}",
@@ -502,7 +513,8 @@
     "skippedCount": "{count} canal(aux) ignoré(s)",
     "notesTransposed": "note(s) transposée(s)",
     "channelsSkipped": "canal(aux) ignoré(s)",
-    "channelsWillBeAssigned": "{active} sur {total} canaux seront assignés"
+    "channelsWillBeAssigned": "{active} sur {total} canaux seront assignés",
+    "componentNotLoaded": "Le module d'auto-assignation n'a pas pu se charger. Veuillez rafraîchir la page."
   },
   "instrumentCapabilities": {
     "title": "Compléter les capacités des instruments",

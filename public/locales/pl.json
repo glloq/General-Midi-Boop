@@ -223,6 +223,9 @@
     "deleteSelection": "Usuń zaznaczenie (Del)",
     "dragToResize": "Przeciągnij aby zmienić rozmiar",
     "save": "Zapisz",
+    "autoAssign": "Auto-przypisanie",
+    "saveAs": "Zapisz jako...",
+    "noFileLoaded": "Brak załadowanego pliku. Najpierw otwórz plik MIDI.",
     "cannotSave": "Nie można zapisać: edytor niezainicjalizowany",
     "cannotOpen": "Nie można otworzyć pliku: {error}",
     "libraryNotLoaded": "Biblioteka webaudio-pianoroll nie jest załadowana. Sprawdź, czy skrypt jest dołączony do index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Zmiana nazwy nie powiodła się",
     "connectedDevice": "Wyjście:",
     "connectedDeviceTip": "Wybierz urządzenie wyjściowe, aby zobaczyć jakie nuty może odtwarzać",
-    "noDeviceFilter": "-- Wszystkie nuty --"
+    "noDeviceFilter": "-- Wszystkie nuty --",
+    "saveAsDescription": "Zapisz kopię pod nową nazwą",
+    "saveAsSuccess": "Plik zapisany jako \"{filename}\"",
+    "emptyFilename": "Nazwa pliku nie może być pusta",
+    "curveType": "Typ krzywej",
+    "drumKit": "Zestaw perkusyjny",
+    "sameChannel": "Już na tym kanale",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Urządzenie nie znalezione: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Nadchodzące Nuty",
     "noChannels": "Brak kanałów"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Moduł auto-przypisania nie został załadowany. Odśwież stronę."
   },
   "instruments": {
     "categories": {

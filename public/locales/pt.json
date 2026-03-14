@@ -223,6 +223,9 @@
     "deleteSelection": "Excluir seleção (Del)",
     "dragToResize": "Arraste para redimensionar",
     "save": "Salvar",
+    "autoAssign": "Auto-atribuição",
+    "saveAs": "Salvar como...",
+    "noFileLoaded": "Nenhum arquivo carregado. Abra primeiro um arquivo MIDI.",
     "cannotSave": "Impossível salvar: editor não inicializado",
     "cannotOpen": "Impossível abrir o arquivo: {error}",
     "libraryNotLoaded": "A biblioteca webaudio-pianoroll não está carregada. Verifique se o script está incluído em index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Falha ao renomear",
     "connectedDevice": "Saída:",
     "connectedDeviceTip": "Selecione um dispositivo de saída para ver quais notas ele pode tocar",
-    "noDeviceFilter": "-- Todas as notas --"
+    "noDeviceFilter": "-- Todas as notas --",
+    "saveAsDescription": "Salvar uma cópia com um novo nome",
+    "saveAsSuccess": "Arquivo salvo como \"{filename}\"",
+    "emptyFilename": "O nome do arquivo não pode estar vazio",
+    "curveType": "Tipo de curva",
+    "drumKit": "Kit de bateria",
+    "sameChannel": "Já neste canal",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Dispositivo não encontrado: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Notas Futuras",
     "noChannels": "Sem canais"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "O módulo de auto-atribuição não foi carregado. Atualize a página."
   },
   "instruments": {
     "categories": {

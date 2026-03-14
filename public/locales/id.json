@@ -223,6 +223,9 @@
     "deleteSelection": "Hapus seleksi (Del)",
     "dragToResize": "Seret untuk mengubah ukuran",
     "save": "Simpan",
+    "autoAssign": "Penetapan otomatis",
+    "saveAs": "Simpan sebagai...",
+    "noFileLoaded": "Tidak ada file dimuat. Buka file MIDI terlebih dahulu.",
     "cannotSave": "Tidak dapat menyimpan: editor belum diinisialisasi",
     "cannotOpen": "Tidak dapat membuka file: {error}",
     "libraryNotLoaded": "Library webaudio-pianoroll tidak dimuat. Periksa apakah script disertakan dalam index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Gagal mengganti nama",
     "connectedDevice": "Output:",
     "connectedDeviceTip": "Pilih perangkat output untuk melihat not mana yang dapat dimainkan",
-    "noDeviceFilter": "-- Semua not --"
+    "noDeviceFilter": "-- Semua not --",
+    "saveAsDescription": "Simpan salinan dengan nama baru",
+    "saveAsSuccess": "File disimpan sebagai \"{filename}\"",
+    "emptyFilename": "Nama file tidak boleh kosong",
+    "curveType": "Jenis kurva",
+    "drumKit": "Kit drum",
+    "sameChannel": "Sudah di saluran ini",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Perangkat tidak ditemukan: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Not yang Akan Datang",
     "noChannels": "Tidak ada kanal"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Modul penetapan otomatis gagal dimuat. Segarkan halaman."
   },
   "instruments": {
     "categories": {

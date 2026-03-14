@@ -223,6 +223,9 @@
     "deleteSelection": "Forigi elektaĵon (Del)",
     "dragToResize": "Trenu por ŝanĝi grandecon",
     "save": "Konservi",
+    "autoAssign": "Aŭtomata asigno",
+    "saveAs": "Konservi kiel...",
+    "noFileLoaded": "Neniu dosiero ŝarĝita. Bonvolu unue malfermi MIDI-dosieron.",
     "cannotSave": "Ne eblas konservi: redaktilo ne pravalorumita",
     "cannotOpen": "Ne eblas malfermi dosieron: {error}",
     "libraryNotLoaded": "La biblioteko webaudio-pianoroll ne estas ŝargita. Kontrolu, ke la skripto estas inkluzivita en index.html.",
@@ -265,7 +268,15 @@
     "renameFailed": "Renomado malsukcesis",
     "connectedDevice": "Eligo:",
     "connectedDeviceTip": "Elektu eligan aparaton por vidi kiujn notojn ĝi povas ludi",
-    "noDeviceFilter": "-- Ĉiuj notoj --"
+    "noDeviceFilter": "-- Ĉiuj notoj --",
+    "saveAsDescription": "Konservi kopion kun nova nomo",
+    "saveAsSuccess": "Dosiero konservita kiel \"{filename}\"",
+    "emptyFilename": "La dosiernomo ne povas esti malplena",
+    "curveType": "Kurba tipo",
+    "drumKit": "Tamburkompleto",
+    "sameChannel": "Jam sur ĉi tiu kanalo",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Aparato ne trovita: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Venontaj Notoj",
     "noChannels": "Neniuj kanaloj"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "La aŭtomata asigno-modulo malsukcesis ŝarĝi. Bonvolu refreŝigi la paĝon."
   },
   "instruments": {
     "categories": {

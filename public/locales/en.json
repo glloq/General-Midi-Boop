@@ -230,6 +230,9 @@
     "deleteSelection": "Delete selection (Del)",
     "dragToResize": "Drag to resize",
     "save": "Save",
+    "autoAssign": "Auto-Assign",
+    "saveAs": "Save As...",
+    "noFileLoaded": "No file loaded. Please open a MIDI file first.",
     "renameFile": "Rename file",
     "renameEmpty": "File name cannot be empty",
     "renameSuccess": "File renamed successfully",
@@ -272,7 +275,15 @@
     "noChannelAvailable": "No channel available",
     "connectedDevice": "Output:",
     "connectedDeviceTip": "Select an output device to see which notes it can play (grayed out = unplayable)",
-    "noDeviceFilter": "-- All notes --"
+    "noDeviceFilter": "-- All notes --",
+    "saveAsDescription": "Save a copy with a new name",
+    "saveAsSuccess": "File saved as \"{filename}\"",
+    "emptyFilename": "Filename cannot be empty",
+    "curveType": "Curve type",
+    "drumKit": "Drum Kit",
+    "sameChannel": "Already on this channel",
+    "tempo": "Tempo",
+    "tempoTip": "Tempo (BPM)"
   },
   "errors": {
     "deviceNotFound": "Device not found: {deviceId}",
@@ -502,7 +513,8 @@
     "skippedCount": "{count} channel(s) skipped",
     "notesTransposed": "note(s) transposed",
     "channelsSkipped": "channel(s) skipped",
-    "channelsWillBeAssigned": "{active} of {total} channels will be assigned"
+    "channelsWillBeAssigned": "{active} of {total} channels will be assigned",
+    "componentNotLoaded": "Auto-assign module failed to load. Please refresh the page."
   },
   "instrumentCapabilities": {
     "title": "Complete Instrument Capabilities",

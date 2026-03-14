@@ -223,6 +223,9 @@
     "deleteSelection": "Kijelölés törlése (Del)",
     "dragToResize": "Húzza az átméretezéshez",
     "save": "Mentés",
+    "autoAssign": "Automatikus hozzárendelés",
+    "saveAs": "Mentés másként...",
+    "noFileLoaded": "Nincs betöltött fájl. Először nyisson meg egy MIDI-fájlt.",
     "cannotSave": "Nem lehet menteni: a szerkesztő nincs inicializálva",
     "cannotOpen": "Nem lehet megnyitni a fájlt: {error}",
     "libraryNotLoaded": "A webaudio-pianoroll könyvtár nincs betöltve. Ellenőrizze, hogy a szkript szerepel az index.html-ben.",
@@ -265,7 +268,15 @@
     "renameFailed": "Átnevezés sikertelen",
     "connectedDevice": "Kimenet:",
     "connectedDeviceTip": "Válasszon egy kimeneti eszközt, hogy lássa, mely hangokat tudja lejátszani",
-    "noDeviceFilter": "-- Összes hang --"
+    "noDeviceFilter": "-- Összes hang --",
+    "saveAsDescription": "Másolat mentése új névvel",
+    "saveAsSuccess": "Fájl mentve mint \"{filename}\"",
+    "emptyFilename": "A fájlnév nem lehet üres",
+    "curveType": "Görbe típusa",
+    "drumKit": "Dobfelszerelés",
+    "sameChannel": "Már ezen a csatornán van",
+    "tempo": "Tempó",
+    "tempoTip": "Tempó (BPM)"
   },
   "errors": {
     "deviceNotFound": "Eszköz nem található: {deviceId}",
@@ -416,6 +427,9 @@
   "pianoRoll": {
     "title": "Közelgő hangok",
     "noChannels": "Nincsenek csatornák"
+  },
+  "autoAssign": {
+    "componentNotLoaded": "Az automatikus hozzárendelés modul nem töltődött be. Frissítse az oldalt."
   },
   "instruments": {
     "categories": {
