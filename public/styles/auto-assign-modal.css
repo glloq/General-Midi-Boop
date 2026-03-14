@@ -9,7 +9,7 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
-  z-index: 10000;
+  z-index: 10005;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,4 +165,183 @@
 @keyframes auto-assign-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Dark Mode - Auto-Assign Modal
+   Uses !important to override inline styles in the JS-generated HTML
+   ========================================================================== */
+
+body.dark-mode .auto-assign-modal .modal-container {
+  background: #1e1e2e !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .auto-assign-modal .modal-header {
+  border-bottom-color: #4a5568;
+}
+
+body.dark-mode .auto-assign-modal .modal-body {
+  background: #1e1e2e !important;
+  color: #e0e0e0 !important;
+}
+
+/* Channel suggestion cards */
+body.dark-mode .auto-assign-modal .channel-suggestions {
+  background: #2d2d3f !important;
+  border-color: #4a5568 !important;
+  color: #e0e0e0 !important;
+}
+
+body.dark-mode .auto-assign-modal .channel-suggestions h3 {
+  color: #e0e0e0 !important;
+}
+
+/* Summary / confidence bar */
+body.dark-mode .auto-assign-modal .modal-body > div[style*="background: #f5f5f5"],
+body.dark-mode .auto-assign-modal .modal-body > div[style*="background:#f5f5f5"] {
+  background: #2d2d3f !important;
+  border-bottom-color: #4a5568 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Channel stats info box (blue background) */
+body.dark-mode .auto-assign-modal div[style*="background: #f0f8ff"],
+body.dark-mode .auto-assign-modal div[style*="background:#f0f8ff"] {
+  background: #1a2744 !important;
+  color: #c0d0e0 !important;
+}
+
+/* Skip/enable toggle */
+body.dark-mode .auto-assign-modal div[style*="background: #f0fff0"],
+body.dark-mode .auto-assign-modal div[style*="background:#f0fff0"] {
+  background: #1a2e1a !important;
+  border-color: #2e5e2e !important;
+}
+
+body.dark-mode .auto-assign-modal div[style*="background: #fff3f3"],
+body.dark-mode .auto-assign-modal div[style*="background:#fff3f3"] {
+  background: #2e1a1a !important;
+  border-color: #5e2e2e !important;
+}
+
+/* Instrument option cards */
+body.dark-mode .auto-assign-modal .instrument-option,
+body.dark-mode .auto-assign-modal div[style*="border: 2px solid"][style*="cursor: pointer"] {
+  background: #252538 !important;
+  border-color: #4a5568 !important;
+  color: #e0e0e0 !important;
+}
+
+body.dark-mode .auto-assign-modal div[style*="border: 2px solid"][style*="background: #f0fff0"] {
+  background: #1a2e1a !important;
+  border-color: #4CAF50 !important;
+}
+
+body.dark-mode .auto-assign-modal .instrument-option:hover,
+body.dark-mode .auto-assign-modal div[style*="cursor: pointer"]:hover {
+  background: #2d3748 !important;
+}
+
+/* Instrument name and details text */
+body.dark-mode .auto-assign-modal div[style*="font-weight: bold"][style*="font-size: 14px"] {
+  color: #e0e0e0 !important;
+}
+
+body.dark-mode .auto-assign-modal div[style*="color: #666"] {
+  color: #a0aec0 !important;
+}
+
+body.dark-mode .auto-assign-modal div[style*="color: #888"],
+body.dark-mode .auto-assign-modal span[style*="color: #888"] {
+  color: #8899aa !important;
+}
+
+body.dark-mode .auto-assign-modal div[style*="color: #999"],
+body.dark-mode .auto-assign-modal p[style*="color: #999"] {
+  color: #8899aa !important;
+}
+
+body.dark-mode .auto-assign-modal span[style*="color: #333"],
+body.dark-mode .auto-assign-modal div[style*="color: #333"],
+body.dark-mode .auto-assign-modal h3[style*="color: #333"] {
+  color: #e0e0e0 !important;
+}
+
+/* Octave wrapping toggle (yellow box) */
+body.dark-mode .auto-assign-modal div[style*="background: #fff9e6"] {
+  background: #2e2a1a !important;
+  border-color: #8a7a2a !important;
+}
+
+/* Footer */
+body.dark-mode .auto-assign-modal .modal-footer {
+  background: #252538 !important;
+  border-top-color: #4a5568 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Modal body text and paragraph */
+body.dark-mode .auto-assign-modal p {
+  color: #c0c8d4 !important;
+}
+
+/* Error text stays red in dark mode */
+body.dark-mode .auto-assign-modal p[style*="color: #ff4444"] {
+  color: #ff6666 !important;
+}
+
+/* Inline text overrides */
+body.dark-mode .auto-assign-modal strong {
+  color: #e0e0e0;
+}
+
+body.dark-mode .auto-assign-modal label span {
+  color: #e0e0e0 !important;
+}
+
+/* Close button */
+body.dark-mode .auto-assign-modal .modal-close {
+  color: white;
+}
+
+/* Spinner in dark mode */
+body.dark-mode .auto-assign-modal .spinner,
+body.dark-mode .auto-assign-modal div[class="spinner"] {
+  border-color: #4a5568 !important;
+  border-top-color: #667eea !important;
+}
+
+/* Summary box */
+body.dark-mode .auto-assign-modal .summary-box {
+  background: #1a2744;
+  border-color: #2d4a7a;
+  color: #c0d0e0;
+}
+
+/* Channel card dark */
+body.dark-mode .auto-assign-modal .channel-card {
+  background: #2d2d3f;
+  border-color: #4a5568;
+}
+
+body.dark-mode .auto-assign-modal .channel-card.selected {
+  background: #1a2744;
+  border-color: #3b82f6;
+}
+
+body.dark-mode .auto-assign-modal .channel-card.skipped {
+  background: #2e1a1a;
+  border-color: #7a3030;
+}
+
+/* Channel info text */
+body.dark-mode .auto-assign-modal .channel-info {
+  color: #a0aec0;
+}
+
+/* Preview channel border */
+body.dark-mode .auto-assign-modal div[style*="border-top: 1px solid #ddd"] {
+  border-top-color: #4a5568 !important;
 }

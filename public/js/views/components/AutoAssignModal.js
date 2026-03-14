@@ -48,7 +48,17 @@ class AutoAssignModal {
       // Step 1: Get MIDI file data for preview
       const fileResponse = await this.apiClient.sendCommand('file_read', { fileId: fileId });
       if (fileResponse && fileResponse.midiData) {
-        this.midiData = fileResponse.midiData;
+        // file_read returns { midiData: { midi: {header, tracks}, tempo, ... } }
+        // AudioPreview expects { header, tracks, tempo }
+        const raw = fileResponse.midiData;
+        if (raw.midi && raw.midi.tracks) {
+          this.midiData = { ...raw.midi, tempo: raw.tempo || raw.midi.tempo };
+        } else if (Array.isArray(raw.tracks)) {
+          this.midiData = raw;
+        } else {
+          console.warn('AutoAssignModal: unexpected midiData format, preview may not work');
+          this.midiData = raw;
+        }
       }
 
       // Step 3: Generate suggestions

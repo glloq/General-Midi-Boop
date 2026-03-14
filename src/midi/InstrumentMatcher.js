@@ -157,14 +157,16 @@ class InstrumentMatcher {
    * @returns {Object} - { score, info }
    */
   scoreProgramMatch(channelProgram, instrumentProgram, bankInfo = {}) {
-    // Si pas de programme dans le canal
+    const maxScore = this.config.getWeight('programMatch'); // 30
+
+    // Si pas de programme dans le canal, give neutral score (not penalizing)
     if (channelProgram === null || channelProgram === undefined) {
-      return { score: 0 };
+      return { score: Math.round(maxScore * 0.5), info: 'No program in MIDI channel' };
     }
 
-    // Si l'instrument n'a pas de programme défini
+    // Si l'instrument n'a pas de programme défini, give neutral score
     if (instrumentProgram === null || instrumentProgram === undefined) {
-      return { score: 0 };
+      return { score: Math.round(maxScore * 0.5), info: 'No GM program configured on instrument' };
     }
 
     // Match exact (program)
@@ -693,11 +695,14 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scoreInstrumentType(channelType, instrumentType) {
+    const maxScore = this.config.getWeight('instrumentType'); // 10
+
     // Extraire le type depuis l'objet si nécessaire
     const channelTypeStr = channelType?.type || channelType;
 
-    if (!channelTypeStr || channelTypeStr === 'unknown') {
-      return { score: 0 };
+    // If either type is unknown, give neutral score (not penalizing)
+    if (!channelTypeStr || channelTypeStr === 'unknown' || !instrumentType || instrumentType === 'unknown') {
+      return { score: Math.round(maxScore * 0.5), info: 'Instrument type not determined' };
     }
 
     // Mapping des types détaillés (ChannelAnalyzer) vers types génériques (getInstrumentType)
