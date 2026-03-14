@@ -8283,7 +8283,8 @@
                     try {
                         const fullScan = params?.fullScan || false;
                         log(`🔍 Lancement du scan réseau... (fullScan: ${fullScan})`, 'info');
-                        const response = await api.sendCommand('network_scan', { timeout: 5, fullScan });
+                        const scanTimeout = fullScan ? 30000 : 15000;
+                        const response = await api.sendCommand('network_scan', { timeout: 5, fullScan }, scanTimeout);
 
                         // Le backend retourne { success: true, data: { devices: [...] } }
                         const devices = (response.success && response.data && response.data.devices) ? response.data.devices : [];

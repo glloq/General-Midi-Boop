@@ -658,9 +658,12 @@ class NetworkScanModal {
 
         const modalDialog = this.container.querySelector('.modal-dialog');
         if (modalDialog) {
-            modalDialog.innerHTML = this.renderModalContent()
-                .replace('<div class="modal-dialog modal-lg">', '')
-                .replace('</div>', '');
+            const fullHTML = this.renderModalContent();
+            // Extraire le contenu entre la première balise ouvrante et la dernière fermante
+            const innerHTML = fullHTML
+                .replace(/^\s*<div class="modal-dialog modal-lg">\s*/, '')
+                .replace(/\s*<\/div>\s*$/, '');
+            modalDialog.innerHTML = innerHTML;
 
             // Réattacher uniquement l'événement Enter sur le champ IP
             // (les autres sont délégués au conteneur)

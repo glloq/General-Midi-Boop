@@ -108,17 +108,43 @@ class NetworkManager extends EventEmitter {
       if (process.platform === 'linux') {
         this.app.logger.debug('Using avahi-browse for mDNS discovery...');
 
-        try {
-          const { stdout } = await execAsync(
-            `timeout ${timeout}s avahi-browse -a -t -r -p 2>/dev/null || true`,
-            { timeout: (timeout + 1) * 1000 }
-          );
+        // Scanner les services RTP-MIDI et Apple MIDI spécifiquement
+        const serviceTypes = [
+          '_apple-midi._udp',
+          '_rtpmidi._udp',
+          '_midi._udp'
+        ];
 
-          if (stdout) {
-            this.parseMDNSOutput(stdout);
+        for (const serviceType of serviceTypes) {
+          try {
+            const { stdout } = await execAsync(
+              `timeout ${timeout}s avahi-browse ${serviceType} -t -r -p 2>/dev/null || true`,
+              { timeout: (timeout + 1) * 1000 }
+            );
+
+            if (stdout && stdout.trim()) {
+              this.parseMDNSOutput(stdout);
+              this.app.logger.info(`mDNS: found services for ${serviceType}`);
+            }
+          } catch (error) {
+            this.app.logger.debug(`avahi-browse failed for ${serviceType}: ${error.message}`);
           }
-        } catch (error) {
-          this.app.logger.debug('avahi-browse not available or no services found');
+        }
+
+        // Fallback: scanner tous les services si aucun résultat spécifique
+        if (this.devices.size === 0) {
+          try {
+            const { stdout } = await execAsync(
+              `timeout ${timeout}s avahi-browse -a -t -r -p 2>/dev/null || true`,
+              { timeout: (timeout + 1) * 1000 }
+            );
+
+            if (stdout && stdout.trim()) {
+              this.parseMDNSOutput(stdout);
+            }
+          } catch (error) {
+            this.app.logger.debug('avahi-browse -a not available or no services found');
+          }
         }
       }
 
@@ -217,8 +243,8 @@ class NetworkManager extends EventEmitter {
 
       pingPromises.push(pingPromise);
 
-      // Traiter par batch de 15 (limit concurrent child processes for Raspberry Pi)
-      if (pingPromises.length >= 15) {
+      // Traiter par batch de 30 (limit concurrent child processes)
+      if (pingPromises.length >= 30) {
         await Promise.all(pingPromises);
         pingPromises.length = 0; // Vider le tableau
       }
