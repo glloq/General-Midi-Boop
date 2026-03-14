@@ -188,6 +188,9 @@ class AutoAssigner {
           score: selected.compatibility.score,
           transposition: selected.compatibility.transposition,
           noteRemapping: selected.compatibility.noteRemapping,
+          octaveWrapping: selected.compatibility.octaveWrapping || null,
+          octaveWrappingEnabled: selected.compatibility.octaveWrappingEnabled || false,
+          octaveWrappingInfo: selected.compatibility.octaveWrappingInfo || null,
           issues: selected.compatibility.issues,
           info: selected.compatibility.info,
           channelAnalysis: {

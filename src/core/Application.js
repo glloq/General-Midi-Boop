@@ -14,6 +14,7 @@ import NetworkManager from '../managers/NetworkManager.js';
 import WebSocketServer from '../api/WebSocketServer.js';
 import HttpServer from '../api/HttpServer.js';
 import CommandHandler from '../api/CommandHandler.js';
+import AutoAssigner from '../midi/AutoAssigner.js';
 
 class Application {
   constructor(configPath = null) {
@@ -30,6 +31,7 @@ class Application {
     this.bluetoothManager = null;
     this.networkManager = null;
     this.serialMidiManager = null;
+    this.autoAssigner = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -82,6 +84,9 @@ class Application {
       } catch (error) {
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
       }
+
+      // Initialize auto-assigner (singleton with cache)
+      this.autoAssigner = new AutoAssigner(this.database, this.logger);
 
       // Initialize API
       this.commandHandler = new CommandHandler(this);
@@ -208,6 +213,11 @@ class Application {
       // Close Serial MIDI
       if (this.serialMidiManager) {
         await this.serialMidiManager.shutdown();
+      }
+
+      // Destroy auto-assigner (cleanup intervals and cache)
+      if (this.autoAssigner) {
+        this.autoAssigner.destroy();
       }
 
       // Remove event handlers to prevent leaks on restart

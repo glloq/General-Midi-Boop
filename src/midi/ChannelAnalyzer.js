@@ -73,6 +73,7 @@ class ChannelAnalyzer {
     const usesPitchBend = this.hasPitchBend(events);
     const programs = this.extractPrograms(events);
     const primaryProgram = this.getPrimaryProgram(programs);
+    const bankSelect = this.extractBankSelect(events);
     const trackNames = this.getTrackNames(midiData, channel);
     const density = this.calculateNoteDensity(noteEvents, midiData.duration || 0);
 
@@ -97,6 +98,8 @@ class ChannelAnalyzer {
       usesPitchBend,
       programs,
       primaryProgram,
+      bankMSB: bankSelect.msb,
+      bankLSB: bankSelect.lsb,
       trackNames,
       density,
       estimatedType: typeEstimation.type,
@@ -265,6 +268,30 @@ class ChannelAnalyzer {
     }
 
     return programs;
+  }
+
+  /**
+   * Extrait les valeurs Bank Select MSB (CC0) et LSB (CC32)
+   * @param {Array<Object>} events
+   * @returns {Object} - { msb, lsb }
+   */
+  extractBankSelect(events) {
+    let msb = null;
+    let lsb = null;
+
+    for (const event of events) {
+      if (event.type === 'controller' || event.type === 'cc') {
+        const ccNum = event.controller || event.controllerType || 0;
+        const value = event.value !== undefined ? event.value : 0;
+        if (ccNum === 0) {
+          msb = value; // Bank Select MSB
+        } else if (ccNum === 32) {
+          lsb = value; // Bank Select LSB
+        }
+      }
+    }
+
+    return { msb, lsb };
   }
 
   /**

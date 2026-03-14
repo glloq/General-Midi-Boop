@@ -140,6 +140,34 @@ class MidiTransposer {
   }
 
   /**
+   * Remap MIDI channels in adapted file
+   * @param {Object} midiData - Parsed MIDI data
+   * @param {Object} channelMap - { sourceChannel: targetChannel }
+   * @returns {Object} - { midiData, stats }
+   */
+  remapChannels(midiData, channelMap) {
+    const modifiedData = {
+      ...midiData,
+      tracks: midiData.tracks.map(track => ({
+        ...track,
+        events: track.events ? track.events.map(event => {
+          if (event.channel !== undefined && channelMap[event.channel] !== undefined) {
+            return { ...event, channel: channelMap[event.channel] };
+          }
+          return event;
+        }) : []
+      }))
+    };
+
+    const channelsRemapped = Object.keys(channelMap).length;
+
+    return {
+      midiData: modifiedData,
+      stats: { channelsRemapped }
+    };
+  }
+
+  /**
    * Applique une transposition à un seul canal
    * @param {Object} midiData
    * @param {number} channel

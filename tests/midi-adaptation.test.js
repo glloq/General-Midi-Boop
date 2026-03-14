@@ -108,7 +108,7 @@ function createInstrument(overrides = {}) {
     note_range_min: 21,
     note_range_max: 108,
     polyphony: 64,
-    note_selection_mode: 'continuous',
+    note_selection_mode: 'range',
     selected_notes: null,
     supported_ccs: JSON.stringify([1, 7, 10, 11, 64, 91]),
     sync_delay: 0,
@@ -350,9 +350,21 @@ describe('InstrumentMatcher', () => {
     expect(result.score).toBeGreaterThan(0);
   });
 
-  test('discrete note with no selected notes returns incompatible', () => {
+  test('discrete note with no selected notes falls back to range scoring', () => {
+    // When selectedNotes is null but channelRange has min/max, falls back to range-based scoring
     const result = matcher.scoreDiscreteNotes(
       { min: 36, max: 49 },
+      null,
+      null
+    );
+    // Falls back to range scoring, which is compatible if range fits
+    expect(result.compatible).toBe(true);
+    expect(result.score).toBeGreaterThanOrEqual(0);
+  });
+
+  test('discrete note with no selected notes and no range returns incompatible', () => {
+    const result = matcher.scoreDiscreteNotes(
+      { min: undefined, max: undefined },
       null,
       null
     );
@@ -370,7 +382,7 @@ describe('InstrumentMatcher', () => {
   test('isDrumsInstrument detects drum instruments', () => {
     expect(matcher.isDrumsInstrument({ gm_program: 115 })).toBe(true);
     expect(matcher.isDrumsInstrument({ gm_program: 0, note_selection_mode: 'discrete' })).toBe(true);
-    expect(matcher.isDrumsInstrument({ gm_program: 0, note_selection_mode: 'continuous' })).toBe(false);
+    expect(matcher.isDrumsInstrument({ gm_program: 0, note_selection_mode: 'range' })).toBe(false);
   });
 
   test('drum issues are captured from scoreDiscreteDrumsIntelligent', () => {
@@ -766,7 +778,7 @@ describe('InstrumentCapabilitiesValidator', () => {
       note_range_min: 21,
       note_range_max: 108,
       polyphony: 64,
-      note_selection_mode: 'continuous',
+      note_selection_mode: 'range',
       supported_ccs: [7, 10, 64],
       type: 'keyboard'
     };
@@ -784,7 +796,7 @@ describe('InstrumentCapabilitiesValidator', () => {
       note_range_min: null,
       note_range_max: 108,
       polyphony: 64,
-      note_selection_mode: 'continuous'
+      note_selection_mode: 'range'
     };
 
     const result = validator.validateInstrument(instrument);
@@ -817,7 +829,7 @@ describe('InstrumentCapabilitiesValidator', () => {
       note_range_min: 21,
       note_range_max: 108,
       polyphony: 64,
-      note_selection_mode: 'continuous'
+      note_selection_mode: 'range'
     };
 
     const result = validator.validateInstrument(instrument);
@@ -832,7 +844,7 @@ describe('InstrumentCapabilitiesValidator', () => {
       note_range_min: 21,
       note_range_max: 108,
       polyphony: 64,
-      note_selection_mode: 'continuous'
+      note_selection_mode: 'range'
       // Missing: supported_ccs, type
     };
 
@@ -846,7 +858,7 @@ describe('InstrumentCapabilitiesValidator', () => {
     const instruments = [
       {
         id: 1, gm_program: 0, note_range_min: 21, note_range_max: 108,
-        polyphony: 64, note_selection_mode: 'continuous', supported_ccs: [7], type: 'keyboard'
+        polyphony: 64, note_selection_mode: 'range', supported_ccs: [7], type: 'keyboard'
       },
       {
         id: 2, gm_program: null, note_range_min: null, note_range_max: null,

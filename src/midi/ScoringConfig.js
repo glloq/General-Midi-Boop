@@ -144,6 +144,21 @@ const ScoringConfig = {
   },
 
   /**
+   * Serialize current configuration for storage
+   * @returns {Object}
+   */
+  serialize() {
+    return {
+      weights: { ...this.weights },
+      typeDetection: { ...this.typeDetection },
+      typeThresholds: { ...this.typeThresholds },
+      penalties: { ...this.penalties },
+      bonuses: { ...this.bonuses },
+      scoreThresholds: { ...this.scoreThresholds }
+    };
+  },
+
+  /**
    * Charger une configuration personnalisée
    * @param {Object} customConfig
    */
