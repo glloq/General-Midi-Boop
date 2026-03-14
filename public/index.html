@@ -7618,6 +7618,11 @@
                 // Rafraîchir la liste des périphériques pour afficher le nouveau nom
                 await loadDevices();
 
+                // Rafraîchir la page de gestion d'instruments si ouverte
+                if (window.instrumentManagementPageInstance) {
+                    window.instrumentManagementPageInstance.refresh();
+                }
+
             } catch (error) {
                 log(`Erreur sauvegarde réglages: ${error.message}`, 'error');
                 await showAlert(`Erreur lors de la sauvegarde: ${error.message}`, {

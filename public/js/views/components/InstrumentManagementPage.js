@@ -479,6 +479,7 @@ class InstrumentManagementPage {
   async scanDevices() {
     try {
       await this.apiClient.sendCommand('device_refresh', {});
+      this.showToast(i18n.t('instrumentManagement.scanStarted') || 'Scan USB lancé...', 'success');
       setTimeout(() => this.refresh(), 1000);
     } catch (error) {
       this.showToast((i18n.t('instrumentManagement.scanFailed') || 'Échec du scan') + ': ' + error.message, 'error');
