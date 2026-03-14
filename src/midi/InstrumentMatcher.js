@@ -56,7 +56,9 @@ class InstrumentMatcher {
     // 1. Match du programme MIDI (+30 points max)
     const programScore = this.scoreProgramMatch(
       channelAnalysis.primaryProgram,
-      instrument.gm_program
+      instrument.gm_program,
+      { channelBankMSB: channelAnalysis.bankMSB, channelBankLSB: channelAnalysis.bankLSB,
+        instrumentBankMSB: instrument.bank_msb, instrumentBankLSB: instrument.bank_lsb }
     );
     score += programScore.score;
     if (programScore.info) info.push(programScore.info);
@@ -148,12 +150,13 @@ class InstrumentMatcher {
   }
 
   /**
-   * Score du match de programme MIDI
+   * Score du match de programme MIDI (with optional Bank Select support)
    * @param {number|null} channelProgram
    * @param {number|null} instrumentProgram
+   * @param {Object} [bankInfo] - { channelBankMSB, channelBankLSB, instrumentBankMSB, instrumentBankLSB }
    * @returns {Object} - { score, info }
    */
-  scoreProgramMatch(channelProgram, instrumentProgram) {
+  scoreProgramMatch(channelProgram, instrumentProgram, bankInfo = {}) {
     // Si pas de programme dans le canal
     if (channelProgram === null || channelProgram === undefined) {
       return { score: 0 };
@@ -164,9 +167,19 @@ class InstrumentMatcher {
       return { score: 0 };
     }
 
-    // Match exact
+    // Match exact (program)
     if (channelProgram === instrumentProgram) {
       const programName = MidiUtils.getGMInstrumentName(channelProgram);
+
+      // Check Bank Select match for extra precision
+      const bankMatch = this.checkBankMatch(bankInfo);
+      if (bankMatch === 'exact') {
+        return {
+          score: this.config.getBonus('perfectProgramMatch'),
+          info: `Perfect program+bank match: ${programName} (${channelProgram}, Bank ${bankInfo.channelBankMSB || 0}/${bankInfo.channelBankLSB || 0})`
+        };
+      }
+
       return {
         score: this.config.getBonus('perfectProgramMatch'),
         info: `Perfect program match: ${programName} (${channelProgram})`
@@ -185,6 +198,30 @@ class InstrumentMatcher {
     }
 
     return { score: 0 };
+  }
+
+  /**
+   * Check Bank Select MSB/LSB match
+   * @param {Object} bankInfo
+   * @returns {string} 'exact', 'partial', or 'none'
+   */
+  checkBankMatch(bankInfo) {
+    if (!bankInfo) return 'none';
+
+    const { channelBankMSB, channelBankLSB, instrumentBankMSB, instrumentBankLSB } = bankInfo;
+
+    // If neither side has bank info, it's a non-issue
+    if ((channelBankMSB === null || channelBankMSB === undefined) &&
+        (instrumentBankMSB === null || instrumentBankMSB === undefined)) {
+      return 'none';
+    }
+
+    const msbMatch = (channelBankMSB || 0) === (instrumentBankMSB || 0);
+    const lsbMatch = (channelBankLSB || 0) === (instrumentBankLSB || 0);
+
+    if (msbMatch && lsbMatch) return 'exact';
+    if (msbMatch) return 'partial';
+    return 'none';
   }
 
   /**
@@ -410,7 +447,8 @@ class InstrumentMatcher {
       if (channelRange.min !== undefined && channelRange.max !== undefined) {
         return this.scoreNoteCompatibility(channelRange, {
           min: channelRange.min,
-          max: channelRange.max
+          max: channelRange.max,
+          mode: 'range' // Explicit to prevent accidental recursion
         }, channelAnalysis);
       }
       return {

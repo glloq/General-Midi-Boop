@@ -1,6 +1,5 @@
 // src/api/CommandHandler.js
 import JsonValidator from '../utils/JsonValidator.js';
-import AutoAssigner from '../midi/AutoAssigner.js';
 import MidiTransposer from '../midi/MidiTransposer.js';
 import JsonMidiConverter from '../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../midi/InstrumentCapabilitiesValidator.js';
@@ -127,6 +126,7 @@ class CommandHandler {
       'validate_instrument_capabilities': (data) => this.validateInstrumentCapabilities(data),
       'get_instrument_defaults': (data) => this.getInstrumentDefaults(data),
       'update_instrument_capabilities': (data) => this.updateInstrumentCapabilities(data),
+      'get_file_routings': (data) => this.getFileRoutings(data),
 
       // ==================== LATENCY (10 commands) ====================
       'latency_measure': (data) => this.latencyMeasure(data),
@@ -904,11 +904,19 @@ class CommandHandler {
   async fileWrite(data) {
     // Write MIDI file content from editor
     await this.app.fileManager.saveFile(data.fileId, data.midiData);
+    // Invalidate auto-assignment cache for this file
+    if (this.app.autoAssigner) {
+      this.app.autoAssigner.invalidateCache(data.fileId);
+    }
     return { success: true };
   }
 
   async fileDelete(data) {
     await this.app.fileManager.deleteFile(data.fileId);
+    // Invalidate auto-assignment cache for this file
+    if (this.app.autoAssigner) {
+      this.app.autoAssigner.invalidateCache(data.fileId);
+    }
     return { success: true };
   }
 
@@ -1584,19 +1592,14 @@ class CommandHandler {
       throw new Error(`Failed to parse MIDI file: ${error.message}`);
     }
 
-    // Create auto-assigner and analyze channel
-    const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
-    try {
-      const analysis = autoAssigner.analyzeChannel(midiData, data.channel);
+    // Use singleton auto-assigner (with cache support)
+    const analysis = this.app.autoAssigner.analyzeChannel(midiData, data.channel, data.fileId);
 
-      return {
-        success: true,
-        channel: data.channel,
-        analysis
-      };
-    } finally {
-      autoAssigner.destroy();
-    }
+    return {
+      success: true,
+      channel: data.channel,
+      analysis
+    };
   }
 
   /**
@@ -1629,31 +1632,26 @@ class CommandHandler {
       throw new Error(`Failed to parse MIDI file: ${error.message}`);
     }
 
-    // Generate suggestions
-    const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
-    try {
-      const result = await autoAssigner.generateSuggestions(midiData, options);
+    // Generate suggestions using singleton auto-assigner
+    const result = await this.app.autoAssigner.generateSuggestions(midiData, options);
 
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-          suggestions: {},
-          autoSelection: {}
-        };
-      }
-
+    if (!result.success) {
       return {
-        success: true,
-        suggestions: result.suggestions,
-        autoSelection: result.autoSelection,
-        channelAnalyses: result.channelAnalyses,
-        confidenceScore: result.confidenceScore,
-        stats: result.stats
+        success: false,
+        error: result.error,
+        suggestions: {},
+        autoSelection: {}
       };
-    } finally {
-      autoAssigner.destroy();
     }
+
+    return {
+      success: true,
+      suggestions: result.suggestions,
+      autoSelection: result.autoSelection,
+      channelAnalyses: result.channelAnalyses,
+      confidenceScore: result.confidenceScore,
+      stats: result.stats
+    };
   }
 
   /**
@@ -1754,14 +1752,20 @@ class CommandHandler {
         compatibility_score: assignment.score,
         transposition_applied: assignment.transposition?.semitones || 0,
         auto_assigned: true,
-        assignment_reason: assignment.info ? assignment.info.join('; ') : 'Auto-assigned',
+        assignment_reason: assignment.info
+          ? (Array.isArray(assignment.info) ? assignment.info.join('; ') : String(assignment.info))
+          : 'Auto-assigned',
         note_remapping: assignment.noteRemapping ? JSON.stringify(assignment.noteRemapping) : null,
         enabled: true,
         created_at: Date.now()
       };
 
-      // Insert routing (for now, we store in memory or extend the DB)
-      // Note: midi_instrument_routings table needs to be updated to use channel instead of track_id
+      // Persist routing to database
+      try {
+        this.app.database.insertRouting(routing);
+      } catch (dbError) {
+        this.app.logger.warn(`Failed to persist routing for channel ${channelNum}: ${dbError.message}`);
+      }
       routings.push(routing);
 
       // Also apply to MidiPlayer if currently loaded
@@ -1816,19 +1820,32 @@ class CommandHandler {
   async getInstrumentDefaults(data) {
     const validator = new InstrumentCapabilitiesValidator();
 
-    // Récupérer l'instrument
+    // Récupérer l'instrument (table instruments)
     const instrument = this.app.database.getInstrument(data.instrumentId);
 
     if (!instrument) {
       throw new Error(`Instrument not found: ${data.instrumentId}`);
     }
 
-    // Obtenir les suggestions
+    // Obtenir les suggestions basées sur le type
     const defaults = validator.getSuggestedDefaults(instrument);
+
+    // Enrichir avec les capabilities actuelles depuis instruments_latency
+    let currentCapabilities = null;
+    if (instrument.device_id) {
+      try {
+        currentCapabilities = this.app.database.getInstrumentCapabilities(
+          instrument.device_id, instrument.channel || 0
+        );
+      } catch (e) {
+        // Capabilities may not exist yet
+      }
+    }
 
     return {
       success: true,
-      defaults
+      defaults,
+      currentCapabilities
     };
   }
 
@@ -1883,7 +1900,9 @@ class CommandHandler {
 
         // Mettre à jour les capacités
         if (Object.keys(capabilityFields).length > 0) {
-          this.app.database.updateInstrumentCapabilities(instrument.device_id, capabilityFields);
+          // Use channel from fields, instrument, or default to 0
+          const channel = fields.channel !== undefined ? fields.channel : (instrument.channel || 0);
+          this.app.database.updateInstrumentCapabilities(instrument.device_id, channel, capabilityFields);
         }
 
         updated.push(id);
@@ -1903,6 +1922,25 @@ class CommandHandler {
       updated: updated.length,
       failed: failed.length,
       failedDetails: failed
+    };
+  }
+
+  /**
+   * Get saved routings for a MIDI file
+   * @param {Object} data - { fileId }
+   * @returns {Object} - { success, routings }
+   */
+  async getFileRoutings(data) {
+    if (!data.fileId) {
+      throw new Error('fileId is required');
+    }
+
+    const routings = this.app.database.getRoutingsByFile(data.fileId);
+
+    return {
+      success: true,
+      routings,
+      count: routings.length
     };
   }
 }

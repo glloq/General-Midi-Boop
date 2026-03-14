@@ -920,6 +920,94 @@ class InstrumentDatabase {
       throw error;
     }
   }
+  // ==========================================================================
+  // Routing persistence methods
+  // ==========================================================================
+
+  /**
+   * Insert or update a channel routing for a MIDI file
+   * @param {Object} routing - { midi_file_id, channel, device_id, instrument_name, compatibility_score, transposition_applied, auto_assigned, assignment_reason, note_remapping, enabled }
+   * @returns {number} routing id
+   */
+  insertRouting(routing) {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO midi_instrument_routings
+          (midi_file_id, track_id, channel, device_id, instrument_name,
+           compatibility_score, transposition_applied, auto_assigned,
+           assignment_reason, note_remapping, enabled, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(midi_file_id, channel) WHERE channel IS NOT NULL
+        DO UPDATE SET
+          device_id = excluded.device_id,
+          instrument_name = excluded.instrument_name,
+          compatibility_score = excluded.compatibility_score,
+          transposition_applied = excluded.transposition_applied,
+          auto_assigned = excluded.auto_assigned,
+          assignment_reason = excluded.assignment_reason,
+          note_remapping = excluded.note_remapping,
+          enabled = excluded.enabled,
+          created_at = excluded.created_at
+      `);
+
+      const result = stmt.run(
+        routing.midi_file_id,
+        routing.channel, // Use channel as track_id for backward compat
+        routing.channel,
+        routing.device_id,
+        routing.instrument_name,
+        routing.compatibility_score || null,
+        routing.transposition_applied || 0,
+        routing.auto_assigned ? 1 : 0,
+        routing.assignment_reason || null,
+        routing.note_remapping || null,
+        routing.enabled !== false ? 1 : 0,
+        routing.created_at || Date.now()
+      );
+
+      return result.lastInsertRowid;
+    } catch (error) {
+      this.logger.error(`Failed to insert routing: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all routings for a MIDI file
+   * @param {number} fileId
+   * @returns {Array<Object>}
+   */
+  getRoutingsByFile(fileId) {
+    try {
+      const rows = this.db.prepare(`
+        SELECT * FROM midi_instrument_routings
+        WHERE midi_file_id = ? AND enabled = 1
+        ORDER BY channel ASC
+      `).all(fileId);
+
+      return rows.map(row => ({
+        ...row,
+        note_remapping: row.note_remapping ? JSON.parse(row.note_remapping) : null,
+        auto_assigned: !!row.auto_assigned,
+        enabled: !!row.enabled
+      }));
+    } catch (error) {
+      this.logger.error(`Failed to get routings for file ${fileId}: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Delete all routings for a MIDI file
+   * @param {number} fileId
+   */
+  deleteRoutingsByFile(fileId) {
+    try {
+      this.db.prepare('DELETE FROM midi_instrument_routings WHERE midi_file_id = ?').run(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to delete routings for file ${fileId}: ${error.message}`);
+    }
+  }
 }
 
 export default InstrumentDatabase;

@@ -51,6 +51,19 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
+    // Valider que note_selection_mode a une valeur reconnue
+    const mode = instrument.note_selection_mode;
+    if (mode !== null && mode !== undefined && mode !== '' &&
+        mode !== 'range' && mode !== 'discrete') {
+      missing.push({
+        field: 'note_selection_mode',
+        label: this.getCapabilityLabel('note_selection_mode'),
+        type: this.getCapabilityType('note_selection_mode'),
+        required: true,
+        reason: `Invalid value '${mode}'. Must be 'range' or 'discrete'.`
+      });
+    }
+
     // Vérifier les capacités conditionnelles
     for (const [capability, condition] of Object.entries(this.conditionalCapabilities)) {
       if (condition(instrument)) {
