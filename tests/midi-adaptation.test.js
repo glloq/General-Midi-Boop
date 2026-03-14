@@ -275,10 +275,11 @@ describe('InstrumentMatcher', () => {
     expect(result.score).toBe(0);
   });
 
-  test('null program gives 0 points', () => {
-    expect(matcher.scoreProgramMatch(null, 0).score).toBe(0);
-    expect(matcher.scoreProgramMatch(0, null).score).toBe(0);
-    expect(matcher.scoreProgramMatch(null, null).score).toBe(0);
+  test('null program gives neutral score (half weight)', () => {
+    // When program info is missing, give neutral score instead of 0
+    expect(matcher.scoreProgramMatch(null, 0).score).toBe(15);
+    expect(matcher.scoreProgramMatch(0, null).score).toBe(15);
+    expect(matcher.scoreProgramMatch(null, null).score).toBe(15);
   });
 
   test('perfect note range fit gives 25 points', () => {
