@@ -163,6 +163,11 @@ const ScoringConfig = {
     if (customConfig.bonuses) {
       Object.assign(this.bonuses, customConfig.bonuses);
     }
+
+    if (!this.validateWeights()) {
+      const sum = Object.values(this.weights).reduce((a, b) => a + b, 0);
+      console.warn(`ScoringConfig: weights sum to ${sum} instead of 100, scores may be inconsistent`);
+    }
   }
 };
 

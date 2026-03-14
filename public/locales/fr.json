@@ -501,7 +501,8 @@
     "skippedLabel": "IGNORÉ",
     "skippedCount": "{count} canal(aux) ignoré(s)",
     "notesTransposed": "note(s) transposée(s)",
-    "channelsSkipped": "canal(aux) ignoré(s)"
+    "channelsSkipped": "canal(aux) ignoré(s)",
+    "channelsWillBeAssigned": "{active} sur {total} canaux seront assignés"
   },
   "instrumentCapabilities": {
     "title": "Compléter les capacités des instruments",

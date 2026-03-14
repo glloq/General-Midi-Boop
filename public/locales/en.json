@@ -501,7 +501,8 @@
     "skippedLabel": "SKIPPED",
     "skippedCount": "{count} channel(s) skipped",
     "notesTransposed": "note(s) transposed",
-    "channelsSkipped": "channel(s) skipped"
+    "channelsSkipped": "channel(s) skipped",
+    "channelsWillBeAssigned": "{active} of {total} channels will be assigned"
   },
   "instrumentCapabilities": {
     "title": "Complete Instrument Capabilities",

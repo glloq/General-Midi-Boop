@@ -556,9 +556,9 @@ class DrumNoteMapper {
               const closest = this.findClosestNote(note, availableNotes);
               mapping[note] = closest;
               substitutions.push({ from: note, to: closest, type: 'closest match' });
-            } else if (opts.allowSharing) {
+            } else if (opts.allowSharing && instrNotes.length > 0) {
               // Last resort: reuse already mapped note
-              const reusable = instrNotes[0]; // Any available note
+              const reusable = instrNotes[0];
               mapping[note] = reusable;
               substitutions.push({ from: note, to: reusable, type: 'note sharing' });
             } else if (opts.allowOmission) {

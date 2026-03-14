@@ -250,7 +250,7 @@ class DeviceManager {
 
     // Ajouter les périphériques Bluetooth appairés et connectés
     if (this.app.bluetoothManager) {
-      const pairedDevices = this.app.bluetoothManager.getPairedDevices();
+      const pairedDevices = this.app.bluetoothManager.getPairedDevices() || [];
 
       // Ajouter seulement les périphériques connectés à la liste des instruments disponibles
       const connectedBluetoothDevices = pairedDevices
@@ -273,7 +273,7 @@ class DeviceManager {
 
     // Ajouter les périphériques réseau connectés
     if (this.app.networkManager) {
-      const networkDevices = this.app.networkManager.getConnectedDevices()
+      const networkDevices = (this.app.networkManager.getConnectedDevices() || [])
         .map(device => ({
           id: device.ip,
           name: device.name || `Network MIDI (${device.ip})`,
@@ -293,7 +293,7 @@ class DeviceManager {
 
     // Ajouter les périphériques série MIDI (GPIO UART)
     if (this.app.serialMidiManager) {
-      const serialPorts = this.app.serialMidiManager.getConnectedPorts()
+      const serialPorts = (this.app.serialMidiManager.getConnectedPorts() || [])
         .map(port => ({
           id: port.path,
           name: port.name || `Serial MIDI (${port.path})`,
@@ -369,7 +369,8 @@ class DeviceManager {
       if (bleDevice && bleDevice.connected) {
         try {
           // Envoyer via Bluetooth MIDI
-          this.app.bluetoothManager.sendMidiMessage(bleDevice.address, type, data);
+          this.app.bluetoothManager.sendMidiMessage(bleDevice.address, type, data)
+            .catch(error => this.app.logger.error(`Failed to send MIDI message via Bluetooth to ${deviceName}: ${error.message}`));
           return true;
         } catch (error) {
           this.app.logger.error(`Failed to send MIDI message via Bluetooth to ${deviceName}: ${error.message}`);
@@ -390,7 +391,8 @@ class DeviceManager {
       if (networkDevice && networkDevice.connected) {
         try {
           // Envoyer via Network MIDI (RTP-MIDI)
-          this.app.networkManager.sendMidiMessage(networkDevice.ip, type, data);
+          this.app.networkManager.sendMidiMessage(networkDevice.ip, type, data)
+            .catch(error => this.app.logger.error(`Failed to send MIDI message via Network to ${deviceName}: ${error.message}`));
           return true;
         } catch (error) {
           this.app.logger.error(`Failed to send MIDI message via Network to ${deviceName}: ${error.message}`);
@@ -728,6 +730,7 @@ class DeviceManager {
       throw new Error(`Virtual device not found: ${name}`);
     }
 
+    vdev.input.removeAllListeners();
     vdev.input.close();
     vdev.output.close();
     this.virtualDevices.delete(name);
@@ -973,23 +976,22 @@ class DeviceManager {
         }
       }
 
-      // Check for removed inputs
-      for (const name of this.knownInputs) {
-        if (!currentInputs.has(name)) {
-          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
-          const input = this.inputs.get(name);
-          if (input) {
-            try {
-              input.removeAllListeners();
-              input.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-            }
-            this.inputs.delete(name);
+      // Check for removed inputs (copy set to avoid modification during iteration)
+      const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
+      for (const name of removedInputs) {
+        this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
+        const input = this.inputs.get(name);
+        if (input) {
+          try {
+            input.removeAllListeners();
+            input.close();
+          } catch (error) {
+            this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
           }
-          this.knownInputs.delete(name);
-          hasChanges = true;
+          this.inputs.delete(name);
         }
+        this.knownInputs.delete(name);
+        hasChanges = true;
       }
 
       // Check for new outputs
@@ -1006,22 +1008,21 @@ class DeviceManager {
         }
       }
 
-      // Check for removed outputs
-      for (const name of this.knownOutputs) {
-        if (!currentOutputs.has(name)) {
-          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
-          const output = this.outputs.get(name);
-          if (output) {
-            try {
-              output.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-            }
-            this.outputs.delete(name);
+      // Check for removed outputs (copy set to avoid modification during iteration)
+      const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
+      for (const name of removedOutputs) {
+        this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
+        const output = this.outputs.get(name);
+        if (output) {
+          try {
+            output.close();
+          } catch (error) {
+            this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
           }
-          this.knownOutputs.delete(name);
-          hasChanges = true;
+          this.outputs.delete(name);
         }
+        this.knownOutputs.delete(name);
+        hasChanges = true;
       }
 
       // If there were changes, update the device map and broadcast
