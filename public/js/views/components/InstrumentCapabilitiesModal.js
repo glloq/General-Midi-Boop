@@ -4,6 +4,8 @@
  * Modal pour compléter les capacités manquantes des instruments
  * avant l'auto-assignation.
  */
+(function() {
+'use strict';
 
 const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
@@ -577,3 +579,4 @@ class InstrumentCapabilitiesModal {
 
 // Rendre disponible globalement
 window.InstrumentCapabilitiesModal = InstrumentCapabilitiesModal;
+})();
