@@ -3,8 +3,6 @@
 // MIDI note constants
 const MIDI_NOTE_MIN = 0;
 const MIDI_NOTE_MAX = 127;
-const MAX_TRANSPOSITION_SEMITONES = 48; // 4 octaves
-
 /**
  * MidiTransposer - Applique des transpositions à des fichiers MIDI
  *
@@ -140,34 +138,6 @@ class MidiTransposer {
   }
 
   /**
-   * Remap MIDI channels in adapted file
-   * @param {Object} midiData - Parsed MIDI data
-   * @param {Object} channelMap - { sourceChannel: targetChannel }
-   * @returns {Object} - { midiData, stats }
-   */
-  remapChannels(midiData, channelMap) {
-    const modifiedData = {
-      ...midiData,
-      tracks: midiData.tracks.map(track => ({
-        ...track,
-        events: track.events ? track.events.map(event => {
-          if (event.channel !== undefined && channelMap[event.channel] !== undefined) {
-            return { ...event, channel: channelMap[event.channel] };
-          }
-          return event;
-        }) : []
-      }))
-    };
-
-    const channelsRemapped = Object.keys(channelMap).length;
-
-    return {
-      midiData: modifiedData,
-      stats: { channelsRemapped }
-    };
-  }
-
-  /**
    * Applique une transposition à un seul canal
    * @param {Object} midiData
    * @param {number} channel
@@ -259,35 +229,6 @@ class MidiTransposer {
     };
   }
 
-  /**
-   * Valide qu'une transposition est possible
-   * @param {Object} midiData
-   * @param {number} channel
-   * @param {number} semitones
-   * @returns {Object} - { valid, reason }
-   */
-  validateTransposition(midiData, channel, semitones) {
-    if (Math.abs(semitones) > MAX_TRANSPOSITION_SEMITONES) {
-      return {
-        valid: false,
-        reason: `Transposition too large (max ±${MAX_TRANSPOSITION_SEMITONES} semitones / ${MAX_TRANSPOSITION_SEMITONES / 12} octaves)`
-      };
-    }
-
-    // Vérifier que le canal existe
-    const channelExists = midiData.tracks.some(track =>
-      track.events.some(e => e.channel === channel)
-    );
-
-    if (!channelExists) {
-      return {
-        valid: false,
-        reason: `Channel ${channel} not found in MIDI file`
-      };
-    }
-
-    return { valid: true };
-  }
 }
 
 export default MidiTransposer;

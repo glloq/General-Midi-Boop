@@ -222,57 +222,6 @@ class InstrumentCapabilitiesValidator {
 
     return defaults;
   }
-
-  /**
-   * Obtient les options de CC les plus communes
-   * @returns {Array}
-   */
-  getCommonCCOptions() {
-    return [
-      { value: 1, label: 'CC1 - Modulation' },
-      { value: 7, label: 'CC7 - Volume' },
-      { value: 10, label: 'CC10 - Pan' },
-      { value: 11, label: 'CC11 - Expression' },
-      { value: 64, label: 'CC64 - Sustain Pedal' },
-      { value: 71, label: 'CC71 - Resonance' },
-      { value: 72, label: 'CC72 - Release Time' },
-      { value: 73, label: 'CC73 - Attack Time' },
-      { value: 74, label: 'CC74 - Brightness' },
-      { value: 91, label: 'CC91 - Reverb Depth' },
-      { value: 93, label: 'CC93 - Chorus Depth' }
-    ];
-  }
-
-  /**
-   * Obtient les options de types d'instruments
-   * @returns {Array}
-   */
-  getInstrumentTypeOptions() {
-    return [
-      { value: 'keyboard', label: 'Keyboard / Piano' },
-      { value: 'synth', label: 'Synthesizer' },
-      { value: 'drums', label: 'Drums / Percussion' },
-      { value: 'bass', label: 'Bass' },
-      { value: 'guitar', label: 'Guitar' },
-      { value: 'strings', label: 'Strings' },
-      { value: 'brass', label: 'Brass' },
-      { value: 'woodwind', label: 'Woodwind' },
-      { value: 'pad', label: 'Pad / Atmosphere' },
-      { value: 'sampler', label: 'Sampler' },
-      { value: 'other', label: 'Other' }
-    ];
-  }
-
-  /**
-   * Obtient les options de modes de jeu
-   * @returns {Array}
-   */
-  getModeOptions() {
-    return [
-      { value: 'range', label: 'Range (any note in range)', description: 'For melodic instruments like piano, synth, guitar' },
-      { value: 'discrete', label: 'Discrete (specific notes only)', description: 'For drums, sample pads' }
-    ];
-  }
 }
 
 export default InstrumentCapabilitiesValidator;

@@ -613,18 +613,6 @@ describe('MidiTransposer', () => {
     expect(transposer.countAllNotes(midiData)).toBe(2);
   });
 
-  test('validateTransposition rejects too large transposition', () => {
-    const midiData = createMidiData([[noteOn(0, 60, 80)]]);
-    const result = transposer.validateTransposition(midiData, 0, 60);
-    expect(result.valid).toBe(false);
-  });
-
-  test('validateTransposition rejects missing channel', () => {
-    const midiData = createMidiData([[noteOn(0, 60, 80)]]);
-    const result = transposer.validateTransposition(midiData, 5, 12);
-    expect(result.valid).toBe(false);
-  });
-
   test('generateAdaptationMetadata creates correct structure', () => {
     const metadata = transposer.generateAdaptationMetadata(
       { 0: { transposition: { semitones: 12, octaves: 1 }, info: ['test'] } },
@@ -961,20 +949,29 @@ describe('InstrumentCapabilitiesValidator', () => {
 
 describe('ScoringConfig', () => {
   test('weights sum to 100', () => {
-    expect(ScoringConfig.validateWeights()).toBe(true);
-  });
-
-  test('getScoreClassification works correctly', () => {
-    expect(ScoringConfig.getScoreClassification(95)).toBe('excellent');
-    expect(ScoringConfig.getScoreClassification(80)).toBe('good');
-    expect(ScoringConfig.getScoreClassification(65)).toBe('acceptable');
-    expect(ScoringConfig.getScoreClassification(45)).toBe('poor');
-    expect(ScoringConfig.getScoreClassification(20)).toBe('insufficient');
+    const sum = Object.values(ScoringConfig.weights).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(100);
   });
 
   test('getBonus returns correct values', () => {
     expect(ScoringConfig.getBonus('perfectProgramMatch')).toBe(30);
     expect(ScoringConfig.getBonus('nonExistent')).toBe(0);
+  });
+
+  test('getWeight returns correct values', () => {
+    expect(ScoringConfig.getWeight('programMatch')).toBe(30);
+    expect(ScoringConfig.getWeight('noteRange')).toBe(25);
+    expect(ScoringConfig.getWeight('nonExistent')).toBe(0);
+  });
+
+  test('getPenalty returns correct values', () => {
+    expect(ScoringConfig.getPenalty('transpositionPerOctave')).toBe(3);
+    expect(ScoringConfig.getPenalty('nonExistent')).toBe(0);
+  });
+
+  test('cache config exists', () => {
+    expect(ScoringConfig.cache.maxSize).toBe(100);
+    expect(ScoringConfig.cache.ttl).toBe(600000);
   });
 });
 

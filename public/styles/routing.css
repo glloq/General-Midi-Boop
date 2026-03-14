@@ -293,11 +293,6 @@
    BUTTONS (spécifiques routing)
    ============================================================================ */
 
-.btn-auto-assign {
-    background: var(--color-accent);
-    color: var(--bg-dark);
-}
-
 .btn-clear-all {
     background: var(--color-secondary);
 }

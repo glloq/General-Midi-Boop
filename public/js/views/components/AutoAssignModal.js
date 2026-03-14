@@ -609,14 +609,6 @@ class AutoAssignModal {
         window.midiFileManager.refreshFileList();
       }
 
-      // Dispatch event for other components
-      window.dispatchEvent(new CustomEvent('auto-assignment-applied', {
-        detail: {
-          adaptedFileId: response.adaptedFileId,
-          filename: response.filename,
-          routings: response.routings
-        }
-      }));
     } catch (error) {
       alert(_t('autoAssign.applyFailed') + ': ' + error.message);
       this.close();

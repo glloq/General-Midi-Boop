@@ -347,14 +347,6 @@ class InstrumentCapabilitiesModal {
                 style="width: 100%; margin-bottom: 8px;">
           ${_t('instrumentCapabilities.applyDefaults')}
         </button>
-        <button class="button button-info"
-                onclick="instrumentCapabilitiesModalInstance.openFullSettings(${instrument.id})"
-                style="width: 100%;">
-          ${_t('instrumentCapabilities.openFullSettings')}
-        </button>
-        <div style="color: #666; font-size: 11px; margin-top: 6px; text-align: center;">
-          ${_t('instrumentCapabilities.fullSettingsHint')}
-        </div>
       </div>
     `;
   }
@@ -530,14 +522,6 @@ class InstrumentCapabilitiesModal {
       console.error('Failed to save capabilities:', error);
       alert(_t('instrumentCapabilities.saveFailed'));
     }
-  }
-
-  /**
-   * Ouvre la page complète de réglages de l'instrument
-   * @param {number} instrumentId
-   */
-  openFullSettings(instrumentId) {
-    alert(_t('instrumentCapabilities.fullSettingsComingSoon'));
   }
 
   /**

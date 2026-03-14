@@ -397,53 +397,41 @@ class InstrumentMatcher {
    */
   calculateOctaveWrapping(channelRange, instrumentCaps, baseSemitones) {
     const mapping = {};
-    let notesBelow = 0;
-    let notesAbove = 0;
+    let wrappedUp = 0;
+    let wrappedDown = 0;
 
-    // Vérifier chaque note après transposition de base
     for (let note = channelRange.min; note <= channelRange.max; note++) {
       const transposedNote = note + baseSemitones;
 
-      // Note en dessous de la plage → monter d'une octave
       if (transposedNote < instrumentCaps.min) {
         const wrappedNote = transposedNote + 12;
-        // Vérifier que la note wrappée est dans la plage
         if (wrappedNote >= instrumentCaps.min && wrappedNote <= instrumentCaps.max) {
           mapping[transposedNote] = wrappedNote;
-          notesBelow++;
+          wrappedUp++;
         }
-      }
-      // Note au dessus de la plage → descendre d'une octave
-      else if (transposedNote > instrumentCaps.max) {
+      } else if (transposedNote > instrumentCaps.max) {
         const wrappedNote = transposedNote - 12;
-        // Vérifier que la note wrappée est dans la plage
         if (wrappedNote >= instrumentCaps.min && wrappedNote <= instrumentCaps.max) {
           mapping[transposedNote] = wrappedNote;
-          notesAbove++;
+          wrappedDown++;
         }
       }
     }
 
-    const hasWrapping = notesBelow > 0 || notesAbove > 0;
+    const hasWrapping = wrappedUp > 0 || wrappedDown > 0;
     let info = '';
 
     if (hasWrapping) {
       const parts = [];
-      if (notesBelow > 0) {
-        parts.push(`${notesBelow} note(s) wrapped up`);
-      }
-      if (notesAbove > 0) {
-        parts.push(`${notesAbove} note(s) wrapped down`);
-      }
+      if (wrappedUp > 0) parts.push(`${wrappedUp} note(s) wrapped up`);
+      if (wrappedDown > 0) parts.push(`${wrappedDown} note(s) wrapped down`);
       info = `Octave wrapping available: ${parts.join(', ')}`;
     }
 
     return {
       hasWrapping,
       mapping: Object.keys(mapping).length > 0 ? mapping : null,
-      info,
-      notesBelow,
-      notesAbove
+      info
     };
   }
 
