@@ -23,7 +23,11 @@ class HttpServer {
   setupRoutes() {
     // Serve static files from public directory
     const publicPath = path.join(__dirname, '../../public');
-    this.expressApp.use(express.static(publicPath));
+    this.expressApp.use(express.static(publicPath, {
+      etag: true,
+      lastModified: true,
+      maxAge: 0 // No caching for development - JS files always fresh
+    }));
 
     // API health check
     this.expressApp.get('/api/health', (req, res) => {

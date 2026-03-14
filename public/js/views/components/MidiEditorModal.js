@@ -1829,14 +1829,23 @@ class MidiEditorModal {
     /**
      * Show auto-assignment modal
      */
-    showAutoAssignModal() {
+    async showAutoAssignModal() {
         // Check if current file is loaded
         if (!this.currentFile) {
             this.showErrorModal(this.t('midiEditor.noFileLoaded'));
             return;
         }
 
-        // Create and show AutoAssignModal
+        // If AutoAssignModal not available, try to load it dynamically
+        if (!window.AutoAssignModal) {
+            this.log('warn', 'AutoAssignModal not found on window, attempting dynamic load...');
+            try {
+                await this.loadScript('js/views/components/AutoAssignModal.js');
+            } catch (e) {
+                this.log('error', 'Failed to dynamically load AutoAssignModal:', e);
+            }
+        }
+
         if (!window.AutoAssignModal) {
             this.showErrorModal(this.t('autoAssign.componentNotLoaded'));
             return;
@@ -1844,6 +1853,27 @@ class MidiEditorModal {
 
         const modal = new window.AutoAssignModal(this.api);
         modal.show(this.currentFile);
+    }
+
+    /**
+     * Dynamically load a script if not already loaded
+     * @param {string} src - Script path relative to root
+     * @returns {Promise<void>}
+     */
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            // Check if already loaded
+            const existing = document.querySelector(`script[src="${src}"]`);
+            if (existing) {
+                // Script tag exists but maybe failed - remove and reload
+                existing.remove();
+            }
+            const script = document.createElement('script');
+            script.src = src + '?v=' + Date.now();
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
     }
 
     /**
