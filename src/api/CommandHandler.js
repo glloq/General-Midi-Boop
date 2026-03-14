@@ -1514,13 +1514,17 @@ class CommandHandler {
 
     // Create auto-assigner and analyze channel
     const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
-    const analysis = autoAssigner.analyzeChannel(midiData, data.channel);
+    try {
+      const analysis = autoAssigner.analyzeChannel(midiData, data.channel);
 
-    return {
-      success: true,
-      channel: data.channel,
-      analysis
-    };
+      return {
+        success: true,
+        channel: data.channel,
+        analysis
+      };
+    } finally {
+      autoAssigner.destroy();
+    }
   }
 
   /**
@@ -1555,25 +1559,29 @@ class CommandHandler {
 
     // Generate suggestions
     const autoAssigner = new AutoAssigner(this.app.database, this.app.logger);
-    const result = await autoAssigner.generateSuggestions(midiData, options);
+    try {
+      const result = await autoAssigner.generateSuggestions(midiData, options);
 
-    if (!result.success) {
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          suggestions: {},
+          autoSelection: {}
+        };
+      }
+
       return {
-        success: false,
-        error: result.error,
-        suggestions: {},
-        autoSelection: {}
+        success: true,
+        suggestions: result.suggestions,
+        autoSelection: result.autoSelection,
+        channelAnalyses: result.channelAnalyses,
+        confidenceScore: result.confidenceScore,
+        stats: result.stats
       };
+    } finally {
+      autoAssigner.destroy();
     }
-
-    return {
-      success: true,
-      suggestions: result.suggestions,
-      autoSelection: result.autoSelection,
-      channelAnalyses: result.channelAnalyses,
-      confidenceScore: result.confidenceScore,
-      stats: result.stats
-    };
   }
 
   /**

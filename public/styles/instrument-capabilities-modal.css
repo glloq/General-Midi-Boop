@@ -1,0 +1,168 @@
+/* ==========================================================================
+   Instrument Capabilities Modal Styles
+   ========================================================================== */
+
+.instrument-capabilities-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.instrument-capabilities-modal .modal-container {
+  background: white;
+  border-radius: 12px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.instrument-capabilities-modal .modal-header {
+  padding: 16px 20px;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.instrument-capabilities-modal .modal-header h2 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+}
+
+.instrument-capabilities-modal .modal-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 13px;
+}
+
+.instrument-capabilities-modal .modal-body {
+  padding: 16px 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.instrument-capabilities-modal .modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+/* Instrument info card */
+.instrument-capabilities-modal .instrument-info {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f0f7ff;
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+}
+
+.instrument-capabilities-modal .instrument-info h3 {
+  margin: 0 0 4px 0;
+  color: #1e40af;
+  font-size: 16px;
+}
+
+.instrument-capabilities-modal .instrument-info .meta {
+  color: #666;
+  font-size: 12px;
+}
+
+/* Form fields */
+.instrument-capabilities-modal .field-group {
+  margin-bottom: 12px;
+}
+
+.instrument-capabilities-modal .field-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.instrument-capabilities-modal .field-group input,
+.instrument-capabilities-modal .field-group select,
+.instrument-capabilities-modal .field-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.instrument-capabilities-modal .field-group textarea {
+  font-family: monospace;
+  font-size: 13px;
+  min-height: 60px;
+}
+
+/* Section headers */
+.instrument-capabilities-modal .section-required h4 {
+  margin: 0 0 10px 0;
+  color: #dc2626;
+  font-size: 14px;
+}
+
+.instrument-capabilities-modal .section-recommended h4 {
+  margin: 0 0 10px 0;
+  color: #f59e0b;
+  font-size: 14px;
+}
+
+.instrument-capabilities-modal .section-recommended .hint {
+  margin: 0 0 8px 0;
+  color: #666;
+  font-size: 12px;
+}
+
+/* CC checkbox grid */
+.instrument-capabilities-modal .cc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.instrument-capabilities-modal .cc-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #f9fafb;
+  font-weight: normal;
+  font-size: 12px;
+}
+
+/* Defaults section */
+.instrument-capabilities-modal .defaults-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.instrument-capabilities-modal .defaults-section button {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.instrument-capabilities-modal .defaults-section .hint {
+  color: #666;
+  font-size: 11px;
+  margin-top: 6px;
+  text-align: center;
+}

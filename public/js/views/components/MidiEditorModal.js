@@ -1701,7 +1701,7 @@ class MidiEditorModal {
                 <div class="rename-dialog-body">
                     <p>${this.t('midiEditor.saveAsDescription') || 'Save a copy of this file with a new name'}</p>
                     <div class="rename-input-container">
-                        <input type="text" class="rename-input" value="${this.escapeHtml(baseName)}" />
+                        <input type="text" class="rename-input" value="${escapeHtml(baseName)}" />
                         <span class="rename-extension">${extension}</span>
                     </div>
                 </div>
@@ -1865,7 +1865,7 @@ class MidiEditorModal {
                 </div>
                 <div class="rename-dialog-body">
                     <div class="rename-input-container">
-                        <input type="text" class="rename-input" value="${this.escapeHtml(baseName)}" />
+                        <input type="text" class="rename-input" value="${escapeHtml(baseName)}" />
                         <span class="rename-extension">${extension}</span>
                     </div>
                 </div>
@@ -2293,7 +2293,7 @@ class MidiEditorModal {
                     <div class="modal-title">
                         <h3>🎹 ${this.t('midiEditor.title')}</h3>
                         <span class="title-separator">—</span>
-                        <span class="file-name" id="editor-file-name">${this.escapeHtml(this.currentFilename || this.currentFile || '')}</span>
+                        <span class="file-name" id="editor-file-name">${escapeHtml(this.currentFilename || this.currentFile || '')}</span>
                         <button class="btn-rename-file" data-action="rename-file" title="${this.t('midiEditor.renameFile')}">✏️</button>
                         <span class="title-separator">—</span>
                         <div class="tempo-control">
@@ -4948,7 +4948,7 @@ class MidiEditorModal {
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 9999999 !important;
+            z-index: 10003 !important;
         `;
 
         confirmModal.innerHTML = `
@@ -5175,13 +5175,6 @@ class MidiEditorModal {
     // ========================================================================
     // UTILITAIRES
     // ========================================================================
-
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 
     showNotification(message, type = 'info') {
         if (window.app?.notifications) {

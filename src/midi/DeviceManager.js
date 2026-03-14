@@ -120,7 +120,8 @@ class DeviceManager {
     const deviceList = this.getDeviceList();
     this.app.logger.info(`Scan complete: ${deviceList.length} device(s) found`);
 
-    // Start hot-plug monitoring
+    // Restart hot-plug monitoring with fresh device lists
+    this.stopHotPlugMonitoring();
     this.startHotPlugMonitoring();
 
     return deviceList;

@@ -262,7 +262,7 @@ class NetworkScanModal {
      * Rendu d'un périphérique disponible
      */
     renderAvailableDevice(device) {
-        const deviceName = this.escapeHtml(device.name || this.t('network.networkInstrument'));
+        const deviceName = escapeHtml(device.name || this.t('network.networkInstrument'));
         const deviceIp = device.ip || device.address || this.t('network.unknownIP');
         const devicePort = device.port || '';
 
@@ -306,7 +306,7 @@ class NetworkScanModal {
      * Rendu d'un périphérique connecté
      */
     renderConnectedDevice(device) {
-        const deviceName = this.escapeHtml(device.name || device.ip);
+        const deviceName = escapeHtml(device.name || device.ip);
         const deviceIp = device.ip || device.address;
         const devicePort = device.port || '';
 
@@ -516,7 +516,7 @@ class NetworkScanModal {
                 <div class="disconnect-modal-body">
                     <p>${this.t('network.disconnect.message')}</p>
                     <div class="disconnect-device-info">
-                        <strong>${this.escapeHtml(deviceName)}</strong>
+                        <strong>${escapeHtml(deviceName)}</strong>
                         <span class="device-ip-small">${deviceIp}</span>
                     </div>
                     <p class="warning-text">
@@ -679,14 +679,6 @@ class NetworkScanModal {
     // UTILITAIRES
     // ========================================================================
 
-    /**
-     * Échappe le HTML pour éviter les injections
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
 // ============================================================================

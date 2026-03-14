@@ -287,7 +287,7 @@ class BluetoothScanModal {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
         const deviceName = device.name || t('bluetooth.device');
-        const deviceNameEscaped = this.escapeHtml(deviceName);
+        const deviceNameEscaped = escapeHtml(deviceName);
         const deviceAddress = device.address || device.id || t('bluetooth.unknownAddress');
 
         return `
@@ -333,7 +333,7 @@ class BluetoothScanModal {
     renderPairedDevice(device) {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
-        const deviceName = this.escapeHtml(device.name || device.address);
+        const deviceName = escapeHtml(device.name || device.address);
         const isConnected = device.connected === true;
 
         return `
@@ -532,7 +532,7 @@ class BluetoothScanModal {
         // Afficher la modal de confirmation
         this.showConfirmModal(
             t('bluetooth.forgetDevice.title'),
-            `${t('bluetooth.forgetDevice.message', { deviceName: this.escapeHtml(deviceName) })}<br><br>${t('bluetooth.forgetDevice.warning')}`,
+            `${t('bluetooth.forgetDevice.message', { deviceName: escapeHtml(deviceName) })}<br><br>${t('bluetooth.forgetDevice.warning')}`,
             async () => {
                 this.logger.info('BluetoothScanModal', `Forgetting device: ${deviceAddress}`);
 
@@ -843,7 +843,7 @@ class BluetoothScanModal {
         confirmModal.innerHTML = `
             <div class="modal-dialog modal-sm">
                 <div class="modal-header">
-                    <h2>${this.escapeHtml(title)}</h2>
+                    <h2>${escapeHtml(title)}</h2>
                 </div>
                 <div class="modal-body">
                     <p>${message}</p>
@@ -908,14 +908,6 @@ class BluetoothScanModal {
     // UTILITAIRES
     // ========================================================================
 
-    /**
-     * Échappe le HTML pour éviter les injections
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
 // ============================================================================

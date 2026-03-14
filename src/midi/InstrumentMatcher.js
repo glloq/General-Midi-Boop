@@ -406,6 +406,13 @@ class InstrumentMatcher {
    */
   scoreDiscreteNotes(channelRange, selectedNotes, channelAnalysis = null) {
     if (!selectedNotes || selectedNotes.length === 0) {
+      // Fall back to range-based scoring when discrete instrument has no selected_notes
+      if (channelRange.min !== undefined && channelRange.max !== undefined) {
+        return this.scoreNoteCompatibility(channelRange, {
+          min: channelRange.min,
+          max: channelRange.max
+        }, channelAnalysis);
+      }
       return {
         compatible: false,
         score: 0,

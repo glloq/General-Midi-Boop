@@ -19,16 +19,6 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Escape HTML to prevent XSS
-   */
-  escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-  }
-
-  /**
    * Affiche le modal pour compléter les capacités
    * @param {Array} incompleteInstruments - Liste des instruments avec infos manquantes
    * @param {Function} onComplete - Callback appelé après completion
@@ -166,11 +156,11 @@ class InstrumentCapabilitiesModal {
     return `
       <div style="margin-bottom: 12px; padding: 12px; background: #f0f7ff; border: 2px solid #3b82f6; border-radius: 8px;">
         <h3 style="margin: 0 0 4px 0; color: #1e40af; font-size: 16px;">
-          ${this.escapeHtml(instrument.custom_name || instrument.name)}
+          ${escapeHtml(instrument.custom_name || instrument.name)}
         </h3>
         <div style="color: #666; font-size: 12px;">
-          ${_t('instrumentCapabilities.type')}: ${this.escapeHtml(instrument.type || _t('common.unknown'))} •
-          ${_t('instrumentCapabilities.manufacturer')}: ${this.escapeHtml(instrument.manufacturer || _t('common.unknown'))}
+          ${_t('instrumentCapabilities.type')}: ${escapeHtml(instrument.type || _t('common.unknown'))} •
+          ${_t('instrumentCapabilities.manufacturer')}: ${escapeHtml(instrument.manufacturer || _t('common.unknown'))}
         </div>
       </div>
 

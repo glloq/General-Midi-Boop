@@ -24,22 +24,12 @@ class AutoAssignModal {
   }
 
   /**
-   * Escape HTML to prevent XSS
-   */
-  escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-  }
-
-  /**
    * Safely format info field (can be string or array)
    */
   formatInfo(info) {
     if (!info) return '';
-    if (Array.isArray(info)) return info.map(i => this.escapeHtml(i)).join(' &bull; ');
-    return this.escapeHtml(String(info));
+    if (Array.isArray(info)) return info.map(i => escapeHtml(i)).join(' &bull; ');
+    return escapeHtml(String(info));
   }
 
   /**
@@ -161,7 +151,7 @@ class AutoAssignModal {
             <button class="modal-close" onclick="document.getElementById('autoAssignModal').remove()">x</button>
           </div>
           <div class="modal-body" style="padding: 32px; text-align: center;">
-            <p style="color: #ff4444; font-size: 16px;">${this.escapeHtml(message)}</p>
+            <p style="color: #ff4444; font-size: 16px;">${escapeHtml(message)}</p>
             <button class="button button-secondary" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 16px;">
               ${_t('common.close')}
             </button>
@@ -298,7 +288,7 @@ class AutoAssignModal {
           </div>
           <div>
             <strong>${_t('autoAssign.type')}:</strong><br>
-            ${this.escapeHtml(analysis.estimatedType)} ${analysis.typeConfidence ? `(${analysis.typeConfidence}%)` : ''}
+            ${escapeHtml(analysis.estimatedType)} ${analysis.typeConfidence ? `(${analysis.typeConfidence}%)` : ''}
           </div>
         </div>
         ${noteRange.min != null ? this.renderMiniPiano(noteRange) : ''}
@@ -363,8 +353,8 @@ class AutoAssignModal {
       const instrument = option.instrument;
       const compat = option.compatibility;
       const isSelected = instrument.device_id === selectedDeviceId;
-      const escapedName = this.escapeHtml(instrument.custom_name || instrument.name);
-      const escapedDeviceId = this.escapeHtml(instrument.device_id);
+      const escapedName = escapeHtml(instrument.custom_name || instrument.name);
+      const escapedDeviceId = escapeHtml(instrument.device_id);
 
       return `
         <div class="instrument-option ${isSelected ? 'selected' : ''}"
@@ -389,7 +379,7 @@ class AutoAssignModal {
               ` : ''}
               ${compat.issues && compat.issues.length > 0 ? `
                 <div style="color: #ff9800; font-size: 11px; margin-top: 2px;">
-                  ${compat.issues.map(i => this.escapeHtml(i.message)).join(' &bull; ')}
+                  ${compat.issues.map(i => escapeHtml(i.message)).join(' &bull; ')}
                 </div>
               ` : ''}
             </div>
@@ -419,7 +409,7 @@ class AutoAssignModal {
                  style="cursor: pointer;">
           <span style="font-size: 12px;">
             <strong>${_t('autoAssign.enableOctaveWrapping')}</strong><br>
-            <span style="color: #666; font-size: 11px;">${this.escapeHtml(assignment.octaveWrappingInfo)}</span>
+            <span style="color: #666; font-size: 11px;">${escapeHtml(assignment.octaveWrappingInfo)}</span>
           </span>
         </label>
       </div>

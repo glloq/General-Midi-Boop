@@ -183,7 +183,7 @@
 .modal {
     display: none;
     position: fixed !important;
-    z-index: 9999 !important;
+    z-index: 10000 !important;
     left: 0 !important;
     top: 0 !important;
     right: 0 !important;
@@ -205,7 +205,7 @@
 /* Dynamic modal overlays (added/removed from DOM via JS) */
 .modal-overlay {
     position: fixed !important;
-    z-index: 9999 !important;
+    z-index: 10000 !important;
     left: 0 !important;
     top: 0 !important;
     right: 0 !important;
@@ -691,11 +691,11 @@
     height: 100vh !important;
     background: rgba(0, 0, 0, 0.85) !important;
     backdrop-filter: blur(4px);
-    z-index: 999999 !important;
+    z-index: 10002 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 8px; /* RÉDUIT: 20px → 8px pour gain de place */
+    padding: 8px;
     animation: fadeIn 0.2s ease-out;
     margin: 0 !important;
     transform: none !important;
