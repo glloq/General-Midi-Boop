@@ -54,11 +54,14 @@ class InstrumentCapabilitiesModal {
     const modalHTML = `
       <div class="modal-overlay instrument-capabilities-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
         <div class="modal-container" style="background: white; border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-          <div class="modal-header" style="padding: 16px 20px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-            <h2 style="margin: 0 0 4px 0; font-size: 20px;">${_t('instrumentCapabilities.title')}</h2>
+          <div class="modal-header" style="padding: 16px 20px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; position: relative;">
+            <h2 style="margin: 0 0 4px 0; font-size: 20px; padding-right: 40px;">${_t('instrumentCapabilities.title')}</h2>
             <p style="margin: 0; opacity: 0.9; font-size: 13px;">
               ${_t('instrumentCapabilities.subtitle')}
             </p>
+            <button class="modal-close" onclick="instrumentCapabilitiesModalInstance.close()" style="position: absolute; top: 12px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+              ×
+            </button>
           </div>
 
           <div id="instrumentCapabilitiesContent" class="modal-body" style="padding: 16px 20px; max-height: 60vh; overflow-y: auto;">

@@ -64,7 +64,7 @@ class NetworkManager extends EventEmitter {
    * @param {boolean} fullScan - Si true, scan toutes les IPs du subnet (pas seulement RTP-MIDI)
    * @returns {Promise<Array>} Liste des instruments trouvés
    */
-  async startScan(timeout = 5, fullScan = false) {
+  async startScan(timeout = 5, fullScan = true) {
     if (this.scanning) {
       throw new Error('Scan already in progress');
     }
@@ -110,7 +110,7 @@ class NetworkManager extends EventEmitter {
 
         try {
           const { stdout } = await execAsync(
-            `timeout ${timeout}s avahi-browse -a -t -r -p 2>/dev/null | grep -i midi || true`,
+            `timeout ${timeout}s avahi-browse -a -t -r -p 2>/dev/null || true`,
             { timeout: (timeout + 1) * 1000 }
           );
 
@@ -118,7 +118,7 @@ class NetworkManager extends EventEmitter {
             this.parseMDNSOutput(stdout);
           }
         } catch (error) {
-          this.app.logger.debug('avahi-browse not available or no MIDI services found');
+          this.app.logger.debug('avahi-browse not available or no services found');
         }
       }
 

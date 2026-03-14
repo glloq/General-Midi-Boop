@@ -166,3 +166,94 @@
   margin-top: 6px;
   text-align: center;
 }
+
+/* ==========================================================================
+   Dark Mode - Instrument Capabilities Modal
+   ========================================================================== */
+
+body.dark-mode .instrument-capabilities-modal .modal-container {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary);
+}
+
+body.dark-mode .instrument-capabilities-modal .modal-body {
+  color: var(--text-primary);
+}
+
+/* Form labels */
+body.dark-mode .instrument-capabilities-modal label {
+  color: var(--text-primary) !important;
+}
+
+/* Form inputs */
+body.dark-mode .instrument-capabilities-modal input[type="text"],
+body.dark-mode .instrument-capabilities-modal input[type="number"],
+body.dark-mode .instrument-capabilities-modal select,
+body.dark-mode .instrument-capabilities-modal textarea {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .instrument-capabilities-modal select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* CC checkbox labels - fixes white-on-white */
+body.dark-mode .instrument-capabilities-modal div[style*="grid"] > label {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .instrument-capabilities-modal div[style*="grid"] > label span {
+  color: var(--text-primary) !important;
+}
+
+/* Instrument info card */
+body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: #3b82f6 !important;
+}
+
+body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] h3 {
+  color: #93b8f8 !important;
+}
+
+body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] div {
+  color: var(--text-secondary) !important;
+}
+
+/* Section headers */
+body.dark-mode .instrument-capabilities-modal h4 {
+  color: inherit;
+}
+
+/* Footer */
+body.dark-mode .instrument-capabilities-modal .modal-footer {
+  background: var(--bg-tertiary) !important;
+  border-top-color: var(--border-color) !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Defaults section */
+body.dark-mode .instrument-capabilities-modal div[style*="background: #f9fafb"] {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Note name spans */
+body.dark-mode .instrument-capabilities-modal span[style*="color: #666"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Muted text */
+body.dark-mode .instrument-capabilities-modal p[style*="color: #666"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Close button hover */
+body.dark-mode .instrument-capabilities-modal .modal-close:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}

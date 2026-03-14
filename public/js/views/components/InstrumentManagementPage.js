@@ -41,53 +41,41 @@ class InstrumentManagementPage {
       <div class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
         <div class="modal-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
 
-          <!-- Header -->
-          <div class="modal-header" style="padding: 24px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <h2 style="margin: 0 0 8px 0; font-size: 28px;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
-                <p style="margin: 0; opacity: 0.9; font-size: 14px;">
-                  ${i18n.t('instrumentManagement.subtitle') || 'Configurez, organisez et gérez vos instruments MIDI'}
-                </p>
-              </div>
-              <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 32px; cursor: pointer; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
-                ×
-              </button>
-            </div>
-          </div>
-
-          <!-- Toolbar -->
-          <div style="padding: 16px 24px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-              <!-- Search -->
+          <!-- Header with search -->
+          <div class="modal-header" style="padding: 16px 24px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <h2 style="margin: 0; font-size: 22px; white-space: nowrap;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
               <input type="text"
                      id="instrumentSearch"
                      placeholder="🔍 ${i18n.t('instrumentManagement.searchPlaceholder') || 'Rechercher un instrument...'}"
                      onkeyup="instrumentManagementPageInstance.handleSearch(this.value)"
-                     style="flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
-
-              <!-- Filter -->
+                     style="flex: 1; min-width: 150px; padding: 8px 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; outline: none;"
+                     onfocus="this.style.borderColor='rgba(255,255,255,0.6)';this.style.background='rgba(255,255,255,0.25)'"
+                     onblur="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='rgba(255,255,255,0.15)'">
               <select id="instrumentFilter"
                       onchange="instrumentManagementPageInstance.handleFilter(this.value)"
-                      style="padding: 10px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white;">
-                <option value="all">${i18n.t('instrumentManagement.filterAll') || 'Tous les instruments'}</option>
-                <option value="complete">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets uniquement'}</option>
-                <option value="incomplete">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets uniquement'}</option>
-                <option value="connected">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés uniquement'}</option>
+                      style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; cursor: pointer;">
+                <option value="all">${i18n.t('instrumentManagement.filterAll') || 'Tous'}</option>
+                <option value="complete">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
+                <option value="incomplete">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
+                <option value="connected">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
               </select>
-
-              <!-- Actions -->
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 10px 16px; white-space: nowrap;">
-                🔌 ${i18n.t('ui.scanUsb') || 'Scan USB'}
-              </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanBluetooth()" style="padding: 10px 16px; background: #9b59b6; white-space: nowrap;">
-                📡 ${i18n.t('ui.scanBluetooth') || 'Scan Bluetooth'}
-              </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 10px 16px; background: #3498db; white-space: nowrap;">
-                🌐 ${i18n.t('ui.scanNetwork') || 'Scan Réseau'}
-              </button>
-              <button class="button button-primary" onclick="instrumentManagementPageInstance.refresh()" style="padding: 10px 16px; white-space: nowrap;">
-                🔄 ${i18n.t('instrumentManagement.refresh') || 'Rafraîchir'}
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 6px 10px; white-space: nowrap; font-size: 12px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 6px; cursor: pointer;">
+                  🔌 USB
+                </button>
+                <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanBluetooth()" style="padding: 6px 10px; white-space: nowrap; font-size: 12px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 6px; cursor: pointer;">
+                  📡 BT
+                </button>
+                <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 6px 10px; white-space: nowrap; font-size: 12px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 6px; cursor: pointer;">
+                  🌐 Net
+                </button>
+                <button class="button button-primary" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 10px; white-space: nowrap; font-size: 12px; background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: white; border-radius: 6px; cursor: pointer;">
+                  🔄
+                </button>
+              </div>
+              <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; margin-left: auto;">
+                ×
               </button>
             </div>
           </div>
@@ -388,34 +376,44 @@ class InstrumentManagementPage {
     if (instrument && window.showInstrumentSettings) {
       window.showInstrumentSettings(instrument);
     } else {
-      alert(i18n.t('instrumentManagement.settingsNotAvailable') || 'Réglages non disponibles. Vérifiez que le module est chargé.');
+      this.showToast(i18n.t('instrumentManagement.settingsNotAvailable') || 'Réglages non disponibles. Vérifiez que le module est chargé.', 'error');
     }
   }
 
   /**
-   * Complète un instrument via InstrumentCapabilitiesModal
+   * Complète un instrument via InstrumentCapabilitiesModal ou settings
    */
   async completeInstrument(deviceId) {
     const instrument = this.instruments.find(inst => inst.id === deviceId);
     if (!instrument) return;
 
-    // Valider les capacités
-    const response = await this.apiClient.sendCommand('validate_instrument_capabilities', {});
+    try {
+      // Valider les capacités
+      const response = await this.apiClient.sendCommand('validate_instrument_capabilities', {});
 
-    if (response && response.incompleteInstruments) {
-      const incomplete = response.incompleteInstruments.find(
-        item => item.instrument.id === instrument.instrumentId || item.instrument.device_id === deviceId
-      );
+      if (response && response.incompleteInstruments) {
+        const incomplete = response.incompleteInstruments.find(
+          item => item.instrument.device_id === deviceId ||
+                  item.instrument.id === deviceId ||
+                  item.instrument.id === instrument.instrumentId
+        );
 
-      if (incomplete && window.InstrumentCapabilitiesModal) {
-        const capabilitiesModal = new window.InstrumentCapabilitiesModal(this.apiClient);
+        if (incomplete && window.InstrumentCapabilitiesModal) {
+          const capabilitiesModal = new window.InstrumentCapabilitiesModal(this.apiClient);
 
-        capabilitiesModal.show([incomplete], async (updates) => {
-          console.log('Capabilities updated:', updates);
-          await this.refresh();
-        });
+          capabilitiesModal.show([incomplete], async (updates) => {
+            console.log('Capabilities updated:', updates);
+            await this.refresh();
+          });
+          return;
+        }
       }
+    } catch (error) {
+      console.warn('Validation failed, falling back to settings:', error);
     }
+
+    // Fallback: ouvrir les réglages complets
+    this.editInstrument(deviceId);
   }
 
   /**
@@ -432,9 +430,9 @@ class InstrumentManagementPage {
         duration: 500
       });
 
-      alert(i18n.t('instrumentManagement.testNoteSent') || 'Note de test envoyée ! (C4 - Do central)');
+      this.showToast(i18n.t('instrumentManagement.testNoteSent') || 'Note de test envoyée ! (C4 - Do central)', 'success');
     } catch (error) {
-      alert((i18n.t('instrumentManagement.testNoteFailed') || 'Échec de l\'envoi de la note de test') + ': ' + error.message);
+      this.showToast((i18n.t('instrumentManagement.testNoteFailed') || 'Échec de l\'envoi de la note de test') + ': ' + error.message, 'error');
     }
   }
 
@@ -450,7 +448,7 @@ class InstrumentManagementPage {
       await this.apiClient.sendCommand('instrument_delete', { deviceId });
       await this.refresh();
     } catch (error) {
-      alert((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message);
+      this.showToast((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message, 'error');
     }
   }
 
@@ -462,7 +460,7 @@ class InstrumentManagementPage {
       await this.apiClient.sendCommand('device_refresh', {});
       setTimeout(() => this.refresh(), 1000);
     } catch (error) {
-      alert((i18n.t('instrumentManagement.scanFailed') || 'Échec du scan') + ': ' + error.message);
+      this.showToast((i18n.t('instrumentManagement.scanFailed') || 'Échec du scan') + ': ' + error.message, 'error');
     }
   }
 
@@ -474,7 +472,7 @@ class InstrumentManagementPage {
     if (window.showBluetoothScan) {
       window.showBluetoothScan();
     } else {
-      alert(i18n.t('instrumentManagement.bluetoothNotAvailable') || 'Scan Bluetooth non disponible');
+      this.showToast(i18n.t('instrumentManagement.bluetoothNotAvailable') || 'Scan Bluetooth non disponible', 'error');
     }
   }
 
@@ -486,7 +484,7 @@ class InstrumentManagementPage {
     if (window.showNetworkScan) {
       window.showNetworkScan();
     } else {
-      alert(i18n.t('instrumentManagement.networkNotAvailable') || 'Scan réseau non disponible');
+      this.showToast(i18n.t('instrumentManagement.networkNotAvailable') || 'Scan réseau non disponible', 'error');
     }
   }
 
@@ -498,7 +496,33 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Affiche une erreur
+   * Affiche une notification toast dans le modal
+   * @param {string} message
+   * @param {'success'|'error'|'info'} type
+   */
+  showToast(message, type = 'info') {
+    const icons = { success: '✓', error: '✗', info: 'ℹ' };
+    const colors = {
+      success: { bg: '#10b981', text: 'white' },
+      error: { bg: '#ef4444', text: 'white' },
+      info: { bg: '#3b82f6', text: 'white' }
+    };
+    const style = colors[type] || colors.info;
+
+    const toast = document.createElement('div');
+    toast.style.cssText = `position: fixed; top: 24px; right: 24px; z-index: 10010; padding: 12px 20px; border-radius: 8px; background: ${style.bg}; color: ${style.text}; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px; animation: fadeIn 0.2s ease;`;
+    toast.innerHTML = `<span style="font-weight: bold; font-size: 16px;">${icons[type]}</span> ${message}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  /**
+   * Affiche une erreur dans la zone de contenu
    */
   showError(message) {
     const content = document.getElementById('instrumentListContent');

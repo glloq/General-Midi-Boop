@@ -183,7 +183,7 @@ class NetworkScanModal {
                                 <h3>${this.t('network.availableDevices')}</h3>
                                 <div class="scan-options">
                                     <label class="checkbox-label">
-                                        <input type="checkbox" id="fullScanCheckbox" ${this.scanning ? 'disabled' : ''}>
+                                        <input type="checkbox" id="fullScanCheckbox" checked ${this.scanning ? 'disabled' : ''}>
                                         <span>${this.t('network.showAllIPs')}</span>
                                     </label>
                                     <p class="text-muted" style="margin: 4px 0 0 24px; font-size: 11px;">

@@ -447,6 +447,65 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
     background: #a0aec0;
 }
 
+/* ===== Instrument Management Page Modal (dark mode) ===== */
+
+/* Modal container */
+body.dark-mode .modal-overlay > .modal-container {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Content area */
+body.dark-mode .modal-overlay > .modal-container > div[style*="overflow-y: auto"] {
+    color: var(--text-primary);
+}
+
+/* Footer */
+body.dark-mode .modal-overlay > .modal-container > div[style*="border-top"]:last-child {
+    background: var(--bg-tertiary) !important;
+    border-top-color: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Search input placeholder in header */
+body.dark-mode .modal-overlay input#instrumentSearch::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Filter select options dropdown */
+body.dark-mode .modal-overlay select#instrumentFilter option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Instrument cards */
+body.dark-mode .modal-overlay .instrument-card {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.dark-mode .modal-overlay .instrument-card h4 {
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode .modal-overlay .instrument-card div[style*="color: #6b7280"] {
+    color: var(--text-secondary) !important;
+}
+
+/* Section headers in content */
+body.dark-mode .modal-overlay #instrumentListContent h3 {
+    color: inherit;
+}
+
+/* Empty state */
+body.dark-mode .modal-overlay #instrumentListContent div[style*="color: #999"] {
+    color: var(--text-muted) !important;
+}
+
+body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #666"] {
+    color: var(--text-secondary) !important;
+}
+
 /* ===== TRANSITION SMOOTH ENTRE THÈMES ===== */
 * {
     transition: background-color 0.3s ease, 

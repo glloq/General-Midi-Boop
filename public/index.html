@@ -6871,6 +6871,12 @@
                         </div>
 
                         <div class="form-group">
+                            <label>${i18n.t('instrumentSettings.polyphony') || 'Polyphonie'}</label>
+                            <input type="number" id="polyphonyInput" value="${settings.polyphony || ''}" min="1" max="128" placeholder="16">
+                            <small class="form-text">${i18n.t('instrumentSettings.polyphonyHelp') || 'Nombre maximum de notes simultanées (1-128). Défaut: 16'}</small>
+                        </div>
+
+                        <div class="form-group">
                             <label>${i18n.t('instrumentSettings.syncDelay')}</label>
                             <input type="number" id="syncDelay" value="${settings.sync_delay || 0}" min="-2147483648" max="2147483647">
                             <small class="form-text">${i18n.t('instrumentSettings.syncDelayHelp')}</small>
@@ -7530,6 +7536,8 @@
                 const macAddress = document.getElementById('macAddress').value.trim();
                 const gmProgramSelect = document.getElementById('gmProgramSelect');
                 const gmProgram = gmProgramSelect && gmProgramSelect.value !== '' ? parseInt(gmProgramSelect.value) : null;
+                const polyphonyInput = document.getElementById('polyphonyInput').value.trim();
+                const polyphony = polyphonyInput !== '' ? parseInt(polyphonyInput) : null;
 
                 // Récupérer le mode de sélection des notes
                 const noteSelectionMode = document.getElementById('noteSelectionModeInput').value || 'range';
@@ -7600,6 +7608,7 @@
                     note_range_max: noteSelectionMode === 'range' ? noteRangeMax : null,
                     selected_notes: noteSelectionMode === 'discrete' ? selectedNotes : null,
                     supported_ccs: supportedCCs,
+                    polyphony: polyphony,
                     capabilities_source: 'manual'
                 });
 

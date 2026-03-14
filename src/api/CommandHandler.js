@@ -44,6 +44,7 @@ class CommandHandler {
       'instrument_update_capabilities': (data) => this.instrumentUpdateCapabilities(data),
       'instrument_get_capabilities': (data) => this.instrumentGetCapabilities(data),
       'instrument_list_capabilities': () => this.instrumentListCapabilities(),
+      'instrument_delete': (data) => this.instrumentDelete(data),
       'ble_scan_start': (data) => this.bleScanStart(data),
       'ble_scan_stop': () => this.bleScanStop(),
       'ble_connect': (data) => this.bleConnect(data),
@@ -376,6 +377,7 @@ class CommandHandler {
       supported_ccs: data.supported_ccs,
       note_selection_mode: data.note_selection_mode,
       selected_notes: data.selected_notes,
+      polyphony: data.polyphony,
       capabilities_source: data.capabilities_source || 'manual'
     });
 
@@ -412,6 +414,30 @@ class CommandHandler {
 
     return {
       instruments: instruments
+    };
+  }
+
+  async instrumentDelete(data) {
+    if (!this.app.database) {
+      throw new Error('Database not available');
+    }
+
+    if (!data.deviceId) {
+      throw new Error('deviceId is required');
+    }
+
+    // Delete instrument settings/capabilities from instruments_latency by device_id
+    this.app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
+
+    // Also delete latency profile if exists
+    try {
+      this.app.database.deleteLatencyProfile(data.deviceId);
+    } catch (e) {
+      // May not have a latency profile
+    }
+
+    return {
+      success: true
     };
   }
 
@@ -550,7 +576,7 @@ class CommandHandler {
     }
 
     const timeout = data.timeout || 5;
-    const fullScan = data.fullScan || false;
+    const fullScan = data.fullScan !== undefined ? data.fullScan : true;
 
     const devices = await this.app.networkManager.startScan(timeout, fullScan);
 
