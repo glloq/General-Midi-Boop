@@ -52,9 +52,16 @@ class MidiPlayer {
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
+      if (!file.data) {
+        throw new Error(`File ${fileId} (${file.filename}) has no MIDI data`);
+      }
 
       const buffer = Buffer.from(file.data, 'base64');
       const midi = parseMidi(buffer);
+
+      if (!midi || !midi.header || !Array.isArray(midi.tracks)) {
+        throw new Error(`File ${fileId} (${file.filename}) contains invalid MIDI data`);
+      }
 
       this.ppq = midi.header.ticksPerBeat || 480;
       this.parseTracks(midi);

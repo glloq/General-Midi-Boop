@@ -84,6 +84,10 @@ class FileManager {
 
   extractMetadata(midi) {
     const ppq = midi.header.ticksPerBeat || 480;
+    if (ppq <= 0 || !isFinite(ppq)) {
+      this.app.logger.warn(`Invalid PPQ value ${ppq}, using default 480`);
+      return { tempo: 120, duration: 0, totalTicks: 0 };
+    }
     let firstTempo = 120; // Default BPM
     let totalTicks = 0;
 
@@ -144,8 +148,8 @@ class FileManager {
     }
 
     return {
-      tempo: firstTempo,
-      duration: duration,
+      tempo: isFinite(firstTempo) ? firstTempo : 120,
+      duration: isFinite(duration) ? duration : 0,
       totalTicks: totalTicks
     };
   }
@@ -259,7 +263,7 @@ class FileManager {
         channelDetails
       };
     } catch (error) {
-      this.app.logger.error(`Failed to extract instrument metadata: ${error.message}`);
+      this.app.logger.error(`Failed to extract instrument metadata: ${error.message}`, error.stack);
 
       return {
         fileMetadata: {
@@ -395,29 +399,47 @@ class FileManager {
 
   async getFileMetadata(fileId) {
     try {
+      // Use stored metadata from database — avoid re-parsing the MIDI blob
+      // which is slow and can fail on large files or concurrent access
       const file = this.app.database.getFile(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
 
-      // Parse MIDI to get channel information
-      const buffer = Buffer.from(file.data, 'base64');
-      const midi = parseMidi(buffer);
-
-      // Count unique channels used
-      const channelsUsed = new Set();
+      // Get pre-computed channel details from midi_file_channels table
+      let channels = [];
       let noteCount = 0;
+      let format = 1; // Default MIDI format
+      try {
+        const channelRows = this.app.database.getFileChannels(fileId);
+        channels = channelRows.map(ch => ch.channel).sort((a, b) => a - b);
+        noteCount = channelRows.reduce((sum, ch) => sum + (ch.total_notes || 0), 0);
+      } catch (chErr) {
+        this.app.logger.warn(`Failed to get channel details for file ${fileId}: ${chErr.message}`);
+      }
 
-      midi.tracks.forEach(track => {
-        track.forEach(event => {
-          if (event.channel !== undefined) {
-            channelsUsed.add(event.channel);
+      // Fallback: if no channel data in DB, parse from MIDI blob
+      if (channels.length === 0 && file.data) {
+        try {
+          const buffer = Buffer.from(file.data, 'base64');
+          const midi = parseMidi(buffer);
+          format = midi.header.format;
+          const channelsUsed = new Set();
+          midi.tracks.forEach(track => {
+            track.forEach(event => {
+              if (event.channel !== undefined) channelsUsed.add(event.channel);
+              if (event.type === 'noteOn' || event.type === 'noteOff') noteCount++;
+            });
+          });
+          channels = Array.from(channelsUsed).sort((a, b) => a - b);
+        } catch (parseErr) {
+          this.app.logger.warn(`Fallback MIDI parse failed for file ${fileId}: ${parseErr.message}`);
+          // Use stored channel_count as best-effort
+          if (file.channel_count > 0) {
+            channels = Array.from({ length: file.channel_count }, (_, i) => i);
           }
-          if (event.type === 'noteOn' || event.type === 'noteOff') {
-            noteCount++;
-          }
-        });
-      });
+        }
+      }
 
       return {
         id: file.id,
@@ -426,17 +448,17 @@ class FileManager {
         sizeFormatted: this.formatFileSize(file.size),
         tracks: file.tracks,
         duration: file.duration,
-        durationFormatted: this.formatDuration(file.duration),
-        tempo: Math.round(file.tempo),
-        ppq: file.ppq,
-        format: midi.header.format,
-        channelCount: channelsUsed.size,
-        channels: Array.from(channelsUsed).sort((a, b) => a - b),
+        durationFormatted: this.formatDuration(file.duration || 0),
+        tempo: Math.round(file.tempo || 120),
+        ppq: file.ppq || 480,
+        format: format,
+        channelCount: channels.length || file.channel_count || 0,
+        channels: channels,
         noteCount: noteCount,
         uploadedAt: file.uploaded_at
       };
     } catch (error) {
-      this.app.logger.error(`Get file metadata failed: ${error.message}`);
+      this.app.logger.error(`Get file metadata failed for file ${fileId}: ${error.message}`);
       throw error;
     }
   }
@@ -458,6 +480,9 @@ class FileManager {
       const file = this.app.database.getFile(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
+      }
+      if (!file.data) {
+        throw new Error(`File ${fileId} (${file.filename}) has no MIDI data`);
       }
 
       const buffer = Buffer.from(file.data, 'base64');
@@ -803,6 +828,11 @@ class FileManager {
 
       for (const file of allFiles) {
         try {
+          if (!file.data) {
+            this.app.logger.warn(`Skipping file ${file.id} (${file.filename}): no MIDI data`);
+            failed++;
+            continue;
+          }
           const buffer = Buffer.from(file.data, 'base64');
           const midi = parseMidi(buffer);
           const instrumentMetadata = this.extractInstrumentMetadata(midi);
