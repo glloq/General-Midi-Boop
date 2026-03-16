@@ -335,7 +335,7 @@ class MidiRouter {
     if (this.app.database) {
       try {
         const settings = this.app.database.getInstrumentSettings(deviceId, channel);
-        if (settings && settings.sync_delay) {
+        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
           totalLatency += settings.sync_delay;
         }
       } catch (e) {
