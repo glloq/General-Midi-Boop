@@ -736,6 +736,7 @@ class TempoEditor {
 
     setGrid(grid) {
         this.options.grid = grid;
+        this.gridDirty = true;
         this.renderThrottled();
     }
 

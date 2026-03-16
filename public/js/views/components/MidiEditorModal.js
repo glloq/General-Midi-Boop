@@ -1184,6 +1184,7 @@ class MidiEditorModal {
     syncAllEditors() {
         this.syncCCEditor();
         this.syncVelocityEditor();
+        this.syncTempoEditor();
     }
 
     /**
