@@ -887,30 +887,35 @@ class KeyboardModalNew {
             this.devices = uniqueDevices;
             this.logger.info(`[KeyboardModal] Loaded ${activeDevices.length} → ${uniqueDevices.length} unique devices`);
 
-            // Ajouter le périphérique virtuel si activé dans les settings
+            // Charger les instruments virtuels de la DB (créés via Gestion des instruments)
             try {
-                const saved = localStorage.getItem('maestro_settings');
-                if (saved) {
-                    const settings = JSON.parse(saved);
-                    if (settings.virtualInstrument) {
-                        const virtualName = `🎹 ${this.t('keyboard.virtualInstrument')}`;
-                        const virtualDevice = {
-                            id: 'virtual-instrument',
-                            device_id: 'virtual-instrument',
-                            name: virtualName,
-                            displayName: virtualName,
-                            type: 'Virtual',
-                            status: 2,
-                            connected: true,
-                            isVirtual: true,
-                            customName: null
-                        };
-                        this.devices.push(virtualDevice);
-                        this.logger.info('[KeyboardModal] Virtual instrument added to devices');
+                const capsResponse = await this.backend.sendCommand('instrument_list_capabilities');
+                if (capsResponse && capsResponse.instruments) {
+                    const existingIds = new Set(this.devices.map(d => d.id || d.device_id));
+                    for (const dbInst of capsResponse.instruments) {
+                        const devId = dbInst.device_id || dbInst.id;
+                        if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
+                            const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                            const virtualDbDevice = {
+                                id: devId,
+                                device_id: devId,
+                                name: `🖥️ ${vName}`,
+                                displayName: `🖥️ ${vName}`,
+                                type: 'Virtual',
+                                status: 2,
+                                connected: true,
+                                isVirtual: true,
+                                channel: dbInst.channel || 0,
+                                gm_program: dbInst.gm_program,
+                                customName: null
+                            };
+                            this.devices.push(virtualDbDevice);
+                        }
                     }
+                    this.logger.info('[KeyboardModal] Virtual DB instruments loaded');
                 }
             } catch (error) {
-                this.logger.warn('[KeyboardModal] Could not load virtual instrument setting:', error);
+                this.logger.warn('[KeyboardModal] Could not load virtual DB instruments:', error);
             }
 
             // Enrichir avec noms personnalisés
