@@ -12,28 +12,50 @@ class BackendAPIClient {
         this.eventHandlers = new Map();
         this.connected = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 2000;
+        this.maxReconnectAttempts = 10;
+        this.reconnectBaseDelay = 1000;
+        this._reconnecting = false;
+        this._connectionPromise = null;
     }
 
     /**
      * Connect to WebSocket server
      */
     async connect() {
-        return new Promise((resolve, reject) => {
+        // Eviter les connexions paralleles
+        if (this._connectionPromise) {
+            return this._connectionPromise;
+        }
+
+        this._connectionPromise = new Promise((resolve, reject) => {
             try {
+                // Fermer l'ancienne connexion proprement
+                if (this.ws) {
+                    try { this.ws.onclose = null; this.ws.close(); } catch (e) { /* ignore */ }
+                }
+
                 this.ws = new WebSocket(this.wsUrl);
 
                 this.ws.onopen = () => {
                     this.connected = true;
                     this.reconnectAttempts = 0;
+                    this._reconnecting = false;
+                    this._connectionPromise = null;
                     this.emit('connected');
                     resolve();
                 };
 
-                this.ws.onclose = () => {
+                this.ws.onclose = (event) => {
+                    const wasConnected = this.connected;
                     this.connected = false;
-                    this.emit('disconnected');
+                    this._connectionPromise = null;
+
+                    // Rejeter toutes les requetes en attente immediatement
+                    this._rejectPendingRequests('WebSocket connection closed');
+
+                    if (wasConnected) {
+                        this.emit('disconnected');
+                    }
                     this.attemptReconnect();
                 };
 
@@ -41,7 +63,12 @@ class BackendAPIClient {
                     console.error('WebSocket error:', error);
                     const errorMessage = error.message || error.type || 'WebSocket connection failed';
                     this.emit('error', { message: errorMessage, error: error });
-                    reject(new Error(errorMessage));
+                    // Ne pas reject ici - onclose sera appele ensuite
+                    // Seulement reject si c'est la connexion initiale (pas un reconnect)
+                    if (!this._reconnecting) {
+                        this._connectionPromise = null;
+                        reject(new Error(errorMessage));
+                    }
                 };
 
                 this.ws.onmessage = (event) => {
@@ -54,25 +81,57 @@ class BackendAPIClient {
                 };
 
             } catch (error) {
+                this._connectionPromise = null;
                 reject(error);
             }
         });
+
+        return this._connectionPromise;
     }
 
     /**
-     * Attempt to reconnect
+     * Rejete toutes les requetes en attente (lors d'une deconnexion)
+     */
+    _rejectPendingRequests(reason) {
+        if (this.pendingRequests.size > 0) {
+            console.warn(`Rejecting ${this.pendingRequests.size} pending requests: ${reason}`);
+            for (const [id, pending] of this.pendingRequests) {
+                pending.reject(new Error(reason));
+            }
+            this.pendingRequests.clear();
+        }
+    }
+
+    /**
+     * Attempt to reconnect with exponential backoff
      */
     attemptReconnect() {
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            console.log(`Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-
-            setTimeout(() => {
-                this.connect().catch(err => {
-                    console.error('Reconnect failed:', err);
-                });
-            }, this.reconnectDelay);
+        if (this._reconnecting) return;
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Call connect() manually to retry.`);
+            this.emit('reconnect_failed');
+            return;
         }
+
+        this._reconnecting = true;
+        this.reconnectAttempts++;
+
+        // Backoff exponentiel : 1s, 2s, 4s, 8s... plafonne a 30s
+        const delay = Math.min(
+            this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts - 1),
+            30000
+        );
+
+        console.log(`Reconnecting in ${delay}ms... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+        setTimeout(() => {
+            this.connect().catch(err => {
+                console.error('Reconnect failed:', err.message);
+                this._reconnecting = false;
+                // Retenter apres echec
+                this.attemptReconnect();
+            });
+        }, delay);
     }
 
     /**
@@ -145,11 +204,44 @@ class BackendAPIClient {
     }
 
     /**
+     * Attend que la connexion soit etablie (utile pendant reconnexion)
+     * @param {number} timeout - Timeout en ms (defaut 5000)
+     * @returns {Promise<void>}
+     */
+    waitForConnection(timeout = 5000) {
+        if (this.isConnected()) return Promise.resolve();
+
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.off('connected', onConnected);
+                reject(new Error('WebSocket connection timeout'));
+            }, timeout);
+
+            const onConnected = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+
+            this.on('connected', onConnected);
+        });
+    }
+
+    /**
      * Send command to backend
+     * Si deconnecte mais en cours de reconnexion, attend la reconnexion
      */
     async sendCommand(command, data = {}, timeout = 10000) {
+        // Si pas connecte, attendre la reconnexion (max 5s)
         if (!this.isConnected()) {
-            throw new Error('WebSocket not connected');
+            if (this._reconnecting || this._connectionPromise) {
+                try {
+                    await this.waitForConnection(5000);
+                } catch (e) {
+                    throw new Error('WebSocket not connected');
+                }
+            } else {
+                throw new Error('WebSocket not connected');
+            }
         }
 
         return new Promise((resolve, reject) => {
@@ -170,13 +262,26 @@ class BackendAPIClient {
                 }
             });
 
-            // Send command
-            this.ws.send(JSON.stringify({
-                id,
-                command,
-                data,
-                timestamp: Date.now()
-            }));
+            // Verifier encore avant d'envoyer (la connexion a pu se fermer entre-temps)
+            if (!this.isConnected()) {
+                this.pendingRequests.delete(id);
+                clearTimeout(timeoutId);
+                reject(new Error('WebSocket disconnected before send'));
+                return;
+            }
+
+            try {
+                this.ws.send(JSON.stringify({
+                    id,
+                    command,
+                    data,
+                    timestamp: Date.now()
+                }));
+            } catch (sendError) {
+                this.pendingRequests.delete(id);
+                clearTimeout(timeoutId);
+                reject(new Error(`WebSocket send failed: ${sendError.message}`));
+            }
         });
     }
 
@@ -184,7 +289,11 @@ class BackendAPIClient {
      * Close connection
      */
     close() {
+        this._reconnecting = false;
+        this.reconnectAttempts = this.maxReconnectAttempts; // Empecher la reconnexion
+        this._rejectPendingRequests('Connection closed');
         if (this.ws) {
+            this.ws.onclose = null; // Eviter le cycle reconnexion
             this.ws.close();
             this.ws = null;
         }
