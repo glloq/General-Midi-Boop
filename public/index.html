@@ -5840,33 +5840,6 @@
                 let connectedDevices = devices.filter(d => d.status === 2 || d.connected);
                 console.log('✅ Connected devices after filter:', connectedDevices.length, connectedDevices);
 
-                // Ajouter le périphérique virtuel si activé
-                // Charger directement depuis localStorage pour éviter les dépendances
-                let virtualInstrumentEnabled = false;
-                try {
-                    const saved = localStorage.getItem('maestro_settings');
-                    if (saved) {
-                        const settings = JSON.parse(saved);
-                        virtualInstrumentEnabled = settings.virtualInstrument || false;
-                    }
-                } catch (error) {
-                    console.warn('Could not load virtual instrument setting:', error);
-                }
-
-                if (virtualInstrumentEnabled) {
-                    const virtualDevice = {
-                        id: 'virtual-instrument',
-                        name: `🎹 ${i18n.t('ui.virtualInstrument')}`,
-                        type: 'Virtual',
-                        status: 2,
-                        connected: true,
-                        isVirtual: true
-                    };
-                    connectedDevices.push(virtualDevice);
-                    devices.push(virtualDevice);
-                    console.log('✅ Virtual instrument added to devices');
-                }
-
                 // Charger les instruments virtuels de la DB (crees via Gestion des instruments)
                 try {
                     const capsResponse = await api.sendCommand('instrument_list_capabilities');
@@ -5875,10 +5848,11 @@
                         for (const dbInst of capsResponse.instruments) {
                             const devId = dbInst.device_id || dbInst.id;
                             if (devId && devId.startsWith('virtual_') && !connectedIds.has(devId)) {
+                                const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
                                 const virtualDbDevice = {
                                     id: devId,
-                                    name: dbInst.custom_name || dbInst.name || 'Virtual Instrument',
-                                    displayName: dbInst.custom_name || dbInst.name || 'Virtual Instrument',
+                                    name: `🖥️ ${vName}`,
+                                    displayName: `🖥️ ${vName}`,
                                     type: 'Virtual',
                                     status: 2,
                                     connected: true,
