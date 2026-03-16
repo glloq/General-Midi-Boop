@@ -67,6 +67,23 @@ const ScoringConfig = {
   },
 
   /**
+   * Configuration specifique percussion / canal 10 (index 9)
+   */
+  percussion: {
+    drumChannelNonDrumPenalty: -20,    // Instrument non-drum assigne au canal 9
+    nonDrumChannelDrumPenalty: -15,    // Instrument drum-only assigne a un canal non-9
+    drumChannelDrumBonus: 15,          // Instrument drum assigne au canal 9 (remplace ancien +5)
+    drumChannelWeights: {
+      programMatch: 10,       // Reduit (drums n'utilisent pas les programmes GM standard sur ch10)
+      noteRange: 35,          // Augmente (qualite du mapping drum est critique)
+      polyphony: 10,          // Reduit (drums = polyphonie limitee)
+      ccSupport: 10,          // Reduit
+      instrumentType: 20,     // Augmente (type match critique pour drums)
+      channelSpecial: 15      // Augmente (bonus canal drums)
+    }
+  },
+
+  /**
    * Configuration du cache
    */
   cache: {
@@ -119,6 +136,25 @@ const ScoringConfig = {
    */
   getBonus(bonus) {
     return this.bonuses[bonus] || 0;
+  },
+
+  /**
+   * Obtenir le poids d'un critere pour le canal drums (canal 9)
+   * @param {string} criterion
+   * @returns {number}
+   */
+  getDrumWeight(criterion) {
+    return (this.percussion && this.percussion.drumChannelWeights &&
+            this.percussion.drumChannelWeights[criterion]) || this.weights[criterion] || 0;
+  },
+
+  /**
+   * Obtenir une penalite/bonus percussion
+   * @param {string} key
+   * @returns {number}
+   */
+  getPercussionValue(key) {
+    return (this.percussion && this.percussion[key]) || 0;
   },
 
 };

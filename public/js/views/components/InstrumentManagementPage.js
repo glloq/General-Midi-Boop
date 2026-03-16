@@ -66,6 +66,7 @@ class InstrumentManagementPage {
                 <option value="complete" style="background: #2d2d2d; color: #e0e0e0;">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
                 <option value="incomplete" style="background: #2d2d2d; color: #e0e0e0;">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
                 <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
+                <option value="virtual" style="background: #2d2d2d; color: #e0e0e0;">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
               </select>
               <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; margin-left: auto;">
                 ×
@@ -86,7 +87,10 @@ class InstrumentManagementPage {
               <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
                 🌐 WiFi / Réseau
               </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; margin-left: auto;">
+              <button class="button button-primary" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; margin-left: auto;">
+                ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Instrument virtuel'}
+              </button>
+              <button class="button button-secondary" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
                 🔄 ${i18n.t('instrumentManagement.refresh') || 'Actualiser'}
               </button>
             </div>
@@ -169,12 +173,29 @@ class InstrumentManagementPage {
         }
       }
 
+      // Marquer les instruments virtuels comme toujours disponibles
+      for (const inst of this.instruments) {
+        if (this.isVirtualInstrument(inst)) {
+          inst.connected = true;
+          inst.status = 2;
+          inst.isVirtual = true;
+        }
+      }
+
       this.renderInstruments();
       this.updateStats();
     } catch (error) {
       console.error('Failed to load instruments:', error);
       this.showError('Failed to load instruments: ' + error.message);
     }
+  }
+
+  /**
+   * Verifie si un instrument est virtuel
+   */
+  isVirtualInstrument(instrument) {
+    const deviceId = instrument.device_id || instrument.id || '';
+    return deviceId.startsWith('virtual_') || instrument.instrument_type === 'virtual';
   }
 
   /**
@@ -203,7 +224,9 @@ class InstrumentManagementPage {
     } else if (this.filterStatus === 'incomplete') {
       filtered = filtered.filter(inst => !this.isInstrumentComplete(inst));
     } else if (this.filterStatus === 'connected') {
-      filtered = filtered.filter(inst => inst.status === 2 || inst.connected);
+      filtered = filtered.filter(inst => (inst.status === 2 || inst.connected) && !this.isVirtualInstrument(inst));
+    } else if (this.filterStatus === 'virtual') {
+      filtered = filtered.filter(inst => this.isVirtualInstrument(inst));
     }
 
     if (filtered.length === 0) {
@@ -221,9 +244,10 @@ class InstrumentManagementPage {
       return;
     }
 
-    // Grouper par statut de connexion
-    const connected = filtered.filter(inst => inst.status === 2 || inst.connected);
-    const disconnected = filtered.filter(inst => inst.status !== 2 && !inst.connected);
+    // Grouper par type : connectes physiques, virtuels, deconnectes
+    const virtual = filtered.filter(inst => this.isVirtualInstrument(inst));
+    const connected = filtered.filter(inst => (inst.status === 2 || inst.connected) && !this.isVirtualInstrument(inst));
+    const disconnected = filtered.filter(inst => inst.status !== 2 && !inst.connected && !this.isVirtualInstrument(inst));
 
     let html = '';
 
@@ -236,6 +260,20 @@ class InstrumentManagementPage {
           </h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
             ${connected.map(inst => this.renderInstrumentCard(inst)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Instruments virtuels
+    if (virtual.length > 0) {
+      html += `
+        <div style="margin-bottom: 32px;">
+          <h3 style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6; color: #7c3aed; font-size: 16px;">
+            🖥️ ${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'} (${virtual.length})
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
+            ${virtual.map(inst => this.renderInstrumentCard(inst)).join('')}
           </div>
         </div>
       `;
@@ -264,14 +302,16 @@ class InstrumentManagementPage {
   renderInstrumentCard(instrument) {
     const isComplete = this.isInstrumentComplete(instrument);
     const isConnected = instrument.status === 2 || instrument.connected;
+    const isVirtual = this.isVirtualInstrument(instrument);
     const displayName = instrument.custom_name || instrument.name || i18n.t('instrumentManagement.unknownDevice');
     const esc = this._escapeHtml;
     const safeId = esc(instrument.id);
+    const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
 
     return `
       <div class="instrument-card" style="
         background: white;
-        border: 2px solid ${isConnected ? '#10b981' : '#e5e7eb'};
+        border: 2px solid ${borderColor};
         border-radius: 12px;
         padding: 20px;
         transition: all 0.2s;
@@ -292,7 +332,7 @@ class InstrumentManagementPage {
             ${instrument.name !== displayName ? `<div style="font-size: 13px; color: #6b7280;">${esc(instrument.name)}</div>` : ''}
           </div>
           <div style="font-size: 24px;">
-            ${isConnected ? '🟢' : '⚫'}
+            ${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}
           </div>
         </div>
 
@@ -508,6 +548,45 @@ class InstrumentManagementPage {
       await this.refresh();
     } catch (error) {
       this.showToast((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Ajoute un instrument virtuel (sans device physique)
+   */
+  async addVirtualInstrument() {
+    const name = prompt(
+      i18n.t('instrumentManagement.virtualNamePrompt') || 'Nom de l\'instrument virtuel :',
+      'Virtual Instrument'
+    );
+    if (!name) return;
+
+    try {
+      const response = await this.apiClient.sendCommand('instrument_create_virtual', {
+        name: name,
+        channel: 0
+      });
+
+      this.showToast(
+        (i18n.t('instrumentManagement.virtualCreated') || 'Instrument virtuel créé') + ' !',
+        'success'
+      );
+      await this.refresh();
+
+      // Ouvrir directement les reglages pour configurer les capabilities
+      if (response.deviceId && window.showInstrumentSettings) {
+        const newInstrument = this.instruments.find(i =>
+          i.device_id === response.deviceId || i.id === response.deviceId
+        );
+        if (newInstrument) {
+          window.showInstrumentSettings(newInstrument);
+        }
+      }
+    } catch (error) {
+      this.showToast(
+        (i18n.t('instrumentManagement.virtualCreateFailed') || 'Erreur de création') + ': ' + error.message,
+        'error'
+      );
     }
   }
 

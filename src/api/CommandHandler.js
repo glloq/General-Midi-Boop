@@ -44,6 +44,7 @@ class CommandHandler {
       'instrument_get_capabilities': (data) => this.instrumentGetCapabilities(data),
       'instrument_list_capabilities': () => this.instrumentListCapabilities(),
       'instrument_delete': (data) => this.instrumentDelete(data),
+      'instrument_create_virtual': (data) => this.instrumentCreateVirtual(data),
       'ble_scan_start': (data) => this.bleScanStart(data),
       'ble_scan_stop': () => this.bleScanStop(),
       'ble_connect': (data) => this.bleConnect(data),
@@ -474,6 +475,45 @@ class CommandHandler {
     return {
       success: true
     };
+  }
+
+  /**
+   * Cree un instrument virtuel en DB (sans device physique)
+   * Utile pour les tests d'auto-assignation
+   */
+  async instrumentCreateVirtual(data) {
+    if (!this.app.database) {
+      throw new Error('Database not available');
+    }
+
+    const name = data.name || 'Virtual Instrument';
+    const deviceId = `virtual_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const channel = data.channel || 0;
+
+    // Inserer dans instruments_latency avec les settings de base
+    await this.app.instrumentDatabase.updateInstrumentSettings(deviceId, channel, {
+      name: name,
+      custom_name: name
+    });
+
+    // Appliquer des capabilities par defaut si fournies
+    const capabilities = {};
+    if (data.gm_program !== undefined) capabilities.gm_program = data.gm_program;
+    if (data.note_range_min !== undefined) capabilities.note_range_min = data.note_range_min;
+    if (data.note_range_max !== undefined) capabilities.note_range_max = data.note_range_max;
+    if (data.polyphony !== undefined) capabilities.polyphony = data.polyphony;
+    if (data.note_selection_mode) capabilities.note_selection_mode = data.note_selection_mode;
+    if (data.selected_notes) capabilities.selected_notes = data.selected_notes;
+    if (data.supported_ccs) capabilities.supported_ccs = data.supported_ccs;
+    capabilities.capabilities_source = 'manual';
+
+    if (Object.keys(capabilities).length > 1) {
+      await this.app.instrumentDatabase.updateInstrumentCapabilities(deviceId, channel, capabilities);
+    }
+
+    this.app.logger.info(`Virtual instrument created: ${name} (${deviceId})`);
+
+    return { success: true, deviceId, id: `${deviceId}_${channel}` };
   }
 
   async bleScanStart(data) {

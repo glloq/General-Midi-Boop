@@ -99,9 +99,12 @@ class InstrumentMatcher {
     }
 
     // 3. Polyphonie (+15 points max)
+    const instrumentPolyphony = instrument.polyphony || 16;
+    const polyphonyIsDefault = !instrument.polyphony;
     const polyScore = this.scorePolyphony(
       channelAnalysis.polyphony.max,
-      instrument.polyphony || 16 // Défaut si non spécifié
+      instrumentPolyphony,
+      polyphonyIsDefault
     );
     score += polyScore.score;
     if (polyScore.issue) issues.push(polyScore.issue);
@@ -133,14 +136,56 @@ class InstrumentMatcher {
     score += typeScore.score;
     if (typeScore.info) info.push(typeScore.info);
 
-    // 6. Canal spécial drums (+5 points)
-    if (channelAnalysis.channel === 9 && this.isDrumsInstrument(instrument)) {
-      score += 5;
-      info.push('MIDI channel 10 (drums) match');
+    // 6. Systeme percussion canal 9 (MIDI channel 10)
+    const isDrumChannel = channelAnalysis.channel === 9;
+    const isDrums = this.isDrumsInstrument(instrument);
+    let percussionPenalty = 0;
+    let percussionIncompatible = false;
+
+    if (isDrumChannel) {
+      if (isDrums) {
+        // Canal drums + instrument drums = gros bonus
+        percussionPenalty = this.config.getPercussionValue('drumChannelDrumBonus');
+        info.push('MIDI channel 10 (drums) + drum instrument match');
+      } else {
+        // Canal drums + instrument NON drums = penalite + incompatible
+        percussionPenalty = this.config.getPercussionValue('drumChannelNonDrumPenalty');
+        percussionIncompatible = true;
+        issues.push({
+          type: 'error',
+          message: 'Non-drum instrument assigned to drum channel (ch.10)'
+        });
+        info.push('Non-drum instrument on drum channel 10');
+      }
+    } else {
+      // Canal non-drums + instrument drum-only = penalite
+      if (isDrums && instrument.note_selection_mode === 'discrete') {
+        percussionPenalty = this.config.getPercussionValue('nonDrumChannelDrumPenalty');
+        issues.push({
+          type: 'warning',
+          message: 'Drum-only instrument assigned to non-drum channel'
+        });
+        info.push('Drum-only instrument on melodic channel');
+      }
     }
 
-    // Compatibilite = notes ET polyphonie doivent etre compatibles
-    const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false;
+    // 7. Re-ponderation pour canal drums
+    if (isDrumChannel) {
+      const std = this.config.weights;
+      const drum = this.config.percussion.drumChannelWeights;
+      // Normaliser chaque sous-score par rapport au poids standard, puis re-ponderer avec les poids drums
+      score = (std.programMatch > 0 ? (programScore.score / std.programMatch) * drum.programMatch : 0)
+            + (std.noteRange > 0 ? (noteScore.score / std.noteRange) * drum.noteRange : 0)
+            + (std.polyphony > 0 ? (polyScore.score / std.polyphony) * drum.polyphony : 0)
+            + (std.ccSupport > 0 ? (ccScore.score / std.ccSupport) * drum.ccSupport : 0)
+            + (std.instrumentType > 0 ? (typeScore.score / std.instrumentType) * drum.instrumentType : 0);
+    }
+
+    // Appliquer penalite/bonus percussion
+    score += percussionPenalty;
+
+    // Compatibilite = notes ET polyphonie ET percussion doivent etre compatibles
+    const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
 
     return {
       score: Math.min(100, Math.max(0, Math.round(score))),
@@ -162,14 +207,21 @@ class InstrumentMatcher {
   scoreProgramMatch(channelProgram, instrumentProgram, bankInfo = {}) {
     const maxScore = this.config.getWeight('programMatch'); // 30
 
-    // Si pas de programme dans le canal, give neutral score (not penalizing)
-    if (channelProgram === null || channelProgram === undefined) {
-      return { score: Math.round(maxScore * 0.5), info: 'No program in MIDI channel' };
-    }
+    // Gestion differenciee des cas ou l'un ou les deux programmes sont absents
+    const channelHasProgram = channelProgram !== null && channelProgram !== undefined;
+    const instrumentHasProgram = instrumentProgram !== null && instrumentProgram !== undefined;
 
-    // Si l'instrument n'a pas de programme défini, give neutral score
-    if (instrumentProgram === null || instrumentProgram === undefined) {
-      return { score: Math.round(maxScore * 0.5), info: 'No GM program configured on instrument' };
+    if (!channelHasProgram && !instrumentHasProgram) {
+      // Aucun des deux n'a de programme : neutre
+      return { score: Math.round(maxScore * 0.5), info: 'No program data on either side' };
+    }
+    if (!channelHasProgram) {
+      // Canal sans programme, instrument configure : modere
+      return { score: Math.round(maxScore * 0.33), info: 'No program in MIDI channel' };
+    }
+    if (!instrumentHasProgram) {
+      // Canal a un programme, instrument non configure : faible (non confirmable)
+      return { score: Math.round(maxScore * 0.17), info: 'No GM program configured on instrument' };
     }
 
     // Match exact (program)
@@ -613,10 +665,19 @@ class InstrumentMatcher {
    * Score de polyphonie
    * @param {number} channelMaxPoly
    * @param {number} instrumentPoly
+   * @param {boolean} isDefault - true si polyphonie non configuree (defaut 16)
    * @returns {Object}
    */
-  scorePolyphony(channelMaxPoly, instrumentPoly) {
+  scorePolyphony(channelMaxPoly, instrumentPoly, isDefault = false) {
     const margin = instrumentPoly - channelMaxPoly;
+
+    // Polyphonie non configuree : plafonner a 10/15 meme si marge excellente
+    if (isDefault && margin >= 0) {
+      return {
+        score: 10,
+        info: `Polyphony not configured (default ${instrumentPoly}), likely sufficient for ${channelMaxPoly} needed`
+      };
+    }
 
     if (margin >= 8) {
       return {
@@ -666,9 +727,10 @@ class InstrumentMatcher {
       return { score: 15, info: 'No CCs used by channel' };
     }
 
-    // Si l'instrument n'a pas de liste (accepte tout)
+    // Si l'instrument n'a pas de liste de CCs configuree : score neutre (pas plein)
     if (!instrumentCCs || instrumentCCs.length === 0) {
-      return { score: 15, info: 'Instrument supports all CCs' };
+      const ccWeight = this.config.getWeight('ccSupport'); // 15
+      return { score: Math.round(ccWeight * 0.53), info: 'Instrument CC support unknown (not configured)' };
     }
 
     // Compter combien de CCs sont supportés
@@ -772,6 +834,19 @@ class InstrumentMatcher {
     const program = instrument.gm_program;
 
     if (program === null || program === undefined) {
+      // Pas de programme GM : tenter inference par le nom
+      const inferred = this.inferTypeFromName(instrument);
+      if (inferred !== 'unknown') return inferred;
+
+      // Fallback : analyser note_range si disponible
+      if (instrument.note_range_min !== null && instrument.note_range_max !== null) {
+        const avgNote = (instrument.note_range_min + instrument.note_range_max) / 2;
+        if (avgNote < 48) return 'bass';
+      }
+
+      // Mode discrete sans programme = probablement percussif
+      if (instrument.note_selection_mode === 'discrete') return 'percussive';
+
       return 'unknown';
     }
 
@@ -786,6 +861,28 @@ class InstrumentMatcher {
     }
 
     return 'melody';
+  }
+
+  /**
+   * Infere le type d'instrument a partir de son nom
+   * @param {Object} instrument
+   * @returns {string} - 'percussive', 'bass', 'harmony', 'melody', ou 'unknown'
+   */
+  inferTypeFromName(instrument) {
+    const name = (instrument.name || instrument.custom_name || '').toLowerCase();
+    if (!name) return 'unknown';
+
+    const keywords = {
+      percussive: ['drum', 'perc', 'kit', 'cymbal', 'snare', 'kick', 'tom', 'hi-hat', 'hihat', 'cajon'],
+      bass: ['bass', 'sub'],
+      harmony: ['piano', 'keys', 'keyboard', 'organ', 'strings', 'pad', 'chord', 'harp'],
+      melody: ['lead', 'synth', 'flute', 'trumpet', 'sax', 'violin', 'guitar', 'clarinet', 'oboe']
+    };
+
+    for (const [type, words] of Object.entries(keywords)) {
+      if (words.some(w => name.includes(w))) return type;
+    }
+    return 'unknown';
   }
 
   /**

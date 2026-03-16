@@ -286,11 +286,13 @@ describe('InstrumentMatcher', () => {
     expect(result.score).toBe(0);
   });
 
-  test('null program gives neutral score (half weight)', () => {
-    // When program info is missing, give neutral score instead of 0
-    expect(matcher.scoreProgramMatch(null, 0).score).toBe(15);
-    expect(matcher.scoreProgramMatch(0, null).score).toBe(15);
+  test('null program gives differentiated neutral scores', () => {
+    // Both null = neutral (50%)
     expect(matcher.scoreProgramMatch(null, null).score).toBe(15);
+    // Channel has no program, instrument configured = moderate (33%)
+    expect(matcher.scoreProgramMatch(null, 0).score).toBe(10);
+    // Channel has program, instrument not configured = low (17%)
+    expect(matcher.scoreProgramMatch(0, null).score).toBe(5);
   });
 
   test('perfect note range fit gives 25 points', () => {
@@ -343,8 +345,8 @@ describe('InstrumentMatcher', () => {
     expect(matcher.scoreCCSupport([7, 64], [1, 7, 10, 64]).score).toBe(15);
     // No CCs used
     expect(matcher.scoreCCSupport([], [1, 7]).score).toBe(15);
-    // No CC list on instrument
-    expect(matcher.scoreCCSupport([7, 64], null).score).toBe(15);
+    // No CC list on instrument = neutral (not full score)
+    expect(matcher.scoreCCSupport([7, 64], null).score).toBe(8);
     // Partial support
     const partial = matcher.scoreCCSupport([7, 64, 91], [7, 64]);
     expect(partial.score).toBeGreaterThan(0);
