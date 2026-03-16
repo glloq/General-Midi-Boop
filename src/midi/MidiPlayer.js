@@ -687,16 +687,35 @@ class MidiPlayer {
 
     const device = this.app.deviceManager;
 
-    // Collect all unique target devices (default + routed)
-    const targetDevices = new Set([this.outputDevice]);
-    for (const routing of this.channelRouting.values()) {
+    // Build map of device → target channels actually routed to it
+    // Only send All Notes Off on channels that are actively used, to avoid
+    // silencing unrelated instruments on the same device
+    const channelsPerDevice = new Map();
+
+    for (const [sourceChannel, routing] of this.channelRouting) {
       const deviceName = typeof routing === 'string' ? routing : routing?.device;
-      if (deviceName) targetDevices.add(deviceName);
+      const targetChannel = typeof routing === 'string' ? sourceChannel : routing.targetChannel;
+      if (!deviceName) continue;
+
+      if (!channelsPerDevice.has(deviceName)) {
+        channelsPerDevice.set(deviceName, new Set());
+      }
+      channelsPerDevice.get(deviceName).add(targetChannel);
     }
 
-    // Send All Notes Off on all 16 MIDI channels to all target devices
-    for (const targetDevice of targetDevices) {
-      for (let channel = 0; channel < 16; channel++) {
+    // Also include channels from the MIDI file that use the default device (no explicit routing)
+    for (const ch of this.channels) {
+      if (!this.channelRouting.has(ch.channel)) {
+        if (!channelsPerDevice.has(this.outputDevice)) {
+          channelsPerDevice.set(this.outputDevice, new Set());
+        }
+        channelsPerDevice.get(this.outputDevice).add(ch.channel);
+      }
+    }
+
+    // Send All Notes Off only on the channels actually routed to each device
+    for (const [targetDevice, channels] of channelsPerDevice) {
+      for (const channel of channels) {
         try {
           device.sendMessage(targetDevice, 'cc', {
             channel: channel,
@@ -790,7 +809,7 @@ class MidiPlayer {
   }
 
   getOutputForChannel(channel) {
-    // Get specific device + targetChannel for this channel, or default device
+    // Get specific device + targetChannel for this channel
     if (this.channelRouting.has(channel)) {
       const routing = this.channelRouting.get(channel);
       // Support both old format (string) and new format ({ device, targetChannel })
@@ -799,6 +818,15 @@ class MidiPlayer {
       }
       return routing;
     }
+
+    // If explicit routings exist for other channels, do NOT send unrouted channels
+    // to the default device — this prevents leaking events to instruments that
+    // share the same device but weren't assigned this channel
+    if (this.channelRouting.size > 0) {
+      return null;
+    }
+
+    // No routing at all — use default device (legacy/simple mode)
     return { device: this.outputDevice, targetChannel: channel };
   }
 
