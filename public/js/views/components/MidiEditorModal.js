@@ -425,6 +425,9 @@ class MidiEditorModal {
         // Extraire les événements CC et pitchbend
         this.extractCCAndPitchbend();
 
+        // Ajouter des boutons dynamiques pour les CC détectés dans le fichier
+        this.updateDynamicCCButtons();
+
         // Afficher TOUS les canaux par défaut et construire la séquence
         this.activeChannels.clear();
         if (this.channels.length > 0) {
@@ -584,26 +587,14 @@ class MidiEditorModal {
             track.events.forEach((event) => {
                 currentTick += event.deltaTime || 0;
 
-                // Control Change events
+                // Control Change events — capturer TOUS les CC (0-127)
                 if (event.type === 'controller') {
                     const channel = event.channel !== undefined ? event.channel : 0;
                     const controller = event.controllerType;
 
-                    // Convertir le numéro de contrôleur en type pour l'éditeur
-                    let ccType = null;
-                    if (controller === 1) ccType = 'cc1';
-                    else if (controller === 2) ccType = 'cc2';
-                    else if (controller === 5) ccType = 'cc5';
-                    else if (controller === 7) ccType = 'cc7';
-                    else if (controller === 10) ccType = 'cc10';
-                    else if (controller === 11) ccType = 'cc11';
-                    else if (controller === 74) ccType = 'cc74';
-                    else if (controller === 77) ccType = 'cc77';
-
-                    // Stocker uniquement les CC supportés
-                    if (ccType) {
+                    if (controller !== undefined && controller >= 0 && controller <= 127) {
                         this.ccEvents.push({
-                            type: ccType,
+                            type: `cc${controller}`,
                             ticks: currentTick,
                             channel: channel,
                             value: event.value,
@@ -631,29 +622,99 @@ class MidiEditorModal {
 
         this.log('info', `Extracted ${this.ccEvents.length} CC/pitchbend events`);
 
-        // Log summary by type
-        const cc1Count = this.ccEvents.filter(e => e.type === 'cc1').length;
-        const cc2Count = this.ccEvents.filter(e => e.type === 'cc2').length;
-        const cc5Count = this.ccEvents.filter(e => e.type === 'cc5').length;
-        const cc7Count = this.ccEvents.filter(e => e.type === 'cc7').length;
-        const cc10Count = this.ccEvents.filter(e => e.type === 'cc10').length;
-        const cc11Count = this.ccEvents.filter(e => e.type === 'cc11').length;
-        const cc74Count = this.ccEvents.filter(e => e.type === 'cc74').length;
-        const cc77Count = this.ccEvents.filter(e => e.type === 'cc77').length;
-        const pitchbendCount = this.ccEvents.filter(e => e.type === 'pitchbend').length;
-        this.log('info', `  - CC1: ${cc1Count}, CC2: ${cc2Count}, CC5: ${cc5Count}, CC7: ${cc7Count}, CC10: ${cc10Count}, CC11: ${cc11Count}, CC74: ${cc74Count}, CC77: ${cc77Count}, Pitchbend: ${pitchbendCount}`);
+        // Log summary by type (compter dynamiquement)
+        const typeCounts = {};
+        this.ccEvents.forEach(e => {
+            typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
+        });
+        const summary = Object.entries(typeCounts)
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+            .map(([type, count]) => `${type}: ${count}`)
+            .join(', ');
+        if (summary) {
+            this.log('info', `  - ${summary}`);
+        }
 
         // Log des canaux utilisés
         const usedChannels = this.getCCChannelsUsed();
         if (usedChannels.length > 0) {
             this.log('info', `  - Canaux utilisés: ${usedChannels.map(c => c + 1).join(', ')}`);
         }
+    }
 
-        // Log des événements extraits pour debugging
-        if (this.ccEvents.length > 0) {
-            const sampleEvents = this.ccEvents.slice(0, 3);
-            this.log('debug', 'Sample extracted CC events:', sampleEvents);
-        }
+    /**
+     * Noms standards des CC MIDI (pour l'affichage des CC dynamiques)
+     */
+    static CC_NAMES = {
+        0: 'Bank Select', 1: 'Modulation', 2: 'Breath', 3: 'Ctrl 3', 4: 'Foot',
+        5: 'Portamento', 6: 'Data Entry', 7: 'Volume', 8: 'Balance', 9: 'Ctrl 9',
+        10: 'Pan', 11: 'Expression', 12: 'FX Ctrl 1', 13: 'FX Ctrl 2',
+        64: 'Sustain', 65: 'Portamento On', 66: 'Sostenuto', 67: 'Soft Pedal',
+        68: 'Legato', 69: 'Hold 2', 70: 'Variation', 71: 'Resonance',
+        72: 'Release', 73: 'Attack', 74: 'Brightness', 75: 'Decay',
+        76: 'Vib Rate', 77: 'Vib Depth', 78: 'Vib Delay',
+        84: 'Porta Ctrl', 91: 'Reverb', 92: 'Tremolo', 93: 'Chorus',
+        94: 'Detune', 95: 'Phaser', 120: 'All Sound Off', 121: 'Reset All',
+        123: 'All Notes Off'
+    };
+
+    /**
+     * Mettre à jour les boutons CC dynamiques selon les CC présents dans le fichier
+     * Ajoute des boutons pour les CC non couverts par les boutons statiques
+     */
+    updateDynamicCCButtons() {
+        const container = this.container?.querySelector('.cc-type-buttons-horizontal');
+        if (!container) return;
+
+        // CC couverts par les boutons statiques
+        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend']);
+
+        // Trouver les CC présents dans le fichier mais pas en statique
+        const detectedCCs = new Set();
+        this.ccEvents.forEach(e => {
+            if (!staticCCs.has(e.type) && e.type.startsWith('cc')) {
+                detectedCCs.add(e.type);
+            }
+        });
+
+        // Supprimer les anciens boutons dynamiques
+        container.querySelectorAll('.cc-type-btn.dynamic').forEach(btn => btn.remove());
+
+        if (detectedCCs.size === 0) return;
+
+        // Point d'insertion : avant le bouton Pitchbend
+        const pbButton = container.querySelector('[data-cc-type="pitchbend"]');
+
+        // Trier les CC détectés numériquement
+        const sortedCCs = Array.from(detectedCCs).sort((a, b) => {
+            return parseInt(a.replace('cc', '')) - parseInt(b.replace('cc', ''));
+        });
+
+        sortedCCs.forEach(ccType => {
+            const ccNum = parseInt(ccType.replace('cc', ''));
+            const ccName = MidiEditorModal.CC_NAMES[ccNum] || `Ctrl ${ccNum}`;
+            const count = this.ccEvents.filter(e => e.type === ccType).length;
+
+            const btn = document.createElement('button');
+            btn.className = 'cc-type-btn dynamic';
+            btn.dataset.ccType = ccType;
+            btn.title = `${ccName} (${count} events)`;
+            btn.innerHTML = `CC${ccNum} <span class="cc-label">${ccName}</span>`;
+
+            // Attacher le listener
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.selectCCType(ccType);
+            });
+
+            if (pbButton) {
+                container.insertBefore(btn, pbButton);
+            } else {
+                container.appendChild(btn);
+            }
+        });
+
+        this.log('info', `Added ${sortedCCs.length} dynamic CC buttons: ${sortedCCs.join(', ')}`);
     }
 
     /**
