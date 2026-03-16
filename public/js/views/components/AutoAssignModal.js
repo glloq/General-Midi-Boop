@@ -756,7 +756,7 @@ class AutoAssignModal {
       // Open the adapted file in a new editor
       if (response.adaptedFileId && window.MidiEditorModal) {
         const newEditor = new window.MidiEditorModal(this.apiClient);
-        newEditor.open(response.adaptedFileId);
+        newEditor.show(response.adaptedFileId, response.filename || null);
       } else if (response.filename) {
         // Fallback: refresh file list so user can open it
         if (window.midiFileManager) {
