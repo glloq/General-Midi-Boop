@@ -414,12 +414,24 @@ class TempoEditor {
     }
 
     handleKeyDown(e) {
-        if (e.key === 'Delete' && this.selectedEvents.size > 0) {
+        // Ne traiter les raccourcis que si l'éditeur est visible
+        if (!this.element || this.element.offsetParent === null) return;
+
+        if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedEvents.size > 0) {
+            e.preventDefault();
             this.removeEvents(Array.from(this.selectedEvents));
         } else if (e.key === 'Escape') {
             this.cancelInteractions();
             this.selectedEvents.clear();
             this.renderThrottled();
+        } else if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'z') {
+                e.preventDefault();
+                this.undo();
+            } else if (e.key === 'y' || (e.shiftKey && e.key === 'Z')) {
+                e.preventDefault();
+                this.redo();
+            }
         }
     }
 
@@ -529,23 +541,34 @@ class TempoEditor {
         if (!this.gridCtx) return;
 
         const ctx = this.gridCtx;
+        const labelMargin = 50;
         ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
 
-        // Grille verticale (temps)
+        // Fond de la zone de labels
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, labelMargin, this.gridCanvas.height);
+
+        // Grille verticale (temps) — synchronisée avec xoffset
         const ticksPerBeat = this.options.timebase;
-        const beatSize = (ticksPerBeat / this.options.xrange) * this.canvas.width;
+        const gridSize = this.options.grid || ticksPerBeat;
+        const startTick = Math.floor(this.options.xoffset / ticksPerBeat) * ticksPerBeat;
+        const endTick = this.options.xoffset + this.options.xrange;
 
-        ctx.strokeStyle = '#2a2a2a';
-        ctx.lineWidth = 1;
+        for (let t = startTick; t <= endTick; t += gridSize) {
+            const x = this.ticksToX(t);
+            if (x < labelMargin || x > this.gridCanvas.width) continue;
 
-        for (let i = 0; i < this.canvas.width; i += beatSize) {
+            // Trait plus marqué sur les temps forts (noire)
+            const isBeat = (t % ticksPerBeat) === 0;
+            ctx.strokeStyle = isBeat ? '#383838' : '#2a2a2a';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i, this.canvas.height);
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.gridCanvas.height);
             ctx.stroke();
         }
 
-        // Grille horizontale (tempo)
+        // Grille horizontale (tempo) — labels avec marge
         const tempoStep = 20; // 20 BPM par ligne
         const numLines = Math.ceil((this.options.maxTempo - this.options.minTempo) / tempoStep);
 
@@ -553,18 +576,22 @@ class TempoEditor {
             const tempo = this.options.minTempo + i * tempoStep;
             const y = this.tempoToY(tempo);
 
-            ctx.strokeStyle = '#2a2a2a';
+            // Ligne plus marquée à 120 BPM (tempo standard)
+            const isDefault = tempo === 120;
+            ctx.strokeStyle = isDefault ? '#444' : '#2a2a2a';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(this.canvas.width, y);
+            ctx.moveTo(labelMargin, y);
+            ctx.lineTo(this.gridCanvas.width, y);
             ctx.stroke();
 
-            // Label
-            ctx.fillStyle = '#666';
-            ctx.font = '10px Arial';
-            ctx.fillText(`${tempo} BPM`, 5, y - 2);
+            // Label dans la marge
+            ctx.fillStyle = isDefault ? '#aaa' : '#666';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${tempo}`, labelMargin - 5, y + 4);
         }
+        ctx.textAlign = 'left';
     }
 
     renderDefaultTempoLine() {

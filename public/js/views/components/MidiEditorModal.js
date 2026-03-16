@@ -42,7 +42,7 @@ class MidiEditorModal {
         this.ccEditor = null;
         this.velocityEditor = null;
         this.tempoEditor = null;
-        this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'pitchbend', 'velocity', 'tempo'
+        this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend', 'velocity', 'tempo'
         this.ccEvents = []; // Événements CC et pitchbend
         this.tempoEvents = []; // Événements de tempo
         this.ccSectionExpanded = false; // État du collapse de la section CC
@@ -598,6 +598,7 @@ class MidiEditorModal {
                     else if (controller === 10) ccType = 'cc10';
                     else if (controller === 11) ccType = 'cc11';
                     else if (controller === 74) ccType = 'cc74';
+                    else if (controller === 77) ccType = 'cc77';
 
                     // Stocker uniquement les CC supportés
                     if (ccType) {
@@ -638,8 +639,9 @@ class MidiEditorModal {
         const cc10Count = this.ccEvents.filter(e => e.type === 'cc10').length;
         const cc11Count = this.ccEvents.filter(e => e.type === 'cc11').length;
         const cc74Count = this.ccEvents.filter(e => e.type === 'cc74').length;
+        const cc77Count = this.ccEvents.filter(e => e.type === 'cc77').length;
         const pitchbendCount = this.ccEvents.filter(e => e.type === 'pitchbend').length;
-        this.log('info', `  - CC1: ${cc1Count}, CC2: ${cc2Count}, CC5: ${cc5Count}, CC7: ${cc7Count}, CC10: ${cc10Count}, CC11: ${cc11Count}, CC74: ${cc74Count}, Pitchbend: ${pitchbendCount}`);
+        this.log('info', `  - CC1: ${cc1Count}, CC2: ${cc2Count}, CC5: ${cc5Count}, CC7: ${cc7Count}, CC10: ${cc10Count}, CC11: ${cc11Count}, CC74: ${cc74Count}, CC77: ${cc77Count}, Pitchbend: ${pitchbendCount}`);
 
         // Log des canaux utilisés
         const usedChannels = this.getCCChannelsUsed();
@@ -829,11 +831,31 @@ class MidiEditorModal {
                 ccHeader.classList.remove('expanded');
                 ccHeader.classList.add('collapsed');
 
+                // Nettoyer les styles inline posés par le drag resize
+                // pour que les classes CSS (flex, min-height) reprennent le contrôle
+                ccSection.style.removeProperty('height');
+                ccSection.style.removeProperty('flex');
+                ccSection.style.removeProperty('min-height');
+
+                const notesSection = this.container?.querySelector('.notes-section');
+                if (notesSection) {
+                    notesSection.style.removeProperty('height');
+                    notesSection.style.removeProperty('flex');
+                    notesSection.style.removeProperty('min-height');
+                }
+
                 // Cacher la barre de resize
                 if (resizeBar) {
                     resizeBar.classList.remove('visible');
                     this.log('debug', 'Resize bar hidden');
                 }
+
+                // Redimensionner le piano roll pour occuper tout l'espace
+                requestAnimationFrame(() => {
+                    if (this.pianoRoll && typeof this.pianoRoll.redraw === 'function') {
+                        this.pianoRoll.redraw();
+                    }
+                });
             }
         }
 
@@ -2603,6 +2625,9 @@ class MidiEditorModal {
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">
                                             CC74 <span class="cc-label">${this.t('midiEditor.brightness')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">
+                                            CC77 <span class="cc-label">${this.t('midiEditor.vibrato')}</span>
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">
                                             PB <span class="cc-label">${this.t('midiEditor.pitchBend')}</span>
@@ -4398,7 +4423,9 @@ class MidiEditorModal {
                     btn.classList.add('active');
 
                     // Changer l'outil sur l'éditeur approprié
-                    if (this.currentCCType === 'velocity' && this.velocityEditor) {
+                    if (this.currentCCType === 'tempo' && this.tempoEditor) {
+                        this.tempoEditor.setTool(tool);
+                    } else if (this.currentCCType === 'velocity' && this.velocityEditor) {
                         this.velocityEditor.setTool(tool);
                     } else if (this.ccEditor) {
                         this.ccEditor.setTool(tool);

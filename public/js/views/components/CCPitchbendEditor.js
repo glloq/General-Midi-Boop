@@ -2,7 +2,7 @@
  * CCPitchbendEditor - Éditeur de Control Change et Pitchbend synchronisé avec le piano roll
  *
  * Fonctionnalités :
- * - Édition de CC1, CC2, CC5, CC7, CC10, CC11, CC74, pitchbend
+ * - Édition de CC1, CC2, CC5, CC7, CC10, CC11, CC74, CC77, pitchbend
  * - Outils : sélection, déplacement, ligne, dessin continu
  * - Synchronisation horizontale avec le piano roll
  * - Respect de la grille temporelle et du zoom
@@ -26,7 +26,7 @@ class CCPitchbendEditor {
         this.events = []; // CC et pitchbend events
         this.selectedEvents = new Set();
         this.currentTool = 'select'; // 'select', 'move', 'line', 'draw'
-        this.currentCC = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'pitchbend'
+        this.currentCC = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend'
         this.currentChannel = 0;
         this.isDrawing = false;
         this.lastDrawPosition = null;
