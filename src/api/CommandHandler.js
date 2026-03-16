@@ -352,6 +352,15 @@ class CommandHandler {
       throw new Error('channel must be between 0 and 15');
     }
 
+    // Validate sync_delay range (milliseconds, ±5 seconds max)
+    if (data.sync_delay !== undefined) {
+      const parsedDelay = parseInt(data.sync_delay);
+      if (isNaN(parsedDelay) || parsedDelay < -5000 || parsedDelay > 5000) {
+        throw new Error('sync_delay must be between -5000 and 5000 milliseconds');
+      }
+      data.sync_delay = parsedDelay;
+    }
+
     const id = this.app.database.updateInstrumentSettings(data.deviceId, channel, {
       custom_name: data.custom_name,
       sync_delay: data.sync_delay,
@@ -359,6 +368,12 @@ class CommandHandler {
       usb_serial_number: usbSerialNumber,
       name: data.name,
       gm_program: data.gm_program
+    });
+
+    // Notify routing/playback systems to invalidate cached compensation values
+    this.app.eventBus?.emit('instrument_settings_changed', {
+      deviceId: data.deviceId,
+      channel
     });
 
     return {

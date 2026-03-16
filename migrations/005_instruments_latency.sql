@@ -76,10 +76,11 @@ CREATE TABLE IF NOT EXISTS instruments_latency (
     instrument_type TEXT DEFAULT 'unknown',
     
     -- ========================================================================
-    -- COMPENSATION (microsecondes)
+    -- COMPENSATION (microsecondes) — DEPRECATED: use sync_delay (migration 013) instead
     -- ========================================================================
-    -- Note: compensation_offset est NÃ‰GATIF pour avancer le signal
-    -- Exemple: -15000 = avancer de 15ms
+    -- Note: compensation_offset is in microseconds and is DEPRECATED.
+    -- Code now uses sync_delay (added by migration 013) in MILLISECONDS.
+    -- compensation_offset is kept for schema compatibility only.
     -- INTEGER range: -2^31 to 2^31-1 (-2147s to +2147s) - sufficient for microseconds
     compensation_offset INTEGER DEFAULT 0 
         CHECK(compensation_offset BETWEEN -2147483648 AND 2147483647),

@@ -4,7 +4,8 @@ import { performance } from 'perf_hooks';
 
 // Playback timing constants
 const SCHEDULER_TICK_MS = 10; // Scheduler resolution in milliseconds
-const LOOKAHEAD_SECONDS = 0.1; // Look-ahead window for event scheduling (100ms)
+const LOOKAHEAD_SECONDS = 0.1; // Base look-ahead window for event scheduling (100ms)
+const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in milliseconds (5s)
 const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
 
 // MIDI CC constants
@@ -34,6 +35,13 @@ class MidiPlayer {
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
+    this._maxCompensationMs = 0; // Cached max compensation across all active routings
+
+    // Invalidate sync_delay cache immediately when instrument settings change
+    this.app.eventBus?.on('instrument_settings_changed', () => {
+      this._syncDelayCache.clear();
+      this._maxCompensationMs = 0;
+    });
 
     this.app.logger.info('MidiPlayer initialized');
   }
@@ -318,6 +326,7 @@ class MidiPlayer {
 
     this._syncDelayCache.clear(); // Refresh sync_delay cache on each playback start
     this._failedDevices.clear(); // Reset failed device tracking
+    this._maxCompensationMs = 0; // Reset max compensation cache
 
     this.startScheduler();
     this.broadcastStatus();
@@ -378,6 +387,7 @@ class MidiPlayer {
   destroy() {
     this.stop();
     this._syncDelayCache.clear();
+    this.app.eventBus?.off('instrument_settings_changed');
     this.events = [];
     this.tracks = [];
     this.channelRouting.clear();
@@ -408,12 +418,17 @@ class MidiPlayer {
   }
 
   findEventIndexAtTime(time) {
-    for (let i = 0; i < this.events.length; i++) {
-      if (this.events[i].time >= time) {
-        return i;
+    // Binary search — events are sorted by time
+    let lo = 0, hi = this.events.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.events[mid].time < time) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
       }
     }
-    return this.events.length;
+    return lo;
   }
 
   startScheduler() {
@@ -453,8 +468,9 @@ class MidiPlayer {
       return;
     }
 
-    // Process events
-    const targetTime = this.position + LOOKAHEAD_SECONDS;
+    // Dynamic lookahead: extend beyond base to accommodate large sync_delay compensations
+    const maxCompSec = this._getMaxActiveCompensation() / 1000;
+    const targetTime = this.position + LOOKAHEAD_SECONDS + maxCompSec;
 
     while (this.currentEventIndex < this.events.length) {
       const event = this.events[this.currentEventIndex];
@@ -476,11 +492,32 @@ class MidiPlayer {
   }
 
   /**
+   * Get max compensation across all active channel routings (cached per playback session).
+   * Used to extend the lookahead window so high-compensation events are scheduled early enough.
+   * @returns {number} Maximum compensation in milliseconds
+   */
+  _getMaxActiveCompensation() {
+    if (this._maxCompensationMs > 0) {
+      return this._maxCompensationMs;
+    }
+    let maxComp = 0;
+    for (const [channel, routing] of this.channelRouting) {
+      const device = typeof routing === 'string' ? routing : routing.device;
+      const targetCh = typeof routing === 'string' ? channel : routing.targetChannel;
+      const comp = this._getSyncDelay(device, targetCh);
+      if (comp > maxComp) maxComp = comp;
+    }
+    this._maxCompensationMs = maxComp;
+    return maxComp;
+  }
+
+  /**
    * Get total timing compensation for a device+channel in milliseconds.
    * Combines:
-   *   - sync_delay (user-configured per instrument, from instruments_latency table)
-   *   - hardware latency (measured via LatencyCompensator loopback test)
+   *   - sync_delay (user-configured per instrument, in ms, from instruments_latency table)
+   *   - hardware latency (measured via LatencyCompensator loopback test, in ms)
    * Positive value = send event earlier to compensate for device/instrument delay.
+   * Clamped to MAX_COMPENSATION_MS to prevent runaway delays.
    */
   _getSyncDelay(deviceId, channel) {
     const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
@@ -510,6 +547,12 @@ class MidiPlayer {
       }
     }
 
+    // Clamp to maximum allowed compensation
+    if (syncDelay > MAX_COMPENSATION_MS) {
+      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
+      syncDelay = MAX_COMPENSATION_MS;
+    }
+
     if (syncDelay !== 0) {
       this.app.logger.debug(`Total compensation ${syncDelay.toFixed(1)}ms for device ${deviceId} ch ${channel}`);
     }
@@ -536,6 +579,12 @@ class MidiPlayer {
 
     // Apply sync_delay compensation (convert ms to seconds)
     const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
+
+    if (syncDelay > 0 && delay < syncDelay / 1000) {
+      this.app.logger.debug(
+        `Compensation ${syncDelay.toFixed(0)}ms exceeds delay ${(delay * 1000).toFixed(0)}ms for ch${event.channel + 1}, sending immediately`
+      );
+    }
 
     const timeoutId = setTimeout(() => {
       this.pendingTimeouts.delete(timeoutId);

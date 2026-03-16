@@ -68,10 +68,10 @@ class LatencyCompensator {
         await this.sleep(CALIBRATION_PAUSE_BETWEEN_MS);
       }
 
-      // Calculate statistics
-      const avgLatency = measurements.reduce((a, b) => a + b, 0) / measurements.length;
-      const minLatency = Math.min(...measurements);
-      const maxLatency = Math.max(...measurements);
+      // Calculate statistics — divide by 2 to get one-way latency from roundtrip measurement
+      const avgLatency = measurements.reduce((a, b) => a + b, 0) / measurements.length / 2;
+      const minLatency = Math.min(...measurements) / 2;
+      const maxLatency = Math.max(...measurements) / 2;
 
       // Store profile
       this.setLatency(deviceId, avgLatency, {

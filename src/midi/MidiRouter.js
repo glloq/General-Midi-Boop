@@ -1,5 +1,7 @@
 // src/midi/MidiRouter.js
 
+const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in milliseconds (5s)
+
 class MidiRouter {
   constructor(app) {
     this.app = app;
@@ -7,6 +9,15 @@ class MidiRouter {
     this.routesBySource = new Map(); // Secondary index: source -> Set of routeIds
     this.monitors = new Set();
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
+    this._compensationCache = new Map();
+    this._compensationCacheTimer = setInterval(() => {
+      this._compensationCache.clear();
+    }, 30000);
+
+    // Invalidate cache immediately when instrument settings change
+    this.app.eventBus?.on('instrument_settings_changed', () => {
+      this._compensationCache.clear();
+    });
 
     this.loadRoutesFromDB();
     this.app.logger.info('MidiRouter initialized');
@@ -156,8 +167,8 @@ class MidiRouter {
         // Apply channel mapping
         const mapped = this.applyChannelMap(msg, route.channelMap);
 
-        // Apply latency compensation for destination device (sync_delay in ms + hardware latency)
-        const compensation = this._getRouteCompensation(route.destination, mapped.channel);
+        // Apply relative latency compensation: fast devices are delayed so all destinations sync
+        const compensation = this._getRelativeCompensation(sourceDevice, route.destination, mapped.channel);
         if (compensation > 0) {
           const timeoutId = setTimeout(() => {
             this.pendingTimeouts.delete(timeoutId);
@@ -312,16 +323,8 @@ class MidiRouter {
     }
 
     const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
-    if (this._compensationCache && this._compensationCache.has(cacheKey)) {
+    if (this._compensationCache.has(cacheKey)) {
       return this._compensationCache.get(cacheKey);
-    }
-
-    if (!this._compensationCache) {
-      this._compensationCache = new Map();
-      // Auto-clear cache every 30 seconds to pick up setting changes
-      this._compensationCacheTimer = setInterval(() => {
-        this._compensationCache.clear();
-      }, 30000);
     }
 
     let totalLatency = 0;
@@ -346,8 +349,42 @@ class MidiRouter {
     // For real-time routing, negative compensation = this device is faster
     // We store the raw value; the caller decides how to use it
     // (In routeMessage, we only delay if compensation > 0)
-    this._compensationCache.set(cacheKey, Math.max(0, totalLatency));
-    return Math.max(0, totalLatency);
+    const clamped = Math.min(Math.max(0, totalLatency), MAX_COMPENSATION_MS);
+    if (totalLatency > MAX_COMPENSATION_MS) {
+      this.app.logger.warn(`Compensation ${totalLatency.toFixed(0)}ms for device ${deviceId} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
+    }
+    this._compensationCache.set(cacheKey, clamped);
+    return clamped;
+  }
+
+  /**
+   * Get relative compensation for a destination in the context of all destinations
+   * from the same source. The slowest device (highest latency) sends immediately;
+   * faster devices are delayed so all events arrive at the same time.
+   * @param {string} sourceDevice - Source device
+   * @param {string} destDevice - Destination device
+   * @param {number} channel - MIDI channel
+   * @returns {number} Relative delay in milliseconds (0 = send immediately)
+   */
+  _getRelativeCompensation(sourceDevice, destDevice, channel) {
+    const routeIds = this.routesBySource.get(sourceDevice);
+    if (!routeIds || routeIds.size <= 1) {
+      // Single destination — no relative delay needed
+      return 0;
+    }
+
+    // Find maximum compensation across all active destinations for this source
+    let maxComp = 0;
+    for (const rid of routeIds) {
+      const r = this.routes.get(rid);
+      if (!r || !r.enabled) continue;
+      const comp = this._getRouteCompensation(r.destination, channel);
+      if (comp > maxComp) maxComp = comp;
+    }
+
+    const thisComp = this._getRouteCompensation(destDevice, channel);
+    // Fast device (low latency) gets delayed; slow device (high latency) sends immediately
+    return Math.max(0, maxComp - thisComp);
   }
 
   getRouteList() {
@@ -377,6 +414,9 @@ class MidiRouter {
     if (this._compensationCache) {
       this._compensationCache.clear();
     }
+
+    // Remove event listeners
+    this.app.eventBus?.off('instrument_settings_changed');
 
     this.routes.clear();
     this.routesBySource.clear();
