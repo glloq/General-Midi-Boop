@@ -552,20 +552,101 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Ajoute un instrument virtuel (sans device physique)
+   * Presets d'instruments virtuels disponibles cote frontend
    */
-  async addVirtualInstrument() {
-    const name = prompt(
-      i18n.t('instrumentManagement.virtualNamePrompt') || 'Nom de l\'instrument virtuel :',
-      'Virtual Instrument'
-    );
-    if (!name) return;
+  static VIRTUAL_PRESETS = [
+    { type: 'piano', icon: '🎹', label: 'Piano', description: 'A0-C8, polyphonie 64' },
+    { type: 'electric_piano', icon: '🎹', label: 'Piano Électrique', description: 'E1-G7, polyphonie 32' },
+    { type: 'organ', icon: '🎵', label: 'Orgue', description: 'C2-C7, polyphonie 16' },
+    { type: 'guitar', icon: '🎸', label: 'Guitare', description: 'E2-E6, polyphonie 6' },
+    { type: 'bass', icon: '🎸', label: 'Basse', description: 'E1-G4, polyphonie 4' },
+    { type: 'violin', icon: '🎻', label: 'Violon', description: 'G3-G7, polyphonie 4' },
+    { type: 'cello', icon: '🎻', label: 'Violoncelle', description: 'C2-C6, polyphonie 4' },
+    { type: 'strings', icon: '🎻', label: 'Ensemble Cordes', description: 'C2-C7, polyphonie 16' },
+    { type: 'trumpet', icon: '🎺', label: 'Trompette', description: 'E3-C6, mono' },
+    { type: 'saxophone', icon: '🎷', label: 'Saxophone', description: 'C#3-D#6, mono' },
+    { type: 'flute', icon: '🪈', label: 'Flûte', description: 'C4-C7, mono' },
+    { type: 'synth_lead', icon: '🎛️', label: 'Synth Lead', description: 'C2-C7, polyphonie 8' },
+    { type: 'synth_pad', icon: '🎛️', label: 'Synth Pad', description: 'C2-C7, polyphonie 16' },
+    { type: 'drums', icon: '🥁', label: 'Batterie', description: 'Canal 10, notes GM drums' },
+    { type: null, icon: '⚙️', label: 'Personnalisé', description: 'Configurer manuellement' }
+  ];
 
-    try {
-      const response = await this.apiClient.sendCommand('instrument_create_virtual', {
-        name: name,
-        channel: 0
+  /**
+   * Ajoute un instrument virtuel avec selection du type
+   */
+  addVirtualInstrument() {
+    const presets = InstrumentManagementPage.VIRTUAL_PRESETS;
+    const esc = this._escapeHtml;
+
+    // Creer le dialog de selection
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10100;display:flex;align-items:center;justify-content:center;';
+
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="margin:0;font-size:20px;color:#1f2937;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
+          <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;padding:4px 8px;">×</button>
+        </div>
+        <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
+          <label style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:#374151;">
+            ${esc(i18n.t('instrumentManagement.virtualCustomName') || 'Nom personnalisé (optionnel)')}
+          </label>
+          <input type="text" id="virtualInstrumentName" placeholder="${esc(i18n.t('instrumentManagement.virtualNamePlaceholder') || 'Laisser vide pour utiliser le nom du type')}"
+                 style="width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"
+                 onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#e5e7eb'">
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:16px 24px;">
+          <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">${esc(i18n.t('instrumentManagement.selectType') || 'Sélectionnez un type d\'instrument :')}</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+            ${presets.map(p => `
+              <button class="virtual-preset-btn" data-type="${p.type || ''}"
+                      style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #e5e7eb;border-radius:10px;background:white;cursor:pointer;text-align:left;transition:all 0.15s;"
+                      onmouseover="this.style.borderColor='#8b5cf6';this.style.background='#faf5ff'"
+                      onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
+                <span style="font-size:28px;">${p.icon}</span>
+                <div>
+                  <div style="font-size:14px;font-weight:600;color:#1f2937;">${esc(p.label)}</div>
+                  <div style="font-size:11px;color:#6b7280;margin-top:2px;">${esc(p.description)}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Fermer en cliquant sur le fond
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    // Gerer le clic sur un preset
+    overlay.querySelectorAll('.virtual-preset-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const type = btn.dataset.type || null;
+        const nameInput = overlay.querySelector('#virtualInstrumentName');
+        const customName = nameInput ? nameInput.value.trim() : '';
+
+        overlay.remove();
+        await this._createVirtualInstrument(type, customName);
       });
+    });
+  }
+
+  /**
+   * Cree l'instrument virtuel via l'API
+   */
+  async _createVirtualInstrument(type, customName) {
+    try {
+      const payload = { channel: 0 };
+      if (type) payload.type = type;
+      if (customName) payload.name = customName;
+
+      const response = await this.apiClient.sendCommand('instrument_create_virtual', payload);
 
       this.showToast(
         (i18n.t('instrumentManagement.virtualCreated') || 'Instrument virtuel créé') + ' !',
@@ -573,8 +654,8 @@ class InstrumentManagementPage {
       );
       await this.refresh();
 
-      // Ouvrir directement les reglages pour configurer les capabilities
-      if (response.deviceId && window.showInstrumentSettings) {
+      // Ouvrir les reglages pour les instruments personnalises (sans type)
+      if (!type && response.deviceId && window.showInstrumentSettings) {
         const newInstrument = this.instruments.find(i =>
           i.device_id === response.deviceId || i.id === response.deviceId
         );

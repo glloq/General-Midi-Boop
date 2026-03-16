@@ -481,39 +481,128 @@ class CommandHandler {
    * Cree un instrument virtuel en DB (sans device physique)
    * Utile pour les tests d'auto-assignation
    */
+  // Presets d'instruments virtuels avec capabilities pre-configurees
+  static VIRTUAL_INSTRUMENT_PRESETS = {
+    piano: {
+      name: 'Piano', gm_program: 0,
+      note_range_min: 21, note_range_max: 108, polyphony: 64,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 91, 93]
+    },
+    electric_piano: {
+      name: 'Piano Électrique', gm_program: 4,
+      note_range_min: 28, note_range_max: 103, polyphony: 32,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 91, 93]
+    },
+    organ: {
+      name: 'Orgue', gm_program: 19,
+      note_range_min: 36, note_range_max: 96, polyphony: 16,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 91, 93]
+    },
+    guitar: {
+      name: 'Guitare', gm_program: 25,
+      note_range_min: 40, note_range_max: 88, polyphony: 6,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64]
+    },
+    bass: {
+      name: 'Basse', gm_program: 33,
+      note_range_min: 28, note_range_max: 67, polyphony: 4,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64]
+    },
+    violin: {
+      name: 'Violon', gm_program: 40,
+      note_range_min: 55, note_range_max: 103, polyphony: 4,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
+    },
+    cello: {
+      name: 'Violoncelle', gm_program: 42,
+      note_range_min: 36, note_range_max: 84, polyphony: 4,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
+    },
+    strings: {
+      name: 'Ensemble Cordes', gm_program: 48,
+      note_range_min: 36, note_range_max: 96, polyphony: 16,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
+    },
+    trumpet: {
+      name: 'Trompette', gm_program: 56,
+      note_range_min: 52, note_range_max: 84, polyphony: 1,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11]
+    },
+    saxophone: {
+      name: 'Saxophone', gm_program: 66,
+      note_range_min: 49, note_range_max: 87, polyphony: 1,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11]
+    },
+    flute: {
+      name: 'Flûte', gm_program: 73,
+      note_range_min: 60, note_range_max: 96, polyphony: 1,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11]
+    },
+    synth_lead: {
+      name: 'Synth Lead', gm_program: 80,
+      note_range_min: 36, note_range_max: 96, polyphony: 8,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71, 74, 91]
+    },
+    synth_pad: {
+      name: 'Synth Pad', gm_program: 88,
+      note_range_min: 36, note_range_max: 96, polyphony: 16,
+      note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71, 74, 91]
+    },
+    drums: {
+      name: 'Batterie', gm_program: 0, channel: 9,
+      note_range_min: 35, note_range_max: 81, polyphony: 16,
+      note_selection_mode: 'discrete',
+      selected_notes: [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 53, 55, 57, 59],
+      supported_ccs: [7, 10]
+    }
+  };
+
   async instrumentCreateVirtual(data) {
     if (!this.app.database) {
       throw new Error('Database not available');
     }
 
-    const name = data.name || 'Virtual Instrument';
+    // Appliquer le preset si un type est fourni
+    const preset = data.type ? CommandHandler.VIRTUAL_INSTRUMENT_PRESETS[data.type] : null;
+
+    const name = data.name || (preset ? preset.name : 'Virtual Instrument');
     const deviceId = `virtual_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const channel = data.channel || 0;
+    const channel = preset && preset.channel !== undefined ? preset.channel : (data.channel || 0);
 
     // Inserer dans instruments_latency avec les settings de base
-    await this.app.instrumentDatabase.updateInstrumentSettings(deviceId, channel, {
-      name: name,
-      custom_name: name
-    });
+    const settings = { name: name, custom_name: name };
+    if (preset) settings.gm_program = preset.gm_program;
+    if (data.gm_program !== undefined) settings.gm_program = data.gm_program;
 
-    // Appliquer des capabilities par defaut si fournies
-    const capabilities = {};
-    if (data.gm_program !== undefined) capabilities.gm_program = data.gm_program;
+    this.app.database.updateInstrumentSettings(deviceId, channel, settings);
+
+    // Construire les capabilities depuis le preset et/ou les donnees fournies
+    const capabilities = { capabilities_source: 'manual' };
+
+    if (preset) {
+      capabilities.note_range_min = preset.note_range_min;
+      capabilities.note_range_max = preset.note_range_max;
+      capabilities.polyphony = preset.polyphony;
+      capabilities.note_selection_mode = preset.note_selection_mode;
+      if (preset.selected_notes) capabilities.selected_notes = preset.selected_notes;
+      if (preset.supported_ccs) capabilities.supported_ccs = preset.supported_ccs;
+    }
+
+    // Les donnees explicites ecrasent le preset
     if (data.note_range_min !== undefined) capabilities.note_range_min = data.note_range_min;
     if (data.note_range_max !== undefined) capabilities.note_range_max = data.note_range_max;
     if (data.polyphony !== undefined) capabilities.polyphony = data.polyphony;
     if (data.note_selection_mode) capabilities.note_selection_mode = data.note_selection_mode;
     if (data.selected_notes) capabilities.selected_notes = data.selected_notes;
     if (data.supported_ccs) capabilities.supported_ccs = data.supported_ccs;
-    capabilities.capabilities_source = 'manual';
 
     if (Object.keys(capabilities).length > 1) {
-      await this.app.instrumentDatabase.updateInstrumentCapabilities(deviceId, channel, capabilities);
+      this.app.database.updateInstrumentCapabilities(deviceId, channel, capabilities);
     }
 
-    this.app.logger.info(`Virtual instrument created: ${name} (${deviceId})`);
+    this.app.logger.info(`Virtual instrument created: ${name} (${deviceId}, type=${data.type || 'custom'}, ch=${channel})`);
 
-    return { success: true, deviceId, id: `${deviceId}_${channel}` };
+    return { success: true, deviceId, id: `${deviceId}_${channel}`, channel };
   }
 
   async bleScanStart(data) {
