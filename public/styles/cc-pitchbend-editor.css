@@ -142,7 +142,7 @@
     background: linear-gradient(180deg, #2d2d2d 0%, #242424 100%);
     border-bottom: 1px solid #333;
     flex-wrap: wrap;
-    max-height: 60px; /* LIMITE: Maximum 60px pour toolbar */
+    max-height: 65px; /* LIMITE: Maximum 65px pour toolbar (groupes + labels) */
     overflow: hidden;
 }
 
@@ -173,51 +173,82 @@
     overflow: hidden; /* AJOUT: Empêcher débordement */
 }
 
-/* Boutons horizontaux pour types CC/PB/VEL */
+/* Conteneur des groupes de boutons CC */
 .cc-type-buttons-horizontal {
     display: flex;
     flex-direction: row;
-    gap: 4px;
-    align-items: center;
+    gap: 10px;
+    align-items: flex-end;
     flex-wrap: wrap;
 }
 
+/* Groupe de boutons CC */
+.cc-btn-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.cc-group-label {
+    font-size: 7px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.cc-btn-group-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+}
+
+/* Boutons CC individuels */
 .cc-type-btn {
-    padding: 4px 10px;
+    padding: 3px 6px;
     background: #2d2d2d;
     border: 1px solid #444;
-    border-radius: 4px;
+    border-radius: 0;
     color: #bbb;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     text-align: center;
     white-space: nowrap;
     line-height: 1.2;
+    margin-left: -1px;
 }
 
-.cc-type-btn .cc-label {
-    font-size: 8px;
-    font-weight: 400;
-    color: #777;
-    margin-left: 2px;
+.cc-btn-group-buttons .cc-type-btn:first-child {
+    border-radius: 3px 0 0 3px;
+    margin-left: 0;
+}
+
+.cc-btn-group-buttons .cc-type-btn:last-child {
+    border-radius: 0 3px 3px 0;
+}
+
+.cc-btn-group-buttons .cc-type-btn:only-child {
+    border-radius: 3px;
 }
 
 .cc-type-btn:hover {
     background: #353535;
     border-color: #555;
     color: #e0e0e0;
+    z-index: 1;
+    position: relative;
 }
 
 .cc-type-btn.active {
     background: #4CAF50;
     border-color: #4CAF50;
     color: #fff;
-}
-
-.cc-type-btn.active .cc-label {
-    color: #ddd;
+    z-index: 2;
+    position: relative;
 }
 
 /* Boutons horizontaux pour outils */

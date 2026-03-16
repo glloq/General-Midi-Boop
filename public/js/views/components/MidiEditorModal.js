@@ -663,8 +663,9 @@ class MidiEditorModal {
      * Ajoute des boutons pour les CC non couverts par les boutons statiques
      */
     updateDynamicCCButtons() {
-        const container = this.container?.querySelector('.cc-type-buttons-horizontal');
-        if (!container) return;
+        const dynamicContainer = this.container?.querySelector('#cc-dynamic-buttons');
+        const dynamicGroup = this.container?.querySelector('.cc-dynamic-group');
+        if (!dynamicContainer || !dynamicGroup) return;
 
         // CC couverts par les boutons statiques
         const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend']);
@@ -677,13 +678,16 @@ class MidiEditorModal {
             }
         });
 
-        // Supprimer les anciens boutons dynamiques
-        container.querySelectorAll('.cc-type-btn.dynamic').forEach(btn => btn.remove());
+        // Vider les anciens boutons dynamiques
+        dynamicContainer.innerHTML = '';
 
-        if (detectedCCs.size === 0) return;
+        if (detectedCCs.size === 0) {
+            dynamicGroup.style.display = 'none';
+            return;
+        }
 
-        // Point d'insertion : avant le bouton Pitchbend
-        const pbButton = container.querySelector('[data-cc-type="pitchbend"]');
+        // Afficher le groupe dynamique
+        dynamicGroup.style.display = '';
 
         // Trier les CC détectés numériquement
         const sortedCCs = Array.from(detectedCCs).sort((a, b) => {
@@ -699,19 +703,14 @@ class MidiEditorModal {
             btn.className = 'cc-type-btn dynamic';
             btn.dataset.ccType = ccType;
             btn.title = `${ccName} (${count} events)`;
-            btn.innerHTML = `CC${ccNum} <span class="cc-label">${ccName}</span>`;
+            btn.textContent = `CC${ccNum}`;
 
-            // Attacher le listener
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.selectCCType(ccType);
             });
 
-            if (pbButton) {
-                container.insertBefore(btn, pbButton);
-            } else {
-                container.appendChild(btn);
-            }
+            dynamicContainer.appendChild(btn);
         });
 
         this.log('info', `Added ${sortedCCs.length} dynamic CC buttons: ${sortedCCs.join(', ')}`);
@@ -2666,48 +2665,54 @@ class MidiEditorModal {
                                 <div class="cc-type-toolbar">
                                     <label class="cc-toolbar-label">${this.t('midiEditor.type')}</label>
                                     <div class="cc-type-buttons-horizontal">
-                                        <button class="cc-type-btn active" data-cc-type="cc1" title="Modulation Wheel">
-                                            CC1 <span class="cc-label">${this.t('midiEditor.modulation')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc2" title="Breath Controller">
-                                            CC2 <span class="cc-label">${this.t('midiEditor.breath')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc5" title="Portamento Time">
-                                            CC5 <span class="cc-label">${this.t('midiEditor.portamento')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc7" title="Channel Volume">
-                                            CC7 <span class="cc-label">${this.t('midiEditor.volume')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc10" title="Pan Position">
-                                            CC10 <span class="cc-label">${this.t('midiEditor.pan')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc11" title="Expression Controller">
-                                            CC11 <span class="cc-label">${this.t('midiEditor.expression')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">
-                                            CC74 <span class="cc-label">${this.t('midiEditor.brightness')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc76" title="Vibrato Rate">
-                                            CC76 <span class="cc-label">${this.t('midiEditor.vibratoRate')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">
-                                            CC77 <span class="cc-label">${this.t('midiEditor.vibrato')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc78" title="Vibrato Delay">
-                                            CC78 <span class="cc-label">${this.t('midiEditor.vibratoDelay')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="cc91" title="Reverb Send">
-                                            CC91 <span class="cc-label">${this.t('midiEditor.reverb')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">
-                                            PB <span class="cc-label">${this.t('midiEditor.pitchBend')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="velocity" title="Note Velocity">
-                                            VEL <span class="cc-label">${this.t('midiEditor.velocity')}</span>
-                                        </button>
-                                        <button class="cc-type-btn" data-cc-type="tempo" title="Tempo Automation">
-                                            ♩ <span class="cc-label">${this.t('midiEditor.tempo')}</span>
-                                        </button>
+                                        <!-- Groupe Performance -->
+                                        <div class="cc-btn-group" data-group="perf">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupPerf')}</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn active" data-cc-type="cc1" title="Modulation Wheel">CC1</button>
+                                                <button class="cc-type-btn" data-cc-type="cc2" title="Breath Controller">CC2</button>
+                                                <button class="cc-type-btn" data-cc-type="cc11" title="Expression Controller">CC11</button>
+                                                <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">PB</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe Vibrato -->
+                                        <div class="cc-btn-group" data-group="vib">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupVib')}</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn" data-cc-type="cc76" title="Vibrato Rate">CC76</button>
+                                                <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">CC77</button>
+                                                <button class="cc-type-btn" data-cc-type="cc78" title="Vibrato Delay">CC78</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe Mix -->
+                                        <div class="cc-btn-group" data-group="mix">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupMix')}</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn" data-cc-type="cc7" title="Channel Volume">CC7</button>
+                                                <button class="cc-type-btn" data-cc-type="cc10" title="Pan Position">CC10</button>
+                                                <button class="cc-type-btn" data-cc-type="cc91" title="Reverb Send">CC91</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe Tone -->
+                                        <div class="cc-btn-group" data-group="tone">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupTone')}</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">CC74</button>
+                                                <button class="cc-type-btn" data-cc-type="cc5" title="Portamento Time">CC5</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe Note/Global -->
+                                        <div class="cc-btn-group" data-group="note">
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn" data-cc-type="velocity" title="Note Velocity">VEL</button>
+                                                <button class="cc-type-btn" data-cc-type="tempo" title="Tempo Automation">♩</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe dynamique (CC détectés non-statiques) -->
+                                        <div class="cc-btn-group cc-dynamic-group" data-group="other" style="display:none;">
+                                            <span class="cc-group-label">+</span>
+                                            <div class="cc-btn-group-buttons" id="cc-dynamic-buttons"></div>
+                                        </div>
                                     </div>
 
                                     <div class="cc-toolbar-divider"></div>
