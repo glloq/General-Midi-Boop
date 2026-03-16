@@ -174,6 +174,13 @@ class MidiPlayer {
             channel: event.channel !== undefined ? event.channel : 0,
             value: event.value
           });
+        } else if (event.type === 'programChange') {
+          this.events.push({
+            time: timeInSeconds,
+            type: event.type,
+            channel: event.channel !== undefined ? event.channel : 0,
+            program: event.programNumber !== undefined ? event.programNumber : event.value
+          });
         }
       });
     });
@@ -451,6 +458,13 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Get total timing compensation for a device+channel in milliseconds.
+   * Combines:
+   *   - sync_delay (user-configured per instrument, from instruments_latency table)
+   *   - hardware latency (measured via LatencyCompensator loopback test)
+   * Positive value = send event earlier to compensate for device/instrument delay.
+   */
   _getSyncDelay(deviceId, channel) {
     const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
     if (this._syncDelayCache.has(cacheKey)) {
@@ -458,18 +472,29 @@ class MidiPlayer {
     }
 
     let syncDelay = 0;
+
+    // 1. User-configured sync_delay (per instrument/channel)
     if (this.app.database) {
       try {
         const settings = this.app.database.getInstrumentSettings(deviceId, channel);
         if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
           syncDelay = settings.sync_delay;
-          if (syncDelay !== 0) {
-            this.app.logger.debug(`Cached sync_delay ${syncDelay}ms for device ${deviceId} ch ${channel}`);
-          }
         }
       } catch (error) {
         this.app.logger.warn(`Failed to get sync_delay for device ${deviceId}: ${error.message}`);
       }
+    }
+
+    // 2. Add measured hardware latency (from LatencyCompensator loopback test)
+    if (this.app.latencyCompensator) {
+      const hwLatency = this.app.latencyCompensator.getLatency(deviceId);
+      if (hwLatency > 0) {
+        syncDelay += hwLatency;
+      }
+    }
+
+    if (syncDelay !== 0) {
+      this.app.logger.debug(`Total compensation ${syncDelay.toFixed(1)}ms for device ${deviceId} ch ${channel}`);
     }
 
     this._syncDelayCache.set(cacheKey, syncDelay);
@@ -555,6 +580,11 @@ class MidiPlayer {
       device.sendMessage(routing.device, 'pitchbend', {
         channel: outChannel,
         value: event.value
+      });
+    } else if (event.type === 'programChange') {
+      device.sendMessage(routing.device, 'program', {
+        channel: outChannel,
+        program: event.program
       });
     }
   }
@@ -652,12 +682,20 @@ class MidiPlayer {
   }
 
   getChannelRouting() {
-    return this.channels.map(c => ({
-      channel: c.channel,
-      channelDisplay: c.channelDisplay,
-      tracks: c.tracks,
-      assignedDevice: c.assignedDevice
-    }));
+    return this.channels.map(c => {
+      const routing = this.channelRouting.get(c.channel);
+      const targetChannel = routing
+        ? (typeof routing === 'string' ? c.channel : routing.targetChannel)
+        : null;
+      return {
+        channel: c.channel,
+        channelDisplay: c.channelDisplay,
+        tracks: c.tracks,
+        assignedDevice: c.assignedDevice,
+        targetChannel: targetChannel,
+        targetChannelDisplay: targetChannel !== null ? targetChannel + 1 : null
+      };
+    });
   }
 
   getOutputForChannel(channel) {

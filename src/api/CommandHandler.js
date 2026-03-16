@@ -1215,6 +1215,27 @@ class CommandHandler {
     this.app.logger.info(`Loading file ${data.fileId} for playback...`);
     const fileInfo = await this.app.midiPlayer.loadFile(data.fileId);
 
+    // Auto-load saved channel routings from database (if any exist for this file)
+    let loadedRoutings = 0;
+    try {
+      const savedRoutings = this.app.database.getRoutingsByFile(data.fileId);
+      if (savedRoutings.length > 0) {
+        this.app.midiPlayer.clearChannelRouting();
+        for (const routing of savedRoutings) {
+          if (routing.channel !== null && routing.channel !== undefined && routing.device_id) {
+            // Use instrument's channel from instruments_latency as targetChannel
+            const instrumentSettings = this.app.database.getInstrumentSettings(routing.device_id, routing.channel);
+            const targetChannel = instrumentSettings?.channel !== undefined ? instrumentSettings.channel : routing.channel;
+            this.app.midiPlayer.setChannelRouting(routing.channel, routing.device_id, targetChannel);
+            loadedRoutings++;
+          }
+        }
+        this.app.logger.info(`Auto-loaded ${loadedRoutings} channel routings from database for file ${data.fileId}`);
+      }
+    } catch (routingError) {
+      this.app.logger.warn(`Failed to auto-load routings: ${routingError.message}`);
+    }
+
     // Determine output device
     let outputDevice = data.outputDevice;
 
@@ -1237,7 +1258,8 @@ class CommandHandler {
     return {
       success: true,
       fileInfo: fileInfo,
-      outputDevice: outputDevice
+      outputDevice: outputDevice,
+      loadedRoutings: loadedRoutings
     };
   }
 

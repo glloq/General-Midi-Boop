@@ -155,7 +155,31 @@ class MidiRouter {
         // Apply channel mapping
         const mapped = this.applyChannelMap(msg, route.channelMap);
 
-        // Send to destination
+        // Apply latency compensation for destination device (sync_delay + hardware latency)
+        const compensation = this._getRouteCompensation(route.destination, mapped.channel);
+        if (compensation > 0) {
+          // Schedule message with delay compensation (send earlier is not possible in real-time,
+          // so we apply a small delay to slower-responding devices to align with the slowest)
+          setTimeout(() => {
+            const success = this.app.deviceManager.sendMessage(
+              route.destination,
+              type,
+              mapped
+            );
+            if (success) {
+              this.app.eventBus.emit('midi_routed', {
+                route: route.id,
+                source: sourceDevice,
+                destination: route.destination,
+                type: type,
+                data: mapped
+              });
+            }
+          }, compensation);
+          continue;
+        }
+
+        // Send immediately (no compensation needed)
         const success = this.app.deviceManager.sendMessage(
           route.destination,
           type,
@@ -264,6 +288,60 @@ class MidiRouter {
         timestamp: Date.now()
       });
     }
+  }
+
+  /**
+   * Get latency compensation offset for a destination device + channel (in ms).
+   * In real-time routing, we cannot send events "earlier", so instead we compute
+   * the relative delay needed: fastest device gets max delay, slowest gets 0.
+   * This is cached per routing session and refreshed when routes change.
+   * @param {string} deviceId - Destination device
+   * @param {number} channel - MIDI channel
+   * @returns {number} Compensation delay in milliseconds (0 = send immediately)
+   */
+  _getRouteCompensation(deviceId, channel) {
+    // Only apply compensation if latencyCompensator or database are available
+    if (!this.app.latencyCompensator && !this.app.database) {
+      return 0;
+    }
+
+    const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
+    if (this._compensationCache && this._compensationCache.has(cacheKey)) {
+      return this._compensationCache.get(cacheKey);
+    }
+
+    if (!this._compensationCache) {
+      this._compensationCache = new Map();
+      // Auto-clear cache every 30 seconds to pick up setting changes
+      this._compensationCacheTimer = setInterval(() => {
+        this._compensationCache.clear();
+      }, 30000);
+    }
+
+    let totalLatency = 0;
+
+    // Hardware latency from LatencyCompensator
+    if (this.app.latencyCompensator) {
+      totalLatency += this.app.latencyCompensator.getLatency(deviceId) || 0;
+    }
+
+    // User-configured sync_delay from database
+    if (this.app.database) {
+      try {
+        const settings = this.app.database.getInstrumentSettings(deviceId, channel);
+        if (settings && settings.sync_delay) {
+          totalLatency += settings.sync_delay;
+        }
+      } catch (e) {
+        // Ignore DB errors in hot path
+      }
+    }
+
+    // For real-time routing, negative compensation = this device is faster
+    // We store the raw value; the caller decides how to use it
+    // (In routeMessage, we only delay if compensation > 0)
+    this._compensationCache.set(cacheKey, Math.max(0, totalLatency));
+    return Math.max(0, totalLatency);
   }
 
   getRouteList() {
