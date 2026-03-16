@@ -526,17 +526,17 @@ class CommandHandler {
     trumpet: {
       name: 'Trompette', gm_program: 56,
       note_range_min: 52, note_range_max: 84, polyphony: 1,
-      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 77]
+      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
     },
     saxophone: {
       name: 'Saxophone', gm_program: 66,
       note_range_min: 49, note_range_max: 87, polyphony: 1,
-      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 77]
+      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
     },
     flute: {
       name: 'Flûte', gm_program: 73,
       note_range_min: 60, note_range_max: 96, polyphony: 1,
-      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 77]
+      note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
     },
     synth_lead: {
       name: 'Synth Lead', gm_program: 80,

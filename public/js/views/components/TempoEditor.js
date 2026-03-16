@@ -181,9 +181,15 @@ class TempoEditor {
     }
 
     undo() {
+        if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.historyIndex > 0) {
             this.historyIndex--;
-            this.events = JSON.parse(this.history[this.historyIndex]);
+            try {
+                this.events = JSON.parse(this.history[this.historyIndex]);
+            } catch (e) {
+                console.error('TempoEditor: Failed to parse undo state', e);
+                return false;
+            }
             this.selectedEvents.clear();
             this.renderThrottled();
             this.notifyChange();
@@ -193,9 +199,15 @@ class TempoEditor {
     }
 
     redo() {
+        if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.historyIndex < this.history.length - 1) {
             this.historyIndex++;
-            this.events = JSON.parse(this.history[this.historyIndex]);
+            try {
+                this.events = JSON.parse(this.history[this.historyIndex]);
+            } catch (e) {
+                console.error('TempoEditor: Failed to parse redo state', e);
+                return false;
+            }
             this.selectedEvents.clear();
             this.renderThrottled();
             this.notifyChange();
@@ -225,6 +237,7 @@ class TempoEditor {
     cancelInteractions() {
         this.lineStart = null;
         this.selectionStart = null;
+        this.selectionRect = null;
         this.dragStart = null;
         this.isDrawing = false;
         this.lastDrawPosition = null;
@@ -306,7 +319,7 @@ class TempoEditor {
         eventIds.forEach(id => {
             const event = this.events.find(e => e.id === id);
             if (event) {
-                event.ticks = this.snapToGrid(Math.max(0, event.ticks + deltaTicks));
+                event.ticks = Math.max(0, this.snapToGrid(event.ticks + deltaTicks));
                 event.tempo = this.clampTempo(event.tempo + deltaTempo);
             }
         });
@@ -348,7 +361,11 @@ class TempoEditor {
                 const clickedEvent = this.findEventAt(ticks, tempo);
                 if (clickedEvent) {
                     if (e.shiftKey) {
-                        this.selectedEvents.add(clickedEvent.id);
+                        if (this.selectedEvents.has(clickedEvent.id)) {
+                            this.selectedEvents.delete(clickedEvent.id);
+                        } else {
+                            this.selectedEvents.add(clickedEvent.id);
+                        }
                     } else {
                         this.selectedEvents.clear();
                         this.selectedEvents.add(clickedEvent.id);
@@ -357,6 +374,8 @@ class TempoEditor {
                     if (!e.shiftKey) {
                         this.selectedEvents.clear();
                     }
+                    // Démarrer une sélection par rectangle
+                    this.selectionRect = { x, y };
                 }
                 this.renderThrottled();
                 break;
@@ -396,6 +415,9 @@ class TempoEditor {
                 this.moveEvents(Array.from(this.selectedEvents), deltaTicks, deltaTempo);
                 this.dragStart = { ticks, tempo };
             }
+        } else if (this.selectionRect) {
+            // Rectangle de sélection en cours
+            this.renderSelectionRect(this.selectionRect.x, this.selectionRect.y, x, y);
         }
     }
 
@@ -403,6 +425,14 @@ class TempoEditor {
         if (this.isDrawing) {
             this.isDrawing = false;
             this.saveState();
+        }
+        if (this.selectionRect) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            this.selectInRect(this.selectionRect.x, this.selectionRect.y, x, y);
+            this.selectionRect = null;
+            this.renderThrottled();
         }
         if (this.dragStart) {
             this.dragStart = null;
@@ -431,6 +461,9 @@ class TempoEditor {
             } else if (e.key === 'y' || (e.shiftKey && e.key === 'Z')) {
                 e.preventDefault();
                 this.redo();
+            } else if (e.key === 'a') {
+                e.preventDefault();
+                this.selectAll();
             }
         }
     }
@@ -448,6 +481,44 @@ class TempoEditor {
             }
         }
         return null;
+    }
+
+    selectInRect(x1, y1, x2, y2) {
+        const left = Math.min(x1, x2);
+        const right = Math.max(x1, x2);
+        const top = Math.min(y1, y2);
+        const bottom = Math.max(y1, y2);
+
+        this.events.forEach(event => {
+            const ex = this.ticksToX(event.ticks);
+            const ey = this.tempoToY(event.tempo);
+            if (ex >= left && ex <= right && ey >= top && ey <= bottom) {
+                this.selectedEvents.add(event.id);
+            }
+        });
+    }
+
+    selectAll() {
+        this.selectedEvents.clear();
+        this.events.forEach(event => {
+            this.selectedEvents.add(event.id);
+        });
+        this.renderThrottled();
+    }
+
+    renderSelectionRect(x1, y1, x2, y2) {
+        if (!this.renderScheduled) {
+            this.renderScheduled = true;
+            requestAnimationFrame(() => {
+                this.render();
+                this.ctx.strokeStyle = '#2196F3';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                this.ctx.setLineDash([]);
+                this.renderScheduled = false;
+            });
+        }
     }
 
     // === Création de ligne avec courbes ===

@@ -42,7 +42,7 @@ class MidiEditorModal {
         this.ccEditor = null;
         this.velocityEditor = null;
         this.tempoEditor = null;
-        this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend', 'velocity', 'tempo'
+        this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend', 'velocity', 'tempo'
         this.ccEvents = []; // Événements CC et pitchbend
         this.tempoEvents = []; // Événements de tempo
         this.ccSectionExpanded = false; // État du collapse de la section CC
@@ -667,7 +667,7 @@ class MidiEditorModal {
         if (!container) return;
 
         // CC couverts par les boutons statiques
-        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend']);
+        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend']);
 
         // Trouver les CC présents dans le fichier mais pas en statique
         const detectedCCs = new Set();
@@ -2687,8 +2687,17 @@ class MidiEditorModal {
                                         <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">
                                             CC74 <span class="cc-label">${this.t('midiEditor.brightness')}</span>
                                         </button>
+                                        <button class="cc-type-btn" data-cc-type="cc76" title="Vibrato Rate">
+                                            CC76 <span class="cc-label">${this.t('midiEditor.vibratoRate')}</span>
+                                        </button>
                                         <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">
                                             CC77 <span class="cc-label">${this.t('midiEditor.vibrato')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc78" title="Vibrato Delay">
+                                            CC78 <span class="cc-label">${this.t('midiEditor.vibratoDelay')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc91" title="Reverb Send">
+                                            CC91 <span class="cc-label">${this.t('midiEditor.reverb')}</span>
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">
                                             PB <span class="cc-label">${this.t('midiEditor.pitchBend')}</span>
