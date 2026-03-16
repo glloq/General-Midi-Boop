@@ -1173,7 +1173,7 @@ class CommandHandler {
 
       // Playable on instruments filter
       playableOnInstruments: data.playableOnInstruments,
-      playableMode: data.playableMode || 'routed',
+      playableMode: data.playableOnInstruments?.length > 0 ? (data.playableMode || 'routed') : undefined,
 
       // Quick filters
       hasDrums: data.hasDrums,

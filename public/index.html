@@ -8648,11 +8648,13 @@
                 }
 
                 // Load instruments on panel open and on source change
-                instrumentSourceSelect.addEventListener('change', loadInstrumentsList);
+                instrumentSourceSelect.addEventListener('change', () => {
+                    filterManager.setFilter('playableOnInstruments', []);
+                    loadInstrumentsList();
+                });
                 refreshInstrumentsBtn.addEventListener('click', loadInstrumentsList);
 
                 // Load instruments when filter panel opens
-                const origOpenHandler = openFiltersBtn.onclick;
                 openFiltersBtn.addEventListener('click', () => {
                     if (playableInstrumentsSelect.options.length === 0) {
                         loadInstrumentsList();

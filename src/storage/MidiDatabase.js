@@ -247,9 +247,11 @@ class MidiDatabase {
       const params = [];
       let useCTE = false;
 
-      // JOIN with routings if needed
-      if (filters.hasRouting !== undefined || filters.minCompatibilityScore !== undefined) {
+      // JOIN with routings if needed (only for legacy hasRouting/minCompatibilityScore, not routingStatus which uses CTE)
+      let hasMirJoin = false;
+      if (((filters.hasRouting !== undefined) && !filters.routingStatus) || filters.minCompatibilityScore !== undefined) {
         joins.push('LEFT JOIN midi_instrument_routings mir ON mf.id = mir.midi_file_id');
+        hasMirJoin = true;
       }
 
       // Filename filter
@@ -470,11 +472,13 @@ class MidiDatabase {
         filters.playableOnInstruments.forEach(id => params.push(id));
       }
 
-      // Simple routing existence filter (legacy)
-      if (filters.hasRouting === true) {
-        wheres.push('mir.id IS NOT NULL');
-      } else if (filters.hasRouting === false) {
-        wheres.push('mir.id IS NULL');
+      // Simple routing existence filter (legacy) — skip if routingStatus is active
+      if (!filters.routingStatus) {
+        if (filters.hasRouting === true) {
+          wheres.push('mir.id IS NOT NULL');
+        } else if (filters.hasRouting === false) {
+          wheres.push('mir.id IS NULL');
+        }
       }
 
       // Prepend CTE if routing status filter is active
@@ -484,7 +488,7 @@ class MidiDatabase {
             mf2.id AS file_id,
             mf2.channel_count,
             COUNT(mir2.id) AS routed_count,
-            MIN(COALESCE(mir2.compatibility_score, 0)) AS min_score
+            MIN(mir2.compatibility_score) AS min_score
           FROM midi_files mf2
           LEFT JOIN midi_instrument_routings mir2
             ON mf2.id = mir2.midi_file_id AND mir2.enabled = 1
@@ -506,8 +510,8 @@ class MidiDatabase {
         query += ' GROUP BY mf.id';
       }
 
-      // Compatibility score filter (needs to be in HAVING after GROUP BY)
-      if (filters.minCompatibilityScore !== undefined && joins.length > 0) {
+      // Compatibility score filter (needs to be in HAVING after GROUP BY, requires mir JOIN)
+      if (filters.minCompatibilityScore !== undefined && hasMirJoin) {
         query += ' HAVING AVG(mir.compatibility_score) >= ?';
         params.push(filters.minCompatibilityScore);
       }
