@@ -42,7 +42,7 @@ class MidiEditorModal {
         this.ccEditor = null;
         this.velocityEditor = null;
         this.tempoEditor = null;
-        this.currentCCType = 'cc1'; // 'cc1', 'cc7', 'cc10', 'cc11', 'pitchbend', 'velocity', 'tempo'
+        this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'pitchbend', 'velocity', 'tempo'
         this.ccEvents = []; // Événements CC et pitchbend
         this.tempoEvents = []; // Événements de tempo
         this.ccSectionExpanded = false; // État du collapse de la section CC
@@ -575,9 +575,12 @@ class MidiEditorModal {
                     // Convertir le numéro de contrôleur en type pour l'éditeur
                     let ccType = null;
                     if (controller === 1) ccType = 'cc1';
+                    else if (controller === 2) ccType = 'cc2';
+                    else if (controller === 5) ccType = 'cc5';
                     else if (controller === 7) ccType = 'cc7';
                     else if (controller === 10) ccType = 'cc10';
                     else if (controller === 11) ccType = 'cc11';
+                    else if (controller === 74) ccType = 'cc74';
 
                     // Stocker uniquement les CC supportés
                     if (ccType) {
@@ -612,11 +615,14 @@ class MidiEditorModal {
 
         // Log summary by type
         const cc1Count = this.ccEvents.filter(e => e.type === 'cc1').length;
+        const cc2Count = this.ccEvents.filter(e => e.type === 'cc2').length;
+        const cc5Count = this.ccEvents.filter(e => e.type === 'cc5').length;
         const cc7Count = this.ccEvents.filter(e => e.type === 'cc7').length;
         const cc10Count = this.ccEvents.filter(e => e.type === 'cc10').length;
         const cc11Count = this.ccEvents.filter(e => e.type === 'cc11').length;
+        const cc74Count = this.ccEvents.filter(e => e.type === 'cc74').length;
         const pitchbendCount = this.ccEvents.filter(e => e.type === 'pitchbend').length;
-        this.log('info', `  - CC1: ${cc1Count}, CC7: ${cc7Count}, CC10: ${cc10Count}, CC11: ${cc11Count}, Pitchbend: ${pitchbendCount}`);
+        this.log('info', `  - CC1: ${cc1Count}, CC2: ${cc2Count}, CC5: ${cc5Count}, CC7: ${cc7Count}, CC10: ${cc10Count}, CC11: ${cc11Count}, CC74: ${cc74Count}, Pitchbend: ${pitchbendCount}`);
 
         // Log des canaux utilisés
         const usedChannels = this.getCCChannelsUsed();
@@ -1538,8 +1544,8 @@ class MidiEditorModal {
 
             let ccCount = 0, pbCount = 0;
             this.ccEvents.forEach(ccEvent => {
-                // Convertir le type de l'éditeur (cc1, cc7, cc10, cc11) en numéro de contrôleur
-                if (ccEvent.type === 'cc1' || ccEvent.type === 'cc7' || ccEvent.type === 'cc10' || ccEvent.type === 'cc11') {
+                // Convertir le type de l'éditeur (cc1, cc2, cc5, cc7, cc10, cc11, cc74) en numéro de contrôleur
+                if (ccEvent.type.startsWith('cc')) {
                     // Extraire le numéro du type (cc1 -> 1, cc7 -> 7, etc.)
                     const controllerNumber = parseInt(ccEvent.type.replace('cc', ''));
                     events.push({
@@ -2515,6 +2521,12 @@ class MidiEditorModal {
                                         <button class="cc-type-btn active" data-cc-type="cc1" title="Modulation Wheel">
                                             CC1 <span class="cc-label">${this.t('midiEditor.modulation')}</span>
                                         </button>
+                                        <button class="cc-type-btn" data-cc-type="cc2" title="Breath Controller">
+                                            CC2 <span class="cc-label">${this.t('midiEditor.breath')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc5" title="Portamento Time">
+                                            CC5 <span class="cc-label">${this.t('midiEditor.portamento')}</span>
+                                        </button>
                                         <button class="cc-type-btn" data-cc-type="cc7" title="Channel Volume">
                                             CC7 <span class="cc-label">${this.t('midiEditor.volume')}</span>
                                         </button>
@@ -2523,6 +2535,9 @@ class MidiEditorModal {
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="cc11" title="Expression Controller">
                                             CC11 <span class="cc-label">${this.t('midiEditor.expression')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">
+                                            CC74 <span class="cc-label">${this.t('midiEditor.brightness')}</span>
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">
                                             PB <span class="cc-label">${this.t('midiEditor.pitchBend')}</span>
