@@ -2,7 +2,7 @@
  * CCPitchbendEditor - Éditeur de Control Change et Pitchbend synchronisé avec le piano roll
  *
  * Fonctionnalités :
- * - Édition de CC1, CC7, CC10, CC1-step, pitchbend
+ * - Édition de CC1, CC2, CC5, CC7, CC10, CC11, CC74, pitchbend
  * - Outils : sélection, déplacement, ligne, dessin continu
  * - Synchronisation horizontale avec le piano roll
  * - Respect de la grille temporelle et du zoom
@@ -26,7 +26,7 @@ class CCPitchbendEditor {
         this.events = []; // CC et pitchbend events
         this.selectedEvents = new Set();
         this.currentTool = 'select'; // 'select', 'move', 'line', 'draw'
-        this.currentCC = 'cc1'; // 'cc1', 'cc7', 'cc10', 'cc11', 'pitchbend'
+        this.currentCC = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'pitchbend'
         this.currentChannel = 0;
         this.isDrawing = false;
         this.lastDrawPosition = null;
@@ -186,6 +186,7 @@ class CCPitchbendEditor {
     setCC(ccType) {
         this.currentCC = ccType;
         this.cancelInteractions(); // Annuler actions en cours lors changement type CC
+        this.gridDirty = true; // Forcer le re-rendu de la grille (labels différents CC vs pitchbend)
         this.isDirty = true;
         this.renderThrottled();
     }
@@ -219,10 +220,10 @@ class CCPitchbendEditor {
 
     valueToY(value) {
         // Pour CC: 0-127 → bottom to top
-        // Pour pitchbend: -8192 to 8191 → bottom to top
+        // Pour pitchbend: -8192 to 8191 → bottom to top (16384 valeurs)
         let normalized;
         if (this.currentCC === 'pitchbend') {
-            normalized = (value + 8192) / 16383; // -8192..8191 → 0..1
+            normalized = (value + 8192) / 16384; // -8192..8191 → 0..~1
         } else {
             normalized = value / 127; // 0..127 → 0..1
         }
@@ -232,9 +233,9 @@ class CCPitchbendEditor {
     yToValue(y) {
         const normalized = 1 - (y / this.canvas.height);
         if (this.currentCC === 'pitchbend') {
-            return Math.round(normalized * 16383 - 8192);
+            return Math.max(-8192, Math.min(8191, Math.round(normalized * 16384 - 8192)));
         } else {
-            return Math.round(normalized * 127);
+            return Math.max(0, Math.min(127, Math.round(normalized * 127)));
         }
     }
 
@@ -292,7 +293,7 @@ class CCPitchbendEditor {
         eventIds.forEach(id => {
             const event = this.events.find(e => e.id === id);
             if (event) {
-                event.ticks = this.snapToGrid(Math.max(0, event.ticks + deltaTicks));
+                event.ticks = Math.max(0, this.snapToGrid(event.ticks + deltaTicks));
                 event.value = this.clampValue(event.value + deltaValue);
             }
         });
@@ -397,7 +398,7 @@ class CCPitchbendEditor {
                 Array.from(this.selectedEvents).forEach(id => {
                     const event = this.events.find(e => e.id === id);
                     if (event) {
-                        event.ticks = this.snapToGrid(Math.max(0, event.ticks + deltaTicks));
+                        event.ticks = Math.max(0, this.snapToGrid(event.ticks + deltaTicks));
                         event.value = this.clampValue(event.value + deltaValue);
                     }
                 });
@@ -533,6 +534,12 @@ class CCPitchbendEditor {
             const progress = ticksRange > 0 ? (t - minTicks) / ticksRange : 0;
             const value = Math.round(startValue + valueRange * progress);
             this.addEvent(t, value, this.currentChannel, false);
+        }
+
+        // S'assurer que le endpoint exact est créé (peut ne pas tomber sur la grille)
+        const lastGridTick = Math.floor((maxTicks - minTicks) / this.options.grid) * this.options.grid + minTicks;
+        if (lastGridTick < maxTicks) {
+            this.addEvent(maxTicks, Math.round(startValue + valueRange * (ticksRange > 0 ? 1 : 0)), this.currentChannel, false);
         }
 
         // Sauvegarder l'état une seule fois à la fin
@@ -867,6 +874,8 @@ class CCPitchbendEditor {
     }
 
     undo() {
+        // Annuler tout timer de saveState en cours pour éviter corruption de l'historique
+        if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.historyIndex > 0) {
             this.historyIndex--;
             this.events = JSON.parse(this.history[this.historyIndex]);
@@ -881,6 +890,8 @@ class CCPitchbendEditor {
     }
 
     redo() {
+        // Annuler tout timer de saveState en cours pour éviter corruption de l'historique
+        if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.historyIndex < this.history.length - 1) {
             this.historyIndex++;
             this.events = JSON.parse(this.history[this.historyIndex]);

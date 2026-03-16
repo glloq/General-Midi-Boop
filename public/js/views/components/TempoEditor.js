@@ -271,6 +271,7 @@ class TempoEditor {
         if (existingEvent) {
             existingEvent.tempo = this.clampTempo(tempo);
             if (autoSave) {
+                this.saveState();
                 this.renderThrottled();
             }
             return existingEvent;

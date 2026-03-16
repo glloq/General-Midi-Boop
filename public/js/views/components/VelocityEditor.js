@@ -263,7 +263,7 @@ class VelocityEditor {
     adjustVelocity(noteIndex, delta) {
         if (noteIndex >= 0 && noteIndex < this.sequence.length) {
             const note = this.sequence[noteIndex];
-            const currentVelocity = note.v || 100;
+            const currentVelocity = (note.v !== undefined && note.v !== null) ? note.v : 100;
             note.v = Math.max(1, Math.min(127, currentVelocity + delta));
             this.isDirty = true;
             this.notifyChange();
@@ -428,6 +428,9 @@ class VelocityEditor {
     }
 
     handleKeyDown(e) {
+        // Ne traiter les raccourcis que si l'éditeur est visible
+        if (!this.element || this.element.offsetParent === null) return;
+
         if (e.key === 'Escape') {
             this.selectedNotes.clear();
             this.lineStart = null;
@@ -555,8 +558,9 @@ class VelocityEditor {
         // Trouver toutes les notes dans la plage temporelle
         this.sequence.forEach((note, index) => {
             if (note.t >= minTicks && note.t <= maxTicks && this.activeChannels.has(note.c)) {
-                // Interpolation linéaire
-                const t = (note.t - startTicks) / (endTicks - startTicks);
+                // Interpolation linéaire (protection division par zéro si même tick)
+                const range = endTicks - startTicks;
+                const t = range !== 0 ? (note.t - startTicks) / range : 0;
                 const velocity = Math.round(startVelocity + t * (endVelocity - startVelocity));
                 this.sequence[index].v = Math.max(1, Math.min(127, velocity));
             }
@@ -779,6 +783,7 @@ class VelocityEditor {
         // Limiter l'historique à 50 états
         if (this.history.length > 50) {
             this.history.shift();
+            // historyIndex reste stable car on supprime le premier élément
         } else {
             this.historyIndex++;
         }
@@ -799,11 +804,15 @@ class VelocityEditor {
     }
 
     restoreState(stateStr) {
-        const state = JSON.parse(stateStr);
-        this.sequence = state.sequence;
-        this.selectedNotes.clear();
-        this.notifyChange();
-        this.renderThrottled();
+        try {
+            const state = JSON.parse(stateStr);
+            this.sequence = state.sequence;
+            this.selectedNotes.clear();
+            this.notifyChange();
+            this.renderThrottled();
+        } catch (e) {
+            console.error('VelocityEditor: Failed to restore state', e);
+        }
     }
 
     // === Callbacks ===
