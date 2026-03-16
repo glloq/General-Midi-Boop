@@ -54,6 +54,10 @@ class FilterManager {
       channelCountMin: null,
       channelCountMax: null,
       hasRouting: null, // null | true | false
+      routingStatus: null, // null | 'unrouted' | 'partial' | 'full' | 'validated' | 'playable'
+      validatedThreshold: null,
+      playableOnInstruments: [], // Array of instrument IDs
+      playableMode: 'routed', // 'routed' | 'compatible'
       isOriginal: null, // null | true | false
       minCompatibilityScore: null,
 
@@ -222,6 +226,18 @@ class FilterManager {
         return `Canaux: ${chMin}-${chMax}`;
       case 'hasRouting':
         return value ? 'Routés' : 'Non routés';
+      case 'routingStatus': {
+        const labels = {
+          unrouted: 'Non routé',
+          partial: 'Partiellement routé',
+          full: 'Totalement routé',
+          validated: 'Validé',
+          playable: 'Jouable à 100%'
+        };
+        return `Routage: ${labels[value] || value}`;
+      }
+      case 'playableOnInstruments':
+        return `Jouable sur: ${value.length} instrument(s) (${this.filters.playableMode})`;
       case 'isOriginal':
         return value ? 'Originaux' : 'Adaptés';
       case 'hasDrums':
@@ -285,6 +301,8 @@ class FilterManager {
       (this.filters.gmCategories && this.filters.gmCategories.length > 0) ||
       (this.filters.gmPrograms && this.filters.gmPrograms.length > 0) ||
       this.filters.hasRouting !== null ||
+      this.filters.routingStatus !== null ||
+      (this.filters.playableOnInstruments && this.filters.playableOnInstruments.length > 0) ||
       this.filters.minCompatibilityScore !== null ||
       this.filters.hasDrums !== null ||
       this.filters.hasMelody !== null ||

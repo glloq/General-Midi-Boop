@@ -3125,11 +3125,35 @@
 
                 <!-- Routing Status Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">⚙️ Statut d'assignation</label>
-                    <div class="checkbox-group">
-                        <label><input type="radio" name="hasRouting" value="all" checked> Tous</label>
-                        <label><input type="radio" name="hasRouting" value="true"> Routés</label>
-                        <label><input type="radio" name="hasRouting" value="false"> Non routés</label>
+                    <label class="filter-label">⚙️ Statut de routage</label>
+                    <select id="filterRoutingStatus" class="filter-select">
+                        <option value="all">Tous</option>
+                        <option value="unrouted">Non routé</option>
+                        <option value="partial">Partiellement routé</option>
+                        <option value="full">Totalement routé</option>
+                        <option value="validated">Validé</option>
+                        <option value="playable">Jouable à 100%</option>
+                    </select>
+                </div>
+
+                <!-- Playable on Instruments Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">🎸 Jouable sur instruments</label>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                        <select id="filterInstrumentSource" class="filter-select" style="flex: 1;">
+                            <option value="connected">Connectés uniquement</option>
+                            <option value="registered">Tous enregistrés</option>
+                        </select>
+                        <button id="refreshInstrumentsBtn" class="btn btn-sm" title="Rafraîchir la liste">🔄</button>
+                    </div>
+                    <select id="filterPlayableInstruments" class="filter-select" multiple size="5" style="width: 100%;">
+                    </select>
+                    <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+                        <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
+                        <select id="filterPlayableMode" class="filter-select" style="flex: 1;">
+                            <option value="routed">Routé vers</option>
+                            <option value="compatible">Compatible avec</option>
+                        </select>
                     </div>
                 </div>
 
@@ -8579,17 +8603,69 @@
                     filterManager.setFilter('instrumentMode', instrumentMode.value);
                 });
 
-                // Routing status filter
-                const routingRadios = document.querySelectorAll('input[name="hasRouting"]');
-                routingRadios.forEach(radio => {
-                    radio.addEventListener('change', () => {
-                        const value = radio.value;
-                        if (value === 'all') {
-                            filterManager.setFilter('hasRouting', null);
+                // Routing status filter (detailed)
+                const routingStatusSelect = document.getElementById('filterRoutingStatus');
+                routingStatusSelect.addEventListener('change', () => {
+                    const value = routingStatusSelect.value;
+                    if (value === 'all') {
+                        filterManager.setFilter('routingStatus', null);
+                        filterManager.setFilter('hasRouting', null);
+                    } else {
+                        filterManager.setFilter('routingStatus', value);
+                        filterManager.setFilter('hasRouting', null);
+                    }
+                });
+
+                // Playable on instruments filter
+                const instrumentSourceSelect = document.getElementById('filterInstrumentSource');
+                const playableInstrumentsSelect = document.getElementById('filterPlayableInstruments');
+                const playableModeSelect = document.getElementById('filterPlayableMode');
+                const refreshInstrumentsBtn = document.getElementById('refreshInstrumentsBtn');
+
+                async function loadInstrumentsList() {
+                    const source = instrumentSourceSelect.value;
+                    const command = source === 'connected' ? 'instrument_list_connected' : 'instrument_list_registered';
+                    try {
+                        const response = await api.sendCommand(command);
+                        playableInstrumentsSelect.innerHTML = '';
+                        if (response.instruments && response.instruments.length > 0) {
+                            response.instruments.forEach(inst => {
+                                const option = document.createElement('option');
+                                option.value = inst.id;
+                                option.textContent = inst.custom_name || inst.name || `${inst.device_id} ch${inst.channel}`;
+                                playableInstrumentsSelect.appendChild(option);
+                            });
                         } else {
-                            filterManager.setFilter('hasRouting', value === 'true');
+                            const option = document.createElement('option');
+                            option.disabled = true;
+                            option.textContent = 'Aucun instrument trouvé';
+                            playableInstrumentsSelect.appendChild(option);
                         }
-                    });
+                    } catch (error) {
+                        console.error('Failed to load instruments:', error);
+                        playableInstrumentsSelect.innerHTML = '<option disabled>Erreur de chargement</option>';
+                    }
+                }
+
+                // Load instruments on panel open and on source change
+                instrumentSourceSelect.addEventListener('change', loadInstrumentsList);
+                refreshInstrumentsBtn.addEventListener('click', loadInstrumentsList);
+
+                // Load instruments when filter panel opens
+                const origOpenHandler = openFiltersBtn.onclick;
+                openFiltersBtn.addEventListener('click', () => {
+                    if (playableInstrumentsSelect.options.length === 0) {
+                        loadInstrumentsList();
+                    }
+                });
+
+                playableInstrumentsSelect.addEventListener('change', () => {
+                    const selected = Array.from(playableInstrumentsSelect.selectedOptions).map(opt => opt.value);
+                    filterManager.setFilter('playableOnInstruments', selected);
+                });
+
+                playableModeSelect.addEventListener('change', () => {
+                    filterManager.setFilter('playableMode', playableModeSelect.value);
                 });
 
                 // Is original filter
@@ -8631,7 +8707,9 @@
                     tracksMax.value = '';
                     instrumentCheckboxes.forEach(cb => cb.checked = false);
                     instrumentMode.value = 'ANY';
-                    document.querySelector('input[name="hasRouting"][value="all"]').checked = true;
+                    routingStatusSelect.value = 'all';
+                    playableInstrumentsSelect.selectedIndex = -1;
+                    playableModeSelect.value = 'routed';
                     document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
                     hasDrumsCheckbox.checked = false;
                     hasMelodyCheckbox.checked = false;
@@ -8689,8 +8767,8 @@
                         return;
                     }
 
-                    // Don't create duplicate badges for range filters
-                    if (filter.key.endsWith('Max') || filter.key.endsWith('After') || filter.key === 'instrumentMode') {
+                    // Don't create duplicate badges for range filters and mode selectors
+                    if (filter.key.endsWith('Max') || filter.key.endsWith('After') || filter.key === 'instrumentMode' || filter.key === 'playableMode' || filter.key === 'validatedThreshold') {
                         return;
                     }
 
@@ -8730,9 +8808,13 @@
                 } else if (key === 'instrumentTypes') {
                     document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                     filterManager.setFilter('instrumentTypes', []);
-                } else if (key === 'hasRouting') {
-                    document.querySelector('input[name="hasRouting"][value="all"]').checked = true;
+                } else if (key === 'hasRouting' || key === 'routingStatus') {
+                    document.getElementById('filterRoutingStatus').value = 'all';
+                    filterManager.setFilter('routingStatus', null);
                     filterManager.setFilter('hasRouting', null);
+                } else if (key === 'playableOnInstruments') {
+                    document.getElementById('filterPlayableInstruments').selectedIndex = -1;
+                    filterManager.setFilter('playableOnInstruments', []);
                 } else if (key === 'isOriginal') {
                     document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
                     filterManager.setFilter('isOriginal', null);
