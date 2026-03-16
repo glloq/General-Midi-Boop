@@ -445,6 +445,9 @@ class CCPitchbendEditor {
     }
 
     handleKeyDown(e) {
+        // Ne traiter les raccourcis que si l'éditeur est visible
+        if (!this.element || this.element.offsetParent === null) return;
+
         if (e.key === 'Delete' || e.key === 'Backspace') {
             if (this.selectedEvents.size > 0) {
                 this.removeEvents(Array.from(this.selectedEvents));

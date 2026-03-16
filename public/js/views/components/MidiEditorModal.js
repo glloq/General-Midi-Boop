@@ -2687,11 +2687,11 @@ class MidiEditorModal {
                                         <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">
                                             CC74 <span class="cc-label">${this.t('midiEditor.brightness')}</span>
                                         </button>
-                                        <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">
-                                            CC77 <span class="cc-label">${this.t('midiEditor.vibrato')}</span>
-                                        </button>
                                         <button class="cc-type-btn" data-cc-type="cc76" title="Vibrato Rate">
                                             CC76 <span class="cc-label">${this.t('midiEditor.vibratoRate')}</span>
+                                        </button>
+                                        <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">
+                                            CC77 <span class="cc-label">${this.t('midiEditor.vibrato')}</span>
                                         </button>
                                         <button class="cc-type-btn" data-cc-type="cc78" title="Vibrato Delay">
                                             CC78 <span class="cc-label">${this.t('midiEditor.vibratoDelay')}</span>
