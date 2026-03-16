@@ -8520,7 +8520,12 @@
             let filterManager = null;
             let currentFilteredFiles = null; // Store filtered files
 
+            let filtersInitialized = false;
             function initAdvancedFilters() {
+              try {
+                if (filtersInitialized) return;
+                filtersInitialized = true;
+
                 filterManager = new FilterManager(api);
 
                 const filtersPanel = document.getElementById('filtersPanel');
@@ -8530,8 +8535,14 @@
                 const applyFiltersBtn = document.getElementById('applyFiltersBtn');
                 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
+                if (!filtersPanel || !openFiltersBtn) {
+                    console.error('[Filters] Required DOM elements not found');
+                    return;
+                }
+
                 // Open filters panel
                 openFiltersBtn.addEventListener('click', () => {
+                    filtersPanel.style.display = '';
                     filtersPanel.classList.add('open');
                     filtersPanelOverlay.style.display = 'block';
                 });
@@ -8742,6 +8753,10 @@
                 };
 
                 log('✓ Filtres avancés initialisés', 'info');
+              } catch (error) {
+                console.error('[Filters] Init failed:', error);
+                log('❌ Erreur initialisation filtres: ' + error.message, 'error');
+              }
             }
 
             // Update filter badges display
