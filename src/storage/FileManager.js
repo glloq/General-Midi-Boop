@@ -84,19 +84,29 @@ class FileManager {
 
   extractMetadata(midi) {
     const ppq = midi.header.ticksPerBeat || 480;
-    let tempo = 120; // Default BPM
+    let firstTempo = 120; // Default BPM
     let totalTicks = 0;
 
-    // Find tempo
+    // Collect all tempo events with absolute tick positions
+    const tempoEvents = [];
     for (const track of midi.tracks) {
-      const tempoEvent = track.find(e => e.type === 'setTempo');
-      if (tempoEvent) {
-        tempo = 60000000 / tempoEvent.microsecondsPerBeat;
-        break;
+      let trackTicks = 0;
+      for (const event of track) {
+        trackTicks += event.deltaTime;
+        if (event.type === 'setTempo') {
+          if (firstTempo === 120 && tempoEvents.length === 0) {
+            firstTempo = 60000000 / event.microsecondsPerBeat;
+          }
+          tempoEvents.push({
+            tick: trackTicks,
+            microsecondsPerBeat: event.microsecondsPerBeat
+          });
+        }
       }
     }
+    tempoEvents.sort((a, b) => a.tick - b.tick);
 
-    // Calculate duration
+    // Calculate total ticks across all tracks
     midi.tracks.forEach(track => {
       let trackTicks = 0;
       track.forEach(event => {
@@ -105,12 +115,36 @@ class FileManager {
       totalTicks = Math.max(totalTicks, trackTicks);
     });
 
-    const beatsPerSecond = tempo / 60;
-    const ticksPerSecond = beatsPerSecond * ppq;
-    const duration = totalTicks / ticksPerSecond;
+    // Calculate duration using tempo map (handles multi-tempo files)
+    let duration;
+    if (tempoEvents.length <= 1) {
+      // Single tempo: simple calculation
+      const tempo = tempoEvents.length === 1
+        ? 60000000 / tempoEvents[0].microsecondsPerBeat
+        : 120;
+      const beatsPerSecond = tempo / 60;
+      const ticksPerSecond = beatsPerSecond * ppq;
+      duration = totalTicks / ticksPerSecond;
+    } else {
+      // Multi-tempo: walk through tempo changes
+      let cumulativeSeconds = 0;
+      let lastTick = 0;
+      let currentMicrosPerBeat = tempoEvents[0].microsecondsPerBeat;
+
+      for (let i = 1; i < tempoEvents.length; i++) {
+        const deltaTicks = tempoEvents[i].tick - lastTick;
+        cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
+        lastTick = tempoEvents[i].tick;
+        currentMicrosPerBeat = tempoEvents[i].microsecondsPerBeat;
+      }
+      // Add remaining ticks after last tempo change
+      const remainingTicks = totalTicks - lastTick;
+      cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);
+      duration = cumulativeSeconds;
+    }
 
     return {
-      tempo: tempo,
+      tempo: firstTempo,
       duration: duration,
       totalTicks: totalTicks
     };
@@ -761,7 +795,7 @@ class FileManager {
    */
   async reanalyzeAllFiles() {
     try {
-      const allFiles = this.app.database.getAllFiles();
+      const allFiles = this.app.database.getAllFiles({ includeData: true });
       let analyzed = 0;
       let failed = 0;
 

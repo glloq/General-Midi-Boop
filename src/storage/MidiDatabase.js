@@ -1,5 +1,11 @@
 // src/storage/MidiDatabase.js
 
+// All columns except 'data' (large base64 BLOB) for listing queries
+const LIST_COLUMNS = `id, filename, size, tracks, duration, tempo, ppq, uploaded_at, folder,
+  is_original, parent_file_id, adaptation_metadata,
+  instrument_types, channel_count, note_range_min, note_range_max,
+  has_drums, has_melody, has_bass`;
+
 class MidiDatabase {
   constructor(db, logger) {
     this.db = db;
@@ -58,7 +64,7 @@ class MidiDatabase {
 
   getFiles(folder = '/') {
     try {
-      const stmt = this.db.prepare('SELECT * FROM midi_files WHERE folder = ? ORDER BY uploaded_at DESC');
+      const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files WHERE folder = ? ORDER BY uploaded_at DESC`);
       return stmt.all(folder);
     } catch (error) {
       this.logger.error(`Failed to get files: ${error.message}`);
@@ -66,9 +72,10 @@ class MidiDatabase {
     }
   }
 
-  getAllFiles() {
+  getAllFiles({ includeData = false } = {}) {
     try {
-      const stmt = this.db.prepare('SELECT * FROM midi_files ORDER BY uploaded_at DESC');
+      const columns = includeData ? '*' : LIST_COLUMNS;
+      const stmt = this.db.prepare(`SELECT ${columns} FROM midi_files ORDER BY uploaded_at DESC`);
       return stmt.all();
     } catch (error) {
       this.logger.error(`Failed to get all files: ${error.message}`);
@@ -170,8 +177,8 @@ class MidiDatabase {
   searchFiles(query) {
     try {
       const stmt = this.db.prepare(`
-        SELECT * FROM midi_files 
-        WHERE filename LIKE ? 
+        SELECT ${LIST_COLUMNS} FROM midi_files
+        WHERE filename LIKE ?
         ORDER BY uploaded_at DESC
       `);
       return stmt.all(`%${query}%`);
@@ -184,8 +191,8 @@ class MidiDatabase {
   getFilesByDateRange(startDate, endDate) {
     try {
       const stmt = this.db.prepare(`
-        SELECT * FROM midi_files 
-        WHERE uploaded_at >= ? AND uploaded_at <= ? 
+        SELECT ${LIST_COLUMNS} FROM midi_files
+        WHERE uploaded_at >= ? AND uploaded_at <= ?
         ORDER BY uploaded_at DESC
       `);
       return stmt.all(startDate, endDate);
@@ -198,8 +205,8 @@ class MidiDatabase {
   getRecentFiles(limit = 10) {
     try {
       const stmt = this.db.prepare(`
-        SELECT * FROM midi_files 
-        ORDER BY uploaded_at DESC 
+        SELECT ${LIST_COLUMNS} FROM midi_files
+        ORDER BY uploaded_at DESC
         LIMIT ?
       `);
       return stmt.all(limit);
@@ -233,7 +240,8 @@ class MidiDatabase {
    */
   filterFiles(filters = {}) {
     try {
-      let query = 'SELECT mf.* FROM midi_files mf';
+      const listCols = LIST_COLUMNS.replace(/(\w+)/g, 'mf.$1');
+      let query = `SELECT ${listCols} FROM midi_files mf`;
       const joins = [];
       const wheres = [];
       const params = [];

@@ -411,7 +411,7 @@ class DatabaseManager {
   insertFile(file) { return this.midiDB.insertFile(file); }
   getFile(fileId) { return this.midiDB.getFile(fileId); }
   getFiles(folder) { return this.midiDB.getFiles(folder); }
-  getAllFiles() { return this.midiDB.getAllFiles(); }
+  getAllFiles(options) { return this.midiDB.getAllFiles(options); }
   updateFile(fileId, updates) { return this.midiDB.updateFile(fileId, updates); }
   deleteFile(fileId) { return this.midiDB.deleteFile(fileId); }
   getFolders() { return this.midiDB.getFolders(); }

@@ -1,5 +1,6 @@
 // src/midi/MidiPlayer.js
 import { parseMidi } from 'midi-file';
+import { performance } from 'perf_hooks';
 
 // Playback timing constants
 const SCHEDULER_TICK_MS = 10; // Scheduler resolution in milliseconds
@@ -285,11 +286,11 @@ class MidiPlayer {
     if (resumePosition !== null) {
       this.position = resumePosition;
       this.currentEventIndex = this.findEventIndexAtTime(resumePosition);
-      this.startTime = Date.now() - (resumePosition * 1000);
+      this.startTime = performance.now() - (resumePosition * 1000);
     } else {
       this.position = 0;
       this.currentEventIndex = 0;
-      this.startTime = Date.now();
+      this.startTime = performance.now();
     }
 
     this._syncDelayCache.clear(); // Refresh sync_delay cache on each playback start
@@ -306,7 +307,7 @@ class MidiPlayer {
     }
 
     this.paused = true;
-    this.pauseTime = Date.now();
+    this.pauseTime = performance.now();
     this.stopScheduler();
 
     // Send all notes off to avoid stuck notes
@@ -323,7 +324,7 @@ class MidiPlayer {
     }
 
     this.paused = false;
-    const pauseDuration = Date.now() - this.pauseTime;
+    const pauseDuration = performance.now() - this.pauseTime;
     this.startTime += pauseDuration;
     this.startScheduler();
     this.broadcastStatus();
@@ -415,7 +416,7 @@ class MidiPlayer {
     }
 
     // Update position
-    const elapsed = (Date.now() - this.startTime) / 1000;
+    const elapsed = (performance.now() - this.startTime) / 1000;
     this.position = elapsed;
 
     // Check if reached end

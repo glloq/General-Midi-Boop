@@ -4,6 +4,7 @@ class MidiRouter {
   constructor(app) {
     this.app = app;
     this.routes = new Map();
+    this.routesBySource = new Map(); // Secondary index: source -> Set of routeIds
     this.monitors = new Set();
     
     this.loadRoutesFromDB();
@@ -38,14 +39,21 @@ class MidiRouter {
   addRoute(route) {
     const routeId = route.id || this.generateRouteId();
     
-    this.routes.set(routeId, {
+    const routeObj = {
       id: routeId,
       source: route.source,
       destination: route.destination,
       channelMap: route.channelMap || {},
       filter: route.filter || {},
       enabled: route.enabled !== false
-    });
+    };
+    this.routes.set(routeId, routeObj);
+
+    // Update source index
+    if (!this.routesBySource.has(routeObj.source)) {
+      this.routesBySource.set(routeObj.source, new Set());
+    }
+    this.routesBySource.get(routeObj.source).add(routeId);
 
     // Save to database if new route
     if (!route.id) {
@@ -74,8 +82,20 @@ class MidiRouter {
       throw new Error(`Route not found: ${routeId}`);
     }
 
+    const route = this.routes.get(routeId);
+
     // Delete from DB first; if DB fails, in-memory state stays consistent
     this.app.database.deleteRoute(routeId);
+
+    // Remove from source index
+    const sourceSet = this.routesBySource.get(route.source);
+    if (sourceSet) {
+      sourceSet.delete(routeId);
+      if (sourceSet.size === 0) {
+        this.routesBySource.delete(route.source);
+      }
+    }
+
     this.routes.delete(routeId);
     this.app.logger.info(`Route deleted: ${routeId}`);
   }
@@ -118,36 +138,41 @@ class MidiRouter {
   }
 
   routeMessage(sourceDevice, type, msg) {
-    this.routes.forEach(route => {
-      if (!route.enabled || route.source !== sourceDevice) {
-        return;
+    // Use source index for O(1) lookup instead of iterating all routes
+    const routeIds = this.routesBySource.get(sourceDevice);
+    if (routeIds) {
+      for (const routeId of routeIds) {
+        const route = this.routes.get(routeId);
+        if (!route || !route.enabled) {
+          continue;
+        }
+
+        // Apply filter
+        if (!this.passesFilter(type, msg, route.filter)) {
+          continue;
+        }
+
+        // Apply channel mapping
+        const mapped = this.applyChannelMap(msg, route.channelMap);
+
+        // Send to destination
+        const success = this.app.deviceManager.sendMessage(
+          route.destination,
+          type,
+          mapped
+        );
+
+        if (success) {
+          this.app.eventBus.emit('midi_routed', {
+            route: route.id,
+            source: sourceDevice,
+            destination: route.destination,
+            type: type,
+            data: mapped
+          });
+        }
       }
-
-      // Apply filter
-      if (!this.passesFilter(type, msg, route.filter)) {
-        return;
-      }
-
-      // Apply channel mapping
-      const mapped = this.applyChannelMap(msg, route.channelMap);
-
-      // Send to destination
-      const success = this.app.deviceManager.sendMessage(
-        route.destination,
-        type,
-        mapped
-      );
-
-      if (success) {
-        this.app.eventBus.emit('midi_routed', {
-          route: route.id,
-          source: sourceDevice,
-          destination: route.destination,
-          type: type,
-          data: mapped
-        });
-      }
-    });
+    }
 
     // Handle monitors
     if (this.monitors.has(sourceDevice)) {

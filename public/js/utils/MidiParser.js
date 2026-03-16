@@ -484,6 +484,7 @@ class MidiParser {
                 }
             });
         });
+        tempoChanges.sort((a, b) => a.time - b.time);
         return tempoChanges;
     }
 
@@ -507,19 +508,44 @@ class MidiParser {
      * Calcule la durée totale
      */
     calculateDuration(tracks, ticksPerQuarter) {
-        let maxTime = 0;
-        const tempo = this.extractTempo(tracks);
-        const microsecondsPerTick = (60000000 / tempo) / ticksPerQuarter;
-        
+        // Find max tick across all tracks
+        let maxTick = 0;
         tracks.forEach(track => {
             track.events.forEach(event => {
-                if (event.time > maxTime) {
-                    maxTime = event.time;
+                if (event.time > maxTick) {
+                    maxTick = event.time;
                 }
             });
         });
-        
-        return (maxTime * microsecondsPerTick) / 1000000; // En secondes
+
+        // Get all tempo changes (already sorted by time)
+        const tempoChanges = this.extractTempoChanges(tracks);
+
+        if (tempoChanges.length <= 1) {
+            // Single tempo: simple calculation
+            const tempo = tempoChanges.length === 1 ? tempoChanges[0].bpm : 120;
+            const microsecondsPerTick = (60000000 / tempo) / ticksPerQuarter;
+            return (maxTick * microsecondsPerTick) / 1000000;
+        }
+
+        // Multi-tempo: walk through tempo changes
+        let cumulativeSeconds = 0;
+        let lastTick = 0;
+        let currentBpm = tempoChanges[0].bpm;
+
+        for (let i = 1; i < tempoChanges.length; i++) {
+            const deltaTicks = tempoChanges[i].time - lastTick;
+            const microsecondsPerTick = (60000000 / currentBpm) / ticksPerQuarter;
+            cumulativeSeconds += (deltaTicks * microsecondsPerTick) / 1000000;
+            lastTick = tempoChanges[i].time;
+            currentBpm = tempoChanges[i].bpm;
+        }
+        // Add remaining ticks after last tempo change
+        const remainingTicks = maxTick - lastTick;
+        const microsecondsPerTick = (60000000 / currentBpm) / ticksPerQuarter;
+        cumulativeSeconds += (remainingTicks * microsecondsPerTick) / 1000000;
+
+        return cumulativeSeconds;
     }
 
     /**
