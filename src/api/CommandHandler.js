@@ -159,6 +159,7 @@ class CommandHandler {
       'system_restart': () => this.systemRestart(),
       'system_shutdown': () => this.systemShutdown(),
       'system_update': () => this.systemUpdate(),
+      'system_check_update': () => this.systemCheckUpdate(),
       'system_backup': (data) => this.systemBackup(data),
       'system_restore': (data) => this.systemRestore(data),
       'system_logs': (data) => this.systemLogs(data),
@@ -1640,6 +1641,45 @@ class CommandHandler {
     this.app.logger.info('System shutdown requested');
     setTimeout(() => process.exit(0), 1000);
     return { success: true };
+  }
+
+  async systemCheckUpdate() {
+    const { execSync } = await import('child_process');
+    const { resolve } = await import('path');
+    const cwd = resolve('.');
+
+    try {
+      // Fetch latest from remote
+      execSync('git fetch origin main', { cwd, timeout: 15000, stdio: 'pipe' });
+
+      const localHash = execSync('git rev-parse HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      const remoteHash = execSync('git rev-parse origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      const localDate = execSync('git log -1 --format=%ci HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      const remoteDate = execSync('git log -1 --format=%ci origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+
+      let behindCount = 0;
+      if (localHash !== remoteHash) {
+        const behind = execSync(`git rev-list --count HEAD..origin/main`, { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+        behindCount = parseInt(behind) || 0;
+      }
+
+      return {
+        upToDate: localHash === remoteHash,
+        localHash: localHash.substring(0, 7),
+        remoteHash: remoteHash.substring(0, 7),
+        localDate,
+        remoteDate,
+        behindCount,
+        version: APP_VERSION
+      };
+    } catch (error) {
+      this.app.logger.warn('Check update failed:', error.message);
+      return {
+        upToDate: null,
+        error: error.message,
+        version: APP_VERSION
+      };
+    }
   }
 
   async systemUpdate() {

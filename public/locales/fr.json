@@ -99,7 +99,11 @@
       "running": "Mise à jour en cours, veuillez patienter...",
       "success": "Mise à jour terminée ! Le serveur redémarre...",
       "reloading": "Rechargement de la page...",
-      "failed": "Échec de la mise à jour"
+      "failed": "Échec de la mise à jour",
+      "checking": "Vérification des mises à jour...",
+      "upToDate": "Le système est à jour",
+      "updateAvailable": "Mise à jour disponible",
+      "checkFailed": "Impossible de vérifier les mises à jour"
     }
   },
   "bluetooth": {
