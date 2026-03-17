@@ -194,11 +194,25 @@ class InstrumentMatcher {
     // Compatibilite = notes ET polyphonie ET percussion doivent etre compatibles
     const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
 
+    // Build score breakdown for UI detail display
+    const scoreBreakdown = {
+      program: { score: Math.round(programScore.score), max: this.config.getWeight('programMatch') },
+      noteRange: { score: Math.round(noteScore.score), max: this.config.getWeight('noteRange') },
+      polyphony: { score: Math.round(polyScore.score), max: this.config.getWeight('polyphony') },
+      ccSupport: { score: Math.round(ccScore.score), max: this.config.getWeight('ccSupport') },
+      instrumentType: { score: Math.round(typeScore.score), max: this.config.getWeight('instrumentType') },
+      percussion: { score: Math.round(percussionPenalty), max: isDrumChannel ? this.config.getPercussionValue('drumChannelDrumBonus') : 0 }
+    };
+
     return {
       score: Math.min(100, Math.max(0, Math.round(score))),
       compatible: isCompatible,
       transposition: noteScore.transposition || null,
       noteRemapping: noteScore.noteRemapping || null,
+      octaveWrapping: noteScore.octaveWrapping || null,
+      octaveWrappingEnabled: noteScore.octaveWrappingEnabled || false,
+      octaveWrappingInfo: noteScore.octaveWrappingInfo || null,
+      scoreBreakdown,
       issues,
       info
     };

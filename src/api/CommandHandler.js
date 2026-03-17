@@ -1951,6 +1951,7 @@ class CommandHandler {
     return {
       success: true,
       suggestions: result.suggestions,
+      lowScoreSuggestions: result.lowScoreSuggestions || {},
       autoSelection: result.autoSelection,
       channelAnalyses: result.channelAnalyses,
       confidenceScore: result.confidenceScore,

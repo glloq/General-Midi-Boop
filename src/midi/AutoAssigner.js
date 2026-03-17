@@ -69,36 +69,46 @@ class AutoAssigner {
 
       // 3. Pour chaque canal, scorer tous les instruments
       const suggestions = {};
+      const lowScoreSuggestions = {};
 
       for (const analysis of channelAnalyses) {
         const scores = [];
+        const lowScores = [];
 
         for (const instrument of availableInstruments) {
           const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
 
+          const entry = {
+            instrument: {
+              id: instrument.id,
+              device_id: instrument.device_id,
+              channel: instrument.channel,
+              name: instrument.name || instrument.custom_name || 'Unknown',
+              custom_name: instrument.custom_name,
+              gm_program: instrument.gm_program,
+              note_range_min: instrument.note_range_min,
+              note_range_max: instrument.note_range_max,
+              note_selection_mode: instrument.note_selection_mode,
+              polyphony: instrument.polyphony || 16,
+              sync_delay: instrument.sync_delay || 0
+            },
+            compatibility
+          };
+
           if (compatibility.score >= minScore) {
-            scores.push({
-              instrument: {
-                id: instrument.id,
-                device_id: instrument.device_id,
-                channel: instrument.channel,
-                name: instrument.name || instrument.custom_name || 'Unknown',
-                custom_name: instrument.custom_name,
-                gm_program: instrument.gm_program,
-                note_range_min: instrument.note_range_min,
-                note_range_max: instrument.note_range_max,
-                note_selection_mode: instrument.note_selection_mode,
-                polyphony: instrument.polyphony || 16,
-                sync_delay: instrument.sync_delay || 0
-              },
-              compatibility
-            });
+            scores.push(entry);
+          } else {
+            lowScores.push(entry);
           }
         }
 
         // Trier par score décroissant et garder top N
         scores.sort((a, b) => b.compatibility.score - a.compatibility.score);
         suggestions[analysis.channel] = scores.slice(0, topN);
+
+        // Garder aussi les instruments à bas score (triés)
+        lowScores.sort((a, b) => b.compatibility.score - a.compatibility.score);
+        lowScoreSuggestions[analysis.channel] = lowScores;
       }
 
       // 4. Sélection automatique (meilleur score par canal)
@@ -110,6 +120,7 @@ class AutoAssigner {
       return {
         success: true,
         suggestions,
+        lowScoreSuggestions,
         autoSelection,
         channelAnalyses,
         confidenceScore,

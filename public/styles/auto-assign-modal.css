@@ -697,6 +697,389 @@ body.dark-mode .aa-body::-webkit-scrollbar-track {
 }
 
 /* ==========================================================================
+   Low Score Instruments Section
+   ========================================================================== */
+
+.aa-low-scores-section {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.aa-toggle-low-scores {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 12px;
+  color: #888;
+  transition: background-color 0.15s;
+}
+
+.aa-toggle-low-scores:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.aa-low-scores-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aa-instrument-option.low-score {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.aa-instrument-option.low-score:hover {
+  opacity: 1;
+}
+
+.aa-low-score-badge {
+  font-size: 9px;
+  color: #F44336;
+  font-weight: 600;
+  background: #ffebee;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ==========================================================================
+   Score Detail Breakdown
+   ========================================================================== */
+
+.aa-score-detail-toggle {
+  display: block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  color: #667eea;
+  text-decoration: underline;
+}
+
+.aa-score-detail-toggle:hover {
+  color: #4a5cb8;
+}
+
+.aa-score-breakdown {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.aa-score-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.aa-score-bar-label {
+  flex: 0 0 90px;
+  color: #666;
+  text-align: right;
+}
+
+.aa-score-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.aa-score-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.aa-score-bar-value {
+  flex: 0 0 40px;
+  color: #444;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+/* ==========================================================================
+   Note Range Visualization
+   ========================================================================== */
+
+.aa-note-range-viz {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f0f4ff;
+  border-radius: 6px;
+}
+
+.aa-note-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.aa-note-range-track {
+  position: relative;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.aa-note-range-inst {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(76, 175, 80, 0.25);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  border-radius: 3px;
+}
+
+.aa-note-range-ch {
+  position: absolute;
+  top: 4px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.aa-note-range-ch.in-range {
+  background: rgba(102, 126, 234, 0.7);
+  border: 1px solid #667eea;
+}
+
+.aa-note-range-ch.out-of-range {
+  background: rgba(244, 67, 54, 0.5);
+  border: 1px solid #F44336;
+}
+
+.aa-note-range-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #999;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Drum Mapping Configuration
+   ========================================================================== */
+
+.aa-drum-mapping-section {
+  margin-top: 16px;
+}
+
+.aa-toggle-drum-mapping {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff8f0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  transition: background-color 0.15s;
+}
+
+.aa-toggle-drum-mapping:hover {
+  background: #fff0e0;
+}
+
+.aa-drum-mapping-count {
+  font-size: 11px;
+  font-weight: normal;
+  color: #ff9800;
+  margin-left: 8px;
+}
+
+.aa-drum-mapping-table {
+  margin-top: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.aa-drum-mapping-header {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 100px;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+}
+
+.aa-drum-mapping-row {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 100px;
+  gap: 4px;
+  align-items: center;
+  padding: 5px 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 12px;
+}
+
+.aa-drum-mapping-row.exact {
+  color: #888;
+}
+
+.aa-drum-mapping-row.modified {
+  background: #fffde7;
+}
+
+.aa-drum-mapping-row.overridden {
+  background: #fff3e0;
+}
+
+.aa-drum-note-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aa-drum-note-name small {
+  color: #999;
+  font-size: 10px;
+}
+
+.aa-drum-arrow {
+  text-align: center;
+  color: #888;
+}
+
+.aa-drum-mapping-actions {
+  display: flex;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+.aa-drum-mapping-actions .aa-btn-sm {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Dark Mode - New Components
+   ========================================================================== */
+
+body.dark-mode .aa-toggle-low-scores {
+  background: #252538;
+  border-color: #4a5568;
+  color: #8899aa;
+}
+
+body.dark-mode .aa-toggle-low-scores:hover {
+  background: #2d2d3f;
+  color: #a0aec0;
+}
+
+body.dark-mode .aa-instrument-option.low-score {
+  border-color: #3a3a4e;
+}
+
+body.dark-mode .aa-low-score-badge {
+  background: #3a1a1a;
+  color: #ff6b6b;
+}
+
+body.dark-mode .aa-score-detail-toggle {
+  color: #8899ee;
+}
+
+body.dark-mode .aa-score-breakdown {
+  background: #1a1a2e;
+}
+
+body.dark-mode .aa-score-bar-label {
+  color: #a0aec0;
+}
+
+body.dark-mode .aa-score-bar-track {
+  background: #3a3a4e;
+}
+
+body.dark-mode .aa-score-bar-value {
+  color: #c0c8d4;
+}
+
+body.dark-mode .aa-note-range-viz {
+  background: #1a2044;
+}
+
+body.dark-mode .aa-note-range-labels {
+  color: #a0aec0;
+}
+
+body.dark-mode .aa-note-range-track {
+  background: #3a3a4e;
+}
+
+body.dark-mode .aa-note-range-scale {
+  color: #6a7a8e;
+}
+
+body.dark-mode .aa-toggle-drum-mapping {
+  background: #2a2520;
+  border-color: #4a4538;
+  color: #c0b8a0;
+}
+
+body.dark-mode .aa-toggle-drum-mapping:hover {
+  background: #3a3530;
+}
+
+body.dark-mode .aa-drum-mapping-table {
+  border-color: #4a5568;
+}
+
+body.dark-mode .aa-drum-mapping-header {
+  background: #252538;
+  color: #a0aec0;
+}
+
+body.dark-mode .aa-drum-mapping-row {
+  border-top-color: #3a3a4e;
+  color: #c0c8d4;
+}
+
+body.dark-mode .aa-drum-mapping-row.exact {
+  color: #6a7a8e;
+}
+
+body.dark-mode .aa-drum-mapping-row.modified {
+  background: #2a2a1a;
+}
+
+body.dark-mode .aa-drum-mapping-row.overridden {
+  background: #2a2520;
+}
+
+body.dark-mode .aa-drum-note-name small {
+  color: #6a7a8e;
+}
+
+body.dark-mode .aa-drum-arrow {
+  color: #6a7a8e;
+}
+
+/* ==========================================================================
    Responsive - Tablet & Mobile
    ========================================================================== */
 
@@ -773,6 +1156,18 @@ body.dark-mode .aa-body::-webkit-scrollbar-track {
   .aa-transposition-control {
     flex-wrap: wrap;
     gap: 4px;
+  }
+
+  .aa-drum-mapping-header,
+  .aa-drum-mapping-row {
+    grid-template-columns: 1fr 20px 1fr 80px;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .aa-score-bar-label {
+    flex: 0 0 70px;
+    font-size: 10px;
   }
 }
 

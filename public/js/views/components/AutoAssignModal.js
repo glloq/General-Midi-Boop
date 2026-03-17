@@ -30,6 +30,11 @@ class AutoAssignModal {
     this.activeTab = null; // Currently active channel tab
     this.channels = []; // Sorted channel list
     this.adaptationSettings = {}; // Per-channel adaptation overrides
+    this.lowScoreSuggestions = {}; // Low-score instruments per channel
+    this.showLowScores = {}; // Per-channel toggle for showing low scores
+    this.showScoreDetails = {}; // Per-channel/instrument toggle for score breakdown
+    this.showDrumMapping = {}; // Per-channel toggle for drum mapping view
+    this.drumMappingOverrides = {}; // Per-channel drum note overrides { channel: { midiNote: instrumentNote } }
   }
 
   /**
@@ -75,6 +80,7 @@ class AutoAssignModal {
       }
 
       this.suggestions = response.suggestions;
+      this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection;
       this.confidenceScore = response.confidenceScore;
 
@@ -329,6 +335,24 @@ class AutoAssignModal {
     `;
 
     if (options.length === 0) {
+      // Even with no recommended instruments, show low-score ones if available
+      const lowOptions = this.lowScoreSuggestions[ch] || [];
+      const showLow = this.showLowScores[ch] || false;
+      const fallbackHTML = lowOptions.length > 0 ? `
+        <div class="aa-low-scores-section">
+          <button class="aa-toggle-low-scores" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
+            ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowOptions.length})
+          </button>
+          ${showLow ? `
+            <div class="aa-low-scores-list">
+              ${lowOptions.map((option, index) => {
+                return this.renderInstrumentOption(channel, option, index, selectedDeviceId, true);
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      ` : '';
+
       return `
         <div class="aa-tab-content">
           <div class="aa-channel-header">
@@ -337,51 +361,42 @@ class AutoAssignModal {
             </h3>
           </div>
           ${statsHTML}
+          ${skipHTML}
           <p class="aa-no-compatible">${_t('autoAssign.noCompatible')}</p>
+          ${fallbackHTML}
         </div>
       `;
     }
 
     // Instrument options
     const optionsHTML = isSkipped ? '' : options.map((option, index) => {
-      const instrument = option.instrument;
-      const compat = option.compatibility;
-      const isSelected = instrument.device_id === selectedDeviceId;
-      const escapedName = escapeHtml(instrument.custom_name || instrument.name);
-      const escapedDeviceId = escapeHtml(instrument.device_id);
-
-      return `
-        <div class="aa-instrument-option ${isSelected ? 'selected' : ''}"
-             data-channel="${channel}"
-             data-device-id="${escapedDeviceId}"
-             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedDeviceId.replace(/'/g, "\\'")}')">
-          <div class="aa-instrument-main">
-            <div class="aa-instrument-info">
-              <div class="aa-instrument-name">
-                ${escapedName}
-                ${index === 0 ? `<span class="aa-recommended">${_t('autoAssign.recommended')}</span>` : ''}
-              </div>
-              <div class="aa-instrument-details">
-                ${this.formatInstrumentInfo(instrument, compat)}
-              </div>
-              ${compat.info ? `<div class="aa-instrument-compat-info">${this.formatInfo(compat.info)}</div>` : ''}
-              ${compat.issues && compat.issues.length > 0 ? `
-                <div class="aa-instrument-issues">
-                  ${compat.issues.map(i => escapeHtml(i.message)).join(' &bull; ')}
-                </div>
-              ` : ''}
-            </div>
-            <div class="aa-instrument-score">
-              <span class="aa-score-value" style="color: ${this.getScoreColor(compat.score)}">${compat.score}</span>
-              <span class="aa-score-stars">${this.getScoreStars(compat.score)}</span>
-            </div>
-          </div>
-        </div>
-      `;
+      return this.renderInstrumentOption(channel, option, index, selectedDeviceId, false);
     }).join('');
+
+    // Low-score instruments (collapsible)
+    const lowScoreOptions = this.lowScoreSuggestions[ch] || [];
+    const showLow = this.showLowScores[ch] || false;
+    const lowScoreHTML = (!isSkipped && lowScoreOptions.length > 0) ? `
+      <div class="aa-low-scores-section">
+        <button class="aa-toggle-low-scores" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
+          ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowScoreOptions.length})
+        </button>
+        ${showLow ? `
+          <div class="aa-low-scores-list">
+            ${lowScoreOptions.map((option, index) => {
+              return this.renderInstrumentOption(channel, option, options.length + index, selectedDeviceId, true);
+            }).join('')}
+          </div>
+        ` : ''}
+      </div>
+    ` : '';
 
     // Adaptation controls (only if not skipped and instrument selected)
     const adaptationHTML = (!isSkipped && selectedDeviceId) ? this.renderAdaptationControls(channel, adaptation) : '';
+
+    // Drum mapping config section (only for channel 9 or percussion-type channels)
+    const isDrumChannel = channel === 9 || (analysis && analysis.estimatedType === 'drums');
+    const drumMappingHTML = (!isSkipped && isDrumChannel && selectedDeviceId) ? this.renderDrumMappingSection(channel) : '';
 
     return `
       <div class="aa-tab-content">
@@ -396,7 +411,9 @@ class AutoAssignModal {
         <div class="aa-instruments-list">
           ${optionsHTML}
         </div>
+        ${lowScoreHTML}
         ${adaptationHTML}
+        ${drumMappingHTML}
       </div>
     `;
   }
@@ -437,9 +454,15 @@ class AutoAssignModal {
     const semitones = adaptation.transpositionSemitones || 0;
     const hasOctaveWrapping = assignment && assignment.octaveWrappingInfo;
 
+    // Visual note range indicator
+    const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
+    const noteRangeViz = this.renderNoteRangeViz(channel, analysis, assignment, semitones);
+
     return `
       <div class="aa-adaptation-section">
         <h4>${_t('autoAssign.adaptationTitle')}</h4>
+
+        ${noteRangeViz}
 
         <div class="aa-adaptation-controls">
           <div class="aa-control-group">
@@ -492,6 +515,287 @@ class AutoAssignModal {
     `;
   }
 
+  /**
+   * Render visual note range comparison: channel notes vs instrument range
+   */
+  renderNoteRangeViz(channel, analysis, assignment, semitones) {
+    if (!analysis || !analysis.noteRange || analysis.noteRange.min == null) return '';
+
+    // Find the selected instrument from suggestions
+    const ch = String(channel);
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment?.deviceId);
+    if (!selectedOption) return '';
+
+    const inst = selectedOption.instrument;
+    if (inst.note_range_min == null || inst.note_range_max == null) return '';
+
+    // Calculate transposed channel range
+    const chMin = analysis.noteRange.min + semitones;
+    const chMax = analysis.noteRange.max + semitones;
+    const instMin = inst.note_range_min;
+    const instMax = inst.note_range_max;
+
+    // Global range for visualization (with padding)
+    const globalMin = Math.max(0, Math.min(chMin, instMin) - 3);
+    const globalMax = Math.min(127, Math.max(chMax, instMax) + 3);
+    const totalRange = globalMax - globalMin || 1;
+
+    // Calculate positions as percentages
+    const chLeft = ((chMin - globalMin) / totalRange) * 100;
+    const chWidth = Math.max(1, ((chMax - chMin) / totalRange) * 100);
+    const instLeft = ((instMin - globalMin) / totalRange) * 100;
+    const instWidth = Math.max(1, ((instMax - instMin) / totalRange) * 100);
+
+    // Check if notes fit
+    const notesOutside = chMin < instMin || chMax > instMax;
+    const fitClass = notesOutside ? 'out-of-range' : 'in-range';
+
+    return `
+      <div class="aa-note-range-viz">
+        <div class="aa-note-range-labels">
+          <span>${_t('autoAssign.channelNotes')}: ${chMin}-${chMax}</span>
+          <span>${_t('autoAssign.instrumentRange')}: ${instMin}-${instMax}</span>
+        </div>
+        <div class="aa-note-range-track">
+          <div class="aa-note-range-inst" style="left: ${instLeft}%; width: ${instWidth}%"
+               title="${_t('autoAssign.instrumentRange')}: ${instMin}-${instMax}"></div>
+          <div class="aa-note-range-ch ${fitClass}" style="left: ${chLeft}%; width: ${chWidth}%"
+               title="${_t('autoAssign.channelNotes')}: ${chMin}-${chMax}"></div>
+        </div>
+        <div class="aa-note-range-scale">
+          <span>${globalMin}</span>
+          <span>${globalMax}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ========================================================================
+  // INSTRUMENT OPTION RENDERING
+  // ========================================================================
+
+  /**
+   * Render a single instrument option (used for both normal and low-score lists)
+   */
+  renderInstrumentOption(channel, option, index, selectedDeviceId, isLowScore) {
+    const instrument = option.instrument;
+    const compat = option.compatibility;
+    const isSelected = instrument.device_id === selectedDeviceId;
+    const escapedName = escapeHtml(instrument.custom_name || instrument.name);
+    const escapedDeviceId = escapeHtml(instrument.device_id);
+    const detailKey = `${channel}_${escapedDeviceId}`;
+    const showDetails = this.showScoreDetails[detailKey] || false;
+
+    const scoreBreakdown = compat.scoreBreakdown;
+    const breakdownHTML = (showDetails && scoreBreakdown) ? `
+      <div class="aa-score-breakdown">
+        ${this.renderScoreBar('autoAssign.scoreProgram', scoreBreakdown.program)}
+        ${this.renderScoreBar('autoAssign.scoreNoteRange', scoreBreakdown.noteRange)}
+        ${this.renderScoreBar('autoAssign.scorePolyphony', scoreBreakdown.polyphony)}
+        ${this.renderScoreBar('autoAssign.scoreCCSupport', scoreBreakdown.ccSupport)}
+        ${this.renderScoreBar('autoAssign.scoreType', scoreBreakdown.instrumentType)}
+        ${scoreBreakdown.percussion && scoreBreakdown.percussion.max !== 0 ? this.renderScoreBar('autoAssign.scorePercussion', scoreBreakdown.percussion) : ''}
+      </div>
+    ` : '';
+
+    return `
+      <div class="aa-instrument-option ${isSelected ? 'selected' : ''} ${isLowScore ? 'low-score' : ''}"
+           data-channel="${channel}"
+           data-device-id="${escapedDeviceId}">
+        <div class="aa-instrument-main"
+             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedDeviceId.replace(/'/g, "\\'")}')">
+          <div class="aa-instrument-info">
+            <div class="aa-instrument-name">
+              ${escapedName}
+              ${index === 0 && !isLowScore ? `<span class="aa-recommended">${_t('autoAssign.recommended')}</span>` : ''}
+              ${isLowScore ? `<span class="aa-low-score-badge">${_t('autoAssign.lowScore')}</span>` : ''}
+            </div>
+            <div class="aa-instrument-details">
+              ${this.formatInstrumentInfo(instrument, compat)}
+            </div>
+            ${compat.info ? `<div class="aa-instrument-compat-info">${this.formatInfo(compat.info)}</div>` : ''}
+            ${compat.issues && compat.issues.length > 0 ? `
+              <div class="aa-instrument-issues">
+                ${compat.issues.map(i => escapeHtml(i.message)).join(' &bull; ')}
+              </div>
+            ` : ''}
+          </div>
+          <div class="aa-instrument-score">
+            <span class="aa-score-value" style="color: ${this.getScoreColor(compat.score)}">${compat.score}</span>
+            <span class="aa-score-stars">${this.getScoreStars(compat.score)}</span>
+          </div>
+        </div>
+        <button class="aa-score-detail-toggle" onclick="autoAssignModalInstance.toggleScoreDetails('${detailKey}')">
+          ${showDetails ? _t('autoAssign.hideDetails') : _t('autoAssign.showDetails')}
+        </button>
+        ${breakdownHTML}
+      </div>
+    `;
+  }
+
+  /**
+   * Render a single score bar for the breakdown
+   */
+  renderScoreBar(labelKey, scoreData) {
+    if (!scoreData) return '';
+    const pct = scoreData.max > 0 ? Math.round((scoreData.score / scoreData.max) * 100) : 0;
+    const color = this.getScoreColor(pct);
+    return `
+      <div class="aa-score-bar-row">
+        <span class="aa-score-bar-label">${_t(labelKey)}</span>
+        <div class="aa-score-bar-track">
+          <div class="aa-score-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+        </div>
+        <span class="aa-score-bar-value">${scoreData.score}/${scoreData.max}</span>
+      </div>
+    `;
+  }
+
+  /**
+   * Render the drum mapping configuration section
+   */
+  renderDrumMappingSection(channel) {
+    const ch = String(channel);
+    const showMapping = this.showDrumMapping[ch] || false;
+    const assignment = this.selectedAssignments[ch];
+    if (!assignment) return '';
+
+    // Find the selected instrument's compatibility data
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    const noteRemapping = assignment.noteRemapping || (selectedOption && selectedOption.compatibility.noteRemapping) || {};
+
+    // GM drum note names
+    const drumNames = {
+      35: 'Acoustic Bass Drum', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare',
+      39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat',
+      43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
+      47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash Cymbal 1', 50: 'High Tom',
+      51: 'Ride Cymbal 1', 52: 'Chinese Cymbal', 53: 'Ride Bell', 54: 'Tambourine',
+      55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 59: 'Ride Cymbal 2'
+    };
+
+    // Get overrides for this channel
+    const overrides = this.drumMappingOverrides[ch] || {};
+
+    // Build mapping table from noteRemapping
+    const mappingEntries = Object.entries(noteRemapping).map(([src, tgt]) => {
+      const srcNote = parseInt(src);
+      const tgtNote = overrides[srcNote] !== undefined ? overrides[srcNote] : tgt;
+      const srcName = drumNames[srcNote] || `Note ${srcNote}`;
+      const tgtName = drumNames[tgtNote] || `Note ${tgtNote}`;
+      const isModified = srcNote !== tgtNote;
+      const isOverridden = overrides[srcNote] !== undefined;
+      return { srcNote, tgtNote, srcName, tgtName, isModified, isOverridden };
+    }).sort((a, b) => a.srcNote - b.srcNote);
+
+    if (mappingEntries.length === 0 && Object.keys(overrides).length === 0) {
+      return `
+        <div class="aa-drum-mapping-section">
+          <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
+            ${showMapping ? '&#9660;' : '&#9654;'} ${_t('autoAssign.drumMapping')}
+          </button>
+          ${showMapping ? `<p class="aa-no-compatible">${_t('autoAssign.noDrumMapping')}</p>` : ''}
+        </div>
+      `;
+    }
+
+    const mappingHTML = showMapping ? `
+      <div class="aa-drum-mapping-table">
+        <div class="aa-drum-mapping-header">
+          <span>${_t('autoAssign.originalNote')}</span>
+          <span></span>
+          <span>${_t('autoAssign.mappedTo')}</span>
+          <span></span>
+        </div>
+        ${mappingEntries.map(entry => `
+          <div class="aa-drum-mapping-row ${entry.isModified ? 'modified' : 'exact'} ${entry.isOverridden ? 'overridden' : ''}">
+            <span class="aa-drum-note-name">${escapeHtml(entry.srcName)} <small>(${entry.srcNote})</small></span>
+            <span class="aa-drum-arrow">${entry.isModified ? '&#8594;' : '='}</span>
+            <span class="aa-drum-note-name">${escapeHtml(entry.tgtName)} <small>(${entry.tgtNote})</small></span>
+            <span class="aa-drum-mapping-actions">
+              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, -1)" title="-1">-</button>
+              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, 1)" title="+1">+</button>
+              ${entry.isOverridden ? `<button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetDrumNote(${channel}, ${entry.srcNote})">${_t('autoAssign.reset')}</button>` : ''}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="aa-drum-mapping-section">
+        <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
+          ${showMapping ? '&#9660;' : '&#9654;'} ${_t('autoAssign.drumMapping')}
+          ${mappingEntries.filter(e => e.isModified).length > 0
+            ? `<span class="aa-drum-mapping-count">${mappingEntries.filter(e => e.isModified).length} ${_t('autoAssign.substitutions')}</span>`
+            : ''}
+        </button>
+        ${mappingHTML}
+      </div>
+    `;
+  }
+
+  // ========================================================================
+  // TOGGLE METHODS
+  // ========================================================================
+
+  /**
+   * Toggle showing low-score instruments for a channel
+   */
+  toggleLowScores(channel) {
+    const ch = String(channel);
+    this.showLowScores[ch] = !this.showLowScores[ch];
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Toggle score detail breakdown for an instrument
+   */
+  toggleScoreDetails(detailKey) {
+    this.showScoreDetails[detailKey] = !this.showScoreDetails[detailKey];
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Toggle drum mapping section visibility
+   */
+  toggleDrumMapping(ch) {
+    this.showDrumMapping[ch] = !this.showDrumMapping[ch];
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Adjust a drum note mapping override
+   */
+  adjustDrumNote(channel, srcNote, delta) {
+    const ch = String(channel);
+    if (!this.drumMappingOverrides[ch]) this.drumMappingOverrides[ch] = {};
+
+    // Get current target note
+    const assignment = this.selectedAssignments[ch];
+    const remapping = assignment?.noteRemapping || {};
+    const currentTarget = this.drumMappingOverrides[ch][srcNote] !== undefined
+      ? this.drumMappingOverrides[ch][srcNote]
+      : (remapping[srcNote] || srcNote);
+
+    const newTarget = Math.max(0, Math.min(127, currentTarget + delta));
+    this.drumMappingOverrides[ch][srcNote] = newTarget;
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Reset a drum note mapping override
+   */
+  resetDrumNote(channel, srcNote) {
+    const ch = String(channel);
+    if (this.drumMappingOverrides[ch]) {
+      delete this.drumMappingOverrides[ch][srcNote];
+    }
+    this.refreshCurrentTab();
+  }
+
   // ========================================================================
   // ACTIONS
   // ========================================================================
@@ -518,7 +822,9 @@ class AutoAssignModal {
   selectInstrument(channel, deviceId) {
     const ch = String(channel);
     const options = this.suggestions[ch] || [];
-    const selectedOption = options.find(opt => opt.instrument.device_id === deviceId);
+    const lowOptions = this.lowScoreSuggestions[ch] || [];
+    const selectedOption = options.find(opt => opt.instrument.device_id === deviceId)
+      || lowOptions.find(opt => opt.instrument.device_id === deviceId);
 
     if (!selectedOption) return;
 
@@ -722,9 +1028,14 @@ class AutoAssignModal {
 
         // Add note offset for drums
         if (adaptation.noteOffset && adaptation.noteOffset !== 0) {
-          const baseRemapping = preparedAssignments[channel].noteRemapping || {};
-          // Apply offset to all notes
           preparedAssignments[channel].noteOffset = adaptation.noteOffset;
+        }
+
+        // Apply drum mapping overrides
+        const drumOverrides = this.drumMappingOverrides[channel] || {};
+        if (Object.keys(drumOverrides).length > 0) {
+          const baseRemapping = preparedAssignments[channel].noteRemapping || {};
+          preparedAssignments[channel].noteRemapping = { ...baseRemapping, ...drumOverrides };
         }
 
         // Combine noteRemapping with octaveWrapping if enabled
