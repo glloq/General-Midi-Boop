@@ -497,11 +497,11 @@ class SettingsModal {
 
             <!-- Mise à jour -->
             <div class="settings-section" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
-                <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🔄 ${i18n.t('settings.update.title') || 'Mise à jour'}</h3>
+                <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                     <div style="flex: 1;">
-                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.update.description') || 'Mettre à jour le projet depuis le dépôt distant'}</p>
-                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.update.warning') || 'Le serveur redémarrera automatiquement après la mise à jour'}</p>
+                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
                     </div>
                     <button id="systemUpdateBtn" style="
                         padding: 12px 24px;
@@ -515,7 +515,7 @@ class SettingsModal {
                         transition: all 0.2s;
                         white-space: nowrap;
                         box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-                    ">${i18n.t('settings.update.button') || 'Mettre à jour'}</button>
+                    ">🔄 ${i18n.t('settings.update.button') || 'Installer la mise à jour'}</button>
                 </div>
                 <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
             </div>
@@ -762,14 +762,23 @@ class SettingsModal {
         const statusEl = this.modal.querySelector('#updateStatus');
         if (!btn || !statusEl) return;
 
-        // Confirm
-        if (!confirm(i18n.t('settings.update.confirm') || 'Lancer la mise à jour ? Le serveur va redémarrer.')) {
-            return;
-        }
+        // Confirm with project modal
+        const confirmed = await window.showConfirm(
+            i18n.t('settings.update.confirmMessage') || 'Le système va télécharger la dernière version, mettre à jour les dépendances et redémarrer le serveur.\n\nL\'application sera temporairement indisponible pendant la mise à jour.',
+            {
+                title: i18n.t('settings.update.confirmTitle') || 'Installer la mise à jour',
+                icon: '🔄',
+                okText: i18n.t('settings.update.confirmOk') || 'Lancer la mise à jour',
+                cancelText: i18n.t('common.cancel') || 'Annuler',
+                danger: false
+            }
+        );
+
+        if (!confirmed) return;
 
         // Show progress
         btn.disabled = true;
-        btn.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
+        btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
         btn.style.opacity = '0.7';
         statusEl.style.display = 'block';
         statusEl.style.background = '#eef2ff';
@@ -790,7 +799,7 @@ class SettingsModal {
             statusEl.style.color = '#dc2626';
             statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
             btn.disabled = false;
-            btn.textContent = i18n.t('settings.update.button') || 'Mettre à jour';
+            btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
             btn.style.opacity = '1';
         }
     }
