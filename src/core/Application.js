@@ -2,6 +2,7 @@
 import Config from '../config/Config.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
+import ServiceContainer from './ServiceContainer.js';
 import Database from '../storage/Database.js';
 import DeviceManager from '../midi/DeviceManager.js';
 import MidiRouter from '../midi/MidiRouter.js';
@@ -18,9 +19,18 @@ import AutoAssigner from '../midi/AutoAssigner.js';
 
 class Application {
   constructor(configPath = null) {
+    // Core services (always available)
     this.config = new Config(configPath);
     this.logger = new Logger(this.config.logging);
     this.eventBus = new EventBus();
+
+    // DI Container — new code should use container.resolve() instead of this.xxx
+    this.container = new ServiceContainer();
+    this.container.register('config', this.config);
+    this.container.register('logger', this.logger);
+    this.container.register('eventBus', this.eventBus);
+
+    // Service references (kept for backward compatibility with existing modules)
     this.database = null;
     this.deviceManager = null;
     this.midiRouter = null;
@@ -44,26 +54,36 @@ class Application {
     this.logger.info('=== MidiMind 5.0 Starting ===');
   }
 
+  /**
+   * Register a service in both the container and on `this` for backward compat.
+   * @param {string} name - Service name
+   * @param {*} instance - Service instance
+   */
+  _registerService(name, instance) {
+    this[name] = instance;
+    this.container.register(name, instance);
+  }
+
   async initialize() {
     try {
       this.logger.info('Initializing application...');
 
       // Initialize database
-      this.database = new Database(this);
-      
+      this._registerService('database', new Database(this));
+
       // Initialize MIDI components
-      this.deviceManager = new DeviceManager(this);
-      this.midiRouter = new MidiRouter(this);
-      this.midiPlayer = new MidiPlayer(this);
-      this.latencyCompensator = new LatencyCompensator(this);
-      this.delayCalibrator = new DelayCalibrator(this.deviceManager, this.logger);
+      this._registerService('deviceManager', new DeviceManager(this));
+      this._registerService('midiRouter', new MidiRouter(this));
+      this._registerService('midiPlayer', new MidiPlayer(this));
+      this._registerService('latencyCompensator', new LatencyCompensator(this));
+      this._registerService('delayCalibrator', new DelayCalibrator(this.deviceManager, this.logger));
 
       // Initialize storage
-      this.fileManager = new FileManager(this);
+      this._registerService('fileManager', new FileManager(this));
 
       // Initialize Bluetooth (optional - may not be available on all systems)
       try {
-        this.bluetoothManager = new BluetoothManager(this);
+        this._registerService('bluetoothManager', new BluetoothManager(this));
         this.logger.info('Bluetooth initialized');
       } catch (error) {
         this.logger.warn(`Bluetooth not available: ${error.message}`);
@@ -71,7 +91,7 @@ class Application {
 
       // Initialize Network Manager
       try {
-        this.networkManager = new NetworkManager(this);
+        this._registerService('networkManager', new NetworkManager(this));
         this.logger.info('Network manager initialized');
       } catch (error) {
         this.logger.warn(`Network manager not available: ${error.message}`);
@@ -80,7 +100,7 @@ class Application {
       // Initialize Serial MIDI (optional - requires serialport package)
       try {
         const { default: SerialMidiManager } = await import('../managers/SerialMidiManager.js');
-        this.serialMidiManager = new SerialMidiManager(this);
+        this._registerService('serialMidiManager', new SerialMidiManager(this));
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
@@ -89,19 +109,19 @@ class Application {
       // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
       try {
         const { default: LightingManager } = await import('../managers/LightingManager.js');
-        this.lightingManager = new LightingManager(this);
+        this._registerService('lightingManager', new LightingManager(this));
         this.logger.info('Lighting manager initialized');
       } catch (error) {
         this.logger.warn(`Lighting manager not available: ${error.message}`);
       }
 
       // Initialize auto-assigner (singleton with cache)
-      this.autoAssigner = new AutoAssigner(this.database, this.logger);
+      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger));
 
       // Initialize API
-      this.commandHandler = new CommandHandler(this);
-      this.httpServer = new HttpServer(this);
-      this.wsServer = new WebSocketServer(this, null); // Will be initialized after HTTP server starts
+      this._registerService('commandHandler', new CommandHandler(this));
+      this._registerService('httpServer', new HttpServer(this));
+      this._registerService('wsServer', new WebSocketServer(this, null));
 
       // Setup event handlers
       this.setupEventHandlers();
