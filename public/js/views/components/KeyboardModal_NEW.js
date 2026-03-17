@@ -119,10 +119,9 @@ class KeyboardModalNew {
         if (velocityLabel) velocityLabel.textContent = this.t('keyboard.velocity');
 
         // Instrument label
-        const instrumentLabel = this.container.querySelector('.control-group label');
-        if (instrumentLabel && instrumentLabel.textContent.includes('Instrument')) {
-            instrumentLabel.textContent = this.t('keyboard.instrument');
-        }
+        const labels = this.container.querySelectorAll('.keyboard-header-controls .control-group label');
+        if (labels[0]) labels[0].textContent = this.t('keyboard.instrument');
+        if (labels[1]) labels[1].textContent = this.t('keyboard.layout');
 
         // Octave display
         const octaveDisplay = document.getElementById('keyboard-octave-display');
@@ -131,16 +130,8 @@ class KeyboardModalNew {
             octaveDisplay.textContent = this.t('keyboard.octave', { offset: display });
         }
 
-        // Layout clavier label
-        const layoutLabels = this.container.querySelectorAll('.control-group label');
-        layoutLabels.forEach(label => {
-            if (label.textContent.includes('Layout') || label.textContent.includes('clavier')) {
-                label.textContent = this.t('keyboard.layout');
-            }
-        });
-
         // PC Keys label
-        const pcKeysLabel = this.container.querySelector('.info-label');
+        const pcKeysLabel = this.container.querySelector('.keyboard-help-bar .info-label');
         if (pcKeysLabel) pcKeysLabel.textContent = this.t('keyboard.pcKeys');
 
         // Keyboard help text
@@ -150,10 +141,6 @@ class KeyboardModalNew {
                 ? this.t('keyboard.azertyHelp')
                 : this.t('keyboard.qwertyHelp');
         }
-
-        // Bouton Fermer
-        const closeBtn = document.getElementById('keyboard-close-btn-footer');
-        if (closeBtn) closeBtn.textContent = this.t('common.close');
 
         // Select par défaut
         const deviceSelect = document.getElementById('keyboard-device-select');
@@ -266,7 +253,31 @@ class KeyboardModalNew {
         this.container.innerHTML = `
             <div class="modal-dialog">
                 <div class="modal-header">
-                    <h2>🎹 ${this.t('keyboard.title')}</h2>
+                    <div class="keyboard-header-row">
+                        <h2>🎹 ${this.t('keyboard.title')}</h2>
+                        <div class="keyboard-header-controls">
+                            <div class="control-group">
+                                <label>${this.t('keyboard.instrument')}</label>
+                                <select class="device-select" id="keyboard-device-select">
+                                    <option value="">${this.t('common.select')}</option>
+                                </select>
+                            </div>
+
+                            <div class="control-group octave-controls">
+                                <button class="btn-octave-down" id="keyboard-octave-down">◄</button>
+                                <span class="octave-display" id="keyboard-octave-display">${this.t('keyboard.octave', { offset: display })}</span>
+                                <button class="btn-octave-up" id="keyboard-octave-up">►</button>
+                            </div>
+
+                            <div class="control-group">
+                                <label>${this.t('keyboard.layout')}</label>
+                                <select class="layout-select" id="keyboard-layout-select">
+                                    <option value="azerty">${this.t('keyboard.layoutAzerty')}</option>
+                                    <option value="qwerty">${this.t('keyboard.layoutQwerty')}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                     <button class="modal-close" id="keyboard-close-btn">&times;</button>
                 </div>
 
@@ -289,47 +300,15 @@ class KeyboardModalNew {
 
                         <!-- Zone principale du clavier -->
                         <div class="keyboard-main">
-                            <div class="keyboard-header">
-                                <div class="keyboard-controls">
-                                    <div class="control-group">
-                                        <label>${this.t('keyboard.instrument')}</label>
-                                        <select class="device-select" id="keyboard-device-select">
-                                            <option value="">${this.t('common.select')}</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group octave-controls">
-                                        <button class="btn-octave-down" id="keyboard-octave-down">◄</button>
-                                        <span class="octave-display" id="keyboard-octave-display">${this.t('keyboard.octave', { offset: display })}</span>
-                                        <button class="btn-octave-up" id="keyboard-octave-up">►</button>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label>${this.t('keyboard.layout')}</label>
-                                        <select class="layout-select" id="keyboard-layout-select">
-                                            <option value="azerty">${this.t('keyboard.layoutAzerty')}</option>
-                                            <option value="qwerty">${this.t('keyboard.layoutQwerty')}</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <div class="info-item">
-                                            <span class="info-label">${this.t('keyboard.pcKeys')}</span>
-                                            <span class="info-value" id="keyboard-help-text">${this.t('keyboard.azertyHelp')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div class="keyboard-canvas-container">
                                 <div id="piano-container" class="piano-container"></div>
                             </div>
+                            <div class="keyboard-help-bar">
+                                <span class="info-label">${this.t('keyboard.pcKeys')}</span>
+                                <span class="info-value" id="keyboard-help-text">${this.t('keyboard.azertyHelp')}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button class="btn-secondary" id="keyboard-close-btn-footer">${this.t('common.close')}</button>
                 </div>
             </div>
         `;
@@ -624,7 +603,6 @@ class KeyboardModalNew {
     attachEvents() {
         // Boutons
         document.getElementById('keyboard-close-btn')?.addEventListener('click', () => this.close());
-        document.getElementById('keyboard-close-btn-footer')?.addEventListener('click', () => this.close());
 
         document.getElementById('keyboard-octave-up')?.addEventListener('click', () => {
             this.octaveOffset = Math.min(3, this.octaveOffset + 1);

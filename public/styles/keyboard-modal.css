@@ -69,46 +69,137 @@
 }
 
 /* ============================================================================
-   MODAL HEADER
+   MODAL HEADER - Contains title + instrument/octave/layout controls
    ============================================================================ */
 
 .keyboard-modal .modal-header {
     display: flex !important;
-    flex-direction: column !important;
     align-items: center !important;
-    justify-content: center !important;
-    padding: 20px 24px !important;
+    justify-content: space-between !important;
+    padding: 12px 20px !important;
     margin: 0 !important;
     border-bottom: none;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     border-radius: 12px 12px 0 0;
     position: relative !important;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.keyboard-header-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    min-width: 0;
 }
 
 .keyboard-modal .modal-header h2 {
     margin: 0;
-    font-size: 22px;
+    font-size: 18px;
     color: white;
     font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.keyboard-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.keyboard-header-controls .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.keyboard-header-controls .control-group label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.keyboard-header-controls .device-select,
+.keyboard-header-controls .layout-select {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    min-width: 160px;
+}
+
+.keyboard-header-controls .device-select:hover,
+.keyboard-header-controls .layout-select:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: white;
+}
+
+.keyboard-header-controls .device-select:focus,
+.keyboard-header-controls .layout-select:focus {
+    outline: none;
+    border-color: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .octave-controls {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+}
+
+.keyboard-header-controls .btn-octave-down,
+.keyboard-header-controls .btn-octave-up {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.keyboard-header-controls .btn-octave-down:hover,
+.keyboard-header-controls .btn-octave-up:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.keyboard-header-controls .octave-display {
+    text-align: center;
+    font-weight: 600;
+    color: white;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px 10px;
+    border-radius: 6px;
+    min-width: 70px;
 }
 
 .keyboard-modal .modal-close {
     background: rgba(255, 255, 255, 0.2);
     border: none;
-    font-size: 28px;
+    font-size: 24px;
     color: white;
     cursor: pointer;
     padding: 0;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     transition: all 0.2s;
-    position: absolute !important;
-    top: 20px !important;
-    right: 24px !important;
+    flex-shrink: 0;
 }
 
 .keyboard-modal .modal-close:hover {
@@ -123,8 +214,7 @@
 .keyboard-modal .modal-body {
     padding: 0 !important;
     background: white;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow: hidden !important;
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
@@ -157,7 +247,8 @@
 .keyboard-layout {
     display: flex;
     gap: 0;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Slider vélocité vertical à gauche */
@@ -245,133 +336,42 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-}
-
-.keyboard-header {
-    background: white;
-    padding: 16px 20px;
-    border-bottom: 2px solid #e5e7eb;
-}
-
-.keyboard-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-}
-
-.control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.control-group label {
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.info-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #f9fafb;
-    border-radius: 6px;
-}
-
-.device-select,
-.layout-select {
-    width: 100%;
-    padding: 10px 12px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
-    color: #1f2937;
-    background: white;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.device-select:hover,
-.layout-select:hover {
-    border-color: #10b981;
-}
-
-.device-select:focus:not(:focus-visible),
-.layout-select:focus:not(:focus-visible) {
-    outline: none;
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.octave-controls {
-    flex-direction: row !important;
-    align-items: center;
-    gap: 12px;
-}
-
-.btn-octave-down,
-.btn-octave-up {
-    background: #10b981;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-}
-
-.btn-octave-down:hover,
-.btn-octave-up:hover {
-    background: #059669;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
-}
-
-.btn-octave-down:active,
-.btn-octave-up:active {
-    transform: translateY(0);
-}
-
-.octave-display {
-    flex: 1;
-    text-align: center;
-    font-weight: 600;
-    color: #1f2937;
-    font-size: 14px;
-    background: #f3f4f6;
-    padding: 8px 12px;
-    border-radius: 8px;
+    min-height: 0;
 }
 
 /* Piano Container (DIVs) */
 .keyboard-canvas-container {
     flex: 1;
     background: white;
-    padding: 20px;
+    padding: 12px;
     overflow: hidden;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
+    min-height: 0;
 }
 
 .piano-container {
     position: relative;
     display: flex;
-    height: 320px;
     width: 100%;
     max-width: 100%;
     background: #2c2c2c;
     border-radius: 8px;
     padding: 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Help bar below keyboard */
+.keyboard-help-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    flex-shrink: 0;
 }
 
 /* Touches du piano */
@@ -485,37 +485,7 @@
     font-weight: 500;
 }
 
-/* ============================================================================
-   MODAL FOOTER
-   ============================================================================ */
-
-.keyboard-modal .modal-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 16px 24px;
-    background: #f9fafb;
-    border-top: 2px solid #e5e7eb;
-    gap: 12px;
-}
-
-.keyboard-modal .btn-secondary {
-    background: #6b7280;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.keyboard-modal .btn-secondary:hover {
-    background: #4b5563;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
-}
+/* Footer removed - controls are now in header */
 
 /* Informations en bas de la modal */
 .keyboard-modal-info {
@@ -561,35 +531,35 @@
         max-width: 100%;
         margin: 0;
         border-radius: 0;
-        min-height: 100vh;
+        max-height: 100vh;
     }
 
-    .keyboard-modal .modal-body {
-        padding: 0;
+    .keyboard-modal .modal-header {
+        padding: 10px 14px !important;
+        flex-wrap: wrap;
     }
 
-    .keyboard-header {
-        padding: 16px;
-    }
-
-    .keyboard-controls {
-        grid-template-columns: 1fr;
-    }
-
-    .keyboard-canvas-container {
-        padding: 12px;
-    }
-
-    .keyboard-modal-info .info-item {
+    .keyboard-header-row {
         flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .keyboard-header-controls {
+        flex-wrap: wrap;
         gap: 8px;
     }
 
-    .keyboard-modal-info .info-icon {
-        font-size: 20px;
+    .keyboard-header-controls .device-select {
+        min-width: 120px;
     }
 
-    .keyboard-modal-info .info-text {
-        font-size: 13px;
+    .keyboard-canvas-container {
+        padding: 8px;
+    }
+
+    .velocity-control-vertical {
+        min-width: 50px;
+        padding: 10px 6px;
     }
 }
