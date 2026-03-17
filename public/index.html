@@ -3126,27 +3126,27 @@
                 <!-- GM Instrument Categories Filter -->
                 <div class="filter-group">
                     <label class="filter-label">🎼 Catégories GM</label>
-                    <select id="filterGmCategories" class="filter-select" multiple size="6" style="width: 100%;">
-                        <option value="Piano">Piano</option>
-                        <option value="Chromatic Percussion">Percussions chromatiques</option>
-                        <option value="Organ">Orgue</option>
-                        <option value="Guitar">Guitare</option>
-                        <option value="Bass">Basse</option>
-                        <option value="Strings">Cordes</option>
-                        <option value="Ensemble">Ensemble</option>
-                        <option value="Brass">Cuivres</option>
-                        <option value="Reed">Anches</option>
-                        <option value="Pipe">Flûtes / Bois</option>
-                        <option value="Synth Lead">Synth Lead</option>
-                        <option value="Synth Pad">Synth Pad</option>
-                        <option value="Synth Effects">Synth Effects</option>
-                        <option value="Ethnic">Ethnique</option>
-                        <option value="Percussive">Percussif</option>
-                        <option value="Sound Effects">Effets sonores</option>
-                    </select>
-                    <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="filter-gm-category" value="Piano"> Piano</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Chromatic Percussion"> Perc. chromatiques</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Organ"> Orgue</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Guitar"> Guitare</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Bass"> Basse</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Strings"> Cordes</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Ensemble"> Ensemble</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Brass"> Cuivres</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Reed"> Anches</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Pipe"> Flûtes / Bois</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Lead"> Synth Lead</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Pad"> Synth Pad</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Effects"> Synth Effects</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Ethnic"> Ethnique</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Percussive"> Percussif</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Sound Effects"> Effets sonores</label>
+                    </div>
+                    <div style="margin-top: 8px;">
                         <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
-                        <select id="filterGmMode" class="filter-select" style="flex: 1;">
+                        <select id="filterGmMode" class="filter-select">
                             <option value="ANY">Au moins une</option>
                             <option value="ALL">Toutes présentes</option>
                         </select>
@@ -8201,13 +8201,17 @@
                 filterManager.setFilter('instrumentMode', instrumentMode.value);
             });
 
-            // GM Categories filter
-            const gmCategoriesSelect = document.getElementById('filterGmCategories');
+            // GM Categories filter (checkboxes)
+            const gmCategoryCheckboxes = document.querySelectorAll('.filter-gm-category');
             const gmModeSelect = document.getElementById('filterGmMode');
 
-            gmCategoriesSelect.addEventListener('change', () => {
-                const selected = Array.from(gmCategoriesSelect.selectedOptions).map(opt => opt.value);
-                filterManager.setFilter('gmCategories', selected);
+            gmCategoryCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const selected = Array.from(gmCategoryCheckboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                    filterManager.setFilter('gmCategories', selected);
+                });
             });
 
             gmModeSelect.addEventListener('change', () => {
@@ -8323,7 +8327,7 @@
                 tracksMax.value = '';
                 instrumentCheckboxes.forEach(cb => cb.checked = false);
                 instrumentMode.value = 'ANY';
-                gmCategoriesSelect.selectedIndex = -1;
+                gmCategoryCheckboxes.forEach(cb => cb.checked = false);
                 gmModeSelect.value = 'ANY';
                 routingStatusSelect.value = 'all';
                 playableInstrumentsSelect.selectedIndex = -1;
@@ -8432,7 +8436,7 @@
                 document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                 filterManager.setFilter('instrumentTypes', []);
             } else if (key === 'gmCategories') {
-                document.getElementById('filterGmCategories').selectedIndex = -1;
+                document.querySelectorAll('.filter-gm-category').forEach(cb => cb.checked = false);
                 document.getElementById('filterGmMode').value = 'ANY';
                 filterManager.setFilter('gmCategories', []);
                 filterManager.setFilter('gmMode', 'ANY');
@@ -8464,10 +8468,15 @@
         }
 
         // Apply filters and refresh file list
+        let filterRefreshInProgress = false;
         async function applyFiltersAndRefresh() {
+            if (filterRefreshInProgress) return;
             try {
+                filterRefreshInProgress = true;
+
                 // If no filters active, reload normally (with folder structure)
                 if (!filterManager || !filterManager.hasActiveFilters()) {
+                    filterRefreshInProgress = false;
                     await loadFiles();
                     return;
                 }
@@ -8481,11 +8490,15 @@
                 fileList.innerHTML = '';
                 fileList.appendChild(loadingMsg);
 
-                // Get all files first
-                let allFiles = await api.listMidiFiles('/');
-
-                // Apply filters
-                const filteredFiles = await filterManager.applyFilters(allFiles);
+                let filteredFiles;
+                if (filterManager.needsServerFiltering()) {
+                    // Server-side: send file_filter command directly
+                    filteredFiles = await filterManager.applyFilters(null);
+                } else {
+                    // Client-side: get all files then filter locally
+                    const allFiles = await api.listMidiFiles('/');
+                    filteredFiles = await filterManager.applyFilters(allFiles);
+                }
 
                 // Refresh display with filtered files
                 await displayFilteredFiles(filteredFiles);
@@ -8493,6 +8506,8 @@
                 log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
             } catch (error) {
                 log(`❌ Erreur application filtres: ${error.message}`, 'error');
+            } finally {
+                filterRefreshInProgress = false;
             }
         }
 
