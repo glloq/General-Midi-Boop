@@ -51,17 +51,53 @@ print_info() {
 abort_and_restart() {
     print_error "Update aborted: $1"
     print_header "Restarting Server (recovery)"
+    cd "$PROJECT_DIR"
+    _restart_server
+    exit 1
+}
+
+# Restart server helper (used by both normal restart and abort_and_restart)
+_restart_server() {
     if [ "$PM2_MANAGED" = true ]; then
+        print_info "Restarting with PM2..."
         pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
+        pm2 save 2>/dev/null || true
     elif [ "$SYSTEMD_MANAGED" = true ]; then
+        print_info "Restarting with systemd..."
         timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
     elif [ "$PM2_AVAILABLE" = true ]; then
+        print_info "Starting with PM2..."
         pm2 start ecosystem.config.cjs 2>/dev/null || true
+        pm2 save 2>/dev/null || true
     else
+        print_info "Starting server directly..."
         cd "$PROJECT_DIR"
-        nohup node server.js >> /tmp/midimind-server.log 2>&1 &
+        # Clear log for fresh output
+        echo "=== Server start at $(date) ===" > /tmp/midimind-server.log
+        NODE_BIN="$(which node)"
+        print_info "Using node: $NODE_BIN"
+        print_info "Working directory: $(pwd)"
+        nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+        local SERVER_PID=$!
+        sleep 3
+        if kill -0 $SERVER_PID 2>/dev/null; then
+            print_success "Server started (PID: $SERVER_PID)"
+        else
+            print_error "Server failed to start, check /tmp/midimind-server.log"
+            cat /tmp/midimind-server.log 2>/dev/null || true
+            # Retry
+            print_info "Retrying server start..."
+            nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+            SERVER_PID=$!
+            sleep 5
+            if kill -0 $SERVER_PID 2>/dev/null; then
+                print_success "Server started on retry (PID: $SERVER_PID)"
+            else
+                print_error "Server failed to start after retry"
+                cat /tmp/midimind-server.log 2>/dev/null || true
+            fi
+        fi
     fi
-    exit 1
 }
 
 # ============================================================================
@@ -95,6 +131,24 @@ if [ -z "$SERVER_PORT" ]; then
     fi
 fi
 SERVER_PORT="${SERVER_PORT:-8080}"
+
+# Detect how the server is managed (needed early for abort_and_restart)
+PM2_AVAILABLE=false
+PM2_MANAGED=false
+SYSTEMD_MANAGED=false
+
+if command -v pm2 &> /dev/null; then
+    PM2_AVAILABLE=true
+    if pm2 list 2>/dev/null | grep -q "midimind"; then
+        PM2_MANAGED=true
+    fi
+fi
+
+if systemctl is-active --quiet midimind 2>/dev/null; then
+    SYSTEMD_MANAGED=true
+fi
+
+print_info "Server management: PM2_MANAGED=$PM2_MANAGED, SYSTEMD_MANAGED=$SYSTEMD_MANAGED, PM2_AVAILABLE=$PM2_AVAILABLE"
 
 # ============================================================================
 # 1. Check Git Status
@@ -136,22 +190,6 @@ fi
 # ============================================================================
 
 print_header "2. Stopping Server"
-
-# Detect how the server is managed
-PM2_AVAILABLE=false
-PM2_MANAGED=false
-SYSTEMD_MANAGED=false
-
-if command -v pm2 &> /dev/null; then
-    PM2_AVAILABLE=true
-    if pm2 list 2>/dev/null | grep -q "midimind"; then
-        PM2_MANAGED=true
-    fi
-fi
-
-if systemctl is-active --quiet midimind 2>/dev/null; then
-    SYSTEMD_MANAGED=true
-fi
 
 # Stop the server
 if [ "$PM2_MANAGED" = true ]; then
@@ -265,51 +303,8 @@ fi
 
 print_header "6. Restarting Server"
 
-# Restart using the same method that was running before
-if [ "$PM2_MANAGED" = true ]; then
-    print_info "Restarting with PM2..."
-    pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
-    pm2 save 2>/dev/null || true
-    sleep 3
-    print_success "PM2 process restarted"
-    pm2 list 2>/dev/null || true
-
-elif [ "$SYSTEMD_MANAGED" = true ]; then
-    print_info "Restarting with systemd..."
-    timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
-    sleep 2
-    print_success "Systemd service restarted"
-
-elif [ "$PM2_AVAILABLE" = true ]; then
-    print_info "Starting with PM2..."
-    pm2 start ecosystem.config.cjs 2>/dev/null || true
-    pm2 save 2>/dev/null || true
-    sleep 3
-    print_success "Server started with PM2"
-
-else
-    # Fallback: start node directly in background
-    print_info "Starting server directly..."
-    cd "$PROJECT_DIR"
-    nohup node server.js >> /tmp/midimind-server.log 2>&1 &
-    SERVER_PID=$!
-    sleep 3
-    if kill -0 $SERVER_PID 2>/dev/null; then
-        print_success "Server started (PID: $SERVER_PID)"
-    else
-        print_error "Server failed to start, check /tmp/midimind-server.log"
-        # Try one more time
-        print_info "Retrying server start..."
-        nohup node server.js >> /tmp/midimind-server.log 2>&1 &
-        SERVER_PID=$!
-        sleep 5
-        if kill -0 $SERVER_PID 2>/dev/null; then
-            print_success "Server started on retry (PID: $SERVER_PID)"
-        else
-            print_error "Server failed to start after retry"
-        fi
-    fi
-fi
+cd "$PROJECT_DIR"
+_restart_server
 
 # ============================================================================
 # 7. Verify Update
