@@ -44,6 +44,7 @@ class SettingsModal {
             showPianoRoll: false, // Afficher le piano roll des notes à venir
             showDebugButton: true, // Afficher le bouton de debug
             showCalibrationButton: false, // Afficher le bouton de calibration micro
+            showLightingButton: false, // Afficher le bouton de contrôle lumière
             serialMidiEnabled: false // Ports série MIDI GPIO (désactivé par défaut)
         };
 
@@ -426,6 +427,32 @@ class SettingsModal {
                     </div>
                     <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                         <input type="checkbox" id="showCalibrationButtonToggle" ${this.settings.showCalibrationButton ? 'checked' : ''}
+                               style="opacity: 0; width: 0; height: 0;">
+                        <span class="toggle-slider" style="
+                            position: absolute;
+                            cursor: pointer;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background-color: #ccc;
+                            transition: 0.4s;
+                            border-radius: 30px;
+                        "></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Bouton Contrôle Lumière -->
+            <div class="settings-section" style="margin-top: 24px;">
+                <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">💡 ${i18n.t('settings.lightingButton.title') || 'Bouton Contrôle Lumière'}</h3>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.lightingButton.enable') || 'Afficher le bouton de contrôle lumière'}</p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.lightingButton.description') || 'Affiche le bouton ampoule pour gérer les bandeaux LED et règles lumière'}</p>
+                    </div>
+                    <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                        <input type="checkbox" id="showLightingButtonToggle" ${this.settings.showLightingButton ? 'checked' : ''}
                                style="opacity: 0; width: 0; height: 0;">
                         <span class="toggle-slider" style="
                             position: absolute;
@@ -1080,6 +1107,9 @@ class SettingsModal {
         const calibrationButtonToggle = this.modal.querySelector('#showCalibrationButtonToggle');
         if (calibrationButtonToggle) calibrationButtonToggle.checked = this.settings.showCalibrationButton;
 
+        const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
+        if (lightingButtonToggle) lightingButtonToggle.checked = this.settings.showLightingButton;
+
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         if (serialMidiToggle) serialMidiToggle.checked = this.settings.serialMidiEnabled;
         const serialPortsSection = this.modal.querySelector('#serialMidiPortsSection');
@@ -1114,6 +1144,7 @@ class SettingsModal {
         const pianoRollToggle = this.modal.querySelector('#showPianoRollToggle');
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
         const calibrationButtonToggle = this.modal.querySelector('#showCalibrationButtonToggle');
+        const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
 
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
 
@@ -1125,6 +1156,7 @@ class SettingsModal {
             showPianoRoll: pianoRollToggle ? pianoRollToggle.checked : this.settings.showPianoRoll,
             showDebugButton: debugButtonToggle ? debugButtonToggle.checked : this.settings.showDebugButton,
             showCalibrationButton: calibrationButtonToggle ? calibrationButtonToggle.checked : this.settings.showCalibrationButton,
+            showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled
         };
 
@@ -1136,6 +1168,7 @@ class SettingsModal {
         const pianoRollChanged = newSettings.showPianoRoll !== this.settings.showPianoRoll;
         const debugButtonChanged = newSettings.showDebugButton !== this.settings.showDebugButton;
         const calibrationButtonChanged = newSettings.showCalibrationButton !== this.settings.showCalibrationButton;
+        const lightingButtonChanged = newSettings.showLightingButton !== this.settings.showLightingButton;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
 
         // Mettre à jour les paramètres
@@ -1179,6 +1212,10 @@ class SettingsModal {
             this.eventBus?.emit('settings:calibration_button_changed', { enabled: newSettings.showCalibrationButton });
             this.applyCalibrationButton(newSettings.showCalibrationButton);
         }
+        if (lightingButtonChanged) {
+            this.eventBus?.emit('settings:lighting_button_changed', { enabled: newSettings.showLightingButton });
+            this.applyLightingButton(newSettings.showLightingButton);
+        }
         if (serialMidiChanged) {
             this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
         }
@@ -1194,6 +1231,7 @@ class SettingsModal {
         this.applyTheme(this.settings.theme);
         this.applyDebugButton(this.settings.showDebugButton);
         this.applyCalibrationButton(this.settings.showCalibrationButton);
+        this.applyLightingButton(this.settings.showLightingButton);
 
         // Les autres paramètres seront appliqués par les composants concernés
         // via les événements de l'EventBus
@@ -1223,6 +1261,16 @@ class SettingsModal {
         const calibrationBtn = document.getElementById('calibrationBtn');
         if (calibrationBtn) {
             calibrationBtn.style.display = show ? 'flex' : 'none';
+        }
+    }
+
+    /**
+     * Appliquer la visibilité du bouton contrôle lumière
+     */
+    applyLightingButton(show) {
+        const lightingBtn = document.getElementById('lightingBtn');
+        if (lightingBtn) {
+            lightingBtn.style.display = show ? 'flex' : 'none';
         }
     }
 

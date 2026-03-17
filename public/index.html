@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,36 @@
         }
 
         /* Variables centralisées dans styles/variables.css */
+
+        /* Screen-reader only utilities (accessibility) */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        .sr-only-focusable:focus {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100000;
+            width: auto;
+            height: auto;
+            padding: 8px 16px;
+            margin: 0;
+            overflow: visible;
+            clip: auto;
+            white-space: normal;
+            background: #667eea;
+            color: #fff;
+            font-size: 16px;
+            text-decoration: none;
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -40,7 +70,8 @@
         body.theme-dark .btn-settings-toggle,
         body.theme-dark .btn-debug-toggle,
         body.theme-dark .btn-instruments-toggle,
-        body.theme-dark .btn-calibration-toggle {
+        body.theme-dark .btn-calibration-toggle,
+        body.theme-dark .btn-lighting-toggle {
             background: #3d3d3d;
             border-color: #4d4d4d;
             color: #ffffff;
@@ -69,6 +100,11 @@
         body.theme-dark .btn-calibration-toggle:hover {
             background: #e74c3c;
             border-color: #e74c3c;
+        }
+
+        body.theme-dark .btn-lighting-toggle:hover {
+            background: #eab308;
+            border-color: #eab308;
         }
 
         body.theme-dark input,
@@ -552,6 +588,32 @@
             border-color: #e74c3c;
             transform: scale(1.1) rotate(-10deg);
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-lighting-toggle {
+            position: absolute;
+            top: 20px;
+            right: 175px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            z-index: 10;
+        }
+
+        .btn-lighting-toggle:hover {
+            background: #eab308;
+            border-color: #eab308;
+            transform: scale(1.1) rotate(-10deg);
+            box-shadow: 0 4px 12px rgba(234, 179, 8, 0.3);
         }
 
         .status-bar {
@@ -2839,8 +2901,11 @@
     <link rel="stylesheet" href="styles/instrument-capabilities-modal.css">
 </head>
 <body>
+    <!-- Skip Navigation Link (Accessibility) -->
+    <a href="#app" class="sr-only sr-only-focusable" id="skipNav">Skip to main content</a>
+
     <!-- Modal de confirmation personnalisée -->
-    <div class="confirm-modal-overlay" id="confirmModal">
+    <div class="confirm-modal-overlay" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <div class="confirm-modal">
             <div class="confirm-modal-icon" id="confirmIcon">⚠️</div>
             <div class="confirm-modal-title" id="confirmTitle" data-i18n="ui.confirmation">Confirmation</div>
@@ -2853,14 +2918,14 @@
     </div>
 
     <!-- Modal de création de dossier -->
-    <div class="folder-modal-overlay" id="folderModal">
+    <div class="folder-modal-overlay" id="folderModal" role="dialog" aria-modal="true" aria-labelledby="folderModalTitle">
         <div class="folder-modal">
             <div class="folder-modal-header">
                 <div class="folder-modal-title">
                     <span>📁</span>
                     <span data-i18n="fileOperations.newFolder">Nouveau dossier</span>
                 </div>
-                <button class="folder-modal-close" id="folderModalClose">&times;</button>
+                <button class="folder-modal-close" id="folderModalClose" aria-label="Close">&times;</button>
             </div>
             <div class="folder-modal-body">
                 <input type="text" class="folder-modal-input" id="folderNameInput"
@@ -2875,15 +2940,15 @@
     </div>
 
     <!-- Upload Progress Overlay -->
-    <div class="upload-progress-overlay" id="uploadProgressOverlay">
+    <div class="upload-progress-overlay" id="uploadProgressOverlay" role="dialog" aria-modal="true" aria-labelledby="uploadProgressTitle">
         <div class="upload-progress-modal">
             <div class="upload-progress-header">
-                <div class="upload-progress-title" data-i18n="ui.uploadInProgress">
+                <div class="upload-progress-title" id="uploadProgressTitle" data-i18n="ui.uploadInProgress">
                     📤 Upload en cours...
                 </div>
             </div>
             <div class="upload-progress-bar-container">
-                <div class="upload-progress-bar" id="uploadProgressBar" style="width: 0%">
+                <div class="upload-progress-bar" id="uploadProgressBar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
                     0%
                 </div>
             </div>
@@ -2899,7 +2964,7 @@
     </div>
 
     <!-- Modal de renommage de fichier -->
-    <div class="folder-modal-overlay" id="renameModal">
+    <div class="folder-modal-overlay" id="renameModal" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
         <div class="folder-modal">
             <div class="folder-modal-header">
                 <div class="folder-modal-title">
@@ -2926,45 +2991,51 @@
         </div>
     </div>
 
-    <div id="loading" class="loading">
+    <div id="loading" class="loading" role="status" aria-live="polite">
         <div class="loading-content">
-            <div class="spinner"></div>
+            <div class="spinner" aria-hidden="true"></div>
             <p data-i18n="ui.loading">Chargement de MidiMind...</p>
         </div>
     </div>
 
-    <div id="app" class="hidden">
+    <main id="app" class="hidden" role="main">
         <div class="container">
-            <header>
-                <button class="btn-keyboard-toggle" id="openKeyboardBtn" data-i18n-title="ui.openKeyboard" title="Ouvrir le clavier MIDI">
+            <header role="banner" aria-label="Application toolbar">
+                <nav aria-label="Application tools" class="header-tools">
+                <button class="btn-keyboard-toggle" id="openKeyboardBtn" data-i18n-title="ui.openKeyboard" title="Ouvrir le clavier MIDI" aria-label="MIDI Keyboard">
                     🎹
                 </button>
 
-                <button class="btn-settings-toggle" id="settingsToggle" data-i18n-title="ui.settings" title="Réglages">
+                <button class="btn-settings-toggle" id="settingsToggle" data-i18n-title="ui.settings" title="Réglages" aria-label="Settings">
                     ⚙️
                 </button>
 
-                <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs">
+                <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs" aria-label="Debug console" aria-expanded="false" aria-controls="debugConsole">
                     🐞
                 </button>
 
-                <button class="btn-instruments-toggle" id="instrumentsBtn" data-i18n-title="instrumentManagement.title" title="Gestion des instruments">
+                <button class="btn-instruments-toggle" id="instrumentsBtn" data-i18n-title="instrumentManagement.title" title="Gestion des instruments" aria-label="Instrument management">
                     🎸
                 </button>
 
-                <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)">
-                    🎤
+                <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière" aria-label="Lighting control">
+                    💡
                 </button>
 
-                <div class="header-playback">
+                <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
+                    🎤
+                </button>
+                </nav>
+
+                <div class="header-playback" role="region" aria-label="Playback controls">
                     <div class="header-controls">
-                        <span class="header-file-name" id="headerFileName" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
-                        <span class="header-time" id="headerTime">00:00 / 00:00</span>
-                        <button class="btn" id="headerPlayPauseBtn" disabled>▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
-                        <button class="btn btn-danger" id="headerStopBtn" disabled>⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
+                        <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
+                        <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
+                        <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
+                        <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
                     </div>
 
-                    <div class="header-progress">
+                    <div class="header-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Playback progress">
                         <div class="header-progress-fill" id="headerProgressFill"></div>
                     </div>
                 </div>
@@ -2972,13 +3043,13 @@
 
             <div class="main-grid">
                 <!-- Fichiers MIDI -->
-                <div class="card">
+                <section class="card" aria-labelledby="midiFilesHeading">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                        <h2 style="margin: 0;">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
+                        <h2 id="midiFilesHeading" style="margin: 0;">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
                         <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
                     </div>
 
-                    <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;">
+                    <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
                     <div class="file-input-wrapper">
                         <button class="btn btn-secondary" id="browseBtn" onclick="document.getElementById('fileInput').click()">
                             📂&nbsp;&nbsp;<span data-i18n="ui.browse">Parcourir</span>
@@ -3018,7 +3089,7 @@
                                     placeholder="Rechercher un fichier..."
                                     autocomplete="off"
                                 />
-                                <button class="search-clear-btn" id="searchClearBtn">×</button>
+                                <button class="search-clear-btn" id="searchClearBtn" aria-label="Clear search">×</button>
                             </div>
 
                             <!-- Sort -->
@@ -3046,27 +3117,27 @@
                         <div class="search-stats" id="searchStats"></div>
                     </div>
 
-                    <ul class="file-list" id="fileList">
-                        <li class="info-text" data-i18n="ui.noFiles">Aucun fichier</li>
+                    <ul class="file-list" id="fileList" role="listbox" aria-label="MIDI files">
+                        <li class="info-text" role="option" data-i18n="ui.noFiles">Aucun fichier</li>
                     </ul>
-                </div>
+                </section>
 
             </div>
 
             <!-- Console -->
-            <div class="card hidden" id="debugConsole">
-                <h2>📋 <span data-i18n="ui.debugConsole">Console de débogage</span></h2>
-                <div class="log-console" id="logConsole"></div>
-            </div>
+            <section class="card hidden" id="debugConsole" aria-labelledby="debugConsoleHeading">
+                <h2 id="debugConsoleHeading">📋 <span data-i18n="ui.debugConsole">Console de débogage</span></h2>
+                <div class="log-console" id="logConsole" role="log" aria-live="polite" aria-label="Debug log output"></div>
+            </section>
         </div>
-    </div>
+    </main>
 
     <!-- Advanced Filters Panel -->
-    <div id="filtersPanel" class="filters-panel">
+    <div id="filtersPanel" class="filters-panel" role="dialog" aria-modal="false" aria-labelledby="filtersPanelTitle">
         <div class="filters-panel-content">
             <div class="filters-panel-header">
-                <h3>🔍 <span data-i18n="filters.title">Filtres avancés</span></h3>
-                <button id="closeFiltersBtn" class="close-btn">×</button>
+                <h3 id="filtersPanelTitle">🔍 <span data-i18n="filters.title">Filtres avancés</span></h3>
+                <button id="closeFiltersBtn" class="close-btn" aria-label="Close filters">×</button>
             </div>
 
             <div class="filters-panel-body">
@@ -3221,14 +3292,14 @@
     <div id="filtersPanelOverlay" class="filters-panel-overlay" style="display: none;"></div>
 
     <!-- Delay Calibration Modal -->
-    <div class="calibration-modal-overlay" id="calibrationModal" style="display: none;">
+    <div class="calibration-modal-overlay" id="calibrationModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="calibrationModalTitle">
         <div class="calibration-modal">
             <div class="calibration-modal-header">
                 <div class="calibration-modal-title">
                     <span>🎤</span>
                     <span data-i18n="ui.calibrationDelay">Calibration des délais (Microphone)</span>
                 </div>
-                <button class="calibration-modal-close" id="calibrationModalClose">&times;</button>
+                <button class="calibration-modal-close" id="calibrationModalClose" aria-label="Close">&times;</button>
             </div>
 
             <div class="calibration-modal-body">
@@ -3292,7 +3363,7 @@
                     <h3>📊 Progression</h3>
 
                     <div class="calibration-progress-bar">
-                        <div class="calibration-progress-fill" id="calibrationProgressFill" style="width: 0%">
+                        <div class="calibration-progress-fill" id="calibrationProgressFill" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
                             0%
                         </div>
                     </div>
@@ -3326,6 +3397,7 @@
 
     <!-- Scripts -->
     <script src="js/utils/escapeHtml.js"></script>
+    <script src="js/utils/a11y.js"></script>
     <script src="js/utils/FilterManager.js"></script>
     <script src="js/api/BackendAPIClient.js"></script>
 
@@ -3333,9 +3405,12 @@
     <script src="js/i18n/I18n.js"></script>
 
     <!-- Core classes -->
+    <script src="js/core/AppRegistry.js"></script>
     <script src="js/core/EventBus.js"></script>
     <script src="js/core/BaseView.js"></script>
     <script src="js/core/BaseController.js"></script>
+    <script src="js/core/BaseModal.js"></script>
+    <script src="js/core/BaseCanvasEditor.js"></script>
 
     <!-- Webaudio-pianoroll library - VERSION CUSTOM avec coloration par canal MIDI -->
     <script src="lib/webaudio-pianoroll-custom.js"></script>
@@ -3367,11 +3442,20 @@
     <!-- Auto-Assign Modal Component -->
     <script src="js/views/components/AutoAssignModal.js"></script>
 
-    <!-- MIDI Editor Modal Component (depends on AutoAssignModal) -->
+    <!-- MIDI Editor Sub-Components -->
+    <script src="js/views/components/midi-editor/MidiEditorState.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorToolbar.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorChannelPanel.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorCCPanel.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorPlayback.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorFileOps.js"></script>
+
+    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components) -->
     <script src="js/views/components/MidiEditorModal.js"></script>
 
     <!-- Instrument Management Page Component -->
     <script src="js/views/components/InstrumentManagementPage.js"></script>
+    <script src="js/views/components/LightingControlPage.js"></script>
 
     <!-- Bluetooth Scan Modal Component -->
     <script src="js/views/components/BluetoothScanModal.js"></script>
@@ -3596,6 +3680,9 @@
 
         // 🆕 Instance de la page de gestion des instruments
         let instrumentManagementPage = null;
+
+        // 💡 Instance de la page de contrôle lumière
+        let lightingControlPage = null;
 
         // 🆕 Instance du modal de réglages
         let settingsModal = null;
@@ -7937,6 +8024,15 @@
             }
         });
 
+        // Event listener pour le bouton de contrôle lumière
+        document.getElementById('lightingBtn').addEventListener('click', () => {
+            if (lightingControlPage) {
+                lightingControlPage.show();
+            } else {
+                log('Lighting control page not initialized', 'error');
+            }
+        });
+
         // Event listener pour le bouton de calibration
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             showCalibrationModal();
@@ -8926,6 +9022,14 @@
                 log('✓ Page de gestion des instruments initialisée', 'info');
             } else {
                 log('⚠️ InstrumentManagementPage non disponible', 'warning');
+            }
+
+            // 💡 Initialiser la page de contrôle lumière
+            if (typeof LightingControlPage !== 'undefined') {
+                lightingControlPage = new LightingControlPage(api);
+                log('✓ Page de contrôle lumière initialisée', 'info');
+            } else {
+                log('⚠️ LightingControlPage non disponible', 'warning');
             }
 
             // Charger et appliquer les paramètres sauvegardés

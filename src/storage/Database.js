@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import MidiDatabase from './MidiDatabase.js';
 import InstrumentDatabase from './InstrumentDatabase.js';
+import LightingDatabase from './LightingDatabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,7 @@ class DatabaseManager {
     this.db = null;
     this.midiDB = null;
     this.instrumentDB = null;
+    this.lightingDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -28,6 +30,7 @@ class DatabaseManager {
     // Initialize sub-modules
     this.midiDB = new MidiDatabase(this.db, this.app.logger);
     this.instrumentDB = new InstrumentDatabase(this.db, this.app.logger);
+    this.lightingDB = new LightingDatabase(this.db, this.app.logger);
 
     this.app.logger.info('Database initialized');
   }
@@ -466,6 +469,27 @@ class DatabaseManager {
   getRoutingsByFile(fileId, includeDisabled) { return this.instrumentDB.getRoutingsByFile(fileId, includeDisabled); }
   deleteRoutingsByFile(fileId) { return this.instrumentDB.deleteRoutingsByFile(fileId); }
   getInstrumentsByDevice(deviceId) { return this.instrumentDB.getInstrumentsByDevice(deviceId); }
+
+  // Lighting Devices
+  insertLightingDevice(device) { return this.lightingDB.insertDevice(device); }
+  getLightingDevice(id) { return this.lightingDB.getDevice(id); }
+  getLightingDevices() { return this.lightingDB.getDevices(); }
+  updateLightingDevice(id, updates) { return this.lightingDB.updateDevice(id, updates); }
+  deleteLightingDevice(id) { return this.lightingDB.deleteDevice(id); }
+
+  // Lighting Rules
+  insertLightingRule(rule) { return this.lightingDB.insertRule(rule); }
+  getLightingRule(id) { return this.lightingDB.getRule(id); }
+  getLightingRulesForDevice(deviceId) { return this.lightingDB.getRulesForDevice(deviceId); }
+  getAllEnabledLightingRules() { return this.lightingDB.getAllEnabledRules(); }
+  getAllLightingRules() { return this.lightingDB.getAllRules(); }
+  updateLightingRule(id, updates) { return this.lightingDB.updateRule(id, updates); }
+  deleteLightingRule(id) { return this.lightingDB.deleteRule(id); }
+
+  // Lighting Presets
+  insertLightingPreset(preset) { return this.lightingDB.insertPreset(preset); }
+  getLightingPresets() { return this.lightingDB.getPresets(); }
+  deleteLightingPreset(id) { return this.lightingDB.deletePreset(id); }
 
   // ==================== UTILITIES ====================
 
