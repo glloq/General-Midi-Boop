@@ -526,6 +526,7 @@ class AutoAssignModal {
       instrumentId: selectedOption.instrument.id,
       instrumentName: selectedOption.instrument.name,
       customName: selectedOption.instrument.custom_name,
+      gmProgram: selectedOption.instrument.gm_program,
       score: selectedOption.compatibility.score,
       transposition: selectedOption.compatibility.transposition,
       noteRemapping: selectedOption.compatibility.noteRemapping,
@@ -800,6 +801,7 @@ class AutoAssignModal {
       const assignment = this.selectedAssignments[ch];
       const adaptation = this.adaptationSettings[ch] || {};
       const transpositions = {};
+      const instrumentPrograms = {};
 
       if (assignment) {
         let noteRemapping = assignment.noteRemapping || {};
@@ -811,9 +813,14 @@ class AutoAssignModal {
           semitones: adaptation.transpositionSemitones || 0,
           noteRemapping: Object.keys(noteRemapping).length > 0 ? noteRemapping : null
         };
+
+        // Use the selected instrument's GM program for preview
+        if (assignment.gmProgram !== null && assignment.gmProgram !== undefined) {
+          instrumentPrograms[channel] = assignment.gmProgram;
+        }
       }
 
-      await this.audioPreview.previewAdapted(this.midiData, transpositions, 0, 15);
+      await this.audioPreview.previewAdapted(this.midiData, transpositions, 0, 15, instrumentPrograms);
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);
