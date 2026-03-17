@@ -49,26 +49,28 @@ class InstrumentManagementPage {
         <div class="modal-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
 
           <!-- Header -->
-          <div class="modal-header" style="padding: 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 16px;">
+          <div class="modal-header" style="padding: 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; border-radius: 12px 12px 0 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
               <h2 style="margin: 0; font-size: 22px; white-space: nowrap;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
-              <input type="text"
-                     id="instrumentSearch"
-                     placeholder="🔍 ${i18n.t('instrumentManagement.searchPlaceholder') || 'Rechercher un instrument...'}"
-                     onkeyup="instrumentManagementPageInstance.handleSearch(this.value)"
-                     style="flex: 1; min-width: 150px; padding: 8px 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; outline: none;"
-                     onfocus="this.style.borderColor='rgba(255,255,255,0.6)';this.style.background='rgba(255,255,255,0.25)'"
-                     onblur="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='rgba(255,255,255,0.15)'">
-              <select id="instrumentFilter"
-                      onchange="instrumentManagementPageInstance.handleFilter(this.value)"
-                      style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; cursor: pointer;">
-                <option value="all" style="background: #2d2d2d; color: #e0e0e0;">${i18n.t('instrumentManagement.filterAll') || 'Tous'}</option>
-                <option value="complete" style="background: #2d2d2d; color: #e0e0e0;">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
-                <option value="incomplete" style="background: #2d2d2d; color: #e0e0e0;">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
-                <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
-                <option value="virtual" style="background: #2d2d2d; color: #e0e0e0;">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
-              </select>
-              <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; margin-left: auto;">
+              <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                <input type="text"
+                       id="instrumentSearch"
+                       placeholder="🔍 ${i18n.t('instrumentManagement.searchPlaceholder') || 'Rechercher un instrument...'}"
+                       onkeyup="instrumentManagementPageInstance.handleSearch(this.value)"
+                       style="flex: 1; min-width: 150px; padding: 8px 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; outline: none;"
+                       onfocus="this.style.borderColor='rgba(255,255,255,0.6)';this.style.background='rgba(255,255,255,0.25)'"
+                       onblur="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='rgba(255,255,255,0.15)'">
+                <select id="instrumentFilter"
+                        onchange="instrumentManagementPageInstance.handleFilter(this.value)"
+                        style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; cursor: pointer;">
+                  <option value="all" style="background: #2d2d2d; color: #e0e0e0;">${i18n.t('instrumentManagement.filterAll') || 'Tous'}</option>
+                  <option value="complete" style="background: #2d2d2d; color: #e0e0e0;">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
+                  <option value="incomplete" style="background: #2d2d2d; color: #e0e0e0;">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
+                  <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
+                  <option value="virtual" style="background: #2d2d2d; color: #e0e0e0;">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
+                </select>
+              </div>
+              <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
                 ×
               </button>
             </div>
@@ -76,23 +78,25 @@ class InstrumentManagementPage {
 
           <!-- Toolbar connexions -->
           <div style="padding: 10px 24px; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
               <span style="font-size: 13px; color: #666; font-weight: 600;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
+              <button class="btn" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 6px 14px; font-size: 13px;">
                 🔌 USB
               </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanBluetooth()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
+              <button class="btn" onclick="instrumentManagementPageInstance.scanBluetooth()" style="padding: 6px 14px; font-size: 13px;">
                 📡 Bluetooth
               </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
+              <button class="btn" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 6px 14px; font-size: 13px;">
                 🌐 WiFi / Réseau
               </button>
-              <button class="button button-primary" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; margin-left: auto;">
-                ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Instrument virtuel'}
-              </button>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;">
-                🔄 ${i18n.t('instrumentManagement.refresh') || 'Actualiser'}
-              </button>
+              <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                <button class="btn btn-primary" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px;">
+                  ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Instrument virtuel'}
+                </button>
+                <button class="btn" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px;">
+                  🔄
+                </button>
+              </div>
             </div>
           </div>
 
@@ -107,7 +111,7 @@ class InstrumentManagementPage {
           <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #666;">
               <span id="instrumentStats">${i18n.t('common.loading') || 'Chargement...'}</span>
-              <button class="button button-secondary" onclick="instrumentManagementPageInstance.close()">
+              <button class="btn" onclick="instrumentManagementPageInstance.close()">
                 ${i18n.t('common.close') || 'Fermer'}
               </button>
             </div>
@@ -352,21 +356,21 @@ class InstrumentManagementPage {
 
         <!-- Actions -->
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="button button-primary"
+          <button class="btn btn-primary"
                   onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeId}')"
-                  style="flex: 1; min-width: 100px; font-size: 13px; padding: 8px 12px;">
+                  style="flex: 1; min-width: 80px; font-size: 13px; padding: 7px 12px;">
             ✏️ ${i18n.t('instrumentManagement.edit') || 'Modifier'}
           </button>
           ${isConnected ? `
-            <button class="button button-secondary"
+            <button class="btn"
                     onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}')"
-                    style="font-size: 13px; padding: 8px 12px;">
+                    style="font-size: 13px; padding: 7px 12px;">
               🎵 ${i18n.t('instrumentManagement.test') || 'Tester'}
             </button>
           ` : ''}
-          <button class="button button-danger"
+          <button class="btn btn-danger"
                   onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}')"
-                  style="font-size: 13px; padding: 8px 12px;">
+                  style="font-size: 13px; padding: 7px 12px;">
             🗑️
           </button>
         </div>
@@ -585,9 +589,9 @@ class InstrumentManagementPage {
 
     overlay.innerHTML = `
       <div style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
-          <h3 style="margin:0;font-size:20px;color:#1f2937;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
-          <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;padding:4px 8px;">×</button>
+        <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px 16px 0 0;color:white;">
+          <h3 style="margin:0;font-size:18px;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
+          <button onclick="this.closest('div[style*=fixed]').remove()" style="background:rgba(255,255,255,0.2);border:none;font-size:20px;cursor:pointer;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
         </div>
         <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
           <label style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:#374151;">
@@ -752,7 +756,7 @@ class InstrumentManagementPage {
           <div style="font-size: 64px; margin-bottom: 16px;">⚠️</div>
           <h3 style="margin: 0 0 8px 0;">${i18n.t('common.error') || 'Erreur'}</h3>
           <p style="margin: 0; font-size: 14px;">${this._escapeHtml(message)}</p>
-          <button class="button button-primary" onclick="instrumentManagementPageInstance.refresh()" style="margin-top: 16px;">
+          <button class="btn btn-primary" onclick="instrumentManagementPageInstance.refresh()" style="margin-top: 16px;">
             ${i18n.t('instrumentManagement.retry') || 'Réessayer'}
           </button>
         </div>
