@@ -8106,10 +8106,14 @@
             // 🆕 Charger la configuration de routage
             loadRoutingConfig();
 
-            await connectWebSocket();
-
             // Attacher les handlers open/close du panneau filtres immédiatement
             initFiltersUI();
+
+            // Afficher l'app avant la connexion WebSocket (qui peut bloquer)
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+
+            await connectWebSocket();
 
             // 🆕 Initialiser la modal Bluetooth après connexion WebSocket
             if (typeof BluetoothScanModal !== 'undefined') {
@@ -8935,9 +8939,6 @@
                 }
             }
 
-            // Afficher l'app
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
         });
     </script>
 </body>
