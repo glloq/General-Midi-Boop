@@ -1684,25 +1684,22 @@ class CommandHandler {
 
   async systemUpdate() {
     this.app.logger.info('System update requested');
-    const { exec } = await import('child_process');
+    const { spawn } = await import('child_process');
     const { resolve } = await import('path');
     const scriptPath = resolve('./scripts/update.sh');
+    const cwd = resolve('.');
 
-    return new Promise((resolve_p, reject) => {
-      exec(`bash "${scriptPath}" --non-interactive`, {
-        cwd: resolve('.'),
-        timeout: 300000,
-        env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
-      }, (error, stdout, stderr) => {
-        if (error) {
-          this.app.logger.error('System update failed:', error.message);
-          reject(new Error(`Update failed: ${error.message}`));
-          return;
-        }
-        this.app.logger.info('System update completed successfully');
-        resolve_p({ success: true, output: stdout });
-      });
+    // Launch update script detached so it survives server restart
+    const child = spawn('bash', [scriptPath, '--non-interactive'], {
+      cwd,
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive', NON_INTERACTIVE: '1' }
     });
+    child.unref();
+
+    this.app.logger.info(`Update script launched (PID: ${child.pid}), server will restart`);
+    return { success: true, message: 'Update started' };
   }
 
   async systemBackup(data) {
