@@ -381,8 +381,8 @@
 
 .selector-content::-webkit-scrollbar,
 .instruments-list::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 16px;
+    height: 16px;
 }
 
 .selector-content::-webkit-scrollbar-track,

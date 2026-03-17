@@ -383,8 +383,8 @@ body.dark-mode .badge-primary {
 
 /* Scrollbars pour le thème sombre */
 body.dark-mode ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 20px;
+    height: 20px;
 }
 
 body.dark-mode ::-webkit-scrollbar-track {

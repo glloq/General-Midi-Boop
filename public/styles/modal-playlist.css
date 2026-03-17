@@ -303,7 +303,7 @@
 /* Scrollbar custom */
 .available-files-list::-webkit-scrollbar,
 .playlist-files-list::-webkit-scrollbar {
-    width: 8px;
+    width: 16px;
 }
 
 .available-files-list::-webkit-scrollbar-track,

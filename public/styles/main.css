@@ -486,8 +486,8 @@ body.performance-mode .card:hover {
    ============================================================================ */
 
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 20px;
+    height: 20px;
 }
 
 ::-webkit-scrollbar-track {
@@ -499,7 +499,7 @@ body.performance-mode .card:hover {
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
     border-radius: 10px;
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: padding-box;
     box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
     transition: all 0.3s ease;
@@ -523,7 +523,7 @@ body.performance-mode .card:hover {
 
 /* Firefox scrollbar */
 * {
-    scrollbar-width: thin;
+    scrollbar-width: auto;
     scrollbar-color: #667eea #e8eaed;
 }
 

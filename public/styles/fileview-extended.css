@@ -392,7 +392,7 @@
 
 .file-list::-webkit-scrollbar,
 .details-content::-webkit-scrollbar {
-    width: 10px;
+    width: 20px;
 }
 
 .file-list::-webkit-scrollbar-track,
