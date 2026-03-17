@@ -8264,7 +8264,7 @@
             });
 
             // Reset filters button
-            resetFiltersBtn.addEventListener('click', () => {
+            resetFiltersBtn.addEventListener('click', async () => {
                 // Reset all inputs
                 durationMin.value = '';
                 durationMax.value = '';
@@ -8285,8 +8285,9 @@
                 // Reset filter manager
                 filterManager.resetFilters();
 
-                // Update display
+                // Update display and reload files without filters
                 updateFilterBadges();
+                await loadFiles();
             });
 
             // Apply filters button
