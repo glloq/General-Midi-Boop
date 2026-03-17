@@ -158,6 +158,7 @@ class CommandHandler {
       'system_info': () => this.systemInfo(),
       'system_restart': () => this.systemRestart(),
       'system_shutdown': () => this.systemShutdown(),
+      'system_update': () => this.systemUpdate(),
       'system_backup': (data) => this.systemBackup(data),
       'system_restore': (data) => this.systemRestore(data),
       'system_logs': (data) => this.systemLogs(data),
@@ -1639,6 +1640,29 @@ class CommandHandler {
     this.app.logger.info('System shutdown requested');
     setTimeout(() => process.exit(0), 1000);
     return { success: true };
+  }
+
+  async systemUpdate() {
+    this.app.logger.info('System update requested');
+    const { exec } = await import('child_process');
+    const { resolve } = await import('path');
+    const scriptPath = resolve('./scripts/update.sh');
+
+    return new Promise((resolve_p, reject) => {
+      exec(`bash "${scriptPath}" --non-interactive`, {
+        cwd: resolve('.'),
+        timeout: 300000,
+        env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
+      }, (error, stdout, stderr) => {
+        if (error) {
+          this.app.logger.error('System update failed:', error.message);
+          reject(new Error(`Update failed: ${error.message}`));
+          return;
+        }
+        this.app.logger.info('System update completed successfully');
+        resolve_p({ success: true, output: stdout });
+      });
+    });
   }
 
   async systemBackup(data) {

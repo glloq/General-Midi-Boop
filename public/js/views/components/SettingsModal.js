@@ -494,6 +494,31 @@ class SettingsModal {
                     </div>
                 </div>
             </div>
+
+            <!-- Mise à jour -->
+            <div class="settings-section" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+                <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🔄 ${i18n.t('settings.update.title') || 'Mise à jour'}</h3>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.update.description') || 'Mettre à jour le projet depuis le dépôt distant'}</p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.update.warning') || 'Le serveur redémarrera automatiquement après la mise à jour'}</p>
+                    </div>
+                    <button id="systemUpdateBtn" style="
+                        padding: 12px 24px;
+                        border: none;
+                        border-radius: 8px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                        white-space: nowrap;
+                        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                    ">${i18n.t('settings.update.button') || 'Mettre à jour'}</button>
+                </div>
+                <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
+            </div>
         `;
     }
 
@@ -718,6 +743,55 @@ class SettingsModal {
             serialScanBtn.addEventListener('click', () => {
                 this.scanSerialPorts();
             });
+        }
+
+        // System update button
+        const updateBtn = this.modal.querySelector('#systemUpdateBtn');
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+                this.triggerSystemUpdate();
+            });
+        }
+    }
+
+    /**
+     * Trigger system update via backend
+     */
+    async triggerSystemUpdate() {
+        const btn = this.modal.querySelector('#systemUpdateBtn');
+        const statusEl = this.modal.querySelector('#updateStatus');
+        if (!btn || !statusEl) return;
+
+        // Confirm
+        if (!confirm(i18n.t('settings.update.confirm') || 'Lancer la mise à jour ? Le serveur va redémarrer.')) {
+            return;
+        }
+
+        // Show progress
+        btn.disabled = true;
+        btn.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
+        btn.style.opacity = '0.7';
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#eef2ff';
+        statusEl.style.color = '#667eea';
+        statusEl.textContent = i18n.t('settings.update.running') || 'Mise à jour en cours, veuillez patienter...';
+
+        try {
+            const api = window.api || window.apiClient;
+            if (!api || !api.sendCommand) {
+                throw new Error('API not available');
+            }
+            const result = await api.sendCommand('system_update', {}, 300000);
+            statusEl.style.background = '#f0fdf4';
+            statusEl.style.color = '#16a34a';
+            statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
+        } catch (error) {
+            statusEl.style.background = '#fef2f2';
+            statusEl.style.color = '#dc2626';
+            statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
+            btn.disabled = false;
+            btn.textContent = i18n.t('settings.update.button') || 'Mettre à jour';
+            btn.style.opacity = '1';
         }
     }
 
