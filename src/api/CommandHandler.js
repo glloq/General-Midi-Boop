@@ -185,7 +185,24 @@ class CommandHandler {
       'playlist_create': (data) => this.playlistCreate(data),
       'playlist_delete': (data) => this.playlistDelete(data),
       'playlist_list': () => this.playlistList(),
-      'playlist_add_file': (data) => this.playlistAddFile(data)
+      'playlist_add_file': (data) => this.playlistAddFile(data),
+
+      // ==================== LIGHTING CONTROL (15 commands) ====================
+      'lighting_device_list': () => this.lightingDeviceList(),
+      'lighting_device_add': (data) => this.lightingDeviceAdd(data),
+      'lighting_device_update': (data) => this.lightingDeviceUpdate(data),
+      'lighting_device_delete': (data) => this.lightingDeviceDelete(data),
+      'lighting_device_test': (data) => this.lightingDeviceTest(data),
+      'lighting_rule_list': (data) => this.lightingRuleList(data),
+      'lighting_rule_add': (data) => this.lightingRuleAdd(data),
+      'lighting_rule_update': (data) => this.lightingRuleUpdate(data),
+      'lighting_rule_delete': (data) => this.lightingRuleDelete(data),
+      'lighting_rule_test': (data) => this.lightingRuleTest(data),
+      'lighting_preset_list': () => this.lightingPresetList(),
+      'lighting_preset_save': (data) => this.lightingPresetSave(data),
+      'lighting_preset_load': (data) => this.lightingPresetLoad(data),
+      'lighting_preset_delete': (data) => this.lightingPresetDelete(data),
+      'lighting_all_off': () => this.lightingAllOff()
     };
   }
 
@@ -2251,6 +2268,159 @@ class CommandHandler {
       routings,
       count: routings.length
     };
+  }
+
+  // ==================== LIGHTING CONTROL ====================
+
+  lightingDeviceList() {
+    const devices = this.app.database.getLightingDevices();
+    const statuses = this.app.lightingManager?.getDeviceStatus() || [];
+    const statusMap = new Map(statuses.map(s => [s.id, s.connected]));
+
+    return {
+      success: true,
+      devices: devices.map(d => ({
+        ...d,
+        connected: statusMap.get(d.id) || false
+      }))
+    };
+  }
+
+  lightingDeviceAdd(data) {
+    if (!data.name) throw new Error('name is required');
+
+    const id = this.app.database.insertLightingDevice({
+      name: data.name,
+      type: data.type || 'gpio',
+      connection_config: data.connection_config || {},
+      led_count: data.led_count || 1,
+      enabled: data.enabled !== false
+    });
+
+    // Reload drivers
+    this.app.lightingManager?.reloadDevices();
+
+    return { success: true, id };
+  }
+
+  lightingDeviceUpdate(data) {
+    if (!data.id) throw new Error('id is required');
+    this.app.database.updateLightingDevice(data.id, data);
+    this.app.lightingManager?.reloadDevices();
+    return { success: true };
+  }
+
+  lightingDeviceDelete(data) {
+    if (!data.id) throw new Error('id is required');
+    this.app.database.deleteLightingDevice(data.id);
+    this.app.lightingManager?.disconnectDevice(data.id);
+    this.app.lightingManager?.reloadRules();
+    return { success: true };
+  }
+
+  async lightingDeviceTest(data) {
+    if (!data.id) throw new Error('id is required');
+    if (!this.app.lightingManager) throw new Error('Lighting manager not available');
+    return await this.app.lightingManager.testDevice(data.id);
+  }
+
+  lightingRuleList(data) {
+    let rules;
+    if (data?.device_id) {
+      rules = this.app.database.getLightingRulesForDevice(data.device_id);
+    } else {
+      rules = this.app.database.getAllLightingRules();
+    }
+    return { success: true, rules };
+  }
+
+  lightingRuleAdd(data) {
+    if (!data.device_id) throw new Error('device_id is required');
+
+    const id = this.app.database.insertLightingRule({
+      name: data.name || '',
+      device_id: data.device_id,
+      instrument_id: data.instrument_id || null,
+      priority: data.priority || 0,
+      enabled: data.enabled !== false,
+      condition_config: data.condition_config || {},
+      action_config: data.action_config || {}
+    });
+
+    this.app.lightingManager?.reloadRules();
+    return { success: true, id };
+  }
+
+  lightingRuleUpdate(data) {
+    if (!data.id) throw new Error('id is required');
+    this.app.database.updateLightingRule(data.id, data);
+    this.app.lightingManager?.reloadRules();
+    return { success: true };
+  }
+
+  lightingRuleDelete(data) {
+    if (!data.id) throw new Error('id is required');
+    this.app.database.deleteLightingRule(data.id);
+    this.app.lightingManager?.reloadRules();
+    return { success: true };
+  }
+
+  lightingRuleTest(data) {
+    if (!data.id) throw new Error('id is required');
+    if (!this.app.lightingManager) throw new Error('Lighting manager not available');
+    return this.app.lightingManager.testRule(data.id);
+  }
+
+  lightingPresetList() {
+    const presets = this.app.database.getLightingPresets();
+    return { success: true, presets };
+  }
+
+  lightingPresetSave(data) {
+    if (!data.name) throw new Error('name is required');
+
+    // Snapshot current rules
+    const rules = this.app.database.getAllLightingRules();
+    const id = this.app.database.insertLightingPreset({
+      name: data.name,
+      rules_snapshot: rules
+    });
+
+    return { success: true, id };
+  }
+
+  lightingPresetLoad(data) {
+    if (!data.id) throw new Error('id is required');
+
+    const presets = this.app.database.getLightingPresets();
+    const preset = presets.find(p => p.id === data.id);
+    if (!preset) throw new Error(`Preset ${data.id} not found`);
+
+    // Delete existing rules and recreate from snapshot
+    const existingRules = this.app.database.getAllLightingRules();
+    for (const rule of existingRules) {
+      this.app.database.deleteLightingRule(rule.id);
+    }
+
+    for (const rule of preset.rules_snapshot) {
+      this.app.database.insertLightingRule(rule);
+    }
+
+    this.app.lightingManager?.reloadRules();
+    return { success: true, rules_loaded: preset.rules_snapshot.length };
+  }
+
+  lightingPresetDelete(data) {
+    if (!data.id) throw new Error('id is required');
+    this.app.database.deleteLightingPreset(data.id);
+    return { success: true };
+  }
+
+  lightingAllOff() {
+    if (this.app.lightingManager) {
+      this.app.lightingManager.allOff();
+    }
+    return { success: true };
   }
 }
 

@@ -31,6 +31,7 @@ class Application {
     this.bluetoothManager = null;
     this.networkManager = null;
     this.serialMidiManager = null;
+    this.lightingManager = null;
     this.autoAssigner = null;
     this.wsServer = null;
     this.httpServer = null;
@@ -83,6 +84,15 @@ class Application {
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
+      }
+
+      // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
+      try {
+        const { default: LightingManager } = await import('../managers/LightingManager.js');
+        this.lightingManager = new LightingManager(this);
+        this.logger.info('Lighting manager initialized');
+      } catch (error) {
+        this.logger.warn(`Lighting manager not available: ${error.message}`);
       }
 
       // Initialize auto-assigner (singleton with cache)
@@ -224,6 +234,11 @@ class Application {
       // Close Serial MIDI
       if (this.serialMidiManager) {
         await this.serialMidiManager.shutdown();
+      }
+
+      // Close Lighting
+      if (this.lightingManager) {
+        await this.lightingManager.shutdown();
       }
 
       // Destroy auto-assigner (cleanup intervals and cache)

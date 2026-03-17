@@ -40,7 +40,8 @@
         body.theme-dark .btn-settings-toggle,
         body.theme-dark .btn-debug-toggle,
         body.theme-dark .btn-instruments-toggle,
-        body.theme-dark .btn-calibration-toggle {
+        body.theme-dark .btn-calibration-toggle,
+        body.theme-dark .btn-lighting-toggle {
             background: #3d3d3d;
             border-color: #4d4d4d;
             color: #ffffff;
@@ -69,6 +70,11 @@
         body.theme-dark .btn-calibration-toggle:hover {
             background: #e74c3c;
             border-color: #e74c3c;
+        }
+
+        body.theme-dark .btn-lighting-toggle:hover {
+            background: #eab308;
+            border-color: #eab308;
         }
 
         body.theme-dark input,
@@ -552,6 +558,32 @@
             border-color: #e74c3c;
             transform: scale(1.1) rotate(-10deg);
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-lighting-toggle {
+            position: absolute;
+            top: 20px;
+            right: 175px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            z-index: 10;
+        }
+
+        .btn-lighting-toggle:hover {
+            background: #eab308;
+            border-color: #eab308;
+            transform: scale(1.1) rotate(-10deg);
+            box-shadow: 0 4px 12px rgba(234, 179, 8, 0.3);
         }
 
         .status-bar {
@@ -2952,6 +2984,10 @@
                     🎸
                 </button>
 
+                <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière">
+                    💡
+                </button>
+
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)">
                     🎤
                 </button>
@@ -3372,6 +3408,7 @@
 
     <!-- Instrument Management Page Component -->
     <script src="js/views/components/InstrumentManagementPage.js"></script>
+    <script src="js/views/components/LightingControlPage.js"></script>
 
     <!-- Bluetooth Scan Modal Component -->
     <script src="js/views/components/BluetoothScanModal.js"></script>
@@ -3596,6 +3633,9 @@
 
         // 🆕 Instance de la page de gestion des instruments
         let instrumentManagementPage = null;
+
+        // 💡 Instance de la page de contrôle lumière
+        let lightingControlPage = null;
 
         // 🆕 Instance du modal de réglages
         let settingsModal = null;
@@ -7937,6 +7977,15 @@
             }
         });
 
+        // Event listener pour le bouton de contrôle lumière
+        document.getElementById('lightingBtn').addEventListener('click', () => {
+            if (lightingControlPage) {
+                lightingControlPage.show();
+            } else {
+                log('Lighting control page not initialized', 'error');
+            }
+        });
+
         // Event listener pour le bouton de calibration
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             showCalibrationModal();
@@ -8907,6 +8956,14 @@
                 log('✓ Page de gestion des instruments initialisée', 'info');
             } else {
                 log('⚠️ InstrumentManagementPage non disponible', 'warning');
+            }
+
+            // 💡 Initialiser la page de contrôle lumière
+            if (typeof LightingControlPage !== 'undefined') {
+                lightingControlPage = new LightingControlPage(api);
+                log('✓ Page de contrôle lumière initialisée', 'info');
+            } else {
+                log('⚠️ LightingControlPage non disponible', 'warning');
             }
 
             // Charger et appliquer les paramètres sauvegardés
