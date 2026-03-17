@@ -3123,6 +3123,36 @@
                     </div>
                 </div>
 
+                <!-- GM Instrument Categories Filter -->
+                <div class="filter-group">
+                    <label class="filter-label">🎼 Catégories GM</label>
+                    <select id="filterGmCategories" class="filter-select" multiple size="6" style="width: 100%;">
+                        <option value="Piano">Piano</option>
+                        <option value="Chromatic Percussion">Percussions chromatiques</option>
+                        <option value="Organ">Orgue</option>
+                        <option value="Guitar">Guitare</option>
+                        <option value="Bass">Basse</option>
+                        <option value="Strings">Cordes</option>
+                        <option value="Ensemble">Ensemble</option>
+                        <option value="Brass">Cuivres</option>
+                        <option value="Reed">Anches</option>
+                        <option value="Pipe">Flûtes / Bois</option>
+                        <option value="Synth Lead">Synth Lead</option>
+                        <option value="Synth Pad">Synth Pad</option>
+                        <option value="Synth Effects">Synth Effects</option>
+                        <option value="Ethnic">Ethnique</option>
+                        <option value="Percussive">Percussif</option>
+                        <option value="Sound Effects">Effets sonores</option>
+                    </select>
+                    <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+                        <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
+                        <select id="filterGmMode" class="filter-select" style="flex: 1;">
+                            <option value="ANY">Au moins une</option>
+                            <option value="ALL">Toutes présentes</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Routing Status Filter -->
                 <div class="filter-group">
                     <label class="filter-label">⚙️ Statut de routage</label>
@@ -8171,6 +8201,19 @@
                 filterManager.setFilter('instrumentMode', instrumentMode.value);
             });
 
+            // GM Categories filter
+            const gmCategoriesSelect = document.getElementById('filterGmCategories');
+            const gmModeSelect = document.getElementById('filterGmMode');
+
+            gmCategoriesSelect.addEventListener('change', () => {
+                const selected = Array.from(gmCategoriesSelect.selectedOptions).map(opt => opt.value);
+                filterManager.setFilter('gmCategories', selected);
+            });
+
+            gmModeSelect.addEventListener('change', () => {
+                filterManager.setFilter('gmMode', gmModeSelect.value);
+            });
+
             // Routing status filter (detailed)
             const routingStatusSelect = document.getElementById('filterRoutingStatus');
             routingStatusSelect.addEventListener('change', () => {
@@ -8280,6 +8323,8 @@
                 tracksMax.value = '';
                 instrumentCheckboxes.forEach(cb => cb.checked = false);
                 instrumentMode.value = 'ANY';
+                gmCategoriesSelect.selectedIndex = -1;
+                gmModeSelect.value = 'ANY';
                 routingStatusSelect.value = 'all';
                 playableInstrumentsSelect.selectedIndex = -1;
                 playableModeSelect.value = 'routed';
@@ -8346,7 +8391,7 @@
                 }
 
                 // Don't create duplicate badges for range filters and mode selectors
-                if (filter.key.endsWith('Max') || filter.key.endsWith('After') || filter.key === 'instrumentMode' || filter.key === 'playableMode' || filter.key === 'validatedThreshold') {
+                if (filter.key.endsWith('Max') || filter.key.endsWith('After') || filter.key === 'instrumentMode' || filter.key === 'playableMode' || filter.key === 'validatedThreshold' || filter.key === 'gmMode') {
                     return;
                 }
 
@@ -8386,6 +8431,11 @@
             } else if (key === 'instrumentTypes') {
                 document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                 filterManager.setFilter('instrumentTypes', []);
+            } else if (key === 'gmCategories') {
+                document.getElementById('filterGmCategories').selectedIndex = -1;
+                document.getElementById('filterGmMode').value = 'ANY';
+                filterManager.setFilter('gmCategories', []);
+                filterManager.setFilter('gmMode', 'ANY');
             } else if (key === 'hasRouting' || key === 'routingStatus') {
                 document.getElementById('filterRoutingStatus').value = 'all';
                 filterManager.setFilter('routingStatus', null);
