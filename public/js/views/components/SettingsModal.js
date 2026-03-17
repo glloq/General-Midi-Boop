@@ -791,17 +791,32 @@ class SettingsModal {
                 throw new Error('API not available');
             }
             const result = await api.sendCommand('system_update', {}, 300000);
-            statusEl.style.background = '#f0fdf4';
-            statusEl.style.color = '#16a34a';
-            statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
+            this._showUpdateSuccess(statusEl);
         } catch (error) {
-            statusEl.style.background = '#fef2f2';
-            statusEl.style.color = '#dc2626';
-            statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
-            btn.disabled = false;
-            btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
-            btn.style.opacity = '1';
+            // WebSocket disconnect during update means the server is restarting = success
+            const msg = (error.message || '').toLowerCase();
+            if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected')) {
+                this._showUpdateSuccess(statusEl);
+            } else {
+                statusEl.style.background = '#fef2f2';
+                statusEl.style.color = '#dc2626';
+                statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
+                btn.disabled = false;
+                btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
+                btn.style.opacity = '1';
+            }
         }
+    }
+
+    _showUpdateSuccess(statusEl) {
+        statusEl.style.background = '#f0fdf4';
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
+        // Auto-reload after server restart
+        setTimeout(() => {
+            statusEl.textContent = (i18n.t('settings.update.reloading') || 'Rechargement de la page...');
+            setTimeout(() => window.location.reload(), 3000);
+        }, 10000);
     }
 
     /**

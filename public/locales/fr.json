@@ -98,6 +98,7 @@
       "inProgress": "Mise à jour en cours...",
       "running": "Mise à jour en cours, veuillez patienter...",
       "success": "Mise à jour terminée ! Le serveur redémarre...",
+      "reloading": "Rechargement de la page...",
       "failed": "Échec de la mise à jour"
     }
   },
