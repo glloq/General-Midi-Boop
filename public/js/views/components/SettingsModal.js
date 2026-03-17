@@ -851,11 +851,31 @@ class SettingsModal {
         statusEl.style.background = '#f0fdf4';
         statusEl.style.color = '#16a34a';
         statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
-        // Auto-reload after server restart
-        setTimeout(() => {
-            statusEl.textContent = (i18n.t('settings.update.reloading') || 'Rechargement de la page...');
-            setTimeout(() => window.location.reload(), 3000);
-        }, 10000);
+
+        // Wait for server to come back online, then reload
+        const waitForServer = async () => {
+            statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
+            const maxAttempts = 30;
+            for (let i = 0; i < maxAttempts; i++) {
+                await new Promise(r => setTimeout(r, 3000));
+                try {
+                    const resp = await fetch(window.location.origin, { method: 'HEAD', cache: 'no-store' });
+                    if (resp.ok) {
+                        statusEl.textContent = i18n.t('settings.update.reloading') || 'Rechargement de la page...';
+                        setTimeout(() => window.location.reload(), 1000);
+                        return;
+                    }
+                } catch (e) {
+                    // Server not ready yet
+                }
+            }
+            statusEl.style.background = '#fefce8';
+            statusEl.style.color = '#a16207';
+            statusEl.textContent = i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas. Rechargez la page manuellement.';
+        };
+
+        // Give the server time to shut down first
+        setTimeout(waitForServer, 5000);
     }
 
     /**

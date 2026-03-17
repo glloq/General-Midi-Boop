@@ -99,6 +99,8 @@
       "running": "Update in progress, please wait...",
       "success": "Update complete! The server is restarting...",
       "reloading": "Reloading page...",
+      "waitingRestart": "Waiting for server to restart...",
+      "restartTimeout": "Server is not responding. Please reload the page manually.",
       "failed": "Update failed",
       "checking": "Checking for updates...",
       "upToDate": "System is up to date",

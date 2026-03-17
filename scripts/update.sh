@@ -101,38 +101,41 @@ print_success "Working directory clean"
 
 print_header "2. Stopping Server"
 
-# Check if PM2 is available
+# Detect how the server is managed
 PM2_AVAILABLE=false
+PM2_MANAGED=false
+SYSTEMD_MANAGED=false
+
 if command -v pm2 &> /dev/null; then
     PM2_AVAILABLE=true
-fi
-
-# Stop PM2 process completely (delete, not just stop)
-if [ "$PM2_AVAILABLE" = true ]; then
-    if pm2 list | grep -q "midimind"; then
-        print_info "Stopping and removing PM2 process..."
-        pm2 delete midimind 2>/dev/null || true
-        print_success "PM2 process removed"
-    else
-        print_info "No PM2 process running"
+    if pm2 list 2>/dev/null | grep -q "midimind"; then
+        PM2_MANAGED=true
     fi
 fi
 
-# Try systemd
 if systemctl is-active --quiet midimind 2>/dev/null; then
+    SYSTEMD_MANAGED=true
+fi
+
+# Stop the server
+if [ "$PM2_MANAGED" = true ]; then
+    print_info "Stopping PM2 process (will restart after update)..."
+    pm2 stop midimind 2>/dev/null || true
+    print_success "PM2 process stopped"
+elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Stopping systemd service..."
     sudo systemctl stop midimind
     print_success "Systemd service stopped"
-fi
-
-# Kill any remaining node processes on port 8080
-if lsof -ti:8080 &> /dev/null; then
-    print_info "Killing processes on port 8080..."
-    lsof -ti:8080 | xargs -r kill -9 2>/dev/null || true
-    sleep 2
-    print_success "Port 8080 freed"
 else
-    print_info "Port 8080 already free"
+    # Direct node process - kill it
+    if lsof -ti:8080 &> /dev/null; then
+        print_info "Killing server process on port 8080..."
+        lsof -ti:8080 | xargs -r kill -9 2>/dev/null || true
+        sleep 2
+        print_success "Server stopped"
+    else
+        print_info "No server running"
+    fi
 fi
 
 # ============================================================================
@@ -215,64 +218,40 @@ fi
 
 print_header "6. Restarting Server"
 
-# Choose restart method based on what was running before
-if [ "$PM2_AVAILABLE" = true ]; then
-    print_info "Starting with PM2..."
+# Restart using the same method that was running before
+if [ "$PM2_MANAGED" = true ]; then
+    print_info "Restarting with PM2..."
+    pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs
+    pm2 save 2>/dev/null || true
+    sleep 3
+    print_success "PM2 process restarted"
+    pm2 list
 
-    # Start fresh with ecosystem.config.cjs
-    if pm2 start ecosystem.config.cjs; then
-        print_success "PM2 process started"
-
-        # Save PM2 configuration
-        pm2 save
-        print_success "PM2 configuration saved"
-
-        # Wait for server to be ready
-        sleep 3
-
-        # Show status
-        print_info "PM2 Status:"
-        pm2 list
-
-        # Show logs
-        echo ""
-        print_info "Recent logs:"
-        pm2 logs midimind --lines 15 --nostream
-
-    else
-        print_error "Failed to start PM2 process"
-        print_info "Check ecosystem.config.cjs for errors"
-        exit 1
-    fi
-
-elif systemctl list-units --type=service | grep -q "midimind"; then
+elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Restarting with systemd..."
-    sudo systemctl restart midimind
+    sudo systemctl start midimind
     sleep 2
-    if systemctl is-active --quiet midimind; then
-        print_success "Systemd service restarted"
+    print_success "Systemd service restarted"
 
-        # Show status
-        print_info "Service status:"
-        sudo systemctl status midimind --no-pager -l
-    else
-        print_error "Failed to restart systemd service"
-        sudo systemctl status midimind --no-pager -l
-        exit 1
-    fi
+elif [ "$PM2_AVAILABLE" = true ]; then
+    print_info "Starting with PM2..."
+    pm2 start ecosystem.config.cjs
+    pm2 save 2>/dev/null || true
+    sleep 3
+    print_success "Server started with PM2"
+
 else
-    print_warning "No service manager detected"
-    print_info "Starting server with PM2..."
-
-    if [ "$PM2_AVAILABLE" = true ]; then
-        pm2 start ecosystem.config.cjs
-        pm2 save
-        print_success "Server started with PM2"
+    # Fallback: start node directly in background
+    print_info "Starting server directly..."
+    cd "$PROJECT_DIR"
+    nohup node server.js > /tmp/midimind-update.log 2>&1 &
+    SERVER_PID=$!
+    sleep 3
+    if kill -0 $SERVER_PID 2>/dev/null; then
+        print_success "Server started (PID: $SERVER_PID)"
     else
-        print_warning "PM2 not available"
-        print_info "You can start the server manually with:"
-        echo "  npm start          # Foreground"
-        echo "  npm run pm2:start  # Background with PM2"
+        print_error "Server failed to start, check /tmp/midimind-update.log"
+        exit 1
     fi
 fi
 

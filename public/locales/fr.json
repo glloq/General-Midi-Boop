@@ -99,6 +99,8 @@
       "running": "Mise à jour en cours, veuillez patienter...",
       "success": "Mise à jour terminée ! Le serveur redémarre...",
       "reloading": "Rechargement de la page...",
+      "waitingRestart": "En attente du redémarrage du serveur...",
+      "restartTimeout": "Le serveur ne répond pas. Rechargez la page manuellement.",
       "failed": "Échec de la mise à jour",
       "checking": "Vérification des mises à jour...",
       "upToDate": "Le système est à jour",
