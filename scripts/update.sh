@@ -47,6 +47,23 @@ print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
 }
 
+# Abort update and attempt to restart the server
+abort_and_restart() {
+    print_error "Update aborted: $1"
+    print_header "Restarting Server (recovery)"
+    if [ "$PM2_MANAGED" = true ]; then
+        pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
+    elif [ "$SYSTEMD_MANAGED" = true ]; then
+        timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
+    elif [ "$PM2_AVAILABLE" = true ]; then
+        pm2 start ecosystem.config.cjs 2>/dev/null || true
+    else
+        cd "$PROJECT_DIR"
+        nohup node server.js >> /tmp/midimind-server.log 2>&1 &
+    fi
+    exit 1
+}
+
 # ============================================================================
 # Main Update Process
 # ============================================================================
@@ -71,8 +88,13 @@ cd "$PROJECT_DIR"
 
 print_info "Project directory: $PROJECT_DIR"
 
-# Detect server port from config or default to 8080
-SERVER_PORT=8080
+# Detect server port from env (passed by Node backend), config.json, or default
+if [ -z "$SERVER_PORT" ]; then
+    if [ -f "$PROJECT_DIR/config.json" ] && command -v node &> /dev/null; then
+        SERVER_PORT=$(node -p "try{JSON.parse(require('fs').readFileSync('$PROJECT_DIR/config.json','utf8')).server.port}catch(e){8080}" 2>/dev/null)
+    fi
+fi
+SERVER_PORT="${SERVER_PORT:-8080}"
 
 # ============================================================================
 # 1. Check Git Status
@@ -101,6 +123,13 @@ if ! git diff-index --quiet HEAD -- 2>/dev/null; then
 fi
 
 print_success "Working directory clean"
+
+# Give the Node.js server time to send the response to the client
+if [ "$NON_INTERACTIVE" = "1" ]; then
+    DELAY=${UPDATE_DELAY_SECONDS:-3}
+    print_info "Waiting ${DELAY}s for server response to complete..."
+    sleep "$DELAY"
+fi
 
 # ============================================================================
 # 2. Stop Running Server
@@ -131,7 +160,7 @@ if [ "$PM2_MANAGED" = true ]; then
     print_success "PM2 process stopped"
 elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Stopping systemd service..."
-    sudo systemctl stop midimind 2>/dev/null || true
+    timeout 10 sudo -n systemctl stop midimind 2>/dev/null || true
     print_success "Systemd service stopped"
 else
     # Direct node process - kill it
@@ -152,7 +181,7 @@ else
         print_success "Server stopped"
     else
         # Fallback: kill by process name
-        pkill -f "node.*server.js" 2>/dev/null || true
+        pkill -f "node $PROJECT_DIR/server.js" 2>/dev/null || pkill -f "node.*server.js" 2>/dev/null || true
         sleep 2
         print_info "Attempted to stop server via pkill"
     fi
@@ -174,9 +203,7 @@ if [ "$CURRENT_BRANCH" != "main" ]; then
     if git checkout main; then
         print_success "Switched to main branch"
     else
-        print_error "Failed to switch to main branch"
-        print_info "You may need to commit or stash changes first"
-        # Don't exit - try to restart server anyway
+        abort_and_restart "Failed to switch to main branch"
     fi
 else
     print_success "Already on main branch"
@@ -191,8 +218,7 @@ print_info "Pulling latest changes from main..."
 if git pull origin main; then
     print_success "Successfully pulled latest changes from main"
 else
-    print_error "Failed to pull changes from main"
-    # Don't exit - try to restart server anyway
+    abort_and_restart "Failed to pull changes from main"
 fi
 
 # Show what changed
@@ -211,11 +237,13 @@ print_info "Installing/updating npm dependencies..."
 if npm install 2>&1; then
     print_success "Dependencies updated"
 else
-    print_warning "npm install had issues (native modules may have failed to build)"
-    print_info "Trying npm install --ignore-scripts as fallback..."
-    npm install --ignore-scripts 2>&1 || print_warning "Fallback install also had issues"
-    # Try to rebuild just the critical native modules
-    npm rebuild better-sqlite3 2>/dev/null || true
+    print_warning "npm install had issues, trying --ignore-scripts fallback..."
+    if npm install --ignore-scripts 2>&1; then
+        npm rebuild better-sqlite3 2>/dev/null || true
+        print_success "Dependencies updated (fallback)"
+    else
+        abort_and_restart "npm install failed completely"
+    fi
 fi
 
 # ============================================================================
@@ -248,7 +276,7 @@ if [ "$PM2_MANAGED" = true ]; then
 
 elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Restarting with systemd..."
-    sudo systemctl start midimind 2>/dev/null || true
+    timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
     sleep 2
     print_success "Systemd service restarted"
 

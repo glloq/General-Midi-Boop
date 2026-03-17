@@ -762,6 +762,8 @@ class SettingsModal {
      * Trigger system update via backend
      */
     async triggerSystemUpdate() {
+        if (this._updateInProgress) return;
+
         const btn = this.modal.querySelector('#systemUpdateBtn');
         const statusEl = this.modal.querySelector('#updateStatus');
         if (!btn || !statusEl) return;
@@ -780,6 +782,8 @@ class SettingsModal {
 
         if (!confirmed) return;
 
+        this._updateInProgress = true;
+
         // Show progress
         btn.disabled = true;
         btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
@@ -795,6 +799,9 @@ class SettingsModal {
                 throw new Error('API not available');
             }
             const result = await api.sendCommand('system_update', {}, 300000);
+            if (result && result.success === false) {
+                throw new Error(result.error || 'Update failed to start');
+            }
             this._showUpdateSuccess(statusEl);
         } catch (error) {
             // WebSocket disconnect during update means the server is restarting = success
@@ -808,6 +815,7 @@ class SettingsModal {
                 btn.disabled = false;
                 btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
                 btn.style.opacity = '1';
+                this._updateInProgress = false;
             }
         }
     }

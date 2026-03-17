@@ -3,9 +3,9 @@ import JsonValidator from '../utils/JsonValidator.js';
 import MidiTransposer from '../midi/MidiTransposer.js';
 import JsonMidiConverter from '../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../midi/InstrumentCapabilitiesValidator.js';
-import { readFileSync } from 'fs';
+import { readFileSync, accessSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +23,7 @@ class CommandHandler {
   constructor(app) {
     this.app = app;
     this.midiConverter = new JsonMidiConverter(app.logger);
+    this._updateInProgress = false;
     this.handlers = this.registerHandlers();
 
     this.app.logger.info(`CommandHandler initialized with ${Object.keys(this.handlers).length} commands`);
@@ -1684,18 +1685,57 @@ class CommandHandler {
 
   async systemUpdate() {
     this.app.logger.info('System update requested');
-    const { spawn } = await import('child_process');
-    const { resolve } = await import('path');
+
+    // Prevent concurrent updates
+    if (this._updateInProgress) {
+      return { success: false, error: 'Update already in progress' };
+    }
+
     const scriptPath = resolve('./scripts/update.sh');
     const cwd = resolve('.');
+
+    // Verify script exists and is executable
+    try {
+      accessSync(scriptPath, fsConstants.F_OK | fsConstants.X_OK);
+    } catch (err) {
+      this.app.logger.error(`Update script not found or not executable: ${scriptPath}`);
+      return { success: false, error: 'Update script not found or not executable' };
+    }
+
+    this._updateInProgress = true;
+
+    const { spawn } = await import('child_process');
+    const serverPort = this.app.config?.server?.port || 8080;
 
     // Launch update script detached so it survives server restart
     const child = spawn('bash', [scriptPath, '--non-interactive'], {
       cwd,
       detached: true,
       stdio: 'ignore',
-      env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive', NON_INTERACTIVE: '1' }
+      env: {
+        ...process.env,
+        DEBIAN_FRONTEND: 'noninteractive',
+        NON_INTERACTIVE: '1',
+        SERVER_PORT: String(serverPort),
+        UPDATE_DELAY_SECONDS: '3'
+      }
     });
+
+    // Wait briefly to catch immediate spawn failures
+    try {
+      await new Promise((resolvePromise, reject) => {
+        const timer = setTimeout(resolvePromise, 500);
+        child.on('error', (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+      });
+    } catch (err) {
+      this._updateInProgress = false;
+      this.app.logger.error(`Failed to spawn update script: ${err.message}`);
+      return { success: false, error: `Failed to start update: ${err.message}` };
+    }
+
     child.unref();
 
     this.app.logger.info(`Update script launched (PID: ${child.pid}), server will restart`);
