@@ -504,7 +504,15 @@
     "deleteTitle": "Supprimer l'instrument",
     "deleteSuccess": "Instrument supprimé avec succès",
     "unknownDevice": "Périphérique inconnu",
-    "virtualNamePlaceholder": "Laisser vide pour utiliser le nom du type"
+    "virtualNamePlaceholder": "Laisser vide pour utiliser le nom du type",
+    "addVirtual": "Ajouter un instrument virtuel",
+    "addVirtualTitle": "Ajouter un instrument virtuel",
+    "virtualCustomName": "Nom personnalisé (optionnel)",
+    "selectType": "Sélectionnez un type d'instrument :",
+    "virtualCreated": "Instrument virtuel créé",
+    "virtualCreateFailed": "Erreur de création",
+    "virtualInstruments": "Instruments virtuels",
+    "filterVirtual": "Virtuels"
   },
   "channelRouter": {
     "title": "Configuration du routage MIDI",

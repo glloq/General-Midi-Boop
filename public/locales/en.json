@@ -504,7 +504,15 @@
     "deleteTitle": "Delete instrument",
     "deleteSuccess": "Instrument deleted successfully",
     "unknownDevice": "Unknown Device",
-    "virtualNamePlaceholder": "Leave empty to use the type name"
+    "virtualNamePlaceholder": "Leave empty to use the type name",
+    "addVirtual": "Add virtual instrument",
+    "addVirtualTitle": "Add virtual instrument",
+    "virtualCustomName": "Custom name (optional)",
+    "selectType": "Select an instrument type:",
+    "virtualCreated": "Virtual instrument created",
+    "virtualCreateFailed": "Creation error",
+    "virtualInstruments": "Virtual instruments",
+    "filterVirtual": "Virtual"
   },
   "channelRouter": {
     "title": "MIDI Routing Configuration",
