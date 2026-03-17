@@ -707,3 +707,83 @@
         height: 14px;
     }
 }
+
+/* ============================================================================
+   THÈME SOMBRE - KEYBOARD MODAL
+   ============================================================================ */
+
+body.dark-mode .keyboard-modal .modal-dialog {
+    background: var(--bg-secondary);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .keyboard-modal .modal-body {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode #keyboard-modal-view {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode #keyboard-modal-container {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-view {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-canvas-container {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-help-bar {
+    background: var(--bg-tertiary);
+    border-top-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .keyboard-canvas {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .info-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .info-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .keyboard-modal-info .info-item {
+    background: rgba(16, 185, 129, 0.1);
+    border-left-color: #10b981;
+}
+
+body.dark-mode .keyboard-modal-info .info-text {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .keyboard-modal-info .info-text strong {
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   THÈME COLORÉ - KEYBOARD MODAL
+   ============================================================================ */
+
+body.theme-colored .keyboard-modal .modal-dialog {
+    background: var(--bg-secondary);
+}
+
+body.theme-colored .keyboard-modal .modal-body {
+    background: var(--bg-secondary);
+}
+
+body.theme-colored #keyboard-modal-view,
+body.theme-colored #keyboard-modal-container,
+body.theme-colored .keyboard-view,
+body.theme-colored .keyboard-canvas-container {
+    background: var(--bg-secondary);
+}
