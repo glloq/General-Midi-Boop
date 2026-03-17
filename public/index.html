@@ -8106,6 +8106,34 @@
             // 🆕 Charger la configuration de routage
             loadRoutingConfig();
 
+            // Afficher l'app et attacher open/close filtres AVANT la connexion WebSocket
+            // (connectWebSocket peut bloquer indéfiniment si le serveur est absent)
+            {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+
+                const filtersPanel = document.getElementById('filtersPanel');
+                const filtersPanelOverlay = document.getElementById('filtersPanelOverlay');
+                const openFiltersBtn = document.getElementById('openFiltersBtn');
+                const closeFiltersBtn = document.getElementById('closeFiltersBtn');
+
+                if (filtersPanel && openFiltersBtn) {
+                    openFiltersBtn.addEventListener('click', () => {
+                        filtersPanel.classList.add('open');
+                        if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'block';
+                    });
+
+                    const closeFiltersPanel = () => {
+                        filtersPanel.classList.remove('open');
+                        if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
+                    };
+
+                    if (closeFiltersBtn) closeFiltersBtn.addEventListener('click', closeFiltersPanel);
+                    if (filtersPanelOverlay) filtersPanelOverlay.addEventListener('click', closeFiltersPanel);
+                    log('✓ Filtres UI initialisés', 'info');
+                }
+            }
+
             await connectWebSocket();
 
             // 🆕 Initialiser la modal Bluetooth après connexion WebSocket
@@ -8530,31 +8558,14 @@
 
                 const filtersPanel = document.getElementById('filtersPanel');
                 const filtersPanelOverlay = document.getElementById('filtersPanelOverlay');
-                const openFiltersBtn = document.getElementById('openFiltersBtn');
-                const closeFiltersBtn = document.getElementById('closeFiltersBtn');
                 const applyFiltersBtn = document.getElementById('applyFiltersBtn');
                 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
-                if (!filtersPanel || !openFiltersBtn) {
-                    console.error('[Filters] Required DOM elements not found');
-                    return;
-                }
-
-                // Open filters panel
-                openFiltersBtn.addEventListener('click', () => {
-                    filtersPanel.style.display = '';
-                    filtersPanel.classList.add('open');
-                    filtersPanelOverlay.style.display = 'block';
-                });
-
-                // Close filters panel
+                // Close helper (open/close handlers already attached in window.load)
                 function closeFiltersPanel() {
-                    filtersPanel.classList.remove('open');
-                    filtersPanelOverlay.style.display = 'none';
+                    if (filtersPanel) filtersPanel.classList.remove('open');
+                    if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
                 }
-
-                closeFiltersBtn.addEventListener('click', closeFiltersPanel);
-                filtersPanelOverlay.addEventListener('click', closeFiltersPanel);
 
                 // Duration filter
                 const durationMin = document.getElementById('filterDurationMin');
@@ -8666,11 +8677,14 @@
                 refreshInstrumentsBtn.addEventListener('click', loadInstrumentsList);
 
                 // Load instruments when filter panel opens
-                openFiltersBtn.addEventListener('click', () => {
-                    if (playableInstrumentsSelect.options.length === 0) {
-                        loadInstrumentsList();
-                    }
-                });
+                const openFiltersBtn = document.getElementById('openFiltersBtn');
+                if (openFiltersBtn) {
+                    openFiltersBtn.addEventListener('click', () => {
+                        if (playableInstrumentsSelect.options.length === 0) {
+                            loadInstrumentsList();
+                        }
+                    });
+                }
 
                 playableInstrumentsSelect.addEventListener('change', () => {
                     const selected = Array.from(playableInstrumentsSelect.selectedOptions).map(opt => opt.value);
@@ -8914,9 +8928,6 @@
                 }
             }
 
-            // Afficher l'app
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
         });
     </script>
 </body>
