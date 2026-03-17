@@ -4312,6 +4312,12 @@
         // Charger les fichiers
         async function loadFiles() {
             try {
+                // If filters are active, use filtered display instead
+                if (filterManager && filterManager.hasActiveFilters()) {
+                    await applyFiltersAndRefresh();
+                    return;
+                }
+
                 let files = await api.listMidiFiles('/');
                 const fileList = document.getElementById('fileList');
 
@@ -8410,6 +8416,12 @@
         // Apply filters and refresh file list
         async function applyFiltersAndRefresh() {
             try {
+                // If no filters active, reload normally (with folder structure)
+                if (!filterManager || !filterManager.hasActiveFilters()) {
+                    await loadFiles();
+                    return;
+                }
+
                 const fileList = document.getElementById('fileList');
 
                 // Show loading state
