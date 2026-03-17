@@ -1039,10 +1039,14 @@ class SettingsModal {
         const root = document.documentElement;
 
         // Supprimer les classes de thème précédentes
-        document.body.classList.remove('theme-light', 'theme-dark', 'theme-colored');
+        document.body.classList.remove('theme-light', 'theme-dark', 'theme-colored', 'dark-mode');
 
         // Ajouter la nouvelle classe
         document.body.classList.add(`theme-${theme}`);
+        // Also add dark-mode class for CSS compatibility (used by themes.css, variables.css, etc.)
+        if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
 
         // Appliquer les variables CSS selon le thème
         switch (theme) {
