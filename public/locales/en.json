@@ -191,7 +191,8 @@
     "qwertyHelp": "SDFGHJKL; (white) / WETYUOP (black)",
     "virtualInstrument": "Virtual Instrument",
     "virtualNoteOn": "[Virtual] Note ON: {note} ({number}) velocity={velocity}",
-    "virtualNoteOff": "[Virtual] Note OFF: {note} ({number})"
+    "virtualNoteOff": "[Virtual] Note OFF: {note} ({number})",
+    "modulation": "Modulation"
   },
   "midiEditor": {
     "title": "MIDI Editor",

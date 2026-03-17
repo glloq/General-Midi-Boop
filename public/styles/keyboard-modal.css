@@ -331,6 +331,44 @@
     min-width: 50px;
 }
 
+/* Modulation slider - blue theme to differentiate from velocity */
+.modulation-control-vertical {
+    border-right: 2px solid #e5e7eb;
+}
+
+.modulation-slider-vertical::-webkit-slider-thumb {
+    background: #3b82f6 !important;
+}
+
+.modulation-slider-vertical::-webkit-slider-thumb:hover {
+    background: #2563eb !important;
+}
+
+.modulation-slider-vertical::-moz-range-thumb {
+    background: #3b82f6 !important;
+}
+
+.modulation-value-vertical {
+    border-color: #3b82f6 !important;
+    color: #3b82f6 !important;
+}
+
+/* Show/hide animation for slider panels */
+.velocity-control-vertical,
+.modulation-control-vertical {
+    transition: min-width 0.3s ease, padding 0.3s ease, opacity 0.3s ease, border-width 0.3s ease;
+    overflow: hidden;
+}
+
+.slider-hidden {
+    min-width: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    opacity: 0;
+    border-right-width: 0 !important;
+    pointer-events: none;
+}
+
 /* Zone principale du clavier */
 .keyboard-main {
     flex: 1;
@@ -558,7 +596,8 @@
         padding: 8px;
     }
 
-    .velocity-control-vertical {
+    .velocity-control-vertical,
+    .modulation-control-vertical {
         min-width: 50px;
         padding: 10px 6px;
     }
