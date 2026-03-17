@@ -7,6 +7,12 @@
 
 set -e  # Exit on error
 
+# Non-interactive mode (called from web UI)
+NON_INTERACTIVE="${NON_INTERACTIVE:-0}"
+if [[ "$1" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -71,14 +77,19 @@ print_header "1. Checking Git Status"
 if ! git diff-index --quiet HEAD --; then
     print_warning "You have uncommitted changes!"
     git status --short
-    read -p "Do you want to stash your changes? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$NON_INTERACTIVE" = "1" ]; then
         git stash push -m "Auto-stash before update at $(date)"
-        print_success "Changes stashed"
+        print_success "Changes auto-stashed (non-interactive mode)"
     else
-        print_error "Please commit or stash your changes before updating"
-        exit 1
+        read -p "Do you want to stash your changes? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            git stash push -m "Auto-stash before update at $(date)"
+            print_success "Changes stashed"
+        else
+            print_error "Please commit or stash your changes before updating"
+            exit 1
+        fi
     fi
 fi
 
