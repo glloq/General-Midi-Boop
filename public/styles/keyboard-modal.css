@@ -251,25 +251,25 @@
     min-height: 0;
 }
 
-/* Slider vélocité vertical à gauche */
+/* Slider panels - dark synth theme */
 .velocity-control-vertical {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: #f9fafb;
+    background: linear-gradient(to bottom, #1a1a2e, #12121e);
     padding: 20px 12px;
-    border-right: 2px solid #e5e7eb;
+    border-right: 1px solid #333;
     min-width: 80px;
 }
 
 .velocity-label-vertical {
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.5);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     margin-bottom: 16px;
 }
 
@@ -281,76 +281,172 @@
     min-height: 200px;
 }
 
+/* Velocity fader - hardware synth style */
 .velocity-slider-vertical {
     -webkit-appearance: slider-vertical;
-    width: 6px;
+    width: 14px;
     height: 100%;
     min-height: 200px;
     writing-mode: bt-lr;
-    background: #e5e7eb;
-    border-radius: 3px;
+    background: #0a0a14;
+    border-radius: 7px;
     outline: none;
     cursor: pointer;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .velocity-slider-vertical::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #10b981;
-    cursor: pointer;
-    transition: all 0.2s;
+    width: 36px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #e0e0e0, #a0a0a0);
+    border: 1px solid #666;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    cursor: grab;
+    transition: box-shadow 0.2s;
 }
 
 .velocity-slider-vertical::-webkit-slider-thumb:hover {
-    background: #059669;
-    transform: scale(1.2);
+    background: linear-gradient(to bottom, #f0f0f0, #b0b0b0);
+    box-shadow: 0 1px 6px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.velocity-slider-vertical::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    box-shadow: 0 1px 8px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .velocity-slider-vertical::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #10b981;
-    cursor: pointer;
-    border: none;
+    width: 36px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #e0e0e0, #a0a0a0);
+    border: 1px solid #666;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    cursor: grab;
 }
 
+.velocity-slider-vertical::-moz-range-track {
+    width: 14px;
+    background: #0a0a14;
+    border-radius: 7px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* LED-style value display */
 .velocity-value-vertical {
     margin-top: 12px;
-    padding: 8px 12px;
-    background: white;
-    border: 2px solid #10b981;
-    border-radius: 8px;
+    padding: 6px 10px;
+    background: #0a0a14;
+    border: 1px solid #333;
+    border-radius: 6px;
     font-weight: 700;
     color: #10b981;
-    font-size: 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
     text-align: center;
     min-width: 50px;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* Modulation slider - blue theme to differentiate from velocity */
+/* Modulation panel */
 .modulation-control-vertical {
-    border-right: 2px solid #e5e7eb;
+    border-right: 1px solid #333;
 }
 
-.modulation-slider-vertical::-webkit-slider-thumb {
-    background: #3b82f6 !important;
-}
-
-.modulation-slider-vertical::-webkit-slider-thumb:hover {
-    background: #2563eb !important;
-}
-
-.modulation-slider-vertical::-moz-range-thumb {
-    background: #3b82f6 !important;
-}
-
+/* Modulation LED display - blue */
 .modulation-value-vertical {
-    border-color: #3b82f6 !important;
     color: #3b82f6 !important;
+    border-color: #333 !important;
+    text-shadow: 0 0 8px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* ===== Custom Mod Wheel ===== */
+.mod-wheel-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    padding: 10px 0;
+}
+
+.mod-wheel-track {
+    position: relative;
+    width: 40px;
+    height: 100%;
+    min-height: 180px;
+    background: linear-gradient(to right, #0a0a18, #14142a, #0a0a18);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+.mod-wheel-center-line {
+    position: absolute;
+    top: 50%;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: rgba(59, 130, 246, 0.35);
+    transform: translateY(-50%);
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.15);
+}
+
+.mod-wheel-fill {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    background: linear-gradient(to top, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.4));
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.mod-wheel-fill.returning {
+    transition: top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.mod-wheel-thumb {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 16px;
+    background: linear-gradient(to bottom, #d0d0e0, #808098, #d0d0e0);
+    border: 1px solid #555;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    cursor: grab;
+    z-index: 2;
+}
+
+.mod-wheel-thumb::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.3);
+    transform: translateY(-50%);
+}
+
+.mod-wheel-thumb.dragging {
+    cursor: grabbing;
+    background: linear-gradient(to bottom, #dce0f0, #9098b8, #dce0f0);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.mod-wheel-thumb.returning {
+    transition: top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Show/hide animation for slider panels */
@@ -600,5 +696,14 @@
     .modulation-control-vertical {
         min-width: 50px;
         padding: 10px 6px;
+    }
+
+    .mod-wheel-track {
+        width: 32px;
+    }
+
+    .mod-wheel-thumb {
+        width: 36px;
+        height: 14px;
     }
 }
