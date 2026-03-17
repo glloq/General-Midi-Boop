@@ -619,6 +619,23 @@ class MidiDatabase {
   }
 
   /**
+   * Count files that have no channel analysis data
+   * @returns {number} Number of files missing channel data
+   */
+  countFilesWithoutChannels() {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT COUNT(*) as count FROM midi_files mf
+        WHERE mf.id NOT IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
+      `);
+      return stmt.get().count;
+    } catch (error) {
+      this.logger.error(`Failed to count files without channels: ${error.message}`);
+      return 0;
+    }
+  }
+
+  /**
    * Delete channel analyses for a MIDI file
    * @param {number} fileId - MIDI file ID
    */

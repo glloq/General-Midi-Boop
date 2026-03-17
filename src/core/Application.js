@@ -170,6 +170,18 @@ class Application {
       this.running = true;
       this.logger.info('=== MidiMind 5.0 Running ===');
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
+
+      // Auto-reanalyze files missing channel data (needed for GM instrument filters)
+      try {
+        const missingCount = this.database.countFilesWithoutChannels();
+        if (missingCount > 0) {
+          this.logger.info(`Found ${missingCount} files without channel analysis data, starting auto-reanalysis...`);
+          const result = await this.fileManager.reanalyzeAllFiles();
+          this.logger.info(`Auto-reanalysis complete: ${result.analyzed} analyzed, ${result.failed} failed`);
+        }
+      } catch (error) {
+        this.logger.warn(`Auto-reanalysis failed (non-critical): ${error.message}`);
+      }
     } catch (error) {
       this.logger.error(`Start failed: ${error.message}`);
       throw error;
