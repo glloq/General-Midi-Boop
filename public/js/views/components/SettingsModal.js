@@ -498,6 +498,10 @@ class SettingsModal {
             <!-- Mise à jour -->
             <div class="settings-section" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
                 <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
+                <div id="versionStatus" style="margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: #f3f4f6; color: #666; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                    <span style="animation: pulse 1.5s infinite;">⏳</span>
+                    <span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>
+                </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                     <div style="flex: 1;">
                         <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
@@ -808,6 +812,41 @@ class SettingsModal {
         }
     }
 
+    async checkForUpdates() {
+        const statusEl = this.modal.querySelector('#versionStatus');
+        if (!statusEl) return;
+
+        try {
+            const api = window.api || window.apiClient;
+            if (!api || !api.sendCommand) return;
+
+            const result = await api.sendCommand('system_check_update', {}, 20000);
+
+            if (result.error) {
+                statusEl.style.background = '#fefce8';
+                statusEl.style.color = '#a16207';
+                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'}</span>`;
+                return;
+            }
+
+            if (result.upToDate) {
+                statusEl.style.background = '#f0fdf4';
+                statusEl.style.color = '#16a34a';
+                statusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'Le système est à jour'}</strong> — v${result.version} (${result.localHash})</span>`;
+            } else {
+                const count = result.behindCount || 0;
+                const plural = count > 1 ? 's' : '';
+                statusEl.style.background = '#fef3c7';
+                statusEl.style.color = '#92400e';
+                statusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} en retard (${result.localHash} → ${result.remoteHash})</span>`;
+            }
+        } catch (error) {
+            statusEl.style.background = '#f3f4f6';
+            statusEl.style.color = '#999';
+            statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'}</span>`;
+        }
+    }
+
     _showUpdateSuccess(statusEl) {
         statusEl.style.background = '#f0fdf4';
         statusEl.style.color = '#16a34a';
@@ -993,6 +1032,9 @@ class SettingsModal {
         if (serialPortsSection) serialPortsSection.style.display = this.settings.serialMidiEnabled ? 'block' : 'none';
 
         this.logger?.info('Settings modal opened');
+
+        // Check for updates
+        this.checkForUpdates();
     }
 
     /**
