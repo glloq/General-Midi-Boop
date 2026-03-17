@@ -1,13 +1,15 @@
 // src/api/commands/SystemCommands.js
 import os from 'os';
-import { readFileSync } from 'fs';
+import { readFileSync, accessSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../../package.json'), 'utf8'));
 const APP_VERSION = pkg.version;
+
+let _updateInProgress = false;
 
 async function systemStatus(app) {
   return {
@@ -84,18 +86,57 @@ async function systemCheckUpdate(app) {
 
 async function systemUpdate(app) {
   app.logger.info('System update requested');
-  const { spawn } = await import('child_process');
-  const { resolve } = await import('path');
+
+  // Prevent concurrent updates
+  if (_updateInProgress) {
+    return { success: false, error: 'Update already in progress' };
+  }
+
   const scriptPath = resolve('./scripts/update.sh');
   const cwd = resolve('.');
+
+  // Verify script exists and is executable
+  try {
+    accessSync(scriptPath, fsConstants.F_OK | fsConstants.X_OK);
+  } catch (err) {
+    app.logger.error(`Update script not found or not executable: ${scriptPath}`);
+    return { success: false, error: 'Update script not found or not executable' };
+  }
+
+  _updateInProgress = true;
+
+  const { spawn } = await import('child_process');
+  const serverPort = app.config?.server?.port || 8080;
 
   // Launch update script detached so it survives server restart
   const child = spawn('bash', [scriptPath, '--non-interactive'], {
     cwd,
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive', NON_INTERACTIVE: '1' }
+    env: {
+      ...process.env,
+      DEBIAN_FRONTEND: 'noninteractive',
+      NON_INTERACTIVE: '1',
+      SERVER_PORT: String(serverPort),
+      UPDATE_DELAY_SECONDS: '3'
+    }
   });
+
+  // Wait briefly to catch immediate spawn failures
+  try {
+    await new Promise((resolvePromise, reject) => {
+      const timer = setTimeout(resolvePromise, 500);
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  } catch (err) {
+    _updateInProgress = false;
+    app.logger.error(`Failed to spawn update script: ${err.message}`);
+    return { success: false, error: `Failed to start update: ${err.message}` };
+  }
+
   child.unref();
 
   app.logger.info(`Update script launched (PID: ${child.pid}), server will restart`);

@@ -820,7 +820,8 @@ class InstrumentDatabase {
     try {
       const stmt = this.db.prepare(`
         SELECT
-          device_id, name, custom_name,
+          id, device_id, channel, name, custom_name,
+          gm_program,
           note_range_min, note_range_max, supported_ccs,
           note_selection_mode, selected_notes, polyphony,
           capabilities_source, capabilities_updated_at

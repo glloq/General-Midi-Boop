@@ -789,6 +789,8 @@ class SettingsModal {
      * Trigger system update via backend
      */
     async triggerSystemUpdate() {
+        if (this._updateInProgress) return;
+
         const btn = this.modal.querySelector('#systemUpdateBtn');
         const statusEl = this.modal.querySelector('#updateStatus');
         if (!btn || !statusEl) return;
@@ -807,6 +809,8 @@ class SettingsModal {
 
         if (!confirmed) return;
 
+        this._updateInProgress = true;
+
         // Show progress
         btn.disabled = true;
         btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
@@ -822,11 +826,14 @@ class SettingsModal {
                 throw new Error('API not available');
             }
             const result = await api.sendCommand('system_update', {}, 300000);
+            if (result && result.success === false) {
+                throw new Error(result.error || 'Update failed to start');
+            }
             this._showUpdateSuccess(statusEl);
         } catch (error) {
-            // WebSocket disconnect during update means the server is restarting = success
+            // WebSocket disconnect or timeout during update means the server is restarting = success
             const msg = (error.message || '').toLowerCase();
-            if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected')) {
+            if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected') || msg.includes('timeout')) {
                 this._showUpdateSuccess(statusEl);
             } else {
                 statusEl.style.background = '#fef2f2';
@@ -835,6 +842,7 @@ class SettingsModal {
                 btn.disabled = false;
                 btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
                 btn.style.opacity = '1';
+                this._updateInProgress = false;
             }
         }
     }
@@ -879,30 +887,56 @@ class SettingsModal {
         statusEl.style.color = '#16a34a';
         statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
 
+        // Mark update in progress for post-reload notification
+        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
+
         // Wait for server to come back online, then reload
         const waitForServer = async () => {
-            statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
-            const maxAttempts = 30;
+            const maxAttempts = 40;
+            let serverWasDown = false;
+
             for (let i = 0; i < maxAttempts; i++) {
+                statusEl.innerHTML = `⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}... <span style="opacity:0.7">(${i + 1}/${maxAttempts})</span>`;
+
                 await new Promise(r => setTimeout(r, 3000));
                 try {
-                    const resp = await fetch(window.location.origin, { method: 'HEAD', cache: 'no-store' });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const resp = await fetch(window.location.origin + '/api/health', {
+                        method: 'GET',
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
                     if (resp.ok) {
-                        statusEl.textContent = i18n.t('settings.update.reloading') || 'Rechargement de la page...';
-                        setTimeout(() => window.location.reload(), 1000);
+                        if (!serverWasDown) {
+                            // Server hasn't gone down yet, keep waiting
+                            continue;
+                        }
+                        statusEl.style.background = '#f0fdf4';
+                        statusEl.style.color = '#16a34a';
+                        statusEl.innerHTML = '✅ ' + (i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...');
+                        // Force cache-busting reload
+                        setTimeout(() => {
+                            window.location.href = window.location.pathname + '?_updated=' + Date.now();
+                        }, 1000);
                         return;
                     }
                 } catch (e) {
-                    // Server not ready yet
+                    // Server is down - this is expected during update
+                    serverWasDown = true;
                 }
             }
+
             statusEl.style.background = '#fefce8';
             statusEl.style.color = '#a16207';
-            statusEl.textContent = i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas. Rechargez la page manuellement.';
+            statusEl.innerHTML = (i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas.') +
+                ' <a href="#" onclick="window.location.reload();return false;" style="color:#667eea;text-decoration:underline;font-weight:600;">Recharger manuellement</a>';
         };
 
-        // Give the server time to shut down first
-        setTimeout(waitForServer, 5000);
+        // Give the server time to shut down first (update script waits 3s before killing)
+        setTimeout(waitForServer, 6000);
     }
 
     /**

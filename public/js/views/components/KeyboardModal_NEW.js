@@ -19,6 +19,8 @@ class KeyboardModalNew {
         this.selectedDeviceCapabilities = null; // Capacités de l'instrument sélectionné
         this.activeNotes = new Set();
         this.velocity = 80;
+        this.modulation = 64; // CC#1 modulation wheel value (center)
+        this._modWheelDragging = false;
         this.octaveOffset = 0;
         this.keyboardLayout = 'azerty';
         this.isMouseDown = false; // Pour le drag sur le clavier
@@ -115,8 +117,12 @@ class KeyboardModalNew {
         if (title) title.textContent = `🎹 ${this.t('keyboard.title')}`;
 
         // Vélocité
-        const velocityLabel = this.container.querySelector('.velocity-label-vertical');
+        const velocityLabel = this.container.querySelector('#velocity-control-panel .velocity-label-vertical');
         if (velocityLabel) velocityLabel.textContent = this.t('keyboard.velocity');
+
+        // Modulation
+        const modulationLabel = this.container.querySelector('#modulation-control-panel .velocity-label-vertical');
+        if (modulationLabel) modulationLabel.textContent = this.t('keyboard.modulation');
 
         // Instrument label
         const labels = this.container.querySelectorAll('.keyboard-header-controls .control-group label');
@@ -207,6 +213,9 @@ class KeyboardModalNew {
         // Attach events
         this.attachEvents();
 
+        // Initialize slider visibility (hide modulation by default)
+        this.updateSlidersVisibility();
+
         // Subscribe to locale changes
         if (typeof i18n !== 'undefined') {
             this.localeUnsubscribe = i18n.onLocaleChange(() => {
@@ -284,7 +293,7 @@ class KeyboardModalNew {
                 <div class="modal-body">
                     <div class="keyboard-layout">
                         <!-- Slider vélocité vertical à gauche -->
-                        <div class="velocity-control-vertical">
+                        <div class="velocity-control-vertical" id="velocity-control-panel">
                             <div class="velocity-label-vertical">${this.t('keyboard.velocity')}</div>
                             <div class="velocity-slider-wrapper">
                                 <input type="range"
@@ -296,6 +305,19 @@ class KeyboardModalNew {
                                        orient="vertical">
                             </div>
                             <div class="velocity-value-vertical" id="keyboard-velocity-display">80</div>
+                        </div>
+
+                        <!-- Mod wheel custom -->
+                        <div class="velocity-control-vertical modulation-control-vertical" id="modulation-control-panel">
+                            <div class="velocity-label-vertical">${this.t('keyboard.modulation')}</div>
+                            <div class="mod-wheel-wrapper">
+                                <div class="mod-wheel-track" id="mod-wheel-track">
+                                    <div class="mod-wheel-center-line"></div>
+                                    <div class="mod-wheel-fill" id="mod-wheel-fill"></div>
+                                    <div class="mod-wheel-thumb" id="mod-wheel-thumb"></div>
+                                </div>
+                            </div>
+                            <div class="velocity-value-vertical modulation-value-vertical" id="keyboard-modulation-display">64</div>
                         </div>
 
                         <!-- Zone principale du clavier -->
@@ -626,6 +648,18 @@ class KeyboardModalNew {
             // Charger les capacités de l'instrument sélectionné
             await this.loadDeviceCapabilities(deviceId);
 
+            // Auto-centrer le clavier sur la plage de notes de l'instrument
+            this.autoCenterKeyboard();
+
+            // Mettre à jour la visibilité des sliders
+            this.updateSlidersVisibility();
+
+            // Reset modulation wheel to center when changing instrument
+            this.modulation = 64;
+            this._updateModWheelPosition(64);
+            const modDisplay = document.getElementById('keyboard-modulation-display');
+            if (modDisplay) modDisplay.textContent = '64';
+
             // Régénérer le clavier pour appliquer les restrictions
             this.regeneratePianoKeys();
         });
@@ -635,6 +669,9 @@ class KeyboardModalNew {
             this.velocity = parseInt(e.target.value);
             document.getElementById('keyboard-velocity-display').textContent = this.velocity;
         });
+
+        // Modulation wheel (custom drag)
+        this.initModWheel();
 
         // Layout
         document.getElementById('keyboard-layout-select')?.addEventListener('change', (e) => {
@@ -668,6 +705,20 @@ class KeyboardModalNew {
 
         // Remove delegated piano container listeners
         this._removePianoDelegation();
+
+        // Cleanup mod wheel listeners
+        if (this._modWheelOnMove) {
+            const track = document.getElementById('mod-wheel-track');
+            if (track) {
+                track.removeEventListener('mousedown', this._modWheelOnTrackDown);
+                track.removeEventListener('touchstart', this._modWheelOnTouchStart);
+            }
+            document.removeEventListener('mousemove', this._modWheelOnMove);
+            document.removeEventListener('mouseup', this._modWheelOnEnd);
+            document.removeEventListener('touchmove', this._modWheelOnTouchMove);
+            document.removeEventListener('touchend', this._modWheelOnEnd);
+            document.removeEventListener('touchcancel', this._modWheelOnEnd);
+        }
     }
 
     handleGlobalMouseUp() {
@@ -809,6 +860,228 @@ class KeyboardModalNew {
                     this.logger.error('[KeyboardModal] Note OFF failed:', err);
                 });
         }
+    }
+
+    /**
+     * Envoyer un message CC modulation (CC#1) à l'instrument sélectionné
+     * @param {number} value - Valeur de modulation (0-127)
+     */
+    initModWheel() {
+        const track = document.getElementById('mod-wheel-track');
+        const thumb = document.getElementById('mod-wheel-thumb');
+        const fill = document.getElementById('mod-wheel-fill');
+        const display = document.getElementById('keyboard-modulation-display');
+        if (!track || !thumb) return;
+
+        this._updateModWheelPosition(64);
+
+        const getValueFromY = (clientY) => {
+            const rect = track.getBoundingClientRect();
+            const relativeY = clientY - rect.top;
+            const ratio = 1 - (relativeY / rect.height);
+            const clamped = Math.max(0, Math.min(1, ratio));
+            return Math.round(clamped * 127);
+        };
+
+        const onMove = (clientY) => {
+            if (!this._modWheelDragging) return;
+            const value = getValueFromY(clientY);
+            this.modulation = value;
+            this._updateModWheelPosition(value);
+            if (display) display.textContent = value;
+            this.sendModulation(value);
+        };
+
+        const onEnd = () => {
+            if (!this._modWheelDragging) return;
+            this._modWheelDragging = false;
+            thumb.classList.remove('dragging');
+            thumb.classList.add('returning');
+            fill.classList.add('returning');
+            this.modulation = 64;
+            this._updateModWheelPosition(64);
+            if (display) display.textContent = '64';
+            this.sendModulation(64);
+            setTimeout(() => {
+                thumb.classList.remove('returning');
+                fill.classList.remove('returning');
+            }, 300);
+        };
+
+        // Mouse events
+        this._modWheelOnTrackDown = (e) => {
+            e.preventDefault();
+            this._modWheelDragging = true;
+            thumb.classList.add('dragging');
+            thumb.classList.remove('returning');
+            fill.classList.remove('returning');
+            onMove(e.clientY);
+        };
+        this._modWheelOnMove = (e) => onMove(e.clientY);
+        this._modWheelOnEnd = onEnd;
+        this._modWheelOnTouchStart = (e) => {
+            e.preventDefault();
+            this._modWheelDragging = true;
+            thumb.classList.add('dragging');
+            thumb.classList.remove('returning');
+            fill.classList.remove('returning');
+            onMove(e.touches[0].clientY);
+        };
+        this._modWheelOnTouchMove = (e) => {
+            if (this._modWheelDragging) onMove(e.touches[0].clientY);
+        };
+
+        track.addEventListener('mousedown', this._modWheelOnTrackDown);
+        document.addEventListener('mousemove', this._modWheelOnMove);
+        document.addEventListener('mouseup', this._modWheelOnEnd);
+        track.addEventListener('touchstart', this._modWheelOnTouchStart, { passive: false });
+        document.addEventListener('touchmove', this._modWheelOnTouchMove, { passive: false });
+        document.addEventListener('touchend', this._modWheelOnEnd);
+        document.addEventListener('touchcancel', this._modWheelOnEnd);
+    }
+
+    _updateModWheelPosition(value) {
+        const track = document.getElementById('mod-wheel-track');
+        const thumb = document.getElementById('mod-wheel-thumb');
+        const fill = document.getElementById('mod-wheel-fill');
+        if (!track || !thumb) return;
+
+        const trackHeight = track.clientHeight;
+        const ratio = value / 127;
+        const topPx = trackHeight * (1 - ratio);
+
+        thumb.style.top = topPx + 'px';
+
+        if (fill) {
+            const centerPx = trackHeight * 0.5;
+            if (topPx < centerPx) {
+                fill.style.top = topPx + 'px';
+                fill.style.height = (centerPx - topPx) + 'px';
+            } else {
+                fill.style.top = centerPx + 'px';
+                fill.style.height = (topPx - centerPx) + 'px';
+            }
+        }
+    }
+
+    sendModulation(value) {
+        if (!this.selectedDevice || !this.backend) return;
+
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+
+        if (this.selectedDevice.isVirtual) {
+            this.logger.info(`🎹 [Virtual] Modulation CC#1 = ${value}`);
+            return;
+        }
+
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId: deviceId,
+            channel: 0,
+            controller: 1, // CC#1 = Modulation Wheel
+            value: value
+        }).catch(err => {
+            this.logger.error('[KeyboardModal] Modulation CC send failed:', err);
+        });
+    }
+
+    /**
+     * Met à jour la visibilité des sliders vélocité et modulation
+     * en fonction des capacités de l'instrument sélectionné
+     */
+    updateSlidersVisibility() {
+        const velocityPanel = document.getElementById('velocity-control-panel');
+        const modulationPanel = document.getElementById('modulation-control-panel');
+
+        if (!velocityPanel || !modulationPanel) return;
+
+        const caps = this.selectedDeviceCapabilities;
+
+        if (!caps) {
+            // Pas de capacités : afficher vélocité, masquer modulation
+            velocityPanel.classList.remove('slider-hidden');
+            modulationPanel.classList.add('slider-hidden');
+            return;
+        }
+
+        // Vélocité : toujours visible si l'instrument supporte des notes
+        const hasNotes = (caps.note_range_min !== null && caps.note_range_min !== undefined) ||
+                         (caps.note_range_max !== null && caps.note_range_max !== undefined) ||
+                         caps.note_selection_mode === 'discrete';
+        if (hasNotes) {
+            velocityPanel.classList.remove('slider-hidden');
+        } else {
+            velocityPanel.classList.add('slider-hidden');
+        }
+
+        // Modulation : visible si CC#1 est dans supported_ccs
+        let supportsCCs = [];
+        if (caps.supported_ccs) {
+            try {
+                supportsCCs = typeof caps.supported_ccs === 'string'
+                    ? JSON.parse(caps.supported_ccs)
+                    : caps.supported_ccs;
+            } catch (e) {
+                supportsCCs = [];
+            }
+        }
+
+        if (Array.isArray(supportsCCs) && supportsCCs.includes(1)) {
+            modulationPanel.classList.remove('slider-hidden');
+        } else {
+            modulationPanel.classList.add('slider-hidden');
+        }
+    }
+
+    /**
+     * Auto-centrer le clavier sur la plage de notes de l'instrument
+     * Ajuste octaveOffset pour que la vue soit centrée sur les notes jouables
+     */
+    autoCenterKeyboard() {
+        const caps = this.selectedDeviceCapabilities;
+
+        // Parse note range values (may be strings from DB/JSON)
+        const minNote = caps ? Number(caps.note_range_min) : NaN;
+        const maxNote = caps ? Number(caps.note_range_max) : NaN;
+
+        const hasMin = isFinite(minNote);
+        const hasMax = isFinite(maxNote);
+
+        // Si pas de plage définie, recentrer sur la position par défaut (offset=0)
+        if (!hasMin && !hasMax) {
+            this.octaveOffset = 0;
+            const octaveDisplayEl = document.getElementById('keyboard-octave-display');
+            if (octaveDisplayEl) {
+                octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: 0 });
+            }
+            this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default offset 0');
+            return;
+        }
+
+        // Calculer le centre de la plage jouable
+        const effectiveMin = hasMin ? minNote : 21;
+        const effectiveMax = hasMax ? maxNote : 108;
+        const centerNote = Math.round((effectiveMin + effectiveMax) / 2);
+
+        // Convertir en octave MIDI (C4=60 → octave 4)
+        const centerOctave = Math.floor(centerNote / 12) - 1;
+
+        // Calculer l'offset nécessaire pour centrer la vue
+        // Le clavier affiche this.octaves octaves à partir de baseOctave + octaveOffset
+        // On veut que centerOctave soit au milieu de la vue
+        const viewMiddleOctave = this.baseOctave + Math.floor(this.octaves / 2);
+        const neededOffset = centerOctave - viewMiddleOctave;
+
+        // Limiter l'offset entre -3 et +3
+        this.octaveOffset = Math.max(-3, Math.min(3, neededOffset));
+
+        // Mettre à jour l'affichage de l'octave
+        const display = this.octaveOffset > 0 ? `+${this.octaveOffset}` : `${this.octaveOffset}`;
+        const octaveDisplayEl = document.getElementById('keyboard-octave-display');
+        if (octaveDisplayEl) {
+            octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: display });
+        }
+
+        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, center note ${centerNote}, octave offset ${this.octaveOffset}`);
     }
 
     /**

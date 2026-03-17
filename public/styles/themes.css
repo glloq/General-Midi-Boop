@@ -459,6 +459,86 @@ body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #666"] {
     color: var(--text-secondary) !important;
 }
 
+/* Scan bar */
+body.dark-mode .modal-overlay > .modal-container > div[style*="border-bottom: 2px solid #e5e7eb"] {
+    background: var(--bg-tertiary) !important;
+    border-bottom-color: var(--border-color) !important;
+}
+
+body.dark-mode .modal-overlay > .modal-container > div[style*="border-bottom: 2px solid #e5e7eb"] span[style*="color: #666"] {
+    color: var(--text-secondary) !important;
+}
+
+/* Footer bar */
+body.dark-mode .modal-overlay > .modal-container > div[style*="border-top: 1px solid #e5e7eb"] {
+    background: var(--bg-tertiary) !important;
+    border-top-color: var(--border-color) !important;
+}
+
+body.dark-mode .modal-overlay > .modal-container > div[style*="border-top: 1px solid #e5e7eb"] div[style*="color: #666"] {
+    color: var(--text-secondary) !important;
+}
+
+/* Instrument card inline backgrounds */
+body.dark-mode .modal-overlay .instrument-card[style*="background: white"] {
+    background: var(--bg-tertiary) !important;
+}
+
+body.dark-mode .modal-overlay .instrument-card h4[style*="color: #1f2937"] {
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode .modal-overlay .instrument-card div[style*="color: #6b7280"] {
+    color: var(--text-secondary) !important;
+}
+
+/* Section headers with colored borders */
+body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #64748b"] {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #7c3aed"] {
+    color: #a78bfa !important;
+}
+
+/* Virtual instrument creation dialog */
+body.dark-mode .modal-overlay div[style*="background:white;border-radius:16px"],
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] div[style*="border-bottom:1px solid #e5e7eb"] {
+    border-bottom-color: var(--border-color) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] label[style*="color:#374151"] {
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] p[style*="color:#6b7280"] {
+    color: var(--text-secondary) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] input[style*="border:2px solid #e5e7eb"] {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] div[style*="color:#1f2937"] {
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] div[style*="color:#6b7280"] {
+    color: var(--text-secondary) !important;
+}
+
 /* ===== TRANSITION SMOOTH ENTRE THÈMES ===== */
 /* NOTE: Global * transition removed for performance (was causing layout thrashing).
    Only theme-relevant elements get transitions via targeted selectors. */

@@ -15,7 +15,6 @@ class CommandHandler {
   }
 
   async handle(message, ws) {
-    // Ensure all modules are loaded before handling the first command
     await this._ready;
     return this.registry.handle(message, ws);
   }

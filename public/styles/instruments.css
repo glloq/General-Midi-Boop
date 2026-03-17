@@ -1365,21 +1365,307 @@
    THÈME SOMBRE
    ============================================================================ */
 
+/* --- Empty state --- */
+body.dark-mode .empty-instruments-state h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .empty-message {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .last-scan {
+    color: var(--text-muted);
+}
+
+body.dark-mode .empty-instructions {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .instruction-content strong {
+    color: var(--text-primary);
+}
+
+body.dark-mode .instruction-content p {
+    color: var(--text-secondary);
+}
+
+/* --- Status bar --- */
+body.dark-mode .instrument-status-bar {
+    background: var(--bg-tertiary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .status-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .status-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .status-btn {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .status-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+/* --- Global actions panel --- */
+body.dark-mode .global-actions-panel {
+    background: var(--bg-secondary);
+    box-shadow: 0 2px 8px var(--instrument-shadow);
+}
+
+body.dark-mode .global-actions-panel h4 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .action-btn {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .action-btn:hover:not(.disabled) {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .action-label {
+    color: var(--text-primary);
+}
+
+body.dark-mode .action-description {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-secondary);
+}
+
+/* --- Grouped list --- */
+body.dark-mode .group-header {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .group-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .group-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .group-count {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .group-empty {
+    color: var(--text-muted);
+}
+
+/* --- Configuration tab --- */
+body.dark-mode .config-section h5 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .config-field label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .config-input {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .config-slider {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .config-hint {
+    color: var(--text-muted);
+}
+
+body.dark-mode .slider-labels {
+    color: var(--text-muted);
+}
+
+body.dark-mode .config-warning {
+    background: rgba(255, 193, 7, 0.15);
+    border-color: #f59e0b;
+    color: #fbbf24;
+}
+
+/* --- Log tab --- */
+body.dark-mode .log-events {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .log-event {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .event-message {
+    color: var(--text-primary);
+}
+
+body.dark-mode .event-details {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .event-timestamp {
+    color: var(--text-muted);
+}
+
+body.dark-mode .log-empty {
+    color: var(--text-muted);
+}
+
+body.dark-mode .filter-btn {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .filter-btn:hover {
+    background: var(--bg-secondary);
+}
+
+/* --- Context menu --- */
+body.dark-mode .context-menu {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .context-menu-item:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .context-menu-item.danger:hover {
+    background: rgba(231, 76, 60, 0.15);
+}
+
+body.dark-mode .item-label {
+    color: var(--text-primary);
+}
+
+body.dark-mode .item-shortcut {
+    color: var(--text-muted);
+}
+
+/* --- Device cards --- */
+body.dark-mode .device-card {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
 body.dark-mode .device-name {
     color: var(--text-primary);
 }
 
-body.dark-mode .device-type,
+body.dark-mode .device-type {
+    color: var(--text-muted);
+}
+
 body.dark-mode .device-status {
     color: var(--text-secondary);
 }
 
+body.dark-mode .status-text {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .device-ports {
+    color: var(--text-muted);
+}
+
+body.dark-mode .device-actions button {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .device-actions button:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .devices-empty p {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .devices-empty .text-muted {
+    color: var(--text-muted);
+}
+
+body.dark-mode .devices-scanning p {
+    color: var(--text-secondary);
+}
+
+/* --- Settings modal --- */
 body.dark-mode .instrument-settings-modal .modal-header h2 {
     color: var(--text-primary);
 }
 
 body.dark-mode .instrument-settings-modal .modal-header {
     border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .modal-footer {
+    background: var(--bg-tertiary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .modal-close {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .modal-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .form-group label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .form-control:disabled {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+body.dark-mode .form-text {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .identity-info {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .info-group label {
+    color: var(--text-muted);
+}
+
+body.dark-mode .info-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .btn-secondary:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-muted);
+}
+
+body.dark-mode .drag-handle {
+    color: var(--text-muted);
 }
 
 /* ============================================================================

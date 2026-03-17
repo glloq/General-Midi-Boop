@@ -8691,6 +8691,25 @@
 
             await connectWebSocket();
 
+            // Check if we just completed an update (post-reload notification)
+            try {
+                const updateTs = localStorage.getItem('midimind_update_completed');
+                if (updateTs && (Date.now() - parseInt(updateTs)) < 120000) {
+                    localStorage.removeItem('midimind_update_completed');
+                    // Remove _updated query param if present
+                    if (window.location.search.includes('_updated')) {
+                        window.history.replaceState({}, '', window.location.pathname);
+                    }
+                    log('✅ Mise à jour terminée avec succès !', 'info');
+                    // Show a visible toast notification
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;background:#16a34a;color:white;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeInDown 0.3s ease;';
+                    toast.textContent = '✅ Mise à jour installée avec succès !';
+                    document.body.appendChild(toast);
+                    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 5000);
+                }
+            } catch(e) {}
+
             // 🆕 Initialiser la modal Bluetooth après connexion WebSocket
             if (typeof BluetoothScanModal !== 'undefined') {
                 bluetoothScanModal = new BluetoothScanModal(api);

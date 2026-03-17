@@ -47,6 +47,59 @@ print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
 }
 
+# Abort update and attempt to restart the server
+abort_and_restart() {
+    print_error "Update aborted: $1"
+    print_header "Restarting Server (recovery)"
+    cd "$PROJECT_DIR"
+    _restart_server
+    exit 1
+}
+
+# Restart server helper (used by both normal restart and abort_and_restart)
+_restart_server() {
+    if [ "$PM2_MANAGED" = true ]; then
+        print_info "Restarting with PM2..."
+        pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
+        pm2 save 2>/dev/null || true
+    elif [ "$SYSTEMD_MANAGED" = true ]; then
+        print_info "Restarting with systemd..."
+        timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
+    elif [ "$PM2_AVAILABLE" = true ]; then
+        print_info "Starting with PM2..."
+        pm2 start ecosystem.config.cjs 2>/dev/null || true
+        pm2 save 2>/dev/null || true
+    else
+        print_info "Starting server directly..."
+        cd "$PROJECT_DIR"
+        # Clear log for fresh output
+        echo "=== Server start at $(date) ===" > /tmp/midimind-server.log
+        NODE_BIN="$(which node)"
+        print_info "Using node: $NODE_BIN"
+        print_info "Working directory: $(pwd)"
+        nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+        local SERVER_PID=$!
+        sleep 3
+        if kill -0 $SERVER_PID 2>/dev/null; then
+            print_success "Server started (PID: $SERVER_PID)"
+        else
+            print_error "Server failed to start, check /tmp/midimind-server.log"
+            cat /tmp/midimind-server.log 2>/dev/null || true
+            # Retry
+            print_info "Retrying server start..."
+            nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+            SERVER_PID=$!
+            sleep 5
+            if kill -0 $SERVER_PID 2>/dev/null; then
+                print_success "Server started on retry (PID: $SERVER_PID)"
+            else
+                print_error "Server failed to start after retry"
+                cat /tmp/midimind-server.log 2>/dev/null || true
+            fi
+        fi
+    fi
+}
+
 # ============================================================================
 # Main Update Process
 # ============================================================================
@@ -71,8 +124,31 @@ cd "$PROJECT_DIR"
 
 print_info "Project directory: $PROJECT_DIR"
 
-# Detect server port from config or default to 8080
-SERVER_PORT=8080
+# Detect server port from env (passed by Node backend), config.json, or default
+if [ -z "$SERVER_PORT" ]; then
+    if [ -f "$PROJECT_DIR/config.json" ] && command -v node &> /dev/null; then
+        SERVER_PORT=$(node -p "try{JSON.parse(require('fs').readFileSync('$PROJECT_DIR/config.json','utf8')).server.port}catch(e){8080}" 2>/dev/null)
+    fi
+fi
+SERVER_PORT="${SERVER_PORT:-8080}"
+
+# Detect how the server is managed (needed early for abort_and_restart)
+PM2_AVAILABLE=false
+PM2_MANAGED=false
+SYSTEMD_MANAGED=false
+
+if command -v pm2 &> /dev/null; then
+    PM2_AVAILABLE=true
+    if pm2 list 2>/dev/null | grep -q "midimind"; then
+        PM2_MANAGED=true
+    fi
+fi
+
+if systemctl is-active --quiet midimind 2>/dev/null; then
+    SYSTEMD_MANAGED=true
+fi
+
+print_info "Server management: PM2_MANAGED=$PM2_MANAGED, SYSTEMD_MANAGED=$SYSTEMD_MANAGED, PM2_AVAILABLE=$PM2_AVAILABLE"
 
 # ============================================================================
 # 1. Check Git Status
@@ -102,27 +178,18 @@ fi
 
 print_success "Working directory clean"
 
+# Give the Node.js server time to send the response to the client
+if [ "$NON_INTERACTIVE" = "1" ]; then
+    DELAY=${UPDATE_DELAY_SECONDS:-3}
+    print_info "Waiting ${DELAY}s for server response to complete..."
+    sleep "$DELAY"
+fi
+
 # ============================================================================
 # 2. Stop Running Server
 # ============================================================================
 
 print_header "2. Stopping Server"
-
-# Detect how the server is managed
-PM2_AVAILABLE=false
-PM2_MANAGED=false
-SYSTEMD_MANAGED=false
-
-if command -v pm2 &> /dev/null; then
-    PM2_AVAILABLE=true
-    if pm2 list 2>/dev/null | grep -q "midimind"; then
-        PM2_MANAGED=true
-    fi
-fi
-
-if systemctl is-active --quiet midimind 2>/dev/null; then
-    SYSTEMD_MANAGED=true
-fi
 
 # Stop the server
 if [ "$PM2_MANAGED" = true ]; then
@@ -131,7 +198,7 @@ if [ "$PM2_MANAGED" = true ]; then
     print_success "PM2 process stopped"
 elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Stopping systemd service..."
-    sudo systemctl stop midimind 2>/dev/null || true
+    timeout 10 sudo -n systemctl stop midimind 2>/dev/null || true
     print_success "Systemd service stopped"
 else
     # Direct node process - kill it
@@ -152,7 +219,7 @@ else
         print_success "Server stopped"
     else
         # Fallback: kill by process name
-        pkill -f "node.*server.js" 2>/dev/null || true
+        pkill -f "node $PROJECT_DIR/server.js" 2>/dev/null || pkill -f "node.*server.js" 2>/dev/null || true
         sleep 2
         print_info "Attempted to stop server via pkill"
     fi
@@ -174,9 +241,7 @@ if [ "$CURRENT_BRANCH" != "main" ]; then
     if git checkout main; then
         print_success "Switched to main branch"
     else
-        print_error "Failed to switch to main branch"
-        print_info "You may need to commit or stash changes first"
-        # Don't exit - try to restart server anyway
+        abort_and_restart "Failed to switch to main branch"
     fi
 else
     print_success "Already on main branch"
@@ -191,8 +256,7 @@ print_info "Pulling latest changes from main..."
 if git pull origin main; then
     print_success "Successfully pulled latest changes from main"
 else
-    print_error "Failed to pull changes from main"
-    # Don't exit - try to restart server anyway
+    abort_and_restart "Failed to pull changes from main"
 fi
 
 # Show what changed
@@ -211,11 +275,13 @@ print_info "Installing/updating npm dependencies..."
 if npm install 2>&1; then
     print_success "Dependencies updated"
 else
-    print_warning "npm install had issues (native modules may have failed to build)"
-    print_info "Trying npm install --ignore-scripts as fallback..."
-    npm install --ignore-scripts 2>&1 || print_warning "Fallback install also had issues"
-    # Try to rebuild just the critical native modules
-    npm rebuild better-sqlite3 2>/dev/null || true
+    print_warning "npm install had issues, trying --ignore-scripts fallback..."
+    if npm install --ignore-scripts 2>&1; then
+        npm rebuild better-sqlite3 2>/dev/null || true
+        print_success "Dependencies updated (fallback)"
+    else
+        abort_and_restart "npm install failed completely"
+    fi
 fi
 
 # ============================================================================
@@ -237,51 +303,8 @@ fi
 
 print_header "6. Restarting Server"
 
-# Restart using the same method that was running before
-if [ "$PM2_MANAGED" = true ]; then
-    print_info "Restarting with PM2..."
-    pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
-    pm2 save 2>/dev/null || true
-    sleep 3
-    print_success "PM2 process restarted"
-    pm2 list 2>/dev/null || true
-
-elif [ "$SYSTEMD_MANAGED" = true ]; then
-    print_info "Restarting with systemd..."
-    sudo systemctl start midimind 2>/dev/null || true
-    sleep 2
-    print_success "Systemd service restarted"
-
-elif [ "$PM2_AVAILABLE" = true ]; then
-    print_info "Starting with PM2..."
-    pm2 start ecosystem.config.cjs 2>/dev/null || true
-    pm2 save 2>/dev/null || true
-    sleep 3
-    print_success "Server started with PM2"
-
-else
-    # Fallback: start node directly in background
-    print_info "Starting server directly..."
-    cd "$PROJECT_DIR"
-    nohup node server.js >> /tmp/midimind-server.log 2>&1 &
-    SERVER_PID=$!
-    sleep 3
-    if kill -0 $SERVER_PID 2>/dev/null; then
-        print_success "Server started (PID: $SERVER_PID)"
-    else
-        print_error "Server failed to start, check /tmp/midimind-server.log"
-        # Try one more time
-        print_info "Retrying server start..."
-        nohup node server.js >> /tmp/midimind-server.log 2>&1 &
-        SERVER_PID=$!
-        sleep 5
-        if kill -0 $SERVER_PID 2>/dev/null; then
-            print_success "Server started on retry (PID: $SERVER_PID)"
-        else
-            print_error "Server failed to start after retry"
-        fi
-    fi
-fi
+cd "$PROJECT_DIR"
+_restart_server
 
 # ============================================================================
 # 7. Verify Update
