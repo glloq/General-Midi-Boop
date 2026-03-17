@@ -150,12 +150,16 @@ class FilterManager {
   }
 
   /**
-   * Check if any filters are active
+   * Check if any filters are active (excludes sorting/pagination meta-fields)
    */
   hasActiveFilters() {
     const defaults = this.getDefaultFilters();
+    // These meta-fields control display, not filtering
+    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset']);
 
     for (const key in this.filters) {
+      if (excludeKeys.has(key)) continue;
+
       const current = this.filters[key];
       const defaultVal = defaults[key];
 
@@ -173,13 +177,17 @@ class FilterManager {
   }
 
   /**
-   * Get list of active filters (for display)
+   * Get list of active filters (for display, excludes sorting/pagination)
    */
   getActiveFilters() {
     const active = [];
     const defaults = this.getDefaultFilters();
+    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset',
+      'instrumentMode', 'gmMode', 'playableMode']);
 
     for (const key in this.filters) {
+      if (excludeKeys.has(key)) continue;
+
       const value = this.filters[key];
       const defaultVal = defaults[key];
 

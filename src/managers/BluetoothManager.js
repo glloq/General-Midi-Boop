@@ -11,6 +11,7 @@
 
 import { createBluetooth } from 'node-ble';
 import EventEmitter from 'events';
+import MidiUtils from '../utils/MidiUtils.js';
 
 class BluetoothManager extends EventEmitter {
   constructor(app) {
@@ -423,30 +424,90 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Gère les données MIDI reçues
+   * Gère les données MIDI reçues via BLE MIDI
+   * BLE MIDI packet format (Apple BLE MIDI spec):
+   *   Byte 0: Header byte (bit 7 = 1, bits 5-0 = timestamp high)
+   *   Then one or more MIDI messages, each preceded by:
+   *     Timestamp byte (bit 7 = 1, bits 6-0 = timestamp low)
+   *     MIDI status byte + data bytes
+   *   Running status is supported within a single packet.
    */
   handleMidiData(address, buffer) {
     try {
-      // Format BLE MIDI: premier octet = timestamp header, reste = données MIDI
       const data = Array.from(buffer);
 
-      if (data.length < 2) {
-        return; // Pas assez de données
+      if (data.length < 3) {
+        return; // Minimum: header + timestamp + 1 status byte
       }
 
-      // Ignorer le timestamp header (premier octet)
-      const midiData = data.slice(1);
+      // Byte 0: Header (bit 7 must be set)
+      if (!(data[0] & 0x80)) {
+        this.app.logger.debug(`Invalid BLE MIDI header from ${address}: 0x${data[0].toString(16)}`);
+        return;
+      }
 
-      this.app.logger.debug(`MIDI data from ${address}:`, midiData);
+      // Parse MIDI messages from the packet
+      let i = 1;
+      let runningStatus = 0;
 
-      // Émettre événement MIDI (pour traitement par MidiManager si nécessaire)
-      this.emit('midi:data', {
-        address: address,
-        data: midiData
-      });
+      while (i < data.length) {
+        // Check for timestamp byte (bit 7 set)
+        if (data[i] & 0x80) {
+          // Could be timestamp byte or a MIDI status byte following a timestamp
+          // Timestamp bytes have bit 7 set AND are followed by MIDI data
+          // If the next byte is a MIDI status byte (>= 0x80), this is a timestamp
+          if (i + 1 < data.length && data[i + 1] >= 0x80 && data[i + 1] < 0xF8) {
+            // Timestamp byte followed by status byte
+            i++; // Skip timestamp
+            runningStatus = data[i]; // New status
+            i++; // Move past status
+          } else if (i + 1 < data.length && data[i + 1] < 0x80) {
+            // Timestamp byte followed by data byte (running status)
+            i++; // Skip timestamp
+          } else {
+            i++; // Skip unrecognized byte
+            continue;
+          }
+        }
+
+        // Now read MIDI data using current status
+        if (runningStatus === 0) {
+          // No running status yet, check if current byte is a status
+          if (i < data.length && data[i] >= 0x80 && data[i] <= 0xEF) {
+            runningStatus = data[i];
+            i++;
+          } else {
+            i++;
+            continue;
+          }
+        }
+
+        // Determine message length from status
+        const command = runningStatus & 0xF0;
+        let msgLength;
+        if (command === 0xC0 || command === 0xD0) {
+          msgLength = 1; // 1 data byte
+        } else if (command >= 0x80 && command <= 0xE0) {
+          msgLength = 2; // 2 data bytes
+        } else {
+          i++;
+          continue; // Skip system messages in BLE MIDI for now
+        }
+
+        if (i + msgLength > data.length) break;
+
+        const midiBytes = [runningStatus, ...data.slice(i, i + msgLength)];
+        i += msgLength;
+
+        // Forward parsed bytes to the MIDI system
+        this.emit('midi:data', {
+          address: address,
+          data: midiBytes
+        });
+      }
 
     } catch (error) {
-      this.app.logger.error(`Error processing MIDI data: ${error.message}`);
+      this.app.logger.error(`Error processing BLE MIDI data: ${error.message}`);
     }
   }
 
@@ -499,39 +560,7 @@ class BluetoothManager extends EventEmitter {
    * @returns {Array<number>} Bytes MIDI
    */
   convertToMidiBytes(type, data) {
-    const channel = data.channel ?? 0;
-
-    switch (type.toLowerCase()) {
-      case 'noteon':
-        return [0x90 | channel, data.note & 0x7F, (data.velocity ?? 127) & 0x7F];
-
-      case 'noteoff':
-        return [0x80 | channel, data.note & 0x7F, (data.velocity ?? 0) & 0x7F];
-
-      case 'cc':
-      case 'controlchange':
-        return [0xB0 | channel, data.controller & 0x7F, data.value & 0x7F];
-
-      case 'programchange':
-      case 'program':
-        return [0xC0 | channel, (data.program ?? data.number) & 0x7F];
-
-      case 'pitchbend': {
-        const value = data.value ?? 8192;
-        return [0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F];
-      }
-
-      case 'poly aftertouch':
-      case 'polyaftertouch':
-        return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
-
-      case 'channel aftertouch':
-      case 'channelaftertouch':
-        return [0xD0 | channel, data.pressure & 0x7F];
-
-      default:
-        return null;
-    }
+    return MidiUtils.convertToMidiBytes(type, data);
   }
 
   /**

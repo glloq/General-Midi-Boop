@@ -38,10 +38,11 @@ class MidiPlayer {
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
     // Invalidate sync_delay cache immediately when instrument settings change
-    this.app.eventBus?.on('instrument_settings_changed', () => {
+    this._onSettingsChanged = () => {
       this._syncDelayCache.clear();
       this._maxCompensationMs = 0;
-    });
+    };
+    this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
 
     this.app.logger.info('MidiPlayer initialized');
   }
@@ -394,7 +395,9 @@ class MidiPlayer {
   destroy() {
     this.stop();
     this._syncDelayCache.clear();
-    this.app.eventBus?.off('instrument_settings_changed');
+    if (this._onSettingsChanged) {
+      this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+    }
     this.events = [];
     this.tracks = [];
     this.channelRouting.clear();

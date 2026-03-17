@@ -5236,10 +5236,21 @@ class MidiEditorModal {
         document.body.appendChild(confirmModal);
         console.log('[MidiEditor] Modal appended to body');
 
+        // Fermer avec Escape
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                console.log('[MidiEditor] Escape pressed in modal');
+                confirmModal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
         // Bouton Annuler
         const cancelBtn = confirmModal.querySelector('#unsaved-cancel-btn');
         cancelBtn.addEventListener('click', () => {
             console.log('[MidiEditor] Cancel clicked');
+            document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
         });
 
@@ -5247,6 +5258,7 @@ class MidiEditorModal {
         const saveBtn = confirmModal.querySelector('#unsaved-save-btn');
         saveBtn.addEventListener('click', async () => {
             console.log('[MidiEditor] Save and close clicked');
+            document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
             await this.saveMidiFile();
             // Fermer après la sauvegarde
@@ -5257,19 +5269,10 @@ class MidiEditorModal {
         const discardBtn = confirmModal.querySelector('#unsaved-discard-btn');
         discardBtn.addEventListener('click', () => {
             console.log('[MidiEditor] Discard and close clicked');
+            document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
             this.doClose();
         });
-
-        // Fermer avec Escape
-        const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                console.log('[MidiEditor] Escape pressed in modal');
-                confirmModal.remove();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
     }
 
     /**

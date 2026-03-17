@@ -184,7 +184,7 @@ class MoveNotesCommand extends Command {
     }
 
     toString() {
-        return `Déplacer ${this.notes.length} note(s)`;
+        return `Déplacer ${this.originalCoords.length} note(s)`;
     }
 }
 

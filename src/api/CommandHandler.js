@@ -1183,8 +1183,8 @@ class CommandHandler {
       // Sorting and pagination
       sortBy: data.sortBy || 'uploaded_at',
       sortOrder: data.sortOrder || 'DESC',
-      limit: data.limit,
-      offset: data.offset
+      limit: (Number.isInteger(data.limit) && data.limit > 0) ? data.limit : undefined,
+      offset: (Number.isInteger(data.offset) && data.offset >= 0) ? data.offset : undefined
     };
 
     // Remove undefined values

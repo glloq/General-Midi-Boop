@@ -836,6 +836,8 @@ class VelocityEditor {
         }
         document.removeEventListener('keydown', this._boundKeyDown);
         window.removeEventListener('resize', this._boundResize);
+        this.gridCanvas = null;
+        this.gridCtx = null;
         if (this.element && this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);
         }

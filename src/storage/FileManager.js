@@ -670,7 +670,7 @@ class FileManager {
             polyphonyMax: ch.polyphony_max || 0,
             polyphonyAvg: ch.polyphony_avg || 0,
             density: ch.density || 0,
-            trackNames: ch.track_names ? JSON.parse(ch.track_names) : []
+            trackNames: ch.track_names ? (() => { try { return JSON.parse(ch.track_names); } catch { return []; } })() : []
           }));
           this.app.database.insertFileChannels(newFileId, channelDetails);
         }

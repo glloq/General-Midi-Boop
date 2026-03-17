@@ -164,8 +164,7 @@ class Application {
 
       // Now initialize WebSocket server with HTTP server instance
       this.wsServer.httpServer = this.httpServer.server;
-      this.wsServer.start();
-      this.wsServer.startHeartbeat();
+      this.wsServer.start(); // start() already calls startHeartbeat()
 
       this.running = true;
       this.logger.info('=== MidiMind 5.0 Running ===');

@@ -13,6 +13,7 @@
 import EventEmitter from 'events';
 import fs from 'fs';
 import path from 'path';
+import MidiUtils from '../utils/MidiUtils.js';
 
 // MIDI Serial constants
 const MIDI_BAUD_RATE = 31250;
@@ -616,31 +617,11 @@ class SerialMidiManager extends EventEmitter {
    * Convert easymidi-format message to raw MIDI bytes
    */
   _convertToMidiBytes(type, data) {
-    const channel = data.channel ?? 0;
-
-    switch (type) {
-      case 'noteon':
-        return [0x90 | channel, data.note & 0x7F, (data.velocity ?? 127) & 0x7F];
-      case 'noteoff':
-        return [0x80 | channel, data.note & 0x7F, (data.velocity ?? 0) & 0x7F];
-      case 'cc':
-        return [0xB0 | channel, data.controller & 0x7F, data.value & 0x7F];
-      case 'program':
-        return [0xC0 | channel, data.number & 0x7F];
-      case 'channel aftertouch':
-        return [0xD0 | channel, data.pressure & 0x7F];
-      case 'poly aftertouch':
-        return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
-      case 'pitchbend': {
-        const value = data.value ?? 8192;
-        return [0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F];
-      }
-      case 'sysex':
-        return Array.isArray(data) ? data : (data.bytes || []);
-      default:
-        this.app.logger.warn(`Unknown MIDI type for serial: ${type}`);
-        return null;
+    const bytes = MidiUtils.convertToMidiBytes(type, data);
+    if (!bytes) {
+      this.app.logger.warn(`Unknown MIDI type for serial: ${type}`);
     }
+    return bytes;
   }
 
   // ==================== HOT-PLUG MONITORING ====================
@@ -665,20 +646,29 @@ class SerialMidiManager extends EventEmitter {
   _checkPortChanges() {
     const currentPorts = new Set(this._scanDevFiles());
 
-    // Check for removed ports
+    // Check for removed ports - collect first to avoid modifying Set during iteration
+    const removedPorts = [];
     for (const portPath of this.knownPorts) {
       if (!currentPorts.has(portPath) && this.openPorts.has(portPath)) {
-        this.app.logger.info(`Serial port disconnected: ${portPath}`);
-        const portInfo = this.openPorts.get(portPath);
-        try {
-          portInfo.port.close();
-        } catch (e) {
-          // Port may already be closed
-        }
-        this.openPorts.delete(portPath);
-        this.knownPorts.delete(portPath);
-        this._broadcastDeviceList();
+        removedPorts.push(portPath);
       }
+    }
+
+    for (const portPath of removedPorts) {
+      this.app.logger.info(`Serial port disconnected: ${portPath}`);
+      const portInfo = this.openPorts.get(portPath);
+      // Remove from maps first to prevent concurrent access
+      this.openPorts.delete(portPath);
+      this.knownPorts.delete(portPath);
+      try {
+        portInfo.port.close();
+      } catch (e) {
+        // Port may already be closed
+      }
+    }
+
+    if (removedPorts.length > 0) {
+      this._broadcastDeviceList();
     }
   }
 

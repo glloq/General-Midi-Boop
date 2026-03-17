@@ -569,6 +569,28 @@ class KeyboardModalNew {
     }
 
     /**
+     * Remove delegated piano container listeners
+     */
+    _removePianoDelegation() {
+        const container = document.getElementById('piano-container');
+        if (!container || !this._pianoMouseDown) return;
+
+        container.removeEventListener('mousedown', this._pianoMouseDown);
+        container.removeEventListener('mouseup', this._pianoMouseUp);
+        container.removeEventListener('mouseleave', this._pianoMouseLeave, true);
+        container.removeEventListener('mouseenter', this._pianoMouseEnter, true);
+        container.removeEventListener('touchstart', this._pianoTouchStart);
+        container.removeEventListener('touchend', this._pianoTouchEnd);
+
+        this._pianoMouseDown = null;
+        this._pianoMouseUp = null;
+        this._pianoMouseLeave = null;
+        this._pianoMouseEnter = null;
+        this._pianoTouchStart = null;
+        this._pianoTouchEnd = null;
+    }
+
+    /**
      * Définir le nombre d'octaves du clavier
      * @param {number} octaves - Nombre d'octaves (1-4)
      */
@@ -650,24 +672,8 @@ class KeyboardModalNew {
             }
         });
 
-        // Piano keys
-        const pianoKeys = document.querySelectorAll('.piano-key');
-        pianoKeys.forEach(key => {
-            key.addEventListener('mousedown', (e) => this.handlePianoKeyDown(e));
-            key.addEventListener('mouseup', (e) => this.handlePianoKeyUp(e));
-            key.addEventListener('mouseleave', (e) => this.handlePianoKeyUp(e));
-            key.addEventListener('mouseenter', (e) => this.handlePianoKeyEnter(e));
-
-            // Touch support
-            key.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.handlePianoKeyDown(e);
-            });
-            key.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                this.handlePianoKeyUp(e);
-            });
-        });
+        // Piano keys - use delegated listeners on the container (not individual per key)
+        this._setupPianoDelegation();
 
         // Gestion globale du mouseup pour le drag
         document.addEventListener('mouseup', this.handleGlobalMouseUp);
@@ -681,6 +687,9 @@ class KeyboardModalNew {
         document.removeEventListener('mouseup', this.handleGlobalMouseUp);
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
+
+        // Remove delegated piano container listeners
+        this._removePianoDelegation();
     }
 
     handleGlobalMouseUp() {

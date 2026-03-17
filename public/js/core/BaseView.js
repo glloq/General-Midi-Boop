@@ -180,9 +180,9 @@ class BaseView {
         this.eventSubscriptions = [];
         
         // Retirer tous les event listeners DOM
-        this.domEventListeners.forEach(({ element, event, handler }) => {
+        this.domEventListeners.forEach(({ element, event, handler, options }) => {
             if (element && typeof element.removeEventListener === 'function') {
-                element.removeEventListener(event, handler);
+                element.removeEventListener(event, handler, options);
             }
         });
         this.domEventListeners = [];

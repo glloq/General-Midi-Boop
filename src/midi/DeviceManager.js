@@ -311,7 +311,9 @@ class DeviceManager {
     }
 
     // Dédupliquer par nom (évite doublons USB input/output et USB/Bluetooth/Network)
-    // Priorité: Network > Bluetooth > USB
+    // Priorité: Network > Bluetooth > Serial > USB (first seen wins, so sort by priority)
+    const typePriority = { network: 0, bluetooth: 1, serial: 2, usb: 3, virtual: 4 };
+    allDevices.sort((a, b) => (typePriority[a.type] ?? 99) - (typePriority[b.type] ?? 99));
     const uniqueDevices = [];
     const seenNames = new Set();
 
@@ -368,12 +370,14 @@ class DeviceManager {
 
       if (bleDevice && bleDevice.connected) {
         try {
-          // Envoyer via Bluetooth MIDI
+          // Envoyer via Bluetooth MIDI (fire-and-forget for real-time performance)
           this.app.bluetoothManager.sendMidiMessage(bleDevice.address, type, data)
-            .catch(error => this.app.logger.error(`Failed to send MIDI message via Bluetooth to ${deviceName}: ${error.message}`));
-          return true;
+            .catch(error => {
+              this.app.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
+            });
+          return true; // Optimistic: BLE write is queued
         } catch (error) {
-          this.app.logger.error(`Failed to send MIDI message via Bluetooth to ${deviceName}: ${error.message}`);
+          this.app.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
           return false;
         }
       }
@@ -388,14 +392,16 @@ class DeviceManager {
         d.ip === deviceName || d.name === deviceName || d.address === deviceName
       );
 
-      if (networkDevice && networkDevice.connected) {
+      if (networkDevice) {
         try {
-          // Envoyer via Network MIDI (RTP-MIDI)
+          // Envoyer via Network MIDI (RTP-MIDI, fire-and-forget for real-time)
           this.app.networkManager.sendMidiMessage(networkDevice.ip, type, data)
-            .catch(error => this.app.logger.error(`Failed to send MIDI message via Network to ${deviceName}: ${error.message}`));
-          return true;
+            .catch(error => {
+              this.app.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
+            });
+          return true; // Optimistic: UDP packet is queued
         } catch (error) {
-          this.app.logger.error(`Failed to send MIDI message via Network to ${deviceName}: ${error.message}`);
+          this.app.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
           return false;
         }
       }

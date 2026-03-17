@@ -192,7 +192,7 @@ class PianoRollView {
             const newTime = Math.max(0, audioTime - startTime);
 
             // DEBUG: Log timing every second
-            if (!this._lastDebugLog || newTime - this._lastDebugLog >= 1) {
+            if (this._debug && (!this._lastDebugLog || newTime - this._lastDebugLog >= 1)) {
                 console.log(`[PianoRoll DEBUG] VIRTUAL mode: time=${newTime.toFixed(2)}s`);
                 this._lastDebugLog = newTime;
             }
@@ -204,7 +204,7 @@ class PianoRollView {
         // Mode backend: utiliser le temps reçu via playback:time events
         // (déjà mis à jour par l'event handler)
         // DEBUG: Log timing every second
-        if (!this._lastDebugLog || this.currentTime - this._lastDebugLog >= 1) {
+        if (this._debug && (!this._lastDebugLog || this.currentTime - this._lastDebugLog >= 1)) {
             console.log(`[PianoRoll DEBUG] BACKEND mode: time=${this.currentTime.toFixed(2)}s`);
             this._lastDebugLog = this.currentTime;
         }
@@ -337,7 +337,7 @@ class PianoRollView {
         }
 
         // DEBUG: Log first few notes timing
-        if (this.notes.length > 0) {
+        if (this._debug && this.notes.length > 0) {
             console.log('[PianoRoll DEBUG] First 5 notes loaded:', this.notes.slice(0, 5).map(n => ({
                 start: n.startTime.toFixed(3),
                 end: n.endTime.toFixed(3),

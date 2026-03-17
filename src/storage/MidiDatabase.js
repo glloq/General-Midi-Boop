@@ -38,8 +38,8 @@ class MidiDatabase {
         file.adaptation_metadata || null,
         file.instrument_types || '[]',
         file.channel_count || 0,
-        file.note_range_min || null,
-        file.note_range_max || null,
+        file.note_range_min ?? null,
+        file.note_range_max ?? null,
         file.has_drums ? 1 : 0,
         file.has_melody ? 1 : 0,
         file.has_bass ? 1 : 0

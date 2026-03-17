@@ -107,8 +107,12 @@ class CustomMidiParser {
   readVariableLength(buffer, offset) {
     let value = 0;
     let bytesRead = 0;
+    const maxBytes = 4; // Variable length quantities are at most 4 bytes in MIDI
 
-    while (true) {
+    while (bytesRead < maxBytes) {
+      if (offset + bytesRead >= buffer.length) {
+        break; // Prevent buffer over-read
+      }
       const byte = buffer.readUInt8(offset + bytesRead);
       bytesRead++;
 
@@ -126,6 +130,9 @@ class CustomMidiParser {
    * Read MIDI event
    */
   readEvent(buffer, offset, time, runningStatus) {
+    if (offset >= buffer.length) {
+      return { bytesRead: 1, status: null, event: null };
+    }
     let statusByte = buffer.readUInt8(offset);
     let bytesRead = 1;
     let actualStatus = statusByte;
@@ -201,7 +208,7 @@ class CustomMidiParser {
     }
 
     // Unknown event
-    this.logger.warn(`Unknown MIDI event: 0x${actualStatus.toString(16)}`);
+    this.logger.warn(`Unknown MIDI event: 0x${actualStatus != null ? actualStatus.toString(16) : 'null'}`);
     return {
       bytesRead: 1,
       status: null,

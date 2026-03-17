@@ -14,7 +14,7 @@ class RtpMidiSession extends EventEmitter {
     super();
 
     this.localName = options.localName || 'MidiMind';
-    this.localPort = options.localPort || 5004;
+    this.localPort = options.localPort || 0; // 0 = OS assigns random available port
     this.remoteHost = null;
     this.remotePort = null;
     this.socket = null;
@@ -162,31 +162,92 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Parse le payload MIDI
+   * Parse le payload MIDI (RFC 6295 MIDI command section)
+   * The first byte is a header byte indicating the length and structure
+   * of the MIDI command section, followed by raw MIDI data.
    * @param {Buffer} payload - Payload MIDI
    * @returns {Array<Array<number>>} Liste de commandes MIDI
    */
   parseMidiPayload(payload) {
     const commands = [];
-    let i = 0;
 
-    while (i < payload.length) {
-      const status = payload[i];
+    if (payload.length === 0) return commands;
 
-      if (status === 0) {
-        i++;
-        continue; // Skip padding
+    // RFC 6295: First byte is the MIDI command section header
+    // Bit 7 (B): 1 if long header (2 bytes), 0 if short header (1 byte)
+    // For short header: bits 3-0 = length of MIDI list in bytes
+    let midiOffset = 0;
+    let midiLength = 0;
+
+    const headerByte = payload[0];
+    if (headerByte & 0x80) {
+      // Long header (2 bytes)
+      if (payload.length < 2) return commands;
+      midiLength = ((headerByte & 0x0F) << 8) | payload[1];
+      midiOffset = 2;
+    } else {
+      // Short header (1 byte)
+      midiLength = headerByte & 0x0F;
+      midiOffset = 1;
+    }
+
+    // If midiLength is 0 or offset exceeds payload, no MIDI data
+    if (midiLength === 0 || midiOffset >= payload.length) return commands;
+
+    // Parse MIDI commands from the MIDI list
+    const midiEnd = Math.min(midiOffset + midiLength, payload.length);
+    let i = midiOffset;
+    let runningStatus = 0;
+
+    while (i < midiEnd) {
+      // Skip delta-time bytes (RTP-MIDI uses variable-length delta-times)
+      // Delta-time bytes have bit 7 clear; if byte has bit 7 set, it's a status byte
+      while (i < midiEnd && !(payload[i] & 0x80)) {
+        i++; // Skip delta-time
       }
 
-      // Déterminer la longueur de la commande MIDI
-      const commandLength = this.getMidiCommandLength(status);
+      if (i >= midiEnd) break;
 
-      if (i + commandLength <= payload.length) {
-        const command = Array.from(payload.slice(i, i + commandLength));
+      const status = payload[i];
+
+      // SysEx start
+      if (status === 0xF0) {
+        const sysexStart = i;
+        i++;
+        while (i < midiEnd && payload[i] !== 0xF7) i++;
+        if (i < midiEnd) i++; // Include F7
+        commands.push(Array.from(payload.slice(sysexStart, i)));
+        runningStatus = 0;
+        continue;
+      }
+
+      // System real-time (single byte, doesn't affect running status)
+      if (status >= 0xF8) {
+        commands.push([status]);
+        i++;
+        continue;
+      }
+
+      // Channel message or system common
+      if (status >= 0x80) {
+        runningStatus = status;
+        i++;
+      }
+
+      if (runningStatus === 0) {
+        i++;
+        continue;
+      }
+
+      const commandLength = this.getMidiCommandLength(runningStatus);
+      const dataBytes = commandLength - 1; // Exclude status byte
+
+      if (i + dataBytes <= midiEnd) {
+        const command = [runningStatus, ...Array.from(payload.slice(i, i + dataBytes))];
         commands.push(command);
-        i += commandLength;
+        i += dataBytes;
       } else {
-        break; // Commande incomplète
+        break;
       }
     }
 
@@ -212,11 +273,12 @@ class RtpMidiSession extends EventEmitter {
       case 0xD0: // Channel Aftertouch
         return 2;
       case 0xF0: // System messages
-        if (status === 0xF0) {
-          // SysEx - trouver le 0xF7
-          return 1; // Simplified: devrait parser jusqu'à F7
-        }
-        return 1;
+        if (status === 0xF1) return 2; // MTC Quarter Frame
+        if (status === 0xF2) return 3; // Song Position Pointer
+        if (status === 0xF3) return 2; // Song Select
+        if (status === 0xF6) return 1; // Tune Request
+        if (status >= 0xF8) return 1;  // Real-time messages
+        return 1; // SysEx and others: handled separately
       default:
         return 1;
     }

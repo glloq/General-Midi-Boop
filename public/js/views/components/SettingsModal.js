@@ -651,11 +651,12 @@ class SettingsModal {
         });
 
         // Touche Escape pour fermer
-        document.addEventListener('keydown', (e) => {
+        this._escHandler = (e) => {
             if (e.key === 'Escape' && this.overlay.style.display === 'flex') {
                 this.close();
             }
-        });
+        };
+        document.addEventListener('keydown', this._escHandler);
 
         // Attacher les événements du contenu
         this.attachContentEventListeners();
@@ -857,6 +858,10 @@ class SettingsModal {
      */
     open() {
         this.overlay.style.display = 'flex';
+        if (this._escHandler) {
+            document.removeEventListener('keydown', this._escHandler);
+        }
+        document.addEventListener('keydown', this._escHandler);
 
         // Restaurer les valeurs actuelles
         this.selectTheme(this.settings.theme);
@@ -897,6 +902,9 @@ class SettingsModal {
      */
     close() {
         this.overlay.style.display = 'none';
+        if (this._escHandler) {
+            document.removeEventListener('keydown', this._escHandler);
+        }
         this.logger?.info('Settings modal closed');
     }
 

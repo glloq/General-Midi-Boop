@@ -9,6 +9,7 @@ class TimeUtils {
    * @returns {number} Milliseconds
    */
   static ticksToMs(ticks, ppq, bpm) {
+    if (!ppq || !bpm) return 0;
     const beatsPerSecond = bpm / 60;
     const ticksPerSecond = beatsPerSecond * ppq;
     return (ticks / ticksPerSecond) * 1000;
@@ -22,6 +23,7 @@ class TimeUtils {
    * @returns {number} Seconds
    */
   static ticksToSeconds(ticks, ppq, bpm) {
+    if (!ppq || !bpm) return 0;
     const beatsPerSecond = bpm / 60;
     const ticksPerSecond = beatsPerSecond * ppq;
     return ticks / ticksPerSecond;
@@ -35,6 +37,7 @@ class TimeUtils {
    * @returns {number} MIDI ticks
    */
   static msToTicks(ms, ppq, bpm) {
+    if (!ppq || !bpm) return 0;
     const beatsPerSecond = bpm / 60;
     const ticksPerSecond = beatsPerSecond * ppq;
     return Math.round((ms / 1000) * ticksPerSecond);
@@ -48,6 +51,7 @@ class TimeUtils {
    * @returns {number} MIDI ticks
    */
   static secondsToTicks(seconds, ppq, bpm) {
+    if (!ppq || !bpm) return 0;
     const beatsPerSecond = bpm / 60;
     const ticksPerSecond = beatsPerSecond * ppq;
     return Math.round(seconds * ticksPerSecond);
@@ -59,6 +63,7 @@ class TimeUtils {
    * @returns {number} BPM
    */
   static microsecondsPerBeatToBPM(microsecondsPerBeat) {
+    if (!microsecondsPerBeat) return 120;
     return 60000000 / microsecondsPerBeat;
   }
 
@@ -68,6 +73,7 @@ class TimeUtils {
    * @returns {number} Microseconds per quarter note
    */
   static bpmToMicrosecondsPerBeat(bpm) {
+    if (!bpm) return 500000; // 120 BPM default
     return Math.round(60000000 / bpm);
   }
 

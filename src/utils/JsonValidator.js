@@ -237,15 +237,15 @@ class JsonValidator {
           errors.push('deviceId is required');
         }
         break;
+    }
 
-      case 'latency_set':
-        if (data.latency === undefined) {
-          errors.push('latency is required');
-        }
-        if (typeof data.latency !== 'number' || data.latency < 0) {
-          errors.push('latency must be a positive number');
-        }
-        break;
+    // Additional validation for latency_set
+    if (command === 'latency_set') {
+      if (data.latency === undefined) {
+        errors.push('latency is required');
+      } else if (typeof data.latency !== 'number' || data.latency < 0) {
+        errors.push('latency must be a positive number');
+      }
     }
 
     return {

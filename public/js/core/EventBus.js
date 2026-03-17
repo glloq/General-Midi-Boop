@@ -358,6 +358,10 @@ class EventBus {
     
     destroy() {
         this.stopProcessing();
+        if (this._cacheCleanupTimer) {
+            clearInterval(this._cacheCleanupTimer);
+            this._cacheCleanupTimer = null;
+        }
         this.clear();
     }
     

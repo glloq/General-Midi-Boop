@@ -769,9 +769,7 @@ class InstrumentManagementPage {
       this.modal = null;
     }
 
-    if (window.instrumentManagementPageInstance === this) {
-      delete window.instrumentManagementPageInstance;
-    }
+    window.instrumentManagementPageInstance = null;
   }
 }
 

@@ -80,31 +80,27 @@ class WebSocketServer {
   }
 
   async handleMessage(ws, data) {
+    let parsedMessage = null;
     try {
-      const message = JSON.parse(data.toString());
+      parsedMessage = JSON.parse(data.toString());
 
       // Log command with ID
-      this.app.logger.info(`Received command: ${message.command} (id: ${message.id})`);
+      this.app.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
 
       // Dispatch to command handler (await to catch async errors)
-      await this.app.commandHandler.handle(message, ws);
+      await this.app.commandHandler.handle(parsedMessage, ws);
     } catch (error) {
       this.app.logger.error(`Failed to process message: ${error.message}`);
 
-      // Try to send error response with ID if available
-      let errorResponse = {
+      // Send error response with ID if we managed to parse the message
+      const errorResponse = {
         type: 'error',
-        error: 'Invalid message format',
+        error: error.message || 'Invalid message format',
         timestamp: Date.now()
       };
 
-      try {
-        const message = JSON.parse(data.toString());
-        if (message.id) {
-          errorResponse.id = message.id;
-        }
-      } catch (e) {
-        // Cannot parse message, send error without ID
+      if (parsedMessage && parsedMessage.id) {
+        errorResponse.id = parsedMessage.id;
       }
 
       if (ws.readyState === 1) {
@@ -188,7 +184,7 @@ class WebSocketServer {
   getStats() {
     return {
       clients: this.clients.size,
-      port: this.port
+      port: this.app?.config?.server?.port
     };
   }
 }

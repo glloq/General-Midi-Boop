@@ -90,7 +90,7 @@ class BluetoothScanModal {
 
         // Écouter les changements de langue
         if (typeof i18n !== 'undefined') {
-            i18n.onLocaleChange(() => this.updateModalContent());
+            this._localeUnsubscribe = i18n.onLocaleChange(() => this.updateModalContent());
         }
 
         this.logger.debug('BluetoothScanModal', 'Event listeners configured');
@@ -127,6 +127,11 @@ class BluetoothScanModal {
 
         this.isOpen = false;
         this.scanning = false;
+
+        if (this._localeUnsubscribe) {
+            this._localeUnsubscribe();
+            this._localeUnsubscribe = null;
+        }
 
         if (this.container) {
             this.container.remove();
