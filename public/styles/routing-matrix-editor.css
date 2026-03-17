@@ -128,8 +128,8 @@
 }
 
 .matrix-wrapper::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 20px;
+    height: 20px;
 }
 
 .matrix-wrapper::-webkit-scrollbar-track {

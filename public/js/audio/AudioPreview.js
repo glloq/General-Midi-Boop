@@ -36,13 +36,21 @@ class AudioPreview {
    * @param {Object} transpositions - { channel: { semitones, noteRemapping } }
    * @param {number} startTime - Start time in seconds (default: 0)
    * @param {number} duration - Duration in seconds (default: 15)
+   * @param {Object} instrumentPrograms - { channel: gmProgram } (optional)
    */
-  async previewAdapted(midiData, transpositions, startTime = 0, duration = 15) {
+  async previewAdapted(midiData, transpositions, startTime = 0, duration = 15, instrumentPrograms = {}) {
     try {
       this.isPreviewing = true;
 
       // Initialize synthesizer
       await this.initSynthesizer();
+
+      // Apply instrument programs for selected instruments
+      if (instrumentPrograms && this.synthesizer.setChannelInstrument) {
+        for (const [channel, program] of Object.entries(instrumentPrograms)) {
+          this.synthesizer.setChannelInstrument(Number(channel), program);
+        }
+      }
 
       // Apply transpositions to create preview sequence
       const previewSequence = this.createPreviewSequence(midiData, transpositions, startTime, duration);

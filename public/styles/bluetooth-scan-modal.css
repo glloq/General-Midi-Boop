@@ -144,7 +144,7 @@
 
 /* Style de la scrollbar */
 .bluetooth-scan-modal .modal-body::-webkit-scrollbar {
-    width: 8px;
+    width: 16px;
 }
 
 .bluetooth-scan-modal .modal-body::-webkit-scrollbar-track {

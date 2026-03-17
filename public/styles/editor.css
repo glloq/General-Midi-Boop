@@ -426,7 +426,7 @@
 
 /* Scrollbar */
 .editor-sidebar::-webkit-scrollbar {
-    width: 8px;
+    width: 16px;
 }
 
 .editor-sidebar::-webkit-scrollbar-track {

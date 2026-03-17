@@ -91,7 +91,7 @@ class InstrumentManagementPage {
               </button>
               <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
                 <button class="btn btn-primary" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px;">
-                  ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Instrument virtuel'}
+                  ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Ajouter un instrument virtuel'}
                 </button>
                 <button class="btn" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px;">
                   🔄

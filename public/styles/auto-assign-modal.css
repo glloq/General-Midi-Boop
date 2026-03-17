@@ -76,11 +76,11 @@
   border-bottom: 2px solid #e0e0e0;
   padding: 0;
   gap: 0;
-  scrollbar-width: thin;
+  scrollbar-width: auto;
 }
 
 .aa-tabs-bar::-webkit-scrollbar {
-  height: 4px;
+  height: 8px;
 }
 
 .aa-tabs-bar::-webkit-scrollbar-thumb {

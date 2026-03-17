@@ -138,7 +138,7 @@
 
 /* Style de la scrollbar */
 .network-scan-modal .modal-body::-webkit-scrollbar {
-    width: 8px;
+    width: 16px;
 }
 
 .network-scan-modal .modal-body::-webkit-scrollbar-track {
@@ -376,7 +376,7 @@
 
 /* Style de la scrollbar pour les listes de devices */
 .devices-list::-webkit-scrollbar {
-    width: 6px;
+    width: 12px;
 }
 
 .devices-list::-webkit-scrollbar-track {
