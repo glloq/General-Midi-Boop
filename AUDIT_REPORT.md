@@ -3,7 +3,7 @@
 
 **Date**: 2026-03-17
 **Auditor**: Claude Code (Automated Audit)
-**Status**: COMPLETED (3 rounds)
+**Status**: COMPLETED (4 rounds)
 
 ---
 
@@ -233,10 +233,10 @@ The `passesFilter()` method in MidiRouter handles:
 #### Overall
 | Status | Count |
 |--------|-------|
-| FIXED | 29 |
+| FIXED | 33 |
 | By Design | 1 |
 | Noted (non-critical, deferred) | 6 |
-| **Total issues found** | **36** |
+| **Total issues found** | **40** |
 
 ### Files Modified
 1. `src/midi/MidiRouter.js` - EventBus listener leak fix
@@ -273,6 +273,10 @@ The `passesFilter()` method in MidiRouter handles:
 | R5 | Medium | MidiDatabase: note_range_min/max stored as null when value is 0 (valid MIDI note) | FIXED |
 | R6 | Medium | MidiRouter: addRoute() doesn't clean routesBySource on DB failure rollback | FIXED |
 | R7 | Medium | DeviceManager: getDeviceList() deduplication priority inverted (USB wins over Network) | FIXED |
+| R8 | Medium | MidiUtils: createNoteOn/Off/CC clamp channel to 0-127 instead of 0-15 | FIXED |
+| R9 | Medium | MidiUtils: createProgramChange uses 'number' key but transports expect 'program' | FIXED |
+| R10 | Medium | JsonValidator: duplicate case 'latency_set' makes latency validation dead code | FIXED |
+| R11 | Minor | CustomMidiParser: null.toString(16) crash on unknown events with null running status | FIXED |
 
 ### Fixes Applied
 - **R1**: Added `Number.isInteger()` validation for limit/offset in fileFilter()
@@ -312,7 +316,7 @@ The `passesFilter()` method in MidiRouter handles:
 - [x] Frontend memory leaks addressed (i18n listeners, escape handlers, global refs)
 - [x] EventBus listener cleanup verified (MidiRouter, MidiPlayer)
 - [x] Code improvement pass (debug logging gated, canvas cleanup, input validation)
-- [x] Final clean audit (3 rounds completed, no remaining critical/high issues)
+- [x] Final clean audit (4 rounds completed, no remaining critical/high issues)
 - [x] All fixes verified by re-reading modified files
 
 ### Files Modified (Total: 18)
@@ -342,6 +346,9 @@ API (1):
 
 Database (1):
 19. `src/storage/MidiDatabase.js`
+
+Utilities (1 additional):
+20. `src/utils/JsonValidator.js`
 
 ### Remaining Low-Priority Items (Not Blocking)
 - FilterManager.getFilterLabel() has hardcoded French labels (cosmetic, i18n system works elsewhere)
