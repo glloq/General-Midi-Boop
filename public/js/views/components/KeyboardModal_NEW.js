@@ -932,20 +932,28 @@ class KeyboardModalNew {
      */
     autoCenterKeyboard() {
         const caps = this.selectedDeviceCapabilities;
-        if (!caps) return;
 
-        const minNote = caps.note_range_min;
-        const maxNote = caps.note_range_max;
+        // Parse note range values (may be strings from DB/JSON)
+        const minNote = caps ? Number(caps.note_range_min) : NaN;
+        const maxNote = caps ? Number(caps.note_range_max) : NaN;
 
-        // Si pas de plage définie, ne rien faire
-        if ((minNote === null || minNote === undefined) &&
-            (maxNote === null || maxNote === undefined)) {
+        const hasMin = isFinite(minNote);
+        const hasMax = isFinite(maxNote);
+
+        // Si pas de plage définie, recentrer sur la position par défaut (offset=0)
+        if (!hasMin && !hasMax) {
+            this.octaveOffset = 0;
+            const octaveDisplayEl = document.getElementById('keyboard-octave-display');
+            if (octaveDisplayEl) {
+                octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: 0 });
+            }
+            this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default offset 0');
             return;
         }
 
         // Calculer le centre de la plage jouable
-        const effectiveMin = (minNote !== null && minNote !== undefined) ? minNote : 21;
-        const effectiveMax = (maxNote !== null && maxNote !== undefined) ? maxNote : 108;
+        const effectiveMin = hasMin ? minNote : 21;
+        const effectiveMax = hasMax ? maxNote : 108;
         const centerNote = Math.round((effectiveMin + effectiveMax) / 2);
 
         // Convertir en octave MIDI (C4=60 → octave 4)
@@ -961,7 +969,7 @@ class KeyboardModalNew {
         this.octaveOffset = Math.max(-3, Math.min(3, neededOffset));
 
         // Mettre à jour l'affichage de l'octave
-        const display = this.octaveOffset > 0 ? `+${this.octaveOffset}` : this.octaveOffset;
+        const display = this.octaveOffset > 0 ? `+${this.octaveOffset}` : `${this.octaveOffset}`;
         const octaveDisplayEl = document.getElementById('keyboard-octave-display');
         if (octaveDisplayEl) {
             octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: display });
