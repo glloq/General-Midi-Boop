@@ -258,15 +258,17 @@ class AutoAssignModal {
     this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
     document.addEventListener('keydown', this._escHandler);
 
-    this.modal.addEventListener('click', (e) => {
+    this._overlayClickHandler = (e) => {
       if (e.target === this.modal) this.close();
-    });
+    };
+    this.modal.addEventListener('click', this._overlayClickHandler);
   }
 
   /**
    * Switch to a different channel tab
    */
   switchTab(channel) {
+    if (!this.modal) return;
     this.activeTab = channel;
     // Update tab active states
     const tabs = this.modal.querySelectorAll('.aa-tab');
@@ -287,6 +289,7 @@ class AutoAssignModal {
    * Update preview button for current channel
    */
   updatePreviewButton(channel) {
+    if (!this.modal) return;
     const footer = this.modal.querySelector('.aa-footer-center');
     if (!footer || !this.midiData) return;
     footer.innerHTML = `
@@ -635,6 +638,7 @@ class AutoAssignModal {
    * Refresh tab bar (scores, skip states)
    */
   refreshTabBar() {
+    if (!this.modal) return;
     const tabs = this.modal.querySelectorAll('.aa-tab');
     tabs.forEach(tab => {
       const ch = parseInt(tab.dataset.channel);
@@ -795,6 +799,10 @@ class AutoAssignModal {
       return;
     }
 
+    // Prevent concurrent previews
+    if (this._previewInProgress) return;
+    this._previewInProgress = true;
+
     try {
       this.stopPreview();
       const ch = String(channel);
@@ -825,6 +833,8 @@ class AutoAssignModal {
     } catch (error) {
       console.error('Preview error:', error);
       alert(_t('autoAssign.previewFailed') + ': ' + error.message);
+    } finally {
+      this._previewInProgress = false;
     }
   }
 
@@ -888,6 +898,10 @@ class AutoAssignModal {
     }
 
     if (this.modal) {
+      if (this._overlayClickHandler) {
+        this.modal.removeEventListener('click', this._overlayClickHandler);
+        this._overlayClickHandler = null;
+      }
       this.modal.remove();
       this.modal = null;
     }

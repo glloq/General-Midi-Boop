@@ -174,11 +174,18 @@ class InstrumentMatcher {
       const std = this.config.weights;
       const drum = this.config.percussion.drumChannelWeights;
       // Normaliser chaque sous-score par rapport au poids standard, puis re-ponderer avec les poids drums
-      score = (std.programMatch > 0 ? (programScore.score / std.programMatch) * drum.programMatch : 0)
-            + (std.noteRange > 0 ? (noteScore.score / std.noteRange) * drum.noteRange : 0)
-            + (std.polyphony > 0 ? (polyScore.score / std.polyphony) * drum.polyphony : 0)
-            + (std.ccSupport > 0 ? (ccScore.score / std.ccSupport) * drum.ccSupport : 0)
-            + (std.instrumentType > 0 ? (typeScore.score / std.instrumentType) * drum.instrumentType : 0);
+      // Guard against division by zero: if standard weight is 0, the sub-score contribution is 0
+      const safeRatio = (subScore, stdWeight, drumWeight) =>
+        stdWeight > 0 ? (subScore / stdWeight) * drumWeight : 0;
+
+      score = safeRatio(programScore.score, std.programMatch, drum.programMatch)
+            + safeRatio(noteScore.score, std.noteRange, drum.noteRange)
+            + safeRatio(polyScore.score, std.polyphony, drum.polyphony)
+            + safeRatio(ccScore.score, std.ccSupport, drum.ccSupport)
+            + safeRatio(typeScore.score, std.instrumentType, drum.instrumentType);
+
+      // Ensure score is finite (NaN guard)
+      if (!isFinite(score)) score = 0;
     }
 
     // Appliquer penalite/bonus percussion

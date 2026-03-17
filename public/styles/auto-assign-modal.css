@@ -80,12 +80,17 @@
 }
 
 .aa-tabs-bar::-webkit-scrollbar {
-  height: 8px;
+  height: 16px;
 }
 
 .aa-tabs-bar::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 2px;
+  background: #aaa;
+  border-radius: 8px;
+  border: 3px solid #f5f5f5;
+}
+
+.aa-tabs-bar::-webkit-scrollbar-track {
+  background: #f5f5f5;
 }
 
 .aa-tab {
@@ -153,6 +158,21 @@
   padding: 16px 20px !important;
   max-height: 55vh;
   overflow-y: auto;
+  scrollbar-width: auto;
+}
+
+.aa-body::-webkit-scrollbar {
+  width: 16px;
+}
+
+.aa-body::-webkit-scrollbar-thumb {
+  background: #aaa;
+  border-radius: 8px;
+  border: 3px solid #f9fafb;
+}
+
+.aa-body::-webkit-scrollbar-track {
+  background: #f9fafb;
 }
 
 .aa-tab-content {
@@ -631,4 +651,149 @@ body.dark-mode .aa-skipped-badge {
 /* Drum badge stays orange */
 body.dark-mode .aa-tab-drum {
   background: #e68900;
+}
+
+/* Dark mode scrollbar overrides */
+body.dark-mode .aa-tabs-bar::-webkit-scrollbar-thumb {
+  background: #5a6a7e;
+  border-color: #252538;
+}
+
+body.dark-mode .aa-tabs-bar::-webkit-scrollbar-track {
+  background: #252538;
+}
+
+body.dark-mode .aa-body::-webkit-scrollbar-thumb {
+  background: #5a6a7e;
+  border-color: #1e1e2e;
+}
+
+body.dark-mode .aa-body::-webkit-scrollbar-track {
+  background: #1e1e2e;
+}
+
+/* ==========================================================================
+   Focus States (Accessibility)
+   ========================================================================== */
+
+.aa-tab:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: -2px;
+}
+
+.aa-instrument-option:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.aa-btn-sm:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.aa-skip-toggle input[type="checkbox"]:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Responsive - Tablet & Mobile
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .auto-assign-modal .modal-container {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    max-width: none;
+  }
+
+  .auto-assign-modal .modal-header {
+    padding: 10px 14px;
+  }
+
+  .aa-header-content h2 {
+    font-size: 16px;
+  }
+
+  .aa-header-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .aa-tabs-bar {
+    padding: 0;
+  }
+
+  .aa-tab {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .aa-body {
+    padding: 12px 14px !important;
+    max-height: 60vh;
+  }
+
+  .aa-channel-stats {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .aa-instrument-main {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .aa-instrument-score {
+    text-align: left;
+    margin-left: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .aa-score-value {
+    font-size: 18px;
+  }
+
+  .aa-footer {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .aa-footer-center,
+  .aa-footer-right {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .aa-transposition-control {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .aa-tab-label {
+    font-size: 11px;
+  }
+
+  .aa-tab {
+    padding: 6px 8px;
+  }
+
+  .aa-instrument-name {
+    font-size: 13px;
+  }
+
+  .aa-footer-right {
+    flex-direction: column;
+  }
+
+  .aa-footer-right .btn {
+    width: 100%;
+  }
 }
