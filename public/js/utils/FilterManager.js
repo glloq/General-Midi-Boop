@@ -205,64 +205,65 @@ class FilterManager {
    * Get human-readable label for a filter
    */
   getFilterLabel(key, value) {
+    const t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
     switch (key) {
       case 'filename':
-        return `Nom: "${value}"`;
+        return t('filters.labelName', { value });
       case 'folder':
-        return `Dossier: "${value}"`;
+        return t('filters.labelFolder', { value });
       case 'durationMin':
       case 'durationMax':
         const durMin = this.filters.durationMin || 0;
         const durMax = this.filters.durationMax || '∞';
-        return `Durée: ${this.formatDuration(durMin)}-${durMax === '∞' ? '∞' : this.formatDuration(durMax)}`;
+        return t('filters.labelDuration', { min: this.formatDuration(durMin), max: durMax === '∞' ? '∞' : this.formatDuration(durMax) });
       case 'tempoMin':
       case 'tempoMax':
         const tMin = this.filters.tempoMin || 0;
         const tMax = this.filters.tempoMax || '∞';
-        return `Tempo: ${tMin}-${tMax} BPM`;
+        return t('filters.labelTempo', { min: tMin, max: tMax });
       case 'tracksMin':
       case 'tracksMax':
         const trMin = this.filters.tracksMin || 0;
         const trMax = this.filters.tracksMax || '∞';
-        return `Pistes: ${trMin}-${trMax}`;
+        return t('filters.labelTracks', { min: trMin, max: trMax });
       case 'instrumentTypes':
-        return `Instruments: ${value.join(', ')} (${this.filters.instrumentMode})`;
+        return t('filters.labelInstruments', { value: value.join(', '), mode: this.filters.instrumentMode });
       case 'channelCountMin':
       case 'channelCountMax':
         const chMin = this.filters.channelCountMin || 0;
         const chMax = this.filters.channelCountMax || '∞';
-        return `Canaux: ${chMin}-${chMax}`;
+        return t('filters.labelChannels', { min: chMin, max: chMax });
       case 'hasRouting':
-        return value ? 'Routés' : 'Non routés';
+        return value ? t('filters.labelRouted') : t('filters.labelUnrouted');
       case 'routingStatus': {
         const labels = {
-          unrouted: 'Non routé',
-          partial: 'Partiellement routé',
-          full: 'Totalement routé',
-          validated: 'Validé',
-          playable: 'Jouable à 100%'
+          unrouted: t('filters.routingUnrouted'),
+          partial: t('filters.routingPartial'),
+          full: t('filters.routingFull'),
+          validated: t('filters.routingValidated'),
+          playable: t('filters.routingPlayable')
         };
-        return `Routage: ${labels[value] || value}`;
+        return t('filters.labelRoutingStatus', { status: labels[value] || value });
       }
       case 'playableOnInstruments':
-        return `Jouable sur: ${value.length} instrument(s) (${this.filters.playableMode})`;
+        return t('filters.labelPlayableOn', { count: value.length, mode: this.filters.playableMode });
       case 'isOriginal':
-        return value ? 'Originaux' : 'Adaptés';
+        return value ? t('filters.labelOriginals') : t('filters.labelAdapted');
       case 'hasDrums':
-        return 'Avec drums';
+        return t('filters.labelWithDrums');
       case 'hasMelody':
-        return 'Avec mélodie';
+        return t('filters.labelWithMelody');
       case 'hasBass':
-        return 'Avec basse';
+        return t('filters.labelWithBass');
       case 'gmInstruments':
-        return `GM Instruments: ${value.join(', ')} (${this.filters.gmMode})`;
+        return t('filters.labelGmInstruments', { value: value.join(', '), mode: this.filters.gmMode });
       case 'gmCategories':
-        return `GM Catégories: ${value.join(', ')} (${this.filters.gmMode})`;
+        return t('filters.labelGmCategories', { value: value.join(', '), mode: this.filters.gmMode });
       case 'gmPrograms':
-        return `GM Programmes: ${value.join(', ')}`;
+        return t('filters.labelGmPrograms', { value: value.join(', ') });
       case 'uploadedAfter':
       case 'uploadedBefore':
-        return `Date: ${this.filters.uploadedAfter || ''} - ${this.filters.uploadedBefore || ''}`;
+        return t('filters.labelDate', { from: this.filters.uploadedAfter || '', to: this.filters.uploadedBefore || '' });
       default:
         return `${key}: ${value}`;
     }

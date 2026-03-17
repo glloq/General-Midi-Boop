@@ -432,7 +432,7 @@
 .shortcuts-content {
     position: relative;
     background: white;
-    border-radius: 16px;
+    border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     max-width: 600px;
     width: 90%;
@@ -459,7 +459,7 @@
     padding: 20px 25px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    border-radius: 16px 16px 0 0;
+    border-radius: 12px 12px 0 0;
 }
 
 .shortcuts-header h3 {
@@ -548,7 +548,7 @@
 .shortcuts-footer {
     padding: 15px 25px;
     background: #f8f9fa;
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 12px 12px;
     text-align: center;
 }
 

@@ -151,7 +151,7 @@ class AutoAssignModal {
           </div>
           <div class="modal-body" style="padding: 32px; text-align: center;">
             <p style="color: #ff4444; font-size: 16px;">${escapeHtml(message)}</p>
-            <button class="button button-secondary" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 16px;">
+            <button class="btn" onclick="document.getElementById('autoAssignModal').remove()" style="margin-top: 16px;">
               ${_t('common.close')}
             </button>
           </div>
@@ -225,24 +225,24 @@ class AutoAssignModal {
           </div>
 
           <div class="modal-footer aa-footer">
-            <button class="button button-secondary" onclick="autoAssignModalInstance.close()">
+            <button class="btn" onclick="autoAssignModalInstance.close()">
               ${_t('common.cancel')}
             </button>
             <div class="aa-footer-center">
               ${this.midiData ? `
-                <button class="button button-secondary" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
+                <button class="btn" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
                   ${_t('autoAssign.previewChannel', {num: this.activeTab + 1})}
                 </button>
-                <button class="button button-secondary" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
+                <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
                   ${_t('autoAssign.stop')}
                 </button>
               ` : ''}
             </div>
             <div class="aa-footer-right">
-              <button class="button button-info" onclick="autoAssignModalInstance.quickAssign()" title="${_t('autoAssign.quickAssignTip')}">
+              <button class="btn" onclick="autoAssignModalInstance.quickAssign()" title="${_t('autoAssign.quickAssignTip')}">
                 ${_t('autoAssign.quickAssign')}
               </button>
-              <button class="button button-primary" onclick="autoAssignModalInstance.validateAndApply()">
+              <button class="btn btn-primary" onclick="autoAssignModalInstance.validateAndApply()">
                 ${_t('autoAssign.validateAndOpen')}
               </button>
             </div>
@@ -290,10 +290,10 @@ class AutoAssignModal {
     const footer = this.modal.querySelector('.aa-footer-center');
     if (!footer || !this.midiData) return;
     footer.innerHTML = `
-      <button class="button button-secondary" onclick="autoAssignModalInstance.previewChannel(${channel})" title="${_t('autoAssign.previewChannelTip')}">
+      <button class="btn" onclick="autoAssignModalInstance.previewChannel(${channel})" title="${_t('autoAssign.previewChannelTip')}">
         ${_t('autoAssign.previewChannel', {num: channel + 1})}
       </button>
-      <button class="button button-secondary" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
+      <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
         ${_t('autoAssign.stop')}
       </button>
     `;

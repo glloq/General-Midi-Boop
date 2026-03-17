@@ -49,8 +49,8 @@
 
 .bluetooth-scan-modal .modal-dialog {
     background: white !important;
-    border-radius: 16px !important;
-    box-shadow: 0 20px 60px rgba(155, 89, 182, 0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
     max-width: 850px !important;
     width: 95% !important;
     max-height: 90vh !important;

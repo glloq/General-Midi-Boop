@@ -75,13 +75,13 @@ class InstrumentCapabilitiesModal {
               <span id="progressText">${_t('instrumentCapabilities.progress', { current: 1, total: totalCount })}</span>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.skip()" style="min-width: 80px;">
+              <button class="btn" onclick="instrumentCapabilitiesModalInstance.skip()" style="min-width: 80px;">
                 ${_t('instrumentCapabilities.skip')}
               </button>
-              <button class="button button-secondary" onclick="instrumentCapabilitiesModalInstance.previous()" id="previousBtn" style="min-width: 80px;">
+              <button class="btn" onclick="instrumentCapabilitiesModalInstance.previous()" id="previousBtn" style="min-width: 80px;">
                 ${_t('instrumentCapabilities.previous')}
               </button>
-              <button class="button button-primary" onclick="instrumentCapabilitiesModalInstance.next()" id="nextBtn" style="min-width: 100px;">
+              <button class="btn btn-primary" onclick="instrumentCapabilitiesModalInstance.next()" id="nextBtn" style="min-width: 100px;">
                 ${_t('instrumentCapabilities.next')}
               </button>
             </div>
@@ -342,7 +342,7 @@ class InstrumentCapabilitiesModal {
   generateDefaultsButton(instrument) {
     return `
       <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-        <button class="button button-secondary"
+        <button class="btn"
                 onclick="instrumentCapabilitiesModalInstance.applyDefaults()"
                 style="width: 100%; margin-bottom: 8px;">
           ${_t('instrumentCapabilities.applyDefaults')}

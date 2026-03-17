@@ -1438,10 +1438,10 @@ class MidiEditorModal {
                 <div class="curve-section">
                     <label class="cc-toolbar-label">${this.t('midiEditor.curveType')}</label>
                     <div class="cc-curve-buttons-horizontal">
-                        <button class="cc-curve-btn active" data-curve="linear" title="Linear">━</button>
-                        <button class="cc-curve-btn" data-curve="exponential" title="Exponential (Ease-in)">⌃</button>
-                        <button class="cc-curve-btn" data-curve="logarithmic" title="Logarithmic (Ease-out)">⌄</button>
-                        <button class="cc-curve-btn" data-curve="sine" title="Sine (Ease-in-out)">∿</button>
+                        <button class="cc-curve-btn active" data-curve="linear" title="${this.t('midiEditor.curveLinear')}">━</button>
+                        <button class="cc-curve-btn" data-curve="exponential" title="${this.t('midiEditor.curveExponential')}">⌃</button>
+                        <button class="cc-curve-btn" data-curve="logarithmic" title="${this.t('midiEditor.curveLogarithmic')}">⌄</button>
+                        <button class="cc-curve-btn" data-curve="sine" title="${this.t('midiEditor.curveSine')}">∿</button>
                     </div>
                 </div>
             `;
@@ -2172,7 +2172,7 @@ class MidiEditorModal {
                     data-channel="${ch.channel}"
                     data-color="${color}"
                     style="${inlineStyles}"
-                    title="${ch.noteCount} notes - Canal ${ch.channel + 1}"
+                    title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
                 >
                     <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
                 </button>
@@ -2670,43 +2670,43 @@ class MidiEditorModal {
                                         <div class="cc-btn-group" data-group="perf">
                                             <span class="cc-group-label">${this.t('midiEditor.groupPerf')}</span>
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn active" data-cc-type="cc1" title="Modulation Wheel">CC1</button>
-                                                <button class="cc-type-btn" data-cc-type="cc2" title="Breath Controller">CC2</button>
-                                                <button class="cc-type-btn" data-cc-type="cc11" title="Expression Controller">CC11</button>
-                                                <button class="cc-type-btn" data-cc-type="pitchbend" title="Pitch Wheel">PB</button>
+                                                <button class="cc-type-btn active" data-cc-type="cc1" title="${this.t('midiEditor.ccModulationWheel')}">CC1</button>
+                                                <button class="cc-type-btn" data-cc-type="cc2" title="${this.t('midiEditor.ccBreathController')}">CC2</button>
+                                                <button class="cc-type-btn" data-cc-type="cc11" title="${this.t('midiEditor.ccExpressionController')}">CC11</button>
+                                                <button class="cc-type-btn" data-cc-type="pitchbend" title="${this.t('midiEditor.ccPitchWheel')}">PB</button>
                                             </div>
                                         </div>
                                         <!-- Groupe Vibrato -->
                                         <div class="cc-btn-group" data-group="vib">
                                             <span class="cc-group-label">${this.t('midiEditor.groupVib')}</span>
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="cc76" title="Vibrato Rate">CC76</button>
-                                                <button class="cc-type-btn" data-cc-type="cc77" title="Vibrato Depth">CC77</button>
-                                                <button class="cc-type-btn" data-cc-type="cc78" title="Vibrato Delay">CC78</button>
+                                                <button class="cc-type-btn" data-cc-type="cc76" title="${this.t('midiEditor.ccVibratoRate')}">CC76</button>
+                                                <button class="cc-type-btn" data-cc-type="cc77" title="${this.t('midiEditor.ccVibratoDepth')}">CC77</button>
+                                                <button class="cc-type-btn" data-cc-type="cc78" title="${this.t('midiEditor.ccVibratoDelay')}">CC78</button>
                                             </div>
                                         </div>
                                         <!-- Groupe Mix -->
                                         <div class="cc-btn-group" data-group="mix">
                                             <span class="cc-group-label">${this.t('midiEditor.groupMix')}</span>
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="cc7" title="Channel Volume">CC7</button>
-                                                <button class="cc-type-btn" data-cc-type="cc10" title="Pan Position">CC10</button>
-                                                <button class="cc-type-btn" data-cc-type="cc91" title="Reverb Send">CC91</button>
+                                                <button class="cc-type-btn" data-cc-type="cc7" title="${this.t('midiEditor.ccChannelVolume')}">CC7</button>
+                                                <button class="cc-type-btn" data-cc-type="cc10" title="${this.t('midiEditor.ccPanPosition')}">CC10</button>
+                                                <button class="cc-type-btn" data-cc-type="cc91" title="${this.t('midiEditor.ccReverbSend')}">CC91</button>
                                             </div>
                                         </div>
                                         <!-- Groupe Tone -->
                                         <div class="cc-btn-group" data-group="tone">
                                             <span class="cc-group-label">${this.t('midiEditor.groupTone')}</span>
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="cc74" title="Brightness / Cutoff">CC74</button>
-                                                <button class="cc-type-btn" data-cc-type="cc5" title="Portamento Time">CC5</button>
+                                                <button class="cc-type-btn" data-cc-type="cc74" title="${this.t('midiEditor.ccBrightnessCutoff')}">CC74</button>
+                                                <button class="cc-type-btn" data-cc-type="cc5" title="${this.t('midiEditor.ccPortamentoTime')}">CC5</button>
                                             </div>
                                         </div>
                                         <!-- Groupe Note/Global -->
                                         <div class="cc-btn-group" data-group="note">
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="velocity" title="Note Velocity">VEL</button>
-                                                <button class="cc-type-btn" data-cc-type="tempo" title="Tempo Automation">♩</button>
+                                                <button class="cc-type-btn" data-cc-type="velocity" title="${this.t('midiEditor.ccNoteVelocity')}">VEL</button>
+                                                <button class="cc-type-btn" data-cc-type="tempo" title="${this.t('midiEditor.ccTempoAutomation')}">♩</button>
                                             </div>
                                         </div>
                                         <!-- Groupe dynamique (CC détectés non-statiques) -->

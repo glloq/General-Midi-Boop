@@ -39,8 +39,8 @@
 
 .keyboard-modal .modal-dialog {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     max-width: 1200px;
     width: 95%;
     max-height: 90vh;
@@ -79,7 +79,7 @@
     justify-content: center !important;
     padding: 20px 24px !important;
     margin: 0 !important;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: none;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     border-radius: 12px 12px 0 0;
     position: relative !important;
@@ -136,7 +136,7 @@
     background: white;
     border-radius: 12px;
     padding: 0;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 #keyboard-modal-container {

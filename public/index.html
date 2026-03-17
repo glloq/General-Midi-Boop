@@ -2878,7 +2878,7 @@
     <div class="upload-progress-overlay" id="uploadProgressOverlay">
         <div class="upload-progress-modal">
             <div class="upload-progress-header">
-                <div class="upload-progress-title">
+                <div class="upload-progress-title" data-i18n="ui.uploadInProgress">
                     📤 Upload en cours...
                 </div>
             </div>
@@ -2891,7 +2891,7 @@
                 <!-- Files will be added here dynamically -->
             </div>
             <div class="upload-actions">
-                <button class="btn btn-primary" id="uploadDoneBtn" style="display: none;">
+                <button class="btn btn-primary" id="uploadDoneBtn" style="display: none;" data-i18n="ui.uploadDone">
                     Terminer
                 </button>
             </div>
@@ -2904,23 +2904,24 @@
             <div class="folder-modal-header">
                 <div class="folder-modal-title">
                     <span>✏️</span>
-                    <span>Renommer le fichier</span>
+                    <span data-i18n="fileOperations.renameTitle">Renommer le fichier</span>
                 </div>
                 <button class="folder-modal-close" id="renameModalClose">&times;</button>
             </div>
             <div class="folder-modal-body">
                 <p style="margin-bottom: 8px; font-size: 13px; color: #6b7280;">
-                    Ancien nom: <strong id="renameOldName"></strong>
+                    <span data-i18n="fileOperations.oldName">Ancien nom :</span> <strong id="renameOldName"></strong>
                 </p>
                 <input type="text" class="folder-modal-input" id="renameInput"
+                       data-i18n-placeholder="fileOperations.newNamePlaceholder"
                        placeholder="Nouveau nom..." />
-                <p style="margin-top: 8px; font-size: 12px; color: #9ca3af;">
+                <p style="margin-top: 8px; font-size: 12px; color: #9ca3af;" data-i18n="fileOperations.fileExtensionHint">
                     Le fichier doit avoir l'extension .mid ou .midi
                 </p>
             </div>
             <div class="folder-modal-footer">
-                <button class="btn btn-secondary" id="renameModalCancel">Annuler</button>
-                <button class="btn btn-primary" id="renameModalConfirm">Renommer</button>
+                <button class="btn btn-secondary" id="renameModalCancel" data-i18n="common.cancel">Annuler</button>
+                <button class="btn btn-primary" id="renameModalConfirm" data-i18n="fileOperations.rename">Renommer</button>
             </div>
         </div>
     </div>
@@ -2947,11 +2948,11 @@
                     🐞
                 </button>
 
-                <button class="btn-instruments-toggle" id="instrumentsBtn" data-i18n-title="ui.instrumentManagement" title="Gestion des instruments">
-                    🎛️
+                <button class="btn-instruments-toggle" id="instrumentsBtn" data-i18n-title="instrumentManagement.title" title="Gestion des instruments">
+                    🎸
                 </button>
 
-                <button class="btn-calibration-toggle" id="calibrationBtn" title="Calibration des délais (Microphone)">
+                <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)">
                     🎤
                 </button>
 
@@ -2996,10 +2997,10 @@
                             0 fichier sélectionné
                         </div>
                         <div class="batch-actions-buttons">
-                            <button class="btn" id="batchSelectAll">Tout sélectionner</button>
-                            <button class="btn" id="batchDeselect">Désélectionner</button>
-                            <button class="btn" id="batchMove">📁 Déplacer vers...</button>
-                            <button class="btn btn-danger" id="batchDelete">🗑️ Supprimer</button>
+                            <button class="btn" id="batchSelectAll" data-i18n="ui.selectAll">Tout sélectionner</button>
+                            <button class="btn" id="batchDeselect" data-i18n="ui.deselect">Désélectionner</button>
+                            <button class="btn" id="batchMove" data-i18n="ui.moveTo">📁 Déplacer vers...</button>
+                            <button class="btn btn-danger" id="batchDelete" data-i18n="ui.deleteSelected">🗑️ Supprimer</button>
                         </div>
                     </div>
 
@@ -3013,6 +3014,7 @@
                                     type="text"
                                     id="fileSearchInput"
                                     class="search-input"
+                                    data-i18n-placeholder="ui.searchFile"
                                     placeholder="Rechercher un fichier..."
                                     autocomplete="off"
                                 />
@@ -3021,20 +3023,20 @@
 
                             <!-- Sort -->
                             <div class="sort-controls">
-                                <select id="sortBy" class="sort-select" title="Trier par">
-                                    <option value="name">Nom</option>
-                                    <option value="date">Date</option>
-                                    <option value="size">Taille</option>
-                                    <option value="duration">Durée</option>
+                                <select id="sortBy" class="sort-select" data-i18n-title="ui.sortBy" title="Trier par">
+                                    <option value="name" data-i18n="ui.sortName">Nom</option>
+                                    <option value="date" data-i18n="ui.sortDate">Date</option>
+                                    <option value="size" data-i18n="ui.sortSize">Taille</option>
+                                    <option value="duration" data-i18n="ui.sortDuration">Durée</option>
                                 </select>
-                                <button id="sortOrder" class="sort-order-btn" title="Ordre de tri">
+                                <button id="sortOrder" class="sort-order-btn" data-i18n-title="ui.sortOrder" title="Ordre de tri">
                                     ↓
                                 </button>
                             </div>
 
                             <!-- Advanced Filters Button -->
-                            <button id="openFiltersBtn" class="btn" title="Filtres avancés" style="padding: 8px 12px;">
-                                🔍 Filtres
+                            <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 8px 12px;">
+                                🔍 <span data-i18n="filters.filtersButton">Filtres</span>
                             </button>
                         </div>
 
@@ -3063,39 +3065,39 @@
     <div id="filtersPanel" class="filters-panel">
         <div class="filters-panel-content">
             <div class="filters-panel-header">
-                <h3>🔍 Filtres avancés</h3>
+                <h3>🔍 <span data-i18n="filters.title">Filtres avancés</span></h3>
                 <button id="closeFiltersBtn" class="close-btn">×</button>
             </div>
 
             <div class="filters-panel-body">
                 <!-- Duration Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">⏱ Durée</label>
+                    <label class="filter-label">⏱ <span data-i18n="filters.duration">Durée</span></label>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="number" id="filterDurationMin" class="filter-input" placeholder="Min (sec)" min="0" step="1">
+                        <input type="number" id="filterDurationMin" class="filter-input" data-i18n-placeholder="filters.durationMinSec" placeholder="Min (sec)" min="0" step="1">
                         <span>-</span>
-                        <input type="number" id="filterDurationMax" class="filter-input" placeholder="Max (sec)" min="0" step="1">
+                        <input type="number" id="filterDurationMax" class="filter-input" data-i18n-placeholder="filters.durationMaxSec" placeholder="Max (sec)" min="0" step="1">
                     </div>
                 </div>
 
                 <!-- Tempo Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">🎵 Tempo (BPM)</label>
+                    <label class="filter-label">🎵 <span data-i18n="filters.tempo">Tempo (BPM)</span></label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="number" id="filterTempoMin" class="filter-input" placeholder="Min" min="0" step="1">
                         <span>-</span>
                         <input type="number" id="filterTempoMax" class="filter-input" placeholder="Max" min="0" step="1">
                     </div>
                     <div class="filter-presets" style="margin-top: 6px; display: flex; gap: 6px;">
-                        <button class="preset-btn" data-tempo="0,80">Lent</button>
-                        <button class="preset-btn" data-tempo="80,120">Modéré</button>
-                        <button class="preset-btn" data-tempo="120,999">Rapide</button>
+                        <button class="preset-btn" data-tempo="0,80" data-i18n="filters.tempoSlow">Lent</button>
+                        <button class="preset-btn" data-tempo="80,120" data-i18n="filters.tempoModerate">Modéré</button>
+                        <button class="preset-btn" data-tempo="120,999" data-i18n="filters.tempoFast">Rapide</button>
                     </div>
                 </div>
 
                 <!-- Track Count Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">🎚 Nombre de pistes</label>
+                    <label class="filter-label">🎚 <span data-i18n="filters.trackCount">Nombre de pistes</span></label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="number" id="filterTracksMin" class="filter-input" placeholder="Min" min="1" step="1">
                         <span>-</span>
@@ -3105,112 +3107,112 @@
 
                 <!-- Instrument Types Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">🎹 Types d'instruments</label>
+                    <label class="filter-label">🎹 <span data-i18n="filters.instrumentTypes">Types d'instruments</span></label>
                     <div class="checkbox-group">
-                        <label><input type="checkbox" class="filter-instrument" value="Drums"> Drums</label>
-                        <label><input type="checkbox" class="filter-instrument" value="Bass"> Basse</label>
-                        <label><input type="checkbox" class="filter-instrument" value="Melody"> Mélodie</label>
-                        <label><input type="checkbox" class="filter-instrument" value="Harmony"> Harmonie</label>
-                        <label><input type="checkbox" class="filter-instrument" value="Percussion"> Percussion</label>
+                        <label><input type="checkbox" class="filter-instrument" value="Drums"> <span data-i18n="filters.instrumentTypeDrums">Drums</span></label>
+                        <label><input type="checkbox" class="filter-instrument" value="Bass"> <span data-i18n="filters.instrumentTypeBass">Basse</span></label>
+                        <label><input type="checkbox" class="filter-instrument" value="Melody"> <span data-i18n="filters.instrumentTypeMelody">Mélodie</span></label>
+                        <label><input type="checkbox" class="filter-instrument" value="Harmony"> <span data-i18n="filters.instrumentTypeHarmony">Harmonie</span></label>
+                        <label><input type="checkbox" class="filter-instrument" value="Percussion"> <span data-i18n="filters.instrumentTypePercussion">Percussion</span></label>
                     </div>
                     <div style="margin-top: 8px;">
-                        <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
+                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
                         <select id="filterInstrumentMode" class="filter-select">
-                            <option value="ANY">Au moins un</option>
-                            <option value="ALL">Tous</option>
-                            <option value="EXACT">Exactement</option>
+                            <option value="ANY" data-i18n="filters.modeAny">Au moins un</option>
+                            <option value="ALL" data-i18n="filters.modeAll">Tous</option>
+                            <option value="EXACT" data-i18n="filters.modeExact">Exactement</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- GM Instrument Categories Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">🎼 Catégories GM</label>
+                    <label class="filter-label">🎼 <span data-i18n="filters.gmCategories">Catégories GM</span></label>
                     <div class="checkbox-group">
-                        <label><input type="checkbox" class="filter-gm-category" value="Piano"> Piano</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Chromatic Percussion"> Perc. chromatiques</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Organ"> Orgue</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Guitar"> Guitare</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Bass"> Basse</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Strings"> Cordes</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Ensemble"> Ensemble</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Brass"> Cuivres</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Reed"> Anches</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Pipe"> Flûtes / Bois</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Lead"> Synth Lead</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Pad"> Synth Pad</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Effects"> Synth Effects</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Ethnic"> Ethnique</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Percussive"> Percussif</label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Sound Effects"> Effets sonores</label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Piano"> <span data-i18n="instruments.categories.piano">Piano</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Chromatic Percussion"> <span data-i18n="filters.gmCategoryChromatic">Perc. chromatiques</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Organ"> <span data-i18n="instruments.categories.organ">Orgue</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Guitar"> <span data-i18n="instruments.categories.guitar">Guitare</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Bass"> <span data-i18n="instruments.categories.bass">Basse</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Strings"> <span data-i18n="instruments.categories.strings">Cordes</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Ensemble"> <span data-i18n="instruments.categories.ensemble">Ensemble</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Brass"> <span data-i18n="instruments.categories.brass">Cuivres</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Reed"> <span data-i18n="instruments.categories.reed">Anches</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Pipe"> <span data-i18n="filters.gmCategoryPipe">Flûtes / Bois</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Lead"> <span data-i18n="instruments.categories.synthLead">Synth Lead</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Pad"> <span data-i18n="instruments.categories.synthPad">Synth Pad</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Synth Effects"> <span data-i18n="instruments.categories.synthEffects">Synth Effects</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Ethnic"> <span data-i18n="instruments.categories.ethnic">Ethnique</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Percussive"> <span data-i18n="instruments.categories.percussive">Percussif</span></label>
+                        <label><input type="checkbox" class="filter-gm-category" value="Sound Effects"> <span data-i18n="instruments.categories.soundEffects">Effets sonores</span></label>
                     </div>
                     <div style="margin-top: 8px;">
-                        <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
+                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
                         <select id="filterGmMode" class="filter-select">
-                            <option value="ANY">Au moins une</option>
-                            <option value="ALL">Toutes présentes</option>
+                            <option value="ANY" data-i18n="filters.gmModeAny">Au moins une</option>
+                            <option value="ALL" data-i18n="filters.gmModeAll">Toutes présentes</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- Routing Status Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">⚙️ Statut de routage</label>
+                    <label class="filter-label">⚙️ <span data-i18n="filters.routingStatus">Statut de routage</span></label>
                     <select id="filterRoutingStatus" class="filter-select">
-                        <option value="all">Tous</option>
-                        <option value="unrouted">Non routé</option>
-                        <option value="partial">Partiellement routé</option>
-                        <option value="full">Totalement routé</option>
-                        <option value="validated">Validé</option>
-                        <option value="playable">Jouable à 100%</option>
+                        <option value="all" data-i18n="filters.routingAll">Tous</option>
+                        <option value="unrouted" data-i18n="filters.routingUnrouted">Non routé</option>
+                        <option value="partial" data-i18n="filters.routingPartial">Partiellement routé</option>
+                        <option value="full" data-i18n="filters.routingFull">Totalement routé</option>
+                        <option value="validated" data-i18n="filters.routingValidated">Validé</option>
+                        <option value="playable" data-i18n="filters.routingPlayable">Jouable à 100%</option>
                     </select>
                 </div>
 
                 <!-- Playable on Instruments Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">🎸 Jouable sur instruments</label>
+                    <label class="filter-label">🎸 <span data-i18n="filters.playableOnInstruments">Jouable sur instruments</span></label>
                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                         <select id="filterInstrumentSource" class="filter-select" style="flex: 1;">
-                            <option value="connected">Connectés uniquement</option>
-                            <option value="registered">Tous enregistrés</option>
+                            <option value="connected" data-i18n="filters.connectedOnly">Connectés uniquement</option>
+                            <option value="registered" data-i18n="filters.allRegistered">Tous enregistrés</option>
                         </select>
-                        <button id="refreshInstrumentsBtn" class="btn btn-sm" title="Rafraîchir la liste">🔄</button>
+                        <button id="refreshInstrumentsBtn" class="btn btn-sm" data-i18n-title="filters.refreshList" title="Rafraîchir la liste">🔄</button>
                     </div>
                     <select id="filterPlayableInstruments" class="filter-select" multiple size="5" style="width: 100%;">
                     </select>
                     <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
-                        <label class="filter-label" style="font-size: 0.9em;">Mode:</label>
+                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
                         <select id="filterPlayableMode" class="filter-select" style="flex: 1;">
-                            <option value="routed">Routé vers</option>
-                            <option value="compatible">Compatible avec</option>
+                            <option value="routed" data-i18n="filters.playableModeRouted">Routé vers</option>
+                            <option value="compatible" data-i18n="filters.playableModeCompatible">Compatible avec</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- Is Original Filter -->
                 <div class="filter-group">
-                    <label class="filter-label">📄 Type de fichier</label>
+                    <label class="filter-label">📄 <span data-i18n="filters.fileType">Type de fichier</span></label>
                     <div class="checkbox-group">
-                        <label><input type="radio" name="isOriginal" value="all" checked> Tous</label>
-                        <label><input type="radio" name="isOriginal" value="true"> Originaux</label>
-                        <label><input type="radio" name="isOriginal" value="false"> Adaptés</label>
+                        <label><input type="radio" name="isOriginal" value="all" checked> <span data-i18n="filters.fileTypeAll">Tous</span></label>
+                        <label><input type="radio" name="isOriginal" value="true"> <span data-i18n="filters.fileTypeOriginals">Originaux</span></label>
+                        <label><input type="radio" name="isOriginal" value="false"> <span data-i18n="filters.fileTypeAdapted">Adaptés</span></label>
                     </div>
                 </div>
 
                 <!-- Quick Filters -->
                 <div class="filter-group">
-                    <label class="filter-label">⚡ Filtres rapides</label>
+                    <label class="filter-label">⚡ <span data-i18n="filters.quickFilters">Filtres rapides</span></label>
                     <div class="checkbox-group">
-                        <label><input type="checkbox" id="filterHasDrums" value="1"> Contient drums</label>
-                        <label><input type="checkbox" id="filterHasMelody" value="1"> Contient mélodie</label>
-                        <label><input type="checkbox" id="filterHasBass" value="1"> Contient basse</label>
+                        <label><input type="checkbox" id="filterHasDrums" value="1"> <span data-i18n="filters.containsDrums">Contient drums</span></label>
+                        <label><input type="checkbox" id="filterHasMelody" value="1"> <span data-i18n="filters.containsMelody">Contient mélodie</span></label>
+                        <label><input type="checkbox" id="filterHasBass" value="1"> <span data-i18n="filters.containsBass">Contient basse</span></label>
                     </div>
                 </div>
             </div>
 
             <div class="filters-panel-footer">
-                <button id="resetFiltersBtn" class="btn">🗑️ Réinitialiser</button>
-                <button id="applyFiltersBtn" class="btn btn-primary">✓ Appliquer</button>
+                <button id="resetFiltersBtn" class="btn">🗑️ <span data-i18n="filters.reset">Réinitialiser</span></button>
+                <button id="applyFiltersBtn" class="btn btn-primary">✓ <span data-i18n="filters.apply">Appliquer</span></button>
             </div>
         </div>
     </div>
@@ -3224,7 +3226,7 @@
             <div class="calibration-modal-header">
                 <div class="calibration-modal-title">
                     <span>🎤</span>
-                    <span>Calibration des délais (Microphone)</span>
+                    <span data-i18n="ui.calibrationDelay">Calibration des délais (Microphone)</span>
                 </div>
                 <button class="calibration-modal-close" id="calibrationModalClose">&times;</button>
             </div>
@@ -3232,7 +3234,7 @@
             <div class="calibration-modal-body">
                 <!-- Microphone Settings Section -->
                 <div class="calibration-section">
-                    <h3>⚙️ Paramètres du microphone</h3>
+                    <h3>⚙️ <span data-i18n="ui.microphoneSettings">Paramètres du microphone</span></h3>
 
                     <div class="calibration-field">
                         <label for="alsaDeviceSelect">Device ALSA:</label>
