@@ -283,10 +283,9 @@ class FilterManager {
    * @returns {Promise<Array>} - Filtered files
    */
   async applyFilters(files = null) {
-    // Check if we need server-side filtering
-    const needsServerFiltering = this.needsServerFiltering();
-
-    if (needsServerFiltering) {
+    // Use server-side filtering when no local file list is provided,
+    // or when advanced filters require server queries
+    if (!files || this.needsServerFiltering()) {
       return await this.applyServerFilters();
     } else {
       return this.applyClientFilters(files);
@@ -414,11 +413,11 @@ class FilterManager {
         return false;
       }
 
-      // Upload date filter
-      if (this.filters.uploadedAfter && file.uploadedAt < this.filters.uploadedAfter) {
+      // Upload date filter (DB column is uploaded_at)
+      if (this.filters.uploadedAfter && file.uploaded_at < this.filters.uploadedAfter) {
         return false;
       }
-      if (this.filters.uploadedBefore && file.uploadedAt > this.filters.uploadedBefore) {
+      if (this.filters.uploadedBefore && file.uploaded_at > this.filters.uploadedBefore) {
         return false;
       }
 

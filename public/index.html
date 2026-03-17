@@ -8490,15 +8490,8 @@
                 fileList.innerHTML = '';
                 fileList.appendChild(loadingMsg);
 
-                let filteredFiles;
-                if (filterManager.needsServerFiltering()) {
-                    // Server-side: send file_filter command directly
-                    filteredFiles = await filterManager.applyFilters(null);
-                } else {
-                    // Client-side: get all files then filter locally
-                    const allFiles = await api.listMidiFiles('/');
-                    filteredFiles = await filterManager.applyFilters(allFiles);
-                }
+                // Always use server-side filtering (searches all folders correctly)
+                const filteredFiles = await filterManager.applyFilters(null);
 
                 // Refresh display with filtered files
                 await displayFilteredFiles(filteredFiles);

@@ -1187,9 +1187,12 @@ class CommandHandler {
       offset: (Number.isInteger(data.offset) && data.offset >= 0) ? data.offset : undefined
     };
 
-    // Remove undefined values
+    // Remove empty/null/undefined values (FilterManager sends null as default for inactive filters)
     Object.keys(filters).forEach(key => {
-      if (filters[key] === undefined) {
+      const val = filters[key];
+      if (val === undefined || val === null || val === '') {
+        delete filters[key];
+      } else if (Array.isArray(val) && val.length === 0) {
         delete filters[key];
       }
     });
