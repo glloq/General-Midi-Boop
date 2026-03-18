@@ -6934,15 +6934,15 @@
         // Encodés comme 128 + programme pour les distinguer des instruments mélodiques
         const GM_DRUM_KIT_OFFSET = 128;
         const GM_DRUM_KITS = [
-            { program: 0, name: 'Standard Kit' },
-            { program: 8, name: 'Room Kit' },
-            { program: 16, name: 'Power Kit' },
-            { program: 24, name: 'Electronic Kit' },
-            { program: 25, name: 'TR-808 Kit' },
-            { program: 32, name: 'Jazz Kit' },
-            { program: 40, name: 'Brush Kit' },
-            { program: 48, name: 'Orchestra Kit' },
-            { program: 56, name: 'SFX Kit' }
+            { program: 0, name: 'Standard Kit', desc: 'Kit polyvalent, idéal pour pop/rock/variété' },
+            { program: 8, name: 'Room Kit', desc: 'Son ambiant avec réverbération de pièce, plus naturel' },
+            { program: 16, name: 'Power Kit', desc: 'Frappes puissantes, grosse caisse/caisse claire renforcées, rock/metal' },
+            { program: 24, name: 'Electronic Kit', desc: 'Sons synthétiques, dance/electro/EDM' },
+            { program: 25, name: 'TR-808 Kit', desc: 'Classique Roland TR-808, hip-hop/trap/R&B' },
+            { program: 32, name: 'Jazz Kit', desc: 'Sons doux et feutrés, cymbales légères, jazz/bossa' },
+            { program: 40, name: 'Brush Kit', desc: 'Balais sur caisse claire, jazz acoustique/ballades' },
+            { program: 48, name: 'Orchestra Kit', desc: 'Timbales, grosse caisse orchestrale, cymbales, classique/cinéma' },
+            { program: 56, name: 'SFX Kit', desc: 'Effets sonores et bruitages, pas un vrai kit de batterie' }
         ];
 
         // Convertir un gm_program DB en valeur select (ajouter offset si drum kit sur ch 9)
@@ -6975,7 +6975,8 @@
                 const encodedValue = kit.program + GM_DRUM_KIT_OFFSET;
                 const selected = encodedValue === selectValue ? 'selected' : '';
                 const kitName = i18n.t(`instruments.drumKits.${kit.program}`) || kit.name;
-                options += `<option value="${encodedValue}" data-drum-kit="true" ${selected}>${kit.program}: ${kitName}</option>`;
+                const kitDesc = i18n.t(`instruments.drumKitsDesc.${kit.program}`) || kit.desc;
+                options += `<option value="${encodedValue}" data-drum-kit="true" title="${kitDesc}" ${selected}>${kit.program}: ${kitName} — ${kitDesc}</option>`;
             }
             options += '</optgroup>';
 
