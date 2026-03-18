@@ -64,7 +64,7 @@ class MqttLightDriver extends BaseLightingDriver {
     const adjG = this._applyBrightness(g, brightness);
     const adjB = this._applyBrightness(b, brightness);
 
-    if (this._currentColors[ledIndex]) {
+    if (ledIndex >= 0 && ledIndex < this._currentColors.length) {
       this._currentColors[ledIndex] = { r: adjR, g: adjG, b: adjB };
     }
 
@@ -85,7 +85,7 @@ class MqttLightDriver extends BaseLightingDriver {
     }
 
     for (let i = startLed; i <= end; i++) {
-      if (this._currentColors[i]) {
+      if (i >= 0 && i < this._currentColors.length) {
         this._currentColors[i] = { r: adjR, g: adjG, b: adjB };
       }
       this._publishColor(i, adjR, adjG, adjB, brightness);
@@ -133,7 +133,7 @@ class MqttLightDriver extends BaseLightingDriver {
     // WLED JSON API over MQTT
     const payload = {
       on: true,
-      bri: Math.round(brightness * 255 / 255),
+      bri: Math.max(0, Math.min(255, brightness)),
       seg: [{
         id: 0,
         i: [ledIndex, [r, g, b]]
@@ -145,7 +145,7 @@ class MqttLightDriver extends BaseLightingDriver {
   _publishWledRange(startLed, endLed, r, g, b, brightness) {
     const payload = {
       on: true,
-      bri: Math.round(brightness),
+      bri: Math.max(0, Math.min(255, brightness)),
       seg: [{
         id: 0,
         i: [startLed, endLed + 1, [r, g, b]]
@@ -158,7 +158,7 @@ class MqttLightDriver extends BaseLightingDriver {
     // Tasmota format: Color1 for RGB, Dimmer for brightness
     const hex = `${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     this._publish(`${this.baseTopic}/cmnd/Color1`, hex);
-    this._publish(`${this.baseTopic}/cmnd/Dimmer`, String(Math.round(brightness / 2.55)));
+    this._publish(`${this.baseTopic}/cmnd/Dimmer`, String(Math.round(brightness * 100 / 255)));
   }
 
   _publishEspHomeColor(ledIndex, r, g, b, brightness) {

@@ -152,15 +152,24 @@ class LightingManager extends EventEmitter {
   // ==================== EVENT LISTENERS ====================
 
   _setupEventListeners() {
+    // Store bound handlers so we can remove them on shutdown
+    this._onMidiRouted = (event) => this._evaluateRoutedEvent(event);
+    this._onMidiMessage = (event) => this._evaluateWildcardEvent(event);
+
     // Listen for routed MIDI messages (linked to specific instruments)
-    this.app.eventBus.on('midi_routed', (event) => {
-      this._evaluateRoutedEvent(event);
-    });
+    this.app.eventBus.on('midi_routed', this._onMidiRouted);
 
     // Listen for raw MIDI messages (for wildcard rules)
-    this.app.eventBus.on('midi_message', (event) => {
-      this._evaluateWildcardEvent(event);
-    });
+    this.app.eventBus.on('midi_message', this._onMidiMessage);
+  }
+
+  _removeEventListeners() {
+    if (this._onMidiRouted) {
+      this.app.eventBus.removeListener('midi_routed', this._onMidiRouted);
+    }
+    if (this._onMidiMessage) {
+      this.app.eventBus.removeListener('midi_message', this._onMidiMessage);
+    }
   }
 
   // ==================== RULE EVALUATION ENGINE ====================
@@ -451,7 +460,8 @@ class LightingManager extends EventEmitter {
       }
     }
 
-    const ratio = (value - lower) / (upper - lower);
+    const range = upper - lower;
+    const ratio = range > 0 ? (value - lower) / range : 0;
     const c1 = this._hexToRgb(colorMap[lower]);
     const c2 = this._hexToRgb(colorMap[upper]);
 
@@ -588,11 +598,15 @@ class LightingManager extends EventEmitter {
   }
 
   _stopEffectsForDevice(deviceId) {
-    // Stop any active effects for this device
+    // Collect keys first to avoid modifying map while iterating
+    const keysToStop = [];
     for (const [key] of this.effectsEngine.activeEffects) {
       if (key.includes(`device_${deviceId}`)) {
-        this.effectsEngine.stopEffect(key);
+        keysToStop.push(key);
       }
+    }
+    for (const key of keysToStop) {
+      this.effectsEngine.stopEffect(key);
     }
   }
 
@@ -890,6 +904,9 @@ class LightingManager extends EventEmitter {
   }
 
   async shutdown() {
+    // Remove event listeners to prevent memory leaks
+    this._removeEventListeners();
+
     if (this._healthCheckInterval) {
       clearInterval(this._healthCheckInterval);
       this._healthCheckInterval = null;

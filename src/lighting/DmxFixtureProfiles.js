@@ -137,9 +137,9 @@ export function mapColorToFixture(profileName, r, g, b, brightness = 255, extra 
   if (map.w !== undefined) result.push([map.w, extra.white || 0]);
   if (map.a !== undefined) result.push([map.a, extra.amber || 0]);
   if (map.uv !== undefined) result.push([map.uv, extra.uv || 0]);
-  if (map.strobe !== undefined) result.push([map.strobe, extra.strobe || 0]);
-  if (map.pan !== undefined) result.push([map.pan, extra.pan || 128]);
-  if (map.tilt !== undefined) result.push([map.tilt, extra.tilt || 128]);
+  if (map.strobe !== undefined) result.push([map.strobe, extra.strobe ?? 0]);
+  if (map.pan !== undefined) result.push([map.pan, extra.pan ?? 128]);
+  if (map.tilt !== undefined) result.push([map.tilt, extra.tilt ?? 128]);
 
   return result;
 }
