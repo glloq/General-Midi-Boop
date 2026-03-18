@@ -245,6 +245,21 @@ class InstrumentManagementPage {
         this.instruments.push(registered);
       }
 
+      // Vérifier si les instruments virtuels sont activés dans les réglages
+      let virtualEnabled = false;
+      try {
+        const savedSettings = localStorage.getItem('maestro_settings');
+        if (savedSettings) {
+          const parsed = JSON.parse(savedSettings);
+          virtualEnabled = !!parsed.virtualInstrument;
+        }
+      } catch (e) { /* ignore */ }
+
+      // Filtrer les instruments virtuels si désactivés dans les réglages
+      if (!virtualEnabled) {
+        this.instruments = this.instruments.filter(inst => !this.isVirtualInstrument(inst));
+      }
+
       // Marquer les instruments virtuels comme toujours disponibles
       for (const inst of this.instruments) {
         if (this.isVirtualInstrument(inst)) {

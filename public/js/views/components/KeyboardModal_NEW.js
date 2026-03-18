@@ -1143,34 +1143,48 @@ class KeyboardModalNew {
             this.logger.info(`[KeyboardModal] Loaded ${activeDevices.length} → ${uniqueDevices.length} unique devices`);
 
             // Charger les instruments virtuels de la DB (créés via Gestion des instruments)
+            // Respecter le réglage "virtualInstrument" de SettingsModal
+            let virtualEnabled = false;
             try {
-                const capsResponse = await this.backend.sendCommand('instrument_list_capabilities');
-                if (capsResponse && capsResponse.instruments) {
-                    const existingIds = new Set(this.devices.map(d => d.id || d.device_id));
-                    for (const dbInst of capsResponse.instruments) {
-                        const devId = dbInst.device_id || dbInst.id;
-                        if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
-                            const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
-                            const virtualDbDevice = {
-                                id: devId,
-                                device_id: devId,
-                                name: `🖥️ ${vName}`,
-                                displayName: `🖥️ ${vName}`,
-                                type: 'Virtual',
-                                status: 2,
-                                connected: true,
-                                isVirtual: true,
-                                channel: dbInst.channel || 0,
-                                gm_program: dbInst.gm_program,
-                                customName: null
-                            };
-                            this.devices.push(virtualDbDevice);
-                        }
-                    }
-                    this.logger.info('[KeyboardModal] Virtual DB instruments loaded');
+                const savedSettings = localStorage.getItem('maestro_settings');
+                if (savedSettings) {
+                    const parsed = JSON.parse(savedSettings);
+                    virtualEnabled = !!parsed.virtualInstrument;
                 }
-            } catch (error) {
-                this.logger.warn('[KeyboardModal] Could not load virtual DB instruments:', error);
+            } catch (e) { /* ignore */ }
+
+            if (virtualEnabled) {
+                try {
+                    const capsResponse = await this.backend.sendCommand('instrument_list_capabilities');
+                    if (capsResponse && capsResponse.instruments) {
+                        const existingIds = new Set(this.devices.map(d => d.id || d.device_id));
+                        for (const dbInst of capsResponse.instruments) {
+                            const devId = dbInst.device_id || dbInst.id;
+                            if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
+                                const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                                const virtualDbDevice = {
+                                    id: devId,
+                                    device_id: devId,
+                                    name: `🖥️ ${vName}`,
+                                    displayName: `🖥️ ${vName}`,
+                                    type: 'Virtual',
+                                    status: 2,
+                                    connected: true,
+                                    isVirtual: true,
+                                    channel: dbInst.channel || 0,
+                                    gm_program: dbInst.gm_program,
+                                    customName: null
+                                };
+                                this.devices.push(virtualDbDevice);
+                            }
+                        }
+                        this.logger.info('[KeyboardModal] Virtual DB instruments loaded');
+                    }
+                } catch (error) {
+                    this.logger.warn('[KeyboardModal] Could not load virtual DB instruments:', error);
+                }
+            } else {
+                this.logger.info('[KeyboardModal] Virtual instruments disabled in settings, skipping');
             }
 
             // Enrichir avec noms personnalisés
