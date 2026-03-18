@@ -1034,46 +1034,63 @@ class KeyboardModalNew {
 
     /**
      * Auto-centrer le clavier sur la plage de notes de l'instrument
-     * Ajuste octaveOffset pour que la vue soit centrée sur les notes jouables
-     * Ne modifie PAS this.octaves pour garder une largeur de touches constante
+     * Déplace baseOctave pour centrer la vue sur les notes jouables
+     * et remet octaveOffset à 0 pour que ◄ ► naviguent depuis cette position
      */
     autoCenterKeyboard() {
         const caps = this.selectedDeviceCapabilities;
-
-        // Parse note range values (may be strings from DB/JSON)
-        const minNote = caps ? Number(caps.note_range_min) : NaN;
-        const maxNote = caps ? Number(caps.note_range_max) : NaN;
-
-        const hasMin = isFinite(minNote);
-        const hasMax = isFinite(maxNote);
-
-        // Si pas de plage définie, recentrer sur la position par défaut
-        if (!hasMin && !hasMax) {
+        if (!caps) {
+            this.baseOctave = 3;
             this.octaveOffset = 0;
             this._updateOctaveDisplay();
-            this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default');
+            this.logger.info('[KeyboardModal] Auto-center: no capabilities, reset to default');
             return;
         }
 
-        // Plage effective de notes jouables
-        const effectiveMin = hasMin ? minNote : 21;
-        const effectiveMax = hasMax ? maxNote : 108;
+        // Déterminer la plage effective selon le mode
+        let effectiveMin, effectiveMax;
 
-        // Centre de la plage jouable (précis, en notes MIDI)
+        if (caps.note_selection_mode === 'discrete' && caps.selected_notes) {
+            // Mode percussion : calculer min/max depuis les notes discrètes
+            try {
+                const notes = typeof caps.selected_notes === 'string'
+                    ? JSON.parse(caps.selected_notes)
+                    : caps.selected_notes;
+                if (Array.isArray(notes) && notes.length > 0) {
+                    effectiveMin = Math.min(...notes);
+                    effectiveMax = Math.max(...notes);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        // Fallback sur note_range_min/max
+        if (effectiveMin === undefined || effectiveMax === undefined) {
+            const minNote = Number(caps.note_range_min);
+            const maxNote = Number(caps.note_range_max);
+            if (!isFinite(minNote) && !isFinite(maxNote)) {
+                this.baseOctave = 3;
+                this.octaveOffset = 0;
+                this._updateOctaveDisplay();
+                this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default');
+                return;
+            }
+            effectiveMin = isFinite(minNote) ? minNote : 21;
+            effectiveMax = isFinite(maxNote) ? maxNote : 108;
+        }
+
+        // Centre de la plage jouable → octave centrale
         const rangeCenter = (effectiveMin + effectiveMax) / 2;
+        const centerOctave = Math.floor(rangeCenter / 12) - 1;
 
-        // Centre de la vue à offset=0 (en notes MIDI)
-        // Première note: (baseOctave + 1) * 12, dernière: première + octaves*12 - 1
-        const viewCenterAtZero = (this.baseOctave + 1) * 12 + (this.octaves * 12 - 1) / 2;
+        // Positionner baseOctave pour que le centre de la vue = centerOctave
+        const idealStart = centerOctave - Math.floor(this.octaves / 2);
 
-        // Offset nécessaire pour aligner les deux centres (arrondi au plus proche)
-        const neededOffset = Math.round((rangeCenter - viewCenterAtZero) / 12);
-
-        // Limiter l'offset entre -3 et +3
-        this.octaveOffset = Math.max(-3, Math.min(3, neededOffset));
+        // Clamper pour rester dans les notes MIDI valides (octaves -1 à 9)
+        this.baseOctave = Math.max(-1, Math.min(9 - this.octaves, idealStart));
+        this.octaveOffset = 0;
 
         this._updateOctaveDisplay();
-        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, center ${rangeCenter}, offset ${this.octaveOffset}`);
+        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, center octave ${centerOctave}, baseOctave ${this.baseOctave}`);
     }
 
     /**
