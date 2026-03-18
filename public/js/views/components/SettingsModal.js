@@ -610,6 +610,8 @@ class SettingsModal {
             this.attachContentEventListeners();
             // Restaurer les valeurs
             this.selectTheme(this.settings.theme);
+            // Re-vérifier les mises à jour (le HTML a été régénéré)
+            this.checkForUpdates();
         }
 
         // Mettre à jour les boutons du footer
@@ -851,9 +853,19 @@ class SettingsModal {
         const statusEl = this.modal.querySelector('#versionStatus');
         if (!statusEl) return;
 
+        // Reset to loading state
+        statusEl.style.background = '#f3f4f6';
+        statusEl.style.color = '#666';
+        statusEl.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span><span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>`;
+
         try {
             const api = window.api || window.apiClient;
-            if (!api || !api.sendCommand) return;
+            if (!api || !api.sendCommand) {
+                statusEl.style.background = '#fefce8';
+                statusEl.style.color = '#a16207';
+                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'}</span>`;
+                return;
+            }
 
             const result = await api.sendCommand('system_check_update', {}, 20000);
 
@@ -933,6 +945,7 @@ class SettingsModal {
             statusEl.style.color = '#a16207';
             statusEl.innerHTML = (i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas.') +
                 ' <a href="#" onclick="window.location.reload();return false;" style="color:#667eea;text-decoration:underline;font-weight:600;">Recharger manuellement</a>';
+            this._updateInProgress = false;
         };
 
         // Give the server time to shut down first (update script waits 3s before killing)
