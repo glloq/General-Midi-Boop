@@ -792,6 +792,7 @@
     "skippedCount": "{count} canal(aux) ignoré(s)",
     "notesTransposed": "note(s) transposée(s)",
     "channelsSkipped": "canal(aux) ignoré(s)",
+    "routingsSaved": "Routages d'instruments enregistrés avec succès",
     "channelsWillBeAssigned": "{active} sur {total} canaux seront assignés",
     "componentNotLoaded": "Le module d'auto-assignation n'a pas pu se charger. Veuillez rafraîchir la page.",
     "adaptationTitle": "Adaptation du canal",
