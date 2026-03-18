@@ -291,6 +291,19 @@ class LightingManager extends EventEmitter {
       if (action.off_action === 'hold') {
         return;
       }
+
+      // For note_led mode: turn off just the specific LED
+      if (action.type === 'note_led' && midiData.note !== null) {
+        const noteRange = (action.note_led_max || 127) - (action.note_led_min || 0);
+        const lc = driver.device?.led_count || 1;
+        const lr = (endLed === -1 ? lc - 1 : endLed) - startLed;
+        const no = midiData.note - (action.note_led_min || 0);
+        const li = startLed + Math.round((no / Math.max(1, noteRange)) * lr);
+        const cl = Math.max(startLed, Math.min(endLed === -1 ? lc - 1 : endLed, li));
+        driver.setColor(cl, 0, 0, 0, 0);
+        return;
+      }
+
       if (action.off_action === 'fade') {
         this._handleNoteOffWithFade(rule.device_id, midiData.note, driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 500);
       } else {
@@ -302,6 +315,21 @@ class LightingManager extends EventEmitter {
     // Track active notes for note-off handling
     if (midiData.type === 'noteon' && midiData.velocity > 0) {
       this._trackNoteOn(rule.device_id, midiData.note);
+    }
+
+    // Note-to-LED mapping: each note lights a specific LED
+    if (action.type === 'note_led' && midiData.note !== null) {
+      const noteRange = (action.note_led_max || 127) - (action.note_led_min || 0);
+      const ledCount = driver.device?.led_count || 1;
+      const ledRange = (endLed === -1 ? ledCount - 1 : endLed) - startLed;
+      const noteOffset = midiData.note - (action.note_led_min || 0);
+      const ledIndex = startLed + Math.round((noteOffset / Math.max(1, noteRange)) * ledRange);
+      const clampedLed = Math.max(startLed, Math.min(endLed === -1 ? ledCount - 1 : endLed, ledIndex));
+
+      // Use note_color if no explicit color
+      const noteColor = action.color ? this._hexToRgb(action.color) : this._noteToColor(midiData.note);
+      driver.setColor(clampedLed, noteColor.r, noteColor.g, noteColor.b, brightness);
+      return;
     }
 
     // Execute based on action type

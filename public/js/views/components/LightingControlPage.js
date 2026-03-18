@@ -155,7 +155,17 @@ class LightingControlPage {
     this.modal = div.firstElementChild;
     document.body.appendChild(this.modal);
 
-    this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
+    this._escHandler = (e) => {
+      // Don't trigger shortcuts if typing in input
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if (e.key === 'Escape') this.close();
+      else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); this.blackout(); }
+      else if (e.key === 'b' || e.key === 'B') this.blackout();
+      else if (e.key === 'o' || e.key === 'O') this.allOff();
+      else if (e.key === 't' || e.key === 'T') this.testDevice();
+    };
     document.addEventListener('keydown', this._escHandler);
     this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.close(); });
 
@@ -1351,6 +1361,7 @@ class LightingControlPage {
                 <option value="note_color" ${action.type === 'note_color' ? 'selected' : ''}>🎹 Note → Couleur</option>
                 <option value="color_temp" ${action.type === 'color_temp' ? 'selected' : ''}>🌡️ Température couleur</option>
                 <option value="random_color" ${action.type === 'random_color' ? 'selected' : ''}>🎲 Couleur aléatoire</option>
+                <option value="note_led" ${action.type === 'note_led' ? 'selected' : ''}>🎹 Note → LED (piano)</option>
                 <option value="pulse" ${action.type === 'pulse' ? 'selected' : ''}>Pulse (flash)</option>
                 <option value="fade" ${action.type === 'fade' ? 'selected' : ''}>Fade (fondu)</option>
               </optgroup>
@@ -1400,6 +1411,19 @@ class LightingControlPage {
               </div>
               <div style="margin-top:4px;height:10px;border-radius:4px;background:linear-gradient(to right,#FF9329,#FFD4A3,#FFF4E5,#F5F3FF,#CAE2FF);"></div>
               <div style="display:flex;justify-content:space-between;font-size:9px;color:${t.textMuted};"><span>Chaud (bougie)</span><span>Froid (ciel)</span></div>
+            </div>
+          </div>
+
+          <!-- Note-to-LED mapping info -->
+          <div id="lrFormNoteLedSection" style="display:${action.type === 'note_led' ? 'block' : 'none'};">
+            <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:4px;">🎹 Note → LED (visualisation piano)</div>
+              <div style="font-size:10px;color:${t.textMuted};margin-bottom:6px;">Chaque note MIDI allume une LED spécifique le long du bandeau.</div>
+              <div style="display:flex;gap:8px;">
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Note MIDI min</label><input id="lrFormNoteLedMin" type="number" min="0" max="127" value="${action.note_led_min || 36}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Note MIDI max</label><input id="lrFormNoteLedMax" type="number" min="0" max="127" value="${action.note_led_max || 96}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              </div>
+              <div style="margin-top:4px;height:10px;border-radius:4px;background:linear-gradient(to right,#FF0000,#FF8000,#FFFF00,#80FF00,#00FF00,#00FF80,#00FFFF,#0080FF,#0000FF,#8000FF,#FF00FF,#FF0080);"></div>
             </div>
           </div>
 
@@ -1542,12 +1566,16 @@ class LightingControlPage {
     const nc = document.getElementById('lrFormNoteColorSection');
     const isEffect = this._isEffectType(type);
 
-    // Color picker: show for most types, hide for gradient/note_color/color_temp/random
-    if (s) s.style.display = (type === 'velocity_mapped' || type === 'note_color' || type === 'color_temp' || type === 'random_color') ? 'none' : 'block';
+    const nl = document.getElementById('lrFormNoteLedSection');
+
+    // Color picker: show for most types, hide for special modes
+    const hideColor = ['velocity_mapped', 'note_color', 'color_temp', 'random_color', 'note_led'].includes(type);
+    if (s) s.style.display = hideColor ? 'none' : 'block';
     if (g) g.style.display = type === 'velocity_mapped' ? 'block' : 'none';
     if (e) e.style.display = isEffect ? 'block' : 'none';
     if (ct) ct.style.display = type === 'color_temp' ? 'block' : 'none';
     if (nc) nc.style.display = type === 'note_color' ? 'block' : 'none';
+    if (nl) nl.style.display = type === 'note_led' ? 'block' : 'none';
   }
 
   _isEffectType(type) {
@@ -1607,6 +1635,12 @@ class LightingControlPage {
         '64': document.getElementById('lrFormColorMid').value,
         '127': document.getElementById('lrFormColorHigh').value
       };
+    }
+
+    // Note-to-LED config
+    if (actionType === 'note_led') {
+      actionConfig.note_led_min = parseInt(document.getElementById('lrFormNoteLedMin')?.value) || 36;
+      actionConfig.note_led_max = parseInt(document.getElementById('lrFormNoteLedMax')?.value) || 96;
     }
 
     // Color temperature config
@@ -1742,7 +1776,7 @@ class LightingControlPage {
     return {
       static: i18n.t('lighting.colorStatic') || 'Couleur fixe',
       velocity_mapped: i18n.t('lighting.colorVelocity') || 'Gradient',
-      note_color: '🎹 Note→Couleur', color_temp: '🌡️ Temp. couleur', random_color: '🎲 Aléatoire',
+      note_color: '🎹 Note→Couleur', color_temp: '🌡️ Temp. couleur', random_color: '🎲 Aléatoire', note_led: '🎹 Note→LED',
       pulse: 'Pulse', fade: 'Fade',
       strobe: '⚡ Stroboscope', rainbow: '🌈 Arc-en-ciel', chase: '🏃 Chenillard',
       fire: '🔥 Feu', breathe: '💨 Respiration', sparkle: '✨ Étincelles',
