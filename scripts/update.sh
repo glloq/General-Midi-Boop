@@ -58,21 +58,61 @@ abort_and_restart() {
 
 # Restart server helper (used by both normal restart and abort_and_restart)
 _restart_server() {
+    local RESTART_OK=false
+
     if [ "$PM2_MANAGED" = true ]; then
         print_info "Restarting with PM2..."
-        pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null || true
-        pm2 save 2>/dev/null || true
+        if pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null; then
+            pm2 save 2>/dev/null || true
+            sleep 3
+            if pm2 list 2>/dev/null | grep -q "online.*midimind"; then
+                RESTART_OK=true
+                print_success "PM2 restart successful"
+            else
+                print_warning "PM2 restart may have failed, checking port..."
+            fi
+        else
+            print_warning "PM2 restart failed"
+        fi
     elif [ "$SYSTEMD_MANAGED" = true ]; then
         print_info "Restarting with systemd..."
-        timeout 10 sudo -n systemctl start midimind 2>/dev/null || true
+        if timeout 10 sudo -n systemctl start midimind 2>/dev/null; then
+            sleep 3
+            if systemctl is-active --quiet midimind 2>/dev/null; then
+                RESTART_OK=true
+                print_success "Systemd restart successful"
+            else
+                print_warning "Systemd restart may have failed, checking port..."
+            fi
+        else
+            print_warning "Systemd restart failed (sudo password required?)"
+        fi
     elif [ "$PM2_AVAILABLE" = true ]; then
         print_info "Starting with PM2..."
-        pm2 start ecosystem.config.cjs 2>/dev/null || true
-        pm2 save 2>/dev/null || true
-    else
-        print_info "Starting server directly..."
+        if pm2 start ecosystem.config.cjs 2>/dev/null; then
+            pm2 save 2>/dev/null || true
+            sleep 3
+            if pm2 list 2>/dev/null | grep -q "online.*midimind"; then
+                RESTART_OK=true
+                print_success "PM2 start successful"
+            else
+                print_warning "PM2 start may have failed, checking port..."
+            fi
+        else
+            print_warning "PM2 start failed"
+        fi
+    fi
+
+    # Fallback: if managed restart failed or no manager, start directly
+    if [ "$RESTART_OK" = false ]; then
+        # Check if port is already in use (previous restart might have worked)
+        if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
+            print_success "Server already listening on port $SERVER_PORT"
+            return
+        fi
+
+        print_info "Starting server directly (fallback)..."
         cd "$PROJECT_DIR"
-        # Clear log for fresh output
         echo "=== Server start at $(date) ===" > /tmp/midimind-server.log
         NODE_BIN="$(which node)"
         print_info "Using node: $NODE_BIN"
@@ -191,19 +231,8 @@ fi
 
 print_header "2. Stopping Server"
 
-# Stop the server
-if [ "$PM2_MANAGED" = true ]; then
-    print_info "Stopping PM2 process (will restart after update)..."
-    pm2 stop midimind 2>/dev/null || true
-    print_success "PM2 process stopped"
-elif [ "$SYSTEMD_MANAGED" = true ]; then
-    print_info "Stopping systemd service..."
-    timeout 10 sudo -n systemctl stop midimind 2>/dev/null || true
-    print_success "Systemd service stopped"
-else
-    # Direct node process - kill it
-    print_info "Stopping server process..."
-    # Try multiple methods to find and kill the server process
+# Stop the server - try managed methods first, then fallback to direct kill
+_stop_direct() {
     if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
         lsof -ti:$SERVER_PORT | xargs -r kill 2>/dev/null || true
         sleep 2
@@ -212,16 +241,44 @@ else
             lsof -ti:$SERVER_PORT | xargs -r kill -9 2>/dev/null || true
             sleep 1
         fi
-        print_success "Server stopped"
+        print_success "Server stopped (direct kill)"
     elif command -v fuser &> /dev/null && fuser $SERVER_PORT/tcp &> /dev/null; then
         fuser -k $SERVER_PORT/tcp 2>/dev/null || true
         sleep 2
-        print_success "Server stopped"
+        print_success "Server stopped (fuser)"
     else
-        # Fallback: kill by process name
         pkill -f "node $PROJECT_DIR/server.js" 2>/dev/null || pkill -f "node.*server.js" 2>/dev/null || true
         sleep 2
         print_info "Attempted to stop server via pkill"
+    fi
+}
+
+STOP_OK=false
+
+if [ "$PM2_MANAGED" = true ]; then
+    print_info "Stopping PM2 process..."
+    pm2 stop midimind 2>/dev/null && STOP_OK=true || true
+elif [ "$SYSTEMD_MANAGED" = true ]; then
+    print_info "Stopping systemd service..."
+    if timeout 10 sudo -n systemctl stop midimind 2>/dev/null; then
+        STOP_OK=true
+    else
+        print_warning "Systemd stop failed (sudo password required?), trying direct kill..."
+    fi
+fi
+
+# If managed stop failed or port still occupied, kill directly
+if [ "$STOP_OK" = false ]; then
+    print_info "Stopping server process..."
+    _stop_direct
+else
+    # Even if managed stop succeeded, verify port is free
+    sleep 1
+    if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
+        print_warning "Port $SERVER_PORT still in use after managed stop, killing directly..."
+        _stop_direct
+    else
+        print_success "Server stopped"
     fi
 fi
 
