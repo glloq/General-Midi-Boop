@@ -329,6 +329,8 @@ class LightingControlPage {
             <span style="font-size:10px;color:${t.textMuted};background:${t.bgAlt};padding:1px 5px;border-radius:4px;white-space:nowrap;">${this._escapeHtml(instrument)}</span>
           </div>
           <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+            <button onclick="lightingControlPageInstance.moveRulePriority(${rule.id},1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:1px;" title="Priorité +">⬆</button>
+            <button onclick="lightingControlPageInstance.moveRulePriority(${rule.id},-1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:1px;" title="Priorité -">⬇</button>
             <button onclick="lightingControlPageInstance.testRule(${rule.id})" style="background:none;border:1px solid #3b82f6;border-radius:4px;color:#3b82f6;cursor:pointer;font-size:10px;padding:2px 6px;">Test</button>
             <button onclick="lightingControlPageInstance.toggleRule(${rule.id},${!rule.enabled})" style="background:none;border:none;cursor:pointer;font-size:13px;">${rule.enabled ? '✅' : '⬜'}</button>
             <button onclick="lightingControlPageInstance.editRule(${rule.id})" style="background:none;border:none;cursor:pointer;font-size:13px;">✏️</button>
@@ -342,6 +344,7 @@ class LightingControlPage {
           <div><b>${i18n.t('lighting.noteRange') || 'Notes'}:</b> ${this._noteName(cond.note_min || 0)}–${this._noteName(cond.note_max || 127)}</div>
           ${cond.cc_number?.length ? `<div><b>CC:</b> #${cond.cc_number.join(', #')} (${cond.cc_value_min || 0}–${cond.cc_value_max || 127})</div>` : ''}
           <div><b>${i18n.t('lighting.actionType') || 'Action'}:</b> ${this._getActionLabel(action.type)}${action.brightness_from_velocity ? ' + Vel→Lum' : ''}</div>
+          ${rule.priority ? `<div><b>Priorité:</b> ${rule.priority}</div>` : ''}
         </div>
       </div>`;
   }
@@ -1200,6 +1203,10 @@ class LightingControlPage {
             <select id="lrFormInstrument" ${is}><option value="">${i18n.t('lighting.anyInstrument') || 'Tout instrument'}</option>${instrumentOptions}</select>
           </div>
 
+          <div style="margin-bottom:10px;">
+            <button type="button" onclick="lightingControlPageInstance._startMidiLearn()" id="lrMidiLearnBtn" style="width:100%;padding:8px;border:2px dashed #f59e0b;border-radius:8px;background:${t.bgAlt};color:#d97706;cursor:pointer;font-size:12px;font-weight:600;">🎹 MIDI Learn — Jouez une note pour auto-configurer la condition</button>
+          </div>
+
           <hr style="border:none;border-top:1px solid ${t.border};margin:14px 0;">
           <h4 style="margin:0 0 10px;font-size:13px;color:${t.textSec};">🎯 ${i18n.t('lighting.condition') || 'Condition'}</h4>
 
@@ -1261,11 +1268,12 @@ class LightingControlPage {
 
           <div id="lrFormStaticColor" style="margin-bottom:10px;">
             <label ${lb}>${i18n.t('lighting.color') || 'Couleur'}</label>
-            <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
               <input id="lrFormColor" type="color" value="${action.color || '#FF0000'}" style="width:50px;height:36px;border:1px solid ${t.inputBorder};border-radius:8px;cursor:pointer;padding:2px;">
               <span id="lrFormColorHex" style="font-size:12px;color:${t.textSec};font-family:monospace;">${action.color || '#FF0000'}</span>
               <button type="button" onclick="lightingControlPageInstance.showColorWheel('lrFormColor')" style="padding:4px 8px;border:1px solid ${t.inputBorder};border-radius:6px;background:${t.btnBg};color:${t.textSec};cursor:pointer;font-size:11px;">🎨 Roue</button>
             </div>
+            <div style="display:flex;flex-wrap:wrap;gap:3px;">${this._renderQuickColors('lrFormColor')}</div>
           </div>
 
           <div id="lrFormGradientSection" style="display:${action.type === 'velocity_mapped' ? 'block' : 'none'};margin-bottom:10px;">
@@ -1561,6 +1569,16 @@ class LightingControlPage {
     } catch (error) { alert('Erreur: ' + error.message); }
   }
 
+  async moveRulePriority(id, delta) {
+    const rule = this.rules.find(r => r.id === id);
+    if (!rule) return;
+    const newPriority = (rule.priority || 0) + delta;
+    try {
+      await this.apiClient.send('lighting_rule_update', { id, priority: newPriority });
+      await this.loadRulesForDevice(this.selectedDeviceId);
+    } catch (error) { alert('Erreur: ' + error.message); }
+  }
+
   // ==================== ACTIONS ====================
 
   async testDevice() {
@@ -1628,6 +1646,91 @@ class LightingControlPage {
   _noteName(midi) {
     const n = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     return n[midi % 12] + (Math.floor(midi / 12) - 1);
+  }
+
+  // ==================== MIDI LEARN ====================
+
+  async _startMidiLearn() {
+    const btn = document.getElementById('lrMidiLearnBtn');
+    if (!btn) return;
+
+    btn.textContent = '🎹 En attente d\'un événement MIDI... (10s)';
+    btn.style.borderColor = '#ef4444';
+    btn.style.color = '#ef4444';
+    btn.disabled = true;
+
+    try {
+      const res = await this.apiClient.send('lighting_midi_learn');
+
+      if (res.success && res.learned) {
+        const l = res.learned;
+
+        // Fill in the condition fields
+        if (l.type) {
+          const triggerEl = document.getElementById('lrFormTrigger');
+          if (triggerEl) triggerEl.value = l.type === 'noteon' ? 'noteon' : l.type === 'noteoff' ? 'noteoff' : l.type === 'cc' ? 'cc' : 'any';
+        }
+        if (l.channel !== undefined && l.channel !== null) {
+          const chEl = document.getElementById('lrFormChannels');
+          if (chEl) chEl.value = String(l.channel + 1);
+        }
+        if (l.note !== undefined && l.note !== null) {
+          const noteMinEl = document.getElementById('lrFormNoteMin');
+          const noteMaxEl = document.getElementById('lrFormNoteMax');
+          if (noteMinEl) noteMinEl.value = l.note;
+          if (noteMaxEl) noteMaxEl.value = l.note;
+        }
+        if (l.controller !== undefined && l.controller !== null) {
+          const ccEl = document.getElementById('lrFormCcNum');
+          if (ccEl) ccEl.value = String(l.controller);
+        }
+
+        btn.textContent = `✅ Capturé: ${l.type} ch${(l.channel || 0) + 1} note=${l.note ?? '-'} vel=${l.velocity ?? '-'} cc=${l.controller ?? '-'}`;
+        btn.style.borderColor = '#10b981';
+        btn.style.color = '#10b981';
+      } else {
+        btn.textContent = '⏰ Pas de signal MIDI reçu. Réessayez.';
+        btn.style.borderColor = '#f59e0b';
+        btn.style.color = '#d97706';
+      }
+    } catch (error) {
+      btn.textContent = '❌ Erreur: ' + error.message;
+      btn.style.borderColor = '#ef4444';
+      btn.style.color = '#ef4444';
+    }
+
+    setTimeout(() => {
+      if (btn) {
+        btn.textContent = '🎹 MIDI Learn — Jouez une note pour auto-configurer la condition';
+        btn.style.borderColor = '#f59e0b';
+        btn.style.color = '#d97706';
+        btn.disabled = false;
+      }
+    }, 5000);
+  }
+
+  // ==================== QUICK COLOR PRESETS ====================
+
+  _renderQuickColors(targetInputId) {
+    const colors = [
+      { hex: '#FF0000', name: 'Rouge' },
+      { hex: '#FF4500', name: 'Orange' },
+      { hex: '#FFD700', name: 'Or' },
+      { hex: '#FFFF00', name: 'Jaune' },
+      { hex: '#00FF00', name: 'Vert' },
+      { hex: '#00CED1', name: 'Turquoise' },
+      { hex: '#00BFFF', name: 'Cyan' },
+      { hex: '#0000FF', name: 'Bleu' },
+      { hex: '#8B00FF', name: 'Violet' },
+      { hex: '#FF00FF', name: 'Magenta' },
+      { hex: '#FF69B4', name: 'Rose' },
+      { hex: '#FFFFFF', name: 'Blanc' },
+      { hex: '#FFF5E1', name: 'Chaud' },
+      { hex: '#E0E8FF', name: 'Froid' }
+    ];
+    return colors.map(c =>
+      `<button type="button" onclick="document.getElementById('${targetInputId}').value='${c.hex}';document.getElementById('${targetInputId}').dispatchEvent(new Event('input'));" style="width:22px;height:22px;border-radius:50%;border:2px solid #ddd;background:${c.hex};cursor:pointer;padding:0;" title="${c.name}"></button>`
+    ).join('');
   }
 
   // ==================== COLOR WHEEL ====================

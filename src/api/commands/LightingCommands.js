@@ -373,6 +373,112 @@ async function lightingDeviceScan(app, data) {
   return { success: true, discovered };
 }
 
+// ==================== SCENES API ====================
+
+function lightingSceneSave(app, data) {
+  if (!data.name) throw new Error('name is required');
+  if (!app.lightingManager) throw new Error('Lighting manager not available');
+
+  // Capture current state of all devices
+  const scene = {
+    name: data.name,
+    masterDimmer: app.lightingManager.getMasterDimmer(),
+    devices: [],
+    effects: app.lightingManager.getActiveEffects()
+  };
+
+  // Store device state (what rules are active, what effects are running)
+  const devices = app.database.getLightingDevices();
+  for (const device of devices) {
+    const driver = app.lightingManager.drivers.get(device.id);
+    scene.devices.push({
+      id: device.id,
+      name: device.name,
+      connected: driver ? driver.isConnected() : false,
+      color: data.device_colors?.[device.id] || null
+    });
+  }
+
+  // Store as a preset with scene type
+  const id = app.database.insertLightingPreset({
+    name: `[scene] ${data.name}`,
+    rules_snapshot: scene
+  });
+
+  return { success: true, id };
+}
+
+function lightingSceneApply(app, data) {
+  if (!data.scene) throw new Error('scene data is required');
+  if (!app.lightingManager) throw new Error('Lighting manager not available');
+
+  const scene = data.scene;
+
+  // Restore master dimmer
+  if (scene.masterDimmer !== undefined) {
+    app.lightingManager.setMasterDimmer(scene.masterDimmer);
+  }
+
+  // Apply device colors
+  if (scene.devices) {
+    for (const devState of scene.devices) {
+      if (devState.color) {
+        const driver = app.lightingManager.drivers.get(devState.id);
+        if (driver && driver.isConnected()) {
+          const c = hexToRgb(devState.color);
+          driver.setRange(0, -1, c.r, c.g, c.b, 255);
+        }
+      }
+    }
+  }
+
+  // Restart effects
+  if (scene.effects) {
+    for (const effect of scene.effects) {
+      const driver = app.lightingManager.drivers.get(parseInt(effect.key.split('device_')[1]));
+      if (driver && driver.isConnected()) {
+        app.lightingManager.effectsEngine.startEffect(effect.key, effect.effectType, driver, effect.config);
+      }
+    }
+  }
+
+  return { success: true };
+}
+
+// ==================== MIDI LEARN ====================
+
+function lightingMidiLearnStart(app, data) {
+  if (!app.lightingManager) throw new Error('Lighting manager not available');
+
+  // Set up a one-shot MIDI listener that captures the next MIDI event
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      app.eventBus.removeListener('midi_message', handler);
+      resolve({ success: false, error: 'timeout', message: 'No MIDI event received within 10 seconds' });
+    }, 10000);
+
+    const handler = (event) => {
+      clearTimeout(timeout);
+      app.eventBus.removeListener('midi_message', handler);
+
+      const data = event.data || event;
+      resolve({
+        success: true,
+        learned: {
+          type: event.type || data.type,
+          channel: data.channel,
+          note: data.note,
+          velocity: data.velocity,
+          controller: data.controller,
+          value: data.value
+        }
+      });
+    };
+
+    app.eventBus.on('midi_message', handler);
+  });
+}
+
 function hexToRgb(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? {
@@ -411,4 +517,7 @@ export function register(registry, app) {
   registry.register('lighting_rules_export', (data) => lightingRulesExport(app, data));
   registry.register('lighting_rules_import', (data) => lightingRulesImport(app, data));
   registry.register('lighting_device_scan', (data) => lightingDeviceScan(app, data));
+  registry.register('lighting_scene_save', (data) => lightingSceneSave(app, data));
+  registry.register('lighting_scene_apply', (data) => lightingSceneApply(app, data));
+  registry.register('lighting_midi_learn', (data) => lightingMidiLearnStart(app, data));
 }
