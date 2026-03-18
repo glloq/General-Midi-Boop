@@ -1034,8 +1034,8 @@ class KeyboardModalNew {
 
     /**
      * Auto-centrer le clavier sur la plage de notes de l'instrument
-     * Ajuste le nombre d'octaves et octaveOffset pour que la vue soit
-     * centrée et dimensionnée autour des notes jouables
+     * Ajuste octaveOffset pour que la vue soit centrée sur les notes jouables
+     * Ne modifie PAS this.octaves pour garder une largeur de touches constante
      */
     autoCenterKeyboard() {
         const caps = this.selectedDeviceCapabilities;
@@ -1050,7 +1050,6 @@ class KeyboardModalNew {
         // Si pas de plage définie, recentrer sur la position par défaut
         if (!hasMin && !hasMax) {
             this.octaveOffset = 0;
-            this.octaves = 3;
             this._updateOctaveDisplay();
             this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default');
             return;
@@ -1060,46 +1059,21 @@ class KeyboardModalNew {
         const effectiveMin = hasMin ? minNote : 21;
         const effectiveMax = hasMax ? maxNote : 108;
 
-        // Calculer le nombre d'octaves nécessaires pour couvrir la plage
-        // On ajoute une marge d'une demi-octave de chaque côté pour le confort visuel
-        const minOctave = Math.floor(effectiveMin / 12) - 1;
-        const maxOctave = Math.floor(effectiveMax / 12) - 1;
-        const rangeSpanOctaves = maxOctave - minOctave + 1;
+        // Centre de la plage jouable (précis, en notes MIDI)
+        const rangeCenter = (effectiveMin + effectiveMax) / 2;
 
-        // Ajuster le nombre d'octaves affichées (entre 2 et 4)
-        // On prend le span + 1 octave de marge, limité entre 2 et 4
-        const idealOctaves = Math.max(2, Math.min(4, rangeSpanOctaves + 1));
-        this.octaves = idealOctaves;
+        // Centre de la vue à offset=0 (en notes MIDI)
+        // Première note: (baseOctave + 1) * 12, dernière: première + octaves*12 - 1
+        const viewCenterAtZero = (this.baseOctave + 1) * 12 + (this.octaves * 12 - 1) / 2;
 
-        // Calculer l'offset optimal pour centrer la plage jouable dans la vue
-        // Note centrale de la plage jouable
-        const centerNote = Math.round((effectiveMin + effectiveMax) / 2);
-        const centerOctave = Math.floor(centerNote / 12) - 1;
-
-        // L'octave du milieu de la vue actuelle (sans offset)
-        const viewMiddleOctave = this.baseOctave + Math.floor(this.octaves / 2);
-        const neededOffset = centerOctave - viewMiddleOctave;
+        // Offset nécessaire pour aligner les deux centres (arrondi au plus proche)
+        const neededOffset = Math.round((rangeCenter - viewCenterAtZero) / 12);
 
         // Limiter l'offset entre -3 et +3
         this.octaveOffset = Math.max(-3, Math.min(3, neededOffset));
 
-        // Vérifier que toutes les notes jouables sont visibles, sinon ajuster
-        const viewStartNote = (this.baseOctave + this.octaveOffset + 1) * 12;
-        const viewEndNote = (this.baseOctave + this.octaveOffset + this.octaves + 1) * 12 - 1;
-
-        // Si des notes jouables débordent en bas, décaler vers le bas
-        if (effectiveMin < viewStartNote && this.octaveOffset > -3) {
-            const adjustment = Math.ceil((viewStartNote - effectiveMin) / 12);
-            this.octaveOffset = Math.max(-3, this.octaveOffset - adjustment);
-        }
-        // Si des notes jouables débordent en haut, décaler vers le haut
-        else if (effectiveMax > viewEndNote && this.octaveOffset < 3) {
-            const adjustment = Math.ceil((effectiveMax - viewEndNote) / 12);
-            this.octaveOffset = Math.min(3, this.octaveOffset + adjustment);
-        }
-
         this._updateOctaveDisplay();
-        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, ${this.octaves} octaves, offset ${this.octaveOffset}`);
+        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, center ${rangeCenter}, offset ${this.octaveOffset}`);
     }
 
     /**
