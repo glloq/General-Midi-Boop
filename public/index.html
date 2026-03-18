@@ -6976,7 +6976,7 @@
                 const selected = encodedValue === selectValue ? 'selected' : '';
                 const kitName = i18n.t(`instruments.drumKits.${kit.program}`) || kit.name;
                 const kitDesc = i18n.t(`instruments.drumKitsDesc.${kit.program}`) || kit.desc;
-                options += `<option value="${encodedValue}" data-drum-kit="true" title="${kitDesc}" ${selected}>${kit.program}: ${kitName} — ${kitDesc}</option>`;
+                options += `<option value="${encodedValue}" data-drum-kit="true" data-desc="${kitDesc}" ${selected}>${kit.program}: ${kitName}</option>`;
             }
             options += '</optgroup>';
 
@@ -7065,6 +7065,8 @@
                                 ${renderGMInstrumentOptions(settings.gm_program, instrumentChannel)}
                             </select>
                             <small class="form-text">${i18n.t('instrumentSettings.gmInstrumentHelp') || 'Sélectionnez le type d\'instrument pour le routage MIDI'}</small>
+                            <div id="drumKitDesc" style="display: none; margin-top: 8px; padding: 10px 14px; background: #f0f4ff; border-left: 4px solid #667eea; border-radius: 0 6px 6px 0; font-size: 13px; color: #374151;">
+                            </div>
                             <div id="drumKitNotice" style="display: none; margin-top: 8px; padding: 8px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; font-size: 13px; color: #92400e;">
                                 ${i18n.t('instrumentSettings.drumKitNotice') || 'Les kits de batterie utilisent le canal MIDI 10 et le mode notes individuelles. Ces réglages seront appliqués automatiquement à la sauvegarde.'}
                             </div>
@@ -7229,10 +7231,24 @@
         }
 
         // Changer le mode de sélection
-        // Réagir au changement de programme GM - afficher un avertissement si drum kit
+        // Réagir au changement de programme GM - afficher description + avertissement si drum kit
         function onGmProgramChanged(selectEl) {
             const selectedOption = selectEl.options[selectEl.selectedIndex];
             const isDrumKit = selectedOption && selectedOption.hasAttribute('data-drum-kit');
+
+            // Afficher/masquer la description du drum kit
+            const descDiv = document.getElementById('drumKitDesc');
+            if (descDiv) {
+                const desc = selectedOption ? selectedOption.getAttribute('data-desc') : null;
+                if (desc) {
+                    descDiv.textContent = desc;
+                    descDiv.style.display = 'block';
+                } else {
+                    descDiv.style.display = 'none';
+                }
+            }
+
+            // Afficher/masquer l'avertissement canal 10
             const notice = document.getElementById('drumKitNotice');
             if (notice) {
                 notice.style.display = isDrumKit ? 'block' : 'none';
