@@ -139,14 +139,6 @@ class InstrumentManagementPage {
       const connectedDevices = (response && response.devices) ? response.devices : [];
       const connectedIds = new Set(connectedDevices.map(d => d.id));
 
-      // Construire un index de serial numbers pour les devices connectés
-      const connectedBySerial = new Map();
-      for (const device of connectedDevices) {
-        if (device.usb_serial_number || device.usbSerialNumber) {
-          connectedBySerial.set(device.usb_serial_number || device.usbSerialNumber, device);
-        }
-      }
-
       // 2. Charger les instruments enregistrés en DB (même déconnectés)
       let registeredInstruments = [];
       try {
@@ -194,7 +186,21 @@ class InstrumentManagementPage {
 
         if (dbInstrument) {
           matchedDbIds.add(dbInstrument.id);
+          // Sauvegarder les champs d'identité réels du device avant merge
+          const realId = device.id;
+          const realName = device.name;
+          const realType = device.type;
+          const realAddress = device.address;
+          const realInput = device.input;
+          const realOutput = device.output;
           Object.assign(device, dbInstrument);
+          // Restaurer les champs d'identité réels (le DB ne doit pas les écraser)
+          device.id = realId;
+          if (realName) device.name = realName;
+          if (realType) device.type = realType;
+          if (realAddress) device.address = realAddress;
+          device.input = realInput;
+          device.output = realOutput;
           device.connected = true;
           device.status = 2;
         }
@@ -373,9 +379,6 @@ class InstrumentManagementPage {
     content.innerHTML = html;
   }
 
-  /**
-   * Rendu d'une carte instrument
-   */
   /**
    * Retourne l'icône et le label du type de connexion
    */
