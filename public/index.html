@@ -6974,9 +6974,9 @@
             for (const kit of GM_DRUM_KITS) {
                 const encodedValue = kit.program + GM_DRUM_KIT_OFFSET;
                 const selected = encodedValue === selectValue ? 'selected' : '';
-                const kitName = i18n.t(`instruments.drumKits.${kit.program}`) || kit.name;
-                const kitDesc = i18n.t(`instruments.drumKitsDesc.${kit.program}`) || kit.desc;
-                options += `<option value="${encodedValue}" data-drum-kit="true" data-desc="${kitDesc}" ${selected}>${kit.program}: ${kitName}</option>`;
+                const kitName = i18n.t(`instruments.drumKits.${kit.program}`);
+                const displayName = (kitName && kitName !== `instruments.drumKits.${kit.program}`) ? kitName : kit.name;
+                options += `<option value="${encodedValue}" data-drum-kit="true" data-desc="${kit.desc}" ${selected}>${kit.program}: ${displayName}</option>`;
             }
             options += '</optgroup>';
 
