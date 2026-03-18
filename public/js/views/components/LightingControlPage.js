@@ -442,6 +442,7 @@ class LightingControlPage {
             <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.deviceType') || 'Type'}</label>
             <select id="ldFormType" onchange="lightingControlPageInstance._updateDeviceFormFields()" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">
               <option value="gpio">GPIO (Raspberry Pi)</option>
+              <option value="gpio_strip">Bandeau LED GPIO (WS2812/NeoPixel)</option>
               <option value="serial">Serial (WS2812/NeoPixel)</option>
             </select>
           </div>
@@ -465,6 +466,18 @@ class LightingControlPage {
             <input id="ldFormSerialPort" type="text" value="/dev/ttyUSB0" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
           </div>
 
+          <div id="ldFormStripFields" style="display:none;">
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">Bandeaux LED</label>
+            <div id="ldFormStripsContainer"></div>
+            <button type="button" onclick="lightingControlPageInstance._addStripEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">+ Ajouter un bandeau</button>
+
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">Segments (zones logiques)</label>
+            <div id="ldFormSegmentsContainer"></div>
+            <button type="button" onclick="lightingControlPageInstance._addSegmentEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">+ Ajouter un segment</button>
+
+            <div style="font-size:11px;color:${t.textMuted};margin-bottom:8px;">Le nombre de LEDs sera calculé automatiquement.</div>
+          </div>
+
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
             <button onclick="document.getElementById('lightingDeviceForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Annuler</button>
             <button onclick="lightingControlPageInstance.submitAddDevice()" style="padding:7px 14px;border:none;border-radius:8px;background:#eab308;color:white;cursor:pointer;font-weight:600;font-size:12px;">Ajouter</button>
@@ -481,6 +494,73 @@ class LightingControlPage {
     const type = document.getElementById('ldFormType').value;
     document.getElementById('ldFormGpioFields').style.display = type === 'gpio' ? 'block' : 'none';
     document.getElementById('ldFormSerialFields').style.display = type === 'serial' ? 'block' : 'none';
+    const stripFields = document.getElementById('ldFormStripFields');
+    if (stripFields) {
+      stripFields.style.display = type === 'gpio_strip' ? 'block' : 'none';
+      if (type === 'gpio_strip') {
+        // Hide manual led_count field - auto-calculated for strips
+        const ledCountEl = document.getElementById('ldFormLedCount');
+        if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'none';
+        // Add a default strip entry if empty
+        const container = document.getElementById('ldFormStripsContainer');
+        if (container && container.children.length === 0) this._addStripEntry();
+      } else {
+        const ledCountEl = document.getElementById('ldFormLedCount');
+        if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'block';
+      }
+    }
+  }
+
+  _addStripEntry() {
+    const t = this._t();
+    const container = document.getElementById('ldFormStripsContainer');
+    if (!container) return;
+    const idx = container.children.length;
+    if (idx >= 3) return; // Max 3 hardware channels
+
+    const channelGpioDefaults = { 0: 18, 1: 13, 2: 10 };
+    const defaultChannel = idx;
+    const defaultGpio = channelGpioDefaults[defaultChannel] || 18;
+
+    const entry = document.createElement('div');
+    entry.className = 'strip-entry';
+    entry.style.cssText = `display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px;border:1px solid ${t.inputBorder};border-radius:8px;background:${t.bgAlt};`;
+    entry.innerHTML = `
+      <select class="strip-channel" style="width:70px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};" onchange="lightingControlPageInstance._onStripChannelChange(this)">
+        <option value="0" ${defaultChannel === 0 ? 'selected' : ''}>Ch0 PWM0</option>
+        <option value="1" ${defaultChannel === 1 ? 'selected' : ''}>Ch1 PWM1</option>
+        <option value="2" ${defaultChannel === 2 ? 'selected' : ''}>Ch2 SPI</option>
+      </select>
+      <select class="strip-gpio" style="width:65px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};"></select>
+      <input class="strip-ledcount" type="number" min="1" max="1000" value="30" placeholder="LEDs" style="width:60px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="strip-brightness" type="number" min="0" max="255" value="255" placeholder="Lum" style="width:50px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <button type="button" onclick="this.closest('.strip-entry').remove()" style="padding:2px 6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px;">×</button>`;
+    container.appendChild(entry);
+    this._onStripChannelChange(entry.querySelector('.strip-channel'));
+  }
+
+  _onStripChannelChange(selectEl) {
+    const ch = parseInt(selectEl.value);
+    const gpioSelect = selectEl.closest('.strip-entry').querySelector('.strip-gpio');
+    const gpioMap = { 0: [18, 12], 1: [13, 19], 2: [10] };
+    const pins = gpioMap[ch] || [];
+    gpioSelect.innerHTML = pins.map((p, i) => `<option value="${p}" ${i === 0 ? 'selected' : ''}>GPIO ${p}</option>`).join('');
+  }
+
+  _addSegmentEntry() {
+    const t = this._t();
+    const container = document.getElementById('ldFormSegmentsContainer');
+    if (!container) return;
+
+    const entry = document.createElement('div');
+    entry.className = 'segment-entry';
+    entry.style.cssText = `display:flex;gap:6px;align-items:center;margin-bottom:6px;`;
+    entry.innerHTML = `
+      <input class="seg-name" type="text" placeholder="Nom" style="flex:1;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="seg-start" type="number" min="0" value="0" placeholder="Début" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="seg-end" type="number" min="0" value="0" placeholder="Fin" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <button type="button" onclick="this.closest('.segment-entry').remove()" style="padding:2px 6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px;">×</button>`;
+    container.appendChild(entry);
   }
 
   async submitAddDevice() {
@@ -495,7 +575,7 @@ class LightingControlPage {
     }
 
     const type = document.getElementById('ldFormType').value;
-    const ledCount = Math.max(1, Math.min(1000, parseInt(document.getElementById('ldFormLedCount').value) || 1));
+    let ledCount = Math.max(1, Math.min(1000, parseInt(document.getElementById('ldFormLedCount').value) || 1));
 
     let connectionConfig = {};
     if (type === 'gpio') {
@@ -506,6 +586,35 @@ class LightingControlPage {
           b: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinB').value) || 22))
         }
       };
+    } else if (type === 'gpio_strip') {
+      const stripEntries = document.querySelectorAll('#ldFormStripsContainer .strip-entry');
+      const strips = [];
+      let totalLeds = 0;
+      stripEntries.forEach(entry => {
+        const count = Math.max(1, Math.min(1000, parseInt(entry.querySelector('.strip-ledcount').value) || 30));
+        strips.push({
+          channel: parseInt(entry.querySelector('.strip-channel').value),
+          gpio: parseInt(entry.querySelector('.strip-gpio').value),
+          led_count: count,
+          brightness: Math.max(0, Math.min(255, parseInt(entry.querySelector('.strip-brightness').value) || 255))
+        });
+        totalLeds += count;
+      });
+      const segEntries = document.querySelectorAll('#ldFormSegmentsContainer .segment-entry');
+      const segments = [];
+      segEntries.forEach(entry => {
+        const name = entry.querySelector('.seg-name').value.trim();
+        if (name) {
+          segments.push({
+            name,
+            start: Math.max(0, parseInt(entry.querySelector('.seg-start').value) || 0),
+            end: Math.max(0, parseInt(entry.querySelector('.seg-end').value) || 0)
+          });
+        }
+      });
+      connectionConfig = { strips, segments, frequency: 800000, dma: 10 };
+      // Override ledCount with auto-calculated total
+      ledCount = totalLeds || 1;
     } else if (type === 'serial') {
       connectionConfig = { port: document.getElementById('ldFormSerialPort').value || '/dev/ttyUSB0', baud: 115200 };
     }
@@ -663,6 +772,13 @@ class LightingControlPage {
             </label>
           </div>
 
+          <div id="lrFormSegmentRow" style="display:none;margin-bottom:10px;">
+            <label ${lb}>Segment</label>
+            <select id="lrFormSegment" onchange="lightingControlPageInstance._onSegmentSelect()" ${is}>
+              <option value="">-- Aucun (manuel) --</option>
+            </select>
+          </div>
+
           <div style="display:flex;gap:10px;margin-bottom:10px;">
             <div style="flex:1;"><label ${lb}>LED début</label><input id="lrFormLedStart" type="number" min="0" value="${action.led_start || 0}" ${is}></div>
             <div style="flex:1;"><label ${lb}>LED fin (-1=toutes)</label><input id="lrFormLedEnd" type="number" min="-1" value="${action.led_end !== undefined ? action.led_end : -1}" ${is}></div>
@@ -704,6 +820,40 @@ class LightingControlPage {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', () => this._updateGradientPreview());
     });
+
+    // Populate segment dropdown if selected device is gpio_strip
+    this._populateSegmentDropdown(existingRule?.action_config?.segment);
+  }
+
+  _populateSegmentDropdown(selectedSegment) {
+    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const segRow = document.getElementById('lrFormSegmentRow');
+    const segSelect = document.getElementById('lrFormSegment');
+    if (!segRow || !segSelect || !device) return;
+
+    if (device.type === 'gpio_strip' && device.connection_config?.segments?.length) {
+      segRow.style.display = 'block';
+      const segments = device.connection_config.segments;
+      segSelect.innerHTML = '<option value="">-- Aucun (manuel) --</option>' +
+        segments.map(s => `<option value="${this._escapeHtml(s.name)}" ${selectedSegment === s.name ? 'selected' : ''}>${this._escapeHtml(s.name)} (${s.start}-${s.end})</option>`).join('');
+      if (selectedSegment) this._onSegmentSelect();
+    } else {
+      segRow.style.display = 'none';
+    }
+  }
+
+  _onSegmentSelect() {
+    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const segName = document.getElementById('lrFormSegment')?.value;
+    if (!segName || !device?.connection_config?.segments) return;
+
+    const seg = device.connection_config.segments.find(s => s.name === segName);
+    if (seg) {
+      const startEl = document.getElementById('lrFormLedStart');
+      const endEl = document.getElementById('lrFormLedEnd');
+      if (startEl) startEl.value = seg.start;
+      if (endEl) endEl.value = seg.end;
+    }
   }
 
   _updateActionFields() {
@@ -748,6 +898,7 @@ class LightingControlPage {
     };
 
     const actionType = document.getElementById('lrFormActionType').value;
+    const segmentValue = document.getElementById('lrFormSegment')?.value || null;
     const actionConfig = {
       type: actionType,
       color: document.getElementById('lrFormColor').value,
@@ -758,6 +909,7 @@ class LightingControlPage {
       fade_time_ms: this._clamp(document.getElementById('lrFormFadeTime').value, 0, 5000),
       off_action: document.getElementById('lrFormOffAction').value
     };
+    if (segmentValue) actionConfig.segment = segmentValue;
 
     if (actionType === 'velocity_mapped') {
       actionConfig.color_map = {

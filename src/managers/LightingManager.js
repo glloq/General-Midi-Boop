@@ -4,6 +4,7 @@ import EventEmitter from 'events';
 // Driver type to module path mapping
 const DRIVER_MAP = {
   gpio: '../lighting/GpioLedDriver.js',
+  gpio_strip: '../lighting/GpioStripDriver.js',
   serial: '../lighting/SerialLedDriver.js'
 };
 
@@ -247,10 +248,21 @@ class LightingManager extends EventEmitter {
       r = 255; g = 255; b = 255;
     }
     const brightness = Math.max(0, Math.min(255, this._resolveBrightness(action, midiData)));
+    // Resolve segment if specified (for gpio_strip devices)
+    let segStart = action.led_start;
+    let segEnd = action.led_end;
+    if (action.segment && driver.getSegment) {
+      const seg = driver.getSegment(action.segment);
+      if (seg) {
+        segStart = seg.start;
+        segEnd = seg.end;
+      }
+    }
+
     // Boundary check LED indices
     const ledCount = driver.device?.led_count || 1;
-    const startLed = Math.max(0, Math.min(action.led_start || 0, ledCount - 1));
-    const rawEnd = action.led_end !== undefined ? action.led_end : -1;
+    const startLed = Math.max(0, Math.min(segStart || 0, ledCount - 1));
+    const rawEnd = segEnd !== undefined ? segEnd : -1;
     const endLed = rawEnd === -1 ? -1 : Math.max(startLed, Math.min(rawEnd, ledCount - 1));
 
     // Handle note-off: turn off LEDs
