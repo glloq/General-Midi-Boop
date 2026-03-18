@@ -164,6 +164,35 @@ function lightingAllOff(app) {
   return { success: true };
 }
 
+// ==================== EFFECTS API ====================
+
+function lightingEffectStart(app, data) {
+  if (!data.device_id) throw new Error('device_id is required');
+  if (!data.effect_type) throw new Error('effect_type is required');
+  if (!app.lightingManager) throw new Error('Lighting manager not available');
+
+  return app.lightingManager.startEffect(data.device_id, data.effect_type, {
+    led_start: data.led_start || 0,
+    led_end: data.led_end !== undefined ? data.led_end : -1,
+    speed: data.speed || 500,
+    brightness: data.brightness !== undefined ? data.brightness : 255,
+    color: data.color || '#FF0000',
+    color2: data.color2 || null,
+    density: data.density || 0.1
+  });
+}
+
+function lightingEffectStop(app, data) {
+  if (!data.effect_key) throw new Error('effect_key is required');
+  if (!app.lightingManager) throw new Error('Lighting manager not available');
+  return app.lightingManager.stopEffect(data.effect_key);
+}
+
+function lightingEffectList(app) {
+  if (!app.lightingManager) return { success: true, effects: [] };
+  return { success: true, effects: app.lightingManager.getActiveEffects() };
+}
+
 export function register(registry, app) {
   registry.register('lighting_device_list', () => lightingDeviceList(app));
   registry.register('lighting_device_add', (data) => lightingDeviceAdd(app, data));
@@ -180,4 +209,7 @@ export function register(registry, app) {
   registry.register('lighting_preset_load', (data) => lightingPresetLoad(app, data));
   registry.register('lighting_preset_delete', (data) => lightingPresetDelete(app, data));
   registry.register('lighting_all_off', () => lightingAllOff(app));
+  registry.register('lighting_effect_start', (data) => lightingEffectStart(app, data));
+  registry.register('lighting_effect_stop', (data) => lightingEffectStop(app, data));
+  registry.register('lighting_effect_list', () => lightingEffectList(app));
 }

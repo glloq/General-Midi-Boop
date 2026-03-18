@@ -1,11 +1,17 @@
 // src/managers/LightingManager.js
 import EventEmitter from 'events';
+import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
 
 // Driver type to module path mapping
 const DRIVER_MAP = {
   gpio: '../lighting/GpioLedDriver.js',
   gpio_strip: '../lighting/GpioStripDriver.js',
-  serial: '../lighting/SerialLedDriver.js'
+  serial: '../lighting/SerialLedDriver.js',
+  artnet: '../lighting/ArtNetDriver.js',
+  sacn: '../lighting/SacnDriver.js',
+  mqtt: '../lighting/MqttLightDriver.js',
+  http: '../lighting/HttpLightDriver.js',
+  osc: '../lighting/OscLightDriver.js'
 };
 
 class LightingManager extends EventEmitter {
@@ -17,8 +23,12 @@ class LightingManager extends EventEmitter {
     this.rulesByInstrument = new Map(); // instrumentId -> Rule[], '*' for wildcards
     this.allRules = [];
     this.activeNotes = new Map();     // deviceId -> Map<note, count> for polyphonic note-off tracking
+    this.activeFades = new Map();     // fadeKey -> { interval, driver }
     this._healthCheckInterval = null;
     this._reloading = false;
+
+    // Effects engine
+    this.effectsEngine = new LightingEffectsEngine(this.logger);
 
     this.initialize();
   }
@@ -119,6 +129,8 @@ class LightingManager extends EventEmitter {
   async disconnectDevice(deviceId) {
     const driver = this.drivers.get(deviceId);
     if (driver) {
+      // Stop any running effects for this device
+      this.effectsEngine.stopEffectsForDriver(driver);
       try {
         await driver.disconnect();
       } catch (err) {
@@ -265,13 +277,16 @@ class LightingManager extends EventEmitter {
     const rawEnd = segEnd !== undefined ? segEnd : -1;
     const endLed = rawEnd === -1 ? -1 : Math.max(startLed, Math.min(rawEnd, ledCount - 1));
 
-    // Handle note-off: turn off LEDs
+    // Handle note-off: turn off LEDs or fade out
     if (midiData.type === 'noteoff' || (midiData.type === 'noteon' && midiData.velocity === 0)) {
       if (action.off_action === 'hold') {
-        // "hold" = keep LED on, do nothing
         return;
       }
-      this._handleNoteOff(rule.device_id, midiData.note, driver, startLed, endLed);
+      if (action.off_action === 'fade') {
+        this._handleNoteOffWithFade(rule.device_id, midiData.note, driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 500);
+      } else {
+        this._handleNoteOff(rule.device_id, midiData.note, driver, startLed, endLed);
+      }
       return;
     }
 
@@ -280,11 +295,37 @@ class LightingManager extends EventEmitter {
       this._trackNoteOn(rule.device_id, midiData.note);
     }
 
-    // Set the color
-    if (action.type === 'pulse') {
-      this._pulseColor(driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 200);
-    } else {
-      driver.setRange(startLed, endLed, r, g, b, brightness);
+    // Execute based on action type
+    switch (action.type) {
+      case 'pulse':
+        this._pulseColor(driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 200);
+        break;
+      case 'fade':
+        this._fadeIn(driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 500);
+        break;
+      case 'strobe':
+      case 'rainbow':
+      case 'chase':
+      case 'fire':
+      case 'breathe':
+      case 'sparkle':
+      case 'color_cycle':
+      case 'wave': {
+        const effectKey = `rule_${rule.id}_device_${rule.device_id}`;
+        this.effectsEngine.startEffect(effectKey, action.type, driver, {
+          led_start: startLed,
+          led_end: endLed,
+          speed: action.effect_speed || action.fade_time_ms || 500,
+          brightness,
+          color: action.color,
+          color2: action.color2,
+          density: action.effect_density
+        });
+        break;
+      }
+      default:
+        // static or velocity_mapped
+        driver.setRange(startLed, endLed, r, g, b, brightness);
     }
   }
 
@@ -366,7 +407,35 @@ class LightingManager extends EventEmitter {
 
       // Only turn off if no active notes remain for this device
       if (notes.size === 0) {
+        // Stop any effects on this device
+        this._stopEffectsForDevice(deviceId);
         driver.setRange(startLed, endLed, 0, 0, 0, 0);
+      }
+    }
+  }
+
+  _handleNoteOffWithFade(deviceId, note, driver, startLed, endLed, r, g, b, brightness, fadeTimeMs) {
+    const notes = this.activeNotes.get(deviceId);
+    if (notes) {
+      const count = (notes.get(note) || 1) - 1;
+      if (count <= 0) {
+        notes.delete(note);
+      } else {
+        notes.set(note, count);
+      }
+
+      if (notes.size === 0) {
+        this._stopEffectsForDevice(deviceId);
+        this._fadeOut(driver, startLed, endLed, r, g, b, brightness, fadeTimeMs);
+      }
+    }
+  }
+
+  _stopEffectsForDevice(deviceId) {
+    // Stop any active effects for this device
+    for (const [key] of this.effectsEngine.activeEffects) {
+      if (key.includes(`device_${deviceId}`)) {
+        this.effectsEngine.stopEffect(key);
       }
     }
   }
@@ -378,6 +447,49 @@ class LightingManager extends EventEmitter {
     setTimeout(() => {
       driver.setRange(startLed, endLed, 0, 0, 0, 0);
     }, durationMs);
+  }
+
+  _fadeIn(driver, startLed, endLed, r, g, b, targetBrightness, fadeTimeMs) {
+    const steps = Math.max(1, Math.floor(fadeTimeMs / 16)); // ~60fps
+    const stepTime = fadeTimeMs / steps;
+    let step = 0;
+
+    const fadeKey = `fadein_${Date.now()}`;
+    const interval = setInterval(() => {
+      step++;
+      const factor = step / steps;
+      const bri = Math.round(targetBrightness * factor);
+      driver.setRange(startLed, endLed, r, g, b, bri);
+
+      if (step >= steps) {
+        clearInterval(interval);
+        this.activeFades.delete(fadeKey);
+      }
+    }, stepTime);
+
+    this.activeFades.set(fadeKey, { interval, driver });
+  }
+
+  _fadeOut(driver, startLed, endLed, r, g, b, startBrightness, fadeTimeMs) {
+    const steps = Math.max(1, Math.floor(fadeTimeMs / 16));
+    const stepTime = fadeTimeMs / steps;
+    let step = 0;
+
+    const fadeKey = `fadeout_${Date.now()}`;
+    const interval = setInterval(() => {
+      step++;
+      const factor = 1 - (step / steps);
+      const bri = Math.round(startBrightness * factor);
+      driver.setRange(startLed, endLed, r, g, b, bri);
+
+      if (step >= steps) {
+        clearInterval(interval);
+        this.activeFades.delete(fadeKey);
+        driver.setRange(startLed, endLed, 0, 0, 0, 0);
+      }
+    }, stepTime);
+
+    this.activeFades.set(fadeKey, { interval, driver });
   }
 
   // ==================== PUBLIC API ====================
@@ -427,16 +539,53 @@ class LightingManager extends EventEmitter {
 
     this._executeAction(rule, fakeMidi);
 
-    // Turn off after 1 second
+    // Turn off after 2 seconds (longer for effects)
+    const action = rule.action_config;
+    const isEffect = ['strobe', 'rainbow', 'chase', 'fire', 'breathe', 'sparkle', 'color_cycle', 'wave'].includes(action.type);
+    const timeout = isEffect ? 3000 : 1000;
+
     setTimeout(() => {
+      if (isEffect) {
+        const effectKey = `rule_${rule.id}_device_${rule.device_id}`;
+        this.effectsEngine.stopEffect(effectKey);
+      }
       const driver = this.drivers.get(rule.device_id);
       if (driver) driver.allOff();
-    }, 1000);
+    }, timeout);
 
     return { success: true };
   }
 
+  // Start an effect on a device (public API for direct effect control)
+  startEffect(deviceId, effectType, config = {}) {
+    const driver = this.drivers.get(deviceId);
+    if (!driver || !driver.isConnected()) {
+      throw new Error('Device not connected');
+    }
+
+    const effectKey = `manual_${deviceId}_${effectType}`;
+    this.effectsEngine.startEffect(effectKey, effectType, driver, config);
+    return { success: true, effectKey };
+  }
+
+  stopEffect(effectKey) {
+    this.effectsEngine.stopEffect(effectKey);
+    return { success: true };
+  }
+
+  getActiveEffects() {
+    return this.effectsEngine.getActiveEffects();
+  }
+
   allOff() {
+    // Stop all effects
+    this.effectsEngine.stopAllEffects();
+    // Clear all active fades
+    for (const [key, fade] of this.activeFades) {
+      clearInterval(fade.interval);
+    }
+    this.activeFades.clear();
+    // Turn off all drivers
     for (const [, driver] of this.drivers) {
       if (driver.isConnected()) {
         driver.allOff();
@@ -474,6 +623,7 @@ class LightingManager extends EventEmitter {
       clearInterval(this._healthCheckInterval);
       this._healthCheckInterval = null;
     }
+    this.effectsEngine.shutdown();
     this.allOff();
     for (const [id] of this.drivers) {
       await this.disconnectDevice(id);

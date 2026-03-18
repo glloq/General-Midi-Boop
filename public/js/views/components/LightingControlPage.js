@@ -93,6 +93,7 @@ class LightingControlPage {
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
               <h2 style="margin:0;font-size:20px;white-space:nowrap;">💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <button onclick="lightingControlPageInstance.showEffectsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
                 <button onclick="lightingControlPageInstance.showPresetsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
                 <button onclick="lightingControlPageInstance.allOff()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
                 <button onclick="lightingControlPageInstance.close()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;">×</button>
@@ -341,8 +342,126 @@ class LightingControlPage {
       const c127 = action.color_map['127'] || '#FF0000';
       return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,${c0},${c64},${c127});border:1px solid #ddd;flex-shrink:0;"></div>`;
     }
+    if (action.type === 'rainbow' || action.type === 'color_cycle') {
+      return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000);border:1px solid #ddd;flex-shrink:0;"></div>`;
+    }
+    if (action.type === 'fire') {
+      return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,#FF4500,#FF8C00,#FFD700,#FF6347);border:1px solid #ddd;flex-shrink:0;"></div>`;
+    }
     const color = action.color || '#FFFFFF';
     return `<div style="width:16px;height:16px;border-radius:50%;background:${this._escapeHtml(color)};border:2px solid #ddd;flex-shrink:0;"></div>`;
+  }
+
+  // ==================== LIVE EFFECTS PANEL ====================
+
+  async showEffectsPanel() {
+    const t = this._t();
+    if (!this.selectedDeviceId) {
+      alert(i18n.t('lighting.selectDeviceFirst') || 'Sélectionnez un dispositif d\'abord');
+      return;
+    }
+
+    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    if (!device) return;
+
+    let activeEffects = [];
+    try {
+      const res = await this.apiClient.send('lighting_effect_list');
+      activeEffects = res.effects || [];
+    } catch (e) { /* ignore */ }
+
+    const effectTypes = [
+      { value: 'strobe', label: '⚡ Stroboscope' },
+      { value: 'rainbow', label: '🌈 Arc-en-ciel' },
+      { value: 'chase', label: '🏃 Chenillard' },
+      { value: 'fire', label: '🔥 Feu' },
+      { value: 'breathe', label: '💨 Respiration' },
+      { value: 'sparkle', label: '✨ Étincelles' },
+      { value: 'color_cycle', label: '🎨 Cycle couleurs' },
+      { value: 'wave', label: '🌊 Vague' }
+    ];
+
+    const activeHTML = activeEffects.length === 0
+      ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:8px;">Aucun effet actif</p>`
+      : activeEffects.map(e => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid ${t.border};border-radius:6px;margin-bottom:4px;background:${t.cardBg};">
+            <span style="font-size:12px;color:${t.text};">${this._escapeHtml(e.effectType)} (${this._escapeHtml(e.key)})</span>
+            <button onclick="lightingControlPageInstance._stopLiveEffect('${this._escapeHtml(e.key)}')" style="padding:2px 8px;border:1px solid #ef4444;border-radius:4px;background:none;color:#ef4444;cursor:pointer;font-size:11px;">Stop</button>
+          </div>`).join('');
+
+    const effectOptions = effectTypes.map(et =>
+      `<option value="${et.value}">${et.label}</option>`
+    ).join('');
+
+    const formHTML = `
+      <div id="lightingEffectsPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
+        <div style="background:${t.bg};border-radius:12px;padding:20px;width:460px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 12px;font-size:16px;color:${t.text};">⚡ Effets en direct — ${this._escapeHtml(device.name)}</h3>
+
+          <div style="margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:6px;">Effets actifs</div>
+            ${activeHTML}
+          </div>
+
+          <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
+
+          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">Lancer un nouvel effet</div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;"><select id="leFormEffect" style="width:100%;padding:7px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">${effectOptions}</select></div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};">Couleur</label><input id="leFormColor" type="color" value="#FF0000" style="width:100%;height:30px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;"></div>
+            <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};">Vitesse (ms)</label><input id="leFormSpeed" type="number" min="20" max="10000" value="500" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};">Luminosité</label><input id="leFormBri" type="number" min="0" max="255" value="255" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button onclick="lightingControlPageInstance._startLiveEffect()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:13px;">▶ Lancer</button>
+            <button onclick="lightingControlPageInstance.allOff();lightingControlPageInstance.showEffectsPanel();" style="flex:1;padding:8px;border:none;border-radius:8px;background:#ef4444;color:white;cursor:pointer;font-weight:600;font-size:13px;">⏹ Tout arrêter</button>
+          </div>
+
+          <div style="text-align:right;">
+            <button onclick="document.getElementById('lightingEffectsPanel').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Fermer</button>
+          </div>
+        </div>
+      </div>`;
+
+    const existing = document.getElementById('lightingEffectsPanel');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.innerHTML = formHTML;
+    document.body.appendChild(div.firstElementChild);
+  }
+
+  async _startLiveEffect() {
+    if (!this.selectedDeviceId) return;
+    const effectType = document.getElementById('leFormEffect')?.value;
+    const color = document.getElementById('leFormColor')?.value || '#FF0000';
+    const speed = parseInt(document.getElementById('leFormSpeed')?.value) || 500;
+    const brightness = parseInt(document.getElementById('leFormBri')?.value) || 255;
+
+    try {
+      await this.apiClient.send('lighting_effect_start', {
+        device_id: this.selectedDeviceId,
+        effect_type: effectType,
+        color, speed, brightness
+      });
+      // Refresh the panel
+      this.showEffectsPanel();
+    } catch (error) {
+      alert('Erreur: ' + error.message);
+    }
+  }
+
+  async _stopLiveEffect(effectKey) {
+    try {
+      await this.apiClient.send('lighting_effect_stop', { effect_key: effectKey });
+      this.showEffectsPanel();
+    } catch (error) {
+      alert('Erreur: ' + error.message);
+    }
   }
 
   // ==================== PRESETS UI ====================
@@ -441,9 +560,14 @@ class LightingControlPage {
           <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.deviceType') || 'Type'}</label>
             <select id="ldFormType" onchange="lightingControlPageInstance._updateDeviceFormFields()" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">
-              <option value="gpio">GPIO (Raspberry Pi)</option>
-              <option value="gpio_strip">Bandeau LED GPIO (WS2812/NeoPixel)</option>
-              <option value="serial">Serial (WS2812/NeoPixel)</option>
+              <option value="gpio">🔌 GPIO (Raspberry Pi RGB)</option>
+              <option value="gpio_strip">💠 Bandeau LED GPIO (WS2812/NeoPixel)</option>
+              <option value="serial">🔗 Serial (WS2812/NeoPixel)</option>
+              <option value="artnet">🌐 Art-Net (DMX sur Ethernet)</option>
+              <option value="sacn">📡 sACN / E1.31 (DMX moderne)</option>
+              <option value="mqtt">📶 MQTT (WLED, Tasmota, ESPHome)</option>
+              <option value="http">🌍 HTTP REST (WLED, Philips Hue)</option>
+              <option value="osc">🎛️ OSC (QLC+, TouchDesigner)</option>
             </select>
           </div>
 
@@ -478,6 +602,89 @@ class LightingControlPage {
             <div style="font-size:11px;color:${t.textMuted};margin-bottom:8px;">Le nombre de LEDs sera calculé automatiquement.</div>
           </div>
 
+          <!-- Art-Net fields -->
+          <div id="ldFormArtnetFields" style="display:none;">
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Adresse IP / Broadcast</label>
+            <input id="ldFormArtnetHost" type="text" value="255.255.255.255" placeholder="255.255.255.255" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Universe</label><input id="ldFormArtnetUniverse" type="number" min="0" max="32767" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Subnet</label><input id="ldFormArtnetSubnet" type="number" min="0" max="15" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Canaux/LED</label><input id="ldFormArtnetChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            </div>
+            <div style="font-size:10px;color:${t.textMuted};margin-bottom:8px;">3 canaux = RGB, 4 = RGBW. Max 170 LEDs RGB par univers (512/3).</div>
+          </div>
+
+          <!-- sACN fields -->
+          <div id="ldFormSacnFields" style="display:none;">
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Universe</label><input id="ldFormSacnUniverse" type="number" min="1" max="63999" value="1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Priorité</label><input id="ldFormSacnPriority" type="number" min="0" max="200" value="100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Canaux/LED</label><input id="ldFormSacnChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:6px;">
+              <input id="ldFormSacnMulticast" type="checkbox" checked>
+              <span style="font-size:12px;color:${t.text};">Multicast (recommandé)</span>
+            </label>
+            <div id="ldFormSacnUnicastRow" style="display:none;">
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Adresse unicast</label>
+              <input id="ldFormSacnHost" type="text" value="" placeholder="192.168.1.100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            </div>
+          </div>
+
+          <!-- MQTT fields -->
+          <div id="ldFormMqttFields" style="display:none;">
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">URL du Broker MQTT</label>
+            <input id="ldFormMqttBroker" type="text" value="mqtt://localhost:1883" placeholder="mqtt://host:1883" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Topic de base</label><input id="ldFormMqttTopic" type="text" value="wled/maestro" placeholder="wled/all" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Firmware</label>
+                <select id="ldFormMqttFirmware" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
+                  <option value="wled">WLED</option>
+                  <option value="tasmota">Tasmota</option>
+                  <option value="esphome">ESPHome</option>
+                  <option value="generic">Générique</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Utilisateur (opt.)</label><input id="ldFormMqttUser" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Mot de passe (opt.)</label><input id="ldFormMqttPass" type="password" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            </div>
+          </div>
+
+          <!-- HTTP REST fields -->
+          <div id="ldFormHttpFields" style="display:none;">
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">URL de base</label>
+            <input id="ldFormHttpUrl" type="text" value="http://192.168.1.100" placeholder="http://wled-ip" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Firmware</label>
+                <select id="ldFormHttpFirmware" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
+                  <option value="wled">WLED</option>
+                  <option value="hue">Philips Hue</option>
+                  <option value="generic">Générique</option>
+                </select>
+              </div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Clé API (opt.)</label><input id="ldFormHttpApiKey" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            </div>
+          </div>
+
+          <!-- OSC fields -->
+          <div id="ldFormOscFields" style="display:none;">
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <div style="flex:2;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Adresse IP</label><input id="ldFormOscHost" type="text" value="127.0.0.1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Port</label><input id="ldFormOscPort" type="number" min="1" max="65535" value="8000" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            </div>
+            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Motif d'adresse OSC</label><input id="ldFormOscPattern" type="text" value="/light/{led}" placeholder="/light/{led}" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Format couleur</label>
+              <select id="ldFormOscFormat" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
+                <option value="rgb_float">RGB float (0.0-1.0)</option>
+                <option value="rgb_int">RGB int (0-255)</option>
+                <option value="rgbw_float">RGBW float (0.0-1.0)</option>
+                <option value="rgbw_int">RGBW int (0-255)</option>
+              </select>
+            </div>
+          </div>
+
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
             <button onclick="document.getElementById('lightingDeviceForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Annuler</button>
             <button onclick="lightingControlPageInstance.submitAddDevice()" style="padding:7px 14px;border:none;border-radius:8px;background:#eab308;color:white;cursor:pointer;font-weight:600;font-size:12px;">Ajouter</button>
@@ -492,22 +699,36 @@ class LightingControlPage {
 
   _updateDeviceFormFields() {
     const type = document.getElementById('ldFormType').value;
-    document.getElementById('ldFormGpioFields').style.display = type === 'gpio' ? 'block' : 'none';
-    document.getElementById('ldFormSerialFields').style.display = type === 'serial' ? 'block' : 'none';
-    const stripFields = document.getElementById('ldFormStripFields');
-    if (stripFields) {
-      stripFields.style.display = type === 'gpio_strip' ? 'block' : 'none';
-      if (type === 'gpio_strip') {
-        // Hide manual led_count field - auto-calculated for strips
-        const ledCountEl = document.getElementById('ldFormLedCount');
-        if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'none';
-        // Add a default strip entry if empty
-        const container = document.getElementById('ldFormStripsContainer');
-        if (container && container.children.length === 0) this._addStripEntry();
-      } else {
-        const ledCountEl = document.getElementById('ldFormLedCount');
-        if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'block';
-      }
+    // Hide all type-specific fields first
+    const allTypeFields = ['ldFormGpioFields', 'ldFormSerialFields', 'ldFormStripFields', 'ldFormArtnetFields', 'ldFormSacnFields', 'ldFormMqttFields', 'ldFormHttpFields', 'ldFormOscFields'];
+    allTypeFields.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+
+    // Show the correct field set
+    const fieldMap = {
+      gpio: 'ldFormGpioFields', serial: 'ldFormSerialFields', gpio_strip: 'ldFormStripFields',
+      artnet: 'ldFormArtnetFields', sacn: 'ldFormSacnFields', mqtt: 'ldFormMqttFields',
+      http: 'ldFormHttpFields', osc: 'ldFormOscFields'
+    };
+    const targetId = fieldMap[type];
+    if (targetId) { const el = document.getElementById(targetId); if (el) el.style.display = 'block'; }
+
+    // Handle auto-calculated LED count for strips
+    const ledCountEl = document.getElementById('ldFormLedCount');
+    if (type === 'gpio_strip') {
+      if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'none';
+      const container = document.getElementById('ldFormStripsContainer');
+      if (container && container.children.length === 0) this._addStripEntry();
+    } else {
+      if (ledCountEl) ledCountEl.closest('div[style]').style.display = 'block';
+    }
+
+    // sACN multicast toggle
+    const sacnMc = document.getElementById('ldFormSacnMulticast');
+    if (sacnMc) {
+      sacnMc.onchange = () => {
+        const uRow = document.getElementById('ldFormSacnUnicastRow');
+        if (uRow) uRow.style.display = sacnMc.checked ? 'none' : 'block';
+      };
     }
   }
 
@@ -617,6 +838,43 @@ class LightingControlPage {
       ledCount = totalLeds || 1;
     } else if (type === 'serial') {
       connectionConfig = { port: document.getElementById('ldFormSerialPort').value || '/dev/ttyUSB0', baud: 115200 };
+    } else if (type === 'artnet') {
+      connectionConfig = {
+        host: document.getElementById('ldFormArtnetHost')?.value || '255.255.255.255',
+        universe: parseInt(document.getElementById('ldFormArtnetUniverse')?.value) || 0,
+        subnet: parseInt(document.getElementById('ldFormArtnetSubnet')?.value) || 0,
+        channels_per_led: parseInt(document.getElementById('ldFormArtnetChannels')?.value) || 3
+      };
+    } else if (type === 'sacn') {
+      const multicast = document.getElementById('ldFormSacnMulticast')?.checked !== false;
+      connectionConfig = {
+        universe: parseInt(document.getElementById('ldFormSacnUniverse')?.value) || 1,
+        priority: parseInt(document.getElementById('ldFormSacnPriority')?.value) || 100,
+        channels_per_led: parseInt(document.getElementById('ldFormSacnChannels')?.value) || 3,
+        multicast,
+        host: !multicast ? (document.getElementById('ldFormSacnHost')?.value || null) : null
+      };
+    } else if (type === 'mqtt') {
+      connectionConfig = {
+        broker_url: document.getElementById('ldFormMqttBroker')?.value || 'mqtt://localhost:1883',
+        base_topic: document.getElementById('ldFormMqttTopic')?.value || 'maestro/light',
+        firmware: document.getElementById('ldFormMqttFirmware')?.value || 'wled',
+        username: document.getElementById('ldFormMqttUser')?.value || undefined,
+        password: document.getElementById('ldFormMqttPass')?.value || undefined
+      };
+    } else if (type === 'http') {
+      connectionConfig = {
+        base_url: document.getElementById('ldFormHttpUrl')?.value || 'http://localhost',
+        firmware: document.getElementById('ldFormHttpFirmware')?.value || 'wled',
+        api_key: document.getElementById('ldFormHttpApiKey')?.value || null
+      };
+    } else if (type === 'osc') {
+      connectionConfig = {
+        host: document.getElementById('ldFormOscHost')?.value || '127.0.0.1',
+        port: parseInt(document.getElementById('ldFormOscPort')?.value) || 8000,
+        address_pattern: document.getElementById('ldFormOscPattern')?.value || '/light/{led}',
+        color_format: document.getElementById('ldFormOscFormat')?.value || 'rgb_float'
+      };
     }
 
     try {
@@ -729,10 +987,22 @@ class LightingControlPage {
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.actionType') || 'Type'}</label>
             <select id="lrFormActionType" onchange="lightingControlPageInstance._updateActionFields()" ${is}>
-              <option value="static" ${action.type === 'static' || !action.type ? 'selected' : ''}>Couleur fixe</option>
-              <option value="velocity_mapped" ${action.type === 'velocity_mapped' ? 'selected' : ''}>Gradient vélocité</option>
-              <option value="pulse" ${action.type === 'pulse' ? 'selected' : ''}>Pulse</option>
-              <option value="fade" ${action.type === 'fade' ? 'selected' : ''}>Fade</option>
+              <optgroup label="Couleurs">
+                <option value="static" ${action.type === 'static' || !action.type ? 'selected' : ''}>Couleur fixe</option>
+                <option value="velocity_mapped" ${action.type === 'velocity_mapped' ? 'selected' : ''}>Gradient vélocité</option>
+                <option value="pulse" ${action.type === 'pulse' ? 'selected' : ''}>Pulse (flash)</option>
+                <option value="fade" ${action.type === 'fade' ? 'selected' : ''}>Fade (fondu)</option>
+              </optgroup>
+              <optgroup label="Effets animés">
+                <option value="strobe" ${action.type === 'strobe' ? 'selected' : ''}>⚡ Stroboscope</option>
+                <option value="rainbow" ${action.type === 'rainbow' ? 'selected' : ''}>🌈 Arc-en-ciel</option>
+                <option value="chase" ${action.type === 'chase' ? 'selected' : ''}>🏃 Chenillard</option>
+                <option value="fire" ${action.type === 'fire' ? 'selected' : ''}>🔥 Feu</option>
+                <option value="breathe" ${action.type === 'breathe' ? 'selected' : ''}>💨 Respiration</option>
+                <option value="sparkle" ${action.type === 'sparkle' ? 'selected' : ''}>✨ Étincelles</option>
+                <option value="color_cycle" ${action.type === 'color_cycle' ? 'selected' : ''}>🎨 Cycle couleurs</option>
+                <option value="wave" ${action.type === 'wave' ? 'selected' : ''}>🌊 Vague</option>
+              </optgroup>
             </select>
           </div>
 
@@ -755,6 +1025,23 @@ class LightingControlPage {
               <input id="lrFormColorHigh" type="color" value="${this._getColorMapValue(action.color_map, 127) || '#FF0000'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
             </div>
             <div id="lrFormGradientPreview" style="margin-top:6px;height:12px;border-radius:6px;background:linear-gradient(to right,${this._getColorMapValue(action.color_map, 0) || '#0000FF'},${this._getColorMapValue(action.color_map, 64) || '#FFFF00'},${this._getColorMapValue(action.color_map, 127) || '#FF0000'});"></div>
+          </div>
+
+          <!-- Effect-specific fields -->
+          <div id="lrFormEffectSection" style="display:${this._isEffectType(action.type) ? 'block' : 'none'};">
+            <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">⚡ Paramètres de l'effet</div>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Vitesse (ms)</label><input id="lrFormEffectSpeed" type="number" min="20" max="10000" value="${action.effect_speed || 500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Densité (étincelles)</label><input id="lrFormEffectDensity" type="number" min="0.01" max="1" step="0.05" value="${action.effect_density || 0.1}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              </div>
+              <div style="margin-bottom:4px;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Couleur secondaire (chenillard, vague)</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input id="lrFormColor2" type="color" value="${action.color2 || '#000000'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
+                  <span id="lrFormColor2Hex" style="font-size:11px;color:${t.textMuted};font-family:monospace;">${action.color2 || '#000000'}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style="margin-bottom:10px;">
@@ -821,6 +1108,11 @@ class LightingControlPage {
       if (el) el.addEventListener('input', () => this._updateGradientPreview());
     });
 
+    // Bind color2 live update
+    const color2Input = document.getElementById('lrFormColor2');
+    const color2Hex = document.getElementById('lrFormColor2Hex');
+    if (color2Input && color2Hex) color2Input.addEventListener('input', () => { color2Hex.textContent = color2Input.value; });
+
     // Populate segment dropdown if selected device is gpio_strip
     this._populateSegmentDropdown(existingRule?.action_config?.segment);
   }
@@ -860,8 +1152,22 @@ class LightingControlPage {
     const type = document.getElementById('lrFormActionType').value;
     const s = document.getElementById('lrFormStaticColor');
     const g = document.getElementById('lrFormGradientSection');
-    if (type === 'velocity_mapped') { if (s) s.style.display = 'none'; if (g) g.style.display = 'block'; }
-    else { if (s) s.style.display = 'block'; if (g) g.style.display = 'none'; }
+    const e = document.getElementById('lrFormEffectSection');
+    const isEffect = this._isEffectType(type);
+
+    if (type === 'velocity_mapped') {
+      if (s) s.style.display = 'none';
+      if (g) g.style.display = 'block';
+    } else {
+      if (s) s.style.display = isEffect ? 'block' : 'block'; // effects also use color
+      if (g) g.style.display = 'none';
+    }
+
+    if (e) e.style.display = isEffect ? 'block' : 'none';
+  }
+
+  _isEffectType(type) {
+    return ['strobe', 'rainbow', 'chase', 'fire', 'breathe', 'sparkle', 'color_cycle', 'wave'].includes(type);
   }
 
   _updateGradientPreview() {
@@ -917,6 +1223,14 @@ class LightingControlPage {
         '64': document.getElementById('lrFormColorMid').value,
         '127': document.getElementById('lrFormColorHigh').value
       };
+    }
+
+    // Effect-specific config
+    if (this._isEffectType(actionType)) {
+      actionConfig.effect_speed = Math.max(20, Math.min(10000, parseInt(document.getElementById('lrFormEffectSpeed')?.value) || 500));
+      actionConfig.effect_density = Math.max(0.01, Math.min(1, parseFloat(document.getElementById('lrFormEffectDensity')?.value) || 0.1));
+      const color2 = document.getElementById('lrFormColor2')?.value;
+      if (color2 && color2 !== '#000000') actionConfig.color2 = color2;
     }
 
     // Validation
@@ -987,7 +1301,7 @@ class LightingControlPage {
   // ==================== HELPERS ====================
 
   _getTypeIcon(type) {
-    return { gpio: '🔌', serial: '💠', artnet: '🌐', mqtt: '📡', midi: '🎵' }[type] || '💡';
+    return { gpio: '🔌', gpio_strip: '💠', serial: '🔗', artnet: '🌐', sacn: '📡', mqtt: '📶', http: '🌍', osc: '🎛️', midi: '🎵' }[type] || '💡';
   }
 
   _getTriggerLabel(trigger) {
@@ -998,7 +1312,10 @@ class LightingControlPage {
     return {
       static: i18n.t('lighting.colorStatic') || 'Couleur fixe',
       velocity_mapped: i18n.t('lighting.colorVelocity') || 'Gradient',
-      pulse: 'Pulse', fade: 'Fade'
+      pulse: 'Pulse', fade: 'Fade',
+      strobe: '⚡ Stroboscope', rainbow: '🌈 Arc-en-ciel', chase: '🏃 Chenillard',
+      fire: '🔥 Feu', breathe: '💨 Respiration', sparkle: '✨ Étincelles',
+      color_cycle: '🎨 Cycle', wave: '🌊 Vague'
     }[type] || type || 'Couleur fixe';
   }
 
