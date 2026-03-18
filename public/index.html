@@ -6930,15 +6930,61 @@
             { key: 'soundEffects', start: 120, count: 8 }
         ];
 
+        // Kits de batterie GM2/GS (programme change sur canal 10)
+        // Encodés comme 128 + programme pour les distinguer des instruments mélodiques
+        const GM_DRUM_KIT_OFFSET = 128;
+        const GM_DRUM_KITS = [
+            { program: 0, name: 'Standard Kit' },
+            { program: 8, name: 'Room Kit' },
+            { program: 16, name: 'Power Kit' },
+            { program: 24, name: 'Electronic Kit' },
+            { program: 25, name: 'TR-808 Kit' },
+            { program: 32, name: 'Jazz Kit' },
+            { program: 40, name: 'Brush Kit' },
+            { program: 48, name: 'Orchestra Kit' },
+            { program: 56, name: 'SFX Kit' }
+        ];
+
+        // Convertir un gm_program DB en valeur select (ajouter offset si drum kit sur ch 9)
+        function gmProgramToSelectValue(gmProgram, channel) {
+            if (channel === 9 && gmProgram !== null && gmProgram !== undefined) {
+                return gmProgram + GM_DRUM_KIT_OFFSET;
+            }
+            return gmProgram;
+        }
+
+        // Convertir une valeur select en gm_program réel
+        function selectValueToGmProgram(value) {
+            if (value >= GM_DRUM_KIT_OFFSET) {
+                return { program: value - GM_DRUM_KIT_OFFSET, isDrumKit: true };
+            }
+            return { program: value, isDrumKit: false };
+        }
+
         // Générer les options du select pour les instruments GM
-        function renderGMInstrumentOptions(selectedProgram) {
+        function renderGMInstrumentOptions(selectedProgram, channel) {
+            // Si on édite un instrument sur channel 9, encoder le programme comme drum kit
+            const selectValue = gmProgramToSelectValue(selectedProgram, channel);
+
             let options = '<option value="">-- ' + (i18n.t('instrumentSettings.selectInstrumentType') || 'Sélectionner un type') + ' --</option>';
+
+            // Ajouter les drum kits en premier (indiqués comme canal 10)
+            const drumCategoryName = i18n.t('instruments.categories.drumKits') || 'Drum Kits (Canal 10)';
+            options += `<optgroup label="${drumCategoryName}">`;
+            for (const kit of GM_DRUM_KITS) {
+                const encodedValue = kit.program + GM_DRUM_KIT_OFFSET;
+                const selected = encodedValue === selectValue ? 'selected' : '';
+                const kitName = i18n.t(`instruments.drumKits.${kit.program}`) || kit.name;
+                options += `<option value="${encodedValue}" data-drum-kit="true" ${selected}>${kit.program}: ${kitName}</option>`;
+            }
+            options += '</optgroup>';
+
             for (const group of GM_INSTRUMENT_GROUPS) {
                 const categoryName = getGMCategoryName(group.key);
                 options += `<optgroup label="${categoryName}">`;
                 for (let i = 0; i < group.count; i++) {
                     const programNum = group.start + i;
-                    const selected = programNum === selectedProgram ? 'selected' : '';
+                    const selected = programNum === selectValue ? 'selected' : '';
                     options += `<option value="${programNum}" ${selected}>${programNum}: ${getGMInstrumentName(programNum)}</option>`;
                 }
                 options += '</optgroup>';
@@ -6955,16 +7001,21 @@
             log(`⚙️ Ouverture des réglages pour ${device.name}...`);
 
             try {
+                // Déterminer le channel de l'instrument (important pour les instruments virtuels drums sur ch 9)
+                const instrumentChannel = device.channel !== undefined ? device.channel : 0;
+
                 // Charger les réglages existants
                 const response = await api.sendCommand('instrument_get_settings', {
-                    deviceId: device.id
+                    deviceId: device.id,
+                    channel: instrumentChannel
                 });
 
                 // Charger les capacités existantes
                 let capabilities = {};
                 try {
                     const capResponse = await api.sendCommand('instrument_get_capabilities', {
-                        deviceId: device.id
+                        deviceId: device.id,
+                        channel: instrumentChannel
                     });
                     capabilities = capResponse.capabilities || {};
                 } catch (capError) {
@@ -7009,10 +7060,13 @@
 
                         <div class="form-group">
                             <label>${i18n.t('instrumentSettings.gmInstrument') || 'Type d\'instrument (General MIDI)'}</label>
-                            <select id="gmProgramSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
-                                ${renderGMInstrumentOptions(settings.gm_program)}
+                            <select id="gmProgramSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" onchange="onGmProgramChanged(this)">
+                                ${renderGMInstrumentOptions(settings.gm_program, instrumentChannel)}
                             </select>
                             <small class="form-text">${i18n.t('instrumentSettings.gmInstrumentHelp') || 'Sélectionnez le type d\'instrument pour le routage MIDI'}</small>
+                            <div id="drumKitNotice" style="display: none; margin-top: 8px; padding: 8px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; font-size: 13px; color: #92400e;">
+                                ${i18n.t('instrumentSettings.drumKitNotice') || 'Les kits de batterie utilisent le canal MIDI 10 et le mode notes individuelles. Ces réglages seront appliqués automatiquement à la sauvegarde.'}
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -7119,6 +7173,12 @@
                     settings.selected_notes || []
                 );
 
+                // Afficher le notice drum kit si un drum kit est déjà sélectionné
+                const gmSelect = document.getElementById('gmProgramSelect');
+                if (gmSelect) {
+                    onGmProgramChanged(gmSelect);
+                }
+
             } catch (error) {
                 log(`Erreur chargement réglages: ${error.message}`, 'error');
                 await showAlert(`Impossible de charger les réglages: ${error.message}`, {
@@ -7168,6 +7228,27 @@
         }
 
         // Changer le mode de sélection
+        // Réagir au changement de programme GM - afficher un avertissement si drum kit
+        function onGmProgramChanged(selectEl) {
+            const selectedOption = selectEl.options[selectEl.selectedIndex];
+            const isDrumKit = selectedOption && selectedOption.hasAttribute('data-drum-kit');
+            const notice = document.getElementById('drumKitNotice');
+            if (notice) {
+                notice.style.display = isDrumKit ? 'block' : 'none';
+            }
+
+            // Auto-switch to discrete mode if drum kit selected
+            if (isDrumKit) {
+                setNoteSelectionMode('discrete');
+                // Update radio buttons visually
+                const discreteRadio = document.querySelector('input[name="noteSelectionMode"][value="discrete"]');
+                if (discreteRadio) {
+                    discreteRadio.checked = true;
+                    discreteRadio.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+
         function setNoteSelectionMode(mode) {
             const previousMode = currentNoteSelectionMode;
             currentNoteSelectionMode = mode;
@@ -7680,7 +7761,9 @@
                 const syncDelay = parseInt(document.getElementById('syncDelay').value) || 0;
                 const macAddress = document.getElementById('macAddress').value.trim();
                 const gmProgramSelect = document.getElementById('gmProgramSelect');
-                const gmProgram = gmProgramSelect && gmProgramSelect.value !== '' ? parseInt(gmProgramSelect.value) : null;
+                const gmProgramRaw = gmProgramSelect && gmProgramSelect.value !== '' ? parseInt(gmProgramSelect.value) : null;
+                const gmDecoded = gmProgramRaw !== null ? selectValueToGmProgram(gmProgramRaw) : { program: null, isDrumKit: false };
+                const gmProgram = gmDecoded.program;
                 const polyphonyInput = document.getElementById('polyphonyInput').value.trim();
                 const polyphony = polyphonyInput !== '' ? parseInt(polyphonyInput) : null;
 
@@ -7735,9 +7818,32 @@
 
                 log(`💾 Sauvegarde des réglages pour ${currentDeviceSettings.device.name}...`);
 
+                // Détecter si un drum kit a été sélectionné
+                const isDrumKitSelected = gmDecoded.isDrumKit;
+
+                // Déterminer le channel correct de l'instrument
+                // Si un drum kit est sélectionné, forcer canal 9 (MIDI canal 10)
+                const originalChannel = currentDeviceSettings.device.channel !== undefined ? currentDeviceSettings.device.channel : 0;
+                // Si drum kit sélectionné → canal 9, si instrument mélodique et on était sur canal 9 → revenir à canal 0
+                const saveChannel = isDrumKitSelected ? 9 : (originalChannel === 9 && !isDrumKitSelected ? 0 : originalChannel);
+
+                // Si le channel change (ex: passage en drum kit), supprimer l'ancien entry
+                if (saveChannel !== originalChannel) {
+                    try {
+                        await api.sendCommand('instrument_delete', {
+                            deviceId: currentDeviceSettings.device.id
+                        });
+                    } catch (e) {
+                        console.warn('Could not delete old channel entry:', e);
+                    }
+                    // Mettre à jour le channel dans la référence locale
+                    currentDeviceSettings.device.channel = saveChannel;
+                }
+
                 // Sauvegarder les réglages de base
                 await api.sendCommand('instrument_update_settings', {
                     deviceId: currentDeviceSettings.device.id,
+                    channel: saveChannel,
                     custom_name: customName || null,
                     sync_delay: syncDelay,
                     mac_address: macAddress || null,
@@ -7748,6 +7854,7 @@
                 // Sauvegarder les capacités
                 await api.sendCommand('instrument_update_capabilities', {
                     deviceId: currentDeviceSettings.device.id,
+                    channel: saveChannel,
                     note_selection_mode: noteSelectionMode,
                     note_range_min: noteSelectionMode === 'range' ? noteRangeMin : null,
                     note_range_max: noteSelectionMode === 'range' ? noteRangeMax : null,
