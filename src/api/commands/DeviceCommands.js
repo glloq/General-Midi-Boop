@@ -382,9 +382,31 @@ async function instrumentListConnected(app) {
   const connectedDevices = app.deviceManager.getDeviceList();
   const connectedDeviceIds = new Set(connectedDevices.map(d => d.id));
 
-  const connectedInstruments = allInstruments.filter(
-    inst => connectedDeviceIds.has(inst.device_id)
-  );
+  // Construire un index par nom normalisé, serial, et MAC pour fallback matching
+  const connectedNormalizedNames = new Set();
+  const connectedSerials = new Set();
+  const connectedMacs = new Set();
+  for (const d of connectedDevices) {
+    const normalized = app.database.constructor.normalizeDeviceName(d.id);
+    if (normalized) connectedNormalizedNames.add(normalized);
+    if (d.usbSerialNumber) connectedSerials.add(d.usbSerialNumber);
+    if (d.address && d.type === 'bluetooth') connectedMacs.add(d.address);
+  }
+
+  const connectedInstruments = allInstruments.filter(inst => {
+    // Match exact par device_id
+    if (connectedDeviceIds.has(inst.device_id)) return true;
+    // Fallback par USB serial number
+    if (inst.usb_serial_number && connectedSerials.has(inst.usb_serial_number)) return true;
+    // Fallback par MAC address
+    if (inst.mac_address && connectedMacs.has(inst.mac_address)) return true;
+    // Fallback par nom normalisé
+    if (!inst.device_id.startsWith('virtual_')) {
+      const normalized = app.database.constructor.normalizeDeviceName(inst.device_id);
+      if (normalized && connectedNormalizedNames.has(normalized)) return true;
+    }
+    return false;
+  });
 
   return {
     success: true,
