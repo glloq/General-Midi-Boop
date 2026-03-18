@@ -874,7 +874,7 @@ class SettingsModal {
                 this.logger?.error('checkForUpdates: backend error', result.error);
                 statusEl.style.background = '#fefce8';
                 statusEl.style.color = '#a16207';
-                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'}</span>`;
+                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${result.error})</span>`;
                 return;
             }
 
