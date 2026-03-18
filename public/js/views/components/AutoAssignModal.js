@@ -836,6 +836,10 @@ class AutoAssignModal {
       instrumentName: selectedOption.instrument.name,
       customName: selectedOption.instrument.custom_name,
       gmProgram: selectedOption.instrument.gm_program,
+      noteRangeMin: selectedOption.instrument.note_range_min,
+      noteRangeMax: selectedOption.instrument.note_range_max,
+      noteSelectionMode: selectedOption.instrument.note_selection_mode,
+      selectedNotes: selectedOption.instrument.selected_notes,
       score: selectedOption.compatibility.score,
       transposition: selectedOption.compatibility.transposition,
       noteRemapping: selectedOption.compatibility.noteRemapping,
@@ -1119,8 +1123,10 @@ class AutoAssignModal {
       const ch = String(channel);
       const assignment = this.selectedAssignments[ch];
       const adaptation = this.adaptationSettings[ch] || {};
-      const transpositions = {};
-      const instrumentPrograms = {};
+
+      // Build transposition for this channel
+      const transposition = {};
+      const instrumentConstraints = {};
 
       if (assignment) {
         let noteRemapping = assignment.noteRemapping || {};
@@ -1128,18 +1134,25 @@ class AutoAssignModal {
           noteRemapping = { ...noteRemapping, ...assignment.octaveWrapping };
         }
 
-        transpositions[channel] = {
-          semitones: adaptation.transpositionSemitones || 0,
-          noteRemapping: Object.keys(noteRemapping).length > 0 ? noteRemapping : null
-        };
+        transposition.semitones = adaptation.transpositionSemitones || 0;
+        transposition.noteRemapping = Object.keys(noteRemapping).length > 0 ? noteRemapping : null;
 
-        // Use the selected instrument's GM program for preview
-        if (assignment.gmProgram !== null && assignment.gmProgram !== undefined) {
-          instrumentPrograms[channel] = assignment.gmProgram;
+        // Instrument sound
+        if (assignment.gmProgram != null) {
+          instrumentConstraints.gmProgram = assignment.gmProgram;
         }
+
+        // Instrument playable note range - only play notes the instrument can handle
+        instrumentConstraints.noteRangeMin = assignment.noteRangeMin;
+        instrumentConstraints.noteRangeMax = assignment.noteRangeMax;
+        instrumentConstraints.noteSelectionMode = assignment.noteSelectionMode;
+        instrumentConstraints.selectedNotes = assignment.selectedNotes;
       }
 
-      await this.audioPreview.previewAdapted(this.midiData, transpositions, 0, 15, instrumentPrograms);
+      // Preview only this channel with instrument constraints
+      await this.audioPreview.previewSingleChannel(
+        this.midiData, channel, transposition, instrumentConstraints, 0, 15
+      );
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);

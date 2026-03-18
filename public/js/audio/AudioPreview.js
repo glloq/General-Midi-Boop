@@ -106,23 +106,77 @@ class AudioPreview {
   }
 
   /**
+   * Preview a single channel with only notes playable by the selected instrument.
+   * Used in the auto-assign modal to audition an instrument on a specific channel.
+   *
+   * @param {Object} midiData - Original MIDI data
+   * @param {number} channel - The MIDI channel to preview (0-15)
+   * @param {Object} transposition - { semitones, noteRemapping } for this channel
+   * @param {Object} instrumentConstraints - { gmProgram, noteRangeMin, noteRangeMax, noteSelectionMode, selectedNotes }
+   * @param {number} startTime - Start time in seconds (default: 0)
+   * @param {number} duration - Duration in seconds (default: 15)
+   */
+  async previewSingleChannel(midiData, channel, transposition = {}, instrumentConstraints = {}, startTime = 0, duration = 15) {
+    try {
+      this.isPreviewing = true;
+
+      await this.initSynthesizer();
+
+      // Set the instrument sound for this channel
+      if (instrumentConstraints.gmProgram != null && this.synthesizer.setChannelInstrument) {
+        this.synthesizer.setChannelInstrument(channel, instrumentConstraints.gmProgram);
+      }
+
+      // Create sequence filtered to this channel only, with note range filtering
+      const previewSequence = this.createPreviewSequence(
+        midiData,
+        { [channel]: transposition },
+        startTime,
+        duration,
+        { channelFilter: channel, instrumentConstraints }
+      );
+
+      if (!previewSequence || previewSequence.length === 0) {
+        throw new Error('No playable notes to preview on this channel');
+      }
+
+      this.synthesizer.loadSequence(previewSequence, midiData.tempo || 120, midiData.header?.ticksPerBeat || 480);
+      await this.synthesizer.play();
+
+      this.isPlaying = true;
+      return true;
+    } catch (error) {
+      console.error('Single channel preview error:', error);
+      this.isPreviewing = false;
+      throw error;
+    }
+  }
+
+  /**
    * Create preview sequence from MIDI data
    * @param {Object} midiData
    * @param {Object} transpositions
    * @param {number} startTime - seconds
    * @param {number} duration - seconds
+   * @param {Object} options - Optional: { channelFilter, instrumentConstraints }
+   *   channelFilter: number - Only include notes from this channel (undefined = all channels)
+   *   instrumentConstraints: { noteRangeMin, noteRangeMax, noteSelectionMode, selectedNotes }
    * @returns {Array} - Sequence in format [{t, g, n, c}, ...]
    */
-  createPreviewSequence(midiData, transpositions, startTime, duration) {
+  createPreviewSequence(midiData, transpositions, startTime, duration, options = {}) {
     const sequence = [];
     const endTime = startTime + duration;
     const ticksPerBeat = midiData.header?.ticksPerBeat || 480;
     const tempo = midiData.tempo || 120;
+    const { channelFilter, instrumentConstraints } = options;
 
     // Convert seconds to ticks
     const msPerTick = (60000 / tempo) / ticksPerBeat;
     const startTick = (startTime * 1000) / msPerTick;
     const endTick = (endTime * 1000) / msPerTick;
+
+    // Build a playable note set from instrument constraints
+    const noteFilter = this._buildNoteFilter(instrumentConstraints);
 
     if (!midiData.tracks) {
       return sequence;
@@ -152,6 +206,12 @@ class AudioPreview {
         // Process note events
         if (event.type === 'noteOn' && event.velocity > 0) {
           const channel = event.channel || 0;
+
+          // Filter by channel if specified
+          if (channelFilter !== undefined && channel !== channelFilter) {
+            continue;
+          }
+
           let note = event.note || event.noteNumber || 60;
 
           // Apply transposition if exists
@@ -163,6 +223,11 @@ class AudioPreview {
             if (transposition.noteRemapping && transposition.noteRemapping[note] !== undefined) {
               note = transposition.noteRemapping[note];
             }
+          }
+
+          // Filter by instrument's playable note range
+          if (noteFilter && !noteFilter(note)) {
+            continue;
           }
 
           // Add to sequence
@@ -182,6 +247,39 @@ class AudioPreview {
     sequence.sort((a, b) => a.t - b.t);
 
     return sequence;
+  }
+
+  /**
+   * Build a note filter function from instrument constraints.
+   * Returns null if no filtering needed, or a function (note) => boolean.
+   */
+  _buildNoteFilter(constraints) {
+    if (!constraints) return null;
+
+    const { noteRangeMin, noteRangeMax, noteSelectionMode, selectedNotes } = constraints;
+
+    // Discrete mode: only specific notes are playable (e.g., drum pads)
+    if (noteSelectionMode === 'discrete' && Array.isArray(selectedNotes) && selectedNotes.length > 0) {
+      const allowedSet = new Set(selectedNotes);
+      return (note) => allowedSet.has(note);
+    }
+
+    // Range mode: filter by min/max
+    if (noteRangeMin != null && noteRangeMax != null) {
+      return (note) => note >= noteRangeMin && note <= noteRangeMax;
+    }
+
+    // Only min specified
+    if (noteRangeMin != null) {
+      return (note) => note >= noteRangeMin;
+    }
+
+    // Only max specified
+    if (noteRangeMax != null) {
+      return (note) => note <= noteRangeMax;
+    }
+
+    return null;
   }
 
   /**
