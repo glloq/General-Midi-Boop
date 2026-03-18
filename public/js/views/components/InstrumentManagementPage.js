@@ -139,6 +139,14 @@ class InstrumentManagementPage {
       const connectedDevices = (response && response.devices) ? response.devices : [];
       const connectedIds = new Set(connectedDevices.map(d => d.id));
 
+      // Construire un index de serial numbers pour les devices connectés
+      const connectedBySerial = new Map();
+      for (const device of connectedDevices) {
+        if (device.usb_serial_number || device.usbSerialNumber) {
+          connectedBySerial.set(device.usb_serial_number || device.usbSerialNumber, device);
+        }
+      }
+
       // 2. Charger les instruments enregistrés en DB (même déconnectés)
       let registeredInstruments = [];
       try {
@@ -152,14 +160,29 @@ class InstrumentManagementPage {
 
       // 3. Fusionner : connectés (enrichis) + enregistrés non connectés
       this.instruments = [];
+      const matchedDbIds = new Set(); // IDs DB déjà associés à un device connecté
 
       // Ajouter les devices connectés enrichis avec leurs capacités DB
       for (const device of connectedDevices) {
         device.connected = true;
         device.status = 2; // connected
-        // Enrichir avec les capacités DB
-        const dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
+
+        // Enrichir avec les capacités DB - matching par device_id OU usb_serial_number
+        let dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
+
+        // Fallback: chercher par USB serial number si pas trouvé par device_id
+        if (!dbInstrument && (device.usb_serial_number || device.usbSerialNumber)) {
+          const serial = device.usb_serial_number || device.usbSerialNumber;
+          dbInstrument = registeredInstruments.find(r => r.usb_serial_number === serial);
+        }
+
+        // Fallback: chercher par MAC address pour les devices Bluetooth
+        if (!dbInstrument && device.address && device.type === 'bluetooth') {
+          dbInstrument = registeredInstruments.find(r => r.mac_address === device.address);
+        }
+
         if (dbInstrument) {
+          matchedDbIds.add(dbInstrument.id);
           Object.assign(device, dbInstrument);
           device.connected = true;
           device.status = 2;
@@ -168,13 +191,32 @@ class InstrumentManagementPage {
       }
 
       // Ajouter les instruments enregistrés qui ne sont PAS connectés
+      // Dédupliquer par usb_serial_number pour éviter les doublons
+      const seenSerials = new Set();
+      for (const device of connectedDevices) {
+        const serial = device.usb_serial_number || device.usbSerialNumber;
+        if (serial) seenSerials.add(serial);
+      }
+
       for (const registered of registeredInstruments) {
-        if (!connectedIds.has(registered.device_id)) {
-          registered.id = registered.device_id;
-          registered.connected = false;
-          registered.status = 0; // disconnected
-          this.instruments.push(registered);
-        }
+        // Déjà associé à un device connecté
+        if (matchedDbIds.has(registered.id)) continue;
+
+        // Déjà connecté via device_id
+        if (connectedIds.has(registered.device_id)) continue;
+
+        // Dédupliquer: si un autre instrument avec le même serial est déjà affiché
+        if (registered.usb_serial_number && seenSerials.has(registered.usb_serial_number)) continue;
+
+        // Dédupliquer: si un instrument avec le même MAC est déjà affiché
+        if (registered.mac_address && connectedDevices.some(d => d.address === registered.mac_address)) continue;
+
+        registered.id = registered.device_id;
+        registered.connected = false;
+        registered.status = 0; // disconnected
+
+        if (registered.usb_serial_number) seenSerials.add(registered.usb_serial_number);
+        this.instruments.push(registered);
       }
 
       // Marquer les instruments virtuels comme toujours disponibles
@@ -303,6 +345,21 @@ class InstrumentManagementPage {
   /**
    * Rendu d'une carte instrument
    */
+  /**
+   * Retourne l'icône et le label du type de connexion
+   */
+  getConnectionTypeInfo(instrument) {
+    const type = instrument.type || '';
+    switch (type) {
+      case 'bluetooth': return { icon: '📡', label: 'Bluetooth' };
+      case 'network': return { icon: '🌐', label: 'WiFi/Réseau' };
+      case 'serial': return { icon: '🔌', label: 'Série/GPIO' };
+      case 'usb': return { icon: '🔌', label: 'USB' };
+      case 'virtual': return { icon: '🖥️', label: 'Virtuel' };
+      default: return { icon: '🎹', label: type || 'Inconnu' };
+    }
+  }
+
   renderInstrumentCard(instrument) {
     const isComplete = this.isInstrumentComplete(instrument);
     const isConnected = instrument.status === 2 || instrument.connected;
@@ -311,6 +368,7 @@ class InstrumentManagementPage {
     const esc = this._escapeHtml;
     const safeId = esc(instrument.id);
     const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
+    const connType = this.getConnectionTypeInfo(instrument);
 
     return `
       <div class="instrument-card" style="
@@ -342,6 +400,7 @@ class InstrumentManagementPage {
 
         <!-- Info -->
         <div style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">
+          ${!isVirtual ? `<div>${connType.icon} <span style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:11px;font-weight:600;">${esc(connType.label)}</span></div>` : ''}
           ${instrument.manufacturer ? `<div>🏭 ${esc(instrument.manufacturer)}</div>` : ''}
           ${instrument.gm_program !== null && instrument.gm_program !== undefined
             ? `<div>🎵 ${i18n.t('instrumentManagement.gmProgram') || 'Programme GM'}: ${instrument.gm_program}</div>`

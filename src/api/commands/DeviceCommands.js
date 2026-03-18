@@ -83,7 +83,37 @@ async function deviceList(app) {
   if (app.database) {
     for (const device of devices) {
       try {
-        const settings = app.database.getInstrumentSettings(device.id);
+        let settings = app.database.getInstrumentSettings(device.id);
+
+        // Fallback: si pas de settings par device_id, chercher par USB serial number
+        if (!settings && device.usbSerialNumber) {
+          const bySerial = app.database.findInstrumentByUsbSerial(device.usbSerialNumber);
+          if (bySerial && bySerial.device_id !== device.id) {
+            app.logger.info(`[deviceList] USB device "${device.id}" matched by serial number "${device.usbSerialNumber}" to DB entry "${bySerial.device_id}" - reconciling`);
+            // Mettre à jour le device_id en DB pour correspondre au nouveau nom ALSA
+            try {
+              app.database.reconcileDeviceId(bySerial.device_id, device.id);
+            } catch (e) {
+              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
+            }
+            settings = app.database.getInstrumentSettings(device.id);
+          }
+        }
+
+        // Fallback: chercher par MAC address pour les devices Bluetooth
+        if (!settings && device.address && device.type === 'bluetooth') {
+          const byMac = app.database.findInstrumentByMac(device.address);
+          if (byMac && byMac.device_id !== device.id) {
+            app.logger.info(`[deviceList] Bluetooth device "${device.id}" matched by MAC "${device.address}" to DB entry "${byMac.device_id}" - reconciling`);
+            try {
+              app.database.reconcileDeviceId(byMac.device_id, device.id);
+            } catch (e) {
+              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
+            }
+            settings = app.database.getInstrumentSettings(device.id);
+          }
+        }
+
         if (settings) {
           if (settings.custom_name) {
             device.displayName = settings.custom_name;
@@ -104,6 +134,15 @@ async function deviceList(app) {
           if (settings.note_selection_mode) {
             device.note_selection_mode = settings.note_selection_mode;
           }
+          // Inclure le usb_serial_number dans la réponse
+          if (settings.usb_serial_number) {
+            device.usb_serial_number = settings.usb_serial_number;
+          }
+        }
+
+        // Toujours inclure le USB serial number du device s'il en a un
+        if (device.usbSerialNumber && !device.usb_serial_number) {
+          device.usb_serial_number = device.usbSerialNumber;
         }
       } catch (error) {
         // Ignorer les erreurs - l'appareil n'a peut-être pas de settings
@@ -118,6 +157,19 @@ async function deviceList(app) {
 
 async function deviceRefresh(app) {
   const devices = await app.deviceManager.scanDevices();
+
+  // Après un scan, reconcilier les device_ids par USB serial number
+  if (app.database) {
+    try {
+      const removed = app.database.deduplicateByUsbSerial();
+      if (removed > 0) {
+        app.logger.info(`[deviceRefresh] Deduplicated ${removed} instrument entries by USB serial`);
+      }
+    } catch (e) {
+      app.logger.warn(`[deviceRefresh] Deduplication failed: ${e.message}`);
+    }
+  }
+
   return { devices: devices };
 }
 

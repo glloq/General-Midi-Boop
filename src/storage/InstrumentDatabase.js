@@ -563,6 +563,131 @@ class InstrumentDatabase {
     }
   }
 
+  /**
+   * Reconcile device_id: update all DB entries for an old device_id to a new one.
+   * Used when ALSA renames a USB device (e.g., port number changes between reboots).
+   * Also merges duplicate entries if the new device_id already exists.
+   * @param {string} oldDeviceId - Previous device identifier
+   * @param {string} newDeviceId - Current device identifier
+   */
+  reconcileDeviceId(oldDeviceId, newDeviceId) {
+    try {
+      // Get all entries for old device_id
+      const oldEntries = this.db.prepare(
+        'SELECT * FROM instruments_latency WHERE device_id = ?'
+      ).all(oldDeviceId);
+
+      if (oldEntries.length === 0) {
+        return; // Nothing to reconcile
+      }
+
+      for (const oldEntry of oldEntries) {
+        // Check if new device_id + channel already exists
+        const existingNew = this.db.prepare(
+          'SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        ).get(newDeviceId, oldEntry.channel);
+
+        if (existingNew) {
+          // New entry already exists - delete the old duplicate
+          this.db.prepare('DELETE FROM instruments_latency WHERE id = ?').run(oldEntry.id);
+          this.logger.info(`[reconcileDeviceId] Removed duplicate entry "${oldEntry.id}" (kept "${existingNew.id}")`);
+        } else {
+          // Update old entry to use new device_id
+          const newId = `${newDeviceId}_${oldEntry.channel}`;
+          this.db.prepare(
+            'UPDATE instruments_latency SET id = ?, device_id = ? WHERE id = ?'
+          ).run(newId, newDeviceId, oldEntry.id);
+          this.logger.info(`[reconcileDeviceId] Updated "${oldEntry.id}" -> "${newId}"`);
+        }
+      }
+
+      // Also update instrument_latency table if it exists
+      try {
+        this.db.prepare(
+          'UPDATE instrument_latency SET device_id = ? WHERE device_id = ?'
+        ).run(newDeviceId, oldDeviceId);
+      } catch (e) {
+        // Table may not exist
+      }
+
+      // Also update routing table if it exists
+      try {
+        this.db.prepare(
+          'UPDATE midi_instrument_routings SET device_id = ? WHERE device_id = ?'
+        ).run(newDeviceId, oldDeviceId);
+      } catch (e) {
+        // Table may not exist
+      }
+    } catch (error) {
+      this.logger.error(`Failed to reconcile device_id "${oldDeviceId}" -> "${newDeviceId}": ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Deduplicate instrument entries by USB serial number.
+   * Keeps the entry with the most complete data.
+   * @returns {number} Number of duplicates removed
+   */
+  deduplicateByUsbSerial() {
+    try {
+      // Find all entries with USB serial numbers
+      const entries = this.db.prepare(`
+        SELECT * FROM instruments_latency
+        WHERE usb_serial_number IS NOT NULL AND usb_serial_number != ''
+        ORDER BY usb_serial_number, capabilities_updated_at DESC
+      `).all();
+
+      const bySerial = new Map();
+      for (const entry of entries) {
+        if (!bySerial.has(entry.usb_serial_number)) {
+          bySerial.set(entry.usb_serial_number, []);
+        }
+        bySerial.get(entry.usb_serial_number).push(entry);
+      }
+
+      let removedCount = 0;
+      for (const [serial, group] of bySerial) {
+        if (group.length <= 1) continue;
+
+        // Group by channel
+        const byChannel = new Map();
+        for (const entry of group) {
+          const ch = entry.channel || 0;
+          if (!byChannel.has(ch)) {
+            byChannel.set(ch, []);
+          }
+          byChannel.get(ch).push(entry);
+        }
+
+        for (const [channel, channelGroup] of byChannel) {
+          if (channelGroup.length <= 1) continue;
+
+          // Keep the one with the most complete data (most non-null fields)
+          channelGroup.sort((a, b) => {
+            const scoreA = (a.gm_program != null ? 1 : 0) + (a.note_range_min != null ? 1 : 0) +
+                          (a.polyphony != null ? 1 : 0) + (a.custom_name ? 1 : 0);
+            const scoreB = (b.gm_program != null ? 1 : 0) + (b.note_range_min != null ? 1 : 0) +
+                          (b.polyphony != null ? 1 : 0) + (b.custom_name ? 1 : 0);
+            return scoreB - scoreA; // Higher score first
+          });
+
+          // Remove all but the first (most complete)
+          for (let i = 1; i < channelGroup.length; i++) {
+            this.db.prepare('DELETE FROM instruments_latency WHERE id = ?').run(channelGroup[i].id);
+            this.logger.info(`[deduplicateByUsbSerial] Removed duplicate "${channelGroup[i].id}" for serial "${serial}" ch${channel}`);
+            removedCount++;
+          }
+        }
+      }
+
+      return removedCount;
+    } catch (error) {
+      this.logger.error(`Failed to deduplicate by USB serial: ${error.message}`);
+      throw error;
+    }
+  }
+
   // ==================== INSTRUMENT CAPABILITIES ====================
 
   /**
@@ -824,7 +949,8 @@ class InstrumentDatabase {
           gm_program,
           note_range_min, note_range_max, supported_ccs,
           note_selection_mode, selected_notes, polyphony,
-          capabilities_source, capabilities_updated_at
+          capabilities_source, capabilities_updated_at,
+          usb_serial_number, mac_address
         FROM instruments_latency
         ORDER BY device_id
       `);
