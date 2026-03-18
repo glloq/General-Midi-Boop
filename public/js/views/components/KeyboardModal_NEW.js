@@ -1034,7 +1034,8 @@ class KeyboardModalNew {
 
     /**
      * Auto-centrer le clavier sur la plage de notes de l'instrument
-     * Ajuste octaveOffset pour que la vue soit centrée sur les notes jouables
+     * Ajuste le nombre d'octaves et octaveOffset pour que la vue soit
+     * centrée et dimensionnée autour des notes jouables
      */
     autoCenterKeyboard() {
         const caps = this.selectedDeviceCapabilities;
@@ -1046,42 +1047,70 @@ class KeyboardModalNew {
         const hasMin = isFinite(minNote);
         const hasMax = isFinite(maxNote);
 
-        // Si pas de plage définie, recentrer sur la position par défaut (offset=0)
+        // Si pas de plage définie, recentrer sur la position par défaut
         if (!hasMin && !hasMax) {
             this.octaveOffset = 0;
-            const octaveDisplayEl = document.getElementById('keyboard-octave-display');
-            if (octaveDisplayEl) {
-                octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: 0 });
-            }
-            this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default offset 0');
+            this.octaves = 3;
+            this._updateOctaveDisplay();
+            this.logger.info('[KeyboardModal] Auto-center: no note range, reset to default');
             return;
         }
 
-        // Calculer le centre de la plage jouable
+        // Plage effective de notes jouables
         const effectiveMin = hasMin ? minNote : 21;
         const effectiveMax = hasMax ? maxNote : 108;
-        const centerNote = Math.round((effectiveMin + effectiveMax) / 2);
 
-        // Convertir en octave MIDI (C4=60 → octave 4)
+        // Calculer le nombre d'octaves nécessaires pour couvrir la plage
+        // On ajoute une marge d'une demi-octave de chaque côté pour le confort visuel
+        const minOctave = Math.floor(effectiveMin / 12) - 1;
+        const maxOctave = Math.floor(effectiveMax / 12) - 1;
+        const rangeSpanOctaves = maxOctave - minOctave + 1;
+
+        // Ajuster le nombre d'octaves affichées (entre 2 et 4)
+        // On prend le span + 1 octave de marge, limité entre 2 et 4
+        const idealOctaves = Math.max(2, Math.min(4, rangeSpanOctaves + 1));
+        this.octaves = idealOctaves;
+
+        // Calculer l'offset optimal pour centrer la plage jouable dans la vue
+        // Note centrale de la plage jouable
+        const centerNote = Math.round((effectiveMin + effectiveMax) / 2);
         const centerOctave = Math.floor(centerNote / 12) - 1;
 
-        // Calculer l'offset nécessaire pour centrer la vue
-        // Le clavier affiche this.octaves octaves à partir de baseOctave + octaveOffset
-        // On veut que centerOctave soit au milieu de la vue
+        // L'octave du milieu de la vue actuelle (sans offset)
         const viewMiddleOctave = this.baseOctave + Math.floor(this.octaves / 2);
         const neededOffset = centerOctave - viewMiddleOctave;
 
         // Limiter l'offset entre -3 et +3
         this.octaveOffset = Math.max(-3, Math.min(3, neededOffset));
 
-        // Mettre à jour l'affichage de l'octave
+        // Vérifier que toutes les notes jouables sont visibles, sinon ajuster
+        const viewStartNote = (this.baseOctave + this.octaveOffset + 1) * 12;
+        const viewEndNote = (this.baseOctave + this.octaveOffset + this.octaves + 1) * 12 - 1;
+
+        // Si des notes jouables débordent en bas, décaler vers le bas
+        if (effectiveMin < viewStartNote && this.octaveOffset > -3) {
+            const adjustment = Math.ceil((viewStartNote - effectiveMin) / 12);
+            this.octaveOffset = Math.max(-3, this.octaveOffset - adjustment);
+        }
+        // Si des notes jouables débordent en haut, décaler vers le haut
+        else if (effectiveMax > viewEndNote && this.octaveOffset < 3) {
+            const adjustment = Math.ceil((effectiveMax - viewEndNote) / 12);
+            this.octaveOffset = Math.min(3, this.octaveOffset + adjustment);
+        }
+
+        this._updateOctaveDisplay();
+        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, ${this.octaves} octaves, offset ${this.octaveOffset}`);
+    }
+
+    /**
+     * Met à jour l'affichage de l'offset d'octave dans le header
+     */
+    _updateOctaveDisplay() {
         const display = this.octaveOffset > 0 ? `+${this.octaveOffset}` : `${this.octaveOffset}`;
         const octaveDisplayEl = document.getElementById('keyboard-octave-display');
         if (octaveDisplayEl) {
             octaveDisplayEl.textContent = this.t('keyboard.octave', { offset: display });
         }
-
-        this.logger.info(`[KeyboardModal] Auto-center: range ${effectiveMin}-${effectiveMax}, center note ${centerNote}, octave offset ${this.octaveOffset}`);
     }
 
     /**
