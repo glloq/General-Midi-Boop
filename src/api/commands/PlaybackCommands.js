@@ -323,36 +323,44 @@ async function applyAssignments(app, data) {
     const adaptedMidiData = result.midiData;
     stats = result.stats;
 
-    // Convert back to MIDI binary
-    let adaptedBuffer;
-    try {
-      adaptedBuffer = midiConverter.jsonToMidi(adaptedMidiData);
-    } catch (error) {
-      throw new Error(`Failed to convert adapted MIDI: ${error.message}`);
+    // Only create an adapted file if actual modifications were made
+    // Otherwise, routings will be saved against the original file
+    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0);
+
+    if (hasModifications) {
+      // Convert back to MIDI binary
+      let adaptedBuffer;
+      try {
+        adaptedBuffer = midiConverter.jsonToMidi(adaptedMidiData);
+      } catch (error) {
+        throw new Error(`Failed to convert adapted MIDI: ${error.message}`);
+      }
+
+      // Generate adaptation metadata
+      const metadata = transposer.generateAdaptationMetadata(data.assignments, stats);
+
+      // Save adapted file to database
+      const adaptedFilename = originalFile.filename.replace(/\.mid$/i, '_adapted.mid');
+      const adaptedFile = {
+        filename: adaptedFilename,
+        data: adaptedBuffer.toString('base64'),
+        size: adaptedBuffer.length,
+        tracks: originalFile.tracks,
+        duration: originalFile.duration,
+        tempo: originalFile.tempo,
+        ppq: originalFile.ppq,
+        uploaded_at: new Date().toISOString(),
+        folder: originalFile.folder,
+        is_original: false,
+        parent_file_id: data.originalFileId,
+        adaptation_metadata: JSON.stringify(metadata)
+      };
+
+      adaptedFileId = app.database.insertFile(adaptedFile);
+      app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
+    } else {
+      app.logger.info(`No transposition needed, saving routings against original file ${data.originalFileId}`);
     }
-
-    // Generate adaptation metadata
-    const metadata = transposer.generateAdaptationMetadata(data.assignments, stats);
-
-    // Save adapted file to database
-    const adaptedFilename = originalFile.filename.replace(/\.mid$/i, '_adapted.mid');
-    const adaptedFile = {
-      filename: adaptedFilename,
-      data: adaptedBuffer.toString('base64'),
-      size: adaptedBuffer.length,
-      tracks: originalFile.tracks,
-      duration: originalFile.duration,
-      tempo: originalFile.tempo,
-      ppq: originalFile.ppq,
-      uploaded_at: new Date().toISOString(),
-      folder: originalFile.folder,
-      is_original: false,
-      parent_file_id: data.originalFileId,
-      adaptation_metadata: JSON.stringify(metadata)
-    };
-
-    adaptedFileId = app.database.insertFile(adaptedFile);
-    app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
   }
 
   // Create routings in database

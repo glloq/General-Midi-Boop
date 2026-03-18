@@ -1085,25 +1085,38 @@ class AutoAssignModal {
       // Close this auto-assign modal
       this.close();
 
-      // Close the current editor modal if it exists
-      if (this.editorRef && typeof this.editorRef.doClose === 'function') {
-        this.editorRef.doClose();
-      }
+      if (response.adaptedFileId) {
+        // Adapted file was created (transpositions were applied)
+        // Close the current editor and open the adapted file
+        if (this.editorRef && typeof this.editorRef.doClose === 'function') {
+          this.editorRef.doClose();
+        }
 
-      // Open the adapted file in a new editor
-      if (response.adaptedFileId && window.MidiEditorModal) {
-        const newEditor = new window.MidiEditorModal(null, this.apiClient);
-        newEditor.show(response.adaptedFileId, response.filename || null);
-      } else if (response.filename) {
-        // Fallback: refresh file list so user can open it
+        if (window.MidiEditorModal) {
+          const newEditor = new window.MidiEditorModal(null, this.apiClient);
+          newEditor.show(response.adaptedFileId, response.filename || null);
+        }
+      } else {
+        // No adapted file needed (no transposition required)
+        // Routings were saved against the original file
+        // Apply routings to the current MidiPlayer if loaded
+        if (this.editorRef) {
+          // Notify the editor that routings were applied
+          if (typeof this.editorRef.showNotification === 'function') {
+            const skippedMsg = this.skippedChannels.size > 0
+              ? ` (${this.skippedChannels.size} ${_t('autoAssign.channelsSkipped')})`
+              : '';
+            this.editorRef.showNotification(
+              _t('autoAssign.routingsSaved') + skippedMsg,
+              'success'
+            );
+          }
+        }
+
+        // Refresh file list in case routing status changed
         if (window.midiFileManager) {
           window.midiFileManager.refreshFileList();
         }
-        const skippedMsg = this.skippedChannels.size > 0
-          ? `\n${this.skippedChannels.size} ${_t('autoAssign.channelsSkipped')}`
-          : '';
-        const notesChanged = response.stats?.notesChanged || 0;
-        alert(`${_t('autoAssign.applySuccess')}\n\n${response.filename}\n${notesChanged} ${_t('autoAssign.notesTransposed')}${skippedMsg}`);
       }
 
     } catch (error) {
