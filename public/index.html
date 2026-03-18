@@ -4223,8 +4223,34 @@
         }
 
         // Vérifier si un fichier a son routage configuré
+        // Exclut les routes vers des instruments virtuels si ceux-ci sont désactivés dans les réglages
         function isFileRouted(fileId) {
-            return fileRoutingConfig[fileId] && Object.keys(fileRoutingConfig[fileId].channels || {}).length > 0;
+            const config = fileRoutingConfig[fileId];
+            if (!config || !config.channels) return false;
+
+            const channels = config.channels;
+            const routedDeviceIds = Object.values(channels);
+            if (routedDeviceIds.length === 0) return false;
+
+            // Vérifier si les instruments virtuels sont activés
+            let virtualEnabled = false;
+            try {
+                const saved = localStorage.getItem('maestro_settings');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    virtualEnabled = !!parsed.virtualInstrument;
+                }
+            } catch (e) { /* ignore */ }
+
+            if (virtualEnabled) {
+                return true; // Tous les routages sont valides
+            }
+
+            // Instruments virtuels désactivés : vérifier qu'au moins un routage pointe vers un instrument non-virtuel
+            const hasRealDevice = routedDeviceIds.some(deviceId =>
+                deviceId && deviceId !== 'virtual-instrument' && !deviceId.startsWith('virtual_')
+            );
+            return hasRealDevice;
         }
 
         // Logger
@@ -5990,33 +6016,47 @@
                 console.log('✅ Connected devices after filter:', connectedDevices.length, connectedDevices);
 
                 // Charger les instruments virtuels de la DB (crees via Gestion des instruments)
+                // Respecter le réglage "virtualInstrument" de SettingsModal
+                let virtualEnabled = false;
                 try {
-                    const capsResponse = await api.sendCommand('instrument_list_capabilities');
-                    if (capsResponse && capsResponse.instruments) {
-                        const connectedIds = new Set(devices.map(d => d.id));
-                        for (const dbInst of capsResponse.instruments) {
-                            const devId = dbInst.device_id || dbInst.id;
-                            if (devId && devId.startsWith('virtual_') && !connectedIds.has(devId)) {
-                                const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
-                                const virtualDbDevice = {
-                                    id: devId,
-                                    name: `🖥️ ${vName}`,
-                                    displayName: `🖥️ ${vName}`,
-                                    type: 'Virtual',
-                                    status: 2,
-                                    connected: true,
-                                    isVirtual: true,
-                                    channel: dbInst.channel || 0,
-                                    gm_program: dbInst.gm_program
-                                };
-                                connectedDevices.push(virtualDbDevice);
-                                devices.push(virtualDbDevice);
-                            }
-                        }
-                        console.log('✅ Virtual DB instruments loaded for routing');
+                    const savedSettings = localStorage.getItem('maestro_settings');
+                    if (savedSettings) {
+                        const parsed = JSON.parse(savedSettings);
+                        virtualEnabled = !!parsed.virtualInstrument;
                     }
-                } catch (e) {
-                    console.warn('Could not load virtual DB instruments:', e);
+                } catch (e) { /* ignore */ }
+
+                if (virtualEnabled) {
+                    try {
+                        const capsResponse = await api.sendCommand('instrument_list_capabilities');
+                        if (capsResponse && capsResponse.instruments) {
+                            const connectedIds = new Set(devices.map(d => d.id));
+                            for (const dbInst of capsResponse.instruments) {
+                                const devId = dbInst.device_id || dbInst.id;
+                                if (devId && devId.startsWith('virtual_') && !connectedIds.has(devId)) {
+                                    const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                                    const virtualDbDevice = {
+                                        id: devId,
+                                        name: `🖥️ ${vName}`,
+                                        displayName: `🖥️ ${vName}`,
+                                        type: 'Virtual',
+                                        status: 2,
+                                        connected: true,
+                                        isVirtual: true,
+                                        channel: dbInst.channel || 0,
+                                        gm_program: dbInst.gm_program
+                                    };
+                                    connectedDevices.push(virtualDbDevice);
+                                    devices.push(virtualDbDevice);
+                                }
+                            }
+                            console.log('✅ Virtual DB instruments loaded for routing');
+                        }
+                    } catch (e) {
+                        console.warn('Could not load virtual DB instruments:', e);
+                    }
+                } else {
+                    console.log('ℹ️ Virtual instruments disabled in settings, skipping');
                 }
 
                 if (connectedDevices.length === 0) {
