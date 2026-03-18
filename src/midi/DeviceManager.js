@@ -39,7 +39,7 @@ class DeviceManager {
 
     // Hot-plug detection
     this.hotPlugInterval = null;
-    this.hotPlugCheckIntervalMs = 2000; // Check every 2 seconds
+    this.hotPlugCheckIntervalMs = 5000; // Check every 5 seconds
     this.knownInputs = new Set();
     this.knownOutputs = new Set();
 
@@ -971,9 +971,12 @@ class DeviceManager {
 
     this.app.logger.info(`Starting hot-plug monitoring (check every ${this.hotPlugCheckIntervalMs}ms)`);
 
-    // Initialize known devices
-    this.knownInputs = new Set(easymidi.getInputs().filter(name => !this.isSystemDevice(name)));
-    this.knownOutputs = new Set(easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
+    // Initialize known devices from current inputs/outputs maps (already open, no new ALSA clients)
+    this.knownInputs = new Set(this.inputs.keys());
+    this.knownOutputs = new Set(this.outputs.keys());
+
+    // Track consecutive failures to implement backoff
+    this.hotPlugFailures = 0;
 
     // Start periodic checking
     this.hotPlugInterval = setInterval(() => {
@@ -993,78 +996,238 @@ class DeviceManager {
   }
 
   /**
-   * Check for device changes without closing existing connections
+   * Detect MIDI device changes using /proc/asound/ (Linux) to avoid
+   * leaking ALSA sequencer clients. Falls back to easymidi if /proc/asound
+   * is not available.
+   * @returns {{ inputs: Set<string>, outputs: Set<string> } | null} Current ports, or null on error
+   */
+  _detectCurrentPorts() {
+    // Method 1: Use /proc/asound/ to detect USB MIDI cards without opening ALSA clients
+    // This avoids the "Cannot allocate memory" leak from repeated easymidi.getInputs()/getOutputs()
+    try {
+      const cardsPath = '/proc/asound/cards';
+      if (fs.existsSync(cardsPath)) {
+        const cardsContent = fs.readFileSync(cardsPath, 'utf8');
+        // Parse card numbers from /proc/asound/cards
+        // Format: " 0 [CARD0          ]: Type - Name\n                      Long name"
+        const cardNumbers = [];
+        for (const line of cardsContent.split('\n')) {
+          const match = line.match(/^\s*(\d+)\s+\[/);
+          if (match) cardNumbers.push(parseInt(match[1]));
+        }
+
+        // Check which cards have MIDI (rawmidi) interfaces
+        const midiDeviceNames = new Set();
+        for (const cardNum of cardNumbers) {
+          try {
+            const midiPath = `/proc/asound/card${cardNum}/midi0`;
+            if (fs.existsSync(midiPath)) {
+              // Read the card's ID for the device name
+              const idPath = `/proc/asound/card${cardNum}/id`;
+              let cardId = `card${cardNum}`;
+              if (fs.existsSync(idPath)) {
+                cardId = fs.readFileSync(idPath, 'utf8').trim();
+              }
+              midiDeviceNames.add(cardId);
+            }
+          } catch (e) {
+            // Skip this card
+          }
+        }
+
+        // Compare with known devices using normalized names
+        // We return the raw card IDs - the caller will match against known device names
+        return { cardIds: midiDeviceNames, method: 'proc' };
+      }
+    } catch (e) {
+      this.app.logger.debug(`/proc/asound not available: ${e.message}`);
+    }
+
+    // Method 2: Fallback to easymidi (only if /proc/asound not available, e.g., macOS)
+    // This WILL leak ALSA clients on Linux - but it's the only option on other platforms
+    try {
+      const currentInputs = new Set(easymidi.getInputs().filter(name => !this.isSystemDevice(name)));
+      const currentOutputs = new Set(easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
+      return { inputs: currentInputs, outputs: currentOutputs, method: 'easymidi' };
+    } catch (e) {
+      this.app.logger.error(`Failed to enumerate MIDI ports: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check for device changes without closing existing connections.
+   * Uses /proc/asound/ on Linux to avoid ALSA sequencer client leak.
    */
   async checkDeviceChanges() {
     try {
-      // Get current system ports
-      const currentInputs = new Set(easymidi.getInputs().filter(name => !this.isSystemDevice(name)));
-      const currentOutputs = new Set(easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
+      const ports = this._detectCurrentPorts();
+
+      if (!ports) {
+        // Detection failed entirely
+        this.hotPlugFailures = (this.hotPlugFailures || 0) + 1;
+        if (this.hotPlugFailures >= 5) {
+          this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
+          this.stopHotPlugMonitoring();
+        }
+        return;
+      }
 
       let hasChanges = false;
 
-      // Check for new inputs
-      for (const name of currentInputs) {
-        if (!this.knownInputs.has(name)) {
-          this.app.logger.info(`🔌 New MIDI input detected: ${name}`);
-          try {
-            this.addInput(name);
-            this.knownInputs.add(name);
-            hasChanges = true;
-          } catch (error) {
-            this.app.logger.error(`Failed to add new input ${name}: ${error.message}`);
+      if (ports.method === 'proc') {
+        // /proc/asound method: compare card IDs with known device names
+        const currentCardIds = ports.cardIds;
+
+        // Check for removed devices: a known input/output whose card ID is no longer present
+        const removedInputs = [];
+        for (const name of this.knownInputs) {
+          // Normalize the ALSA name to get the card ID portion
+          const cardId = name.split(':')[0].trim();
+          // Check if any current card ID matches (partial match for flexibility)
+          const stillPresent = [...currentCardIds].some(id =>
+            cardId.toLowerCase().includes(id.toLowerCase()) ||
+            id.toLowerCase().includes(cardId.toLowerCase())
+          );
+          if (!stillPresent) {
+            removedInputs.push(name);
           }
+        }
+
+        for (const name of removedInputs) {
+          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
+          const input = this.inputs.get(name);
+          if (input) {
+            try {
+              input.removeAllListeners();
+              input.close();
+            } catch (error) {
+              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
+            }
+            this.inputs.delete(name);
+          }
+          this.knownInputs.delete(name);
+          hasChanges = true;
+        }
+
+        const removedOutputs = [];
+        for (const name of this.knownOutputs) {
+          const cardId = name.split(':')[0].trim();
+          const stillPresent = [...currentCardIds].some(id =>
+            cardId.toLowerCase().includes(id.toLowerCase()) ||
+            id.toLowerCase().includes(cardId.toLowerCase())
+          );
+          if (!stillPresent) {
+            removedOutputs.push(name);
+          }
+        }
+
+        for (const name of removedOutputs) {
+          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
+          const output = this.outputs.get(name);
+          if (output) {
+            try {
+              output.close();
+            } catch (error) {
+              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
+            }
+            this.outputs.delete(name);
+          }
+          this.knownOutputs.delete(name);
+          hasChanges = true;
+        }
+
+        // Check for new devices: a card ID not matching any known device
+        const knownCardIds = new Set();
+        for (const name of [...this.knownInputs, ...this.knownOutputs]) {
+          const cardId = name.split(':')[0].trim().toLowerCase();
+          knownCardIds.add(cardId);
+        }
+
+        for (const cardId of currentCardIds) {
+          const isKnown = [...knownCardIds].some(known =>
+            known.includes(cardId.toLowerCase()) ||
+            cardId.toLowerCase().includes(known)
+          );
+          if (!isKnown) {
+            // New device detected - need to use easymidi ONCE to get full port names
+            this.app.logger.info(`🔌 New MIDI card detected: ${cardId} - rescanning...`);
+            // Trigger a full rescan (which properly opens/closes connections)
+            await this.scanDevices();
+            return; // scanDevices already handles everything
+          }
+        }
+      } else {
+        // easymidi method (non-Linux fallback): original logic
+        const currentInputs = ports.inputs;
+        const currentOutputs = ports.outputs;
+
+        // Check for new inputs
+        for (const name of currentInputs) {
+          if (!this.knownInputs.has(name)) {
+            this.app.logger.info(`🔌 New MIDI input detected: ${name}`);
+            try {
+              this.addInput(name);
+              this.knownInputs.add(name);
+              hasChanges = true;
+            } catch (error) {
+              this.app.logger.error(`Failed to add new input ${name}: ${error.message}`);
+            }
+          }
+        }
+
+        // Check for removed inputs
+        const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
+        for (const name of removedInputs) {
+          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
+          const input = this.inputs.get(name);
+          if (input) {
+            try {
+              input.removeAllListeners();
+              input.close();
+            } catch (error) {
+              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
+            }
+            this.inputs.delete(name);
+          }
+          this.knownInputs.delete(name);
+          hasChanges = true;
+        }
+
+        // Check for new outputs
+        for (const name of currentOutputs) {
+          if (!this.knownOutputs.has(name)) {
+            this.app.logger.info(`🔌 New MIDI output detected: ${name}`);
+            try {
+              this.addOutput(name);
+              this.knownOutputs.add(name);
+              hasChanges = true;
+            } catch (error) {
+              this.app.logger.error(`Failed to add new output ${name}: ${error.message}`);
+            }
+          }
+        }
+
+        // Check for removed outputs
+        const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
+        for (const name of removedOutputs) {
+          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
+          const output = this.outputs.get(name);
+          if (output) {
+            try {
+              output.close();
+            } catch (error) {
+              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
+            }
+            this.outputs.delete(name);
+          }
+          this.knownOutputs.delete(name);
+          hasChanges = true;
         }
       }
 
-      // Check for removed inputs (copy set to avoid modification during iteration)
-      const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
-      for (const name of removedInputs) {
-        this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
-        const input = this.inputs.get(name);
-        if (input) {
-          try {
-            input.removeAllListeners();
-            input.close();
-          } catch (error) {
-            this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-          }
-          this.inputs.delete(name);
-        }
-        this.knownInputs.delete(name);
-        hasChanges = true;
-      }
-
-      // Check for new outputs
-      for (const name of currentOutputs) {
-        if (!this.knownOutputs.has(name)) {
-          this.app.logger.info(`🔌 New MIDI output detected: ${name}`);
-          try {
-            this.addOutput(name);
-            this.knownOutputs.add(name);
-            hasChanges = true;
-          } catch (error) {
-            this.app.logger.error(`Failed to add new output ${name}: ${error.message}`);
-          }
-        }
-      }
-
-      // Check for removed outputs (copy set to avoid modification during iteration)
-      const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
-      for (const name of removedOutputs) {
-        this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
-        const output = this.outputs.get(name);
-        if (output) {
-          try {
-            output.close();
-          } catch (error) {
-            this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-          }
-          this.outputs.delete(name);
-        }
-        this.knownOutputs.delete(name);
-        hasChanges = true;
-      }
+      // Reset failure counter on success
+      this.hotPlugFailures = 0;
 
       // If there were changes, update the device map and broadcast
       if (hasChanges) {
@@ -1075,6 +1238,11 @@ class DeviceManager {
 
     } catch (error) {
       this.app.logger.error(`Error checking device changes: ${error.message}`);
+      this.hotPlugFailures = (this.hotPlugFailures || 0) + 1;
+      if (this.hotPlugFailures >= 5) {
+        this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
+        this.stopHotPlugMonitoring();
+      }
     }
   }
 
