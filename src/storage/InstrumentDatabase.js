@@ -933,8 +933,8 @@ class InstrumentDatabase {
           note_range_min: result.note_range_min,
           note_range_max: result.note_range_max,
           note_selection_mode: result.note_selection_mode || 'range',
-          selected_notes: result.selected_notes, // Keep as JSON string for matcher
-          supported_ccs: result.supported_ccs,   // Keep as JSON string for matcher
+          selected_notes: selectedNotes,
+          supported_ccs: supportedCcs,
           capabilities_source: result.capabilities_source,
           capabilities_updated_at: result.capabilities_updated_at,
           // Additional fields for reference

@@ -7,11 +7,9 @@
 
 class InstrumentCapabilitiesValidator {
   constructor() {
-    // Capacités requises pour une auto-assignation optimale
+    // Capacités toujours requises
     this.requiredCapabilities = [
       'gm_program',
-      'note_range_min',
-      'note_range_max',
       'polyphony',
       'note_selection_mode'
     ];
@@ -22,9 +20,11 @@ class InstrumentCapabilitiesValidator {
       'type'
     ];
 
-    // Capacités conditionnelles
+    // Capacités conditionnelles selon le mode
     this.conditionalCapabilities = {
-      'selected_notes': (instrument) => instrument.note_selection_mode === 'discrete'
+      'selected_notes': (instrument) => instrument.note_selection_mode === 'discrete',
+      'note_range_min': (instrument) => instrument.note_selection_mode !== 'discrete',
+      'note_range_max': (instrument) => instrument.note_selection_mode !== 'discrete'
     };
   }
 

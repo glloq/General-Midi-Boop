@@ -348,7 +348,9 @@ class InstrumentManagementPage {
             : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</div>`}
           ${instrument.note_range_min != null && instrument.note_range_max != null
             ? `<div>🎹 ${i18n.t('instrumentManagement.range') || 'Plage'}: ${this.getNoteName(instrument.note_range_min)} - ${this.getNoteName(instrument.note_range_max)}</div>`
-            : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.rangeNotSet') || 'Plage de notes non définie'}</div>`}
+            : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
+              ? `<div>🥁 ${i18n.t('instrumentManagement.discreteNotes') || 'Notes individuelles'}: ${instrument.selected_notes.length} ${i18n.t('instrumentManagement.notesCount') || 'notes'}</div>`
+              : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.rangeNotSet') || 'Plage de notes non définie'}</div>`)}
           ${instrument.polyphony
             ? `<div>🎼 ${i18n.t('instrumentManagement.polyphony') || 'Polyphonie'}: ${instrument.polyphony}</div>`
             : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.polyphonyNotSet') || 'Polyphonie non définie'}</div>`}
@@ -382,11 +384,18 @@ class InstrumentManagementPage {
    * Vérifie si un instrument est complet
    */
   isInstrumentComplete(instrument) {
-    return instrument.gm_program !== null && instrument.gm_program !== undefined &&
-           instrument.note_range_min !== null && instrument.note_range_min !== undefined &&
-           instrument.note_range_max !== null && instrument.note_range_max !== undefined &&
-           instrument.polyphony !== null && instrument.polyphony !== undefined &&
-           (instrument.note_selection_mode || instrument.mode);
+    const hasGm = instrument.gm_program !== null && instrument.gm_program !== undefined;
+    const hasPolyphony = instrument.polyphony !== null && instrument.polyphony !== undefined;
+    const hasMode = !!(instrument.note_selection_mode || instrument.mode);
+
+    // For discrete mode, selected_notes defines the playable notes (no range needed)
+    const isDiscrete = (instrument.note_selection_mode || instrument.mode) === 'discrete';
+    const hasNotes = isDiscrete
+      ? (Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
+      : (instrument.note_range_min !== null && instrument.note_range_min !== undefined &&
+         instrument.note_range_max !== null && instrument.note_range_max !== undefined);
+
+    return hasGm && hasNotes && hasPolyphony && hasMode;
   }
 
   /**
