@@ -94,6 +94,7 @@ class LightingControlPage {
               <h2 style="margin:0;font-size:20px;white-space:nowrap;">💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                 <button onclick="lightingControlPageInstance.showEffectsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
+                <button onclick="lightingControlPageInstance.showGroupsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
                 <button onclick="lightingControlPageInstance.showPresetsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
                 <button onclick="lightingControlPageInstance.blackout()" style="padding:5px 12px;border:2px solid rgba(255,100,100,0.6);border-radius:8px;background:rgba(255,50,50,0.3);color:white;cursor:pointer;font-size:12px;font-weight:700;">🚫 Blackout</button>
                 <button onclick="lightingControlPageInstance.allOff()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
@@ -269,6 +270,7 @@ class LightingControlPage {
             </div>
             <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
               <span style="font-size:9px;">${dot}</span>
+              <button onclick="event.stopPropagation();lightingControlPageInstance.cloneDevice(${device.id})" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:2px;" title="Dupliquer">📋</button>
               <button onclick="event.stopPropagation();lightingControlPageInstance.deleteDevice(${device.id})" style="background:none;border:none;cursor:pointer;font-size:12px;color:${t.textMuted};padding:2px;" title="Supprimer">🗑</button>
             </div>
           </div>
@@ -358,6 +360,129 @@ class LightingControlPage {
     }
     const color = action.color || '#FFFFFF';
     return `<div style="width:16px;height:16px;border-radius:50%;background:${this._escapeHtml(color)};border:2px solid #ddd;flex-shrink:0;"></div>`;
+  }
+
+  // ==================== DEVICE GROUPS PANEL ====================
+
+  async showGroupsPanel() {
+    const t = this._t();
+    let groups = {};
+    try {
+      const res = await this.apiClient.send('lighting_group_list');
+      groups = res.groups || {};
+    } catch (e) { /* ignore */ }
+
+    const groupNames = Object.keys(groups);
+    const groupsHTML = groupNames.length === 0
+      ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:12px;">Aucun groupe créé</p>`
+      : groupNames.map(name => {
+          const ids = groups[name];
+          const deviceNames = ids.map(id => {
+            const d = this.devices.find(dev => dev.id === id);
+            return d ? this._escapeHtml(d.name) : `#${id}`;
+          }).join(', ');
+          return `
+            <div style="padding:8px 10px;border:1px solid ${t.border};border-radius:8px;margin-bottom:6px;background:${t.cardBg};">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(name)}</span>
+                <div style="display:flex;gap:4px;">
+                  <input type="color" id="lgColor_${this._escapeHtml(name)}" value="#FF0000" style="width:28px;height:22px;border:1px solid ${t.inputBorder};border-radius:4px;cursor:pointer;">
+                  <button onclick="lightingControlPageInstance._setGroupColor('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #10b981;border-radius:4px;background:none;color:#10b981;cursor:pointer;font-size:11px;">Set</button>
+                  <button onclick="lightingControlPageInstance._groupOff('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #f59e0b;border-radius:4px;background:none;color:#f59e0b;cursor:pointer;font-size:11px;">Off</button>
+                  <button onclick="lightingControlPageInstance._deleteGroup('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #ef4444;border-radius:4px;background:none;color:#ef4444;cursor:pointer;font-size:11px;">🗑</button>
+                </div>
+              </div>
+              <div style="font-size:11px;color:${t.textMuted};">${deviceNames}</div>
+            </div>`;
+        }).join('');
+
+    const deviceCheckboxes = this.devices.map(d =>
+      `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;">
+        <input type="checkbox" class="lgDeviceCb" value="${d.id}">
+        <span style="font-size:12px;color:${t.text};">${this._escapeHtml(d.name)}</span>
+      </label>`
+    ).join('');
+
+    const formHTML = `
+      <div id="lightingGroupsPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
+        <div style="background:${t.bg};border-radius:12px;padding:20px;width:460px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 12px;font-size:16px;color:${t.text};">🔗 Groupes de dispositifs</h3>
+          ${groupsHTML}
+
+          <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
+          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">Créer un groupe</div>
+
+          <div style="margin-bottom:8px;">
+            <input id="lgFormName" type="text" placeholder="Nom du groupe" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+          </div>
+          <div style="margin-bottom:8px;max-height:120px;overflow-y:auto;padding:4px;border:1px solid ${t.borderLight};border-radius:8px;">
+            ${deviceCheckboxes || '<span style="font-size:12px;color:' + t.textMuted + ';">Aucun dispositif</span>'}
+          </div>
+          <button onclick="lightingControlPageInstance._createGroup()" style="width:100%;padding:8px;border:none;border-radius:8px;background:#eab308;color:white;cursor:pointer;font-weight:600;font-size:13px;margin-bottom:12px;">Créer le groupe</button>
+
+          <div style="text-align:right;">
+            <button onclick="document.getElementById('lightingGroupsPanel').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Fermer</button>
+          </div>
+        </div>
+      </div>`;
+
+    const existing = document.getElementById('lightingGroupsPanel');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.innerHTML = formHTML;
+    document.body.appendChild(div.firstElementChild);
+  }
+
+  async _createGroup() {
+    const name = document.getElementById('lgFormName')?.value.trim();
+    if (!name) return alert('Nom requis');
+    const checkboxes = document.querySelectorAll('#lightingGroupsPanel .lgDeviceCb:checked');
+    const deviceIds = [...checkboxes].map(cb => parseInt(cb.value));
+    if (deviceIds.length === 0) return alert('Sélectionnez au moins un dispositif');
+
+    try {
+      await this.apiClient.send('lighting_group_create', { name, device_ids: deviceIds });
+      this.showGroupsPanel();
+    } catch (error) { alert('Erreur: ' + error.message); }
+  }
+
+  async _deleteGroup(name) {
+    if (!confirm(`Supprimer le groupe "${name}" ?`)) return;
+    try {
+      await this.apiClient.send('lighting_group_delete', { name });
+      this.showGroupsPanel();
+    } catch (error) { alert('Erreur: ' + error.message); }
+  }
+
+  async _setGroupColor(name) {
+    const color = document.getElementById(`lgColor_${name}`)?.value || '#FF0000';
+    try {
+      await this.apiClient.send('lighting_group_color', { name, color, brightness: 255 });
+    } catch (error) { alert('Erreur: ' + error.message); }
+  }
+
+  async _groupOff(name) {
+    try {
+      await this.apiClient.send('lighting_group_off', { name });
+    } catch (error) { alert('Erreur: ' + error.message); }
+  }
+
+  // ==================== DEVICE CLONE ====================
+
+  async cloneDevice(deviceId) {
+    const device = this.devices.find(d => d.id === deviceId);
+    if (!device) return;
+
+    try {
+      await this.apiClient.send('lighting_device_add', {
+        name: device.name + ' (copie)',
+        type: device.type,
+        led_count: device.led_count,
+        connection_config: device.connection_config,
+        enabled: false // Start disabled to avoid conflicts
+      });
+      await this.loadData();
+    } catch (error) { alert('Erreur: ' + error.message); }
   }
 
   // ==================== LIVE EFFECTS PANEL ====================
