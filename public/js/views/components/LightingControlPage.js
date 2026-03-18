@@ -412,9 +412,11 @@ class LightingControlPage {
     } catch (e) { /* ignore */ }
 
     const groupNames = Object.keys(groups);
+    // Store for safe access from onclick handlers
+    this._groupNames = groupNames;
     const groupsHTML = groupNames.length === 0
       ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:12px;">Aucun groupe créé</p>`
-      : groupNames.map(name => {
+      : groupNames.map((name, idx) => {
           const ids = groups[name];
           const deviceNames = ids.map(id => {
             const d = this.devices.find(dev => dev.id === id);
@@ -425,10 +427,10 @@ class LightingControlPage {
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
                 <span style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(name)}</span>
                 <div style="display:flex;gap:4px;">
-                  <input type="color" id="lgColor_${this._escapeHtml(name)}" value="#FF0000" style="width:28px;height:22px;border:1px solid ${t.inputBorder};border-radius:4px;cursor:pointer;">
-                  <button onclick="lightingControlPageInstance._setGroupColor('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #10b981;border-radius:4px;background:none;color:#10b981;cursor:pointer;font-size:11px;">Set</button>
-                  <button onclick="lightingControlPageInstance._groupOff('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #f59e0b;border-radius:4px;background:none;color:#f59e0b;cursor:pointer;font-size:11px;">Off</button>
-                  <button onclick="lightingControlPageInstance._deleteGroup('${this._escapeHtml(name)}')" style="padding:2px 8px;border:1px solid #ef4444;border-radius:4px;background:none;color:#ef4444;cursor:pointer;font-size:11px;">🗑</button>
+                  <input type="color" class="lg-color-input" data-group-idx="${idx}" value="#FF0000" style="width:28px;height:22px;border:1px solid ${t.inputBorder};border-radius:4px;cursor:pointer;">
+                  <button onclick="lightingControlPageInstance._setGroupColorByIdx(${idx})" style="padding:2px 8px;border:1px solid #10b981;border-radius:4px;background:none;color:#10b981;cursor:pointer;font-size:11px;">Set</button>
+                  <button onclick="lightingControlPageInstance._groupOffByIdx(${idx})" style="padding:2px 8px;border:1px solid #f59e0b;border-radius:4px;background:none;color:#f59e0b;cursor:pointer;font-size:11px;">Off</button>
+                  <button onclick="lightingControlPageInstance._deleteGroupByIdx(${idx})" style="padding:2px 8px;border:1px solid #ef4444;border-radius:4px;background:none;color:#ef4444;cursor:pointer;font-size:11px;">🗑</button>
                 </div>
               </div>
               <div style="font-size:11px;color:${t.textMuted};">${deviceNames}</div>
@@ -485,7 +487,9 @@ class LightingControlPage {
     } catch (error) { alert('Erreur: ' + error.message); }
   }
 
-  async _deleteGroup(name) {
+  async _deleteGroupByIdx(idx) {
+    const name = this._groupNames?.[idx];
+    if (!name) return;
     if (!confirm(`Supprimer le groupe "${name}" ?`)) return;
     try {
       await this.apiClient.send('lighting_group_delete', { name });
@@ -493,14 +497,19 @@ class LightingControlPage {
     } catch (error) { alert('Erreur: ' + error.message); }
   }
 
-  async _setGroupColor(name) {
-    const color = document.getElementById(`lgColor_${name}`)?.value || '#FF0000';
+  async _setGroupColorByIdx(idx) {
+    const name = this._groupNames?.[idx];
+    if (!name) return;
+    const colorInput = document.querySelector(`.lg-color-input[data-group-idx="${idx}"]`);
+    const color = colorInput?.value || '#FF0000';
     try {
       await this.apiClient.send('lighting_group_color', { name, color, brightness: 255 });
     } catch (error) { alert('Erreur: ' + error.message); }
   }
 
-  async _groupOff(name) {
+  async _groupOffByIdx(idx) {
+    const name = this._groupNames?.[idx];
+    if (!name) return;
     try {
       await this.apiClient.send('lighting_group_off', { name });
     } catch (error) { alert('Erreur: ' + error.message); }
@@ -538,13 +547,15 @@ class LightingControlPage {
         return;
       }
 
-      results.innerHTML = res.discovered.map(d => `
+      // Store discovered devices for safe access by index
+      this._discoveredDevices = res.discovered;
+      results.innerHTML = res.discovered.map((d, idx) => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid ${t.border};border-radius:8px;margin-bottom:6px;background:${t.cardBg};text-align:left;">
           <div>
             <div style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(d.name)}</div>
-            <div style="font-size:11px;color:${t.textMuted};">${d.type.toUpperCase()} · ${this._escapeHtml(d.host)} · ${d.led_count || '?'} LEDs</div>
+            <div style="font-size:11px;color:${t.textMuted};">${this._escapeHtml(d.type).toUpperCase()} · ${this._escapeHtml(d.host)} · ${d.led_count || '?'} LEDs</div>
           </div>
-          <button onclick="lightingControlPageInstance._addScannedDevice(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="padding:4px 10px;border:1px solid #10b981;border-radius:6px;background:none;color:#10b981;cursor:pointer;font-size:11px;">+ Ajouter</button>
+          <button onclick="lightingControlPageInstance._addScannedDevice(lightingControlPageInstance._discoveredDevices[${idx}])" style="padding:4px 10px;border:1px solid #10b981;border-radius:6px;background:none;color:#10b981;cursor:pointer;font-size:11px;">+ Ajouter</button>
         </div>
       `).join('');
     } catch (error) {
@@ -1950,6 +1961,8 @@ class LightingControlPage {
   // ==================== QUICK COLOR PRESETS ====================
 
   _renderQuickColors(targetInputId) {
+    // Sanitize the ID to only allow alphanumeric + underscore
+    const safeId = targetInputId.replace(/[^a-zA-Z0-9_]/g, '');
     const colors = [
       { hex: '#FF0000', name: 'Rouge' },
       { hex: '#FF4500', name: 'Orange' },
@@ -1967,13 +1980,14 @@ class LightingControlPage {
       { hex: '#E0E8FF', name: 'Froid' }
     ];
     return colors.map(c =>
-      `<button type="button" onclick="document.getElementById('${targetInputId}').value='${c.hex}';document.getElementById('${targetInputId}').dispatchEvent(new Event('input'));" style="width:22px;height:22px;border-radius:50%;border:2px solid #ddd;background:${c.hex};cursor:pointer;padding:0;" title="${c.name}"></button>`
+      `<button type="button" onclick="document.getElementById('${safeId}').value='${c.hex}';document.getElementById('${safeId}').dispatchEvent(new Event('input'));" style="width:22px;height:22px;border-radius:50%;border:2px solid #ddd;background:${c.hex};cursor:pointer;padding:0;" title="${c.name}"></button>`
     ).join('');
   }
 
   // ==================== COLOR WHEEL ====================
 
   showColorWheel(targetInputId) {
+    const safeTargetId = targetInputId.replace(/[^a-zA-Z0-9_]/g, '');
     const t = this._t();
     const existing = document.getElementById('lightingColorWheel');
     if (existing) existing.remove();
@@ -2048,7 +2062,7 @@ class LightingControlPage {
     canvas.addEventListener('touchmove', (e) => { e.preventDefault(); pickColor(e.touches[0]); });
 
     document.getElementById('colorWheelApply').addEventListener('click', () => {
-      const target = document.getElementById(targetInputId);
+      const target = document.getElementById(safeTargetId);
       if (target) {
         target.value = selectedColor;
         target.dispatchEvent(new Event('input'));

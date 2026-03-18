@@ -14,7 +14,7 @@ function lightingDeviceList(app) {
   };
 }
 
-function lightingDeviceAdd(app, data) {
+async function lightingDeviceAdd(app, data) {
   if (!data.name) throw new Error('name is required');
 
   const id = app.database.insertLightingDevice({
@@ -26,22 +26,22 @@ function lightingDeviceAdd(app, data) {
   });
 
   // Reload drivers
-  app.lightingManager?.reloadDevices();
+  await app.lightingManager?.reloadDevices();
 
   return { success: true, id };
 }
 
-function lightingDeviceUpdate(app, data) {
+async function lightingDeviceUpdate(app, data) {
   if (!data.id) throw new Error('id is required');
   app.database.updateLightingDevice(data.id, data);
-  app.lightingManager?.reloadDevices();
+  await app.lightingManager?.reloadDevices();
   return { success: true };
 }
 
-function lightingDeviceDelete(app, data) {
+async function lightingDeviceDelete(app, data) {
   if (!data.id) throw new Error('id is required');
   app.database.deleteLightingDevice(data.id);
-  app.lightingManager?.disconnectDevice(data.id);
+  await app.lightingManager?.disconnectDevice(data.id);
   app.lightingManager?.reloadRules();
   return { success: true };
 }
@@ -136,6 +136,11 @@ function lightingPresetLoad(app, data) {
   const presets = app.database.getLightingPresets();
   const preset = presets.find(p => p.id === data.id);
   if (!preset) throw new Error(`Preset ${data.id} not found`);
+
+  // Guard: only load if rules_snapshot is an array of rules (not a scene object)
+  if (!Array.isArray(preset.rules_snapshot)) {
+    throw new Error('This preset is a scene snapshot, not a rules preset. Use scene_apply instead.');
+  }
 
   // Delete existing rules and recreate from snapshot
   const existingRules = app.database.getAllLightingRules();
@@ -433,11 +438,16 @@ function lightingSceneApply(app, data) {
   }
 
   // Restart effects
-  if (scene.effects) {
+  if (scene.effects && Array.isArray(scene.effects)) {
     for (const effect of scene.effects) {
-      const driver = app.lightingManager.drivers.get(parseInt(effect.key.split('device_')[1]));
+      if (!effect.key || !effect.effectType) continue;
+      const deviceIdStr = effect.key.split('device_')[1];
+      if (!deviceIdStr) continue;
+      const deviceId = parseInt(deviceIdStr);
+      if (isNaN(deviceId)) continue;
+      const driver = app.lightingManager.drivers.get(deviceId);
       if (driver && driver.isConnected()) {
-        app.lightingManager.effectsEngine.startEffect(effect.key, effect.effectType, driver, effect.config);
+        app.lightingManager.effectsEngine.startEffect(effect.key, effect.effectType, driver, effect.config || {});
       }
     }
   }
@@ -461,16 +471,16 @@ function lightingMidiLearnStart(app, data) {
       clearTimeout(timeout);
       app.eventBus.removeListener('midi_message', handler);
 
-      const data = event.data || event;
+      const midiData = event.data || event;
       resolve({
         success: true,
         learned: {
-          type: event.type || data.type,
-          channel: data.channel,
-          note: data.note,
-          velocity: data.velocity,
-          controller: data.controller,
-          value: data.value
+          type: event.type || midiData.type,
+          channel: midiData.channel,
+          note: midiData.note,
+          velocity: midiData.velocity,
+          controller: midiData.controller,
+          value: midiData.value
         }
       });
     };
