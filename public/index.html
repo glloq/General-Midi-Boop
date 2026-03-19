@@ -4459,6 +4459,13 @@
                     initKeyboardShortcuts(); // Initialiser les raccourcis clavier
                     initBatchActions(); // Initialiser les actions par lots
                     initAdvancedFilters(); // Initialiser les filtres avancés
+
+                    // Sync localStorage routing data to DB (for routing status filter)
+                    if (Object.keys(fileRoutingConfig).length > 0) {
+                        api.sendCommand('file_routing_bulk_sync', { routings: fileRoutingConfig })
+                            .then(r => console.log(`[Routing] Bulk sync: ${r.synced} channels, ${r.files} files`))
+                            .catch(e => console.warn('[Routing] Bulk sync failed:', e.message));
+                    }
                 });
 
                 api.on('disconnected', () => {
@@ -6786,6 +6793,16 @@
             }
 
             saveRoutingConfig();
+
+            // Sync routing to database (for server-side filters)
+            try {
+                await api.sendCommand('file_routing_sync', {
+                    fileId: fileId,
+                    channels: hasRouting ? routing : {}
+                });
+            } catch (syncError) {
+                console.warn('[Routing] DB sync failed:', syncError.message);
+            }
 
             log(`✓ Routage configuré pour ${Object.keys(routing).length} canaux`, 'info');
 
