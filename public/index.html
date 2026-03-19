@@ -2234,6 +2234,107 @@
             color: #b0b0b0;
         }
 
+        /* Upload drop zone */
+        .upload-drop-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: #f9fafb;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .upload-drop-zone:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-drop-zone.drag-over {
+            border-color: #667eea;
+            background: #e0e7ff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .upload-drop-zone-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .upload-drop-zone-icon {
+            font-size: 28px;
+            line-height: 1;
+        }
+
+        .upload-drop-zone-text {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .upload-drop-zone-text strong {
+            color: #667eea;
+            cursor: pointer;
+        }
+
+        .upload-drop-zone-text strong:hover {
+            text-decoration: underline;
+        }
+
+        .upload-drop-zone-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        body.theme-dark .upload-drop-zone {
+            background: #2a2a2a;
+            border-color: #555;
+        }
+
+        body.theme-dark .upload-drop-zone:hover {
+            border-color: #667eea;
+            background: #2d2d3d;
+        }
+
+        body.theme-dark .upload-drop-zone.drag-over {
+            border-color: #667eea;
+            background: #333355;
+        }
+
+        body.theme-dark .upload-drop-zone-text {
+            color: #b0b0b0;
+        }
+
+        body.theme-dark .upload-drop-zone-hint {
+            color: #888;
+        }
+
+        /* Header actions row */
+        .midi-files-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .midi-files-header h2 {
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .midi-files-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
         /* ========== CALIBRATION MODAL ========== */
         .calibration-modal-overlay {
             display: none;
@@ -3044,18 +3145,30 @@
             <div class="main-grid">
                 <!-- Fichiers MIDI -->
                 <section class="card" aria-labelledby="midiFilesHeading">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                        <h2 id="midiFilesHeading" style="margin: 0;">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
-                        <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
+                    <div class="midi-files-header">
+                        <h2 id="midiFilesHeading">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
+                        <div class="midi-files-header-actions">
+                            <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
+                            <button class="btn btn-secondary" id="browseBtn" onclick="document.getElementById('fileInput').click()">
+                                📂&nbsp;&nbsp;<span data-i18n="ui.browse">Parcourir</span>
+                            </button>
+                            <button class="btn" id="uploadBtn">📤&nbsp;&nbsp;<span data-i18n="ui.upload">Envoyer</span></button>
+                            <button class="btn btn-secondary" id="createFolderBtn">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
+                        </div>
                     </div>
 
-                    <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
-                    <div class="file-input-wrapper">
-                        <button class="btn btn-secondary" id="browseBtn" onclick="document.getElementById('fileInput').click()">
-                            📂&nbsp;&nbsp;<span data-i18n="ui.browse">Parcourir</span>
-                        </button>
-                        <span class="file-input-label" id="fileInputLabel" data-i18n="ui.noFileSelectedShort">Aucun fichier sélectionné</span>
-                        <button class="btn" id="uploadBtn" style="margin-left: auto;">📤&nbsp;&nbsp;<span data-i18n="ui.upload">Envoyer</span></button>
+                    <!-- Zone de drag & drop pour upload -->
+                    <div class="upload-drop-zone" id="uploadDropZone">
+                        <div class="upload-drop-zone-content">
+                            <span class="upload-drop-zone-icon">📥</span>
+                            <div>
+                                <div class="upload-drop-zone-text">
+                                    <span data-i18n="ui.dropFilesHere">Glissez-déposez vos fichiers MIDI ici ou</span>
+                                    <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour parcourir</strong>
+                                </div>
+                                <div class="upload-drop-zone-hint" id="fileInputLabel" data-i18n="ui.dropZoneHint">Formats acceptés : .mid, .midi — Sélection multiple possible</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="drop-zone-root" id="dropZoneRoot" data-i18n="ui.dropToRoot">
@@ -7994,14 +8107,76 @@
         document.getElementById('fileInput').addEventListener('change', function() {
             const label = document.getElementById('fileInputLabel');
             if (this.files.length === 0) {
-                label.textContent = i18n.t('ui.noFileSelectedShort');
+                label.textContent = i18n.t('ui.dropZoneHint');
             } else if (this.files.length === 1) {
                 label.textContent = this.files[0].name;
             } else {
                 label.textContent = i18n.t('ui.filesSelected', { count: this.files.length });
             }
+            // Auto-upload quand des fichiers sont sélectionnés
+            if (this.files.length > 0) {
+                uploadFile();
+            }
         });
         document.getElementById('createFolderBtn').addEventListener('click', createFolder);
+
+        // Drag & drop zone pour upload de fichiers
+        const uploadDropZone = document.getElementById('uploadDropZone');
+        const dropZoneBrowseLink = document.getElementById('dropZoneBrowseLink');
+
+        dropZoneBrowseLink.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('fileInput').click();
+        });
+
+        uploadDropZone.addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+
+        uploadDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadDropZone.classList.add('drag-over');
+        });
+
+        uploadDropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadDropZone.classList.remove('drag-over');
+        });
+
+        uploadDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadDropZone.classList.remove('drag-over');
+
+            const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
+                f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')
+            );
+
+            if (droppedFiles.length === 0) {
+                log(i18n.t('ui.noMidiFilesDropped') || 'Aucun fichier MIDI détecté dans les fichiers déposés.', 'warning');
+                return;
+            }
+
+            // Injecter les fichiers dans le fileInput et lancer l'upload
+            const dataTransfer = new DataTransfer();
+            droppedFiles.forEach(f => dataTransfer.items.add(f));
+            document.getElementById('fileInput').files = dataTransfer.files;
+
+            const label = document.getElementById('fileInputLabel');
+            if (droppedFiles.length === 1) {
+                label.textContent = droppedFiles[0].name;
+            } else {
+                label.textContent = i18n.t('ui.filesSelected', { count: droppedFiles.length });
+            }
+
+            uploadFile();
+        });
+
+        // Empêcher le drop sur toute la page de naviguer
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
         initFolderModal(); // Initialiser le modal de création de dossier
         initRenameModal(); // Initialiser le modal de renommage
         initCalibrationModal(); // Initialiser le modal de calibration
