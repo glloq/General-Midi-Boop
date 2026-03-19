@@ -1003,17 +1003,23 @@
             border-left: 2px solid #e5e7eb;
         }
 
-        /* Open folder header displayed at top of file list */
-        .folder-open-header {
+        /* Open folder wrapper — visual container around folder files */
+        .folder-open-wrapper {
             grid-column: 1 / -1;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            background: rgba(254, 243, 199, 0.15);
+        }
+
+        .folder-open-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 10px 16px;
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border: 1px solid #f59e0b;
-            border-left: 4px solid #f59e0b;
-            border-radius: 8px;
+            border-bottom: 2px solid #f59e0b;
             font-weight: 700;
             font-size: 14px;
             color: #92400e;
@@ -1033,17 +1039,64 @@
             background: rgba(255, 255, 255, 0.95);
         }
 
-        .folder-open-separator {
-            grid-column: 1 / -1;
-            height: 2px;
-            background: linear-gradient(90deg, #f59e0b 0%, transparent 100%);
-            border-radius: 1px;
-            margin: 4px 0;
+        .folder-open-files {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .folder-open-files > .file-item {
+            margin-bottom: 0;
+        }
+
+        /* Blocks mode: folder files use same grid */
+        @media (min-width: 1200px) {
+            .folder-open-files {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px 12px;
+            }
+        }
+
+        @media (min-width: 1800px) {
+            .folder-open-files {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px 14px;
+            }
+        }
+
+        @media (min-width: 2400px) {
+            .folder-open-files {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px 16px;
+            }
+        }
+
+        /* Grid mode: folder files as grid cards */
+        .view-grid .folder-open-files {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            padding: 12px;
+        }
+
+        /* Compact mode: folder files as list */
+        .view-compact .folder-open-files {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 4px 8px;
+        }
+
+        body.theme-dark .folder-open-wrapper {
+            border-color: #d97706;
+            background: rgba(120, 53, 15, 0.12);
         }
 
         body.theme-dark .folder-open-header {
             background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
-            border-color: #d97706;
+            border-bottom-color: #d97706;
             color: #fde68a;
         }
 
@@ -1051,10 +1104,6 @@
             background: rgba(0, 0, 0, 0.2);
             border-color: rgba(251, 191, 36, 0.3);
             color: #fde68a;
-        }
-
-        body.theme-dark .folder-open-separator {
-            background: linear-gradient(90deg, #d97706 0%, transparent 100%);
         }
 
         .btn-group {
@@ -5377,10 +5426,13 @@
                     }
                 }
 
-                // Si un dossier est ouvert, afficher son contenu en haut
+                // Si un dossier est ouvert, afficher son contenu en haut dans un conteneur visuel
                 if (openFolderPath) {
-                    // Header du dossier ouvert (pleine largeur)
-                    const headerDiv = document.createElement('li');
+                    const wrapper = document.createElement('li');
+                    wrapper.className = 'folder-open-wrapper';
+
+                    // Header du dossier
+                    const headerDiv = document.createElement('div');
                     headerDiv.className = 'folder-open-header';
 
                     const headerLabel = document.createElement('span');
@@ -5397,21 +5449,22 @@
 
                     headerDiv.appendChild(headerLabel);
                     headerDiv.appendChild(closeBtn);
-                    fileList.appendChild(headerDiv);
+                    wrapper.appendChild(headerDiv);
 
-                    // Fichiers du dossier (dans le flux normal de la grille)
+                    // Conteneur des fichiers du dossier (utilise le même mode d'affichage)
+                    const filesContainer = document.createElement('div');
+                    filesContainer.className = 'folder-open-files';
+
                     const folderFileIds = folderStructure[openFolderPath].files || [];
                     folderFileIds.forEach(fileId => {
                         const file = files.find(f => String(f.id) === String(fileId));
                         if (file) {
-                            fileList.appendChild(createFileElement(file));
+                            filesContainer.appendChild(createFileElement(file));
                         }
                     });
 
-                    // Séparateur
-                    const separator = document.createElement('li');
-                    separator.className = 'folder-open-separator';
-                    fileList.appendChild(separator);
+                    wrapper.appendChild(filesContainer);
+                    fileList.appendChild(wrapper);
                 }
 
                 // Afficher les éléments
