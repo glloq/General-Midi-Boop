@@ -997,6 +997,15 @@
             background: #fde68a;
         }
 
+        .folder-title {
+            font-weight: 600;
+        }
+
+        .folder-meta {
+            margin-left: 8px;
+            font-size: 0.85em;
+        }
+
         .folder-children {
             margin-left: 20px;
             padding-left: 12px;
@@ -1842,30 +1851,32 @@
         }
 
         .file-list.view-grid .folder-item .file-name {
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0;
             margin-bottom: 8px;
         }
 
-        .file-list.view-grid .folder-item .file-name > span:first-child {
-            font-size: 13px;
-            font-weight: 600;
+        .file-list.view-grid .folder-item .folder-title {
+            font-size: 18px;
+            font-weight: 700;
             color: #92400e;
             word-break: break-word;
             white-space: normal;
             line-height: 1.3;
+            margin-bottom: 6px;
         }
 
-        .file-list.view-grid .folder-item .file-metadata {
+        .file-list.view-grid .folder-item .folder-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            font-size: 10px;
+            gap: 8px;
+            font-size: 11px;
             color: #b45309;
             font-weight: 500;
             padding-top: 6px;
             border-top: 1px solid rgba(245, 158, 11, 0.2);
+            margin-left: 0;
         }
 
         .file-list.view-grid .folder-item .file-actions {
@@ -1930,11 +1941,11 @@
             background: #3a2e1a;
         }
 
-        body.theme-dark .file-list.view-grid .folder-item .file-name > span:first-child {
+        body.theme-dark .file-list.view-grid .folder-item .folder-title {
             color: #fde68a;
         }
 
-        body.theme-dark .file-list.view-grid .folder-item .file-metadata {
+        body.theme-dark .file-list.view-grid .folder-item .folder-meta {
             color: #fcd34d;
             border-top-color: rgba(251, 191, 36, 0.15);
         }
@@ -6020,15 +6031,22 @@
                 }
             });
 
-            const folderNameSpan = document.createElement('span');
+            const folderNameSpan = document.createElement('div');
             folderNameSpan.className = 'file-name';
-            folderNameSpan.innerHTML = `
-                <span>📁 ${folderPath}</span>
-                <span class="file-metadata" style="margin-left: 8px; font-size: 0.85em;">
-                    <span title="Nombre de fichiers">📄 ${folderFiles.length}</span>
-                    ${totalSize > 0 ? `<span title="Taille totale">💾 ${formatFileSize(totalSize)}</span>` : ''}
-                </span>
+
+            const folderTitle = document.createElement('span');
+            folderTitle.className = 'folder-title';
+            folderTitle.textContent = `📁 ${folderPath}`;
+
+            const folderMeta = document.createElement('span');
+            folderMeta.className = 'file-metadata folder-meta';
+            folderMeta.innerHTML = `
+                <span title="Nombre de fichiers">📄 ${folderFiles.length}</span>
+                ${totalSize > 0 ? `<span title="Taille totale">💾 ${formatFileSize(totalSize)}</span>` : ''}
             `;
+
+            folderNameSpan.appendChild(folderTitle);
+            folderNameSpan.appendChild(folderMeta);
 
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'file-actions';
