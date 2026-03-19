@@ -8916,46 +8916,60 @@
         // Update filter badges display
         function updateFilterBadges() {
             const badgesContainer = document.getElementById('activeFiltersBadges');
-            const activeFilters = filterManager.getActiveFilters();
+            if (!filterManager) {
+                badgesContainer.style.display = 'none';
+                return;
+            }
 
+            const activeFilters = filterManager.getActiveFilters();
             badgesContainer.innerHTML = '';
 
-            activeFilters.forEach(filter => {
-                // Skip range filters that only have one side set
-                if ((filter.key === 'durationMin' || filter.key === 'durationMax') &&
-                    filterManager.getFilter('durationMin') === null &&
-                    filterManager.getFilter('durationMax') === null) {
-                    return;
-                }
-                if ((filter.key === 'tempoMin' || filter.key === 'tempoMax') &&
-                    filterManager.getFilter('tempoMin') === null &&
-                    filterManager.getFilter('tempoMax') === null) {
-                    return;
-                }
-                if ((filter.key === 'tracksMin' || filter.key === 'tracksMax') &&
-                    filterManager.getFilter('tracksMin') === null &&
-                    filterManager.getFilter('tracksMax') === null) {
-                    return;
-                }
+            // Skip keys that are sub-parts of compound filters or mode selectors
+            const skipKeys = new Set([
+                'instrumentMode', 'playableMode', 'validatedThreshold', 'gmMode',
+                'includeSubfolders'
+            ]);
 
-                // Don't create duplicate badges for range filters and mode selectors
-                if (filter.key.endsWith('Max') || filter.key.endsWith('Before') || filter.key === 'instrumentMode' || filter.key === 'playableMode' || filter.key === 'validatedThreshold' || filter.key === 'gmMode') {
-                    return;
-                }
+            let badgeCount = 0;
+
+            activeFilters.forEach(filter => {
+                if (skipKeys.has(filter.key)) return;
+
+                // Don't create duplicate badges for range filters (only show the Min key)
+                if (filter.key.endsWith('Max') || filter.key.endsWith('Before')) return;
+
+                // Skip range filters where both sides are null
+                if ((filter.key === 'durationMin') &&
+                    filterManager.getFilter('durationMin') === null &&
+                    filterManager.getFilter('durationMax') === null) return;
+                if ((filter.key === 'tempoMin') &&
+                    filterManager.getFilter('tempoMin') === null &&
+                    filterManager.getFilter('tempoMax') === null) return;
+                if ((filter.key === 'tracksMin') &&
+                    filterManager.getFilter('tracksMin') === null &&
+                    filterManager.getFilter('tracksMax') === null) return;
+                if ((filter.key === 'channelCountMin') &&
+                    filterManager.getFilter('channelCountMin') === null &&
+                    filterManager.getFilter('channelCountMax') === null) return;
 
                 const badge = document.createElement('div');
                 badge.className = 'filter-badge';
                 badge.innerHTML = `
                     <span>${filter.label}</span>
-                    <span class="remove-badge">×</span>
+                    <span class="remove-badge" title="Supprimer ce filtre">×</span>
                 `;
 
-                badge.addEventListener('click', () => {
+                badge.querySelector('.remove-badge').addEventListener('click', (e) => {
+                    e.stopPropagation();
                     removeFilter(filter.key);
                 });
 
                 badgesContainer.appendChild(badge);
+                badgeCount++;
             });
+
+            // Hide container when no badges
+            badgesContainer.style.display = badgeCount > 0 ? '' : 'none';
         }
 
         // Remove a specific filter
@@ -9046,15 +9060,8 @@
                 fileList.innerHTML = '';
                 fileList.appendChild(loadingMsg);
 
-                // Debug: log filter state
-                const activeFilters = filterManager.getActiveFilters();
-                console.log('[Filters] Applying filters:', JSON.stringify(filterManager.getFilters()));
-                console.log('[Filters] Active filters:', activeFilters.map(f => f.key + '=' + JSON.stringify(f.value)));
-
                 // Always use server-side filtering (searches all folders correctly)
                 const filteredFiles = await filterManager.applyFilters(null);
-
-                console.log('[Filters] Server returned', filteredFiles.length, 'files');
 
                 // Refresh display with filtered files
                 await displayFilteredFiles(filteredFiles);

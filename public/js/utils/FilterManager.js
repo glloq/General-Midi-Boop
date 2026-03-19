@@ -191,8 +191,10 @@ class FilterManager {
       const value = this.filters[key];
       const defaultVal = defaults[key];
 
-      if (Array.isArray(value) && value.length > 0) {
-        active.push({ key, value, label: this.getFilterLabel(key, value) });
+      if (Array.isArray(value)) {
+        if (value.length > 0) {
+          active.push({ key, value, label: this.getFilterLabel(key, value) });
+        }
       } else if (value !== defaultVal && value !== null && value !== '') {
         active.push({ key, value, label: this.getFilterLabel(key, value) });
       }
