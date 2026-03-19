@@ -5024,6 +5024,7 @@
             metadataDiv.innerHTML = `
                 <span title="Durée">⏱ ${metadata.durationFormatted}</span>
                 <span title="Taille du fichier">💾 ${metadata.sizeFormatted}</span>
+                <span title="Nombre de pistes">${metadata.tracks || 0} ${(metadata.tracks || 0) > 1 ? i18n.t('ui.tracks', 'pistes') : i18n.t('ui.track', 'piste')}</span>
                 <span title="Canaux MIDI">🎹 ${metadata.channelCount} ${metadata.channelCount > 1 ? 'canaux' : 'canal'}</span>
                 <span title="Tempo">♩ ${metadata.tempo} BPM</span>
             `;
