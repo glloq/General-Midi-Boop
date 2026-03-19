@@ -269,7 +269,6 @@ class MidiDatabase {
       const joins = [];
       const wheres = [];
       const params = [];
-      let useCTE = false;
 
       // JOIN with routings if needed (only for legacy hasRouting/minCompatibilityScore, not routingStatus which uses CTE)
       let hasMirJoin = false;
@@ -439,32 +438,38 @@ class MidiDatabase {
       }
 
       // Routing status filter (detailed: unrouted, partial, full, validated, playable)
+      // Uses inline subqueries instead of CTE for maximum compatibility
       if (filters.routingStatus) {
         const validStatuses = ['unrouted', 'partial', 'full', 'validated', 'playable'];
         if (!validStatuses.includes(filters.routingStatus)) {
           throw new Error(`Invalid routingStatus: ${filters.routingStatus}. Must be one of: ${validStatuses.join(', ')}`);
         }
-        useCTE = true;
-        joins.push('INNER JOIN routing_stats rs ON mf.id = rs.file_id');
+
+        // Subquery for counting enabled routings for this file
+        const routedCountSql = '(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
+        // Subquery for min compatibility score
+        const minScoreSql = '(SELECT MIN(compatibility_score) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
+        // Effective channel count: use channel_count if set, else tracks count, else 1
+        const channelCountSql = 'COALESCE(NULLIF(mf.channel_count, 0), mf.tracks, 1)';
 
         switch (filters.routingStatus) {
           case 'unrouted':
-            wheres.push('rs.routed_count = 0');
+            wheres.push(`${routedCountSql} = 0`);
             break;
           case 'partial':
-            wheres.push('rs.routed_count > 0 AND rs.routed_count < rs.channel_count');
+            wheres.push(`${routedCountSql} > 0 AND ${routedCountSql} < ${channelCountSql}`);
             break;
           case 'full':
-            wheres.push('rs.routed_count >= rs.channel_count AND rs.channel_count > 0');
+            wheres.push(`${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0`);
             break;
           case 'validated': {
             const threshold = filters.validatedThreshold || 70;
-            wheres.push('rs.routed_count >= rs.channel_count AND rs.channel_count > 0 AND rs.min_score >= ?');
+            wheres.push(`${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} >= ?`);
             params.push(threshold);
             break;
           }
           case 'playable':
-            wheres.push('rs.routed_count >= rs.channel_count AND rs.channel_count > 0 AND rs.min_score = 100');
+            wheres.push(`${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} = 100`);
             break;
         }
       }
@@ -503,21 +508,6 @@ class MidiDatabase {
         } else if (filters.hasRouting === false) {
           wheres.push('mir.id IS NULL');
         }
-      }
-
-      // Prepend CTE if routing status filter is active
-      if (useCTE) {
-        query = `WITH routing_stats AS (
-          SELECT
-            mf2.id AS file_id,
-            COALESCE(NULLIF(mf2.channel_count, 0), mf2.tracks, 1) AS channel_count,
-            COUNT(mir2.id) AS routed_count,
-            MIN(mir2.compatibility_score) AS min_score
-          FROM midi_files mf2
-          LEFT JOIN midi_instrument_routings mir2
-            ON mf2.id = mir2.midi_file_id AND mir2.enabled = 1
-          GROUP BY mf2.id
-        ) ` + query;
       }
 
       // Assemble query
