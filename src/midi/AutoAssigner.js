@@ -34,11 +34,19 @@ class AutoAssigner {
    * @returns {Promise<AssignmentSuggestions>}
    */
   async generateSuggestions(midiData, options = {}) {
-    const { topN = 5, minScore = 30 } = options;
+    const { topN = 5, minScore = 30, excludeVirtual = false } = options;
 
     try {
       // 1. Récupérer tous les instruments disponibles avec leurs capabilities
-      const availableInstruments = await this.instrumentDatabase.getInstrumentsWithCapabilities();
+      let availableInstruments = await this.instrumentDatabase.getInstrumentsWithCapabilities();
+
+      // Exclure les instruments virtuels si désactivés dans les réglages
+      if (excludeVirtual) {
+        availableInstruments = availableInstruments.filter(inst =>
+          !inst.device_id || !inst.device_id.startsWith('virtual_')
+        );
+        this.logger.info(`Auto-assign: excluded virtual instruments, ${availableInstruments.length} remaining`);
+      }
 
       if (availableInstruments.length === 0) {
         this.logger.warn('No instruments available for auto-assignment');

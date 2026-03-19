@@ -229,7 +229,8 @@ async function generateAssignmentSuggestions(app, data) {
 
   const options = {
     topN: data.topN || 5,
-    minScore: data.minScore || 30
+    minScore: data.minScore || 30,
+    excludeVirtual: data.excludeVirtual || false
   };
 
   // Get MIDI file from database
