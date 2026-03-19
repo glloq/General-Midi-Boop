@@ -2756,7 +2756,7 @@
             z-index: 10000;
             transition: transform 0.3s ease;
             transform: translateX(100%);
-            overflow: hidden;
+            overflow: visible;
         }
 
         .filters-panel.open {
@@ -2791,11 +2791,11 @@
             background: rgba(0, 123, 255, 0.3);
         }
 
-        /* Visible resize grip — positioned OUTSIDE the panel as a sibling */
+        /* Visible resize grip — inside panel but positioned outside via left:-18px */
         .filters-panel-resize-grip {
-            position: fixed;
+            position: absolute;
             top: 50%;
-            right: -18px;
+            left: -18px;
             transform: translateY(-50%);
             width: 18px;
             height: 60px;
@@ -2803,15 +2803,11 @@
             border-radius: 8px 0 0 8px;
             cursor: ew-resize;
             z-index: 10002;
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: -3px 0 8px rgba(0,0,0,0.2);
-            transition: background 0.2s, right 0.3s ease;
-        }
-
-        .filters-panel-resize-grip.visible {
-            display: flex;
+            transition: background 0.2s;
         }
 
         .filters-panel-resize-grip:hover {
@@ -3306,8 +3302,8 @@
     </main>
 
     <!-- Advanced Filters Panel -->
-    <div id="filtersPanelResizeGrip" class="filters-panel-resize-grip" title="Glisser pour redimensionner"></div>
     <div id="filtersPanel" class="filters-panel" role="dialog" aria-modal="false" aria-labelledby="filtersPanelTitle">
+        <div id="filtersPanelResizeGrip" class="filters-panel-resize-grip" title="Glisser pour redimensionner"></div>
         <div id="filtersPanelResizeHandle" class="filters-panel-resize-handle" title="Glisser pour redimensionner"></div>
         <div class="filters-panel-content">
             <div class="filters-panel-header">
@@ -8667,8 +8663,6 @@
             function closeFiltersPanel() {
                 if (filtersPanel) filtersPanel.classList.remove('open');
                 if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
-                const grip = document.getElementById('filtersPanelResizeGrip');
-                if (grip) grip.classList.remove('visible');
             }
 
             // Duration filter
@@ -9106,27 +9100,15 @@
                     const resizeGrip = document.getElementById('filtersPanelResizeGrip');
                     let isResizing = false;
 
-                    // Position the grip next to the panel's left edge
-                    function updateGripPosition() {
-                        if (!resizeGrip) return;
-                        const panelWidth = filtersPanel.offsetWidth || 400;
-                        resizeGrip.style.right = (panelWidth) + 'px';
-                    }
-
                     const openFiltersPanel = () => {
                         filtersPanel.classList.add('open');
                         if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'block';
-                        if (resizeGrip) {
-                            resizeGrip.classList.add('visible');
-                            updateGripPosition();
-                        }
                     };
 
                     const closeFiltersPanel = () => {
                         if (isResizing) return;
                         filtersPanel.classList.remove('open');
                         if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
-                        if (resizeGrip) resizeGrip.classList.remove('visible');
                     };
 
                     openFiltersBtn.addEventListener('click', openFiltersPanel);
@@ -9184,7 +9166,6 @@
                             const delta = startX - e.clientX;
                             const newWidth = Math.max(320, Math.min(window.innerWidth * 0.8, startWidth + delta));
                             filtersPanel.style.width = newWidth + 'px';
-                            updateGripPosition();
                         });
 
                         document.addEventListener('mouseup', () => {
