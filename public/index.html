@@ -9038,6 +9038,10 @@
                 log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
             } catch (error) {
                 log(`❌ Erreur application filtres: ${error.message}`, 'error');
+                const fileList = document.getElementById('fileList');
+                if (fileList) {
+                    fileList.innerHTML = `<li class="info-text">❌ Erreur: ${error.message}</li>`;
+                }
             } finally {
                 filterRefreshInProgress = false;
             }
