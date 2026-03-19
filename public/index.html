@@ -2686,16 +2686,24 @@
             top: 0;
             right: -400px;
             width: 400px;
+            min-width: 320px;
+            max-width: 80vw;
             height: 100%;
             background: white;
             box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             z-index: 10000;
             transition: right 0.3s ease;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .filters-panel.open {
             right: 0;
+        }
+
+        .filters-panel.resizing {
+            transition: none;
+            user-select: none;
         }
 
         body.theme-dark .filters-panel {
@@ -2703,17 +2711,36 @@
             box-shadow: -2px 0 10px rgba(0,0,0,0.3);
         }
 
+        /* Resize handle on the left edge */
+        .filters-panel-resize-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 10001;
+            background: transparent;
+            transition: background 0.2s;
+        }
+
+        .filters-panel-resize-handle:hover,
+        .filters-panel-resize-handle.active {
+            background: rgba(0, 123, 255, 0.3);
+        }
+
         .filters-panel-content {
             display: flex;
             flex-direction: column;
             height: 100%;
+            overflow-x: hidden;
         }
 
         .filters-panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px;
+            padding: 12px 16px;
             border-bottom: 1px solid #ddd;
         }
 
@@ -2723,19 +2750,20 @@
 
         .filters-panel-header h3 {
             margin: 0;
-            font-size: 18px;
+            font-size: 16px;
         }
 
         .filters-panel-body {
             flex: 1;
-            padding: 16px;
+            padding: 12px;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .filters-panel-footer {
             display: flex;
             gap: 8px;
-            padding: 16px;
+            padding: 10px 12px;
             border-top: 1px solid #ddd;
             background: #f9f9f9;
         }
@@ -2746,14 +2774,14 @@
         }
 
         .filter-group {
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .filter-label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             color: #333;
         }
 
@@ -2763,10 +2791,12 @@
 
         .filter-input {
             flex: 1;
-            padding: 8px;
+            min-width: 0;
+            padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 13px;
+            box-sizing: border-box;
         }
 
         body.theme-dark .filter-input {
@@ -2777,10 +2807,12 @@
 
         .filter-select {
             width: 100%;
-            padding: 8px;
+            padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 13px;
+            box-sizing: border-box;
+            max-width: 100%;
         }
 
         body.theme-dark .filter-select {
@@ -2790,17 +2822,26 @@
         }
 
         .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 4px 8px;
         }
 
         .checkbox-group label {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            gap: 4px;
+            font-size: 12px;
             cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 2px 0;
+        }
+
+        .checkbox-group label span {
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .filter-presets {
@@ -2810,12 +2851,12 @@
 
         .preset-btn {
             flex: 1;
-            padding: 6px 12px;
+            padding: 4px 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background: white;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: all 0.2s;
         }
 
@@ -3134,6 +3175,7 @@
 
     <!-- Advanced Filters Panel -->
     <div id="filtersPanel" class="filters-panel" role="dialog" aria-modal="false" aria-labelledby="filtersPanelTitle">
+        <div id="filtersPanelResizeHandle" class="filters-panel-resize-handle" title="Glisser pour redimensionner"></div>
         <div class="filters-panel-content">
             <div class="filters-panel-header">
                 <h3 id="filtersPanelTitle">🔍 <span data-i18n="filters.title">Filtres avancés</span></h3>
@@ -8685,6 +8727,45 @@
 
                     if (closeFiltersBtn) closeFiltersBtn.addEventListener('click', closeFiltersPanel);
                     if (filtersPanelOverlay) filtersPanelOverlay.addEventListener('click', closeFiltersPanel);
+
+                    // --- Resize handle logic ---
+                    const resizeHandle = document.getElementById('filtersPanelResizeHandle');
+                    if (resizeHandle) {
+                        let isResizing = false;
+                        let startX = 0;
+                        let startWidth = 0;
+
+                        resizeHandle.addEventListener('mousedown', (e) => {
+                            isResizing = true;
+                            startX = e.clientX;
+                            startWidth = filtersPanel.offsetWidth;
+                            filtersPanel.classList.add('resizing');
+                            resizeHandle.classList.add('active');
+                            e.preventDefault();
+                        });
+
+                        document.addEventListener('mousemove', (e) => {
+                            if (!isResizing) return;
+                            const delta = startX - e.clientX;
+                            const newWidth = Math.max(320, Math.min(window.innerWidth * 0.8, startWidth + delta));
+                            filtersPanel.style.width = newWidth + 'px';
+                        });
+
+                        document.addEventListener('mouseup', () => {
+                            if (!isResizing) return;
+                            isResizing = false;
+                            filtersPanel.classList.remove('resizing');
+                            resizeHandle.classList.remove('active');
+                            localStorage.setItem('filtersPanelWidth', filtersPanel.style.width);
+                        });
+
+                        // Restore saved width
+                        const savedWidth = localStorage.getItem('filtersPanelWidth');
+                        if (savedWidth) {
+                            filtersPanel.style.width = savedWidth;
+                        }
+                    }
+
                     log('✓ Filtres UI initialisés', 'info');
                 }
             }
