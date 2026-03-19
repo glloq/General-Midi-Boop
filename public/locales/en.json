@@ -378,6 +378,8 @@
     "newFolder": "New folder",
     "dropToRoot": "📂 Drop here to move to root",
     "noFiles": "No files",
+    "track": "track",
+    "tracks": "tracks",
     "midiDevices": "MIDI Devices",
     "scanUsb": "Scan USB",
     "scanBluetooth": "Scan Bluetooth",

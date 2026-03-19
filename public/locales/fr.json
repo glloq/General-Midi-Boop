@@ -378,6 +378,8 @@
     "newFolder": "Nouveau dossier",
     "dropToRoot": "📂 Déposer ici pour remettre à la racine",
     "noFiles": "Aucun fichier",
+    "track": "piste",
+    "tracks": "pistes",
     "midiDevices": "Périphériques MIDI",
     "scanUsb": "Scan USB",
     "scanBluetooth": "Scan Bluetooth",
