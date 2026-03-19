@@ -8797,8 +8797,24 @@
                 try {
                     const response = await api.sendCommand(command);
                     playableInstrumentsSelect.innerHTML = '';
-                    if (response.instruments && response.instruments.length > 0) {
-                        response.instruments.forEach(inst => {
+
+                    // Exclure les instruments virtuels si désactivés dans les réglages
+                    let virtualEnabled = false;
+                    try {
+                        const saved = localStorage.getItem('maestro_settings');
+                        if (saved) virtualEnabled = !!JSON.parse(saved).virtualInstrument;
+                    } catch (e) { /* ignore */ }
+
+                    let instruments = response.instruments || [];
+                    if (!virtualEnabled) {
+                        instruments = instruments.filter(inst => {
+                            const devId = inst.device_id || inst.id || '';
+                            return !devId.startsWith('virtual_') && inst.instrument_type !== 'virtual';
+                        });
+                    }
+
+                    if (instruments.length > 0) {
+                        instruments.forEach(inst => {
                             const option = document.createElement('option');
                             option.value = inst.id;
                             option.textContent = inst.custom_name || inst.name || `${inst.device_id} ch${inst.channel}`;
