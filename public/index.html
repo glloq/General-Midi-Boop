@@ -9029,8 +9029,15 @@
                 fileList.innerHTML = '';
                 fileList.appendChild(loadingMsg);
 
+                // Debug: log filter state
+                const activeFilters = filterManager.getActiveFilters();
+                console.log('[Filters] Applying filters:', JSON.stringify(filterManager.getFilters()));
+                console.log('[Filters] Active filters:', activeFilters.map(f => f.key + '=' + JSON.stringify(f.value)));
+
                 // Always use server-side filtering (searches all folders correctly)
                 const filteredFiles = await filterManager.applyFilters(null);
+
+                console.log('[Filters] Server returned', filteredFiles.length, 'files');
 
                 // Refresh display with filtered files
                 await displayFilteredFiles(filteredFiles);

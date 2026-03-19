@@ -145,7 +145,16 @@ async function fileFilter(app, data) {
     }
   });
 
+  // Debug: log active filters
+  const activeKeys = Object.keys(filters).filter(k => !['sortBy', 'sortOrder', 'instrumentMode', 'gmMode', 'includeSubfolders'].includes(k));
+  app.logger.info(`[file_filter] Active filters: ${JSON.stringify(activeKeys)}`);
+  if (filters.routingStatus) {
+    app.logger.info(`[file_filter] routingStatus = "${filters.routingStatus}"`);
+  }
+
   const files = app.database.filterFiles(filters);
+
+  app.logger.info(`[file_filter] Results: ${files.length} files`);
 
   // Build filter summary for response
   const appliedFilters = [];
