@@ -67,11 +67,21 @@ class AutoAssignModal {
         }
       }
 
+      // Check if virtual instruments are enabled in settings
+      let excludeVirtual = true;
+      try {
+        const saved = localStorage.getItem('maestro_settings');
+        if (saved && JSON.parse(saved).virtualInstrument) {
+          excludeVirtual = false;
+        }
+      } catch (e) { /* ignore */ }
+
       // Generate suggestions
       const response = await this.apiClient.sendCommand('generate_assignment_suggestions', {
         fileId: fileId,
         topN: 5,
-        minScore: 30
+        minScore: 30,
+        excludeVirtual: excludeVirtual
       });
 
       if (!response.success) {
