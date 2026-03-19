@@ -2741,11 +2741,15 @@
             border-radius: 8px 0 0 8px;
             cursor: ew-resize;
             z-index: 10002;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             box-shadow: -3px 0 8px rgba(0,0,0,0.2);
             transition: background 0.2s;
+        }
+
+        .filters-panel.open .filters-panel-resize-grip {
+            display: flex;
         }
 
         .filters-panel-resize-grip:hover {
