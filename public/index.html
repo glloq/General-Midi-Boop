@@ -1494,7 +1494,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.4);
-            z-index: 999;
+            z-index: 9999;
         }
 
         .modal-content {
@@ -2755,8 +2755,7 @@
             box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             z-index: 10000;
             transition: right 0.3s ease;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: visible;
         }
 
         .filters-panel.open {
@@ -2795,51 +2794,57 @@
         .filters-panel-resize-grip {
             position: absolute;
             top: 50%;
-            left: -14px;
+            left: -18px;
             transform: translateY(-50%);
-            width: 14px;
-            height: 48px;
+            width: 18px;
+            height: 60px;
             background: #007bff;
-            border-radius: 6px 0 0 6px;
+            border-radius: 8px 0 0 8px;
             cursor: ew-resize;
-            z-index: 10001;
+            z-index: 10002;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: -2px 0 6px rgba(0,0,0,0.15);
-            transition: background 0.2s, width 0.2s;
+            box-shadow: -3px 0 8px rgba(0,0,0,0.2);
+            transition: background 0.2s, transform 0.2s;
         }
 
-        .filters-panel-resize-grip:hover,
-        .filters-panel-resize-grip.active {
+        .filters-panel-resize-grip:hover {
             background: #0056b3;
-            width: 16px;
-            left: -16px;
+            transform: translateY(-50%) scaleX(1.15);
+        }
+
+        .filters-panel-resize-grip.active {
+            background: #004494;
         }
 
         .filters-panel-resize-grip::before {
-            content: '⋮';
+            content: '⋮⋮';
             color: white;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             line-height: 1;
+            letter-spacing: -3px;
         }
 
         body.theme-dark .filters-panel-resize-grip {
             background: #4a9eff;
-            box-shadow: -2px 0 6px rgba(0,0,0,0.3);
+            box-shadow: -3px 0 8px rgba(0,0,0,0.4);
         }
 
-        body.theme-dark .filters-panel-resize-grip:hover,
-        body.theme-dark .filters-panel-resize-grip.active {
+        body.theme-dark .filters-panel-resize-grip:hover {
             background: #007bff;
+        }
+
+        body.theme-dark .filters-panel-resize-grip.active {
+            background: #0056b3;
         }
 
         .filters-panel-content {
             display: flex;
             flex-direction: column;
             height: 100%;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         .filters-panel-header {
