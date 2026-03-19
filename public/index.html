@@ -5417,61 +5417,52 @@
                     return;
                 }
 
-                // Trouver le dossier ouvert (un seul possible)
-                let openFolderPath = null;
-                for (const fp in folderStructure) {
-                    if (folderStructure[fp].open) {
-                        openFolderPath = fp;
-                        break;
-                    }
-                }
-
-                // Si un dossier est ouvert, afficher son contenu en haut dans un conteneur visuel
-                if (openFolderPath) {
-                    const wrapper = document.createElement('li');
-                    wrapper.className = 'folder-open-wrapper';
-
-                    // Header du dossier
-                    const headerDiv = document.createElement('div');
-                    headerDiv.className = 'folder-open-header';
-
-                    const headerLabel = document.createElement('span');
-                    headerLabel.innerHTML = `📂 ${openFolderPath}`;
-
-                    const closeBtn = document.createElement('button');
-                    closeBtn.className = 'btn btn-sm';
-                    closeBtn.textContent = '✕';
-                    closeBtn.title = 'Fermer le dossier';
-                    closeBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        toggleFolder(openFolderPath);
-                    };
-
-                    headerDiv.appendChild(headerLabel);
-                    headerDiv.appendChild(closeBtn);
-                    wrapper.appendChild(headerDiv);
-
-                    // Conteneur des fichiers du dossier (utilise le même mode d'affichage)
-                    const filesContainer = document.createElement('div');
-                    filesContainer.className = 'folder-open-files';
-
-                    const folderFileIds = folderStructure[openFolderPath].files || [];
-                    folderFileIds.forEach(fileId => {
-                        const file = files.find(f => String(f.id) === String(fileId));
-                        if (file) {
-                            filesContainer.appendChild(createFileElement(file));
-                        }
-                    });
-
-                    wrapper.appendChild(filesContainer);
-                    fileList.appendChild(wrapper);
-                }
-
                 // Afficher les éléments
                 rootItems.forEach(item => {
                     if (item.type === 'folder') {
-                        // Ne pas ré-afficher les fichiers du dossier ouvert (déjà en haut)
-                        fileList.appendChild(createFolderElement(item.path, files));
+                        if (folderStructure[item.path] && folderStructure[item.path].open) {
+                            // Dossier ouvert : wrapper visuel autour des fichiers
+                            const wrapper = document.createElement('li');
+                            wrapper.className = 'folder-open-wrapper';
+
+                            // Header du dossier
+                            const headerDiv = document.createElement('div');
+                            headerDiv.className = 'folder-open-header';
+
+                            const headerLabel = document.createElement('span');
+                            headerLabel.innerHTML = `📂 ${item.path}`;
+
+                            const closeBtn = document.createElement('button');
+                            closeBtn.className = 'btn btn-sm';
+                            closeBtn.textContent = '▲';
+                            closeBtn.title = 'Fermer le dossier';
+                            closeBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                toggleFolder(item.path);
+                            };
+
+                            headerDiv.appendChild(headerLabel);
+                            headerDiv.appendChild(closeBtn);
+                            wrapper.appendChild(headerDiv);
+
+                            // Conteneur des fichiers (même mode d'affichage)
+                            const filesContainer = document.createElement('div');
+                            filesContainer.className = 'folder-open-files';
+
+                            const folderFileIds = folderStructure[item.path].files || [];
+                            folderFileIds.forEach(fileId => {
+                                const file = files.find(f => String(f.id) === String(fileId));
+                                if (file) {
+                                    filesContainer.appendChild(createFileElement(file));
+                                }
+                            });
+
+                            wrapper.appendChild(filesContainer);
+                            fileList.appendChild(wrapper);
+                        } else {
+                            // Dossier fermé : carte normale
+                            fileList.appendChild(createFolderElement(item.path, files));
+                        }
                     } else {
                         fileList.appendChild(createFileElement(item.data));
                     }
@@ -6872,16 +6863,7 @@
                 return;
             }
 
-            const isOpening = !folderStructure[folderPath].open;
-
-            // Fermer tous les autres dossiers (un seul ouvert à la fois)
-            if (isOpening) {
-                for (const fp in folderStructure) {
-                    folderStructure[fp].open = false;
-                }
-            }
-
-            folderStructure[folderPath].open = isOpening;
+            folderStructure[folderPath].open = !folderStructure[folderPath].open;
             saveFolderStructure();
             loadFiles();
         }
