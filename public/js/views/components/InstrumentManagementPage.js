@@ -67,7 +67,7 @@ class InstrumentManagementPage {
                   <option value="complete" style="background: #2d2d2d; color: #e0e0e0;">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
                   <option value="incomplete" style="background: #2d2d2d; color: #e0e0e0;">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
                   <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
-                  <option value="virtual" style="background: #2d2d2d; color: #e0e0e0;">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
+                  <option value="virtual" id="instrumentFilterVirtualOption" style="background: #2d2d2d; color: #e0e0e0; ${this._isVirtualEnabled() ? '' : 'display:none;'}">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
                 </select>
               </div>
               <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
@@ -90,7 +90,7 @@ class InstrumentManagementPage {
                 🌐 WiFi / Réseau
               </button>
               <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-                <button class="btn btn-primary" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px;">
+                <button class="btn btn-primary" id="addVirtualInstrumentBtn" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px; ${this._isVirtualEnabled() ? '' : 'display:none;'}">
                   ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Ajouter un instrument virtuel'}
                 </button>
                 <button class="btn" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px;">
@@ -245,18 +245,8 @@ class InstrumentManagementPage {
         this.instruments.push(registered);
       }
 
-      // Vérifier si les instruments virtuels sont activés dans les réglages
-      let virtualEnabled = false;
-      try {
-        const savedSettings = localStorage.getItem('maestro_settings');
-        if (savedSettings) {
-          const parsed = JSON.parse(savedSettings);
-          virtualEnabled = !!parsed.virtualInstrument;
-        }
-      } catch (e) { /* ignore */ }
-
       // Filtrer les instruments virtuels si désactivés dans les réglages
-      if (!virtualEnabled) {
+      if (!this._isVirtualEnabled()) {
         this.instruments = this.instruments.filter(inst => !this.isVirtualInstrument(inst));
       }
 
@@ -286,6 +276,19 @@ class InstrumentManagementPage {
     let normalized = deviceId.split(':')[0].trim().toLowerCase();
     normalized = normalized.replace(/\s+\d+$/, '').trim();
     return normalized;
+  }
+
+  /**
+   * Vérifie si les instruments virtuels sont activés dans les réglages
+   */
+  _isVirtualEnabled() {
+    try {
+      const saved = localStorage.getItem('maestro_settings');
+      if (saved) {
+        return !!JSON.parse(saved).virtualInstrument;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
   }
 
   /**
