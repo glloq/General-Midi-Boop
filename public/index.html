@@ -8107,9 +8107,48 @@
             uploadFile();
         });
 
-        // Empêcher le drop sur toute la page de naviguer
+        // Drop de fichiers MIDI sur toute la page
+        let pageDragCounter = 0;
+        document.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            pageDragCounter++;
+            if (pageDragCounter === 1) {
+                uploadDropZone.classList.add('drag-over');
+            }
+        });
+        document.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            pageDragCounter--;
+            if (pageDragCounter <= 0) {
+                pageDragCounter = 0;
+                uploadDropZone.classList.remove('drag-over');
+            }
+        });
         document.addEventListener('dragover', (e) => e.preventDefault());
-        document.addEventListener('drop', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            pageDragCounter = 0;
+            uploadDropZone.classList.remove('drag-over');
+
+            // Ignorer si le drop vient de la zone inline (déjà géré)
+            if (uploadDropZone.contains(e.target)) return;
+
+            const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
+                f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')
+            );
+
+            if (droppedFiles.length === 0) {
+                if (e.dataTransfer.files.length > 0) {
+                    log(i18n.t('ui.noMidiFilesDropped') || 'Aucun fichier MIDI détecté dans les fichiers déposés.', 'warning');
+                }
+                return;
+            }
+
+            const dataTransfer = new DataTransfer();
+            droppedFiles.forEach(f => dataTransfer.items.add(f));
+            document.getElementById('fileInput').files = dataTransfer.files;
+            uploadFile();
+        });
         initFolderModal(); // Initialiser le modal de création de dossier
         initRenameModal(); // Initialiser le modal de renommage
         initCalibrationModal(); // Initialiser le modal de calibration
