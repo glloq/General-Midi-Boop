@@ -1341,6 +1341,406 @@
             }
         }
 
+        /* ========================================================================
+         * DISPLAY MODE TOGGLE
+         * ======================================================================== */
+
+        .display-mode-toggle {
+            display: flex;
+            gap: 2px;
+            background: #e5e7eb;
+            border-radius: 6px;
+            padding: 2px;
+            flex-shrink: 0;
+        }
+
+        .display-mode-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+
+        .display-mode-btn:hover {
+            color: #374151;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .display-mode-btn.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        body.theme-dark .display-mode-toggle {
+            background: #374151;
+        }
+
+        body.theme-dark .display-mode-btn {
+            color: #9ca3af;
+        }
+
+        body.theme-dark .display-mode-btn:hover {
+            color: #d1d5db;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-dark .display-mode-btn.active {
+            background: #4b5563;
+            color: #818cf8;
+        }
+
+        /* ========================================================================
+         * FILE STATE COLORS (extended)
+         * ======================================================================== */
+
+        .file-state-dot {
+            display: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .file-compact-meta {
+            display: none;
+        }
+
+        .file-grid-state {
+            display: none;
+        }
+
+        .view-compact .file-state-dot {
+            display: inline-block;
+        }
+
+        .view-compact .file-compact-meta {
+            display: inline-flex;
+        }
+
+        .view-grid .file-grid-state {
+            display: flex;
+        }
+
+        .file-state-dot.state-routed {
+            background: #10b981;
+            box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);
+        }
+
+        .file-state-dot.state-unrouted {
+            background: #f59e0b;
+            box-shadow: 0 0 4px rgba(245, 158, 11, 0.4);
+        }
+
+        .file-state-dot.state-playing {
+            background: #3b82f6;
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+            animation: statePulse 1.5s infinite;
+        }
+
+        .file-state-dot.state-error {
+            background: #ef4444;
+            box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
+        }
+
+        .file-state-dot.state-new {
+            background: #8b5cf6;
+            box-shadow: 0 0 4px rgba(139, 92, 246, 0.4);
+        }
+
+        @keyframes statePulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        /* ========================================================================
+         * COMPACT LIST MODE
+         * ======================================================================== */
+
+        .file-list.view-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .file-list.view-compact .file-item {
+            padding: 3px 8px;
+            margin-bottom: 0;
+            border-radius: 3px;
+            background: transparent;
+            border-left: 3px solid transparent;
+            min-height: 28px;
+        }
+
+        .file-list.view-compact .file-item:hover {
+            background: #f0f1f3;
+        }
+
+        .file-list.view-compact .file-item.routed {
+            border-left-color: #10b981;
+        }
+
+        .file-list.view-compact .file-item.selected {
+            background: #e0e7ff;
+            border-left-color: #667eea;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            border-left: 3px solid #667eea;
+            box-shadow: none;
+        }
+
+        .file-list.view-compact .file-checkbox {
+            width: 14px;
+            height: 14px;
+        }
+
+        .file-list.view-compact .file-name {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .file-list.view-compact .file-name-text {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-list.view-compact .file-metadata {
+            display: none;
+        }
+
+        .file-list.view-compact .file-actions {
+            gap: 2px;
+        }
+
+        .file-list.view-compact .file-actions .btn-sm {
+            padding: 2px 6px;
+            font-size: 11px;
+        }
+
+        .file-list.view-compact .routed-badge {
+            font-size: 12px;
+        }
+
+        /* Compact state indicator inline */
+        .file-list.view-compact .file-compact-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #9ca3af;
+            margin-left: auto;
+            padding-right: 8px;
+            white-space: nowrap;
+        }
+
+        body.theme-dark .file-list.view-compact .file-item {
+            border-left-color: transparent;
+        }
+
+        body.theme-dark .file-list.view-compact .file-item:hover {
+            background: #374151;
+        }
+
+        body.theme-dark .file-list.view-compact .file-item.routed {
+            border-left-color: #10b981;
+        }
+
+        body.theme-dark .file-list.view-compact .file-item.selected {
+            background: #3d4a7a;
+            border-left-color: #8b9bea;
+        }
+
+        /* ========================================================================
+         * GRID / TABLE MODE
+         * ======================================================================== */
+
+        .file-list.view-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            padding: 12px;
+        }
+
+        .file-list.view-grid .file-item {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 12px;
+            margin-bottom: 0;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s;
+            cursor: grab;
+            position: relative;
+        }
+
+        .file-list.view-grid .file-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .file-list.view-grid .file-item.routed {
+            border-left: 3px solid #10b981;
+        }
+
+        .file-list.view-grid .file-item.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .file-list.view-grid .file-checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+        }
+
+        .file-list.view-grid .file-name {
+            margin-bottom: 8px;
+        }
+
+        .file-list.view-grid .file-name-text {
+            font-size: 13px;
+            font-weight: 600;
+            word-break: break-word;
+            white-space: normal;
+            line-height: 1.3;
+        }
+
+        .file-list.view-grid .file-metadata {
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 10px;
+            padding-top: 6px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .file-list.view-grid .file-actions {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f0f0f0;
+            justify-content: space-between;
+        }
+
+        .file-list.view-grid .file-actions .btn-sm {
+            flex: 1;
+            text-align: center;
+            padding: 5px 4px;
+            font-size: 12px;
+        }
+
+        /* Grid state ribbon */
+        .file-list.view-grid .file-grid-state {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 3px;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
+
+        .file-list.view-grid .file-grid-state.state-routed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .file-list.view-grid .file-grid-state.state-unrouted {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .file-list.view-grid .file-grid-state.state-playing {
+            background: #dbeafe;
+            color: #1e40af;
+            animation: statePulse 1.5s infinite;
+        }
+
+        body.theme-dark .file-list.view-grid .file-item {
+            background: #2d2d2d;
+            border-color: #404040;
+        }
+
+        body.theme-dark .file-list.view-grid .file-item:hover {
+            border-color: #667eea;
+            background: #353535;
+        }
+
+        body.theme-dark .file-list.view-grid .file-item.selected {
+            background: #3d4a7a;
+            border-color: #8b9bea;
+        }
+
+        body.theme-dark .file-list.view-grid .file-metadata {
+            border-top-color: #404040;
+        }
+
+        body.theme-dark .file-list.view-grid .file-actions {
+            border-top-color: #404040;
+        }
+
+        body.theme-dark .file-list.view-grid .file-grid-state.state-routed {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        body.theme-dark .file-list.view-grid .file-grid-state.state-unrouted {
+            background: #78350f;
+            color: #fcd34d;
+        }
+
+        body.theme-dark .file-list.view-grid .file-grid-state.state-playing {
+            background: #1e3a5f;
+            color: #93c5fd;
+        }
+
+        /* Grid: folders span full width */
+        .file-list.view-grid .folder-item {
+            grid-column: 1 / -1;
+        }
+
+        .file-list.view-grid .folder-children {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            margin-left: 0;
+            padding-left: 0;
+            border-left: none;
+        }
+
+        /* ========================================================================
+         * RESPONSIVE ADJUSTMENTS FOR DISPLAY MODES
+         * ======================================================================== */
+
+        @media (max-width: 600px) {
+            .file-list.view-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 8px;
+            }
+
+            .display-mode-toggle {
+                display: none;
+            }
+        }
+
         .device-list {
             list-style: none;
             margin-top: 12px;
@@ -3282,6 +3682,19 @@
                             <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 8px 12px;">
                                 🔍 <span data-i18n="filters.filtersButton">Filtres</span>
                             </button>
+
+                            <!-- Display Mode Toggle -->
+                            <div class="display-mode-toggle" id="displayModeToggle">
+                                <button class="display-mode-btn active" data-mode="blocks" title="Affichage en blocs">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="14" height="3" rx="1"/><rect x="1" y="6" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
+                                </button>
+                                <button class="display-mode-btn" data-mode="compact" title="Liste compacte">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.5"/><rect x="1" y="5.5" width="14" height="1.5" rx="0.5"/><rect x="1" y="9" width="14" height="1.5" rx="0.5"/><rect x="1" y="12.5" width="14" height="1.5" rx="0.5"/></svg>
+                                </button>
+                                <button class="display-mode-btn" data-mode="grid" title="Affichage en grille">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Active Filters Badges -->
@@ -4460,6 +4873,7 @@
                     loadDevices();
                     initFileSearch(); // Initialiser la recherche de fichiers
                     initSortControls(); // Initialiser les contrôles de tri
+                    initDisplayModeToggle(); // Initialiser le sélecteur de mode d'affichage
                     initKeyboardShortcuts(); // Initialiser les raccourcis clavier
                     initBatchActions(); // Initialiser les actions par lots
                     initAdvancedFilters(); // Initialiser les filtres avancés
@@ -4528,6 +4942,7 @@
                     isPlaying = true;
                     isPaused = false;
                     updatePlaybackControls();
+                    updateFileStateDots();
                     log('▶️ Lecture démarrée');
                     // Émettre pour le piano roll
                     if (window.eventBus) {
@@ -4540,6 +4955,7 @@
                     isPaused = false;
                     currentDuration = 0;
                     updatePlaybackControls();
+                    updateFileStateDots();
                     document.getElementById('headerProgressFill').style.width = '0%';
                     document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
                     document.getElementById('headerTime').textContent = '00:00 / 00:00';
@@ -4711,6 +5127,9 @@
                 });
 
                 log(`${files.length} fichier(s) chargé(s)`);
+
+                // Re-apply display mode after rebuilding file list
+                applyDisplayMode(currentDisplayMode);
 
             } catch (error) {
                 log(`Erreur chargement fichiers: ${error.message}`, 'error');
@@ -4979,6 +5398,85 @@
             });
         }
 
+        // ========== DISPLAY MODE MANAGEMENT ==========
+        let currentDisplayMode = localStorage.getItem('fileDisplayMode') || 'blocks';
+
+        function initDisplayModeToggle() {
+            const toggle = document.getElementById('displayModeToggle');
+            if (!toggle) return;
+
+            // Restore saved mode
+            applyDisplayMode(currentDisplayMode);
+
+            // Set active button
+            const savedBtn = toggle.querySelector(`[data-mode="${currentDisplayMode}"]`);
+            if (savedBtn) {
+                toggle.querySelectorAll('.display-mode-btn').forEach(b => b.classList.remove('active'));
+                savedBtn.classList.add('active');
+            }
+
+            // Click handlers
+            toggle.addEventListener('click', (e) => {
+                const btn = e.target.closest('.display-mode-btn');
+                if (!btn) return;
+
+                const mode = btn.dataset.mode;
+                if (mode === currentDisplayMode) return;
+
+                toggle.querySelectorAll('.display-mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                currentDisplayMode = mode;
+                localStorage.setItem('fileDisplayMode', mode);
+                applyDisplayMode(mode);
+            });
+        }
+
+        function applyDisplayMode(mode) {
+            const fileList = document.getElementById('fileList');
+            if (!fileList) return;
+
+            // Remove all view classes
+            fileList.classList.remove('view-compact', 'view-grid');
+
+            // Apply selected mode
+            if (mode === 'compact') {
+                fileList.classList.add('view-compact');
+            } else if (mode === 'grid') {
+                fileList.classList.add('view-grid');
+            }
+            // 'blocks' = default, no extra class
+
+            // Update playing state dots
+            updateFileStateDots();
+        }
+
+        function updateFileStateDots() {
+            // Update state dots based on current playing file
+            document.querySelectorAll('.file-state-dot').forEach(dot => {
+                const fileId = dot.dataset.fileId;
+                if (!fileId) return;
+                const isCurrentlyPlaying = (String(fileId) === String(currentFileId)) && isPlaying;
+                dot.classList.remove('state-playing');
+                if (isCurrentlyPlaying) {
+                    dot.classList.add('state-playing');
+                    dot.classList.remove('state-routed', 'state-unrouted');
+                }
+            });
+
+            // Update grid state badges
+            document.querySelectorAll('.file-grid-state').forEach(badge => {
+                const li = badge.closest('.file-item');
+                if (!li) return;
+                const fileId = li.dataset.fileId;
+                const isCurrentlyPlaying = (String(fileId) === String(currentFileId)) && isPlaying;
+                if (isCurrentlyPlaying) {
+                    badge.className = 'file-grid-state state-playing';
+                    badge.innerHTML = '▶ En lecture';
+                }
+            });
+        }
+
         // Charger les métadonnées d'un fichier
         async function loadFileMetadata(fileId) {
             try {
@@ -5016,6 +5514,12 @@
                 <span title="Canaux MIDI">🎹 ${metadata.channelCount} ${metadata.channelCount > 1 ? 'canaux' : 'canal'}</span>
                 <span title="Tempo">♩ ${metadata.tempo} BPM</span>
             `;
+
+            // Update compact meta too
+            const compactMeta = document.getElementById(`compact-meta-${fileId}`);
+            if (compactMeta) {
+                compactMeta.innerHTML = `${metadata.durationFormatted} · ${metadata.sizeFormatted}`;
+            }
         }
 
         // Créer l'élément HTML pour un fichier
@@ -5051,6 +5555,12 @@
                 toggleFileSelection(file.id, e.target.checked);
             });
 
+            // State dot for compact/grid modes
+            const stateClass = routed ? 'state-routed' : 'state-unrouted';
+            const stateDot = document.createElement('span');
+            stateDot.className = `file-state-dot ${stateClass}`;
+            stateDot.dataset.fileId = file.id;
+
             const fileNameSpan = document.createElement('span');
             fileNameSpan.className = 'file-name';
             fileNameSpan.innerHTML = `
@@ -5061,6 +5571,17 @@
                     <span>⏳ Chargement...</span>
                 </div>
             `;
+
+            // Compact mode inline meta (duration only)
+            const compactMeta = document.createElement('span');
+            compactMeta.className = 'file-compact-meta';
+            compactMeta.id = `compact-meta-${file.id}`;
+            compactMeta.innerHTML = '';
+
+            // Grid state badge
+            const gridState = document.createElement('span');
+            gridState.className = `file-grid-state ${stateClass}`;
+            gridState.innerHTML = routed ? '● Routé' : '○ Non routé';
 
             // Double-clic pour renommer
             const fileNameTextDiv = fileNameSpan.querySelector('.file-name-text');
@@ -5126,7 +5647,10 @@
             actionsDiv.appendChild(deleteBtn);
 
             li.appendChild(checkbox);
+            li.appendChild(stateDot);
             li.appendChild(fileNameSpan);
+            li.appendChild(compactMeta);
+            li.appendChild(gridState);
             li.appendChild(actionsDiv);
 
             return li;
@@ -9095,6 +9619,9 @@
             sortedFiles.forEach(file => {
                 fileList.appendChild(createFileElement(file));
             });
+
+            // Re-apply display mode after rebuilding file list
+            applyDisplayMode(currentDisplayMode);
 
             updateSearchStats(files.length, true);
         }
