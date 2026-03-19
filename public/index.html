@@ -2693,7 +2693,7 @@
             box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             z-index: 10000;
             transition: right 0.3s ease;
-            overflow: visible;
+            overflow: hidden;
         }
 
         .filters-panel.open {
@@ -2710,7 +2710,7 @@
             box-shadow: -2px 0 10px rgba(0,0,0,0.3);
         }
 
-        /* Resize handle on the left edge */
+        /* Resize handle on the left edge of the panel */
         .filters-panel-resize-handle {
             position: absolute;
             top: 0;
@@ -2728,11 +2728,11 @@
             background: rgba(0, 123, 255, 0.3);
         }
 
-        /* Visible resize grip indicator centered on the left edge */
+        /* Visible resize grip — positioned OUTSIDE the panel as a sibling */
         .filters-panel-resize-grip {
-            position: absolute;
+            position: fixed;
             top: 50%;
-            left: -18px;
+            right: -18px;
             transform: translateY(-50%);
             width: 18px;
             height: 60px;
@@ -2740,16 +2740,19 @@
             border-radius: 8px 0 0 8px;
             cursor: ew-resize;
             z-index: 10002;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             box-shadow: -3px 0 8px rgba(0,0,0,0.2);
-            transition: background 0.2s, transform 0.2s;
+            transition: background 0.2s, right 0.3s ease;
+        }
+
+        .filters-panel-resize-grip.visible {
+            display: flex;
         }
 
         .filters-panel-resize-grip:hover {
             background: #0056b3;
-            transform: translateY(-50%) scaleX(1.15);
         }
 
         .filters-panel-resize-grip.active {
@@ -2783,6 +2786,7 @@
             flex-direction: column;
             height: 100%;
             overflow: hidden;
+            width: 100%;
         }
 
         .filters-panel-header {
@@ -2807,22 +2811,19 @@
             padding: 12px;
             overflow-y: auto;
             overflow-x: hidden;
+            width: 100%;
         }
 
         /* Force all filter children to stay within bounds */
-        .filters-panel-body *,
-        .filters-panel-body *::before,
-        .filters-panel-body *::after {
+        .filters-panel *,
+        .filters-panel *::before,
+        .filters-panel *::after {
             box-sizing: border-box;
-        }
-
-        .filter-group {
             max-width: 100%;
-            overflow: hidden;
         }
 
         .filter-group > div {
-            max-width: 100%;
+            width: 100%;
         }
 
         .filters-panel-footer {
@@ -2840,7 +2841,7 @@
 
         .filter-group {
             margin-bottom: 14px;
-            max-width: 100%;
+            width: 100%;
             overflow: hidden;
         }
 
@@ -3256,9 +3257,9 @@
     </main>
 
     <!-- Advanced Filters Panel -->
+    <div id="filtersPanelResizeGrip" class="filters-panel-resize-grip" title="Glisser pour redimensionner"></div>
     <div id="filtersPanel" class="filters-panel" role="dialog" aria-modal="false" aria-labelledby="filtersPanelTitle">
         <div id="filtersPanelResizeHandle" class="filters-panel-resize-handle" title="Glisser pour redimensionner"></div>
-        <div id="filtersPanelResizeGrip" class="filters-panel-resize-grip" title="Glisser pour redimensionner"></div>
         <div class="filters-panel-content">
             <div class="filters-panel-header">
                 <h3 id="filtersPanelTitle">🔍 <span data-i18n="filters.title">Filtres avancés</span></h3>
@@ -8364,6 +8365,8 @@
             function closeFiltersPanel() {
                 if (filtersPanel) filtersPanel.classList.remove('open');
                 if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
+                const grip = document.getElementById('filtersPanelResizeGrip');
+                if (grip) grip.classList.remove('visible');
             }
 
             // Duration filter
@@ -8798,32 +8801,65 @@
                 const closeFiltersBtn = document.getElementById('closeFiltersBtn');
 
                 if (filtersPanel && openFiltersBtn) {
-                    openFiltersBtn.addEventListener('click', () => {
+                    const resizeGrip = document.getElementById('filtersPanelResizeGrip');
+                    let isResizing = false;
+
+                    // Position the grip next to the panel's left edge
+                    function updateGripPosition() {
+                        if (!resizeGrip) return;
+                        const panelWidth = filtersPanel.offsetWidth || 400;
+                        resizeGrip.style.right = (panelWidth) + 'px';
+                    }
+
+                    const openFiltersPanel = () => {
                         filtersPanel.classList.add('open');
                         if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'block';
-                    });
-
-                    const closeFiltersPanel = () => {
-                        filtersPanel.classList.remove('open');
-                        if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
+                        if (resizeGrip) {
+                            resizeGrip.classList.add('visible');
+                            updateGripPosition();
+                        }
                     };
 
-                    if (closeFiltersBtn) closeFiltersBtn.addEventListener('click', closeFiltersPanel);
-                    if (filtersPanelOverlay) filtersPanelOverlay.addEventListener('click', closeFiltersPanel);
+                    const closeFiltersPanel = () => {
+                        if (isResizing) return;
+                        filtersPanel.classList.remove('open');
+                        if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
+                        if (resizeGrip) resizeGrip.classList.remove('visible');
+                    };
 
-                    // Close panel on click outside
+                    openFiltersBtn.addEventListener('click', openFiltersPanel);
+                    if (closeFiltersBtn) closeFiltersBtn.addEventListener('click', closeFiltersPanel);
+
+                    // Close on overlay click (mousedown for immediate response)
+                    if (filtersPanelOverlay) {
+                        filtersPanelOverlay.addEventListener('mousedown', (e) => {
+                            if (isResizing) return;
+                            e.stopPropagation();
+                            closeFiltersPanel();
+                        });
+                    }
+
+                    // Close on click outside (works even without overlay)
                     document.addEventListener('mousedown', (e) => {
+                        if (isResizing) return;
                         if (!filtersPanel.classList.contains('open')) return;
                         if (filtersPanel.contains(e.target)) return;
+                        if (resizeGrip && resizeGrip.contains(e.target)) return;
                         if (e.target === openFiltersBtn || openFiltersBtn.contains(e.target)) return;
+                        if (filtersPanelOverlay && e.target === filtersPanelOverlay) return; // handled above
                         closeFiltersPanel();
+                    });
+
+                    // Close on Escape key
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape' && filtersPanel.classList.contains('open')) {
+                            closeFiltersPanel();
+                        }
                     });
 
                     // --- Resize handle + grip logic ---
                     const resizeHandle = document.getElementById('filtersPanelResizeHandle');
-                    const resizeGrip = document.getElementById('filtersPanelResizeGrip');
-                    if (resizeHandle) {
-                        let isResizing = false;
+                    if (resizeHandle || resizeGrip) {
                         let startX = 0;
                         let startWidth = 0;
 
@@ -8832,12 +8868,13 @@
                             startX = e.clientX;
                             startWidth = filtersPanel.offsetWidth;
                             filtersPanel.classList.add('resizing');
-                            resizeHandle.classList.add('active');
+                            if (resizeHandle) resizeHandle.classList.add('active');
                             if (resizeGrip) resizeGrip.classList.add('active');
                             e.preventDefault();
+                            e.stopPropagation();
                         };
 
-                        resizeHandle.addEventListener('mousedown', startResize);
+                        if (resizeHandle) resizeHandle.addEventListener('mousedown', startResize);
                         if (resizeGrip) resizeGrip.addEventListener('mousedown', startResize);
 
                         document.addEventListener('mousemove', (e) => {
@@ -8845,13 +8882,14 @@
                             const delta = startX - e.clientX;
                             const newWidth = Math.max(320, Math.min(window.innerWidth * 0.8, startWidth + delta));
                             filtersPanel.style.width = newWidth + 'px';
+                            updateGripPosition();
                         });
 
                         document.addEventListener('mouseup', () => {
                             if (!isResizing) return;
                             isResizing = false;
                             filtersPanel.classList.remove('resizing');
-                            resizeHandle.classList.remove('active');
+                            if (resizeHandle) resizeHandle.classList.remove('active');
                             if (resizeGrip) resizeGrip.classList.remove('active');
                             localStorage.setItem('filtersPanelWidth', filtersPanel.style.width);
                         });
