@@ -1003,6 +1003,60 @@
             border-left: 2px solid #e5e7eb;
         }
 
+        /* Open folder header displayed at top of file list */
+        .folder-open-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-left: 4px solid #f59e0b;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #92400e;
+        }
+
+        .folder-open-header .btn-sm {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(217, 119, 6, 0.3);
+            color: #92400e;
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .folder-open-header .btn-sm:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .folder-open-separator {
+            grid-column: 1 / -1;
+            height: 2px;
+            background: linear-gradient(90deg, #f59e0b 0%, transparent 100%);
+            border-radius: 1px;
+            margin: 4px 0;
+        }
+
+        body.theme-dark .folder-open-header {
+            background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+            border-color: #d97706;
+            color: #fde68a;
+        }
+
+        body.theme-dark .folder-open-header .btn-sm {
+            background: rgba(0, 0, 0, 0.2);
+            border-color: rgba(251, 191, 36, 0.3);
+            color: #fde68a;
+        }
+
+        body.theme-dark .folder-open-separator {
+            background: linear-gradient(90deg, #d97706 0%, transparent 100%);
+        }
+
         .btn-group {
             display: flex;
             gap: 8px;
@@ -5314,9 +5368,56 @@
                     return;
                 }
 
+                // Trouver le dossier ouvert (un seul possible)
+                let openFolderPath = null;
+                for (const fp in folderStructure) {
+                    if (folderStructure[fp].open) {
+                        openFolderPath = fp;
+                        break;
+                    }
+                }
+
+                // Si un dossier est ouvert, afficher son contenu en haut
+                if (openFolderPath) {
+                    // Header du dossier ouvert (pleine largeur)
+                    const headerDiv = document.createElement('li');
+                    headerDiv.className = 'folder-open-header';
+
+                    const headerLabel = document.createElement('span');
+                    headerLabel.innerHTML = `📂 ${openFolderPath}`;
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'btn btn-sm';
+                    closeBtn.textContent = '✕';
+                    closeBtn.title = 'Fermer le dossier';
+                    closeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleFolder(openFolderPath);
+                    };
+
+                    headerDiv.appendChild(headerLabel);
+                    headerDiv.appendChild(closeBtn);
+                    fileList.appendChild(headerDiv);
+
+                    // Fichiers du dossier (dans le flux normal de la grille)
+                    const folderFileIds = folderStructure[openFolderPath].files || [];
+                    folderFileIds.forEach(fileId => {
+                        const file = files.find(f => String(f.id) === String(fileId));
+                        if (file) {
+                            fileList.appendChild(createFileElement(file));
+                        }
+                    });
+
+                    // Séparateur
+                    const separator = document.createElement('li');
+                    separator.className = 'folder-open-separator';
+                    fileList.appendChild(separator);
+                }
+
                 // Afficher les éléments
                 rootItems.forEach(item => {
                     if (item.type === 'folder') {
+                        // Ne pas ré-afficher les fichiers du dossier ouvert (déjà en haut)
                         fileList.appendChild(createFolderElement(item.path, files));
                     } else {
                         fileList.appendChild(createFileElement(item.data));
@@ -5948,30 +6049,9 @@
             li.appendChild(folderNameSpan);
             li.appendChild(actionsDiv);
 
-            // Ajouter les fichiers du dossier (si ouvert)
+            // Marquer le dossier ouvert visuellement
             if (folderStructure[folderPath].open) {
-                const childrenDiv = document.createElement('div');
-                childrenDiv.className = 'folder-children';
-                childrenDiv.id = `folder-${folderPath}`;
-
-                const folderFiles = folderStructure[folderPath].files || [];
-                console.log(`Affichage dossier "${folderPath}":`, folderFiles);
-                console.log('Fichiers disponibles:', allFiles.map(f => ({ id: f.id, type: typeof f.id, filename: f.filename })));
-
-                folderFiles.forEach(fileId => {
-                    const fileIdStr = String(fileId);
-                    console.log(`Recherche de fileId: "${fileIdStr}" (type: ${typeof fileId})`);
-                    // Comparer en convertissant tous les IDs en string
-                    const file = allFiles.find(f => String(f.id) === fileIdStr);
-                    console.log(`Recherche fichier ${fileIdStr}:`, file ? `Trouvé (${file.filename})` : 'NON TROUVÉ');
-                    if (file) {
-                        childrenDiv.appendChild(createFileElement(file));
-                    } else {
-                        console.warn(`Fichier ${fileIdStr} dans la structure mais pas dans allFiles!`);
-                    }
-                });
-
-                li.appendChild(childrenDiv);
+                li.classList.add('open');
                 toggleBtn.textContent = '▲';
             }
 
@@ -6739,7 +6819,16 @@
                 return;
             }
 
-            folderStructure[folderPath].open = !folderStructure[folderPath].open;
+            const isOpening = !folderStructure[folderPath].open;
+
+            // Fermer tous les autres dossiers (un seul ouvert à la fois)
+            if (isOpening) {
+                for (const fp in folderStructure) {
+                    folderStructure[fp].open = false;
+                }
+            }
+
+            folderStructure[folderPath].open = isOpening;
             saveFolderStructure();
             loadFiles();
         }
