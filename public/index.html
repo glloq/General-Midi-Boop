@@ -2684,7 +2684,7 @@
         .filters-panel {
             position: fixed;
             top: 0;
-            right: -400px;
+            right: 0;
             width: 400px;
             min-width: 320px;
             max-width: 80vw;
@@ -2692,16 +2692,17 @@
             background: white;
             box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             z-index: 10000;
-            transition: right 0.3s ease;
+            transition: transform 0.3s ease;
+            transform: translateX(100%);
             overflow: hidden;
         }
 
         .filters-panel.open {
-            right: 0;
+            transform: translateX(0);
         }
 
         .filters-panel.resizing {
-            transition: none;
+            transition: none !important;
             user-select: none;
         }
 
@@ -2811,19 +2812,6 @@
             padding: 12px;
             overflow-y: auto;
             overflow-x: hidden;
-            width: 100%;
-        }
-
-        /* Force all filter children to stay within bounds */
-        .filters-panel *,
-        .filters-panel *::before,
-        .filters-panel *::after {
-            box-sizing: border-box;
-            max-width: 100%;
-        }
-
-        .filter-group > div {
-            width: 100%;
         }
 
         .filters-panel-footer {
@@ -2841,8 +2829,6 @@
 
         .filter-group {
             margin-bottom: 14px;
-            width: 100%;
-            overflow: hidden;
         }
 
         .filter-label {
@@ -2857,16 +2843,21 @@
             color: #ccc;
         }
 
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            width: 100%;
+        }
+
         .filter-input {
             flex: 1;
             min-width: 0;
-            max-width: 100%;
-            width: 100%;
+            width: 0;
             padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 13px;
-            box-sizing: border-box;
         }
 
         body.theme-dark .filter-input {
@@ -2877,7 +2868,6 @@
 
         .filter-select {
             width: 100%;
-            max-width: 100%;
             padding: 6px;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -2896,8 +2886,6 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 4px 8px;
-            max-width: 100%;
-            overflow: hidden;
         }
 
         .checkbox-group label {
@@ -2911,7 +2899,6 @@
             text-overflow: ellipsis;
             padding: 2px 0;
             min-width: 0;
-            max-width: 100%;
         }
 
         .checkbox-group label input[type="checkbox"],
@@ -2929,7 +2916,6 @@
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
-            max-width: 100%;
         }
 
         .preset-btn {
@@ -3270,7 +3256,7 @@
                 <!-- Duration Filter -->
                 <div class="filter-group">
                     <label class="filter-label">⏱ <span data-i18n="filters.duration">Durée</span></label>
-                    <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
+                    <div class="filter-row">
                         <input type="number" id="filterDurationMin" class="filter-input" data-i18n-placeholder="filters.durationMinSec" placeholder="Min (sec)" min="0" step="1">
                         <span>-</span>
                         <input type="number" id="filterDurationMax" class="filter-input" data-i18n-placeholder="filters.durationMaxSec" placeholder="Max (sec)" min="0" step="1">
@@ -3280,12 +3266,12 @@
                 <!-- Tempo Filter -->
                 <div class="filter-group">
                     <label class="filter-label">🎵 <span data-i18n="filters.tempo">Tempo (BPM)</span></label>
-                    <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
+                    <div class="filter-row">
                         <input type="number" id="filterTempoMin" class="filter-input" placeholder="Min" min="0" step="1">
                         <span>-</span>
                         <input type="number" id="filterTempoMax" class="filter-input" placeholder="Max" min="0" step="1">
                     </div>
-                    <div class="filter-presets" style="margin-top: 6px; display: flex; gap: 6px;">
+                    <div class="filter-presets" style="margin-top: 6px;">
                         <button class="preset-btn" data-tempo="0,80" data-i18n="filters.tempoSlow">Lent</button>
                         <button class="preset-btn" data-tempo="80,120" data-i18n="filters.tempoModerate">Modéré</button>
                         <button class="preset-btn" data-tempo="120,999" data-i18n="filters.tempoFast">Rapide</button>
@@ -3295,7 +3281,7 @@
                 <!-- Track Count Filter -->
                 <div class="filter-group">
                     <label class="filter-label">🎚 <span data-i18n="filters.trackCount">Nombre de pistes</span></label>
-                    <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
+                    <div class="filter-row">
                         <input type="number" id="filterTracksMin" class="filter-input" placeholder="Min" min="1" step="1">
                         <span>-</span>
                         <input type="number" id="filterTracksMax" class="filter-input" placeholder="Max" min="1" step="1">
@@ -3368,18 +3354,18 @@
                 <!-- Playable on Instruments Filter -->
                 <div class="filter-group">
                     <label class="filter-label">🎸 <span data-i18n="filters.playableOnInstruments">Jouable sur instruments</span></label>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; max-width: 100%;">
-                        <select id="filterInstrumentSource" class="filter-select" style="flex: 1; min-width: 0;">
+                    <div class="filter-row" style="margin-bottom: 8px;">
+                        <select id="filterInstrumentSource" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
                             <option value="connected" data-i18n="filters.connectedOnly">Connectés uniquement</option>
                             <option value="registered" data-i18n="filters.allRegistered">Tous enregistrés</option>
                         </select>
                         <button id="refreshInstrumentsBtn" class="btn btn-sm" data-i18n-title="filters.refreshList" title="Rafraîchir la liste">🔄</button>
                     </div>
-                    <select id="filterPlayableInstruments" class="filter-select" multiple size="5" style="width: 100%; max-width: 100%; box-sizing: border-box;">
+                    <select id="filterPlayableInstruments" class="filter-select" multiple size="5">
                     </select>
-                    <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; max-width: 100%;">
-                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
-                        <select id="filterPlayableMode" class="filter-select" style="flex: 1; min-width: 0;">
+                    <div class="filter-row" style="margin-top: 6px;">
+                        <label class="filter-label" style="font-size: 0.9em; margin-bottom: 0; white-space: nowrap;" data-i18n="filters.mode">Mode :</label>
+                        <select id="filterPlayableMode" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
                             <option value="routed" data-i18n="filters.playableModeRouted">Routé vers</option>
                             <option value="compatible" data-i18n="filters.playableModeCompatible">Compatible avec</option>
                         </select>
