@@ -519,6 +519,29 @@ async function virtualList(app) {
   return { devices: devices };
 }
 
+/**
+ * Toggle virtual instruments on/off.
+ * When disabled: disables all routings pointing to virtual instruments in DB.
+ * When enabled: re-enables previously disabled virtual instrument routings.
+ */
+async function virtualInstrumentToggle(app, data) {
+  if (!app.database) {
+    throw new Error('Database not available');
+  }
+
+  const enabled = !!data.enabled;
+
+  if (enabled) {
+    const result = app.database.enableVirtualRoutings();
+    app.logger.info(`Virtual instruments enabled - re-enabled ${result.enabledCount} routings`);
+    return { success: true, enabledCount: result.enabledCount, affectedFileIds: result.affectedFileIds };
+  } else {
+    const result = app.database.disableVirtualRoutings();
+    app.logger.info(`Virtual instruments disabled - disabled ${result.disabledCount} routings`);
+    return { success: true, disabledCount: result.disabledCount, affectedFileIds: result.affectedFileIds };
+  }
+}
+
 export function register(registry, app) {
   registry.register('device_list', () => deviceList(app));
   registry.register('device_refresh', () => deviceRefresh(app));
@@ -539,4 +562,5 @@ export function register(registry, app) {
   registry.register('virtual_create', (data) => virtualCreate(app, data));
   registry.register('virtual_delete', (data) => virtualDelete(app, data));
   registry.register('virtual_list', () => virtualList(app));
+  registry.register('virtual_instrument_toggle', (data) => virtualInstrumentToggle(app, data));
 }

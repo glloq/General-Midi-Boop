@@ -1210,6 +1210,56 @@ class InstrumentDatabase {
       this.logger.error(`Failed to delete routings for file ${fileId}: ${error.message}`);
     }
   }
+
+  /**
+   * Disable all routings that point to virtual instruments (device_id LIKE 'virtual_%')
+   * @returns {{ disabledCount: number, affectedFileIds: number[] }}
+   */
+  disableVirtualRoutings() {
+    try {
+      const affectedRows = this.db.prepare(`
+        SELECT DISTINCT midi_file_id FROM midi_instrument_routings
+        WHERE device_id LIKE 'virtual_%' AND enabled = 1
+      `).all();
+
+      const result = this.db.prepare(`
+        UPDATE midi_instrument_routings SET enabled = 0
+        WHERE device_id LIKE 'virtual_%' AND enabled = 1
+      `).run();
+
+      const affectedFileIds = affectedRows.map(r => r.midi_file_id);
+      this.logger.info(`Disabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`);
+      return { disabledCount: result.changes, affectedFileIds };
+    } catch (error) {
+      this.logger.error(`Failed to disable virtual routings: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Re-enable all routings that point to virtual instruments
+   * @returns {{ enabledCount: number, affectedFileIds: number[] }}
+   */
+  enableVirtualRoutings() {
+    try {
+      const affectedRows = this.db.prepare(`
+        SELECT DISTINCT midi_file_id FROM midi_instrument_routings
+        WHERE device_id LIKE 'virtual_%' AND enabled = 0
+      `).all();
+
+      const result = this.db.prepare(`
+        UPDATE midi_instrument_routings SET enabled = 1
+        WHERE device_id LIKE 'virtual_%' AND enabled = 0
+      `).run();
+
+      const affectedFileIds = affectedRows.map(r => r.midi_file_id);
+      this.logger.info(`Re-enabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`);
+      return { enabledCount: result.changes, affectedFileIds };
+    } catch (error) {
+      this.logger.error(`Failed to enable virtual routings: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 export default InstrumentDatabase;
