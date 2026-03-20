@@ -10,6 +10,8 @@ const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
 
 // MIDI CC constants
 const MIDI_CC_ALL_NOTES_OFF = 123;
+const MIDI_CC_STRING_SELECT = 20; // CC20: select string number (1-6)
+const MIDI_CC_FRET_SELECT = 21;   // CC21: select fret position (0-36)
 
 class MidiPlayer {
   constructor(app) {
@@ -36,6 +38,7 @@ class MidiPlayer {
     this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
+    this._tablatureMap = new Map(); // channel -> Map<noteKey, {string, fret}> for CC20/CC21 injection
 
     // Invalidate sync_delay cache immediately when instrument settings change
     this._onSettingsChanged = () => {
@@ -69,6 +72,7 @@ class MidiPlayer {
       this.extractTempo(midi);
       this.extractChannels(midi);
       this.buildEventList();
+      this._loadTablatureData(fileId);
       this.calculateDuration();
       this.loadedFileId = fileId;
 
@@ -219,6 +223,101 @@ class MidiPlayer {
 
     // Sort events by time
     this.events.sort((a, b) => a.time - b.time);
+  }
+
+  /**
+   * Load tablature data for the file and inject CC20/CC21 events before note-ons.
+   * This allows hardware string instruments to know which string/fret to play.
+   * @param {number} fileId
+   */
+  _loadTablatureData(fileId) {
+    this._tablatureMap.clear();
+
+    try {
+      const tablatures = this.app.database.getTablaturesByFile(fileId);
+      if (!tablatures || tablatures.length === 0) return;
+
+      // Build tempo map for tick-to-seconds conversion
+      const tempoMap = this._buildTempoMap();
+
+      for (const tab of tablatures) {
+        if (!tab.tablature_data || tab.tablature_data.length === 0) continue;
+
+        const channel = tab.channel;
+
+        // Build a lookup: for each note-on (by time + note), store string/fret
+        // Key format: "timeRounded_note" to allow fuzzy matching
+        const noteMap = new Map();
+        for (const evt of tab.tablature_data) {
+          const timeSec = this._ticksToSecondsWithTempoMap(evt.tick, tempoMap);
+          // Round to 1ms precision for matching
+          const timeKey = Math.round(timeSec * 1000);
+          const key = `${timeKey}_${evt.midiNote}`;
+          noteMap.set(key, { string: evt.string, fret: evt.fret });
+        }
+
+        this._tablatureMap.set(channel, noteMap);
+      }
+
+      if (this._tablatureMap.size > 0) {
+        this._injectTablatureCCEvents();
+        this.app.logger.info(`Tablature CC20/CC21 injected for ${this._tablatureMap.size} channel(s)`);
+      }
+    } catch (error) {
+      this.app.logger.warn(`Failed to load tablature data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Inject CC20 (string) and CC21 (fret) events before matching note-on events.
+   * Events are injected at the same time as the note-on (sorted before by stable sort).
+   */
+  _injectTablatureCCEvents() {
+    const injected = [];
+
+    for (const event of this.events) {
+      if (event.type !== 'noteOn' || event.velocity === 0) continue;
+
+      const noteMap = this._tablatureMap.get(event.channel);
+      if (!noteMap) continue;
+
+      // Try exact match then nearby matches (+/- 5ms tolerance)
+      const timeKey = Math.round(event.time * 1000);
+      let tabPos = noteMap.get(`${timeKey}_${event.note}`);
+
+      if (!tabPos) {
+        // Fuzzy match within 5ms
+        for (let offset = -5; offset <= 5; offset++) {
+          tabPos = noteMap.get(`${timeKey + offset}_${event.note}`);
+          if (tabPos) break;
+        }
+      }
+
+      if (!tabPos) continue;
+
+      // Inject CC20 (string select) slightly before note-on
+      injected.push({
+        time: event.time - 0.001, // 1ms before note-on
+        type: 'controller',
+        channel: event.channel,
+        controller: MIDI_CC_STRING_SELECT,
+        value: tabPos.string
+      });
+
+      // Inject CC21 (fret select)
+      injected.push({
+        time: event.time - 0.0005, // 0.5ms before note-on (after CC20)
+        type: 'controller',
+        channel: event.channel,
+        controller: MIDI_CC_FRET_SELECT,
+        value: Math.round(tabPos.fret)
+      });
+    }
+
+    if (injected.length > 0) {
+      this.events.push(...injected);
+      this.events.sort((a, b) => a.time - b.time);
+    }
   }
 
   _buildTempoMap() {

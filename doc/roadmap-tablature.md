@@ -167,9 +167,13 @@ violon, etc.).
 - [x] Genere CC20 + CC21 avant chaque note-on dans `convertTablatureToMidi()`
 - [x] CC stockes dans `modal._tablatureCCEvents[channel]` cote frontend
 
-### 6.2 — MidiPlayer.js
-- [ ] **NE LIT PAS LES CC TABLATURE** — Le player route tous les CC generiquement mais ne consulte PAS `_tablatureCCEvents` pour injecter CC20/CC21 avant les note-on pendant le playback
-- [ ] Il faut : avant chaque note-on sur un canal avec instrument a cordes, envoyer CC20 puis CC21 depuis les donnees tablature sauvegardees
+### 6.2 — MidiPlayer.js [TERMINEE]
+- [x] `_loadTablatureData(fileId)` — charge les tablatures depuis la DB apres buildEventList()
+- [x] Construction d'une map channel -> (timeKey_note -> {string, fret}) avec conversion tick->seconds
+- [x] `_injectTablatureCCEvents()` — injecte CC20/CC21 dans la liste d'events avant chaque note-on
+- [x] CC20 a time-1ms, CC21 a time-0.5ms pour garantir l'ordre CC20 -> CC21 -> note-on
+- [x] Matching fuzzy (+/- 5ms) pour tolerance de timing entre tablature et MIDI
+- [x] Log du nombre de canaux avec tablature injectee
 
 ### 6.3 — MidiRouter.js
 - [x] CC20/CC21 passent a travers le routing comme tout autre CC (pas de filtrage special)
@@ -195,15 +199,10 @@ violon, etc.).
 | 3 | Editeur frontend | ~80% | Manque drag, copy/paste, undo/redo |
 | 4 | Sync bidirectionnelle | ~90% | Manque warning note non jouable |
 | 5 | Integration UI | ~85% | Manque auto-detection GM, mode tablature seule |
-| 6 | CC20/CC21 hardware | ~30% | **MidiPlayer ne lit pas les CC tablature** |
+| 6 | CC20/CC21 hardware | TERMINEE | - |
 | 7 | i18n | ~95% | Verifier les 26 autres langues |
 
 ## Prochaines priorites
-
-### Priorite HAUTE (bloquant pour l'utilisateur)
-
-2. **Phase 6.2** — Injection CC20/CC21 dans MidiPlayer.js
-   - Sans ca, le hardware ne recoit jamais l'info corde/frette pendant le playback
 
 ### Priorite MOYENNE (qualite d'edition)
 
