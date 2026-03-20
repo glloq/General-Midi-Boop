@@ -241,7 +241,7 @@ class MidiPlayer {
       const tempoMap = this._buildTempoMap();
 
       for (const tab of tablatures) {
-        if (!tab.tablature_data || tab.tablature_data.length === 0) continue;
+        if (!Array.isArray(tab.tablature_data) || tab.tablature_data.length === 0) continue;
 
         const channel = tab.channel;
 
@@ -301,7 +301,7 @@ class MidiPlayer {
         type: 'controller',
         channel: event.channel,
         controller: MIDI_CC_STRING_SELECT,
-        value: tabPos.string
+        value: Math.min(127, Math.max(0, tabPos.string))
       });
 
       // Inject CC21 (fret select)
@@ -310,7 +310,7 @@ class MidiPlayer {
         type: 'controller',
         channel: event.channel,
         controller: MIDI_CC_FRET_SELECT,
-        value: Math.round(tabPos.fret)
+        value: Math.min(127, Math.max(0, Math.round(tabPos.fret)))
       });
     }
 

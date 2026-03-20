@@ -213,13 +213,13 @@ class MidiEditorChannelPanel {
     // GM program ranges for string instruments
     static GM_STRING_INSTRUMENTS = {
         guitar: { start: 24, end: 31, preset: 'guitar_standard' },
-        bass:   { start: 32, end: 35, preset: 'bass_standard' },
-        bass6:  { start: 36, end: 39, preset: 'bass_standard' },
-        violin: { start: 40, end: 40, preset: 'violin_standard' },
-        viola:  { start: 41, end: 41, preset: 'viola_standard' },
-        cello:  { start: 42, end: 42, preset: 'cello_standard' },
-        contrabass: { start: 43, end: 43, preset: 'contrabass_standard' },
-        banjo:  { start: 105, end: 105, preset: 'banjo_open_g' },
+        bass:   { start: 32, end: 35, preset: 'bass_4_standard' },
+        bass6:  { start: 36, end: 39, preset: 'bass_4_standard' },
+        violin: { start: 40, end: 40, preset: 'violin' },
+        viola:  { start: 41, end: 41, preset: 'viola' },
+        cello:  { start: 42, end: 42, preset: 'cello' },
+        contrabass: { start: 43, end: 43, preset: 'contrabass' },
+        banjo:  { start: 105, end: 105, preset: 'banjo_standard' },
     };
 
     /**

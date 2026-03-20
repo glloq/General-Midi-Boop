@@ -74,7 +74,8 @@ class TablatureEditor {
         // Convert MIDI notes to tablature
         await this.convertFromMidi(midiNotes);
 
-        // Attach canvas events
+        // Detach first to prevent duplicate listeners on repeated show() calls
+        this._detachCanvasEvents();
         this._attachCanvasEvents();
     }
 
@@ -569,7 +570,10 @@ class TablatureEditor {
             input.style.top = `${canvasRect.top + y - 12}px`;
         }
 
+        let committed = false;
         const commit = () => {
+            if (committed) return;
+            committed = true;
             const fretVal = parseInt(input.value);
             if (!isNaN(fretVal) && fretVal >= 0 && fretVal <= maxFret) {
                 if (this.renderer) this.renderer.saveSnapshot();
@@ -590,7 +594,7 @@ class TablatureEditor {
                         channel: this.channel
                     });
                     // Sort by tick
-                    this.tabEvents.sort((a, b) => a.t - b.t || a.tick - b.tick);
+                    this.tabEvents.sort((a, b) => a.tick - b.tick);
                 }
 
                 if (this.renderer) this.renderer.setTabEvents(this.tabEvents);
@@ -601,7 +605,7 @@ class TablatureEditor {
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') commit();
-            if (e.key === 'Escape') input.remove();
+            if (e.key === 'Escape') { committed = true; input.remove(); }
         });
         input.addEventListener('blur', commit);
 
