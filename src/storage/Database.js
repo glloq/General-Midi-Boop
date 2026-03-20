@@ -7,6 +7,7 @@ import { dirname } from 'path';
 import MidiDatabase from './MidiDatabase.js';
 import InstrumentDatabase from './InstrumentDatabase.js';
 import LightingDatabase from './LightingDatabase.js';
+import StringInstrumentDatabase from './StringInstrumentDatabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,6 +20,7 @@ class DatabaseManager {
     this.midiDB = null;
     this.instrumentDB = null;
     this.lightingDB = null;
+    this.stringInstrumentDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -31,6 +33,7 @@ class DatabaseManager {
     this.midiDB = new MidiDatabase(this.db, this.app.logger);
     this.instrumentDB = new InstrumentDatabase(this.db, this.app.logger);
     this.lightingDB = new LightingDatabase(this.db, this.app.logger);
+    this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.app.logger);
 
     this.app.logger.info('Database initialized');
   }
@@ -490,6 +493,23 @@ class DatabaseManager {
   insertLightingPreset(preset) { return this.lightingDB.insertPreset(preset); }
   getLightingPresets() { return this.lightingDB.getPresets(); }
   deleteLightingPreset(id) { return this.lightingDB.deletePreset(id); }
+
+  // String Instruments
+  createStringInstrument(config) { return this.stringInstrumentDB.createStringInstrument(config); }
+  getStringInstrument(deviceId, channel) { return this.stringInstrumentDB.getStringInstrument(deviceId, channel); }
+  getStringInstrumentById(id) { return this.stringInstrumentDB.getStringInstrumentById(id); }
+  getAllStringInstruments() { return this.stringInstrumentDB.getAllStringInstruments(); }
+  getStringInstrumentsByDevice(deviceId) { return this.stringInstrumentDB.getStringInstrumentsByDevice(deviceId); }
+  updateStringInstrument(id, updates) { return this.stringInstrumentDB.updateStringInstrument(id, updates); }
+  deleteStringInstrument(id) { return this.stringInstrumentDB.deleteStringInstrument(id); }
+  deleteStringInstrumentByDeviceChannel(deviceId, channel) { return this.stringInstrumentDB.deleteStringInstrumentByDeviceChannel(deviceId, channel); }
+
+  // Tablature Data
+  saveTablature(...args) { return this.stringInstrumentDB.saveTablature(...args); }
+  getTablature(midiFileId, channel) { return this.stringInstrumentDB.getTablature(midiFileId, channel); }
+  getTablaturesByFile(midiFileId) { return this.stringInstrumentDB.getTablaturesByFile(midiFileId); }
+  deleteTablature(midiFileId, channel) { return this.stringInstrumentDB.deleteTablature(midiFileId, channel); }
+  deleteTablaturesByFile(midiFileId) { return this.stringInstrumentDB.deleteTablaturesByFile(midiFileId); }
 
   // ==================== UTILITIES ====================
 

@@ -52,6 +52,9 @@ const MIDI_CC = {
   EXPRESSION: 11,
   EFFECT_1: 12,
   EFFECT_2: 13,
+  // String instrument control (acoustic instrument automation)
+  STRING_SELECT: 20,     // CC20: select string number (1-6)
+  FRET_SELECT: 21,       // CC21: select fret position (0-36)
   BANK_SELECT_LSB: 32,
   SUSTAIN_PEDAL: 64,
   PORTAMENTO: 65,
