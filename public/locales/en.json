@@ -1034,5 +1034,46 @@
       "Applause",
       "Gunshot"
     ]
+  },
+  "tablature": {
+    "toggleEditor": "Toggle tablature editor",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "deleteSelected": "Delete selected",
+    "selectAll": "Select all",
+    "enterFret": "Enter fret number",
+    "noStringInstrument": "No string instrument configured for this channel",
+    "selectDeviceFirst": "Select a connected device first",
+    "singleChannelRequired": "Select a single channel to use tablature",
+    "converting": "Converting MIDI to tablature...",
+    "conversionFailed": "Tablature conversion failed"
+  },
+  "stringInstrument": {
+    "title": "String Instrument Configuration",
+    "name": "Instrument Name",
+    "numStrings": "Number of Strings",
+    "numFrets": "Number of Frets",
+    "tuning": "Tuning",
+    "tuningPreset": "Tuning Preset",
+    "customTuning": "Custom Tuning",
+    "isFretless": "Fretless",
+    "capoFret": "Capo Position",
+    "noCapo": "No Capo",
+    "presets": {
+      "guitar_standard": "Guitar Standard (EADGBE)",
+      "guitar_drop_d": "Guitar Drop D (DADGBE)",
+      "guitar_open_g": "Guitar Open G (DGDGBD)",
+      "guitar_open_d": "Guitar Open D (DADF#AD)",
+      "guitar_dadgad": "Guitar DADGAD",
+      "bass_4_standard": "Bass 4-String (EADG)",
+      "bass_5_standard": "Bass 5-String (BEADG)",
+      "bass_6_standard": "Bass 6-String (BEADGC)",
+      "ukulele_standard": "Ukulele Standard (GCEA)",
+      "banjo_standard": "Banjo Open G (gDGBD)",
+      "violin": "Violin (GDAE)",
+      "viola": "Viola (CGDA)",
+      "cello": "Cello (CGDA)",
+      "contrabass": "Contrabass (EADG)"
+    }
   }
 }

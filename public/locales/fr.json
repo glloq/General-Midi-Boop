@@ -1034,5 +1034,46 @@
       "Applaudissements",
       "Coup de feu"
     ]
+  },
+  "tablature": {
+    "toggleEditor": "Afficher/masquer l'éditeur de tablature",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "deleteSelected": "Supprimer la sélection",
+    "selectAll": "Tout sélectionner",
+    "enterFret": "Entrer le numéro de frette",
+    "noStringInstrument": "Aucun instrument à cordes configuré pour ce canal",
+    "selectDeviceFirst": "Sélectionnez d'abord un appareil connecté",
+    "singleChannelRequired": "Sélectionnez un seul canal pour utiliser la tablature",
+    "converting": "Conversion MIDI vers tablature...",
+    "conversionFailed": "Échec de la conversion en tablature"
+  },
+  "stringInstrument": {
+    "title": "Configuration de l'instrument à cordes",
+    "name": "Nom de l'instrument",
+    "numStrings": "Nombre de cordes",
+    "numFrets": "Nombre de frettes",
+    "tuning": "Accordage",
+    "tuningPreset": "Accordage prédéfini",
+    "customTuning": "Accordage personnalisé",
+    "isFretless": "Sans frettes",
+    "capoFret": "Position du capo",
+    "noCapo": "Pas de capo",
+    "presets": {
+      "guitar_standard": "Guitare Standard (EADGBE)",
+      "guitar_drop_d": "Guitare Drop D (DADGBE)",
+      "guitar_open_g": "Guitare Open G (DGDGBD)",
+      "guitar_open_d": "Guitare Open D (DADF#AD)",
+      "guitar_dadgad": "Guitare DADGAD",
+      "bass_4_standard": "Basse 4 cordes (EADG)",
+      "bass_5_standard": "Basse 5 cordes (BEADG)",
+      "bass_6_standard": "Basse 6 cordes (BEADGC)",
+      "ukulele_standard": "Ukulélé Standard (GCEA)",
+      "banjo_standard": "Banjo Open G (gDGBD)",
+      "violin": "Violon (GDAE)",
+      "viola": "Alto (CGDA)",
+      "cello": "Violoncelle (CGDA)",
+      "contrabass": "Contrebasse (EADG)"
+    }
   }
 }

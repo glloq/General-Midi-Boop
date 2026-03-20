@@ -36,6 +36,7 @@ class MidiEditorChannelPanel {
         m.updateSequenceFromActiveChannels(previousActiveChannels);
         this.updateChannelButtons();
         this.updateInstrumentSelector();
+        this.updateTablatureButton();
 
         // Mettre a jour le canal pour l'edition CC
         if (m.ccPanel) {
@@ -210,6 +211,32 @@ class MidiEditorChannelPanel {
     // ========================================================================
 
     /**
+     * Update tablature button visibility based on active channel
+     */
+    async updateTablatureButton() {
+        const m = this.modal;
+        const btn = m.container?.querySelector('.tab-toggle-btn');
+        if (!btn) return;
+
+        // Show only when exactly 1 channel is active and a device is selected
+        if (m.activeChannels.size === 1 && m.selectedConnectedDevice) {
+            try {
+                const hasTab = await m.hasStringInstrument();
+                btn.style.display = hasTab ? 'inline-flex' : 'none';
+                if (m.tablatureEditor && m.tablatureEditor.isVisible) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            } catch {
+                btn.style.display = 'none';
+            }
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+
+    /**
      * Mettre a jour le selecteur d'instrument selon les canaux actifs
      */
     updateInstrumentSelector() {
@@ -326,6 +353,7 @@ class MidiEditorChannelPanel {
                 this.calculatePlayableNotes();
                 this.updatePianoRollPlayableNotes();
                 m.log('info', `Loaded capabilities for device ${deviceId}:`, m.selectedDeviceCapabilities);
+                this.updateTablatureButton();
             } else {
                 m.selectedDeviceCapabilities = null;
                 m.playableNotes = null;

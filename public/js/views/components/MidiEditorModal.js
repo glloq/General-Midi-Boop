@@ -53,6 +53,9 @@ class MidiEditorModal {
         this.selectedDeviceCapabilities = null; // Capacités de l'appareil sélectionné
         this.playableNotes = null; // Set des notes jouables (0-127) ou null si pas de filtre
 
+        // Tablature editor (for string instruments)
+        this.tablatureEditor = null;
+
         // Playback (synthétiseur intégré)
         this.synthesizer = null;
         this.isPlaying = false;
@@ -2614,6 +2617,7 @@ class MidiEditorModal {
                             <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
                                 <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
                             </select>
+                            <button class="tab-toggle-btn" data-action="toggle-tablature" style="display:none" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
 
@@ -4396,6 +4400,9 @@ class MidiEditorModal {
                 case 'rename-file':
                     this.showRenameDialog();
                     break;
+                case 'toggle-tablature':
+                    this.toggleTablature();
+                    break;
 
                 // Playback controls
                 case 'playback-play':
@@ -5124,6 +5131,85 @@ class MidiEditorModal {
     }
 
     // ========================================================================
+    // TABLATURE EDITOR
+    // ========================================================================
+
+    /**
+     * Toggle tablature editor for the active channel's string instrument
+     */
+    async toggleTablature() {
+        // If tablature is visible, hide it
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            return;
+        }
+
+        // Require exactly one active channel
+        if (this.activeChannels.size !== 1) {
+            this.log('warn', 'Tablature requires exactly one active channel');
+            return;
+        }
+
+        const activeChannel = Array.from(this.activeChannels)[0];
+
+        // Check if this channel has a string instrument configured
+        try {
+            // Try to get connected device for this channel
+            const deviceId = this.selectedConnectedDevice;
+            if (!deviceId) {
+                this.log('warn', 'No connected device selected for tablature');
+                return;
+            }
+
+            const response = await this.api.sendCommand('string_instrument_get', {
+                device_id: deviceId,
+                channel: activeChannel
+            });
+
+            if (!response || !response.instrument) {
+                this.log('info', 'No string instrument configured for this device/channel');
+                return;
+            }
+
+            const stringInstrument = response.instrument;
+
+            // Get notes for this channel
+            const channelNotes = (this.fullSequence || []).filter(n => n.c === activeChannel);
+
+            // Create or show tablature editor
+            if (!this.tablatureEditor) {
+                this.tablatureEditor = new TablatureEditor(this);
+            }
+
+            await this.tablatureEditor.show(stringInstrument, channelNotes, activeChannel);
+
+        } catch (error) {
+            this.log('error', 'Failed to toggle tablature:', error);
+        }
+    }
+
+    /**
+     * Check if the active channel has a string instrument configured
+     * @returns {Promise<boolean>}
+     */
+    async hasStringInstrument() {
+        if (this.activeChannels.size !== 1 || !this.selectedConnectedDevice) {
+            return false;
+        }
+
+        try {
+            const activeChannel = Array.from(this.activeChannels)[0];
+            const response = await this.api.sendCommand('string_instrument_get', {
+                device_id: this.selectedConnectedDevice,
+                channel: activeChannel
+            });
+            return !!(response && response.instrument);
+        } catch {
+            return false;
+        }
+    }
+
+    // ========================================================================
     // FERMETURE
     // ========================================================================
 
@@ -5324,6 +5410,12 @@ class MidiEditorModal {
             this.tempoEditor = null;
         }
         this.tempoEvents = [];
+
+        // Nettoyer l'éditeur de tablature
+        if (this.tablatureEditor) {
+            this.tablatureEditor.destroy();
+            this.tablatureEditor = null;
+        }
 
         // Nettoyer le synthétiseur
         this.disposeSynthesizer();
