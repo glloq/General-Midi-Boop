@@ -1083,6 +1083,8 @@
       "viola": "Alto (CGDA)",
       "cello": "Violoncelle (CGDA)",
       "contrabass": "Contrebasse (EADG)"
-    }
+    },
+    "configCreated": "Configuration de l'instrument à cordes créée avec le préréglage par défaut.",
+    "configExists": "Une configuration d'instrument à cordes existe déjà pour cet appareil."
   }
 }

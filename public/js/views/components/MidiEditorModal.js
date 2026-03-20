@@ -832,6 +832,13 @@ class MidiEditorModal {
         this.fullSequence.sort((a, b) => a.t - b.t);
 
         this.log('debug', `Synced fullSequence: ${invisibleNotes.length} invisible + ${visibleNotes.length} visible = ${this.fullSequence.length} total (using ${previousActiveChannels ? 'previous' : 'current'} active channels)`);
+
+        // Notify tablature editor of changes (bidirectional sync)
+        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.activeChannels.size === 1) {
+            const activeChannel = Array.from(this.activeChannels)[0];
+            const channelNotes = visibleNotes.filter(n => n.c === activeChannel);
+            this.tablatureEditor.onMidiNotesChanged(channelNotes);
+        }
     }
 
     // ========================================================================

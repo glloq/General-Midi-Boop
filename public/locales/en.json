@@ -1083,6 +1083,8 @@
       "viola": "Viola (CGDA)",
       "cello": "Cello (CGDA)",
       "contrabass": "Contrabass (EADG)"
-    }
+    },
+    "configCreated": "String instrument configuration created with default preset.",
+    "configExists": "A string instrument configuration already exists for this device."
   }
 }

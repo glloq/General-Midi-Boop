@@ -372,6 +372,82 @@ class InstrumentCapabilitiesModal {
     }
 
     this.updates[instrument.id][field] = value;
+
+    // Auto-create string instrument config when type is guitar/bass/strings
+    if (field === 'type' && ['guitar', 'bass', 'strings'].includes(value)) {
+      this.autoCreateStringInstrument(instrument, value);
+    }
+  }
+
+  /**
+   * Auto-create a string instrument configuration when instrument type is set to guitar/bass/strings
+   */
+  async autoCreateStringInstrument(instrument, type) {
+    const presetMap = {
+      guitar: 'guitar_standard',
+      bass: 'bass_standard',
+      strings: 'guitar_standard'
+    };
+
+    try {
+      // Check if a string instrument already exists for this device
+      const existing = await this.apiClient.sendCommand('string_instrument_get', {
+        device_id: instrument.id,
+        channel: 0
+      });
+
+      if (existing && existing.instrument) {
+        this._showStringInstrumentBanner(true);
+        return;
+      }
+
+      // Get preset data
+      const presetKey = presetMap[type];
+      const presetResponse = await this.apiClient.sendCommand('string_instrument_apply_preset', {
+        preset_key: presetKey
+      });
+
+      if (presetResponse && presetResponse.preset) {
+        const preset = presetResponse.preset;
+        await this.apiClient.sendCommand('string_instrument_create', {
+          device_id: instrument.id,
+          channel: 0,
+          instrument_name: preset.name || type,
+          num_strings: preset.num_strings,
+          num_frets: preset.num_frets,
+          tuning: preset.tuning,
+          is_fretless: preset.is_fretless || 0,
+          capo_fret: 0
+        });
+
+        this._showStringInstrumentBanner(false);
+      }
+    } catch (error) {
+      console.error('Failed to auto-create string instrument:', error);
+    }
+  }
+
+  /**
+   * Show a notification banner about string instrument configuration
+   */
+  _showStringInstrumentBanner(alreadyExists) {
+    // Remove existing banner if any
+    const existing = document.getElementById('string-instrument-banner');
+    if (existing) existing.remove();
+
+    const contentElement = document.getElementById('instrumentCapabilitiesContent');
+    if (!contentElement) return;
+
+    const message = alreadyExists
+      ? _t('stringInstrument.configExists')
+      : _t('stringInstrument.configCreated');
+
+    const banner = document.createElement('div');
+    banner.id = 'string-instrument-banner';
+    banner.style.cssText = 'margin: 8px 0; padding: 10px 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; color: #166534; font-size: 13px;';
+    banner.textContent = message;
+
+    contentElement.insertBefore(banner, contentElement.firstChild);
   }
 
   /**

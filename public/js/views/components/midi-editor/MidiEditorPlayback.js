@@ -255,6 +255,11 @@ class MidiEditorPlayback {
         } else if (tick < xoffset) {
             m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
         }
+
+        // Update tablature editor playhead and fretboard
+        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
+            m.tablatureEditor.updatePlayhead(tick);
+        }
     }
 
     /**
