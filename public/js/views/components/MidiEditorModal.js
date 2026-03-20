@@ -2625,6 +2625,7 @@ class MidiEditorModal {
                                 <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
                             </select>
                             <button class="tab-toggle-btn" data-action="configure-string-instrument" style="display:none" title="${this.t('stringInstrument.title')}">&#9881;</button>
+                            <span class="tab-instrument-label" id="tab-instrument-label" style="display:none"></span>
                             <button class="tab-toggle-btn" data-action="toggle-tablature" style="display:none" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
