@@ -1180,6 +1180,43 @@
                  0 3px 6px rgba(0,0,0,1);
 }
 
+/* Channel button group (channel btn + TAB sub-button) */
+.midi-editor-modal .channel-btn-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+}
+
+.midi-editor-modal .channel-tab-btn {
+    display: block;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #aaa;
+    background: linear-gradient(180deg, #222 0%, #111 100%);
+    border: 1px solid #555;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    line-height: 1;
+}
+
+.midi-editor-modal .channel-tab-btn:hover {
+    color: #fff;
+    background: linear-gradient(180deg, #333 0%, #222 100%);
+    border-color: #888;
+}
+
+.midi-editor-modal .channel-tab-btn.active {
+    color: #fff;
+    background: linear-gradient(180deg, #d4a017 0%, #b8860b 100%);
+    border-color: #d4a017;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
 .midi-editor-modal .piano-roll-container {
     flex: 1;
     position: relative;

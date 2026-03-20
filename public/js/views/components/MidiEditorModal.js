@@ -2190,16 +2190,29 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
+            // Detect if this channel has a string instrument (GM-based)
+            const isStringInstrument = ch.channel !== 9 &&
+                typeof MidiEditorChannelPanel !== 'undefined' &&
+                MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
+
+            const tabBtnHtml = isStringInstrument
+                ? `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
+                     title="TAB - ${ch.instrument}">TAB</button>`
+                : '';
+
             buttons += `
-                <button
-                    class="channel-btn ${activeClass}"
-                    data-channel="${ch.channel}"
-                    data-color="${color}"
-                    style="${inlineStyles}"
-                    title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
-                >
-                    <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
-                </button>
+                <div class="channel-btn-group">
+                    <button
+                        class="channel-btn ${activeClass}"
+                        data-channel="${ch.channel}"
+                        data-color="${color}"
+                        style="${inlineStyles}"
+                        title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
+                    >
+                        <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
+                    </button>
+                    ${tabBtnHtml}
+                </div>
             `;
         });
 
@@ -2644,12 +2657,11 @@ class MidiEditorModal {
                             </select>
                         </div>
 
-                        <!-- Section Tablature (instruments à cordes) -->
+                        <!-- Section Tablature (instruments à cordes) - config only, TAB access via channel buttons -->
                         <div class="toolbar-section tablature-section" id="tablature-toolbar-section" style="display:none">
                             <div class="toolbar-divider"></div>
                             <button class="tab-toggle-btn" data-action="configure-string-instrument" title="${this.t('tablature.configureStringInstrument')}">&#9881;</button>
                             <span class="tab-instrument-label" id="tab-instrument-label" style="display:none"></span>
-                            <button class="tab-toggle-btn tab-main-btn" data-action="toggle-tablature" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
 
@@ -3398,6 +3410,20 @@ class MidiEditorModal {
                     this.toggleChannel(channel);
                 });
             });
+
+            // Attach events on TAB sub-buttons
+            const tabButtons = this.container.querySelectorAll('.channel-tab-btn');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const channel = parseInt(btn.dataset.channel);
+                    this._openTablatureForChannel(channel);
+                });
+            });
+
+            // Update TAB button active states
+            this._updateChannelTabButtons();
         }
     }
 
@@ -5256,7 +5282,7 @@ class MidiEditorModal {
     }
 
     /**
-     * Update the TAB button active state in the toolbar
+     * Update the TAB button active state in toolbar and channel buttons
      * @param {boolean} active
      */
     _updateTabButtonState(active) {
@@ -5264,6 +5290,56 @@ class MidiEditorModal {
         if (tabBtn) {
             tabBtn.classList.toggle('active', active);
         }
+        this._updateChannelTabButtons();
+    }
+
+    /**
+     * Open tablature for a specific channel (called from channel TAB sub-buttons)
+     * @param {number} channel
+     */
+    async _openTablatureForChannel(channel) {
+        // First, ensure only this channel is active
+        const previousActiveChannels = new Set(this.activeChannels);
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+
+        this.updateSequenceFromActiveChannels(previousActiveChannels);
+        if (this.channelPanel) {
+            this.channelPanel.updateChannelButtons();
+            this.channelPanel.updateInstrumentSelector();
+        }
+
+        // If tablature is already visible for this channel, toggle it off
+        if (this.tablatureEditor && this.tablatureEditor.isVisible
+            && this.tablatureEditor.channel === channel) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+            return;
+        }
+
+        // If tablature is visible for a different channel, hide it first
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+        }
+
+        // Now open tablature for the channel
+        await this.toggleTablature();
+    }
+
+    /**
+     * Update active state of all channel TAB sub-buttons
+     */
+    _updateChannelTabButtons() {
+        const tabBtns = this.container?.querySelectorAll('.channel-tab-btn');
+        if (!tabBtns) return;
+
+        const isTabVisible = this.tablatureEditor && this.tablatureEditor.isVisible;
+        const tabChannel = isTabVisible ? this.tablatureEditor.channel : -1;
+
+        tabBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            btn.classList.toggle('active', isTabVisible && ch === tabChannel);
+        });
     }
 
     /**
