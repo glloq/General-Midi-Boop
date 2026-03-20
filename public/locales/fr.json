@@ -1046,7 +1046,10 @@
     "selectDeviceFirst": "Sélectionnez d'abord un appareil connecté",
     "singleChannelRequired": "Sélectionnez un seul canal pour utiliser la tablature",
     "converting": "Conversion MIDI vers tablature...",
-    "conversionFailed": "Échec de la conversion en tablature"
+    "conversionFailed": "Échec de la conversion en tablature",
+    "configureStringInstrument": "Configurer instrument à cordes",
+    "gmDetected": "{{instrument}} détecté — configurer comme instrument à cordes ?",
+    "autoConfig": "Auto-configurer"
   },
   "stringInstrument": {
     "title": "Configuration de l'instrument à cordes",

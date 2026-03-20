@@ -96,7 +96,7 @@ violon, etc.).
 - [x] Corde a vide (O au-dessus du sillet)
 - [x] Auto-scroll fenetre de frettes
 - [x] Epaisseur de corde variable (graves plus epaisses)
-- [ ] **Corde muted (X)** — couleur definie mais pas de rendu
+- [x] Corde muted (X) — rendu en rouge (#dc3545) au-dessus du sillet quand `pos.muted === true`
 
 ### 3.4 — CSS (tablature.css)
 - [x] Panel, header, toolbar, canvas wrappers
@@ -124,7 +124,7 @@ violon, etc.).
 - [x] Guard `isSyncing` pour eviter les boucles infinies tab <-> piano roll
 
 ### 4.4 — Manques identifies
-- [ ] **Warning visuel si note non jouable** — `isNotePlayable()` existe dans le converter mais non utilise cote frontend
+- [x] Warning visuel si note non jouable — fond rouge (unplayable color) sur les frettes > numFrets dans TablatureRenderer
 - [ ] **EventBus dedie** — la sync passe par des appels directs, pas par un bus d'evenements (tablature:note-changed, etc.)
 
 ---
@@ -156,8 +156,14 @@ violon, etc.).
 - [x] Callback onSave rafraichit le bouton TAB et l'editeur tablature
 - [x] Cles i18n ajoutees pour les 5 presets manquants (en.json + fr.json)
 
-### 5.4 — Auto-detection a la creation d'instrument
-- [ ] **PAS IMPLEMENTE** — Les programmes GM guitare(24-31), basse(32-39), cordes(40-47) sont documentes en commentaires dans MidiEditorModal.js mais aucun code ne propose la config tablature automatiquement
+### 5.4 — Auto-detection a la creation d'instrument [TERMINEE]
+- [x] `GM_STRING_INSTRUMENTS` — mapping GM program -> preset (guitar, bass, violin, viola, cello, contrabass, banjo)
+- [x] `getStringInstrumentCategory()` — detecte si un programme GM est un instrument a cordes
+- [x] `_suggestStringInstrumentConfig()` — banniere de suggestion avec bouton "Auto-configurer"
+- [x] `string_instrument_create_from_preset` — commande backend pour creer depuis un preset
+- [x] Highlight vert pulsant sur le bouton config quand GM string detecte
+- [x] CSS: banner `.tab-suggest-banner`, animation `gm-pulse`
+- [x] i18n EN/FR: `tablature.gmDetected`, `tablature.autoConfig`, `tablature.configureStringInstrument`
 
 ---
 
@@ -198,7 +204,7 @@ violon, etc.).
 | 2 | Algorithme MIDI <-> Tablature | TERMINEE | - |
 | 3 | Editeur frontend | TERMINEE | - |
 | 4 | Sync bidirectionnelle | ~90% | Manque warning note non jouable |
-| 5 | Integration UI | ~85% | Manque auto-detection GM, mode tablature seule |
+| 5 | Integration UI | ~95% | Reste mode tablature seule (Phase 5.2) |
 | 6 | CC20/CC21 hardware | TERMINEE | - |
 | 7 | i18n | ~95% | Verifier les 26 autres langues |
 
@@ -206,14 +212,11 @@ violon, etc.).
 
 ### Priorite MOYENNE (qualite d'edition)
 
-3. **Phase 5.4** — Auto-detection programmes GM pour proposer la config tablature
-5. **Phase 4.4** — Warning visuel si une note du piano roll n'est pas jouable
-
 ### Priorite BASSE (polish)
 
-6. **Phase 5.2** — Mode "tablature seule" (sans piano roll)
-7. **Phase 3.3** — Rendu "muted string" (X) sur le fretboard diagram
-8. **Phase 7** — Verifier i18n sur les 26 autres langues
+3. **Phase 5.2** — Mode "tablature seule" (sans piano roll)
+4. **Phase 4.4b** — EventBus dedie pour la sync tab/MIDI
+5. **Phase 7** — Verifier i18n sur les 26 autres langues
 
 ---
 

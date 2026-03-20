@@ -210,8 +210,35 @@ class MidiEditorChannelPanel {
     // INSTRUMENT SELECTOR
     // ========================================================================
 
+    // GM program ranges for string instruments
+    static GM_STRING_INSTRUMENTS = {
+        guitar: { start: 24, end: 31, preset: 'guitar_standard' },
+        bass:   { start: 32, end: 35, preset: 'bass_standard' },
+        bass6:  { start: 36, end: 39, preset: 'bass_standard' },
+        violin: { start: 40, end: 40, preset: 'violin_standard' },
+        viola:  { start: 41, end: 41, preset: 'viola_standard' },
+        cello:  { start: 42, end: 42, preset: 'cello_standard' },
+        contrabass: { start: 43, end: 43, preset: 'contrabass_standard' },
+        banjo:  { start: 105, end: 105, preset: 'banjo_open_g' },
+    };
+
     /**
-     * Update tablature button visibility based on active channel
+     * Check if a GM program number corresponds to a string instrument
+     * @param {number} program - GM program number (0-127)
+     * @returns {{ category: string, preset: string } | null}
+     */
+    static getStringInstrumentCategory(program) {
+        for (const [category, range] of Object.entries(MidiEditorChannelPanel.GM_STRING_INSTRUMENTS)) {
+            if (program >= range.start && program <= range.end) {
+                return { category, preset: range.preset };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Update tablature button visibility based on active channel.
+     * Auto-suggests string instrument configuration when a GM string program is detected.
      */
     async updateTablatureButton() {
         const m = this.modal;
@@ -225,6 +252,19 @@ class MidiEditorChannelPanel {
         // Show TAB button only if a string instrument is already configured
         if (m.activeChannels.size === 1 && m.selectedConnectedDevice) {
             if (configBtn) configBtn.style.display = 'inline-flex';
+
+            // Auto-detect string instrument from GM program
+            const activeChannel = Array.from(m.activeChannels)[0];
+            const channelInfo = m.channels.find(ch => ch.channel === activeChannel);
+            const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
+
+            if (gmMatch) {
+                configBtn.classList.add('gm-string-detected');
+                configBtn.title = `${m.t('tablature.configureStringInstrument')} (${channelInfo.instrument})`;
+            } else if (configBtn) {
+                configBtn.classList.remove('gm-string-detected');
+            }
+
             try {
                 const hasTab = await m.hasStringInstrument();
                 if (tabBtn) tabBtn.style.display = hasTab ? 'inline-flex' : 'none';
@@ -233,12 +273,62 @@ class MidiEditorChannelPanel {
                 } else if (tabBtn) {
                     tabBtn.classList.remove('active');
                 }
+
+                // If GM string instrument detected but no config exists, auto-suggest
+                if (gmMatch && !hasTab) {
+                    this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
+                }
             } catch {
                 if (tabBtn) tabBtn.style.display = 'none';
             }
         } else {
-            if (configBtn) configBtn.style.display = 'none';
+            if (configBtn) {
+                configBtn.style.display = 'none';
+                configBtn.classList.remove('gm-string-detected');
+            }
             if (tabBtn) tabBtn.style.display = 'none';
+        }
+    }
+
+    /**
+     * Show a suggestion banner to auto-configure a string instrument
+     */
+    _suggestStringInstrumentConfig(channel, gmMatch, channelInfo) {
+        const m = this.modal;
+
+        // Don't re-suggest if banner already shown
+        const existing = m.container?.querySelector('.tab-suggest-banner');
+        if (existing) existing.remove();
+
+        const banner = document.createElement('div');
+        banner.className = 'tab-suggest-banner';
+        banner.innerHTML = `
+            <span>${m.t('tablature.gmDetected', { instrument: channelInfo.instrument })}</span>
+            <button class="tab-suggest-btn" data-action="tab-auto-config">${m.t('tablature.autoConfig')}</button>
+            <button class="tab-suggest-dismiss">&times;</button>
+        `;
+
+        banner.querySelector('.tab-suggest-dismiss').addEventListener('click', () => banner.remove());
+        banner.querySelector('[data-action="tab-auto-config"]').addEventListener('click', async () => {
+            banner.remove();
+            try {
+                await m.api.sendCommand('string_instrument_create_from_preset', {
+                    device_id: m.selectedConnectedDevice,
+                    channel: channel,
+                    preset: gmMatch.preset
+                });
+                this.updateTablatureButton();
+                m.log('info', `Auto-configured ${gmMatch.category} for channel ${channel + 1}`);
+            } catch (error) {
+                m.log('error', 'Auto-config failed:', error);
+                m.showStringInstrumentConfig();
+            }
+        });
+
+        const toolbar = m.container?.querySelector('.tablature-toolbar') ||
+                        m.container?.querySelector('.channels-toolbar');
+        if (toolbar) {
+            toolbar.parentElement.insertBefore(banner, toolbar.nextSibling);
         }
     }
 

@@ -88,6 +88,33 @@ async function stringInstrumentApplyPreset(app, data) {
   return { preset };
 }
 
+async function stringInstrumentCreateFromPreset(app, data) {
+  if (!data.device_id && data.device_id !== '') throw new Error('device_id is required');
+  if (data.channel === undefined) throw new Error('channel is required');
+  if (!data.preset) throw new Error('preset key is required');
+
+  const preset = app.database.stringInstrumentDB.getTuningPreset(data.preset);
+  if (!preset) throw new Error(`Unknown preset: ${data.preset}`);
+
+  // Check if instrument already exists for this device/channel
+  const existing = app.database.stringInstrumentDB.getStringInstrument(data.device_id, data.channel);
+  if (existing) {
+    return { success: true, id: existing.id, existing: true };
+  }
+
+  const id = app.database.stringInstrumentDB.createStringInstrument({
+    device_id: data.device_id,
+    channel: data.channel,
+    instrument_name: preset.name,
+    num_strings: preset.strings,
+    num_frets: preset.frets,
+    tuning: preset.tuning,
+    is_fretless: preset.fretless || false,
+    capo_fret: 0
+  });
+  return { success: true, id };
+}
+
 // ==================== TABLATURE DATA ====================
 
 async function tablatureSave(app, data) {
@@ -183,6 +210,7 @@ export function register(registry, app) {
   // Tuning presets
   registry.register('string_instrument_get_presets', () => stringInstrumentGetPresets(app));
   registry.register('string_instrument_apply_preset', (data) => stringInstrumentApplyPreset(app, data));
+  registry.register('string_instrument_create_from_preset', (data) => stringInstrumentCreateFromPreset(app, data));
 
   // Tablature data
   registry.register('tablature_save', (data) => tablatureSave(app, data));

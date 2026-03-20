@@ -384,6 +384,7 @@ class TablatureRenderer {
             const y = this._stringToY(displayIndex);
             const isSelected = this.selectedEvents.has(i);
             const isHovered = this._hoverEvent === i && !isSelected;
+            const isUnplayable = !this.isFretless && event.fret > this.numFrets;
             const fretText = this.isFretless ? event.fret.toFixed(1) : event.fret.toString();
 
             // Measure text width for background
@@ -401,13 +402,19 @@ class TablatureRenderer {
             // Background rectangle
             if (isSelected) {
                 ctx.fillStyle = this.colors.fretNumberSelectedBg;
+            } else if (isUnplayable) {
+                ctx.fillStyle = this.colors.unplayable;
             } else {
                 ctx.fillStyle = this.colors.background;
             }
             ctx.fillRect(x - textWidth / 2 - padding, y - 8, textWidth + padding * 2, 16);
 
             // Fret number text
-            ctx.fillStyle = isSelected ? this.colors.fretNumberSelected : this.colors.fretNumber;
+            if (isUnplayable && !isSelected) {
+                ctx.fillStyle = '#ffffff';
+            } else {
+                ctx.fillStyle = isSelected ? this.colors.fretNumberSelected : this.colors.fretNumber;
+            }
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(fretText, x, y);

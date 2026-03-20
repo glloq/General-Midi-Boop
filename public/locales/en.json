@@ -1046,7 +1046,10 @@
     "selectDeviceFirst": "Select a connected device first",
     "singleChannelRequired": "Select a single channel to use tablature",
     "converting": "Converting MIDI to tablature...",
-    "conversionFailed": "Tablature conversion failed"
+    "conversionFailed": "Tablature conversion failed",
+    "configureStringInstrument": "Configure string instrument",
+    "gmDetected": "{{instrument}} detected — configure as string instrument?",
+    "autoConfig": "Auto-configure"
   },
   "stringInstrument": {
     "title": "String Instrument Configuration",

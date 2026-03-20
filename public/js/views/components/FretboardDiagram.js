@@ -294,7 +294,14 @@ class FretboardDiagram {
         for (const pos of this.activePositions) {
             const x = this._getStringX(pos.string);
 
-            if (pos.fret === 0) {
+            if (pos.muted) {
+                // Muted string — draw X above nut
+                ctx.fillStyle = this.colors.mutedString;
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('X', x, this.topMargin - 12);
+            } else if (pos.fret === 0) {
                 // Open string — draw circle above nut
                 ctx.fillStyle = this.colors.openString;
                 ctx.beginPath();
