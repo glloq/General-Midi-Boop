@@ -215,24 +215,30 @@ class MidiEditorChannelPanel {
      */
     async updateTablatureButton() {
         const m = this.modal;
-        const btn = m.container?.querySelector('.tab-toggle-btn');
-        if (!btn) return;
+        const btns = m.container?.querySelectorAll('.tab-toggle-btn');
+        if (!btns || btns.length === 0) return;
 
-        // Show only when exactly 1 channel is active and a device is selected
+        const configBtn = m.container?.querySelector('[data-action="configure-string-instrument"]');
+        const tabBtn = m.container?.querySelector('[data-action="toggle-tablature"]');
+
+        // Show config button when 1 channel active + device selected
+        // Show TAB button only if a string instrument is already configured
         if (m.activeChannels.size === 1 && m.selectedConnectedDevice) {
+            if (configBtn) configBtn.style.display = 'inline-flex';
             try {
                 const hasTab = await m.hasStringInstrument();
-                btn.style.display = hasTab ? 'inline-flex' : 'none';
-                if (m.tablatureEditor && m.tablatureEditor.isVisible) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
+                if (tabBtn) tabBtn.style.display = hasTab ? 'inline-flex' : 'none';
+                if (tabBtn && m.tablatureEditor && m.tablatureEditor.isVisible) {
+                    tabBtn.classList.add('active');
+                } else if (tabBtn) {
+                    tabBtn.classList.remove('active');
                 }
             } catch {
-                btn.style.display = 'none';
+                if (tabBtn) tabBtn.style.display = 'none';
             }
         } else {
-            btn.style.display = 'none';
+            if (configBtn) configBtn.style.display = 'none';
+            if (tabBtn) tabBtn.style.display = 'none';
         }
     }
 

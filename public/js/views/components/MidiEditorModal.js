@@ -2617,6 +2617,7 @@ class MidiEditorModal {
                             <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
                                 <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
                             </select>
+                            <button class="tab-toggle-btn" data-action="configure-string-instrument" style="display:none" title="${this.t('stringInstrument.title')}">&#9881;</button>
                             <button class="tab-toggle-btn" data-action="toggle-tablature" style="display:none" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
@@ -4403,6 +4404,9 @@ class MidiEditorModal {
                 case 'toggle-tablature':
                     this.toggleTablature();
                     break;
+                case 'configure-string-instrument':
+                    this.showStringInstrumentConfig();
+                    break;
 
                 // Playback controls
                 case 'playback-play':
@@ -5186,6 +5190,31 @@ class MidiEditorModal {
         } catch (error) {
             this.log('error', 'Failed to toggle tablature:', error);
         }
+    }
+
+    /**
+     * Open the string instrument configuration modal
+     */
+    async showStringInstrumentConfig() {
+        if (this.activeChannels.size !== 1 || !this.selectedConnectedDevice) return;
+
+        const activeChannel = Array.from(this.activeChannels)[0];
+        const modal = new StringInstrumentConfigModal(this.api, {
+            deviceId: this.selectedConnectedDevice,
+            channel: activeChannel,
+            onSave: () => {
+                // Refresh tablature button visibility
+                if (this.channelPanel) {
+                    this.channelPanel.updateTablatureButton();
+                }
+                // Refresh tablature editor if visible
+                if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+                    this.toggleTablature(); // hide
+                    this.toggleTablature(); // re-show with new config
+                }
+            }
+        });
+        await modal.showForDevice(this.selectedConnectedDevice, activeChannel);
     }
 
     /**
