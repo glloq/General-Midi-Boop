@@ -265,6 +265,8 @@ class MidiEditorChannelPanel {
                 configBtn.classList.remove('gm-string-detected');
             }
 
+            const instrLabel = m.container?.querySelector('#tab-instrument-label');
+
             try {
                 const hasTab = await m.hasStringInstrument();
                 if (tabBtn) tabBtn.style.display = hasTab ? 'inline-flex' : 'none';
@@ -274,12 +276,31 @@ class MidiEditorChannelPanel {
                     tabBtn.classList.remove('active');
                 }
 
+                // Show instrument name label when configured
+                if (hasTab && instrLabel) {
+                    try {
+                        const resp = await m.api.sendCommand('string_instrument_get', {
+                            device_id: m.selectedConnectedDevice,
+                            channel: activeChannel
+                        });
+                        if (resp?.instrument) {
+                            instrLabel.textContent = resp.instrument.instrument_name || '';
+                            instrLabel.style.display = 'inline';
+                        }
+                    } catch {
+                        instrLabel.style.display = 'none';
+                    }
+                } else if (instrLabel) {
+                    instrLabel.style.display = 'none';
+                }
+
                 // If GM string instrument detected but no config exists, auto-suggest
                 if (gmMatch && !hasTab) {
                     this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
                 }
             } catch {
                 if (tabBtn) tabBtn.style.display = 'none';
+                if (instrLabel) instrLabel.style.display = 'none';
             }
         } else {
             if (configBtn) {
@@ -287,6 +308,8 @@ class MidiEditorChannelPanel {
                 configBtn.classList.remove('gm-string-detected');
             }
             if (tabBtn) tabBtn.style.display = 'none';
+            const instrLabel = m.container?.querySelector('#tab-instrument-label');
+            if (instrLabel) instrLabel.style.display = 'none';
         }
     }
 

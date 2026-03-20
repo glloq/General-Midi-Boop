@@ -1057,6 +1057,7 @@
     "name": "Instrument Name",
     "numStrings": "Number of Strings",
     "numFrets": "Number of Frets",
+    "string": "String",
     "tuning": "Tuning",
     "tuningPreset": "Tuning Preset",
     "customTuning": "Custom Tuning",

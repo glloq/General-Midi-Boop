@@ -101,12 +101,13 @@ class StringInstrumentConfigModal extends BaseModal {
             presetOptions += `<option value="${this.escape(key)}" ${selected}>${this.escape(label)}</option>`;
         }
 
-        // Build tuning display
+        // Build tuning display - label as "String N (NoteName)" for clarity
         const tuningDisplay = c.tuning.map((note, i) => {
             const name = noteNames[note % 12];
             const octave = Math.floor(note / 12) - 1;
+            const stringLabel = `${this.t('stringInstrument.string') || 'String'} ${i + 1}`;
             return `<div class="si-tuning-note">
-                <label>${this.t('stringInstrument.tuning')} ${i + 1}</label>
+                <label>${stringLabel} (${name}${octave})</label>
                 <input type="number" class="si-input si-tuning-input" data-string="${i}"
                        value="${note}" min="0" max="127" title="${name}${octave} (MIDI ${note})">
                 <span class="si-note-name">${name}${octave}</span>

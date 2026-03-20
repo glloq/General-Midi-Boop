@@ -1057,6 +1057,7 @@
     "name": "Nom de l'instrument",
     "numStrings": "Nombre de cordes",
     "numFrets": "Nombre de frettes",
+    "string": "Corde",
     "tuning": "Accordage",
     "tuningPreset": "Accordage prédéfini",
     "customTuning": "Accordage personnalisé",
