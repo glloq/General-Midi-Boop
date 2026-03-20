@@ -57,44 +57,8 @@ class MidiEditorChannelPanel {
      * Generer les boutons de canal
      */
     renderChannelButtons() {
-        const m = this.modal;
-        if (!m.channels || m.channels.length === 0) {
-            return `<div class="channel-buttons"><span>${m.t('midiEditor.noActiveChannel')}</span></div>`;
-        }
-
-        let buttons = '<div class="channel-buttons">';
-
-        m.channels.forEach(ch => {
-            const isActive = m.activeChannels.has(ch.channel);
-            const color = m.channelColors[ch.channel % m.channelColors.length];
-            const activeClass = isActive ? 'active' : '';
-
-            const inlineStyles = isActive
-                ? `
-                    --channel-color: ${color};
-                    background: ${color};
-                    border-color: ${color};
-                `.trim()
-                : `
-                    --channel-color: ${color};
-                    border-color: ${color};
-                `.trim();
-
-            buttons += `
-                <button
-                    class="channel-btn ${activeClass}"
-                    data-channel="${ch.channel}"
-                    data-color="${color}"
-                    style="${inlineStyles}"
-                    title="${m.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
-                >
-                    <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
-                </button>
-            `;
-        });
-
-        buttons += '</div>';
-        return buttons;
+        // Delegate to modal's renderChannelButtons
+        return this.modal.renderChannelButtons();
     }
 
     /**
@@ -190,20 +154,8 @@ class MidiEditorChannelPanel {
      * Rafraichir les boutons de canal
      */
     refreshChannelButtons() {
-        const m = this.modal;
-        const channelsToolbar = m.container?.querySelector('.channels-toolbar');
-        if (channelsToolbar) {
-            channelsToolbar.innerHTML = this.renderChannelButtons();
-
-            const channelButtons = m.container.querySelectorAll('.channel-btn');
-            channelButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const channel = parseInt(btn.dataset.channel);
-                    this.toggleChannel(channel);
-                });
-            });
-        }
+        // Delegate to modal's refreshChannelButtons
+        this.modal.refreshChannelButtons();
     }
 
     // ========================================================================
@@ -244,28 +196,34 @@ class MidiEditorChannelPanel {
     async updateTablatureButton() {
         const m = this.modal;
         const section = m.container?.querySelector('#tablature-toolbar-section');
+
+        // Update per-channel TAB button active states
+        if (m._updateChannelTabButtons) {
+            m._updateChannelTabButtons();
+        }
+
         if (!section) return;
 
         const configBtn = section.querySelector('[data-action="configure-string-instrument"]');
-        const tabBtn = section.querySelector('[data-action="toggle-tablature"]');
         const instrLabel = section.querySelector('#tab-instrument-label');
 
-        // Show tablature section when exactly 1 channel is active
+        // Show tablature toolbar section (config + label only) when exactly 1 string channel is active
         if (m.activeChannels.size === 1) {
             const activeChannel = Array.from(m.activeChannels)[0];
             const channelInfo = m.channels.find(ch => ch.channel === activeChannel);
             const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
-            const deviceId = m.getEffectiveDeviceId();
 
             try {
-                const hasTab = await m.hasStringInstrument();
-                // Show section if GM string instrument detected OR config exists
+                const existingConfig = m.findStringInstrument
+                    ? await m.findStringInstrument(activeChannel)
+                    : null;
+                const hasTab = !!existingConfig;
+
                 const showSection = hasTab || !!gmMatch;
 
                 if (showSection) {
                     section.style.display = 'flex';
 
-                    // Config button highlight for GM instruments
                     if (gmMatch && configBtn) {
                         configBtn.classList.add('gm-string-detected');
                         configBtn.title = `${m.t('tablature.configureStringInstrument')} (${channelInfo.instrument})`;
@@ -273,32 +231,13 @@ class MidiEditorChannelPanel {
                         configBtn.classList.remove('gm-string-detected');
                     }
 
-                    // TAB button active state
-                    if (tabBtn && m.tablatureEditor && m.tablatureEditor.isVisible) {
-                        tabBtn.classList.add('active');
-                    } else if (tabBtn) {
-                        tabBtn.classList.remove('active');
-                    }
-
-                    // Show instrument name label when configured
                     if (hasTab && instrLabel) {
-                        try {
-                            const resp = await m.api.sendCommand('string_instrument_get', {
-                                device_id: deviceId,
-                                channel: activeChannel
-                            });
-                            if (resp?.instrument) {
-                                instrLabel.textContent = resp.instrument.instrument_name || '';
-                                instrLabel.style.display = 'inline';
-                            }
-                        } catch {
-                            instrLabel.style.display = 'none';
-                        }
+                        instrLabel.textContent = existingConfig.instrument_name || '';
+                        instrLabel.style.display = 'inline';
                     } else if (instrLabel) {
                         instrLabel.style.display = 'none';
                     }
 
-                    // If GM string instrument detected but no config exists, auto-suggest
                     if (gmMatch && !hasTab) {
                         this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
                     }

@@ -737,6 +737,12 @@ class MidiEditorModal {
 
         this.log('info', `Toggled channel ${channel}. Active channels: [${Array.from(this.activeChannels).join(', ')}]`);
 
+        // Hide tablature when channel selection changes (it's channel-specific)
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+        }
+
         this.updateSequenceFromActiveChannels(previousActiveChannels);
         this.updateChannelButtons();
         this.updateInstrumentSelector();
@@ -2184,16 +2190,29 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
+            // Detect if this channel has a string instrument (GM-based)
+            const isStringInstrument = ch.channel !== 9 &&
+                typeof MidiEditorChannelPanel !== 'undefined' &&
+                MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
+
+            const tabBtnHtml = isStringInstrument
+                ? `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
+                     title="TAB - ${ch.instrument}">TAB</button>`
+                : '';
+
             buttons += `
-                <button
-                    class="channel-btn ${activeClass}"
-                    data-channel="${ch.channel}"
-                    data-color="${color}"
-                    style="${inlineStyles}"
-                    title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
-                >
-                    <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
-                </button>
+                <div class="channel-btn-group">
+                    <button
+                        class="channel-btn ${activeClass}"
+                        data-channel="${ch.channel}"
+                        data-color="${color}"
+                        style="${inlineStyles}"
+                        title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
+                    >
+                        <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
+                    </button>
+                    ${tabBtnHtml}
+                </div>
             `;
         });
 
@@ -2638,12 +2657,11 @@ class MidiEditorModal {
                             </select>
                         </div>
 
-                        <!-- Section Tablature (instruments à cordes) -->
+                        <!-- Section Tablature (instruments à cordes) - config only, TAB access via channel buttons -->
                         <div class="toolbar-section tablature-section" id="tablature-toolbar-section" style="display:none">
                             <div class="toolbar-divider"></div>
                             <button class="tab-toggle-btn" data-action="configure-string-instrument" title="${this.t('tablature.configureStringInstrument')}">&#9881;</button>
                             <span class="tab-instrument-label" id="tab-instrument-label" style="display:none"></span>
-                            <button class="tab-toggle-btn tab-main-btn" data-action="toggle-tablature" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
 
@@ -3392,6 +3410,20 @@ class MidiEditorModal {
                     this.toggleChannel(channel);
                 });
             });
+
+            // Attach events on TAB sub-buttons
+            const tabButtons = this.container.querySelectorAll('.channel-tab-btn');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const channel = parseInt(btn.dataset.channel);
+                    this._openTablatureForChannel(channel);
+                });
+            });
+
+            // Update TAB button active states
+            this._updateChannelTabButtons();
         }
     }
 
@@ -5191,9 +5223,10 @@ class MidiEditorModal {
      * Toggle tablature editor for the active channel's string instrument
      */
     async toggleTablature() {
-        // If tablature is visible, hide it
+        // If tablature is visible, hide it and restore piano roll
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
             this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
             return;
         }
 
@@ -5204,55 +5237,109 @@ class MidiEditorModal {
         }
 
         const activeChannel = Array.from(this.activeChannels)[0];
-        const deviceId = this.getEffectiveDeviceId();
 
         try {
-            let response = await this.api.sendCommand('string_instrument_get', {
-                device_id: deviceId,
-                channel: activeChannel
-            });
+            // Search for existing config across all device IDs
+            let stringInstrument = await this.findStringInstrument(activeChannel);
 
             // If no config exists, try auto-configuring from GM program
-            if (!response || !response.instrument) {
+            if (!stringInstrument) {
                 const channelInfo = this.channels.find(ch => ch.channel === activeChannel);
                 const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
 
                 if (gmMatch) {
                     await this.api.sendCommand('string_instrument_create_from_preset', {
-                        device_id: deviceId,
+                        device_id: this.getEffectiveDeviceId(),
                         channel: activeChannel,
                         preset: gmMatch.preset
                     });
                     this.log('info', `Auto-configured ${gmMatch.category} for channel ${activeChannel + 1}`);
 
-                    response = await this.api.sendCommand('string_instrument_get', {
-                        device_id: deviceId,
-                        channel: activeChannel
-                    });
+                    stringInstrument = await this.findStringInstrument(activeChannel);
                 }
 
-                if (!response || !response.instrument) {
+                if (!stringInstrument) {
                     this.log('info', 'No string instrument configured for this channel');
                     this.showStringInstrumentConfig();
                     return;
                 }
             }
 
-            const stringInstrument = response.instrument;
-
             // Get notes for this channel
             const channelNotes = (this.fullSequence || []).filter(n => n.c === activeChannel);
 
-            // Create or show tablature editor
+            // Create or show tablature editor (replaces piano roll in the same space)
             if (!this.tablatureEditor) {
                 this.tablatureEditor = new TablatureEditor(this);
             }
 
             await this.tablatureEditor.show(stringInstrument, channelNotes, activeChannel);
+            this._updateTabButtonState(true);
 
         } catch (error) {
             this.log('error', 'Failed to toggle tablature:', error);
         }
+    }
+
+    /**
+     * Update the TAB button active state in toolbar and channel buttons
+     * @param {boolean} active
+     */
+    _updateTabButtonState(active) {
+        const tabBtn = this.container?.querySelector('[data-action="toggle-tablature"]');
+        if (tabBtn) {
+            tabBtn.classList.toggle('active', active);
+        }
+        this._updateChannelTabButtons();
+    }
+
+    /**
+     * Open tablature for a specific channel (called from channel TAB sub-buttons)
+     * @param {number} channel
+     */
+    async _openTablatureForChannel(channel) {
+        // First, ensure only this channel is active
+        const previousActiveChannels = new Set(this.activeChannels);
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+
+        this.updateSequenceFromActiveChannels(previousActiveChannels);
+        if (this.channelPanel) {
+            this.channelPanel.updateChannelButtons();
+            this.channelPanel.updateInstrumentSelector();
+        }
+
+        // If tablature is already visible for this channel, toggle it off
+        if (this.tablatureEditor && this.tablatureEditor.isVisible
+            && this.tablatureEditor.channel === channel) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+            return;
+        }
+
+        // If tablature is visible for a different channel, hide it first
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+        }
+
+        // Now open tablature for the channel
+        await this.toggleTablature();
+    }
+
+    /**
+     * Update active state of all channel TAB sub-buttons
+     */
+    _updateChannelTabButtons() {
+        const tabBtns = this.container?.querySelectorAll('.channel-tab-btn');
+        if (!tabBtns) return;
+
+        const isTabVisible = this.tablatureEditor && this.tablatureEditor.isVisible;
+        const tabChannel = isTabVisible ? this.tablatureEditor.channel : -1;
+
+        tabBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            btn.classList.toggle('active', isTabVisible && ch === tabChannel);
+        });
     }
 
     /**
@@ -5292,14 +5379,51 @@ class MidiEditorModal {
 
         try {
             const activeChannel = Array.from(this.activeChannels)[0];
-            const response = await this.api.sendCommand('string_instrument_get', {
-                device_id: this.getEffectiveDeviceId(),
-                channel: activeChannel
-            });
-            return !!(response && response.instrument);
+            const result = await this.findStringInstrument(activeChannel);
+            return !!result;
         } catch {
             return false;
         }
+    }
+
+    /**
+     * Find a string instrument config for a channel, searching multiple device IDs.
+     * Priority: selected device > '_editor' > any device with matching channel.
+     * @param {number} channel - MIDI channel
+     * @returns {Promise<Object|null>} The instrument config, or null
+     */
+    async findStringInstrument(channel) {
+        // 1. Try with the effective device ID (selected device or '_editor')
+        const primaryDeviceId = this.getEffectiveDeviceId();
+        try {
+            const resp = await this.api.sendCommand('string_instrument_get', {
+                device_id: primaryDeviceId,
+                channel: channel
+            });
+            if (resp?.instrument) return resp.instrument;
+        } catch { /* continue */ }
+
+        // 2. If effective was a real device, also try '_editor'
+        if (primaryDeviceId !== '_editor') {
+            try {
+                const resp = await this.api.sendCommand('string_instrument_get', {
+                    device_id: '_editor',
+                    channel: channel
+                });
+                if (resp?.instrument) return resp.instrument;
+            } catch { /* continue */ }
+        }
+
+        // 3. Search across all configured string instruments for this channel
+        try {
+            const resp = await this.api.sendCommand('string_instrument_list', {});
+            if (resp?.instruments) {
+                const match = resp.instruments.find(si => si.channel === channel);
+                if (match) return match;
+            }
+        } catch { /* continue */ }
+
+        return null;
     }
 
     // ========================================================================

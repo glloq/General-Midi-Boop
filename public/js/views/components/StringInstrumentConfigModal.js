@@ -162,7 +162,7 @@ class StringInstrumentConfigModal extends BaseModal {
                 <div class="si-params-row">
                     <div class="si-field">
                         <label for="si-strings">${this.t('stringInstrument.numStrings')}</label>
-                        <input type="number" id="si-strings" class="si-input si-input-sm" value="${c.num_strings}" min="1" max="6">
+                        <input type="number" id="si-strings" class="si-input si-input-sm" value="${c.num_strings}" min="1" max="12">
                     </div>
                     <div class="si-field">
                         <label for="si-frets">${this.t('stringInstrument.numFrets')}</label>
@@ -251,7 +251,7 @@ class StringInstrumentConfigModal extends BaseModal {
         // Num strings change
         this.$('#si-strings')?.addEventListener('change', (e) => {
             const num = parseInt(e.target.value);
-            if (num >= 1 && num <= 6) {
+            if (num >= 1 && num <= 12) {
                 this.config.num_strings = num;
                 this._adjustTuning();
                 this._refreshBody();
@@ -401,7 +401,7 @@ class StringInstrumentConfigModal extends BaseModal {
             });
             this.$('#si-strings')?.addEventListener('change', (e) => {
                 const num = parseInt(e.target.value);
-                if (num >= 1 && num <= 6) {
+                if (num >= 1 && num <= 12) {
                     this.config.num_strings = num;
                     this._adjustTuning();
                     this._refreshBody();

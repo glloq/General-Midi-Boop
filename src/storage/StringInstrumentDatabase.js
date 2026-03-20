@@ -192,8 +192,8 @@ class StringInstrumentDatabase {
         values.push(updates.instrument_name);
       }
       if (updates.num_strings !== undefined) {
-        if (updates.num_strings < 1 || updates.num_strings > 6) {
-          throw new Error('num_strings must be between 1 and 6');
+        if (updates.num_strings < 1 || updates.num_strings > 12) {
+          throw new Error('num_strings must be between 1 and 12');
         }
         fields.push('num_strings = ?');
         values.push(updates.num_strings);
@@ -440,8 +440,8 @@ class StringInstrumentDatabase {
     }
 
     if (config.num_strings !== undefined) {
-      if (config.num_strings < 1 || config.num_strings > 6) {
-        throw new Error('num_strings must be between 1 and 6');
+      if (config.num_strings < 1 || config.num_strings > 12) {
+        throw new Error('num_strings must be between 1 and 12');
       }
     }
 
