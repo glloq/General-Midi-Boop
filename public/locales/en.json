@@ -1066,6 +1066,8 @@
     "customTuning": "Custom Tuning",
     "lowerOctave": "-1 octave",
     "higherOctave": "+1 octave",
+    "note": "Note",
+    "frets": "Frets",
     "isFretless": "Fretless",
     "capoFret": "Capo Position",
     "noCapo": "No Capo",
