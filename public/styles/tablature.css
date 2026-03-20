@@ -220,7 +220,27 @@ body.dark-mode .tab-fret-input {
 .si-config-form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
+}
+
+.si-top-row {
+    display: flex;
+    gap: 12px;
+}
+
+.si-top-row > .si-field {
+    flex: 1;
+}
+
+.si-field-grow {
+    flex: 1;
+}
+
+.si-params-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
 }
 
 .si-field {
@@ -230,18 +250,9 @@ body.dark-mode .tab-fret-input {
 }
 
 .si-field > label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-primary, #2c3e50);
-}
-
-.si-row {
-    display: flex;
-    gap: 16px;
-}
-
-.si-row > .si-field {
-    flex: 1;
 }
 
 .si-input {
@@ -253,6 +264,11 @@ body.dark-mode .tab-fret-input {
     color: var(--text-primary, #2c3e50);
     outline: none;
     transition: border-color var(--transition-fast, 0.15s);
+}
+
+.si-input-sm {
+    width: 70px;
+    text-align: center;
 }
 
 .si-input:focus {
@@ -276,36 +292,182 @@ body.dark-mode .tab-fret-input {
     cursor: pointer;
 }
 
-.si-tuning-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+/* ---- Tuning Section with Visual Piano ---- */
+
+.si-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #2c3e50);
+    margin-bottom: 4px;
 }
 
-.si-tuning-note {
+.si-tuning-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.si-string-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-color, #eee);
 }
 
-.si-tuning-note label {
+.si-string-row:last-child {
+    border-bottom: none;
+}
+
+.si-string-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+}
+
+.si-string-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-primary, #667eea);
+    color: #fff;
     font-size: 11px;
-    color: var(--text-secondary, #6c757d);
-    min-width: 52px;
+    font-weight: 700;
 }
 
-.si-tuning-note .si-input {
-    width: 56px;
+.si-string-note-badge {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--accent-primary, #667eea);
+    min-width: 32px;
+}
+
+.si-piano-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.si-piano-nav {
+    background: var(--bg-tertiary, #f0f0f0);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 9px;
+    color: var(--text-secondary, #6c757d);
+    line-height: 1;
+    flex-shrink: 0;
+    height: 36px;
+    display: flex;
+    align-items: center;
+}
+
+.si-piano-nav:hover {
+    background: var(--accent-primary, #667eea);
+    color: #fff;
+    border-color: var(--accent-primary, #667eea);
+}
+
+/* Mini Piano Keyboard */
+.si-mini-piano {
+    display: flex;
+    height: 36px;
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.si-pk {
+    cursor: pointer;
+    position: relative;
+    transition: background 0.1s;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    user-select: none;
+}
+
+.si-pk-white {
+    flex: 1;
+    height: 100%;
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
+    z-index: 1;
+}
+
+.si-pk-white:last-child {
+    border-right: none;
+}
+
+.si-pk-white:hover {
+    background: #e8eaf6;
+}
+
+.si-pk-black {
+    flex: 0.6;
+    height: 60%;
+    background: #333;
+    border-radius: 0 0 2px 2px;
+    z-index: 2;
+    margin-left: -3px;
+    margin-right: -3px;
+}
+
+.si-pk-black:hover {
+    background: #555;
+}
+
+.si-pk-selected.si-pk-white {
+    background: var(--accent-primary, #667eea);
+    color: #fff;
+}
+
+.si-pk-selected.si-pk-black {
+    background: var(--accent-primary, #667eea);
+}
+
+.si-pk-label {
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    padding-bottom: 2px;
+    pointer-events: none;
+    color: inherit;
+}
+
+.si-pk-selected .si-pk-label {
+    color: #fff;
+}
+
+.si-pk-c-label {
+    font-size: 7px;
+    line-height: 1;
+    padding-bottom: 1px;
+    pointer-events: none;
+    color: #999;
+}
+
+.si-string-midi {
+    flex-shrink: 0;
+}
+
+.si-string-midi .si-input {
+    width: 52px;
     text-align: center;
     padding: 4px;
-}
-
-.si-note-name {
     font-size: 11px;
     font-family: monospace;
-    font-weight: bold;
-    color: var(--accent-primary, #667eea);
-    min-width: 28px;
 }
 
 .si-btn {
@@ -373,6 +535,41 @@ body.dark-mode .si-btn-secondary {
 
 body.dark-mode .si-error {
     background: #3b1a1a;
+}
+
+body.dark-mode .si-string-row {
+    border-bottom-color: #4a5568;
+}
+
+body.dark-mode .si-mini-piano {
+    border-color: #4a5568;
+}
+
+body.dark-mode .si-pk-white {
+    background: #e8e8e8;
+    border-right-color: #bbb;
+}
+
+body.dark-mode .si-pk-white:hover {
+    background: #c5cae9;
+}
+
+body.dark-mode .si-pk-black {
+    background: #1a1a2e;
+}
+
+body.dark-mode .si-pk-black:hover {
+    background: #2a2a4e;
+}
+
+body.dark-mode .si-piano-nav {
+    background: #4a5568;
+    border-color: #5a6578;
+    color: #ccc;
+}
+
+body.dark-mode .si-pk-c-label {
+    color: #777;
 }
 
 /* ---- Tab-Only Mode ---- */

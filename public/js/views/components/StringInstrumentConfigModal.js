@@ -3,6 +3,7 @@
 // Description: Modal for configuring string instruments (guitar, bass, etc.)
 //   Allows selecting tuning presets or custom tuning, number of strings/frets,
 //   fretless mode, and capo position. Saves via WebSocket API.
+//   Features a visual mini-piano for tuning each string.
 // ============================================================================
 
 class StringInstrumentConfigModal extends BaseModal {
@@ -16,7 +17,7 @@ class StringInstrumentConfigModal extends BaseModal {
     constructor(api, options = {}) {
         super({
             id: 'string-instrument-config-modal',
-            size: 'md',
+            size: 'lg',
             title: 'stringInstrument.title'
         });
 
@@ -36,7 +37,12 @@ class StringInstrumentConfigModal extends BaseModal {
         };
 
         this.presets = {};
-        this.existingId = null; // If editing an existing instrument
+        this.existingId = null;
+
+        // Piano constants
+        this.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        this.PIANO_RANGE_LOW = 24;   // C1
+        this.PIANO_RANGE_HIGH = 96;  // C7
     }
 
     /**
@@ -83,12 +89,26 @@ class StringInstrumentConfigModal extends BaseModal {
     }
 
     // ========================================================================
+    // HELPERS
+    // ========================================================================
+
+    _noteName(midi) {
+        const name = this.NOTE_NAMES[midi % 12];
+        const octave = Math.floor(midi / 12) - 1;
+        return `${name}${octave}`;
+    }
+
+    _isBlackKey(midi) {
+        const n = midi % 12;
+        return [1, 3, 6, 8, 10].includes(n);
+    }
+
+    // ========================================================================
     // RENDER
     // ========================================================================
 
     renderBody() {
         const c = this.config;
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         // Build preset options
         let presetOptions = `<option value="">${this.t('stringInstrument.customTuning')}</option>`;
@@ -101,62 +121,106 @@ class StringInstrumentConfigModal extends BaseModal {
             presetOptions += `<option value="${this.escape(key)}" ${selected}>${this.escape(label)}</option>`;
         }
 
-        // Build tuning display - label as "String N (NoteName)" for clarity
-        const tuningDisplay = c.tuning.map((note, i) => {
-            const name = noteNames[note % 12];
-            const octave = Math.floor(note / 12) - 1;
-            const stringLabel = `${this.t('stringInstrument.string') || 'String'} ${i + 1}`;
-            return `<div class="si-tuning-note">
-                <label>${stringLabel} (${name}${octave})</label>
-                <input type="number" class="si-input si-tuning-input" data-string="${i}"
-                       value="${note}" min="0" max="127" title="${name}${octave} (MIDI ${note})">
-                <span class="si-note-name">${name}${octave}</span>
-            </div>`;
+        // Build visual tuning rows with mini-piano for each string
+        const tuningRows = c.tuning.map((note, i) => {
+            const noteName = this._noteName(note);
+            const stringNum = i + 1;
+            const stringLabel = `${this.t('stringInstrument.string') || 'String'} ${stringNum}`;
+            return `
+                <div class="si-string-row" data-string="${i}">
+                    <div class="si-string-label">
+                        <span class="si-string-num">${stringNum}</span>
+                        <span class="si-string-note-badge" id="si-badge-${i}">${noteName}</span>
+                    </div>
+                    <div class="si-piano-wrapper">
+                        <button class="si-piano-nav si-piano-nav-left" data-string="${i}" data-dir="-1" title="${this.t('stringInstrument.lowerOctave') || '-1 oct'}">&#9664;</button>
+                        <div class="si-mini-piano" id="si-piano-${i}" data-string="${i}">
+                            ${this._renderMiniPiano(note, i)}
+                        </div>
+                        <button class="si-piano-nav si-piano-nav-right" data-string="${i}" data-dir="1" title="${this.t('stringInstrument.higherOctave') || '+1 oct'}">&#9654;</button>
+                    </div>
+                    <div class="si-string-midi">
+                        <input type="number" class="si-input si-tuning-input" data-string="${i}"
+                               value="${note}" min="0" max="127" title="MIDI ${note}">
+                    </div>
+                </div>`;
         }).join('');
 
         return `
             <div class="si-config-form">
-                <div class="si-field">
-                    <label for="si-name">${this.t('stringInstrument.name')}</label>
-                    <input type="text" id="si-name" class="si-input" value="${this.escape(c.instrument_name)}">
+                <div class="si-top-row">
+                    <div class="si-field si-field-grow">
+                        <label for="si-name">${this.t('stringInstrument.name')}</label>
+                        <input type="text" id="si-name" class="si-input" value="${this.escape(c.instrument_name)}">
+                    </div>
+                    <div class="si-field">
+                        <label for="si-preset">${this.t('stringInstrument.tuningPreset')}</label>
+                        <select id="si-preset" class="si-input">${presetOptions}</select>
+                    </div>
                 </div>
 
-                <div class="si-field">
-                    <label for="si-preset">${this.t('stringInstrument.tuningPreset')}</label>
-                    <select id="si-preset" class="si-input">${presetOptions}</select>
-                </div>
-
-                <div class="si-row">
+                <div class="si-params-row">
                     <div class="si-field">
                         <label for="si-strings">${this.t('stringInstrument.numStrings')}</label>
-                        <input type="number" id="si-strings" class="si-input" value="${c.num_strings}" min="1" max="6">
+                        <input type="number" id="si-strings" class="si-input si-input-sm" value="${c.num_strings}" min="1" max="6">
                     </div>
                     <div class="si-field">
                         <label for="si-frets">${this.t('stringInstrument.numFrets')}</label>
-                        <input type="number" id="si-frets" class="si-input" value="${c.num_frets}" min="0" max="36"
+                        <input type="number" id="si-frets" class="si-input si-input-sm" value="${c.num_frets}" min="0" max="36"
                                ${c.is_fretless ? 'disabled' : ''}>
                     </div>
-                </div>
-
-                <div class="si-row">
                     <div class="si-field si-checkbox-field">
                         <input type="checkbox" id="si-fretless" ${c.is_fretless ? 'checked' : ''}>
                         <label for="si-fretless">${this.t('stringInstrument.isFretless')}</label>
                     </div>
                     <div class="si-field">
                         <label for="si-capo">${this.t('stringInstrument.capoFret')}</label>
-                        <input type="number" id="si-capo" class="si-input" value="${c.capo_fret}" min="0" max="36">
+                        <input type="number" id="si-capo" class="si-input si-input-sm" value="${c.capo_fret}" min="0" max="36">
                     </div>
                 </div>
 
-                <div class="si-field">
-                    <label>${this.t('stringInstrument.tuning')}</label>
-                    <div class="si-tuning-grid" id="si-tuning-grid">
-                        ${tuningDisplay}
+                <div class="si-tuning-section">
+                    <label class="si-section-title">${this.t('stringInstrument.tuning')}</label>
+                    <div class="si-tuning-visual" id="si-tuning-visual">
+                        ${tuningRows}
                     </div>
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Render a mini-piano keyboard centered on the selected note
+     * Shows 2 octaves (24 keys) centered on the current note
+     */
+    _renderMiniPiano(selectedNote, stringIndex) {
+        // Show 2 octaves centered around the note
+        const centerOctaveStart = Math.floor(selectedNote / 12) * 12;
+        const rangeStart = Math.max(0, centerOctaveStart - 12);
+        const rangeEnd = Math.min(127, centerOctaveStart + 24);
+
+        let html = '';
+        for (let midi = rangeStart; midi < rangeEnd; midi++) {
+            const isBlack = this._isBlackKey(midi);
+            const isSelected = midi === selectedNote;
+            const noteName = this._noteName(midi);
+            const isC = midi % 12 === 0;
+
+            const classes = [
+                'si-pk',
+                isBlack ? 'si-pk-black' : 'si-pk-white',
+                isSelected ? 'si-pk-selected' : ''
+            ].filter(Boolean).join(' ');
+
+            html += `<div class="${classes}" data-midi="${midi}" data-string="${stringIndex}" title="${noteName} (${midi})">`;
+            if (isSelected) {
+                html += `<span class="si-pk-label">${noteName}</span>`;
+            } else if (isC && !isBlack) {
+                html += `<span class="si-pk-c-label">${noteName}</span>`;
+            }
+            html += `</div>`;
+        }
+        return html;
     }
 
     renderFooter() {
@@ -205,14 +269,14 @@ class StringInstrumentConfigModal extends BaseModal {
             this._refreshBody();
         });
 
-        // Delegate for tuning inputs, frets, capo, name, save, delete
+        // Delegate tuning MIDI input changes
         this.dialog.addEventListener('change', (e) => {
             if (e.target.matches('.si-tuning-input')) {
                 const idx = parseInt(e.target.dataset.string);
                 const val = parseInt(e.target.value);
                 if (!isNaN(idx) && !isNaN(val) && val >= 0 && val <= 127) {
                     this.config.tuning[idx] = val;
-                    this._updateNoteNames();
+                    this._refreshStringRow(idx);
                 }
             }
         });
@@ -229,11 +293,41 @@ class StringInstrumentConfigModal extends BaseModal {
             }
         });
 
-        // Footer buttons
+        // Click on piano keys + octave nav buttons
         this.dialog.addEventListener('click', (e) => {
             const action = e.target.closest('[data-action]')?.dataset.action;
-            if (action === 'si-save') this._save();
-            if (action === 'si-delete') this._delete();
+            if (action === 'si-save') { this._save(); return; }
+            if (action === 'si-delete') { this._delete(); return; }
+
+            // Piano key click
+            const key = e.target.closest('.si-pk');
+            if (key) {
+                const midi = parseInt(key.dataset.midi);
+                const strIdx = parseInt(key.dataset.string);
+                if (!isNaN(midi) && !isNaN(strIdx)) {
+                    this.config.tuning[strIdx] = midi;
+                    this._refreshStringRow(strIdx);
+                    // Update MIDI input
+                    const input = this.dialog.querySelector(`.si-tuning-input[data-string="${strIdx}"]`);
+                    if (input) input.value = midi;
+                }
+                return;
+            }
+
+            // Octave navigation
+            const navBtn = e.target.closest('.si-piano-nav');
+            if (navBtn) {
+                const strIdx = parseInt(navBtn.dataset.string);
+                const dir = parseInt(navBtn.dataset.dir);
+                if (!isNaN(strIdx) && !isNaN(dir)) {
+                    const newNote = Math.max(0, Math.min(127, this.config.tuning[strIdx] + dir * 12));
+                    this.config.tuning[strIdx] = newNote;
+                    this._refreshStringRow(strIdx);
+                    const input = this.dialog.querySelector(`.si-tuning-input[data-string="${strIdx}"]`);
+                    if (input) input.value = newNote;
+                }
+                return;
+            }
         });
     }
 
@@ -280,24 +374,28 @@ class StringInstrumentConfigModal extends BaseModal {
         }
     }
 
-    _updateNoteNames() {
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        this.$$('.si-tuning-input').forEach((input) => {
-            const val = parseInt(input.value);
-            const nameEl = input.parentElement.querySelector('.si-note-name');
-            if (nameEl && !isNaN(val) && val >= 0 && val <= 127) {
-                const name = noteNames[val % 12];
-                const octave = Math.floor(val / 12) - 1;
-                nameEl.textContent = `${name}${octave}`;
-            }
-        });
+    /**
+     * Refresh just one string's piano + badge without full re-render
+     */
+    _refreshStringRow(strIdx) {
+        const note = this.config.tuning[strIdx];
+
+        // Update badge
+        const badge = this.dialog?.querySelector(`#si-badge-${strIdx}`);
+        if (badge) badge.textContent = this._noteName(note);
+
+        // Update mini piano
+        const pianoContainer = this.dialog?.querySelector(`#si-piano-${strIdx}`);
+        if (pianoContainer) {
+            pianoContainer.innerHTML = this._renderMiniPiano(note, strIdx);
+        }
     }
 
     _refreshBody() {
         const body = this.$('.modal-body');
         if (body) {
             body.innerHTML = this.renderBody();
-            // Re-attach preset handler
+            // Re-attach specific handlers
             this.$('#si-preset')?.addEventListener('change', (e) => {
                 this._applyPreset(e.target.value);
             });

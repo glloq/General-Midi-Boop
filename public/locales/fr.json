@@ -1061,6 +1061,8 @@
     "tuning": "Accordage",
     "tuningPreset": "Accordage prédéfini",
     "customTuning": "Accordage personnalisé",
+    "lowerOctave": "-1 octave",
+    "higherOctave": "+1 octave",
     "isFretless": "Sans frettes",
     "capoFret": "Position du capo",
     "noCapo": "Pas de capo",

@@ -1061,6 +1061,8 @@
     "tuning": "Tuning",
     "tuningPreset": "Tuning Preset",
     "customTuning": "Custom Tuning",
+    "lowerOctave": "-1 octave",
+    "higherOctave": "+1 octave",
     "isFretless": "Fretless",
     "capoFret": "Capo Position",
     "noCapo": "No Capo",
