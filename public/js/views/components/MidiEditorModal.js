@@ -53,6 +53,9 @@ class MidiEditorModal {
         this.selectedDeviceCapabilities = null; // Capacités de l'appareil sélectionné
         this.playableNotes = null; // Set des notes jouables (0-127) ou null si pas de filtre
 
+        // Channel panel (manages tablature buttons, device selector, instrument selector)
+        this.channelPanel = typeof MidiEditorChannelPanel !== 'undefined' ? new MidiEditorChannelPanel(this) : null;
+
         // Tablature editor (for string instruments)
         this.tablatureEditor = null;
 
@@ -2361,6 +2364,7 @@ class MidiEditorModal {
             this.selectedDeviceCapabilities = null;
             this.playableNotes = null;
             this.updatePianoRollPlayableNotes();
+            if (this.channelPanel) this.channelPanel.updateTablatureButton();
             this.log('info', 'No device selected - showing all notes as playable');
             return;
         }
@@ -2389,6 +2393,9 @@ class MidiEditorModal {
             this.playableNotes = null;
             this.updatePianoRollPlayableNotes();
         }
+
+        // Update tablature button after device change
+        if (this.channelPanel) this.channelPanel.updateTablatureButton();
     }
 
     /**
@@ -3010,6 +3017,11 @@ class MidiEditorModal {
 
         // Charger la liste des instruments connectés pour le filtrage des notes jouables
         this.loadConnectedDevices();
+
+        // Update tablature button visibility for initial channel selection
+        if (this.channelPanel) {
+            this.channelPanel.updateTablatureButton();
+        }
     }
 
     /**
