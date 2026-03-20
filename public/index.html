@@ -8486,13 +8486,15 @@
                         </div>
                         ` : '<input type="hidden" id="macAddress" value="">'}
 
-                        <!-- 8. Capabilities (hidden for string instruments) -->
-                        <div id="capabilitiesSection" class="capabilities-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; ${isStringInstrument ? 'display: none;' : ''}">
+                        <!-- 8. Capabilities -->
+                        <div id="capabilitiesSection" class="capabilities-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
                             <h3>🎹 ${i18n.t('instrumentSettings.capabilities') || 'Capacités de l\'instrument'}</h3>
                             <small class="form-text" style="display: block; margin-bottom: 16px;">
                                 ${i18n.t('instrumentSettings.capabilitiesHelp') || 'Définissez les capacités de cet instrument pour optimiser le routage MIDI.'}
                             </small>
 
+                            <!-- Note selection (hidden for string instruments - auto-computed from tuning) -->
+                            <div id="noteSelectionSection" style="${isStringInstrument ? 'display: none;' : ''}">
                             <div class="form-group">
                                 <label>${i18n.t('instrumentSettings.noteSelection') || 'Sélection des notes'}</label>
 
@@ -8534,6 +8536,7 @@
                                 <input type="hidden" id="noteRangeMin" value="${settings.note_range_min !== null && settings.note_range_min !== undefined ? settings.note_range_min : ''}">
                                 <input type="hidden" id="noteRangeMax" value="${settings.note_range_max !== null && settings.note_range_max !== undefined ? settings.note_range_max : ''}">
                                 <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
+                            </div>
                             </div>
 
                             <div class="form-group">
@@ -8690,10 +8693,10 @@
                         : baseHelp;
                 }
 
-                // Hide/show piano capabilities section
-                const capSection = document.getElementById('capabilitiesSection');
-                if (capSection) {
-                    capSection.style.display = isString ? 'none' : '';
+                // Hide/show note selection section (piano range) for string instruments
+                const noteSelSection = document.getElementById('noteSelectionSection');
+                if (noteSelSection) {
+                    noteSelSection.style.display = isString ? 'none' : '';
                 }
             }
         }
