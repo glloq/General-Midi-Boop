@@ -9453,7 +9453,7 @@
             });
 
             // Gérer l'instrument virtuel
-            window.eventBus.on('settings:virtual_instrument_changed', (data) => {
+            window.eventBus.on('settings:virtual_instrument_changed', async (data) => {
                 log(`Settings event: settings:virtual_instrument_changed`, 'info', data);
                 if (data.enabled) {
                     log(`🎵 ${i18n.t('ui.virtualInstrumentEnabled')}`, 'success');
@@ -9473,6 +9473,19 @@
                     if (keyboardModal && keyboardModal.isOpen) {
                         keyboardModal.refreshDevices();
                     }
+                }
+
+                // Synchroniser l'état des routages virtuels en BDD
+                try {
+                    const result = await api.sendCommand('virtual_instrument_toggle', { enabled: data.enabled });
+                    if (result.disabledCount > 0) {
+                        log(`🔄 ${result.disabledCount} routage(s) virtuel(s) désactivé(s)`, 'info');
+                    }
+                    if (result.enabledCount > 0) {
+                        log(`🔄 ${result.enabledCount} routage(s) virtuel(s) réactivé(s)`, 'info');
+                    }
+                } catch (error) {
+                    log(`Erreur lors de la mise à jour des routages virtuels: ${error.message}`, 'error');
                 }
             });
 
