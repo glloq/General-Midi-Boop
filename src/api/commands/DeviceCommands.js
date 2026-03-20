@@ -393,20 +393,62 @@ async function instrumentListConnected(app) {
     if (d.address && d.type === 'bluetooth') connectedMacs.add(d.address);
   }
 
+  // Trouver les instruments enregistrés qui sont connectés
+  const matchedDeviceIds = new Set();
   const connectedInstruments = allInstruments.filter(inst => {
     // Match exact par device_id
-    if (connectedDeviceIds.has(inst.device_id)) return true;
+    if (connectedDeviceIds.has(inst.device_id)) {
+      matchedDeviceIds.add(inst.device_id);
+      return true;
+    }
     // Fallback par USB serial number
-    if (inst.usb_serial_number && connectedSerials.has(inst.usb_serial_number)) return true;
+    if (inst.usb_serial_number && connectedSerials.has(inst.usb_serial_number)) {
+      // Trouver le device_id correspondant
+      const matchedDev = connectedDevices.find(d => d.usbSerialNumber === inst.usb_serial_number);
+      if (matchedDev) matchedDeviceIds.add(matchedDev.id);
+      return true;
+    }
     // Fallback par MAC address
-    if (inst.mac_address && connectedMacs.has(inst.mac_address)) return true;
+    if (inst.mac_address && connectedMacs.has(inst.mac_address)) {
+      const matchedDev = connectedDevices.find(d => d.address === inst.mac_address);
+      if (matchedDev) matchedDeviceIds.add(matchedDev.id);
+      return true;
+    }
     // Fallback par nom normalisé
     if (!inst.device_id.startsWith('virtual_')) {
       const normalized = app.database.constructor.normalizeDeviceName(inst.device_id);
-      if (normalized && connectedNormalizedNames.has(normalized)) return true;
+      if (normalized && connectedNormalizedNames.has(normalized)) {
+        // Trouver le device_id correspondant
+        const matchedDev = connectedDevices.find(d => {
+          const dn = app.database.constructor.normalizeDeviceName(d.id);
+          return dn === normalized;
+        });
+        if (matchedDev) matchedDeviceIds.add(matchedDev.id);
+        return true;
+      }
     }
     return false;
   });
+
+  // Ajouter les périphériques connectés qui ne sont pas enregistrés dans instruments_latency
+  for (const device of connectedDevices) {
+    if (!matchedDeviceIds.has(device.id) && device.type !== 'virtual') {
+      connectedInstruments.push({
+        id: `${device.id}_ch0`,
+        device_id: device.id,
+        channel: 0,
+        name: device.name || device.id,
+        custom_name: null,
+        gm_program: null,
+        polyphony: null,
+        note_range_min: null,
+        note_range_max: null,
+        note_selection_mode: 'range',
+        selected_notes: null,
+        supported_ccs: null
+      });
+    }
+  }
 
   return {
     success: true,
