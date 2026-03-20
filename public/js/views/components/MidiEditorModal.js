@@ -2629,9 +2629,14 @@ class MidiEditorModal {
                             <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
                                 <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
                             </select>
-                            <button class="tab-toggle-btn" data-action="configure-string-instrument" style="display:none" title="${this.t('stringInstrument.title')}">&#9881;</button>
+                        </div>
+
+                        <!-- Section Tablature (instruments à cordes) -->
+                        <div class="toolbar-section tablature-section" id="tablature-toolbar-section" style="display:none">
+                            <div class="toolbar-divider"></div>
+                            <button class="tab-toggle-btn" data-action="configure-string-instrument" title="${this.t('tablature.configureStringInstrument')}">&#9881;</button>
                             <span class="tab-instrument-label" id="tab-instrument-label" style="display:none"></span>
-                            <button class="tab-toggle-btn" data-action="toggle-tablature" style="display:none" title="${this.t('tablature.toggleEditor')}">TAB</button>
+                            <button class="tab-toggle-btn tab-main-btn" data-action="toggle-tablature" title="${this.t('tablature.toggleEditor')}">TAB</button>
                         </div>
                     </div>
 

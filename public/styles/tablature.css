@@ -641,6 +641,18 @@ body.dark-mode .tab-suggest-banner {
     color: #e0e0e0;
 }
 
+/* ---- Tablature Toolbar Section (in MIDI editor toolbar) ---- */
+.tablature-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tablature-section .tab-main-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
     .fretboard-diagram-wrapper {

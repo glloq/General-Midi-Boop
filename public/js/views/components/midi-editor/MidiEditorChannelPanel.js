@@ -237,82 +237,79 @@ class MidiEditorChannelPanel {
     }
 
     /**
-     * Update tablature button visibility based on active channel.
+     * Update tablature section visibility based on active channel.
+     * Shows the tablature toolbar section when a string instrument is detected or configured.
      * Works with or without a connected device (uses '_editor' as fallback).
-     * Auto-suggests string instrument configuration when a GM string program is detected.
      */
     async updateTablatureButton() {
         const m = this.modal;
-        const btns = m.container?.querySelectorAll('.tab-toggle-btn');
-        if (!btns || btns.length === 0) return;
+        const section = m.container?.querySelector('#tablature-toolbar-section');
+        if (!section) return;
 
-        const configBtn = m.container?.querySelector('[data-action="configure-string-instrument"]');
-        const tabBtn = m.container?.querySelector('[data-action="toggle-tablature"]');
+        const configBtn = section.querySelector('[data-action="configure-string-instrument"]');
+        const tabBtn = section.querySelector('[data-action="toggle-tablature"]');
+        const instrLabel = section.querySelector('#tab-instrument-label');
 
-        // Show config/TAB buttons when exactly 1 channel is active
+        // Show tablature section when exactly 1 channel is active
         if (m.activeChannels.size === 1) {
-            if (configBtn) configBtn.style.display = 'inline-flex';
-
-            // Auto-detect string instrument from GM program
             const activeChannel = Array.from(m.activeChannels)[0];
             const channelInfo = m.channels.find(ch => ch.channel === activeChannel);
             const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
-
-            if (gmMatch) {
-                configBtn.classList.add('gm-string-detected');
-                configBtn.title = `${m.t('tablature.configureStringInstrument')} (${channelInfo.instrument})`;
-            } else if (configBtn) {
-                configBtn.classList.remove('gm-string-detected');
-            }
-
             const deviceId = m.getEffectiveDeviceId();
-            const instrLabel = m.container?.querySelector('#tab-instrument-label');
 
             try {
                 const hasTab = await m.hasStringInstrument();
-                // Show TAB button if configured, or if GM string instrument detected (will auto-config on click)
-                const showTab = hasTab || !!gmMatch;
-                if (tabBtn) tabBtn.style.display = showTab ? 'inline-flex' : 'none';
-                if (tabBtn && m.tablatureEditor && m.tablatureEditor.isVisible) {
-                    tabBtn.classList.add('active');
-                } else if (tabBtn) {
-                    tabBtn.classList.remove('active');
-                }
+                // Show section if GM string instrument detected OR config exists
+                const showSection = hasTab || !!gmMatch;
 
-                // Show instrument name label when configured
-                if (hasTab && instrLabel) {
-                    try {
-                        const resp = await m.api.sendCommand('string_instrument_get', {
-                            device_id: deviceId,
-                            channel: activeChannel
-                        });
-                        if (resp?.instrument) {
-                            instrLabel.textContent = resp.instrument.instrument_name || '';
-                            instrLabel.style.display = 'inline';
+                if (showSection) {
+                    section.style.display = 'flex';
+
+                    // Config button highlight for GM instruments
+                    if (gmMatch && configBtn) {
+                        configBtn.classList.add('gm-string-detected');
+                        configBtn.title = `${m.t('tablature.configureStringInstrument')} (${channelInfo.instrument})`;
+                    } else if (configBtn) {
+                        configBtn.classList.remove('gm-string-detected');
+                    }
+
+                    // TAB button active state
+                    if (tabBtn && m.tablatureEditor && m.tablatureEditor.isVisible) {
+                        tabBtn.classList.add('active');
+                    } else if (tabBtn) {
+                        tabBtn.classList.remove('active');
+                    }
+
+                    // Show instrument name label when configured
+                    if (hasTab && instrLabel) {
+                        try {
+                            const resp = await m.api.sendCommand('string_instrument_get', {
+                                device_id: deviceId,
+                                channel: activeChannel
+                            });
+                            if (resp?.instrument) {
+                                instrLabel.textContent = resp.instrument.instrument_name || '';
+                                instrLabel.style.display = 'inline';
+                            }
+                        } catch {
+                            instrLabel.style.display = 'none';
                         }
-                    } catch {
+                    } else if (instrLabel) {
                         instrLabel.style.display = 'none';
                     }
-                } else if (instrLabel) {
-                    instrLabel.style.display = 'none';
-                }
 
-                // If GM string instrument detected but no config exists, auto-suggest
-                if (gmMatch && !hasTab) {
-                    this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
+                    // If GM string instrument detected but no config exists, auto-suggest
+                    if (gmMatch && !hasTab) {
+                        this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
+                    }
+                } else {
+                    section.style.display = 'none';
                 }
             } catch {
-                if (tabBtn) tabBtn.style.display = 'none';
-                if (instrLabel) instrLabel.style.display = 'none';
+                section.style.display = 'none';
             }
         } else {
-            if (configBtn) {
-                configBtn.style.display = 'none';
-                configBtn.classList.remove('gm-string-detected');
-            }
-            if (tabBtn) tabBtn.style.display = 'none';
-            const instrLabel = m.container?.querySelector('#tab-instrument-label');
-            if (instrLabel) instrLabel.style.display = 'none';
+            section.style.display = 'none';
         }
     }
 
