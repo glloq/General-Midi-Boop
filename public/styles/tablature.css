@@ -3,14 +3,13 @@
    Supports dark/light themes via CSS variables from variables.css
    ============================================================================ */
 
-/* ---- Panel Container ---- */
+/* ---- Panel Container (replaces piano roll in .notes-section) ---- */
 .tablature-editor-panel {
     display: flex;
     flex-direction: column;
-    border-top: 2px solid var(--border-color, #e9ecef);
     background: var(--bg-secondary, #fff);
-    min-height: 120px;
-    max-height: 300px;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -99,11 +98,13 @@
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0;
 }
 
 .tablature-canvas {
     display: block;
     width: 100%;
+    height: 100%;
     cursor: crosshair;
 }
 
@@ -570,20 +571,6 @@ body.dark-mode .si-piano-nav {
 
 body.dark-mode .si-pk-c-label {
     color: #777;
-}
-
-/* ---- Tab-Only Mode ---- */
-.midi-editor-container.tab-only-mode .notes-section {
-    display: none !important;
-}
-
-.midi-editor-container.tab-only-mode .cc-resize-bar {
-    display: none !important;
-}
-
-.midi-editor-container.tab-only-mode .tablature-editor-panel {
-    flex: 1;
-    max-height: none;
 }
 
 /* ---- GM Auto-Detection Banner ---- */

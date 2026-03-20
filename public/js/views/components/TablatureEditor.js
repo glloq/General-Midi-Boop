@@ -49,7 +49,8 @@ class TablatureEditor {
     // ========================================================================
 
     /**
-     * Show the tablature panel for a given channel's string instrument
+     * Show the tablature panel for a given channel's string instrument.
+     * Replaces the piano roll in the same space.
      * @param {Object} stringInstrument - Config from string_instruments table
      * @param {Array} midiNotes - Current MIDI notes for this channel
      * @param {number} channel - MIDI channel number
@@ -64,6 +65,9 @@ class TablatureEditor {
         }
         this.containerEl.style.display = 'flex';
         this.isVisible = true;
+
+        // Hide the piano roll, show tablature in its place
+        this._setPianoRollVisible(false);
 
         // Initialize renderer
         this._initRenderer();
@@ -80,17 +84,29 @@ class TablatureEditor {
     }
 
     hide() {
-        // Restore piano roll if in tab-only mode
-        if (this.tabOnlyMode) {
-            this.tabOnlyMode = false;
-            const editorContainer = this.modal.container?.querySelector('.midi-editor-container');
-            if (editorContainer) editorContainer.classList.remove('tab-only-mode');
-        }
         if (this.containerEl) {
             this.containerEl.style.display = 'none';
         }
         this.isVisible = false;
         this._detachCanvasEvents();
+
+        // Restore the piano roll
+        this._setPianoRollVisible(true);
+    }
+
+    /**
+     * Toggle piano roll visibility (hidden when tablature is shown)
+     * @param {boolean} visible
+     */
+    _setPianoRollVisible(visible) {
+        const notesSection = this.modal.container?.querySelector('.notes-section');
+        if (!notesSection) return;
+
+        const pianoRollWrapper = notesSection.querySelector('.piano-roll-wrapper');
+        const hScrollControls = notesSection.querySelector('.scroll-controls-horizontal');
+
+        if (pianoRollWrapper) pianoRollWrapper.style.display = visible ? '' : 'none';
+        if (hScrollControls) hScrollControls.style.display = visible ? '' : 'none';
     }
 
     destroy() {
@@ -125,7 +141,6 @@ class TablatureEditor {
                     <span class="tablature-tuning" id="tab-tuning-display"></span>
                 </div>
                 <div class="tablature-toolbar">
-                    <button class="tab-tool-btn" data-action="tab-view-mode" title="${this.t('tablature.tabOnlyMode')}">&#9634;</button>
                     <button class="tab-tool-btn" data-action="tab-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="tab-tool-btn" data-action="tab-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
                     <button class="tab-tool-btn" data-action="tab-copy" title="Copy (Ctrl+C)">CPY</button>
@@ -147,13 +162,10 @@ class TablatureEditor {
             </div>
         `;
 
-        // Insert after piano-roll section, before cc-resize-bar
-        const editorContainer = this.modal.container?.querySelector('.midi-editor-container');
-        const ccResizeBar = this.modal.container?.querySelector('.cc-resize-bar');
-        if (editorContainer && ccResizeBar) {
-            editorContainer.insertBefore(this.containerEl, ccResizeBar);
-        } else if (editorContainer) {
-            editorContainer.appendChild(this.containerEl);
+        // Insert inside .notes-section (same space as piano roll)
+        const notesSection = this.modal.container?.querySelector('.notes-section');
+        if (notesSection) {
+            notesSection.appendChild(this.containerEl);
         }
 
         // Get canvas references
@@ -194,7 +206,8 @@ class TablatureEditor {
 
         const wrapper = this.tabCanvasEl.parentElement;
         this.tabCanvasEl.width = wrapper.clientWidth || 800;
-        this.tabCanvasEl.height = this.stringInstrument.num_strings * 20 + 30;
+        // Use available wrapper height, fallback to string-based calculation
+        this.tabCanvasEl.height = wrapper.clientHeight || (this.stringInstrument.num_strings * 20 + 30);
 
         if (this.renderer) {
             this.renderer.destroy();
@@ -520,22 +533,8 @@ class TablatureEditor {
     }
 
     _toggleTabOnlyMode() {
-        this.tabOnlyMode = !this.tabOnlyMode;
-        const editorContainer = this.modal.container?.querySelector('.midi-editor-container');
-        const viewBtn = this.containerEl?.querySelector('[data-action="tab-view-mode"]');
-
-        if (editorContainer) {
-            if (this.tabOnlyMode) {
-                editorContainer.classList.add('tab-only-mode');
-                if (viewBtn) viewBtn.classList.add('active');
-            } else {
-                editorContainer.classList.remove('tab-only-mode');
-                if (viewBtn) viewBtn.classList.remove('active');
-            }
-        }
-
-        // Resize tablature to fill available space
-        this.handleResize();
+        // No longer needed — tablature now replaces the piano roll in the same space
+        // Kept for API compatibility
     }
 
     /**
@@ -707,7 +706,7 @@ class TablatureEditor {
             const wrapper = this.tabCanvasEl.parentElement;
             if (wrapper) {
                 this.tabCanvasEl.width = wrapper.clientWidth;
-                this.tabCanvasEl.height = (this.stringInstrument?.num_strings || 6) * 20 + 30;
+                this.tabCanvasEl.height = wrapper.clientHeight || (this.stringInstrument?.num_strings || 6) * 20 + 30;
             }
             if (this.renderer) this.renderer.redraw();
         }

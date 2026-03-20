@@ -737,6 +737,12 @@ class MidiEditorModal {
 
         this.log('info', `Toggled channel ${channel}. Active channels: [${Array.from(this.activeChannels).join(', ')}]`);
 
+        // Hide tablature when channel selection changes (it's channel-specific)
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+        }
+
         this.updateSequenceFromActiveChannels(previousActiveChannels);
         this.updateChannelButtons();
         this.updateInstrumentSelector();
@@ -5191,9 +5197,10 @@ class MidiEditorModal {
      * Toggle tablature editor for the active channel's string instrument
      */
     async toggleTablature() {
-        // If tablature is visible, hide it
+        // If tablature is visible, hide it and restore piano roll
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
             this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
             return;
         }
 
@@ -5243,15 +5250,27 @@ class MidiEditorModal {
             // Get notes for this channel
             const channelNotes = (this.fullSequence || []).filter(n => n.c === activeChannel);
 
-            // Create or show tablature editor
+            // Create or show tablature editor (replaces piano roll in the same space)
             if (!this.tablatureEditor) {
                 this.tablatureEditor = new TablatureEditor(this);
             }
 
             await this.tablatureEditor.show(stringInstrument, channelNotes, activeChannel);
+            this._updateTabButtonState(true);
 
         } catch (error) {
             this.log('error', 'Failed to toggle tablature:', error);
+        }
+    }
+
+    /**
+     * Update the TAB button active state in the toolbar
+     * @param {boolean} active
+     */
+    _updateTabButtonState(active) {
+        const tabBtn = this.container?.querySelector('[data-action="toggle-tablature"]');
+        if (tabBtn) {
+            tabBtn.classList.toggle('active', active);
         }
     }
 
