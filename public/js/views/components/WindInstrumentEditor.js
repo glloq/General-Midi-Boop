@@ -1,0 +1,722 @@
+// ============================================================================
+// Fichier: public/js/views/components/WindInstrumentEditor.js
+// Description: Main wind/brass instrument editor component
+//   Orchestrates WindMelodyRenderer + WindArticulationPanel
+//   Handles bidirectional sync with MIDI editor (piano roll)
+//   Manages monophony enforcement, breath detection, articulations
+// ============================================================================
+
+class WindInstrumentEditor {
+    constructor(modal) {
+        this.modal = modal;
+        this.api = modal.api;
+        this.logger = window.logger || console;
+
+        // State
+        this.isVisible = false;
+        this.channel = 0;
+        this.windPreset = null;         // WindInstrumentDatabase preset
+        this.melodyEvents = [];         // {tick, note, velocity, duration, channel, articulation}
+        this.breathMarks = [];          // {tick, type, duration}
+        this.isSyncing = false;
+
+        // Sub-components
+        this.renderer = null;           // WindMelodyRenderer instance
+        this.articulationPanel = null;  // WindArticulationPanel instance
+
+        // DOM references
+        this.containerEl = null;
+        this.melodyCanvasEl = null;
+        this.toolsPanelEl = null;
+
+        // Default velocity
+        this.defaultVelocity = 100;
+
+        // Bind methods
+        this._onNoteAdd = this._handleNoteAdd.bind(this);
+        this._onNotesMoved = this._handleNotesMoved.bind(this);
+        this._onEditArticulation = this._handleEditArticulation.bind(this);
+        this._onKeyDown = this._handleKeyDown.bind(this);
+    }
+
+    // ========================================================================
+    // I18N
+    // ========================================================================
+
+    t(key, params = {}) {
+        return typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+    }
+
+    // ========================================================================
+    // LIFECYCLE
+    // ========================================================================
+
+    show(windPreset, midiNotes, channel) {
+        this.channel = channel;
+        this.windPreset = windPreset;
+
+        if (!this.containerEl) {
+            this._createDOM();
+        }
+        this.containerEl.style.display = 'flex';
+        this.isVisible = true;
+
+        // Update badge
+        const badge = this.containerEl.querySelector('#wind-editor-badge');
+        if (badge && windPreset) {
+            badge.textContent = windPreset.name;
+        }
+
+        this._setPianoRollVisible(false);
+        this._initRenderer();
+        this._initArticulationPanel();
+
+        this.loadFromMidi(midiNotes);
+
+        this._detachCanvasEvents();
+        this._attachCanvasEvents();
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this.handleResize();
+            });
+        });
+    }
+
+    hide() {
+        if (this.containerEl) {
+            this.containerEl.style.display = 'none';
+        }
+        this.isVisible = false;
+        this._detachCanvasEvents();
+        this._setPianoRollVisible(true);
+    }
+
+    _setPianoRollVisible(visible) {
+        const notesSection = this.modal.container?.querySelector('.notes-section');
+        if (!notesSection) return;
+        const pianoRollWrapper = notesSection.querySelector('.piano-roll-wrapper');
+        if (visible) {
+            if (pianoRollWrapper) pianoRollWrapper.style.display = '';
+        } else {
+            if (pianoRollWrapper) pianoRollWrapper.style.display = 'none';
+        }
+    }
+
+    destroy() {
+        document.removeEventListener('keydown', this._onKeyDown);
+        this._detachCanvasEvents();
+        if (this.renderer) {
+            this.renderer.destroy();
+            this.renderer = null;
+        }
+        if (this.articulationPanel) {
+            this.articulationPanel.destroy();
+            this.articulationPanel = null;
+        }
+        if (this.containerEl) {
+            this.containerEl.remove();
+            this.containerEl = null;
+        }
+    }
+
+    // ========================================================================
+    // DOM CREATION
+    // ========================================================================
+
+    _createDOM() {
+        this.containerEl = document.createElement('div');
+        this.containerEl.className = 'wind-editor-panel';
+        this.containerEl.innerHTML = `
+            <div class="wind-editor-header">
+                <div class="wind-editor-title">
+                    <span class="wind-editor-icon">WIND</span>
+                    <span class="wind-editor-badge" id="wind-editor-badge"></span>
+                    <label class="wind-velocity-label" title="${this.t('windEditor.defaultVelocity', { defaultValue: 'Default velocity' })}">
+                        vel
+                        <input type="number" class="wind-velocity-input" id="wind-velocity-input"
+                            min="1" max="127" value="${this.defaultVelocity}" />
+                    </label>
+                </div>
+                <div class="wind-editor-toolbar">
+                    <button class="wind-tool-btn" data-action="wind-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
+                    <button class="wind-tool-btn" data-action="wind-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
+                    <button class="wind-tool-btn" data-action="wind-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
+                    <button class="wind-tool-btn" data-action="wind-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">PST</button>
+                    <span class="wind-separator"></span>
+                    <button class="wind-tool-btn" data-action="wind-zoom-in" title="${this.t('windEditor.zoomIn', { defaultValue: 'Zoom in' })}">+</button>
+                    <button class="wind-tool-btn" data-action="wind-zoom-out" title="${this.t('windEditor.zoomOut', { defaultValue: 'Zoom out' })}">-</button>
+                    <button class="wind-tool-btn" data-action="wind-delete" title="${this.t('windEditor.deleteSelected', { defaultValue: 'Delete' })}">DEL</button>
+                    <button class="wind-tool-btn" data-action="wind-select-all" title="${this.t('windEditor.selectAll', { defaultValue: 'Select all' })}">ALL</button>
+                    <button class="wind-tool-btn wind-close-btn" data-action="wind-close" title="${this.t('common.close')}">&times;</button>
+                </div>
+            </div>
+            <div class="wind-editor-body">
+                <div class="wind-melody-canvas-wrapper">
+                    <canvas id="wind-melody-canvas" class="wind-melody-canvas"></canvas>
+                </div>
+                <div class="wind-tools-panel-wrapper" id="wind-tools-panel-wrapper">
+                </div>
+            </div>
+        `;
+
+        const notesSection = this.modal.container?.querySelector('.notes-section');
+        if (notesSection) {
+            notesSection.appendChild(this.containerEl);
+        }
+
+        this.melodyCanvasEl = this.containerEl.querySelector('#wind-melody-canvas');
+        this.toolsPanelEl = this.containerEl.querySelector('#wind-tools-panel-wrapper');
+
+        this._attachToolbarEvents();
+    }
+
+    // ========================================================================
+    // TOOLBAR
+    // ========================================================================
+
+    _attachToolbarEvents() {
+        if (!this.containerEl) return;
+
+        this.containerEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            if (!action.startsWith('wind-')) return;
+
+            switch (action) {
+                case 'wind-undo':
+                    if (this.renderer?.undo()) this._syncToMidi();
+                    break;
+                case 'wind-redo':
+                    if (this.renderer?.redo()) this._syncToMidi();
+                    break;
+                case 'wind-copy':
+                    this.renderer?.copySelected();
+                    break;
+                case 'wind-paste':
+                    if (this.renderer?.hasClipboard()) {
+                        const tick = this.renderer.playheadTick || 0;
+                        this.renderer.paste(tick);
+                        this._enforceMonophony();
+                        this._syncToMidi();
+                    }
+                    break;
+                case 'wind-zoom-in':
+                    if (this.renderer) {
+                        this.renderer.setZoom(this.renderer.ticksPerPixel / 1.5);
+                    }
+                    break;
+                case 'wind-zoom-out':
+                    if (this.renderer) {
+                        this.renderer.setZoom(this.renderer.ticksPerPixel * 1.5);
+                    }
+                    break;
+                case 'wind-delete':
+                    if (this.renderer?.deleteSelected() > 0) {
+                        this._syncToMidi();
+                    }
+                    break;
+                case 'wind-select-all':
+                    this.renderer?.selectAll();
+                    break;
+                case 'wind-close':
+                    this.hide();
+                    this.modal._updateWindButtonState?.(false);
+                    break;
+            }
+        });
+
+        // Velocity input
+        const velInput = this.containerEl.querySelector('#wind-velocity-input');
+        if (velInput) {
+            velInput.addEventListener('change', () => {
+                this.defaultVelocity = Math.max(1, Math.min(127, parseInt(velInput.value, 10) || 100));
+            });
+        }
+    }
+
+    // ========================================================================
+    // RENDERER & TOOLS INIT
+    // ========================================================================
+
+    _initRenderer() {
+        if (!this.melodyCanvasEl) return;
+
+        const wrapper = this.melodyCanvasEl.parentElement;
+        this.melodyCanvasEl.width = wrapper.clientWidth || 800;
+        this.melodyCanvasEl.height = wrapper.clientHeight || 400;
+
+        if (this.renderer) {
+            this.renderer.destroy();
+        }
+
+        this.renderer = new WindMelodyRenderer(this.melodyCanvasEl, {
+            noteMin: this.windPreset?.rangeMin || 48,
+            noteMax: this.windPreset?.rangeMax || 84,
+            comfortMin: this.windPreset?.comfortMin || 48,
+            comfortMax: this.windPreset?.comfortMax || 84,
+        });
+
+        // Sync zoom/scroll with piano roll
+        if (this.modal.pianoRoll) {
+            const pr = this.modal.pianoRoll;
+            if (pr.xrange && this.melodyCanvasEl.width) {
+                this.renderer.ticksPerPixel = pr.xrange / (this.melodyCanvasEl.width - this.renderer.headerWidth);
+            }
+            if (pr.xoffset) {
+                this.renderer.scrollX = pr.xoffset;
+            }
+        }
+
+        if (this.articulationPanel) {
+            this.articulationPanel.setRenderer(this.renderer);
+        }
+    }
+
+    _initArticulationPanel() {
+        if (!this.toolsPanelEl) return;
+
+        if (this.articulationPanel) {
+            this.articulationPanel.destroy();
+        }
+
+        this.articulationPanel = new WindArticulationPanel(this.toolsPanelEl, {
+            onChanged: () => this._syncToMidi(),
+            onArticulationSelected: (art) => {
+                // Apply articulation to selected notes
+                if (this.renderer && this.renderer.selectedEvents.size > 0) {
+                    this.renderer.saveSnapshot();
+                    for (const idx of this.renderer.selectedEvents) {
+                        if (this.renderer.melodyEvents[idx]) {
+                            this.renderer.melodyEvents[idx].articulation = art;
+                        }
+                    }
+                    this.renderer.redraw();
+                    this._syncToMidi();
+                }
+            },
+            onAutoBreathToggled: (enabled) => {
+                if (enabled) {
+                    this._computeBreathMarks();
+                } else {
+                    this.breathMarks = [];
+                    if (this.renderer) this.renderer.setBreathMarks([]);
+                }
+            }
+        });
+
+        if (this.renderer) {
+            this.articulationPanel.setRenderer(this.renderer);
+        }
+
+        this._updateInfo();
+    }
+
+    // ========================================================================
+    // CONVERSION — MIDI → MELODY
+    // ========================================================================
+
+    loadFromMidi(midiNotes) {
+        if (!midiNotes || midiNotes.length === 0) {
+            this.melodyEvents = [];
+            if (this.renderer) this.renderer.setMelodyEvents([]);
+            this._updateInfo();
+            return;
+        }
+
+        this.melodyEvents = midiNotes.map(note => ({
+            tick: note.t,
+            note: note.n,
+            velocity: note.v || 100,
+            duration: note.g || 240,
+            channel: note.c !== undefined ? note.c : this.channel,
+            articulation: this._detectArticulation(note),
+        }));
+
+        // Sort by tick
+        this.melodyEvents.sort((a, b) => a.tick - b.tick);
+
+        if (this.renderer) {
+            this.renderer.setMelodyEvents(this.melodyEvents);
+        }
+
+        // Compute breath marks
+        if (this.articulationPanel?.autoBreathEnabled) {
+            this._computeBreathMarks();
+        }
+
+        this._updateInfo();
+    }
+
+    /**
+     * Heuristic articulation detection from note properties
+     */
+    _detectArticulation(note) {
+        const dur = note.g || 240;
+        const vel = note.v || 100;
+
+        // Very short duration → staccato
+        if (dur <= 120) return 'staccato';
+        // High velocity → accent
+        if (vel >= 120) return 'accent';
+        // Default
+        return 'normal';
+    }
+
+    // ========================================================================
+    // CONVERSION — MELODY → MIDI (bidirectional sync)
+    // ========================================================================
+
+    _syncToMidi() {
+        if (this.isSyncing) return;
+        this.isSyncing = true;
+
+        try {
+            if (this.renderer) {
+                this.melodyEvents = this.renderer.melodyEvents;
+            }
+
+            // Apply articulation factors before syncing to MIDI
+            const newNotes = this.melodyEvents.map(evt => {
+                const artDef = WindInstrumentDatabase.ARTICULATION_TYPES[evt.articulation || 'normal']
+                    || WindInstrumentDatabase.ARTICULATION_TYPES.normal;
+
+                return {
+                    t: evt.tick,
+                    n: evt.note,
+                    v: Math.max(1, Math.min(127, Math.round((evt.velocity || 100) * artDef.velocityFactor))),
+                    g: Math.max(1, Math.round((evt.duration || 240) * artDef.durationFactor)),
+                    c: this.channel
+                };
+            });
+
+            this._updateModalSequence(newNotes);
+        } finally {
+            this.isSyncing = false;
+        }
+
+        this._updateInfo();
+    }
+
+    onMidiNotesChanged(midiNotes) {
+        if (this.isSyncing || !this.isVisible) return;
+        this.isSyncing = true;
+        try {
+            this.loadFromMidi(midiNotes);
+        } finally {
+            this.isSyncing = false;
+        }
+    }
+
+    _updateModalSequence(newNotes) {
+        const m = this.modal;
+        if (!m.fullSequence) return;
+
+        m.fullSequence = m.fullSequence.filter(n => n.c !== this.channel);
+        m.fullSequence.push(...newNotes);
+        m.fullSequence.sort((a, b) => a.t - b.t);
+
+        const previousActiveChannels = new Set(m.activeChannels);
+        m.updateSequenceFromActiveChannels(previousActiveChannels, true);
+
+        if (m.pianoRoll) {
+            m.pianoRoll.sequence = m.sequence;
+            if (typeof m.pianoRoll.redraw === 'function') {
+                m.pianoRoll.redraw();
+            }
+        }
+
+        m.isDirty = true;
+    }
+
+    // ========================================================================
+    // MONOPHONY ENFORCEMENT
+    // ========================================================================
+
+    _enforceMonophony() {
+        if (!this.renderer) return;
+        const events = this.renderer.melodyEvents;
+        if (events.length <= 1) return;
+
+        // Sort by tick
+        events.sort((a, b) => a.tick - b.tick);
+
+        // Remove duplicate notes at the same tick (keep last)
+        for (let i = events.length - 2; i >= 0; i--) {
+            if (events[i].tick === events[i + 1].tick) {
+                events.splice(i, 1);
+            }
+        }
+
+        // Truncate overlapping notes
+        for (let i = 0; i < events.length - 1; i++) {
+            const endTick = events[i].tick + events[i].duration;
+            if (endTick > events[i + 1].tick) {
+                events[i].duration = Math.max(1, events[i + 1].tick - events[i].tick);
+            }
+        }
+
+        this.renderer.redraw();
+    }
+
+    // ========================================================================
+    // BREATHING DETECTION
+    // ========================================================================
+
+    _computeBreathMarks() {
+        if (!this.windPreset || !this.melodyEvents.length) {
+            this.breathMarks = [];
+            if (this.renderer) this.renderer.setBreathMarks([]);
+            return;
+        }
+
+        const breathCapacity = this.windPreset.breathCapacity;
+        if (breathCapacity === Infinity) {
+            this.breathMarks = [];
+            if (this.renderer) this.renderer.setBreathMarks([]);
+            return;
+        }
+
+        // Estimate tempo: default 120 BPM, 480 TPQ
+        const ticksPerBeat = this.renderer?.ticksPerBeat || 480;
+        const bpm = 120;
+        const secondsPerTick = 60.0 / (bpm * ticksPerBeat);
+
+        const marks = [];
+        let playingDuration = 0;
+
+        for (let i = 0; i < this.melodyEvents.length - 1; i++) {
+            const evt = this.melodyEvents[i];
+            const nextEvt = this.melodyEvents[i + 1];
+
+            const noteEndTick = evt.tick + evt.duration;
+            const gapTicks = nextEvt.tick - noteEndTick;
+            const gapSeconds = gapTicks * secondsPerTick;
+            const noteDuration = evt.duration * secondsPerTick;
+
+            playingDuration += noteDuration;
+
+            if (gapSeconds >= 0.25) {
+                // Natural rest — reset
+                playingDuration = 0;
+            } else if (playingDuration >= breathCapacity * 0.8) {
+                marks.push({
+                    tick: noteEndTick,
+                    type: 'required',
+                    duration: Math.round(0.25 / secondsPerTick)
+                });
+                playingDuration = 0;
+            } else if (playingDuration >= breathCapacity * 0.6) {
+                marks.push({
+                    tick: noteEndTick,
+                    type: 'suggested',
+                    duration: Math.round(0.2 / secondsPerTick)
+                });
+            }
+        }
+
+        this.breathMarks = marks;
+        if (this.renderer) this.renderer.setBreathMarks(marks);
+    }
+
+    // ========================================================================
+    // PLAYBACK SYNC
+    // ========================================================================
+
+    updatePlayhead(tick) {
+        if (!this.isVisible) return;
+
+        if (this.renderer) {
+            const pr = this.modal.pianoRoll;
+            if (pr) {
+                this.renderer.scrollX = pr.xoffset || 0;
+            }
+            this.renderer.setPlayhead(tick);
+        }
+    }
+
+    // ========================================================================
+    // CANVAS EVENTS
+    // ========================================================================
+
+    _attachCanvasEvents() {
+        if (this.melodyCanvasEl) {
+            this.melodyCanvasEl.addEventListener('wind:addnote', this._onNoteAdd);
+            this.melodyCanvasEl.addEventListener('wind:notesmoved', this._onNotesMoved);
+            this.melodyCanvasEl.addEventListener('wind:editarticulation', this._onEditArticulation);
+        }
+        document.addEventListener('keydown', this._onKeyDown);
+    }
+
+    _detachCanvasEvents() {
+        if (this.melodyCanvasEl) {
+            this.melodyCanvasEl.removeEventListener('wind:addnote', this._onNoteAdd);
+            this.melodyCanvasEl.removeEventListener('wind:notesmoved', this._onNotesMoved);
+            this.melodyCanvasEl.removeEventListener('wind:editarticulation', this._onEditArticulation);
+        }
+        document.removeEventListener('keydown', this._onKeyDown);
+    }
+
+    // ========================================================================
+    // EVENT HANDLERS
+    // ========================================================================
+
+    _handleNoteAdd(e) {
+        const { tick, note } = e.detail;
+        if (!this.renderer) return;
+
+        this.renderer.saveSnapshot();
+
+        const articulation = this.articulationPanel?.getCurrentArticulation() || 'normal';
+        this.renderer.melodyEvents.push({
+            tick,
+            note,
+            velocity: this.defaultVelocity,
+            duration: this.renderer.ticksPerBeat || 480,
+            channel: this.channel,
+            articulation,
+        });
+        this.renderer.melodyEvents.sort((a, b) => a.tick - b.tick);
+
+        this._enforceMonophony();
+
+        if (this.articulationPanel?.autoBreathEnabled) {
+            this.melodyEvents = this.renderer.melodyEvents;
+            this._computeBreathMarks();
+        }
+
+        this.renderer.redraw();
+        this._syncToMidi();
+    }
+
+    _handleNotesMoved() {
+        if (!this.renderer) return;
+
+        this._enforceMonophony();
+
+        if (this.articulationPanel?.autoBreathEnabled) {
+            this.melodyEvents = this.renderer.melodyEvents;
+            this._computeBreathMarks();
+        }
+
+        this._syncToMidi();
+    }
+
+    _handleEditArticulation(e) {
+        const { index, event } = e.detail;
+        if (!this.renderer || !event) return;
+
+        // Cycle through articulations
+        const types = Object.keys(WindInstrumentDatabase.ARTICULATION_TYPES);
+        const currentIdx = types.indexOf(event.articulation || 'normal');
+        const nextIdx = (currentIdx + 1) % types.length;
+        const newArt = types[nextIdx];
+
+        this.renderer.saveSnapshot();
+        this.renderer.melodyEvents[index].articulation = newArt;
+        this.renderer.redraw();
+        this._syncToMidi();
+
+        // Update panel to show current articulation
+        if (this.articulationPanel) {
+            this.articulationPanel.setArticulation(newArt);
+        }
+    }
+
+    _handleKeyDown(e) {
+        if (!this.isVisible) return;
+
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+                case 'z':
+                    e.preventDefault();
+                    if (this.renderer?.undo()) this._syncToMidi();
+                    return;
+                case 'y':
+                    e.preventDefault();
+                    if (this.renderer?.redo()) this._syncToMidi();
+                    return;
+                case 'c':
+                    e.preventDefault();
+                    this.renderer?.copySelected();
+                    return;
+                case 'v':
+                    e.preventDefault();
+                    if (this.renderer?.hasClipboard()) {
+                        this.renderer.paste(this.renderer.playheadTick || 0);
+                        this._enforceMonophony();
+                        this._syncToMidi();
+                    }
+                    return;
+                case 'a':
+                    e.preventDefault();
+                    this.renderer?.selectAll();
+                    return;
+            }
+        }
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            if (this.renderer?.deleteSelected() > 0) {
+                this._syncToMidi();
+            }
+        }
+    }
+
+    // ========================================================================
+    // INFO UPDATE
+    // ========================================================================
+
+    _updateInfo() {
+        if (this.articulationPanel) {
+            this.articulationPanel.updateInfo(
+                this.windPreset,
+                this.melodyEvents.length,
+                this.renderer?.selectedEvents?.size || 0
+            );
+        }
+    }
+
+    // ========================================================================
+    // RESIZE
+    // ========================================================================
+
+    handleResize() {
+        if (!this.isVisible) return;
+
+        if (this.melodyCanvasEl) {
+            const wrapper = this.melodyCanvasEl.parentElement;
+            if (wrapper && wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
+                this.melodyCanvasEl.width = wrapper.clientWidth;
+                this.melodyCanvasEl.height = wrapper.clientHeight;
+                if (this.renderer) this.renderer.redraw();
+            }
+        }
+    }
+
+    // ========================================================================
+    // THEME
+    // ========================================================================
+
+    updateTheme() {
+        if (this.renderer) {
+            this.renderer.updateTheme();
+            this.renderer.redraw();
+        }
+    }
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = WindInstrumentEditor;
+}
+if (typeof window !== 'undefined') {
+    window.WindInstrumentEditor = WindInstrumentEditor;
+}

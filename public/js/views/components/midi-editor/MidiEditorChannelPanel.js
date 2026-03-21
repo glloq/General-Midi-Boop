@@ -194,6 +194,27 @@ class MidiEditorChannelPanel {
         return null;
     }
 
+    // GM program ranges for wind/brass instruments
+    static GM_WIND_INSTRUMENTS = {
+        brass: { start: 56, end: 63 },
+        reed:  { start: 64, end: 71 },
+        pipe:  { start: 72, end: 79 },
+    };
+
+    /**
+     * Check if a GM program number corresponds to a wind instrument
+     * @param {number} program - GM program number (0-127)
+     * @returns {{ category: string } | null}
+     */
+    static getWindInstrumentCategory(program) {
+        for (const [category, range] of Object.entries(MidiEditorChannelPanel.GM_WIND_INSTRUMENTS)) {
+            if (program >= range.start && program <= range.end) {
+                return { category };
+            }
+        }
+        return null;
+    }
+
     /**
      * Update per-channel TAB button active states and auto-suggest banner.
      */
