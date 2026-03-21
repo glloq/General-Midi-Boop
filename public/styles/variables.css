@@ -31,6 +31,10 @@
     --bg-primary: #f8f9fa;
     --bg-secondary: #ffffff;
     --bg-tertiary: #e9ecef;
+    /* Legacy aliases (used by main.css, home.css, pages.css, keyboard.css) */
+    --bg-dark: #f8f9fa;
+    --bg-medium: #ffffff;
+    --bg-light: #e9ecef;
 
     /* Textes */
     --text-primary: #2c3e50;
@@ -125,6 +129,9 @@ body.dark-mode {
     --bg-primary: #1a1a1a;
     --bg-secondary: #2d3748;
     --bg-tertiary: #4a5568;
+    --bg-dark: #1a1a1a;
+    --bg-medium: #2d3748;
+    --bg-light: #4a5568;
 
     --text-primary: #e0e0e0;
     --text-secondary: #a0aec0;
@@ -173,6 +180,9 @@ body.theme-colored {
     --bg-primary: #f0f4ff;
     --bg-secondary: #ffffff;
     --bg-tertiary: #e8eeff;
+    --bg-dark: #f0f4ff;
+    --bg-medium: #ffffff;
+    --bg-light: #e8eeff;
 
     --text-primary: #2d3561;
     --text-secondary: #5a6089;
@@ -256,6 +266,9 @@ body.theme-colored {
         --bg-primary: #1a1a1a;
         --bg-secondary: #2d3748;
         --bg-tertiary: #4a5568;
+        --bg-dark: #1a1a1a;
+        --bg-medium: #2d3748;
+        --bg-light: #4a5568;
         --text-primary: #e0e0e0;
         --text-secondary: #a0aec0;
         --text-muted: #718096;
