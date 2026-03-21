@@ -1070,6 +1070,19 @@
     "saveFailed": "Save failed",
     "capo": "capo"
   },
+  "drumPattern": {
+    "title": "Drum Pattern",
+    "toggleEditor": "Toggle drum pattern editor",
+    "drumButton": "DRUM",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "deleteSelected": "Delete selected",
+    "selectAll": "Select all",
+    "quantize": "Quantize resolution",
+    "defaultVelocity": "Default velocity for new hits",
+    "enterVelocity": "Enter velocity (1-127)",
+    "singleChannelRequired": "Select a single channel to use drum pattern"
+  },
   "stringInstrument": {
     "title": "String Instrument Configuration",
     "name": "Instrument Name",

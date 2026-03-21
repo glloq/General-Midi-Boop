@@ -1,0 +1,296 @@
+/* ============================================================================
+   Drum Pattern Editor Styles
+   Mirrors tablature.css structure for consistency
+   Supports dark/light/colored themes via CSS variables
+   ============================================================================ */
+
+/* ---- Panel Container (replaces piano roll in .notes-section) ---- */
+.drum-pattern-editor-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary, #fff);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ---- Header ---- */
+.drum-pattern-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: var(--bg-tertiary, #e9ecef);
+    border-bottom: 1px solid var(--border-color, #e9ecef);
+    min-height: 32px;
+    flex-shrink: 0;
+}
+
+.drum-pattern-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.drum-pattern-icon {
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 2px 6px;
+    background: #ef476f;
+    color: #fff;
+    border-radius: 3px;
+    letter-spacing: 1px;
+}
+
+.drum-pattern-badge {
+    font-weight: 600;
+    font-size: 11px;
+    color: #ef476f;
+    background: rgba(239, 71, 111, 0.12);
+    padding: 1px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drum-quantize-select {
+    font-size: 11px;
+    font-family: monospace;
+    font-weight: 600;
+    padding: 1px 4px;
+    border: 1px solid var(--border-color, #e9ecef);
+    border-radius: var(--border-radius, 4px);
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #2c3e50);
+    cursor: pointer;
+    outline: none;
+}
+
+.drum-quantize-select:focus {
+    border-color: #ef476f;
+}
+
+.drum-velocity-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--text-secondary, #6c757d);
+}
+
+.drum-velocity-input {
+    width: 40px;
+    padding: 1px 4px;
+    font-size: 11px;
+    font-family: monospace;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid var(--border-color, #e9ecef);
+    border-radius: var(--border-radius, 4px);
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #2c3e50);
+    outline: none;
+}
+
+.drum-velocity-input:focus {
+    border-color: #ef476f;
+}
+
+/* ---- Toolbar ---- */
+.drum-pattern-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.drum-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color, #e9ecef);
+    margin: 0 4px;
+}
+
+.drum-tool-btn {
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: monospace;
+    font-weight: bold;
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #2c3e50);
+    border: 1px solid var(--border-color, #e9ecef);
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
+}
+
+.drum-tool-btn:hover {
+    background: #ef476f;
+    color: #fff;
+    border-color: #ef476f;
+}
+
+.drum-close-btn {
+    font-size: 16px;
+    padding: 2px 6px;
+    margin-left: 8px;
+}
+
+/* ---- Body (canvas area) ---- */
+.drum-pattern-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.drum-grid-canvas-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+}
+
+.drum-grid-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+.drum-kit-diagram-wrapper {
+    width: 200px;
+    min-width: 160px;
+    max-width: 240px;
+    border-left: 1px solid var(--border-color, #e9ecef);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.drum-kit-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ---- Channel Panel: DRUM Button ---- */
+.channel-drum-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    background: transparent;
+    color: #ef476f;
+    border: 1px solid #ef476f;
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    transition: all var(--transition-fast, 0.15s);
+}
+
+.channel-drum-btn:hover {
+    background: #ef476f;
+    color: #fff;
+}
+
+.channel-drum-btn.active {
+    background: #ef476f;
+    color: #fff;
+}
+
+/* ---- Dark Theme ---- */
+body.dark-mode .drum-pattern-editor-panel {
+    border-top-color: #4a5568;
+}
+
+body.dark-mode .drum-pattern-header {
+    background: #2d3748;
+    border-bottom-color: #4a5568;
+}
+
+body.dark-mode .drum-tool-btn {
+    background: #2d3748;
+    color: #e0e0e0;
+    border-color: #4a5568;
+}
+
+body.dark-mode .drum-tool-btn:hover {
+    background: #ef476f;
+    color: #fff;
+}
+
+body.dark-mode .drum-separator {
+    background: #4a5568;
+}
+
+body.dark-mode .drum-kit-diagram-wrapper {
+    border-left-color: #4a5568;
+}
+
+body.dark-mode .drum-quantize-select {
+    background: #2d3748;
+    color: #e0e0e0;
+    border-color: #4a5568;
+}
+
+body.dark-mode .drum-velocity-input {
+    background: #2d3748;
+    color: #e0e0e0;
+    border-color: #4a5568;
+}
+
+/* ---- Colored Theme ---- */
+body.theme-colored .drum-pattern-editor-panel {
+    border-top-color: var(--border-color);
+}
+
+body.theme-colored .drum-pattern-header {
+    background: linear-gradient(135deg, rgba(239, 71, 111, 0.06), rgba(118, 75, 162, 0.04));
+    border-bottom-color: var(--border-color);
+}
+
+body.theme-colored .drum-tool-btn {
+    background: rgba(239, 71, 111, 0.06);
+    color: var(--text-primary);
+    border-color: rgba(239, 71, 111, 0.2);
+}
+
+body.theme-colored .drum-tool-btn:hover {
+    background: #ef476f;
+    color: #fff;
+}
+
+body.theme-colored .drum-separator {
+    background: var(--border-color);
+}
+
+body.theme-colored .drum-kit-diagram-wrapper {
+    border-left-color: var(--border-color);
+}
+
+body.theme-colored .drum-quantize-select {
+    background: #ffffff;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.theme-colored .drum-velocity-input {
+    background: #ffffff;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+    .drum-kit-diagram-wrapper {
+        display: none;
+    }
+}

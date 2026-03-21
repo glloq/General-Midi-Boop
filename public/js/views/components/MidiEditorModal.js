@@ -59,6 +59,9 @@ class MidiEditorModal {
         // Tablature editor (for string instruments)
         this.tablatureEditor = null;
 
+        // Drum pattern editor (for percussion channels)
+        this.drumPatternEditor = null;
+
         // Playback (synthétiseur intégré)
         this.synthesizer = null;
         this.isPlaying = false;
@@ -746,6 +749,12 @@ class MidiEditorModal {
             this._updateTabButtonState(false);
         }
 
+        // Hide drum pattern when channel selection changes
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.hide();
+            this._updateDrumButtonState(false);
+        }
+
         this.updateSequenceFromActiveChannels(previousActiveChannels);
         this.updateChannelButtons();
         this.updateInstrumentSelector();
@@ -855,6 +864,13 @@ class MidiEditorModal {
             const activeChannel = Array.from(this.activeChannels)[0];
             const channelNotes = visibleNotes.filter(n => n.c === activeChannel);
             this.tablatureEditor.onMidiNotesChanged(channelNotes);
+        }
+
+        // Notify drum pattern editor of changes (bidirectional sync)
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            const drumChannel = this.drumPatternEditor.channel;
+            const drumNotes = visibleNotes.filter(n => n.c === drumChannel);
+            this.drumPatternEditor.onMidiNotesChanged(drumNotes);
         }
     }
 
@@ -4076,6 +4092,14 @@ class MidiEditorModal {
             }
         }
 
+        // Reset drum pattern playhead and clear kit diagram
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
+            if (this.drumPatternEditor.kitDiagram) {
+                this.drumPatternEditor.kitDiagram.clearActiveNotes();
+            }
+        }
+
         this.updatePlaybackButtons();
 
         this.log('info', 'Playback stopped');
@@ -4127,6 +4151,11 @@ class MidiEditorModal {
                 scrollHSlider.value = percentage;
             }
         }
+
+        // Update drum pattern editor playhead and kit diagram
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.updatePlayhead(tick);
+        }
     }
 
     /**
@@ -4146,6 +4175,14 @@ class MidiEditorModal {
             this.tablatureEditor.updatePlayhead(this.playbackStartTick || 0);
             if (this.tablatureEditor.fretboard) {
                 this.tablatureEditor.fretboard.clearActivePositions();
+            }
+        }
+
+        // Reset drum pattern playhead and clear kit diagram
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
+            if (this.drumPatternEditor.kitDiagram) {
+                this.drumPatternEditor.kitDiagram.clearActiveNotes();
             }
         }
 
@@ -5368,6 +5405,12 @@ class MidiEditorModal {
             this.tablatureEditor.hide();
         }
 
+        // Hide drum pattern editor if visible (mutually exclusive)
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.hide();
+            this._updateDrumButtonState(false);
+        }
+
         // Now open tablature for the channel
         await this.toggleTablature();
     }
@@ -5409,7 +5452,26 @@ class MidiEditorModal {
             const channelBtn = group.querySelector('.channel-btn');
             if (!channelBtn) return;
             const ch = parseInt(channelBtn.dataset.channel);
-            if (isNaN(ch) || ch === 9) return;
+            if (isNaN(ch)) return;
+
+            // Channel 9 (drums): add DRUM button instead of TAB
+            if (ch === 9) {
+                const existingDrumBtn = group.querySelector('.channel-drum-btn');
+                if (!existingDrumBtn) {
+                    const btn = document.createElement('button');
+                    btn.className = 'channel-drum-btn';
+                    btn.dataset.channel = ch;
+                    btn.title = this.t('drumPattern.toggleEditor');
+                    btn.textContent = 'DRUM';
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this._openDrumPatternForChannel(ch);
+                    });
+                    group.appendChild(btn);
+                }
+                return;
+            }
 
             const channelInfo = this.channels?.find(c => c.channel === ch);
             const isGmString = channelInfo &&
@@ -5457,6 +5519,61 @@ class MidiEditorModal {
         tabBtns.forEach(btn => {
             const ch = parseInt(btn.dataset.channel);
             btn.classList.toggle('active', isTabVisible && ch === tabChannel);
+        });
+    }
+
+    // ========================================================================
+    // DRUM PATTERN EDITOR
+    // ========================================================================
+
+    /**
+     * Open drum pattern editor for a specific channel
+     * @param {number} channel - MIDI channel (typically 9)
+     */
+    _openDrumPatternForChannel(channel) {
+        // Toggle off if already visible for this channel
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.channel === channel) {
+            this.drumPatternEditor.hide();
+            this._updateDrumButtonState(false);
+            return;
+        }
+
+        // Ensure only this channel is active
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+        this.updateSequenceFromActiveChannels(new Set([channel]));
+        this._refreshChannelButtons();
+
+        // Hide tablature if visible
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            this._updateChannelTabButtons();
+        }
+
+        // Get MIDI notes for this channel
+        const channelNotes = (this.fullSequence || []).filter(n => n.c === channel);
+
+        // Create editor on first use
+        if (!this.drumPatternEditor) {
+            this.drumPatternEditor = new DrumPatternEditor(this);
+        }
+
+        this.drumPatternEditor.show(channelNotes, channel);
+        this._updateDrumButtonState(true);
+    }
+
+    /**
+     * Update active state of DRUM buttons
+     * @param {boolean} active
+     */
+    _updateDrumButtonState(active) {
+        const drumBtns = this.container?.querySelectorAll('.channel-drum-btn');
+        if (!drumBtns) return;
+
+        const drumChannel = this.drumPatternEditor?.channel;
+        drumBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            btn.classList.toggle('active', active && ch === drumChannel);
         });
     }
 
@@ -5762,6 +5879,12 @@ class MidiEditorModal {
         if (this.tablatureEditor) {
             this.tablatureEditor.destroy();
             this.tablatureEditor = null;
+        }
+
+        // Nettoyer l'éditeur de pattern percussion
+        if (this.drumPatternEditor) {
+            this.drumPatternEditor.destroy();
+            this.drumPatternEditor = null;
         }
 
         // Nettoyer le synthétiseur
