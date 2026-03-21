@@ -447,7 +447,7 @@
         }
 
         body.theme-colored header {
-            background: #764ba2;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
             border-bottom: none;
             box-shadow: 0 4px 20px rgba(118, 75, 162, 0.35);
         }
@@ -458,7 +458,7 @@
         }
 
         body.theme-colored .card {
-            background: rgba(255, 255, 255, 0.7);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.75) 0%, rgba(232, 236, 254, 0.6) 50%, rgba(243, 238, 255, 0.65) 100%);
             border: 1px solid rgba(118, 75, 162, 0.2);
             box-shadow: 0 4px 16px rgba(118, 75, 162, 0.12);
         }
@@ -592,13 +592,13 @@
 
         /* Bloc fichiers - fond coloré */
         body.theme-colored .file-list {
-            background: linear-gradient(180deg, rgba(118, 75, 162, 0.05) 0%, rgba(102, 126, 234, 0.08) 100%);
+            background: linear-gradient(180deg, rgba(232, 236, 254, 0.4) 0%, rgba(243, 238, 255, 0.5) 50%, rgba(252, 232, 240, 0.3) 100%);
             border-radius: 0 0 12px 12px;
         }
 
         body.theme-colored .midi-files-header {
-            background: linear-gradient(135deg, rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.08));
-            border-bottom: 1px solid rgba(118, 75, 162, 0.15);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.14), rgba(232, 67, 147, 0.08));
+            border-bottom: 1px solid rgba(118, 75, 162, 0.2);
             border-radius: 12px 12px 0 0;
             padding: 12px 16px;
         }
@@ -817,8 +817,20 @@
         body.theme-colored .file-list.view-compact .file-item.selected { background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); border-left-color: #764ba2; }
 
         /* Header info */
-        body.theme-colored .header-file-name { color: var(--text-primary); }
-        body.theme-colored .header-time { color: #764ba2; }
+        body.theme-colored .header-file-name { color: #ffffff; }
+        body.theme-colored .header-time { color: rgba(255, 255, 255, 0.85); }
+        body.theme-colored .header-progress { background: rgba(255, 255, 255, 0.25); }
+        body.theme-colored .header-progress-fill { background: linear-gradient(90deg, #06d6a0, #ffd166); }
+        body.theme-colored .header-controls .btn { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: white !important; }
+        body.theme-colored .header-controls .btn:hover { background: rgba(255, 255, 255, 0.35) !important; }
+        body.theme-colored .header-controls .btn-danger { background: rgba(239, 71, 111, 0.7) !important; border: 1px solid rgba(239, 71, 111, 0.5) !important; }
+
+        /* Search bar et contrôles */
+        body.theme-colored .search-bar { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(118, 75, 162, 0.2); }
+        body.theme-colored .search-input { background: transparent; color: #2d3561; }
+        body.theme-colored .sort-select { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(118, 75, 162, 0.2); color: #5a3d8a; }
+        body.theme-colored .sort-order-btn { background: rgba(118, 75, 162, 0.1); border: 1px solid rgba(118, 75, 162, 0.2); color: #764ba2; }
+        body.theme-colored .sort-order-btn:hover { background: rgba(118, 75, 162, 0.2); }
 
         /* Identity */
         body.theme-colored .identity-section { background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04)); border: 1px solid rgba(118, 75, 162, 0.15); }

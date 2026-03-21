@@ -531,7 +531,7 @@ body.theme-changing * {
 
 /* Header et navigation */
 body.theme-colored .header {
-    background: #764ba2;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
     border-bottom: none;
     box-shadow: 0 4px 20px rgba(118, 75, 162, 0.35);
 }
@@ -649,13 +649,13 @@ body.theme-colored .form-control:focus {
 
 /* Bloc fichiers - fond coloré */
 body.theme-colored .file-list {
-    background: linear-gradient(180deg, rgba(118, 75, 162, 0.05) 0%, rgba(102, 126, 234, 0.08) 100%);
+    background: linear-gradient(180deg, rgba(232, 236, 254, 0.4) 0%, rgba(243, 238, 255, 0.5) 50%, rgba(252, 232, 240, 0.3) 100%);
     border-radius: 0 0 var(--border-radius-xl) var(--border-radius-xl);
 }
 
 body.theme-colored .midi-files-header {
-    background: linear-gradient(135deg, rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.08));
-    border-bottom: 1px solid rgba(118, 75, 162, 0.15);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.14), rgba(232, 67, 147, 0.08));
+    border-bottom: 1px solid rgba(118, 75, 162, 0.2);
     border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
 }
 
