@@ -592,15 +592,54 @@
 
         /* Bloc fichiers - fond coloré */
         body.theme-colored .file-list {
-            background: linear-gradient(180deg, rgba(232, 236, 254, 0.4) 0%, rgba(243, 238, 255, 0.5) 50%, rgba(252, 232, 240, 0.3) 100%);
+            background: linear-gradient(180deg, rgba(232, 236, 254, 0.5) 0%, rgba(243, 238, 255, 0.55) 50%, rgba(252, 232, 240, 0.35) 100%);
             border-radius: 0 0 12px 12px;
         }
 
         body.theme-colored .midi-files-header {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.14), rgba(232, 67, 147, 0.08));
-            border-bottom: 1px solid rgba(118, 75, 162, 0.2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
+            border-bottom: none;
             border-radius: 12px 12px 0 0;
-            padding: 12px 16px;
+            padding: 14px 18px;
+        }
+
+        body.theme-colored .midi-files-header h2 {
+            color: #ffffff;
+        }
+
+        body.theme-colored .midi-files-header h2 span {
+            -webkit-text-fill-color: #ffffff;
+            background: none;
+        }
+
+        body.theme-colored .upload-drop-zone {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 2px dashed rgba(255, 255, 255, 0.5) !important;
+        }
+        body.theme-colored .upload-drop-zone:hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+            border-color: rgba(255, 255, 255, 0.7) !important;
+        }
+        body.theme-colored .upload-drop-zone-icon,
+        body.theme-colored .upload-drop-zone-text,
+        body.theme-colored .upload-drop-zone-text span,
+        body.theme-colored .upload-drop-zone-text strong {
+            color: #ffffff !important;
+        }
+
+        body.theme-colored .midi-files-header .btn-secondary {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            color: #ffffff !important;
+        }
+        body.theme-colored .midi-files-header .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.35) !important;
+        }
+
+        body.theme-colored .search-bar-container {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.1), rgba(232, 67, 147, 0.06));
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(118, 75, 162, 0.12);
         }
 
         body.theme-colored .midi-files-header h2 span {
