@@ -649,21 +649,30 @@ body.theme-colored .form-control:focus {
 
 /* Bloc fichiers - fond coloré */
 body.theme-colored .file-list {
-    background: linear-gradient(180deg, rgba(232, 236, 254, 0.4) 0%, rgba(243, 238, 255, 0.5) 50%, rgba(252, 232, 240, 0.3) 100%);
+    background: linear-gradient(180deg, rgba(232, 236, 254, 0.5) 0%, rgba(243, 238, 255, 0.55) 50%, rgba(252, 232, 240, 0.35) 100%);
     border-radius: 0 0 var(--border-radius-xl) var(--border-radius-xl);
 }
 
 body.theme-colored .midi-files-header {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.14), rgba(232, 67, 147, 0.08));
-    border-bottom: 1px solid rgba(118, 75, 162, 0.2);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
+    border-bottom: none;
     border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+    padding: 14px 18px;
+}
+
+body.theme-colored .midi-files-header h2 {
+    color: #ffffff;
 }
 
 body.theme-colored .midi-files-header h2 span {
-    background: linear-gradient(135deg, #764ba2, #667eea);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    -webkit-text-fill-color: #ffffff;
+    background: none;
+}
+
+body.theme-colored .search-bar-container {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.1), rgba(232, 67, 147, 0.06));
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(118, 75, 162, 0.12);
 }
 
 /* Page fichiers */
