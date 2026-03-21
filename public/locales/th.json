@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 ลากและวาง หรือ",
+    "clickToBrowse": "คลิกเพื่อเพิ่มไฟล์ MIDI",
+    "noMidiFilesDropped": "ไม่พบไฟล์ MIDI ในไฟล์ที่วาง"
   },
   "instrumentSettings": {
     "title": "การตั้งค่าเครื่องดนตรี",

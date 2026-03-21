@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 खींचें और छोड़ें या",
+    "clickToBrowse": "MIDI फ़ाइलें जोड़ने के लिए क्लिक करें",
+    "noMidiFilesDropped": "छोड़ी गई फ़ाइलों में कोई MIDI फ़ाइल नहीं मिली।"
   },
   "instrumentSettings": {
     "title": "इंस्ट्रूमेंट सेटिंग्स",

@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 Trenu kaj faligi aŭ",
+    "clickToBrowse": "klaku por aldoni MIDI-dosierojn",
+    "noMidiFilesDropped": "Neniuj MIDI-dosieroj trovitaj en la falintaj dosieroj."
   },
   "instrumentSettings": {
     "title": "Instrument-agordoj",

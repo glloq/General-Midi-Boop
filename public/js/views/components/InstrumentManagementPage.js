@@ -356,7 +356,7 @@ class InstrumentManagementPage {
     if (connected.length > 0) {
       html += `
         <div style="margin-bottom: 32px;">
-          <h3 style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #10b981; color: #10b981; font-size: 16px;">
+          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #10b981; color: #10b981; font-size: 16px;">
             🔌 ${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'} (${connected.length})
           </h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
@@ -370,7 +370,7 @@ class InstrumentManagementPage {
     if (virtual.length > 0) {
       html += `
         <div style="margin-bottom: 32px;">
-          <h3 style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6; color: #7c3aed; font-size: 16px;">
+          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6; color: #7c3aed; font-size: 16px;">
             🖥️ ${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'} (${virtual.length})
           </h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
@@ -384,7 +384,7 @@ class InstrumentManagementPage {
     if (disconnected.length > 0) {
       html += `
         <div>
-          <h3 style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #94a3b8; color: #64748b; font-size: 16px;">
+          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #94a3b8; color: #64748b; font-size: 16px;">
             ⚫ ${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'} (${disconnected.length})
           </h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
@@ -708,31 +708,31 @@ class InstrumentManagementPage {
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10100;display:flex;align-items:center;justify-content:center;';
 
     overlay.innerHTML = `
-      <div style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div class="inst-virt-dialog" style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px 16px 0 0;color:white;">
           <h3 style="margin:0;font-size:18px;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
           <button onclick="this.closest('div[style*=fixed]').remove()" style="background:rgba(255,255,255,0.2);border:none;font-size:20px;cursor:pointer;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
         </div>
-        <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
-          <label style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:#374151;">
+        <div class="inst-virt-name-section" style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
+          <label class="inst-virt-label" style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:#374151;">
             ${esc(i18n.t('instrumentManagement.virtualCustomName') || 'Nom personnalisé (optionnel)')}
           </label>
-          <input type="text" id="virtualInstrumentName" placeholder="${esc(i18n.t('instrumentManagement.virtualNamePlaceholder') || 'Laisser vide pour utiliser le nom du type')}"
+          <input type="text" id="virtualInstrumentName" class="inst-virt-input" placeholder="${esc(i18n.t('instrumentManagement.virtualNamePlaceholder') || 'Laisser vide pour utiliser le nom du type')}"
                  style="width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"
                  onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#e5e7eb'">
         </div>
         <div style="flex:1;overflow-y:auto;padding:16px 24px;">
-          <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">${esc(i18n.t('instrumentManagement.selectType') || 'Sélectionnez un type d\'instrument :')}</p>
+          <p class="inst-virt-hint" style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">${esc(i18n.t('instrumentManagement.selectType') || 'Sélectionnez un type d\'instrument :')}</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
             ${presets.map(p => `
               <button class="virtual-preset-btn" data-type="${p.type || ''}"
                       style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #e5e7eb;border-radius:10px;background:white;cursor:pointer;text-align:left;transition:all 0.15s;"
-                      onmouseover="this.style.borderColor='#8b5cf6';this.style.background='#faf5ff'"
-                      onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
+                      onmouseover="this.style.borderColor='#8b5cf6'"
+                      onmouseout="this.style.borderColor='#e5e7eb'">
                 <span style="font-size:28px;">${p.icon}</span>
                 <div>
-                  <div style="font-size:14px;font-weight:600;color:#1f2937;">${esc(p.label)}</div>
-                  <div style="font-size:11px;color:#6b7280;margin-top:2px;">${esc(p.description)}</div>
+                  <div class="inst-virt-preset-name" style="font-size:14px;font-weight:600;color:#1f2937;">${esc(p.label)}</div>
+                  <div class="inst-virt-preset-desc" style="font-size:11px;color:#6b7280;margin-top:2px;">${esc(p.description)}</div>
                 </div>
               </button>
             `).join('')}

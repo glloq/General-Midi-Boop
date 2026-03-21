@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 드래그 앤 드롭 또는",
+    "clickToBrowse": "클릭하여 MIDI 파일 추가",
+    "noMidiFilesDropped": "드롭된 파일에서 MIDI 파일을 찾을 수 없습니다."
   },
   "instrumentSettings": {
     "title": "악기 설정",

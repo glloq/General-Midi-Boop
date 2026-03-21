@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 拖放文件或",
+    "clickToBrowse": "点击添加MIDI文件",
+    "noMidiFilesDropped": "在拖放的文件中未找到MIDI文件。"
   },
   "instrumentSettings": {
     "title": "乐器设置",

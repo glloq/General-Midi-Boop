@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 Trascina e rilascia o",
+    "clickToBrowse": "clicca per aggiungere file MIDI",
+    "noMidiFilesDropped": "Nessun file MIDI trovato nei file rilasciati."
   },
   "instrumentSettings": {
     "title": "Impostazioni strumento",

@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 Kéo và thả hoặc",
+    "clickToBrowse": "nhấp để thêm tệp MIDI",
+    "noMidiFilesDropped": "Không tìm thấy tệp MIDI trong các tệp đã thả."
   },
   "instrumentSettings": {
     "title": "Cài đặt Nhạc cụ",

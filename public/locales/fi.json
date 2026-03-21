@@ -415,7 +415,10 @@
     "uploadDone": "Done",
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
-    "microphoneSettings": "Microphone settings"
+    "microphoneSettings": "Microphone settings",
+    "dropFilesHere": "📥 Vedä ja pudota tai",
+    "clickToBrowse": "napsauta lisätäksesi MIDI-tiedostoja",
+    "noMidiFilesDropped": "Pudotetuista tiedostoista ei löytynyt MIDI-tiedostoja."
   },
   "instrumentSettings": {
     "title": "Soittimen asetukset",

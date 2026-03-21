@@ -403,7 +403,7 @@ body.dark-mode .inst-mgmt-scan-label {
 
 /* Content area */
 body.dark-mode .inst-mgmt-content {
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
 }
 
 /* Footer */
@@ -430,6 +430,7 @@ body.dark-mode .inst-mgmt-modal select#instrumentFilter option {
 /* Instrument cards */
 body.dark-mode .inst-mgmt-card {
     background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
 }
 
 body.dark-mode .inst-mgmt-card-title {
@@ -449,9 +450,9 @@ body.dark-mode .inst-mgmt-conn-badge {
     color: var(--text-primary) !important;
 }
 
-/* Section headers in content */
-body.dark-mode .inst-mgmt-content #instrumentListContent h3 {
-    color: inherit;
+/* Section headers - keep their color but lighten for dark bg */
+body.dark-mode .inst-mgmt-section-title {
+    opacity: 0.9;
 }
 
 /* Empty state */
@@ -463,41 +464,46 @@ body.dark-mode .inst-mgmt-empty-title {
     color: var(--text-secondary) !important;
 }
 
-/* Virtual instrument creation dialog */
-body.dark-mode .modal-overlay div[style*="background:white;border-radius:16px"],
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] {
+/* ===== Virtual Instrument Dialog (dark mode) ===== */
+
+body.dark-mode .inst-virt-dialog {
     background: var(--bg-secondary) !important;
     color: var(--text-primary) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] div[style*="border-bottom:1px solid #e5e7eb"] {
+body.dark-mode .inst-virt-name-section {
     border-bottom-color: var(--border-color) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] label[style*="color:#374151"] {
+body.dark-mode .inst-virt-label {
     color: var(--text-primary) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] p[style*="color:#6b7280"] {
+body.dark-mode .inst-virt-input {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+body.dark-mode .inst-virt-hint {
     color: var(--text-secondary) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] input[style*="border:2px solid #e5e7eb"] {
-    background: var(--bg-tertiary) !important;
-    border-color: var(--border-color) !important;
-    color: var(--text-primary) !important;
-}
-
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] {
+body.dark-mode .virtual-preset-btn {
     background: var(--bg-tertiary) !important;
     border-color: var(--border-color) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] div[style*="color:#1f2937"] {
+body.dark-mode .virtual-preset-btn:hover {
+    border-color: #8b5cf6 !important;
+    background: rgba(139, 92, 246, 0.15) !important;
+}
+
+body.dark-mode .inst-virt-preset-name {
     color: var(--text-primary) !important;
 }
 
-body.dark-mode div[style*="position:fixed"] > div[style*="background:white;border-radius:16px"] button[style*="border:2px solid #e5e7eb"] div[style*="color:#6b7280"] {
+body.dark-mode .inst-virt-preset-desc {
     color: var(--text-secondary) !important;
 }
 
