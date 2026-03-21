@@ -123,12 +123,14 @@ class DrumGridRenderer {
         this._onMouseUp = this._handleMouseUp.bind(this);
         this._onDblClick = this._handleDblClick.bind(this);
         this._onContextMenu = (e) => { if (e.button === 1) e.preventDefault(); };
+        this._onWheel = this._handleWheel.bind(this);
 
         this.canvas.addEventListener('mousedown', this._onMouseDown);
         this.canvas.addEventListener('mousemove', this._onMouseMove);
         this.canvas.addEventListener('mouseup', this._onMouseUp);
         this.canvas.addEventListener('dblclick', this._onDblClick);
         this.canvas.addEventListener('auxclick', this._onContextMenu);
+        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
     }
 
     // ========================================================================
@@ -370,6 +372,7 @@ class DrumGridRenderer {
         this._drawPlayhead(w, h);
         this._drawHeader(w);
         this._drawRowLabels(h);
+        this._drawScrollbar(w, h);
     }
 
     resize(width, height) {
@@ -801,6 +804,57 @@ class DrumGridRenderer {
     }
 
     // ========================================================================
+    // WHEEL SCROLL
+    // ========================================================================
+
+    _handleWheel(e) {
+        e.preventDefault();
+
+        const maxScrollY = Math.max(0, this.getRequiredHeight() - this.canvas.height);
+
+        if (e.shiftKey) {
+            // Horizontal scroll
+            this.scrollX = Math.max(0, this.scrollX + e.deltaY * this.ticksPerPixel);
+        } else {
+            // Vertical scroll
+            this.scrollY = Math.max(0, Math.min(maxScrollY, this.scrollY + e.deltaY));
+        }
+
+        this.redraw();
+    }
+
+    // ========================================================================
+    // SCROLLBAR OVERLAY
+    // ========================================================================
+
+    /**
+     * Draw a vertical scrollbar overlay when content exceeds canvas height
+     */
+    _drawScrollbar(w, h) {
+        const totalHeight = this.getRequiredHeight();
+        if (totalHeight <= h) return; // No scrollbar needed
+
+        const ctx = this.ctx;
+        const scrollbarWidth = 6;
+        const scrollbarX = w - scrollbarWidth - 2;
+        const maxScrollY = totalHeight - h;
+        const trackHeight = h - this.topMargin - 4;
+        const thumbRatio = h / totalHeight;
+        const thumbHeight = Math.max(20, trackHeight * thumbRatio);
+        const thumbY = this.topMargin + 2 + (this.scrollY / maxScrollY) * (trackHeight - thumbHeight);
+
+        // Track
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
+        ctx.fillRect(scrollbarX, this.topMargin + 2, scrollbarWidth, trackHeight);
+
+        // Thumb
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.4)';
+        ctx.beginPath();
+        ctx.roundRect(scrollbarX, thumbY, scrollbarWidth, thumbHeight, 3);
+        ctx.fill();
+    }
+
+    // ========================================================================
     // EVENT EMITTER
     // ========================================================================
 
@@ -818,6 +872,7 @@ class DrumGridRenderer {
         this.canvas.removeEventListener('mouseup', this._onMouseUp);
         this.canvas.removeEventListener('dblclick', this._onDblClick);
         this.canvas.removeEventListener('auxclick', this._onContextMenu);
+        this.canvas.removeEventListener('wheel', this._onWheel);
     }
 }
 
