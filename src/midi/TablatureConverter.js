@@ -90,7 +90,10 @@ class TablatureConverter {
           channel: note.c
         });
 
-        lastHandPosition = best.fret > 0 ? best.fret : lastHandPosition;
+        // Smooth hand movement: blend toward the new fret (don't jump instantly)
+        if (best.fret > 0) {
+          lastHandPosition = Math.round(lastHandPosition * 0.3 + best.fret * 0.7);
+        }
       } else {
         // Chord — optimize assignment across strings
         const assignment = this._assignChord(chordNotes, lastHandPosition);
@@ -286,16 +289,43 @@ class TablatureConverter {
 
   /**
    * Cost function for a position relative to current hand position.
+   * Models realistic guitar playing ergonomics:
+   *  - Hand movement penalty (distance from current position)
+   *  - Preference for lower fret positions (easier to play)
+   *  - Open strings are cheap but penalized when hand is high up the neck
+   *  - High fret positions get progressively harder
+   *  - Max comfortable hand span is ~4 frets (penalize beyond that)
    * Lower is better.
    * @private
    */
   _positionCost(pos, handPosition) {
-    // Open string has zero fretting cost but slight preference penalty
-    // to avoid always choosing open when hand is far up the neck
+    // Open strings: free if hand is near nut, costly if hand is far up the neck
     if (pos.fret === 0) {
-      return Math.abs(handPosition) * 0.3;
+      // Slight penalty when hand is above fret 5 (stretching back to open)
+      return handPosition <= 5 ? 0.2 : handPosition * 0.4;
     }
-    return Math.abs(pos.fret - handPosition);
+
+    // Distance from current hand position (primary cost)
+    const distance = Math.abs(pos.fret - handPosition);
+
+    // Base movement cost with exponential penalty for large jumps
+    // Comfortable: 0-4 frets. Acceptable: 5-7. Difficult: 8+
+    let movementCost;
+    if (distance <= 4) {
+      movementCost = distance;
+    } else if (distance <= 7) {
+      movementCost = distance * 1.5;
+    } else {
+      movementCost = distance * 2.5;
+    }
+
+    // Preference for lower positions (first position is more natural)
+    // Frets 1-5: no penalty, 6-9: small penalty, 10+: increasing penalty
+    const highFretPenalty = pos.fret > 9 ? (pos.fret - 9) * 0.3
+                         : pos.fret > 5 ? (pos.fret - 5) * 0.1
+                         : 0;
+
+    return movementCost + highFretPenalty;
   }
 
   /**
@@ -353,11 +383,12 @@ class TablatureConverter {
   }
 
   /**
-   * Backtracking assignment solver
+   * Backtracking assignment solver with fret span constraint.
+   * Ensures all fretted notes in a chord fit within a comfortable hand span.
    * @private
    * @param {Array} playable - Notes with their possible positions
    * @param {number} index - Current note index
-   * @param {Object} usedStrings - Map of string number → true
+   * @param {Object} usedStrings - Map of string number → { fret }
    * @param {number} handPosition - Current hand position
    * @returns {Array|null} Best assignment, or null if no valid assignment
    */
@@ -368,9 +399,24 @@ class TablatureConverter {
 
     const { note, positions } = playable[index];
 
+    // Max comfortable fret span for a chord (4 frets = typical hand stretch)
+    const MAX_FRET_SPAN = 5;
+
+    // Collect currently assigned fretted positions
+    const assignedFrets = Object.values(usedStrings)
+      .filter(v => v && v.fret > 0)
+      .map(v => v.fret);
+
     // Score and sort positions by cost
     const scoredPositions = positions
       .filter(pos => !usedStrings[pos.string])
+      .filter(pos => {
+        // Enforce max fret span: check if this position is compatible
+        if (pos.fret === 0 || assignedFrets.length === 0) return true;
+        const allFrets = [...assignedFrets, pos.fret];
+        const span = Math.max(...allFrets) - Math.min(...allFrets);
+        return span <= MAX_FRET_SPAN;
+      })
       .map(pos => ({ ...pos, cost: this._positionCost(pos, handPosition) }))
       .sort((a, b) => a.cost - b.cost);
 
@@ -379,7 +425,7 @@ class TablatureConverter {
 
     for (const pos of scoredPositions) {
       // Try this position
-      usedStrings[pos.string] = true;
+      usedStrings[pos.string] = { fret: pos.fret };
 
       const rest = this._backtrackAssign(playable, index + 1, usedStrings, handPosition);
 
@@ -391,7 +437,7 @@ class TablatureConverter {
         }
       }
 
-      usedStrings[pos.string] = false;
+      delete usedStrings[pos.string];
     }
 
     return bestResult;
@@ -399,20 +445,31 @@ class TablatureConverter {
 
   /**
    * Greedy fallback: assign notes one by one, skipping string conflicts
+   * and respecting max fret span.
    * @private
    */
   _greedyAssign(playable, handPosition) {
     const usedStrings = {};
     const result = [];
+    const MAX_FRET_SPAN = 5;
 
     for (const { note, positions } of playable) {
+      const assignedFrets = Object.values(usedStrings)
+        .filter(v => v && v.fret > 0)
+        .map(v => v.fret);
+
       const available = positions
         .filter(pos => !usedStrings[pos.string])
+        .filter(pos => {
+          if (pos.fret === 0 || assignedFrets.length === 0) return true;
+          const allFrets = [...assignedFrets, pos.fret];
+          return Math.max(...allFrets) - Math.min(...allFrets) <= MAX_FRET_SPAN;
+        })
         .sort((a, b) => this._positionCost(a, handPosition) - this._positionCost(b, handPosition));
 
       if (available.length > 0) {
         const best = available[0];
-        usedStrings[best.string] = true;
+        usedStrings[best.string] = { fret: best.fret };
         result.push({
           string: best.string,
           fret: best.fret,

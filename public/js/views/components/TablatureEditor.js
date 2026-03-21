@@ -66,7 +66,7 @@ class TablatureEditor {
         this.containerEl.style.display = 'flex';
         this.isVisible = true;
 
-        // Hide the piano roll, show tablature in its place
+        // Split view: piano roll + tablature
         this._setPianoRollVisible(false);
 
         // Initialize renderer
@@ -81,6 +81,9 @@ class TablatureEditor {
         // Detach first to prevent duplicate listeners on repeated show() calls
         this._detachCanvasEvents();
         this._attachCanvasEvents();
+
+        // Resize canvases after layout settles (split view needs recalculation)
+        requestAnimationFrame(() => this.handleResize());
     }
 
     hide() {
@@ -95,8 +98,8 @@ class TablatureEditor {
     }
 
     /**
-     * Toggle piano roll visibility (hidden when tablature is shown)
-     * @param {boolean} visible
+     * Set piano roll to split mode (both visible) or full mode (tablature hidden)
+     * @param {boolean} visible - If true, piano roll takes full space; if false, split view
      */
     _setPianoRollVisible(visible) {
         const notesSection = this.modal.container?.querySelector('.notes-section');
@@ -105,8 +108,23 @@ class TablatureEditor {
         const pianoRollWrapper = notesSection.querySelector('.piano-roll-wrapper');
         const hScrollControls = notesSection.querySelector('.scroll-controls-horizontal');
 
-        if (pianoRollWrapper) pianoRollWrapper.style.display = visible ? '' : 'none';
-        if (hScrollControls) hScrollControls.style.display = visible ? '' : 'none';
+        if (visible) {
+            // Restore full piano roll
+            if (pianoRollWrapper) {
+                pianoRollWrapper.style.display = '';
+                pianoRollWrapper.style.flex = '';
+            }
+            if (hScrollControls) hScrollControls.style.display = '';
+            if (this.containerEl) this.containerEl.style.flex = '';
+        } else {
+            // Split view: piano roll 60%, tablature 40%
+            if (pianoRollWrapper) {
+                pianoRollWrapper.style.display = '';
+                pianoRollWrapper.style.flex = '3';
+            }
+            if (hScrollControls) hScrollControls.style.display = '';
+            if (this.containerEl) this.containerEl.style.flex = '2';
+        }
     }
 
     destroy() {

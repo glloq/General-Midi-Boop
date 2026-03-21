@@ -665,7 +665,19 @@ class TablatureRenderer {
                         if (deltaString !== 0) {
                             const newString = evt.string + deltaString;
                             if (newString >= 1 && newString <= this.numStrings) {
-                                evt.string = newString;
+                                // Recalculate fret to preserve the same MIDI note
+                                if (evt.midiNote !== undefined && this.tuning) {
+                                    const newOpenNote = this.tuning[newString - 1];
+                                    const newFret = evt.midiNote - newOpenNote;
+                                    const maxFret = this.isFretless ? 48 : (this.numFrets || 24);
+                                    if (newFret >= 0 && newFret <= maxFret) {
+                                        evt.string = newString;
+                                        evt.fret = newFret;
+                                    }
+                                    // else: note can't be played on that string, skip
+                                } else {
+                                    evt.string = newString;
+                                }
                             }
                         }
                     }
