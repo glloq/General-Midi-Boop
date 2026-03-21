@@ -849,36 +849,65 @@ body.theme-colored .progress-bar {
 
 /* Instrument Management */
 body.theme-colored .inst-mgmt-container {
-    background: #ffffff;
+    background: #ffffff !important;
+    color: var(--text-primary) !important;
 }
 
 body.theme-colored .inst-mgmt-toolbar {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
-    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04)) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+body.theme-colored .inst-mgmt-scan-label {
+    color: var(--text-secondary) !important;
 }
 
 body.theme-colored .inst-mgmt-card {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: var(--border-radius-lg);
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.06);
     transition: all 0.2s ease;
 }
 
 body.theme-colored .inst-mgmt-card:hover {
-    border-color: rgba(102, 126, 234, 0.3);
+    border-color: rgba(102, 126, 234, 0.3) !important;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
 }
 
+body.theme-colored .inst-mgmt-card-title {
+    color: var(--text-primary) !important;
+}
+
+body.theme-colored .inst-mgmt-card-sub {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-colored .inst-mgmt-card-info {
+    color: var(--text-secondary) !important;
+}
+
 body.theme-colored .inst-mgmt-conn-badge {
-    background: rgba(102, 126, 234, 0.08);
+    background: rgba(102, 126, 234, 0.08) !important;
     border: 1px solid rgba(102, 126, 234, 0.2);
-    color: #667eea;
+    color: #667eea !important;
+}
+
+body.theme-colored .inst-mgmt-empty {
+    color: var(--text-muted) !important;
+}
+
+body.theme-colored .inst-mgmt-empty-title {
+    color: var(--text-secondary) !important;
 }
 
 body.theme-colored .inst-mgmt-footer {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.04));
-    border-top: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.04)) !important;
+    border-top: 1px solid var(--border-color) !important;
+}
+
+body.theme-colored .inst-mgmt-footer-inner {
+    color: var(--text-secondary) !important;
 }
 
 /* Configuration système */
@@ -916,6 +945,143 @@ body.theme-colored .thumbnail-view.active {
 body.theme-colored .info-item {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.03));
     border-radius: var(--border-radius-lg);
+}
+
+/* Debug console */
+body.theme-colored .debug-console {
+    background: #f0f4ff;
+    border-top-color: var(--border-color);
+}
+
+body.theme-colored .debug-console-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+    border-bottom-color: var(--border-color);
+}
+
+body.theme-colored .debug-controls {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.03));
+    border-top-color: var(--border-color);
+}
+
+/* Close buttons */
+body.theme-colored .close {
+    color: var(--text-secondary);
+}
+
+body.theme-colored .close:hover {
+    color: var(--text-primary);
+}
+
+/* Form labels */
+body.theme-colored .form-label {
+    color: var(--text-secondary);
+}
+
+/* Feature text */
+body.theme-colored .feature-title {
+    color: var(--text-primary);
+}
+
+body.theme-colored .feature-description {
+    color: var(--text-secondary);
+}
+
+/* File text */
+body.theme-colored .file-name {
+    color: var(--text-primary);
+}
+
+body.theme-colored .file-meta {
+    color: var(--text-secondary);
+}
+
+/* Info labels */
+body.theme-colored .info-label {
+    color: var(--text-secondary);
+}
+
+body.theme-colored .info-value {
+    color: var(--text-primary);
+}
+
+/* Modal overlay */
+body.theme-colored .modal {
+    background-color: rgba(102, 126, 234, 0.15);
+}
+
+body.theme-colored .modal-title {
+    color: var(--text-primary);
+}
+
+/* Waveform */
+body.theme-colored .waveform-thumbnail {
+    background: rgba(102, 126, 234, 0.04);
+}
+
+/* Welcome subtitle */
+body.theme-colored .welcome-subtitle {
+    color: var(--text-secondary);
+}
+
+/* Setting description */
+body.theme-colored .setting-label {
+    color: var(--text-primary);
+}
+
+body.theme-colored .setting-description {
+    color: var(--text-secondary);
+}
+
+/* Upload zone text */
+body.theme-colored .upload-text {
+    color: var(--text-secondary);
+}
+
+/* Channel name */
+body.theme-colored .channel-name {
+    color: var(--text-primary);
+}
+
+/* Notification text */
+body.theme-colored .notification-title {
+    color: var(--text-primary);
+}
+
+body.theme-colored .notification-message {
+    color: var(--text-secondary);
+}
+
+/* Tabs miniatures */
+body.theme-colored .thumbnail-tabs {
+    border-bottom-color: var(--border-color);
+}
+
+body.theme-colored .thumbnail-tab-btn {
+    color: var(--text-secondary);
+}
+
+body.theme-colored .thumbnail-tab-btn:hover:not(.active) {
+    background: rgba(102, 126, 234, 0.06);
+    color: var(--text-primary);
+}
+
+/* Track details */
+body.theme-colored .track-name {
+    color: var(--text-primary);
+}
+
+body.theme-colored .track-details {
+    color: var(--text-secondary);
+}
+
+/* Tab navigation */
+body.theme-colored .tab-nav {
+    border-bottom-color: var(--border-color);
+}
+
+/* Compact toggle */
+body.theme-colored .compact-toggle {
+    background: #e8eeff;
 }
 
 /* ===== MEDIA QUERIES POUR LES PRÉFÉRENCES SYSTÈME ===== */

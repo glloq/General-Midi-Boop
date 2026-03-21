@@ -5587,27 +5587,39 @@ class MidiEditorModal {
             z-index: 10003 !important;
         `;
 
+        const isColored = document.body.classList.contains('theme-colored');
+        const dlgBg = isColored ? '#ffffff' : '#2a2a2a';
+        const dlgBorder = isColored ? '#ef476f' : '#ff6b6b';
+        const dlgShadow = isColored ? '0 4px 20px rgba(102,126,234,0.2)' : '0 4px 20px rgba(0,0,0,0.5)';
+        const dlgTextColor = isColored ? '#2d3561' : '#ddd';
+        const dlgWarnColor = isColored ? '#ef476f' : '#ff6b6b';
+        const cancelBg = isColored ? '#e8eeff' : '#444';
+        const cancelBorder = isColored ? '#d4daff' : '#666';
+        const cancelColor = isColored ? '#2d3561' : '#fff';
+        const saveBg = isColored ? '#06d6a0' : '#4CAF50';
+        const discardBg = isColored ? '#ef476f' : '#f44336';
+
         confirmModal.innerHTML = `
             <div class="modal-dialog" style="
-                background: #2a2a2a;
-                border: 2px solid #ff6b6b;
+                background: ${dlgBg};
+                border: 2px solid ${dlgBorder};
                 border-radius: 8px;
                 padding: 24px;
                 max-width: 500px;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                box-shadow: ${dlgShadow};
             ">
                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                     <span style="font-size: 32px; margin-right: 12px;">⚠️</span>
-                    <h2 style="margin: 0; color: #ff6b6b; font-size: 20px; font-family: sans-serif;">
+                    <h2 style="margin: 0; color: ${dlgWarnColor}; font-size: 20px; font-family: sans-serif;">
                         ${this.t('midiEditor.unsavedChanges.title')}
                     </h2>
                 </div>
 
-                <div style="margin-bottom: 24px; color: #ddd; line-height: 1.6; font-family: sans-serif;">
+                <div style="margin-bottom: 24px; color: ${dlgTextColor}; line-height: 1.6; font-family: sans-serif;">
                     <p style="margin: 0 0 12px 0;">
                         ${this.t('midiEditor.unsavedChanges.message')}
                     </p>
-                    <p style="margin: 0; font-weight: bold; color: #ff6b6b;">
+                    <p style="margin: 0; font-weight: bold; color: ${dlgWarnColor};">
                         ${this.t('midiEditor.unsavedChanges.warning')}
                     </p>
                 </div>
@@ -5615,10 +5627,10 @@ class MidiEditorModal {
                 <div style="display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
                     <button id="unsaved-cancel-btn" style="
                         padding: 10px 20px;
-                        border: 1px solid #666;
+                        border: 1px solid ${cancelBorder};
                         border-radius: 4px;
-                        background: #444;
-                        color: #fff;
+                        background: ${cancelBg};
+                        color: ${cancelColor};
                         cursor: pointer;
                         font-size: 14px;
                         font-family: sans-serif;
@@ -5627,9 +5639,9 @@ class MidiEditorModal {
                     </button>
                     <button id="unsaved-save-btn" style="
                         padding: 10px 20px;
-                        border: 1px solid #4CAF50;
+                        border: 1px solid ${saveBg};
                         border-radius: 4px;
-                        background: #4CAF50;
+                        background: ${saveBg};
                         color: #fff;
                         cursor: pointer;
                         font-size: 14px;
@@ -5640,9 +5652,9 @@ class MidiEditorModal {
                     </button>
                     <button id="unsaved-discard-btn" style="
                         padding: 10px 20px;
-                        border: 1px solid #f44336;
+                        border: 1px solid ${discardBg};
                         border-radius: 4px;
-                        background: #f44336;
+                        background: ${discardBg};
                         color: #fff;
                         cursor: pointer;
                         font-size: 14px;
