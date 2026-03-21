@@ -4064,6 +4064,14 @@ class MidiEditorModal {
             this.pianoRoll.cursor = this.playbackStartTick;
         }
 
+        // Reset tablature playhead and clear fretboard positions
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.updatePlayhead(this.playbackStartTick || 0);
+            if (this.tablatureEditor.fretboard) {
+                this.tablatureEditor.fretboard.clearActivePositions();
+            }
+        }
+
         this.updatePlaybackButtons();
 
         this.log('info', 'Playback stopped');
@@ -4085,22 +4093,35 @@ class MidiEditorModal {
      * @param {number} tick - Position actuelle en ticks
      */
     updatePlaybackCursor(tick) {
-        if (!this.pianoRoll) return;
+        // Update piano roll cursor
+        if (this.pianoRoll) {
+            this.pianoRoll.cursor = tick;
 
-        // Mettre à jour la position du curseur
-        this.pianoRoll.cursor = tick;
+            const xoffset = this.pianoRoll.xoffset || 0;
+            const xrange = this.pianoRoll.xrange || 1920;
 
-        // Faire défiler automatiquement si le curseur sort de la vue
-        const xoffset = this.pianoRoll.xoffset || 0;
-        const xrange = this.pianoRoll.xrange || 1920;
-
-        // Si le curseur est proche du bord droit (90% de la vue), faire défiler
-        if (tick > xoffset + xrange * 0.9) {
-            this.pianoRoll.xoffset = tick - xrange * 0.2;
+            if (tick > xoffset + xrange * 0.9) {
+                this.pianoRoll.xoffset = tick - xrange * 0.2;
+            } else if (tick < xoffset) {
+                this.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+            }
         }
-        // Si le curseur est avant le début de la vue, remettre au début
-        else if (tick < xoffset) {
-            this.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+
+        // Update tablature editor playhead, fretboard, and auto-scroll
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.updatePlayhead(tick);
+
+            // Sync horizontal slider with tablature scroll position
+            const scrollHSlider = document.getElementById('scroll-h-slider');
+            if (scrollHSlider && this.tablatureEditor.renderer) {
+                const maxTick = this.midiData?.maxTick || 0;
+                const renderer = this.tablatureEditor.renderer;
+                const canvasWidth = this.tablatureEditor.tabCanvasEl?.width || 800;
+                const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
+                const maxOffset = Math.max(1, maxTick - visibleTicks);
+                const percentage = Math.min(100, (renderer.scrollX / maxOffset) * 100);
+                scrollHSlider.value = percentage;
+            }
         }
     }
 
@@ -4114,6 +4135,14 @@ class MidiEditorModal {
         // Remettre le curseur au début de la plage
         if (this.pianoRoll) {
             this.pianoRoll.cursor = this.playbackStartTick;
+        }
+
+        // Reset tablature playhead and clear fretboard positions
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.updatePlayhead(this.playbackStartTick || 0);
+            if (this.tablatureEditor.fretboard) {
+                this.tablatureEditor.fretboard.clearActivePositions();
+            }
         }
 
         this.updatePlaybackButtons();
