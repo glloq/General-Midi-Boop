@@ -5295,33 +5295,28 @@ class MidiEditorModal {
         const activeChannel = Array.from(this.activeChannels)[0];
 
         try {
-            // Search for existing config across all device IDs
+            // Always sync with GM preset to ensure correct tuning/strings
+            const channelInfo = this.channels.find(ch => ch.channel === activeChannel);
+            const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
+
+            if (gmMatch) {
+                await this.api.sendCommand('string_instrument_create_from_preset', {
+                    device_id: this.getEffectiveDeviceId(),
+                    channel: activeChannel,
+                    preset: gmMatch.preset
+                });
+                this.log('info', `Synced ${gmMatch.category} preset for channel ${activeChannel + 1}`);
+            }
+
             let stringInstrument = await this.findStringInstrument(activeChannel);
 
-            // If no config exists, try auto-configuring from GM program
             if (!stringInstrument) {
-                const channelInfo = this.channels.find(ch => ch.channel === activeChannel);
-                const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
-
-                if (gmMatch) {
-                    await this.api.sendCommand('string_instrument_create_from_preset', {
-                        device_id: this.getEffectiveDeviceId(),
-                        channel: activeChannel,
-                        preset: gmMatch.preset
-                    });
-                    this.log('info', `Auto-configured ${gmMatch.category} for channel ${activeChannel + 1}`);
-
-                    stringInstrument = await this.findStringInstrument(activeChannel);
-                }
-
-                if (!stringInstrument) {
-                    this.log('info', 'No string instrument configured for this channel');
-                    this.showNotification(
-                        this.t('tablature.noStringInstrument') || 'Configure this channel as a string instrument in the instrument settings first.',
-                        'info'
-                    );
-                    return;
-                }
+                this.log('info', 'No string instrument configured for this channel');
+                this.showNotification(
+                    this.t('tablature.noStringInstrument') || 'Configure this channel as a string instrument in the instrument settings first.',
+                    'info'
+                );
+                return;
             }
 
             // Get notes for this channel
