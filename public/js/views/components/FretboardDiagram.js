@@ -207,10 +207,34 @@ class FretboardDiagram {
 
     _drawStrings(w, h) {
         const ctx = this.ctx;
-        ctx.strokeStyle = this.colors.string;
+
+        // Build set of active string numbers for highlight
+        const activeStringSet = new Set();
+        for (const pos of this.activePositions) {
+            activeStringSet.add(pos.string);
+        }
 
         for (let s = 1; s <= this.numStrings; s++) {
             const x = this._getStringX(s);
+            const isActive = activeStringSet.has(s);
+
+            // Active strings glow with accent color
+            if (isActive) {
+                // Glow effect behind the string
+                ctx.strokeStyle = this.colors.fingerDot;
+                ctx.lineWidth = 6 + (this.numStrings - s) * 0.5;
+                ctx.globalAlpha = 0.25;
+                ctx.beginPath();
+                ctx.moveTo(x, this.topMargin);
+                ctx.lineTo(x, h - this.bottomMargin);
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+
+                ctx.strokeStyle = this.colors.fingerDot;
+            } else {
+                ctx.strokeStyle = this.colors.string;
+            }
+
             // String thickness varies (thicker for lower strings)
             ctx.lineWidth = 1 + (this.numStrings - s) * 0.3;
             ctx.beginPath();
@@ -224,7 +248,12 @@ class FretboardDiagram {
         const ctx = this.ctx;
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-        ctx.fillStyle = this.colors.stringLabel;
+        // Build set of active string numbers for highlight
+        const activeStringSet = new Set();
+        for (const pos of this.activePositions) {
+            activeStringSet.add(pos.string);
+        }
+
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -233,7 +262,17 @@ class FretboardDiagram {
             const x = this._getStringX(s);
             const midiNote = this.tuning[s - 1];
             const name = noteNames[midiNote % 12];
-            ctx.fillText(name, x, this.topMargin - 2);
+
+            if (activeStringSet.has(s)) {
+                // Highlight active string label
+                ctx.fillStyle = this.colors.fingerDot;
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(name, x, this.topMargin - 2);
+                ctx.font = 'bold 10px monospace';
+            } else {
+                ctx.fillStyle = this.colors.stringLabel;
+                ctx.fillText(name, x, this.topMargin - 2);
+            }
         }
     }
 

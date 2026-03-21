@@ -424,14 +424,14 @@ class TablatureEditor {
         if (!this.isVisible) return;
 
         if (this.renderer) {
-            this.renderer.setPlayhead(tick);
-
-            // Auto-scroll to keep playhead visible
-            const canvasWidth = this.tabCanvasEl?.width || 800;
-            const playheadX = this.renderer._tickToX(tick);
-            if (playheadX > canvasWidth * 0.8 || playheadX < this.renderer.headerWidth) {
-                this.renderer.setScrollX(tick - (canvasWidth * 0.2) * this.renderer.ticksPerPixel);
+            // Sync scroll position with piano roll to maintain same speed
+            const pr = this.modal.pianoRoll;
+            if (pr) {
+                const xoffset = pr.xoffset || 0;
+                this.renderer.scrollX = xoffset;
             }
+
+            this.renderer.setPlayhead(tick);
         }
 
         // Update fretboard diagram with current positions
