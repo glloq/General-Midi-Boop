@@ -70,6 +70,36 @@
     gap: 4px;
 }
 
+/* Mode button group */
+.tab-mode-group {
+    display: inline-flex;
+    gap: 1px;
+    background: var(--border-color, #e9ecef);
+    border-radius: var(--border-radius, 4px);
+    padding: 1px;
+}
+
+.tab-mode-btn {
+    border-radius: 3px !important;
+    min-width: 28px;
+    text-align: center;
+    font-size: 14px !important;
+    padding: 3px 6px !important;
+}
+
+.tab-mode-btn.active {
+    background: var(--accent-primary, #667eea) !important;
+    color: #fff !important;
+    border-color: var(--accent-primary, #667eea) !important;
+}
+
+.tab-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color, #e9ecef);
+    margin: 0 4px;
+}
+
 .tab-tool-btn {
     padding: 3px 8px;
     font-size: 12px;
@@ -214,6 +244,14 @@ body.dark-mode .tab-tool-btn {
 body.dark-mode .tab-tool-btn:hover {
     background: #667eea;
     color: #fff;
+}
+
+body.dark-mode .tab-mode-group {
+    background: #4a5568;
+}
+
+body.dark-mode .tab-separator {
+    background: #4a5568;
 }
 
 body.dark-mode .fretboard-diagram-wrapper {

@@ -46,6 +46,9 @@ class TablatureRenderer {
         // String labels (from highest to lowest, top to bottom)
         this.stringLabels = this._computeStringLabels();
 
+        // Edit mode (set by TablatureEditor toolbar)
+        this._editMode = 'select'; // 'select' | 'pan' | 'change-string'
+
         // Interaction state
         this._isDragging = false;
         this._dragStart = null;
@@ -136,6 +139,10 @@ class TablatureRenderer {
         this.ticksPerBeat = ticksPerBeat || 480;
         this.beatsPerMeasure = beatsPerMeasure || 4;
         this.redraw();
+    }
+
+    setEditMode(mode) {
+        this._editMode = mode || 'select';
     }
 
     // ========================================================================
@@ -549,8 +556,8 @@ class TablatureRenderer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Alt+click or middle button = pan
-        if (e.altKey || e.button === 1) {
+        // Alt+click or middle button or pan mode = pan
+        if (e.altKey || e.button === 1 || this._editMode === 'pan') {
             this._isDragging = true;
             this._dragMode = 'pan';
             this._dragStart = { x, y, scrollX: this.scrollX };
@@ -559,6 +566,26 @@ class TablatureRenderer {
         }
 
         const hitIndex = this._hitTest(x, y);
+
+        // Change-string mode
+        if (this._editMode === 'change-string') {
+            const clickedString = this._yToString(y);
+            if (clickedString < 1 || clickedString > this.numStrings) return;
+
+            if (hitIndex >= 0) {
+                // Clicked directly on a note — select it for subsequent Up/Down
+                if (!e.ctrlKey && !e.metaKey) {
+                    this.selectedEvents.clear();
+                }
+                this.selectedEvents.add(hitIndex);
+                this.redraw();
+                this._emitEvent('selectionchange', { selected: this.getSelectedIndices() });
+            } else if (this.selectedEvents.size > 0) {
+                // Clicked on empty string line — move selected notes to that string
+                this._emitEvent('changestring', { targetString: clickedString });
+            }
+            return;
+        }
 
         if (hitIndex >= 0) {
             // Clicked on an event

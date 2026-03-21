@@ -28,11 +28,15 @@ class TablatureEditor {
         this.tabCanvasEl = null;
         this.fretboardCanvasEl = null;
 
+        // Edit mode: 'select' | 'pan' | 'change-string'
+        this.editMode = 'select';
+
         // Bind methods
         this._onTabAdd = this._handleTabAdd.bind(this);
         this._onTabEdit = this._handleTabEdit.bind(this);
         this._onTabSelection = this._handleTabSelection.bind(this);
         this._onTabMove = this._handleTabMove.bind(this);
+        this._onTabChangeString = this._handleTabChangeString.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
     }
 
@@ -154,6 +158,12 @@ class TablatureEditor {
                     <span class="tablature-tuning" id="tab-tuning-display"></span>
                 </div>
                 <div class="tablature-toolbar">
+                    <span class="tab-mode-group">
+                        <button class="tab-tool-btn tab-mode-btn active" data-action="tab-mode" data-mode="select" title="${this.t('tablature.modeSelect') || 'Select / Move'}">&#x2B1C;</button>
+                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="pan" title="${this.t('tablature.modePan') || 'Pan view'}">&#x2725;</button>
+                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="change-string" title="${this.t('tablature.modeChangeString') || 'Change string (click note, Up/Down)'}">&#x21C5;</button>
+                    </span>
+                    <span class="tab-separator"></span>
                     <button class="tab-tool-btn" data-action="tab-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="tab-tool-btn" data-action="tab-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
                     <button class="tab-tool-btn" data-action="tab-copy" title="Copy (Ctrl+C)">CPY</button>
@@ -471,6 +481,7 @@ class TablatureEditor {
         this.tabCanvasEl.addEventListener('tab:editevent', this._onTabEdit);
         this.tabCanvasEl.addEventListener('tab:selectionchange', this._onTabSelection);
         this.tabCanvasEl.addEventListener('tab:moveevents', this._onTabMove);
+        this.tabCanvasEl.addEventListener('tab:changestring', this._onTabChangeString);
         document.addEventListener('keydown', this._onKeyDown);
     }
 
@@ -480,6 +491,7 @@ class TablatureEditor {
         this.tabCanvasEl.removeEventListener('tab:editevent', this._onTabEdit);
         this.tabCanvasEl.removeEventListener('tab:selectionchange', this._onTabSelection);
         this.tabCanvasEl.removeEventListener('tab:moveevents', this._onTabMove);
+        this.tabCanvasEl.removeEventListener('tab:changestring', this._onTabChangeString);
         document.removeEventListener('keydown', this._onKeyDown);
     }
 
@@ -505,6 +517,37 @@ class TablatureEditor {
     _handleTabMove(e) {
         // Notes were moved by drag — sync back to MIDI
         this.tabEvents = this.renderer.tabEvents;
+        this.syncToMidi();
+    }
+
+    _handleTabChangeString(e) {
+        const { targetString } = e.detail;
+        if (!targetString || !this.renderer || this.renderer.selectedEvents.size === 0) return;
+        if (!this.stringInstrument) return;
+
+        const tuning = this.stringInstrument.tuning;
+        const numFrets = this.stringInstrument.num_frets;
+        const maxFret = this.stringInstrument.is_fretless ? 48 : (numFrets || 24);
+        const indices = this.renderer.getSelectedIndices();
+
+        // Check all can move to target string
+        const moves = [];
+        for (const i of indices) {
+            const evt = this.tabEvents[i];
+            if (!evt) continue;
+            const newFret = evt.midiNote - tuning[targetString - 1];
+            if (newFret < 0 || newFret > maxFret) return; // Can't play on that string
+            moves.push({ index: i, newString: targetString, newFret });
+        }
+
+        if (moves.length === 0) return;
+
+        this.renderer.saveSnapshot();
+        for (const m of moves) {
+            this.tabEvents[m.index].string = m.newString;
+            this.tabEvents[m.index].fret = m.newFret;
+        }
+        this.renderer.setTabEvents(this.tabEvents);
         this.syncToMidi();
     }
 
@@ -535,6 +578,18 @@ class TablatureEditor {
                     this.syncToMidi();
                 }
             }
+        } else if (e.key === 'ArrowUp' && !isCtrl) {
+            // Move selected notes up one string (higher string number = lower pitch)
+            if (this.renderer && this.renderer.selectedEvents.size > 0) {
+                e.preventDefault();
+                this._moveSelectedStrings(1);
+            }
+        } else if (e.key === 'ArrowDown' && !isCtrl) {
+            // Move selected notes down one string (lower string number = higher pitch)
+            if (this.renderer && this.renderer.selectedEvents.size > 0) {
+                e.preventDefault();
+                this._moveSelectedStrings(-1);
+            }
         }
     }
 
@@ -557,6 +612,71 @@ class TablatureEditor {
     _toggleTabOnlyMode() {
         // No longer needed — tablature now replaces the piano roll in the same space
         // Kept for API compatibility
+    }
+
+    /**
+     * Set the active edit mode and update UI
+     * @param {'select'|'pan'|'change-string'} mode
+     */
+    _setEditMode(mode) {
+        if (!mode) return;
+        this.editMode = mode;
+
+        // Update mode button UI
+        const modeButtons = this.containerEl?.querySelectorAll('.tab-mode-btn');
+        if (modeButtons) {
+            modeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+        }
+
+        // Update renderer mode
+        if (this.renderer) {
+            this.renderer.setEditMode(mode);
+        }
+
+        // Update canvas cursor
+        if (this.tabCanvasEl) {
+            const cursors = { 'select': 'crosshair', 'pan': 'grab', 'change-string': 'ns-resize' };
+            this.tabCanvasEl.style.cursor = cursors[mode] || 'crosshair';
+        }
+    }
+
+    /**
+     * Move selected notes up or down by one string, keeping the same MIDI note.
+     * @param {number} direction - -1 = up (higher string number), +1 = down (lower string number)
+     */
+    _moveSelectedStrings(direction) {
+        if (!this.renderer || this.renderer.selectedEvents.size === 0) return;
+        if (!this.stringInstrument) return;
+
+        const tuning = this.stringInstrument.tuning;
+        const numFrets = this.stringInstrument.num_frets;
+        const numStrings = this.stringInstrument.num_strings;
+        const indices = this.renderer.getSelectedIndices();
+
+        // Check all can move before committing
+        const moves = [];
+        for (const i of indices) {
+            const evt = this.tabEvents[i];
+            if (!evt) continue;
+            const newString = evt.string + direction;
+            if (newString < 1 || newString > numStrings) return; // Can't move out of range
+            const newFret = evt.midiNote - tuning[newString - 1];
+            const maxFret = this.stringInstrument.is_fretless ? 48 : (numFrets || 24);
+            if (newFret < 0 || newFret > maxFret) return; // Can't play on that string
+            moves.push({ index: i, newString, newFret });
+        }
+
+        if (moves.length === 0) return;
+
+        this.renderer.saveSnapshot();
+        for (const m of moves) {
+            this.tabEvents[m.index].string = m.newString;
+            this.tabEvents[m.index].fret = m.newFret;
+        }
+        this.renderer.setTabEvents(this.tabEvents);
+        this.syncToMidi();
     }
 
     /**
@@ -647,6 +767,9 @@ class TablatureEditor {
             if (!action) return;
 
             switch (action) {
+                case 'tab-mode':
+                    this._setEditMode(e.target.closest('[data-mode]')?.dataset.mode);
+                    break;
                 case 'tab-view-mode':
                     this._toggleTabOnlyMode();
                     break;
