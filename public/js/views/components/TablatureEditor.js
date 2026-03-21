@@ -355,13 +355,28 @@ class TablatureEditor {
         const events = [];
 
         for (const note of midiNotes) {
-            // Find first string that can play this note
+            // Determine which strings are occupied at this tick by earlier notes
+            const occupiedStrings = new Set();
+            for (let i = events.length - 1; i >= 0; i--) {
+                const ev = events[i];
+                if (ev.tick + ev.duration <= note.t) {
+                    if (note.t - ev.tick > 7680) break;
+                    continue;
+                }
+                if (ev.tick < note.t) {
+                    occupiedStrings.add(ev.string);
+                }
+            }
+
+            // Find first available string that can play this note
             for (let s = 0; s < tuning.length; s++) {
+                const stringNum = s + 1;
+                if (occupiedStrings.has(stringNum)) continue;
                 const fret = note.n - (tuning[s] + capo);
                 if (fret >= 0 && (this.stringInstrument.is_fretless || fret <= numFrets)) {
                     events.push({
                         tick: note.t,
-                        string: s + 1,
+                        string: stringNum,
                         fret: fret,
                         velocity: note.v,
                         duration: note.g,

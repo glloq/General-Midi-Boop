@@ -99,10 +99,12 @@ class TablatureConverter {
     for (const group of chordGroups) {
       const tick = group.tick;
       const chordNotes = group.notes;
+      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
 
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n);
+        const positions = this._getPossiblePositions(note.n)
+          .filter(pos => !occupiedStrings.has(pos.string));
         if (positions.length === 0) continue;
 
         const best = this._pickClosest(positions, lastHandPosition);
@@ -115,7 +117,7 @@ class TablatureConverter {
           lastHandPosition = Math.round(lastHandPosition * 0.3 + best.fret * 0.7);
         }
       } else {
-        const assignment = this._assignChord(chordNotes, lastHandPosition);
+        const assignment = this._assignChord(chordNotes, lastHandPosition, occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
@@ -148,10 +150,12 @@ class TablatureConverter {
     for (const group of chordGroups) {
       const tick = group.tick;
       const chordNotes = group.notes;
+      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
 
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n);
+        const positions = this._getPossiblePositions(note.n)
+          .filter(pos => !occupiedStrings.has(pos.string));
         if (positions.length === 0) continue;
 
         // Pick the position with the lowest fret
@@ -163,7 +167,8 @@ class TablatureConverter {
       } else {
         // Chord: assign with lowest-fret preference
         const assignment = this._assignChordWithPicker(chordNotes,
-          (positions) => positions.reduce((a, b) => a.fret <= b.fret ? a : b));
+          (positions) => positions.reduce((a, b) => a.fret <= b.fret ? a : b),
+          occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
@@ -190,10 +195,12 @@ class TablatureConverter {
     for (const group of chordGroups) {
       const tick = group.tick;
       const chordNotes = group.notes;
+      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
 
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n);
+        const positions = this._getPossiblePositions(note.n)
+          .filter(pos => !occupiedStrings.has(pos.string));
         if (positions.length === 0) continue;
 
         // Pick the position with the highest fret
@@ -204,7 +211,8 @@ class TablatureConverter {
         });
       } else {
         const assignment = this._assignChordWithPicker(chordNotes,
-          (positions) => positions.reduce((a, b) => a.fret >= b.fret ? a : b));
+          (positions) => positions.reduce((a, b) => a.fret >= b.fret ? a : b),
+          occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
@@ -238,9 +246,12 @@ class TablatureConverter {
       const tick = group.tick;
       const chordNotes = group.notes;
 
+      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
+
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n);
+        const positions = this._getPossiblePositions(note.n)
+          .filter(pos => !occupiedStrings.has(pos.string));
         if (positions.length === 0) continue;
 
         // Pick position closest to that string's zone center
@@ -251,7 +262,7 @@ class TablatureConverter {
         });
       } else {
         // Chord: assign within zones
-        const assignment = this._assignChordInZone(chordNotes, stringZones, ZONE_SIZE);
+        const assignment = this._assignChordInZone(chordNotes, stringZones, ZONE_SIZE, occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
@@ -340,8 +351,11 @@ class TablatureConverter {
    * Assign chord notes using zone preference (greedy with zone cost)
    * @private
    */
-  _assignChordInZone(chordNotes, stringZones, zoneSize) {
+  _assignChordInZone(chordNotes, stringZones, zoneSize, occupiedStrings) {
     const usedStrings = {};
+    if (occupiedStrings) {
+      for (const s of occupiedStrings) usedStrings[s] = true;
+    }
     const result = [];
     const halfZone = Math.floor(zoneSize / 2);
 
@@ -388,8 +402,11 @@ class TablatureConverter {
    * @param {Array} chordNotes
    * @param {Function} picker - (positions) => best position
    */
-  _assignChordWithPicker(chordNotes, picker) {
+  _assignChordWithPicker(chordNotes, picker, occupiedStrings) {
     const usedStrings = {};
+    if (occupiedStrings) {
+      for (const s of occupiedStrings) usedStrings[s] = true;
+    }
     const result = [];
 
     // Sort by pitch (lowest first) for natural string order
@@ -641,11 +658,12 @@ class TablatureConverter {
    * Uses backtracking search with cost optimization.
    * @private
    */
-  _assignChord(chordNotes, handPosition) {
-    // Get possible positions for each note
+  _assignChord(chordNotes, handPosition, occupiedStrings) {
+    // Get possible positions for each note, excluding already-occupied strings
     const notePositions = chordNotes.map(note => ({
       note,
       positions: this._getPossiblePositions(note.n)
+        .filter(pos => !occupiedStrings || !occupiedStrings.has(pos.string))
     }));
 
     // Filter out unplayable notes
@@ -779,6 +797,37 @@ class TablatureConverter {
   // ==========================================================================
   // Internal — Utilities
   // ==========================================================================
+
+  /**
+   * Get the set of strings currently occupied at a given tick by previously
+   * assigned tab events whose duration has not yet ended.
+   * @private
+   * @param {Array} tabEvents - Already-assigned tablature events
+   * @param {number} tick - Current tick
+   * @returns {Set<number>} Set of 1-based string numbers that are busy
+   */
+  _getOccupiedStrings(tabEvents, tick) {
+    const occupied = new Set();
+    for (let i = tabEvents.length - 1; i >= 0; i--) {
+      const ev = tabEvents[i];
+      // Events are sorted by tick; once we go far enough back, stop
+      if (ev.tick + ev.duration <= tick) {
+        // This event ended before current tick. Earlier events also ended
+        // (unless they have very long durations), so keep scanning.
+        // We can't break early because a much earlier note could have a very long duration.
+        // But for performance, stop scanning once we're more than a reasonable
+        // duration away (e.g., 4 whole notes at 480 ticks/beat = 7680 ticks).
+        if (tick - ev.tick > 7680) break;
+        continue;
+      }
+      if (ev.tick < tick) {
+        // This event started before current tick and hasn't ended yet
+        occupied.add(ev.string);
+      }
+      // Events at the same tick are handled by the chord assignment (usedStrings)
+    }
+    return occupied;
+  }
 
   /**
    * Group notes by tick into chord groups
