@@ -531,10 +531,9 @@ body.theme-changing * {
 
 /* Header et navigation */
 body.theme-colored .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ef476f 100%);
-    backdrop-filter: blur(16px);
+    background: #764ba2;
     border-bottom: none;
-    box-shadow: 0 4px 20px rgba(118, 75, 162, 0.3);
+    box-shadow: 0 4px 20px rgba(118, 75, 162, 0.35);
 }
 
 body.theme-colored .header .header-title,
@@ -646,6 +645,25 @@ body.theme-colored .form-control {
 body.theme-colored .form-control:focus {
     border-color: #764ba2;
     box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.2);
+}
+
+/* Bloc fichiers - fond coloré */
+body.theme-colored .file-list {
+    background: linear-gradient(180deg, rgba(118, 75, 162, 0.05) 0%, rgba(102, 126, 234, 0.08) 100%);
+    border-radius: 0 0 var(--border-radius-xl) var(--border-radius-xl);
+}
+
+body.theme-colored .midi-files-header {
+    background: linear-gradient(135deg, rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.08));
+    border-bottom: 1px solid rgba(118, 75, 162, 0.15);
+    border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+}
+
+body.theme-colored .midi-files-header h2 {
+    background: linear-gradient(135deg, #764ba2, #667eea);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 /* Page fichiers */
