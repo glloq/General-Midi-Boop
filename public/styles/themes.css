@@ -519,5 +519,398 @@ body.theme-changing * {
     transition: none !important;
 }
 
+/* ======================================================================================
+   THÈME COLORÉ - Léger mais coloré
+   ====================================================================================== */
+
+/* Header et navigation */
+body.theme-colored .header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(135deg, #667eea, #764ba2) 1;
+}
+
+body.theme-colored .nav-section {
+    background: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-colored .nav-link {
+    color: var(--text-secondary);
+    border-radius: var(--border-radius-lg);
+    transition: all 0.2s ease;
+}
+
+body.theme-colored .nav-link:hover {
+    color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.08));
+}
+
+body.theme-colored .nav-link.active {
+    color: #ffffff;
+    background: var(--accent-gradient);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Cartes */
+body.theme-colored .card,
+body.theme-colored .file-browser,
+body.theme-colored .file-details-panel,
+body.theme-colored .instruments-config,
+body.theme-colored .system-section {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-xl);
+    box-shadow: 0 2px 12px rgba(102, 126, 234, 0.08);
+}
+
+body.theme-colored .card-header {
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.04));
+}
+
+/* Boutons */
+body.theme-colored .btn {
+    border-radius: var(--border-radius-lg);
+    transition: all 0.2s ease;
+}
+
+body.theme-colored .btn-primary {
+    background: var(--accent-gradient);
+    border: none;
+    color: white;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+}
+
+body.theme-colored .btn-primary:hover {
+    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);
+    transform: translateY(-1px);
+}
+
+body.theme-colored .btn-secondary {
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+body.theme-colored .btn-secondary:hover {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+body.theme-colored .btn-success {
+    background: linear-gradient(135deg, #06d6a0, #05c494);
+    border: none;
+    color: white;
+}
+
+body.theme-colored .btn-danger {
+    background: linear-gradient(135deg, #ef476f, #d63d5e);
+    border: none;
+    color: white;
+}
+
+body.theme-colored .btn-warning {
+    background: linear-gradient(135deg, #ffd166, #f5c342);
+    border: none;
+    color: #2d3561;
+}
+
+/* Formulaires */
+body.theme-colored .form-control {
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    background: #ffffff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.theme-colored .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* Page fichiers */
+body.theme-colored .file-item {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s ease;
+}
+
+body.theme-colored .file-item:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+}
+
+body.theme-colored .file-item.selected {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.08));
+    border-left: 3px solid #667eea;
+}
+
+body.theme-colored .file-browser-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(255, 209, 102, 0.06));
+}
+
+body.theme-colored .file-upload-zone {
+    border: 2px dashed #667eea;
+    background: rgba(102, 126, 234, 0.04);
+    border-radius: var(--border-radius-xl);
+}
+
+body.theme-colored .file-upload-zone:hover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: #764ba2;
+}
+
+/* Onglets */
+body.theme-colored .tab-btn {
+    color: var(--text-secondary);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    transition: all 0.2s ease;
+}
+
+body.theme-colored .tab-btn.active {
+    color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.08));
+    border-bottom: 2px solid #667eea;
+}
+
+body.theme-colored .tab-btn:hover:not(.active) {
+    color: #764ba2;
+    background: rgba(118, 75, 162, 0.06);
+}
+
+/* Piano roll et MIDI */
+body.theme-colored .piano-roll {
+    background: linear-gradient(135deg, #f0f4ff, #f8f0ff);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+}
+
+body.theme-colored .piano-roll-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.06));
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-colored .visualizer-controls {
+    background: rgba(255, 255, 255, 0.9);
+    border-top: 1px solid var(--border-color);
+}
+
+body.theme-colored .mode-btn {
+    background: rgba(102, 126, 234, 0.06);
+    color: var(--text-secondary);
+    border-radius: var(--border-radius);
+}
+
+body.theme-colored .mode-btn.active {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+body.theme-colored .mode-btn:hover:not(.active) {
+    background: rgba(102, 126, 234, 0.12);
+    color: #667eea;
+}
+
+/* Assignations d'instruments */
+body.theme-colored .instrument-assignment {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid #667eea;
+    border-radius: var(--border-radius-lg);
+}
+
+/* Clavier virtuel */
+body.theme-colored .keyboard-container {
+    background: linear-gradient(135deg, #f0f4ff, #f5f0ff);
+    border-radius: var(--border-radius-xl);
+}
+
+body.theme-colored .octave-btn {
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    background: rgba(102, 126, 234, 0.06);
+    color: #667eea;
+}
+
+body.theme-colored .octave-btn:hover {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: #667eea;
+}
+
+/* Notifications */
+body.theme-colored .notification {
+    background: #ffffff;
+    border-left: 4px solid #667eea;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+    border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
+}
+
+body.theme-colored .notification.success {
+    border-left-color: #06d6a0;
+}
+
+body.theme-colored .notification.warning {
+    border-left-color: #ffd166;
+}
+
+body.theme-colored .notification.error {
+    border-left-color: #ef476f;
+}
+
+/* Modales */
+body.theme-colored .modal-content {
+    background: #ffffff;
+    border-radius: var(--border-radius-xl);
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+}
+
+body.theme-colored .modal-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+    border-bottom: 1px solid var(--border-color);
+    border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+}
+
+/* Pistes */
+body.theme-colored .track-item {
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-lg);
+    transition: all 0.2s ease;
+}
+
+body.theme-colored .track-item:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+/* Timeline */
+body.theme-colored .timeline-canvas {
+    border: 1px solid var(--border-color);
+    background: linear-gradient(to bottom, #ffffff, #f0f4ff);
+    border-radius: var(--border-radius);
+}
+
+/* Page d'accueil */
+body.theme-colored .feature-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-xl);
+    box-shadow: 0 2px 12px rgba(102, 126, 234, 0.08);
+    transition: all 0.25s ease;
+}
+
+body.theme-colored .feature-card:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+    transform: translateY(-2px);
+}
+
+body.theme-colored .welcome-title {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Badges */
+body.theme-colored .badge-primary {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+body.theme-colored .badge-success {
+    background: linear-gradient(135deg, #06d6a0, #05c494);
+    color: white;
+}
+
+body.theme-colored .badge-warning {
+    background: linear-gradient(135deg, #ffd166, #f5c342);
+    color: #2d3561;
+}
+
+body.theme-colored .badge-danger {
+    background: linear-gradient(135deg, #ef476f, #d63d5e);
+    color: white;
+}
+
+/* Toggle switches */
+body.theme-colored .compact-toggle.active {
+    background: var(--accent-gradient);
+}
+
+/* Progress bars */
+body.theme-colored .progress-bar {
+    background: var(--accent-gradient);
+}
+
+/* Instrument Management */
+body.theme-colored .inst-mgmt-container {
+    background: #ffffff;
+}
+
+body.theme-colored .inst-mgmt-toolbar {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-colored .inst-mgmt-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.06);
+    transition: all 0.2s ease;
+}
+
+body.theme-colored .inst-mgmt-card:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
+}
+
+body.theme-colored .inst-mgmt-conn-badge {
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+body.theme-colored .inst-mgmt-footer {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.04));
+    border-top: 1px solid var(--border-color);
+}
+
+/* Configuration système */
+body.theme-colored .setting-item {
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-colored .setting-item:hover {
+    background: rgba(102, 126, 234, 0.03);
+}
+
+/* Checkboxes */
+body.theme-colored .checkmark {
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: var(--border-radius);
+}
+
+body.theme-colored .custom-checkbox input:checked ~ .checkmark {
+    background: var(--accent-gradient);
+    border-color: transparent;
+}
+
+/* Miniatures */
+body.theme-colored .thumbnail-view {
+    background: rgba(102, 126, 234, 0.04);
+    border-radius: var(--border-radius);
+}
+
+body.theme-colored .thumbnail-view.active {
+    background: rgba(102, 126, 234, 0.1);
+    box-shadow: inset 0 2px 8px rgba(102, 126, 234, 0.12);
+}
+
+/* Info items */
+body.theme-colored .info-item {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.04), rgba(118, 75, 162, 0.03));
+    border-radius: var(--border-radius-lg);
+}
+
 /* ===== MEDIA QUERIES POUR LES PRÉFÉRENCES SYSTÈME ===== */
 /* NOTE: Auto-detection is handled in variables.css */

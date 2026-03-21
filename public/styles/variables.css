@@ -168,6 +168,88 @@ body.dark-mode {
     color: var(--text-primary);
 }
 
+/* ===== THÈME COLORÉ ===== */
+body.theme-colored {
+    --bg-primary: #f0f4ff;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e8eeff;
+
+    --text-primary: #2d3561;
+    --text-secondary: #5a6089;
+    --text-muted: #9498b8;
+    --text-disabled: #c0c4d8;
+
+    --border-color: #d4daff;
+    --border-light: #e8eeff;
+
+    --accent-primary: #667eea;
+    --accent-secondary: #764ba2;
+    --accent-gradient: linear-gradient(135deg, #667eea, #764ba2);
+
+    --color-primary: #06d6a0;
+    --color-secondary: #ef476f;
+    --color-accent: #ffd166;
+
+    --success-color: #06d6a0;
+    --warning-color: #ffd166;
+    --danger-color: #ef476f;
+    --info-color: #118ab2;
+
+    --shadow-light: 0 2px 8px rgba(102, 126, 234, 0.10);
+    --shadow-medium: 0 4px 20px rgba(102, 126, 234, 0.12);
+    --shadow-heavy: 0 8px 30px rgba(118, 75, 162, 0.15);
+    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.10);
+    --shadow-md: 0 4px 6px rgba(102, 126, 234, 0.14);
+    --shadow-lg: 0 10px 20px rgba(118, 75, 162, 0.18);
+
+    --card-bg: #ffffff;
+    --header-bg: rgba(255, 255, 255, 0.92);
+
+    --primary-color: #667eea;
+    --primary-hover: #5a6fd6;
+    --primary-active: #4e60c2;
+    --secondary-color: #5a6089;
+    --accent-warning: #ffd166;
+    --accent-danger: #ef476f;
+    --accent-success: #06d6a0;
+
+    --instrument-primary: #667eea;
+    --instrument-success: #06d6a0;
+    --instrument-warning: #ffd166;
+    --instrument-error: #ef476f;
+    --instrument-usb: #118ab2;
+    --instrument-wifi: #06d6a0;
+    --instrument-bluetooth: #764ba2;
+    --instrument-bg: #ffffff;
+    --instrument-border: #d4daff;
+    --instrument-shadow: rgba(102, 126, 234, 0.12);
+
+    --bluetooth-primary: #764ba2;
+    --bluetooth-success: #06d6a0;
+    --bluetooth-danger: #ef476f;
+    --bluetooth-border: #d4daff;
+    --bluetooth-shadow: rgba(118, 75, 162, 0.12);
+
+    --network-primary: #118ab2;
+    --network-secondary: #073b4c;
+    --network-success: #06d6a0;
+    --network-danger: #ef476f;
+    --network-border: #d4daff;
+    --network-shadow: rgba(17, 138, 178, 0.12);
+
+    --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.35);
+
+    --scrollbar-track-bg: #e8eeff;
+    --scrollbar-thumb-bg: #667eea;
+    --scrollbar-thumb-hover: #764ba2;
+    --scrollbar-thumb-active: #5a6fd6;
+    --scrollbar-thumb-border: 3px solid #e8eeff;
+    --scrollbar-corner-bg: #e8eeff;
+
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
 /* ===== AUTO-DÉTECTION DU THÈME SYSTÈME ===== */
 @media (prefers-color-scheme: dark) {
     body:not(.light-mode):not(.dark-mode) {

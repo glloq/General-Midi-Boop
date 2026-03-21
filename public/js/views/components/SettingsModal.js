@@ -1319,13 +1319,20 @@ class SettingsModal {
                 break;
 
             case 'colored':
-                root.style.setProperty('--bg-primary', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)');
+                root.style.setProperty('--bg-primary', '#f0f4ff');
                 root.style.setProperty('--bg-secondary', '#ffffff');
-                root.style.setProperty('--text-primary', '#333333');
-                root.style.setProperty('--text-secondary', '#666666');
-                root.style.setProperty('--border-color', '#e5e7eb');
+                root.style.setProperty('--bg-tertiary', '#e8eeff');
+                root.style.setProperty('--text-primary', '#2d3561');
+                root.style.setProperty('--text-secondary', '#5a6089');
+                root.style.setProperty('--border-color', '#d4daff');
                 root.style.setProperty('--card-bg', '#ffffff');
-                root.style.setProperty('--header-bg', 'rgba(255, 255, 255, 0.95)');
+                root.style.setProperty('--header-bg', 'rgba(255, 255, 255, 0.92)');
+                root.style.setProperty('--accent-primary', '#667eea');
+                root.style.setProperty('--accent-secondary', '#764ba2');
+                root.style.setProperty('--success-color', '#06d6a0');
+                root.style.setProperty('--warning-color', '#ffd166');
+                root.style.setProperty('--danger-color', '#ef476f');
+                root.style.setProperty('--info-color', '#118ab2');
                 break;
 
             case 'light':
