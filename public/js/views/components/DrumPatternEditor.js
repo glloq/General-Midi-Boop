@@ -1,7 +1,7 @@
 // ============================================================================
 // Fichier: public/js/views/components/DrumPatternEditor.js
 // Description: Main drum pattern editor component
-//   Orchestrates DrumGridRenderer + DrumKitDiagram
+//   Orchestrates DrumGridRenderer + DrumToolsPanel
 //   Handles bidirectional sync with MIDI editor (piano roll)
 //   Manages hit add/edit/delete, velocity editing
 // ============================================================================
@@ -20,12 +20,12 @@ class DrumPatternEditor {
 
         // Sub-components
         this.gridRenderer = null;      // DrumGridRenderer instance
-        this.kitDiagram = null;        // DrumKitDiagram instance
+        this.toolsPanel = null;        // DrumToolsPanel instance
 
         // DOM references
         this.containerEl = null;
         this.gridCanvasEl = null;
-        this.kitCanvasEl = null;
+        this.toolsPanelEl = null;
 
         // Default velocity for new hits
         this.defaultVelocity = 100;
@@ -68,7 +68,7 @@ class DrumPatternEditor {
 
         this._setPianoRollVisible(false);
         this._initGridRenderer();
-        this._initKitDiagram();
+        this._initToolsPanel();
 
         // Convert MIDI notes to grid events
         this.loadFromMidi(midiNotes);
@@ -111,9 +111,9 @@ class DrumPatternEditor {
             this.gridRenderer.destroy();
             this.gridRenderer = null;
         }
-        if (this.kitDiagram) {
-            this.kitDiagram.destroy();
-            this.kitDiagram = null;
+        if (this.toolsPanel) {
+            this.toolsPanel.destroy();
+            this.toolsPanel = null;
         }
         if (this.containerEl) {
             this.containerEl.remove();
@@ -164,8 +164,7 @@ class DrumPatternEditor {
                 <div class="drum-grid-canvas-wrapper">
                     <canvas id="drum-grid-canvas" class="drum-grid-canvas"></canvas>
                 </div>
-                <div class="drum-kit-diagram-wrapper">
-                    <canvas id="drum-kit-canvas" class="drum-kit-canvas"></canvas>
+                <div class="drum-tools-panel-wrapper" id="drum-tools-panel-wrapper">
                 </div>
             </div>
         `;
@@ -176,7 +175,7 @@ class DrumPatternEditor {
         }
 
         this.gridCanvasEl = this.containerEl.querySelector('#drum-grid-canvas');
-        this.kitCanvasEl = this.containerEl.querySelector('#drum-kit-canvas');
+        this.toolsPanelEl = this.containerEl.querySelector('#drum-tools-panel-wrapper');
 
         this._attachToolbarEvents();
     }
@@ -191,7 +190,10 @@ class DrumPatternEditor {
         this.containerEl.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
+
+            // Only handle drum-* actions (not tools panel actions)
             const action = btn.dataset.action;
+            if (!action.startsWith('drum-')) return;
 
             switch (action) {
                 case 'drum-undo':
@@ -253,7 +255,7 @@ class DrumPatternEditor {
     }
 
     // ========================================================================
-    // RENDERER INIT
+    // RENDERER & TOOLS INIT
     // ========================================================================
 
     _initGridRenderer() {
@@ -279,20 +281,27 @@ class DrumPatternEditor {
                 this.gridRenderer.scrollX = pr.xoffset;
             }
         }
+
+        // Wire tools panel to the new grid renderer
+        if (this.toolsPanel) {
+            this.toolsPanel.setGridRenderer(this.gridRenderer);
+        }
     }
 
-    _initKitDiagram() {
-        if (!this.kitCanvasEl) return;
+    _initToolsPanel() {
+        if (!this.toolsPanelEl) return;
 
-        const wrapper = this.kitCanvasEl.parentElement;
-        this.kitCanvasEl.width = wrapper.clientWidth || 180;
-        this.kitCanvasEl.height = wrapper.clientHeight || 300;
-
-        if (this.kitDiagram) {
-            this.kitDiagram.destroy();
+        if (this.toolsPanel) {
+            this.toolsPanel.destroy();
         }
 
-        this.kitDiagram = new DrumKitDiagram(this.kitCanvasEl);
+        this.toolsPanel = new DrumToolsPanel(this.toolsPanelEl, {
+            onChanged: () => this._syncToMidi()
+        });
+
+        if (this.gridRenderer) {
+            this.toolsPanel.setGridRenderer(this.gridRenderer);
+        }
     }
 
     // ========================================================================
@@ -413,27 +422,6 @@ class DrumPatternEditor {
             }
             this.gridRenderer.setPlayhead(tick);
         }
-
-        // Update kit diagram with currently sounding notes
-        if (this.kitDiagram) {
-            const activeNotes = this._getNotesAtTick(tick);
-            this.kitDiagram.setActiveNotes(activeNotes);
-        }
-    }
-
-    /**
-     * Get notes sounding at a given tick (within a small window)
-     * @private
-     */
-    _getNotesAtTick(tick) {
-        const window = 60; // ~1/8 beat lookahead for visual responsiveness
-        const notes = [];
-        for (const evt of this.gridEvents) {
-            if (evt.tick >= tick - window && evt.tick <= tick + window) {
-                notes.push({ note: evt.note, velocity: evt.velocity });
-            }
-        }
-        return notes;
     }
 
     // ========================================================================
@@ -560,15 +548,6 @@ class DrumPatternEditor {
                 if (this.gridRenderer) this.gridRenderer.redraw();
             }
         }
-
-        if (this.kitCanvasEl) {
-            const wrapper = this.kitCanvasEl.parentElement;
-            if (wrapper && wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
-                this.kitCanvasEl.width = wrapper.clientWidth;
-                this.kitCanvasEl.height = wrapper.clientHeight;
-                if (this.kitDiagram) this.kitDiagram.redraw();
-            }
-        }
     }
 
     // ========================================================================
@@ -579,10 +558,6 @@ class DrumPatternEditor {
         if (this.gridRenderer) {
             this.gridRenderer.updateTheme();
             this.gridRenderer.redraw();
-        }
-        if (this.kitDiagram) {
-            this.kitDiagram.updateTheme();
-            this.kitDiagram.redraw();
         }
     }
 }

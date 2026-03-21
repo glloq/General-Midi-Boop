@@ -141,7 +141,7 @@
     margin-left: 8px;
 }
 
-/* ---- Body (canvas area) ---- */
+/* ---- Body (canvas + tools sidebar) ---- */
 .drum-pattern-body {
     display: flex;
     flex: 1;
@@ -163,19 +163,141 @@
     cursor: crosshair;
 }
 
-.drum-kit-diagram-wrapper {
+/* ---- Tools Panel Sidebar ---- */
+.drum-tools-panel-wrapper {
     width: 200px;
     min-width: 160px;
     max-width: 240px;
     border-left: 1px solid var(--border-color, #e9ecef);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     flex-shrink: 0;
+    background: var(--bg-secondary, #fff);
 }
 
-.drum-kit-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
+.drum-tools-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    gap: 8px;
+}
+
+.drum-tools-section {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 6px;
+    background: var(--bg-tertiary, #f5f5f5);
+    border-radius: var(--border-radius, 4px);
+    border: 1px solid var(--border-color, #e9ecef);
+}
+
+.drum-tools-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #ef476f;
+    margin-bottom: 2px;
+}
+
+.drum-tools-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.drum-tools-row-btns {
+    gap: 4px;
+}
+
+.drum-tools-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    font-family: monospace;
+    font-weight: 700;
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #2c3e50);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.drum-tools-btn:hover {
+    background: #ef476f;
+    color: #fff;
+    border-color: #ef476f;
+}
+
+.drum-tools-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.drum-tools-btn:disabled:hover {
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #2c3e50);
+    border-color: var(--border-color, #ddd);
+}
+
+.drum-tools-btn-sm {
+    padding: 2px 6px;
+    font-size: 12px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.drum-tools-btn-half {
+    flex: 1;
+    text-align: center;
+}
+
+.drum-tools-slider {
+    flex: 1;
+    min-width: 40px;
+    height: 16px;
+    accent-color: #ef476f;
+    cursor: pointer;
+}
+
+.drum-tools-slider-wide {
+    flex: 2;
+}
+
+.drum-tools-value {
+    font-size: 10px;
+    font-family: monospace;
+    font-weight: 700;
+    color: var(--text-secondary, #6c757d);
+    min-width: 28px;
+    text-align: right;
+}
+
+.drum-tools-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary, #6c757d);
+    white-space: nowrap;
+}
+
+.drum-pattern-info {
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--text-secondary, #999);
+    padding: 3px 6px;
+    background: var(--bg-secondary, #fff);
+    border-radius: 3px;
+    text-align: center;
+    min-height: 18px;
+}
+
+.drum-pattern-info.drum-pattern-found {
+    color: #28a745;
+    font-weight: 700;
+    background: rgba(40, 167, 69, 0.08);
 }
 
 /* ---- Channel Panel: DRUM Button ---- */
@@ -231,8 +353,34 @@ body.dark-mode .drum-separator {
     background: #4a5568;
 }
 
-body.dark-mode .drum-kit-diagram-wrapper {
+body.dark-mode .drum-tools-panel-wrapper {
     border-left-color: #4a5568;
+    background: #1a1a2e;
+}
+
+body.dark-mode .drum-tools-section {
+    background: #2d3748;
+    border-color: #4a5568;
+}
+
+body.dark-mode .drum-tools-btn {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border-color: #4a5568;
+}
+
+body.dark-mode .drum-tools-btn:hover {
+    background: #ef476f;
+    color: #fff;
+}
+
+body.dark-mode .drum-tools-value {
+    color: #a0aec0;
+}
+
+body.dark-mode .drum-pattern-info {
+    background: #1a1a2e;
+    color: #718096;
 }
 
 body.dark-mode .drum-quantize-select {
@@ -272,8 +420,29 @@ body.theme-colored .drum-separator {
     background: var(--border-color);
 }
 
-body.theme-colored .drum-kit-diagram-wrapper {
+body.theme-colored .drum-tools-panel-wrapper {
     border-left-color: var(--border-color);
+    background: #f0f4ff;
+}
+
+body.theme-colored .drum-tools-section {
+    background: rgba(239, 71, 111, 0.04);
+    border-color: rgba(239, 71, 111, 0.12);
+}
+
+body.theme-colored .drum-tools-btn {
+    background: #ffffff;
+    color: var(--text-primary);
+    border-color: rgba(239, 71, 111, 0.2);
+}
+
+body.theme-colored .drum-tools-btn:hover {
+    background: #ef476f;
+    color: #fff;
+}
+
+body.theme-colored .drum-pattern-info {
+    background: #ffffff;
 }
 
 body.theme-colored .drum-quantize-select {
@@ -290,7 +459,7 @@ body.theme-colored .drum-velocity-input {
 
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
-    .drum-kit-diagram-wrapper {
+    .drum-tools-panel-wrapper {
         display: none;
     }
 }
