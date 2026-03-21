@@ -98,8 +98,9 @@ class TablatureEditor {
     }
 
     /**
-     * Set piano roll to split mode (both visible) or full mode (tablature hidden)
-     * @param {boolean} visible - If true, piano roll takes full space; if false, split view
+     * Hide piano roll and give full space to tablature, or restore piano roll.
+     * Channel buttons (mute/hide) remain visible — they are in .channels-toolbar, not .notes-section.
+     * @param {boolean} visible - If true, restore piano roll; if false, hide it for tablature
      */
     _setPianoRollVisible(visible) {
         const notesSection = this.modal.container?.querySelector('.notes-section');
@@ -109,21 +110,12 @@ class TablatureEditor {
         const hScrollControls = notesSection.querySelector('.scroll-controls-horizontal');
 
         if (visible) {
-            // Restore full piano roll
-            if (pianoRollWrapper) {
-                pianoRollWrapper.style.display = '';
-                pianoRollWrapper.style.flex = '';
-            }
-            if (hScrollControls) hScrollControls.style.display = '';
-            if (this.containerEl) this.containerEl.style.flex = '';
+            // Restore piano roll
+            if (pianoRollWrapper) pianoRollWrapper.style.display = '';
         } else {
-            // Split view: piano roll 60%, tablature 40%
-            if (pianoRollWrapper) {
-                pianoRollWrapper.style.display = '';
-                pianoRollWrapper.style.flex = '3';
-            }
-            if (hScrollControls) hScrollControls.style.display = '';
-            if (this.containerEl) this.containerEl.style.flex = '2';
+            // Hide piano roll — tablature takes full space
+            // Keep horizontal scroll controls visible for tablature navigation
+            if (pianoRollWrapper) pianoRollWrapper.style.display = 'none';
         }
     }
 

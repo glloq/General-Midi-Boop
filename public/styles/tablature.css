@@ -3,15 +3,14 @@
    Supports dark/light themes via CSS variables from variables.css
    ============================================================================ */
 
-/* ---- Panel Container (shown alongside piano roll in .notes-section) ---- */
+/* ---- Panel Container (replaces piano roll in .notes-section) ---- */
 .tablature-editor-panel {
     display: flex;
     flex-direction: column;
     background: var(--bg-secondary, #fff);
-    flex: 2;
+    flex: 1;
     min-height: 0;
     overflow: hidden;
-    border-top: 2px solid var(--accent-primary, #667eea);
 }
 
 /* ---- Header ---- */

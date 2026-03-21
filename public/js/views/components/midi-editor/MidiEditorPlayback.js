@@ -257,22 +257,36 @@ class MidiEditorPlayback {
      */
     updatePlaybackCursor(tick) {
         const m = this.modal;
-        if (!m.pianoRoll) return;
 
-        m.pianoRoll.cursor = tick;
+        // Update piano roll cursor (even when hidden, keeps state consistent)
+        if (m.pianoRoll) {
+            m.pianoRoll.cursor = tick;
 
-        const xoffset = m.pianoRoll.xoffset || 0;
-        const xrange = m.pianoRoll.xrange || 1920;
+            const xoffset = m.pianoRoll.xoffset || 0;
+            const xrange = m.pianoRoll.xrange || 1920;
 
-        if (tick > xoffset + xrange * 0.9) {
-            m.pianoRoll.xoffset = tick - xrange * 0.2;
-        } else if (tick < xoffset) {
-            m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+            if (tick > xoffset + xrange * 0.9) {
+                m.pianoRoll.xoffset = tick - xrange * 0.2;
+            } else if (tick < xoffset) {
+                m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+            }
         }
 
-        // Update tablature editor playhead and fretboard
+        // Update tablature editor playhead, fretboard, and auto-scroll
         if (m.tablatureEditor && m.tablatureEditor.isVisible) {
             m.tablatureEditor.updatePlayhead(tick);
+
+            // Sync horizontal slider with tablature scroll position
+            const scrollHSlider = document.getElementById('scroll-h-slider');
+            if (scrollHSlider && m.tablatureEditor.renderer) {
+                const maxTick = m.midiData?.maxTick || 0;
+                const renderer = m.tablatureEditor.renderer;
+                const canvasWidth = m.tablatureEditor.tabCanvasEl?.width || 800;
+                const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
+                const maxOffset = Math.max(1, maxTick - visibleTicks);
+                const percentage = Math.min(100, (renderer.scrollX / maxOffset) * 100);
+                scrollHSlider.value = percentage;
+            }
         }
     }
 
