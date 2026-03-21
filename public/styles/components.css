@@ -8,11 +8,11 @@
 .card {
     background: white;
     border-radius: 16px;
-    padding: 24px;
+    padding: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     border: 1px solid #e9ecef;
     transition: all 0.3s ease;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .card:hover {
@@ -24,8 +24,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
     border-bottom: 2px solid #f8f9fa;
 }
 
@@ -249,7 +249,7 @@
 .modal-header,
 .modal-body,
 .modal-footer {
-    padding: 20px 24px;
+    padding: 10px 16px;
 }
 
 /* Exception: garder le modal éditeur MIDI avec ses propres styles */
@@ -276,8 +276,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
     border-bottom: 2px solid #f8f9fa;
 }
 
@@ -300,7 +300,7 @@
 }
 
 .modal-body {
-    margin-bottom: 20px;
+    margin-bottom: 8px;
 }
 
 .modal-footer {
@@ -422,11 +422,11 @@
 .tab-nav {
     display: flex;
     border-bottom: 2px solid #e9ecef;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .tab-btn {
-    padding: 12px 20px;
+    padding: 8px 16px;
     border: none;
     background: transparent;
     cursor: pointer;
@@ -626,13 +626,13 @@
 .backend-info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin: 16px 0;
+    gap: 8px;
+    margin: 8px 0;
 }
 
 .backend-info-grid .info-item {
     background: #f8f9fa;
-    padding: 12px;
+    padding: 8px;
     border-radius: 8px;
 }
 

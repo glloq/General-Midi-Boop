@@ -143,7 +143,7 @@
    ========================================================================== */
 
 .aa-body {
-  padding: 16px 20px !important;
+  padding: 10px 14px !important;
   max-height: 55vh;
   overflow-y: auto;
   scrollbar-width: auto;
@@ -161,7 +161,7 @@
 }
 
 .aa-channel-header h3 {
-  margin: 0 0 12px 0;
+  margin: 0 0 6px 0;
   font-size: 16px;
   color: #333;
 }
@@ -183,7 +183,7 @@
   color: #999;
   font-size: 13px;
   text-align: center;
-  padding: 20px;
+  padding: 12px;
 }
 
 /* ==========================================================================
@@ -195,9 +195,9 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   background: #f0f8ff;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border-radius: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   font-size: 12px;
 }
 
@@ -210,7 +210,7 @@
    ========================================================================== */
 
 .aa-skip-toggle {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid;
@@ -349,15 +349,15 @@
    ========================================================================== */
 
 .aa-adaptation-section {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: 8px;
+  padding: 10px;
   background: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
 }
 
 .aa-adaptation-section h4 {
-  margin: 0 0 12px 0;
+  margin: 0 0 6px 0;
   font-size: 14px;
   color: #444;
 }
@@ -365,7 +365,7 @@
 .aa-adaptation-controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .aa-control-group {
@@ -435,7 +435,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 8px 14px;
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
   gap: 8px;
@@ -660,8 +660,8 @@ body.dark-mode .aa-tab-drum {
    ========================================================================== */
 
 .aa-low-scores-section {
-  margin-top: 8px;
-  margin-bottom: 12px;
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .aa-toggle-low-scores {
@@ -838,7 +838,7 @@ body.dark-mode .aa-tab-drum {
    ========================================================================== */
 
 .aa-drum-mapping-section {
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .aa-toggle-drum-mapping {

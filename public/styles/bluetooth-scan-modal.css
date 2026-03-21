@@ -87,7 +87,7 @@
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 20px 24px !important;
+    padding: 12px 16px !important;
     margin: 0 !important;
     border-bottom: 2px solid var(--bluetooth-border);
     background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
@@ -117,8 +117,8 @@
     border-radius: 50%;
     transition: all 0.2s;
     position: absolute !important;
-    top: 20px !important;
-    right: 24px !important;
+    top: 12px !important;
+    right: 16px !important;
 }
 
 .bluetooth-scan-modal .modal-close:hover {
@@ -131,7 +131,7 @@
    ============================================================================ */
 
 .bluetooth-scan-modal .modal-body {
-    padding: 24px !important;
+    padding: 14px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     flex: 1 !important;
@@ -149,7 +149,7 @@
    ============================================================================ */
 
 .scan-section {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     flex-shrink: 0;
 }
 
@@ -157,8 +157,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 2px solid #f0f0f0;
 }
 
@@ -227,14 +227,14 @@
 .devices-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .bluetooth-device {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 20px;
+    gap: 10px;
+    padding: 10px 14px;
     background: #fafbfc;
     border: 2px solid #e8eaed;
     border-radius: 12px;
@@ -400,14 +400,14 @@
    ============================================================================ */
 
 .paired-section {
-    margin-bottom: 20px;
-    padding-top: 20px;
+    margin-bottom: 10px;
+    padding-top: 10px;
     border-top: 2px solid #f0f0f0;
     flex-shrink: 0;
 }
 
 .paired-section h3 {
-    margin: 0 0 20px;
+    margin: 0 0 10px;
     font-size: 17px;
     color: #2c3e50;
     font-weight: 700;
@@ -429,8 +429,8 @@
    ============================================================================ */
 
 .info-section {
-    margin-top: 20px;
-    padding: 14px 18px;
+    margin-top: 10px;
+    padding: 10px 14px;
     background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
     border-radius: 10px;
     border-left: 4px solid #4caf50;
@@ -460,7 +460,7 @@
     display: flex;
     gap: 12px;
     justify-content: flex-end;
-    padding: 16px 24px;
+    padding: 10px 16px;
     border-top: 2px solid var(--bluetooth-border);
     background: #f8f9fa;
     border-radius: 0 0 12px 12px;
@@ -471,7 +471,7 @@
    ============================================================================ */
 
 .devices-empty {
-    padding: 50px 30px;
+    padding: 30px 20px;
     text-align: center;
     background: #fafbfc;
     border-radius: 12px;
@@ -498,7 +498,7 @@
 }
 
 .devices-scanning {
-    padding: 50px 30px;
+    padding: 30px 20px;
     text-align: center;
     background: linear-gradient(135deg, #f6f8ff 0%, #fff5f8 100%);
     border-radius: 12px;

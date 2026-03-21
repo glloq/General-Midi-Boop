@@ -26,7 +26,7 @@
 }
 
 .instrument-capabilities-modal .modal-header {
-  padding: 16px 20px;
+  padding: 10px 16px;
   border-bottom: 2px solid #e5e7eb;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -44,7 +44,7 @@
 }
 
 .instrument-capabilities-modal .modal-body {
-  padding: 16px 20px;
+  padding: 10px 16px;
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -53,15 +53,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 8px 16px;
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
 }
 
 /* Instrument info card */
 .instrument-capabilities-modal .instrument-info {
-  margin-bottom: 12px;
-  padding: 12px;
+  margin-bottom: 8px;
+  padding: 8px;
   background: #f0f7ff;
   border: 2px solid #3b82f6;
   border-radius: 8px;
@@ -80,7 +80,7 @@
 
 /* Form fields */
 .instrument-capabilities-modal .field-group {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .instrument-capabilities-modal .field-group label {
@@ -109,13 +109,13 @@
 
 /* Section headers */
 .instrument-capabilities-modal .section-required h4 {
-  margin: 0 0 10px 0;
+  margin: 0 0 6px 0;
   color: #dc2626;
   font-size: 14px;
 }
 
 .instrument-capabilities-modal .section-recommended h4 {
-  margin: 0 0 10px 0;
+  margin: 0 0 6px 0;
   color: #f59e0b;
   font-size: 14px;
 }
@@ -148,8 +148,8 @@
 
 /* Defaults section */
 .instrument-capabilities-modal .defaults-section {
-  margin-top: 16px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 8px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
