@@ -4092,12 +4092,9 @@ class MidiEditorModal {
             }
         }
 
-        // Reset drum pattern playhead and clear kit diagram
+        // Reset drum pattern playhead
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
             this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
-            if (this.drumPatternEditor.kitDiagram) {
-                this.drumPatternEditor.kitDiagram.clearActiveNotes();
-            }
         }
 
         this.updatePlaybackButtons();
@@ -4178,12 +4175,9 @@ class MidiEditorModal {
             }
         }
 
-        // Reset drum pattern playhead and clear kit diagram
+        // Reset drum pattern playhead
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
             this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
-            if (this.drumPatternEditor.kitDiagram) {
-                this.drumPatternEditor.kitDiagram.clearActiveNotes();
-            }
         }
 
         this.updatePlaybackButtons();

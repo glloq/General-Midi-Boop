@@ -497,6 +497,13 @@ class DrumGridRenderer {
             ctx.fill();
             ctx.globalAlpha = 1.0;
 
+            // Mini velocity bar at bottom of cell (secondary visual cue)
+            const velRatio = velocity / 127;
+            ctx.fillStyle = isSelected ? '#ffffff' : color;
+            ctx.globalAlpha = 0.9;
+            ctx.fillRect(cx, cy + cellH - 2, cellW * velRatio, 2);
+            ctx.globalAlpha = 1.0;
+
             // Duration line if present
             if (evt.duration && evt.duration > 0) {
                 const endX = this._tickToX(evt.tick + evt.duration);
