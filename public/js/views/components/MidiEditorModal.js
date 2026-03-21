@@ -2211,6 +2211,11 @@ class MidiEditorModal {
 
             // TAB buttons are added dynamically by _refreshStringInstrumentChannels()
             // after DB and GM detection completes — no inline TAB buttons here
+            // DRUM button for channel 9 is always included (drums are always channel 9)
+            const drumBtn = ch.channel === 9 ? `
+                    <button class="channel-drum-btn" data-channel="9"
+                        title="${this.t('drumPattern.toggleEditor')}">DRUM</button>
+            ` : '';
 
             buttons += `
                 <div class="channel-btn-group">
@@ -2223,6 +2228,7 @@ class MidiEditorModal {
                     >
                         <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
                     </button>
+                    ${drumBtn}
                 </div>
             `;
         });
@@ -3428,10 +3434,28 @@ class MidiEditorModal {
                 });
             });
 
+            // Attach events on DRUM sub-buttons (for channel 9)
+            const drumButtons = this.container.querySelectorAll('.channel-drum-btn');
+            drumButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const channel = parseInt(btn.dataset.channel);
+                    if (!isNaN(channel)) {
+                        this._openDrumPatternForChannel(channel);
+                    }
+                });
+            });
+
             // Update TAB button active states
             this._updateChannelTabButtons();
 
-            // Async: reveal TAB buttons for channels with string instrument DB configs
+            // Update DRUM button active states
+            this._updateDrumButtonState(
+                this.drumPatternEditor && this.drumPatternEditor.isVisible
+            );
+
+            // Async: reveal TAB/DRUM buttons for channels with string instrument DB configs
             this._refreshStringInstrumentChannels();
         }
     }
@@ -4586,6 +4610,19 @@ class MidiEditorModal {
             });
         });
 
+        // Boutons DRUM sous les canaux (percussion)
+        const drumButtons = this.container.querySelectorAll('.channel-drum-btn');
+        drumButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const channel = parseInt(btn.dataset.channel);
+                if (!isNaN(channel)) {
+                    this._openDrumPatternForChannel(channel);
+                }
+            });
+        });
+
         // Sélecteur d'instrument connecté (pour filtrer les notes jouables)
         const connectedDeviceSelector = document.getElementById('connected-device-selector');
         if (connectedDeviceSelector) {
@@ -5536,7 +5573,7 @@ class MidiEditorModal {
         this.activeChannels.clear();
         this.activeChannels.add(channel);
         this.updateSequenceFromActiveChannels(new Set([channel]));
-        this._refreshChannelButtons();
+        this.refreshChannelButtons();
 
         // Hide tablature if visible
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
