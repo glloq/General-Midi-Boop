@@ -385,7 +385,7 @@ class InstrumentCapabilitiesModal {
   async autoCreateStringInstrument(instrument, type) {
     const presetMap = {
       guitar: 'guitar_standard',
-      bass: 'bass_standard',
+      bass: 'bass_4_standard',
       strings: 'guitar_standard'
     };
 
@@ -413,10 +413,10 @@ class InstrumentCapabilitiesModal {
           device_id: instrument.id,
           channel: 0,
           instrument_name: preset.name || type,
-          num_strings: preset.num_strings,
-          num_frets: preset.num_frets,
+          num_strings: preset.strings,
+          num_frets: preset.frets,
           tuning: preset.tuning,
-          is_fretless: preset.is_fretless || 0,
+          is_fretless: preset.fretless || false,
           capo_fret: 0
         });
 
