@@ -170,65 +170,66 @@ body.dark-mode {
 
 /* ===== THÈME COLORÉ ===== */
 body.theme-colored {
-    --bg-primary: #f0f4ff;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #e8eeff;
+    --bg-primary: linear-gradient(135deg, #e8f0fe 0%, #f3e8ff 50%, #fce8f0 100%);
+    --bg-primary-flat: #eae4f7;
+    --bg-secondary: rgba(255, 255, 255, 0.75);
+    --bg-tertiary: #ddd6f3;
 
-    --text-primary: #2d3561;
-    --text-secondary: #5a6089;
-    --text-muted: #9498b8;
-    --text-disabled: #c0c4d8;
+    --text-primary: #1a1040;
+    --text-secondary: #4a3f6b;
+    --text-muted: #8078a0;
+    --text-disabled: #b8b2cc;
 
-    --border-color: #d4daff;
-    --border-light: #e8eeff;
+    --border-color: rgba(118, 75, 162, 0.25);
+    --border-light: rgba(102, 126, 234, 0.18);
 
     --accent-primary: #667eea;
     --accent-secondary: #764ba2;
     --accent-gradient: linear-gradient(135deg, #667eea, #764ba2);
 
-    --color-primary: #06d6a0;
-    --color-secondary: #ef476f;
-    --color-accent: #ffd166;
+    --color-primary: #00c896;
+    --color-secondary: #e8365d;
+    --color-accent: #f0b429;
 
-    --success-color: #06d6a0;
-    --warning-color: #ffd166;
-    --danger-color: #ef476f;
-    --info-color: #118ab2;
+    --success-color: #00c896;
+    --warning-color: #f0b429;
+    --danger-color: #e8365d;
+    --info-color: #0d8ecf;
 
-    --shadow-light: 0 2px 8px rgba(102, 126, 234, 0.10);
-    --shadow-medium: 0 4px 20px rgba(102, 126, 234, 0.12);
-    --shadow-heavy: 0 8px 30px rgba(118, 75, 162, 0.15);
-    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.10);
-    --shadow-md: 0 4px 6px rgba(102, 126, 234, 0.14);
-    --shadow-lg: 0 10px 20px rgba(118, 75, 162, 0.18);
+    --shadow-light: 0 2px 8px rgba(118, 75, 162, 0.14);
+    --shadow-medium: 0 4px 20px rgba(118, 75, 162, 0.18);
+    --shadow-heavy: 0 8px 30px rgba(118, 75, 162, 0.25);
+    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.12);
+    --shadow-md: 0 4px 8px rgba(118, 75, 162, 0.18);
+    --shadow-lg: 0 10px 25px rgba(118, 75, 162, 0.25);
 
-    --card-bg: #ffffff;
-    --header-bg: rgba(255, 255, 255, 0.92);
+    --card-bg: rgba(255, 255, 255, 0.7);
+    --header-bg: rgba(255, 255, 255, 0.6);
 
     --primary-color: #667eea;
-    --primary-hover: #5a6fd6;
-    --primary-active: #4e60c2;
-    --secondary-color: #5a6089;
-    --accent-warning: #ffd166;
-    --accent-danger: #ef476f;
-    --accent-success: #06d6a0;
+    --primary-hover: #5468d4;
+    --primary-active: #4558be;
+    --secondary-color: #764ba2;
+    --accent-warning: #f0b429;
+    --accent-danger: #e8365d;
+    --accent-success: #00c896;
 
     --instrument-primary: #667eea;
-    --instrument-success: #06d6a0;
-    --instrument-warning: #ffd166;
-    --instrument-error: #ef476f;
-    --instrument-usb: #118ab2;
-    --instrument-wifi: #06d6a0;
+    --instrument-success: #00c896;
+    --instrument-warning: #f0b429;
+    --instrument-error: #e8365d;
+    --instrument-usb: #0d8ecf;
+    --instrument-wifi: #00c896;
     --instrument-bluetooth: #764ba2;
-    --instrument-bg: #ffffff;
-    --instrument-border: #d4daff;
-    --instrument-shadow: rgba(102, 126, 234, 0.12);
+    --instrument-bg: rgba(255, 255, 255, 0.7);
+    --instrument-border: rgba(118, 75, 162, 0.25);
+    --instrument-shadow: rgba(118, 75, 162, 0.18);
 
     --bluetooth-primary: #764ba2;
-    --bluetooth-success: #06d6a0;
-    --bluetooth-danger: #ef476f;
-    --bluetooth-border: #d4daff;
-    --bluetooth-shadow: rgba(118, 75, 162, 0.12);
+    --bluetooth-success: #00c896;
+    --bluetooth-danger: #e8365d;
+    --bluetooth-border: rgba(118, 75, 162, 0.25);
+    --bluetooth-shadow: rgba(118, 75, 162, 0.18);
 
     --network-primary: #118ab2;
     --network-secondary: #073b4c;
