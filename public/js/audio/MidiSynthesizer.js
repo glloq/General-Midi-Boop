@@ -62,6 +62,29 @@ class MidiSynthesizer {
         this.drumKitFile = '12835_0_FluidR3_GM_sf2_file';
         this.drumKitVar = '_drum_35_0_FluidR3_GM_sf2_file';
         this.drumKit = null;
+
+        // Drum audio processing
+        this.drumReverbNode = null;     // ConvolverNode for cymbal reverb
+        this.drumReverbGain = null;     // Wet gain for reverb
+        this.drumDryGain = null;        // Dry gain for drums
+        this.drumActiveNotes = new Map(); // note -> envelope (for hi-hat choke)
+
+        // Minimum durations for drum categories (in seconds)
+        this.drumMinDurations = {
+            // Cymbals need to ring out
+            49: 2.0, 57: 2.0, 55: 1.5, 52: 2.0,   // Crashes, Splash, China
+            51: 1.0, 59: 1.0, 53: 0.8,               // Rides, Ride Bell
+            46: 0.8,                                    // Open Hi-Hat
+            // Toms benefit from slight sustain
+            41: 0.4, 43: 0.4, 45: 0.35, 47: 0.3, 48: 0.3, 50: 0.25,
+        };
+
+        // Notes that use the reverb bus (cymbals)
+        this.cymbalNotes = new Set([49, 51, 52, 53, 55, 57, 59, 46]);
+
+        // Hi-hat choke groups: playing closed (42/44) cancels open (46)
+        this.hihatCloseNotes = new Set([42, 44]);
+        this.hihatOpenNote = 46;
     }
 
     /**
@@ -244,6 +267,9 @@ class MidiSynthesizer {
 
             // Créer le player WebAudioFont
             this.player = new WebAudioFontPlayer();
+
+            // Setup drum audio bus with reverb for cymbals
+            this._setupDrumBus();
 
             this.isInitialized = true;
             this.log('info', 'MidiSynthesizer initialized with WebAudioFont');
@@ -455,13 +481,67 @@ class MidiSynthesizer {
     }
 
     /**
+     * Setup drum audio bus with lightweight reverb for cymbals
+     * Creates: drums → dryGain → destination
+     *          drums → reverbNode → wetGain → destination
+     */
+    _setupDrumBus() {
+        const ctx = this.audioContext;
+
+        // Dry path (all drums)
+        this.drumDryGain = ctx.createGain();
+        this.drumDryGain.gain.value = 1.0;
+        this.drumDryGain.connect(ctx.destination);
+
+        // Wet path (cymbals only — lightweight algorithmic reverb)
+        this.drumReverbGain = ctx.createGain();
+        this.drumReverbGain.gain.value = 0.18; // Subtle reverb
+
+        try {
+            // Generate a short impulse response algorithmically (no external file)
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * 1.2; // 1.2s reverb tail
+            const impulse = ctx.createBuffer(2, length, sampleRate);
+
+            for (let ch = 0; ch < 2; ch++) {
+                const data = impulse.getChannelData(ch);
+                for (let i = 0; i < length; i++) {
+                    // Exponential decay with random noise
+                    const decay = Math.exp(-3.5 * i / length);
+                    data[i] = (Math.random() * 2 - 1) * decay;
+                }
+            }
+
+            this.drumReverbNode = ctx.createConvolver();
+            this.drumReverbNode.buffer = impulse;
+            this.drumReverbNode.connect(this.drumReverbGain);
+            this.drumReverbGain.connect(ctx.destination);
+
+            this.log('info', 'Drum reverb bus initialized');
+        } catch (error) {
+            this.log('warn', 'Failed to create drum reverb, using dry only:', error.message);
+            this.drumReverbNode = null;
+        }
+    }
+
+    /**
      * Jouer une note
      */
     playNote(note, velocity, channel, duration, time = null) {
         if (!this.isInitialized || !this.player) return;
 
         const startTime = time || this.audioContext.currentTime;
-        const volume = (velocity / 127) * (this.channelVolumes[channel] / 127);
+
+        let volume;
+        if (channel === 9) {
+            // Non-linear velocity curve for drums — cymbals get extra boost
+            const velNorm = velocity / 127;
+            const velCurve = Math.pow(velNorm, 0.7); // Exponential: louder hits stand out more
+            const boost = this.cymbalNotes.has(note) ? 1.25 : 1.0;
+            volume = velCurve * (this.channelVolumes[channel] / 127) * boost;
+        } else {
+            volume = (velocity / 127) * (this.channelVolumes[channel] / 127);
+        }
 
         let instrument;
         if (channel === 9) {
@@ -476,18 +556,63 @@ class MidiSynthesizer {
         }
 
         try {
+            // For drums: apply minimum durations and hi-hat choke
+            let effectiveDuration = duration;
+            let outputNode = this.audioContext.destination;
+
+            if (channel === 9) {
+                // Minimum duration for cymbals/toms
+                const minDur = this.drumMinDurations[note];
+                if (minDur && effectiveDuration < minDur) {
+                    effectiveDuration = minDur;
+                }
+
+                // Hi-hat choke: closed hi-hat cancels open hi-hat
+                if (this.hihatCloseNotes.has(note)) {
+                    const openEnvelope = this.drumActiveNotes.get(this.hihatOpenNote);
+                    if (openEnvelope && typeof openEnvelope.cancel === 'function') {
+                        try { openEnvelope.cancel(); } catch (e) { /* ignore */ }
+                    }
+                    this.drumActiveNotes.delete(this.hihatOpenNote);
+                }
+
+                // Route cymbals through reverb bus, others through dry bus
+                if (this.cymbalNotes.has(note) && this.drumReverbNode) {
+                    outputNode = this.drumDryGain; // Dry signal
+                    // Also send to reverb (wet signal)
+                    const reverbEnvelope = this.player.queueWaveTable(
+                        this.audioContext,
+                        this.drumReverbNode,
+                        instrument,
+                        startTime,
+                        note,
+                        effectiveDuration,
+                        volume * 0.6 // Lower volume for reverb send
+                    );
+                    if (reverbEnvelope) {
+                        this.activeEnvelopes.push(reverbEnvelope);
+                    }
+                } else if (this.drumDryGain) {
+                    outputNode = this.drumDryGain;
+                }
+            }
+
             const envelope = this.player.queueWaveTable(
                 this.audioContext,
-                this.audioContext.destination,
+                outputNode,
                 instrument,
                 startTime,
                 note,
-                duration,
+                effectiveDuration,
                 volume
             );
 
             if (envelope) {
                 this.activeEnvelopes.push(envelope);
+                // Track drum envelopes for hi-hat choke
+                if (channel === 9) {
+                    this.drumActiveNotes.set(note, envelope);
+                }
             }
         } catch (error) {
             // Ignorer les erreurs silencieusement
@@ -616,6 +741,7 @@ class MidiSynthesizer {
             }
         });
         this.activeEnvelopes = [];
+        this.drumActiveNotes.clear();
     }
 
     /**
@@ -719,6 +845,15 @@ class MidiSynthesizer {
     dispose() {
         this.stop();
         this.cancelAllNotes();
+
+        // Disconnect drum bus nodes
+        if (this.drumDryGain) { try { this.drumDryGain.disconnect(); } catch(e) {} }
+        if (this.drumReverbGain) { try { this.drumReverbGain.disconnect(); } catch(e) {} }
+        if (this.drumReverbNode) { try { this.drumReverbNode.disconnect(); } catch(e) {} }
+        this.drumDryGain = null;
+        this.drumReverbGain = null;
+        this.drumReverbNode = null;
+        this.drumActiveNotes.clear();
 
         if (this.audioContext && this.audioContext.state !== 'closed') {
             this.audioContext.close();
