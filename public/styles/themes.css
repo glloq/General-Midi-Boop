@@ -386,102 +386,81 @@ body.dark-mode .badge-primary {
 /* ===== Instrument Management Page Modal (dark mode) ===== */
 
 /* Modal container */
-body.dark-mode .modal-overlay > .modal-container {
+body.dark-mode .inst-mgmt-container {
     background: var(--bg-secondary) !important;
     color: var(--text-primary) !important;
 }
 
+/* Toolbar (scan bar) */
+body.dark-mode .inst-mgmt-toolbar {
+    background: var(--bg-tertiary) !important;
+    border-bottom-color: var(--border-color) !important;
+}
+
+body.dark-mode .inst-mgmt-scan-label {
+    color: var(--text-secondary) !important;
+}
+
 /* Content area */
-body.dark-mode .modal-overlay > .modal-container > div[style*="overflow-y: auto"] {
+body.dark-mode .inst-mgmt-content {
     color: var(--text-primary);
 }
 
 /* Footer */
-body.dark-mode .modal-overlay > .modal-container > div[style*="border-top"]:last-child {
+body.dark-mode .inst-mgmt-footer {
     background: var(--bg-tertiary) !important;
     border-top-color: var(--border-color) !important;
+}
+
+body.dark-mode .inst-mgmt-footer-inner {
     color: var(--text-secondary) !important;
 }
 
 /* Search input placeholder in header */
-body.dark-mode .modal-overlay input#instrumentSearch::placeholder {
+body.dark-mode .inst-mgmt-modal input#instrumentSearch::placeholder {
     color: rgba(255, 255, 255, 0.5);
 }
 
 /* Filter select options dropdown */
-body.dark-mode .modal-overlay select#instrumentFilter option {
+body.dark-mode .inst-mgmt-modal select#instrumentFilter option {
     background: var(--bg-secondary);
     color: var(--text-primary);
 }
 
 /* Instrument cards */
-body.dark-mode .modal-overlay .instrument-card {
+body.dark-mode .inst-mgmt-card {
     background: var(--bg-tertiary) !important;
-    border-color: var(--border-color) !important;
 }
 
-body.dark-mode .modal-overlay .instrument-card h4 {
+body.dark-mode .inst-mgmt-card-title {
     color: var(--text-primary) !important;
 }
 
-body.dark-mode .modal-overlay .instrument-card div[style*="color: #6b7280"] {
+body.dark-mode .inst-mgmt-card-sub {
     color: var(--text-secondary) !important;
 }
 
+body.dark-mode .inst-mgmt-card-info {
+    color: var(--text-secondary) !important;
+}
+
+body.dark-mode .inst-mgmt-conn-badge {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
 /* Section headers in content */
-body.dark-mode .modal-overlay #instrumentListContent h3 {
+body.dark-mode .inst-mgmt-content #instrumentListContent h3 {
     color: inherit;
 }
 
 /* Empty state */
-body.dark-mode .modal-overlay #instrumentListContent div[style*="color: #999"] {
+body.dark-mode .inst-mgmt-empty {
     color: var(--text-muted) !important;
 }
 
-body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #666"] {
+body.dark-mode .inst-mgmt-empty-title {
     color: var(--text-secondary) !important;
-}
-
-/* Scan bar */
-body.dark-mode .modal-overlay > .modal-container > div[style*="border-bottom: 2px solid #e5e7eb"] {
-    background: var(--bg-tertiary) !important;
-    border-bottom-color: var(--border-color) !important;
-}
-
-body.dark-mode .modal-overlay > .modal-container > div[style*="border-bottom: 2px solid #e5e7eb"] span[style*="color: #666"] {
-    color: var(--text-secondary) !important;
-}
-
-/* Footer bar */
-body.dark-mode .modal-overlay > .modal-container > div[style*="border-top: 1px solid #e5e7eb"] {
-    background: var(--bg-tertiary) !important;
-    border-top-color: var(--border-color) !important;
-}
-
-body.dark-mode .modal-overlay > .modal-container > div[style*="border-top: 1px solid #e5e7eb"] div[style*="color: #666"] {
-    color: var(--text-secondary) !important;
-}
-
-/* Instrument card inline backgrounds */
-body.dark-mode .modal-overlay .instrument-card[style*="background: white"] {
-    background: var(--bg-tertiary) !important;
-}
-
-body.dark-mode .modal-overlay .instrument-card h4[style*="color: #1f2937"] {
-    color: var(--text-primary) !important;
-}
-
-body.dark-mode .modal-overlay .instrument-card div[style*="color: #6b7280"] {
-    color: var(--text-secondary) !important;
-}
-
-/* Section headers with colored borders */
-body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #64748b"] {
-    color: #94a3b8 !important;
-}
-
-body.dark-mode .modal-overlay #instrumentListContent h3[style*="color: #7c3aed"] {
-    color: #a78bfa !important;
 }
 
 /* Virtual instrument creation dialog */

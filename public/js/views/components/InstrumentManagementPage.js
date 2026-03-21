@@ -45,8 +45,8 @@ class InstrumentManagementPage {
    */
   createModal() {
     const modalHTML = `
-      <div class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
-        <div class="modal-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
+      <div class="modal-overlay inst-mgmt-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-container inst-mgmt-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
 
           <!-- Header -->
           <div class="modal-header" style="padding: 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
@@ -77,9 +77,9 @@ class InstrumentManagementPage {
           </div>
 
           <!-- Toolbar connexions -->
-          <div style="padding: 10px 24px; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
+          <div class="inst-mgmt-toolbar" style="padding: 10px 24px; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <span style="font-size: 13px; color: #666; font-weight: 600;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
+              <span class="inst-mgmt-scan-label" style="font-size: 13px; color: #666; font-weight: 600;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
               <button class="btn" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 6px 14px; font-size: 13px;">
                 🔌 USB
               </button>
@@ -101,15 +101,15 @@ class InstrumentManagementPage {
           </div>
 
           <!-- Content -->
-          <div style="flex: 1; overflow-y: auto; padding: 24px;">
+          <div class="inst-mgmt-content" style="flex: 1; overflow-y: auto; padding: 24px;">
             <div id="instrumentListContent">
               <!-- Instruments will be rendered here -->
             </div>
           </div>
 
           <!-- Footer Stats -->
-          <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #666;">
+          <div class="inst-mgmt-footer" style="padding: 16px 24px; border-top: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
+            <div class="inst-mgmt-footer-inner" style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #666;">
               <span id="instrumentStats">${i18n.t('common.loading') || 'Chargement...'}</span>
               <button class="btn" onclick="instrumentManagementPageInstance.close()">
                 ${i18n.t('common.close') || 'Fermer'}
@@ -332,9 +332,9 @@ class InstrumentManagementPage {
 
     if (filtered.length === 0) {
       content.innerHTML = `
-        <div style="text-align: center; padding: 60px 20px; color: #999;">
+        <div class="inst-mgmt-empty" style="text-align: center; padding: 60px 20px; color: #999;">
           <div style="font-size: 64px; margin-bottom: 16px;">🎹</div>
-          <h3 style="margin: 0 0 8px 0; color: #666;">${i18n.t('instrumentManagement.noInstruments') || 'Aucun instrument trouvé'}</h3>
+          <h3 class="inst-mgmt-empty-title" style="margin: 0 0 8px 0; color: #666;">${i18n.t('instrumentManagement.noInstruments') || 'Aucun instrument trouvé'}</h3>
           <p style="margin: 0; font-size: 14px;">
             ${this.searchQuery || this.filterStatus !== 'all'
               ? (i18n.t('instrumentManagement.adjustFilter') || 'Essayez de modifier votre recherche ou filtre')
@@ -423,7 +423,7 @@ class InstrumentManagementPage {
     const connType = this.getConnectionTypeInfo(instrument);
 
     return `
-      <div class="instrument-card" style="
+      <div class="instrument-card inst-mgmt-card" style="
         background: white;
         border: 2px solid ${borderColor};
         border-radius: 12px;
@@ -437,13 +437,13 @@ class InstrumentManagementPage {
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
           <div style="flex: 1;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-              <h4 style="margin: 0; font-size: 18px; color: #1f2937;">${esc(displayName)}</h4>
+              <h4 class="inst-mgmt-card-title" style="margin: 0; font-size: 18px; color: #1f2937;">${esc(displayName)}</h4>
               ${isComplete
                 ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #10b981; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ ${i18n.t('instrumentManagement.complete') || 'COMPLET'}</span>`
                 : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #f59e0b; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠ ${i18n.t('instrumentManagement.incomplete') || 'INCOMPLET'}</span>`
               }
             </div>
-            ${instrument.name !== displayName ? `<div style="font-size: 13px; color: #6b7280;">${esc(instrument.name)}</div>` : ''}
+            ${instrument.name !== displayName ? `<div class="inst-mgmt-card-sub" style="font-size: 13px; color: #6b7280;">${esc(instrument.name)}</div>` : ''}
           </div>
           <div style="font-size: 24px;">
             ${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}
@@ -451,8 +451,8 @@ class InstrumentManagementPage {
         </div>
 
         <!-- Info -->
-        <div style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">
-          ${!isVirtual ? `<div>${connType.icon} <span style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:11px;font-weight:600;">${esc(connType.label)}</span></div>` : ''}
+        <div class="inst-mgmt-card-info" style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">
+          ${!isVirtual ? `<div>${connType.icon} <span class="inst-mgmt-conn-badge" style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:11px;font-weight:600;">${esc(connType.label)}</span></div>` : ''}
           ${instrument.manufacturer ? `<div>🏭 ${esc(instrument.manufacturer)}</div>` : ''}
           ${instrument.gm_program !== null && instrument.gm_program !== undefined
             ? `<div>🎵 ${i18n.t('instrumentManagement.gmProgram') || 'Programme GM'}: ${instrument.gm_program}</div>`
