@@ -112,11 +112,10 @@ class TablatureEditor {
         if (visible) {
             // Restore piano roll
             if (pianoRollWrapper) pianoRollWrapper.style.display = '';
-            if (hScrollControls) hScrollControls.style.display = '';
         } else {
             // Hide piano roll — tablature takes full space
+            // Keep horizontal scroll controls visible for tablature navigation
             if (pianoRollWrapper) pianoRollWrapper.style.display = 'none';
-            if (hScrollControls) hScrollControls.style.display = 'none';
         }
     }
 

@@ -5124,21 +5124,30 @@ class MidiEditorModal {
      * Défilement horizontal (0-100%)
      */
     scrollHorizontal(percentage) {
-        if (!this.pianoRoll) return;
-
         // Calculer l'offset en fonction de la plage totale du fichier MIDI
         const maxTick = this.midiData?.maxTick || 0;
-        const xrange = this.pianoRoll.xrange || parseInt(this.pianoRoll.getAttribute('xrange')) || 128;
 
-        // L'offset maximum = maxTick - xrange (pour permettre de voir la fin)
-        const maxOffset = Math.max(0, maxTick - xrange);
-        const newOffset = Math.round((percentage / 100) * maxOffset);
+        if (this.pianoRoll) {
+            const xrange = this.pianoRoll.xrange || parseInt(this.pianoRoll.getAttribute('xrange')) || 128;
+            const maxOffset = Math.max(0, maxTick - xrange);
+            const newOffset = Math.round((percentage / 100) * maxOffset);
 
-        this.pianoRoll.xoffset = newOffset;
-        this.pianoRoll.setAttribute('xoffset', newOffset.toString());
+            this.pianoRoll.xoffset = newOffset;
+            this.pianoRoll.setAttribute('xoffset', newOffset.toString());
 
-        if (typeof this.pianoRoll.redraw === 'function') {
-            this.pianoRoll.redraw();
+            if (typeof this.pianoRoll.redraw === 'function') {
+                this.pianoRoll.redraw();
+            }
+        }
+
+        // Synchroniser la tablature
+        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) {
+            const renderer = this.tablatureEditor.renderer;
+            const canvasWidth = this.tablatureEditor.tabCanvasEl?.width || 800;
+            const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
+            const maxOffset = Math.max(0, maxTick - visibleTicks);
+            const newOffset = Math.round((percentage / 100) * maxOffset);
+            renderer.setScrollX(newOffset);
         }
 
         // Synchroniser l'éditeur CC
