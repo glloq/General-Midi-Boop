@@ -1056,7 +1056,8 @@
     "modeChangeString": "Change string (click note, then Up/Down)",
     "tabButton": "TAB - {{instrument}}",
     "strings": "{{count}}str",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "capo": "capo"
   },
   "stringInstrument": {
     "title": "Stränginstrumentkonfiguration",
