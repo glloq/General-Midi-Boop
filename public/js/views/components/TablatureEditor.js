@@ -18,6 +18,7 @@ class TablatureEditor {
         this.stringInstrument = null;  // Current string instrument config from DB
         this.tabEvents = [];            // Current tablature data
         this.isSyncing = false;         // Guard against sync loops
+        this._autoSaveTimer = null;     // Debounce timer for auto-save
 
         // Sub-components
         this.renderer = null;           // TablatureRenderer instance
@@ -127,6 +128,7 @@ class TablatureEditor {
     }
 
     destroy() {
+        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
         document.removeEventListener('keydown', this._onKeyDown);
         this._detachCanvasEvents();
         if (this.renderer) {
@@ -331,6 +333,9 @@ class TablatureEditor {
                 this.renderer.setTabEvents(this.tabEvents);
             }
         }
+
+        // Auto-save converted tablature for backend playback
+        this._autoSave();
     }
 
     /**
@@ -385,6 +390,9 @@ class TablatureEditor {
                 // Update the modal's sequence for this channel
                 this._updateModalSequence(response.notes, response.cc_events);
             }
+
+            // Auto-save so backend playback uses the latest fingering
+            this._autoSave();
         } catch (error) {
             this.logger.error('Failed to sync tablature to MIDI:', error);
         } finally {
@@ -918,6 +926,21 @@ class TablatureEditor {
     // ========================================================================
     // SAVE / LOAD
     // ========================================================================
+
+    /**
+     * Debounced auto-save — persists tablature to DB so backend playback
+     * (MidiPlayer) always has up-to-date CC20/CC21 fingering data.
+     * @private
+     */
+    _autoSave() {
+        const fileId = this.modal?.currentFile;
+        if (!fileId || !this.stringInstrument) return;
+
+        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
+        this._autoSaveTimer = setTimeout(() => {
+            this.save(fileId);
+        }, 500);
+    }
 
     /**
      * Save current tablature to database

@@ -250,6 +250,15 @@ class MidiPlayer {
 
     for (const tab of tablatures) {
       if (!Array.isArray(tab.tablature_data) || tab.tablature_data.length === 0) continue;
+
+      // Skip if the instrument has CC generation disabled
+      if (tab.string_instrument_id) {
+        try {
+          const instrument = this.app.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
+          if (instrument && instrument.cc_enabled === false) continue;
+        } catch (e) { /* ignore lookup errors */ }
+      }
+
       const channel = tab.channel || 0;
       const events = [];
 
