@@ -2193,17 +2193,8 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
-            // Only show TAB button for string instruments (GM detection or DB config)
-            const isGmString = ch.channel !== 9 &&
-                typeof MidiEditorChannelPanel !== 'undefined' &&
-                MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
-            const hasStringConfig = this._stringInstrumentChannels && this._stringInstrumentChannels.has(ch.channel);
-            const isStringInstrument = isGmString || hasStringConfig;
-
-            const tabBtnHtml = isStringInstrument
-                ? `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
-                     title="TAB - ${ch.instrument}">TAB</button>`
-                : '';
+            // TAB buttons are added dynamically by _refreshStringInstrumentChannels()
+            // after DB and GM detection completes — no inline TAB buttons here
 
             buttons += `
                 <div class="channel-btn-group">
@@ -2216,7 +2207,6 @@ class MidiEditorModal {
                     >
                         <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
                     </button>
-                    ${tabBtnHtml}
                 </div>
             `;
         });
@@ -5390,7 +5380,12 @@ class MidiEditorModal {
         }
 
         try {
-            const resp = await this.api.sendCommand('string_instrument_list', {});
+            // Filter by effective device to avoid showing TAB for instruments
+            // configured on other devices
+            const deviceId = this.getEffectiveDeviceId();
+            const resp = await this.api.sendCommand('string_instrument_list', {
+                device_id: deviceId
+            });
             if (resp?.instruments) {
                 this._stringInstrumentChannels.clear();
                 this._stringInstrumentCCEnabled.clear();

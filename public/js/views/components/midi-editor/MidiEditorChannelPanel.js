@@ -163,10 +163,11 @@ class MidiEditorChannelPanel {
     // ========================================================================
 
     // GM program ranges for string instruments
+    // 24-31: Guitars, 32-37: Bass (acoustic/electric/slap), 40-43: Orchestral strings
+    // Excludes 38-39 (Synth Bass 1/2) — not physical string instruments
     static GM_STRING_INSTRUMENTS = {
         guitar: { start: 24, end: 31, preset: 'guitar_standard' },
-        bass:   { start: 32, end: 35, preset: 'bass_4_standard' },
-        bass6:  { start: 36, end: 39, preset: 'bass_4_standard' },
+        bass:   { start: 32, end: 37, preset: 'bass_4_standard' },
         violin: { start: 40, end: 40, preset: 'violin' },
         viola:  { start: 41, end: 41, preset: 'viola' },
         cello:  { start: 42, end: 42, preset: 'cello' },
