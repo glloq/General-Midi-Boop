@@ -150,7 +150,7 @@ class TablatureEditor {
             <div class="tablature-header">
                 <div class="tablature-title">
                     <span class="tablature-icon">TAB</span>
-                    <span class="tablature-instrument-name" id="tab-instrument-name"></span>
+                    <span class="tablature-instrument-badge" id="tab-instrument-badge"></span>
                     <span class="tablature-tuning" id="tab-tuning-display"></span>
                 </div>
                 <div class="tablature-toolbar">
@@ -195,18 +195,20 @@ class TablatureEditor {
     _updateLabels() {
         if (!this.stringInstrument || !this.containerEl) return;
 
-        const nameEl = this.containerEl.querySelector('#tab-instrument-name');
+        const badgeEl = this.containerEl.querySelector('#tab-instrument-badge');
         const tuningEl = this.containerEl.querySelector('#tab-tuning-display');
 
-        if (nameEl) {
-            nameEl.textContent = this.stringInstrument.instrument_name || 'Guitar';
+        if (badgeEl) {
+            const name = this.stringInstrument.instrument_name || 'Guitar';
+            const nStrings = this.stringInstrument.num_strings || 6;
+            badgeEl.textContent = `${name} ${nStrings}str`;
         }
         if (tuningEl && this.stringInstrument.tuning) {
             const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
             const tuningStr = this.stringInstrument.tuning
                 .map(n => noteNames[n % 12])
                 .join('-');
-            tuningEl.textContent = `(${tuningStr})`;
+            tuningEl.textContent = tuningStr;
         }
     }
 
