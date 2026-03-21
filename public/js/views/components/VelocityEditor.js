@@ -64,8 +64,8 @@ class VelocityEditor {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: #1a1a1a;
-            border-top: 1px solid #333;
+            background: ${document.body.classList.contains('theme-colored') ? '#f0f4ff' : '#1a1a1a'};
+            border-top: 1px solid ${document.body.classList.contains('theme-colored') ? '#d4daff' : '#333'};
             position: relative;
             overflow: hidden;
             min-height: 0;
@@ -665,18 +665,19 @@ class VelocityEditor {
             ctx.stroke();
 
             // Zone de label (fond)
-            ctx.fillStyle = '#1a1a1a';
+            const isColored = document.body.classList.contains('theme-colored');
+            ctx.fillStyle = isColored ? '#f0f4ff' : '#1a1a1a';
             ctx.fillRect(0, y - 7, labelMargin - 2, 14);
 
             // Label
-            ctx.fillStyle = '#aaa'; // IDENTIQUE À CC: Plus clair
+            ctx.fillStyle = isColored ? '#5a6089' : '#aaa';
             ctx.font = '11px monospace';
             ctx.textAlign = 'right';
             ctx.fillText(value.toString(), labelMargin - 5, y + 4);
         });
 
-        // Bordure verticale séparant la zone de labels - IDENTIQUE À CC
-        ctx.strokeStyle = '#555';
+        // Bordure verticale séparant la zone de labels
+        ctx.strokeStyle = isColored ? '#b0b8e8' : '#555';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(labelMargin, 0);
