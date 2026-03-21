@@ -748,5 +748,109 @@ body.theme-dark .bluetooth-scan-modal .empty-icon {
 }
 
 /* ============================================================================
+   THÈME COLORÉ
+   ============================================================================ */
+
+body.theme-colored .bluetooth-scan-modal .modal-dialog {
+    background: linear-gradient(135deg, #f3eeff, #eee8f8) !important;
+    box-shadow: 0 20px 60px rgba(118, 75, 162, 0.25);
+}
+
+body.theme-colored .bluetooth-scan-modal .modal-header {
+    background: linear-gradient(135deg, #764ba2 0%, #9b59b6 100%) !important;
+}
+
+body.theme-colored .bluetooth-scan-modal .modal-body {
+    background: transparent !important;
+}
+
+body.theme-colored .bluetooth-scan-modal .modal-footer {
+    background: rgba(118, 75, 162, 0.06);
+    border-top: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .bluetooth-scan-modal .scan-header h3 {
+    color: #4a2070;
+}
+
+body.theme-colored .bluetooth-scan-modal .paired-section h3 {
+    color: #4a2070;
+}
+
+body.theme-colored .bluetooth-scan-modal .bluetooth-device {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(118, 75, 162, 0.15);
+    backdrop-filter: blur(8px);
+}
+
+body.theme-colored .bluetooth-scan-modal .bluetooth-device:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: #764ba2;
+    box-shadow: 0 4px 16px rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .bluetooth-scan-modal .bluetooth-device.paired {
+    background: linear-gradient(135deg, rgba(118, 75, 162, 0.08), rgba(155, 89, 182, 0.06));
+    border-color: rgba(118, 75, 162, 0.3);
+}
+
+body.theme-colored .bluetooth-scan-modal .device-name {
+    color: #2d3561;
+}
+
+body.theme-colored .bluetooth-scan-modal .device-address {
+    color: #5a6089;
+}
+
+body.theme-colored .bluetooth-scan-modal .device-signal {
+    color: #764ba2;
+}
+
+body.theme-colored .bluetooth-scan-modal .info-section p {
+    color: #5a6089;
+}
+
+body.theme-colored .bluetooth-scan-modal .devices-empty p {
+    color: #4a2070;
+}
+
+body.theme-colored .bluetooth-scan-modal .devices-empty .text-muted {
+    color: #5a6089 !important;
+}
+
+body.theme-colored .bluetooth-scan-modal .devices-scanning p {
+    color: #4a2070;
+}
+
+body.theme-colored .bluetooth-scan-modal .devices-scanning .text-muted {
+    color: #5a6089 !important;
+}
+
+body.theme-colored .bluetooth-scan-modal .devices-empty,
+body.theme-colored .bluetooth-scan-modal .devices-scanning {
+    background: linear-gradient(135deg, rgba(118, 75, 162, 0.06), rgba(102, 126, 234, 0.04));
+}
+
+body.theme-colored .bluetooth-scan-modal .empty-icon {
+    opacity: 0.7;
+}
+
+body.theme-colored .confirm-modal .modal-dialog {
+    background: linear-gradient(135deg, #f3eeff, #eee8f8);
+}
+
+body.theme-colored .confirm-modal .modal-header {
+    border-bottom-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .confirm-modal .modal-header h2 {
+    color: #4a2070 !important;
+}
+
+body.theme-colored .confirm-modal .modal-body p {
+    color: #2d3561 !important;
+}
+
+/* ============================================================================
    FIN bluetooth-scan-modal.css
    ============================================================================ */
