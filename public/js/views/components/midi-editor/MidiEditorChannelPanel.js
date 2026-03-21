@@ -189,66 +189,32 @@ class MidiEditorChannelPanel {
     }
 
     /**
-     * Update tablature section visibility based on active channel.
-     * Shows the tablature toolbar section when a string instrument is detected or configured.
-     * Works with or without a connected device (uses '_editor' as fallback).
+     * Update per-channel TAB button active states and auto-suggest banner.
      */
     async updateTablatureButton() {
         const m = this.modal;
-        const section = m.container?.querySelector('#tablature-toolbar-section');
 
         // Update per-channel TAB button active states
         if (m._updateChannelTabButtons) {
             m._updateChannelTabButtons();
         }
 
-        if (!section) return;
-
-        const configBtn = section.querySelector('[data-action="configure-string-instrument"]');
-        const instrLabel = section.querySelector('#tab-instrument-label');
-
-        // Show tablature toolbar section (config + label only) when exactly 1 string channel is active
+        // Auto-suggest string instrument config for GM string instruments
         if (m.activeChannels.size === 1) {
             const activeChannel = Array.from(m.activeChannels)[0];
             const channelInfo = m.channels.find(ch => ch.channel === activeChannel);
             const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
 
-            try {
-                const existingConfig = m.findStringInstrument
-                    ? await m.findStringInstrument(activeChannel)
-                    : null;
-                const hasTab = !!existingConfig;
-
-                const showSection = hasTab || !!gmMatch;
-
-                if (showSection) {
-                    section.style.display = 'flex';
-
-                    if (gmMatch && configBtn) {
-                        configBtn.classList.add('gm-string-detected');
-                        configBtn.title = `${m.t('tablature.configureStringInstrument')} (${channelInfo.instrument})`;
-                    } else if (configBtn) {
-                        configBtn.classList.remove('gm-string-detected');
-                    }
-
-                    if (hasTab && instrLabel) {
-                        instrLabel.textContent = existingConfig.instrument_name || '';
-                        instrLabel.style.display = 'inline';
-                    } else if (instrLabel) {
-                        instrLabel.style.display = 'none';
-                    }
-
-                    if (gmMatch && !hasTab) {
+            if (gmMatch) {
+                try {
+                    const existingConfig = m.findStringInstrument
+                        ? await m.findStringInstrument(activeChannel)
+                        : null;
+                    if (!existingConfig) {
                         this._suggestStringInstrumentConfig(activeChannel, gmMatch, channelInfo);
                     }
-                } else {
-                    section.style.display = 'none';
-                }
-            } catch {
-                section.style.display = 'none';
+                } catch { /* ignore */ }
             }
-        } else {
-            section.style.display = 'none';
         }
     }
 
@@ -283,7 +249,6 @@ class MidiEditorChannelPanel {
                 m.log('info', `Auto-configured ${gmMatch.category} for channel ${channel + 1}`);
             } catch (error) {
                 m.log('error', 'Auto-config failed:', error);
-                m.showStringInstrumentConfig();
             }
         });
 

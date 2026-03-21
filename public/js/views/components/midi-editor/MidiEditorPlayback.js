@@ -84,21 +84,35 @@ class MidiEditorPlayback {
     // ========================================================================
 
     /**
-     * Synchroniser les canaux mutes avec le synthetiseur
+     * Synchroniser les canaux mutes avec le synthetiseur.
+     * When tablature is visible, only the tablature channel is audible.
      */
     syncMutedChannels() {
         const m = this.modal;
         if (!m.synthesizer) return;
 
         const mutedChannels = [];
+
+        // If tablature is open, solo the tablature channel
+        const tabSolo = m.tablatureEditor && m.tablatureEditor.isVisible;
+        const tabChannel = tabSolo ? m.tablatureEditor.channel : -1;
+
         m.channels.forEach(ch => {
-            if (!m.activeChannels.has(ch.channel)) {
-                mutedChannels.push(ch.channel);
+            if (tabSolo) {
+                // In tablature mode, mute everything except the tablature channel
+                if (ch.channel !== tabChannel) {
+                    mutedChannels.push(ch.channel);
+                }
+            } else {
+                // Normal mode: mute inactive channels
+                if (!m.activeChannels.has(ch.channel)) {
+                    mutedChannels.push(ch.channel);
+                }
             }
         });
 
         m.synthesizer.setMutedChannels(mutedChannels);
-        m.log('debug', `Muted channels: ${mutedChannels.map(c => c + 1).join(', ') || 'none'}`);
+        m.log('debug', `Muted channels: ${mutedChannels.map(c => c + 1).join(', ') || 'none'}${tabSolo ? ' (tablature solo)' : ''}`);
     }
 
     // ========================================================================

@@ -205,6 +205,9 @@ class MidiEditorModal {
             // Initialiser le piano roll
             await this.initPianoRoll();
 
+            // Scan for string instrument configs to reveal TAB buttons
+            this._refreshStringInstrumentChannels();
+
             this.isOpen = true;
 
             // Installer le gestionnaire beforeunload pour empêcher la fermeture avec des modifications non sauvegardées
@@ -2190,14 +2193,20 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
-            // Detect if this channel has a string instrument (GM-based)
-            const isStringInstrument = ch.channel !== 9 &&
+            // Detect if this channel has a GM string instrument
+            const isGmString = ch.channel !== 9 &&
                 typeof MidiEditorChannelPanel !== 'undefined' &&
                 MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
 
-            const tabBtnHtml = isStringInstrument
+            // Check if channel has a known string instrument config (cached)
+            const hasStringConfig = this._stringInstrumentChannels && this._stringInstrumentChannels.has(ch.channel);
+
+            // Show TAB button for GM string instruments or configured string instruments
+            const showTab = isGmString || hasStringConfig;
+
+            const tabBtnHtml = (ch.channel !== 9)
                 ? `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
-                     title="TAB - ${ch.instrument}">TAB</button>`
+                     title="TAB - ${ch.instrument}" style="${showTab ? '' : 'display:none'}">TAB</button>`
                 : '';
 
             buttons += `
@@ -2657,12 +2666,7 @@ class MidiEditorModal {
                             </select>
                         </div>
 
-                        <!-- Section Tablature (instruments à cordes) - config only, TAB access via channel buttons -->
-                        <div class="toolbar-section tablature-section" id="tablature-toolbar-section" style="display:none">
-                            <div class="toolbar-divider"></div>
-                            <button class="tab-toggle-btn" data-action="configure-string-instrument" title="${this.t('tablature.configureStringInstrument')}">&#9881;</button>
-                            <span class="tab-instrument-label" id="tab-instrument-label" style="display:none"></span>
-                        </div>
+                        <!-- Tablature access is via channel TAB sub-buttons -->
                     </div>
 
                     <!-- Toolbar des canaux -->
@@ -3424,6 +3428,9 @@ class MidiEditorModal {
 
             // Update TAB button active states
             this._updateChannelTabButtons();
+
+            // Async: reveal TAB buttons for channels with string instrument DB configs
+            this._refreshStringInstrumentChannels();
         }
     }
 
@@ -4471,9 +4478,7 @@ class MidiEditorModal {
                 case 'toggle-tablature':
                     this.toggleTablature();
                     break;
-                case 'configure-string-instrument':
-                    this.showStringInstrumentConfig();
-                    break;
+                // configure-string-instrument removed — config is in instrument settings
 
                 // Playback controls
                 case 'playback-play':
@@ -4508,6 +4513,19 @@ class MidiEditorModal {
                 const channel = parseInt(btn.dataset.channel);
                 if (!isNaN(channel)) {
                     this.toggleChannel(channel);
+                }
+            });
+        });
+
+        // Boutons TAB sous les canaux (instruments à cordes)
+        const tabButtons = this.container.querySelectorAll('.channel-tab-btn');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const channel = parseInt(btn.dataset.channel);
+                if (!isNaN(channel)) {
+                    this._openTablatureForChannel(channel);
                 }
             });
         });
@@ -5260,7 +5278,10 @@ class MidiEditorModal {
 
                 if (!stringInstrument) {
                     this.log('info', 'No string instrument configured for this channel');
-                    this.showStringInstrumentConfig();
+                    this.showNotification(
+                        this.t('tablature.noStringInstrument') || 'Configure this channel as a string instrument in the instrument settings first.',
+                        'info'
+                    );
                     return;
                 }
             }
@@ -5324,6 +5345,41 @@ class MidiEditorModal {
 
         // Now open tablature for the channel
         await this.toggleTablature();
+    }
+
+    /**
+     * Scan database for channels with string instrument configs and reveal their TAB buttons.
+     * Called after channel list changes or device selection changes.
+     */
+    async _refreshStringInstrumentChannels() {
+        if (!this._stringInstrumentChannels) {
+            this._stringInstrumentChannels = new Set();
+        }
+
+        try {
+            const resp = await this.api.sendCommand('string_instrument_list', {});
+            if (resp?.instruments) {
+                this._stringInstrumentChannels.clear();
+                for (const si of resp.instruments) {
+                    this._stringInstrumentChannels.add(si.channel);
+                }
+            }
+        } catch { /* ignore */ }
+
+        // Reveal/hide TAB buttons based on combined GM + DB detection
+        const tabBtns = this.container?.querySelectorAll('.channel-tab-btn');
+        if (!tabBtns) return;
+
+        tabBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            const channelInfo = this.channels?.find(c => c.channel === ch);
+            const isGmString = channelInfo &&
+                typeof MidiEditorChannelPanel !== 'undefined' &&
+                MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) !== null;
+            const hasConfig = this._stringInstrumentChannels.has(ch);
+
+            btn.style.display = (isGmString || hasConfig) ? '' : 'none';
+        });
     }
 
     /**
