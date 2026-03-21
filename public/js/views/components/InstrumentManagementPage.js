@@ -49,7 +49,7 @@ class InstrumentManagementPage {
         <div class="modal-container inst-mgmt-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
 
           <!-- Header -->
-          <div class="modal-header" style="padding: 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0;">
+          <div class="modal-header" style="padding: 16px 24px 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
               <h2 style="margin: 0; font-size: 22px; white-space: nowrap;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
               <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
@@ -70,10 +70,10 @@ class InstrumentManagementPage {
                   <option value="virtual" id="instrumentFilterVirtualOption" style="background: #2d2d2d; color: #e0e0e0; ${this._isVirtualEnabled() ? '' : 'display:none;'}">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
                 </select>
               </div>
-              <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                ×
-              </button>
             </div>
+            <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; z-index: 1;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                ×
+            </button>
           </div>
 
           <!-- Toolbar connexions -->
