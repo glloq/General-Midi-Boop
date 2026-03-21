@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Arraste e solte ou",
+    "dropFilesHere": "Arraste e solte ou",
     "clickToBrowse": "clique para adicionar arquivos MIDI",
     "noMidiFilesDropped": "Nenhum arquivo MIDI encontrado nos arquivos soltos."
   },

@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 ドラッグ＆ドロップまたは",
+    "dropFilesHere": "ドラッグ＆ドロップまたは",
     "clickToBrowse": "クリックしてMIDIファイルを追加",
     "noMidiFilesDropped": "ドロップされたファイルにMIDIファイルが見つかりませんでした。"
   },

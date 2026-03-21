@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Sleep en laat los of",
+    "dropFilesHere": "Sleep en laat los of",
     "clickToBrowse": "klik om MIDI-bestanden toe te voegen",
     "noMidiFilesDropped": "Geen MIDI-bestanden gevonden in de neergezette bestanden."
   },

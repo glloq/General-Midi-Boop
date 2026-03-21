@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Přetáhněte sem nebo",
+    "dropFilesHere": "Přetáhněte sem nebo",
     "clickToBrowse": "klikněte pro přidání MIDI souborů",
     "noMidiFilesDropped": "V přetažených souborech nebyly nalezeny žádné MIDI soubory."
   },

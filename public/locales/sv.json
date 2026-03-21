@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Dra och släpp eller",
+    "dropFilesHere": "Dra och släpp eller",
     "clickToBrowse": "klicka för att lägga till MIDI-filer",
     "noMidiFilesDropped": "Inga MIDI-filer hittades bland de släppta filerna."
   },

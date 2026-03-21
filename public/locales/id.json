@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Seret dan lepas atau",
+    "dropFilesHere": "Seret dan lepas atau",
     "clickToBrowse": "klik untuk menambahkan file MIDI",
     "noMidiFilesDropped": "Tidak ditemukan file MIDI dalam file yang dijatuhkan."
   },

@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Húzza ide vagy",
+    "dropFilesHere": "Húzza ide vagy",
     "clickToBrowse": "kattintson MIDI fájlok hozzáadásához",
     "noMidiFilesDropped": "Nem található MIDI fájl az eldobott fájlok között."
   },

@@ -4422,12 +4422,8 @@ class MidiEditorModal {
     attachEvents() {
         if (!this.container) return;
 
-        // Clic sur fond pour fermer
-        this.container.addEventListener('click', (e) => {
-            if (e.target === this.container) {
-                this.close();
-            }
-        });
+        // Pas de fermeture au clic sur le fond pour l'éditeur MIDI
+        // (évite les fermetures accidentelles pendant l'édition)
 
         // Boutons d'action
         this.container.addEventListener('click', (e) => {

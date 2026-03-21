@@ -416,7 +416,7 @@
     "filesSelectedCount": "{count} file(s) selected",
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
-    "dropFilesHere": "📥 Σύρετε και αποθέστε ή",
+    "dropFilesHere": "Σύρετε και αποθέστε ή",
     "clickToBrowse": "κάντε κλικ για προσθήκη αρχείων MIDI",
     "noMidiFilesDropped": "Δεν βρέθηκαν αρχεία MIDI στα αρχεία που αποθέσατε."
   },
