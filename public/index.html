@@ -416,23 +416,327 @@
             color: var(--text-primary);
         }
 
-        /* Thème Colored */
+        /* ===== Thème Colored - léger mais coloré ===== */
         body.theme-colored {
             background: #f0f4ff;
+        }
+
+        body.theme-colored .container {
+            color: var(--text-primary);
         }
 
         body.theme-colored header {
             background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(10px);
-            border-bottom: 2px solid transparent;
             border-image: linear-gradient(135deg, #667eea, #764ba2) 1;
+            border-image-slice: 1;
         }
 
+        body.theme-colored header,
         body.theme-colored .card {
             background: #ffffff;
             border: 1px solid #d4daff;
             box-shadow: 0 2px 12px rgba(102, 126, 234, 0.08);
         }
+
+        /* Boutons header */
+        body.theme-colored .btn-keyboard-toggle,
+        body.theme-colored .btn-settings-toggle,
+        body.theme-colored .btn-debug-toggle,
+        body.theme-colored .btn-instruments-toggle,
+        body.theme-colored .btn-calibration-toggle,
+        body.theme-colored .btn-lighting-toggle {
+            background: rgba(102, 126, 234, 0.08);
+            border-color: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        body.theme-colored .btn-keyboard-toggle:hover { background: #06d6a0; color: #fff; border-color: #06d6a0; }
+        body.theme-colored .btn-settings-toggle:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        body.theme-colored .btn-debug-toggle:hover { background: #764ba2; color: #fff; border-color: #764ba2; }
+        body.theme-colored .btn-instruments-toggle:hover { background: #118ab2; color: #fff; border-color: #118ab2; }
+        body.theme-colored .btn-calibration-toggle:hover { background: #ffd166; color: #2d3561; border-color: #ffd166; }
+        body.theme-colored .btn-lighting-toggle:hover { background: #ef476f; color: #fff; border-color: #ef476f; }
+
+        /* Inputs */
+        body.theme-colored input,
+        body.theme-colored select,
+        body.theme-colored textarea {
+            background: #ffffff;
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        body.theme-colored input:focus,
+        body.theme-colored select:focus,
+        body.theme-colored textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        /* Textes */
+        body.theme-colored h1,
+        body.theme-colored h2,
+        body.theme-colored h3 {
+            color: var(--text-primary);
+        }
+
+        body.theme-colored .subtitle,
+        body.theme-colored .info-text,
+        body.theme-colored .file-meta,
+        body.theme-colored .device-type {
+            color: var(--text-secondary);
+        }
+
+        body.theme-colored .file-name,
+        body.theme-colored .device-name {
+            color: var(--text-primary);
+        }
+
+        /* Boutons */
+        body.theme-colored .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: transparent;
+            color: white;
+        }
+
+        body.theme-colored .btn-primary:hover {
+            box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);
+        }
+
+        body.theme-colored .btn-secondary {
+            background: rgba(102, 126, 234, 0.08);
+            border-color: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        body.theme-colored .btn-secondary:hover {
+            background: rgba(102, 126, 234, 0.15);
+        }
+
+        body.theme-colored .btn-danger {
+            background: linear-gradient(135deg, #ef476f, #d63d5e);
+            border-color: transparent;
+            color: white;
+        }
+
+        /* Fichiers */
+        body.theme-colored .file-item {
+            border-bottom-color: var(--border-color);
+        }
+
+        body.theme-colored .file-item:hover {
+            background: rgba(102, 126, 234, 0.06);
+        }
+
+        body.theme-colored .file-item.selected {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 3px solid #667eea;
+        }
+
+        body.theme-colored .folder-item { border-bottom-color: var(--border-color); }
+        body.theme-colored .folder-item:hover { background: rgba(102, 126, 234, 0.06); }
+        body.theme-colored .folder-item.open { background: rgba(102, 126, 234, 0.04); }
+
+        body.theme-colored .device-item { border-bottom-color: var(--border-color); }
+        body.theme-colored .device-item:hover { background: rgba(102, 126, 234, 0.06); }
+
+        /* Modales */
+        body.theme-colored .modal-content {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+        }
+
+        body.theme-colored .modal-header {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+            border-bottom-color: var(--border-color);
+        }
+
+        body.theme-colored .modal-close { color: var(--text-secondary); }
+        body.theme-colored .modal-close:hover { color: var(--text-primary); }
+
+        body.theme-colored .form-group label { color: var(--text-primary); }
+        body.theme-colored .form-group .form-text { color: var(--text-muted); }
+
+        /* Settings modal */
+        body.theme-colored .settings-modal {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+        }
+
+        body.theme-colored .settings-section {
+            border-bottom-color: var(--border-color);
+        }
+
+        body.theme-colored .theme-btn {
+            background: rgba(102, 126, 234, 0.06);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.theme-colored .theme-btn:hover {
+            border-color: #667eea;
+        }
+
+        body.theme-colored .theme-btn.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.12);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        /* Search */
+        body.theme-colored .search-input {
+            background: #ffffff;
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.theme-colored .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        /* Sort */
+        body.theme-colored .sort-select,
+        body.theme-colored .sort-order-btn {
+            background: #ffffff;
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        /* Piano range */
+        body.theme-colored .piano-key-white {
+            background: #ffffff;
+            border-color: var(--border-color);
+        }
+
+        body.theme-colored .piano-key-white:hover:not(.disabled) {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        body.theme-colored .piano-key-white.selected {
+            background: #667eea;
+            color: white;
+        }
+
+        body.theme-colored .piano-key-black.selected {
+            background: #764ba2;
+        }
+
+        /* Filters panel */
+        body.theme-colored .filters-panel {
+            background: #ffffff;
+            border-color: var(--border-color);
+        }
+
+        body.theme-colored .filters-panel-header {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+            border-bottom-color: var(--border-color);
+        }
+
+        body.theme-colored .filter-input,
+        body.theme-colored .filter-select {
+            background: #ffffff;
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.theme-colored .preset-btn {
+            background: rgba(102, 126, 234, 0.06);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        body.theme-colored .preset-btn:hover {
+            background: rgba(102, 126, 234, 0.12);
+            border-color: #667eea;
+        }
+
+        /* Upload */
+        body.theme-colored .drop-zone-root {
+            border-color: rgba(102, 126, 234, 0.3);
+            background: rgba(102, 126, 234, 0.04);
+            color: var(--text-secondary);
+        }
+
+        body.theme-colored .drop-zone-root:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.08);
+        }
+
+        /* Calibration */
+        body.theme-colored .calibration-modal { background: #ffffff; color: var(--text-primary); }
+        body.theme-colored .calibration-section { background: rgba(102, 126, 234, 0.03); border-color: var(--border-color); }
+        body.theme-colored .calibration-select,
+        body.theme-colored .calibration-input { background: #ffffff; border-color: var(--border-color); color: var(--text-primary); }
+
+        /* Routing modal */
+        body.theme-colored .routing-modal-container { background: #ffffff; color: var(--text-primary); }
+        body.theme-colored .routing-channel-row { border-bottom-color: var(--border-color); }
+        body.theme-colored .routing-modal-container select { background: #ffffff; border-color: var(--border-color); color: var(--text-primary); }
+
+        /* Confirm modal */
+        body.theme-colored .confirm-modal { background: #ffffff; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2); }
+
+        /* Folder modal */
+        body.theme-colored .folder-modal { background: #ffffff; color: var(--text-primary); }
+        body.theme-colored .folder-modal-input { background: #ffffff; border-color: var(--border-color); color: var(--text-primary); }
+        body.theme-colored .folder-modal-input:focus { border-color: #667eea; }
+
+        /* Upload drop zone */
+        body.theme-colored .upload-drop-zone { background: rgba(102, 126, 234, 0.04); border-color: rgba(102, 126, 234, 0.3); }
+        body.theme-colored .upload-drop-zone:hover { background: rgba(102, 126, 234, 0.08); border-color: #667eea; }
+
+        /* Display modes */
+        body.theme-colored .display-mode-btn { background: rgba(102, 126, 234, 0.06); border-color: var(--border-color); }
+        body.theme-colored .display-mode-btn:hover { background: rgba(102, 126, 234, 0.12); }
+        body.theme-colored .display-mode-btn.active { background: #667eea; color: white; border-color: #667eea; }
+
+        /* File grid view */
+        body.theme-colored .file-list.view-grid .file-item { background: #ffffff; border-color: var(--border-color); }
+        body.theme-colored .file-list.view-grid .file-item:hover { border-color: rgba(102, 126, 234, 0.3); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1); }
+        body.theme-colored .file-list.view-grid .file-item.selected { border-color: #667eea; background: rgba(102, 126, 234, 0.06); }
+
+        /* Compact view */
+        body.theme-colored .file-list.view-compact .file-item { border-bottom-color: var(--border-color); }
+        body.theme-colored .file-list.view-compact .file-item:hover { background: rgba(102, 126, 234, 0.04); }
+        body.theme-colored .file-list.view-compact .file-item.selected { background: rgba(102, 126, 234, 0.08); }
+
+        /* Header info */
+        body.theme-colored .header-file-name { color: var(--text-primary); }
+        body.theme-colored .header-time { color: var(--text-secondary); }
+
+        /* Identity */
+        body.theme-colored .identity-section { background: rgba(102, 126, 234, 0.03); border-color: var(--border-color); }
+        body.theme-colored .info-label { color: var(--text-secondary); }
+        body.theme-colored .info-value { color: var(--text-primary); }
+
+        /* Capabilities */
+        body.theme-colored .capabilities-section { background: rgba(102, 126, 234, 0.03); border-color: var(--border-color); }
+
+        /* Log console */
+        body.theme-colored .log-console { background: #f0f4ff; border-color: var(--border-color); color: var(--text-primary); }
+
+        /* Batch actions */
+        body.theme-colored .batch-actions-bar { background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.06)); border-color: var(--border-color); }
+
+        /* Upload progress */
+        body.theme-colored .upload-progress-modal { background: #ffffff; border-color: var(--border-color); }
+        body.theme-colored .upload-file-item { border-bottom-color: var(--border-color); }
+        body.theme-colored .upload-file-item.success { background: rgba(6, 214, 160, 0.06); }
+        body.theme-colored .upload-file-item.error { background: rgba(239, 71, 111, 0.06); }
+
+        /* File metadata */
+        body.theme-colored .file-metadata { background: rgba(102, 126, 234, 0.03); border-color: var(--border-color); }
+
+        /* Folder open */
+        body.theme-colored .folder-open-wrapper { background: rgba(102, 126, 234, 0.02); }
+        body.theme-colored .folder-open-header { background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04)); border-bottom-color: var(--border-color); }
+
+        /* Piano nav */
+        body.theme-colored .piano-nav-btn { background: rgba(102, 126, 234, 0.06); border-color: var(--border-color); color: var(--text-primary); }
+        body.theme-colored .piano-nav-btn:hover:not(:disabled) { background: rgba(102, 126, 234, 0.12); border-color: #667eea; }
 
         .container {
             max-width: 1400px;
@@ -3834,17 +4138,11 @@
         }
     </style>
 
-    <!-- Fichier CSS externe pour les composants (Modal MIDI Editor, etc.) -->
+    <!-- CSS externe: variables (thèmes) + themes (overrides dark/colored) + composants modaux -->
     <link rel="stylesheet" href="styles/variables.css">
     <link rel="stylesheet" href="styles/themes.css">
-    <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/components.css">
-    <link rel="stylesheet" href="styles/home.css">
-    <link rel="stylesheet" href="styles/pages.css">
     <link rel="stylesheet" href="styles/editor.css">
-    <link rel="stylesheet" href="styles/editor-phase2.css">
-    <link rel="stylesheet" href="styles/editor-phase3.css">
-    <link rel="stylesheet" href="styles/editor-notifications.css">
     <link rel="stylesheet" href="styles/bluetooth-scan-modal.css">
     <link rel="stylesheet" href="styles/network-scan-modal.css">
     <link rel="stylesheet" href="styles/keyboard.css">
@@ -3854,16 +4152,7 @@
     <link rel="stylesheet" href="styles/piano-roll-view.css">
     <link rel="stylesheet" href="styles/auto-assign-modal.css">
     <link rel="stylesheet" href="styles/instrument-capabilities-modal.css">
-    <link rel="stylesheet" href="styles/instruments.css">
     <link rel="stylesheet" href="styles/tablature.css">
-    <link rel="stylesheet" href="styles/routing.css">
-    <link rel="stylesheet" href="styles/routing-matrix-editor.css">
-    <link rel="stylesheet" href="styles/midi.css">
-    <link rel="stylesheet" href="styles/playlist.css">
-    <link rel="stylesheet" href="styles/modal-playlist.css">
-    <link rel="stylesheet" href="styles/visualizer.css">
-    <link rel="stylesheet" href="styles/fileview-extended.css">
-    <link rel="stylesheet" href="styles/api-pages.css">
 </head>
 <body>
     <!-- Skip Navigation Link (Accessibility) -->
