@@ -177,6 +177,7 @@ class MidiEditorChannelPanel {
         string_ensemble:   { start: 48, end: 49, preset: 'violin' },
         sitar:  { start: 104, end: 104, preset: 'guitar_standard' },
         banjo:  { start: 105, end: 105, preset: 'banjo_standard' },
+        fiddle: { start: 110, end: 110, preset: 'violin' },
     };
 
     /**
