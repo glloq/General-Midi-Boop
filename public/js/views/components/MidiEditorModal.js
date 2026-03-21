@@ -2193,20 +2193,16 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
-            // Detect if this channel has a GM string instrument
+            // Only show TAB button for string instruments (GM detection or DB config)
             const isGmString = ch.channel !== 9 &&
                 typeof MidiEditorChannelPanel !== 'undefined' &&
                 MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
-
-            // Check if channel has a known string instrument config (cached)
             const hasStringConfig = this._stringInstrumentChannels && this._stringInstrumentChannels.has(ch.channel);
+            const isStringInstrument = isGmString || hasStringConfig;
 
-            // Show TAB button for GM string instruments or configured string instruments
-            const showTab = isGmString || hasStringConfig;
-
-            const tabBtnHtml = (ch.channel !== 9)
+            const tabBtnHtml = isStringInstrument
                 ? `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
-                     title="TAB - ${ch.instrument}" style="${showTab ? '' : 'display:none'}">TAB</button>`
+                     title="TAB - ${ch.instrument}">TAB</button>`
                 : '';
 
             buttons += `
@@ -5312,14 +5308,10 @@ class MidiEditorModal {
     }
 
     /**
-     * Update the TAB button active state in toolbar and channel buttons
+     * Update the TAB button active state on channel buttons
      * @param {boolean} active
      */
     _updateTabButtonState(active) {
-        const tabBtn = this.container?.querySelector('[data-action="toggle-tablature"]');
-        if (tabBtn) {
-            tabBtn.classList.toggle('active', active);
-        }
         this._updateChannelTabButtons();
     }
 
@@ -5375,19 +5367,44 @@ class MidiEditorModal {
             }
         } catch { /* ignore */ }
 
-        // Reveal/hide TAB buttons based on combined GM + DB detection
-        const tabBtns = this.container?.querySelectorAll('.channel-tab-btn');
-        if (!tabBtns) return;
+        // Add/remove TAB buttons per channel based on string instrument detection
+        const btnGroups = this.container?.querySelectorAll('.channel-btn-group');
+        if (!btnGroups) return;
 
-        tabBtns.forEach(btn => {
-            const ch = parseInt(btn.dataset.channel);
+        btnGroups.forEach(group => {
+            const channelBtn = group.querySelector('.channel-btn');
+            if (!channelBtn) return;
+            const ch = parseInt(channelBtn.dataset.channel);
+            if (isNaN(ch) || ch === 9) return;
+
             const channelInfo = this.channels?.find(c => c.channel === ch);
             const isGmString = channelInfo &&
                 typeof MidiEditorChannelPanel !== 'undefined' &&
                 MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) !== null;
             const hasConfig = this._stringInstrumentChannels.has(ch);
+            const isStringInstrument = isGmString || hasConfig;
 
-            btn.style.display = (isGmString || hasConfig) ? '' : 'none';
+            const existingTabBtn = group.querySelector('.channel-tab-btn');
+
+            if (isStringInstrument && !existingTabBtn) {
+                // Add TAB button for newly detected string instrument
+                const color = channelBtn.dataset.color || '#667eea';
+                const btn = document.createElement('button');
+                btn.className = 'channel-tab-btn';
+                btn.dataset.channel = ch;
+                btn.dataset.color = color;
+                btn.title = `TAB - ${channelInfo?.instrument || 'String'}`;
+                btn.textContent = 'TAB';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this._openTablatureForChannel(ch);
+                });
+                group.appendChild(btn);
+            } else if (!isStringInstrument && existingTabBtn) {
+                // Remove TAB button for non-string instrument
+                existingTabBtn.remove();
+            }
         });
     }
 
