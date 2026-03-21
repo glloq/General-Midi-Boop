@@ -304,6 +304,8 @@
 .channel-drum-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    align-self: center;
     gap: 4px;
     padding: 4px 10px;
     font-size: 11px;
