@@ -176,6 +176,9 @@ class MidiEditorPlayback {
         }
 
         if (!m.isPlaying && !m.isPaused) {
+            // Auto-activate tablature if a string instrument is configured for the active channel
+            await this._autoActivateTablature();
+
             this.loadSequenceForPlayback();
 
             if (m.pianoRoll && m.pianoRoll.cursor > 0) {
@@ -195,6 +198,33 @@ class MidiEditorPlayback {
         this.updatePlaybackButtons();
 
         m.log('info', 'Playback started');
+    }
+
+    /**
+     * Auto-activate tablature if a string instrument is configured for the active channel
+     * and tablature is not already visible.
+     */
+    async _autoActivateTablature() {
+        const m = this.modal;
+
+        // Skip if tablature is already visible
+        if (m.tablatureEditor && m.tablatureEditor.isVisible) return;
+
+        // Only auto-activate for a single active channel
+        if (m.activeChannels.size !== 1) return;
+
+        const activeChannel = Array.from(m.activeChannels)[0];
+
+        // Check if a string instrument is configured for this channel
+        try {
+            const stringInstrument = await m.findStringInstrument(activeChannel);
+            if (stringInstrument) {
+                m.log('info', `Auto-activating tablature for channel ${activeChannel + 1}`);
+                await m.toggleTablature();
+            }
+        } catch {
+            // Ignore errors — tablature auto-activation is best-effort
+        }
     }
 
     /**
@@ -228,6 +258,14 @@ class MidiEditorPlayback {
 
         if (m.pianoRoll) {
             m.pianoRoll.cursor = m.playbackStartTick;
+        }
+
+        // Reset tablature playhead and clear fretboard positions
+        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
+            m.tablatureEditor.updatePlayhead(m.playbackStartTick || 0);
+            if (m.tablatureEditor.fretboard) {
+                m.tablatureEditor.fretboard.clearActivePositions();
+            }
         }
 
         this.updatePlaybackButtons();
@@ -300,6 +338,14 @@ class MidiEditorPlayback {
 
         if (m.pianoRoll) {
             m.pianoRoll.cursor = m.playbackStartTick;
+        }
+
+        // Reset tablature playhead and clear fretboard positions
+        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
+            m.tablatureEditor.updatePlayhead(m.playbackStartTick || 0);
+            if (m.tablatureEditor.fretboard) {
+                m.tablatureEditor.fretboard.clearActivePositions();
+            }
         }
 
         this.updatePlaybackButtons();

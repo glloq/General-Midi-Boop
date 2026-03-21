@@ -206,7 +206,7 @@ class MidiEditorModal {
             await this.initPianoRoll();
 
             // Scan for string instrument configs to reveal TAB buttons
-            this._refreshStringInstrumentChannels();
+            await this._refreshStringInstrumentChannels();
 
             this.isOpen = true;
 

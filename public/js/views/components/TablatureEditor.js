@@ -69,10 +69,8 @@ class TablatureEditor {
         // Split view: piano roll + tablature
         this._setPianoRollVisible(false);
 
-        // Initialize renderer
+        // Initialize renderer and fretboard
         this._initRenderer();
-
-        // Initialize fretboard diagram
         this._initFretboard();
 
         // Convert MIDI notes to tablature
@@ -83,7 +81,12 @@ class TablatureEditor {
         this._attachCanvasEvents();
 
         // Resize canvases after layout settles (split view needs recalculation)
-        requestAnimationFrame(() => this.handleResize());
+        // Use double-rAF to ensure the browser has completed layout first
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this.handleResize();
+            });
+        });
     }
 
     hide() {
@@ -715,8 +718,10 @@ class TablatureEditor {
         if (this.tabCanvasEl) {
             const wrapper = this.tabCanvasEl.parentElement;
             if (wrapper) {
-                this.tabCanvasEl.width = wrapper.clientWidth;
-                this.tabCanvasEl.height = wrapper.clientHeight || (this.stringInstrument?.num_strings || 6) * 20 + 30;
+                const w = wrapper.clientWidth || 800;
+                const h = wrapper.clientHeight || (this.stringInstrument?.num_strings || 6) * 20 + 40;
+                this.tabCanvasEl.width = w;
+                this.tabCanvasEl.height = h;
             }
             if (this.renderer) this.renderer.redraw();
         }
@@ -724,8 +729,10 @@ class TablatureEditor {
         if (this.fretboardCanvasEl) {
             const wrapper = this.fretboardCanvasEl.parentElement;
             if (wrapper) {
-                this.fretboardCanvasEl.width = wrapper.clientWidth;
-                this.fretboardCanvasEl.height = wrapper.clientHeight;
+                const w = wrapper.clientWidth || 180;
+                const h = wrapper.clientHeight || 200;
+                this.fretboardCanvasEl.width = w;
+                this.fretboardCanvasEl.height = h;
             }
             if (this.fretboard) this.fretboard.redraw();
         }
