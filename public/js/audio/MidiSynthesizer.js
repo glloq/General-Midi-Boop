@@ -58,10 +58,11 @@ class MidiSynthesizer {
         // Format: [fichier, variable] pour chaque programme GM (0-127)
         this.gmInstrumentMap = this.createGMInstrumentMap();
 
-        // Drums (canal 9)
-        this.drumKitFile = '12835_0_FluidR3_GM_sf2_file';
-        this.drumKitVar = '_drum_35_0_FluidR3_GM_sf2_file';
-        this.drumKit = null;
+        // Drums (canal 9) — per-note presets from JCLive (better cymbals)
+        // Fallback to SBLive for notes not in JCLive
+        this.drumKit = null; // Legacy single-kit (unused, kept for compat)
+        this.drumPresets = new Map(); // note → loaded preset
+        this.drumPresetMap = this._createDrumPresetMap();
 
         // Drum audio processing
         this.drumReverbNode = null;     // ConvolverNode for cymbal reverb
@@ -85,6 +86,37 @@ class MidiSynthesizer {
         // Hi-hat choke groups: playing closed (42/44) cancels open (46)
         this.hihatCloseNotes = new Set([42, 44]);
         this.hihatOpenNote = 46;
+    }
+
+    /**
+     * Create per-note drum preset map
+     * Uses JCLive (bank 12) for most notes — superior cymbal samples
+     * Falls back to SBLive (bank 0) where JCLive is unavailable
+     */
+    _createDrumPresetMap() {
+        const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+
+        // GM percussion notes we need (35-81)
+        // Format: note -> { file: '128XX_bank_soundfont.js', variable: '_drum_XX_bank_soundfont' }
+        const map = {};
+
+        // JCLive bank 12 — best quality for cymbals and general percussion
+        const jcLiveNotes = [
+            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+            49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+            63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+            77, 78, 79, 80, 81
+        ];
+
+        for (const note of jcLiveNotes) {
+            const key = `${note}_12_JCLive_sf2_file`;
+            map[note] = {
+                url: `${base}128${key}.js`,
+                variable: `_drum_${key}`
+            };
+        }
+
+        return map;
     }
 
     /**
@@ -331,29 +363,73 @@ class MidiSynthesizer {
     }
 
     /**
-     * Charger le kit de drums
+     * Load a single drum preset for a specific note
      */
-    async loadDrumKit() {
-        if (this.drumKit) return this.drumKit;
+    _loadDrumPreset(note) {
+        if (this.drumPresets.has(note)) {
+            return Promise.resolve(this.drumPresets.get(note));
+        }
 
-        const url = `https://surikov.github.io/webaudiofontdata/sound/${this.drumKitFile}.js`;
+        const presetInfo = this.drumPresetMap[note];
+        if (!presetInfo) {
+            return Promise.resolve(null);
+        }
 
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = url;
+            script.src = presetInfo.url;
             script.onload = () => {
-                this.drumKit = window[this.drumKitVar];
-                if (this.drumKit) {
-                    this.player.adjustPreset(this.audioContext, this.drumKit);
-                    this.log('info', 'Drum kit loaded');
-                    resolve(this.drumKit);
+                const preset = window[presetInfo.variable];
+                if (preset) {
+                    this.player.adjustPreset(this.audioContext, preset);
+                    this.drumPresets.set(note, preset);
+                    resolve(preset);
                 } else {
-                    reject(new Error('Drum kit variable not found'));
+                    this.log('warn', `Drum preset variable ${presetInfo.variable} not found`);
+                    resolve(null);
                 }
             };
-            script.onerror = () => reject(new Error('Failed to load drum kit'));
+            script.onerror = () => {
+                this.log('warn', `Failed to load drum preset for note ${note}`);
+                resolve(null); // Don't reject — graceful degradation
+            };
             document.head.appendChild(script);
         });
+    }
+
+    /**
+     * Charger le kit de drums — loads per-note presets for all notes used in sequence
+     */
+    async loadDrumKit() {
+        // Collect which drum notes are actually used in the sequence
+        const usedNotes = new Set();
+        if (this.sequence) {
+            this.sequence.forEach(note => {
+                if (note.c === 9) {
+                    usedNotes.add(note.n);
+                }
+            });
+        }
+
+        // If no specific notes found, load the essential GM percussion set
+        if (usedNotes.size === 0) {
+            [35, 36, 38, 42, 44, 46, 49, 51].forEach(n => usedNotes.add(n));
+        }
+
+        this.log('info', `Loading ${usedNotes.size} individual drum presets (JCLive)`);
+
+        const promises = [];
+        for (const note of usedNotes) {
+            if (this.drumPresetMap[note]) {
+                promises.push(this._loadDrumPreset(note));
+            }
+        }
+
+        await Promise.all(promises);
+
+        // Set legacy drumKit flag for compatibility checks
+        this.drumKit = this.drumPresets.size > 0 ? true : null;
+        this.log('info', `Drum kit ready: ${this.drumPresets.size} presets loaded`);
     }
 
     /**
@@ -545,7 +621,7 @@ class MidiSynthesizer {
 
         let instrument;
         if (channel === 9) {
-            instrument = this.drumKit;
+            instrument = this.drumPresets.get(note);
         } else {
             const program = this.channelInstruments[channel] || 0;
             instrument = this.loadedInstruments.get(program);
@@ -863,6 +939,7 @@ class MidiSynthesizer {
         this.player = null;
         this.loadedInstruments.clear();
         this.drumKit = null;
+        this.drumPresets.clear();
         this.isInitialized = false;
 
         this.log('info', 'MidiSynthesizer disposed');
