@@ -392,7 +392,7 @@ class TablatureRenderer {
             const y = this._stringToY(displayIndex);
             const isSelected = this.selectedEvents.has(i);
             const isHovered = this._hoverEvent === i && !isSelected;
-            const isUnplayable = !this.isFretless && event.fret > this.numFrets;
+            const isUnplayable = !this.isFretless && (event.fret < 0 || event.fret > this.numFrets);
             const fretText = event.fret.toString();
 
             // Measure text width for background

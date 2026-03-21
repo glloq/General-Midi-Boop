@@ -27,6 +27,12 @@ class StringInstrumentDatabase {
     'guitar_half_down':   { name: 'Guitar Half Step Down',         strings: 6, frets: 24, tuning: [39, 44, 49, 54, 58, 63] },
     'guitar_full_down':   { name: 'Guitar Full Step Down',         strings: 6, frets: 24, tuning: [38, 43, 48, 53, 57, 62] },
 
+    // Guitar 7-string
+    'guitar_7_standard':  { name: 'Guitar 7-String Standard (BEADGBE)', strings: 7, frets: 24, tuning: [35, 40, 45, 50, 55, 59, 64] },
+
+    // Guitar 12-string (same tuning as standard, doubled strings)
+    'guitar_12_standard': { name: 'Guitar 12-String Standard (EADGBE)', strings: 6, frets: 24, tuning: [40, 45, 50, 55, 59, 64] },
+
     // Bass (4 strings)
     'bass_4_standard':    { name: 'Bass 4-String Standard (EADG)', strings: 4, frets: 24, tuning: [28, 33, 38, 43] },
     'bass_4_drop_d':      { name: 'Bass 4-String Drop D (DADG)',   strings: 4, frets: 24, tuning: [26, 33, 38, 43] },
@@ -39,6 +45,7 @@ class StringInstrumentDatabase {
 
     // Ukulele (4 strings)
     'ukulele_standard':   { name: 'Ukulele Standard (GCEA)',       strings: 4, frets: 18, tuning: [67, 60, 64, 69] },
+    'ukulele_low_g':      { name: 'Ukulele Low G (GCEA)',           strings: 4, frets: 18, tuning: [55, 60, 64, 69] },
     'ukulele_baritone':   { name: 'Ukulele Baritone (DGBE)',       strings: 4, frets: 18, tuning: [50, 55, 59, 64] },
 
     // Banjo (5 strings)
@@ -49,6 +56,9 @@ class StringInstrumentDatabase {
     'viola':              { name: 'Viola (CGDA)',                   strings: 4, frets: 0, tuning: [48, 55, 62, 69], fretless: true },
     'cello':              { name: 'Cello (CGDA)',                   strings: 4, frets: 0, tuning: [36, 43, 50, 57], fretless: true },
     'contrabass':         { name: 'Contrabass (EADG)',              strings: 4, frets: 0, tuning: [28, 33, 38, 43], fretless: true },
+
+    // Mandolin (4 doubled strings, same tuning as violin)
+    'mandolin':           { name: 'Mandolin (GDAE)',               strings: 4, frets: 20, tuning: [55, 62, 69, 76] },
   };
 
   // ==================== STRING INSTRUMENTS CRUD ====================

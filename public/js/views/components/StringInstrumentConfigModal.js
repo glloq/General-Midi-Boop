@@ -303,7 +303,7 @@ class StringInstrumentConfigModal extends BaseModal {
             this._refreshBody();
         });
 
-        // Delegate tuning MIDI input changes
+        // Delegate tuning MIDI input changes and algorithm select
         this.dialog.addEventListener('change', (e) => {
             if (e.target.matches('.si-tuning-input')) {
                 const idx = parseInt(e.target.dataset.string);
@@ -312,6 +312,8 @@ class StringInstrumentConfigModal extends BaseModal {
                     this.config.tuning[idx] = val;
                     this._refreshStringRow(idx);
                 }
+            } else if (e.target.id === 'si-algorithm') {
+                this.config.tab_algorithm = e.target.value;
             }
         });
 
@@ -324,8 +326,6 @@ class StringInstrumentConfigModal extends BaseModal {
             } else if (e.target.id === 'si-capo') {
                 const v = parseInt(e.target.value);
                 if (!isNaN(v) && v >= 0 && v <= 36) this.config.capo_fret = v;
-            } else if (e.target.id === 'si-algorithm') {
-                this.config.tab_algorithm = e.target.value;
             }
         });
 

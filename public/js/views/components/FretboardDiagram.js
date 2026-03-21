@@ -15,6 +15,7 @@ class FretboardDiagram {
         this.tuning = options.tuning || [40, 45, 50, 55, 59, 64];
         this.numFrets = options.numFrets || 24;
         this.isFretless = options.isFretless || false;
+        this.capoFret = options.capoFret || 0;
         this.visibleFrets = Math.min(options.visibleFrets || 12, this.numFrets || 12);
 
         // Layout
@@ -260,7 +261,7 @@ class FretboardDiagram {
 
         for (let s = 1; s <= this.numStrings; s++) {
             const x = this._getStringX(s);
-            const midiNote = this.tuning[s - 1];
+            const midiNote = this.tuning[s - 1] + this.capoFret;
             const name = noteNames[midiNote % 12];
 
             if (activeStringSet.has(s)) {

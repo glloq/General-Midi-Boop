@@ -234,7 +234,7 @@ class TablatureEditor {
             const tuningStr = this.stringInstrument.tuning
                 .map(n => noteNames[(n + capo) % 12])
                 .join('-');
-            tuningEl.textContent = tuningStr + (capo > 0 ? ` (capo ${capo})` : '');
+            tuningEl.textContent = tuningStr + (capo > 0 ? ` (${this.t('tablature.capo')} ${capo})` : '');
         }
 
         // Set algorithm selector
@@ -296,7 +296,8 @@ class TablatureEditor {
             numStrings: this.stringInstrument.num_strings,
             tuning: this.stringInstrument.tuning,
             numFrets: this.stringInstrument.num_frets,
-            isFretless: this.stringInstrument.is_fretless
+            isFretless: this.stringInstrument.is_fretless,
+            capoFret: this.stringInstrument.capo_fret || 0
         });
     }
 

@@ -1064,7 +1064,8 @@
     "modeChangeString": "Changer de corde (cliquer note, puis Haut/Bas)",
     "tabButton": "TAB - {{instrument}}",
     "strings": "{{count}} cordes",
-    "saveFailed": "Échec de la sauvegarde"
+    "saveFailed": "Échec de la sauvegarde",
+    "capo": "capo"
   },
   "stringInstrument": {
     "title": "Configuration de l'instrument à cordes",

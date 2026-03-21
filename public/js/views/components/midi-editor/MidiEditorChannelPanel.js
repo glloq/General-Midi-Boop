@@ -172,6 +172,7 @@ class MidiEditorChannelPanel {
         viola:  { start: 41, end: 41, preset: 'viola' },
         cello:  { start: 42, end: 42, preset: 'cello' },
         contrabass: { start: 43, end: 43, preset: 'contrabass' },
+        sitar:  { start: 104, end: 104, preset: 'guitar_standard' },
         banjo:  { start: 105, end: 105, preset: 'banjo_standard' },
     };
 

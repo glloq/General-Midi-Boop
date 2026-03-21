@@ -484,9 +484,9 @@ class TablatureConverter {
       notes.push({
         t: event.tick,
         n: midiNote,
-        v: event.velocity || 100,
+        v: event.velocity !== undefined ? event.velocity : 100,
         g: event.duration || 480,
-        c: event.channel || 0
+        c: event.channel !== undefined ? event.channel : 0
       });
     }
 
