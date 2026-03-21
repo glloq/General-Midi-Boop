@@ -1045,7 +1045,18 @@
     "configureStringInstrument": "Configure string instrument",
     "gmDetected": "{{instrument}} detected — configure as string instrument?",
     "autoConfig": "Auto-configure",
-    "tabOnlyMode": "Toggle tablature-only view"
+    "tabOnlyMode": "Toggle tablature-only view",
+    "algorithm": "Conversion algorithm",
+    "algoMinMovement": "Min movement",
+    "algoLowestFret": "Lowest fret",
+    "algoHighestFret": "Highest fret",
+    "algoZone": "Zone",
+    "modeSelect": "Select / Move",
+    "modePan": "Pan view",
+    "modeChangeString": "Change string (click note, then Up/Down)",
+    "tabButton": "TAB - {{instrument}}",
+    "strings": "{{count}}str",
+    "saveFailed": "Save failed"
   },
   "stringInstrument": {
     "title": "Kielisoittimen asetukset",
@@ -1080,6 +1091,8 @@
       "ukulele_baritone": "Ukulele Baritone (DGBE)"
     },
     "configCreated": "Kielisoittimen asetukset luotu oletusesivalinnalla.",
-    "configExists": "Kielisoittimen asetukset ovat jo olemassa tälle laitteelle."
+    "configExists": "Kielisoittimen asetukset ovat jo olemassa tälle laitteelle.",
+    "ccEnabled": "Enable CC20/CC21 (string & fret select)",
+    "algorithm": "Conversion algorithm"
   }
 }

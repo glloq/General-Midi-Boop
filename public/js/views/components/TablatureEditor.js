@@ -158,24 +158,24 @@ class TablatureEditor {
                     <span class="tablature-icon">TAB</span>
                     <span class="tablature-instrument-badge" id="tab-instrument-badge"></span>
                     <span class="tablature-tuning" id="tab-tuning-display"></span>
-                    <select class="tab-algo-select" id="tab-algo-select" title="${this.t('tablature.algorithm') || 'Conversion algorithm'}">
-                        <option value="min_movement">${this.t('tablature.algoMinMovement') || 'Min movement'}</option>
-                        <option value="lowest_fret">${this.t('tablature.algoLowestFret') || 'Lowest fret'}</option>
-                        <option value="highest_fret">${this.t('tablature.algoHighestFret') || 'Highest fret'}</option>
-                        <option value="zone">${this.t('tablature.algoZone') || 'Zone'}</option>
+                    <select class="tab-algo-select" id="tab-algo-select" title="${this.t('tablature.algorithm')}">
+                        <option value="min_movement">${this.t('tablature.algoMinMovement')}</option>
+                        <option value="lowest_fret">${this.t('tablature.algoLowestFret')}</option>
+                        <option value="highest_fret">${this.t('tablature.algoHighestFret')}</option>
+                        <option value="zone">${this.t('tablature.algoZone')}</option>
                     </select>
                 </div>
                 <div class="tablature-toolbar">
                     <span class="tab-mode-group">
-                        <button class="tab-tool-btn tab-mode-btn active" data-action="tab-mode" data-mode="select" title="${this.t('tablature.modeSelect') || 'Select / Move'}">&#x2B1C;</button>
-                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="pan" title="${this.t('tablature.modePan') || 'Pan view'}">&#x2725;</button>
-                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="change-string" title="${this.t('tablature.modeChangeString') || 'Change string (click note, Up/Down)'}">&#x21C5;</button>
+                        <button class="tab-tool-btn tab-mode-btn active" data-action="tab-mode" data-mode="select" title="${this.t('tablature.modeSelect')}">&#x2B1C;</button>
+                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="pan" title="${this.t('tablature.modePan')}">&#x2725;</button>
+                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="change-string" title="${this.t('tablature.modeChangeString')}">&#x21C5;</button>
                     </span>
                     <span class="tab-separator"></span>
                     <button class="tab-tool-btn" data-action="tab-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="tab-tool-btn" data-action="tab-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="tab-tool-btn" data-action="tab-copy" title="Copy (Ctrl+C)">CPY</button>
-                    <button class="tab-tool-btn" data-action="tab-paste" title="Paste (Ctrl+V)">PST</button>
+                    <button class="tab-tool-btn" data-action="tab-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
+                    <button class="tab-tool-btn" data-action="tab-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">PST</button>
                     <button class="tab-tool-btn" data-action="tab-zoom-in" title="${this.t('tablature.zoomIn')}">+</button>
                     <button class="tab-tool-btn" data-action="tab-zoom-out" title="${this.t('tablature.zoomOut')}">-</button>
                     <button class="tab-tool-btn" data-action="tab-delete" title="${this.t('tablature.deleteSelected')}">DEL</button>
@@ -224,8 +224,8 @@ class TablatureEditor {
             const nStrings = this.stringInstrument.num_strings || 6;
 
             // Prefer GM name (e.g. "Acoustic Guitar (nylon)"), fall back to string instrument name
-            const displayName = gmName || siName || 'Guitar';
-            badgeEl.textContent = `${displayName} · ${nStrings}str`;
+            const displayName = gmName || siName || this.t('stringInstrument.string');
+            badgeEl.textContent = `${displayName} · ${this.t('tablature.strings', { count: nStrings })}`;
             badgeEl.title = displayName;
         }
         if (tuningEl && this.stringInstrument.tuning) {

@@ -5424,7 +5424,7 @@ class MidiEditorModal {
                 btn.className = 'channel-tab-btn';
                 btn.dataset.channel = ch;
                 btn.dataset.color = color;
-                btn.title = `TAB - ${channelInfo?.instrument || 'String'}`;
+                btn.title = this.t('tablature.tabButton', { instrument: channelInfo?.instrument || this.t('stringInstrument.string') });
                 btn.textContent = 'TAB';
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();

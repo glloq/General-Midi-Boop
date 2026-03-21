@@ -1053,7 +1053,18 @@
     "configureStringInstrument": "Configurer instrument à cordes",
     "gmDetected": "{{instrument}} détecté — configurer comme instrument à cordes ?",
     "autoConfig": "Auto-configurer",
-    "tabOnlyMode": "Afficher tablature uniquement"
+    "tabOnlyMode": "Afficher tablature uniquement",
+    "algorithm": "Algorithme de conversion",
+    "algoMinMovement": "Mouvement minimum",
+    "algoLowestFret": "Frette la plus basse",
+    "algoHighestFret": "Frette la plus haute",
+    "algoZone": "Zone",
+    "modeSelect": "Sélectionner / Déplacer",
+    "modePan": "Vue panoramique",
+    "modeChangeString": "Changer de corde (cliquer note, puis Haut/Bas)",
+    "tabButton": "TAB - {{instrument}}",
+    "strings": "{{count}} cordes",
+    "saveFailed": "Échec de la sauvegarde"
   },
   "stringInstrument": {
     "title": "Configuration de l'instrument à cordes",
@@ -1071,6 +1082,8 @@
     "isFretless": "Sans frettes",
     "capoFret": "Position du capo",
     "noCapo": "Pas de capo",
+    "ccEnabled": "Activer CC20/CC21 (sélection corde et frette)",
+    "algorithm": "Algorithme de conversion",
     "presets": {
       "guitar_standard": "Guitare Standard (EADGBE)",
       "guitar_drop_d": "Guitare Drop D (DADGBE)",

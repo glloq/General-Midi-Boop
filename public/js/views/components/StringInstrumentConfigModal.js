@@ -129,7 +129,7 @@ class StringInstrumentConfigModal extends BaseModal {
         const tuningRows = c.tuning.map((note, i) => {
             const noteName = this._noteName(note);
             const stringNum = i + 1;
-            const stringLabel = `${this.t('stringInstrument.string') || 'String'} ${stringNum}`;
+            const stringLabel = `${this.t('stringInstrument.string')} ${stringNum}`;
             return `
                 <div class="si-string-row" data-string="${i}">
                     <div class="si-string-label">
@@ -137,22 +137,20 @@ class StringInstrumentConfigModal extends BaseModal {
                         <span class="si-string-note-badge" id="si-badge-${i}">${noteName}</span>
                     </div>
                     <div class="si-piano-wrapper">
-                        <button class="si-piano-nav si-piano-nav-left" data-string="${i}" data-dir="-1" title="${this.t('stringInstrument.lowerOctave') || '-1 oct'}">&#9664;</button>
+                        <button class="si-piano-nav si-piano-nav-left" data-string="${i}" data-dir="-1" title="${this.t('stringInstrument.lowerOctave')}">&#9664;</button>
                         <div class="si-mini-piano" id="si-piano-${i}" data-string="${i}">
                             ${this._renderMiniPiano(note, i)}
                         </div>
-                        <button class="si-piano-nav si-piano-nav-right" data-string="${i}" data-dir="1" title="${this.t('stringInstrument.higherOctave') || '+1 oct'}">&#9654;</button>
+                        <button class="si-piano-nav si-piano-nav-right" data-string="${i}" data-dir="1" title="${this.t('stringInstrument.higherOctave')}">&#9654;</button>
                     </div>
                     <div class="si-string-midi">
                         <input type="number" class="si-input si-tuning-input" data-string="${i}"
-                               value="${note}" min="0" max="127" title="MIDI ${note}">
+                               value="${note}" min="0" max="127" title="${this.t('stringInstrument.note')} MIDI ${note}">
                     </div>
                 </div>`;
         }).join('');
 
-        const ccLabel = this.t('stringInstrument.ccEnabled') !== 'stringInstrument.ccEnabled'
-            ? this.t('stringInstrument.ccEnabled')
-            : 'Enable CC20/CC21 (string & fret select)';
+        const ccLabel = this.t('stringInstrument.ccEnabled');
         const ccCollapsedClass = c.cc_enabled ? '' : 'si-collapsed';
 
         return `
@@ -174,12 +172,12 @@ class StringInstrumentConfigModal extends BaseModal {
                         <label for="si-cc-enabled">${ccLabel}</label>
                     </div>
                     <div class="si-field si-algo-field">
-                        <label for="si-algorithm">${this.t('stringInstrument.algorithm') || 'Conversion algorithm'}</label>
+                        <label for="si-algorithm">${this.t('stringInstrument.algorithm')}</label>
                         <select id="si-algorithm" class="si-input">
-                            <option value="min_movement" ${c.tab_algorithm === 'min_movement' ? 'selected' : ''}>${this.t('tablature.algoMinMovement') || 'Min movement'}</option>
-                            <option value="lowest_fret" ${c.tab_algorithm === 'lowest_fret' ? 'selected' : ''}>${this.t('tablature.algoLowestFret') || 'Lowest fret'}</option>
-                            <option value="highest_fret" ${c.tab_algorithm === 'highest_fret' ? 'selected' : ''}>${this.t('tablature.algoHighestFret') || 'Highest fret'}</option>
-                            <option value="zone" ${c.tab_algorithm === 'zone' ? 'selected' : ''}>${this.t('tablature.algoZone') || 'Zone'}</option>
+                            <option value="min_movement" ${c.tab_algorithm === 'min_movement' ? 'selected' : ''}>${this.t('tablature.algoMinMovement')}</option>
+                            <option value="lowest_fret" ${c.tab_algorithm === 'lowest_fret' ? 'selected' : ''}>${this.t('tablature.algoLowestFret')}</option>
+                            <option value="highest_fret" ${c.tab_algorithm === 'highest_fret' ? 'selected' : ''}>${this.t('tablature.algoHighestFret')}</option>
+                            <option value="zone" ${c.tab_algorithm === 'zone' ? 'selected' : ''}>${this.t('tablature.algoZone')}</option>
                         </select>
                     </div>
                 </div>
@@ -252,14 +250,14 @@ class StringInstrumentConfigModal extends BaseModal {
 
     renderFooter() {
         const deleteBtn = this.existingId
-            ? `<button class="si-btn si-btn-danger" data-action="si-delete">${this.t('common.delete') || 'Delete'}</button>`
+            ? `<button class="si-btn si-btn-danger" data-action="si-delete">${this.t('common.delete')}</button>`
             : '';
 
         return `
             ${deleteBtn}
             <div style="flex:1"></div>
-            <button class="si-btn si-btn-secondary" data-action="close">${this.t('common.cancel') || 'Cancel'}</button>
-            <button class="si-btn si-btn-primary" data-action="si-save">${this.t('common.save') || 'Save'}</button>
+            <button class="si-btn si-btn-secondary" data-action="close">${this.t('common.cancel')}</button>
+            <button class="si-btn si-btn-primary" data-action="si-save">${this.t('common.save')}</button>
         `;
     }
 
@@ -500,7 +498,7 @@ class StringInstrumentConfigModal extends BaseModal {
                 const errEl = body.querySelector('.si-error');
                 if (errEl) errEl.remove();
                 body.insertAdjacentHTML('afterbegin',
-                    `<div class="si-error">${this.escape(error.message || 'Save failed')}</div>`
+                    `<div class="si-error">${this.escape(error.message || this.t('tablature.saveFailed'))}</div>`
                 );
             }
         }

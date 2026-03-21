@@ -1045,7 +1045,18 @@
     "configureStringInstrument": "Configure string instrument",
     "gmDetected": "{{instrument}} detected — configure as string instrument?",
     "autoConfig": "Auto-configure",
-    "tabOnlyMode": "Toggle tablature-only view"
+    "tabOnlyMode": "Toggle tablature-only view",
+    "algorithm": "Conversion algorithm",
+    "algoMinMovement": "Min movement",
+    "algoLowestFret": "Lowest fret",
+    "algoHighestFret": "Highest fret",
+    "algoZone": "Zone",
+    "modeSelect": "Select / Move",
+    "modePan": "Pan view",
+    "modeChangeString": "Change string (click note, then Up/Down)",
+    "tabButton": "TAB - {{instrument}}",
+    "strings": "{{count}}str",
+    "saveFailed": "Save failed"
   },
   "stringInstrument": {
     "title": "तार वाद्य यंत्र कॉन्फ़िगरेशन",
@@ -1080,6 +1091,8 @@
       "ukulele_baritone": "Ukulele Baritone (DGBE)"
     },
     "configCreated": "डिफ़ॉल्ट प्रीसेट के साथ तार वाद्य यंत्र कॉन्फ़िगरेशन बनाया गया।",
-    "configExists": "इस डिवाइस के लिए तार वाद्य यंत्र कॉन्फ़िगरेशन पहले से मौजूद है।"
+    "configExists": "इस डिवाइस के लिए तार वाद्य यंत्र कॉन्फ़िगरेशन पहले से मौजूद है।",
+    "ccEnabled": "Enable CC20/CC21 (string & fret select)",
+    "algorithm": "Conversion algorithm"
   }
 }
