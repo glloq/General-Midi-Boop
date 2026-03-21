@@ -62,6 +62,9 @@ class MidiEditorModal {
         // Drum pattern editor (for percussion channels)
         this.drumPatternEditor = null;
 
+        // Wind instrument editor (for brass/reed/pipe channels)
+        this.windInstrumentEditor = null;
+
         // Playback (synthétiseur intégré)
         this.synthesizer = null;
         this.isPlaying = false;
@@ -871,6 +874,13 @@ class MidiEditorModal {
             const drumChannel = this.drumPatternEditor.channel;
             const drumNotes = visibleNotes.filter(n => n.c === drumChannel);
             this.drumPatternEditor.onMidiNotesChanged(drumNotes);
+        }
+
+        // Notify wind instrument editor of changes (bidirectional sync)
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+            const windChannel = this.windInstrumentEditor.channel;
+            const windNotes = visibleNotes.filter(n => n.c === windChannel);
+            this.windInstrumentEditor.onMidiNotesChanged(windNotes);
         }
     }
 
@@ -4177,6 +4187,11 @@ class MidiEditorModal {
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
             this.drumPatternEditor.updatePlayhead(tick);
         }
+
+        // Update wind instrument editor playhead
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+            this.windInstrumentEditor.updatePlayhead(tick);
+        }
     }
 
     /**
@@ -5386,6 +5401,18 @@ class MidiEditorModal {
             // Get notes for this channel
             const channelNotes = (this.fullSequence || []).filter(n => n.c === activeChannel);
 
+            // Hide wind editor if visible
+            if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+                this.windInstrumentEditor.hide();
+                this._updateWindButtonState(false);
+            }
+
+            // Hide drum editor if visible
+            if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+                this.drumPatternEditor.hide();
+                this._updateDrumButtonState(false);
+            }
+
             // Create or show tablature editor (replaces piano roll in the same space)
             if (!this.tablatureEditor) {
                 this.tablatureEditor = new TablatureEditor(this);
@@ -5534,6 +5561,29 @@ class MidiEditorModal {
                 // Remove TAB button for non-string instrument
                 existingTabBtn.remove();
             }
+
+            // Wind instrument detection (GM 56-79: Brass, Reed, Pipe)
+            if (ch !== 9 && typeof WindInstrumentDatabase !== 'undefined') {
+                const chInfo = this.channels?.find(c => c.channel === ch);
+                const isWind = chInfo && WindInstrumentDatabase.isWindInstrument(chInfo.program);
+                const existingWindBtn = group.querySelector('.channel-wind-btn');
+
+                if (isWind && !existingWindBtn) {
+                    const windBtn = document.createElement('button');
+                    windBtn.className = 'channel-wind-btn';
+                    windBtn.dataset.channel = ch;
+                    windBtn.title = `Wind editor: ${WindInstrumentDatabase.getPresetByProgram(chInfo.program)?.name || 'Wind'}`;
+                    windBtn.textContent = 'WIND';
+                    windBtn.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        this._openWindEditorForChannel(ch);
+                    });
+                    group.appendChild(windBtn);
+                } else if (!isWind && existingWindBtn) {
+                    existingWindBtn.remove();
+                }
+            }
         });
     }
 
@@ -5581,6 +5631,12 @@ class MidiEditorModal {
             this._updateChannelTabButtons();
         }
 
+        // Hide wind editor if visible
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+            this.windInstrumentEditor.hide();
+            this._updateWindButtonState(false);
+        }
+
         // Get MIDI notes for this channel
         const channelNotes = (this.fullSequence || []).filter(n => n.c === channel);
 
@@ -5605,6 +5661,79 @@ class MidiEditorModal {
         drumBtns.forEach(btn => {
             const ch = parseInt(btn.dataset.channel);
             btn.classList.toggle('active', active && ch === drumChannel);
+        });
+    }
+
+    // ========================================================================
+    // WIND INSTRUMENT EDITOR
+    // ========================================================================
+
+    /**
+     * Open wind instrument editor for a specific channel
+     * @param {number} channel - MIDI channel with brass/reed/pipe program
+     */
+    _openWindEditorForChannel(channel) {
+        // Toggle off if already visible for this channel
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.channel === channel) {
+            this.windInstrumentEditor.hide();
+            this._updateWindButtonState(false);
+            return;
+        }
+
+        // Ensure only this channel is active
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+        this.updateSequenceFromActiveChannels(new Set([channel]));
+        this.refreshChannelButtons();
+
+        // Hide tablature if visible
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            this._updateChannelTabButtons();
+        }
+
+        // Hide drum editor if visible
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.hide();
+            this._updateDrumButtonState(false);
+        }
+
+        // Determine wind preset from channel's GM program
+        const channelInfo = this.channels?.find(c => c.channel === channel);
+        const gmProgram = channelInfo?.program;
+        const windPreset = typeof WindInstrumentDatabase !== 'undefined'
+            ? WindInstrumentDatabase.getPresetByProgram(gmProgram)
+            : null;
+
+        if (!windPreset) {
+            this.log('warn', `No wind preset for program ${gmProgram} on channel ${channel}`);
+            return;
+        }
+
+        // Get MIDI notes for this channel
+        const channelNotes = (this.fullSequence || []).filter(n => n.c === channel);
+
+        // Create editor on first use
+        if (!this.windInstrumentEditor) {
+            this.windInstrumentEditor = new WindInstrumentEditor(this);
+        }
+
+        this.windInstrumentEditor.show(windPreset, channelNotes, channel);
+        this._updateWindButtonState(true);
+    }
+
+    /**
+     * Update active state of WIND buttons
+     * @param {boolean} active
+     */
+    _updateWindButtonState(active) {
+        const windBtns = this.container?.querySelectorAll('.channel-wind-btn');
+        if (!windBtns) return;
+
+        const windChannel = this.windInstrumentEditor?.channel;
+        windBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            btn.classList.toggle('active', active && ch === windChannel);
         });
     }
 
@@ -5916,6 +6045,12 @@ class MidiEditorModal {
         if (this.drumPatternEditor) {
             this.drumPatternEditor.destroy();
             this.drumPatternEditor = null;
+        }
+
+        // Nettoyer l'éditeur d'instruments à vent
+        if (this.windInstrumentEditor) {
+            this.windInstrumentEditor.destroy();
+            this.windInstrumentEditor = null;
         }
 
         // Nettoyer le synthétiseur
