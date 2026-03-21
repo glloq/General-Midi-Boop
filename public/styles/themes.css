@@ -659,7 +659,7 @@ body.theme-colored .midi-files-header {
     border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
 }
 
-body.theme-colored .midi-files-header h2 {
+body.theme-colored .midi-files-header h2 span {
     background: linear-gradient(135deg, #764ba2, #667eea);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -684,9 +684,12 @@ body.theme-colored .file-item.selected {
     box-shadow: inset 0 0 0 1px rgba(118, 75, 162, 0.1);
 }
 
-body.theme-colored .file-item .file-icon,
 body.theme-colored .file-item .icon {
     color: #764ba2;
+}
+
+body.theme-colored .file-item .file-icon {
+    color: initial;
 }
 
 body.theme-colored .file-item .file-size,

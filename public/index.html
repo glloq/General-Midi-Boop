@@ -470,44 +470,38 @@
             -webkit-text-fill-color: #ffffff !important;
         }
 
-        /* Boutons header - chacun a sa couleur unique */
+        /* Boutons header - fond semi-transparent, emojis en couleur native */
         body.theme-colored .btn-keyboard-toggle {
-            background: rgba(6, 214, 160, 0.25);
-            border: 1px solid rgba(6, 214, 160, 0.5);
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         body.theme-colored .btn-settings-toggle {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.25);
             border: 1px solid rgba(255, 255, 255, 0.4);
-            color: #ffffff;
         }
         body.theme-colored .btn-debug-toggle {
-            background: rgba(255, 209, 102, 0.25);
-            border: 1px solid rgba(255, 209, 102, 0.5);
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         body.theme-colored .btn-instruments-toggle {
-            background: rgba(17, 138, 178, 0.3);
-            border: 1px solid rgba(17, 138, 178, 0.5);
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         body.theme-colored .btn-calibration-toggle {
-            background: rgba(255, 209, 102, 0.25);
-            border: 1px solid rgba(255, 209, 102, 0.5);
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         body.theme-colored .btn-lighting-toggle {
-            background: rgba(239, 71, 111, 0.25);
-            border: 1px solid rgba(239, 71, 111, 0.5);
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
 
-        body.theme-colored .btn-keyboard-toggle:hover { background: #06d6a0; color: #fff; border-color: #06d6a0; box-shadow: 0 2px 12px rgba(6, 214, 160, 0.5); }
-        body.theme-colored .btn-settings-toggle:hover { background: rgba(255, 255, 255, 0.4); color: #fff; border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
-        body.theme-colored .btn-debug-toggle:hover { background: #ffd166; color: #2d3561; border-color: #ffd166; box-shadow: 0 2px 12px rgba(255, 209, 102, 0.5); }
-        body.theme-colored .btn-instruments-toggle:hover { background: #118ab2; color: #fff; border-color: #118ab2; box-shadow: 0 2px 12px rgba(17, 138, 178, 0.5); }
-        body.theme-colored .btn-calibration-toggle:hover { background: #ffd166; color: #2d3561; border-color: #ffd166; box-shadow: 0 2px 12px rgba(255, 209, 102, 0.5); }
-        body.theme-colored .btn-lighting-toggle:hover { background: #ef476f; color: #fff; border-color: #ef476f; box-shadow: 0 2px 12px rgba(239, 71, 111, 0.5); }
+        body.theme-colored .btn-keyboard-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+        body.theme-colored .btn-settings-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+        body.theme-colored .btn-debug-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+        body.theme-colored .btn-instruments-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+        body.theme-colored .btn-calibration-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
+        body.theme-colored .btn-lighting-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); transform: scale(1.1); }
 
         /* Inputs */
         body.theme-colored input,
@@ -525,15 +519,20 @@
             box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.2);
         }
 
-        /* Textes */
-        body.theme-colored h1,
-        body.theme-colored h2,
-        body.theme-colored h3 {
-            color: var(--text-primary);
+        /* Textes - gradient uniquement sur le texte, pas les emojis */
+        body.theme-colored h1 span,
+        body.theme-colored h2 span,
+        body.theme-colored h3 span {
             background: linear-gradient(135deg, #1a1040, #4a2070);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+        }
+
+        body.theme-colored h1,
+        body.theme-colored h2,
+        body.theme-colored h3 {
+            color: #4a2070;
         }
 
         body.theme-colored .subtitle,
@@ -546,6 +545,18 @@
         body.theme-colored .file-name,
         body.theme-colored .device-name {
             color: var(--text-primary);
+        }
+
+        body.theme-colored .filter-label {
+            color: #5a3d8a;
+        }
+
+        body.theme-colored .search-icon {
+            color: #9b8ab8;
+        }
+
+        body.theme-colored .file-item .file-icon {
+            color: initial;
         }
 
         /* Boutons */
@@ -592,7 +603,7 @@
             padding: 12px 16px;
         }
 
-        body.theme-colored .midi-files-header h2 {
+        body.theme-colored .midi-files-header h2 span {
             background: linear-gradient(135deg, #764ba2, #667eea);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
