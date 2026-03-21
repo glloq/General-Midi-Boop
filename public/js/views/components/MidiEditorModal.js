@@ -3558,6 +3558,7 @@ class MidiEditorModal {
         this.updateSequenceFromActiveChannels(null, true);
 
         this.refreshChannelButtons();
+        this._refreshStringInstrumentChannels();
         this.updateInstrumentSelector();
         this.updateEditButtons();
     }
@@ -3576,7 +3577,20 @@ class MidiEditorModal {
         this.isDirty = true;
         this.updateSaveButton();
 
+        // Clean up stale string instrument config if program changed to non-string
+        const gmMatch = typeof MidiEditorChannelPanel !== 'undefined'
+            ? MidiEditorChannelPanel.getStringInstrumentCategory(program)
+            : null;
+        if (!gmMatch) {
+            // Delete stale DB record for this channel so TAB doesn't reappear
+            this.api.sendCommand('string_instrument_delete', {
+                device_id: this.getEffectiveDeviceId(),
+                channel: channel
+            }).catch(() => { /* ignore if no record existed */ });
+        }
+
         // Update tablature buttons (string instrument detection may change)
+        this._refreshStringInstrumentChannels();
         if (this.channelPanel) {
             this.channelPanel.updateTablatureButton();
         }
@@ -5410,10 +5424,10 @@ class MidiEditorModal {
             const isGmString = channelInfo &&
                 typeof MidiEditorChannelPanel !== 'undefined' &&
                 MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) !== null;
-            const hasConfig = this._stringInstrumentChannels.has(ch);
-            // Only show TAB button if cc_enabled is true (or if GM-detected without explicit config)
+            // Only show TAB button for GM-detected string instruments
+            // DB records alone are not enough (they may be stale after instrument change)
             const ccEnabled = this._stringInstrumentCCEnabled.get(ch);
-            const isStringInstrument = (isGmString && ccEnabled !== false) || (hasConfig && ccEnabled !== false);
+            const isStringInstrument = isGmString && ccEnabled !== false;
 
             const existingTabBtn = group.querySelector('.channel-tab-btn');
 
