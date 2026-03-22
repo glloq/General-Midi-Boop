@@ -673,6 +673,13 @@ class MidiEditorModal {
         123: 'All Notes Off'
     };
 
+    _getCCName(ccNum) {
+        const key = 'ccNames.' + ccNum;
+        const translated = this.t(key);
+        if (translated !== key) return translated;
+        return MidiEditorModal.CC_NAMES[ccNum] || this.t('ccNames.fallback', { num: ccNum });
+    }
+
     /**
      * Mettre à jour les boutons CC dynamiques selon les CC présents dans le fichier
      * Ajoute des boutons pour les CC non couverts par les boutons statiques
@@ -711,13 +718,13 @@ class MidiEditorModal {
 
         sortedCCs.forEach(ccType => {
             const ccNum = parseInt(ccType.replace('cc', ''));
-            const ccName = MidiEditorModal.CC_NAMES[ccNum] || `Ctrl ${ccNum}`;
+            const ccName = this._getCCName(ccNum);
             const count = this.ccEvents.filter(e => e.type === ccType).length;
 
             const btn = document.createElement('button');
             btn.className = 'cc-type-btn dynamic';
             btn.dataset.ccType = ccType;
-            btn.title = `${ccName} (${count} events)`;
+            btn.title = `${ccName} (${this.t('midiEditor.events', { count })})`;
             btn.textContent = `CC${ccNum}`;
 
             btn.addEventListener('click', (e) => {
@@ -2585,7 +2592,7 @@ class MidiEditorModal {
                         <button class="btn-rename-file" data-action="rename-file" title="${this.t('midiEditor.renameFile')}">✏️</button>
                         <span class="title-separator">—</span>
                         <div class="tempo-control">
-                            <label for="tempo-input">♩ BPM:</label>
+                            <label for="tempo-input">♩ ${this.t('midiEditor.bpmLabel')}:</label>
                             <input type="number" id="tempo-input" class="tempo-input" min="20" max="300" step="1" value="${this.tempo || 120}" title="${this.t('midiEditor.tempoTip')}">
                         </div>
                     </div>
@@ -3756,7 +3763,7 @@ class MidiEditorModal {
         }
 
         this.log('info', `Tempo changed to ${newTempo} BPM`);
-        this.showNotification(`Tempo: ${newTempo} BPM`, 'info');
+        this.showNotification(this.t('midiEditor.tempoChanged', { tempo: newTempo }), 'info');
     }
 
     /**
@@ -5559,7 +5566,7 @@ class MidiEditorModal {
                     btn.className = 'channel-drum-btn';
                     btn.dataset.channel = ch;
                     btn.title = this.t('drumPattern.toggleEditor');
-                    btn.textContent = 'DRUM';
+                    btn.textContent = this.t('midiEditor.drumButton');
                     btn.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -5589,7 +5596,7 @@ class MidiEditorModal {
                 btn.dataset.channel = ch;
                 btn.dataset.color = color;
                 btn.title = this.t('tablature.tabButton', { instrument: channelInfo?.instrument || this.t('stringInstrument.string') });
-                btn.textContent = 'TAB';
+                btn.textContent = this.t('midiEditor.tabButton');
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -5611,8 +5618,8 @@ class MidiEditorModal {
                     const windBtn = document.createElement('button');
                     windBtn.className = 'channel-wind-btn';
                     windBtn.dataset.channel = ch;
-                    windBtn.title = `Wind editor: ${WindInstrumentDatabase.getPresetByProgram(chInfo.program)?.name || 'Wind'}`;
-                    windBtn.textContent = 'WIND';
+                    windBtn.title = this.t('windEditor.windEditorTitle', { name: WindInstrumentDatabase.getPresetByProgram(chInfo.program)?.name || this.t('windEditor.icon') });
+                    windBtn.textContent = this.t('midiEditor.windButton');
                     windBtn.addEventListener('click', (ev) => {
                         ev.preventDefault();
                         ev.stopPropagation();

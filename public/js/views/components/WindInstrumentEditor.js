@@ -142,27 +142,27 @@ class WindInstrumentEditor {
         this.containerEl.innerHTML = `
             <div class="wind-editor-header">
                 <div class="wind-editor-title">
-                    <span class="wind-editor-icon">WIND</span>
+                    <span class="wind-editor-icon">${this.t('windEditor.icon')}</span>
                     <span class="wind-editor-badge" id="wind-editor-badge"></span>
                     <label class="wind-velocity-label" title="${this.t('windEditor.defaultVelocity', { defaultValue: 'Default velocity' })}">
-                        vel
+                        ${this.t('windEditor.velocityLabel')}
                         <input type="number" class="wind-velocity-input" id="wind-velocity-input"
                             min="1" max="127" value="${this.defaultVelocity}" />
                     </label>
                 </div>
                 <div class="wind-editor-toolbar">
-                    <button class="wind-tool-btn wind-mode-btn active" data-action="wind-mode" data-mode="pan" title="Pan">&#x2725;</button>
-                    <button class="wind-tool-btn wind-mode-btn" data-action="wind-mode" data-mode="select" title="Select">&#x2B1C;</button>
+                    <button class="wind-tool-btn wind-mode-btn active" data-action="wind-mode" data-mode="pan" title="${this.t('windEditor.pan')}">&#x2725;</button>
+                    <button class="wind-tool-btn wind-mode-btn" data-action="wind-mode" data-mode="select" title="${this.t('windEditor.select')}">&#x2B1C;</button>
                     <span class="wind-separator"></span>
                     <button class="wind-tool-btn" data-action="wind-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="wind-tool-btn" data-action="wind-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="wind-tool-btn" data-action="wind-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
-                    <button class="wind-tool-btn" data-action="wind-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">PST</button>
+                    <button class="wind-tool-btn" data-action="wind-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('windEditor.copyShort')}</button>
+                    <button class="wind-tool-btn" data-action="wind-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('windEditor.pasteShort')}</button>
                     <span class="wind-separator"></span>
                     <button class="wind-tool-btn" data-action="wind-zoom-in" title="${this.t('windEditor.zoomIn', { defaultValue: 'Zoom in' })}">+</button>
                     <button class="wind-tool-btn" data-action="wind-zoom-out" title="${this.t('windEditor.zoomOut', { defaultValue: 'Zoom out' })}">-</button>
-                    <button class="wind-tool-btn" data-action="wind-delete" title="${this.t('windEditor.deleteSelected', { defaultValue: 'Delete' })}">DEL</button>
-                    <button class="wind-tool-btn" data-action="wind-select-all" title="${this.t('windEditor.selectAll', { defaultValue: 'Select all' })}">ALL</button>
+                    <button class="wind-tool-btn" data-action="wind-delete" title="${this.t('windEditor.deleteSelected', { defaultValue: 'Delete' })}">${this.t('windEditor.deleteShort')}</button>
+                    <button class="wind-tool-btn" data-action="wind-select-all" title="${this.t('windEditor.selectAll', { defaultValue: 'Select all' })}">${this.t('windEditor.selectAllShort')}</button>
                     <button class="wind-tool-btn wind-close-btn" data-action="wind-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>
