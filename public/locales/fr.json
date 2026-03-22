@@ -369,7 +369,9 @@
     "channelEnabled": "Activé",
     "channelRoutingLabel": "Routage instrument",
     "noRouting": "-- Aucun routage --",
-    "showPlayableNotes": "Notes jouables"
+    "showPlayableNotes": "Notes jouables",
+    "hideOtherChannels": "Masquer les autres",
+    "showAllChannels": "Afficher tous les canaux"
   },
   "errors": {
     "deviceNotFound": "Périphérique non trouvé: {deviceId}",

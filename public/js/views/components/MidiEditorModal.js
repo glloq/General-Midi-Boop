@@ -208,6 +208,11 @@ class MidiEditorModal {
         this.selectedDeviceCapabilities = null;
         this.playableNotes = null;
 
+        // Réinitialiser l'état de routage/désactivation du fichier précédent
+        this.channelRouting.clear();
+        this.channelDisabled.clear();
+        this.channelPlayableHighlights.clear();
+
         // CommandHistory n'est plus utilisé - le piano roll gère undo/redo nativement
 
         try {
@@ -5605,6 +5610,10 @@ class MidiEditorModal {
                     ${this.t('midiEditor.showPlayableNotes')}
                 </button>
             </div>
+            <div class="channel-settings-section channel-visibility-actions">
+                <button class="channel-hide-others-btn">${this.t('midiEditor.hideOtherChannels')}</button>
+                <button class="channel-show-all-btn">${this.t('midiEditor.showAllChannels')}</button>
+            </div>
         `;
 
         // Position relative to the button
@@ -5651,6 +5660,29 @@ class MidiEditorModal {
             if (playableBtn.disabled) return;
             await this._toggleChannelPlayableHighlight(channel);
             playableBtn.classList.toggle('active', this.channelPlayableHighlights.has(channel));
+        });
+
+        // Event: hide other channels (solo this one)
+        const hideOthersBtn = popover.querySelector('.channel-hide-others-btn');
+        hideOthersBtn.addEventListener('click', () => {
+            const previousActiveChannels = new Set(this.activeChannels);
+            this.activeChannels.clear();
+            this.activeChannels.add(channel);
+            this.updateSequenceFromActiveChannels(previousActiveChannels);
+            this.updateChannelButtons();
+            this.updateInstrumentSelector();
+            this.syncMutedChannels();
+        });
+
+        // Event: show all channels
+        const showAllBtn = popover.querySelector('.channel-show-all-btn');
+        showAllBtn.addEventListener('click', () => {
+            const previousActiveChannels = new Set(this.activeChannels);
+            this.channels.forEach(ch => this.activeChannels.add(ch.channel));
+            this.updateSequenceFromActiveChannels(previousActiveChannels);
+            this.updateChannelButtons();
+            this.updateInstrumentSelector();
+            this.syncMutedChannels();
         });
 
         // Close on outside click (deferred to avoid immediate close)
