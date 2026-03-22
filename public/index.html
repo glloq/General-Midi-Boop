@@ -8348,13 +8348,33 @@
             modal.className = 'modal-overlay';
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
+            // Build expanded instrument list (split multi-instrument devices)
+            const outputDevices = availableDevices.filter(d => d.type !== 'input');
+            const routingInstruments = [];
+            for (const device of outputDevices) {
+                if (device.instruments && device.instruments.length > 1) {
+                    for (const inst of device.instruments) {
+                        const ch = inst.channel !== undefined ? inst.channel : 0;
+                        routingInstruments.push({
+                            id: `${device.id}::${ch}`,
+                            name: inst.custom_name || inst.name || device.displayName || device.name,
+                            displayName: `${inst.custom_name || inst.name || device.displayName || device.name} [Ch${ch + 1}]`
+                        });
+                    }
+                } else {
+                    routingInstruments.push({
+                        id: device.id,
+                        name: device.name,
+                        displayName: device.displayName || device.name
+                    });
+                }
+            }
+
             const currentConfig = fileRoutingConfig[fileId] || { channels: {} };
 
             let channelHTML = channels.map(ch => {
                 const trackNames = ch.tracks.map(t => t.name).join(', ');
-                // Handle both simple deviceId and editor format deviceId::targetChannel
-                const rawDevice = currentConfig.channels[ch.channel] || '';
-                const currentDevice = rawDevice.includes('::') ? rawDevice.split('::')[0] : rawDevice;
+                const currentDevice = currentConfig.channels[ch.channel] || '';
                 // Afficher l'instrument si disponible
                 const instrumentDisplay = ch.instrumentName
                     ? `<span class="routing-channel-instrument">🎹 ${ch.instrumentName}</span>`
@@ -8369,8 +8389,8 @@
                         </div>
                         <select id="channel_${ch.channel}" style="flex: 1; padding: 8px;">
                             <option value="">-- Aucun --</option>
-                            ${availableDevices.filter(d => d.type !== 'input').map(device =>
-                                `<option value="${device.id}" ${currentDevice === device.id ? 'selected' : ''}>${device.displayName || device.name}</option>`
+                            ${routingInstruments.map(inst =>
+                                `<option value="${inst.id}" ${currentDevice === inst.id ? 'selected' : ''}>${inst.displayName}</option>`
                             ).join('')}
                         </select>
                     </div>
@@ -8429,14 +8449,18 @@
                     routing[ch.channel] = select.value;
                     hasRouting = true;
 
+                    // Parse deviceId::targetChannel format for multi-instrument devices
+                    const parts = select.value.split('::');
+                    const deviceId = parts[0];
+                    const targetChannel = parts.length > 1 ? parseInt(parts[1]) : undefined;
+
                     // Appliquer le routage au lecteur
                     // Ne pas envoyer au backend si c'est le périphérique virtuel
-                    if (select.value !== 'virtual-instrument') {
+                    if (deviceId !== 'virtual-instrument') {
                         try {
-                            await api.sendCommand('playback_set_channel_routing', {
-                                channel: ch.channel,
-                                deviceId: select.value
-                            });
+                            const routingCmd = { channel: ch.channel, deviceId };
+                            if (targetChannel !== undefined) routingCmd.targetChannel = targetChannel;
+                            await api.sendCommand('playback_set_channel_routing', routingCmd);
                         } catch (error) {
                             log(`Erreur routage canal ${ch.channel}: ${error.message}`, 'error');
                         }
@@ -8555,13 +8579,15 @@
             }
 
             // Appliquer le routage aux canaux non-virtuels
-            for (const [channel, deviceId] of Object.entries(config.channels)) {
+            for (const [channel, routingValue] of Object.entries(config.channels)) {
+                const parts = routingValue.split('::');
+                const deviceId = parts[0];
+                const targetChannel = parts.length > 1 ? parseInt(parts[1]) : undefined;
                 if (deviceId !== 'virtual-instrument') {
                     try {
-                        await api.sendCommand('playback_set_channel_routing', {
-                            channel: parseInt(channel),
-                            deviceId: deviceId
-                        });
+                        const routingCmd = { channel: parseInt(channel), deviceId };
+                        if (targetChannel !== undefined) routingCmd.targetChannel = targetChannel;
+                        await api.sendCommand('playback_set_channel_routing', routingCmd);
                     } catch (error) {
                         log(`Erreur application routage canal ${channel}: ${error.message}`, 'error');
                     }
