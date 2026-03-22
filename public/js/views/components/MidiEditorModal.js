@@ -420,6 +420,7 @@ class MidiEditorModal {
 
         // Construire la liste des canaux disponibles
         channelNoteCount.forEach((count, channel) => {
+            const hasExplicitProgram = channelInstruments.has(channel);
             const programNumber = channelInstruments.get(channel) || 0;
             const instrumentName = channel === 9 ? this.t('midiEditor.drumKit') : this.getInstrumentName(programNumber);
 
@@ -427,7 +428,8 @@ class MidiEditorModal {
                 channel: channel,
                 program: programNumber,
                 instrument: instrumentName,
-                noteCount: count
+                noteCount: count,
+                hasExplicitProgram: hasExplicitProgram
             });
         });
 
@@ -2234,6 +2236,11 @@ class MidiEditorModal {
                         title="${this.t('drumPattern.toggleEditor')}">DRUM</button>
             ` : '';
 
+            // Afficher l'instrument en petit sous le bouton si le canal a un program change explicite
+            const instrumentLabel = (ch.hasExplicitProgram || ch.channel === 9)
+                ? `<span class="channel-instrument-label">${ch.instrument}</span>`
+                : '';
+
             buttons += `
                 <div class="channel-btn-group">
                     <button
@@ -2243,8 +2250,9 @@ class MidiEditorModal {
                         style="${inlineStyles}"
                         title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
                     >
-                        <span class="channel-label">${ch.channel + 1} : ${ch.instrument}</span>
+                        <span class="channel-label">${ch.channel + 1}${ch.hasExplicitProgram || ch.channel === 9 ? ' : ' + ch.instrument : ''}</span>
                     </button>
+                    ${instrumentLabel}
                     ${drumBtn}
                 </div>
             `;
@@ -3641,6 +3649,7 @@ class MidiEditorModal {
     applyInstrumentToChannel(channel, program, instrumentName, channelInfo) {
         channelInfo.program = program;
         channelInfo.instrument = channel === 9 ? 'Drums' : instrumentName;
+        channelInfo.hasExplicitProgram = true;
 
         this.log('info', `Applied instrument ${instrumentName} to channel ${channel + 1}`);
         this.showNotification(this.t('midiEditor.instrumentApplied', { channel: channel + 1, instrument: instrumentName }), 'success');

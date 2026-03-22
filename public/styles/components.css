@@ -1190,6 +1190,19 @@
     gap: 2px;
 }
 
+.midi-editor-modal .channel-instrument-label {
+    display: block;
+    font-size: 9px;
+    color: #999;
+    text-align: center;
+    line-height: 1.1;
+    padding: 0 2px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .midi-editor-modal .channel-tab-btn {
     display: block;
     padding: 2px 6px;
