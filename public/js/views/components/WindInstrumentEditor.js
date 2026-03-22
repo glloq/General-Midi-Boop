@@ -80,8 +80,15 @@ class WindInstrumentEditor {
             requestAnimationFrame(() => {
                 this.handleResize();
                 // Center view on the notes after layout settles
-                if (this.renderer) {
+                if (this.renderer && this.melodyCanvasEl &&
+                    this.melodyCanvasEl.width > 0 && this.melodyCanvasEl.height > 0) {
                     this.renderer.centerOnNotes();
+                } else {
+                    // Fallback: retry after a short delay if layout not ready
+                    setTimeout(() => {
+                        this.handleResize();
+                        if (this.renderer) this.renderer.centerOnNotes();
+                    }, 50);
                 }
             });
         });
@@ -601,9 +608,12 @@ class WindInstrumentEditor {
         if (!this.isVisible) return;
 
         if (this.renderer) {
-            const pr = this.modal.pianoRoll;
-            if (pr) {
-                this.renderer.scrollX = pr.xoffset || 0;
+            // Ne pas écraser scrollX si l'utilisateur est en train de pan
+            if (!this.renderer._isDragging) {
+                const pr = this.modal.pianoRoll;
+                if (pr) {
+                    this.renderer.setScrollX(pr.xoffset || 0);
+                }
             }
             this.renderer.setPlayhead(tick);
         }
@@ -766,7 +776,10 @@ class WindInstrumentEditor {
             if (wrapper && wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
                 this.melodyCanvasEl.width = wrapper.clientWidth;
                 this.melodyCanvasEl.height = wrapper.clientHeight;
-                if (this.renderer) this.renderer.redraw();
+                if (this.renderer) {
+                    this.renderer.redraw();
+                    this.renderer._notifyScrollChange();
+                }
             }
         }
     }

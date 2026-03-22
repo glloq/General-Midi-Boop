@@ -82,6 +82,11 @@ class WindMelodyRenderer {
         this.canvas.addEventListener('mouseup', this._onMouseUp);
         this.canvas.addEventListener('dblclick', this._onDblClick);
         this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
+
+        // Set initial cursor for pan mode
+        if (this.tool === 'pan') {
+            this.canvas.style.cursor = 'grab';
+        }
     }
 
     // ========================================================================
