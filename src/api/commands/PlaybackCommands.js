@@ -314,7 +314,10 @@ async function applyAssignments(app, data) {
       const channelNum = parseInt(channel);
       transpositions[channelNum] = {
         semitones: assignment.transposition?.semitones || 0,
-        noteRemapping: assignment.noteRemapping || null
+        noteRemapping: assignment.noteRemapping || null,
+        suppressOutOfRange: assignment.suppressOutOfRange || false,
+        noteRangeMin: assignment.noteRangeMin,
+        noteRangeMax: assignment.noteRangeMax
       };
     }
 
@@ -326,7 +329,7 @@ async function applyAssignments(app, data) {
 
     // Only create an adapted file if actual modifications were made
     // Otherwise, routings will be saved against the original file
-    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0);
+    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0 || stats.notesSuppressed > 0);
 
     if (hasModifications) {
       // Convert back to MIDI binary

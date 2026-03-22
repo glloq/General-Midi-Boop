@@ -19,7 +19,7 @@ class MidiTransposer {
   /**
    * Applique des transpositions à plusieurs canaux
    * @param {Object} midiData - Fichier MIDI parsé
-   * @param {Object} transpositions - { channel: { semitones, noteRemapping } }
+   * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax } }
    * @returns {Object} - { midiData, stats }
    */
   transposeChannels(midiData, transpositions) {
@@ -34,10 +34,16 @@ class MidiTransposer {
 
     let notesChanged = 0;
     let notesRemapped = 0;
+    let notesSuppressed = 0;
     const totalNotes = this.countAllNotes(midiData);
+
+    // Track noteOn events that were suppressed so we can suppress matching noteOffs
+    const suppressedNotes = new Set(); // "channel:note:tick" keys
 
     for (const track of modifiedData.tracks) {
       if (!track.events) continue;
+
+      const eventsToRemove = [];
 
       for (let i = 0; i < track.events.length; i++) {
         const event = track.events[i];
@@ -80,6 +86,18 @@ class MidiTransposer {
             }
           }
 
+          // Step 3: Suppress out-of-range notes if requested
+          if (transposition.suppressOutOfRange && transposition.noteRangeMin != null && transposition.noteRangeMax != null) {
+            if (currentNote < transposition.noteRangeMin || currentNote > transposition.noteRangeMax) {
+              eventsToRemove.push(i);
+              if (event.type === 'noteOn') {
+                notesSuppressed++;
+                suppressedNotes.add(`${channel}:${currentNote}`);
+              }
+              continue;
+            }
+          }
+
           // Update note in event if eventModified
           if (eventModified) {
             newEvent.note = currentNote;
@@ -111,6 +129,14 @@ class MidiTransposer {
             }
           }
 
+          // Suppress out-of-range aftertouch
+          if (transposition.suppressOutOfRange && transposition.noteRangeMin != null && transposition.noteRangeMax != null) {
+            if (currentNote < transposition.noteRangeMin || currentNote > transposition.noteRangeMax) {
+              eventsToRemove.push(i);
+              continue;
+            }
+          }
+
           if (eventModified) {
             newEvent.note = currentNote;
             if (newEvent.noteNumber !== undefined) {
@@ -124,6 +150,13 @@ class MidiTransposer {
           track.events[i] = newEvent;
         }
       }
+
+      // Remove suppressed events (in reverse order to preserve indices)
+      if (eventsToRemove.length > 0) {
+        for (let j = eventsToRemove.length - 1; j >= 0; j--) {
+          track.events.splice(eventsToRemove[j], 1);
+        }
+      }
     }
 
     return {
@@ -131,6 +164,7 @@ class MidiTransposer {
       stats: {
         notesChanged,
         notesRemapped,
+        notesSuppressed,
         totalNotes,
         transpositions
       }

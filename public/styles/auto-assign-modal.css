@@ -773,7 +773,7 @@ body.dark-mode .aa-tab-drum {
 }
 
 /* ==========================================================================
-   Note Range Visualization
+   Piano Roll Visualization
    ========================================================================== */
 
 .aa-note-range-viz {
@@ -791,46 +791,332 @@ body.dark-mode .aa-tab-drum {
   margin-bottom: 6px;
 }
 
-.aa-note-range-track {
-  position: relative;
-  height: 20px;
-  background: #e5e7eb;
+.aa-piano-roll {
+  display: flex;
+  height: 36px;
+  border: 1px solid #ccc;
   border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.aa-piano-key {
+  flex: 1;
+  min-width: 3px;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  position: relative;
+  transition: opacity 0.15s;
+}
+
+.aa-piano-key.white {
+  background: #f8f8f8;
+}
+
+.aa-piano-key.black {
+  background: #ddd;
+  margin: 0 -1px;
+  z-index: 1;
+  min-width: 2px;
+}
+
+.aa-piano-key.in-range {
+  background: rgba(76, 175, 80, 0.15);
+}
+
+.aa-piano-key.black.in-range {
+  background: rgba(76, 175, 80, 0.25);
+}
+
+.aa-piano-key.used-ok {
+  background: #4CAF50;
+}
+
+.aa-piano-key.black.used-ok {
+  background: #388E3C;
+}
+
+.aa-piano-key.used-out {
+  background: #F44336;
+}
+
+.aa-piano-key.black.used-out {
+  background: #D32F2F;
+}
+
+.aa-piano-roll-octaves {
+  position: relative;
+  height: 14px;
+  font-size: 9px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.aa-octave-marker {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.aa-piano-roll-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.aa-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.aa-legend-color {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.aa-legend-color.used-ok {
+  background: #4CAF50;
+}
+
+.aa-legend-color.used-out {
+  background: #F44336;
+}
+
+.aa-legend-color.in-range {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.aa-summary-ok {
+  font-size: 12px;
+  color: #4CAF50;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.aa-summary-warning {
+  font-size: 12px;
+  color: #F44336;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   Adaptation Strategy Selector
+   ========================================================================== */
+
+.aa-adaptation-warning {
+  background: #fff3e0;
+  color: #e65100;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  border-left: 3px solid #ff9800;
+}
+
+.aa-strategy-selector {
+  margin-bottom: 8px;
+}
+
+.aa-strategy-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.aa-strategy-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aa-strategy-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.aa-strategy-option:hover {
+  background: #f5f5f5;
+}
+
+.aa-strategy-option.selected {
+  background: #e8f5e9;
+  border-color: #4CAF50;
+}
+
+.aa-strategy-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.aa-strategy-label {
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.aa-strategy-desc {
+  color: #888;
+  font-size: 11px;
+}
+
+.aa-adaptation-result {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.aa-adaptation-result.all-ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.aa-adaptation-result.has-issues {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+/* ==========================================================================
+   Drum Mapping - Categorized View
+   ========================================================================== */
+
+.aa-drum-summary {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fff8f0;
+  border-radius: 6px;
+}
+
+.aa-drum-quality {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #555;
+}
+
+.aa-drum-category-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aa-drum-badge-cat {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.aa-drum-badge-cat.ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.aa-drum-badge-cat.partial {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.aa-drum-badge-cat.missing {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.aa-drum-category {
+  margin-top: 4px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
   overflow: hidden;
 }
 
-.aa-note-range-inst {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  background: rgba(76, 175, 80, 0.25);
-  border: 1px solid rgba(76, 175, 80, 0.5);
-  border-radius: 3px;
-}
-
-.aa-note-range-ch {
-  position: absolute;
-  top: 4px;
-  height: 12px;
-  border-radius: 3px;
-}
-
-.aa-note-range-ch.in-range {
-  background: rgba(102, 126, 234, 0.7);
-  border: 1px solid #667eea;
-}
-
-.aa-note-range-ch.out-of-range {
-  background: rgba(244, 67, 54, 0.5);
-  border: 1px solid #F44336;
-}
-
-.aa-note-range-scale {
+.aa-drum-category-header {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  color: #999;
-  margin-top: 2px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+
+.aa-drum-category-header.ok {
+  background: #f1f8e9;
+  color: #33691e;
+}
+
+.aa-drum-category-header.partial {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.aa-drum-category-header.missing {
+  background: #fce4ec;
+  color: #b71c1c;
+}
+
+.aa-drum-category-header:hover {
+  filter: brightness(0.95);
+}
+
+.aa-drum-cat-count {
+  font-weight: normal;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.aa-drum-category-entries {
+  border-top: 1px solid #e0e0e0;
+}
+
+.aa-drum-strategy {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.aa-drum-strategy-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.aa-drum-strategy-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.aa-drum-strategy-options label:hover {
+  background: #e8e8e8;
+}
+
+.aa-drum-strategy-options label.selected {
+  background: #e8f5e9;
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -986,12 +1272,134 @@ body.dark-mode .aa-note-range-labels {
   color: #a0aec0;
 }
 
-body.dark-mode .aa-note-range-track {
-  background: #3a3a4e;
+body.dark-mode .aa-piano-roll {
+  border-color: #4a5568;
+  background: #252538;
 }
 
-body.dark-mode .aa-note-range-scale {
+body.dark-mode .aa-piano-key.white {
+  background: #2d2d3f;
+}
+
+body.dark-mode .aa-piano-key.black {
+  background: #1a1a2e;
+}
+
+body.dark-mode .aa-piano-key.in-range {
+  background: rgba(76, 175, 80, 0.15);
+}
+
+body.dark-mode .aa-piano-key.black.in-range {
+  background: rgba(76, 175, 80, 0.2);
+}
+
+body.dark-mode .aa-piano-roll-octaves {
   color: #6a7a8e;
+}
+
+body.dark-mode .aa-piano-roll-legend {
+  color: #8899aa;
+}
+
+body.dark-mode .aa-summary-ok {
+  color: #6bc96b;
+}
+
+body.dark-mode .aa-summary-warning {
+  color: #ff6b6b;
+}
+
+body.dark-mode .aa-adaptation-warning {
+  background: #2a2520;
+  color: #ffb74d;
+  border-left-color: #ff9800;
+}
+
+body.dark-mode .aa-strategy-option {
+  background: #252538;
+  border-color: #4a5568;
+  color: #c0c8d4;
+}
+
+body.dark-mode .aa-strategy-option:hover {
+  background: #2d2d3f;
+}
+
+body.dark-mode .aa-strategy-option.selected {
+  background: #1a2e1a;
+  border-color: #4CAF50;
+}
+
+body.dark-mode .aa-strategy-desc {
+  color: #6a7a8e;
+}
+
+body.dark-mode .aa-adaptation-result.all-ok {
+  background: #1a2e1a;
+  color: #6bc96b;
+}
+
+body.dark-mode .aa-adaptation-result.has-issues {
+  background: #2a2520;
+  color: #ffb74d;
+}
+
+body.dark-mode .aa-drum-summary {
+  background: #2a2520;
+}
+
+body.dark-mode .aa-drum-quality {
+  color: #c0b8a0;
+}
+
+body.dark-mode .aa-drum-badge-cat.ok {
+  background: #1a2e1a;
+  color: #6bc96b;
+}
+
+body.dark-mode .aa-drum-badge-cat.partial {
+  background: #2a2520;
+  color: #ffb74d;
+}
+
+body.dark-mode .aa-drum-badge-cat.missing {
+  background: #2e1a1a;
+  color: #ff6b6b;
+}
+
+body.dark-mode .aa-drum-category {
+  border-color: #4a5568;
+}
+
+body.dark-mode .aa-drum-category-header.ok {
+  background: #1a2e1a;
+  color: #6bc96b;
+}
+
+body.dark-mode .aa-drum-category-header.partial {
+  background: #2a2520;
+  color: #ffb74d;
+}
+
+body.dark-mode .aa-drum-category-header.missing {
+  background: #2e1a1a;
+  color: #ff6b6b;
+}
+
+body.dark-mode .aa-drum-category-entries {
+  border-top-color: #4a5568;
+}
+
+body.dark-mode .aa-drum-strategy {
+  background: #252538;
+}
+
+body.dark-mode .aa-drum-strategy-options label:hover {
+  background: #2d2d3f;
+}
+
+body.dark-mode .aa-drum-strategy-options label.selected {
+  background: #1a2e1a;
 }
 
 body.dark-mode .aa-toggle-drum-mapping {
@@ -1128,6 +1536,33 @@ body.dark-mode .aa-drum-arrow {
     flex: 0 0 70px;
     font-size: 10px;
   }
+
+  .aa-strategy-options {
+    gap: 3px;
+  }
+
+  .aa-strategy-option {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .aa-strategy-label {
+    min-width: 70px;
+  }
+
+  .aa-drum-category-badges {
+    gap: 4px;
+  }
+
+  .aa-drum-badge-cat {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .aa-drum-strategy-options {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1256,4 +1691,29 @@ body.theme-colored .aa-footer {
 
 body.theme-colored .aa-control-hint {
   color: var(--text-muted);
+}
+
+body.theme-colored .aa-piano-roll {
+  border-color: var(--border-color);
+}
+
+body.theme-colored .aa-strategy-option {
+  border-color: var(--border-color);
+}
+
+body.theme-colored .aa-strategy-option.selected {
+  background: rgba(6, 214, 160, 0.06);
+  border-color: #06d6a0;
+}
+
+body.theme-colored .aa-drum-summary {
+  background: rgba(255, 152, 0, 0.06);
+}
+
+body.theme-colored .aa-drum-category {
+  border-color: var(--border-color);
+}
+
+body.theme-colored .aa-drum-strategy {
+  background: rgba(102, 126, 234, 0.04);
 }

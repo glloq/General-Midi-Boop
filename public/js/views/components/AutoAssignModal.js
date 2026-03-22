@@ -35,6 +35,22 @@ class AutoAssignModal {
     this.showScoreDetails = {}; // Per-channel/instrument toggle for score breakdown
     this.showDrumMapping = {}; // Per-channel toggle for drum mapping view
     this.drumMappingOverrides = {}; // Per-channel drum note overrides { channel: { midiNote: instrumentNote } }
+    this.expandedDrumCategories = {}; // Per-channel/category toggle { 'ch_category': true/false }
+
+    // GM Drum categories (mirrored from DrumNoteMapper backend)
+    this.DRUM_CATEGORIES = {
+      kicks: { label: 'Kicks', notes: [35, 36] },
+      snares: { label: 'Snares', notes: [37, 38, 40] },
+      hiHats: { label: 'Hi-Hats', notes: [42, 44, 46] },
+      toms: { label: 'Toms', notes: [41, 43, 45, 47, 48, 50] },
+      crashes: { label: 'Crashes', notes: [49, 55, 57] },
+      rides: { label: 'Rides', notes: [51, 53, 59] },
+      latin: { label: 'Latin', notes: [60, 61, 62, 63, 64, 65, 66, 67, 68] },
+      misc: { label: 'Misc', notes: [39, 52, 54, 56, 58, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81] }
+    };
+
+    // Note names for MIDI to name conversion
+    this.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   }
 
   /**
@@ -44,6 +60,91 @@ class AutoAssignModal {
     if (!info) return '';
     if (Array.isArray(info)) return info.map(i => escapeHtml(i)).join(' &bull; ');
     return escapeHtml(String(info));
+  }
+
+  /**
+   * Convert MIDI note number to name (e.g. 60 → "C4", 61 → "C#4")
+   */
+  midiNoteToName(note) {
+    return this.NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
+  }
+
+  /**
+   * Check if a MIDI note is a black key (sharp/flat)
+   */
+  isBlackKey(note) {
+    const n = note % 12;
+    return n === 1 || n === 3 || n === 6 || n === 8 || n === 10;
+  }
+
+  /**
+   * Check if a note is within an instrument's playable range
+   */
+  isNoteInInstrumentRange(note, instrument) {
+    if (!instrument) return false;
+    if (instrument.note_selection_mode === 'discrete' && instrument.selected_notes) {
+      const notes = Array.isArray(instrument.selected_notes)
+        ? instrument.selected_notes
+        : (typeof instrument.selected_notes === 'string' ? JSON.parse(instrument.selected_notes) : []);
+      return notes.includes(note);
+    }
+    return note >= (instrument.note_range_min || 0) && note <= (instrument.note_range_max || 127);
+  }
+
+  /**
+   * Calculate adaptation result for a given strategy
+   * Returns { totalNotes, inRange, outOfRange, recovered }
+   */
+  calculateAdaptationResult(channel, strategy) {
+    const ch = String(channel);
+    const analysis = this.channelAnalyses[channel] || this.selectedAssignments[ch]?.channelAnalysis;
+    const adaptation = this.adaptationSettings[ch] || {};
+    const assignment = this.selectedAssignments[ch];
+
+    if (!analysis || !analysis.noteDistribution || !assignment) {
+      return { totalNotes: 0, inRange: 0, outOfRange: 0, recovered: 0 };
+    }
+
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    if (!selectedOption) return { totalNotes: 0, inRange: 0, outOfRange: 0, recovered: 0 };
+
+    const inst = selectedOption.instrument;
+    const semitones = adaptation.transpositionSemitones || 0;
+    const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+    const totalNotes = usedNotes.length;
+
+    let inRange = 0;
+    let recovered = 0;
+
+    for (const note of usedNotes) {
+      let adjustedNote = note;
+
+      if (strategy === 'transpose') {
+        adjustedNote = note + semitones;
+      }
+
+      if (this.isNoteInInstrumentRange(adjustedNote, inst)) {
+        inRange++;
+      } else if (strategy === 'octaveWrap') {
+        // Try wrapping ±1 octave
+        const up = adjustedNote + 12;
+        const down = adjustedNote - 12;
+        if (this.isNoteInInstrumentRange(up, inst) || this.isNoteInInstrumentRange(down, inst)) {
+          recovered++;
+        }
+      } else if (strategy === 'suppress') {
+        // Out of range notes will be suppressed - counted as "recovered" (handled)
+        recovered++;
+      }
+    }
+
+    return {
+      totalNotes,
+      inRange,
+      outOfRange: totalNotes - inRange - recovered,
+      recovered
+    };
   }
 
   /**
@@ -128,7 +229,9 @@ class AutoAssignModal {
         this.adaptationSettings[ch] = {
           transpositionSemitones: assignment?.transposition?.semitones || 0,
           octaveWrappingEnabled: assignment?.octaveWrappingEnabled || false,
-          noteOffset: 0
+          noteOffset: 0,
+          strategy: (assignment?.transposition?.semitones) ? 'transpose' : 'ignore',
+          drumStrategy: 'intelligent'
         };
       }
 
@@ -473,127 +576,220 @@ class AutoAssignModal {
   }
 
   /**
-   * Render adaptation controls for a channel
+   * Render adaptation controls for a channel with strategy selector
    */
   renderAdaptationControls(channel, adaptation) {
     const ch = String(channel);
     const assignment = this.selectedAssignments[ch];
     const semitones = adaptation.transpositionSemitones || 0;
-    const hasOctaveWrapping = assignment && assignment.octaveWrappingInfo;
+    const strategy = adaptation.strategy || 'ignore';
 
     // Visual note range indicator
     const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
     const noteRangeViz = this.renderNoteRangeViz(channel, analysis, assignment, semitones);
+
+    // Calculate adaptation result for current strategy
+    const result = this.calculateAdaptationResult(channel, strategy);
+    const hasOutOfRange = result.totalNotes > 0 && (result.outOfRange > 0 || (strategy === 'ignore' && result.totalNotes > result.inRange));
+
+    // Warning message for out-of-range notes
+    const outCount = result.totalNotes - result.inRange;
+    const warningHTML = (outCount > 0 && strategy === 'ignore') ? `
+      <div class="aa-adaptation-warning">
+        ${outCount} ${_t('autoAssign.notesOutOfRange')}
+      </div>
+    ` : '';
+
+    // Strategy selector
+    const strategies = [
+      { value: 'transpose', label: _t('autoAssign.strategyTranspose'), desc: _t('autoAssign.strategyTransposeDesc') },
+      { value: 'octaveWrap', label: _t('autoAssign.strategyOctaveWrap'), desc: _t('autoAssign.strategyOctaveWrapDesc') },
+      { value: 'suppress', label: _t('autoAssign.strategySuppress'), desc: _t('autoAssign.strategySuppressDesc') },
+      { value: 'ignore', label: _t('autoAssign.strategyIgnore'), desc: _t('autoAssign.strategyIgnoreDesc') }
+    ];
+
+    const strategyHTML = `
+      <div class="aa-strategy-selector">
+        <label class="aa-strategy-title">${_t('autoAssign.adaptationStrategy')}:</label>
+        <div class="aa-strategy-options">
+          ${strategies.map(s => `
+            <label class="aa-strategy-option ${strategy === s.value ? 'selected' : ''}">
+              <input type="radio" name="strategy_${channel}" value="${s.value}"
+                     ${strategy === s.value ? 'checked' : ''}
+                     onchange="autoAssignModalInstance.setStrategy(${channel}, '${s.value}')">
+              <span class="aa-strategy-label">${s.label}</span>
+              <span class="aa-strategy-desc">${s.desc}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    // Transposition controls (only visible when strategy is 'transpose')
+    const transpoHTML = strategy === 'transpose' ? `
+      <div class="aa-control-group">
+        <label>${_t('autoAssign.transposition')}</label>
+        <div class="aa-transposition-control">
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, -12)">-Oct</button>
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, -1)">-1</button>
+          <span class="aa-transposition-value" id="transpo_${channel}">
+            ${semitones > 0 ? '+' : ''}${semitones} st
+          </span>
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, +1)">+1</button>
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, +12)">+Oct</button>
+          <button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetTransposition(${channel})">
+            ${_t('autoAssign.reset')}
+          </button>
+        </div>
+      </div>
+    ` : '';
+
+    // Note offset for drums
+    const drumOffsetHTML = channel === 9 ? `
+      <div class="aa-control-group">
+        <label>${_t('autoAssign.noteOffset')}</label>
+        <div class="aa-transposition-control">
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustNoteOffset(${channel}, -1)">-1</button>
+          <span class="aa-transposition-value" id="noteOffset_${channel}">
+            ${(adaptation.noteOffset || 0) > 0 ? '+' : ''}${adaptation.noteOffset || 0}
+          </span>
+          <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustNoteOffset(${channel}, +1)">+1</button>
+          <button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetNoteOffset(${channel})">
+            ${_t('autoAssign.reset')}
+          </button>
+        </div>
+        <div class="aa-control-hint">${_t('autoAssign.noteOffsetHint')}</div>
+      </div>
+    ` : '';
+
+    // Result summary
+    const resultHTML = result.totalNotes > 0 ? `
+      <div class="aa-adaptation-result ${result.outOfRange > 0 ? 'has-issues' : 'all-ok'}">
+        ${_t('autoAssign.adaptationResult')}: ${result.inRange + result.recovered}/${result.totalNotes} ${_t('autoAssign.notesPlayable')}
+        ${result.recovered > 0 ? ` (${result.recovered} ${_t('autoAssign.notesRecovered')})` : ''}
+        ${result.outOfRange > 0 ? ` — ${result.outOfRange} ${_t('autoAssign.notesLost')}` : ''}
+      </div>
+    ` : '';
 
     return `
       <div class="aa-adaptation-section">
         <h4>${_t('autoAssign.adaptationTitle')}</h4>
 
         ${noteRangeViz}
+        ${warningHTML}
+        ${strategyHTML}
 
         <div class="aa-adaptation-controls">
-          <div class="aa-control-group">
-            <label>${_t('autoAssign.transposition')}</label>
-            <div class="aa-transposition-control">
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, -12)">-Oct</button>
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, -1)">-1</button>
-              <span class="aa-transposition-value" id="transpo_${channel}">
-                ${semitones > 0 ? '+' : ''}${semitones} st
-              </span>
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, +1)">+1</button>
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustTransposition(${channel}, +12)">+Oct</button>
-              <button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetTransposition(${channel})">
-                ${_t('autoAssign.reset')}
-              </button>
-            </div>
-          </div>
-
-          ${hasOctaveWrapping ? `
-            <div class="aa-control-group">
-              <label>
-                <input type="checkbox"
-                       id="octaveWrapping_${channel}"
-                       ${adaptation.octaveWrappingEnabled ? 'checked' : ''}
-                       onchange="autoAssignModalInstance.toggleOctaveWrapping(${channel}, this.checked)">
-                ${_t('autoAssign.enableOctaveWrapping')}
-              </label>
-              <div class="aa-control-hint">${escapeHtml(assignment.octaveWrappingInfo)}</div>
-            </div>
-          ` : ''}
-
-          ${channel === 9 ? `
-            <div class="aa-control-group">
-              <label>${_t('autoAssign.noteOffset')}</label>
-              <div class="aa-transposition-control">
-                <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustNoteOffset(${channel}, -1)">-1</button>
-                <span class="aa-transposition-value" id="noteOffset_${channel}">
-                  ${(adaptation.noteOffset || 0) > 0 ? '+' : ''}${adaptation.noteOffset || 0}
-                </span>
-                <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustNoteOffset(${channel}, +1)">+1</button>
-                <button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetNoteOffset(${channel})">
-                  ${_t('autoAssign.reset')}
-                </button>
-              </div>
-              <div class="aa-control-hint">${_t('autoAssign.noteOffsetHint')}</div>
-            </div>
-          ` : ''}
+          ${transpoHTML}
+          ${drumOffsetHTML}
         </div>
+
+        ${resultHTML}
       </div>
     `;
   }
 
   /**
-   * Render visual note range comparison: channel notes vs instrument range
+   * Render visual piano roll: channel notes vs instrument range
+   * Each key is colored by status: green=used+in-range, red=used+out-of-range,
+   * light gray=instrument range but unused, white=outside both
    */
   renderNoteRangeViz(channel, analysis, assignment, semitones) {
     if (!analysis || !analysis.noteRange || analysis.noteRange.min == null) return '';
 
-    // Find the selected instrument from suggestions
     const ch = String(channel);
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment?.deviceId);
     if (!selectedOption) return '';
 
     const inst = selectedOption.instrument;
-    if (inst.note_range_min == null || inst.note_range_max == null) return '';
+    const noteDistribution = analysis.noteDistribution || {};
+    const usedNotes = Object.keys(noteDistribution).map(Number);
+    if (usedNotes.length === 0) return '';
 
-    // Calculate transposed channel range
-    const chMin = analysis.noteRange.min + semitones;
-    const chMax = analysis.noteRange.max + semitones;
-    const instMin = inst.note_range_min;
-    const instMax = inst.note_range_max;
+    // Calculate transposed used notes
+    const transposedNotes = usedNotes.map(n => n + semitones);
+    const transposedMin = Math.min(...transposedNotes);
+    const transposedMax = Math.max(...transposedNotes);
 
-    // Global range for visualization (with padding)
-    const globalMin = Math.max(0, Math.min(chMin, instMin) - 3);
-    const globalMax = Math.min(127, Math.max(chMax, instMax) + 3);
-    const totalRange = globalMax - globalMin || 1;
+    // Determine instrument range bounds
+    const instMin = inst.note_range_min != null ? inst.note_range_min : 0;
+    const instMax = inst.note_range_max != null ? inst.note_range_max : 127;
 
-    // Calculate positions as percentages
-    const chLeft = ((chMin - globalMin) / totalRange) * 100;
-    const chWidth = Math.max(1, ((chMax - chMin) / totalRange) * 100);
-    const instLeft = ((instMin - globalMin) / totalRange) * 100;
-    const instWidth = Math.max(1, ((instMax - instMin) / totalRange) * 100);
+    // Global display range (with padding)
+    const globalMin = Math.max(0, Math.min(transposedMin, instMin) - 2);
+    const globalMax = Math.min(127, Math.max(transposedMax, instMax) + 2);
 
-    // Check if notes fit
-    const notesOutside = chMin < instMin || chMax > instMax;
-    const fitClass = notesOutside ? 'out-of-range' : 'in-range';
+    // Build note-level data
+    const transposedDistribution = {};
+    for (const [note, count] of Object.entries(noteDistribution)) {
+      transposedDistribution[Number(note) + semitones] = count;
+    }
+    const maxCount = Math.max(...Object.values(transposedDistribution), 1);
+
+    // Count in-range vs out-of-range
+    let inRangeCount = 0;
+    let outOfRangeCount = 0;
+    for (const note of transposedNotes) {
+      if (this.isNoteInInstrumentRange(note, inst)) {
+        inRangeCount++;
+      } else {
+        outOfRangeCount++;
+      }
+    }
+
+    // Generate piano keys
+    let keysHTML = '';
+    let octaveMarkers = '';
+    for (let note = globalMin; note <= globalMax; note++) {
+      const isBlack = this.isBlackKey(note);
+      const isUsed = transposedDistribution[note] !== undefined;
+      const inRange = this.isNoteInInstrumentRange(note, inst);
+      const usage = isUsed ? transposedDistribution[note] / maxCount : 0;
+
+      let statusClass = '';
+      if (isUsed && inRange) statusClass = 'used-ok';
+      else if (isUsed && !inRange) statusClass = 'used-out';
+      else if (inRange) statusClass = 'in-range';
+
+      const opacityStyle = isUsed ? `opacity: ${Math.max(0.4, usage)}` : '';
+      const title = isUsed
+        ? `${this.midiNoteToName(note)} (${note}) - ${transposedDistribution[note]}x${inRange ? '' : ' [OUT]'}`
+        : `${this.midiNoteToName(note)} (${note})${inRange ? ' [inst]' : ''}`;
+
+      keysHTML += `<div class="aa-piano-key ${isBlack ? 'black' : 'white'} ${statusClass}" title="${title}" style="${opacityStyle}"></div>`;
+
+      // Add octave markers for C notes
+      if (note % 12 === 0) {
+        const pos = ((note - globalMin) / (globalMax - globalMin)) * 100;
+        octaveMarkers += `<span class="aa-octave-marker" style="left: ${pos}%">${this.midiNoteToName(note)}</span>`;
+      }
+    }
+
+    // Summary text
+    const summaryClass = outOfRangeCount > 0 ? 'aa-summary-warning' : 'aa-summary-ok';
+    const summaryText = outOfRangeCount > 0
+      ? `${usedNotes.length} ${_t('autoAssign.notesUsed')} — ${inRangeCount} ${_t('autoAssign.inRange')}, ${outOfRangeCount} ${_t('autoAssign.outOfRange')}`
+      : `${usedNotes.length} ${_t('autoAssign.notesUsed')} — ${_t('autoAssign.allInRange')}`;
 
     return `
       <div class="aa-note-range-viz">
         <div class="aa-note-range-labels">
-          <span>${_t('autoAssign.channelNotes')}: ${chMin}-${chMax}</span>
-          <span>${_t('autoAssign.instrumentRange')}: ${instMin}-${instMax}</span>
+          <span>${_t('autoAssign.channelNotes')}: ${this.midiNoteToName(transposedMin)}-${this.midiNoteToName(transposedMax)}</span>
+          <span>${_t('autoAssign.instrumentRange')}: ${this.midiNoteToName(instMin)}-${this.midiNoteToName(instMax)}</span>
         </div>
-        <div class="aa-note-range-track">
-          <div class="aa-note-range-inst" style="left: ${instLeft}%; width: ${instWidth}%"
-               title="${_t('autoAssign.instrumentRange')}: ${instMin}-${instMax}"></div>
-          <div class="aa-note-range-ch ${fitClass}" style="left: ${chLeft}%; width: ${chWidth}%"
-               title="${_t('autoAssign.channelNotes')}: ${chMin}-${chMax}"></div>
+        <div class="aa-piano-roll">
+          ${keysHTML}
         </div>
-        <div class="aa-note-range-scale">
-          <span>${globalMin}</span>
-          <span>${globalMax}</span>
+        <div class="aa-piano-roll-octaves">
+          ${octaveMarkers}
         </div>
+        <div class="aa-piano-roll-legend">
+          <span class="aa-legend-item"><span class="aa-legend-color used-ok"></span> ${_t('autoAssign.legendInRange')}</span>
+          <span class="aa-legend-item"><span class="aa-legend-color used-out"></span> ${_t('autoAssign.legendOutOfRange')}</span>
+          <span class="aa-legend-item"><span class="aa-legend-color in-range"></span> ${_t('autoAssign.legendAvailable')}</span>
+        </div>
+        <div class="${summaryClass}">${summaryText}</div>
       </div>
     `;
   }
@@ -680,7 +876,7 @@ class AutoAssignModal {
   }
 
   /**
-   * Render the drum mapping configuration section
+   * Render the drum mapping configuration section — categorized view with summary
    */
   renderDrumMappingSection(channel) {
     const ch = String(channel);
@@ -700,13 +896,19 @@ class AutoAssignModal {
       43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
       47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash Cymbal 1', 50: 'High Tom',
       51: 'Ride Cymbal 1', 52: 'Chinese Cymbal', 53: 'Ride Bell', 54: 'Tambourine',
-      55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 59: 'Ride Cymbal 2'
+      55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 59: 'Ride Cymbal 2',
+      60: 'Hi Bongo', 61: 'Low Bongo', 62: 'Mute Hi Conga', 63: 'Open Hi Conga',
+      64: 'Low Conga', 65: 'High Timbale', 66: 'Low Timbale', 67: 'High Agogo',
+      68: 'Low Agogo', 69: 'Cabasa', 70: 'Maracas', 71: 'Short Whistle',
+      72: 'Long Whistle', 73: 'Short Guiro', 74: 'Long Guiro', 75: 'Claves',
+      76: 'Hi Wood Block', 77: 'Low Wood Block', 78: 'Mute Cuica', 79: 'Open Cuica',
+      80: 'Mute Triangle', 81: 'Open Triangle'
     };
 
     // Get overrides for this channel
     const overrides = this.drumMappingOverrides[ch] || {};
 
-    // Build mapping table from noteRemapping
+    // Build mapping entries
     const mappingEntries = Object.entries(noteRemapping).map(([src, tgt]) => {
       const srcNote = parseInt(src);
       const tgtNote = overrides[srcNote] !== undefined ? overrides[srcNote] : tgt;
@@ -717,7 +919,11 @@ class AutoAssignModal {
       return { srcNote, tgtNote, srcName, tgtName, isModified, isOverridden };
     }).sort((a, b) => a.srcNote - b.srcNote);
 
-    if (mappingEntries.length === 0 && Object.keys(overrides).length === 0) {
+    // Get notes actually used in the channel
+    const analysis = this.channelAnalyses[channel] || assignment.channelAnalysis;
+    const usedNotes = analysis?.noteDistribution ? Object.keys(analysis.noteDistribution).map(Number) : [];
+
+    if (mappingEntries.length === 0 && usedNotes.length === 0) {
       return `
         <div class="aa-drum-mapping-section">
           <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
@@ -728,38 +934,130 @@ class AutoAssignModal {
       `;
     }
 
-    const mappingHTML = showMapping ? `
-      <div class="aa-drum-mapping-table">
-        <div class="aa-drum-mapping-header">
-          <span>${_t('autoAssign.originalNote')}</span>
-          <span></span>
-          <span>${_t('autoAssign.mappedTo')}</span>
-          <span></span>
+    // Group entries by drum category
+    const mappingByNote = {};
+    for (const entry of mappingEntries) {
+      mappingByNote[entry.srcNote] = entry;
+    }
+
+    // Build category summary and detail
+    const categoryData = [];
+    for (const [catKey, catDef] of Object.entries(this.DRUM_CATEGORIES)) {
+      const catNotes = catDef.notes.filter(n => usedNotes.includes(n) || mappingByNote[n]);
+      if (catNotes.length === 0) continue;
+
+      const entries = catNotes.map(n => {
+        if (mappingByNote[n]) return mappingByNote[n];
+        // Note used but no remapping needed (direct mapping)
+        const name = drumNames[n] || `Note ${n}`;
+        return { srcNote: n, tgtNote: n, srcName: name, tgtName: name, isModified: false, isOverridden: false };
+      });
+
+      const mapped = entries.filter(e => !e.isModified || e.tgtNote !== undefined).length;
+      const total = entries.length;
+      const modified = entries.filter(e => e.isModified).length;
+
+      categoryData.push({
+        key: catKey,
+        label: catDef.label,
+        entries,
+        mapped,
+        total,
+        modified,
+        status: mapped === total ? 'ok' : (mapped > 0 ? 'partial' : 'missing')
+      });
+    }
+
+    // Calculate overall quality score
+    const totalEntries = categoryData.reduce((sum, c) => sum + c.total, 0);
+    const totalMapped = categoryData.reduce((sum, c) => sum + c.mapped, 0);
+    const qualityScore = totalEntries > 0 ? Math.round((totalMapped / totalEntries) * 100) : 100;
+
+    // Summary badges
+    const summaryHTML = `
+      <div class="aa-drum-summary">
+        <div class="aa-drum-quality">
+          ${this.getScoreStars(qualityScore)} ${qualityScore}/100
         </div>
-        ${mappingEntries.map(entry => `
-          <div class="aa-drum-mapping-row ${entry.isModified ? 'modified' : 'exact'} ${entry.isOverridden ? 'overridden' : ''}">
-            <span class="aa-drum-note-name">${escapeHtml(entry.srcName)} <small>(${entry.srcNote})</small></span>
-            <span class="aa-drum-arrow">${entry.isModified ? '&#8594;' : '='}</span>
-            <span class="aa-drum-note-name">${escapeHtml(entry.tgtName)} <small>(${entry.tgtNote})</small></span>
-            <span class="aa-drum-mapping-actions">
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, -1)" title="-1">-</button>
-              <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, 1)" title="+1">+</button>
-              ${entry.isOverridden ? `<button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetDrumNote(${channel}, ${entry.srcNote})">${_t('autoAssign.reset')}</button>` : ''}
-            </span>
-          </div>
-        `).join('')}
+        <div class="aa-drum-category-badges">
+          ${categoryData.map(cat => {
+            const icon = cat.status === 'ok' ? '&#10003;' : (cat.status === 'partial' ? '!' : '&#10007;');
+            return `<span class="aa-drum-badge-cat ${cat.status}">${icon} ${cat.label} (${cat.mapped}/${cat.total})</span>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // Category accordions (when expanded)
+    const categoriesHTML = showMapping ? categoryData.map(cat => {
+      const expanded = this.expandedDrumCategories[`${ch}_${cat.key}`] || false;
+      return `
+        <div class="aa-drum-category">
+          <button class="aa-drum-category-header ${cat.status}" onclick="autoAssignModalInstance.toggleDrumCategory(${channel}, '${cat.key}')">
+            <span>${expanded ? '&#9660;' : '&#9654;'} ${cat.label}</span>
+            <span class="aa-drum-cat-count">${cat.mapped}/${cat.total}${cat.modified > 0 ? ` (${cat.modified} sub.)` : ''}</span>
+          </button>
+          ${expanded ? `
+            <div class="aa-drum-category-entries">
+              ${cat.entries.map(entry => `
+                <div class="aa-drum-mapping-row ${entry.isModified ? 'modified' : 'exact'} ${entry.isOverridden ? 'overridden' : ''}">
+                  <span class="aa-drum-note-name">${escapeHtml(entry.srcName)} <small>(${entry.srcNote})</small></span>
+                  <span class="aa-drum-arrow">${entry.isModified ? '&#8594;' : '='}</span>
+                  <span class="aa-drum-note-name">${escapeHtml(entry.tgtName)} <small>(${entry.tgtNote})</small></span>
+                  <span class="aa-drum-mapping-actions">
+                    <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, -1)" title="-1">-</button>
+                    <button class="aa-btn-sm" onclick="autoAssignModalInstance.adjustDrumNote(${channel}, ${entry.srcNote}, 1)" title="+1">+</button>
+                    ${entry.isOverridden ? `<button class="aa-btn-sm aa-btn-reset" onclick="autoAssignModalInstance.resetDrumNote(${channel}, ${entry.srcNote})">${_t('autoAssign.reset')}</button>` : ''}
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('') : '';
+
+    // Drum strategy selector
+    const drumStrategy = this.adaptationSettings[ch]?.drumStrategy || 'intelligent';
+    const drumStrategyHTML = showMapping ? `
+      <div class="aa-drum-strategy">
+        <label class="aa-strategy-title">${_t('autoAssign.drumAdaptStrategy')}:</label>
+        <div class="aa-drum-strategy-options">
+          <label class="${drumStrategy === 'intelligent' ? 'selected' : ''}">
+            <input type="radio" name="drumStrategy_${channel}" value="intelligent"
+                   ${drumStrategy === 'intelligent' ? 'checked' : ''}
+                   onchange="autoAssignModalInstance.setDrumStrategy(${channel}, 'intelligent')">
+            ${_t('autoAssign.drumStrategyIntelligent')}
+          </label>
+          <label class="${drumStrategy === 'direct' ? 'selected' : ''}">
+            <input type="radio" name="drumStrategy_${channel}" value="direct"
+                   ${drumStrategy === 'direct' ? 'checked' : ''}
+                   onchange="autoAssignModalInstance.setDrumStrategy(${channel}, 'direct')">
+            ${_t('autoAssign.drumStrategyDirect')}
+          </label>
+          <label class="${drumStrategy === 'manual' ? 'selected' : ''}">
+            <input type="radio" name="drumStrategy_${channel}" value="manual"
+                   ${drumStrategy === 'manual' ? 'checked' : ''}
+                   onchange="autoAssignModalInstance.setDrumStrategy(${channel}, 'manual')">
+            ${_t('autoAssign.drumStrategyManual')}
+          </label>
+        </div>
       </div>
     ` : '';
+
+    const totalModified = mappingEntries.filter(e => e.isModified).length;
 
     return `
       <div class="aa-drum-mapping-section">
         <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
           ${showMapping ? '&#9660;' : '&#9654;'} ${_t('autoAssign.drumMapping')}
-          ${mappingEntries.filter(e => e.isModified).length > 0
-            ? `<span class="aa-drum-mapping-count">${mappingEntries.filter(e => e.isModified).length} ${_t('autoAssign.substitutions')}</span>`
+          ${totalModified > 0
+            ? `<span class="aa-drum-mapping-count">${totalModified} ${_t('autoAssign.substitutions')}</span>`
             : ''}
         </button>
-        ${mappingHTML}
+        ${summaryHTML}
+        ${categoriesHTML}
+        ${drumStrategyHTML}
       </div>
     `;
   }
@@ -790,6 +1088,49 @@ class AutoAssignModal {
    */
   toggleDrumMapping(ch) {
     this.showDrumMapping[ch] = !this.showDrumMapping[ch];
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Toggle drum category expansion
+   */
+  toggleDrumCategory(channel, category) {
+    const key = `${channel}_${category}`;
+    this.expandedDrumCategories[key] = !this.expandedDrumCategories[key];
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Set adaptation strategy for a channel
+   */
+  setStrategy(channel, strategy) {
+    const ch = String(channel);
+    if (!this.adaptationSettings[ch]) return;
+    this.adaptationSettings[ch].strategy = strategy;
+
+    // When switching to octaveWrap, enable octave wrapping on the assignment
+    if (strategy === 'octaveWrap') {
+      this.adaptationSettings[ch].octaveWrappingEnabled = true;
+      if (this.selectedAssignments[ch]) {
+        this.selectedAssignments[ch].octaveWrappingEnabled = true;
+      }
+    } else {
+      this.adaptationSettings[ch].octaveWrappingEnabled = false;
+      if (this.selectedAssignments[ch]) {
+        this.selectedAssignments[ch].octaveWrappingEnabled = false;
+      }
+    }
+
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Set drum adaptation strategy for a channel
+   */
+  setDrumStrategy(channel, drumStrategy) {
+    const ch = String(channel);
+    if (!this.adaptationSettings[ch]) return;
+    this.adaptationSettings[ch].drumStrategy = drumStrategy;
     this.refreshCurrentTab();
   }
 
@@ -1048,14 +1389,39 @@ class AutoAssignModal {
         preparedAssignments[channel] = { ...assignment };
 
         const adaptation = this.adaptationSettings[channel] || {};
+        const strategy = adaptation.strategy || 'ignore';
 
-        // Override transposition with user's value
-        if (adaptation.transpositionSemitones !== undefined) {
+        // Apply strategy-specific settings
+        if (strategy === 'transpose') {
+          // Override transposition with user's value
           preparedAssignments[channel].transposition = {
             ...(assignment.transposition || {}),
-            semitones: adaptation.transpositionSemitones
+            semitones: adaptation.transpositionSemitones || 0
           };
+        } else if (strategy === 'octaveWrap') {
+          // Apply transposition + octave wrapping
+          preparedAssignments[channel].transposition = {
+            ...(assignment.transposition || {}),
+            semitones: adaptation.transpositionSemitones || 0
+          };
+          if (assignment.octaveWrapping) {
+            const baseRemapping = assignment.noteRemapping || {};
+            preparedAssignments[channel].noteRemapping = {
+              ...baseRemapping,
+              ...assignment.octaveWrapping
+            };
+          }
+        } else if (strategy === 'suppress') {
+          // Transpose + suppress out-of-range notes
+          preparedAssignments[channel].transposition = {
+            ...(assignment.transposition || {}),
+            semitones: adaptation.transpositionSemitones || 0
+          };
+          preparedAssignments[channel].suppressOutOfRange = true;
+          preparedAssignments[channel].noteRangeMin = assignment.noteRangeMin;
+          preparedAssignments[channel].noteRangeMax = assignment.noteRangeMax;
         }
+        // 'ignore' strategy: no transposition modifications
 
         // Add note offset for drums
         if (adaptation.noteOffset && adaptation.noteOffset !== 0) {
@@ -1067,15 +1433,6 @@ class AutoAssignModal {
         if (Object.keys(drumOverrides).length > 0) {
           const baseRemapping = preparedAssignments[channel].noteRemapping || {};
           preparedAssignments[channel].noteRemapping = { ...baseRemapping, ...drumOverrides };
-        }
-
-        // Combine noteRemapping with octaveWrapping if enabled
-        if (adaptation.octaveWrappingEnabled && assignment.octaveWrapping) {
-          const baseRemapping = assignment.noteRemapping || {};
-          preparedAssignments[channel].noteRemapping = {
-            ...baseRemapping,
-            ...assignment.octaveWrapping
-          };
         }
       }
 
