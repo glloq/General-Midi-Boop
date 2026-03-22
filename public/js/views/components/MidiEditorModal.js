@@ -5539,11 +5539,11 @@ class MidiEditorModal {
         }
         this.refreshChannelButtons();
 
-        // Persist routing to database
-        this._syncRoutingToDB();
-
-        // Notify external components (file list, routing modal) that routing changed
-        this._emitRoutingChanged();
+        // Persist routing to database, then notify external components
+        // (file list, routing modal) so they read fresh data from DB
+        this._syncRoutingToDB().then(() => {
+            this._emitRoutingChanged();
+        });
     }
 
     /**
@@ -5593,13 +5593,13 @@ class MidiEditorModal {
      * Persist current channelRouting Map to the database via file_routing_sync.
      */
     _syncRoutingToDB() {
-        if (!this.currentFile) return;
+        if (!this.currentFile) return Promise.resolve();
         const channels = {};
         this.channelRouting.forEach((deviceValue, ch) => {
             // Routing key may be "deviceId::targetChannel" for multi-instrument devices
             channels[String(ch)] = deviceValue;
         });
-        this.api.sendCommand('file_routing_sync', {
+        return this.api.sendCommand('file_routing_sync', {
             fileId: this.currentFile,
             channels
         }).catch(err => {

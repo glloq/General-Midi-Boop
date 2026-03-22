@@ -8343,7 +8343,7 @@
         }
 
         // 🆕 Afficher la modale de routage
-        function showRoutingModal(fileId, filename, channels) {
+        async function showRoutingModal(fileId, filename, channels) {
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
@@ -8370,7 +8370,27 @@
                 }
             }
 
-            const currentConfig = fileRoutingConfig[fileId] || { channels: {} };
+            // Fetch current routing from DB (source of truth), fallback to localStorage
+            let currentConfig = fileRoutingConfig[fileId] || { channels: {} };
+            try {
+                const result = await api.sendCommand('get_file_routings', { fileId });
+                if (result && result.routings && result.routings.length > 0) {
+                    const dbChannels = {};
+                    for (const r of result.routings) {
+                        if (r.channel != null && r.device_id) {
+                            dbChannels[r.channel] = r.target_channel != null
+                                ? `${r.device_id}::${r.target_channel}`
+                                : r.device_id;
+                        }
+                    }
+                    currentConfig = { channels: dbChannels, configured: true };
+                    // Keep localStorage in sync
+                    fileRoutingConfig[fileId] = currentConfig;
+                    saveRoutingConfig();
+                }
+            } catch (err) {
+                console.warn('[Routing] DB fetch failed, using localStorage fallback:', err);
+            }
 
             let channelHTML = channels.map(ch => {
                 const trackNames = ch.tracks.map(t => t.name).join(', ');
@@ -8501,9 +8521,10 @@
                 window.eventBus.emit('routing:changed', { fileId, channels: hasRouting ? routing : {} });
             }
 
-            // Fermer la modale et rafraîchir
+            // Fermer la modale et rafraîchir l'état couleur du fichier
             modal.remove();
-            loadFiles();
+            metadataCache.delete(fileId);
+            loadFileMetadata(fileId);
         }
 
         // 🆕 Lire un fichier avec vérification du routage
