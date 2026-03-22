@@ -2599,21 +2599,18 @@ class MidiEditorModal {
                     <button class="modal-close" data-action="close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <!-- Toolbar d'édition -->
+                    <!-- Toolbar d'édition (compacte, icônes seules + tooltips) -->
                     <div class="editor-toolbar">
                         <!-- Section Playback -->
                         <div class="toolbar-section playback-section">
                             <button class="tool-btn playback-btn" data-action="playback-play" id="play-btn" title="${this.t('midiEditor.play')} (Space)">
                                 <span class="icon play-icon">▶</span>
-                                <span class="btn-label">${this.t('midiEditor.play')}</span>
                             </button>
                             <button class="tool-btn playback-btn" data-action="playback-pause" id="pause-btn" title="${this.t('midiEditor.pause')}" style="display: none;">
                                 <span class="icon pause-icon">⏸</span>
-                                <span class="btn-label">${this.t('midiEditor.pause')}</span>
                             </button>
                             <button class="tool-btn playback-btn" data-action="playback-stop" id="stop-btn" title="${this.t('midiEditor.stop')}" disabled>
                                 <span class="icon stop-icon">⏹</span>
-                                <span class="btn-label">${this.t('midiEditor.stop')}</span>
                             </button>
                         </div>
 
@@ -2623,11 +2620,9 @@ class MidiEditorModal {
                         <div class="toolbar-section">
                             <button class="tool-btn" data-action="undo" id="undo-btn" title="${this.t('midiEditor.undo')} (Ctrl+Z)" disabled>
                                 <span class="icon">↶</span>
-                                <span class="btn-label">${this.t('midiEditor.undo')}</span>
                             </button>
                             <button class="tool-btn" data-action="redo" id="redo-btn" title="${this.t('midiEditor.redo')} (Ctrl+Y)" disabled>
                                 <span class="icon">↷</span>
-                                <span class="btn-label">${this.t('midiEditor.redo')}</span>
                             </button>
                         </div>
 
@@ -2643,12 +2638,44 @@ class MidiEditorModal {
 
                         <div class="toolbar-divider"></div>
 
-                        <!-- Section Navigation et Zoom -->
-                        <div class="toolbar-section">
+                        <!-- Section Modes d'édition (tous les modes regroupés) -->
+                        <div class="toolbar-section edit-modes-section">
                             <button class="tool-btn active" data-action="mode-drag-view" data-mode="drag-view" title="${this.t('midiEditor.viewModeTip')}">
                                 <span class="icon">👁️</span>
-                                <span class="btn-label">${this.t('midiEditor.viewMode')}</span>
                             </button>
+                            <button class="tool-btn" data-action="mode-select" data-mode="select" title="${this.t('midiEditor.selectModeTip')}">
+                                <span class="icon">⊕</span>
+                            </button>
+                            <button class="tool-btn" data-action="mode-drag-notes" data-mode="drag-notes" title="${this.t('midiEditor.moveNotesTip')}">
+                                <span class="icon">🎵</span>
+                            </button>
+                            <button class="tool-btn" data-action="mode-add-note" data-mode="add-note" title="${this.t('midiEditor.addNoteTip')}">
+                                <span class="icon">➕</span>
+                            </button>
+                            <button class="tool-btn" data-action="mode-resize-note" data-mode="resize-note" title="${this.t('midiEditor.durationTip')}">
+                                <span class="icon">↔</span>
+                            </button>
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Section Édition (Copier/Coller/Supprimer) -->
+                        <div class="toolbar-section">
+                            <button class="tool-btn" data-action="copy" id="copy-btn" title="${this.t('midiEditor.copy')} (Ctrl+C)" disabled>
+                                <span class="icon">📋</span>
+                            </button>
+                            <button class="tool-btn" data-action="paste" id="paste-btn" title="${this.t('midiEditor.paste')} (Ctrl+V)" disabled>
+                                <span class="icon">📄</span>
+                            </button>
+                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.t('midiEditor.delete')} (Del)" disabled>
+                                <span class="icon">🗑</span>
+                            </button>
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Section Zoom -->
+                        <div class="toolbar-section">
                             <button class="tool-btn-compact" data-action="zoom-h-out" title="${this.t('midiEditor.zoomHOut')}">H−</button>
                             <button class="tool-btn-compact" data-action="zoom-h-in" title="${this.t('midiEditor.zoomHIn')}">H+</button>
                             <button class="tool-btn-compact" data-action="zoom-v-out" title="${this.t('midiEditor.zoomVOut')}">V−</button>
@@ -2657,77 +2684,40 @@ class MidiEditorModal {
 
                         <div class="toolbar-divider"></div>
 
-                        <!-- Section Mode d'édition -->
+                        <!-- Bouton Paramètres (ouvre popover Canal/Instrument/Device) -->
                         <div class="toolbar-section">
-                            <button class="tool-btn" data-action="mode-select" data-mode="select" title="${this.t('midiEditor.selectModeTip')}">
-                                <span class="icon">⊕</span>
-                                <span class="btn-label">${this.t('midiEditor.selectMode')}</span>
-                            </button>
-                            <button class="tool-btn" data-action="mode-drag-notes" data-mode="drag-notes" title="${this.t('midiEditor.moveNotesTip')}">
-                                <span class="icon">🎵</span>
-                                <span class="btn-label">${this.t('midiEditor.moveNotes')}</span>
-                            </button>
-                            <button class="tool-btn" data-action="mode-add-note" data-mode="add-note" title="${this.t('midiEditor.addNoteTip')}">
-                                <span class="icon">➕</span>
-                                <span class="btn-label">${this.t('midiEditor.addNote')}</span>
-                            </button>
-                            <button class="tool-btn" data-action="mode-resize-note" data-mode="resize-note" title="${this.t('midiEditor.durationTip')}">
-                                <span class="icon">↔</span>
-                                <span class="btn-label">${this.t('midiEditor.duration')}</span>
+                            <button class="tool-btn" data-action="toggle-settings-popover" id="settings-popover-btn" title="${this.t('midiEditor.settingsPopover')}">
+                                <span class="icon">⚙️</span>
                             </button>
                         </div>
+                    </div>
 
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Édition -->
-                        <div class="toolbar-section">
-                            <button class="tool-btn" data-action="copy" id="copy-btn" title="${this.t('midiEditor.copy')} (Ctrl+C)" disabled>
-                                <span class="icon">📋</span>
-                                <span class="btn-label">${this.t('midiEditor.copy')}</span>
-                            </button>
-                            <button class="tool-btn" data-action="paste" id="paste-btn" title="${this.t('midiEditor.paste')} (Ctrl+V)" disabled>
-                                <span class="icon">📄</span>
-                                <span class="btn-label">${this.t('midiEditor.paste')}</span>
-                            </button>
-                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.t('midiEditor.delete')} (Del)" disabled>
-                                <span class="icon">🗑</span>
-                                <span class="btn-label">${this.t('midiEditor.delete')}</span>
-                            </button>
+                    <!-- Popover Paramètres (Canal, Instrument, Device connecté) -->
+                    <div class="settings-popover" id="settings-popover" style="display: none;">
+                        <div class="settings-popover-section">
+                            <label class="settings-label">${this.t('midiEditor.channel')}</label>
+                            <div class="settings-row">
+                                <select class="snap-select" id="channel-selector" title="${this.t('midiEditor.changeChannelTip')}">
+                                    ${this.renderChannelOptions()}
+                                </select>
+                                <button class="tool-btn-compact" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>→</button>
+                            </div>
                         </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Canal -->
-                        <div class="toolbar-section">
-                            <label class="snap-label">${this.t('midiEditor.channel')}</label>
-                            <select class="snap-select" id="channel-selector" title="${this.t('midiEditor.changeChannelTip')}">
-                                ${this.renderChannelOptions()}
-                            </select>
-                            <button class="tool-btn-compact" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>→</button>
+                        <div class="settings-popover-section">
+                            <label class="settings-label" id="instrument-label">${this.t('midiEditor.instrument')}</label>
+                            <div class="settings-row">
+                                <select class="snap-select" id="instrument-selector" title="${this.t('midiEditor.selectInstrument')}">
+                                    ${this.renderInstrumentOptions()}
+                                </select>
+                                <button class="tool-btn-compact" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">✓</button>
+                            </div>
                         </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Instrument -->
-                        <div class="toolbar-section">
-                            <label class="snap-label" id="instrument-label">${this.t('midiEditor.instrument')}</label>
-                            <select class="snap-select" id="instrument-selector" title="${this.t('midiEditor.selectInstrument')}">
-                                ${this.renderInstrumentOptions()}
-                            </select>
-                            <button class="tool-btn-compact" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">✓</button>
-                        </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Instrument Connecté (filtre notes jouables) -->
-                        <div class="toolbar-section">
-                            <label class="snap-label">🎹 ${this.t('midiEditor.connectedDevice')}</label>
+                        <div class="settings-popover-section">
+                            <label class="settings-label">🎹 ${this.t('midiEditor.connectedDevice')}</label>
                             <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
                                 <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
                             </select>
                         </div>
-
-                        <!-- Tablature access is via channel TAB sub-buttons -->
                     </div>
 
                     <!-- Toolbar des canaux -->
@@ -2842,12 +2832,12 @@ class MidiEditorModal {
                                     <div class="cc-toolbar-divider"></div>
 
                                     <button class="cc-delete-btn" id="cc-delete-btn" title="${this.t('midiEditor.deleteSelection')}" disabled>
-                                        🗑️ <span class="btn-label">${this.t('midiEditor.delete')}</span>
+                                        🗑️
                                     </button>
 
                                     <div class="cc-toolbar-divider"></div>
 
-                                    <label class="cc-toolbar-label">${this.t('midiEditor.channel')}</label>
+                                    <label class="cc-toolbar-label">${this.t('midiEditor.ccChannelFilter')}</label>
                                     <div class="cc-channel-selector-horizontal" id="editor-channel-selector">
                                         <!-- Les canaux seront ajoutés dynamiquement -->
                                     </div>
@@ -4169,6 +4159,27 @@ class MidiEditorModal {
     }
 
     /**
+     * Ouvrir/fermer le popover de paramètres (Canal, Instrument, Device)
+     */
+    toggleSettingsPopover() {
+        const popover = this.container.querySelector('#settings-popover');
+        if (!popover) return;
+        const isVisible = popover.style.display !== 'none';
+        popover.style.display = isVisible ? 'none' : 'block';
+        // Fermer au clic en dehors
+        if (!isVisible) {
+            const closeHandler = (e) => {
+                if (!popover.contains(e.target) &&
+                    !e.target.closest('[data-action="toggle-settings-popover"]')) {
+                    popover.style.display = 'none';
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+        }
+    }
+
+    /**
      * Basculer entre play et pause
      */
     togglePlayback() {
@@ -4601,6 +4612,9 @@ class MidiEditorModal {
                     break;
                 case 'rename-file':
                     this.showRenameDialog();
+                    break;
+                case 'toggle-settings-popover':
+                    this.toggleSettingsPopover();
                     break;
                 // configure-string-instrument removed — config is in instrument settings
 
