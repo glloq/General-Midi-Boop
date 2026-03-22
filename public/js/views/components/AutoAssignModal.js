@@ -1177,10 +1177,11 @@ class AutoAssignModal {
    * Toggle channel on/off
    */
   toggleChannel(channel, enabled) {
+    const ch = String(channel);
     if (enabled) {
       this.skippedChannels.delete(channel);
-      if (!this.selectedAssignments[channel] && this.autoSelection[channel]) {
-        this.selectedAssignments[channel] = JSON.parse(JSON.stringify(this.autoSelection[channel]));
+      if (!this.selectedAssignments[ch] && this.autoSelection[ch]) {
+        this.selectedAssignments[ch] = JSON.parse(JSON.stringify(this.autoSelection[ch]));
       }
     } else {
       this.skippedChannels.add(channel);
