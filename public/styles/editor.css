@@ -34,12 +34,13 @@
 .editor-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
+    gap: 6px;
+    padding: 4px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    min-height: 56px;
+    min-height: 40px;
     flex-wrap: wrap;
+    position: relative;
 }
 
 /* Toolbar Sections */
@@ -88,8 +89,9 @@
 .tool-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 12px 12px;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 10px;
     background: linear-gradient(180deg, #3a3a3a 0%, #2d2d2d 100%);
     border: 1px solid #555;
     border-radius: 6px;
@@ -247,6 +249,58 @@
 /* Hide labels on small buttons */
 .tool-group .btn-label {
     display: none;
+}
+
+/* ============================================================================
+   SETTINGS POPOVER (Canal, Instrument, Device connecté)
+   ============================================================================ */
+
+.settings-popover {
+    position: absolute;
+    top: 100%;
+    right: 12px;
+    z-index: 500;
+    background: var(--bg-secondary);
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 12px;
+    min-width: 300px;
+    animation: contextMenuFadeIn 0.15s ease-out;
+}
+
+.settings-popover-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+}
+
+.settings-popover-section:last-child {
+    border-bottom: none;
+}
+
+.settings-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.settings-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.settings-row .snap-select {
+    flex: 1;
+}
+
+.settings-popover-section .connected-device-select {
+    width: 100%;
 }
 
 /* ============================================================================

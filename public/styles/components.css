@@ -889,17 +889,17 @@
 /* Boutons de la toolbar - taille maximale et couleurs */
 .midi-editor-modal .tool-btn {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 2px;
-    padding: 6px 12px;
+    padding: 6px 8px;
     background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
     border: 2px solid #555;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-height: 48px;
+    min-height: 36px;
     color: #fff;
     font-size: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
