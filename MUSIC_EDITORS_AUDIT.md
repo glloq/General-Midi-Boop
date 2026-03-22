@@ -92,7 +92,10 @@
 |---|----------|----------|-------------|
 | P1 | Mineur | Delete button n'a pas `disabled` dans le HTML initial → flash visible avant `updateEditButtons()` | `MidiEditorModal.js:2685` |
 | P2 | Mineur | `updateEditButtons()` ne gère pas le bouton Paste → reste enabled si clipboard vidé externalement | `MidiEditorModal.js:3812` |
-| P3 | Info | Curseur par mode non géré côté JS → délégué au composant webaudio-pianoroll | `MidiEditorModal.js:3780` |
+| P3 | Moyen | Polling sélection par `setInterval` toutes les 2s → délai perceptible avant activation Copy/Delete | `MidiEditorModal.js:3071-3078` |
+| P4 | Mineur | Case `toggle-tablature` dans le switch est du code mort (jamais déclenché, accès via TAB sub-buttons) | `MidiEditorModal.js:4609-4611` |
+| P5 | Info | Duplication de méthodes entre `MidiEditorModal.js` et les helpers extraits (Toolbar, State, Playback) | Architecture |
+| P6 | Info | Curseur par mode non géré côté JS → délégué au composant webaudio-pianoroll | `MidiEditorModal.js:3780` |
 
 ---
 
@@ -336,6 +339,8 @@
 | R14 | Supprimer le code mort `_toggleTabOnlyMode()` et le case `tab-view-mode` | Tablature | `TablatureEditor.js:653,849` |
 | R15 | Supprimer ou implémenter `typicalRestInterval` et `WIND_CCS` | Wind | `WindInstrumentDatabase.js` |
 | R16 | Corriger le positionnement du fret input (ajouter `window.scrollX/Y`) | Tablature | `TablatureEditor.js:769-778` |
+| R17 | Remplacer le `setInterval` 2s de polling sélection par un listener sur les events de sélection du piano roll | Piano | `MidiEditorModal.js:3071-3078` |
+| R18 | Supprimer le case `toggle-tablature` mort dans le switch de delegation | Piano | `MidiEditorModal.js:4609-4611` |
 
 ---
 
