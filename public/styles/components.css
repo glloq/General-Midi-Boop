@@ -1087,19 +1087,20 @@
 
 .midi-editor-modal .channel-btn {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 10px;
+    padding: 6px 10px;
     background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
     border: 3px solid #555;
-    border-radius: 8px;
+    border-radius: 8px 0 0 8px;
     cursor: pointer;
     transition: all 0.2s ease;
     min-width: auto;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+    flex-grow: 1;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -1190,6 +1191,14 @@
     gap: 2px;
 }
 
+/* Row: channel button + settings gear side by side */
+.midi-editor-modal .channel-btn-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+}
+
 .midi-editor-modal .channel-instrument-label {
     display: block;
     font-size: 9px;
@@ -1203,25 +1212,40 @@
     white-space: nowrap;
 }
 
-/* Channel settings gear button */
+/* Channel settings gear button (right side of channel button) */
 .midi-editor-modal .channel-settings-btn {
-    display: block;
-    padding: 2px 6px;
-    font-size: 10px;
-    color: #777;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    font-size: 11px;
+    color: #666;
     background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
     border: 1px solid #444;
-    border-radius: 0 0 6px 6px;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
     cursor: pointer;
     transition: all 0.15s ease;
-    text-align: center;
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .midi-editor-modal .channel-settings-btn:hover {
     color: #fff;
     background: linear-gradient(180deg, #333 0%, #222 100%);
     border-color: #888;
+}
+
+/* Routed instrument name below the main label */
+.midi-editor-modal .channel-routed-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    text-shadow: 0 0 8px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,0.9);
 }
 
 /* Channel disabled state */

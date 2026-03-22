@@ -2245,29 +2245,36 @@ class MidiEditorModal {
                         title="${this.t('drumPattern.toggleEditor')}">DRUM</button>
             ` : '';
 
-            // Show routed instrument name (real device) if available, otherwise GM name
+            // Show routed instrument name (real device) if available
             const routedName = this.getRoutedInstrumentName(ch.channel);
-            const displayName = routedName
-                || (ch.hasExplicitProgram || ch.channel === 9 ? ch.instrument : '');
-            const labelText = displayName
-                ? `${ch.channel + 1} : ${displayName}`
+            // Channel label: number + GM instrument
+            const gmLabel = (ch.hasExplicitProgram || ch.channel === 9) ? ch.instrument : '';
+            const mainLabel = gmLabel
+                ? `${ch.channel + 1} : ${gmLabel}`
                 : `${ch.channel + 1}`;
+            // Routed instrument line (shown below main label if routed)
+            const routedLine = routedName
+                ? `<span class="channel-routed-label">→ ${routedName}</span>`
+                : '';
 
             // Settings gear button
             const settingsBtn = `<button class="channel-settings-btn" data-channel="${ch.channel}" title="${this.t('midiEditor.channelSettings')}">⚙</button>`;
 
             buttons += `
                 <div class="channel-btn-group">
-                    <button
-                        class="channel-btn ${activeClass} ${disabledClass}"
-                        data-channel="${ch.channel}"
-                        data-color="${color}"
-                        style="${inlineStyles}"
-                        title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
-                    >
-                        <span class="channel-label">${labelText}</span>
-                    </button>
-                    ${settingsBtn}
+                    <div class="channel-btn-row">
+                        <button
+                            class="channel-btn ${activeClass} ${disabledClass}"
+                            data-channel="${ch.channel}"
+                            data-color="${color}"
+                            style="${inlineStyles}"
+                            title="${this.t('midiEditor.notesChannel', { count: ch.noteCount, channel: ch.channel + 1 })}"
+                        >
+                            <span class="channel-label">${mainLabel}</span>
+                            ${routedLine}
+                        </button>
+                        ${settingsBtn}
+                    </div>
                     ${drumBtn}
                 </div>
             `;
