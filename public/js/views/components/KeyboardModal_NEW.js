@@ -18,6 +18,7 @@ class KeyboardModalNew {
         this.selectedDevice = null;
         this.selectedDeviceCapabilities = null; // Capacités de l'instrument sélectionné
         this.activeNotes = new Set();
+        this.mouseActiveNotes = new Set(); // Notes déclenchées par la souris (pour cleanup au mouseup global)
         this.velocity = 80;
         this.modulation = 64; // CC#1 modulation wheel value (center)
         this._modWheelDragging = false;
@@ -196,6 +197,7 @@ class KeyboardModalNew {
 
         // Reset state
         this.isMouseDown = false;
+        this.mouseActiveNotes.clear();
         this.selectedDevice = null;
 
         if (this.container) {
@@ -490,7 +492,10 @@ class KeyboardModalNew {
 
         this._pianoMouseDown = (e) => {
             const key = getKey(e);
-            if (key) { e.currentTarget = key; this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} }); }
+            if (key) {
+                e.preventDefault(); // Empêcher le drag/sélection du navigateur
+                this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} });
+            }
         };
         this._pianoMouseUp = (e) => {
             const key = getKey(e);
@@ -498,6 +503,8 @@ class KeyboardModalNew {
         };
         this._pianoMouseLeave = (e) => {
             if (e.target.classList?.contains('piano-key')) {
+                const note = parseInt(e.target.dataset.note);
+                this.mouseActiveNotes.delete(note);
                 this.handlePianoKeyUp({ currentTarget: e.target });
             }
         };
@@ -679,6 +686,15 @@ class KeyboardModalNew {
 
     handleGlobalMouseUp() {
         this.isMouseDown = false;
+
+        // Stopper toutes les notes déclenchées par la souris
+        // (évite les notes "coincées" si le mouseup se produit hors d'une touche)
+        if (this.mouseActiveNotes.size > 0) {
+            for (const note of this.mouseActiveNotes) {
+                this.stopNote(note);
+            }
+            this.mouseActiveNotes.clear();
+        }
     }
 
     handlePianoKeyDown(e) {
@@ -692,6 +708,7 @@ class KeyboardModalNew {
         }
 
         if (!this.activeNotes.has(note)) {
+            this.mouseActiveNotes.add(note);
             this.playNote(note);
         }
     }
@@ -699,6 +716,8 @@ class KeyboardModalNew {
     handlePianoKeyUp(e) {
         const key = e.currentTarget;
         const note = parseInt(key.dataset.note);
+
+        this.mouseActiveNotes.delete(note);
 
         // Arrêter la note seulement si elle est active
         if (this.activeNotes.has(note)) {
@@ -719,6 +738,7 @@ class KeyboardModalNew {
         }
 
         if (!this.activeNotes.has(note)) {
+            this.mouseActiveNotes.add(note);
             this.playNote(note);
         }
     }
