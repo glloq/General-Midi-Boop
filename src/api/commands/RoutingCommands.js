@@ -109,15 +109,20 @@ async function fileRoutingSync(app, data) {
   }
 
   let synced = 0;
-  for (const [channelStr, deviceId] of Object.entries(data.channels)) {
+  for (const [channelStr, routingValue] of Object.entries(data.channels)) {
     const channel = parseInt(channelStr, 10);
-    if (isNaN(channel) || !deviceId) continue;
+    if (isNaN(channel) || !routingValue) continue;
+
+    // routingValue may be "deviceId::targetChannel" for multi-instrument devices
+    const parts = routingValue.split('::');
+    const deviceId = parts[0];
+    const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
 
     try {
       app.database.insertRouting({
         midi_file_id: data.fileId,
         channel: channel,
-        target_channel: channel,
+        target_channel: isNaN(targetChannel) ? channel : targetChannel,
         device_id: deviceId,
         instrument_name: null,
         compatibility_score: null,

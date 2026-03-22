@@ -3115,7 +3115,10 @@ class MidiEditorModal {
         // via toggleCCSection()
 
         // Charger la liste des instruments connectés pour le filtrage des notes jouables
-        this.loadConnectedDevices();
+        await this.loadConnectedDevices();
+
+        // Restaurer les routages sauvegardés en DB pour ce fichier
+        await this._loadSavedRoutings();
 
         // Update tablature button visibility for initial channel selection
         if (this.channelPanel) {
@@ -5525,6 +5528,64 @@ class MidiEditorModal {
             this._updateWindButtonState(false);
         }
         this.refreshChannelButtons();
+
+        // Persist routing to database
+        this._syncRoutingToDB();
+    }
+
+    /**
+     * Load saved routings from the database and populate channelRouting Map.
+     * Must be called after loadConnectedDevices() so we can build correct routing keys.
+     */
+    async _loadSavedRoutings() {
+        if (!this.currentFile) return;
+        try {
+            const result = await this.api.sendCommand('get_file_routings', { fileId: this.currentFile });
+            if (!result || !result.routings || result.routings.length === 0) return;
+
+            // Build a lookup of multi-instrument devices
+            const multiInstrumentDevices = new Set();
+            for (const device of this.connectedDevices) {
+                if (device._multiInstrument) {
+                    multiInstrumentDevices.add(device.id);
+                }
+            }
+
+            for (const routing of result.routings) {
+                if (routing.channel == null || !routing.device_id) continue;
+                // Reconstruct the routing key: deviceId::targetChannel for multi-instrument, otherwise deviceId
+                const isMulti = multiInstrumentDevices.has(routing.device_id);
+                const routingKey = isMulti
+                    ? `${routing.device_id}::${routing.target_channel != null ? routing.target_channel : routing.channel}`
+                    : routing.device_id;
+                this.channelRouting.set(routing.channel, routingKey);
+            }
+
+            if (this.channelRouting.size > 0) {
+                this.log('info', `Restored ${this.channelRouting.size} saved channel routing(s) from database`);
+                this.refreshChannelButtons();
+            }
+        } catch (error) {
+            this.log('warn', 'Failed to load saved routings:', error);
+        }
+    }
+
+    /**
+     * Persist current channelRouting Map to the database via file_routing_sync.
+     */
+    _syncRoutingToDB() {
+        if (!this.currentFile) return;
+        const channels = {};
+        this.channelRouting.forEach((deviceValue, ch) => {
+            // Routing key may be "deviceId::targetChannel" for multi-instrument devices
+            channels[String(ch)] = deviceValue;
+        });
+        this.api.sendCommand('file_routing_sync', {
+            fileId: this.currentFile,
+            channels
+        }).catch(err => {
+            this.log('warn', 'Failed to sync routing to DB:', err);
+        });
     }
 
     /**
