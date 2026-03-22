@@ -131,7 +131,7 @@ class DrumPatternEditor {
         this.containerEl.innerHTML = `
             <div class="drum-pattern-header">
                 <div class="drum-pattern-title">
-                    <span class="drum-pattern-icon">DRUM</span>
+                    <span class="drum-pattern-icon">${this.t('drumPattern.icon')}</span>
                     <span class="drum-pattern-badge" id="drum-pattern-badge">${this.t('drumPattern.title')}</span>
                     <select class="drum-quantize-select" id="drum-quantize-select" title="${this.t('drumPattern.quantize')}">
                         <option value="1">1/4</option>
@@ -142,7 +142,7 @@ class DrumPatternEditor {
                         <option value="8">1/32</option>
                     </select>
                     <label class="drum-velocity-label" title="${this.t('drumPattern.defaultVelocity')}">
-                        vel
+                        ${this.t('drumPattern.velocityLabel')}
                         <input type="number" class="drum-velocity-input" id="drum-velocity-input"
                             min="1" max="127" value="${this.defaultVelocity}" />
                     </label>
@@ -150,13 +150,13 @@ class DrumPatternEditor {
                 <div class="drum-pattern-toolbar">
                     <button class="drum-tool-btn" data-action="drum-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="drum-tool-btn" data-action="drum-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="drum-tool-btn" data-action="drum-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
-                    <button class="drum-tool-btn" data-action="drum-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">PST</button>
+                    <button class="drum-tool-btn" data-action="drum-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('drumPattern.copyShort')}</button>
+                    <button class="drum-tool-btn" data-action="drum-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('drumPattern.pasteShort')}</button>
                     <span class="drum-separator"></span>
                     <button class="drum-tool-btn" data-action="drum-zoom-in" title="${this.t('drumPattern.zoomIn')}">+</button>
                     <button class="drum-tool-btn" data-action="drum-zoom-out" title="${this.t('drumPattern.zoomOut')}">-</button>
-                    <button class="drum-tool-btn" data-action="drum-delete" title="${this.t('drumPattern.deleteSelected')}">DEL</button>
-                    <button class="drum-tool-btn" data-action="drum-select-all" title="${this.t('drumPattern.selectAll')}">ALL</button>
+                    <button class="drum-tool-btn" data-action="drum-delete" title="${this.t('drumPattern.deleteSelected')}">${this.t('drumPattern.deleteShort')}</button>
+                    <button class="drum-tool-btn" data-action="drum-select-all" title="${this.t('drumPattern.selectAll')}">${this.t('drumPattern.selectAllShort')}</button>
                     <button class="drum-tool-btn drum-close-btn" data-action="drum-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>

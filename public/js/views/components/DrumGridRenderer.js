@@ -573,6 +573,22 @@ class DrumGridRenderer {
         }
     }
 
+    _getNoteName(note) {
+        if (typeof i18n !== 'undefined') {
+            const translated = i18n.t('drumNotes.' + note);
+            if (translated !== 'drumNotes.' + note) return translated;
+        }
+        return this.NOTE_NAMES[note] || `Note ${note}`;
+    }
+
+    _getShortName(note) {
+        if (typeof i18n !== 'undefined') {
+            const translated = i18n.t('drumNotes.short.' + note);
+            if (translated !== 'drumNotes.short.' + note) return translated;
+        }
+        return this.SHORT_NAMES[note] || `${note}`;
+    }
+
     _drawRowLabels(h) {
         const ctx = this.ctx;
         // Header background
@@ -607,7 +623,7 @@ class DrumGridRenderer {
 
             // Label
             ctx.fillStyle = this.colors.headerText;
-            const label = this.SHORT_NAMES[note] || `N${note}`;
+            const label = this._getShortName(note);
             ctx.fillText(label, this.headerWidth - 6, cy);
         }
 

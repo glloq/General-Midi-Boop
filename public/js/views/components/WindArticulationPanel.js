@@ -39,54 +39,54 @@ class WindArticulationPanel {
         this.containerEl.innerHTML = `
             <div class="wind-tools-panel">
                 <div class="wind-tools-section">
-                    <div class="wind-tools-section-title">${this.t('windEditor.articulationSection', { defaultValue: 'Articulation' })}</div>
+                    <div class="wind-tools-section-title">${this.t('windEditor.articulationSection')}</div>
                     <div class="wind-tools-row wind-tools-row-btns">
-                        <button class="wind-tools-btn wind-art-btn active" data-articulation="normal" title="Normal">
-                            Normal
+                        <button class="wind-tools-btn wind-art-btn active" data-articulation="normal" title="${this.t('windEditor.normal')}">
+                            ${this.t('windEditor.normal')}
                         </button>
-                        <button class="wind-tools-btn wind-art-btn" data-articulation="legato" title="Legato">
-                            Legato \u2322
+                        <button class="wind-tools-btn wind-art-btn" data-articulation="legato" title="${this.t('windEditor.legato')}">
+                            ${this.t('windEditor.legato')} \u2322
                         </button>
                     </div>
                     <div class="wind-tools-row wind-tools-row-btns">
-                        <button class="wind-tools-btn wind-art-btn" data-articulation="staccato" title="Staccato">
-                            Staccato .
+                        <button class="wind-tools-btn wind-art-btn" data-articulation="staccato" title="${this.t('windEditor.staccato')}">
+                            ${this.t('windEditor.staccato')} .
                         </button>
-                        <button class="wind-tools-btn wind-art-btn" data-articulation="accent" title="Accent">
-                            Accent >
+                        <button class="wind-tools-btn wind-art-btn" data-articulation="accent" title="${this.t('windEditor.accent')}">
+                            ${this.t('windEditor.accent')} >
                         </button>
                     </div>
                 </div>
 
                 <div class="wind-tools-section">
-                    <div class="wind-tools-section-title">${this.t('windEditor.optionsSection', { defaultValue: 'Options' })}</div>
+                    <div class="wind-tools-section-title">${this.t('windEditor.optionsSection')}</div>
                     <div class="wind-tools-row">
                         <label class="wind-tools-toggle">
                             <input type="checkbox" id="wind-auto-breath" checked>
-                            <span>${this.t('windEditor.autoBreath', { defaultValue: 'Auto Breath' })}</span>
+                            <span>${this.t('windEditor.autoBreath')}</span>
                         </label>
                     </div>
                     <div class="wind-tools-row">
                         <label class="wind-tools-toggle">
                             <input type="checkbox" id="wind-range-check" checked>
-                            <span>${this.t('windEditor.rangeCheck', { defaultValue: 'Range Check' })}</span>
+                            <span>${this.t('windEditor.rangeCheck')}</span>
                         </label>
                     </div>
                 </div>
 
                 <div class="wind-tools-section">
-                    <div class="wind-tools-section-title">${this.t('windEditor.infoSection', { defaultValue: 'Info' })}</div>
+                    <div class="wind-tools-section-title">${this.t('windEditor.infoSection')}</div>
                     <div class="wind-tools-info" id="wind-instrument-info">
                         <div class="wind-info-row">
-                            <span class="wind-info-label">${this.t('windEditor.range', { defaultValue: 'Range' })}:</span>
+                            <span class="wind-info-label">${this.t('windEditor.range')}:</span>
                             <span class="wind-info-value" id="wind-range-value">-</span>
                         </div>
                         <div class="wind-info-row">
-                            <span class="wind-info-label">${this.t('windEditor.notes', { defaultValue: 'Notes' })}:</span>
+                            <span class="wind-info-label">${this.t('windEditor.notes')}:</span>
                             <span class="wind-info-value" id="wind-notes-count">0</span>
                         </div>
                         <div class="wind-info-row">
-                            <span class="wind-info-label">${this.t('windEditor.selected', { defaultValue: 'Sel' })}:</span>
+                            <span class="wind-info-label">${this.t('windEditor.selected')}:</span>
                             <span class="wind-info-value" id="wind-selected-count">0</span>
                         </div>
                     </div>

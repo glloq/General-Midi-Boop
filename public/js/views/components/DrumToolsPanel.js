@@ -37,7 +37,7 @@ class DrumToolsPanel {
                     <div class="drum-tools-section-title">${this.t('drumPattern.velocitySection')}</div>
                     <div class="drum-tools-row">
                         <button class="drum-tools-btn" data-action="humanize" title="${this.t('drumPattern.humanize')}">
-                            Humanize
+                            ${this.t('drumPattern.humanizeShort')}
                         </button>
                         <input type="range" class="drum-tools-slider" id="drum-humanize-amount"
                             min="1" max="30" value="10" title="${this.t('drumPattern.humanizeAmount')}">
@@ -45,7 +45,7 @@ class DrumToolsPanel {
                     </div>
                     <div class="drum-tools-row">
                         <button class="drum-tools-btn" data-action="accent" title="${this.t('drumPattern.accent')}">
-                            Accent 1&3
+                            ${this.t('drumPattern.accentShort')}
                         </button>
                     </div>
                     <div class="drum-tools-row">
@@ -57,10 +57,10 @@ class DrumToolsPanel {
                     </div>
                     <div class="drum-tools-row drum-tools-row-btns">
                         <button class="drum-tools-btn drum-tools-btn-half" data-action="crescendo" title="${this.t('drumPattern.crescendo')}">
-                            Cresc &#x2197;
+                            ${this.t('drumPattern.crescendoShort')} &#x2197;
                         </button>
                         <button class="drum-tools-btn drum-tools-btn-half" data-action="decrescendo" title="${this.t('drumPattern.decrescendo')}">
-                            Decresc &#x2198;
+                            ${this.t('drumPattern.decrescendoShort')} &#x2198;
                         </button>
                     </div>
                 </div>
@@ -79,13 +79,13 @@ class DrumToolsPanel {
                     <div class="drum-tools-section-title">${this.t('drumPattern.patternSection')}</div>
                     <div class="drum-tools-row">
                         <button class="drum-tools-btn" data-action="detect-pattern" title="${this.t('drumPattern.detectPattern')}">
-                            Detect
+                            ${this.t('drumPattern.detectShort')}
                         </button>
                     </div>
                     <div class="drum-pattern-info" id="drum-pattern-info">--</div>
                     <div class="drum-tools-row">
                         <button class="drum-tools-btn" data-action="fill-pattern" id="drum-fill-btn" disabled title="${this.t('drumPattern.fillPattern')}">
-                            Fill &rarr;
+                            ${this.t('drumPattern.fillShort')} &rarr;
                         </button>
                     </div>
                 </div>
@@ -483,7 +483,7 @@ class DrumToolsPanel {
         const fillBtn = this.containerEl.querySelector('#drum-fill-btn');
 
         if (pattern) {
-            const barLabel = pattern.bars === 1 ? '1 bar' : `${pattern.bars} bars`;
+            const barLabel = pattern.bars === 1 ? '1 ' + this.t('drumPattern.bar') : `${pattern.bars} ${this.t('drumPattern.bars')}`;
             infoEl.textContent = `${this.t('drumPattern.patternDetected')}: ${barLabel} (×${pattern.repeats})`;
             infoEl.classList.add('drum-pattern-found');
             if (fillBtn) fillBtn.disabled = false;

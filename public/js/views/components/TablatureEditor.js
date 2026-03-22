@@ -173,7 +173,7 @@ class TablatureEditor {
         this.containerEl.innerHTML = `
             <div class="tablature-header">
                 <div class="tablature-title">
-                    <span class="tablature-icon">TAB</span>
+                    <span class="tablature-icon">${this.t('tablature.icon')}</span>
                     <span class="tablature-instrument-badge" id="tab-instrument-badge"></span>
                     <span class="tablature-tuning" id="tab-tuning-display"></span>
                     <select class="tab-algo-select" id="tab-algo-select" title="${this.t('tablature.algorithm')}">
@@ -192,12 +192,12 @@ class TablatureEditor {
                     <span class="tab-separator"></span>
                     <button class="tab-tool-btn" data-action="tab-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="tab-tool-btn" data-action="tab-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="tab-tool-btn" data-action="tab-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
-                    <button class="tab-tool-btn" data-action="tab-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">PST</button>
+                    <button class="tab-tool-btn" data-action="tab-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('tablature.copyShort')}</button>
+                    <button class="tab-tool-btn" data-action="tab-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('tablature.pasteShort')}</button>
                     <button class="tab-tool-btn" data-action="tab-zoom-in" title="${this.t('tablature.zoomIn')}">+</button>
                     <button class="tab-tool-btn" data-action="tab-zoom-out" title="${this.t('tablature.zoomOut')}">-</button>
-                    <button class="tab-tool-btn" data-action="tab-delete" title="${this.t('tablature.deleteSelected')}">DEL</button>
-                    <button class="tab-tool-btn" data-action="tab-select-all" title="${this.t('tablature.selectAll')}">ALL</button>
+                    <button class="tab-tool-btn" data-action="tab-delete" title="${this.t('tablature.deleteSelected')}">${this.t('tablature.deleteShort')}</button>
+                    <button class="tab-tool-btn" data-action="tab-select-all" title="${this.t('tablature.selectAll')}">${this.t('tablature.selectAllShort')}</button>
                     <button class="tab-tool-btn tab-close-btn" data-action="tab-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>
