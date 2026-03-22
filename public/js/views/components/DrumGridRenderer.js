@@ -96,8 +96,8 @@ class DrumGridRenderer {
 
         // Playable notes: Set<noteNumber> or null (all playable) or undefined (not set)
         this.playableNotes = undefined;
-        // Disabled notes (toggled off by user click): Set<noteNumber>
-        this.disabledNotes = new Set();
+        // Muted notes (toggled off by user click on label): Set<noteNumber>
+        this.mutedNotes = new Set();
 
         // Selection
         this.selectedEvents = new Set();
@@ -406,9 +406,9 @@ class DrumGridRenderer {
             ctx.fillStyle = i % 2 === 0 ? this.colors.rowEven : this.colors.rowOdd;
             ctx.fillRect(this.headerWidth, y, w - this.headerWidth, this.rowHeight);
 
-            // Dim disabled rows
-            if (this.disabledNotes.has(note)) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            // Dim muted rows
+            if (this.mutedNotes.has(note)) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
                 ctx.fillRect(this.headerWidth, y, w - this.headerWidth, this.rowHeight);
             }
         }
@@ -500,16 +500,17 @@ class DrumGridRenderer {
 
             // Velocity-based opacity
             const velocity = evt.velocity || 100;
-            const alpha = 0.3 + (velocity / 127) * 0.7;
+            const isMuted = this.mutedNotes.has(evt.note);
+            const alpha = isMuted ? 0.15 : (0.3 + (velocity / 127) * 0.7);
 
             const category = this.CATEGORY_MAP[evt.note] || 'misc';
             const color = this.categoryColors[category] || this.categoryColors.misc;
 
-            if (isSelected) {
+            if (isSelected && !isMuted) {
                 ctx.fillStyle = this.colors.selectedBg;
                 ctx.globalAlpha = 1;
             } else {
-                ctx.fillStyle = color;
+                ctx.fillStyle = isMuted ? '#555' : color;
                 ctx.globalAlpha = alpha;
             }
 
@@ -631,33 +632,56 @@ class DrumGridRenderer {
 
             if (cy < this.topMargin || cy > h) continue;
 
-            const isDisabled = this.disabledNotes.has(note);
-            const isPlayable = hasPlayableInfo && !isDisabled &&
-                (this.playableNotes === null || this.playableNotes.has(note));
+            const isMuted = this.mutedNotes.has(note);
 
-            // Playable note background
-            if (hasPlayableInfo) {
+            // Playable note background (only when routing info available)
+            if (hasPlayableInfo && !isMuted) {
+                const isPlayable = this.playableNotes === null || this.playableNotes.has(note);
                 if (isPlayable) {
                     ctx.fillStyle = 'rgba(0, 200, 80, 0.25)';
-                    ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
-                } else if (isDisabled) {
-                    ctx.fillStyle = 'rgba(255, 60, 60, 0.15)';
                     ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
                 }
             }
 
-            // Category color indicator
+            // Muted row: grey overlay on label area
+            if (isMuted) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
+            }
+
+            // Mute toggle indicator (circle at left)
+            const indicatorX = 6;
+            const indicatorR = 4;
+            ctx.beginPath();
+            ctx.arc(indicatorX, cy, indicatorR, 0, Math.PI * 2);
+            if (isMuted) {
+                // Empty circle with strikethrough
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                // Small cross
+                ctx.beginPath();
+                ctx.moveTo(indicatorX - 2.5, cy - 2.5);
+                ctx.lineTo(indicatorX + 2.5, cy + 2.5);
+                ctx.stroke();
+            } else {
+                // Filled green circle
+                ctx.fillStyle = '#00c850';
+                ctx.fill();
+            }
+
+            // Category color indicator (shifted right to make room for mute icon)
             const category = this.CATEGORY_MAP[note] || 'misc';
             const color = this.categoryColors[category] || this.categoryColors.misc;
 
             ctx.fillStyle = color;
-            ctx.fillRect(2, y + 2, 4, this.rowHeight - 4);
+            ctx.fillRect(14, y + 2, 4, this.rowHeight - 4);
 
-            // Label: green if playable, dimmed if disabled, normal otherwise
-            if (hasPlayableInfo && isPlayable) {
+            // Label text
+            if (isMuted) {
+                ctx.fillStyle = '#555';
+            } else if (hasPlayableInfo && (this.playableNotes === null || this.playableNotes.has(note))) {
                 ctx.fillStyle = '#00e050';
-            } else if (isDisabled) {
-                ctx.fillStyle = '#666';
             } else {
                 ctx.fillStyle = this.colors.headerText;
             }
@@ -746,19 +770,18 @@ class DrumGridRenderer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Click on row label area: toggle note playable state + preview
-        if (x < this.headerWidth && y > this.topMargin && this.playableNotes !== undefined) {
+        // Click on row label area: toggle mute state
+        if (x < this.headerWidth && y > this.topMargin) {
             const rowIndex = this._yToRow(y);
             if (rowIndex >= 0 && rowIndex < this.visibleNotes.length) {
                 const note = this.visibleNotes[rowIndex];
-                if (this.disabledNotes.has(note)) {
-                    this.disabledNotes.delete(note);
+                if (this.mutedNotes.has(note)) {
+                    this.mutedNotes.delete(note);
                 } else {
-                    this.disabledNotes.add(note);
+                    this.mutedNotes.add(note);
                 }
                 this.redraw();
-                // Emit preview event for the toggled note
-                this._emitEvent('labelclick', { note, enabled: !this.disabledNotes.has(note) });
+                this._emitEvent('labelclick', { note, muted: this.mutedNotes.has(note) });
                 return;
             }
         }
@@ -822,8 +845,8 @@ class DrumGridRenderer {
             return;
         }
 
-        // Cursor for label zone
-        if (x < this.headerWidth && y > this.topMargin && this.playableNotes !== undefined) {
+        // Cursor for label zone (always clickable for mute toggle)
+        if (x < this.headerWidth && y > this.topMargin) {
             this.canvas.style.cursor = 'pointer';
         } else if (!this._isDragging) {
             this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';

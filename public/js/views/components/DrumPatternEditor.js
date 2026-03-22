@@ -355,7 +355,7 @@ class DrumPatternEditor {
         } else {
             this.gridRenderer.playableNotes = undefined;
         }
-        this.gridRenderer.disabledNotes.clear();
+        this.gridRenderer.mutedNotes.clear();
     }
 
     // ========================================================================
@@ -601,9 +601,9 @@ class DrumPatternEditor {
     }
 
     _handleGridLabelClick(e) {
-        const { note, enabled } = e.detail;
-        // Play note preview when enabling (clicking back on)
-        if (enabled) {
+        const { note, muted } = e.detail;
+        // Play note preview when unmuting
+        if (!muted) {
             this.modal.playNoteFeedback(note, 100, this.channel);
         }
     }
