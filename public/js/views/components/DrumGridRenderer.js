@@ -94,6 +94,11 @@ class DrumGridRenderer {
         // Visible rows: only notes that actually appear in the data
         this.visibleNotes = [];       // Sorted note numbers for rows
 
+        // Playable notes: Set<noteNumber> or null (all playable) or undefined (not set)
+        this.playableNotes = undefined;
+        // Disabled notes (toggled off by user click): Set<noteNumber>
+        this.disabledNotes = new Set();
+
         // Selection
         this.selectedEvents = new Set();
         this.selectionRect = null;
@@ -394,11 +399,18 @@ class DrumGridRenderer {
     _drawRowBackgrounds(w, h) {
         const ctx = this.ctx;
         for (let i = 0; i < this.visibleNotes.length; i++) {
+            const note = this.visibleNotes[i];
             const y = this._rowToY(i);
             if (y + this.rowHeight < 0 || y > h) continue;
 
             ctx.fillStyle = i % 2 === 0 ? this.colors.rowEven : this.colors.rowOdd;
             ctx.fillRect(this.headerWidth, y, w - this.headerWidth, this.rowHeight);
+
+            // Dim disabled rows
+            if (this.disabledNotes.has(note)) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(this.headerWidth, y, w - this.headerWidth, this.rowHeight);
+            }
         }
     }
 
@@ -606,6 +618,8 @@ class DrumGridRenderer {
         ctx.lineTo(this.headerWidth, h);
         ctx.stroke();
 
+        const hasPlayableInfo = this.playableNotes !== undefined;
+
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
@@ -617,6 +631,21 @@ class DrumGridRenderer {
 
             if (cy < this.topMargin || cy > h) continue;
 
+            const isDisabled = this.disabledNotes.has(note);
+            const isPlayable = hasPlayableInfo && !isDisabled &&
+                (this.playableNotes === null || this.playableNotes.has(note));
+
+            // Playable note background
+            if (hasPlayableInfo) {
+                if (isPlayable) {
+                    ctx.fillStyle = 'rgba(0, 200, 80, 0.25)';
+                    ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
+                } else if (isDisabled) {
+                    ctx.fillStyle = 'rgba(255, 60, 60, 0.15)';
+                    ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
+                }
+            }
+
             // Category color indicator
             const category = this.CATEGORY_MAP[note] || 'misc';
             const color = this.categoryColors[category] || this.categoryColors.misc;
@@ -624,8 +653,14 @@ class DrumGridRenderer {
             ctx.fillStyle = color;
             ctx.fillRect(2, y + 2, 4, this.rowHeight - 4);
 
-            // Label
-            ctx.fillStyle = this.colors.headerText;
+            // Label: green if playable, dimmed if disabled, normal otherwise
+            if (hasPlayableInfo && isPlayable) {
+                ctx.fillStyle = '#00e050';
+            } else if (isDisabled) {
+                ctx.fillStyle = '#666';
+            } else {
+                ctx.fillStyle = this.colors.headerText;
+            }
             const label = this._getShortName(note);
             ctx.fillText(label, this.headerWidth - 6, cy);
         }
@@ -711,6 +746,23 @@ class DrumGridRenderer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
+        // Click on row label area: toggle note playable state + preview
+        if (x < this.headerWidth && y > this.topMargin && this.playableNotes !== undefined) {
+            const rowIndex = this._yToRow(y);
+            if (rowIndex >= 0 && rowIndex < this.visibleNotes.length) {
+                const note = this.visibleNotes[rowIndex];
+                if (this.disabledNotes.has(note)) {
+                    this.disabledNotes.delete(note);
+                } else {
+                    this.disabledNotes.add(note);
+                }
+                this.redraw();
+                // Emit preview event for the toggled note
+                this._emitEvent('labelclick', { note, enabled: !this.disabledNotes.has(note) });
+                return;
+            }
+        }
+
         // Pan mode: pan by default, select with shift
         // Select mode: select by default, pan with alt/middle
         const forcePan = e.altKey || e.button === 1;
@@ -768,6 +820,13 @@ class DrumGridRenderer {
                 this.redraw();
             }
             return;
+        }
+
+        // Cursor for label zone
+        if (x < this.headerWidth && y > this.topMargin && this.playableNotes !== undefined) {
+            this.canvas.style.cursor = 'pointer';
+        } else if (!this._isDragging) {
+            this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';
         }
 
         // Hover

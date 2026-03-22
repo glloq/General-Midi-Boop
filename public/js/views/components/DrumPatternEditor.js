@@ -37,6 +37,7 @@ class DrumPatternEditor {
         this._onGridAdd = this._handleGridAdd.bind(this);
         this._onGridEditVelocity = this._handleGridEditVelocity.bind(this);
         this._onGridSelection = this._handleGridSelection.bind(this);
+        this._onGridLabelClick = this._handleGridLabelClick.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
     }
 
@@ -77,6 +78,9 @@ class DrumPatternEditor {
 
         // Convert MIDI notes to grid events
         this.loadFromMidi(midiNotes);
+
+        // Sync playable notes from channel highlight data
+        this._syncPlayableNotes();
 
         this._detachCanvasEvents();
         this._attachCanvasEvents();
@@ -338,6 +342,22 @@ class DrumPatternEditor {
         }
     }
 
+    /**
+     * Sync playable notes from channel highlight data into the grid renderer.
+     * If channel 9 has routing with playable notes info, pass it to the grid.
+     */
+    _syncPlayableNotes() {
+        if (!this.gridRenderer) return;
+        const highlights = this.modal.channelPlayableHighlights;
+        if (highlights && highlights.has(this.channel)) {
+            // Set<noteNumber> or null (null = all notes playable)
+            this.gridRenderer.playableNotes = highlights.get(this.channel);
+        } else {
+            this.gridRenderer.playableNotes = undefined;
+        }
+        this.gridRenderer.disabledNotes.clear();
+    }
+
     // ========================================================================
     // CONVERSION — MIDI → GRID
     // ========================================================================
@@ -467,6 +487,7 @@ class DrumPatternEditor {
             this.gridCanvasEl.addEventListener('drum:addhit', this._onGridAdd);
             this.gridCanvasEl.addEventListener('drum:editvelocity', this._onGridEditVelocity);
             this.gridCanvasEl.addEventListener('drum:selectionchange', this._onGridSelection);
+            this.gridCanvasEl.addEventListener('drum:labelclick', this._onGridLabelClick);
         }
         document.addEventListener('keydown', this._onKeyDown);
     }
@@ -476,6 +497,7 @@ class DrumPatternEditor {
             this.gridCanvasEl.removeEventListener('drum:addhit', this._onGridAdd);
             this.gridCanvasEl.removeEventListener('drum:editvelocity', this._onGridEditVelocity);
             this.gridCanvasEl.removeEventListener('drum:selectionchange', this._onGridSelection);
+            this.gridCanvasEl.removeEventListener('drum:labelclick', this._onGridLabelClick);
         }
         document.removeEventListener('keydown', this._onKeyDown);
     }
@@ -576,6 +598,14 @@ class DrumPatternEditor {
 
     _handleGridSelection(e) {
         // Selection changed — could update status bar or preview
+    }
+
+    _handleGridLabelClick(e) {
+        const { note, enabled } = e.detail;
+        // Play note preview when enabling (clicking back on)
+        if (enabled) {
+            this.modal.playNoteFeedback(note, 100, this.channel);
+        }
     }
 
     _handleKeyDown(e) {
