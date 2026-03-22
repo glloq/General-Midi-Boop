@@ -328,17 +328,27 @@ class AutoAssignModal {
       const isSkipped = this.skippedChannels.has(channel);
       const assignment = this.selectedAssignments[ch];
       const score = assignment?.score || 0;
+      const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
+      const gmName = channel === 9
+        ? _t('autoAssign.drums')
+        : (this.getGmProgramName(analysis?.primaryProgram) || '');
+      // Truncate long names for tab display
+      const gmShort = gmName.length > 14 ? gmName.slice(0, 13) + '…' : gmName;
 
       return `
         <button class="aa-tab ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''}"
                 data-channel="${channel}"
-                onclick="autoAssignModalInstance.switchTab(${channel})">
-          <span class="aa-tab-label">${_t('autoAssign.channel')} ${channel + 1}</span>
-          ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
-          ${isSkipped
-            ? '<span class="aa-tab-status skipped">—</span>'
-            : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
-          }
+                onclick="autoAssignModalInstance.switchTab(${channel})"
+                title="${escapeHtml(gmName)}">
+          <div class="aa-tab-main">
+            <span class="aa-tab-label">Ch ${channel + 1}</span>
+            ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
+            ${isSkipped
+              ? '<span class="aa-tab-status skipped">—</span>'
+              : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
+            }
+          </div>
+          ${gmShort ? `<div class="aa-tab-gm">${escapeHtml(gmShort)}</div>` : ''}
         </button>
       `;
     }).join('');
