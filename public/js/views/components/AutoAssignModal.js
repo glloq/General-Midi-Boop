@@ -118,7 +118,7 @@ class AutoAssignModal {
     }
 
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
     if (!selectedOption) return { totalNotes: 0, inRange: 0, outOfRange: 0, recovered: 0 };
 
     const inst = selectedOption.instrument;
@@ -230,11 +230,11 @@ class AutoAssignModal {
       // Enrich auto-selected assignments with instrument capabilities (gmProgram, note range, etc.)
       // The backend autoSelection doesn't include these, so we look them up from suggestions
       for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
-        if (!assignment || !assignment.deviceId) continue;
+        if (!assignment || !assignment.instrumentId) continue;
         const options = this.suggestions[ch] || [];
         const lowOptions = this.lowScoreSuggestions[ch] || [];
-        const matchedOption = options.find(opt => opt.instrument.device_id === assignment.deviceId)
-          || lowOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+        const matchedOption = options.find(opt => opt.instrument.id === assignment.instrumentId)
+          || lowOptions.find(opt => opt.instrument.id === assignment.instrumentId);
         if (matchedOption) {
           assignment.gmProgram = matchedOption.instrument.gm_program;
           assignment.noteRangeMin = matchedOption.instrument.note_range_min;
@@ -521,7 +521,7 @@ class AutoAssignModal {
     const ch = String(channel);
     const options = this.suggestions[ch] || [];
     const isSkipped = this.skippedChannels.has(channel);
-    const selectedDeviceId = this.selectedAssignments[ch]?.deviceId;
+    const selectedInstrumentId = this.selectedAssignments[ch]?.instrumentId;
     const analysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[ch];
     const adaptation = this.adaptationSettings[ch] || {};
 
@@ -552,7 +552,7 @@ class AutoAssignModal {
           ${showLow ? `
             <div class="aa-low-scores-list">
               ${lowOptions.map((option, index) => {
-                return this.renderInstrumentOption(channel, option, index, selectedDeviceId, true);
+                return this.renderInstrumentOption(channel, option, index, selectedInstrumentId, true);
               }).join('')}
             </div>
           ` : ''}
@@ -571,7 +571,7 @@ class AutoAssignModal {
 
     // Instrument options
     const optionsHTML = isSkipped ? '' : options.map((option, index) => {
-      return this.renderInstrumentOption(channel, option, index, selectedDeviceId, false);
+      return this.renderInstrumentOption(channel, option, index, selectedInstrumentId, false);
     }).join('');
 
     // Low-score instruments (collapsible)
@@ -593,11 +593,11 @@ class AutoAssignModal {
     ` : '';
 
     // Adaptation controls (only if not skipped and instrument selected)
-    const adaptationHTML = (!isSkipped && selectedDeviceId) ? this.renderAdaptationControls(channel, adaptation) : '';
+    const adaptationHTML = (!isSkipped && selectedInstrumentId) ? this.renderAdaptationControls(channel, adaptation) : '';
 
     // Drum mapping config section (only for channel 9 or percussion-type channels)
     const isDrumChannel = channel === 9 || (analysis && analysis.estimatedType === 'drums');
-    const drumMappingHTML = (!isSkipped && isDrumChannel && selectedDeviceId) ? this.renderDrumMappingSection(channel) : '';
+    const drumMappingHTML = (!isSkipped && isDrumChannel && selectedInstrumentId) ? this.renderDrumMappingSection(channel) : '';
 
     return `
       <div class="aa-tab-content">
@@ -736,7 +736,7 @@ class AutoAssignModal {
 
     const ch = String(channel);
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment?.deviceId);
+    const selectedOption = allOptions.find(opt => opt.instrument.id === assignment?.instrumentId);
     if (!selectedOption) return '';
 
     const inst = selectedOption.instrument;
@@ -847,10 +847,10 @@ class AutoAssignModal {
     const semitones = adaptation.transpositionSemitones || 0;
     const strategy = adaptation.strategy || 'ignore';
 
-    if (!analysis?.noteRange || analysis.noteRange.min == null || !assignment?.deviceId) return '';
+    if (!analysis?.noteRange || analysis.noteRange.min == null || !assignment?.instrumentId) return '';
 
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
     if (!selectedOption) return '';
     const inst = selectedOption.instrument;
 
@@ -917,11 +917,11 @@ class AutoAssignModal {
   /**
    * Get list of other channels currently assigned to the same instrument
    */
-  getOtherChannelsUsingInstrument(deviceId, excludeChannel) {
+  getOtherChannelsUsingInstrument(instrumentId, excludeChannel) {
     const others = [];
     for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
       const chNum = parseInt(ch);
-      if (chNum !== excludeChannel && !this.skippedChannels.has(chNum) && assignment?.deviceId === deviceId) {
+      if (chNum !== excludeChannel && !this.skippedChannels.has(chNum) && assignment?.instrumentId === instrumentId) {
         others.push(chNum + 1); // display as 1-based
       }
     }
@@ -931,17 +931,17 @@ class AutoAssignModal {
   /**
    * Render a single instrument option (used for both normal and low-score lists)
    */
-  renderInstrumentOption(channel, option, index, selectedDeviceId, isLowScore) {
+  renderInstrumentOption(channel, option, index, selectedInstrumentId, isLowScore) {
     const instrument = option.instrument;
     const compat = option.compatibility;
-    const isSelected = instrument.device_id === selectedDeviceId;
+    const isSelected = instrument.id === selectedInstrumentId;
     const escapedName = escapeHtml(instrument.custom_name || instrument.name);
-    const escapedDeviceId = escapeHtml(instrument.device_id);
-    const detailKey = `${channel}_${escapedDeviceId}`;
+    const escapedInstrumentId = escapeHtml(instrument.id);
+    const detailKey = `${channel}_${escapedInstrumentId}`;
     const showDetails = this.showScoreDetails[detailKey] || false;
 
     // Check if this instrument is already used by another channel
-    const otherChannels = this.getOtherChannelsUsingInstrument(instrument.device_id, channel);
+    const otherChannels = this.getOtherChannelsUsingInstrument(instrument.id, channel);
     const duplicateWarning = (isSelected && otherChannels.length > 0)
       ? `<span class="aa-duplicate-badge" title="${_t('autoAssign.duplicateInstrumentTip', {channels: otherChannels.join(', ')})}">${_t('autoAssign.duplicateInstrument', {channels: otherChannels.join(', ')})}</span>`
       : '';
@@ -961,9 +961,9 @@ class AutoAssignModal {
     return `
       <div class="aa-instrument-option ${isSelected ? 'selected' : ''} ${isLowScore ? 'low-score' : ''}"
            data-channel="${channel}"
-           data-device-id="${escapedDeviceId}">
+           data-instrument-id="${escapedInstrumentId}">
         <div class="aa-instrument-main"
-             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedDeviceId.replace(/'/g, "\\'")}')">
+             onclick="autoAssignModalInstance.selectInstrument(${channel}, '${escapedInstrumentId.replace(/'/g, "\\'")}')">
           <div class="aa-instrument-info">
             <div class="aa-instrument-name">
               ${escapedName}
@@ -1023,7 +1023,7 @@ class AutoAssignModal {
 
     // Find the selected instrument's compatibility data
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
     const noteRemapping = assignment.noteRemapping || (selectedOption && selectedOption.compatibility.noteRemapping) || {};
 
     // GM drum note names
@@ -1328,19 +1328,19 @@ class AutoAssignModal {
   /**
    * Select an instrument for a channel
    */
-  selectInstrument(channel, deviceId) {
+  selectInstrument(channel, instrumentId) {
     const ch = String(channel);
     const options = this.suggestions[ch] || [];
     const lowOptions = this.lowScoreSuggestions[ch] || [];
-    const selectedOption = options.find(opt => opt.instrument.device_id === deviceId)
-      || lowOptions.find(opt => opt.instrument.device_id === deviceId);
+    const selectedOption = options.find(opt => opt.instrument.id === instrumentId)
+      || lowOptions.find(opt => opt.instrument.id === instrumentId);
 
     if (!selectedOption) return;
 
     const existingAnalysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[ch] || null;
 
     this.selectedAssignments[ch] = {
-      deviceId: deviceId,
+      deviceId: selectedOption.instrument.device_id,
       instrumentId: selectedOption.instrument.id,
       instrumentName: selectedOption.instrument.name,
       customName: selectedOption.instrument.custom_name,
