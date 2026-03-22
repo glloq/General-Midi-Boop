@@ -1420,22 +1420,50 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const colUnplayableLt = '#707070'; // Gris clair pour notes blanches non jouables
             const colUnplayableDk = '#505050'; // Gris foncé pour notes noires non jouables
 
+            // Pre-compute per-note highlight colors (tinted background) — single pass, no globalAlpha
+            let noteHighlightLt = null; // light key tinted colors [128]
+            let noteHighlightDk = null; // dark key tinted colors [128]
+            if(this.channelPlayableHighlights && this.channelPlayableHighlights.size > 0) {
+                noteHighlightLt = new Array(128);
+                noteHighlightDk = new Array(128);
+                // Parse base row colors once
+                const baseLt = {r:0xcc,g:0xcc,b:0xcc}; // #ccc
+                const baseDk = {r:0xaa,g:0xaa,b:0xaa}; // #aaa
+                const _parseHex = function(hex) {
+                    hex = hex.replace('#','');
+                    if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+                    return {r:parseInt(hex.substr(0,2),16),g:parseInt(hex.substr(2,2),16),b:parseInt(hex.substr(4,2),16)};
+                };
+                const _blend = function(base, tint, t) {
+                    return 'rgb('+Math.round(base.r+(tint.r-base.r)*t)+','+Math.round(base.g+(tint.g-base.g)*t)+','+Math.round(base.b+(tint.b-base.b)*t)+')';
+                };
+                // Apply last matching highlight per note (blend 40% for clear visibility)
+                this.channelPlayableHighlights.forEach(function(info) {
+                    const tint = _parseHex(info.color);
+                    const notes = info.notes;
+                    for(let y=0;y<128;++y){
+                        if(!notes || notes.has(y)) {
+                            noteHighlightLt[y] = _blend(baseLt, tint, 0.40);
+                            noteHighlightDk[y] = _blend(baseDk, tint, 0.40);
+                        }
+                    }
+                });
+            }
+
             for(let y=0;y<128;++y){
                 // Vérifier si la note est jouable
                 const isPlayable = !this.playableNotes || this.playableNotes.has(y);
+                const isBlack = this.semiflag[y%12]&1;
 
-                if(isPlayable) {
-                    // Note jouable : couleur normale
-                    if(this.semiflag[y%12]&1)
-                        this.ctx.fillStyle=this.coldk;
-                    else
-                        this.ctx.fillStyle=this.collt;
+                if(noteHighlightLt && noteHighlightLt[y]) {
+                    // Highlighted playable note: tinted background
+                    this.ctx.fillStyle = isBlack ? noteHighlightDk[y] : noteHighlightLt[y];
+                } else if(isPlayable) {
+                    // Normal playable note
+                    this.ctx.fillStyle = isBlack ? this.coldk : this.collt;
                 } else {
-                    // Note non jouable : couleur grisée
-                    if(this.semiflag[y%12]&1)
-                        this.ctx.fillStyle=colUnplayableDk;
-                    else
-                        this.ctx.fillStyle=colUnplayableLt;
+                    // Non-playable note: grayed out
+                    this.ctx.fillStyle = isBlack ? colUnplayableDk : colUnplayableLt;
                 }
 
                 let ys = this.height - (y - this.yoffset) * this.steph;
@@ -1446,24 +1474,6 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     this.ctx.fillStyle=this.colgrid;
                     this.ctx.fillRect(this.yruler+this.kbwidth, ys|0, this.swidth,1);
                 }
-            }
-
-            // Per-channel playable note highlights (colored transparent overlay)
-            if(this.channelPlayableHighlights && this.channelPlayableHighlights.size > 0) {
-                const savedAlpha = this.ctx.globalAlpha;
-                this.channelPlayableHighlights.forEach(function(info) {
-                    const highlightColor = info.color;
-                    const notes = info.notes; // Set or null (null = all notes)
-                    for(let y=0;y<128;++y){
-                        const isHighlighted = !notes || notes.has(y);
-                        if(!isHighlighted) continue;
-                        let ys = this.height - (y - this.yoffset) * this.steph;
-                        this.ctx.globalAlpha = 0.15;
-                        this.ctx.fillStyle = highlightColor;
-                        this.ctx.fillRect(this.yruler+this.kbwidth, ys|0, this.swidth, -this.steph);
-                    }
-                }.bind(this));
-                this.ctx.globalAlpha = savedAlpha;
             }
             for(let t=0;;t+=this.grid){
                 let x=this.stepw*(t-this.xoffset)+this.yruler+this.kbwidth;
