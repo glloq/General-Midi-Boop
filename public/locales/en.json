@@ -369,7 +369,9 @@
     "channelEnabled": "Enabled",
     "channelRoutingLabel": "Instrument routing",
     "noRouting": "-- No routing --",
-    "showPlayableNotes": "Playable notes"
+    "showPlayableNotes": "Playable notes",
+    "hideOtherChannels": "Hide others",
+    "showAllChannels": "Show all channels"
   },
   "errors": {
     "deviceNotFound": "Device not found: {deviceId}",

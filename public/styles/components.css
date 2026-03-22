@@ -1366,6 +1366,33 @@
     border-color: #888;
 }
 
+.channel-visibility-actions {
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid #333;
+    padding-top: 8px;
+}
+
+.channel-hide-others-btn,
+.channel-show-all-btn {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 11px;
+    color: #ccc;
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.channel-hide-others-btn:hover,
+.channel-show-all-btn:hover {
+    color: #fff;
+    background: #3a3a3a;
+    border-color: #888;
+}
+
 .playable-color-dot {
     display: inline-block;
     width: 10px;
