@@ -3329,9 +3329,33 @@
             overflow-y: auto;
         }
 
+        .routing-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
         .routing-modal-title {
-            margin: 0 0 8px 0;
+            margin: 0;
             color: #667eea;
+        }
+
+        .btn-auto-assign {
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+        .btn-auto-assign:hover {
+            opacity: 0.85;
         }
 
         .routing-modal-file {
@@ -8353,7 +8377,10 @@
 
             modal.innerHTML = `
                 <div class="routing-modal-container">
-                    <h2 class="routing-modal-title">🔀 ${i18n.t('channelRouter.title')}</h2>
+                    <div class="routing-modal-header">
+                        <h2 class="routing-modal-title">🔀 ${i18n.t('channelRouter.title')}</h2>
+                        <button class="btn btn-auto-assign" id="routing-auto-assign-btn" title="${i18n.t('autoAssign.title')}">⚡ ${i18n.t('midiEditor.autoAssign')}</button>
+                    </div>
                     <p class="routing-modal-file"><strong>${i18n.t('channelRouter.file')}:</strong> ${filename}</p>
                     <p class="routing-modal-file"><strong>${i18n.t('channelRouter.channelsFound')}:</strong> ${channels.length}</p>
                     <div style="margin-bottom: 20px;">
@@ -8370,6 +8397,20 @@
 
             // Stocker les canaux pour la sauvegarde
             modal.dataset.channels = JSON.stringify(channels);
+
+            // Auto-assign button handler
+            const autoAssignBtn = modal.querySelector('#routing-auto-assign-btn');
+            if (autoAssignBtn) {
+                autoAssignBtn.addEventListener('click', () => {
+                    modal.remove();
+                    if (window.AutoAssignModal) {
+                        const autoModal = new window.AutoAssignModal(api, null);
+                        autoModal.show(fileId);
+                    } else {
+                        log('AutoAssignModal not loaded', 'error');
+                    }
+                });
+            }
         }
 
         // 🆕 Sauvegarder la configuration de routage
