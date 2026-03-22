@@ -655,7 +655,10 @@
     "instrumentType": "Instrument type",
     "customType": "Custom",
     "customName": "Custom name",
-    "customNamePlaceholder": "e.g. My Piano, ESP32 Drums..."
+    "customNamePlaceholder": "e.g. My Piano, ESP32 Drums...",
+    "allChannelsUsed": "All MIDI channels are already in use on this device.",
+    "deleteChannelConfirm": "Delete this instrument? Other instruments on this device will not be affected.",
+    "deleteChannelBtn": "Delete this instrument"
   },
   "channelRouter": {
     "title": "MIDI Routing Configuration",

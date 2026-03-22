@@ -4903,7 +4903,6 @@
 
     <!-- Instrument Management Page Component -->
     <script src="js/views/components/InstrumentManagementPage.js"></script>
-    <script src="js/views/components/AddInstrumentToDeviceModal.js"></script>
     <script src="js/views/components/LightingControlPage.js"></script>
 
     <!-- Bluetooth Scan Modal Component -->
@@ -8821,82 +8820,235 @@
         // Afficher la modale de réglages d'instrument
         window.showInstrumentSettings = showInstrumentSettings;
         window.showConfirm = showConfirm;
-        async function showInstrumentSettings(device) {
-            log(`⚙️ Ouverture des réglages pour ${device.name}...`);
 
+        // ========== MULTI-INSTRUMENT TABS STATE ==========
+        // Tracks all instruments/channels on the current device for the tabbed modal
+        let _instrumentTabs = []; // Array of { channel, settings, stringInstrumentConfig }
+        let _activeTabChannel = 0;
+        let _tabTuningPresets = {};
+
+        /**
+         * Charge les données d'un canal spécifique du device
+         */
+        async function _loadChannelData(deviceId, channel, deviceType) {
+            let settings = {};
             try {
-                // Déterminer le channel de l'instrument (important pour les instruments virtuels drums sur ch 9)
-                const instrumentChannel = device.channel !== undefined ? device.channel : 0;
-
-                // Charger les réglages existants
-                const response = await api.sendCommand('instrument_get_settings', {
-                    deviceId: device.id,
-                    channel: instrumentChannel
-                });
-
-                // Charger les capacités existantes
+                const response = await api.sendCommand('instrument_get_settings', { deviceId, channel });
+                const rawSettings = response && response.settings ? response.settings : {};
                 let capabilities = {};
                 try {
-                    const capResponse = await api.sendCommand('instrument_get_capabilities', {
-                        deviceId: device.id,
-                        channel: instrumentChannel
-                    });
+                    const capResponse = await api.sendCommand('instrument_get_capabilities', { deviceId, channel });
                     capabilities = capResponse.capabilities || {};
-                } catch (capError) {
-                    console.warn('Impossible de charger les capacités:', capError);
+                } catch (e) { /* ignore */ }
+                settings = { ...rawSettings, ...capabilities };
+            } catch (e) { /* ignore */ }
+
+            const isBleDevice = !!(deviceType && (deviceType.toLowerCase().includes('ble') || deviceType.toLowerCase().includes('bluetooth'))) ||
+                                !!(settings.mac_address);
+
+            let stringInstrumentConfig = null;
+            try {
+                const siResp = await api.sendCommand('string_instrument_get', { device_id: deviceId, channel });
+                if (siResp && siResp.instrument) stringInstrumentConfig = siResp.instrument;
+            } catch (e) { /* no config yet */ }
+
+            return { channel, settings, stringInstrumentConfig, isBleDevice };
+        }
+
+        /**
+         * Render la barre d'onglets pour le modal multi-instruments
+         */
+        function _renderInstrumentTabs() {
+            const channelColors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+                '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+                '#f97316', '#6366f1', '#14b8a6', '#e11d48',
+                '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+            ];
+            let html = '<div class="inst-tabs-bar">';
+            for (const tab of _instrumentTabs) {
+                const ch = tab.channel;
+                const isActive = ch === _activeTabChannel;
+                const color = channelColors[ch % channelColors.length];
+                const name = tab.settings.custom_name || tab.settings.name || `Ch ${ch + 1}`;
+                const isDrum = (ch === 9);
+                html += `<button type="button" class="inst-tab ${isActive ? 'active' : ''}" data-channel="${ch}" onclick="switchInstrumentTab(${ch})" style="${isActive ? `border-bottom-color: ${color}; color: ${color};` : ''}">
+                    <span class="inst-tab-ch" style="background: ${color};">Ch ${ch + 1}${isDrum ? ' DR' : ''}</span>
+                    <span class="inst-tab-name">${escapeHtml(name)}</span>
+                </button>`;
+            }
+            // Onglet "+" pour ajouter un instrument
+            html += `<button type="button" class="inst-tab inst-tab-add" onclick="addInstrumentTab()" title="${i18n.t('instrumentManagement.addInstrument') || 'Ajouter un instrument'}">
+                <span style="font-size: 18px; font-weight: bold;">+</span>
+            </button>`;
+            html += '</div>';
+            return html;
+        }
+
+        /**
+         * Switch vers un onglet d'instrument
+         */
+        async function switchInstrumentTab(channel) {
+            if (!currentDeviceSettings) return;
+            _activeTabChannel = channel;
+
+            const tabData = _instrumentTabs.find(t => t.channel === channel);
+            if (!tabData) return;
+
+            // Mettre à jour currentDeviceSettings avec les données de l'onglet
+            currentDeviceSettings.settings = tabData.settings;
+            currentDeviceSettings.stringInstrumentConfig = tabData.stringInstrumentConfig;
+            currentDeviceSettings.device.channel = channel;
+
+            // Re-render le contenu du formulaire
+            const formContainer = document.getElementById('instrumentSettingsFormContent');
+            const tabBar = document.querySelector('.inst-tabs-bar');
+            if (formContainer) {
+                formContainer.innerHTML = _renderInstrumentFormContent(
+                    currentDeviceSettings.device,
+                    tabData.settings,
+                    tabData.isBleDevice,
+                    tabData.stringInstrumentConfig,
+                    _tabTuningPresets,
+                    channel
+                );
+                // Ré-initialiser le piano
+                initPianoKeyboard(
+                    tabData.settings.note_range_min,
+                    tabData.settings.note_range_max,
+                    tabData.settings.note_selection_mode || 'range',
+                    tabData.settings.selected_notes || []
+                );
+                const gmSelect = document.getElementById('gmProgramSelect');
+                if (gmSelect) onGmProgramChanged(gmSelect);
+            }
+            // Re-render la barre d'onglets pour mettre à jour l'actif
+            if (tabBar && tabBar.parentElement) {
+                tabBar.outerHTML = _renderInstrumentTabs();
+            }
+        }
+
+        /**
+         * Ajoute un nouvel onglet instrument (choix du canal)
+         */
+        async function addInstrumentTab() {
+            if (!currentDeviceSettings) return;
+            const usedChannels = _instrumentTabs.map(t => t.channel);
+            const freeChannels = [];
+            for (let ch = 0; ch < 16; ch++) {
+                if (!usedChannels.includes(ch)) freeChannels.push(ch);
+            }
+            if (freeChannels.length === 0) {
+                await showAlert(i18n.t('instrumentManagement.allChannelsUsed') || 'Tous les canaux MIDI sont déjà utilisés sur cet appareil.', {
+                    title: i18n.t('instrumentManagement.addInstrumentTitle') || 'Ajouter un instrument',
+                    icon: '⚠️'
+                });
+                return;
+            }
+
+            // Créer un popup de sélection de canal
+            const channelColors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+                '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+                '#f97316', '#6366f1', '#14b8a6', '#e11d48',
+                '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+            ];
+            let gridHtml = '<div class="add-inst-channel-grid">';
+            for (let ch = 0; ch < 16; ch++) {
+                const isUsed = usedChannels.includes(ch);
+                const isDrum = (ch === 9);
+                const color = channelColors[ch];
+                gridHtml += `<button type="button" class="add-inst-channel-btn ${isUsed ? 'used' : ''}" data-channel="${ch}" ${isUsed ? 'disabled' : ''} style="${!isUsed ? `border-color: ${color};` : ''}">
+                    ${ch + 1}${isDrum ? ' DR' : ''}
+                </button>`;
+            }
+            gridHtml += '</div>';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.style.zIndex = '10002';
+            overlay.innerHTML = `
+                <div class="modal-content" style="max-width: 420px;">
+                    <div class="modal-header">
+                        <h2>${i18n.t('instrumentManagement.selectChannel') || 'Choisir un canal MIDI'}</h2>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                    </div>
+                    <p style="margin: 0 0 16px 0; font-size: 13px; color: #6b7280;">
+                        ${i18n.t('instrumentManagement.selectChannelHelp') || 'Sélectionnez un canal libre (les canaux utilisés sont grisés)'}
+                    </p>
+                    ${gridHtml}
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            // Ajouter les listeners
+            overlay.querySelectorAll('.add-inst-channel-btn:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const ch = parseInt(btn.dataset.channel);
+                    overlay.remove();
+                    // Créer l'instrument sur ce canal
+                    try {
+                        await api.sendCommand('instrument_add_to_device', {
+                            deviceId: currentDeviceSettings.device.id,
+                            channel: ch,
+                            name: `Instrument Ch${ch + 1}`
+                        });
+                        // Charger les données du nouveau canal
+                        const newTabData = await _loadChannelData(currentDeviceSettings.device.id, ch, currentDeviceSettings.device.type);
+                        _instrumentTabs.push(newTabData);
+                        _instrumentTabs.sort((a, b) => a.channel - b.channel);
+                        // Switcher vers le nouvel onglet
+                        await switchInstrumentTab(ch);
+                    } catch (e) {
+                        console.error('Failed to add instrument tab:', e);
+                        await showAlert((i18n.t('instrumentManagement.addFailed') || 'Erreur lors de l\'ajout') + ': ' + e.message, {
+                            title: 'Erreur', icon: '❌'
+                        });
+                    }
+                });
+            });
+        }
+
+        /**
+         * Supprime l'instrument/canal actif de l'onglet courant
+         */
+        async function deleteInstrumentTab() {
+            if (!currentDeviceSettings || _instrumentTabs.length <= 1) return;
+
+            const confirmed = await showConfirm(
+                i18n.t('instrumentManagement.deleteChannelConfirm') || `Supprimer l'instrument du canal ${_activeTabChannel + 1} ?\nLes autres instruments de cet appareil ne seront pas affectés.`,
+                {
+                    title: i18n.t('instrumentManagement.deleteTitle') || 'Supprimer l\'instrument',
+                    icon: '🗑️',
+                    okText: i18n.t('common.delete') || 'Supprimer',
+                    danger: true
                 }
+            );
+            if (!confirmed) return;
 
-                // Fusionner les réglages et les capacités
-                const rawSettings = response && response.settings ? response.settings : {};
-                const settings = { ...rawSettings, ...capabilities };
-                currentDeviceSettings = { device, settings };
+            try {
+                await api.sendCommand('instrument_delete', {
+                    deviceId: currentDeviceSettings.device.id,
+                    channel: _activeTabChannel
+                });
+                // Retirer l'onglet
+                _instrumentTabs = _instrumentTabs.filter(t => t.channel !== _activeTabChannel);
+                // Switcher vers le premier onglet restant
+                await switchInstrumentTab(_instrumentTabs[0].channel);
+            } catch (e) {
+                console.error('Failed to delete instrument tab:', e);
+            }
+        }
 
-                // Créer la modale
-                const modal = document.createElement('div');
-                modal.className = 'modal-overlay';
+        /**
+         * Génère le HTML du formulaire pour un canal/instrument
+         */
+        function _renderInstrumentFormContent(device, settings, isBleDevice, stringInstrumentConfig, tuningPresets, channel) {
+            const currentGmProgram = settings.gm_program;
+            const isStringInstrument = isGmStringInstrument(currentGmProgram);
+            const gmCategory = getGmStringCategory(currentGmProgram);
 
-                // Detect if device is BLE (bluetooth)
-                const isBleDevice = !!(device.type && device.type.toLowerCase().includes('ble')) ||
-                                    !!(device.type && device.type.toLowerCase().includes('bluetooth')) ||
-                                    !!(settings.mac_address);
-
-                // Detect if current GM program is a string instrument
-                const currentGmProgram = settings.gm_program;
-                const isStringInstrument = isGmStringInstrument(currentGmProgram);
-                const gmCategory = getGmStringCategory(currentGmProgram);
-
-                // Load existing string instrument config
-                let stringInstrumentConfig = null;
-                try {
-                    const siResp = await api.sendCommand('string_instrument_get', {
-                        device_id: device.id,
-                        channel: instrumentChannel
-                    });
-                    if (siResp && siResp.instrument) {
-                        stringInstrumentConfig = siResp.instrument;
-                    }
-                } catch (e) { /* no config yet */ }
-
-                // Load tuning presets
-                let tuningPresets = {};
-                try {
-                    const presetsResp = await api.sendCommand('string_instrument_get_presets', {});
-                    if (presetsResp && presetsResp.presets) {
-                        tuningPresets = presetsResp.presets;
-                    }
-                } catch (e) { /* no presets */ }
-
-                // Store in currentDeviceSettings for save
-                currentDeviceSettings.stringInstrumentConfig = stringInstrumentConfig;
-                currentDeviceSettings.tuningPresets = tuningPresets;
-
-                modal.innerHTML = `
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h2>⚙️ ${i18n.t('instrumentSettings.title')}</h2>
-                            <button class="modal-close" onclick="closeInstrumentSettings()">×</button>
-                        </div>
-
+            return `
                         <!-- 1. GM Instrument Type (first!) -->
                         <div class="form-group">
                             <label>${i18n.t('instrumentSettings.gmInstrument') || 'Type d\'instrument (General MIDI)'}</label>
@@ -9034,8 +9186,78 @@
                                 </small>
                             </div>
                         </div>
+            `;
+        }
 
-                        <div class="modal-actions">
+        async function showInstrumentSettings(device) {
+            log(`⚙️ Ouverture des réglages pour ${device.name}...`);
+
+            try {
+                const instrumentChannel = device.channel !== undefined ? device.channel : 0;
+
+                // Charger les tuning presets (commun à tous les onglets)
+                _tabTuningPresets = {};
+                try {
+                    const presetsResp = await api.sendCommand('string_instrument_get_presets', {});
+                    if (presetsResp && presetsResp.presets) _tabTuningPresets = presetsResp.presets;
+                } catch (e) { /* no presets */ }
+
+                // Charger TOUS les instruments sur ce device
+                _instrumentTabs = [];
+                try {
+                    const listResp = await api.sendCommand('instrument_list_by_device', { deviceId: device.id });
+                    if (listResp && listResp.instruments && listResp.instruments.length > 0) {
+                        for (const inst of listResp.instruments) {
+                            const tabData = await _loadChannelData(device.id, inst.channel, device.type);
+                            _instrumentTabs.push(tabData);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load device instruments, falling back to single channel:', e);
+                }
+
+                // Si aucun instrument trouvé, charger le canal par défaut
+                if (_instrumentTabs.length === 0) {
+                    const tabData = await _loadChannelData(device.id, instrumentChannel, device.type);
+                    _instrumentTabs.push(tabData);
+                }
+
+                // Trier par canal
+                _instrumentTabs.sort((a, b) => a.channel - b.channel);
+
+                // Définir l'onglet actif (le canal demandé ou le premier)
+                const requestedTab = _instrumentTabs.find(t => t.channel === instrumentChannel);
+                _activeTabChannel = requestedTab ? instrumentChannel : _instrumentTabs[0].channel;
+
+                const activeTab = _instrumentTabs.find(t => t.channel === _activeTabChannel);
+                const settings = activeTab.settings;
+
+                currentDeviceSettings = {
+                    device,
+                    settings,
+                    stringInstrumentConfig: activeTab.stringInstrumentConfig,
+                    tuningPresets: _tabTuningPresets
+                };
+
+                // Créer la modale avec onglets
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>⚙️ ${i18n.t('instrumentSettings.title')} — ${escapeHtml(device.displayName || device.name)}</h2>
+                            <button class="modal-close" onclick="closeInstrumentSettings()">×</button>
+                        </div>
+
+                        ${_renderInstrumentTabs()}
+
+                        <div id="instrumentSettingsFormContent">
+                            ${_renderInstrumentFormContent(device, settings, activeTab.isBleDevice, activeTab.stringInstrumentConfig, _tabTuningPresets, _activeTabChannel)}
+                        </div>
+
+                        <div class="modal-actions" style="display: flex; gap: 8px; align-items: center;">
+                            ${_instrumentTabs.length > 1 ? `<button class="btn btn-danger" onclick="deleteInstrumentTab()" style="margin-right: auto;" title="${i18n.t('instrumentManagement.deleteChannelBtn') || 'Supprimer cet instrument'}">🗑️ Ch ${_activeTabChannel + 1}</button>` : '<span style="margin-right: auto;"></span>'}
                             <button class="btn btn-secondary" onclick="closeInstrumentSettings()">${i18n.t('common.cancel')}</button>
                             <button class="btn" onclick="saveInstrumentSettings()">💾 ${i18n.t('common.save')}</button>
                         </div>
@@ -9688,6 +9910,8 @@
                 currentSettingsModal.remove();
                 currentSettingsModal = null;
                 currentDeviceSettings = null;
+                _instrumentTabs = [];
+                _activeTabChannel = 0;
             }
         }
 
@@ -9766,17 +9990,24 @@
                 // Si drum kit sélectionné → canal 9, si instrument mélodique et on était sur canal 9 → revenir à canal 0
                 const saveChannel = isDrumKitSelected ? 9 : (originalChannel === 9 && !isDrumKitSelected ? 0 : originalChannel);
 
-                // Si le channel change (ex: passage en drum kit), supprimer l'ancien entry
+                // Si le channel change (ex: passage en drum kit), supprimer l'ancien entry du canal uniquement
                 if (saveChannel !== originalChannel) {
                     try {
                         await api.sendCommand('instrument_delete', {
-                            deviceId: currentDeviceSettings.device.id
+                            deviceId: currentDeviceSettings.device.id,
+                            channel: originalChannel
                         });
                     } catch (e) {
                         console.warn('Could not delete old channel entry:', e);
                     }
                     // Mettre à jour le channel dans la référence locale
                     currentDeviceSettings.device.channel = saveChannel;
+                    // Mettre à jour _instrumentTabs
+                    const oldTab = _instrumentTabs.find(t => t.channel === originalChannel);
+                    if (oldTab) {
+                        oldTab.channel = saveChannel;
+                        _activeTabChannel = saveChannel;
+                    }
                 }
 
                 // Sauvegarder les réglages de base

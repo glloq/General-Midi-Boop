@@ -1,41 +1,86 @@
 /* ============================================
-   AddInstrumentToDeviceModal Styles
+   Instrument Settings Tabs + Channel Grid Styles
    ============================================ */
 
-.add-inst-form {
+/* ========== Tab bar in instrument settings modal ========== */
+.inst-tabs-bar {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  gap: 0;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--bg-secondary, #f9fafb);
+  flex-shrink: 0;
 }
 
-.add-inst-device-info {
+.inst-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 14px;
-  background: var(--bg-secondary, #f1f5f9);
-  border-radius: 8px;
-  font-size: 14px;
-  color: var(--text-secondary, #475569);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.add-inst-device-label {
-  font-weight: 500;
-  margin-right: 4px;
+.inst-tab:hover {
+  background: rgba(102, 126, 234, 0.05);
+  color: var(--text-primary, #374151);
 }
 
-.add-inst-help {
-  font-size: 12px;
-  color: var(--text-muted, #94a3b8);
-  margin: 4px 0 8px 0;
+.inst-tab.active {
+  color: var(--accent-primary, #667eea);
+  font-weight: 600;
+  border-bottom-color: var(--accent-primary, #667eea);
 }
 
-/* Channel selection grid */
+.inst-tab-ch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  min-width: 32px;
+}
+
+.inst-tab-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inst-tab-add {
+  color: var(--accent-primary, #667eea);
+  border-bottom-color: transparent;
+  padding: 10px 16px;
+}
+
+.inst-tab-add:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--accent-primary, #667eea);
+}
+
+/* ========== Channel selection grid (for "+" add flow) ========== */
 .add-inst-channel-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
+  padding: 8px 0;
 }
 
 .add-inst-channel-btn {
-  padding: 8px 4px;
+  padding: 10px 4px;
   border: 2px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   background: var(--bg-primary, white);
@@ -49,14 +94,8 @@
 
 .add-inst-channel-btn:hover:not([disabled]) {
   border-color: var(--accent-primary, #667eea);
-  background: rgba(102, 126, 234, 0.05);
-}
-
-.add-inst-channel-btn.selected {
-  border-color: var(--accent-primary, #667eea);
-  background: var(--accent-primary, #667eea);
-  color: white;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  background: rgba(102, 126, 234, 0.08);
+  transform: scale(1.05);
 }
 
 .add-inst-channel-btn.used {
@@ -64,41 +103,16 @@
   color: var(--text-muted, #94a3b8);
   border-color: var(--border-color, #e2e8f0);
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
   text-decoration: line-through;
-}
-
-.add-inst-channel-info {
-  margin-top: 8px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: var(--bg-secondary, #f8fafc);
-  font-size: 13px;
-}
-
-/* Select and Input */
-.add-inst-select,
-.add-inst-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--bg-primary, white);
-  color: var(--text-primary, #1f2937);
-  transition: border-color 0.15s;
-}
-
-.add-inst-select:focus,
-.add-inst-input:focus {
-  outline: none;
-  border-color: var(--accent-primary, #667eea);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 /* Responsive */
 @media (max-width: 480px) {
   .add-inst-channel-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+  .inst-tab-name {
+    display: none;
   }
 }

@@ -482,8 +482,6 @@ class InstrumentManagementPage {
     const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
     const connType = this.getConnectionTypeInfo(instrument);
     const deviceInstrumentCount = this.getDeviceInstrumentCount(deviceId);
-    const safeDeviceId = esc(deviceId);
-
     return `
       <div class="instrument-card inst-mgmt-card" style="
         background: white;
@@ -547,11 +545,6 @@ class InstrumentManagementPage {
                     onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}', ${channel})"
                     style="font-size: 13px; padding: 7px 12px;">
               🎵 ${i18n.t('instrumentManagement.test') || 'Tester'}
-            </button>
-            <button class="btn"
-                    onclick="event.stopPropagation(); instrumentManagementPageInstance.addInstrumentToDevice('${safeDeviceId}')"
-                    style="font-size: 13px; padding: 7px 12px;" title="${i18n.t('instrumentManagement.addInstrument') || 'Ajouter un instrument sur ce device'}">
-              ➕
             </button>
           ` : ''}
           <button class="btn btn-danger"
@@ -760,27 +753,6 @@ class InstrumentManagementPage {
     } catch (error) {
       this.showToast((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message, 'error');
     }
-  }
-
-  /**
-   * Ouvre le modal pour ajouter un instrument sur un device existant
-   */
-  addInstrumentToDevice(deviceId) {
-    const device = this.instruments.find(inst =>
-      (inst._deviceId || inst.device_id || inst.id) === deviceId
-    );
-    const deviceName = device ? (device._deviceName || device.name || deviceId) : deviceId;
-
-    if (!window.AddInstrumentToDeviceModal) {
-      this.showToast('Module AddInstrumentToDeviceModal non chargé', 'error');
-      return;
-    }
-
-    const modal = new window.AddInstrumentToDeviceModal(this.apiClient);
-    modal.showForDevice(deviceId, deviceName, async () => {
-      this.showToast(i18n.t('instrumentManagement.instrumentAdded') || 'Instrument ajouté avec succès', 'success');
-      await this.refresh();
-    });
   }
 
   /**

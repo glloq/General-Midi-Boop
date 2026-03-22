@@ -655,7 +655,10 @@
     "instrumentType": "Type d'instrument",
     "customType": "Personnalisé",
     "customName": "Nom personnalisé",
-    "customNamePlaceholder": "Ex: Mon Piano, Batterie ESP32..."
+    "customNamePlaceholder": "Ex: Mon Piano, Batterie ESP32...",
+    "allChannelsUsed": "Tous les canaux MIDI sont déjà utilisés sur cet appareil.",
+    "deleteChannelConfirm": "Supprimer cet instrument ? Les autres instruments de cet appareil ne seront pas affectés.",
+    "deleteChannelBtn": "Supprimer cet instrument"
   },
   "channelRouter": {
     "title": "Configuration du routage MIDI",
