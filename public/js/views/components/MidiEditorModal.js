@@ -5861,6 +5861,11 @@ class MidiEditorModal {
         if (typeof this.pianoRoll.redraw === 'function') {
             this.pianoRoll.redraw();
         }
+
+        // Sync drum editor: auto-mute non-playable notes
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.syncPlayableNoteMutes();
+        }
     }
 
     /**

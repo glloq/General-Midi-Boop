@@ -358,6 +358,40 @@ class DrumPatternEditor {
         this.gridRenderer.mutedNotes.clear();
     }
 
+    /**
+     * Called when playable notes highlight changes (e.g. user clicks "Notes jouables").
+     * Auto-mutes notes that are not playable by the routed instrument.
+     */
+    syncPlayableNoteMutes() {
+        if (!this.gridRenderer) return;
+
+        const highlights = this.modal.channelPlayableHighlights;
+        if (highlights && highlights.has(this.channel)) {
+            const playable = highlights.get(this.channel);
+            this.gridRenderer.playableNotes = playable;
+
+            // Auto-mute non-playable notes if we have a discrete set
+            if (playable && playable.size > 0) {
+                for (const note of this.gridRenderer.visibleNotes) {
+                    if (!playable.has(note)) {
+                        this.gridRenderer.mutedNotes.add(note);
+                    } else {
+                        this.gridRenderer.mutedNotes.delete(note);
+                    }
+                }
+            } else {
+                // null = all playable → unmute all
+                this.gridRenderer.mutedNotes.clear();
+            }
+        } else {
+            // No highlight info → clear playable state and unmute all
+            this.gridRenderer.playableNotes = undefined;
+            this.gridRenderer.mutedNotes.clear();
+        }
+
+        this.gridRenderer.redraw();
+    }
+
     // ========================================================================
     // CONVERSION — MIDI → GRID
     // ========================================================================
@@ -522,6 +556,11 @@ class DrumPatternEditor {
         this.gridRenderer._updateVisibleNotes();
         this.gridRenderer.redraw();
         this._syncToMidi();
+
+        // Play preview sound (skip if note is muted)
+        if (!this.gridRenderer.mutedNotes.has(note)) {
+            this.modal.playNoteFeedback(note, this.defaultVelocity, this.channel);
+        }
     }
 
     _handleGridEditVelocity(e) {
