@@ -71,6 +71,7 @@ class TablatureRenderer {
         this._onMouseMove = this._handleMouseMove.bind(this);
         this._onMouseUp = this._handleMouseUp.bind(this);
         this._onDblClick = this._handleDblClick.bind(this);
+        this._onWheel = this._handleWheel.bind(this);
 
         this._onContextMenu = (e) => { if (e.button === 1) e.preventDefault(); };
         this.canvas.addEventListener('mousedown', this._onMouseDown);
@@ -78,6 +79,7 @@ class TablatureRenderer {
         this.canvas.addEventListener('mouseup', this._onMouseUp);
         this.canvas.addEventListener('dblclick', this._onDblClick);
         this.canvas.addEventListener('auxclick', this._onContextMenu);
+        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
     }
 
     // ========================================================================
@@ -782,6 +784,28 @@ class TablatureRenderer {
         }
     }
 
+    // ========================================================================
+    // WHEEL SCROLL
+    // ========================================================================
+
+    _handleWheel(e) {
+        e.preventDefault();
+
+        if (e.ctrlKey || e.metaKey) {
+            // Zoom
+            const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+            this.ticksPerPixel = Math.max(0.5, Math.min(20, this.ticksPerPixel * zoomFactor));
+        } else if (e.shiftKey) {
+            // Horizontal scroll
+            this.scrollX = Math.max(0, this.scrollX + e.deltaY * this.ticksPerPixel);
+        } else {
+            // Default: horizontal scroll (tablature is primarily horizontal)
+            this.scrollX = Math.max(0, this.scrollX + e.deltaY * this.ticksPerPixel);
+        }
+
+        this.redraw();
+    }
+
     _handleDblClick(e) {
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -841,6 +865,7 @@ class TablatureRenderer {
         this.canvas.removeEventListener('mouseup', this._onMouseUp);
         this.canvas.removeEventListener('dblclick', this._onDblClick);
         this.canvas.removeEventListener('auxclick', this._onContextMenu);
+        this.canvas.removeEventListener('wheel', this._onWheel);
     }
 }
 

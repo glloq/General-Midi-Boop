@@ -85,6 +85,9 @@ class DrumGridRenderer {
         this.ticksPerBeat = 480;
         this.beatsPerMeasure = 4;
 
+        // Quantize division (subdivisions per beat): 1=1/4, 2=1/8, 3=1/8T, 4=1/16, 6=1/16T, 8=1/32
+        this.quantizeDiv = 4;
+
         // Grid data: array of { tick, note, velocity, duration, channel, selected }
         this.gridEvents = [];
 
@@ -402,13 +405,13 @@ class DrumGridRenderer {
         const startTick = this.scrollX;
         const endTick = startTick + (w - this.headerWidth) * this.ticksPerPixel;
 
-        // Subdivision lines (16th notes)
-        const ticksPer16th = this.ticksPerBeat / 4;
-        const first16th = Math.floor(startTick / ticksPer16th) * ticksPer16th;
+        // Subdivision lines (based on quantize division)
+        const ticksPerDiv = this.ticksPerBeat / this.quantizeDiv;
+        const firstDiv = Math.floor(startTick / ticksPerDiv) * ticksPerDiv;
         ctx.strokeStyle = this.colors.gridLine;
         ctx.lineWidth = 0.5;
         ctx.globalAlpha = 0.4;
-        for (let tick = first16th; tick <= endTick; tick += ticksPer16th) {
+        for (let tick = firstDiv; tick <= endTick; tick += ticksPerDiv) {
             const x = this._tickToX(tick);
             if (x < this.headerWidth) continue;
             ctx.beginPath();
@@ -795,9 +798,9 @@ class DrumGridRenderer {
             const tick = this._xToTick(x);
             const note = this._yToNote(y);
             if (note >= 0 && tick >= 0) {
-                // Quantize to 16th note
-                const ticksPer16th = this.ticksPerBeat / 4;
-                const quantizedTick = Math.round(tick / ticksPer16th) * ticksPer16th;
+                // Quantize to current subdivision
+                const ticksPerDiv = this.ticksPerBeat / this.quantizeDiv;
+                const quantizedTick = Math.round(tick / ticksPerDiv) * ticksPerDiv;
                 this._emitEvent('addhit', { tick: quantizedTick, note });
             }
         }

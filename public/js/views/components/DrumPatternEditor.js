@@ -242,6 +242,10 @@ class DrumPatternEditor {
         if (quantSelect) {
             quantSelect.addEventListener('change', () => {
                 this.quantizeDiv = parseInt(quantSelect.value, 10) || 4;
+                if (this.gridRenderer) {
+                    this.gridRenderer.quantizeDiv = this.quantizeDiv;
+                    this.gridRenderer.redraw();
+                }
             });
         }
 
@@ -270,6 +274,9 @@ class DrumPatternEditor {
         }
 
         this.gridRenderer = new DrumGridRenderer(this.gridCanvasEl);
+
+        // Sync quantize division
+        this.gridRenderer.quantizeDiv = this.quantizeDiv;
 
         // Sync zoom/scroll with piano roll if available
         if (this.modal.pianoRoll) {
@@ -472,18 +479,72 @@ class DrumPatternEditor {
         const { index, event } = e.detail;
         if (!this.gridRenderer || !event) return;
 
-        // Prompt for velocity via inline input
-        const currentVel = event.velocity || 100;
-        const input = prompt(this.t('drumPattern.enterVelocity'), currentVel.toString());
-        if (input === null) return;
+        // Position the inline input near the hit on the canvas
+        const hit = this.gridRenderer.gridEvents[index];
+        if (!hit) return;
 
-        const newVel = Math.max(1, Math.min(127, parseInt(input, 10) || currentVel));
-        if (newVel !== currentVel) {
-            this.gridRenderer.saveSnapshot();
-            this.gridRenderer.gridEvents[index].velocity = newVel;
-            this.gridRenderer.redraw();
-            this._syncToMidi();
-        }
+        const canvasRect = this.gridCanvasEl.getBoundingClientRect();
+        const x = this.gridRenderer._tickToX(hit.tick);
+        const rowIndex = this.gridRenderer.visibleNotes.indexOf(hit.note);
+        const y = rowIndex >= 0 ? this.gridRenderer._rowToY(rowIndex) : 0;
+
+        this._showVelocityInput(index, canvasRect.left + x + window.scrollX, canvasRect.top + y + window.scrollY);
+    }
+
+    _showVelocityInput(hitIndex, x, y) {
+        // Remove any existing velocity input
+        const existing = this.containerEl?.querySelector('.drum-velocity-overlay');
+        if (existing) existing.remove();
+
+        const hit = this.gridRenderer?.gridEvents[hitIndex];
+        if (!hit) return;
+
+        const currentVel = hit.velocity || 100;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'drum-velocity-overlay';
+        input.min = 1;
+        input.max = 127;
+        input.value = currentVel;
+        input.style.position = 'absolute';
+        input.style.left = `${x - 20}px`;
+        input.style.top = `${y - 2}px`;
+        input.style.width = '46px';
+        input.style.height = '22px';
+        input.style.fontSize = '11px';
+        input.style.textAlign = 'center';
+        input.style.zIndex = '9999';
+        input.style.border = '1px solid #667eea';
+        input.style.borderRadius = '3px';
+        input.style.padding = '1px 2px';
+        input.style.outline = 'none';
+        input.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+
+        let committed = false;
+        const commit = () => {
+            if (committed) return;
+            committed = true;
+            const newVel = Math.max(1, Math.min(127, parseInt(input.value, 10) || currentVel));
+            if (newVel !== currentVel) {
+                this.gridRenderer.saveSnapshot();
+                this.gridRenderer.gridEvents[hitIndex].velocity = newVel;
+                this.gridRenderer.redraw();
+                this._syncToMidi();
+            }
+            input.remove();
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { committed = true; input.remove(); }
+            e.stopPropagation(); // Prevent drum editor shortcuts while typing
+        });
+        input.addEventListener('blur', commit);
+
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
     }
 
     _handleGridSelection(e) {
@@ -500,8 +561,15 @@ class DrumPatternEditor {
         if (e.ctrlKey || e.metaKey) {
             switch (e.key.toLowerCase()) {
                 case 'z':
-                    e.preventDefault();
-                    if (this.gridRenderer?.undo()) this._syncToMidi();
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+Z = Redo
+                        e.preventDefault();
+                        if (this.gridRenderer?.redo()) this._syncToMidi();
+                    } else {
+                        // Ctrl+Z = Undo
+                        e.preventDefault();
+                        if (this.gridRenderer?.undo()) this._syncToMidi();
+                    }
                     return;
                 case 'y':
                     e.preventDefault();

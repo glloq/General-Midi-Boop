@@ -33,6 +33,9 @@ class WindMelodyRenderer {
         this.displayNoteMin = Math.max(0, this.noteMin - 5);
         this.displayNoteMax = Math.min(127, this.noteMax + 5);
 
+        // Range check (out-of-range highlighting)
+        this.rangeCheckEnabled = true;
+
         // Interaction tool: 'pan' (default) or 'edit'
         this.tool = options.tool || 'pan';
 
@@ -263,6 +266,12 @@ class WindMelodyRenderer {
         }
     }
 
+    _dispatchSelectionChange() {
+        this.canvas.dispatchEvent(new CustomEvent('wind:selectionchange', {
+            detail: { count: this.selectedEvents.size }
+        }));
+    }
+
     // ========================================================================
     // COORDINATE CONVERSION
     // ========================================================================
@@ -433,7 +442,7 @@ class WindMelodyRenderer {
             if (x + noteW < this.headerWidth || x > w) continue;
 
             const isSelected = this.selectedEvents.has(i);
-            const isOutOfRange = evt.note < this.noteMin || evt.note > this.noteMax;
+            const isOutOfRange = this.rangeCheckEnabled && (evt.note < this.noteMin || evt.note > this.noteMax);
 
             // Note body
             const alpha = 0.5 + (evt.velocity / 127) * 0.5;
@@ -569,6 +578,7 @@ class WindMelodyRenderer {
                         this.selectedEvents.add(hitIdx);
                     }
                     this.redraw();
+                    this._dispatchSelectionChange();
                 } else {
                     // Start panning
                     this._isDragging = true;
@@ -586,6 +596,7 @@ class WindMelodyRenderer {
                             this.selectedEvents.add(hitIdx);
                         }
                         this.redraw();
+                        this._dispatchSelectionChange();
                     } else {
                         if (!this.selectedEvents.has(hitIdx)) {
                             this.selectedEvents.clear();
@@ -596,6 +607,7 @@ class WindMelodyRenderer {
                         this._dragStart = { x: mx, y: my };
                         this._moveOffset = { tick: 0, note: 0 };
                         this.redraw();
+                        this._dispatchSelectionChange();
                     }
                 } else {
                     if (e.shiftKey) {
@@ -606,6 +618,7 @@ class WindMelodyRenderer {
                     } else {
                         this.selectedEvents.clear();
                         this.redraw();
+                        this._dispatchSelectionChange();
                     }
                 }
             }
@@ -666,6 +679,7 @@ class WindMelodyRenderer {
             this._selectInRect(this.selectionRect);
             this.selectionRect = null;
             this.redraw();
+            this._dispatchSelectionChange();
         } else if (this._isDragging && this._dragMode === 'move' && this._moveOffset) {
             const { tick: dt, note: dn } = this._moveOffset;
             if (Math.abs(dt) > 10 || dn !== 0) {
@@ -818,6 +832,7 @@ class WindMelodyRenderer {
             this.selectedEvents.add(i);
         }
         this.redraw();
+        this._dispatchSelectionChange();
     }
 
     deleteSelected() {
