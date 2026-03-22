@@ -444,7 +444,7 @@ class MidiDatabase {
       // Supports single status (routingStatus) or multiple statuses (routingStatuses array)
       const statusList = filters.routingStatuses || (filters.routingStatus ? [filters.routingStatus] : []);
       if (statusList.length > 0) {
-        const validStatuses = ['unrouted', 'partial', 'full', 'validated', 'playable', 'routed_incomplete', 'auto_assigned'];
+        const validStatuses = ['unrouted', 'partial', 'playable', 'routed_incomplete', 'auto_assigned'];
         for (const s of statusList) {
           if (!validStatuses.includes(s)) {
             throw new Error(`Invalid routingStatus: ${s}. Must be one of: ${validStatuses.join(', ')}`);
@@ -469,17 +469,9 @@ class MidiDatabase {
             case 'partial':
               orConditions.push(`(${routedCountSql} > 0 AND ${routedCountSql} < ${channelCountSql})`);
               break;
-            case 'full':
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0)`);
-              break;
             case 'routed_incomplete':
               orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} < 100)`);
               break;
-            case 'validated': {
-              const threshold = filters.validatedThreshold || 70;
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} >= ${Number(threshold)})`);
-              break;
-            }
             case 'playable':
               orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} = 100)`);
               break;

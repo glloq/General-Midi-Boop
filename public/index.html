@@ -2409,6 +2409,20 @@
             color: #93c5fd;
         }
 
+        /* Dark theme: state dots with enhanced visibility */
+        body.theme-dark .file-state-dot.state-partial {
+            background: #f59e0b;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+        }
+        body.theme-dark .file-state-dot.state-routed-incomplete {
+            background: #60a5fa;
+            box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
+        }
+        body.theme-dark .file-state-dot.state-playable {
+            background: #34d399;
+            box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+        }
+
         /* Grid: folders as cards similar to files */
         .file-list.view-grid .folder-item {
             flex-direction: column;
@@ -6584,12 +6598,42 @@
             }
         }
 
+        // Compute initial routing status from fileRoutingConfig (before async metadata)
+        function getInitialRoutingStatus(fileId, file) {
+            const config = fileRoutingConfig[fileId];
+            if (!config || !config.channels) return 'unrouted';
+
+            const routedDeviceIds = Object.values(config.channels);
+            if (routedDeviceIds.length === 0) return 'unrouted';
+
+            // Check virtual instruments setting
+            let virtualEnabled = false;
+            try {
+                const saved = localStorage.getItem('maestro_settings');
+                if (saved) virtualEnabled = !!JSON.parse(saved).virtualInstrument;
+            } catch (e) { /* ignore */ }
+
+            const routedCount = virtualEnabled
+                ? routedDeviceIds.filter(id => id).length
+                : routedDeviceIds.filter(id => id && id !== 'virtual-instrument' && !id.startsWith('virtual_')).length;
+
+            if (routedCount === 0) return 'unrouted';
+
+            // Use file.channel_count or file.tracks to detect partial
+            const channelCount = file.channel_count || file.tracks || 1;
+            if (routedCount < channelCount) return 'partial';
+
+            // Fully routed — can't distinguish routed_incomplete from playable without scores
+            return 'routed_incomplete';
+        }
+
         // Créer l'élément HTML pour un fichier
         function createFileElement(file) {
             const routed = isFileRouted(file.id);
+            const initialStatus = getInitialRoutingStatus(file.id, file);
 
             const li = document.createElement('li');
-            li.className = 'file-item' + (routed ? ' routed' : '');
+            li.className = 'file-item' + (initialStatus !== 'unrouted' ? ` routing-${initialStatus}` : '') + (routed ? ' routed' : '');
             li.draggable = true;
             li.dataset.fileId = file.id;
             li.dataset.fileName = file.filename;
@@ -6618,16 +6662,18 @@
             });
 
             // State dot for compact/grid modes
-            const stateClass = routed ? 'state-routed' : 'state-unrouted';
+            const stateClass = initialStatus !== 'unrouted' ? `state-${initialStatus}` : 'state-unrouted';
             const stateDot = document.createElement('span');
             stateDot.className = `file-state-dot ${stateClass}`;
             stateDot.dataset.fileId = file.id;
 
+            const routedBadgeMap = { partial: '~', routed_incomplete: '≈', playable: '✓' };
+            const routedBadge = initialStatus !== 'unrouted' ? `<span class="routed-badge">${routedBadgeMap[initialStatus] || '✓'}</span>` : '';
             const fileNameSpan = document.createElement('span');
             fileNameSpan.className = 'file-name';
             fileNameSpan.innerHTML = `
                 <div class="file-name-text" style="cursor: pointer;" title="Double-cliquer pour renommer (ou F2)">
-                    ${file.filename}${routed ? '<span class="routed-badge">✓</span>' : ''}
+                    ${file.filename}${routedBadge}
                 </div>
                 <div class="file-metadata" id="metadata-${file.id}">
                     <span>⏳ Chargement...</span>
@@ -6641,9 +6687,10 @@
             compactMeta.innerHTML = '';
 
             // Grid state badge
+            const gridLabels = { unrouted: '○ Non routé', partial: '◐ Partiel', routed_incomplete: '● Routé', playable: '✓ Jouable' };
             const gridState = document.createElement('span');
             gridState.className = `file-grid-state ${stateClass}`;
-            gridState.innerHTML = routed ? '● Routé' : '○ Non routé';
+            gridState.innerHTML = gridLabels[initialStatus] || '○ Non routé';
 
             // Double-clic pour renommer
             const fileNameTextDiv = fileNameSpan.querySelector('.file-name-text');
