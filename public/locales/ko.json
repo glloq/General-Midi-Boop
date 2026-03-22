@@ -360,10 +360,10 @@
       "1/8T": "1/8T",
       "1/16": "1/16",
       "1/16T": "1/16T",
-      "1/32": "1/32",
-    }
-      "settingsPopover": "설정",
-      "ccChannelFilter": "CC Ch:"
+      "1/32": "1/32"
+    },
+    "settingsPopover": "설정",
+    "ccChannelFilter": "CC Ch:"
   },
   "errors": {
     "deviceNotFound": "장치를 찾을 수 없음: {deviceId}",

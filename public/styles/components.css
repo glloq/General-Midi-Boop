@@ -843,6 +843,8 @@
     border-bottom: 1px solid #3a3a3a;
     align-items: center;
     flex-wrap: wrap;
+    position: relative;
+    overflow: visible;
 }
 
 .midi-editor-modal .toolbar-group {
