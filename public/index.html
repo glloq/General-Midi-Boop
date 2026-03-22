@@ -8124,7 +8124,7 @@
 
             if (!midiEditorModal) {
                 log('Initialisation de l\'éditeur MIDI...', 'info');
-                midiEditorModal = new MidiEditorModal(null, api);
+                midiEditorModal = new MidiEditorModal(window.eventBus, api);
             }
 
             try {
@@ -8352,7 +8352,9 @@
 
             let channelHTML = channels.map(ch => {
                 const trackNames = ch.tracks.map(t => t.name).join(', ');
-                const currentDevice = currentConfig.channels[ch.channel] || '';
+                // Handle both simple deviceId and editor format deviceId::targetChannel
+                const rawDevice = currentConfig.channels[ch.channel] || '';
+                const currentDevice = rawDevice.includes('::') ? rawDevice.split('::')[0] : rawDevice;
                 // Afficher l'instrument si disponible
                 const instrumentDisplay = ch.instrumentName
                     ? `<span class="routing-channel-instrument">🎹 ${ch.instrumentName}</span>`
