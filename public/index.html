@@ -9132,6 +9132,26 @@
             if (tabBar && tabBar.parentElement) {
                 tabBar.outerHTML = _renderInstrumentTabs();
             }
+
+            // Mettre à jour le bouton supprimer canal
+            const deleteBtn = document.querySelector('.modal-actions .btn-danger');
+            if (deleteBtn) {
+                deleteBtn.innerHTML = `🗑️ Ch ${channel + 1}`;
+            } else if (_instrumentTabs.length > 1) {
+                const actionsDiv = document.querySelector('.modal-actions');
+                if (actionsDiv) {
+                    const placeholder = actionsDiv.querySelector('span[style*="margin-right: auto"]');
+                    if (placeholder) {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-danger';
+                        btn.setAttribute('onclick', 'deleteInstrumentTab()');
+                        btn.style.marginRight = 'auto';
+                        btn.title = i18n.t('instrumentManagement.deleteChannelBtn') || 'Supprimer cet instrument';
+                        btn.innerHTML = `🗑️ Ch ${channel + 1}`;
+                        placeholder.replaceWith(btn);
+                    }
+                }
+            }
         }
 
         /**
@@ -9254,6 +9274,22 @@
             const isStringInstrument = isGmStringInstrument(currentGmProgram);
             const gmCategory = getGmStringCategory(currentGmProgram);
 
+            // Générer les options du sélecteur de canal MIDI
+            const usedChannels = _instrumentTabs.map(t => t.channel).filter(ch => ch !== channel);
+            const channelColors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+                '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+                '#f97316', '#6366f1', '#14b8a6', '#e11d48',
+                '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+            ];
+            let channelOptionsHtml = '';
+            for (let ch = 0; ch < 16; ch++) {
+                const isUsed = usedChannels.includes(ch);
+                const isCurrent = ch === channel;
+                const isDrum = (ch === 9);
+                channelOptionsHtml += `<option value="${ch}" ${isCurrent ? 'selected' : ''} ${isUsed ? 'disabled' : ''} style="color: ${channelColors[ch]};">Ch ${ch + 1}${isDrum ? ' (Drums)' : ''}${isUsed ? ' — utilisé' : ''}</option>`;
+            }
+
             return `
                         <!-- 1. GM Instrument Type (first!) -->
                         <div class="form-group">
@@ -9281,6 +9317,15 @@
                             <label>${i18n.t('instrumentSettings.deviceName')}</label>
                             <input type="text" id="deviceNameDisplay" value="${device.name}" disabled>
                             ${device.usbSerialNumber ? `<small class="form-text">SN: ${device.usbSerialNumber}</small>` : ''}
+                        </div>
+
+                        <!-- 3b. Canal MIDI -->
+                        <div class="form-group">
+                            <label>${i18n.t('instrumentSettings.midiChannel') || 'Canal MIDI'}</label>
+                            <select id="channelSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                ${channelOptionsHtml}
+                            </select>
+                            <small class="form-text">${i18n.t('instrumentSettings.midiChannelHelp') || 'Canal MIDI utilisé par cet instrument (les canaux déjà utilisés sont désactivés)'}</small>
                         </div>
 
                         <!-- 4. String Instrument Section (conditional) -->
@@ -10191,10 +10236,11 @@
                 const isDrumKitSelected = gmDecoded.isDrumKit;
 
                 // Déterminer le channel correct de l'instrument
-                // Si un drum kit est sélectionné, forcer canal 9 (MIDI canal 10)
                 const originalChannel = currentDeviceSettings.device.channel !== undefined ? currentDeviceSettings.device.channel : 0;
-                // Si drum kit sélectionné → canal 9, si instrument mélodique et on était sur canal 9 → revenir à canal 0
-                const saveChannel = isDrumKitSelected ? 9 : (originalChannel === 9 && !isDrumKitSelected ? 0 : originalChannel);
+                // Priorité : drum kit → canal 9, sinon utiliser le sélecteur de canal
+                const channelSelect = document.getElementById('channelSelect');
+                const userSelectedChannel = channelSelect ? parseInt(channelSelect.value) : originalChannel;
+                const saveChannel = isDrumKitSelected ? 9 : userSelectedChannel;
 
                 // Si le channel change (ex: passage en drum kit), supprimer l'ancien entry du canal uniquement
                 if (saveChannel !== originalChannel) {
