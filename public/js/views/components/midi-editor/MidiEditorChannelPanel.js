@@ -349,8 +349,26 @@ class MidiEditorChannelPanel {
         try {
             const result = await m.api.sendCommand('device_list');
             if (result && result.devices) {
-                m.connectedDevices = result.devices.filter(d => d.output === true);
-                m.log('info', `Loaded ${m.connectedDevices.length} connected output devices`);
+                const outputDevices = result.devices.filter(d => d.output === true);
+
+                // Éclater les devices multi-instruments en entrées individuelles
+                const expandedDevices = [];
+                for (const device of outputDevices) {
+                    if (device.instruments && device.instruments.length > 1) {
+                        for (const inst of device.instruments) {
+                            expandedDevices.push({
+                                ...device,
+                                _channel: inst.channel !== undefined ? inst.channel : 0,
+                                _multiInstrument: true,
+                                displayName: inst.custom_name || inst.name || device.displayName || device.name
+                            });
+                        }
+                    } else {
+                        expandedDevices.push(device);
+                    }
+                }
+                m.connectedDevices = expandedDevices;
+                m.log('info', `Loaded ${outputDevices.length} connected output devices (${expandedDevices.length} instruments)`);
                 this.updateConnectedDeviceSelector();
             }
         } catch (error) {
@@ -370,9 +388,17 @@ class MidiEditorChannelPanel {
         let options = `<option value="">${m.t('midiEditor.noDeviceFilter')}</option>`;
 
         m.connectedDevices.forEach(device => {
-            const selected = m.selectedConnectedDevice === device.id ? 'selected' : '';
-            const name = device.displayName || device.name || device.id;
-            options += `<option value="${device.id}" ${selected}>${name}</option>`;
+            let value, name;
+            if (device._multiInstrument) {
+                value = `${device.id}::${device._channel}`;
+                const chLabel = `Ch${(device._channel || 0) + 1}`;
+                name = `${device.displayName || device.name} [${chLabel}]`;
+            } else {
+                value = device.id;
+                name = device.displayName || device.name || device.id;
+            }
+            const selected = m.selectedConnectedDevice === value ? 'selected' : '';
+            options += `<option value="${value}" ${selected}>${name}</option>`;
         });
 
         selector.innerHTML = options;
@@ -381,11 +407,20 @@ class MidiEditorChannelPanel {
     /**
      * Selectionner un instrument connecte et charger ses capacites
      */
-    async selectConnectedDevice(deviceId) {
+    async selectConnectedDevice(rawValue) {
         const m = this.modal;
-        m.selectedConnectedDevice = deviceId || null;
+        m.selectedConnectedDevice = rawValue || null;
 
-        if (!deviceId) {
+        // Parser le format "deviceId::channel" pour les devices multi-instruments
+        let deviceId = rawValue;
+        let channel = undefined;
+        if (rawValue && rawValue.includes('::')) {
+            const parts = rawValue.split('::');
+            deviceId = parts[0];
+            channel = parseInt(parts[1]);
+        }
+
+        if (!rawValue) {
             m.selectedDeviceCapabilities = null;
             m.playableNotes = null;
             this.updatePianoRollPlayableNotes();
@@ -395,9 +430,11 @@ class MidiEditorChannelPanel {
         }
 
         try {
-            const response = await m.api.sendCommand('instrument_get_capabilities', {
-                deviceId: deviceId
-            });
+            const params = { deviceId };
+            if (channel !== undefined) {
+                params.channel = channel;
+            }
+            const response = await m.api.sendCommand('instrument_get_capabilities', params);
 
             if (response && response.capabilities) {
                 m.selectedDeviceCapabilities = response.capabilities;

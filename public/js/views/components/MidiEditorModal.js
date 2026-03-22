@@ -2369,8 +2369,26 @@ class MidiEditorModal {
             const result = await this.api.sendCommand('device_list');
             if (result && result.devices) {
                 // Filtrer uniquement les appareils qui ont une sortie (output: true)
-                this.connectedDevices = result.devices.filter(d => d.output === true);
-                this.log('info', `Loaded ${this.connectedDevices.length} connected output devices`);
+                const outputDevices = result.devices.filter(d => d.output === true);
+
+                // Éclater les devices multi-instruments en entrées individuelles
+                const expandedDevices = [];
+                for (const device of outputDevices) {
+                    if (device.instruments && device.instruments.length > 1) {
+                        for (const inst of device.instruments) {
+                            expandedDevices.push({
+                                ...device,
+                                _channel: inst.channel !== undefined ? inst.channel : 0,
+                                _multiInstrument: true,
+                                displayName: inst.custom_name || inst.name || device.displayName || device.name
+                            });
+                        }
+                    } else {
+                        expandedDevices.push(device);
+                    }
+                }
+                this.connectedDevices = expandedDevices;
+                this.log('info', `Loaded ${outputDevices.length} connected output devices (${expandedDevices.length} instruments)`);
                 this.updateConnectedDeviceSelector();
             }
         } catch (error) {
@@ -2390,10 +2408,17 @@ class MidiEditorModal {
         let options = `<option value="">${this.t('midiEditor.noDeviceFilter')}</option>`;
 
         this.connectedDevices.forEach(device => {
-            const selected = this.selectedConnectedDevice === device.id ? 'selected' : '';
-            // Utiliser displayName (nom personnalisé) s'il existe, sinon le nom par défaut
-            const name = device.displayName || device.name || device.id;
-            options += `<option value="${device.id}" ${selected}>${name}</option>`;
+            let value, name;
+            if (device._multiInstrument) {
+                value = `${device.id}::${device._channel}`;
+                const chLabel = `Ch${(device._channel || 0) + 1}`;
+                name = `${device.displayName || device.name} [${chLabel}]`;
+            } else {
+                value = device.id;
+                name = device.displayName || device.name || device.id;
+            }
+            const selected = this.selectedConnectedDevice === value ? 'selected' : '';
+            options += `<option value="${value}" ${selected}>${name}</option>`;
         });
 
         selector.innerHTML = options;
@@ -2402,10 +2427,19 @@ class MidiEditorModal {
     /**
      * Sélectionner un instrument connecté et charger ses capacités
      */
-    async selectConnectedDevice(deviceId) {
-        this.selectedConnectedDevice = deviceId || null;
+    async selectConnectedDevice(rawValue) {
+        this.selectedConnectedDevice = rawValue || null;
 
-        if (!deviceId) {
+        // Parser le format "deviceId::channel" pour les devices multi-instruments
+        let deviceId = rawValue;
+        let channel = undefined;
+        if (rawValue && rawValue.includes('::')) {
+            const parts = rawValue.split('::');
+            deviceId = parts[0];
+            channel = parseInt(parts[1]);
+        }
+
+        if (!rawValue) {
             // Aucun appareil sélectionné : pas de filtre de notes
             this.selectedDeviceCapabilities = null;
             this.playableNotes = null;
@@ -2417,9 +2451,11 @@ class MidiEditorModal {
 
         try {
             // Récupérer les capacités de l'instrument
-            const response = await this.api.sendCommand('instrument_get_capabilities', {
-                deviceId: deviceId
-            });
+            const params = { deviceId };
+            if (channel !== undefined) {
+                params.channel = channel;
+            }
+            const response = await this.api.sendCommand('instrument_get_capabilities', params);
 
             if (response && response.capabilities) {
                 this.selectedDeviceCapabilities = response.capabilities;
