@@ -328,17 +328,27 @@ class AutoAssignModal {
       const isSkipped = this.skippedChannels.has(channel);
       const assignment = this.selectedAssignments[ch];
       const score = assignment?.score || 0;
+      const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
+      const gmName = channel === 9
+        ? _t('autoAssign.drums')
+        : (this.getGmProgramName(analysis?.primaryProgram) || '');
+      // Truncate long names for tab display
+      const gmShort = gmName.length > 14 ? gmName.slice(0, 13) + '…' : gmName;
 
       return `
         <button class="aa-tab ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''}"
                 data-channel="${channel}"
-                onclick="autoAssignModalInstance.switchTab(${channel})">
-          <span class="aa-tab-label">${_t('autoAssign.channel')} ${channel + 1}</span>
-          ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
-          ${isSkipped
-            ? '<span class="aa-tab-status skipped">—</span>'
-            : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
-          }
+                onclick="autoAssignModalInstance.switchTab(${channel})"
+                title="${escapeHtml(gmName)}">
+          <div class="aa-tab-main">
+            <span class="aa-tab-label">Ch ${channel + 1}</span>
+            ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
+            ${isSkipped
+              ? '<span class="aa-tab-status skipped">—</span>'
+              : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
+            }
+          </div>
+          ${gmShort ? `<div class="aa-tab-gm">${escapeHtml(gmShort)}</div>` : ''}
         </button>
       `;
     }).join('');
@@ -350,21 +360,22 @@ class AutoAssignModal {
         <div class="modal-container aa-container">
           <div class="modal-header">
             <div class="aa-header-content">
-              <h2>${_t('autoAssign.title')}</h2>
-              <div class="aa-header-stats">
-                <span class="aa-confidence" style="color: ${this.getScoreColor(this.confidenceScore)}">
-                  ${this.getScoreStars(this.confidenceScore)} ${this.confidenceScore}/100
-                </span>
-                <span class="aa-channel-count">
-                  ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: this.channels.length})}
-                </span>
+              <div class="aa-header-top">
+                <h2>${_t('autoAssign.title')}</h2>
+                <div class="aa-header-stats">
+                  <span class="aa-confidence" style="color: ${this.getScoreColor(this.confidenceScore)}">
+                    ${this.getScoreStars(this.confidenceScore)} ${this.confidenceScore}/100
+                  </span>
+                  <span class="aa-channel-count">
+                    ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: this.channels.length})}
+                  </span>
+                </div>
+              </div>
+              <div class="aa-header-range" id="aaRangeBar">
+                ${this.renderRangeBar(this.activeTab)}
               </div>
             </div>
             <button class="modal-close" onclick="autoAssignModalInstance.close()">x</button>
-          </div>
-
-          <div class="aa-range-bar-header" id="aaRangeBar">
-            ${this.renderRangeBar(this.activeTab)}
           </div>
 
           <div class="aa-tabs-bar">
