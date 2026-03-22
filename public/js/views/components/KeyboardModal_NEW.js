@@ -392,17 +392,22 @@ class KeyboardModalNew {
     /**
      * Charger les capacités d'un instrument
      * @param {string} deviceId - ID de l'appareil
+     * @param {number} [channel] - Canal MIDI (pour les devices multi-instruments)
      */
-    async loadDeviceCapabilities(deviceId) {
+    async loadDeviceCapabilities(deviceId, channel) {
         if (!deviceId) {
             this.selectedDeviceCapabilities = null;
             return;
         }
 
         try {
-            const response = await this.backend.sendCommand('instrument_get_capabilities', { deviceId });
+            const params = { deviceId };
+            if (channel !== undefined) {
+                params.channel = channel;
+            }
+            const response = await this.backend.sendCommand('instrument_get_capabilities', params);
             this.selectedDeviceCapabilities = response.capabilities || null;
-            this.logger.info(`[KeyboardModal] Capacités chargées pour ${deviceId}:`, this.selectedDeviceCapabilities);
+            this.logger.info(`[KeyboardModal] Capacités chargées pour ${deviceId} ch${channel}:`, this.selectedDeviceCapabilities);
         } catch (error) {
             this.logger.warn(`[KeyboardModal] Impossible de charger les capacités pour ${deviceId}:`, error);
             this.selectedDeviceCapabilities = null;
@@ -602,11 +607,26 @@ class KeyboardModalNew {
 
         // Device select
         document.getElementById('keyboard-device-select')?.addEventListener('change', async (e) => {
-            const deviceId = e.target.value;
-            this.selectedDevice = this.devices.find(d => d.device_id === deviceId || d.id === deviceId) || null;
+            const rawValue = e.target.value;
+            let deviceId = rawValue;
+            let selectedChannel = undefined;
+
+            // Parser le format "deviceId::channel" pour les devices multi-instruments
+            if (rawValue.includes('::')) {
+                const parts = rawValue.split('::');
+                deviceId = parts[0];
+                selectedChannel = parseInt(parts[1]);
+            }
+
+            this.selectedDevice = this.devices.find(d => {
+                if (d._multiInstrument && selectedChannel !== undefined) {
+                    return (d.device_id === deviceId || d.id === deviceId) && d.channel === selectedChannel;
+                }
+                return d.device_id === deviceId || d.id === deviceId;
+            }) || null;
 
             // Charger les capacités de l'instrument sélectionné
-            await this.loadDeviceCapabilities(deviceId);
+            await this.loadDeviceCapabilities(deviceId, selectedChannel);
 
             // Envoyer Program Change si l'instrument a un programme GM défini
             if (this.selectedDevice && !this.selectedDevice.isVirtual && this.backend) {
@@ -1212,8 +1232,26 @@ class KeyboardModalNew {
                 }
             }
 
-            this.devices = uniqueDevices;
-            this.logger.info(`[KeyboardModal] Loaded ${activeDevices.length} → ${uniqueDevices.length} unique devices`);
+            // Éclater les devices multi-instruments en entrées individuelles
+            const expandedDevices = [];
+            for (const device of uniqueDevices) {
+                if (device.instruments && device.instruments.length > 0) {
+                    for (const inst of device.instruments) {
+                        expandedDevices.push({
+                            ...device,
+                            channel: inst.channel !== undefined ? inst.channel : 0,
+                            displayName: inst.custom_name || inst.name || device.name,
+                            gm_program: inst.gm_program,
+                            _instrumentId: inst.id,
+                            _multiInstrument: true
+                        });
+                    }
+                } else {
+                    expandedDevices.push(device);
+                }
+            }
+            this.devices = expandedDevices;
+            this.logger.info(`[KeyboardModal] Loaded ${activeDevices.length} → ${uniqueDevices.length} unique devices → ${expandedDevices.length} instruments`);
 
             // Charger les instruments virtuels de la DB (créés via Gestion des instruments)
             // Respecter le réglage "virtualInstrument" de SettingsModal
@@ -1274,6 +1312,11 @@ class KeyboardModalNew {
                     return normalizedDevice;
                 }
 
+                // Les devices multi-instruments ont déjà leur displayName depuis l'éclatement
+                if (device._multiInstrument) {
+                    return normalizedDevice;
+                }
+
                 try {
                     const response = await this.backend.sendCommand('instrument_get_settings', {
                         deviceId: deviceId
@@ -1306,8 +1349,15 @@ class KeyboardModalNew {
 
         this.devices.forEach(device => {
             const option = document.createElement('option');
-            option.value = device.device_id;
-            option.textContent = device.displayName || device.name;
+            // Pour les devices multi-instruments, inclure le canal dans la valeur
+            if (device._multiInstrument) {
+                option.value = `${device.device_id}::${device.channel}`;
+                const chLabel = `Ch${(device.channel || 0) + 1}`;
+                option.textContent = `${device.displayName || device.name} [${chLabel}]`;
+            } else {
+                option.value = device.device_id;
+                option.textContent = device.displayName || device.name;
+            }
             select.appendChild(option);
         });
     }

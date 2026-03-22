@@ -485,8 +485,7 @@ class InstrumentManagementPage {
       " onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
 
         <!-- Device header -->
-        <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04)); border-bottom: 1px solid #e5e7eb; cursor: pointer;"
-             onclick="instrumentManagementPageInstance.editInstrument('${safeDeviceId}', ${first.channel})">
+        <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04)); border-bottom: 1px solid #e5e7eb;">
           <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
             <span style="font-size: 20px;">${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}</span>
             <div style="min-width: 0;">
@@ -497,10 +496,6 @@ class InstrumentManagementPage {
               </div>
             </div>
           </div>
-          <button class="btn btn-primary" style="font-size: 12px; padding: 5px 10px; flex-shrink: 0;"
-                  onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeDeviceId}', ${first.channel})">
-            ⚙️ ${i18n.t('instrumentManagement.edit') || 'Modifier'}
-          </button>
         </div>
 
         <!-- Instrument sub-cards -->
@@ -556,6 +551,13 @@ class InstrumentManagementPage {
             ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
           </div>
         </div>
+
+        <!-- Edit -->
+        <button class="btn btn-primary" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0;"
+                onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
+                title="${i18n.t('instrumentManagement.edit') || 'Modifier'}">
+          ⚙️
+        </button>
 
         <!-- Delete -->
         <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0;"

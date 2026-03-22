@@ -11026,13 +11026,11 @@
             });
             refreshInstrumentsBtn.addEventListener('click', loadInstrumentsList);
 
-            // Load instruments when filter panel opens
+            // Load instruments when filter panel opens (always reload to pick up new instruments)
             const openFiltersBtn = document.getElementById('openFiltersBtn');
             if (openFiltersBtn) {
                 openFiltersBtn.addEventListener('click', () => {
-                    if (playableInstrumentsSelect.options.length === 0) {
-                        loadInstrumentsList();
-                    }
+                    loadInstrumentsList();
                 });
             }
 
