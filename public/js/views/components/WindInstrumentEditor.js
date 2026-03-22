@@ -36,6 +36,7 @@ class WindInstrumentEditor {
         this._onNoteAdd = this._handleNoteAdd.bind(this);
         this._onNotesMoved = this._handleNotesMoved.bind(this);
         this._onEditArticulation = this._handleEditArticulation.bind(this);
+        this._onSelectionChange = this._handleSelectionChange.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
     }
 
@@ -150,6 +151,9 @@ class WindInstrumentEditor {
                     </label>
                 </div>
                 <div class="wind-editor-toolbar">
+                    <button class="wind-tool-btn wind-mode-btn active" data-action="wind-mode" data-mode="pan" title="Pan">&#x2725;</button>
+                    <button class="wind-tool-btn wind-mode-btn" data-action="wind-mode" data-mode="select" title="Select">&#x2B1C;</button>
+                    <span class="wind-separator"></span>
                     <button class="wind-tool-btn" data-action="wind-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="wind-tool-btn" data-action="wind-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
                     <button class="wind-tool-btn" data-action="wind-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">CPY</button>
@@ -197,11 +201,20 @@ class WindInstrumentEditor {
             if (!action.startsWith('wind-')) return;
 
             switch (action) {
+                case 'wind-mode':
+                    this._setEditMode(btn.dataset.mode);
+                    break;
                 case 'wind-undo':
-                    if (this.renderer?.undo()) this._syncToMidi();
+                    if (this.renderer?.undo()) {
+                        this._enforceMonophony();
+                        this._syncToMidi();
+                    }
                     break;
                 case 'wind-redo':
-                    if (this.renderer?.redo()) this._syncToMidi();
+                    if (this.renderer?.redo()) {
+                        this._enforceMonophony();
+                        this._syncToMidi();
+                    }
                     break;
                 case 'wind-copy':
                     this.renderer?.copySelected();
@@ -245,6 +258,24 @@ class WindInstrumentEditor {
             velInput.addEventListener('change', () => {
                 this.defaultVelocity = Math.max(1, Math.min(127, parseInt(velInput.value, 10) || 100));
             });
+        }
+    }
+
+    _setEditMode(mode) {
+        if (!this.renderer) return;
+        this.renderer.tool = mode;
+
+        // Update active class on mode buttons
+        const modeButtons = this.containerEl.querySelectorAll('.wind-mode-btn');
+        modeButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        // Update cursor
+        if (mode === 'pan') {
+            this.renderer.canvas.style.cursor = 'grab';
+        } else {
+            this.renderer.canvas.style.cursor = 'crosshair';
         }
     }
 
@@ -317,6 +348,12 @@ class WindInstrumentEditor {
                     this.breathMarks = [];
                     if (this.renderer) this.renderer.setBreathMarks([]);
                 }
+            },
+            onRangeCheckToggled: (enabled) => {
+                if (this.renderer) {
+                    this.renderer.rangeCheckEnabled = enabled;
+                    this.renderer.redraw();
+                }
             }
         });
 
@@ -354,6 +391,9 @@ class WindInstrumentEditor {
         if (this.renderer) {
             this.renderer.setMelodyEvents(this.melodyEvents);
         }
+
+        // Enforce monophony after loading
+        this._enforceMonophony();
 
         // Compute breath marks
         if (this.articulationPanel?.autoBreathEnabled) {
@@ -492,9 +532,9 @@ class WindInstrumentEditor {
             return;
         }
 
-        // Estimate tempo: default 120 BPM, 480 TPQ
+        // Read tempo from modal or DOM, fallback to 120 BPM
         const ticksPerBeat = this.renderer?.ticksPerBeat || 480;
-        const bpm = 120;
+        const bpm = this.modal?.tempo || parseInt(document.getElementById('tempo-input')?.value) || 120;
         const secondsPerTick = 60.0 / (bpm * ticksPerBeat);
 
         const marks = [];
@@ -628,6 +668,7 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.addEventListener('wind:addnote', this._onNoteAdd);
             this.melodyCanvasEl.addEventListener('wind:notesmoved', this._onNotesMoved);
             this.melodyCanvasEl.addEventListener('wind:editarticulation', this._onEditArticulation);
+            this.melodyCanvasEl.addEventListener('wind:selectionchange', this._onSelectionChange);
         }
         document.addEventListener('keydown', this._onKeyDown);
     }
@@ -637,6 +678,7 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.removeEventListener('wind:addnote', this._onNoteAdd);
             this.melodyCanvasEl.removeEventListener('wind:notesmoved', this._onNotesMoved);
             this.melodyCanvasEl.removeEventListener('wind:editarticulation', this._onEditArticulation);
+            this.melodyCanvasEl.removeEventListener('wind:selectionchange', this._onSelectionChange);
         }
         document.removeEventListener('keydown', this._onKeyDown);
     }
@@ -707,6 +749,10 @@ class WindInstrumentEditor {
         }
     }
 
+    _handleSelectionChange() {
+        this._updateInfo();
+    }
+
     _handleKeyDown(e) {
         if (!this.isVisible) return;
 
@@ -716,12 +762,28 @@ class WindInstrumentEditor {
         if (e.ctrlKey || e.metaKey) {
             switch (e.key.toLowerCase()) {
                 case 'z':
-                    e.preventDefault();
-                    if (this.renderer?.undo()) this._syncToMidi();
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+Z = Redo
+                        e.preventDefault();
+                        if (this.renderer?.redo()) {
+                            this._enforceMonophony();
+                            this._syncToMidi();
+                        }
+                    } else {
+                        // Ctrl+Z = Undo
+                        e.preventDefault();
+                        if (this.renderer?.undo()) {
+                            this._enforceMonophony();
+                            this._syncToMidi();
+                        }
+                    }
                     return;
                 case 'y':
                     e.preventDefault();
-                    if (this.renderer?.redo()) this._syncToMidi();
+                    if (this.renderer?.redo()) {
+                        this._enforceMonophony();
+                        this._syncToMidi();
+                    }
                     return;
                 case 'c':
                     e.preventDefault();

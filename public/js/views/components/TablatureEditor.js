@@ -149,6 +149,21 @@ class TablatureEditor {
     }
 
     // ========================================================================
+    // THEME
+    // ========================================================================
+
+    updateTheme() {
+        if (this.renderer) {
+            this.renderer.updateTheme();
+            this.renderer.redraw();
+        }
+        if (this.fretboard) {
+            this.fretboard.updateTheme();
+            this.fretboard.redraw();
+        }
+    }
+
+    // ========================================================================
     // DOM CREATION
     // ========================================================================
 
@@ -595,6 +610,10 @@ class TablatureEditor {
     _handleKeyDown(e) {
         if (!this.isVisible) return;
 
+        // Don't intercept when focus is on form inputs (e.g. fret input)
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
         // Only intercept when tablature panel is focused/visible
         const isCtrl = e.ctrlKey || e.metaKey;
 
@@ -631,6 +650,15 @@ class TablatureEditor {
                 e.preventDefault();
                 this._moveSelectedStrings(-1);
             }
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            if (this.renderer?.deleteSelected() > 0) {
+                this.tabEvents = this.renderer.tabEvents;
+                this.syncToMidi();
+            }
+        } else if (isCtrl && e.key === 'a') {
+            e.preventDefault();
+            this.renderer?.selectAll();
         }
     }
 
@@ -648,11 +676,6 @@ class TablatureEditor {
             this.tabEvents = this.renderer.tabEvents;
             this.syncToMidi();
         }
-    }
-
-    _toggleTabOnlyMode() {
-        // No longer needed — tablature now replaces the piano roll in the same space
-        // Kept for API compatibility
     }
 
     /**
@@ -774,8 +797,8 @@ class TablatureEditor {
             const canvasRect = this.tabCanvasEl.getBoundingClientRect();
             const x = this.renderer._tickToX(tick);
             const y = this.renderer._stringToY(displayIndex);
-            input.style.left = `${canvasRect.left + x - 15}px`;
-            input.style.top = `${canvasRect.top + y - 12}px`;
+            input.style.left = `${canvasRect.left + x + window.scrollX - 15}px`;
+            input.style.top = `${canvasRect.top + y + window.scrollY - 12}px`;
         }
 
         let committed = false;
@@ -845,9 +868,6 @@ class TablatureEditor {
             switch (action) {
                 case 'tab-mode':
                     this._setEditMode(e.target.closest('[data-mode]')?.dataset.mode);
-                    break;
-                case 'tab-view-mode':
-                    this._toggleTabOnlyMode();
                     break;
                 case 'tab-undo':
                     this._performUndo();

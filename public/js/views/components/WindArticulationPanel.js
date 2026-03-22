@@ -12,6 +12,7 @@ class WindArticulationPanel {
         this.onChanged = options.onChanged || null;
         this.onArticulationSelected = options.onArticulationSelected || null;
         this.onAutoBreathToggled = options.onAutoBreathToggled || null;
+        this.onRangeCheckToggled = options.onRangeCheckToggled || null;
 
         // State
         this.currentArticulation = 'normal';
@@ -132,6 +133,9 @@ class WindArticulationPanel {
         if (rangeCheck) {
             rangeCheck.addEventListener('change', () => {
                 this.rangeCheckEnabled = rangeCheck.checked;
+                if (this.onRangeCheckToggled) {
+                    this.onRangeCheckToggled(this.rangeCheckEnabled);
+                }
                 if (this.onChanged) {
                     this.onChanged();
                 }

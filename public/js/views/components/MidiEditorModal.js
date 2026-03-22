@@ -2682,7 +2682,7 @@ class MidiEditorModal {
                                 <span class="icon">📄</span>
                                 <span class="btn-label">${this.t('midiEditor.paste')}</span>
                             </button>
-                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.t('midiEditor.delete')} (Del)">
+                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.t('midiEditor.delete')} (Del)" disabled>
                                 <span class="icon">🗑</span>
                                 <span class="btn-label">${this.t('midiEditor.delete')}</span>
                             </button>
@@ -3053,6 +3053,7 @@ class MidiEditorModal {
                 this.updateSaveButton();
                 this.syncFullSequenceFromPianoRoll();
                 this.updateUndoRedoButtonsState(); // Mettre à jour undo/redo quand la séquence change
+                this.updateEditButtons(); // Mettre à jour copy/paste/delete quand la sélection change
 
                 // Mettre à jour la copie de la séquence après la synchronisation
                 previousSequence = this.copySequence(this.pianoRoll.sequence);
@@ -3064,18 +3065,6 @@ class MidiEditorModal {
 
         // Écouter les changements avec debounce
         this.pianoRoll.addEventListener('change', handleChange);
-
-        // Observer les mutations du sequence pour détecter les changements de sélection uniquement
-        let lastSelectionCount = 0;
-
-        this.selectionCheckInterval = setInterval(() => {
-            // Vérifier UNIQUEMENT le changement de sélection (très léger)
-            const currentSelectionCount = this.getSelectionCount();
-            if (currentSelectionCount !== lastSelectionCount) {
-                this.updateEditButtons();
-                lastSelectionCount = currentSelectionCount;
-            }
-        }, 2000); // Réduit à 2 secondes pour minimiser la charge
 
         this.updateStats();
         this.updateEditButtons(); // État initial
@@ -4606,9 +4595,6 @@ class MidiEditorModal {
                 case 'rename-file':
                     this.showRenameDialog();
                     break;
-                case 'toggle-tablature':
-                    this.toggleTablature();
-                    break;
                 // configure-string-instrument removed — config is in instrument settings
 
                 // Playback controls
@@ -6052,12 +6038,6 @@ class MidiEditorModal {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
-        }
-
-        // Arrêter la vérification de sélection
-        if (this.selectionCheckInterval) {
-            clearInterval(this.selectionCheckInterval);
-            this.selectionCheckInterval = null;
         }
 
         // Nettoyer le piano roll
