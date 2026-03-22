@@ -350,21 +350,22 @@ class AutoAssignModal {
         <div class="modal-container aa-container">
           <div class="modal-header">
             <div class="aa-header-content">
-              <h2>${_t('autoAssign.title')}</h2>
-              <div class="aa-header-stats">
-                <span class="aa-confidence" style="color: ${this.getScoreColor(this.confidenceScore)}">
-                  ${this.getScoreStars(this.confidenceScore)} ${this.confidenceScore}/100
-                </span>
-                <span class="aa-channel-count">
-                  ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: this.channels.length})}
-                </span>
+              <div class="aa-header-top">
+                <h2>${_t('autoAssign.title')}</h2>
+                <div class="aa-header-stats">
+                  <span class="aa-confidence" style="color: ${this.getScoreColor(this.confidenceScore)}">
+                    ${this.getScoreStars(this.confidenceScore)} ${this.confidenceScore}/100
+                  </span>
+                  <span class="aa-channel-count">
+                    ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: this.channels.length})}
+                  </span>
+                </div>
+              </div>
+              <div class="aa-header-range" id="aaRangeBar">
+                ${this.renderRangeBar(this.activeTab)}
               </div>
             </div>
             <button class="modal-close" onclick="autoAssignModalInstance.close()">x</button>
-          </div>
-
-          <div class="aa-range-bar-header" id="aaRangeBar">
-            ${this.renderRangeBar(this.activeTab)}
           </div>
 
           <div class="aa-tabs-bar">
