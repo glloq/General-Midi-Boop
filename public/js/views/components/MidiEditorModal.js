@@ -5510,6 +5510,15 @@ class MidiEditorModal {
         } else {
             this.channelRouting.delete(channel);
         }
+        // Close TAB/WIND editors if open for this channel (routed instrument type may differ)
+        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.channel === channel) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+        }
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.channel === channel) {
+            this.windInstrumentEditor.hide();
+            this._updateWindButtonState(false);
+        }
         this.refreshChannelButtons();
     }
 
@@ -5939,10 +5948,14 @@ class MidiEditorModal {
             }
 
             const channelInfo = this.channels?.find(c => c.channel === ch);
-            const isGmString = channelInfo &&
+            // If channel has routing to a real instrument, GM program is irrelevant
+            // for determining TAB/WIND buttons — the real instrument type prevails
+            const hasRouting = this.channelRouting.has(ch);
+
+            const isGmString = !hasRouting && channelInfo &&
                 typeof MidiEditorChannelPanel !== 'undefined' &&
                 MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) !== null;
-            // Only show TAB button for GM-detected string instruments
+            // Only show TAB button for GM-detected string instruments (when no routing override)
             // DB records alone are not enough (they may be stale after instrument change)
             const ccEnabled = this._stringInstrumentCCEnabled.get(ch);
             const isStringInstrument = isGmString && ccEnabled !== false;
@@ -5965,14 +5978,15 @@ class MidiEditorModal {
                 });
                 group.appendChild(btn);
             } else if (!isStringInstrument && existingTabBtn) {
-                // Remove TAB button for non-string instrument
+                // Remove TAB button: not a string instrument or routing overrides GM type
                 existingTabBtn.remove();
             }
 
             // Wind instrument detection (GM 56-79: Brass, Reed, Pipe)
+            // Skip if channel has routing — GM program no longer represents the real instrument
             if (ch !== 9 && typeof WindInstrumentDatabase !== 'undefined') {
                 const chInfo = this.channels?.find(c => c.channel === ch);
-                const isWind = chInfo && WindInstrumentDatabase.isWindInstrument(chInfo.program);
+                const isWind = !hasRouting && chInfo && WindInstrumentDatabase.isWindInstrument(chInfo.program);
                 const existingWindBtn = group.querySelector('.channel-wind-btn');
 
                 if (isWind && !existingWindBtn) {
