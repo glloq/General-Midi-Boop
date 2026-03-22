@@ -5658,23 +5658,28 @@ class MidiEditorModal {
             return;
         }
 
-        // Ensure only this channel is active
-        this.activeChannels.clear();
-        this.activeChannels.add(channel);
-        this.updateSequenceFromActiveChannels(new Set([channel]));
-        this.refreshChannelButtons();
+        // Check if a specialty editor is currently managing notes (piano roll is stale)
+        const specialtyEditorWasActive =
+            (this.tablatureEditor && this.tablatureEditor.isVisible) ||
+            (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) ||
+            (this.drumPatternEditor && this.drumPatternEditor.isVisible);
 
-        // Hide tablature if visible
+        // Hide other specialty editors FIRST (they already synced to fullSequence)
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
             this.tablatureEditor.hide();
             this._updateChannelTabButtons();
         }
-
-        // Hide wind editor if visible
         if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
             this.windInstrumentEditor.hide();
             this._updateWindButtonState(false);
         }
+
+        // Ensure only this channel is active
+        // Skip piano roll sync if a specialty editor was active (fullSequence is already current)
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+        this.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
+        this.refreshChannelButtons();
 
         // Get MIDI notes for this channel
         const channelNotes = (this.fullSequence || []).filter(n => n.c === channel);
@@ -5719,23 +5724,28 @@ class MidiEditorModal {
             return;
         }
 
-        // Ensure only this channel is active
-        this.activeChannels.clear();
-        this.activeChannels.add(channel);
-        this.updateSequenceFromActiveChannels(new Set([channel]));
-        this.refreshChannelButtons();
+        // Check if a specialty editor is currently managing notes (piano roll is stale)
+        const specialtyEditorWasActive =
+            (this.tablatureEditor && this.tablatureEditor.isVisible) ||
+            (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) ||
+            (this.drumPatternEditor && this.drumPatternEditor.isVisible);
 
-        // Hide tablature if visible
+        // Hide other specialty editors FIRST (they already synced to fullSequence)
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
             this.tablatureEditor.hide();
             this._updateChannelTabButtons();
         }
-
-        // Hide drum editor if visible
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
             this.drumPatternEditor.hide();
             this._updateDrumButtonState(false);
         }
+
+        // Ensure only this channel is active
+        // Skip piano roll sync if a specialty editor was active (fullSequence is already current)
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+        this.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
+        this.refreshChannelButtons();
 
         // Determine wind preset from channel's GM program
         const channelInfo = this.channels?.find(c => c.channel === channel);
