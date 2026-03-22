@@ -5162,6 +5162,9 @@ class MidiEditorModal {
                 return;
             }
 
+            // Ne pas écraser les sliders quand le wind editor gère le scroll lui-même
+            if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) return;
+
             const currentXOffset = this.pianoRoll.xoffset || 0;
             const currentYOffset = this.pianoRoll.yoffset || 0;
 
@@ -5243,7 +5246,9 @@ class MidiEditorModal {
             this.pianoRoll.xoffset = newOffset;
             this.pianoRoll.setAttribute('xoffset', newOffset.toString());
 
-            if (typeof this.pianoRoll.redraw === 'function') {
+            // Ne pas redraw le piano roll s'il est caché (wind editor actif)
+            if (typeof this.pianoRoll.redraw === 'function' &&
+                !(this.windInstrumentEditor && this.windInstrumentEditor.isVisible)) {
                 this.pianoRoll.redraw();
             }
         }
@@ -5282,7 +5287,9 @@ class MidiEditorModal {
             this.pianoRoll.yoffset = newOffset;
             this.pianoRoll.setAttribute('yoffset', newOffset.toString());
 
-            if (typeof this.pianoRoll.redraw === 'function') {
+            // Ne pas redraw le piano roll s'il est caché (wind editor actif)
+            if (typeof this.pianoRoll.redraw === 'function' &&
+                !(this.windInstrumentEditor && this.windInstrumentEditor.isVisible)) {
                 this.pianoRoll.redraw();
             }
         }
