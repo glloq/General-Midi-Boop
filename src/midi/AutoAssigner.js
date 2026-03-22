@@ -146,7 +146,8 @@ class AutoAssigner {
 
   /**
    * Sélectionne le meilleur instrument pour chaque canal
-   * en évitant les conflits (1 instrument par canal si possible)
+   * en évitant les doublons : chaque instrument n'est assigné qu'une seule fois.
+   * Les canaux sans instrument unique disponible sont auto-skippés.
    * @param {Object} suggestions
    * @param {Array} channelAnalyses
    * @returns {Object}
@@ -154,6 +155,7 @@ class AutoAssigner {
   selectBestAssignments(suggestions, channelAnalyses) {
     const assignments = {};
     const usedInstruments = new Set();
+    const autoSkipped = new Set();
 
     // Créer une map des analyses par canal
     const analysisMap = {};
@@ -177,9 +179,15 @@ class AutoAssigner {
         return b.bestScore - a.bestScore;
       });
 
-    // Assigner dans l'ordre de priorité
+    const totalChannels = channelsByBestScore.length;
+    const totalInstruments = new Set(
+      Object.values(suggestions).flatMap(opts => opts.map(o => o.instrument.id))
+    ).size;
+
+    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available`);
+
+    // Assigner dans l'ordre de priorité — chaque instrument une seule fois
     for (const { channel, options, analysis } of channelsByBestScore) {
-      // Essayer d'assigner un instrument non encore utilisé
       let selected = null;
 
       for (const option of options) {
@@ -191,11 +199,11 @@ class AutoAssigner {
         }
       }
 
-      // Si tous sont utilisés, prendre le meilleur quand même
-      // (permet multi-canal sur un instrument si nécessaire)
-      if (!selected && options.length > 0) {
-        selected = options[0];
-        this.logger.info(`Channel ${channel}: Reusing instrument (all instruments already assigned)`);
+      if (!selected) {
+        // Plus d'instruments disponibles → auto-skip ce canal
+        autoSkipped.add(channel);
+        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned)`);
+        continue;
       }
 
       if (selected) {
@@ -220,10 +228,15 @@ class AutoAssigner {
             primaryProgram: analysis.primaryProgram
           }
         };
-      } else {
-        this.logger.warn(`No compatible instrument found for channel ${channel}`);
       }
     }
+
+    if (autoSkipped.size > 0) {
+      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned, ${autoSkipped.size} auto-skipped (not enough instruments)`);
+    }
+
+    // Attach autoSkipped info so the frontend can use it
+    assignments._autoSkipped = Array.from(autoSkipped);
 
     return assignments;
   }
@@ -236,7 +249,9 @@ class AutoAssigner {
    * @returns {number}
    */
   calculateConfidence(autoSelection, totalChannels) {
-    const scores = Object.values(autoSelection).map(a => a.score);
+    const scores = Object.values(autoSelection)
+      .filter(a => typeof a === 'object' && a !== null && typeof a.score === 'number')
+      .map(a => a.score);
 
     if (scores.length === 0 || totalChannels === 0) {
       return 0;
@@ -249,8 +264,6 @@ class AutoAssigner {
     const successRate = scores.length / totalChannels;
 
     // Score final = qualité moyenne × taux de réussite
-    // Exemple: 8/8 canaux avec score moyen 90 → 90
-    // Exemple: 2/8 canaux avec score moyen 95 → 23.75
     const confidenceScore = avgScore * successRate;
 
     return Math.round(confidenceScore);

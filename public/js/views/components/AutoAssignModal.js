@@ -24,6 +24,7 @@ class AutoAssignModal {
     this.channelAnalyses = {};
     this.selectedAssignments = {};
     this.skippedChannels = new Set();
+    this.autoSkippedChannels = new Set();
     this.modal = null;
     this.audioPreview = null;
     this._escHandler = null;
@@ -213,8 +214,18 @@ class AutoAssignModal {
       }
 
       // Initialize selected assignments with auto-selection
+      // Extract auto-skipped channels (not enough instruments)
+      const autoSkippedChannels = this.autoSelection._autoSkipped || [];
+      delete this.autoSelection._autoSkipped;
+
       this.selectedAssignments = JSON.parse(JSON.stringify(this.autoSelection));
       this.skippedChannels = new Set();
+
+      // Auto-skip channels that have no unique instrument available
+      for (const ch of autoSkippedChannels) {
+        this.skippedChannels.add(ch);
+      }
+      this.autoSkippedChannels = new Set(autoSkippedChannels);
 
       // Enrich auto-selected assignments with instrument capabilities (gmProgram, note range, etc.)
       // The backend autoSelection doesn't include these, so we look them up from suggestions
@@ -488,12 +499,16 @@ class AutoAssignModal {
       ? `<span class="aa-midi-instrument" title="MIDI: ${primaryProgram != null ? 'Program ' + primaryProgram : 'Drums'}">${escapeHtml(midiInstrumentName)}</span>`
       : '';
 
+    const isAutoSkipped = this.autoSkippedChannels && this.autoSkippedChannels.has(channel);
+
     return `
       <div class="aa-channel-header">
         <h3>${_t('autoAssign.channel')} ${channel + 1}
           ${channel === 9 ? `<span class="aa-drum-badge">(MIDI 10)</span>` : ''}
           ${midiInstrumentHTML}
-          ${isSkipped ? `<span class="aa-skipped-badge">[${_t('autoAssign.skippedLabel')}]</span>` : ''}
+          ${isSkipped && isAutoSkipped
+            ? `<span class="aa-autoskip-badge">[${_t('autoAssign.autoSkippedLabel')}]</span>`
+            : isSkipped ? `<span class="aa-skipped-badge">[${_t('autoAssign.skippedLabel')}]</span>` : ''}
         </h3>
       </div>
     `;
@@ -900,6 +915,20 @@ class AutoAssignModal {
   // ========================================================================
 
   /**
+   * Get list of other channels currently assigned to the same instrument
+   */
+  getOtherChannelsUsingInstrument(deviceId, excludeChannel) {
+    const others = [];
+    for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
+      const chNum = parseInt(ch);
+      if (chNum !== excludeChannel && !this.skippedChannels.has(chNum) && assignment?.deviceId === deviceId) {
+        others.push(chNum + 1); // display as 1-based
+      }
+    }
+    return others;
+  }
+
+  /**
    * Render a single instrument option (used for both normal and low-score lists)
    */
   renderInstrumentOption(channel, option, index, selectedDeviceId, isLowScore) {
@@ -910,6 +939,12 @@ class AutoAssignModal {
     const escapedDeviceId = escapeHtml(instrument.device_id);
     const detailKey = `${channel}_${escapedDeviceId}`;
     const showDetails = this.showScoreDetails[detailKey] || false;
+
+    // Check if this instrument is already used by another channel
+    const otherChannels = this.getOtherChannelsUsingInstrument(instrument.device_id, channel);
+    const duplicateWarning = (isSelected && otherChannels.length > 0)
+      ? `<span class="aa-duplicate-badge" title="${_t('autoAssign.duplicateInstrumentTip', {channels: otherChannels.join(', ')})}">${_t('autoAssign.duplicateInstrument', {channels: otherChannels.join(', ')})}</span>`
+      : '';
 
     const scoreBreakdown = compat.scoreBreakdown;
     const breakdownHTML = (showDetails && scoreBreakdown) ? `
@@ -934,6 +969,7 @@ class AutoAssignModal {
               ${escapedName}
               ${index === 0 && !isLowScore ? `<span class="aa-recommended">${_t('autoAssign.recommended')}</span>` : ''}
               ${isLowScore ? `<span class="aa-low-score-badge">${_t('autoAssign.lowScore')}</span>` : ''}
+              ${duplicateWarning}
             </div>
             <div class="aa-instrument-details">
               ${this.formatInstrumentInfo(instrument, compat)}
