@@ -2690,33 +2690,33 @@ class MidiEditorModal {
                                 <span class="icon">⚙️</span>
                             </button>
                         </div>
-                    </div>
 
-                    <!-- Popover Paramètres (Canal, Instrument, Device connecté) -->
-                    <div class="settings-popover" id="settings-popover" style="display: none;">
-                        <div class="settings-popover-section">
-                            <label class="settings-label">${this.t('midiEditor.channel')}</label>
-                            <div class="settings-row">
-                                <select class="snap-select" id="channel-selector" title="${this.t('midiEditor.changeChannelTip')}">
-                                    ${this.renderChannelOptions()}
-                                </select>
-                                <button class="tool-btn-compact" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>→</button>
+                        <!-- Popover Paramètres (Canal, Instrument, Device connecté) -->
+                        <div class="settings-popover" id="settings-popover" style="display: none;">
+                            <div class="settings-popover-section">
+                                <label class="settings-label">${this.t('midiEditor.channel')}</label>
+                                <div class="settings-row">
+                                    <select class="snap-select" id="channel-selector" title="${this.t('midiEditor.changeChannelTip')}">
+                                        ${this.renderChannelOptions()}
+                                    </select>
+                                    <button class="tool-btn-compact" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>→</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="settings-popover-section">
-                            <label class="settings-label" id="instrument-label">${this.t('midiEditor.instrument')}</label>
-                            <div class="settings-row">
-                                <select class="snap-select" id="instrument-selector" title="${this.t('midiEditor.selectInstrument')}">
-                                    ${this.renderInstrumentOptions()}
-                                </select>
-                                <button class="tool-btn-compact" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">✓</button>
+                            <div class="settings-popover-section">
+                                <label class="settings-label" id="instrument-label">${this.t('midiEditor.instrument')}</label>
+                                <div class="settings-row">
+                                    <select class="snap-select" id="instrument-selector" title="${this.t('midiEditor.selectInstrument')}">
+                                        ${this.renderInstrumentOptions()}
+                                    </select>
+                                    <button class="tool-btn-compact" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">✓</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="settings-popover-section">
-                            <label class="settings-label">🎹 ${this.t('midiEditor.connectedDevice')}</label>
-                            <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
-                                <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
-                            </select>
+                            <div class="settings-popover-section">
+                                <label class="settings-label">🎹 ${this.t('midiEditor.connectedDevice')}</label>
+                                <select class="snap-select connected-device-select" id="connected-device-selector" title="${this.t('midiEditor.connectedDeviceTip')}">
+                                    <option value="">${this.t('midiEditor.noDeviceFilter')}</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 

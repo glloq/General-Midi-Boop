@@ -41,6 +41,7 @@
     min-height: 40px;
     flex-wrap: wrap;
     position: relative;
+    overflow: visible;
 }
 
 /* Toolbar Sections */

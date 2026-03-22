@@ -360,10 +360,10 @@
       "1/8T": "1/8T",
       "1/16": "1/16",
       "1/16T": "1/16T",
-      "1/32": "1/32",
-    }
-      "settingsPopover": "Configurações",
-      "ccChannelFilter": "CC Ch:"
+      "1/32": "1/32"
+    },
+    "settingsPopover": "Configurações",
+    "ccChannelFilter": "CC Ch:"
   },
   "errors": {
     "deviceNotFound": "Dispositivo não encontrado: {deviceId}",
