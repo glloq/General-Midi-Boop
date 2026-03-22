@@ -336,7 +336,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Affiche les instruments dans la liste
+   * Affiche les instruments dans la liste, groupés par device
    */
   renderInstruments() {
     const content = document.getElementById('instrumentListContent');
@@ -381,56 +381,190 @@ class InstrumentManagementPage {
       return;
     }
 
-    // Grouper par type : connectes physiques, virtuels, deconnectes
-    const virtual = filtered.filter(inst => this.isVirtualInstrument(inst));
-    const connected = filtered.filter(inst => (inst.status === 2 || inst.connected) && !this.isVirtualInstrument(inst));
-    const disconnected = filtered.filter(inst => inst.status !== 2 && !inst.connected && !this.isVirtualInstrument(inst));
+    // Grouper par device
+    const deviceGroups = new Map();
+    for (const inst of filtered) {
+      const deviceId = inst._deviceId || inst.device_id || inst.id;
+      if (!deviceGroups.has(deviceId)) {
+        deviceGroups.set(deviceId, []);
+      }
+      deviceGroups.get(deviceId).push(inst);
+    }
+
+    // Séparer les groupes par catégorie
+    const connectedGroups = [];
+    const virtualGroups = [];
+    const disconnectedGroups = [];
+
+    for (const [deviceId, instruments] of deviceGroups) {
+      const first = instruments[0];
+      const isVirtual = this.isVirtualInstrument(first);
+      const isConnected = first.status === 2 || first.connected;
+
+      if (isVirtual) {
+        virtualGroups.push({ deviceId, instruments });
+      } else if (isConnected) {
+        connectedGroups.push({ deviceId, instruments });
+      } else {
+        disconnectedGroups.push({ deviceId, instruments });
+      }
+    }
 
     let html = '';
 
     // Instruments connectés
-    if (connected.length > 0) {
+    if (connectedGroups.length > 0) {
+      const totalInst = connectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div style="margin-bottom: 32px;">
           <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #10b981; color: #10b981; font-size: 16px;">
-            🔌 ${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'} (${connected.length})
+            🔌 ${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'} (${totalInst})
           </h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
-            ${connected.map(inst => this.renderInstrumentCard(inst)).join('')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+            ${connectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
     }
 
     // Instruments virtuels
-    if (virtual.length > 0) {
+    if (virtualGroups.length > 0) {
+      const totalInst = virtualGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div style="margin-bottom: 32px;">
           <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6; color: #7c3aed; font-size: 16px;">
-            🖥️ ${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'} (${virtual.length})
+            🖥️ ${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'} (${totalInst})
           </h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
-            ${virtual.map(inst => this.renderInstrumentCard(inst)).join('')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+            ${virtualGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
     }
 
     // Instruments déconnectés
-    if (disconnected.length > 0) {
+    if (disconnectedGroups.length > 0) {
+      const totalInst = disconnectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div>
           <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #94a3b8; color: #64748b; font-size: 16px;">
-            ⚫ ${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'} (${disconnected.length})
+            ⚫ ${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'} (${totalInst})
           </h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px;">
-            ${disconnected.map(inst => this.renderInstrumentCard(inst)).join('')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+            ${disconnectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
     }
 
     content.innerHTML = html;
+  }
+
+  /**
+   * Render un bloc device contenant ses instruments
+   */
+  renderDeviceBlock(instruments) {
+    const first = instruments[0];
+    const esc = this._escapeHtml;
+    const deviceId = first._deviceId || first.device_id || first.id;
+    const deviceName = first._deviceName || first.name || deviceId;
+    const isConnected = first.status === 2 || first.connected;
+    const isVirtual = this.isVirtualInstrument(first);
+    const connType = this.getConnectionTypeInfo(first);
+    const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
+    const safeDeviceId = esc(deviceId);
+
+    return `
+      <div class="device-block" style="
+        background: white;
+        border: 2px solid ${borderColor};
+        border-radius: 12px;
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+        ${!isConnected ? 'opacity: 0.7;' : ''}
+      " onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+
+        <!-- Device header -->
+        <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04)); border-bottom: 1px solid #e5e7eb; cursor: pointer;"
+             onclick="instrumentManagementPageInstance.editInstrument('${safeDeviceId}', ${first.channel})">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <span style="font-size: 20px;">${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}</span>
+            <div style="min-width: 0;">
+              <h4 style="margin: 0; font-size: 15px; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(deviceName)}</h4>
+              <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                ${!isVirtual ? `<span style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:10px;font-weight:600;color:#475569;">${esc(connType.label)}</span>` : ''}
+                <span style="font-size: 11px; color: #9ca3af;">${instruments.length} inst.</span>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="font-size: 12px; padding: 5px 10px; flex-shrink: 0;"
+                  onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeDeviceId}', ${first.channel})">
+            ⚙️ ${i18n.t('instrumentManagement.edit') || 'Modifier'}
+          </button>
+        </div>
+
+        <!-- Instrument sub-cards -->
+        <div style="padding: 8px;">
+          ${instruments.map(inst => this.renderInstrumentSubCard(inst)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render un sous-bloc instrument dans un device block
+   */
+  renderInstrumentSubCard(instrument) {
+    const esc = this._escapeHtml;
+    const isComplete = this.isInstrumentComplete(instrument);
+    const channel = instrument.channel !== undefined ? instrument.channel : 0;
+    const channelColor = this.getChannelColor(channel);
+    const displayName = instrument.custom_name || instrument.displayName || instrument.name;
+    const safeId = esc(instrument.id);
+
+    return `
+      <div class="instrument-sub-card" style="
+        padding: 10px 12px;
+        margin: 4px 0;
+        border-left: 4px solid ${channelColor};
+        border-radius: 6px;
+        background: #fafbfc;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      ">
+        <!-- Channel badge -->
+        <span style="display: inline-flex; align-items: center; padding: 2px 7px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 36px; justify-content: center; flex-shrink: 0;">Ch ${channel + 1}</span>
+
+        <!-- Info -->
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            ${instrument.gm_program !== null && instrument.gm_program !== undefined
+              ? `<span style="color: #374151; font-weight: 500;">${esc(displayName)}</span>`
+              : `<span style="color: #9ca3af; font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
+            ${isComplete
+              ? `<span style="display:inline-block;padding:1px 6px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:600;">✓</span>`
+              : `<span style="display:inline-block;padding:1px 6px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:600;">⚠</span>`}
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: #9ca3af;">
+            ${instrument.note_range_min != null && instrument.note_range_max != null
+              ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
+              : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
+                ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
+                : '')}
+            ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Delete -->
+        <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0;"
+                onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
+                title="${i18n.t('common.delete') || 'Supprimer'}">
+          🗑️
+        </button>
+      </div>
+    `;
   }
 
   /**
@@ -459,102 +593,6 @@ class InstrumentManagementPage {
       '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
     ];
     return colors[channel % colors.length];
-  }
-
-  /**
-   * Compte combien d'instruments sont sur le même device
-   */
-  getDeviceInstrumentCount(deviceId) {
-    return this.instruments.filter(inst => (inst._deviceId || inst.device_id || inst.id) === deviceId).length;
-  }
-
-  renderInstrumentCard(instrument) {
-    const isComplete = this.isInstrumentComplete(instrument);
-    const isConnected = instrument.status === 2 || instrument.connected;
-    const isVirtual = this.isVirtualInstrument(instrument);
-    const displayName = instrument.custom_name || instrument.displayName || instrument.name || i18n.t('instrumentManagement.unknownDevice');
-    const esc = this._escapeHtml;
-    const safeId = esc(instrument.id);
-    const channel = instrument.channel !== undefined ? instrument.channel : 0;
-    const channelColor = this.getChannelColor(channel);
-    const deviceId = instrument._deviceId || instrument.device_id || instrument.id;
-    const deviceName = instrument._deviceName || instrument.name || deviceId;
-    const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
-    const connType = this.getConnectionTypeInfo(instrument);
-    const deviceInstrumentCount = this.getDeviceInstrumentCount(deviceId);
-    return `
-      <div class="instrument-card inst-mgmt-card" style="
-        background: white;
-        border: 2px solid ${borderColor};
-        border-left: 5px solid ${channelColor};
-        border-radius: 12px;
-        padding: 20px;
-        transition: all 0.2s;
-        cursor: pointer;
-        ${!isConnected ? 'opacity: 0.7;' : ''}
-      " onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
-
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-          <div style="flex: 1;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
-              <h4 class="inst-mgmt-card-title" style="margin: 0; font-size: 18px; color: #1f2937;">${esc(displayName)}</h4>
-              <span class="inst-mgmt-channel-badge" style="display: inline-flex; align-items: center; padding: 2px 8px; background: ${channelColor}; color: white; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">Ch ${channel + 1}</span>
-              ${isComplete
-                ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #10b981; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ ${i18n.t('instrumentManagement.complete') || 'COMPLET'}</span>`
-                : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #f59e0b; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠ ${i18n.t('instrumentManagement.incomplete') || 'INCOMPLET'}</span>`
-              }
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-              <span class="inst-mgmt-device-badge" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #f1f5f9; color: #475569; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid #e2e8f0;">
-                ${esc(deviceName)}${deviceInstrumentCount > 1 ? ` (${deviceInstrumentCount} inst.)` : ''}
-              </span>
-            </div>
-          </div>
-          <div style="font-size: 24px;">
-            ${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}
-          </div>
-        </div>
-
-        <!-- Info -->
-        <div class="inst-mgmt-card-info" style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">
-          ${!isVirtual ? `<div>${connType.icon} <span class="inst-mgmt-conn-badge" style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:11px;font-weight:600;">${esc(connType.label)}</span></div>` : ''}
-          ${instrument.manufacturer ? `<div>🏭 ${esc(instrument.manufacturer)}</div>` : ''}
-          ${instrument.gm_program !== null && instrument.gm_program !== undefined
-            ? `<div>🎵 ${i18n.t('instrumentManagement.gmProgram') || 'Programme GM'}: ${instrument.gm_program}</div>`
-            : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</div>`}
-          ${instrument.note_range_min != null && instrument.note_range_max != null
-            ? `<div>🎹 ${i18n.t('instrumentManagement.range') || 'Plage'}: ${this.getNoteName(instrument.note_range_min)} - ${this.getNoteName(instrument.note_range_max)}</div>`
-            : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
-              ? `<div>🥁 ${i18n.t('instrumentManagement.discreteNotes') || 'Notes individuelles'}: ${instrument.selected_notes.length} ${i18n.t('instrumentManagement.notesCount') || 'notes'}</div>`
-              : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.rangeNotSet') || 'Plage de notes non définie'}</div>`)}
-          ${instrument.polyphony
-            ? `<div>🎼 ${i18n.t('instrumentManagement.polyphony') || 'Polyphonie'}: ${instrument.polyphony}</div>`
-            : `<div style="color: #f59e0b;">⚠ ${i18n.t('instrumentManagement.polyphonyNotSet') || 'Polyphonie non définie'}</div>`}
-        </div>
-
-        <!-- Actions -->
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn btn-primary"
-                  onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeId}', ${channel})"
-                  style="flex: 1; min-width: 80px; font-size: 13px; padding: 7px 12px;">
-            ✏️ ${i18n.t('instrumentManagement.edit') || 'Modifier'}
-          </button>
-          ${isConnected ? `
-            <button class="btn"
-                    onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}', ${channel})"
-                    style="font-size: 13px; padding: 7px 12px;">
-              🎵 ${i18n.t('instrumentManagement.test') || 'Tester'}
-            </button>
-          ` : ''}
-          <button class="btn btn-danger"
-                  onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
-                  style="font-size: 13px; padding: 7px 12px;">
-            🗑️
-          </button>
-        </div>
-      </div>
-    `;
   }
 
   /**
