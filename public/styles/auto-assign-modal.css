@@ -96,32 +96,33 @@
 .aa-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: 4px;
+  padding: 6px 10px;
   border: none;
   background: transparent;
   cursor: pointer;
   border-bottom: 3px solid transparent;
   white-space: nowrap;
-  font-size: 13px;
-  color: #666;
-  transition: background-color 0.15s, border-color 0.15s;
+  font-size: 12px;
+  color: #888;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 
 .aa-tab:hover {
-  background: #e8e8e8;
+  background: #e0e4f0;
+  color: #555;
 }
 
 .aa-tab.active {
-  background: white;
-  color: #333;
+  background: #e8ecff;
+  color: #1a1a2e;
   border-bottom-color: #667eea;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .aa-tab.skipped {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .aa-tab.skipped.active {
@@ -129,7 +130,7 @@
 }
 
 .aa-tab-label {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .aa-tab-drum {
@@ -171,7 +172,7 @@
    ========================================================================== */
 
 .aa-channel-sticky {
-  padding: 6px 14px 2px;
+  padding: 3px 14px 2px;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
   flex-shrink: 0;
@@ -201,12 +202,12 @@
 }
 
 .aa-channel-header h3 {
-  margin: 0 0 2px 0;
-  font-size: 15px;
+  margin: 0;
+  font-size: 13px;
   color: #333;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -525,17 +526,19 @@ body.dark-mode .aa-tabs-bar {
 }
 
 body.dark-mode .aa-tab {
-  color: #a0aec0;
+  color: #7a8a9a;
 }
 
 body.dark-mode .aa-tab:hover {
-  background: #2d2d3f;
+  background: #2d2d4f;
+  color: #b0bec5;
 }
 
 body.dark-mode .aa-tab.active {
-  background: #1e1e2e;
-  color: #e0e0e0;
+  background: #2a2a50;
+  color: #e8ecff;
   border-bottom-color: #667eea;
+  font-weight: 700;
 }
 
 /* Body */
@@ -1800,9 +1803,10 @@ body.theme-colored .aa-tab:hover {
 }
 
 body.theme-colored .aa-tab.active {
-  background: #ffffff;
+  background: rgba(102, 126, 234, 0.12);
   color: var(--text-primary);
   border-bottom-color: #667eea;
+  font-weight: 700;
 }
 
 body.theme-colored .auto-assign-modal .aa-body {
