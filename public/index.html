@@ -9053,7 +9053,7 @@
                         <div class="form-group">
                             <label>${i18n.t('instrumentSettings.gmInstrument') || 'Type d\'instrument (General MIDI)'}</label>
                             <select id="gmProgramSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" onchange="onGmProgramChanged(this)">
-                                ${renderGMInstrumentOptions(settings.gm_program, instrumentChannel)}
+                                ${renderGMInstrumentOptions(settings.gm_program, channel)}
                             </select>
                             <small class="form-text">${i18n.t('instrumentSettings.gmInstrumentHelp') || 'Sélectionnez le type d\'instrument pour le routage MIDI'}</small>
                             <div id="drumKitDesc" style="display: none; margin-top: 8px; padding: 10px 14px; background: #f0f4ff; border-left: 4px solid #667eea; border-radius: 0 6px 6px 0; font-size: 13px; color: #374151;">
