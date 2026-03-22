@@ -230,6 +230,16 @@ class MidiEditorModal {
 
             this.isOpen = true;
 
+            // Listen for external routing changes (e.g. from the simple routing modal)
+            if (this.eventBus) {
+                this._onExternalRoutingChanged = (data) => {
+                    if (data.fileId === this.currentFile && !this._isEmittingRouting) {
+                        this._loadSavedRoutings();
+                    }
+                };
+                this.eventBus.on('routing:changed', this._onExternalRoutingChanged);
+            }
+
             // Installer le gestionnaire beforeunload pour empêcher la fermeture avec des modifications non sauvegardées
             this.setupBeforeUnloadHandler();
 
@@ -5531,6 +5541,9 @@ class MidiEditorModal {
 
         // Persist routing to database
         this._syncRoutingToDB();
+
+        // Notify external components (file list, routing modal) that routing changed
+        this._emitRoutingChanged();
     }
 
     /**
@@ -5570,6 +5583,7 @@ class MidiEditorModal {
 
             this.log('info', `Restored ${this.channelRouting.size} saved channel routing(s) from database`);
             this.refreshChannelButtons();
+            this._emitRoutingChanged();
         } catch (error) {
             this.log('warn', 'Failed to load saved routings:', error);
         }
@@ -5591,6 +5605,26 @@ class MidiEditorModal {
         }).catch(err => {
             this.log('warn', 'Failed to sync routing to DB:', err);
         });
+    }
+
+    /**
+     * Emit routing:changed event so external components (file list, routing modal)
+     * can update their state. Builds a channels object from channelRouting Map.
+     */
+    _emitRoutingChanged() {
+        if (!this.currentFile) return;
+        const channels = {};
+        this.channelRouting.forEach((deviceValue, ch) => {
+            channels[String(ch)] = deviceValue;
+        });
+        if (this.eventBus) {
+            this._isEmittingRouting = true;
+            this.eventBus.emit('routing:changed', {
+                fileId: this.currentFile,
+                channels
+            });
+            this._isEmittingRouting = false;
+        }
     }
 
     /**
@@ -6606,6 +6640,12 @@ class MidiEditorModal {
 
         // Retirer le gestionnaire beforeunload
         this.removeBeforeUnloadHandler();
+
+        // Unsubscribe from external routing changes
+        if (this.eventBus && this._onExternalRoutingChanged) {
+            this.eventBus.off('routing:changed', this._onExternalRoutingChanged);
+            this._onExternalRoutingChanged = null;
+        }
 
         // Nettoyer l'historique du piano roll
         if (this.pianoRoll && typeof this.pianoRoll.clearHistory === 'function') {

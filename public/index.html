@@ -8429,6 +8429,11 @@
 
             log(`✓ Routage configuré pour ${Object.keys(routing).length} canaux`, 'info');
 
+            // Notify MIDI editor (if open) that routing changed
+            if (window.eventBus) {
+                window.eventBus.emit('routing:changed', { fileId, channels: hasRouting ? routing : {} });
+            }
+
             // Fermer la modale et rafraîchir
             modal.remove();
             loadFiles();
@@ -10843,6 +10848,30 @@
             } catch (error) {
                 log(`Serial port close error: ${error.message}`, 'error');
             }
+        });
+
+        // Sync routing changes from MIDI editor back to file list & routing modal state
+        window.eventBus.on('routing:changed', (data) => {
+            const { fileId, channels } = data;
+            if (!fileId) return;
+
+            // Update fileRoutingConfig (localStorage-backed state used by routing modal & file list)
+            if (channels && Object.keys(channels).length > 0) {
+                fileRoutingConfig[fileId] = {
+                    channels,
+                    configured: true,
+                    lastModified: Date.now()
+                };
+            } else {
+                delete fileRoutingConfig[fileId];
+            }
+            saveRoutingConfig();
+
+            // Invalidate metadata cache so next display picks up fresh routing status from DB
+            metadataCache.delete(fileId);
+
+            // Refresh the file item display if it exists in the list
+            loadFileMetadata(fileId);
         });
 
         // Event listeners pour la zone de drop dédiée (racine)
