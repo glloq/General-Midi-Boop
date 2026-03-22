@@ -107,6 +107,9 @@ class DrumGridRenderer {
         this._dragMode = null;
         this._hoverEvent = null;
 
+        // Edit mode: 'pan' (default) or 'select'
+        this.tool = options.tool || 'pan';
+
         // Undo/Redo
         this._undoStack = [];
         this._redoStack = [];
@@ -708,11 +711,16 @@ class DrumGridRenderer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Pan with alt/middle
-        if (e.altKey || e.button === 1) {
+        // Pan mode: pan by default, select with shift
+        // Select mode: select by default, pan with alt/middle
+        const forcePan = e.altKey || e.button === 1;
+        const usePan = forcePan || (this.tool === 'pan' && !e.shiftKey);
+
+        if (usePan) {
             this._isDragging = true;
             this._dragMode = 'pan';
             this._dragStart = { x, y, scrollX: this.scrollX, scrollY: this.scrollY };
+            this.canvas.style.cursor = 'grabbing';
             e.preventDefault();
             return;
         }
@@ -796,6 +804,7 @@ class DrumGridRenderer {
         this._dragMode = null;
         this._dragStart = null;
         this.selectionRect = null;
+        this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';
         this.redraw();
     }
 

@@ -70,6 +70,11 @@ class DrumPatternEditor {
         this._initGridRenderer();
         this._initToolsPanel();
 
+        // Set initial cursor for default pan mode
+        if (this.gridCanvasEl) {
+            this.gridCanvasEl.style.cursor = 'grab';
+        }
+
         // Convert MIDI notes to grid events
         this.loadFromMidi(midiNotes);
 
@@ -148,6 +153,9 @@ class DrumPatternEditor {
                     </label>
                 </div>
                 <div class="drum-pattern-toolbar">
+                    <button class="drum-tool-btn drum-mode-btn active" data-action="drum-mode" data-mode="pan" title="${this.t('windEditor.pan')}">&#x2725;</button>
+                    <button class="drum-tool-btn drum-mode-btn" data-action="drum-mode" data-mode="select" title="${this.t('windEditor.select')}">&#x2B1C;</button>
+                    <span class="drum-separator"></span>
                     <button class="drum-tool-btn" data-action="drum-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
                     <button class="drum-tool-btn" data-action="drum-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
                     <button class="drum-tool-btn" data-action="drum-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('drumPattern.copyShort')}</button>
@@ -196,6 +204,9 @@ class DrumPatternEditor {
             if (!action.startsWith('drum-')) return;
 
             switch (action) {
+                case 'drum-mode':
+                    this._setEditMode(btn.dataset.mode);
+                    break;
                 case 'drum-undo':
                     if (this.gridRenderer?.undo()) this._syncToMidi();
                     break;
@@ -258,6 +269,22 @@ class DrumPatternEditor {
         }
     }
 
+    _setEditMode(mode) {
+        if (!this.gridRenderer) return;
+        this.gridRenderer.tool = mode;
+
+        // Update active class on mode buttons
+        const modeButtons = this.containerEl.querySelectorAll('.drum-mode-btn');
+        modeButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        // Update cursor
+        if (this.gridCanvasEl) {
+            this.gridCanvasEl.style.cursor = mode === 'pan' ? 'grab' : 'crosshair';
+        }
+    }
+
     // ========================================================================
     // RENDERER & TOOLS INIT
     // ========================================================================
@@ -273,7 +300,7 @@ class DrumPatternEditor {
             this.gridRenderer.destroy();
         }
 
-        this.gridRenderer = new DrumGridRenderer(this.gridCanvasEl);
+        this.gridRenderer = new DrumGridRenderer(this.gridCanvasEl, { tool: 'pan' });
 
         // Sync quantize division
         this.gridRenderer.quantizeDiv = this.quantizeDiv;

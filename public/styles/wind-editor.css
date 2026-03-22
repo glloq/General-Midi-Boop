@@ -119,6 +119,12 @@
     border-color: #4a90d9;
 }
 
+.wind-mode-btn.active {
+    background: #4a90d9;
+    color: #fff;
+    border-color: #4a90d9;
+}
+
 .wind-close-btn {
     font-size: 16px;
     padding: 2px 6px;

@@ -135,6 +135,12 @@
     border-color: #ef476f;
 }
 
+.drum-mode-btn.active {
+    background: #ef476f;
+    color: #fff;
+    border-color: #ef476f;
+}
+
 .drum-close-btn {
     font-size: 16px;
     padding: 2px 6px;
@@ -342,6 +348,12 @@ body.dark-mode .drum-tool-btn {
     background: #2d3748;
     color: #e0e0e0;
     border-color: #4a5568;
+}
+
+body.dark-mode .drum-mode-btn.active {
+    background: #ef476f;
+    color: #fff;
+    border-color: #ef476f;
 }
 
 body.dark-mode .drum-tool-btn:hover {

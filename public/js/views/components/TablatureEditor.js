@@ -30,7 +30,7 @@ class TablatureEditor {
         this.fretboardCanvasEl = null;
 
         // Edit mode: 'select' | 'pan' | 'change-string'
-        this.editMode = 'select';
+        this.editMode = 'pan';
 
         // Bind methods
         this._onTabAdd = this._handleTabAdd.bind(this);
@@ -80,6 +80,11 @@ class TablatureEditor {
         // Initialize renderer and fretboard
         this._initRenderer();
         this._initFretboard();
+
+        // Set initial cursor for default pan mode
+        if (this.tabCanvasEl) {
+            this.tabCanvasEl.style.cursor = 'grab';
+        }
 
         // Convert MIDI notes to tablature
         await this.convertFromMidi(midiNotes);
@@ -185,8 +190,8 @@ class TablatureEditor {
                 </div>
                 <div class="tablature-toolbar">
                     <span class="tab-mode-group">
-                        <button class="tab-tool-btn tab-mode-btn active" data-action="tab-mode" data-mode="select" title="${this.t('tablature.modeSelect')}">&#x2B1C;</button>
-                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="pan" title="${this.t('tablature.modePan')}">&#x2725;</button>
+                        <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="select" title="${this.t('tablature.modeSelect')}">&#x2B1C;</button>
+                        <button class="tab-tool-btn tab-mode-btn active" data-action="tab-mode" data-mode="pan" title="${this.t('tablature.modePan')}">&#x2725;</button>
                         <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="change-string" title="${this.t('tablature.modeChangeString')}">&#x21C5;</button>
                     </span>
                     <span class="tab-separator"></span>

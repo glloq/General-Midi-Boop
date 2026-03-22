@@ -48,7 +48,7 @@ class TablatureRenderer {
         this.stringLabels = this._computeStringLabels();
 
         // Edit mode (set by TablatureEditor toolbar)
-        this._editMode = 'select'; // 'select' | 'pan' | 'change-string'
+        this._editMode = 'pan'; // 'select' | 'pan' | 'change-string'
 
         // Interaction state
         this._isDragging = false;
