@@ -213,6 +213,7 @@ class InstrumentMatcher {
       octaveWrappingEnabled: noteScore.octaveWrappingEnabled || false,
       octaveWrappingInfo: noteScore.octaveWrappingInfo || null,
       scoreBreakdown,
+      drumMappingQuality: noteScore.drumMappingQuality || null,
       issues,
       info
     };

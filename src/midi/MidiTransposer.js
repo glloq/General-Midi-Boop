@@ -256,6 +256,7 @@ class MidiTransposer {
       transpositions,
       notes_changed: stats.notesChanged || 0,
       notes_remapped: stats.notesRemapped || 0,
+      notes_suppressed: stats.notesSuppressed || 0,
       total_notes: stats.totalNotes || 0
     };
   }

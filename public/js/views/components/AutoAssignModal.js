@@ -126,8 +126,8 @@ class AutoAssignModal {
 
       if (this.isNoteInInstrumentRange(adjustedNote, inst)) {
         inRange++;
-      } else if (strategy === 'octaveWrap') {
-        // Try wrapping ±1 octave
+      } else if (strategy === 'octaveWrap' && inst.note_selection_mode !== 'discrete') {
+        // Try wrapping ±1 octave (not meaningful for discrete instruments like drums/pads)
         const up = adjustedNote + 12;
         const down = adjustedNote - 12;
         if (this.isNoteInInstrumentRange(up, inst) || this.isNoteInInstrumentRange(down, inst)) {
@@ -583,24 +583,26 @@ class AutoAssignModal {
     const assignment = this.selectedAssignments[ch];
     const semitones = adaptation.transpositionSemitones || 0;
     const strategy = adaptation.strategy || 'ignore';
+    const isDrumChannel = channel === 9 || (assignment?.channelAnalysis?.estimatedType === 'drums');
 
     // Visual note range indicator
     const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
     const noteRangeViz = this.renderNoteRangeViz(channel, analysis, assignment, semitones);
 
-    // Calculate adaptation result for current strategy
-    const result = this.calculateAdaptationResult(channel, strategy);
-    const hasOutOfRange = result.totalNotes > 0 && (result.outOfRange > 0 || (strategy === 'ignore' && result.totalNotes > result.inRange));
+    // Calculate adaptation result for current strategy (melodic channels only)
+    const result = isDrumChannel
+      ? { totalNotes: 0, inRange: 0, outOfRange: 0, recovered: 0 }
+      : this.calculateAdaptationResult(channel, strategy);
 
     // Warning message for out-of-range notes
     const outCount = result.totalNotes - result.inRange;
-    const warningHTML = (outCount > 0 && strategy === 'ignore') ? `
+    const warningHTML = (!isDrumChannel && outCount > 0 && strategy === 'ignore') ? `
       <div class="aa-adaptation-warning">
         ${outCount} ${_t('autoAssign.notesOutOfRange')}
       </div>
     ` : '';
 
-    // Strategy selector
+    // Strategy selector (not for drum channels - they have their own drumStrategy)
     const strategies = [
       { value: 'transpose', label: _t('autoAssign.strategyTranspose'), desc: _t('autoAssign.strategyTransposeDesc') },
       { value: 'octaveWrap', label: _t('autoAssign.strategyOctaveWrap'), desc: _t('autoAssign.strategyOctaveWrapDesc') },
@@ -608,7 +610,7 @@ class AutoAssignModal {
       { value: 'ignore', label: _t('autoAssign.strategyIgnore'), desc: _t('autoAssign.strategyIgnoreDesc') }
     ];
 
-    const strategyHTML = `
+    const strategyHTML = isDrumChannel ? '' : `
       <div class="aa-strategy-selector">
         <label class="aa-strategy-title">${_t('autoAssign.adaptationStrategy')}:</label>
         <div class="aa-strategy-options">
@@ -625,8 +627,8 @@ class AutoAssignModal {
       </div>
     `;
 
-    // Transposition controls (only visible when strategy is 'transpose')
-    const transpoHTML = strategy === 'transpose' ? `
+    // Transposition controls (only visible when strategy is 'transpose', not for drums)
+    const transpoHTML = (!isDrumChannel && strategy === 'transpose') ? `
       <div class="aa-control-group">
         <label>${_t('autoAssign.transposition')}</label>
         <div class="aa-transposition-control">
@@ -662,8 +664,8 @@ class AutoAssignModal {
       </div>
     ` : '';
 
-    // Result summary
-    const resultHTML = result.totalNotes > 0 ? `
+    // Result summary (melodic channels only)
+    const resultHTML = (!isDrumChannel && result.totalNotes > 0) ? `
       <div class="aa-adaptation-result ${result.outOfRange > 0 ? 'has-issues' : 'all-ok'}">
         ${_t('autoAssign.adaptationResult')}: ${result.inRange + result.recovered}/${result.totalNotes} ${_t('autoAssign.notesPlayable')}
         ${result.recovered > 0 ? ` (${result.recovered} ${_t('autoAssign.notesRecovered')})` : ''}
@@ -968,10 +970,13 @@ class AutoAssignModal {
       });
     }
 
-    // Calculate overall quality score
+    // Use backend quality score if available, fallback to local exact-match ratio
+    const backendQuality = selectedOption?.compatibility?.drumMappingQuality?.score;
     const totalEntries = categoryData.reduce((sum, c) => sum + c.total, 0);
-    const totalMapped = categoryData.reduce((sum, c) => sum + c.mapped, 0);
-    const qualityScore = totalEntries > 0 ? Math.round((totalMapped / totalEntries) * 100) : 100;
+    const exactMatches = categoryData.reduce((sum, c) => sum + c.entries.filter(e => !e.isModified).length, 0);
+    const qualityScore = backendQuality != null
+      ? Math.round(backendQuality)
+      : (totalEntries > 0 ? Math.round((exactMatches / totalEntries) * 100) : 100);
 
     // Summary badges
     const summaryHTML = `
@@ -1223,7 +1228,10 @@ class AutoAssignModal {
     this.adaptationSettings[ch] = {
       ...this.adaptationSettings[ch],
       transpositionSemitones: selectedOption.compatibility.transposition?.semitones || 0,
-      octaveWrappingEnabled: selectedOption.compatibility.octaveWrappingEnabled || false
+      octaveWrappingEnabled: selectedOption.compatibility.octaveWrappingEnabled || false,
+      strategy: selectedOption.compatibility.octaveWrappingEnabled
+        ? 'octaveWrap'
+        : (selectedOption.compatibility.transposition?.semitones ? 'transpose' : 'ignore')
     };
 
     this.skippedChannels.delete(channel);
@@ -1546,12 +1554,25 @@ class AutoAssignModal {
       const instrumentConstraints = {};
 
       if (assignment) {
+        const strategy = adaptation.strategy || 'ignore';
         let noteRemapping = assignment.noteRemapping || {};
-        if (adaptation.octaveWrappingEnabled && assignment.octaveWrapping) {
-          noteRemapping = { ...noteRemapping, ...assignment.octaveWrapping };
-        }
 
-        transposition.semitones = adaptation.transpositionSemitones || 0;
+        // Mirror strategy logic from validateAndApply
+        if (strategy === 'transpose') {
+          transposition.semitones = adaptation.transpositionSemitones || 0;
+        } else if (strategy === 'octaveWrap') {
+          transposition.semitones = adaptation.transpositionSemitones || 0;
+          if (assignment.octaveWrapping) {
+            noteRemapping = { ...noteRemapping, ...assignment.octaveWrapping };
+          }
+        } else if (strategy === 'suppress') {
+          transposition.semitones = adaptation.transpositionSemitones || 0;
+          if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
+            instrumentConstraints.suppressOutOfRange = true;
+          }
+        }
+        // 'ignore': no transposition, just base remapping
+
         transposition.noteRemapping = Object.keys(noteRemapping).length > 0 ? noteRemapping : null;
 
         // Instrument sound
@@ -1559,7 +1580,7 @@ class AutoAssignModal {
           instrumentConstraints.gmProgram = assignment.gmProgram;
         }
 
-        // Instrument playable note range - only play notes the instrument can handle
+        // Instrument playable note range
         instrumentConstraints.noteRangeMin = assignment.noteRangeMin;
         instrumentConstraints.noteRangeMax = assignment.noteRangeMax;
         instrumentConstraints.noteSelectionMode = assignment.noteSelectionMode;
