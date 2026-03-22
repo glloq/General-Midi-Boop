@@ -917,6 +917,108 @@ body.dark-mode .aa-tab-drum {
 }
 
 /* ==========================================================================
+   Compact Range Bar Visualization
+   ========================================================================== */
+
+.aa-range-bar-container {
+  margin: 4px 0 6px;
+  padding: 4px 0;
+}
+
+.aa-range-bar {
+  position: relative;
+  height: 14px;
+  background: #e8e8e8;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.aa-range-instrument {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(76, 175, 80, 0.25);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.aa-range-channel {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  border-radius: 2px;
+  min-width: 3px;
+  box-sizing: border-box;
+}
+
+.aa-range-channel.in-range {
+  background: rgba(33, 150, 243, 0.6);
+  border: 1px solid rgba(33, 150, 243, 0.8);
+}
+
+.aa-range-channel.out-of-range {
+  background: rgba(255, 152, 0, 0.6);
+  border: 1px solid rgba(255, 152, 0, 0.8);
+}
+
+.aa-range-legend {
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+  align-items: center;
+}
+
+.aa-range-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.aa-rleg-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.aa-rleg-color.inst {
+  background: rgba(76, 175, 80, 0.3);
+  border: 1px solid rgba(76, 175, 80, 0.6);
+}
+
+.aa-rleg-color.chan.in-range {
+  background: rgba(33, 150, 243, 0.6);
+  border: 1px solid rgba(33, 150, 243, 0.8);
+}
+
+.aa-rleg-color.chan.out-of-range {
+  background: rgba(255, 152, 0, 0.6);
+  border: 1px solid rgba(255, 152, 0, 0.8);
+}
+
+.aa-range-summary {
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.aa-range-summary.ok {
+  color: #4CAF50;
+}
+
+.aa-range-summary.warning {
+  color: #FF9800;
+}
+
+.aa-range-drums {
+  font-size: 11px;
+  color: #666;
+}
+
+/* ==========================================================================
    Adaptation Strategy Selector
    ========================================================================== */
 
@@ -1319,6 +1421,18 @@ body.dark-mode .aa-summary-ok {
 
 body.dark-mode .aa-summary-warning {
   color: #ff6b6b;
+}
+
+body.dark-mode .aa-range-bar {
+  background: #3a3a3a;
+}
+
+body.dark-mode .aa-range-legend {
+  color: #aaa;
+}
+
+body.dark-mode .aa-range-drums {
+  color: #aaa;
 }
 
 body.dark-mode .aa-adaptation-warning {

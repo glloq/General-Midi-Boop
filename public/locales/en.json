@@ -830,6 +830,7 @@
     "originalNote": "Original",
     "mappedTo": "Mapped to",
     "substitutions": "substitution(s)",
+    "notesMapped": "notes mapped",
     "notesUsed": "notes used",
     "inRange": "in range",
     "outOfRange": "out of range",

@@ -521,6 +521,9 @@ class AutoAssignModal {
       </div>
     ` : '';
 
+    // Compact range bar (in channel header area)
+    const rangeBarHTML = (!isSkipped && selectedDeviceId) ? this.renderRangeBar(channel) : '';
+
     // Adaptation controls (only if not skipped and instrument selected)
     const adaptationHTML = (!isSkipped && selectedDeviceId) ? this.renderAdaptationControls(channel, adaptation) : '';
 
@@ -536,6 +539,7 @@ class AutoAssignModal {
             ${isSkipped ? `<span class="aa-skipped-badge">[${_t('autoAssign.skippedLabel')}]</span>` : ''}
           </h3>
         </div>
+        ${rangeBarHTML}
         ${statsHTML}
         ${skipHTML}
         <div class="aa-instruments-list">
@@ -584,23 +588,6 @@ class AutoAssignModal {
     const semitones = adaptation.transpositionSemitones || 0;
     const strategy = adaptation.strategy || 'ignore';
     const isDrumChannel = channel === 9 || (assignment?.channelAnalysis?.estimatedType === 'drums');
-
-    // Visual note range indicator
-    const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
-    const noteRangeViz = this.renderNoteRangeViz(channel, analysis, assignment, semitones);
-
-    // Calculate adaptation result for current strategy (melodic channels only)
-    const result = isDrumChannel
-      ? { totalNotes: 0, inRange: 0, outOfRange: 0, recovered: 0 }
-      : this.calculateAdaptationResult(channel, strategy);
-
-    // Warning message for out-of-range notes
-    const outCount = result.totalNotes - result.inRange;
-    const warningHTML = (!isDrumChannel && outCount > 0 && strategy === 'ignore') ? `
-      <div class="aa-adaptation-warning">
-        ${outCount} ${_t('autoAssign.notesOutOfRange')}
-      </div>
-    ` : '';
 
     // Strategy selector (not for drum channels - they have their own drumStrategy)
     const strategies = [
@@ -664,29 +651,16 @@ class AutoAssignModal {
       </div>
     ` : '';
 
-    // Result summary (melodic channels only)
-    const resultHTML = (!isDrumChannel && result.totalNotes > 0) ? `
-      <div class="aa-adaptation-result ${result.outOfRange > 0 ? 'has-issues' : 'all-ok'}">
-        ${_t('autoAssign.adaptationResult')}: ${result.inRange + result.recovered}/${result.totalNotes} ${_t('autoAssign.notesPlayable')}
-        ${result.recovered > 0 ? ` (${result.recovered} ${_t('autoAssign.notesRecovered')})` : ''}
-        ${result.outOfRange > 0 ? ` — ${result.outOfRange} ${_t('autoAssign.notesLost')}` : ''}
-      </div>
-    ` : '';
-
     return `
       <div class="aa-adaptation-section">
         <h4>${_t('autoAssign.adaptationTitle')}</h4>
 
-        ${noteRangeViz}
-        ${warningHTML}
         ${strategyHTML}
 
         <div class="aa-adaptation-controls">
           ${transpoHTML}
           ${drumOffsetHTML}
         </div>
-
-        ${resultHTML}
       </div>
     `;
   }
@@ -794,6 +768,85 @@ class AutoAssignModal {
         <div class="${summaryClass}">${summaryText}</div>
       </div>
     `;
+  }
+
+  // ========================================================================
+  // COMPACT RANGE BAR VISUALIZATION
+  // ========================================================================
+
+  /**
+   * Render compact linear range bar: instrument range (green) vs channel notes (blue/orange)
+   * For drums/discrete instruments, shows a text summary instead.
+   */
+  renderRangeBar(channel) {
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
+    const adaptation = this.adaptationSettings[ch] || {};
+    const semitones = adaptation.transpositionSemitones || 0;
+    const strategy = adaptation.strategy || 'ignore';
+
+    if (!analysis?.noteRange || analysis.noteRange.min == null || !assignment?.deviceId) return '';
+
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.device_id === assignment.deviceId);
+    if (!selectedOption) return '';
+    const inst = selectedOption.instrument;
+
+    const isDrumOrDiscrete = channel === 9
+      || (analysis.estimatedType === 'drums')
+      || inst.note_selection_mode === 'discrete';
+
+    if (isDrumOrDiscrete) {
+      const mappingCount = Object.keys(assignment.noteRemapping || {}).length;
+      return `<div class="aa-range-bar-container aa-range-drums">
+        ${mappingCount} ${_t('autoAssign.notesMapped')}
+      </div>`;
+    }
+
+    // Positions as % of 0-127 MIDI scale
+    const instMin = inst.note_range_min ?? 0;
+    const instMax = inst.note_range_max ?? 127;
+    const chanMin = analysis.noteRange.min + semitones;
+    const chanMax = analysis.noteRange.max + semitones;
+
+    const pct = v => ((Math.max(0, Math.min(127, v)) / 127) * 100).toFixed(1);
+    const instLeft = pct(instMin);
+    const instWidth = (((instMax - instMin) / 127) * 100).toFixed(1);
+    const chanLeft = pct(chanMin);
+    const chanWidth = Math.max(0.5, ((chanMax - chanMin) / 127) * 100).toFixed(1);
+
+    // Adaptation result
+    const result = this.calculateAdaptationResult(channel, strategy);
+    const allOk = result.outOfRange === 0;
+    const chanClass = allOk ? 'in-range' : 'out-of-range';
+
+    // Compact summary
+    let summaryHTML = '';
+    if (result.totalNotes > 0) {
+      if (allOk) {
+        summaryHTML = `<span class="aa-range-summary ok">${result.totalNotes}/${result.totalNotes} OK</span>`;
+      } else {
+        const playable = result.inRange + result.recovered;
+        summaryHTML = `<span class="aa-range-summary warning">${playable}/${result.totalNotes} — ${result.outOfRange} ${_t('autoAssign.outOfRange')}</span>`;
+      }
+    }
+
+    const transpoLabel = semitones ? ` (${semitones > 0 ? '+' : ''}${semitones}st)` : '';
+
+    return `<div class="aa-range-bar-container">
+      <div class="aa-range-bar">
+        <div class="aa-range-instrument" style="left:${instLeft}%;width:${instWidth}%"
+             title="${_t('autoAssign.instrumentRange')}: ${this.midiNoteToName(instMin)}-${this.midiNoteToName(instMax)}"></div>
+        <div class="aa-range-channel ${chanClass}" style="left:${chanLeft}%;width:${chanWidth}%"
+             title="${_t('autoAssign.channelNotes')}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
+      </div>
+      <div class="aa-range-legend">
+        <span class="aa-range-legend-item"><span class="aa-rleg-color inst"></span>${this.midiNoteToName(instMin)}-${this.midiNoteToName(instMax)}</span>
+        <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}${escapeHtml(transpoLabel)}</span>
+        ${summaryHTML}
+      </div>
+    </div>`;
   }
 
   // ========================================================================
