@@ -28,7 +28,7 @@
 .aa-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  max-height: 90vh;
 }
 
 .aa-channel-count {
@@ -158,12 +158,12 @@
 
 .aa-tabs-bar {
   display: flex;
-  overflow-x: auto;
+  flex-wrap: wrap;
   background: #f0f0f5;
   border-bottom: 2px solid #d0d0d8;
   padding: 4px 4px 0;
   gap: 2px;
-  scrollbar-width: auto;
+  flex-shrink: 0;
 }
 
 /* Scrollbar tabs : style global touch-friendly (voir main.css + variables.css) */
@@ -269,7 +269,8 @@
 
 .aa-body {
   padding: 10px 14px !important;
-  max-height: 55vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: auto;
 }
@@ -1762,7 +1763,6 @@ body.dark-mode .aa-drum-arrow {
 
   .aa-body {
     padding: 12px 14px !important;
-    max-height: 60vh;
   }
 
   .aa-channel-stats {
