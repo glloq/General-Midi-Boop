@@ -133,7 +133,7 @@ async function deviceList(app) {
           if (settings.custom_name) {
             device.displayName = settings.custom_name;
           }
-          // Inclure les champs de configuration instrument
+          // Inclure les champs de configuration instrument (rétro-compatibilité: premier canal)
           if (settings.gm_program !== null && settings.gm_program !== undefined) {
             device.gm_program = settings.gm_program;
           }
@@ -153,6 +153,31 @@ async function deviceList(app) {
           if (settings.usb_serial_number) {
             device.usb_serial_number = settings.usb_serial_number;
           }
+        }
+
+        // Charger tous les instruments/canaux configurés sur ce device
+        try {
+          const allInstruments = app.database.getInstrumentsByDevice(device.id);
+          if (allInstruments && allInstruments.length > 0) {
+            device.instruments = allInstruments.map(inst => {
+              let supportedCcs = null;
+              if (inst.supported_ccs) {
+                try { supportedCcs = JSON.parse(inst.supported_ccs); } catch (e) { /* ignore */ }
+              }
+              let selectedNotes = null;
+              if (inst.selected_notes) {
+                try { selectedNotes = JSON.parse(inst.selected_notes); } catch (e) { /* ignore */ }
+              }
+              return {
+                ...inst,
+                supported_ccs: supportedCcs,
+                selected_notes: selectedNotes,
+                note_selection_mode: inst.note_selection_mode || 'range'
+              };
+            });
+          }
+        } catch (e) {
+          // Pas d'instruments multi-canal, pas grave
         }
 
         // Toujours inclure le USB serial number du device s'il en a un
@@ -467,9 +492,18 @@ async function instrumentDelete(app, data) {
     throw new Error('deviceId is required');
   }
 
-  // Delete instrument settings/capabilities from instruments_latency by device_id
+  // Delete instrument settings/capabilities from instruments_latency
+  // If channel is provided, delete only that specific channel; otherwise delete all
   try {
-    app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
+    if (data.channel !== undefined && data.channel !== null) {
+      const channel = parseInt(data.channel);
+      if (channel < 0 || channel > 15) {
+        throw new Error('channel must be between 0 and 15');
+      }
+      app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
+    } else {
+      app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
+    }
   } catch (e) {
     // May not have latency settings
   }
@@ -566,6 +600,110 @@ async function virtualList(app) {
  * When disabled: disables all routings pointing to virtual instruments in DB.
  * When enabled: re-enables previously disabled virtual instrument routings.
  */
+/**
+ * Liste tous les instruments configurés sur un device (tous canaux)
+ */
+async function instrumentListByDevice(app, data) {
+  if (!app.database) {
+    throw new Error('Database not available');
+  }
+
+  if (!data.deviceId) {
+    throw new Error('deviceId is required');
+  }
+
+  const instruments = app.database.getInstrumentsByDevice(data.deviceId);
+
+  // Parse JSON fields for each instrument
+  const parsed = instruments.map(inst => {
+    let supportedCcs = null;
+    if (inst.supported_ccs) {
+      try { supportedCcs = JSON.parse(inst.supported_ccs); } catch (e) { /* ignore */ }
+    }
+    let selectedNotes = null;
+    if (inst.selected_notes) {
+      try { selectedNotes = JSON.parse(inst.selected_notes); } catch (e) { /* ignore */ }
+    }
+    return {
+      ...inst,
+      supported_ccs: supportedCcs,
+      selected_notes: selectedNotes,
+      note_selection_mode: inst.note_selection_mode || 'range'
+    };
+  });
+
+  return {
+    success: true,
+    deviceId: data.deviceId,
+    instruments: parsed,
+    total: parsed.length
+  };
+}
+
+/**
+ * Ajoute un nouvel instrument à un device existant sur un canal spécifique
+ */
+async function instrumentAddToDevice(app, data) {
+  if (!app.database) {
+    throw new Error('Database not available');
+  }
+
+  if (!data.deviceId) {
+    throw new Error('deviceId is required');
+  }
+
+  const channel = data.channel !== undefined ? parseInt(data.channel) : null;
+  if (channel === null || channel < 0 || channel > 15) {
+    throw new Error('channel is required and must be between 0 and 15');
+  }
+
+  // Vérifier que le canal n'est pas déjà utilisé
+  const existing = app.database.getInstrumentSettings(data.deviceId, channel);
+  if (existing) {
+    throw new Error(`Channel ${channel} is already in use on device ${data.deviceId}`);
+  }
+
+  // Créer les settings de base
+  const settings = {
+    name: data.name || `Instrument Ch${channel + 1}`,
+    custom_name: data.custom_name || data.name || null,
+    gm_program: data.gm_program !== undefined ? data.gm_program : null
+  };
+
+  // Get USB serial number from DeviceManager if available
+  if (app.deviceManager) {
+    const device = app.deviceManager.getDeviceInfo(data.deviceId);
+    if (device && device.usbSerialNumber) {
+      settings.usb_serial_number = device.usbSerialNumber;
+    }
+  }
+
+  const id = app.database.updateInstrumentSettings(data.deviceId, channel, settings);
+
+  // Ajouter les capabilities si fournies
+  const capabilities = {};
+  if (data.note_range_min !== undefined) capabilities.note_range_min = data.note_range_min;
+  if (data.note_range_max !== undefined) capabilities.note_range_max = data.note_range_max;
+  if (data.polyphony !== undefined) capabilities.polyphony = data.polyphony;
+  if (data.note_selection_mode) capabilities.note_selection_mode = data.note_selection_mode;
+  if (data.selected_notes) capabilities.selected_notes = data.selected_notes;
+  if (data.supported_ccs) capabilities.supported_ccs = data.supported_ccs;
+
+  if (Object.keys(capabilities).length > 0) {
+    capabilities.capabilities_source = 'manual';
+    app.database.updateInstrumentCapabilities(data.deviceId, channel, capabilities);
+  }
+
+  app.logger.info(`Instrument added to device ${data.deviceId} on channel ${channel}: ${settings.name}`);
+
+  return {
+    success: true,
+    id: `${data.deviceId}_${channel}`,
+    deviceId: data.deviceId,
+    channel: channel
+  };
+}
+
 async function virtualInstrumentToggle(app, data) {
   if (!app.database) {
     throw new Error('Database not available');
@@ -600,6 +738,8 @@ export function register(registry, app) {
   registry.register('instrument_list_registered', () => instrumentListRegistered(app));
   registry.register('instrument_list_connected', () => instrumentListConnected(app));
   registry.register('instrument_delete', (data) => instrumentDelete(app, data));
+  registry.register('instrument_add_to_device', (data) => instrumentAddToDevice(app, data));
+  registry.register('instrument_list_by_device', (data) => instrumentListByDevice(app, data));
   registry.register('instrument_create_virtual', (data) => instrumentCreateVirtual(app, data));
   registry.register('virtual_create', (data) => virtualCreate(app, data));
   registry.register('virtual_delete', (data) => virtualDelete(app, data));

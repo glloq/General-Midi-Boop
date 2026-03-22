@@ -1,0 +1,104 @@
+/* ============================================
+   AddInstrumentToDeviceModal Styles
+   ============================================ */
+
+.add-inst-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.add-inst-device-info {
+  padding: 10px 14px;
+  background: var(--bg-secondary, #f1f5f9);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary, #475569);
+}
+
+.add-inst-device-label {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.add-inst-help {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  margin: 4px 0 8px 0;
+}
+
+/* Channel selection grid */
+.add-inst-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.add-inst-channel-btn {
+  padding: 8px 4px;
+  border: 2px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.add-inst-channel-btn:hover:not([disabled]) {
+  border-color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.add-inst-channel-btn.selected {
+  border-color: var(--accent-primary, #667eea);
+  background: var(--accent-primary, #667eea);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.add-inst-channel-btn.used {
+  background: var(--bg-secondary, #f1f5f9);
+  color: var(--text-muted, #94a3b8);
+  border-color: var(--border-color, #e2e8f0);
+  cursor: not-allowed;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.add-inst-channel-info {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--bg-secondary, #f8fafc);
+  font-size: 13px;
+}
+
+/* Select and Input */
+.add-inst-select,
+.add-inst-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+  transition: border-color 0.15s;
+}
+
+.add-inst-select:focus,
+.add-inst-input:focus {
+  outline: none;
+  border-color: var(--accent-primary, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .add-inst-channel-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

@@ -134,7 +134,7 @@ class InstrumentManagementPage {
    */
   async loadInstruments() {
     try {
-      // 1. Charger les devices connectés
+      // 1. Charger les devices connectés (enrichis avec instruments[] multi-canal)
       const response = await this.apiClient.sendCommand('device_list', {});
       const connectedDevices = (response && response.devices) ? response.devices : [];
       const connectedIds = new Set(connectedDevices.map(d => d.id));
@@ -154,57 +154,91 @@ class InstrumentManagementPage {
       this.instruments = [];
       const matchedDbIds = new Set(); // IDs DB déjà associés à un device connecté
 
-      // Ajouter les devices connectés enrichis avec leurs capacités DB
+      // Ajouter les devices connectés - exploser en une carte par instrument/canal
       for (const device of connectedDevices) {
-        device.connected = true;
-        device.status = 2; // connected
+        const deviceBase = {
+          connected: true,
+          status: 2,
+          _deviceId: device.id,
+          _deviceName: device.name,
+          _deviceType: device.type,
+          _deviceAddress: device.address,
+        };
 
-        // Enrichir avec les capacités DB - matching par device_id OU usb_serial_number
-        let dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
+        // Si le device a des instruments multi-canal, créer une entrée par canal
+        if (device.instruments && device.instruments.length > 0) {
+          for (const inst of device.instruments) {
+            const dbId = inst.id || `${device.id}_${inst.channel}`;
+            matchedDbIds.add(dbId);
+            // Marquer aussi dans registeredInstruments
+            const regMatch = registeredInstruments.find(r => r.id === dbId || (r.device_id === device.id && r.channel === inst.channel));
+            if (regMatch) matchedDbIds.add(regMatch.id);
 
-        // Fallback: chercher par USB serial number si pas trouvé par device_id
-        if (!dbInstrument && (device.usb_serial_number || device.usbSerialNumber)) {
-          const serial = device.usb_serial_number || device.usbSerialNumber;
-          dbInstrument = registeredInstruments.find(r => r.usb_serial_number === serial);
-        }
-
-        // Fallback: chercher par MAC address pour les devices Bluetooth
-        if (!dbInstrument && device.address && device.type === 'bluetooth') {
-          dbInstrument = registeredInstruments.find(r => r.mac_address === device.address);
-        }
-
-        // Fallback: chercher par nom normalisé (sans numéros de port ALSA)
-        if (!dbInstrument && device.id) {
-          const normalizedDeviceName = InstrumentManagementPage.normalizeDeviceName(device.id);
-          if (normalizedDeviceName && normalizedDeviceName !== 'virtual') {
-            dbInstrument = registeredInstruments.find(r => {
-              const normalizedDbName = InstrumentManagementPage.normalizeDeviceName(r.device_id);
-              return normalizedDbName === normalizedDeviceName && !r.device_id.startsWith('virtual_');
+            this.instruments.push({
+              ...deviceBase,
+              ...inst,
+              id: device.id,
+              device_id: device.id,
+              name: device.name,
+              type: device.type,
+              address: device.address,
+              input: device.input,
+              output: device.output,
+              usb_serial_number: device.usb_serial_number || device.usbSerialNumber,
+              displayName: inst.custom_name || inst.name || device.displayName || device.name,
+              channel: inst.channel !== undefined ? inst.channel : 0,
             });
           }
-        }
+        } else {
+          // Device sans instruments multi-canal : chercher en DB (ancien comportement)
+          let dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
 
-        if (dbInstrument) {
-          matchedDbIds.add(dbInstrument.id);
-          // Sauvegarder les champs d'identité réels du device avant merge
-          const realId = device.id;
-          const realName = device.name;
-          const realType = device.type;
-          const realAddress = device.address;
-          const realInput = device.input;
-          const realOutput = device.output;
-          Object.assign(device, dbInstrument);
-          // Restaurer les champs d'identité réels (le DB ne doit pas les écraser)
-          device.id = realId;
-          if (realName) device.name = realName;
-          if (realType) device.type = realType;
-          if (realAddress) device.address = realAddress;
-          device.input = realInput;
-          device.output = realOutput;
+          // Fallback: chercher par USB serial number si pas trouvé par device_id
+          if (!dbInstrument && (device.usb_serial_number || device.usbSerialNumber)) {
+            const serial = device.usb_serial_number || device.usbSerialNumber;
+            dbInstrument = registeredInstruments.find(r => r.usb_serial_number === serial);
+          }
+
+          // Fallback: chercher par MAC address pour les devices Bluetooth
+          if (!dbInstrument && device.address && device.type === 'bluetooth') {
+            dbInstrument = registeredInstruments.find(r => r.mac_address === device.address);
+          }
+
+          // Fallback: chercher par nom normalisé (sans numéros de port ALSA)
+          if (!dbInstrument && device.id) {
+            const normalizedDeviceName = InstrumentManagementPage.normalizeDeviceName(device.id);
+            if (normalizedDeviceName && normalizedDeviceName !== 'virtual') {
+              dbInstrument = registeredInstruments.find(r => {
+                const normalizedDbName = InstrumentManagementPage.normalizeDeviceName(r.device_id);
+                return normalizedDbName === normalizedDeviceName && !r.device_id.startsWith('virtual_');
+              });
+            }
+          }
+
+          if (dbInstrument) {
+            matchedDbIds.add(dbInstrument.id);
+            const realId = device.id;
+            const realName = device.name;
+            const realType = device.type;
+            const realAddress = device.address;
+            const realInput = device.input;
+            const realOutput = device.output;
+            Object.assign(device, dbInstrument);
+            device.id = realId;
+            if (realName) device.name = realName;
+            if (realType) device.type = realType;
+            if (realAddress) device.address = realAddress;
+            device.input = realInput;
+            device.output = realOutput;
+          }
           device.connected = true;
           device.status = 2;
+          device._deviceId = device.id;
+          device._deviceName = device.name;
+          device._deviceType = device.type;
+          device.channel = device.channel !== undefined ? device.channel : 0;
+          this.instruments.push(device);
         }
-        this.instruments.push(device);
       }
 
       // Ajouter les instruments enregistrés qui ne sont PAS connectés
@@ -214,7 +248,6 @@ class InstrumentManagementPage {
       for (const device of connectedDevices) {
         const serial = device.usb_serial_number || device.usbSerialNumber;
         if (serial) seenSerials.add(serial);
-        // Ajouter le nom normalisé des devices connectés pour déduplication
         const normalizedName = InstrumentManagementPage.normalizeDeviceName(device.id);
         if (normalizedName) seenNormalizedNames.add(normalizedName);
       }
@@ -237,8 +270,11 @@ class InstrumentManagementPage {
         if (normalizedRegName && !registered.device_id.startsWith('virtual_') && seenNormalizedNames.has(normalizedRegName)) continue;
 
         registered.id = registered.device_id;
+        registered._deviceId = registered.device_id;
+        registered._deviceName = registered.name || registered.device_id;
         registered.connected = false;
         registered.status = 0; // disconnected
+        registered.channel = registered.channel !== undefined ? registered.channel : 0;
 
         if (registered.usb_serial_number) seenSerials.add(registered.usb_serial_number);
         if (normalizedRegName) seenNormalizedNames.add(normalizedRegName);
@@ -412,20 +448,47 @@ class InstrumentManagementPage {
     }
   }
 
+  /**
+   * Retourne la couleur associée à un canal MIDI
+   */
+  getChannelColor(channel) {
+    const colors = [
+      '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+      '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+      '#f97316', '#6366f1', '#14b8a6', '#e11d48',
+      '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+    ];
+    return colors[channel % colors.length];
+  }
+
+  /**
+   * Compte combien d'instruments sont sur le même device
+   */
+  getDeviceInstrumentCount(deviceId) {
+    return this.instruments.filter(inst => (inst._deviceId || inst.device_id || inst.id) === deviceId).length;
+  }
+
   renderInstrumentCard(instrument) {
     const isComplete = this.isInstrumentComplete(instrument);
     const isConnected = instrument.status === 2 || instrument.connected;
     const isVirtual = this.isVirtualInstrument(instrument);
-    const displayName = instrument.custom_name || instrument.name || i18n.t('instrumentManagement.unknownDevice');
+    const displayName = instrument.custom_name || instrument.displayName || instrument.name || i18n.t('instrumentManagement.unknownDevice');
     const esc = this._escapeHtml;
     const safeId = esc(instrument.id);
+    const channel = instrument.channel !== undefined ? instrument.channel : 0;
+    const channelColor = this.getChannelColor(channel);
+    const deviceId = instrument._deviceId || instrument.device_id || instrument.id;
+    const deviceName = instrument._deviceName || instrument.name || deviceId;
     const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
     const connType = this.getConnectionTypeInfo(instrument);
+    const deviceInstrumentCount = this.getDeviceInstrumentCount(deviceId);
+    const safeDeviceId = esc(deviceId);
 
     return `
       <div class="instrument-card inst-mgmt-card" style="
         background: white;
         border: 2px solid ${borderColor};
+        border-left: 5px solid ${channelColor};
         border-radius: 12px;
         padding: 20px;
         transition: all 0.2s;
@@ -436,14 +499,19 @@ class InstrumentManagementPage {
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
           <div style="flex: 1;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
               <h4 class="inst-mgmt-card-title" style="margin: 0; font-size: 18px; color: #1f2937;">${esc(displayName)}</h4>
+              <span class="inst-mgmt-channel-badge" style="display: inline-flex; align-items: center; padding: 2px 8px; background: ${channelColor}; color: white; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">Ch ${channel + 1}</span>
               ${isComplete
                 ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #10b981; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ ${i18n.t('instrumentManagement.complete') || 'COMPLET'}</span>`
                 : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #f59e0b; color: white; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠ ${i18n.t('instrumentManagement.incomplete') || 'INCOMPLET'}</span>`
               }
             </div>
-            ${instrument.name !== displayName ? `<div class="inst-mgmt-card-sub" style="font-size: 13px; color: #6b7280;">${esc(instrument.name)}</div>` : ''}
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <span class="inst-mgmt-device-badge" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #f1f5f9; color: #475569; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid #e2e8f0;">
+                ${esc(deviceName)}${deviceInstrumentCount > 1 ? ` (${deviceInstrumentCount} inst.)` : ''}
+              </span>
+            </div>
           </div>
           <div style="font-size: 24px;">
             ${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}
@@ -470,19 +538,24 @@ class InstrumentManagementPage {
         <!-- Actions -->
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn btn-primary"
-                  onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeId}')"
+                  onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${safeId}', ${channel})"
                   style="flex: 1; min-width: 80px; font-size: 13px; padding: 7px 12px;">
             ✏️ ${i18n.t('instrumentManagement.edit') || 'Modifier'}
           </button>
           ${isConnected ? `
             <button class="btn"
-                    onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}')"
+                    onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}', ${channel})"
                     style="font-size: 13px; padding: 7px 12px;">
               🎵 ${i18n.t('instrumentManagement.test') || 'Tester'}
             </button>
+            <button class="btn"
+                    onclick="event.stopPropagation(); instrumentManagementPageInstance.addInstrumentToDevice('${safeDeviceId}')"
+                    style="font-size: 13px; padding: 7px 12px;" title="${i18n.t('instrumentManagement.addInstrument') || 'Ajouter un instrument sur ce device'}">
+              ➕
+            </button>
           ` : ''}
           <button class="btn btn-danger"
-                  onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}')"
+                  onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
                   style="font-size: 13px; padding: 7px 12px;">
             🗑️
           </button>
@@ -563,10 +636,16 @@ class InstrumentManagementPage {
   /**
    * Édite un instrument
    */
-  editInstrument(deviceId) {
+  editInstrument(deviceId, channel) {
     // Utiliser le modal existant showInstrumentSettings
-    const instrument = this.instruments.find(inst => inst.id === deviceId);
+    const instrument = this.instruments.find(inst =>
+      inst.id === deviceId && (channel === undefined || inst.channel === channel)
+    );
     if (instrument && window.showInstrumentSettings) {
+      // S'assurer que le channel est bien défini pour showInstrumentSettings
+      if (channel !== undefined) {
+        instrument.channel = channel;
+      }
       window.showInstrumentSettings(instrument);
     } else {
       this.showToast(i18n.t('instrumentManagement.settingsNotAvailable') || 'Réglages non disponibles. Vérifiez que le module est chargé.', 'error');
@@ -612,12 +691,16 @@ class InstrumentManagementPage {
   /**
    * Test un instrument
    */
-  async testInstrument(deviceId) {
+  async testInstrument(deviceId, channel) {
     try {
-      const instrument = this.instruments.find(inst => inst.id === deviceId);
+      const instrument = this.instruments.find(inst =>
+        inst.id === deviceId && (channel === undefined || inst.channel === channel)
+      );
 
-      // Use instrument's channel if available, default to 0
-      const channel = instrument && instrument.channel !== undefined ? instrument.channel : 0;
+      // Use provided channel, or instrument's channel, default to 0
+      if (channel === undefined) {
+        channel = instrument && instrument.channel !== undefined ? instrument.channel : 0;
+      }
 
       // Pick a test note within the instrument's capabilities
       let testNote = 60; // Default C4
@@ -652,7 +735,7 @@ class InstrumentManagementPage {
   /**
    * Supprime un instrument
    */
-  async deleteInstrument(deviceId) {
+  async deleteInstrument(deviceId, channel) {
     const confirmed = await window.showConfirm(
       i18n.t('instrumentManagement.deleteConfirm') || 'Êtes-vous sûr de vouloir supprimer cet instrument de la base de données ?\n\nNote : Le périphérique physique ne sera pas affecté.',
       {
@@ -667,12 +750,37 @@ class InstrumentManagementPage {
     }
 
     try {
-      await this.apiClient.sendCommand('instrument_delete', { deviceId });
+      const deleteData = { deviceId };
+      if (channel !== undefined && channel !== null) {
+        deleteData.channel = channel;
+      }
+      await this.apiClient.sendCommand('instrument_delete', deleteData);
       this.showToast(i18n.t('instrumentManagement.deleteSuccess') || 'Instrument supprimé avec succès', 'success');
       await this.refresh();
     } catch (error) {
       this.showToast((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message, 'error');
     }
+  }
+
+  /**
+   * Ouvre le modal pour ajouter un instrument sur un device existant
+   */
+  addInstrumentToDevice(deviceId) {
+    const device = this.instruments.find(inst =>
+      (inst._deviceId || inst.device_id || inst.id) === deviceId
+    );
+    const deviceName = device ? (device._deviceName || device.name || deviceId) : deviceId;
+
+    if (!window.AddInstrumentToDeviceModal) {
+      this.showToast('Module AddInstrumentToDeviceModal non chargé', 'error');
+      return;
+    }
+
+    const modal = new window.AddInstrumentToDeviceModal(this.apiClient);
+    modal.showForDevice(deviceId, deviceName, async () => {
+      this.showToast(i18n.t('instrumentManagement.instrumentAdded') || 'Instrument ajouté avec succès', 'success');
+      await this.refresh();
+    });
   }
 
   /**

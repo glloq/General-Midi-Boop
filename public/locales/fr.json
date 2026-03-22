@@ -642,7 +642,20 @@
     "virtualInstruments": "Instruments virtuels",
     "filterVirtual": "Virtuels",
     "discreteNotes": "Notes individuelles",
-    "notesCount": "notes"
+    "notesCount": "notes",
+    "addInstrument": "Ajouter un instrument sur ce device",
+    "addInstrumentTitle": "Ajouter un instrument",
+    "addInstrumentBtn": "Ajouter l'instrument",
+    "instrumentAdded": "Instrument ajouté avec succès",
+    "addFailed": "Erreur lors de l'ajout",
+    "targetDevice": "Appareil",
+    "selectChannel": "Canal MIDI",
+    "selectChannelHelp": "Sélectionnez un canal libre (les canaux utilisés sont grisés)",
+    "channelUsed": "Canal déjà utilisé",
+    "instrumentType": "Type d'instrument",
+    "customType": "Personnalisé",
+    "customName": "Nom personnalisé",
+    "customNamePlaceholder": "Ex: Mon Piano, Batterie ESP32..."
   },
   "channelRouter": {
     "title": "Configuration du routage MIDI",

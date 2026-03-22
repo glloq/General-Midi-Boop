@@ -642,7 +642,20 @@
     "virtualInstruments": "Virtual instruments",
     "filterVirtual": "Virtual",
     "discreteNotes": "Discrete notes",
-    "notesCount": "notes"
+    "notesCount": "notes",
+    "addInstrument": "Add instrument to this device",
+    "addInstrumentTitle": "Add instrument",
+    "addInstrumentBtn": "Add instrument",
+    "instrumentAdded": "Instrument added successfully",
+    "addFailed": "Failed to add instrument",
+    "targetDevice": "Device",
+    "selectChannel": "MIDI Channel",
+    "selectChannelHelp": "Select a free channel (used channels are greyed out)",
+    "channelUsed": "Channel already in use",
+    "instrumentType": "Instrument type",
+    "customType": "Custom",
+    "customName": "Custom name",
+    "customNamePlaceholder": "e.g. My Piano, ESP32 Drums..."
   },
   "channelRouter": {
     "title": "MIDI Routing Configuration",
