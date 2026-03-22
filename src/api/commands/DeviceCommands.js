@@ -1,4 +1,5 @@
 // src/api/commands/DeviceCommands.js
+import InstrumentDatabase from '../../storage/InstrumentDatabase.js';
 
 // Presets d'instruments virtuels avec capabilities pre-configurees
 const VIRTUAL_INSTRUMENT_PRESETS = {
@@ -412,7 +413,7 @@ async function instrumentListConnected(app) {
   const connectedSerials = new Set();
   const connectedMacs = new Set();
   for (const d of connectedDevices) {
-    const normalized = app.database.constructor.normalizeDeviceName(d.id);
+    const normalized = InstrumentDatabase.normalizeDeviceName(d.id);
     if (normalized) connectedNormalizedNames.add(normalized);
     if (d.usbSerialNumber) connectedSerials.add(d.usbSerialNumber);
     if (d.address && d.type === 'bluetooth') connectedMacs.add(d.address);
@@ -441,11 +442,11 @@ async function instrumentListConnected(app) {
     }
     // Fallback par nom normalisé
     if (!inst.device_id.startsWith('virtual_')) {
-      const normalized = app.database.constructor.normalizeDeviceName(inst.device_id);
+      const normalized = InstrumentDatabase.normalizeDeviceName(inst.device_id);
       if (normalized && connectedNormalizedNames.has(normalized)) {
         // Trouver le device_id correspondant
         const matchedDev = connectedDevices.find(d => {
-          const dn = app.database.constructor.normalizeDeviceName(d.id);
+          const dn = InstrumentDatabase.normalizeDeviceName(d.id);
           return dn === normalized;
         });
         if (matchedDev) matchedDeviceIds.add(matchedDev.id);
