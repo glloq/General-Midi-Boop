@@ -1515,25 +1515,46 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     this.ctx.globalAlpha = 1.0;
                 }
             }
-            // Vertical grid lines: measure lines stronger, beat/sub-beat lines very faint
+            // Vertical grid lines: adaptive density based on zoom level
             const beatTicks = this.timebase || 480;
             const measureTicks = beatTicks * 4; // 4/4 time signature
-            for(let t=0;;t+=this.grid){
+            // Grid hierarchy from finest to coarsest
+            const gridLevels = [
+                this.grid,                        // sub-beat (e.g. 120 = 16th note)
+                this.grid * 2,                    // 8th note
+                beatTicks,                        // beat (quarter note)
+                beatTicks * 2,                    // half note
+                measureTicks,                     // measure
+                measureTicks * 2,                 // 2 measures
+                measureTicks * 4,                 // 4 measures
+                measureTicks * 8,                 // 8 measures
+            ];
+            // Find the finest grid level where lines are at least 8px apart
+            const minPixelSpacing = 8;
+            let activeGrid = gridLevels[gridLevels.length - 1];
+            for(let i = 0; i < gridLevels.length; i++){
+                if(gridLevels[i] * this.stepw >= minPixelSpacing){
+                    activeGrid = gridLevels[i];
+                    break;
+                }
+            }
+            for(let t=0;;t+=activeGrid){
                 let x=this.stepw*(t-this.xoffset)+this.yruler+this.kbwidth;
                 if(x>=this.width) break;
+                if(x < this.yruler+this.kbwidth) continue;
                 if(t % measureTicks === 0) {
                     // Measure line: use grid color at full opacity
                     this.ctx.fillStyle = this.colgrid;
                     this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
                 } else if(t % beatTicks === 0) {
-                    // Beat line: very faint
-                    this.ctx.globalAlpha = 0.35;
+                    // Beat line: faint
+                    this.ctx.globalAlpha = 0.4;
                     this.ctx.fillStyle = this.colgrid;
                     this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
                     this.ctx.globalAlpha = 1.0;
                 } else {
                     // Sub-beat line: barely visible
-                    this.ctx.globalAlpha = 0.15;
+                    this.ctx.globalAlpha = 0.18;
                     this.ctx.fillStyle = this.colgrid;
                     this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
                     this.ctx.globalAlpha = 1.0;
