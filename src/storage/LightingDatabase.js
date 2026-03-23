@@ -274,6 +274,51 @@ class LightingDatabase {
     }
   }
 
+  // ==================== LIGHTING GROUPS ====================
+
+  insertGroup(name, deviceIds) {
+    try {
+      const stmt = this.db.prepare('INSERT INTO lighting_groups (name, device_ids) VALUES (?, ?)');
+      const result = stmt.run(name, JSON.stringify(deviceIds));
+      return result.lastInsertRowid;
+    } catch (error) {
+      this.logger.error(`Failed to insert lighting group: ${error.message}`);
+      throw error;
+    }
+  }
+
+  getGroups() {
+    try {
+      const rows = this.db.prepare('SELECT * FROM lighting_groups ORDER BY name').all();
+      return rows.map(r => ({
+        ...r,
+        device_ids: this._safeJsonParse(r.device_ids, [])
+      }));
+    } catch (error) {
+      this.logger.error(`Failed to get lighting groups: ${error.message}`);
+      return [];
+    }
+  }
+
+  updateGroup(name, deviceIds) {
+    try {
+      this.db.prepare('UPDATE lighting_groups SET device_ids = ? WHERE name = ?')
+        .run(JSON.stringify(deviceIds), name);
+    } catch (error) {
+      this.logger.error(`Failed to update lighting group: ${error.message}`);
+      throw error;
+    }
+  }
+
+  deleteGroup(name) {
+    try {
+      this.db.prepare('DELETE FROM lighting_groups WHERE name = ?').run(name);
+    } catch (error) {
+      this.logger.error(`Failed to delete lighting group: ${error.message}`);
+      throw error;
+    }
+  }
+
   // ==================== HELPERS ====================
 
   _parseDevice(row) {
