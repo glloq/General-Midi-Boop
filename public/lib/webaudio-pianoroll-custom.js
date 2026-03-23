@@ -485,7 +485,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 }
                 t+=l;
             }
-            this.redraw();
+            this.redrawThrottled();
         };
         this.getMMLString=function(){
             function makeNote(n,l,tb){
@@ -592,7 +592,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 const ev={t:t,c:0x90,n:n,g:g,v:v,f:f};
                 this.sequence.push(ev);
                 this.sortSequence();
-                this.redraw();
+                this.redrawThrottled();
                 return ev;
             }
             return null;
@@ -713,7 +713,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                         if(ev.f)
                             ev.on=ev.n, ev.ot=ev.t, ev.og=ev.g;
                     }
-                    this.redraw();
+                    this.redrawThrottled();
                 } else {
                     // Mode resize-note ou défaut : resize
                     this.saveSnapshot();
@@ -752,7 +752,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     const c = this.defaultChannel !== undefined ? this.defaultChannel : 0; // Utiliser le canal par défaut
                     this.sequence.push({t:t, n:n, g:1, f:1, c:c});
                     this.dragging={o:"D",m:"E",i:this.sequence.length-1, t:t, g:1, ev:[{t:t,g:1,ev:this.sequence[this.sequence.length-1]}]};
-                    this.redraw();
+                    this.redrawThrottled();
                     this.sendEvent('change'); // Signaler le changement
                 }
             }
@@ -1038,7 +1038,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                             this.clearSel();
                             ev.f = 1;
                         }
-                        this.redraw();
+                        this.redrawThrottled();
                         break;
                     case "B":
                     case "E":
@@ -1048,7 +1048,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                             this.clearSel();
                             evEdge.f = 1;
                         }
-                        this.redraw();
+                        this.redrawThrottled();
                         break;
                     default:
                         // Clic dans le vide : sélection par zone

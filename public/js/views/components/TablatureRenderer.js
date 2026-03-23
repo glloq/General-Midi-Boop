@@ -61,7 +61,10 @@ class TablatureRenderer {
         // Undo/redo (snapshot-based, same pattern as piano roll)
         this._undoStack = [];
         this._redoStack = [];
-        this._maxUndoSize = 50;
+        this._maxUndoSize = 20;
+
+        // RAF-throttled rendering
+        this._redrawScheduled = false;
 
         // Clipboard
         this._clipboard = [];
@@ -146,7 +149,7 @@ class TablatureRenderer {
 
     setTabEvents(events) {
         this.tabEvents = events || [];
-        this.redraw();
+        this.requestRedraw();
     }
 
     setInstrumentConfig(config) {
@@ -155,28 +158,28 @@ class TablatureRenderer {
         this.numFrets = config.num_frets || config.numFrets || 24;
         this.isFretless = config.is_fretless || config.isFretless || false;
         this.stringLabels = this._computeStringLabels();
-        this.redraw();
+        this.requestRedraw();
     }
 
     setScrollX(tickOffset) {
         this.scrollX = Math.max(0, tickOffset);
-        this.redraw();
+        this.requestRedraw();
     }
 
     setZoom(ticksPerPixel) {
         this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this.redraw();
+        this.requestRedraw();
     }
 
     setPlayhead(tick) {
         this.playheadTick = tick;
-        this.redraw();
+        this.requestRedraw();
     }
 
     setTimeSignature(ticksPerBeat, beatsPerMeasure) {
         this.ticksPerBeat = ticksPerBeat || 480;
         this.beatsPerMeasure = beatsPerMeasure || 4;
-        this.redraw();
+        this.requestRedraw();
     }
 
     setEditMode(mode) {
@@ -189,24 +192,24 @@ class TablatureRenderer {
 
     selectEvent(index) {
         this.selectedEvents.add(index);
-        this.redraw();
+        this.requestRedraw();
     }
 
     deselectEvent(index) {
         this.selectedEvents.delete(index);
-        this.redraw();
+        this.requestRedraw();
     }
 
     clearSelection() {
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
     }
 
     selectAll() {
         for (let i = 0; i < this.tabEvents.length; i++) {
             this.selectedEvents.add(i);
         }
-        this.redraw();
+        this.requestRedraw();
     }
 
     getSelectedEvents() {
@@ -225,7 +228,7 @@ class TablatureRenderer {
             this.tabEvents.splice(i, 1);
         }
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return indices.length;
     }
 
@@ -247,7 +250,7 @@ class TablatureRenderer {
         this._redoStack.push(this.tabEvents.map(e => ({ ...e })));
         this.tabEvents = this._undoStack.pop().map(e => ({ ...e }));
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -256,7 +259,7 @@ class TablatureRenderer {
         this._undoStack.push(this.tabEvents.map(e => ({ ...e })));
         this.tabEvents = this._redoStack.pop().map(e => ({ ...e }));
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -299,7 +302,7 @@ class TablatureRenderer {
                 }
             }
         }
-        this.redraw();
+        this.requestRedraw();
         return this._clipboard.length;
     }
 
@@ -308,6 +311,17 @@ class TablatureRenderer {
     // ========================================================================
     // RENDERING
     // ========================================================================
+
+    /** Schedule a redraw on the next animation frame (coalesced). */
+    requestRedraw() {
+        if (!this._redrawScheduled) {
+            this._redrawScheduled = true;
+            requestAnimationFrame(() => {
+                this._redrawScheduled = false;
+                this.requestRedraw();
+            });
+        }
+    }
 
     redraw() {
         const { canvas, ctx } = this;
@@ -339,7 +353,7 @@ class TablatureRenderer {
     resize(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
-        this.redraw();
+        this.requestRedraw();
     }
 
     // ========================================================================
@@ -616,7 +630,7 @@ class TablatureRenderer {
                     this.selectedEvents.clear();
                 }
                 this.selectedEvents.add(hitIndex);
-                this.redraw();
+                this.requestRedraw();
                 this._emitEvent('selectionchange', { selected: this.getSelectedIndices() });
             } else if (this.selectedEvents.size > 0) {
                 // Clicked on empty string line — move selected notes to that string
@@ -649,7 +663,7 @@ class TablatureRenderer {
                 this._moveStartString = this._yToString(y);
             }
 
-            this.redraw();
+            this.requestRedraw();
             this._emitEvent('selectionchange', { selected: this.getSelectedIndices() });
         } else {
             // Start selection rectangle
@@ -660,7 +674,7 @@ class TablatureRenderer {
             this._dragMode = 'select';
             this._dragStart = { x, y };
             this.selectionRect = { x1: x, y1: y, x2: x, y2: y };
-            this.redraw();
+            this.requestRedraw();
         }
     }
 
@@ -673,11 +687,11 @@ class TablatureRenderer {
             if (this._dragMode === 'select' && this.selectionRect) {
                 this.selectionRect.x2 = x;
                 this.selectionRect.y2 = y;
-                this.redraw();
+                this.requestRedraw();
             } else if (this._dragMode === 'pan') {
                 const dx = (x - this._dragStart.x) * this.ticksPerPixel;
                 this.scrollX = Math.max(0, this._dragStart.scrollX - dx);
-                this.redraw();
+                this.requestRedraw();
             }
             // For 'move' mode, visual feedback is deferred to mouseup (snap to grid)
             return;
@@ -687,7 +701,7 @@ class TablatureRenderer {
         const hitIndex = this._hitTest(x, y);
         if (hitIndex !== this._hoverEvent) {
             this._hoverEvent = hitIndex >= 0 ? hitIndex : null;
-            this.redraw();
+            this.requestRedraw();
         }
     }
 
@@ -758,7 +772,7 @@ class TablatureRenderer {
         this._dragMode = null;
         this._dragStart = null;
         this.selectionRect = null;
-        this.redraw();
+        this.requestRedraw();
     }
 
     /**
@@ -803,7 +817,7 @@ class TablatureRenderer {
             this.scrollX = Math.max(0, this.scrollX + e.deltaY * this.ticksPerPixel);
         }
 
-        this.redraw();
+        this.requestRedraw();
     }
 
     _handleDblClick(e) {

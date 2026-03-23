@@ -64,7 +64,10 @@ class WindMelodyRenderer {
         // Undo/Redo
         this._undoStack = [];
         this._redoStack = [];
-        this._maxUndoSize = 50;
+        this._maxUndoSize = 20;
+
+        // RAF-throttled rendering
+        this._redrawScheduled = false;
 
         // Clipboard
         this._clipboard = [];
@@ -175,12 +178,12 @@ class WindMelodyRenderer {
     setMelodyEvents(events) {
         this.melodyEvents = events || [];
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
     }
 
     setBreathMarks(marks) {
         this.breathMarks = marks || [];
-        this.redraw();
+        this.requestRedraw();
     }
 
     setInstrumentRange(min, max, comfMin, comfMax) {
@@ -190,12 +193,12 @@ class WindMelodyRenderer {
         this.comfortMax = comfMax;
         this.displayNoteMin = Math.max(0, min - 5);
         this.displayNoteMax = Math.min(127, max + 5);
-        this.redraw();
+        this.requestRedraw();
     }
 
     setScrollX(tickOffset) {
         this.scrollX = Math.max(0, tickOffset);
-        this.redraw();
+        this.requestRedraw();
         this._notifyScrollChange();
     }
 
@@ -205,25 +208,25 @@ class WindMelodyRenderer {
         const range = this.noteMax - this.noteMin + 10;
         this.displayNoteMin = Math.max(0, this.noteMin - 5 + this.scrollY);
         this.displayNoteMax = Math.min(127, this.displayNoteMin + range);
-        this.redraw();
+        this.requestRedraw();
         this._notifyScrollChange();
     }
 
     setZoom(ticksPerPixel) {
         this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this.redraw();
+        this.requestRedraw();
         this._notifyScrollChange();
     }
 
     setPlayhead(tick) {
         this.playheadTick = tick;
-        this.redraw();
+        this.requestRedraw();
     }
 
     setTimeSignature(ticksPerBeat, beatsPerMeasure) {
         this.ticksPerBeat = ticksPerBeat || 480;
         this.beatsPerMeasure = beatsPerMeasure || 4;
-        this.redraw();
+        this.requestRedraw();
     }
 
     /**
@@ -251,7 +254,7 @@ class WindMelodyRenderer {
         // Scroll horizontally to the first note
         this.scrollX = Math.max(0, minTick - this.ticksPerBeat);
 
-        this.redraw();
+        this.requestRedraw();
         this._notifyScrollChange();
     }
 
@@ -310,6 +313,17 @@ class WindMelodyRenderer {
     // ========================================================================
     // RENDERING
     // ========================================================================
+
+    /** Schedule a redraw on the next animation frame (coalesced). */
+    requestRedraw() {
+        if (!this._redrawScheduled) {
+            this._redrawScheduled = true;
+            requestAnimationFrame(() => {
+                this._redrawScheduled = false;
+                this.requestRedraw();
+            });
+        }
+    }
 
     redraw() {
         const ctx = this.ctx;
@@ -577,7 +591,7 @@ class WindMelodyRenderer {
                     } else {
                         this.selectedEvents.add(hitIdx);
                     }
-                    this.redraw();
+                    this.requestRedraw();
                     this._dispatchSelectionChange();
                 } else {
                     // Start panning
@@ -595,7 +609,7 @@ class WindMelodyRenderer {
                         } else {
                             this.selectedEvents.add(hitIdx);
                         }
-                        this.redraw();
+                        this.requestRedraw();
                         this._dispatchSelectionChange();
                     } else {
                         if (!this.selectedEvents.has(hitIdx)) {
@@ -606,7 +620,7 @@ class WindMelodyRenderer {
                         this._dragMode = 'move';
                         this._dragStart = { x: mx, y: my };
                         this._moveOffset = { tick: 0, note: 0 };
-                        this.redraw();
+                        this.requestRedraw();
                         this._dispatchSelectionChange();
                     }
                 } else {
@@ -617,7 +631,7 @@ class WindMelodyRenderer {
                         this.selectionRect = { x: mx, y: my, w: 0, h: 0 };
                     } else {
                         this.selectedEvents.clear();
-                        this.redraw();
+                        this.requestRedraw();
                         this._dispatchSelectionChange();
                     }
                 }
@@ -643,7 +657,7 @@ class WindMelodyRenderer {
             this.displayNoteMax = Math.min(127, this.displayNoteMin + range);
             this.scrollY = this.displayNoteMin - Math.max(0, this.noteMin - 5);
 
-            this.redraw();
+            this.requestRedraw();
             this._notifyScrollChange();
         } else if (this._isDragging && this._dragMode === 'select') {
             this.selectionRect = {
@@ -652,12 +666,12 @@ class WindMelodyRenderer {
                 w: Math.abs(mx - this._dragStart.x),
                 h: Math.abs(my - this._dragStart.y)
             };
-            this.redraw();
+            this.requestRedraw();
         } else if (this._isDragging && this._dragMode === 'move') {
             const tickDelta = (mx - this._dragStart.x) * this.ticksPerPixel;
             const noteDelta = -Math.round((my - this._dragStart.y) / (this._getNoteHeight() || 10));
             this._moveOffset = { tick: tickDelta, note: noteDelta };
-            this.redraw();
+            this.requestRedraw();
         } else {
             // Hover
             const newHover = this._hitTestNote(mx, my);
@@ -678,7 +692,7 @@ class WindMelodyRenderer {
         } else if (this._isDragging && this._dragMode === 'select') {
             this._selectInRect(this.selectionRect);
             this.selectionRect = null;
-            this.redraw();
+            this.requestRedraw();
             this._dispatchSelectionChange();
         } else if (this._isDragging && this._dragMode === 'move' && this._moveOffset) {
             const { tick: dt, note: dn } = this._moveOffset;
@@ -701,7 +715,7 @@ class WindMelodyRenderer {
         this._dragStart = null;
         this._dragMode = null;
         this._moveOffset = null;
-        this.redraw();
+        this.requestRedraw();
     }
 
     _handleDblClick(e) {
@@ -737,7 +751,7 @@ class WindMelodyRenderer {
             // Horizontal scroll with shift+wheel
             const delta = e.deltaY * this.ticksPerPixel * 2;
             this.scrollX = Math.max(0, this.scrollX + delta);
-            this.redraw();
+            this.requestRedraw();
             this._notifyScrollChange();
         } else {
             // Vertical pitch scroll (default wheel = vertical)
@@ -746,7 +760,7 @@ class WindMelodyRenderer {
             this.displayNoteMin = Math.max(0, this.displayNoteMin + delta);
             this.displayNoteMax = Math.min(127, this.displayNoteMin + range);
             this.scrollY = this.displayNoteMin - Math.max(0, this.noteMin - 5);
-            this.redraw();
+            this.requestRedraw();
             this._notifyScrollChange();
         }
     }
@@ -809,7 +823,7 @@ class WindMelodyRenderer {
         this._redoStack.push(JSON.stringify(this.melodyEvents));
         this.melodyEvents = JSON.parse(this._undoStack.pop());
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -818,7 +832,7 @@ class WindMelodyRenderer {
         this._undoStack.push(JSON.stringify(this.melodyEvents));
         this.melodyEvents = JSON.parse(this._redoStack.pop());
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -831,7 +845,7 @@ class WindMelodyRenderer {
         for (let i = 0; i < this.melodyEvents.length; i++) {
             this.selectedEvents.add(i);
         }
-        this.redraw();
+        this.requestRedraw();
         this._dispatchSelectionChange();
     }
 
@@ -842,7 +856,7 @@ class WindMelodyRenderer {
         this.melodyEvents = this.melodyEvents.filter((_, i) => !toRemove.has(i));
         const count = toRemove.size;
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         return count;
     }
 
@@ -869,7 +883,7 @@ class WindMelodyRenderer {
         this.melodyEvents.push(...newEvents);
         this.melodyEvents.sort((a, b) => a.tick - b.tick);
         this.selectedEvents.clear();
-        this.redraw();
+        this.requestRedraw();
         this.canvas.dispatchEvent(new CustomEvent('wind:notesmoved', { detail: {} }));
     }
 

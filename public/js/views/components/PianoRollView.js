@@ -201,8 +201,10 @@ class PianoRollView {
             // LIRE LE TEMPS DIRECTEMENT depuis le synthétiseur - PAS via événements!
             this.updateTimeFromSynth();
 
-            if (this.isVisible) {
+            // Skip draw if time hasn't changed significantly (saves GPU)
+            if (this.isVisible && Math.abs(this.currentTime - (this._lastDrawnTime || -1)) > 0.016) {
                 this.draw();
+                this._lastDrawnTime = this.currentTime;
             }
             this.animationFrame = requestAnimationFrame(animate);
         };
@@ -480,9 +482,19 @@ class PianoRollView {
         const noteH = Math.max(3, h / noteRange);
         const playheadX = 50;
 
-        // Dessiner notes visibles
-        for (const n of this.notes) {
-            if (n.endTime < startTime || n.startTime > endTime) continue;
+        // Binary search to find the first note that could be visible
+        // (notes are sorted by startTime)
+        let lo = 0, hi = this.notes.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >>> 1;
+            if (this.notes[mid].endTime < startTime) lo = mid + 1;
+            else hi = mid;
+        }
+
+        // Draw only visible notes starting from binary search result
+        for (let i = lo; i < this.notes.length; i++) {
+            const n = this.notes[i];
+            if (n.startTime > endTime) break;
 
             const muted = this.mutedChannels.has(n.channel);
 
