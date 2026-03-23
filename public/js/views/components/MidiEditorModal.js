@@ -1001,6 +1001,11 @@ class MidiEditorModal {
                     this.log('debug', 'Resize bar hidden');
                 }
 
+                // Suspend sub-editors to save CPU when collapsed
+                if (this.ccEditor && typeof this.ccEditor.suspend === 'function') this.ccEditor.suspend();
+                if (this.velocityEditor && typeof this.velocityEditor.suspend === 'function') this.velocityEditor.suspend();
+                if (this.tempoEditor && typeof this.tempoEditor.suspend === 'function') this.tempoEditor.suspend();
+
                 // Redimensionner le piano roll pour occuper tout l'espace
                 requestAnimationFrame(() => {
                     if (this.pianoRoll && typeof this.pianoRoll.redraw === 'function') {
@@ -1238,6 +1243,10 @@ class MidiEditorModal {
         if (height > 100) {
             // Le layout est prêt, on peut resize
             this.ccEditor.resize();
+            // Resume rendering for the active sub-editor
+            if (typeof this.ccEditor.resume === 'function') this.ccEditor.resume();
+            if (this.velocityEditor && typeof this.velocityEditor.resume === 'function') this.velocityEditor.resume();
+            if (this.tempoEditor && typeof this.tempoEditor.resume === 'function') this.tempoEditor.resume();
             this.log('info', `CC Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
             // Le layout n'est pas encore prêt, réessayer au prochain frame

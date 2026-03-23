@@ -691,10 +691,16 @@ class VelocityEditor {
     renderVelocityBars() {
         const ctx = this.ctx;
 
-        // CORRECTION: Itérer sur this.sequence avec indices complets
+        // Viewport culling: visible tick range
+        const visStart = this.options.xoffset;
+        const visEnd = this.options.xoffset + this.options.xrange;
+
         for (let i = 0; i < this.sequence.length; i++) {
             const note = this.sequence[i];
             if (!this.activeChannels.has(note.c)) continue;
+
+            // Skip notes outside visible range
+            if (note.t + note.g < visStart || note.t > visEnd) continue;
 
             const velocity = note.v || 100;
             const x = this.ticksToX(note.t);

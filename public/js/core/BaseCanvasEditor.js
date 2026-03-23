@@ -98,6 +98,7 @@ class BaseCanvasEditor {
         this.renderScheduled = false;
         this.isDirty = false;
         this._mouseMoveRAF = null;
+        this._suspended = false;
 
         // Grid buffer canvas
         this.gridCanvas = null;
@@ -542,12 +543,25 @@ class BaseCanvasEditor {
 
     /** Schedule a render on the next animation frame (coalesced). */
     renderThrottled() {
+        if (this._suspended) { this.isDirty = true; return; }
         if (!this.renderScheduled) {
             this.renderScheduled = true;
             requestAnimationFrame(() => {
                 this.render();
                 this.renderScheduled = false;
             });
+        }
+    }
+
+    /** Suspend rendering (editor not visible). */
+    suspend() { this._suspended = true; }
+
+    /** Resume rendering and flush pending dirty state. */
+    resume() {
+        this._suspended = false;
+        if (this.isDirty) {
+            this.isDirty = false;
+            this.renderThrottled();
         }
     }
 
@@ -742,6 +756,9 @@ class BaseCanvasEditor {
     _doSaveState() {
         const state = JSON.stringify(this.serializeState());
 
+        // Skip very large states to avoid excessive memory usage (>200KB)
+        if (state.length > 200000) return;
+
         // If identical to current state, skip
         if (this.history[this.historyIndex] === state) return;
 
@@ -753,8 +770,8 @@ class BaseCanvasEditor {
         this.history.push(state);
         this.historyIndex++;
 
-        // Cap history at 50 entries
-        if (this.history.length > 50) {
+        // Cap history at 20 entries (reduced from 50 for memory efficiency)
+        if (this.history.length > 20) {
             this.history.shift();
             this.historyIndex--;
         }
@@ -883,16 +900,29 @@ class BaseCanvasEditor {
         if (width > 0 && height > minHeight) {
             const oldHeight = this.canvas.height;
 
-            this.canvas.width = width;
-            this.canvas.height = height;
+            // Resolution scale: lowPowerMode reduces pixel count for better performance
+            const dpr = this.options.lowPowerMode ? 0.75 : 1;
+            const scaledW = Math.round(width * dpr);
+            const scaledH = Math.round(height * dpr);
+
+            this.canvas.width = scaledW;
+            this.canvas.height = scaledH;
+            this.canvas.style.width = width + 'px';
+            this.canvas.style.height = height + 'px';
+            if (dpr !== 1) {
+                this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
 
             // Ensure grid buffer exists and matches
             if (!this.gridCanvas) {
                 this.gridCanvas = document.createElement('canvas');
                 this.gridCtx = this.gridCanvas.getContext('2d');
             }
-            this.gridCanvas.width = width;
-            this.gridCanvas.height = height;
+            this.gridCanvas.width = scaledW;
+            this.gridCanvas.height = scaledH;
+            if (dpr !== 1) {
+                this.gridCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
             this.gridDirty = true;
 
             this.onResize();

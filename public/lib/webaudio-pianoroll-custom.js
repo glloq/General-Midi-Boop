@@ -1678,8 +1678,14 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this.steph = this.sheight/this.yrange;
             this.redrawGrid();
             const l=this.sequence.length;
+            const visEnd=this.xoffset+this.xrange;
+            const visYEnd=this.yoffset+this.yrange;
             for(let s=0; s<l; ++s){
                 const ev=this.sequence[s];
+
+                // Viewport culling: skip notes outside visible range
+                if(ev.t+ev.g<this.xoffset || ev.t>visEnd) continue;
+                if(ev.n<this.yoffset || ev.n>visYEnd) continue;
 
                 // MODIFICATION: Coloration par canal MIDI
                 const channel = ev.c !== undefined ? ev.c : 0;

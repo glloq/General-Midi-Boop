@@ -723,10 +723,33 @@ class CCPitchbendEditor {
     }
 
     renderEvents() {
-        const events = this.getFilteredEvents();
+        const allEvents = this.getFilteredEvents();
 
         // Trier par ticks
-        events.sort((a, b) => a.ticks - b.ticks);
+        allEvents.sort((a, b) => a.ticks - b.ticks);
+
+        // Viewport culling: filter to visible range (with 1-event margin for connecting lines)
+        const visStart = this.options.xoffset;
+        const visEnd = this.options.xoffset + this.options.xrange;
+        let firstVisible = 0;
+        let lastVisible = allEvents.length - 1;
+
+        // Find first event in or just before visible range
+        for (let i = 0; i < allEvents.length; i++) {
+            if (allEvents[i].ticks >= visStart) {
+                firstVisible = Math.max(0, i - 1);
+                break;
+            }
+        }
+        // Find last event in or just after visible range
+        for (let i = allEvents.length - 1; i >= 0; i--) {
+            if (allEvents[i].ticks <= visEnd) {
+                lastVisible = Math.min(allEvents.length - 1, i + 1);
+                break;
+            }
+        }
+
+        const events = allEvents.slice(firstVisible, lastVisible + 1);
 
         // Dessiner les lignes connectant les événements
         if (events.length > 1) {
@@ -743,7 +766,6 @@ class CCPitchbendEditor {
                     this.ctx.moveTo(x, y);
                 } else {
                     const prevEvent = events[i - 1];
-                    const prevX = this.ticksToX(prevEvent.ticks);
                     const prevY = this.valueToY(prevEvent.value);
 
                     // Ligne horizontale depuis le point précédent jusqu'à l'abscisse du point actuel

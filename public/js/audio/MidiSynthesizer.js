@@ -914,6 +914,12 @@ class MidiSynthesizer {
         }
 
         this.lastScheduledTick = Math.max(this.lastScheduledTick, scheduleEndTick);
+
+        // Periodic cleanup: cap active envelopes to prevent unbounded growth
+        // Keep only the most recent 200 envelopes (older ones have likely finished)
+        if (this.activeEnvelopes.length > 200) {
+            this.activeEnvelopes = this.activeEnvelopes.slice(-200);
+        }
     }
 
     /**

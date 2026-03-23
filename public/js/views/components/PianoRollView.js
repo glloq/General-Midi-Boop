@@ -49,8 +49,9 @@ class PianoRollView {
 
         this.init();
 
-        // Écouter les changements de thème
-        document.addEventListener('theme-changed', () => this.updateTheme());
+        // Écouter les changements de thème (bound reference for cleanup)
+        this._onThemeChanged = () => this.updateTheme();
+        document.addEventListener('theme-changed', this._onThemeChanged);
     }
 
     log(level, msg) {
@@ -516,6 +517,10 @@ class PianoRollView {
     }
 
     destroy() {
+        this.stopAnimationLoop();
+        if (this._onThemeChanged) {
+            document.removeEventListener('theme-changed', this._onThemeChanged);
+        }
         if (this.container && this.container.parentNode) {
             this.container.parentNode.removeChild(this.container);
         }

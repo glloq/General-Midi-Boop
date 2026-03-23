@@ -71,8 +71,8 @@ class PlaybackTimelineBar {
         // Initial sizing
         this.resize();
 
-        // Start render loop
-        this._startRenderLoop();
+        // Initial render
+        this._scheduleRender();
     }
 
     // ========================================================================
@@ -121,7 +121,7 @@ class PlaybackTimelineBar {
             };
         }
 
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     // ========================================================================
@@ -130,25 +130,25 @@ class PlaybackTimelineBar {
 
     setZoom(ticksPerPixel) {
         this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     setScrollX(tickOffset) {
         this.scrollX = Math.max(0, tickOffset);
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     setPlayhead(tick) {
         if (this.playheadTick !== tick) {
             this.playheadTick = tick;
-            this._dirty = true;
+            this._dirty = true; this._scheduleRender();
         }
     }
 
     setRange(startTick, endTick) {
         this.rangeStart = Math.max(0, startTick);
         this.rangeEnd = Math.max(this.rangeStart, endTick);
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     getRange() {
@@ -157,13 +157,13 @@ class PlaybackTimelineBar {
 
     setTotalTicks(ticks) {
         this.totalTicks = Math.max(0, ticks);
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     setTimeSignature(ticksPerBeat, beatsPerMeasure) {
         this.ticksPerBeat = ticksPerBeat || 480;
         this.beatsPerMeasure = beatsPerMeasure || 4;
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     resize() {
@@ -178,7 +178,7 @@ class PlaybackTimelineBar {
         this.canvas.style.height = h + 'px';
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        this._dirty = true;
+        this._dirty = true; this._scheduleRender();
     }
 
     // ========================================================================
@@ -261,7 +261,7 @@ class PlaybackTimelineBar {
             this.playheadTick = this._snapToBeat(tick);
             this._isDragging = true;
             this._dragTarget = 'playhead';
-            this._dirty = true;
+            this._dirty = true; this._scheduleRender();
             if (this.onSeek) {
                 this.onSeek(this.playheadTick);
             }
@@ -279,7 +279,7 @@ class PlaybackTimelineBar {
             switch (this._dragTarget) {
                 case 'playhead':
                     this.playheadTick = snapped;
-                    this._dirty = true;
+                    this._dirty = true; this._scheduleRender();
                     if (this.onSeek) {
                         this.onSeek(this.playheadTick);
                     }
@@ -287,7 +287,7 @@ class PlaybackTimelineBar {
 
                 case 'rangeStart':
                     this.rangeStart = Math.min(snapped, this.rangeEnd);
-                    this._dirty = true;
+                    this._dirty = true; this._scheduleRender();
                     if (this.onRangeChange) {
                         this.onRangeChange(this.rangeStart, this.rangeEnd);
                     }
@@ -295,7 +295,7 @@ class PlaybackTimelineBar {
 
                 case 'rangeEnd':
                     this.rangeEnd = Math.max(snapped, this.rangeStart);
-                    this._dirty = true;
+                    this._dirty = true; this._scheduleRender();
                     if (this.onRangeChange) {
                         this.onRangeChange(this.rangeStart, this.rangeEnd);
                     }
@@ -326,18 +326,23 @@ class PlaybackTimelineBar {
     }
 
     // ========================================================================
-    // RENDER LOOP
+    // RENDER (on-demand, no continuous RAF loop)
     // ========================================================================
 
-    _startRenderLoop() {
-        const loop = () => {
-            if (this._dirty) {
-                this._dirty = false;
-                this._draw();
-            }
-            this._rafId = requestAnimationFrame(loop);
-        };
-        this._rafId = requestAnimationFrame(loop);
+    /**
+     * Mark the timeline as needing a redraw.
+     * Schedules a single RAF callback — no continuous loop.
+     */
+    _scheduleRender() {
+        if (!this._rafId) {
+            this._rafId = requestAnimationFrame(() => {
+                this._rafId = null;
+                if (this._dirty) {
+                    this._dirty = false;
+                    this._draw();
+                }
+            });
+        }
     }
 
     // ========================================================================
