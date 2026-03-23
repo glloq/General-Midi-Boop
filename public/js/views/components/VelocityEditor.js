@@ -787,8 +787,8 @@ class VelocityEditor {
 
         this.history.push(state);
 
-        // Limiter l'historique à 50 états
-        if (this.history.length > 50) {
+        // Limiter l'historique à 20 états (reduced for memory efficiency)
+        if (this.history.length > 20) {
             this.history.shift();
             // historyIndex reste stable car on supprime le premier élément
         } else {

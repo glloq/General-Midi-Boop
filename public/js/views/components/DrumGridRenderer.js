@@ -118,7 +118,10 @@ class DrumGridRenderer {
         // Undo/Redo
         this._undoStack = [];
         this._redoStack = [];
-        this._maxUndoSize = 50;
+        this._maxUndoSize = 20;
+
+        // RAF-throttled rendering
+        this._redrawScheduled = false;
 
         // Clipboard
         this._clipboard = [];
@@ -224,7 +227,7 @@ class DrumGridRenderer {
     setGridEvents(events) {
         this.gridEvents = events || [];
         this._updateVisibleNotes();
-        this.redraw();
+        this.requestRedraw();
     }
 
     _updateVisibleNotes() {
@@ -245,41 +248,41 @@ class DrumGridRenderer {
 
     setScrollX(tickOffset) {
         this.scrollX = Math.max(0, tickOffset);
-        this.redraw();
+        this.requestRedraw();
     }
 
     setScrollY(pixelOffset) {
         this.scrollY = Math.max(0, pixelOffset);
-        this.redraw();
+        this.requestRedraw();
     }
 
     setZoom(ticksPerPixel) {
         this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this.redraw();
+        this.requestRedraw();
     }
 
     setPlayhead(tick) {
         this.playheadTick = tick;
-        this.redraw();
+        this.requestRedraw();
     }
 
     setTimeSignature(ticksPerBeat, beatsPerMeasure) {
         this.ticksPerBeat = ticksPerBeat || 480;
         this.beatsPerMeasure = beatsPerMeasure || 4;
-        this.redraw();
+        this.requestRedraw();
     }
 
     // ========================================================================
     // SELECTION
     // ========================================================================
 
-    selectEvent(index) { this.selectedEvents.add(index); this.redraw(); }
-    deselectEvent(index) { this.selectedEvents.delete(index); this.redraw(); }
-    clearSelection() { this.selectedEvents.clear(); this.redraw(); }
+    selectEvent(index) { this.selectedEvents.add(index); this.requestRedraw(); }
+    deselectEvent(index) { this.selectedEvents.delete(index); this.requestRedraw(); }
+    clearSelection() { this.selectedEvents.clear(); this.requestRedraw(); }
 
     selectAll() {
         for (let i = 0; i < this.gridEvents.length; i++) this.selectedEvents.add(i);
-        this.redraw();
+        this.requestRedraw();
     }
 
     getSelectedEvents() {
@@ -297,7 +300,7 @@ class DrumGridRenderer {
         for (const i of indices) this.gridEvents.splice(i, 1);
         this.selectedEvents.clear();
         this._updateVisibleNotes();
-        this.redraw();
+        this.requestRedraw();
         return indices.length;
     }
 
@@ -317,7 +320,7 @@ class DrumGridRenderer {
         this.gridEvents = this._undoStack.pop().map(e => ({ ...e }));
         this.selectedEvents.clear();
         this._updateVisibleNotes();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -327,7 +330,7 @@ class DrumGridRenderer {
         this.gridEvents = this._redoStack.pop().map(e => ({ ...e }));
         this.selectedEvents.clear();
         this._updateVisibleNotes();
-        this.redraw();
+        this.requestRedraw();
         return true;
     }
 
@@ -356,7 +359,7 @@ class DrumGridRenderer {
         }
         this.gridEvents.sort((a, b) => a.tick - b.tick);
         this._updateVisibleNotes();
-        this.redraw();
+        this.requestRedraw();
         return this._clipboard.length;
     }
 
@@ -365,6 +368,17 @@ class DrumGridRenderer {
     // ========================================================================
     // RENDERING
     // ========================================================================
+
+    /** Schedule a redraw on the next animation frame (coalesced). */
+    requestRedraw() {
+        if (!this._redrawScheduled) {
+            this._redrawScheduled = true;
+            requestAnimationFrame(() => {
+                this._redrawScheduled = false;
+                this.requestRedraw();
+            });
+        }
+    }
 
     redraw() {
         const { canvas, ctx } = this;
@@ -389,7 +403,7 @@ class DrumGridRenderer {
     resize(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
-        this.redraw();
+        this.requestRedraw();
     }
 
     // ========================================================================
@@ -780,7 +794,7 @@ class DrumGridRenderer {
                 } else {
                     this.mutedNotes.add(note);
                 }
-                this.redraw();
+                this.requestRedraw();
                 this._emitEvent('labelclick', { note, muted: this.mutedNotes.has(note) });
                 return;
             }
@@ -813,7 +827,7 @@ class DrumGridRenderer {
                 this.selectedEvents.clear();
                 this.selectedEvents.add(hitIndex);
             }
-            this.redraw();
+            this.requestRedraw();
             this._emitEvent('selectionchange', { selected: this.getSelectedIndices() });
         } else {
             if (!e.ctrlKey && !e.metaKey) this.selectedEvents.clear();
@@ -821,7 +835,7 @@ class DrumGridRenderer {
             this._dragMode = 'select';
             this._dragStart = { x, y };
             this.selectionRect = { x1: x, y1: y, x2: x, y2: y };
-            this.redraw();
+            this.requestRedraw();
         }
     }
 
@@ -834,13 +848,13 @@ class DrumGridRenderer {
             if (this._dragMode === 'select' && this.selectionRect) {
                 this.selectionRect.x2 = x;
                 this.selectionRect.y2 = y;
-                this.redraw();
+                this.requestRedraw();
             } else if (this._dragMode === 'pan') {
                 const dx = (x - this._dragStart.x) * this.ticksPerPixel;
                 const dy = y - this._dragStart.y;
                 this.scrollX = Math.max(0, this._dragStart.scrollX - dx);
                 this.scrollY = Math.max(0, this._dragStart.scrollY - dy);
-                this.redraw();
+                this.requestRedraw();
             }
             return;
         }
@@ -856,7 +870,7 @@ class DrumGridRenderer {
         const hitIndex = this._hitTest(x, y);
         if (hitIndex !== this._hoverEvent) {
             this._hoverEvent = hitIndex >= 0 ? hitIndex : null;
-            this.redraw();
+            this.requestRedraw();
         }
     }
 
@@ -887,7 +901,7 @@ class DrumGridRenderer {
         this._dragStart = null;
         this.selectionRect = null;
         this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';
-        this.redraw();
+        this.requestRedraw();
     }
 
     _handleDblClick(e) {
@@ -930,7 +944,7 @@ class DrumGridRenderer {
             this.scrollY = Math.max(0, Math.min(maxScrollY, this.scrollY + e.deltaY));
         }
 
-        this.redraw();
+        this.requestRedraw();
     }
 
     // ========================================================================

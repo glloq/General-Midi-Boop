@@ -171,8 +171,8 @@ class TempoEditor {
         this.history.push(state);
         this.historyIndex++;
 
-        // Limiter l'historique à 50 états
-        if (this.history.length > 50) {
+        // Limiter l'historique à 20 états (reduced for memory efficiency)
+        if (this.history.length > 20) {
             this.history.shift();
             this.historyIndex--;
         }
