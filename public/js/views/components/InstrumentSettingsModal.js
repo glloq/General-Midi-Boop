@@ -131,7 +131,7 @@ class InstrumentSettingsModal extends BaseModal {
         } catch (error) {
             console.error('Error opening instrument settings:', error);
             if (typeof showAlert === 'function') {
-                await showAlert(`Impossible de charger les réglages: ${error.message}`, { title: 'Erreur', icon: '❌' });
+                await showAlert(`${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`, { title: this.t('common.error') || 'Erreur', icon: '❌' });
             }
         }
     }
@@ -479,7 +479,7 @@ class InstrumentSettingsModal extends BaseModal {
                     <span class="ism-drum-cat-icon">${cat.icon}</span>
                     <span class="ism-drum-cat-name">${this.escape(cat.name)}</span>
                     <span class="ism-drum-cat-badge ${badgeClass}">${checkedCount}/${catNotes.length}</span>
-                    <button type="button" class="ism-drum-cat-toggle" data-cat="${catId}" title="Tout cocher/décocher">${allChecked ? '☑' : '☐'}</button>
+                    <button type="button" class="ism-drum-cat-toggle" data-cat="${catId}" title="${this.t('instrumentSettings.drumToggleAll') || 'Tout cocher/décocher'}">${allChecked ? '☑' : '☐'}</button>
                     <span class="ism-drum-cat-chevron">▸</span>
                 </div>
                 <div class="ism-drum-cat-body">
@@ -642,7 +642,7 @@ class InstrumentSettingsModal extends BaseModal {
                 } catch (e) {
                     console.error('Failed to add instrument:', e);
                     if (typeof showAlert === 'function') {
-                        await showAlert((this.t('instrumentManagement.addFailed') || 'Erreur') + ': ' + e.message, { title: 'Erreur', icon: '❌' });
+                        await showAlert((this.t('instrumentManagement.addFailed') || 'Erreur') + ': ' + e.message, { title: this.t('common.error') || 'Erreur', icon: '❌' });
                     }
                 }
             });
@@ -819,7 +819,7 @@ class InstrumentSettingsModal extends BaseModal {
         } catch (error) {
             console.error('Save error:', error);
             if (typeof showAlert === 'function') {
-                await showAlert(`Erreur: ${error.message}`, { title: 'Erreur de sauvegarde', icon: '❌' });
+                await showAlert(`${this.t('common.error') || 'Erreur'}: ${error.message}`, { title: this.t('instrumentSettings.saveErrorTitle') || 'Erreur de sauvegarde', icon: '❌' });
             }
         }
     }

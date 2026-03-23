@@ -24,7 +24,8 @@
     "clear": "Effacer",
     "unknown": "Inconnu",
     "unknownError": "Erreur inconnue",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "apply": "Appliquer"
   },
   "app": {
     "title": "MidiMind 5.0 - MIDI Orchestration System",
@@ -508,7 +509,17 @@
     "blackKeys": "Touches noires",
     "polyphony": "Polyphonie",
     "polyphonyHelp": "Nombre maximum de notes simultanées (1-128). Défaut: 16",
-    "polyphonyAutoString": "auto-défini par le nombre de cordes"
+    "polyphonyAutoString": "auto-défini par le nombre de cordes",
+    "sectionIdentity": "Identité",
+    "sectionNotes": "Notes & Capacités",
+    "sectionStrings": "Cordes",
+    "sectionDrums": "Percussions",
+    "sectionAdvanced": "Avancé",
+    "midiChannel": "Canal MIDI",
+    "midiChannelHelp": "Canal MIDI utilisé par cet instrument (les canaux déjà utilisés sont désactivés)",
+    "capabilitiesSource": "Source des capacités",
+    "saveErrorTitle": "Erreur de sauvegarde",
+    "drumToggleAll": "Tout cocher/décocher"
   },
   "lighting": {
     "title": "Contrôle Lumière",
@@ -660,6 +671,14 @@
     "retry": "Réessayer",
     "scanLabel": "Scanner :",
     "scanStarted": "Scan USB lancé...",
+    "deleteChannelBtn": "Supprimer cet instrument",
+    "deleteChannelConfirm": "Supprimer l'instrument du canal {channel} ? Les autres instruments de cet appareil ne seront pas affectés.",
+    "addInstrument": "Ajouter un instrument",
+    "addInstrumentTitle": "Ajouter un instrument",
+    "allChannelsUsed": "Tous les canaux MIDI sont déjà utilisés sur cet appareil.",
+    "addFailed": "Erreur lors de l'ajout de l'instrument",
+    "selectChannel": "Choisir un canal MIDI",
+    "selectChannelHelp": "Sélectionnez un canal libre (les canaux utilisés sont grisés)",
     "deleteTitle": "Supprimer l'instrument",
     "deleteSuccess": "Instrument supprimé avec succès",
     "unknownDevice": "Périphérique inconnu",
