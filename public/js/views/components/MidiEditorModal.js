@@ -4172,12 +4172,9 @@ class MidiEditorModal {
         if (!this.isPlaying && !this.isPaused) {
             this.loadSequenceForPlayback();
 
-            // Déterminer la position de départ : curseur ou début de la plage
+            // Déterminer la position de départ : position du curseur (défini par stop ou clic utilisateur)
             const cursorTick = this.pianoRoll ? (this.pianoRoll.cursor || 0) : 0;
-            const rangeStart = this.synthesizer.startTick || 0;
-            const rangeEnd = this.synthesizer.endTick || 0;
-            const startAt = (cursorTick > 0 && cursorTick >= rangeStart && (!rangeEnd || cursorTick <= rangeEnd))
-                ? cursorTick : rangeStart;
+            const startAt = cursorTick;
 
             // Positionner le synthétiseur AVANT play() et forcer le chemin "resume"
             // pour que play() ne réinitialise pas currentTick à startTick
@@ -4234,14 +4231,22 @@ class MidiEditorModal {
         this.isPlaying = false;
         this.isPaused = false;
 
-        // Remettre le curseur au début
+        // Remettre le curseur au marqueur de début
+        const resetTick = this.pianoRoll ? (this.pianoRoll.markstart || 0) : 0;
+
         if (this.pianoRoll) {
-            this.pianoRoll.cursor = this.playbackStartTick;
+            this.pianoRoll.cursor = resetTick;
+            this.pianoRoll.redraw();
+        }
+
+        // Mettre à jour la timeline bar
+        if (this.timelineBar) {
+            this.timelineBar.setPlayhead(resetTick);
         }
 
         // Reset tablature playhead and clear fretboard positions
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
-            this.tablatureEditor.updatePlayhead(this.playbackStartTick || 0);
+            this.tablatureEditor.updatePlayhead(resetTick);
             if (this.tablatureEditor.fretboard) {
                 this.tablatureEditor.fretboard.clearActivePositions();
             }
@@ -4249,12 +4254,12 @@ class MidiEditorModal {
 
         // Reset drum pattern playhead
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
-            this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
+            this.drumPatternEditor.updatePlayhead(resetTick);
         }
 
         this.updatePlaybackButtons();
 
-        this.log('info', 'Playback stopped');
+        this.log('info', `Playback stopped, cursor reset to tick ${resetTick}`);
     }
 
     /**
