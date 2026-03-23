@@ -108,13 +108,17 @@ _restart_server() {
         # Check if port is already in use (previous restart might have worked)
         if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
             print_success "Server already listening on port $SERVER_PORT"
-            return
+            return 0
         fi
 
         print_info "Starting server directly (fallback)..."
         cd "$PROJECT_DIR"
         echo "=== Server start at $(date) ===" > /tmp/midimind-server.log
         NODE_BIN="$(which node)"
+        if [ -z "$NODE_BIN" ]; then
+            print_error "Node.js binary not found in PATH"
+            return 1
+        fi
         print_info "Using node: $NODE_BIN"
         print_info "Working directory: $(pwd)"
         nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
@@ -135,6 +139,7 @@ _restart_server() {
             else
                 print_error "Server failed to start after retry"
                 cat /tmp/midimind-server.log 2>/dev/null || true
+                return 1
             fi
         fi
     fi
@@ -361,7 +366,11 @@ fi
 print_header "6. Restarting Server"
 
 cd "$PROJECT_DIR"
-_restart_server
+if ! _restart_server; then
+    print_error "Server restart failed — attempting emergency recovery..."
+    sleep 2
+    _restart_server || print_error "Emergency recovery also failed. Manual intervention required."
+fi
 
 # ============================================================================
 # 7. Verify Update
@@ -404,6 +413,14 @@ fi
 
 if [ "$SERVER_LISTENING" = false ]; then
     print_warning "Could not verify server is listening on port $SERVER_PORT"
+    # Last resort: try one more restart
+    print_info "Attempting final restart..."
+    _restart_server
+    sleep 3
+    if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
+        print_success "Server is now listening on port $SERVER_PORT after final restart"
+        SERVER_LISTENING=true
+    fi
 fi
 
 # Test HTTP endpoint

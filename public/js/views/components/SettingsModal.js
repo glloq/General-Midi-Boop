@@ -907,11 +907,15 @@ class SettingsModal {
 
         // Wait for server to come back online, then reload
         const waitForServer = async () => {
-            const maxAttempts = 40;
+            const maxAttempts = 90;
             let serverWasDown = false;
 
             for (let i = 0; i < maxAttempts; i++) {
-                statusEl.innerHTML = `⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}... <span style="opacity:0.7">(${i + 1}/${maxAttempts})</span>`;
+                const elapsedSec = (i + 1) * 3;
+                const mins = Math.floor(elapsedSec / 60);
+                const secs = elapsedSec % 60;
+                const timeStr = mins > 0 ? `${mins}m${secs.toString().padStart(2, '0')}s` : `${elapsedSec}s`;
+                statusEl.innerHTML = `⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}... <span style="opacity:0.7">(${timeStr})</span>`;
 
                 await new Promise(r => setTimeout(r, 3000));
                 try {
@@ -929,6 +933,7 @@ class SettingsModal {
                             // Server hasn't gone down yet, keep waiting
                             continue;
                         }
+                        this._updateInProgress = false;
                         statusEl.style.background = '#f0fdf4';
                         statusEl.style.color = '#16a34a';
                         statusEl.innerHTML = '✅ ' + (i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...');

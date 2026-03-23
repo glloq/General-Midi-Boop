@@ -6,10 +6,12 @@ import { dirname, join, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(join(__dirname, '../../../package.json'), 'utf8'));
+const PROJECT_ROOT = resolve(__dirname, '../../..');
+const pkg = JSON.parse(readFileSync(join(PROJECT_ROOT, 'package.json'), 'utf8'));
 const APP_VERSION = pkg.version;
 
 let _updateInProgress = false;
+let _updateInProgressTimer = null;
 
 async function systemStatus(app) {
   return {
@@ -47,8 +49,7 @@ async function systemShutdown(app) {
 
 async function systemCheckUpdate(app) {
   const { execSync } = await import('child_process');
-  const { resolve } = await import('path');
-  const cwd = resolve('.');
+  const cwd = PROJECT_ROOT;
 
   try {
     // Get local commit info
@@ -107,8 +108,8 @@ async function systemUpdate(app) {
     return { success: false, error: 'Update already in progress' };
   }
 
-  const scriptPath = resolve('./scripts/update.sh');
-  const cwd = resolve('.');
+  const scriptPath = join(PROJECT_ROOT, 'scripts/update.sh');
+  const cwd = PROJECT_ROOT;
 
   // Verify script exists and is executable
   try {
@@ -119,6 +120,14 @@ async function systemUpdate(app) {
   }
 
   _updateInProgress = true;
+
+  // Safety timeout: reset flag after 5 minutes in case update fails without restarting server
+  if (_updateInProgressTimer) clearTimeout(_updateInProgressTimer);
+  _updateInProgressTimer = setTimeout(() => {
+    _updateInProgress = false;
+    _updateInProgressTimer = null;
+    app.logger.warn('Update flag reset after 5 minute safety timeout');
+  }, 5 * 60 * 1000);
 
   const { spawn } = await import('child_process');
   const serverPort = app.config?.server?.port || 8080;
@@ -148,6 +157,7 @@ async function systemUpdate(app) {
     });
   } catch (err) {
     _updateInProgress = false;
+    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
     app.logger.error(`Failed to spawn update script: ${err.message}`);
     return { success: false, error: `Failed to start update: ${err.message}` };
   }
