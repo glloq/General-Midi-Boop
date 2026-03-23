@@ -24,7 +24,8 @@
     "clear": "Clear",
     "unknown": "Unknown",
     "unknownError": "Unknown error",
-    "delete": "Delete"
+    "delete": "Delete",
+    "apply": "Apply"
   },
   "app": {
     "title": "MidiMind 5.0 - MIDI Orchestration System",
@@ -508,7 +509,17 @@
     "blackKeys": "Black keys",
     "polyphony": "Polyphony",
     "polyphonyHelp": "Maximum number of simultaneous notes (1-128). Default: 16",
-    "polyphonyAutoString": "auto-set from number of strings"
+    "polyphonyAutoString": "auto-set from number of strings",
+    "sectionIdentity": "Identity",
+    "sectionNotes": "Notes & Capabilities",
+    "sectionStrings": "Strings",
+    "sectionDrums": "Percussion",
+    "sectionAdvanced": "Advanced",
+    "midiChannel": "MIDI Channel",
+    "midiChannelHelp": "MIDI channel used by this instrument (already-used channels are disabled)",
+    "capabilitiesSource": "Capabilities source",
+    "saveErrorTitle": "Save error",
+    "drumToggleAll": "Check/uncheck all"
   },
   "lighting": {
     "title": "Lighting Control",
@@ -660,6 +671,14 @@
     "retry": "Retry",
     "scanLabel": "Scan:",
     "scanStarted": "USB scan started...",
+    "deleteChannelBtn": "Delete this instrument",
+    "deleteChannelConfirm": "Delete the instrument on channel {channel}? Other instruments on this device will not be affected.",
+    "addInstrument": "Add instrument",
+    "addInstrumentTitle": "Add instrument",
+    "allChannelsUsed": "All MIDI channels are already in use on this device.",
+    "addFailed": "Failed to add instrument",
+    "selectChannel": "Select a MIDI channel",
+    "selectChannelHelp": "Select a free channel (used channels are grayed out)",
     "deleteTitle": "Delete instrument",
     "deleteSuccess": "Instrument deleted successfully",
     "unknownDevice": "Unknown Device",
