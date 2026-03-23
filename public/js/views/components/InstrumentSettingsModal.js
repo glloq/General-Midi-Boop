@@ -275,7 +275,7 @@ class InstrumentSettingsModal extends BaseModal {
                 <label>${this.t('instrumentSettings.gmInstrument') || 'Type d\'instrument (General MIDI)'}</label>
                 <select id="gmProgramSelect">${gmOptions}</select>
                 <span class="ism-form-hint">${this.t('instrumentSettings.gmInstrumentHelp') || 'Sélectionnez le type d\'instrument pour le routage MIDI'}</span>
-                <div id="drumKitDesc" style="display: none; margin-top: 8px; padding: 10px 14px; background: #f0f4ff; border-left: 4px solid #667eea; border-radius: 0 6px 6px 0; font-size: 13px;"></div>
+                <div id="drumKitDesc" class="ism-drum-kit-desc" style="display: none;"></div>
                 <div id="drumKitNotice" class="ism-drum-notice" style="display: none;">
                     ${this.t('instrumentSettings.drumKitNotice') || 'Les kits de batterie utilisent le canal MIDI 10 et le mode notes individuelles.'}
                 </div>
@@ -298,7 +298,7 @@ class InstrumentSettingsModal extends BaseModal {
                 <label>${this.t('instrumentSettings.deviceName') || 'Appareil'}</label>
                 <div class="ism-info-card">
                     <span class="ism-info-label">${this.escape(this.device.name)}</span>
-                    ${this.device.usbSerialNumber ? `<span style="color: #9ca3af; font-size: 12px;">SN: ${this.escape(this.device.usbSerialNumber)}</span>` : ''}
+                    ${this.device.usbSerialNumber ? `<span class="ism-info-secondary">SN: ${this.escape(this.device.usbSerialNumber)}</span>` : ''}
                 </div>
             </div>
         `;
@@ -616,7 +616,7 @@ class InstrumentSettingsModal extends BaseModal {
                     <h2>${this.t('instrumentManagement.selectChannel') || 'Choisir un canal MIDI'}</h2>
                     <button class="modal-close" data-close-add>×</button>
                 </div>
-                <p style="margin: 0 0 16px 0; font-size: 13px; color: #6b7280;">
+                <p class="ism-form-hint" style="margin: 0 0 16px 0;">
                     ${this.t('instrumentManagement.selectChannelHelp') || 'Sélectionnez un canal libre'}
                 </p>
                 ${gridHtml}
