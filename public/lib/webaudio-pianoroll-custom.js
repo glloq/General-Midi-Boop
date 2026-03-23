@@ -1217,13 +1217,13 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             switch(this.dragging.o){
             case "V":
                 // Mode drag-view: toujours déplacer la vue (throttled pour performance)
-                this.xoffset=this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width);
+                this.xoffset=Math.max(0,this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width));
                 this.yoffset=this.dragging.offsy+(pos.y-this.dragging.y)*(this.yrange/this.height);
                 this.redrawThrottled();
                 break;
             case null:
                 if(this.xscroll)
-                    this.xoffset=this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width);
+                    this.xoffset=Math.max(0,this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width));
                 if(this.yscroll)
                     this.yoffset=this.dragging.offsy+(pos.y-this.dragging.y)*(this.yrange/this.height);
                 break;
@@ -1346,11 +1346,11 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const ht=this.hitTest(pos);
             if((this.wheelzoomx||this.wheelzoom) && ht.m=="x"){
                 if(delta>0){
-                    this.xoffset=ht.t-(ht.t-this.xoffset)/1.2
+                    this.xoffset=Math.max(0,ht.t-(ht.t-this.xoffset)/1.2);
                     this.xrange/=1.2;
                 }
                 else{
-                    this.xoffset=ht.t-(ht.t-this.xoffset)*1.2
+                    this.xoffset=Math.max(0,ht.t-(ht.t-this.xoffset)*1.2);
                     this.xrange*=1.2;
                 }
             }

@@ -4428,8 +4428,10 @@ class MidiEditorModal {
      */
     updatePlaybackCursor(tick) {
         // Arrêter la lecture si le curseur atteint ou dépasse le marqueur de fin
-        if (this.isPlaying && this.playbackEndTick > 0 && tick >= this.playbackEndTick) {
+        if (this.isPlaying && !this._stoppingPlayback && this.playbackEndTick > 0 && tick >= this.playbackEndTick) {
+            this._stoppingPlayback = true;
             this.playbackStop();
+            this._stoppingPlayback = false;
             return;
         }
 
@@ -4488,17 +4490,33 @@ class MidiEditorModal {
      * Callback quand la lecture est terminée
      */
     onPlaybackComplete() {
+        // Le synthétiseur a déjà appelé stop(), on remet l'état UI au marqueur de début
         this.isPlaying = false;
         this.isPaused = false;
 
-        // Remettre le curseur au début de la plage
+        const resetTick = this.playbackStartTick || 0;
+
+        // Remettre le curseur au marqueur de début et scroller la vue
         if (this.pianoRoll) {
-            this.pianoRoll.cursor = this.playbackStartTick;
+            this.pianoRoll.cursor = resetTick;
+            const xrange = this.pianoRoll.xrange || 1920;
+            const xoffset = this.pianoRoll.xoffset || 0;
+            if (resetTick < xoffset || resetTick > xoffset + xrange * 0.9) {
+                this.pianoRoll.xoffset = Math.max(0, resetTick - xrange * 0.1);
+            }
+        }
+
+        // Mettre à jour la timeline bar
+        if (this.timelineBar) {
+            this.timelineBar.setPlayhead(resetTick);
+            if (this.pianoRoll) {
+                this.timelineBar.setScrollX(this.pianoRoll.xoffset || 0);
+            }
         }
 
         // Reset tablature playhead and clear fretboard positions
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
-            this.tablatureEditor.updatePlayhead(this.playbackStartTick || 0);
+            this.tablatureEditor.updatePlayhead(resetTick);
             if (this.tablatureEditor.fretboard) {
                 this.tablatureEditor.fretboard.clearActivePositions();
             }
@@ -4506,7 +4524,7 @@ class MidiEditorModal {
 
         // Reset drum pattern playhead
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
-            this.drumPatternEditor.updatePlayhead(this.playbackStartTick || 0);
+            this.drumPatternEditor.updatePlayhead(resetTick);
         }
 
         this.updatePlaybackButtons();
@@ -5318,15 +5336,13 @@ class MidiEditorModal {
             this.pianoRoll.xrange = newRange;
         }
 
-        // Forcer le redraw avec un court délai
+        // Forcer le redraw avec un court délai, puis synchroniser les éditeurs
         setTimeout(() => {
             if (typeof this.pianoRoll.redraw === 'function') {
                 this.pianoRoll.redraw();
             }
+            this.syncAllEditors();
         }, 50);
-
-        // Synchroniser tous les éditeurs
-        this.syncAllEditors();
 
         this.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
     }
@@ -5392,6 +5408,7 @@ class MidiEditorModal {
 
         let lastXOffset = this.pianoRoll.xoffset || 0;
         let lastYOffset = this.pianoRoll.yoffset || 0;
+        let lastXRange = this.pianoRoll.xrange || 1920;
         let syncScheduled = false;
         // OPTIMISATION: Intervalle adaptatif - ralentit quand idle, accélère quand actif
         let idleCount = 0;
@@ -5409,11 +5426,13 @@ class MidiEditorModal {
 
             const currentXOffset = this.pianoRoll.xoffset || 0;
             const currentYOffset = this.pianoRoll.yoffset || 0;
+            const currentXRange = this.pianoRoll.xrange || 1920;
 
             const xOffsetChanged = Math.abs(currentXOffset - lastXOffset) > 0.5;
             const yOffsetChanged = Math.abs(currentYOffset - lastYOffset) > 0.01;
+            const xRangeChanged = Math.abs(currentXRange - lastXRange) > 0.5;
 
-            if (xOffsetChanged || yOffsetChanged) {
+            if (xOffsetChanged || yOffsetChanged || xRangeChanged) {
                 idleCount = 0;
                 // Repasser en mode actif si on était en idle
                 if (this._syncIdle) {
@@ -5431,7 +5450,7 @@ class MidiEditorModal {
                 }
             }
 
-            if (xOffsetChanged) {
+            if (xOffsetChanged || xRangeChanged) {
                 this.updateHorizontalSlider(currentXOffset);
                 if (!syncScheduled) {
                     syncScheduled = true;
@@ -5441,6 +5460,7 @@ class MidiEditorModal {
                     });
                 }
                 lastXOffset = currentXOffset;
+                lastXRange = currentXRange;
             }
 
             if (yOffsetChanged) {
