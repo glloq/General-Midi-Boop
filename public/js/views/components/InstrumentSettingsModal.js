@@ -112,6 +112,9 @@ class InstrumentSettingsModal extends BaseModal {
             this.activeChannel = requestedTab ? instrumentChannel : this.instrumentTabs[0].channel;
             this.activeSection = 'identity';
 
+            // Sync global state for legacy helpers (onSiPresetChanged, onGmProgramChanged, etc.)
+            this._syncGlobalState();
+
             // Update title
             this.options.title = '';
             this.open();
@@ -168,7 +171,10 @@ class InstrumentSettingsModal extends BaseModal {
     }
 
     onClose() {
-        // Cleanup
+        // Cleanup global state
+        if (window.currentDeviceSettings) {
+            window.currentDeviceSettings = null;
+        }
     }
 
     // ========== TABS BAR ==========
@@ -560,6 +566,7 @@ class InstrumentSettingsModal extends BaseModal {
     async _switchTab(channel) {
         this.activeChannel = channel;
         this.activeSection = 'identity';
+        this._syncGlobalState();
         this._refreshContent();
         this._initPianoForActiveTab();
     }
@@ -882,6 +889,24 @@ class InstrumentSettingsModal extends BaseModal {
         summary.innerHTML = `<span class="ism-drum-stat ${count > 0 ? 'good' : 'bad'}">${count} / ${total} notes</span>`;
     }
 
+    // ========== GLOBAL STATE SYNC ==========
+
+    /**
+     * Sync internal state to the global currentDeviceSettings variable
+     * needed by legacy helpers: onSiPresetChanged, onGmProgramChanged, etc.
+     */
+    _syncGlobalState() {
+        const tab = this._getActiveTab();
+        if (!tab || !this.device) return;
+        // Set global for legacy helpers in index.html
+        window.currentDeviceSettings = {
+                device: { ...this.device, channel: this.activeChannel },
+                settings: tab.settings,
+                stringInstrumentConfig: tab.stringInstrumentConfig,
+                tuningPresets: this.tuningPresets
+        };
+    }
+
     // ========== HELPERS ==========
 
     _getActiveTab() {
@@ -1013,6 +1038,15 @@ class InstrumentSettingsModal extends BaseModal {
         const gmSelect = this.$('#gmProgramSelect');
         if (gmSelect) {
             gmSelect.addEventListener('change', () => {
+                // Update global state so legacy helpers see the new program
+                const tab = this._getActiveTab();
+                if (tab) {
+                    const rawVal = parseInt(gmSelect.value);
+                    const decoded = typeof selectValueToGmProgram === 'function'
+                        ? selectValueToGmProgram(rawVal) : { program: rawVal, isDrumKit: false };
+                    tab.settings.gm_program = decoded.program;
+                    this._syncGlobalState();
+                }
                 if (typeof onGmProgramChanged === 'function') onGmProgramChanged(gmSelect);
                 // Refresh sidebar to show/hide strings/drums
                 const sidebar = this.$('.ism-sidebar');
@@ -1020,6 +1054,9 @@ class InstrumentSettingsModal extends BaseModal {
                 this.$$('.ism-nav-item').forEach(btn => {
                     btn.addEventListener('click', () => this._switchSection(btn.dataset.section));
                 });
+                // Refresh strings section content (preset dropdown depends on GM category)
+                const stringsSection = this.$('.ism-section[data-section="strings"]');
+                if (stringsSection) stringsSection.innerHTML = this._renderStringsSection();
             });
         }
     }
