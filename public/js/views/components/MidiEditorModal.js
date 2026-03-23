@@ -2273,8 +2273,9 @@ class MidiEditorModal {
 
             // Show routed instrument name (real device) if available
             const routedName = this.getRoutedInstrumentName(ch.channel);
-            // Channel label: number + GM instrument
-            const gmLabel = (ch.hasExplicitProgram || ch.channel === 9) ? ch.instrument : '';
+            // Channel label: number + GM instrument (limité à 15 caractères)
+            const gmLabelFull = (ch.hasExplicitProgram || ch.channel === 9) ? ch.instrument : '';
+            const gmLabel = gmLabelFull.length > 15 ? gmLabelFull.substring(0, 15) + '…' : gmLabelFull;
             const mainLabel = gmLabel
                 ? `${ch.channel + 1} : ${gmLabel}`
                 : `${ch.channel + 1}`;
@@ -3513,52 +3514,8 @@ class MidiEditorModal {
         if (channelsToolbar) {
             channelsToolbar.innerHTML = this.renderChannelButtons();
 
-            // Réattacher les événements sur les nouveaux boutons
-            const channelButtons = this.container.querySelectorAll('.channel-btn');
-            channelButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const channel = parseInt(btn.dataset.channel);
-                    this.toggleChannel(channel);
-                });
-            });
-
-            // Attach events on TAB sub-buttons
-            const tabButtons = this.container.querySelectorAll('.channel-tab-btn');
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const channel = parseInt(btn.dataset.channel);
-                    this._openTablatureForChannel(channel);
-                });
-            });
-
-            // Attach events on DRUM sub-buttons (for channel 9)
-            const drumButtons = this.container.querySelectorAll('.channel-drum-btn');
-            drumButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const channel = parseInt(btn.dataset.channel);
-                    if (!isNaN(channel)) {
-                        this._openDrumPatternForChannel(channel);
-                    }
-                });
-            });
-
-            // Attach events on channel settings buttons
-            const settingsButtons = this.container.querySelectorAll('.channel-settings-btn');
-            settingsButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const channel = parseInt(btn.dataset.channel);
-                    if (!isNaN(channel)) {
-                        this._toggleChannelSettingsPopover(channel, btn);
-                    }
-                });
-            });
+            // Les événements sont gérés par event delegation sur this.container
+            // (voir attachEventHandlers) — pas besoin de réattacher des listeners directs
 
             // Update disabled visual states
             this.channelDisabled.forEach(ch => {
