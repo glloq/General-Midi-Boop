@@ -5824,12 +5824,13 @@ class MidiEditorModal {
             </div>
         `;
 
-        // Position relative to the button
-        const group = buttonEl.closest('.channel-btn-group');
-        if (group) {
-            group.style.position = 'relative';
-            group.appendChild(popover);
-        }
+        // Position en fixed par rapport au bouton (évite le clipping par overflow du parent)
+        const rect = buttonEl.getBoundingClientRect();
+        popover.style.position = 'fixed';
+        popover.style.top = `${rect.bottom + 4}px`;
+        popover.style.left = `${rect.left + rect.width / 2}px`;
+        popover.style.transform = 'translateX(-50%)';
+        this.container.appendChild(popover);
 
         // Event: enabled checkbox
         const checkbox = popover.querySelector('.channel-enabled-checkbox');

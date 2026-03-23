@@ -1260,10 +1260,7 @@
 
 /* Channel settings popover */
 .channel-settings-popover {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    position: fixed;
     z-index: 600;
     background: #1e1e1e;
     border: 1px solid #555;
