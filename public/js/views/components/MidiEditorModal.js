@@ -4287,32 +4287,32 @@ class MidiEditorModal {
         const isColored = document.body.classList.contains('theme-colored');
 
         if (isDark) {
-            // Dark mode: deep dark background, subtle contrast
-            this.pianoRoll.setAttribute('collt', '#2a2d35');    // White key rows
-            this.pianoRoll.setAttribute('coldk', '#22252b');    // Black key rows
-            this.pianoRoll.setAttribute('colgrid', '#3a3d45');  // Grid lines (subtle)
+            // Dark mode: deep dark background, minimal contrast
+            this.pianoRoll.setAttribute('collt', '#262830');    // White key rows
+            this.pianoRoll.setAttribute('coldk', '#22242a');    // Black key rows (very subtle diff)
+            this.pianoRoll.setAttribute('colgrid', '#2e3038');  // Grid lines (barely visible)
             this.pianoRoll.setAttribute('colrulerbg', '#1e2028');
             this.pianoRoll.setAttribute('colrulerfg', '#8890a0');
-            this.pianoRoll.setAttribute('colrulerborder', '#3a3d45');
-            this.pianoRoll.setAttribute('colnoteborder', 'rgba(255,255,255,0.15)');
+            this.pianoRoll.setAttribute('colrulerborder', '#2e3038');
+            this.pianoRoll.setAttribute('colnoteborder', 'rgba(255,255,255,0.1)');
         } else if (isColored) {
-            // Colored theme: soft pastel tones
-            this.pianoRoll.setAttribute('collt', '#f0f0f8');    // White key rows
-            this.pianoRoll.setAttribute('coldk', '#e4e4f0');    // Black key rows
-            this.pianoRoll.setAttribute('colgrid', '#d0d0e0');  // Grid lines (subtle)
-            this.pianoRoll.setAttribute('colrulerbg', '#e8e8f4');
+            // Colored theme: very soft, airy pastel
+            this.pianoRoll.setAttribute('collt', '#f7f7fc');    // White key rows (almost white)
+            this.pianoRoll.setAttribute('coldk', '#f0f0f8');    // Black key rows (barely tinted)
+            this.pianoRoll.setAttribute('colgrid', '#e8e8f2');  // Grid lines (very subtle)
+            this.pianoRoll.setAttribute('colrulerbg', '#ededf6');
             this.pianoRoll.setAttribute('colrulerfg', '#4a3f6b');
-            this.pianoRoll.setAttribute('colrulerborder', '#d0d0e0');
-            this.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.2)');
+            this.pianoRoll.setAttribute('colrulerborder', '#e8e8f2');
+            this.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.15)');
         } else {
-            // Light mode: clean white/off-white
-            this.pianoRoll.setAttribute('collt', '#f8f9fa');    // White key rows
-            this.pianoRoll.setAttribute('coldk', '#edf0f4');    // Black key rows
-            this.pianoRoll.setAttribute('colgrid', '#dee2e6');  // Grid lines (subtle)
-            this.pianoRoll.setAttribute('colrulerbg', '#e9ecef');
+            // Light mode: almost white, very clean
+            this.pianoRoll.setAttribute('collt', '#ffffff');    // White key rows (pure white)
+            this.pianoRoll.setAttribute('coldk', '#f5f6f8');    // Black key rows (barely grey)
+            this.pianoRoll.setAttribute('colgrid', '#eceef1');  // Grid lines (very faint)
+            this.pianoRoll.setAttribute('colrulerbg', '#f0f1f3');
             this.pianoRoll.setAttribute('colrulerfg', '#495057');
-            this.pianoRoll.setAttribute('colrulerborder', '#dee2e6');
-            this.pianoRoll.setAttribute('colnoteborder', 'rgba(0,0,0,0.1)');
+            this.pianoRoll.setAttribute('colrulerborder', '#eceef1');
+            this.pianoRoll.setAttribute('colnoteborder', 'rgba(0,0,0,0.08)');
         }
     }
 

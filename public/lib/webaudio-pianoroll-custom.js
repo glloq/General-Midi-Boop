@@ -1420,6 +1420,12 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const end=(this.markend-this.xoffset)*this.stepw+this.yruler+this.kbwidth;
             this.markendimg.style.left=(end+this.markendoffset)+"px";
         };
+        // Helper: parse hex color to {r,g,b}
+        this._parseHexColor=function(hex){
+            if(!hex || hex.charAt(0)!=='#') return null;
+            let h=hex.substr(1); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+            return {r:parseInt(h.substr(0,2),16),g:parseInt(h.substr(2,2),16),b:parseInt(h.substr(4,2),16)};
+        };
         // Helper: darken a hex color by a factor (0.0 = black, 1.0 = unchanged)
         this._darkenColor=function(hex, factor){
             if(!hex || hex.charAt(0)!=='#') return hex;
@@ -1451,8 +1457,9 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 if (this._highlightsDirty || !this._cachedHighlightLt) {
                     noteHighlightLt = new Array(128);
                     noteHighlightDk = new Array(128);
-                    const baseLt = {r:0xcc,g:0xcc,b:0xcc};
-                    const baseDk = {r:0xaa,g:0xaa,b:0xaa};
+                    // Use actual background colors as blend base
+                    const baseLt = this._parseHexColor(this.collt) || {r:0xf8,g:0xf9,b:0xfa};
+                    const baseDk = this._parseHexColor(this.coldk) || {r:0xed,g:0xf0,b:0xf4};
                     const _parseHex = function(hex) {
                         hex = hex.replace('#','');
                         if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
@@ -1499,17 +1506,38 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 let ys = this.height - (y - this.yoffset) * this.steph;
                 this.ctx.fillRect(this.yruler+this.kbwidth, ys|0, this.swidth,-this.steph);
 
-                // Dessiner la ligne de grille seulement selon le pas adaptatif
+                // Dessiner la ligne de grille horizontale - octave lines stronger, others faint
                 if(y % ygrid === 0) {
-                    this.ctx.fillStyle=this.colgrid;
-                    this.ctx.fillRect(this.yruler+this.kbwidth, ys|0, this.swidth,1);
+                    const isOctaveLine = (y % 12 === 0);
+                    this.ctx.fillStyle = this.colgrid;
+                    this.ctx.globalAlpha = isOctaveLine ? 0.6 : 0.25;
+                    this.ctx.fillRect(this.yruler+this.kbwidth, ys|0, this.swidth, 1);
+                    this.ctx.globalAlpha = 1.0;
                 }
             }
+            // Vertical grid lines: measure lines stronger, beat/sub-beat lines very faint
+            const beatTicks = this.timebase || 480;
+            const measureTicks = beatTicks * 4; // 4/4 time signature
             for(let t=0;;t+=this.grid){
                 let x=this.stepw*(t-this.xoffset)+this.yruler+this.kbwidth;
-                this.ctx.fillRect(x|0,this.xruler,1,this.sheight);
-                if(x>=this.width)
-                    break;
+                if(x>=this.width) break;
+                if(t % measureTicks === 0) {
+                    // Measure line: use grid color at full opacity
+                    this.ctx.fillStyle = this.colgrid;
+                    this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
+                } else if(t % beatTicks === 0) {
+                    // Beat line: very faint
+                    this.ctx.globalAlpha = 0.35;
+                    this.ctx.fillStyle = this.colgrid;
+                    this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
+                    this.ctx.globalAlpha = 1.0;
+                } else {
+                    // Sub-beat line: barely visible
+                    this.ctx.globalAlpha = 0.15;
+                    this.ctx.fillStyle = this.colgrid;
+                    this.ctx.fillRect(x|0, this.xruler, 1, this.sheight);
+                    this.ctx.globalAlpha = 1.0;
+                }
             }
         };
         this.semiflag=[6,1,0,1,0,2,1,0,1,0,1,0];
