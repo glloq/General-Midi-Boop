@@ -4427,6 +4427,12 @@ class MidiEditorModal {
      * @param {number} tick - Position actuelle en ticks
      */
     updatePlaybackCursor(tick) {
+        // Arrêter la lecture si le curseur atteint ou dépasse le marqueur de fin
+        if (this.isPlaying && this.playbackEndTick > 0 && tick >= this.playbackEndTick) {
+            this.playbackStop();
+            return;
+        }
+
         // Update piano roll cursor
         if (this.pianoRoll) {
             this.pianoRoll.cursor = tick;
