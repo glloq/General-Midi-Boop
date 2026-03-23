@@ -933,6 +933,7 @@ class SettingsModal {
                             // Server hasn't gone down yet, keep waiting
                             continue;
                         }
+                        this._updateInProgress = false;
                         statusEl.style.background = '#f0fdf4';
                         statusEl.style.color = '#16a34a';
                         statusEl.innerHTML = '✅ ' + (i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...');
