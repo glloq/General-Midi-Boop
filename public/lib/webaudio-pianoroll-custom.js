@@ -160,6 +160,15 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
         this.pendingRedraw = false;
         this.scheduledRedraw = null;
 
+        // OPTIMISATION: Offscreen buffers for layered rendering
+        this._gridBuffer = document.createElement('canvas');
+        this._gridBufferCtx = this._gridBuffer.getContext('2d');
+        this._gridDirty = true;
+        this._notesBuffer = document.createElement('canvas');
+        this._notesBufferCtx = this._notesBuffer.getContext('2d');
+        this._notesDirty = true;
+        this._isDraggingNotes = false;
+
         // Fonction throttled pour redraw (limite à 60fps)
         this.redrawThrottled = function() {
             if (!this.pendingRedraw) {
@@ -213,6 +222,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             // Restaurer le dernier snapshot
             const snapshot = this.undoStack.pop();
             this.sequence = snapshot.map(note => ({...note}));
+            this._notesDirty = true;
 
             this.redrawThrottled();
             this.sendEvent('change');
@@ -240,6 +250,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             // Restaurer le snapshot
             const snapshot = this.redoStack.pop();
             this.sequence = snapshot.map(note => ({...note}));
+            this._notesDirty = true;
 
             this.redrawThrottled();
             this.sendEvent('change');
@@ -610,9 +621,11 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     e.f=0;
                 e=this.sequence[++i];
             }
+            this._notesDirty = true;
         };
         this.delNote=function(idx){
             this.sequence.splice(idx,1);
+            this._notesDirty = true;
             this.redrawThrottled();
             this.sendEvent('change');
         };
@@ -645,6 +658,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 if(ev.f)
                     this.sequence.splice(i,1);
             }
+            this._notesDirty = true;
         };
         this.moveSelectedNote=function(dt,dn){
             const l=this.sequence.length;
@@ -670,6 +684,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             for(let i=0;i<l;++i){
                 this.sequence[i].f=0;
             }
+            this._notesDirty = true;
         };
         this.selectedNotes=function(){
             let obj=[];
@@ -686,6 +701,10 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             if(ht.m=="N"){
                 // Sauvegarder snapshot avant de déplacer des notes
                 this.saveSnapshot();
+
+                // Enable layered drag rendering
+                this._isDraggingNotes = true;
+                this._notesDirty = true;
 
                 ev=this.sequence[ht.i];
                 this.dragging={o:"D",m:"N",i:ht.i,t:ht.t,n:ev.n,dt:ht.t-ev.t};
@@ -706,6 +725,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 // En mode drag-notes : traiter E comme N (déplacement, pas resize)
                 if(this.uiMode === 'drag-notes') {
                     this.saveSnapshot();
+                    this._isDraggingNotes = true;
+                    this._notesDirty = true;
                     ev=this.sequence[ht.i];
                     this.dragging={o:"D",m:"N",i:ht.i,t:ht.t,n:ev.n,dt:ht.t-ev.t};
                     for(let i=0,l=this.sequence.length;i<l;++i){
@@ -717,6 +738,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 } else {
                     // Mode resize-note ou défaut : resize
                     this.saveSnapshot();
+                    this._isDraggingNotes = true;
+                    this._notesDirty = true;
                     const ev = this.sequence[ht.i];
                     this.dragging={o:"D", m:"E", i:ht.i, t:ev.t, g:ev.g, ev:this.selectedNotes()};
                 }
@@ -725,6 +748,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 // En mode drag-notes : traiter B comme N (déplacement, pas resize)
                 if(this.uiMode === 'drag-notes') {
                     this.saveSnapshot();
+                    this._isDraggingNotes = true;
+                    this._notesDirty = true;
                     ev=this.sequence[ht.i];
                     this.dragging={o:"D",m:"N",i:ht.i,t:ht.t,n:ev.n,dt:ht.t-ev.t};
                     for(let i=0,l=this.sequence.length;i<l;++i){
@@ -736,6 +761,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 } else {
                     // Mode resize-note ou défaut : resize
                     this.saveSnapshot();
+                    this._isDraggingNotes = true;
+                    this._notesDirty = true;
                     const ev = this.sequence[ht.i];
                     this.dragging={o:"D", m:"B", i:ht.i, t:ev.t, g:ev.g, ev:this.selectedNotes()};
                 }
@@ -746,6 +773,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     // Sauvegarder snapshot avant d'ajouter une note
                     this.saveSnapshot();
 
+                    this._isDraggingNotes = true;
+                    this._notesDirty = true;
                     this.clearSel();
                     var t=((ht.t/this.snap)|0)*this.snap;
                     const n = Math.round(ht.n); // Arrondir pour aligner sur grille
@@ -1216,10 +1245,10 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const ht=this.hitTest(pos);
             switch(this.dragging.o){
             case "V":
-                // Mode drag-view: toujours déplacer la vue (throttled pour performance)
+                // Mode drag-view: toujours déplacer la vue
+                // Setting xoffset/yoffset triggers layout() which invalidates buffers and redraws
                 this.xoffset=Math.max(0,this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width));
                 this.yoffset=this.dragging.offsy+(pos.y-this.dragging.y)*(this.yrange/this.height);
-                this.redrawThrottled();
                 break;
             case null:
                 if(this.xscroll)
@@ -1312,6 +1341,11 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
 //            }
             // CORRECTION: Sauvegarder le type de drag avant de le réinitialiser
             const wasDraggingNotes = this.dragging.o === "D";
+            // End layered drag rendering — rebuild full notes buffer
+            if (this._isDraggingNotes) {
+                this._isDraggingNotes = false;
+                this._notesDirty = true;
+            }
             this.dragging={o:null};
             if(this.press && wasDraggingNotes){
                 this.sortSequence();
@@ -1408,6 +1442,15 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this.swidth=proll.width-this.yruler;
             this.swidth-=this.kbwidth;
             this.sheight=proll.height-this.xruler;
+            // Resize offscreen buffers only when canvas dimensions change
+            if (this._gridBuffer.width !== proll.width || this._gridBuffer.height !== proll.height) {
+                this._gridBuffer.width = proll.width;
+                this._gridBuffer.height = proll.height;
+                this._notesBuffer.width = proll.width;
+                this._notesBuffer.height = proll.height;
+            }
+            this._gridDirty = true;
+            this._notesDirty = true;
             this.redraw();
         };
         this.redrawMarker=function(){
@@ -1669,48 +1712,115 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 this.ctx.fillRect(this.dragging.p.x,this.dragging.p.y,this.dragging.p2.x-this.dragging.p.x,this.dragging.p2.y-this.dragging.p.y);
             }
         };
+        /**
+         * Draw a single note onto the given context.
+         * @private
+         */
+        this._drawNote=function(ctx, ev) {
+            const channel = ev.c !== undefined ? ev.c : 0;
+            const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
+
+            ctx.fillStyle = ev.f ? this.colnotesel : channelColor;
+            const w = ev.g * this.stepw;
+            let x = (ev.t - this.xoffset) * this.stepw + this.yruler + this.kbwidth;
+            let x2 = (x + w) | 0; x |= 0;
+            let y = this.height - (ev.n - this.yoffset) * this.steph;
+            let y2 = (y - this.steph) | 0; y |= 0;
+            ctx.fillRect(x, y, x2 - x, y2 - y);
+            // Borders (skip during drag for performance)
+            if (!this._isDraggingNotes) {
+                ctx.fillStyle = ev.f ? this.colnoteselborder : this.colnoteborder;
+                ctx.fillRect(x, y, 1, y2 - y);
+                ctx.fillRect(x2, y, 1, y2 - y);
+                ctx.fillRect(x, y, x2 - x, 1);
+                ctx.fillRect(x, y2, x2 - x, 1);
+            }
+        };
+
+        /**
+         * Render all non-selected notes to the offscreen notes buffer.
+         * @private
+         */
+        this._renderNotesBuffer=function() {
+            const ctx = this._notesBufferCtx;
+            ctx.clearRect(0, 0, this._notesBuffer.width, this._notesBuffer.height);
+            const l = this.sequence.length;
+            const visEnd = this.xoffset + this.xrange;
+            const visYEnd = this.yoffset + this.yrange;
+            for (let s = 0; s < l; ++s) {
+                const ev = this.sequence[s];
+                if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
+                if (ev.n < this.yoffset || ev.n > visYEnd) continue;
+                // During drag: skip selected notes (they'll be drawn live on main canvas)
+                if (this._isDraggingNotes && ev.f) continue;
+                this._drawNote(ctx, ev);
+            }
+        };
+
+        /**
+         * Render grid to the offscreen grid buffer.
+         * @private
+         */
+        this._renderGridBuffer=function() {
+            const origCtx = this.ctx;
+            this.ctx = this._gridBufferCtx;
+            this.ctx.clearRect(0, 0, this._gridBuffer.width, this._gridBuffer.height);
+            this.redrawGrid();
+            this.ctx = origCtx;
+        };
+
+        /**
+         * Invalidate the notes buffer (call when notes data changes).
+         */
+        this.invalidateNotesBuffer=function() {
+            this._notesDirty = true;
+        };
+
+        /**
+         * Invalidate the grid buffer (call when zoom/scroll/grid changes).
+         */
+        this.invalidateGridBuffer=function() {
+            this._gridDirty = true;
+            this._notesDirty = true; // notes positions depend on grid params
+        };
+
         this.redraw=function() {
-            let x,w,y,x2,y2;
             if(!this.ctx)
                 return;
-            this.ctx.clearRect(0,0,this.width,this.height);
             this.stepw = this.swidth/this.xrange;
             this.steph = this.sheight/this.yrange;
-            this.redrawGrid();
-            const l=this.sequence.length;
-            const visEnd=this.xoffset+this.xrange;
-            const visYEnd=this.yoffset+this.yrange;
-            for(let s=0; s<l; ++s){
-                const ev=this.sequence[s];
 
-                // Viewport culling: skip notes outside visible range
-                if(ev.t+ev.g<this.xoffset || ev.t>visEnd) continue;
-                if(ev.n<this.yoffset || ev.n>visYEnd) continue;
-
-                // MODIFICATION: Coloration par canal MIDI
-                const channel = ev.c !== undefined ? ev.c : 0;
-                const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
-
-                if(ev.f)
-                    this.ctx.fillStyle=this.colnotesel;
-                else
-                    this.ctx.fillStyle=channelColor;  // Utiliser la couleur du canal
-
-                w=ev.g*this.stepw;
-                x=(ev.t-this.xoffset)*this.stepw+this.yruler+this.kbwidth;
-                x2=(x+w)|0; x|=0;
-                y=this.height - (ev.n-this.yoffset)*this.steph;
-                y2=(y-this.steph)|0; y|=0;
-                this.ctx.fillRect(x,y,x2-x,y2-y);
-                if(ev.f)
-                    this.ctx.fillStyle=this.colnoteselborder;
-                else
-                    this.ctx.fillStyle=this.colnoteborder;
-                this.ctx.fillRect(x,y,1,y2-y);
-                this.ctx.fillRect(x2,y,1,y2-y);
-                this.ctx.fillRect(x,y,x2-x,1);
-                this.ctx.fillRect(x,y2,x2-x,1);
+            // Rebuild offscreen grid buffer if needed
+            if (this._gridDirty) {
+                this._gridDirty = false;
+                this._renderGridBuffer();
             }
+
+            // Rebuild offscreen notes buffer if needed
+            if (this._notesDirty) {
+                this._notesDirty = false;
+                this._renderNotesBuffer();
+            }
+
+            // Composite: clear → grid → notes → (dragged notes live) → rulers → overlay
+            this.ctx.clearRect(0, 0, this.width, this.height);
+            this.ctx.drawImage(this._gridBuffer, 0, 0);
+            this.ctx.drawImage(this._notesBuffer, 0, 0);
+
+            // During drag: draw only selected/dragged notes directly (they move each frame)
+            if (this._isDraggingNotes) {
+                const l = this.sequence.length;
+                const visEnd = this.xoffset + this.xrange;
+                const visYEnd = this.yoffset + this.yrange;
+                for (let s = 0; s < l; ++s) {
+                    const ev = this.sequence[s];
+                    if (!ev.f) continue;
+                    if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
+                    if (ev.n < this.yoffset || ev.n > visYEnd) continue;
+                    this._drawNote(this.ctx, ev);
+                }
+            }
+
             this.redrawYRuler();
             this.redrawXRuler();
             this.redrawMarker();
