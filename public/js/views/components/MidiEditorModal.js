@@ -1271,6 +1271,16 @@ class MidiEditorModal {
         this.syncCCEditor();
         this.syncVelocityEditor();
         this.syncTempoEditor();
+
+        // Sync PlaybackTimelineBar with piano roll scroll/zoom
+        if (this.timelineBar && this.pianoRoll) {
+            const xoffset = this.pianoRoll.xoffset || 0;
+            const xrange = this.pianoRoll.xrange || 1920;
+            const containerWidth = this.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
+            const pianoKeyWidth = 40;
+            this.timelineBar.setScrollX(xoffset);
+            this.timelineBar.setZoom(xrange / Math.max(1, containerWidth - pianoKeyWidth));
+        }
     }
 
     /**
@@ -2776,6 +2786,8 @@ class MidiEditorModal {
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
+                            <!-- Playback Timeline Bar -->
+                            <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll sera inséré ici -->
@@ -3045,6 +3057,9 @@ class MidiEditorModal {
 
         // Synchroniser les sliders avec la navigation native du piano roll
         this.setupScrollSynchronization();
+
+        // Initialize PlaybackTimelineBar
+        this._initTimelineBar(maxTick, ticksPerBeat, xrange);
 
         // Charger la sequence SI elle existe et n'est pas vide
         if (this.sequence && this.sequence.length > 0) {
@@ -4260,6 +4275,52 @@ class MidiEditorModal {
     }
 
     /**
+     * Initialize the PlaybackTimelineBar for the piano editor.
+     */
+    _initTimelineBar(maxTick, ticksPerBeat, xrange) {
+        const timelineContainer = this.container?.querySelector('#playback-timeline-container');
+        if (!timelineContainer || typeof PlaybackTimelineBar === 'undefined') return;
+
+        // Clean up previous instance
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
+        }
+
+        // Compute leftOffset to align with piano roll keys
+        // The webaudio-pianoroll component has an internal key width of ~40px
+        const pianoKeyWidth = 40;
+
+        this.timelineBar = new PlaybackTimelineBar(timelineContainer, {
+            ticksPerBeat: ticksPerBeat,
+            beatsPerMeasure: 4,
+            leftOffset: pianoKeyWidth,
+            height: 30,
+            onSeek: (tick) => {
+                // Position the piano roll cursor and seek the synthesizer
+                if (this.pianoRoll) {
+                    this.pianoRoll.cursor = tick;
+                }
+                if (this.synthesizer && typeof this.synthesizer.seek === 'function') {
+                    this.synthesizer.seek(tick);
+                }
+                this.playbackStartTick = tick;
+            },
+            onRangeChange: (start, end) => {
+                // Sync range markers with the piano roll
+                if (this.pianoRoll) {
+                    this.pianoRoll.setAttribute('markstart', start.toString());
+                    this.pianoRoll.setAttribute('markend', end.toString());
+                }
+            },
+        });
+
+        this.timelineBar.setTotalTicks(maxTick);
+        this.timelineBar.setRange(0, maxTick);
+        this.timelineBar.setZoom(xrange / ((timelineContainer.clientWidth || 800) - pianoKeyWidth));
+    }
+
+    /**
      * Mettre à jour le curseur pendant la lecture
      * @param {number} tick - Position actuelle en ticks
      */
@@ -4275,6 +4336,15 @@ class MidiEditorModal {
                 this.pianoRoll.xoffset = tick - xrange * 0.2;
             } else if (tick < xoffset) {
                 this.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+            }
+        }
+
+        // Update PlaybackTimelineBar
+        if (this.timelineBar) {
+            this.timelineBar.setPlayhead(tick);
+            // Sync scroll with piano roll
+            if (this.pianoRoll) {
+                this.timelineBar.setScrollX(this.pianoRoll.xoffset || 0);
             }
         }
 
@@ -6573,6 +6643,12 @@ class MidiEditorModal {
         if (this.pianoRoll) {
             this.pianoRoll.remove();
             this.pianoRoll = null;
+        }
+
+        // Nettoyer la barre de timeline
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
         }
 
         // Nettoyer l'éditeur CC/Pitchbend
