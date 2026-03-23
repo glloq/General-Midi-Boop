@@ -1538,7 +1538,8 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     break;
                 }
             }
-            for(let t=0;;t+=activeGrid){
+            const firstVisibleTick = Math.max(0, Math.floor(this.xoffset / activeGrid) * activeGrid);
+            for(let t=firstVisibleTick;;t+=activeGrid){
                 let x=this.stepw*(t-this.xoffset)+this.yruler+this.kbwidth;
                 if(x>=this.width) break;
                 if(x < this.yruler+this.kbwidth) continue;
