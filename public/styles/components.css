@@ -1222,8 +1222,8 @@
     align-items: center;
     justify-content: center;
     padding: 0 10px;
-    font-size: 11px;
-    color: #666;
+    font-size: 16px;
+    color: #999;
     background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
     border: 1px solid #444;
     border-left: none;
