@@ -616,7 +616,8 @@ class InstrumentDatabase {
    * @param {string} newDeviceId - Current device identifier
    */
   reconcileDeviceId(oldDeviceId, newDeviceId) {
-    try {
+    // Wrap all updates in a transaction to prevent partial state on failure
+    const runReconciliation = this.db.transaction(() => {
       // Get all entries for old device_id
       const oldEntries = this.db.prepare(
         'SELECT * FROM instruments_latency WHERE device_id = ?'
@@ -663,6 +664,19 @@ class InstrumentDatabase {
       } catch (e) {
         // Table may not exist
       }
+
+      // Also update string_instruments table if it exists
+      try {
+        this.db.prepare(
+          'UPDATE string_instruments SET device_id = ? WHERE device_id = ?'
+        ).run(newDeviceId, oldDeviceId);
+      } catch (e) {
+        // Table may not exist
+      }
+    });
+
+    try {
+      runReconciliation();
     } catch (error) {
       this.logger.error(`Failed to reconcile device_id "${oldDeviceId}" -> "${newDeviceId}": ${error.message}`);
       throw error;

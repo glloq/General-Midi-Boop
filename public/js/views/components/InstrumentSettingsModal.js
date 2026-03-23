@@ -517,7 +517,7 @@ class InstrumentSettingsModal extends BaseModal {
 
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.syncDelay') || 'Délai de synchronisation'}</label>
-                <input type="number" id="syncDelay" value="${settings.sync_delay || 0}" min="-2147483648" max="2147483647">
+                <input type="number" id="syncDelay" value="${settings.sync_delay || 0}" min="-5000" max="5000">
                 <span class="ism-form-hint">${this.t('instrumentSettings.syncDelayHelp') || 'Ajustement du timing en millisecondes'}</span>
             </div>
 

@@ -289,6 +289,20 @@ async function instrumentUpdateSettings(app, data) {
     data.sync_delay = parsedDelay;
   }
 
+  // Validate gm_program range (0-127 for instruments, null allowed)
+  if (data.gm_program !== undefined && data.gm_program !== null) {
+    const gmProg = parseInt(data.gm_program);
+    if (isNaN(gmProg) || gmProg < 0 || gmProg > 127) {
+      throw new Error('gm_program must be between 0 and 127');
+    }
+    data.gm_program = gmProg;
+  }
+
+  // Validate custom_name length
+  if (data.custom_name && data.custom_name.length > 255) {
+    throw new Error('custom_name must not exceed 255 characters');
+  }
+
   const id = app.database.updateInstrumentSettings(data.deviceId, channel, {
     custom_name: data.custom_name,
     sync_delay: data.sync_delay,
@@ -337,6 +351,15 @@ async function instrumentUpdateCapabilities(app, data) {
   const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
   if (channel < 0 || channel > 15) {
     throw new Error('channel must be between 0 and 15');
+  }
+
+  // Validate polyphony range
+  if (data.polyphony !== undefined && data.polyphony !== null) {
+    const poly = parseInt(data.polyphony);
+    if (isNaN(poly) || poly < 1 || poly > 128) {
+      throw new Error('polyphony must be between 1 and 128');
+    }
+    data.polyphony = poly;
   }
 
   const id = app.database.updateInstrumentCapabilities(data.deviceId, channel, {
@@ -493,20 +516,45 @@ async function instrumentDelete(app, data) {
     throw new Error('deviceId is required');
   }
 
+  const errors = [];
+  const hasChannel = data.channel !== undefined && data.channel !== null;
+  const channel = hasChannel ? parseInt(data.channel) : null;
+
+  if (hasChannel && (channel < 0 || channel > 15)) {
+    throw new Error('channel must be between 0 and 15');
+  }
+
   // Delete instrument settings/capabilities from instruments_latency
-  // If channel is provided, delete only that specific channel; otherwise delete all
   try {
-    if (data.channel !== undefined && data.channel !== null) {
-      const channel = parseInt(data.channel);
-      if (channel < 0 || channel > 15) {
-        throw new Error('channel must be between 0 and 15');
-      }
+    if (hasChannel) {
       app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
     } else {
       app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
     }
   } catch (e) {
-    // May not have latency settings
+    errors.push(`instruments_latency: ${e.message}`);
+  }
+
+  // Cascade: delete associated string instrument configs
+  try {
+    if (hasChannel) {
+      app.database.db.prepare('DELETE FROM string_instruments WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
+    } else {
+      app.database.db.prepare('DELETE FROM string_instruments WHERE device_id = ?').run(data.deviceId);
+    }
+  } catch (e) {
+    // string_instruments table may not exist
+  }
+
+  // Cascade: delete associated MIDI instrument routings
+  try {
+    if (hasChannel) {
+      app.database.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
+    } else {
+      app.database.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ?').run(data.deviceId);
+    }
+  } catch (e) {
+    // midi_instrument_routings table may not exist
   }
 
   // Delete from instruments table if exists
@@ -521,6 +569,10 @@ async function instrumentDelete(app, data) {
     app.database.deleteLatencyProfile(data.deviceId);
   } catch (e) {
     // May not have a latency profile
+  }
+
+  if (errors.length > 0) {
+    console.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
   }
 
   return {

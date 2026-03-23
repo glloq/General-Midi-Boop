@@ -93,7 +93,7 @@ async function stringInstrumentApplyPreset(app, data) {
 }
 
 async function stringInstrumentCreateFromPreset(app, data) {
-  if (!data.device_id && data.device_id !== '') throw new Error('device_id is required');
+  if (!data.device_id) throw new Error('device_id is required');
   if (data.channel === undefined) throw new Error('channel is required');
   if (!data.preset) throw new Error('preset key is required');
 
