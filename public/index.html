@@ -4433,6 +4433,7 @@
     <link rel="stylesheet" href="styles/piano-roll-view.css">
     <link rel="stylesheet" href="styles/auto-assign-modal.css">
     <link rel="stylesheet" href="styles/instrument-capabilities-modal.css">
+    <link rel="stylesheet" href="styles/instrument-settings-modal.css">
     <link rel="stylesheet" href="styles/tablature.css">
     <link rel="stylesheet" href="styles/drum-pattern.css">
     <link rel="stylesheet" href="styles/wind-editor.css">
@@ -5011,6 +5012,7 @@
 
     <!-- Instrument Capabilities Modal Component (no modal dependency) -->
     <script src="js/views/components/InstrumentCapabilitiesModal.js"></script>
+    <script src="js/views/components/InstrumentSettingsModal.js"></script>
 
     <!-- Auto-Assign Modal Component -->
     <script src="js/views/components/AutoAssignModal.js"></script>
@@ -9118,8 +9120,11 @@
             }
         }
 
-        // Afficher la modale de réglages d'instrument
-        window.showInstrumentSettings = showInstrumentSettings;
+        // Afficher la modale de réglages d'instrument (proxy vers le nouveau composant)
+        window.showInstrumentSettings = function(device) {
+            const modal = new InstrumentSettingsModal(api);
+            return modal.show(device);
+        };
         window.showConfirm = showConfirm;
 
         // ========== MULTI-INSTRUMENT TABS STATE ==========
