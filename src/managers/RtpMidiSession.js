@@ -24,6 +24,8 @@ class RtpMidiSession extends EventEmitter {
     this.sequenceNumber = Math.floor(Math.random() * 0xFFFF);
     this.timestamp = 0;
     this.ssrc = Math.floor(Math.random() * 0xFFFFFFFF); // Synchronization source identifier
+    this.timestampEpoch = Date.now(); // Reference time for RTP timestamp calculation
+    this.RTP_MIDI_CLOCK_RATE = 10000; // 10 kHz clock rate per RFC 6295
 
     // Session state
     this.sessionInitialized = false;
@@ -303,17 +305,21 @@ class RtpMidiSession extends EventEmitter {
       }
     });
 
-    // Incrémenter numéro de séquence et timestamp
+    // Incrémenter numéro de séquence (timestamp is now calculated from real time in createRtpPacket)
     this.sequenceNumber = (this.sequenceNumber + 1) & 0xFFFF;
-    this.timestamp += 1; // Simplified: devrait être basé sur le temps réel
   }
 
   /**
    * Crée un paquet RTP contenant des commandes MIDI
+   * RFC 6295 compliant: RTP header + MIDI command section header + MIDI data
    * @param {Array<number>} midiBytes - Commandes MIDI
    * @returns {Buffer} Paquet RTP
    */
   createRtpPacket(midiBytes) {
+    // Calculate real-time based RTP timestamp (10 kHz clock rate per RFC 6295)
+    const elapsedMs = Date.now() - this.timestampEpoch;
+    this.timestamp = Math.floor(elapsedMs * this.RTP_MIDI_CLOCK_RATE / 1000) & 0xFFFFFFFF;
+
     // Header RTP (12 bytes)
     const header = Buffer.alloc(12);
 
@@ -332,11 +338,29 @@ class RtpMidiSession extends EventEmitter {
     // Bytes 8-11: SSRC
     header.writeUInt32BE(this.ssrc, 8);
 
-    // Payload: MIDI commands
+    // RFC 6295 MIDI command section header
+    // Short header (1 byte) when MIDI data length <= 15 bytes
+    // Long header (2 bytes) when MIDI data length > 15 bytes
+    // Bit 4 (P): 0 = no phantom status, Bit 5 (Z): 0 = MIDI list present
+    // Bit 6 (J): 0 = no journal section
+    const midiLength = midiBytes.length;
+    let midiHeader;
+
+    if (midiLength <= 0x0F) {
+      // Short header: B=0, J=0, Z=0, P=0, length in bits 3-0
+      midiHeader = Buffer.from([midiLength & 0x0F]);
+    } else {
+      // Long header: B=1, J=0, Z=0, P=0, length in 12 bits
+      const highByte = 0x80 | ((midiLength >> 8) & 0x0F);
+      const lowByte = midiLength & 0xFF;
+      midiHeader = Buffer.from([highByte, lowByte]);
+    }
+
+    // Payload: MIDI command section header + MIDI data
     const payload = Buffer.from(midiBytes);
 
-    // Combiner header + payload
-    return Buffer.concat([header, payload]);
+    // Combiner header + MIDI command section header + payload
+    return Buffer.concat([header, midiHeader, payload]);
   }
 
   /**

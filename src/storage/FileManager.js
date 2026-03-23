@@ -15,6 +15,8 @@ class FileManager {
 
   async handleUpload(filename, base64Data) {
     try {
+      const uploadStartTime = Date.now();
+
       // Validate size before decoding (base64 is ~4/3 of original size)
       const MAX_MIDI_SIZE = 50 * 1024 * 1024; // 50MB max
       const estimatedSize = Math.ceil(base64Data.length * 3 / 4);
@@ -26,20 +28,25 @@ class FileManager {
       const buffer = Buffer.from(base64Data, 'base64');
 
       // Validate MIDI file
+      const parseStartTime = Date.now();
       let midi;
       try {
         midi = parseMidi(buffer);
       } catch (error) {
         throw new Error(`Invalid MIDI file: ${error.message}`);
       }
+      const parseTimeMs = Date.now() - parseStartTime;
 
       // Extract metadata
+      const metadataStartTime = Date.now();
       const metadata = this.extractMetadata(midi);
 
       // Extract instrument metadata for filtering
       const instrumentMetadata = this.extractInstrumentMetadata(midi);
+      const analysisTimeMs = Date.now() - metadataStartTime;
 
       // Store in database with filter metadata
+      const dbStartTime = Date.now();
       const fileId = this.app.database.insertFile({
         filename: filename,
         data: base64Data,
@@ -61,8 +68,11 @@ class FileManager {
           this.app.logger.warn(`Failed to insert channel details for ${filename}: ${err.message}`);
         }
       }
+      const dbTimeMs = Date.now() - dbStartTime;
 
-      this.app.logger.info(`File uploaded: ${filename} (${fileId}) - Instruments: ${instrumentMetadata.fileMetadata.instrument_types}`);
+      const totalTimeMs = Date.now() - uploadStartTime;
+
+      this.app.logger.info(`File uploaded: ${filename} (${fileId}) - Instruments: ${instrumentMetadata.fileMetadata.instrument_types} - Total: ${totalTimeMs}ms (parse: ${parseTimeMs}ms, analysis: ${analysisTimeMs}ms, db: ${dbTimeMs}ms)`);
 
       // Broadcast file list update
       this.broadcastFileList();
@@ -71,9 +81,37 @@ class FileManager {
         fileId: fileId,
         filename: filename,
         size: buffer.length,
+        sizeFormatted: this.formatFileSize(buffer.length),
         tracks: midi.tracks.length,
         duration: metadata.duration,
-        tempo: metadata.tempo,
+        durationFormatted: this.formatDuration(metadata.duration || 0),
+        tempo: Math.round(metadata.tempo || 120),
+        ppq: midi.header.ticksPerBeat || 480,
+        format: midi.header.format,
+        // Channel analysis details
+        channelCount: instrumentMetadata.fileMetadata.channel_count,
+        channels: instrumentMetadata.channelDetails.map(ch => ({
+          channel: ch.channel,
+          channelDisplay: ch.channel + 1,
+          program: ch.primaryProgram,
+          instrumentName: ch.gmInstrumentName,
+          category: ch.gmCategory,
+          type: ch.estimatedType,
+          noteRange: { min: ch.noteRangeMin, max: ch.noteRangeMax },
+          totalNotes: ch.totalNotes,
+          polyphonyMax: ch.polyphonyMax
+        })),
+        instrumentTypes: instrumentMetadata.fileMetadata.instrument_types,
+        hasDrums: !!instrumentMetadata.fileMetadata.has_drums,
+        hasMelody: !!instrumentMetadata.fileMetadata.has_melody,
+        hasBass: !!instrumentMetadata.fileMetadata.has_bass,
+        // Processing timing (for UI feedback)
+        processingTime: {
+          totalMs: totalTimeMs,
+          parseMs: parseTimeMs,
+          analysisMs: analysisTimeMs,
+          dbMs: dbTimeMs
+        },
         midi: this.convertMidiToJSON(midi)
       };
     } catch (error) {

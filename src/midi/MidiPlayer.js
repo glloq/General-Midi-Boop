@@ -891,6 +891,10 @@ class MidiPlayer {
     this.channelRouting.set(channel, { device: deviceId, targetChannel: target });
     this.app.logger.info(`Channel ${channel + 1} routed to ${deviceId} (target ch ${target + 1})`);
 
+    // Invalidate compensation cache — new routing may change the max compensation
+    this._maxCompensationMs = 0;
+    this._syncDelayCache.clear();
+
     // Update channel info
     const channelInfo = this.channels.find(c => c.channel === channel);
     if (channelInfo) {
@@ -900,6 +904,8 @@ class MidiPlayer {
 
   clearChannelRouting() {
     this.channelRouting.clear();
+    this._maxCompensationMs = 0;
+    this._syncDelayCache.clear();
     this.channels.forEach(c => c.assignedDevice = null);
     this.app.logger.info('All channel routing cleared');
   }

@@ -522,6 +522,11 @@ class BluetoothManager extends EventEmitter {
 
   /**
    * Envoie des données MIDI à un périphérique
+   * Apple BLE MIDI packet format:
+   *   Byte 0: Header byte (bit 7 = 1, bits 5-0 = timestamp high 6 bits)
+   *   For each MIDI message:
+   *     Timestamp byte (bit 7 = 1, bits 6-0 = timestamp low 7 bits)
+   *     MIDI status byte + data bytes
    */
   async sendMidiData(address, midiData) {
     const deviceConnection = this.connectedDevices.get(address);
@@ -531,9 +536,18 @@ class BluetoothManager extends EventEmitter {
     }
 
     try {
-      // Format BLE MIDI: timestamp header + données MIDI
-      const timestamp = 0x80; // Header simple avec bit 7 à 1
-      const bleData = Buffer.from([timestamp, ...midiData]);
+      // Build Apple BLE MIDI compliant packet
+      // Use millisecond timestamp (13-bit, wraps at 8192ms)
+      const now = Date.now() % 8192;
+      const timestampHigh = (now >> 7) & 0x3F;
+      const timestampLow = now & 0x7F;
+
+      // Header byte: bit 7 set + timestamp high bits
+      const headerByte = 0x80 | timestampHigh;
+      // Timestamp byte: bit 7 set + timestamp low bits
+      const tsByte = 0x80 | timestampLow;
+
+      const bleData = Buffer.from([headerByte, tsByte, ...midiData]);
 
       await deviceConnection.characteristic.writeValue(bleData);
 
