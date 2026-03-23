@@ -181,12 +181,23 @@ class MidiEditorPlayback {
 
             this.loadSequenceForPlayback();
 
-            if (m.pianoRoll && m.pianoRoll.cursor > 0) {
-                m.synthesizer.seek(m.pianoRoll.cursor);
-            }
+            // Determine start position: use cursor if within range, otherwise range start
+            const cursorTick = m.pianoRoll ? (m.pianoRoll.cursor || 0) : 0;
+            const rangeStart = m.synthesizer.startTick || 0;
+            const rangeEnd = m.synthesizer.endTick || 0;
+            const startAt = (cursorTick >= rangeStart && cursorTick <= rangeEnd && cursorTick > 0)
+                ? cursorTick : rangeStart;
+
+            // Set currentTick before play() so play() respects it via isPaused path
+            m.synthesizer.currentTick = startAt;
+            m.synthesizer.lastScheduledTick = startAt;
+            m.synthesizer.isPaused = true; // Trick: play() will resume from currentTick
         } else if (m.isPaused) {
+            // Resume from current cursor position
             if (m.pianoRoll) {
-                m.synthesizer.seek(m.pianoRoll.cursor);
+                const cursorTick = m.pianoRoll.cursor || 0;
+                m.synthesizer.currentTick = Math.max(m.synthesizer.startTick, Math.min(cursorTick, m.synthesizer.endTick));
+                m.synthesizer.lastScheduledTick = m.synthesizer.currentTick;
             }
         }
 
