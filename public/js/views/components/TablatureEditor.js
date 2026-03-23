@@ -139,6 +139,10 @@ class TablatureEditor {
         if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
         document.removeEventListener('keydown', this._onKeyDown);
         this._detachCanvasEvents();
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
+        }
         if (this.renderer) {
             this.renderer.destroy();
             this.renderer = null;
@@ -206,6 +210,7 @@ class TablatureEditor {
                     <button class="tab-tool-btn tab-close-btn" data-action="tab-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>
+            <div class="playback-timeline-wrap tab-timeline-container" id="tab-timeline-container"></div>
             <div class="tablature-body">
                 <div class="tablature-canvas-wrapper">
                     <canvas id="tablature-canvas" class="tablature-canvas"></canvas>
@@ -299,6 +304,56 @@ class TablatureEditor {
             }
             if (pr.xoffset) {
                 this.renderer.scrollX = pr.xoffset;
+            }
+        }
+
+        // Initialize PlaybackTimelineBar
+        this._initTimelineBar();
+    }
+
+    _initTimelineBar() {
+        const timelineContainer = this.containerEl?.querySelector('#tab-timeline-container');
+        if (!timelineContainer || typeof PlaybackTimelineBar === 'undefined') return;
+
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
+        }
+
+        const headerWidth = this.renderer?.headerWidth || 50;
+
+        this.timelineBar = new PlaybackTimelineBar(timelineContainer, {
+            ticksPerBeat: 480,
+            beatsPerMeasure: 4,
+            leftOffset: headerWidth,
+            height: 30,
+            onSeek: (tick) => {
+                if (this.modal.pianoRoll) {
+                    this.modal.pianoRoll.cursor = tick;
+                }
+                if (this.modal.synthesizer && typeof this.modal.synthesizer.seek === 'function') {
+                    this.modal.synthesizer.seek(tick);
+                }
+            },
+            onRangeChange: (start, end) => {
+                if (this.modal.pianoRoll) {
+                    this.modal.pianoRoll.setAttribute('markstart', start.toString());
+                    this.modal.pianoRoll.setAttribute('markend', end.toString());
+                }
+                if (this.modal.timelineBar) {
+                    this.modal.timelineBar.setRange(start, end);
+                }
+            },
+        });
+
+        if (this.modal.pianoRoll) {
+            const pr = this.modal.pianoRoll;
+            const maxTick = this.modal.midiData?.maxTick || 0;
+            this.timelineBar.setTotalTicks(maxTick);
+            this.timelineBar.setRange(pr.markstart || 0, pr.markend || maxTick);
+            if (this.renderer) {
+                this.timelineBar.setZoom(this.renderer.ticksPerPixel);
+                this.timelineBar.setScrollX(this.renderer.scrollX);
             }
         }
     }
@@ -511,6 +566,14 @@ class TablatureEditor {
             }
 
             this.renderer.setPlayhead(tick);
+        }
+
+        // Update timeline bar
+        if (this.timelineBar) {
+            this.timelineBar.setPlayhead(tick);
+            if (this.renderer) {
+                this.timelineBar.setScrollX(this.renderer.scrollX);
+            }
         }
 
         // Update fretboard diagram with current positions

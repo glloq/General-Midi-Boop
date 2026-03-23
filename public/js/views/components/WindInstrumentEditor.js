@@ -118,6 +118,10 @@ class WindInstrumentEditor {
     destroy() {
         document.removeEventListener('keydown', this._onKeyDown);
         this._detachCanvasEvents();
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
+        }
         if (this.renderer) {
             this.renderer.destroy();
             this.renderer = null;
@@ -166,6 +170,7 @@ class WindInstrumentEditor {
                     <button class="wind-tool-btn wind-close-btn" data-action="wind-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>
+            <div class="playback-timeline-wrap wind-timeline-container" id="wind-timeline-container"></div>
             <div class="wind-editor-body">
                 <div class="wind-melody-canvas-wrapper">
                     <canvas id="wind-melody-canvas" class="wind-melody-canvas"></canvas>
@@ -316,6 +321,58 @@ class WindInstrumentEditor {
 
         if (this.articulationPanel) {
             this.articulationPanel.setRenderer(this.renderer);
+        }
+
+        // Initialize PlaybackTimelineBar
+        this._initTimelineBar();
+    }
+
+    _initTimelineBar() {
+        const timelineContainer = this.containerEl?.querySelector('#wind-timeline-container');
+        if (!timelineContainer || typeof PlaybackTimelineBar === 'undefined') return;
+
+        if (this.timelineBar) {
+            this.timelineBar.destroy();
+            this.timelineBar = null;
+        }
+
+        const ticksPerBeat = this.renderer?.ticksPerBeat || 480;
+        const headerWidth = this.renderer?.headerWidth || 50;
+
+        this.timelineBar = new PlaybackTimelineBar(timelineContainer, {
+            ticksPerBeat: ticksPerBeat,
+            beatsPerMeasure: this.renderer?.beatsPerMeasure || 4,
+            leftOffset: headerWidth,
+            height: 30,
+            onSeek: (tick) => {
+                if (this.modal.pianoRoll) {
+                    this.modal.pianoRoll.cursor = tick;
+                }
+                if (this.modal.synthesizer && typeof this.modal.synthesizer.seek === 'function') {
+                    this.modal.synthesizer.seek(tick);
+                }
+            },
+            onRangeChange: (start, end) => {
+                if (this.modal.pianoRoll) {
+                    this.modal.pianoRoll.setAttribute('markstart', start.toString());
+                    this.modal.pianoRoll.setAttribute('markend', end.toString());
+                }
+                if (this.modal.timelineBar) {
+                    this.modal.timelineBar.setRange(start, end);
+                }
+            },
+        });
+
+        // Sync with piano roll state
+        if (this.modal.pianoRoll) {
+            const pr = this.modal.pianoRoll;
+            const maxTick = this.modal.midiData?.maxTick || 0;
+            this.timelineBar.setTotalTicks(maxTick);
+            this.timelineBar.setRange(pr.markstart || 0, pr.markend || maxTick);
+            if (this.renderer) {
+                this.timelineBar.setZoom(this.renderer.ticksPerPixel);
+                this.timelineBar.setScrollX(this.renderer.scrollX);
+            }
         }
     }
 
@@ -656,6 +713,14 @@ class WindInstrumentEditor {
                 }
             }
             this.renderer.setPlayhead(tick);
+        }
+
+        // Update timeline bar
+        if (this.timelineBar) {
+            this.timelineBar.setPlayhead(tick);
+            if (this.renderer) {
+                this.timelineBar.setScrollX(this.renderer.scrollX);
+            }
         }
     }
 

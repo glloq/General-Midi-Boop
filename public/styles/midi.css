@@ -1,22 +1,23 @@
 /* ======================================================================================
    STYLES MIDI - MIDI ORCHESTRION
    ======================================================================================
-   Piano roll, visualizer, notes MIDI, instruments
+   Piano roll, visualizer, notes MIDI, instruments.
+   This file uses CSS variables defined in variables.css for theme support.
    ====================================================================================== */
 
 /* ===== PIANO ROLL STYLES ===== */
 .piano-roll {
-    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
-    border: 1px solid #444;
+    background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
     position: relative;
 }
 
 .piano-roll-header {
-    background: #333;
+    background: var(--bg-tertiary);
     padding: 10px;
-    border-bottom: 1px solid #555;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -31,7 +32,7 @@
 .piano-roll-canvas {
     position: relative;
     overflow: auto;
-    background: #1a1a1a;
+    background: var(--bg-primary);
 }
 
 /* ===== TOUCHES DE PIANO ===== */
@@ -45,7 +46,7 @@
     pointer-events: none;
     font-size: 10px;
     text-align: center;
-    border: 1px solid #444;
+    border: 1px solid var(--border-color);
 }
 
 .piano-key-display:hover {
@@ -54,6 +55,7 @@
     z-index: 10;
 }
 
+/* Piano key colors are constant across themes */
 .piano-key-display.black-key {
     background: linear-gradient(135deg, #2c3e50, #34495e) !important;
     color: #ecf0f1;
@@ -103,13 +105,13 @@
 
 /* Animation d'entrée pour les nouvelles notes */
 @keyframes noteSlideIn {
-    from { 
-        transform: translateX(50px); 
-        opacity: 0; 
+    from {
+        transform: translateX(50px);
+        opacity: 0;
     }
-    to { 
-        transform: translateX(0); 
-        opacity: 1; 
+    to {
+        transform: translateX(0);
+        opacity: 1;
     }
 }
 
@@ -125,8 +127,8 @@
 
 /* ===== VISUALISEUR MIDI ===== */
 .midi-visualizer {
-    background: #1a1a1a;
-    border: 1px solid #333;
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
     border-radius: 8px;
     overflow: hidden;
     position: relative;
@@ -139,12 +141,12 @@
 }
 
 .visualizer-controls {
-    background: #333;
+    background: var(--bg-tertiary);
     padding: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px solid #555;
+    border-top: 1px solid var(--border-color);
 }
 
 .visualizer-mode-selector {
@@ -154,7 +156,7 @@
 
 .mode-btn {
     padding: 6px 12px;
-    background: #555;
+    background: var(--border-color);
     color: white;
     border: none;
     border-radius: 4px;
@@ -164,11 +166,11 @@
 }
 
 .mode-btn.active {
-    background: #667eea;
+    background: var(--accent-primary);
 }
 
 .mode-btn:hover:not(.active) {
-    background: #666;
+    background: var(--text-secondary);
 }
 
 /* ===== SLIDER DE PROGRESSION MIDI ===== */
@@ -180,7 +182,7 @@
     outline: none;
     transition: all 0.3s ease;
     cursor: pointer;
-    background: linear-gradient(to right, #667eea 0%, #667eea var(--progress, 0%), #ddd var(--progress, 0%), #ddd 100%);
+    background: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) var(--progress, 0%), var(--border-color) var(--progress, 0%), var(--border-color) 100%);
 }
 
 #progressSlider::-webkit-slider-thumb {
@@ -189,7 +191,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #667eea;
+    background: var(--accent-primary);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     transition: all 0.3s ease;
@@ -204,7 +206,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #667eea;
+    background: var(--accent-primary);
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
@@ -212,8 +214,8 @@
 
 /* ===== ASSIGNATIONS D'INSTRUMENTS ===== */
 .instrument-assignment {
-    background: white;
-    border: 1px solid #e9ecef;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 10px;
@@ -239,7 +241,7 @@
 }
 
 .channel-number {
-    background: #667eea;
+    background: var(--accent-primary);
     color: white;
     width: 30px;
     height: 30px;
@@ -253,7 +255,7 @@
 
 .channel-name {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text-primary);
 }
 
 .assignment-controls {
@@ -273,12 +275,12 @@
 }
 
 .mute-btn.muted {
-    background: #dc3545;
+    background: var(--danger-color);
     color: white;
 }
 
 .mute-btn:not(.muted) {
-    background: #28a745;
+    background: var(--success-color);
     color: white;
 }
 
@@ -292,7 +294,7 @@
     appearance: none;
     height: 4px;
     border-radius: 2px;
-    background: #ddd;
+    background: var(--border-color);
     outline: none;
 }
 
@@ -302,7 +304,7 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #667eea;
+    background: var(--accent-primary);
     cursor: pointer;
 }
 
@@ -331,13 +333,13 @@
 
 .thumbnail-view {
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--bg-primary);
     border-radius: 8px;
     transition: all 0.3s ease;
 }
 
 .thumbnail-view.active {
-    background: white;
+    background: var(--bg-secondary);
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -358,7 +360,7 @@
     align-items: center;
     height: 80px;
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--bg-primary);
     border-radius: 8px;
 }
 
@@ -378,7 +380,7 @@
 
 /* ===== SPECTOGRAMME ===== */
 .spectogram-thumbnail {
-    background: linear-gradient(to right, #1a1a1a 0%, #333 50%, #1a1a1a 100%);
+    background: linear-gradient(to right, var(--bg-primary) 0%, var(--bg-tertiary) 50%, var(--bg-primary) 100%);
     color: white;
     display: flex;
     align-items: center;
@@ -396,7 +398,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
         linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.3) 25%, transparent 50%, rgba(118, 75, 162, 0.3) 75%, transparent 100%);
     animation: spectrogramScan 3s ease-in-out infinite;
 }
@@ -408,7 +410,7 @@
 
 /* ===== ONGLETS DES MINIATURES ===== */
 .thumbnail-tabs {
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 2px solid var(--border-color);
     margin-bottom: 15px;
     display: flex;
     gap: 5px;
@@ -423,7 +425,7 @@
     transition: all 0.2s ease;
     font-size: 0.9rem;
     font-weight: 500;
-    color: #666;
+    color: var(--text-secondary);
     position: relative;
     overflow: hidden;
 }
@@ -435,13 +437,13 @@
     left: 50%;
     width: 0;
     height: 2px;
-    background: #667eea;
+    background: var(--accent-primary);
     transition: all 0.3s ease;
     transform: translateX(-50%);
 }
 
 .thumbnail-tab-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--accent-gradient);
     color: white;
     transform: translateY(-2px);
 }
@@ -451,18 +453,18 @@
 }
 
 .thumbnail-tab-btn:hover:not(.active) {
-    background: #f8f9fa;
-    color: #333;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     transform: translateY(-1px);
 }
 
 /* ===== TIMELINE INTERACTIVE ===== */
 .timeline-canvas {
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
     position: relative;
-    background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+    background: linear-gradient(to bottom, var(--bg-primary), var(--bg-tertiary));
 }
 
 .timeline-segment {
@@ -494,7 +496,7 @@
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 8px;
-    background: white;
+    background: var(--bg-secondary);
 }
 
 .track-item::before {
@@ -504,14 +506,14 @@
     top: 0;
     bottom: 0;
     width: 4px;
-    background: var(--channel-color, #667eea);
+    background: var(--channel-color, var(--accent-primary));
     transition: width 0.3s ease;
 }
 
 .track-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border-color: #e9ecef;
+    border-color: var(--border-color);
 }
 
 .track-item:hover::before {
@@ -526,12 +528,12 @@
 
 .track-name {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text-primary);
 }
 
 .track-details {
     font-size: 0.8rem;
-    color: #6c757d;
+    color: var(--text-secondary);
     margin-top: 4px;
 }
 
@@ -586,6 +588,7 @@
     transform: scale(1.02);
 }
 
+/* Piano key colors are constant across themes */
 .piano-key.black-key {
     background: linear-gradient(135deg, #2c3e50, #34495e);
     color: #ecf0f1;
@@ -625,3 +628,105 @@
 .channel-13 { --channel-color: #85c1e9; }
 .channel-14 { --channel-color: #d2b4de; }
 .channel-15 { --channel-color: #a3e4d7; }
+
+/* ======================================================================================
+   THEME OVERRIDES - Dark mode and Colored theme specific adjustments for MIDI elements
+   ====================================================================================== */
+
+/* ===== DARK MODE OVERRIDES ===== */
+body.dark-mode .piano-roll {
+    box-shadow: var(--shadow-heavy);
+}
+
+body.dark-mode .piano-roll-header {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .mode-btn {
+    color: var(--text-primary);
+}
+
+body.dark-mode .mode-btn:hover:not(.active) {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .instrument-assignment {
+    box-shadow: var(--shadow-light);
+}
+
+body.dark-mode .instrument-assignment:hover {
+    box-shadow: var(--shadow-medium);
+}
+
+body.dark-mode .thumbnail-view.active {
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .piano-roll-thumbnail {
+    background: linear-gradient(to bottom, #000, var(--bg-tertiary));
+}
+
+body.dark-mode .track-item:hover {
+    box-shadow: var(--shadow-medium);
+}
+
+body.dark-mode .spectogram-thumbnail {
+    color: var(--text-primary);
+}
+
+body.dark-mode .thumbnail-tab-btn:hover:not(.active) {
+    background: var(--bg-secondary);
+}
+
+/* ===== COLORED THEME OVERRIDES ===== */
+body.theme-colored .piano-roll {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-medium);
+}
+
+body.theme-colored .piano-roll-header {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.theme-colored .mode-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.theme-colored .mode-btn:hover:not(.active) {
+    background: var(--bg-secondary);
+}
+
+body.theme-colored .instrument-assignment {
+    backdrop-filter: blur(8px);
+}
+
+body.theme-colored .instrument-assignment:hover {
+    box-shadow: var(--shadow-medium);
+}
+
+body.theme-colored .thumbnail-view.active {
+    box-shadow: inset 0 2px 8px rgba(118, 75, 162, 0.1);
+}
+
+body.theme-colored .track-item {
+    backdrop-filter: blur(8px);
+}
+
+body.theme-colored .track-item:hover {
+    box-shadow: var(--shadow-medium);
+}
+
+body.theme-colored .spectogram-thumbnail {
+    color: var(--text-primary);
+}
+
+body.theme-colored .thumbnail-tab-btn:hover:not(.active) {
+    background: var(--bg-secondary);
+}
+
+body.theme-colored .timeline-canvas {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-light);
+}
