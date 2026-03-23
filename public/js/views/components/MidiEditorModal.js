@@ -4231,17 +4231,18 @@ class MidiEditorModal {
         this.isPlaying = false;
         this.isPaused = false;
 
-        // Remettre le curseur au marqueur de début
-        const resetTick = this.pianoRoll ? (this.pianoRoll.markstart || 0) : 0;
+        // Remettre le curseur au début du fichier (tick 0) et scroller la vue
+        const resetTick = 0;
 
         if (this.pianoRoll) {
             this.pianoRoll.cursor = resetTick;
-            this.pianoRoll.redraw();
+            this.pianoRoll.xoffset = 0;
         }
 
         // Mettre à jour la timeline bar
         if (this.timelineBar) {
             this.timelineBar.setPlayhead(resetTick);
+            this.timelineBar.setScrollX(0);
         }
 
         // Reset tablature playhead and clear fretboard positions
