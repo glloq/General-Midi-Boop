@@ -261,8 +261,94 @@ class InstrumentSettingsModal extends BaseModal {
     }
 
     _renderNotesSection() {
-        // Placeholder — sera rempli à l'étape 3
-        return '<p>Section Notes (à implémenter)</p>';
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const settings = tab.settings;
+        const isString = typeof isGmStringInstrument === 'function' && isGmStringInstrument(settings.gm_program);
+        const noteMode = settings.note_selection_mode || 'range';
+
+        // CC grid — common CCs with labels
+        const commonCCs = [
+            { num: 1, name: 'Mod' }, { num: 2, name: 'Breath' }, { num: 7, name: 'Vol' },
+            { num: 10, name: 'Pan' }, { num: 11, name: 'Expr' }, { num: 64, name: 'Sust' },
+            { num: 65, name: 'Port' }, { num: 66, name: 'Sosten' }, { num: 71, name: 'Res' },
+            { num: 74, name: 'Cutoff' }, { num: 91, name: 'Reverb' }, { num: 93, name: 'Chorus' }
+        ];
+        const currentCCs = settings.supported_ccs
+            ? (Array.isArray(settings.supported_ccs) ? settings.supported_ccs : String(settings.supported_ccs).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))
+            : [];
+
+        let ccGridHtml = '';
+        for (const cc of commonCCs) {
+            const checked = currentCCs.includes(cc.num) ? 'checked' : '';
+            ccGridHtml += `<label class="ism-cc-item ${checked}">
+                <input type="checkbox" class="ism-cc-checkbox" value="${cc.num}" ${checked}>
+                <span class="ism-cc-num">${cc.num}</span>
+                <span>${cc.name}</span>
+            </label>`;
+        }
+
+        const polyphonyVal = tab.stringInstrumentConfig
+            ? tab.stringInstrumentConfig.num_strings
+            : (settings.polyphony || '');
+
+        return `
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">🎹</span> ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
+
+            <div id="noteSelectionSection" style="${isString ? 'display: none;' : ''}">
+                <div class="ism-form-group">
+                    <label>${this.t('instrumentSettings.noteSelection') || 'Sélection des notes'}</label>
+                    <div class="ism-mode-toggle">
+                        <button type="button" class="ism-mode-btn ${noteMode !== 'discrete' ? 'active' : ''}" data-mode="range">
+                            📏 ${this.t('instrumentSettings.modeRange') || 'Plage continue'}
+                        </button>
+                        <button type="button" class="ism-mode-btn ${noteMode === 'discrete' ? 'active' : ''}" data-mode="discrete">
+                            🥁 ${this.t('instrumentSettings.modeDiscrete') || 'Notes individuelles'}
+                        </button>
+                    </div>
+
+                    <div class="ism-piano-container">
+                        <div class="piano-range-container">
+                            <div class="piano-range-info">
+                                <span id="pianoModeHelp">${noteMode === 'discrete'
+                                    ? (this.t('instrumentSettings.clickToToggle') || 'Cliquez pour sélectionner/désélectionner')
+                                    : (this.t('instrumentSettings.clickToSelect') || 'Cliquez sur les touches pour définir la plage')}</span>
+                                <span class="range-display" id="pianoRangeDisplay"></span>
+                            </div>
+                            <div class="piano-nav-wrapper">
+                                <button type="button" class="piano-nav-btn" id="pianoNavLeft" onclick="navigatePiano(-1)">◀</button>
+                                <div class="piano-viewport">
+                                    <div class="piano-keyboard-mini" id="pianoKeyboardMini"></div>
+                                </div>
+                                <button type="button" class="piano-nav-btn" id="pianoNavRight" onclick="navigatePiano(1)">▶</button>
+                            </div>
+                            <div class="piano-octave-indicator" id="pianoOctaveIndicator"></div>
+                            <div class="piano-range-buttons" id="pianoPresetButtons">
+                                <button type="button" class="btn-small" onclick="clearPianoRange()">${this.t('common.clear') || 'Effacer'}</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="noteSelectionModeInput" value="${noteMode}">
+                    <input type="hidden" id="noteRangeMin" value="${settings.note_range_min != null ? settings.note_range_min : ''}">
+                    <input type="hidden" id="noteRangeMax" value="${settings.note_range_max != null ? settings.note_range_max : ''}">
+                    <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
+                </div>
+            </div>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.polyphony') || 'Polyphonie'}</label>
+                <input type="number" id="polyphonyInput" value="${polyphonyVal}" min="1" max="128" placeholder="16">
+                <span class="ism-form-hint">${this.t('instrumentSettings.polyphonyHelp') || 'Nombre maximum de notes simultanées (1-128)'}</span>
+            </div>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.supportedCCs') || 'CC supportés'}</label>
+                <div class="ism-cc-grid">${ccGridHtml}</div>
+                <input type="hidden" id="supportedCCs" value="${currentCCs.join(', ')}">
+                <span class="ism-form-hint">${this.t('instrumentSettings.supportedCCsHelp') || 'Sélectionnez les Control Changes supportés par cet instrument'}</span>
+            </div>
+        `;
     }
 
     _renderStringsSection() {
@@ -500,6 +586,26 @@ class InstrumentSettingsModal extends BaseModal {
                     b.style.background = bCh === ch ? color : '';
                     b.style.color = bCh === ch ? '#fff' : '';
                 });
+            });
+        });
+
+        // Note selection mode toggle
+        this.$$('.ism-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                this.$$('.ism-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+                if (typeof setNoteSelectionMode === 'function') setNoteSelectionMode(mode);
+            });
+        });
+
+        // CC grid checkboxes
+        this.$$('.ism-cc-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                cb.closest('.ism-cc-item').classList.toggle('checked', cb.checked);
+                const selected = [];
+                this.$$('.ism-cc-checkbox:checked').forEach(c => selected.push(parseInt(c.value)));
+                const hidden = this.$('#supportedCCs');
+                if (hidden) hidden.value = selected.join(', ');
             });
         });
 
