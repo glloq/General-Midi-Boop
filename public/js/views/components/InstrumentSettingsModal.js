@@ -502,8 +502,45 @@ class InstrumentSettingsModal extends BaseModal {
     }
 
     _renderAdvancedSection() {
-        // Placeholder — sera rempli à l'étape 6
-        return '<p>Section Avancé (à implémenter)</p>';
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const settings = tab.settings;
+
+        return `
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">⚙️</span> ${this.t('instrumentSettings.sectionAdvanced') || 'Avancé'}</h3>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.syncDelay') || 'Délai de synchronisation'}</label>
+                <input type="number" id="syncDelay" value="${settings.sync_delay || 0}" min="-2147483648" max="2147483647">
+                <span class="ism-form-hint">${this.t('instrumentSettings.syncDelayHelp') || 'Ajustement du timing en millisecondes'}</span>
+            </div>
+
+            ${tab.isBleDevice ? `
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.macAddress') || 'Adresse MAC Bluetooth'}</label>
+                <input type="text" id="macAddress" value="${this.escape(settings.mac_address || '')}" placeholder="AA:BB:CC:DD:EE:FF">
+                <span class="ism-form-hint">${this.t('instrumentSettings.macAddressHelp') || 'Adresse MAC du périphérique Bluetooth'}</span>
+            </div>
+            ` : '<input type="hidden" id="macAddress" value="">'}
+
+            ${settings.sysex_identity ? `
+            <div class="ism-form-group">
+                <label>SysEx Identity</label>
+                <div class="ism-info-card">
+                    <span>${this.escape(JSON.stringify(settings.sysex_identity))}</span>
+                </div>
+            </div>
+            ` : ''}
+
+            ${settings.capabilities_source ? `
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.capabilitiesSource') || 'Source des capacités'}</label>
+                <div class="ism-info-card">
+                    <span>${this.escape(settings.capabilities_source)}</span>
+                </div>
+            </div>
+            ` : ''}
+        `;
     }
 
     // ========== NAVIGATION ==========
@@ -634,8 +671,150 @@ class InstrumentSettingsModal extends BaseModal {
     // ========== SAVE ==========
 
     async _save() {
-        // Placeholder — sera rempli à l'étape 6
-        console.log('Save not yet implemented');
+        try {
+            const customName = (this.$('#customName')?.value || '').trim();
+            const syncDelay = parseInt(this.$('#syncDelay')?.value) || 0;
+            const macAddress = (this.$('#macAddress')?.value || '').trim();
+
+            // GM Program
+            const gmSelect = this.$('#gmProgramSelect');
+            const gmRaw = gmSelect && gmSelect.value !== '' ? parseInt(gmSelect.value) : null;
+            const gmDecoded = gmRaw !== null && typeof selectValueToGmProgram === 'function'
+                ? selectValueToGmProgram(gmRaw) : { program: null, isDrumKit: false };
+            const gmProgram = gmDecoded.program;
+
+            // Polyphony
+            const polyVal = (this.$('#polyphonyInput')?.value || '').trim();
+            const polyphony = polyVal !== '' ? parseInt(polyVal) : null;
+
+            // Note selection
+            const noteSelectionMode = this.$('#noteSelectionModeInput')?.value || 'range';
+            const noteRangeMin = this.$('#noteRangeMin')?.value?.trim();
+            const noteRangeMax = this.$('#noteRangeMax')?.value?.trim();
+            const parsedMin = noteRangeMin !== '' && noteRangeMin != null ? parseInt(noteRangeMin) : null;
+            const parsedMax = noteRangeMax !== '' && noteRangeMax != null ? parseInt(noteRangeMax) : null;
+
+            let selectedNotes = null;
+            if (noteSelectionMode === 'discrete') {
+                const input = this.$('#selectedNotesInput')?.value?.trim();
+                if (input) { try { selectedNotes = JSON.parse(input); } catch(e) {} }
+            }
+
+            // For drums section: use drum selected notes if in drum mode
+            if (this._drumSelectedNotes && this._drumSelectedNotes.size > 0 && (this.activeChannel === 9 || gmDecoded.isDrumKit)) {
+                selectedNotes = [...this._drumSelectedNotes].sort((a, b) => a - b);
+            }
+
+            // Supported CCs
+            const ccsVal = (this.$('#supportedCCs')?.value || '').trim();
+            let supportedCCs = null;
+            if (ccsVal) {
+                supportedCCs = ccsVal.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 0 && n <= 127);
+                if (supportedCCs.length === 0) supportedCCs = null;
+            }
+
+            // Validate range
+            if (noteSelectionMode === 'range') {
+                if (parsedMin !== null && (parsedMin < 0 || parsedMin > 127)) throw new Error('Note min: 0-127');
+                if (parsedMax !== null && (parsedMax < 0 || parsedMax > 127)) throw new Error('Note max: 0-127');
+                if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) throw new Error('Min > Max');
+            }
+
+            // Channel
+            const originalChannel = this.activeChannel;
+            const channelInput = this.$('#channelSelect');
+            const userChannel = channelInput ? parseInt(channelInput.value) : originalChannel;
+            const saveChannel = gmDecoded.isDrumKit ? 9 : userChannel;
+
+            // Handle channel change
+            if (saveChannel !== originalChannel) {
+                try {
+                    await this.api.sendCommand('instrument_delete', { deviceId: this.device.id, channel: originalChannel });
+                } catch (e) { console.warn('Could not delete old channel:', e); }
+                const tab = this._getActiveTab();
+                if (tab) {
+                    tab.channel = saveChannel;
+                    this.activeChannel = saveChannel;
+                }
+            }
+
+            // Save base settings
+            await this.api.sendCommand('instrument_update_settings', {
+                deviceId: this.device.id,
+                channel: saveChannel,
+                custom_name: customName || null,
+                sync_delay: syncDelay,
+                mac_address: macAddress || null,
+                name: this.device.name,
+                gm_program: gmProgram
+            });
+
+            // String instrument path
+            const isStringInst = typeof isGmStringInstrument === 'function' && isGmStringInstrument(gmProgram);
+
+            if (isStringInst) {
+                const numStrings = parseInt(this.$('#siNumStrings')?.value) || 6;
+                const tuning = [], perStringFrets = [];
+                for (let i = 0; i < numStrings; i++) {
+                    tuning.push(parseInt(this.$(`#siTuning${i}`)?.value) || 40);
+                    perStringFrets.push(parseInt(this.$(`#siFrets${i}`)?.value) || 24);
+                }
+                const computedMin = Math.min(...tuning);
+                const computedMax = Math.max(...tuning.map((t, i) => t + perStringFrets[i]));
+
+                await this.api.sendCommand('instrument_update_capabilities', {
+                    deviceId: this.device.id, channel: saveChannel,
+                    note_selection_mode: 'range',
+                    note_range_min: Math.max(0, computedMin),
+                    note_range_max: Math.min(127, computedMax),
+                    selected_notes: null,
+                    supported_ccs: supportedCCs,
+                    polyphony: polyphony || numStrings,
+                    capabilities_source: 'manual'
+                });
+
+                const maxFrets = Math.max(...perStringFrets);
+                const instrumentName = typeof getGMInstrumentName === 'function'
+                    ? (getGMInstrumentName(gmProgram || 0) || 'Guitar') : 'Guitar';
+
+                const siData = {
+                    device_id: this.device.id, channel: saveChannel,
+                    instrument_name: instrumentName, num_strings: numStrings,
+                    num_frets: maxFrets, tuning, is_fretless: 0, capo_fret: 0
+                };
+
+                const tab = this._getActiveTab();
+                if (tab?.stringInstrumentConfig?.id) {
+                    siData.id = tab.stringInstrumentConfig.id;
+                    await this.api.sendCommand('string_instrument_update', siData);
+                } else {
+                    await this.api.sendCommand('string_instrument_create', siData);
+                }
+            } else {
+                // Standard / drum instrument
+                await this.api.sendCommand('instrument_update_capabilities', {
+                    deviceId: this.device.id, channel: saveChannel,
+                    note_selection_mode: (gmDecoded.isDrumKit || this.activeChannel === 9) ? 'discrete' : noteSelectionMode,
+                    note_range_min: noteSelectionMode === 'range' && !gmDecoded.isDrumKit ? parsedMin : null,
+                    note_range_max: noteSelectionMode === 'range' && !gmDecoded.isDrumKit ? parsedMax : null,
+                    selected_notes: (noteSelectionMode === 'discrete' || gmDecoded.isDrumKit) ? selectedNotes : null,
+                    supported_ccs: supportedCCs,
+                    polyphony,
+                    capabilities_source: 'manual'
+                });
+            }
+
+            // Close and refresh
+            this.close();
+            if (typeof loadDevices === 'function') await loadDevices();
+            if (window.instrumentManagementPageInstance) window.instrumentManagementPageInstance.refresh();
+
+        } catch (error) {
+            console.error('Save error:', error);
+            if (typeof showAlert === 'function') {
+                await showAlert(`Erreur: ${error.message}`, { title: 'Erreur de sauvegarde', icon: '❌' });
+            }
+        }
     }
 
     // ========== DATA LOADING ==========
