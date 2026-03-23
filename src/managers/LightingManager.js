@@ -39,9 +39,10 @@ class LightingManager extends EventEmitter {
     try {
       this.loadRules();
       this.loadDevices();
+      this._loadGroups();
       this._setupEventListeners();
       this._startHealthCheck();
-      this.logger.info(`LightingManager initialized: ${this.drivers.size} device(s), ${this.allRules.length} rule(s)`);
+      this.logger.info(`LightingManager initialized: ${this.drivers.size} device(s), ${this.allRules.length} rule(s), ${this.deviceGroups.size} group(s)`);
     } catch (error) {
       this.logger.warn(`LightingManager init partial: ${error.message}`);
     }
@@ -203,6 +204,10 @@ class LightingManager extends EventEmitter {
 
   _evaluateWildcardEvent(event) {
     if (this.allRules.length === 0) return;
+
+    // Skip wildcard evaluation if this event was already routed to an instrument
+    // (routed events already evaluate wildcard rules in _evaluateRoutedEvent)
+    if (event.destination) return;
 
     const wildcardRules = this.rulesByInstrument.get('*');
     if (!wildcardRules || wildcardRules.length === 0) return;
@@ -803,13 +808,35 @@ class LightingManager extends EventEmitter {
 
   // ==================== DEVICE GROUPS ====================
 
+  _loadGroups() {
+    try {
+      const groups = this.app.database.getLightingGroups();
+      this.deviceGroups.clear();
+      for (const group of groups) {
+        this.deviceGroups.set(group.name, new Set(group.device_ids));
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to load lighting groups: ${error.message}`);
+    }
+  }
+
   createGroup(name, deviceIds) {
     this.deviceGroups.set(name, new Set(deviceIds));
+    try {
+      this.app.database.insertLightingGroup(name, deviceIds);
+    } catch (error) {
+      this.logger.warn(`Failed to persist group "${name}": ${error.message}`);
+    }
     return { success: true };
   }
 
   deleteGroup(name) {
     this.deviceGroups.delete(name);
+    try {
+      this.app.database.deleteLightingGroup(name);
+    } catch (error) {
+      this.logger.warn(`Failed to delete group "${name}" from DB: ${error.message}`);
+    }
     return { success: true };
   }
 

@@ -429,17 +429,53 @@ class LightingControlPage {
   }
 
   _buildColorPreview(action) {
+    const pill = (bg) => `<div style="width:28px;height:16px;border-radius:4px;background:${bg};border:1px solid #ddd;flex-shrink:0;"></div>`;
     if (action.type === 'velocity_mapped' && action.color_map) {
       const c0 = action.color_map['0'] || '#0000FF';
       const c64 = action.color_map['64'] || '#FFFF00';
       const c127 = action.color_map['127'] || '#FF0000';
-      return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,${c0},${c64},${c127});border:1px solid #ddd;flex-shrink:0;"></div>`;
+      return pill(`linear-gradient(to right,${c0},${c64},${c127})`);
     }
     if (action.type === 'rainbow' || action.type === 'color_cycle') {
-      return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000);border:1px solid #ddd;flex-shrink:0;"></div>`;
+      return pill('linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000)');
     }
     if (action.type === 'fire') {
-      return `<div style="width:28px;height:16px;border-radius:4px;background:linear-gradient(to right,#FF4500,#FF8C00,#FFD700,#FF6347);border:1px solid #ddd;flex-shrink:0;"></div>`;
+      return pill('linear-gradient(to right,#FF4500,#FF8C00,#FFD700,#FF6347)');
+    }
+    if (action.type === 'vu_meter') {
+      return pill('linear-gradient(to right,#00FF00,#FFFF00,#FF0000)');
+    }
+    if (action.type === 'note_color') {
+      return pill('linear-gradient(to right,#FF0000,#FF8000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000)');
+    }
+    if (action.type === 'color_temp') {
+      return pill('linear-gradient(to right,#FF9329,#FFD4A3,#FFF4E5,#CAE2FF)');
+    }
+    if (action.type === 'random_color') {
+      return pill('linear-gradient(to right,#FF0000,#00FF00,#0000FF,#FF00FF,#FFFF00)');
+    }
+    if (action.type === 'note_led') {
+      return pill('linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF)');
+    }
+    if (action.type === 'sparkle') {
+      return pill('linear-gradient(135deg,#333 25%,#FFF 30%,#333 35%,#FFF 60%,#333 65%,#FFF 80%,#333 85%)');
+    }
+    if (action.type === 'strobe') {
+      return pill('linear-gradient(to right,#FFF 0%,#FFF 45%,#000 50%,#000 95%,#FFF 100%)');
+    }
+    if (action.type === 'chase') {
+      const c1 = action.color || '#FF0000';
+      const c2 = action.color2 || '#000000';
+      return pill(`repeating-linear-gradient(to right,${c1} 0px,${c1} 7px,${c2} 7px,${c2} 14px)`);
+    }
+    if (action.type === 'wave') {
+      const c1 = action.color || '#0000FF';
+      const c2 = action.color2 || '#000000';
+      return pill(`linear-gradient(to right,${c2},${c1},${c2},${c1},${c2})`);
+    }
+    if (action.type === 'breathe') {
+      const c = action.color || '#FF0000';
+      return pill(`linear-gradient(to right,#000,${c},#000)`);
     }
     const color = action.color || '#FFFFFF';
     return `<div style="width:16px;height:16px;border-radius:50%;background:${this._escapeHtml(color)};border:2px solid #ddd;flex-shrink:0;"></div>`;
@@ -664,6 +700,11 @@ class LightingControlPage {
     if (!device) return;
 
     let activeEffects = [];
+    let currentBpm = 120;
+    try {
+      const bpmRes = await this.apiClient.sendCommand('lighting_bpm_get');
+      currentBpm = bpmRes.bpm || 120;
+    } catch (e) { /* ignore */ }
     try {
       const res = await this.apiClient.sendCommand('lighting_effect_list');
       activeEffects = res.effects || [];
@@ -726,10 +767,10 @@ class LightingControlPage {
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
             <button onclick="lightingControlPageInstance._tapTempo()" style="flex:1;padding:10px;border:2px solid #8b5cf6;border-radius:8px;background:${t.bgAlt};color:#8b5cf6;cursor:pointer;font-size:14px;font-weight:700;">🥁 TAP</button>
             <div style="text-align:center;">
-              <span id="leEffectBpm" style="font-size:20px;font-weight:700;color:${t.text};">120</span>
+              <span id="leEffectBpm" style="font-size:20px;font-weight:700;color:${t.text};">${currentBpm}</span>
               <div style="font-size:10px;color:${t.textMuted};">BPM</div>
             </div>
-            <input id="leEffectBpmInput" type="number" min="20" max="300" value="120" style="width:70px;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:13px;text-align:center;background:${t.inputBg};color:${t.inputText};" onchange="lightingControlPageInstance._setBpm(this.value)">
+            <input id="leEffectBpmInput" type="number" min="20" max="300" value="${currentBpm}" style="width:70px;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:13px;text-align:center;background:${t.inputBg};color:${t.inputText};" onchange="lightingControlPageInstance._setBpm(this.value)">
           </div>
 
           <div style="text-align:right;">
@@ -820,6 +861,13 @@ class LightingControlPage {
 
           <hr style="border:none;border-top:1px solid ${t.border};margin:0 0 12px;">
           ${presetsHTML}
+
+          <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
+          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">🎬 Scènes (état lumière)</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input id="lpSceneName" type="text" placeholder="${i18n.t('lighting.sceneName') || 'Nom de la scène'}" style="flex:1;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:12px;background:${t.inputBg};color:${t.inputText};box-sizing:border-box;">
+            <button onclick="lightingControlPageInstance.saveScene()" style="padding:7px 12px;border:1px solid #8b5cf6;border-radius:8px;background:${t.btnBg};color:#8b5cf6;cursor:pointer;font-size:12px;white-space:nowrap;">💾 Sauvegarder</button>
+          </div>
 
           <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
           <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">📤 Import / Export</div>
@@ -915,6 +963,20 @@ class LightingControlPage {
     }
   }
 
+  async saveScene() {
+    const name = document.getElementById('lpSceneName')?.value.trim();
+    if (!name) { this.showToast(i18n.t('lighting.sceneName') || 'Nom requis', 'warning'); return; }
+    try {
+      await this.apiClient.sendCommand('lighting_scene_save', { name });
+      this.showToast(`Scène "${name}" sauvegardée`, 'success');
+      document.getElementById('lightingPresetsPanel')?.remove();
+      const res = await this.apiClient.sendCommand('lighting_preset_list');
+      this.presets = res.presets || [];
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
+  }
+
   // ==================== ADD/EDIT DEVICE ====================
 
   showAddDeviceForm() {
@@ -946,7 +1008,7 @@ class LightingControlPage {
 
           <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.ledCount') || 'Nombre de LEDs'}</label>
-            <input id="ldFormLedCount" type="number" min="1" max="1000" value="1" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            <input id="ldFormLedCount" type="number" min="1" max="10000" value="1" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
           </div>
 
           <div id="ldFormGpioFields">
@@ -984,6 +1046,12 @@ class LightingControlPage {
               <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Subnet</label><input id="ldFormArtnetSubnet" type="number" min="0" max="15" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
               <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Canaux/LED</label><input id="ldFormArtnetChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
+            <div style="margin-bottom:8px;">
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Profil de fixture DMX</label>
+              <select id="ldFormArtnetProfile" onchange="lightingControlPageInstance._onDmxProfileChange('artnet')" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
+                <option value="">-- Manuel --</option>
+              </select>
+            </div>
             <div style="font-size:10px;color:${t.textMuted};margin-bottom:8px;">3 canaux = RGB, 4 = RGBW. Max 170 LEDs RGB par univers (512/3).</div>
           </div>
 
@@ -1001,6 +1069,12 @@ class LightingControlPage {
             <div id="ldFormSacnUnicastRow" style="display:none;">
               <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Adresse unicast</label>
               <input id="ldFormSacnHost" type="text" value="" placeholder="192.168.1.100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
+            </div>
+            <div style="margin-bottom:8px;">
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Profil de fixture DMX</label>
+              <select id="ldFormSacnProfile" onchange="lightingControlPageInstance._onDmxProfileChange('sacn')" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
+                <option value="">-- Manuel --</option>
+              </select>
             </div>
           </div>
 
@@ -1103,6 +1177,42 @@ class LightingControlPage {
         if (uRow) uRow.style.display = sacnMc.checked ? 'none' : 'block';
       };
     }
+
+    // Load DMX profiles for Art-Net/sACN
+    if (type === 'artnet' || type === 'sacn') {
+      this._loadDmxProfiles(type);
+    }
+  }
+
+  async _loadDmxProfiles(deviceType) {
+    const selectId = deviceType === 'artnet' ? 'ldFormArtnetProfile' : 'ldFormSacnProfile';
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    try {
+      if (!this._dmxProfiles) {
+        const res = await this.apiClient.sendCommand('lighting_dmx_profiles');
+        this._dmxProfiles = res.profiles || [];
+      }
+
+      select.innerHTML = '<option value="">-- Manuel --</option>' +
+        this._dmxProfiles.map(p =>
+          `<option value="${this._escapeHtml(p.id)}">${this._escapeHtml(p.name)} (${p.channels}ch)</option>`
+        ).join('');
+    } catch (e) { /* ignore - profiles not available */ }
+  }
+
+  _onDmxProfileChange(deviceType) {
+    const selectId = deviceType === 'artnet' ? 'ldFormArtnetProfile' : 'ldFormSacnProfile';
+    const channelsId = deviceType === 'artnet' ? 'ldFormArtnetChannels' : 'ldFormSacnChannels';
+    const select = document.getElementById(selectId);
+    const channelsInput = document.getElementById(channelsId);
+    if (!select || !channelsInput || !this._dmxProfiles) return;
+
+    const profile = this._dmxProfiles.find(p => p.id === select.value);
+    if (profile) {
+      channelsInput.value = profile.channels;
+    }
   }
 
   _addStripEntry() {
@@ -1169,7 +1279,7 @@ class LightingControlPage {
     }
 
     const type = document.getElementById('ldFormType').value;
-    let ledCount = Math.max(1, Math.min(1000, parseInt(document.getElementById('ldFormLedCount').value) || 1));
+    let ledCount = Math.max(1, Math.min(10000, parseInt(document.getElementById('ldFormLedCount').value) || 1));
 
     let connectionConfig = {};
     if (type === 'gpio') {
@@ -1284,67 +1394,250 @@ class LightingControlPage {
     if (!this.selectedDeviceId) return;
     const device = this.devices.find(d => d.id === this.selectedDeviceId);
     if (!device) return;
-    const t = this._t();
-    const is = `style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"`;
 
-    const formHTML = `
-      <div id="lightingEditDeviceForm" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
-        <div style="background:${t.bg};border-radius:12px;padding:20px;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-          <h3 style="margin:0 0 16px;font-size:16px;color:${t.text};">✏️ Modifier "${this._escapeHtml(device.name)}"</h3>
+    // Reuse the add device form, then populate with existing values
+    this._editingDeviceId = device.id;
+    this.showAddDeviceForm();
 
-          <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Nom</label>
-            <input id="leditName" type="text" value="${this._escapeHtml(device.name)}" ${is}>
-          </div>
+    // Defer to let the DOM render
+    requestAnimationFrame(() => {
+      // Update the title
+      const formEl = document.getElementById('lightingDeviceForm');
+      if (!formEl) return;
+      const h3 = formEl.querySelector('h3');
+      if (h3) h3.textContent = `✏️ ${i18n.t('lighting.editDevice') || 'Modifier'} "${device.name}"`;
 
-          <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Nombre de LEDs</label>
-            <input id="leditLedCount" type="number" min="1" max="10000" value="${device.led_count}" ${is}>
-          </div>
+      // Pre-fill common fields
+      const nameEl = document.getElementById('ldFormName');
+      if (nameEl) nameEl.value = device.name;
 
-          <div style="margin-bottom:12px;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input id="leditEnabled" type="checkbox" ${device.enabled ? 'checked' : ''}>
-              <span style="font-size:12px;color:${t.text};">Activé</span>
-            </label>
-          </div>
+      const typeEl = document.getElementById('ldFormType');
+      if (typeEl) { typeEl.value = device.type; this._updateDeviceFormFields(); }
 
-          <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Configuration (JSON)</label>
-            <textarea id="leditConfig" rows="4" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:11px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};font-family:monospace;resize:vertical;">${this._escapeHtml(JSON.stringify(device.connection_config, null, 2))}</textarea>
-          </div>
+      const ledCountEl = document.getElementById('ldFormLedCount');
+      if (ledCountEl) ledCountEl.value = device.led_count;
 
-          <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button onclick="document.getElementById('lightingEditDeviceForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Annuler</button>
-            <button onclick="lightingControlPageInstance.submitEditDevice()" style="padding:7px 14px;border:none;border-radius:8px;background:#8b5cf6;color:white;cursor:pointer;font-weight:600;font-size:12px;">Enregistrer</button>
-          </div>
-        </div>
-      </div>`;
+      const cfg = device.connection_config || {};
 
-    const div = document.createElement('div');
-    div.innerHTML = formHTML;
-    document.body.appendChild(div.firstElementChild);
+      // Pre-fill type-specific fields
+      if (device.type === 'gpio') {
+        if (cfg.pins) {
+          const pinR = document.getElementById('ldFormPinR');
+          const pinG = document.getElementById('ldFormPinG');
+          const pinB = document.getElementById('ldFormPinB');
+          if (pinR) pinR.value = cfg.pins.r ?? 17;
+          if (pinG) pinG.value = cfg.pins.g ?? 27;
+          if (pinB) pinB.value = cfg.pins.b ?? 22;
+        }
+      } else if (device.type === 'gpio_strip') {
+        // Clear default entries and repopulate
+        const stripsContainer = document.getElementById('ldFormStripsContainer');
+        if (stripsContainer) stripsContainer.innerHTML = '';
+        if (cfg.strips && cfg.strips.length) {
+          for (const strip of cfg.strips) {
+            this._addStripEntry();
+            const entries = document.querySelectorAll('#ldFormStripsContainer .strip-entry');
+            const entry = entries[entries.length - 1];
+            if (entry) {
+              const chSel = entry.querySelector('.strip-channel');
+              if (chSel) { chSel.value = strip.channel ?? 0; this._onStripChannelChange(chSel); }
+              const gpioSel = entry.querySelector('.strip-gpio');
+              if (gpioSel) gpioSel.value = strip.gpio ?? 18;
+              const ledEl = entry.querySelector('.strip-ledcount');
+              if (ledEl) ledEl.value = strip.led_count ?? 30;
+              const briEl = entry.querySelector('.strip-brightness');
+              if (briEl) briEl.value = strip.brightness ?? 255;
+            }
+          }
+        }
+        const segContainer = document.getElementById('ldFormSegmentsContainer');
+        if (segContainer) segContainer.innerHTML = '';
+        if (cfg.segments && cfg.segments.length) {
+          for (const seg of cfg.segments) {
+            this._addSegmentEntry();
+            const segEntries = document.querySelectorAll('#ldFormSegmentsContainer .segment-entry');
+            const sEntry = segEntries[segEntries.length - 1];
+            if (sEntry) {
+              const nameEl2 = sEntry.querySelector('.seg-name');
+              if (nameEl2) nameEl2.value = seg.name || '';
+              const startEl = sEntry.querySelector('.seg-start');
+              if (startEl) startEl.value = seg.start ?? 0;
+              const endEl = sEntry.querySelector('.seg-end');
+              if (endEl) endEl.value = seg.end ?? 0;
+            }
+          }
+        }
+      } else if (device.type === 'serial') {
+        const portEl = document.getElementById('ldFormSerialPort');
+        if (portEl) portEl.value = cfg.port || '/dev/ttyUSB0';
+      } else if (device.type === 'artnet') {
+        const hostEl = document.getElementById('ldFormArtnetHost');
+        if (hostEl) hostEl.value = cfg.host || '255.255.255.255';
+        const uniEl = document.getElementById('ldFormArtnetUniverse');
+        if (uniEl) uniEl.value = cfg.universe ?? 0;
+        const subEl = document.getElementById('ldFormArtnetSubnet');
+        if (subEl) subEl.value = cfg.subnet ?? 0;
+        const chEl = document.getElementById('ldFormArtnetChannels');
+        if (chEl) chEl.value = cfg.channels_per_led ?? 3;
+      } else if (device.type === 'sacn') {
+        const uniEl = document.getElementById('ldFormSacnUniverse');
+        if (uniEl) uniEl.value = cfg.universe ?? 1;
+        const priEl = document.getElementById('ldFormSacnPriority');
+        if (priEl) priEl.value = cfg.priority ?? 100;
+        const chEl = document.getElementById('ldFormSacnChannels');
+        if (chEl) chEl.value = cfg.channels_per_led ?? 3;
+        const mcEl = document.getElementById('ldFormSacnMulticast');
+        if (mcEl) { mcEl.checked = cfg.multicast !== false; mcEl.dispatchEvent(new Event('change')); }
+        if (!cfg.multicast) {
+          const hostEl = document.getElementById('ldFormSacnHost');
+          if (hostEl) hostEl.value = cfg.host || '';
+        }
+      } else if (device.type === 'mqtt') {
+        const brokerEl = document.getElementById('ldFormMqttBroker');
+        if (brokerEl) brokerEl.value = cfg.broker_url || 'mqtt://localhost:1883';
+        const topicEl = document.getElementById('ldFormMqttTopic');
+        if (topicEl) topicEl.value = cfg.base_topic || 'wled/maestro';
+        const fwEl = document.getElementById('ldFormMqttFirmware');
+        if (fwEl) fwEl.value = cfg.firmware || 'wled';
+        const userEl = document.getElementById('ldFormMqttUser');
+        if (userEl) userEl.value = cfg.username || '';
+        const passEl = document.getElementById('ldFormMqttPass');
+        if (passEl) passEl.value = cfg.password || '';
+      } else if (device.type === 'http') {
+        const urlEl = document.getElementById('ldFormHttpUrl');
+        if (urlEl) urlEl.value = cfg.base_url || 'http://192.168.1.100';
+        const fwEl = document.getElementById('ldFormHttpFirmware');
+        if (fwEl) fwEl.value = cfg.firmware || 'wled';
+        const apiEl = document.getElementById('ldFormHttpApiKey');
+        if (apiEl) apiEl.value = cfg.api_key || '';
+      } else if (device.type === 'osc') {
+        const hostEl = document.getElementById('ldFormOscHost');
+        if (hostEl) hostEl.value = cfg.host || '127.0.0.1';
+        const portEl = document.getElementById('ldFormOscPort');
+        if (portEl) portEl.value = cfg.port ?? 8000;
+        const patEl = document.getElementById('ldFormOscPattern');
+        if (patEl) patEl.value = cfg.address_pattern || '/light/{led}';
+        const fmtEl = document.getElementById('ldFormOscFormat');
+        if (fmtEl) fmtEl.value = cfg.color_format || 'rgb_float';
+      }
+
+      // Change submit button text
+      const submitBtns = formEl.querySelectorAll('button');
+      submitBtns.forEach(btn => {
+        if (btn.textContent.trim() === 'Ajouter') {
+          btn.textContent = 'Enregistrer';
+          btn.style.background = '#8b5cf6';
+          btn.onclick = () => lightingControlPageInstance.submitEditDevice();
+        }
+      });
+
+      // Disable type selector (cannot change type during edit)
+      if (typeEl) { typeEl.disabled = true; typeEl.style.opacity = '0.6'; }
+    });
   }
 
   async submitEditDevice() {
-    if (!this.selectedDeviceId) return;
-    const name = document.getElementById('leditName')?.value.trim();
-    const ledCount = parseInt(document.getElementById('leditLedCount')?.value) || 1;
-    const enabled = document.getElementById('leditEnabled')?.checked;
-    let connectionConfig;
-    try {
-      connectionConfig = JSON.parse(document.getElementById('leditConfig')?.value || '{}');
-    } catch (e) {
-      this.showToast('JSON invalide: ' + e.message, 'error'); return;
+    if (!this._editingDeviceId) return;
+
+    const nameEl = document.getElementById('ldFormName');
+    const nameErr = document.getElementById('ldFormNameError');
+    const name = nameEl?.value.trim();
+    if (!name) {
+      if (nameEl) nameEl.style.borderColor = '#ef4444';
+      if (nameErr) nameErr.style.display = 'block';
+      return;
+    }
+
+    const type = document.getElementById('ldFormType')?.value;
+    let ledCount = Math.max(1, Math.min(10000, parseInt(document.getElementById('ldFormLedCount')?.value) || 1));
+
+    // Reuse the same connection_config building logic from submitAddDevice
+    let connectionConfig = {};
+    if (type === 'gpio') {
+      connectionConfig = {
+        pins: {
+          r: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinR')?.value) || 17)),
+          g: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinG')?.value) || 27)),
+          b: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinB')?.value) || 22))
+        }
+      };
+    } else if (type === 'gpio_strip') {
+      const stripEntries = document.querySelectorAll('#ldFormStripsContainer .strip-entry');
+      const strips = [];
+      let totalLeds = 0;
+      stripEntries.forEach(entry => {
+        const count = Math.max(1, Math.min(1000, parseInt(entry.querySelector('.strip-ledcount')?.value) || 30));
+        strips.push({
+          channel: parseInt(entry.querySelector('.strip-channel')?.value),
+          gpio: parseInt(entry.querySelector('.strip-gpio')?.value),
+          led_count: count,
+          brightness: Math.max(0, Math.min(255, parseInt(entry.querySelector('.strip-brightness')?.value) || 255))
+        });
+        totalLeds += count;
+      });
+      const segEntries = document.querySelectorAll('#ldFormSegmentsContainer .segment-entry');
+      const segments = [];
+      segEntries.forEach(entry => {
+        const segName = entry.querySelector('.seg-name')?.value.trim();
+        if (segName) {
+          segments.push({
+            name: segName,
+            start: Math.max(0, parseInt(entry.querySelector('.seg-start')?.value) || 0),
+            end: Math.max(0, parseInt(entry.querySelector('.seg-end')?.value) || 0)
+          });
+        }
+      });
+      connectionConfig = { strips, segments, frequency: 800000, dma: 10 };
+      ledCount = totalLeds || 1;
+    } else if (type === 'serial') {
+      connectionConfig = { port: document.getElementById('ldFormSerialPort')?.value || '/dev/ttyUSB0', baud: 115200 };
+    } else if (type === 'artnet') {
+      connectionConfig = {
+        host: document.getElementById('ldFormArtnetHost')?.value || '255.255.255.255',
+        universe: parseInt(document.getElementById('ldFormArtnetUniverse')?.value) || 0,
+        subnet: parseInt(document.getElementById('ldFormArtnetSubnet')?.value) || 0,
+        channels_per_led: parseInt(document.getElementById('ldFormArtnetChannels')?.value) || 3
+      };
+    } else if (type === 'sacn') {
+      const multicast = document.getElementById('ldFormSacnMulticast')?.checked !== false;
+      connectionConfig = {
+        universe: parseInt(document.getElementById('ldFormSacnUniverse')?.value) || 1,
+        priority: parseInt(document.getElementById('ldFormSacnPriority')?.value) || 100,
+        channels_per_led: parseInt(document.getElementById('ldFormSacnChannels')?.value) || 3,
+        multicast,
+        host: !multicast ? (document.getElementById('ldFormSacnHost')?.value || null) : null
+      };
+    } else if (type === 'mqtt') {
+      connectionConfig = {
+        broker_url: document.getElementById('ldFormMqttBroker')?.value || 'mqtt://localhost:1883',
+        base_topic: document.getElementById('ldFormMqttTopic')?.value || 'maestro/light',
+        firmware: document.getElementById('ldFormMqttFirmware')?.value || 'wled',
+        username: document.getElementById('ldFormMqttUser')?.value || undefined,
+        password: document.getElementById('ldFormMqttPass')?.value || undefined
+      };
+    } else if (type === 'http') {
+      connectionConfig = {
+        base_url: document.getElementById('ldFormHttpUrl')?.value || 'http://localhost',
+        firmware: document.getElementById('ldFormHttpFirmware')?.value || 'wled',
+        api_key: document.getElementById('ldFormHttpApiKey')?.value || null
+      };
+    } else if (type === 'osc') {
+      connectionConfig = {
+        host: document.getElementById('ldFormOscHost')?.value || '127.0.0.1',
+        port: parseInt(document.getElementById('ldFormOscPort')?.value) || 8000,
+        address_pattern: document.getElementById('ldFormOscPattern')?.value || '/light/{led}',
+        color_format: document.getElementById('ldFormOscFormat')?.value || 'rgb_float'
+      };
     }
 
     try {
       await this.apiClient.sendCommand('lighting_device_update', {
-        id: this.selectedDeviceId,
-        name, led_count: ledCount, enabled,
+        id: this._editingDeviceId,
+        name, led_count: ledCount, enabled: true,
         connection_config: connectionConfig
       });
-      document.getElementById('lightingEditDeviceForm')?.remove();
+      document.getElementById('lightingDeviceForm')?.remove();
+      this._editingDeviceId = null;
       await this.loadData();
     } catch (error) { this.showToast(error.message, 'error'); }
   }
@@ -1802,11 +2095,10 @@ class LightingControlPage {
 
   async batchToggleRules(enabled) {
     try {
-      for (const rule of this.rules) {
-        if (rule.enabled !== enabled) {
-          await this.apiClient.sendCommand('lighting_rule_update', { id: rule.id, enabled });
-        }
-      }
+      const updates = this.rules
+        .filter(rule => rule.enabled !== enabled)
+        .map(rule => this.apiClient.sendCommand('lighting_rule_update', { id: rule.id, enabled }));
+      await Promise.all(updates);
       await this.loadRulesForDevice(this.selectedDeviceId);
     } catch (error) { this.showToast(error.message, 'error'); }
   }
@@ -2042,7 +2334,14 @@ class LightingControlPage {
     div.innerHTML = `
       <div style="background:${t.bg};border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
         <h3 style="margin:0 0 12px;font-size:14px;color:${t.text};">🎨 Sélecteur de couleur</h3>
-        <canvas id="colorWheelCanvas" width="220" height="220" style="cursor:crosshair;border-radius:50%;"></canvas>
+        <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
+          <canvas id="colorWheelCanvas" width="220" height="220" style="cursor:crosshair;border-radius:50%;"></canvas>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:10px;color:${t.textMuted};">Luminosité</span>
+            <input id="colorWheelBrightness" type="range" min="10" max="100" value="100" orient="vertical" style="writing-mode:vertical-lr;direction:rtl;height:200px;width:20px;cursor:pointer;">
+            <span id="colorWheelBriVal" style="font-size:10px;color:${t.textMuted};">100%</span>
+          </div>
+        </div>
         <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;">
           <div id="colorWheelPreview" style="width:36px;height:36px;border-radius:50%;border:3px solid ${t.border};background:#FF0000;"></div>
           <span id="colorWheelHex" style="font-size:14px;color:${t.text};font-family:monospace;">#FF0000</span>
@@ -2061,22 +2360,28 @@ class LightingControlPage {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
     const radius = Math.min(cx, cy) - 4;
+    let brightnessMultiplier = 1.0;
 
-    // Draw color wheel
-    for (let angle = 0; angle < 360; angle++) {
-      const startAngle = (angle - 1) * Math.PI / 180;
-      const endAngle = (angle + 1) * Math.PI / 180;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, startAngle, endAngle);
-      ctx.closePath();
+    const drawWheel = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let angle = 0; angle < 360; angle++) {
+        const startAngle = (angle - 1) * Math.PI / 180;
+        const endAngle = (angle + 1) * Math.PI / 180;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, startAngle, endAngle);
+        ctx.closePath();
 
-      const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, '#FFFFFF');
-      gradient.addColorStop(1, `hsl(${angle}, 100%, 50%)`);
-      ctx.fillStyle = gradient;
-      ctx.fill();
-    }
+        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        const l = Math.round(50 * brightnessMultiplier);
+        gradient.addColorStop(0, `hsl(0, 0%, ${Math.round(100 * brightnessMultiplier)}%)`);
+        gradient.addColorStop(1, `hsl(${angle}, 100%, ${l}%)`);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
+    };
+
+    drawWheel();
 
     let selectedColor = '#FF0000';
 
@@ -2094,6 +2399,17 @@ class LightingControlPage {
       if (preview) preview.style.background = selectedColor;
       if (hex) hex.textContent = selectedColor.toUpperCase();
     };
+
+    // Brightness slider
+    const briSlider = document.getElementById('colorWheelBrightness');
+    const briVal = document.getElementById('colorWheelBriVal');
+    if (briSlider) {
+      briSlider.addEventListener('input', () => {
+        brightnessMultiplier = parseInt(briSlider.value) / 100;
+        if (briVal) briVal.textContent = briSlider.value + '%';
+        drawWheel();
+      });
+    }
 
     let dragging = false;
     canvas.addEventListener('mousedown', (e) => { dragging = true; pickColor(e); });

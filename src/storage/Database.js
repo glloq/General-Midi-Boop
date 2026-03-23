@@ -494,6 +494,12 @@ class DatabaseManager {
   getLightingPresets() { return this.lightingDB.getPresets(); }
   deleteLightingPreset(id) { return this.lightingDB.deletePreset(id); }
 
+  // Lighting Groups
+  insertLightingGroup(name, deviceIds) { return this.lightingDB.insertGroup(name, deviceIds); }
+  getLightingGroups() { return this.lightingDB.getGroups(); }
+  updateLightingGroup(name, deviceIds) { return this.lightingDB.updateGroup(name, deviceIds); }
+  deleteLightingGroup(name) { return this.lightingDB.deleteGroup(name); }
+
   // String Instruments
   createStringInstrument(config) { return this.stringInstrumentDB.createStringInstrument(config); }
   getStringInstrument(deviceId, channel) { return this.stringInstrumentDB.getStringInstrument(deviceId, channel); }
