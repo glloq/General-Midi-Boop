@@ -16,6 +16,7 @@ import WebSocketServer from '../api/WebSocketServer.js';
 import HttpServer from '../api/HttpServer.js';
 import CommandHandler from '../api/CommandHandler.js';
 import AutoAssigner from '../midi/AutoAssigner.js';
+import BackupScheduler from '../storage/BackupScheduler.js';
 
 class Application {
   constructor(configPath = null) {
@@ -76,7 +77,10 @@ class Application {
       this._registerService('midiRouter', new MidiRouter(this));
       this._registerService('midiPlayer', new MidiPlayer(this));
       this._registerService('latencyCompensator', new LatencyCompensator(this));
-      this._registerService('delayCalibrator', new DelayCalibrator(this.deviceManager, this.logger));
+      this._registerService(
+        'delayCalibrator',
+        new DelayCalibrator(this.deviceManager, this.logger)
+      );
 
       // Initialize storage
       this._registerService('fileManager', new FileManager(this));
@@ -139,32 +143,56 @@ class Application {
 
     // Define handlers with references for cleanup
     const handlers = [
-      ['midi_message', (data) => {
-        this.logger.debug(`MIDI message: ${data.device} ${data.type}`);
-      }],
-      ['device_connected', (data) => {
-        this.logger.info(`Device connected: ${data.deviceId}`);
-        this.wsServer?.broadcast('device_connected', data);
-      }],
-      ['device_disconnected', (data) => {
-        this.logger.info(`Device disconnected: ${data.deviceId}`);
-        this.wsServer?.broadcast('device_disconnected', data);
-      }],
-      ['midi_routed', (data) => {
-        this.logger.debug(`MIDI routed: ${data.route}`);
-      }],
-      ['file_uploaded', (data) => {
-        this.logger.info(`File uploaded: ${data.filename}`);
-      }],
-      ['playback_started', () => {
-        this.logger.info('Playback started');
-      }],
-      ['playback_stopped', () => {
-        this.logger.info('Playback stopped');
-      }],
-      ['error', (error) => {
-        this.logger.error(`Application error: ${error.message}`);
-      }]
+      [
+        'midi_message',
+        (data) => {
+          this.logger.debug(`MIDI message: ${data.device} ${data.type}`);
+        }
+      ],
+      [
+        'device_connected',
+        (data) => {
+          this.logger.info(`Device connected: ${data.deviceId}`);
+          this.wsServer?.broadcast('device_connected', data);
+        }
+      ],
+      [
+        'device_disconnected',
+        (data) => {
+          this.logger.info(`Device disconnected: ${data.deviceId}`);
+          this.wsServer?.broadcast('device_disconnected', data);
+        }
+      ],
+      [
+        'midi_routed',
+        (data) => {
+          this.logger.debug(`MIDI routed: ${data.route}`);
+        }
+      ],
+      [
+        'file_uploaded',
+        (data) => {
+          this.logger.info(`File uploaded: ${data.filename}`);
+        }
+      ],
+      [
+        'playback_started',
+        () => {
+          this.logger.info('Playback started');
+        }
+      ],
+      [
+        'playback_stopped',
+        () => {
+          this.logger.info('Playback stopped');
+        }
+      ],
+      [
+        'error',
+        (error) => {
+          this.logger.error(`Application error: ${error.message}`);
+        }
+      ]
     ];
 
     for (const [event, handler] of handlers) {
@@ -196,6 +224,10 @@ class Application {
       this.wsServer.httpServer = this.httpServer.server;
       this.wsServer.start(); // start() already calls startHeartbeat()
 
+      // Start automated backups
+      this.backupScheduler = new BackupScheduler(this);
+      this.backupScheduler.start();
+
       this.running = true;
       this.logger.info('=== MidiMind 5.0 Running ===');
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
@@ -204,9 +236,13 @@ class Application {
       try {
         const missingCount = this.database.countFilesWithoutChannels();
         if (missingCount > 0) {
-          this.logger.info(`Found ${missingCount} files without channel analysis data, starting auto-reanalysis...`);
+          this.logger.info(
+            `Found ${missingCount} files without channel analysis data, starting auto-reanalysis...`
+          );
           const result = await this.fileManager.reanalyzeAllFiles();
-          this.logger.info(`Auto-reanalysis complete: ${result.analyzed} analyzed, ${result.failed} failed`);
+          this.logger.info(
+            `Auto-reanalysis complete: ${result.analyzed} analyzed, ${result.failed} failed`
+          );
         }
       } catch (error) {
         this.logger.warn(`Auto-reanalysis failed (non-critical): ${error.message}`);
@@ -221,6 +257,11 @@ class Application {
     try {
       this.logger.info('Stopping application...');
       this.running = false;
+
+      // Stop backup scheduler
+      if (this.backupScheduler) {
+        this.backupScheduler.stop();
+      }
 
       // Stop and destroy player
       if (this.midiPlayer) {
