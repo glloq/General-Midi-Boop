@@ -1246,6 +1246,12 @@
     filter: grayscale(0.6);
 }
 
+/* Chip playable-active state: subtle pulsing border when playable notes are shown */
+.midi-editor-modal .channel-chip.playable-active {
+    border-style: dashed;
+    border-width: 2px;
+}
+
 /* --- Compact Settings Gear Button --- */
 .midi-editor-modal .chip-settings-btn {
     display: flex;
