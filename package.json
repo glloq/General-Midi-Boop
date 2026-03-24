@@ -13,6 +13,7 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:frontend": "vitest run",
     "test:frontend:watch": "vitest",
+    "bench": "node tests/performance/benchmark.js",
     "lint": "eslint src/ public/js/ tests/",
     "lint:fix": "eslint src/ public/js/ tests/ --fix",
     "format": "prettier --write \"src/**/*.js\" \"public/js/**/*.js\" \"tests/**/*.js\"",
