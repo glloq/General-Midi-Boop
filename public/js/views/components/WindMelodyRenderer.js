@@ -320,7 +320,7 @@ class WindMelodyRenderer {
             this._redrawScheduled = true;
             requestAnimationFrame(() => {
                 this._redrawScheduled = false;
-                this.requestRedraw();
+                this.redraw();
             });
         }
     }
