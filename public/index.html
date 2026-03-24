@@ -6733,7 +6733,7 @@
         // Créer l'élément HTML pour un fichier
         function createFileElement(file) {
             const routed = isFileRouted(file.id);
-            const initialStatus = getInitialRoutingStatus(file.id, file);
+            const initialStatus = file.routingStatus || getInitialRoutingStatus(file.id, file);
 
             const li = document.createElement('li');
             li.className = 'file-item' + (initialStatus !== 'unrouted' ? ` routing-${initialStatus}` : '') + (routed ? ' routed' : '');
@@ -6774,12 +6774,19 @@
             const routedBadge = initialStatus !== 'unrouted' ? `<span class="routed-badge">${routedBadgeMap[initialStatus] || '✓'}</span>` : '';
             const fileNameSpan = document.createElement('span');
             fileNameSpan.className = 'file-name';
+            const metadataHtml = file.durationFormatted
+                ? `<span title="Durée">⏱ ${file.durationFormatted}</span>
+                   <span title="Taille du fichier">💾 ${file.sizeFormatted || ''}</span>
+                   <span title="Nombre de pistes">${file.tracks || 0} ${(file.tracks || 0) > 1 ? i18n.t('ui.tracks', 'pistes') : i18n.t('ui.track', 'piste')}</span>
+                   <span title="Canaux MIDI">🎹 ${file.channelCount || 0} ${(file.channelCount || 0) > 1 ? 'canaux' : 'canal'}</span>
+                   <span title="Tempo">♩ ${file.tempo || 120} BPM</span>`
+                : `<span>⏳ Chargement...</span>`;
             fileNameSpan.innerHTML = `
                 <div class="file-name-text" style="cursor: pointer;" title="Double-cliquer pour renommer (ou F2)">
                     ${file.filename}${routedBadge}
                 </div>
                 <div class="file-metadata" id="metadata-${file.id}">
-                    <span>⏳ Chargement...</span>
+                    ${metadataHtml}
                 </div>
             `;
 
@@ -6787,7 +6794,9 @@
             const compactMeta = document.createElement('span');
             compactMeta.className = 'file-compact-meta';
             compactMeta.id = `compact-meta-${file.id}`;
-            compactMeta.innerHTML = '';
+            compactMeta.innerHTML = file.durationFormatted
+                ? `${file.durationFormatted} · ${file.sizeFormatted || ''}`
+                : '';
 
             // Grid state badge
             const gridLabels = { unrouted: '○ Non routé', partial: '◐ Partiel', routed_incomplete: '● Routé', playable: '✓ Jouable' };
@@ -6803,8 +6812,10 @@
                 showRenameModal(file.id, file.filename);
             });
 
-            // Charger les métadonnées de manière asynchrone
-            loadFileMetadata(file.id);
+            // Only fetch metadata individually if not already provided by file list
+            if (!file.durationFormatted) {
+                loadFileMetadata(file.id);
+            }
 
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'file-actions';
