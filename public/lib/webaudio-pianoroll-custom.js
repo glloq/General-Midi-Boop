@@ -1845,25 +1845,36 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 this._renderGridBuffer();
             }
 
-            // Rebuild offscreen notes buffer if needed
-            if (this._notesDirty) {
-                this._notesDirty = false;
-                this._renderNotesBuffer();
-            }
-
-            // Composite: clear → grid → notes → rulers → overlay
+            // Composite: clear → grid
             this.ctx.clearRect(0, 0, this.width, this.height);
             this.ctx.drawImage(this._gridBuffer, 0, 0);
-            this.ctx.drawImage(this._notesBuffer, 0, 0);
 
-            // During drag: draw only selected/dragged notes directly (they move each frame)
             if (this._isDraggingNotes) {
+                // DRAG MODE: use cached notes buffer for static notes + draw dragged notes live
+                if (this._notesDirty) {
+                    this._notesDirty = false;
+                    this._renderNotesBuffer();
+                }
+                this.ctx.drawImage(this._notesBuffer, 0, 0);
+
+                // Draw only selected/dragged notes directly (they move each frame)
                 const l = this.sequence.length;
                 const visEnd = this.xoffset + this.xrange;
                 const visYEnd = this.yoffset + this.yrange;
                 for (let s = 0; s < l; ++s) {
                     const ev = this.sequence[s];
                     if (!ev.f) continue;
+                    if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
+                    if (ev.n < this.yoffset || ev.n > visYEnd) continue;
+                    this._drawNote(this.ctx, ev);
+                }
+            } else {
+                // NORMAL MODE: draw all notes directly (no buffer cache issues)
+                const l = this.sequence.length;
+                const visEnd = this.xoffset + this.xrange;
+                const visYEnd = this.yoffset + this.yrange;
+                for (let s = 0; s < l; ++s) {
+                    const ev = this.sequence[s];
                     if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
                     if (ev.n < this.yoffset || ev.n > visYEnd) continue;
                     this._drawNote(this.ctx, ev);
