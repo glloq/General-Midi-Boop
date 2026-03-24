@@ -3581,7 +3581,13 @@ class MidiEditorModal {
 
         const channelsToolbar = this.container?.querySelector('.channels-toolbar');
         if (channelsToolbar) {
+            // Preserve scroll position across DOM rebuild
+            const scrollLeft = channelsToolbar.scrollLeft;
+
             channelsToolbar.innerHTML = this.renderChannelButtons();
+
+            // Restore scroll position so the user sees the same channels as before
+            channelsToolbar.scrollLeft = scrollLeft;
 
             // Les événements sont gérés par event delegation sur this.container
             // (voir attachEventHandlers) — pas besoin de réattacher des listeners directs
@@ -5723,6 +5729,11 @@ class MidiEditorModal {
         } else {
             this.channelRouting.delete(channel);
         }
+        // Clear stale playable note highlights — the old device capabilities
+        // no longer apply to the new routing target.
+        if (this.channelPlayableHighlights.has(channel)) {
+            this._clearChannelPlayableHighlight(channel);
+        }
         // Close TAB/WIND editors if open for this channel (routed instrument type may differ)
         if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.channel === channel) {
             this.tablatureEditor.hide();
@@ -5741,30 +5752,6 @@ class MidiEditorModal {
         this._syncRoutingToDB().then(() => {
             this._emitRoutingChanged();
         });
-    }
-
-    /**
-     * Update only the routing indicator on a single channel button (non-destructive).
-     * Avoids refreshChannelButtons() which would close the popover.
-     */
-    _updateChannelButtonRouting(channel) {
-        const btn = this.container?.querySelector(`.channel-btn[data-channel="${channel}"]`);
-        if (!btn) return;
-
-        const routedName = this.getRoutedInstrumentName(channel);
-        let routeEl = btn.querySelector('.channel-routed-label');
-
-        if (routedName) {
-            if (!routeEl) {
-                routeEl = document.createElement('span');
-                routeEl.className = 'channel-routed-label';
-                btn.appendChild(routeEl);
-            }
-            routeEl.textContent = `→ ${routedName}`;
-            routeEl.title = routedName;
-        } else if (routeEl) {
-            routeEl.remove();
-        }
     }
 
     /**
@@ -6289,6 +6276,16 @@ class MidiEditorModal {
             this._stringInstrumentCCEnabled = new Map();
         }
 
+        // Guard against concurrent calls — if a refresh is already in flight,
+        // mark that another one was requested and return. The running call will
+        // re-run once it finishes.
+        if (this._refreshStringInstrumentPending) {
+            this._refreshStringInstrumentQueued = true;
+            return;
+        }
+        this._refreshStringInstrumentPending = true;
+
+        try { // outer try for concurrency guard
         try {
             // Filter by effective device to avoid showing TAB for instruments
             // configured on other devices
@@ -6394,6 +6391,15 @@ class MidiEditorModal {
                 }
             }
         });
+        } finally {
+            this._refreshStringInstrumentPending = false;
+            // If another refresh was requested while we were running, re-run now
+            // with fresh DOM state.
+            if (this._refreshStringInstrumentQueued) {
+                this._refreshStringInstrumentQueued = false;
+                this._refreshStringInstrumentChannels();
+            }
+        }
     }
 
     /**
