@@ -2272,13 +2272,35 @@ class MidiEditorModal {
                     border-color: ${color};
                 `.trim();
 
-            // TAB buttons are added dynamically by _refreshStringInstrumentChannels()
-            // after DB and GM detection completes — no inline TAB buttons here
             // DRUM button for channel 9 is always included (drums are always channel 9)
             const drumBtn = ch.channel === 9 ? `
                     <button class="channel-drum-btn" data-channel="9"
                         title="${this.t('drumPattern.toggleEditor')}">DRUM</button>
             ` : '';
+
+            // TAB/WIND buttons: render synchronously based on GM detection to avoid flicker
+            // _refreshStringInstrumentChannels() may later adjust based on DB cc_enabled
+            let tabBtn = '';
+            let windBtn = '';
+            if (ch.channel !== 9) {
+                const hasRouting = this.channelRouting.has(ch.channel);
+                if (!hasRouting) {
+                    // TAB: GM string instrument detection
+                    const isGmString = typeof MidiEditorChannelPanel !== 'undefined' &&
+                        MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
+                    const ccEnabled = this._stringInstrumentCCEnabled?.get(ch.channel);
+                    if (isGmString && ccEnabled !== false) {
+                        tabBtn = `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
+                            title="${this.t('tablature.tabButton', { instrument: ch.instrument || this.t('stringInstrument.string') })}">${this.t('midiEditor.tabButton')}</button>`;
+                    }
+                    // WIND: GM wind instrument detection (56-79)
+                    if (typeof WindInstrumentDatabase !== 'undefined' && WindInstrumentDatabase.isWindInstrument(ch.program)) {
+                        const preset = WindInstrumentDatabase.getPresetByProgram(ch.program);
+                        windBtn = `<button class="channel-wind-btn" data-channel="${ch.channel}"
+                            title="${this.t('windEditor.windEditorTitle', { name: preset?.name || this.t('windEditor.icon') })}">${this.t('midiEditor.windButton')}</button>`;
+                    }
+                }
+            }
 
             // Show routed instrument name (real device) if available
             const routedName = this.getRoutedInstrumentName(ch.channel);
@@ -2311,7 +2333,7 @@ class MidiEditorModal {
                         </button>
                         ${settingsBtn}
                     </div>
-                    ${drumBtn}
+                    ${drumBtn}${tabBtn}${windBtn}
                 </div>
             `;
         });
@@ -3539,7 +3561,12 @@ class MidiEditorModal {
                 this.drumPatternEditor && this.drumPatternEditor.isVisible
             );
 
-            // Async: reveal TAB/DRUM buttons for channels with string instrument DB configs
+            // Update WIND button active states
+            this._updateWindButtonState(
+                this.windInstrumentEditor && this.windInstrumentEditor.isVisible
+            );
+
+            // Async: adjust TAB buttons based on DB cc_enabled setting
             this._refreshStringInstrumentChannels();
         }
     }
@@ -4906,6 +4933,14 @@ class MidiEditorModal {
                 e.stopPropagation();
                 const channel = parseInt(drumBtn.dataset.channel);
                 if (!isNaN(channel)) this._openDrumPatternForChannel(channel);
+                return;
+            }
+            const windBtn = e.target.closest('.channel-wind-btn');
+            if (windBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const channel = parseInt(windBtn.dataset.channel);
+                if (!isNaN(channel)) this._openWindEditorForChannel(channel);
                 return;
             }
         });
