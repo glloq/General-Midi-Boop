@@ -254,10 +254,11 @@ class BluetoothManager extends EventEmitter {
       throw new Error('Bluetooth adapter not ready');
     }
 
+    let device = null;
     try {
       // Récupérer le périphérique
       const deviceInfo = this.devices.get(address);
-      let device = deviceInfo ? deviceInfo.deviceObject : null;
+      device = deviceInfo ? deviceInfo.deviceObject : null;
 
       if (!device) {
         this.app.logger.info(`[TIMING] Device not in cache, fetching from adapter...`);

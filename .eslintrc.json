@@ -1,0 +1,49 @@
+{
+  "env": {
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "extends": ["eslint:recommended"],
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "no-constant-condition": "warn",
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-case-declarations": "warn",
+    "no-prototype-builtins": "warn",
+    "no-control-regex": "warn"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "coverage/",
+    "backups/",
+    "logs/"
+  ],
+  "overrides": [
+    {
+      "files": ["src/**/*.js", "server.js"],
+      "env": {
+        "node": true
+      }
+    },
+    {
+      "files": ["tests/**/*.js"],
+      "env": {
+        "node": true,
+        "jest": true
+      }
+    },
+    {
+      "files": ["public/js/**/*.js"],
+      "env": {
+        "browser": true
+      },
+      "rules": {
+        "no-undef": "off"
+      }
+    }
+  ]
+}
