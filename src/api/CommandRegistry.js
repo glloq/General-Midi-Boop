@@ -7,22 +7,31 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const CURRENT_API_VERSION = 1;
+
 class CommandRegistry {
   constructor(app) {
     this.app = app;
     this.handlers = {};
+    this.versionedHandlers = {}; // { "v2:commandName": handler }
   }
 
   /**
    * Register a command handler
    * @param {string} command - Command name
    * @param {Function} handler - Async handler function (data) => result
+   * @param {number} [version] - API version (optional, registers as versioned handler)
    */
-  register(command, handler) {
-    if (this.handlers[command]) {
-      this.app.logger.warn(`CommandRegistry: overwriting handler for '${command}'`);
+  register(command, handler, version) {
+    if (version && version !== CURRENT_API_VERSION) {
+      const key = `v${version}:${command}`;
+      this.versionedHandlers[key] = handler;
+    } else {
+      if (this.handlers[command]) {
+        this.app.logger.warn(`CommandRegistry: overwriting handler for '${command}'`);
+      }
+      this.handlers[command] = handler;
     }
-    this.handlers[command] = handler;
   }
 
   /**
@@ -31,7 +40,7 @@ class CommandRegistry {
    */
   async loadCommandModules() {
     const commandsDir = join(__dirname, 'commands');
-    const files = readdirSync(commandsDir).filter(f => f.endsWith('.js'));
+    const files = readdirSync(commandsDir).filter((f) => f.endsWith('.js'));
 
     for (const file of files) {
       const modulePath = join(commandsDir, file);
@@ -41,11 +50,15 @@ class CommandRegistry {
         mod.register(this, this.app);
         this.app.logger.debug(`CommandRegistry: loaded module ${file}`);
       } else {
-        this.app.logger.warn(`CommandRegistry: ${file} does not export a register() function, skipping`);
+        this.app.logger.warn(
+          `CommandRegistry: ${file} does not export a register() function, skipping`
+        );
       }
     }
 
-    this.app.logger.info(`CommandRegistry initialized with ${Object.keys(this.handlers).length} commands`);
+    this.app.logger.info(
+      `CommandRegistry initialized with ${Object.keys(this.handlers).length} commands`
+    );
   }
 
   /**
@@ -64,8 +77,13 @@ class CommandRegistry {
         throw new Error(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
-      // Get handler
-      const handler = this.handlers[message.command];
+      // Get handler (check versioned handlers first if version specified)
+      let handler;
+      if (message.version && message.version !== CURRENT_API_VERSION) {
+        const versionedKey = `v${message.version}:${message.command}`;
+        handler = this.versionedHandlers[versionedKey];
+      }
+      handler = handler || this.handlers[message.command];
       if (!handler) {
         throw new Error(`Unknown command: ${message.command}`);
       }
@@ -79,14 +97,17 @@ class CommandRegistry {
 
       // Send response with request ID for client to match
       if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          id: message.id, // Include request ID
-          type: 'response',
-          command: message.command,
-          data: result,
-          timestamp: Date.now(),
-          duration: Date.now() - startTime
-        }));
+        ws.send(
+          JSON.stringify({
+            id: message.id,
+            type: 'response',
+            command: message.command,
+            version: CURRENT_API_VERSION,
+            data: result,
+            timestamp: Date.now(),
+            duration: Date.now() - startTime
+          })
+        );
       }
 
       this.app.logger.info(`Command ${message.command} completed in ${Date.now() - startTime}ms`);
@@ -95,13 +116,15 @@ class CommandRegistry {
       this.app.logger.error(error.stack);
 
       if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          id: message.id, // Include request ID even in errors
-          type: 'error',
-          command: message.command,
-          error: error.message,
-          timestamp: Date.now()
-        }));
+        ws.send(
+          JSON.stringify({
+            id: message.id, // Include request ID even in errors
+            type: 'error',
+            command: message.command,
+            error: error.message,
+            timestamp: Date.now()
+          })
+        );
       }
     }
   }
