@@ -805,3 +805,508 @@ describe('FileCommands.fileFilter (via register)', () => {
     expect(result.total).toBe(result.files.length);
   });
 });
+
+// ============================================================
+// SECTION 3: FilterManager (client-side)
+// ============================================================
+
+describe('FilterManager', () => {
+  let FilterManager;
+  let fm;
+  let mockApi;
+
+  beforeAll(async () => {
+    // Setup globals needed by FilterManager
+    globalThis.localStorage = {
+      store: {},
+      getItem: jest.fn(key => globalThis.localStorage.store[key] || null),
+      setItem: jest.fn((key, value) => { globalThis.localStorage.store[key] = value; }),
+      clear: jest.fn(() => { globalThis.localStorage.store = {}; })
+    };
+    globalThis.window = { i18n: null };
+
+    // FilterManager is a browser script with module.exports guard — load via CJS helper
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const loadFilterManager = require('./helpers/loadFilterManager.cjs');
+    FilterManager = loadFilterManager();
+  });
+
+  beforeEach(() => {
+    globalThis.localStorage.store = {};
+    globalThis.localStorage.getItem.mockClear();
+    globalThis.localStorage.setItem.mockClear();
+
+    mockApi = { sendCommand: jest.fn() };
+    fm = new FilterManager(mockApi);
+  });
+
+  // --- Filter state management ---
+
+  describe('filter state management', () => {
+    test('getDefaultFilters returns expected shape', () => {
+      const defaults = fm.getDefaultFilters();
+      expect(defaults).toHaveProperty('filename', '');
+      expect(defaults).toHaveProperty('folder', null);
+      expect(defaults).toHaveProperty('includeSubfolders', false);
+      expect(defaults).toHaveProperty('durationMin', null);
+      expect(defaults).toHaveProperty('durationMax', null);
+      expect(defaults).toHaveProperty('tempoMin', null);
+      expect(defaults).toHaveProperty('tempoMax', null);
+      expect(defaults).toHaveProperty('instrumentTypes');
+      expect(Array.isArray(defaults.instrumentTypes)).toBe(true);
+      expect(defaults).toHaveProperty('instrumentMode', 'ANY');
+      expect(defaults).toHaveProperty('gmInstruments');
+      expect(defaults).toHaveProperty('gmCategories');
+      expect(defaults).toHaveProperty('gmPrograms');
+      expect(defaults).toHaveProperty('gmMode', 'ANY');
+      expect(defaults).toHaveProperty('sortBy', 'uploaded_at');
+      expect(defaults).toHaveProperty('sortOrder', 'DESC');
+      expect(defaults).toHaveProperty('routingStatuses');
+      expect(defaults).toHaveProperty('playableOnInstruments');
+      expect(defaults).toHaveProperty('playableMode', 'routed');
+    });
+
+    test('setFilter updates value', () => {
+      fm.setFilter('filename', 'test');
+      expect(fm.getFilter('filename')).toBe('test');
+    });
+
+    test('setFilter invalidates cache', () => {
+      fm.cache.set('key1', [{ id: 1 }]);
+      expect(fm.cache.size).toBe(1);
+      fm.setFilter('filename', 'test');
+      expect(fm.cache.size).toBe(0);
+    });
+
+    test('setFilter with debounce delays update', async () => {
+      fm.setFilter('filename', 'delayed', true);
+      expect(fm.getFilter('filename')).toBe(''); // not set immediately
+      // Wait for debounce (300ms + margin)
+      await new Promise(r => setTimeout(r, 350));
+      expect(fm.getFilter('filename')).toBe('delayed');
+    });
+
+    test('resetFilters restores defaults', () => {
+      fm.setFilter('filename', 'test');
+      fm.setFilter('durationMin', 60);
+      fm.resetFilters();
+      expect(fm.getFilter('filename')).toBe('');
+      expect(fm.getFilter('durationMin')).toBeNull();
+    });
+
+    test('resetFilter resets single key', () => {
+      fm.setFilter('filename', 'test');
+      fm.setFilter('durationMin', 60);
+      fm.resetFilter('filename');
+      expect(fm.getFilter('filename')).toBe('');
+      expect(fm.getFilter('durationMin')).toBe(60);
+    });
+
+    test('hasActiveFilters detects active filters', () => {
+      expect(fm.hasActiveFilters()).toBe(false);
+      fm.setFilter('durationMin', 60);
+      expect(fm.hasActiveFilters()).toBe(true);
+    });
+
+    test('hasActiveFilters ignores sort/pagination', () => {
+      fm.setFilter('sortBy', 'filename');
+      fm.setFilter('sortOrder', 'ASC');
+      fm.setFilter('limit', 10);
+      fm.setFilter('offset', 5);
+      expect(fm.hasActiveFilters()).toBe(false);
+    });
+
+    test('hasActiveFilters handles arrays', () => {
+      fm.setFilter('instrumentTypes', ['Piano']);
+      expect(fm.hasActiveFilters()).toBe(true);
+      fm.setFilter('instrumentTypes', []);
+      expect(fm.hasActiveFilters()).toBe(false);
+    });
+
+    test('getActiveFilters returns list', () => {
+      fm.setFilter('filename', 'test');
+      fm.setFilter('durationMin', 60);
+      const active = fm.getActiveFilters();
+      expect(active.length).toBe(2);
+      expect(active.find(f => f.key === 'filename')).toBeDefined();
+      expect(active.find(f => f.key === 'durationMin')).toBeDefined();
+    });
+
+    test('getFilters returns copy', () => {
+      const filters = fm.getFilters();
+      filters.filename = 'modified';
+      expect(fm.getFilter('filename')).toBe(''); // original unchanged
+    });
+  });
+
+  // --- needsServerFiltering ---
+
+  describe('needsServerFiltering', () => {
+    test('returns false for simple filters only', () => {
+      fm.setFilter('filename', 'test');
+      fm.setFilter('folder', '/jazz');
+      fm.setFilter('durationMin', 60);
+      fm.setFilter('tempoMax', 120);
+      expect(fm.needsServerFiltering()).toBe(false);
+    });
+
+    test('returns true for instrumentTypes', () => {
+      fm.setFilter('instrumentTypes', ['Piano']);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for gmInstruments', () => {
+      fm.setFilter('gmInstruments', ['Acoustic Grand Piano']);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for gmCategories', () => {
+      fm.setFilter('gmCategories', ['Piano']);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for gmPrograms', () => {
+      fm.setFilter('gmPrograms', [0]);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for hasRouting', () => {
+      fm.setFilter('hasRouting', true);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for routingStatus', () => {
+      fm.setFilter('routingStatus', 'playable');
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for routingStatuses array', () => {
+      fm.setFilter('routingStatuses', ['unrouted', 'partial']);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for playableOnInstruments', () => {
+      fm.setFilter('playableOnInstruments', ['inst_1']);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for minCompatibilityScore', () => {
+      fm.setFilter('minCompatibilityScore', 80);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for channelCountMin', () => {
+      fm.setFilter('channelCountMin', 2);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for hasDrums', () => {
+      fm.setFilter('hasDrums', true);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for hasMelody', () => {
+      fm.setFilter('hasMelody', true);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+
+    test('returns true for hasBass', () => {
+      fm.setFilter('hasBass', true);
+      expect(fm.needsServerFiltering()).toBe(true);
+    });
+  });
+
+  // --- Client-side filtering ---
+
+  describe('applyClientFilters', () => {
+    const testFiles = [
+      { id: 1, filename: 'piano_sonata.mid', folder: '/classical', duration: 240, tempo: 120, tracks: 4, uploaded_at: '2026-01-15T10:00:00Z', is_original: 1 },
+      { id: 2, filename: 'rock_anthem.mid', folder: '/rock', duration: 180, tempo: 140, tracks: 6, uploaded_at: '2026-02-10T10:00:00Z', is_original: 1 },
+      { id: 3, filename: 'jazz_combo.mid', folder: '/jazz', duration: 300, tempo: 100, tracks: 5, uploaded_at: '2026-03-01T10:00:00Z', is_original: 1 },
+      { id: 4, filename: 'simple_melody.mid', folder: '/pop', duration: 60, tempo: 90, tracks: 2, uploaded_at: '2026-03-15T10:00:00Z', is_original: 0 },
+    ];
+
+    test('returns empty for empty input', () => {
+      expect(fm.applyClientFilters([])).toEqual([]);
+    });
+
+    test('returns empty for null input', () => {
+      expect(fm.applyClientFilters(null)).toEqual([]);
+    });
+
+    test('filters by filename case-insensitive', () => {
+      fm.setFilter('filename', 'PIANO');
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id)).toEqual([1]);
+    });
+
+    test('filters by folder exact match', () => {
+      fm.setFilter('folder', '/rock');
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id)).toEqual([2]);
+    });
+
+    test('filters by folder with subfolders', () => {
+      const filesWithSub = [
+        ...testFiles,
+        { id: 5, filename: 'baroque.mid', folder: '/classical/baroque', duration: 600, tempo: 80, tracks: 10, uploaded_at: '2026-01-01T10:00:00Z', is_original: 1 },
+      ];
+      fm.setFilter('folder', '/classical');
+      fm.setFilter('includeSubfolders', true);
+      const result = fm.applyClientFilters(filesWithSub);
+      expect(result.map(f => f.id).sort()).toEqual([1, 5]);
+    });
+
+    test('filters by duration range', () => {
+      fm.setFilter('durationMin', 100);
+      fm.setFilter('durationMax', 200);
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id)).toEqual([2]);
+    });
+
+    test('filters by tempo range', () => {
+      fm.setFilter('tempoMin', 100);
+      fm.setFilter('tempoMax', 130);
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id).sort()).toEqual([1, 3]);
+    });
+
+    test('filters by track count range', () => {
+      fm.setFilter('tracksMin', 5);
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id).sort()).toEqual([2, 3]);
+    });
+
+    test('filters by upload date range', () => {
+      fm.setFilter('uploadedAfter', '2026-02-01T00:00:00Z');
+      fm.setFilter('uploadedBefore', '2026-02-28T23:59:59Z');
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id)).toEqual([2]);
+    });
+
+    test('filters by isOriginal', () => {
+      fm.setFilter('isOriginal', false);
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id)).toEqual([4]);
+    });
+
+    test('combined client filters', () => {
+      fm.setFilter('durationMin', 100);
+      fm.setFilter('tempoMin', 110);
+      fm.setFilter('isOriginal', true);
+      const result = fm.applyClientFilters(testFiles);
+      expect(result.map(f => f.id).sort()).toEqual([1, 2]);
+    });
+  });
+
+  // --- Sorting ---
+
+  describe('sortFiles', () => {
+    const files = [
+      { id: 1, filename: 'beta.mid', duration: 100, uploaded_at: '2026-01-01T00:00:00Z' },
+      { id: 2, filename: 'alpha.mid', duration: 300, uploaded_at: '2026-03-01T00:00:00Z' },
+      { id: 3, filename: 'gamma.mid', duration: 200, uploaded_at: '2026-02-01T00:00:00Z' },
+    ];
+
+    test('sorts by string field ASC', () => {
+      fm.setFilter('sortBy', 'filename');
+      fm.setFilter('sortOrder', 'ASC');
+      const sorted = fm.sortFiles(files);
+      expect(sorted.map(f => f.filename)).toEqual(['alpha.mid', 'beta.mid', 'gamma.mid']);
+    });
+
+    test('sorts by numeric field DESC', () => {
+      fm.setFilter('sortBy', 'duration');
+      fm.setFilter('sortOrder', 'DESC');
+      const sorted = fm.sortFiles(files);
+      expect(sorted.map(f => f.duration)).toEqual([300, 200, 100]);
+    });
+
+    test('default sort is uploaded_at DESC', () => {
+      const sorted = fm.sortFiles(files);
+      expect(sorted.map(f => f.id)).toEqual([2, 3, 1]);
+    });
+
+    test('handles undefined values in sort', () => {
+      const filesWithUndef = [
+        { id: 1, filename: 'a.mid' },
+        { id: 2, filename: 'b.mid', duration: 100 },
+      ];
+      fm.setFilter('sortBy', 'duration');
+      fm.setFilter('sortOrder', 'DESC');
+      const sorted = fm.sortFiles(filesWithUndef);
+      expect(sorted[0].id).toBe(2); // 100 > 0 (undefined -> 0)
+    });
+  });
+
+  // --- Cache ---
+
+  describe('cache behavior', () => {
+    test('cache invalidated on filter change', () => {
+      fm.cache.set('key1', [{ id: 1 }]);
+      fm.setFilter('filename', 'test');
+      expect(fm.cache.size).toBe(0);
+    });
+
+    test('LRU eviction at max size', () => {
+      for (let i = 0; i < 21; i++) {
+        fm.addToCache(`key_${i}`, [{ id: i }]);
+      }
+      expect(fm.cache.size).toBe(20);
+      expect(fm.cache.has('key_0')).toBe(false); // first evicted
+      expect(fm.cache.has('key_20')).toBe(true);
+    });
+
+    test('getCacheKey is deterministic', () => {
+      fm.setFilter('filename', 'test');
+      const key1 = fm.getCacheKey();
+      const key2 = fm.getCacheKey();
+      expect(key1).toBe(key2);
+    });
+  });
+
+  // --- Presets ---
+
+  describe('presets', () => {
+    test('savePreset stores current filters', () => {
+      fm.setFilter('filename', 'test');
+      fm.savePreset('myPreset');
+      const presets = fm.getPresets();
+      expect(presets).toHaveLength(1);
+      expect(presets[0].name).toBe('myPreset');
+      expect(presets[0].filters.filename).toBe('test');
+    });
+
+    test('loadPreset restores filters', () => {
+      fm.setFilter('filename', 'test');
+      fm.setFilter('durationMin', 60);
+      fm.savePreset('myPreset');
+
+      fm.resetFilters();
+      expect(fm.getFilter('filename')).toBe('');
+
+      const loaded = fm.loadPreset('myPreset');
+      expect(loaded).toBe(true);
+      expect(fm.getFilter('filename')).toBe('test');
+      expect(fm.getFilter('durationMin')).toBe(60);
+    });
+
+    test('loadPreset returns false for unknown name', () => {
+      expect(fm.loadPreset('nonexistent')).toBe(false);
+    });
+
+    test('deletePreset removes preset', () => {
+      fm.savePreset('toDelete');
+      expect(fm.getPresets()).toHaveLength(1);
+      const deleted = fm.deletePreset('toDelete');
+      expect(deleted).toBe(true);
+      expect(fm.getPresets()).toHaveLength(0);
+    });
+
+    test('deletePreset returns false for unknown', () => {
+      expect(fm.deletePreset('nonexistent')).toBe(false);
+    });
+
+    test('presets persist to localStorage', () => {
+      fm.savePreset('persisted');
+      expect(globalThis.localStorage.setItem).toHaveBeenCalledWith(
+        'midiFilterPresets',
+        expect.any(String)
+      );
+    });
+
+    test('presets loaded from localStorage on construction', () => {
+      const presetData = [{ name: 'loaded', filters: fm.getDefaultFilters() }];
+      globalThis.localStorage.store['midiFilterPresets'] = JSON.stringify(presetData);
+      const fm2 = new FilterManager(mockApi);
+      expect(fm2.getPresets()).toHaveLength(1);
+      expect(fm2.getPresets()[0].name).toBe('loaded');
+    });
+
+    test('deep copy prevents mutation', () => {
+      fm.setFilter('filename', 'original');
+      fm.savePreset('safe');
+      fm.setFilter('filename', 'changed');
+      const preset = fm.getPresets().find(p => p.name === 'safe');
+      expect(preset.filters.filename).toBe('original');
+    });
+  });
+
+  // --- Quick filters ---
+
+  describe('quick filters', () => {
+    test('recent sets uploadedAfter to ~7 days ago', () => {
+      fm.applyQuickFilter('recent');
+      const val = fm.getFilter('uploadedAfter');
+      expect(val).toBeTruthy();
+      const date = new Date(val);
+      const diff = Date.now() - date.getTime();
+      // Should be approximately 7 days (allow 1 minute tolerance)
+      expect(diff).toBeGreaterThan(6.99 * 24 * 60 * 60 * 1000);
+      expect(diff).toBeLessThan(7.01 * 24 * 60 * 60 * 1000);
+    });
+
+    test('short sets durationMax=60', () => {
+      fm.applyQuickFilter('short');
+      expect(fm.getFilter('durationMax')).toBe(60);
+    });
+
+    test('piano sets gmCategories', () => {
+      fm.applyQuickFilter('piano');
+      expect(fm.getFilter('gmCategories')).toEqual(['Piano']);
+    });
+
+    test('routed sets hasRouting=true', () => {
+      fm.applyQuickFilter('routed');
+      expect(fm.getFilter('hasRouting')).toBe(true);
+    });
+
+    test('quick filter resets other filters first', () => {
+      fm.setFilter('filename', 'should_be_cleared');
+      fm.applyQuickFilter('short');
+      expect(fm.getFilter('filename')).toBe('');
+      expect(fm.getFilter('durationMax')).toBe(60);
+    });
+
+    test('unknown quick filter does not crash', () => {
+      expect(() => fm.applyQuickFilter('nonexistent')).not.toThrow();
+    });
+  });
+
+  // --- Callbacks and lifecycle ---
+
+  describe('callbacks and lifecycle', () => {
+    test('onFilterChange called on setFilter', () => {
+      const cb = jest.fn();
+      fm.onFilterChange = cb;
+      fm.setFilter('filename', 'test');
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ filename: 'test' }));
+    });
+
+    test('onFilterChange called on resetFilters', () => {
+      const cb = jest.fn();
+      fm.onFilterChange = cb;
+      fm.resetFilters();
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    test('onFilterApplied called after client filter', () => {
+      const cb = jest.fn();
+      fm.onFilterApplied = cb;
+      fm.applyClientFilters([{ id: 1, filename: 'a.mid', folder: '/', duration: 60, tempo: 120, tracks: 1, uploaded_at: '2026-01-01', is_original: 1 }]);
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    test('destroy clears timers and cache', () => {
+      fm.cache.set('key', []);
+      fm.onFilterChange = jest.fn();
+      fm.onFilterApplied = jest.fn();
+      fm.destroy();
+      expect(fm.cache.size).toBe(0);
+      expect(fm.onFilterChange).toBeNull();
+      expect(fm.onFilterApplied).toBeNull();
+    });
+  });
+});
