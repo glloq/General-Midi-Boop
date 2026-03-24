@@ -128,6 +128,22 @@ class MidiEditorFileOps {
                     noteOnCount++;
                     const channel = event.channel ?? 0;
                     const key = `${channel}_${event.noteNumber}`;
+
+                    // If a note is already active on this key, close it first
+                    // (handles overlapping noteOn without intermediate noteOff)
+                    const existing = activeNotes.get(key);
+                    if (existing) {
+                        const gate = Math.max(1, currentTick - existing.tick);
+                        allNotes.push({
+                            tick: existing.tick,
+                            note: existing.note,
+                            gate: gate,
+                            velocity: existing.velocity,
+                            channel: existing.channel
+                        });
+                        channelNoteCount.set(existing.channel, (channelNoteCount.get(existing.channel) || 0) + 1);
+                    }
+
                     activeNotes.set(key, {
                         tick: currentTick,
                         note: event.noteNumber,
@@ -164,6 +180,23 @@ class MidiEditorFileOps {
                     }
                 }
             });
+
+            // Flush orphaned notes (noteOn without matching noteOff at end of track)
+            for (const [key, noteOn] of activeNotes) {
+                const defaultGate = Math.max(1, currentTick - noteOn.tick);
+                allNotes.push({
+                    tick: noteOn.tick,
+                    note: noteOn.note,
+                    gate: defaultGate > 0 ? defaultGate : 480,
+                    velocity: noteOn.velocity,
+                    channel: noteOn.channel
+                });
+                channelNoteCount.set(noteOn.channel, (channelNoteCount.get(noteOn.channel) || 0) + 1);
+            }
+            if (activeNotes.size > 0) {
+                m.log('warn', `Track ${trackIndex}: ${activeNotes.size} orphaned notes (no noteOff) recovered`);
+            }
+            activeNotes.clear();
 
             m.log('debug', `Track ${trackIndex} summary: ${noteOnCount} note-ons, ${noteOffCount} note-offs, ${allNotes.length} complete notes`);
         });

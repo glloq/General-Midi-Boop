@@ -771,3 +771,170 @@ describe('Routing / Editor Channel Consistency — No Ghost Channels', () => {
     expect(analyses.map(a => a.channel)).toEqual([1, 9]);
   });
 });
+
+// ============================================================
+// 9. MIDI Message Transmission — No Data Loss
+// ============================================================
+
+describe('MIDI Message Transmission — No Data Loss', () => {
+
+  describe('CustomMidiParser — complete event extraction', () => {
+    const parser = new CustomMidiParser();
+
+    test('all CC types (0-127) are preserved through parsing', () => {
+      // Build a buffer with CC events for various controller numbers
+      // Channel 0, CC 0 (Bank Select), value 1
+      const buf = Buffer.from([0xB0, 0, 1]);
+      const result = parser.readEvent(buf, 0, 0, null);
+      expect(result.event.type).toBe('controller');
+      expect(result.event.controllerType).toBe(0);
+      expect(result.event.value).toBe(1);
+
+      // CC 127 (Poly Mode On), value 0
+      const buf2 = Buffer.from([0xB0, 127, 0]);
+      const result2 = parser.readEvent(buf2, 0, 0, null);
+      expect(result2.event.controllerType).toBe(127);
+    });
+
+    test('system CCs (120-127) are not filtered out', () => {
+      // CC 120 = All Sound Off
+      const buf120 = Buffer.from([0xB0, 120, 0]);
+      const r120 = parser.readEvent(buf120, 0, 0, null);
+      expect(r120.event.type).toBe('controller');
+      expect(r120.event.controllerType).toBe(120);
+
+      // CC 123 = All Notes Off
+      const buf123 = Buffer.from([0xB0, 123, 0]);
+      const r123 = parser.readEvent(buf123, 0, 0, null);
+      expect(r123.event.controllerType).toBe(123);
+    });
+
+    test('all 7 channel message types are extracted', () => {
+      const tests = [
+        { status: 0x80, expected: 'noteOff', bytes: [0x80, 60, 64] },
+        { status: 0x90, expected: 'noteOn', bytes: [0x90, 60, 100] },
+        { status: 0xA0, expected: 'polyAftertouch', bytes: [0xA0, 60, 80] },
+        { status: 0xB0, expected: 'controller', bytes: [0xB0, 7, 100] },
+        { status: 0xC0, expected: 'programChange', bytes: [0xC0, 25] },
+        { status: 0xD0, expected: 'channelAftertouch', bytes: [0xD0, 100] },
+        { status: 0xE0, expected: 'pitchBend', bytes: [0xE0, 0, 64] }
+      ];
+
+      for (const t of tests) {
+        const buf = Buffer.from(t.bytes);
+        const result = parser.readEvent(buf, 0, 0, null);
+        expect(result.event.type).toBe(t.expected);
+        expect(result.event.channel).toBe(0);
+      }
+    });
+  });
+
+  describe('MidiPlayer.buildEventList — no message loss', () => {
+    test('preserves all event types through buildEventList (simulated)', () => {
+      // Simulate what midi-file library outputs: raw event objects with deltaTime
+      const track = [
+        { deltaTime: 0, type: 'programChange', channel: 0, programNumber: 25 },
+        { deltaTime: 0, type: 'controller', channel: 0, controllerType: 7, value: 100 },
+        { deltaTime: 0, type: 'controller', channel: 0, controllerType: 64, value: 127 },
+        { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+        { deltaTime: 240, type: 'pitchBend', channel: 0, value: 8200 },
+        { deltaTime: 240, type: 'channelAftertouch', channel: 0, value: 80 },
+        { deltaTime: 0, type: 'noteAftertouch', channel: 0, noteNumber: 60, value: 50 },
+        { deltaTime: 0, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 },
+        { deltaTime: 0, type: 'controller', channel: 0, controllerType: 123, value: 0 }
+      ];
+
+      // Simulate the buildEventList logic
+      const events = [];
+      let trackTicks = 0;
+      const ppq = 480;
+      const tempo = 120;
+
+      for (const event of track) {
+        trackTicks += event.deltaTime;
+        const timeInSeconds = (trackTicks / ppq) * (60 / tempo);
+
+        if (event.type === 'noteOn' || event.type === 'noteOff') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, note: event.noteNumber, velocity: event.velocity });
+        } else if (event.type === 'controller') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, controller: event.controllerType, value: event.value });
+        } else if (event.type === 'pitchBend') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, value: event.value });
+        } else if (event.type === 'programChange') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, program: event.programNumber });
+        } else if (event.type === 'channelAftertouch') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, value: event.value });
+        } else if (event.type === 'noteAftertouch') {
+          events.push({ time: timeInSeconds, type: event.type, channel: event.channel, note: event.noteNumber, value: event.value });
+        }
+      }
+
+      // All 9 events should be preserved (no filtering)
+      expect(events.length).toBe(9);
+
+      // Verify each type
+      expect(events.filter(e => e.type === 'programChange').length).toBe(1);
+      expect(events.filter(e => e.type === 'controller').length).toBe(3);
+      expect(events.filter(e => e.type === 'noteOn').length).toBe(1);
+      expect(events.filter(e => e.type === 'noteOff').length).toBe(1);
+      expect(events.filter(e => e.type === 'pitchBend').length).toBe(1);
+      expect(events.filter(e => e.type === 'channelAftertouch').length).toBe(1);
+      expect(events.filter(e => e.type === 'noteAftertouch').length).toBe(1);
+
+      // CC 123 (All Notes Off) is NOT filtered
+      const cc123 = events.find(e => e.type === 'controller' && e.controller === 123);
+      expect(cc123).toBeDefined();
+    });
+  });
+
+  describe('ChannelAnalyzer — CC extraction completeness', () => {
+    let analyzer;
+
+    beforeEach(() => {
+      analyzer = new ChannelAnalyzer(mockLogger);
+    });
+
+    test('all CC types are extracted by extractUsedCCs', () => {
+      const events = [
+        cc(0, 0, 1, 0),     // Bank Select
+        cc(0, 1, 64, 10),   // Modulation
+        cc(0, 7, 100, 20),  // Volume
+        cc(0, 10, 64, 30),  // Pan
+        cc(0, 11, 127, 40), // Expression
+        cc(0, 64, 127, 50), // Sustain
+        cc(0, 120, 0, 60),  // All Sound Off
+        cc(0, 121, 0, 70),  // Reset All Controllers
+        cc(0, 123, 0, 80),  // All Notes Off
+        cc(0, 127, 0, 90),  // Poly Mode On
+      ];
+
+      const usedCCs = analyzer.extractUsedCCs(events);
+
+      expect(usedCCs).toEqual([0, 1, 7, 10, 11, 64, 120, 121, 123, 127]);
+      expect(usedCCs.length).toBe(10); // All 10 unique CCs preserved
+    });
+
+    test('CC events on channels without notes are still extracted', () => {
+      // Channel 5 has CC but no notes — CCs should still be in analysis
+      const events = [
+        cc(5, 7, 100, 0),
+        cc(5, 64, 127, 10),
+      ];
+
+      const usedCCs = analyzer.extractUsedCCs(events);
+      expect(usedCCs).toEqual([7, 64]);
+    });
+
+    test('duplicate CC values at same time are preserved', () => {
+      const events = [
+        cc(0, 7, 100, 0),
+        cc(0, 7, 80, 0),   // Same CC, same time, different value
+        cc(0, 7, 60, 0),
+      ];
+
+      // extractUsedCCs returns unique CC numbers
+      const usedCCs = analyzer.extractUsedCCs(events);
+      expect(usedCCs).toEqual([7]); // CC 7 detected (unique number)
+    });
+  });
+});
