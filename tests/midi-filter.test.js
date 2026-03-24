@@ -574,3 +574,234 @@ describe('MidiDatabase.filterFiles', () => {
     expect(count).toBe(8);
   });
 });
+
+// ============================================================
+// SECTION 2: FileCommands.fileFilter handler
+// ============================================================
+
+describe('FileCommands.fileFilter (via register)', () => {
+  let fileFilterHandler;
+
+  beforeAll(async () => {
+    // Capture the handler by mocking the registry
+    const mockRegistry = {
+      handlers: {},
+      register(name, handler) {
+        this.handlers[name] = handler;
+      }
+    };
+
+    const mockApp = {
+      database: {
+        filterFiles: jest.fn(() => []),
+        searchFiles: jest.fn(() => []),
+        getFile: jest.fn(),
+        getFiles: jest.fn(() => []),
+        getAllFiles: jest.fn(() => []),
+        getFileChannels: jest.fn(() => []),
+        getDistinctInstruments: jest.fn(() => []),
+        getDistinctCategories: jest.fn(() => []),
+        getRoutingsByFile: jest.fn(() => []),
+      },
+      fileManager: {
+        reanalyzeAllFiles: jest.fn(async () => ({ processed: 0, errors: 0 })),
+      }
+    };
+
+    const { register } = await import('../src/api/commands/FileCommands.js');
+    register(mockRegistry, mockApp);
+    fileFilterHandler = mockRegistry.handlers['file_filter'];
+
+    // Store mockApp for later access
+    fileFilterHandler._mockApp = mockApp;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fileFilterHandler._mockApp.database.filterFiles.mockReturnValue([]);
+  });
+
+  test('handler is registered', () => {
+    expect(fileFilterHandler).toBeDefined();
+    expect(typeof fileFilterHandler).toBe('function');
+  });
+
+  test('passes through all filter fields', async () => {
+    const data = {
+      filename: 'test',
+      folder: '/jazz',
+      includeSubfolders: true,
+      durationMin: 60,
+      durationMax: 300,
+      tempoMin: 80,
+      tempoMax: 160,
+      tracksMin: 2,
+      tracksMax: 10,
+      uploadedAfter: '2026-01-01T00:00:00Z',
+      uploadedBefore: '2026-12-31T23:59:59Z',
+      instrumentTypes: ['Piano'],
+      instrumentMode: 'ALL',
+      channelCountMin: 2,
+      channelCountMax: 8,
+      hasRouting: true,
+      isOriginal: true,
+      minCompatibilityScore: 80,
+      gmInstruments: ['Acoustic Grand Piano'],
+      gmCategories: ['Piano'],
+      gmPrograms: [0],
+      gmMode: 'ALL',
+      routingStatus: 'playable',
+      routingStatuses: ['playable', 'partial'],
+      playableOnInstruments: ['inst_1'],
+      playableMode: 'compatible',
+      hasDrums: true,
+      hasMelody: false,
+      hasBass: true,
+      sortBy: 'duration',
+      sortOrder: 'ASC',
+      limit: 10,
+      offset: 5
+    };
+
+    await fileFilterHandler(data);
+
+    const mockFn = fileFilterHandler._mockApp.database.filterFiles;
+    expect(mockFn).toHaveBeenCalledTimes(1);
+    const filters = mockFn.mock.calls[0][0];
+
+    expect(filters.filename).toBe('test');
+    expect(filters.folder).toBe('/jazz');
+    expect(filters.includeSubfolders).toBe(true);
+    expect(filters.durationMin).toBe(60);
+    expect(filters.durationMax).toBe(300);
+    expect(filters.instrumentTypes).toEqual(['Piano']);
+    expect(filters.instrumentMode).toBe('ALL');
+    expect(filters.gmInstruments).toEqual(['Acoustic Grand Piano']);
+    expect(filters.gmMode).toBe('ALL');
+    expect(filters.routingStatus).toBe('playable');
+    expect(filters.playableOnInstruments).toEqual(['inst_1']);
+    expect(filters.playableMode).toBe('compatible');
+    expect(filters.hasDrums).toBe(true);
+    expect(filters.hasMelody).toBe(false);
+    expect(filters.hasBass).toBe(true);
+    expect(filters.sortBy).toBe('duration');
+    expect(filters.sortOrder).toBe('ASC');
+    expect(filters.limit).toBe(10);
+    expect(filters.offset).toBe(5);
+  });
+
+  test('cleans undefined/null/empty values', async () => {
+    const data = {
+      filename: null,
+      folder: '',
+      instrumentTypes: [],
+      tempoMin: undefined
+    };
+
+    await fileFilterHandler(data);
+
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.filename).toBeUndefined();
+    expect(filters.folder).toBeUndefined();
+    expect(filters.instrumentTypes).toBeUndefined();
+    expect(filters.tempoMin).toBeUndefined();
+  });
+
+  test('defaults instrumentMode to ANY', async () => {
+    await fileFilterHandler({ instrumentTypes: ['Piano'] });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.instrumentMode).toBe('ANY');
+  });
+
+  test('defaults gmMode to ANY', async () => {
+    await fileFilterHandler({ gmInstruments: ['Acoustic Grand Piano'] });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.gmMode).toBe('ANY');
+  });
+
+  test('validates limit must be positive integer', async () => {
+    await fileFilterHandler({ limit: -1 });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.limit).toBeUndefined();
+  });
+
+  test('validates limit must be integer', async () => {
+    await fileFilterHandler({ limit: 3.5 });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.limit).toBeUndefined();
+  });
+
+  test('validates offset must be non-negative integer', async () => {
+    await fileFilterHandler({ offset: -1 });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.offset).toBeUndefined();
+  });
+
+  test('returns correct response shape', async () => {
+    fileFilterHandler._mockApp.database.filterFiles.mockReturnValue([
+      { id: 1, filename: 'a.mid' },
+      { id: 2, filename: 'b.mid' }
+    ]);
+
+    const result = await fileFilterHandler({});
+    expect(result.success).toBe(true);
+    expect(result.files).toHaveLength(2);
+    expect(result.total).toBe(2);
+    expect(typeof result.filters).toBe('string');
+  });
+
+  test('empty filters summary says none', async () => {
+    const result = await fileFilterHandler({});
+    expect(result.filters).toBe('none');
+  });
+
+  test('builds filter summary string correctly', async () => {
+    const result = await fileFilterHandler({
+      filename: 'test',
+      folder: '/jazz',
+      durationMin: 60,
+      tempoMax: 120,
+    });
+    expect(result.filters).toContain('filename: "test"');
+    expect(result.filters).toContain('folder: "/jazz"');
+    expect(result.filters).toContain('duration:');
+    expect(result.filters).toContain('tempo:');
+  });
+
+  test('filter summary with GM instruments', async () => {
+    const result = await fileFilterHandler({
+      gmInstruments: ['Acoustic Grand Piano'],
+      gmMode: 'ALL',
+    });
+    expect(result.filters).toContain('GM instruments: Acoustic Grand Piano (ALL)');
+  });
+
+  test('filter summary with routingStatus', async () => {
+    const result = await fileFilterHandler({ routingStatus: 'playable' });
+    expect(result.filters).toContain('routing status: playable');
+  });
+
+  test('filter summary with playableOnInstruments', async () => {
+    const result = await fileFilterHandler({
+      playableOnInstruments: ['inst_1', 'inst_2'],
+      playableMode: 'compatible'
+    });
+    expect(result.filters).toContain('playable on:');
+    expect(result.filters).toContain('compatible');
+  });
+
+  test('sets playableMode only when playableOnInstruments is populated', async () => {
+    await fileFilterHandler({ playableMode: 'compatible' });
+    const filters = fileFilterHandler._mockApp.database.filterFiles.mock.calls[0][0];
+    expect(filters.playableMode).toBeUndefined();
+  });
+
+  test('total matches files.length', async () => {
+    fileFilterHandler._mockApp.database.filterFiles.mockReturnValue([
+      { id: 1 }, { id: 2 }, { id: 3 }
+    ]);
+    const result = await fileFilterHandler({});
+    expect(result.total).toBe(3);
+    expect(result.total).toBe(result.files.length);
+  });
+});
