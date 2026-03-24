@@ -2732,6 +2732,11 @@ class MidiEditorModal {
                     <button class="modal-close" data-action="close">&times;</button>
                 </div>
                 <div class="modal-body">
+                    <!-- Toolbar des canaux (juste sous le header) -->
+                    <div class="channels-toolbar">
+                        ${this.renderChannelButtons()}
+                    </div>
+
                     <!-- Toolbar d'édition (compacte, icônes seules + tooltips) -->
                     <div class="editor-toolbar">
                         <!-- Section Playback -->
@@ -2851,11 +2856,6 @@ class MidiEditorModal {
                                 </select>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Toolbar des canaux -->
-                    <div class="channels-toolbar">
-                        ${this.renderChannelButtons()}
                     </div>
 
                     <!-- Conteneur pour Notes et CC/Pitchbend -->
