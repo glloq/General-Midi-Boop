@@ -1,0 +1,14 @@
+node_modules
+.git
+.github
+.husky
+coverage
+logs
+backups
+data
+*.md
+.env
+.eslintrc.json
+.prettierrc
+.editorconfig
+tests

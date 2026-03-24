@@ -1,0 +1,20 @@
+services:
+  maestro:
+    build: .
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - maestro-data:/app/data
+      - maestro-logs:/app/logs
+      - maestro-backups:/app/backups
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - MAESTRO_LOG_LEVEL=${MAESTRO_LOG_LEVEL:-info}
+      - MAESTRO_API_TOKEN=${MAESTRO_API_TOKEN:-}
+    restart: unless-stopped
+
+volumes:
+  maestro-data:
+  maestro-logs:
+  maestro-backups:
