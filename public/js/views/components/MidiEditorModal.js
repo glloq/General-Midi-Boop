@@ -4938,16 +4938,9 @@ class MidiEditorModal {
             }
         });
 
-        // Close channel settings popover on any mousedown outside it.
-        // Uses CAPTURE phase so it fires before the piano roll's stopPropagation().
-        this.container.addEventListener('mousedown', (e) => {
-            if (this._channelSettingsOpen >= 0) {
-                const popover = this.container.querySelector('.channel-settings-popover');
-                if (popover && popover.contains(e.target)) return;
-                if (e.target.closest('.channel-settings-btn')) return;
-                this._closeChannelSettingsPopover();
-            }
-        }, true);
+        // Channel settings popover outside-click is now handled by a global
+        // document listener attached/removed in _toggleChannelSettingsPopover /
+        // _closeChannelSettingsPopover — no capture-phase container listener needed.
 
         // OPTIMISATION: Event delegation pour tous les boutons de canal
         // Remplace 4 boucles forEach × 16 boutons = ~64 listeners par 1 seul listener
@@ -5737,13 +5730,39 @@ class MidiEditorModal {
             this.windInstrumentEditor.hide();
             this._updateWindButtonState(false);
         }
-        this.refreshChannelButtons();
+        // Update only the affected channel button instead of rebuilding all buttons,
+        // so the settings popover stays open for the user to see the result.
+        this._updateChannelButtonRouting(channel);
 
         // Persist routing to database, then notify external components
         // (file list, routing modal) so they read fresh data from DB
         this._syncRoutingToDB().then(() => {
             this._emitRoutingChanged();
         });
+    }
+
+    /**
+     * Update only the routing indicator on a single channel button (non-destructive).
+     * Avoids refreshChannelButtons() which would close the popover.
+     */
+    _updateChannelButtonRouting(channel) {
+        const btn = this.container?.querySelector(`.channel-btn[data-channel="${channel}"]`);
+        if (!btn) return;
+
+        const routedName = this.getRoutedInstrumentName(channel);
+        let routeEl = btn.querySelector('.channel-routed-label');
+
+        if (routedName) {
+            if (!routeEl) {
+                routeEl = document.createElement('span');
+                routeEl.className = 'channel-routed-label';
+                btn.appendChild(routeEl);
+            }
+            routeEl.textContent = `→ ${routedName}`;
+            routeEl.title = routedName;
+        } else if (routeEl) {
+            routeEl.remove();
+        }
     }
 
     /**
@@ -5850,9 +5869,24 @@ class MidiEditorModal {
      * Close channel settings popover and clean up its outside-click handler.
      */
     _closeChannelSettingsPopover() {
-        const existingPopover = this.container?.querySelector('.channel-settings-popover');
-        if (existingPopover) {
-            existingPopover.remove();
+        if (this._channelSettingsPopoverEl) {
+            this._channelSettingsPopoverEl.remove();
+            this._channelSettingsPopoverEl = null;
+        }
+        // Also remove any stale popover from document.body (defensive)
+        const stale = document.body.querySelector('.channel-settings-popover');
+        if (stale) stale.remove();
+
+        // Clean up global mousedown listener
+        if (this._popoverOutsideClickHandler) {
+            document.removeEventListener('mousedown', this._popoverOutsideClickHandler, true);
+            this._popoverOutsideClickHandler = null;
+        }
+        // Clean up toolbar scroll listener
+        if (this._popoverScrollHandler) {
+            const toolbar = this.container?.querySelector('.channels-toolbar');
+            if (toolbar) toolbar.removeEventListener('scroll', this._popoverScrollHandler);
+            this._popoverScrollHandler = null;
         }
         this._channelSettingsOpen = -1;
     }
@@ -5923,13 +5957,30 @@ class MidiEditorModal {
             </div>
         `;
 
-        // Position en fixed par rapport au bouton (évite le clipping par overflow du parent)
+        // Position en fixed par rapport au bouton
+        // Append to document.body to avoid clipping by overflow:hidden on modal-body/toolbar
         const rect = buttonEl.getBoundingClientRect();
         popover.style.position = 'fixed';
         popover.style.top = `${rect.bottom + 4}px`;
         popover.style.left = `${rect.left + rect.width / 2}px`;
         popover.style.transform = 'translateX(-50%)';
-        this.container.appendChild(popover);
+        document.body.appendChild(popover);
+        this._channelSettingsPopoverEl = popover;
+
+        // Close popover on any outside click (global listener on document)
+        this._popoverOutsideClickHandler = (e) => {
+            if (popover.contains(e.target)) return;
+            if (e.target.closest('.channel-settings-btn')) return;
+            this._closeChannelSettingsPopover();
+        };
+        document.addEventListener('mousedown', this._popoverOutsideClickHandler, true);
+
+        // Close popover when toolbar scrolls (button moves but popover stays fixed)
+        const toolbar = this.container?.querySelector('.channels-toolbar');
+        if (toolbar) {
+            this._popoverScrollHandler = () => this._closeChannelSettingsPopover();
+            toolbar.addEventListener('scroll', this._popoverScrollHandler);
+        }
 
         // Event: enabled checkbox
         const checkbox = popover.querySelector('.channel-enabled-checkbox');
@@ -6755,6 +6806,9 @@ class MidiEditorModal {
      * Effectuer la fermeture réelle de l'éditeur
      */
     doClose() {
+        // Clean up channel settings popover (now in document.body)
+        this._closeChannelSettingsPopover();
+
         // Unsubscribe from locale changes
         if (this.localeUnsubscribe) {
             this.localeUnsubscribe();

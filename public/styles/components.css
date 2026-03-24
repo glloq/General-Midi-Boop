@@ -1269,7 +1269,7 @@
 /* Channel settings popover */
 .channel-settings-popover {
     position: fixed;
-    z-index: 600;
+    z-index: 10010; /* Must be above modal (z-index: 10002) since popover is in document.body */
     background: #1e1e1e;
     border: 1px solid #555;
     border-radius: 8px;
