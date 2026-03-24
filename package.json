@@ -14,6 +14,9 @@
     "lint": "eslint src/ public/js/ tests/",
     "lint:fix": "eslint src/ public/js/ tests/ --fix",
     "format": "prettier --write \"src/**/*.js\" \"public/js/**/*.js\" \"tests/**/*.js\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "dev:frontend": "vite",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop midimind",
     "pm2:restart": "pm2 restart midimind",
@@ -51,7 +54,8 @@
     "jest": "^29.7.0",
     "lint-staged": "^16.4.0",
     "nodemon": "^3.0.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "vite": "^8.0.2"
   },
   "lint-staged": {
     "*.js": [
