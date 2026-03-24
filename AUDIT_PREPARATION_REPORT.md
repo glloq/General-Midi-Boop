@@ -151,3 +151,104 @@ Ma-est-tro est un système d'orchestration MIDI temps réel conçu pour Raspberr
 **Recommandation [P1] :** Ajouter une authentification pour les connexions WebSocket. Ajouter du rate limiting. Documenter les commandes API.
 
 ---
+
+## Domaine 2 : Infrastructure & Déploiement
+
+**Score global : 0.9 / 4 — ROUGE**
+
+### 2.1 Gestion de Processus
+
+**État actuel :** PM2 en mode fork, limite mémoire 500 MB, auto-restart (max 10 tentatives), uptime minimum 10 s, kill timeout 5 s. Arrêt gracieux implémenté dans `Application.js` (fermeture des connexions DB, serveurs HTTP/WebSocket).
+
+**Conformité :** Adéquat pour un déploiement mono-instance sur Raspberry Pi.
+
+**Écarts :**
+- Mode fork uniquement (pas de cluster)
+- Pas de configuration PM2 par environnement (dev/staging/prod)
+
+**Fichier clé :** `ecosystem.config.cjs`
+
+**Recommandation [P3] :** Ajouter des configurations PM2 spécifiques par environnement.
+
+### 2.2 Containerisation & Reproductibilité
+
+**État actuel :** Aucun `Dockerfile`, aucun `docker-compose.yml`, aucun support de conteneurs. L'installation se fait via le script shell `scripts/Install.sh`.
+
+**Écart majeur :** Problème critique de reproductibilité. `Install.sh` est spécifique à la plateforme. Aucune garantie d'environnements cohérents entre machines.
+
+**Recommandation [P2] :** Créer un `Dockerfile` et `docker-compose.yml`. Build multi-stage pour l'image de production.
+
+### 2.3 Pipeline CI/CD
+
+**État actuel :** Zéro automatisation. Pas de répertoire `.github/`, pas de GitHub Actions, pas de hooks pre-commit.
+
+**Écart critique :** Aucun test automatisé sur PR, aucun enforcement de linting, aucune automatisation de déploiement.
+
+**Recommandation [P1] :** Créer un workflow GitHub Actions avec étapes lint, test, build. Ajouter des règles de protection de branche.
+
+### 2.4 Gestion de Base de Données & Migrations
+
+**État actuel :** 22 fichiers de migration SQL, exécutés automatiquement au démarrage dans des transactions. Suivi de version via une table `migrations`. `ROLLBACK` manuel en cas d'échec. Mode WAL et clés étrangères activés. `ensureInstrumentCapabilitiesColumns()` comme filet de sécurité pour les échecs partiels.
+
+**Conformité :** Bon pattern de migration. Transactionnel avec rollback.
+
+**Écarts :**
+- Pas de migrations descendantes (rollback de schéma)
+- Pas de test des migrations
+- Exécution directe via `db.exec(sql)` de fichiers entiers — une erreur de syntaxe SQL en milieu de fichier pourrait laisser un état partiel malgré la transaction
+
+**Fichiers clés :** `src/storage/Database.js`, `migrations/`
+
+**Recommandation [P3] :** Ajouter le support des migrations descendantes. Tester les migrations contre une DB fraîche en CI.
+
+### 2.5 Logging & Observabilité
+
+**État actuel :** `Logger.js` custom (106 lignes) avec 4 niveaux, sortie fichier + console, console colorée. Écritures asynchrones via `fs.appendFile`.
+
+**Écarts identifiés :**
+- Pas de rotation de logs (fichiers croissent sans limite)
+- Pas de logging structuré (pas de format JSON)
+- Pas d'IDs de corrélation pour le traçage des requêtes
+- Pas d'intégration monitoring (pas de Sentry, Prometheus, Datadog)
+- Pas de health check au-delà d'un simple `/api/health`
+
+**Fichier clé :** `src/core/Logger.js` — `fs.appendFile` sur chaque ligne de log, aucune rotation
+
+**Recommandation [P1] :** Ajouter la rotation de logs (winston ou pino avec rotation fichier). Ajouter le logging JSON structuré. Envisager un endpoint Prometheus pour les métriques.
+
+### 2.6 Sauvegarde & Reprise d'Activité
+
+**État actuel :** La méthode `Database.backup(path)` existe, utilisant le backup natif de better-sqlite3. Aucune planification automatique malgré `node-schedule` installé comme dépendance. Le répertoire `backups/` est dans `.gitignore` mais aucune automatisation n'y crée de fichiers.
+
+**Écarts :**
+- Sauvegardes manuelles uniquement
+- Pas de politique de rétention
+- Pas de sauvegarde hors-site
+
+**Recommandation [P2] :** Implémenter des sauvegardes planifiées avec `node-schedule` (déjà installé). Ajouter une politique de rétention (garder les N dernières).
+
+### 2.7 Posture de Sécurité
+
+**État actuel :** Aucune authentification sur HTTP ou WebSocket. Le serveur écoute sur `0.0.0.0` (toutes les interfaces). Pas de configuration CORS. Pas de Helmet.js. Pas de sanitization d'input au-delà de `JsonValidator`. Express sert les fichiers statiques sans headers de cache pour la production. `config.json` commité dans le dépôt.
+
+**Écarts OWASP :**
+- **A07 (Identification & Authentication Failures)** : Aucune authentification
+- **A03 (Injection)** : Pas de validation d'input au-delà de la structure JSON
+- **Défauts par défaut non sécurisés** : `SystemCommands.js` expose `systemRestart` et `systemShutdown` — n'importe qui sur le réseau peut redémarrer ou arrêter l'application
+
+**Recommandation [P1] :** Ajouter au minimum une authentification par token. Ajouter Helmet.js. Restreindre les commandes système dangereuses. Ajouter une politique CORS.
+
+### 2.8 Scalabilité & Performance
+
+**État actuel :** Instance unique, processus unique. SQLite (single-writer). PM2 en mode fork.
+
+**Conformité :** Acceptable pour la cible Raspberry Pi. Le mode WAL de SQLite est correct pour les workloads orientés lecture.
+
+**Écarts :**
+- Pas de chemin de scaling horizontal
+- Pas de couche de cache
+- Pas de connection pooling (non nécessaire pour SQLite)
+
+**Recommandation [P4] :** Documenter les limitations de scalabilité. Envisager un chemin de migration PostgreSQL pour les scénarios multi-instances.
+
+---
