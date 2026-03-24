@@ -536,6 +536,9 @@ class MidiDatabase {
       }
 
       // Compatibility score filter (needs to be in HAVING after GROUP BY, requires mir JOIN)
+      // Note: Files with no routings will have AVG(mir.compatibility_score) = NULL,
+      // which naturally fails the >= comparison. This is intentional: a minimum
+      // compatibility score filter only makes sense for files that have routings.
       if (filters.minCompatibilityScore !== undefined && hasMirJoin) {
         query += ' HAVING AVG(mir.compatibility_score) >= ?';
         params.push(filters.minCompatibilityScore);
@@ -644,14 +647,17 @@ class MidiDatabase {
   }
 
   /**
-   * Count files that have no channel analysis data
-   * @returns {number} Number of files missing channel data
+   * Count files that have no channel analysis data or missing metadata
+   * @returns {number} Number of files missing channel data or instrument metadata
    */
   countFilesWithoutChannels() {
     try {
       const stmt = this.db.prepare(`
         SELECT COUNT(*) as count FROM midi_files mf
         WHERE mf.id NOT IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
+          OR mf.instrument_types IS NULL
+          OR mf.instrument_types = '[]'
+          OR mf.has_drums IS NULL
       `);
       return stmt.get().count;
     } catch (error) {
