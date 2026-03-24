@@ -1266,6 +1266,14 @@
     filter: grayscale(0.6);
 }
 
+/* Backdrop: invisible overlay behind the popover to catch outside clicks */
+.channel-settings-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 599;
+    background: transparent;
+}
+
 /* Channel settings popover */
 .channel-settings-popover {
     position: fixed;
