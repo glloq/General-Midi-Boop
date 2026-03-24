@@ -169,6 +169,45 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
         this._notesDirty = true;
         this._isDraggingNotes = false;
 
+        // OPTIMISATION: Oversized notes buffer for fast scrolling
+        // Renders notes into a buffer wider/taller than viewport.
+        // During scroll, composite with offset instead of rebuilding.
+        this._notesBufferPadding = 3.0; // 3x viewport width/height
+        this._notesBufferOriginX = 0;   // xoffset at which buffer was rendered
+        this._notesBufferOriginY = 0;   // yoffset at which buffer was rendered
+        this._notesBufferRangeX = 0;    // xrange at which buffer was rendered
+        this._notesBufferRangeY = 0;    // yrange at which buffer was rendered
+
+        /**
+         * Fast scroll path: update xoffset/yoffset WITHOUT triggering layout().
+         * Avoids DOM style updates and double redraws during view-drag.
+         * @private
+         */
+        this._fastScroll=function(newXOffset, newYOffset) {
+            // Write directly to internal property (bypass setter/observer)
+            this._xoffset = newXOffset;
+            this._yoffset = newYOffset;
+
+            // Check if we can reuse the oversized notes buffer
+            const padX = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeX;
+            const padY = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeY;
+            const bufMinX = this._notesBufferOriginX - padX;
+            const bufMaxX = this._notesBufferOriginX + this._notesBufferRangeX + padX;
+            const bufMinY = this._notesBufferOriginY - padY;
+            const bufMaxY = this._notesBufferOriginY + this._notesBufferRangeY + padY;
+
+            if (newXOffset < bufMinX || newXOffset + this.xrange > bufMaxX ||
+                newYOffset < bufMinY || newYOffset + this.yrange > bufMaxY ||
+                this._notesBufferRangeX !== this.xrange || this._notesBufferRangeY !== this.yrange) {
+                // Scrolled outside buffer bounds — need full rebuild
+                this._notesDirty = true;
+            }
+            // Grid always needs redraw on scroll (positions change)
+            this._gridDirty = true;
+
+            this.redrawThrottled();
+        };
+
         // Fonction throttled pour redraw (limite à 60fps)
         this.redrawThrottled = function() {
             if (!this.pendingRedraw) {
@@ -1245,16 +1284,23 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const ht=this.hitTest(pos);
             switch(this.dragging.o){
             case "V":
-                // Mode drag-view: toujours déplacer la vue
-                // Setting xoffset/yoffset triggers layout() which invalidates buffers and redraws
-                this.xoffset=Math.max(0,this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width));
-                this.yoffset=this.dragging.offsy+(pos.y-this.dragging.y)*(this.yrange/this.height);
+                // Mode drag-view: fast scroll path (bypasses layout() for performance)
+                this._fastScroll(
+                    Math.max(0, this.dragging.offsx + (this.dragging.x - pos.x) * (this.xrange / this.width)),
+                    this.dragging.offsy + (pos.y - this.dragging.y) * (this.yrange / this.height)
+                );
                 break;
             case null:
-                if(this.xscroll)
-                    this.xoffset=Math.max(0,this.dragging.offsx+(this.dragging.x-pos.x)*(this.xrange/this.width));
-                if(this.yscroll)
-                    this.yoffset=this.dragging.offsy+(pos.y-this.dragging.y)*(this.yrange/this.height);
+                {
+                    // Fast scroll for xscroll/yscroll drag mode
+                    const nx = this.xscroll
+                        ? Math.max(0, this.dragging.offsx + (this.dragging.x - pos.x) * (this.xrange / this.width))
+                        : this._xoffset;
+                    const ny = this.yscroll
+                        ? this.dragging.offsy + (pos.y - this.dragging.y) * (this.yrange / this.height)
+                        : this._yoffset;
+                    this._fastScroll(nx, ny);
+                }
                 break;
             case "m":
                 if(ht.m=="m"){
@@ -1738,22 +1784,65 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
         };
 
         /**
-         * Render all non-selected notes to the offscreen notes buffer.
+         * Render notes to the offscreen buffer with oversized padding for fast scrolling.
+         * The buffer covers a larger area than the viewport so scrolling can composite
+         * with an offset instead of rebuilding the buffer every frame.
          * @private
          */
         this._renderNotesBuffer=function() {
+            const pad = this._notesBufferPadding;
+            const extraX = (pad - 1) / 2 * this.xrange;
+            const extraY = (pad - 1) / 2 * this.yrange;
+
+            // Store the viewport state this buffer was rendered for
+            this._notesBufferOriginX = this.xoffset;
+            this._notesBufferOriginY = this.yoffset;
+            this._notesBufferRangeX = this.xrange;
+            this._notesBufferRangeY = this.yrange;
+
+            // Resize buffer to hold the padded area (in pixels)
+            const bufW = Math.ceil(this.swidth * pad) + this.yruler + this.kbwidth;
+            const bufH = Math.ceil(this.sheight * pad) + this.xruler;
+            if (this._notesBuffer.width !== bufW || this._notesBuffer.height !== bufH) {
+                this._notesBuffer.width = bufW;
+                this._notesBuffer.height = bufH;
+            }
+
             const ctx = this._notesBufferCtx;
-            ctx.clearRect(0, 0, this._notesBuffer.width, this._notesBuffer.height);
+            ctx.clearRect(0, 0, bufW, bufH);
+
+            // Expanded visible range for the oversized buffer
+            const bufXOffset = Math.max(0, this.xoffset - extraX);
+            const bufYOffset = this.yoffset - extraY;
+            const bufXEnd = this.xoffset + this.xrange + extraX;
+            const bufYEnd = this.yoffset + this.yrange + extraY;
+
             const l = this.sequence.length;
-            const visEnd = this.xoffset + this.xrange;
-            const visYEnd = this.yoffset + this.yrange;
             for (let s = 0; s < l; ++s) {
                 const ev = this.sequence[s];
-                if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
-                if (ev.n < this.yoffset || ev.n > visYEnd) continue;
-                // During drag: skip selected notes (they'll be drawn live on main canvas)
+                if (ev.t + ev.g < bufXOffset || ev.t > bufXEnd) continue;
+                if (ev.n < bufYOffset || ev.n > bufYEnd) continue;
                 if (this._isDraggingNotes && ev.f) continue;
-                this._drawNote(ctx, ev);
+
+                // Draw note relative to buffer origin (not viewport)
+                const channel = ev.c !== undefined ? ev.c : 0;
+                const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
+                ctx.fillStyle = ev.f ? this.colnotesel : channelColor;
+
+                const w = ev.g * this.stepw;
+                let x = (ev.t - bufXOffset) * this.stepw + this.yruler + this.kbwidth;
+                let x2 = (x + w) | 0; x |= 0;
+                let y = bufH - this.xruler - (ev.n - bufYOffset) * this.steph;
+                let y2 = (y - this.steph) | 0; y |= 0;
+                ctx.fillRect(x, y, x2 - x, y2 - y);
+
+                if (!this._isDraggingNotes) {
+                    ctx.fillStyle = ev.f ? this.colnoteselborder : this.colnoteborder;
+                    ctx.fillRect(x, y, 1, y2 - y);
+                    ctx.fillRect(x2, y, 1, y2 - y);
+                    ctx.fillRect(x, y, x2 - x, 1);
+                    ctx.fillRect(x, y2, x2 - x, 1);
+                }
             }
         };
 
@@ -1802,10 +1891,34 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 this._renderNotesBuffer();
             }
 
-            // Composite: clear → grid → notes → (dragged notes live) → rulers → overlay
+            // Composite: clear → grid → notes (with scroll offset) → rulers → overlay
             this.ctx.clearRect(0, 0, this.width, this.height);
             this.ctx.drawImage(this._gridBuffer, 0, 0);
-            this.ctx.drawImage(this._notesBuffer, 0, 0);
+
+            // Compute source offset into the oversized notes buffer
+            const extraX = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeX;
+            const extraY = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeY;
+            const bufXOffset = Math.max(0, this._notesBufferOriginX - extraX);
+            const bufYOffset = this._notesBufferOriginY - extraY;
+
+            // Pixel offset: how far current viewport has scrolled from buffer origin
+            const dx = (this.xoffset - bufXOffset) * this.stepw;
+            const dy = (bufYOffset - this.yoffset) * this.steph;
+
+            // Source rect in the oversized buffer, dest rect on main canvas
+            const srcX = dx + this.yruler + this.kbwidth;
+            const srcY = dy;
+            const destX = this.yruler + this.kbwidth;
+            const destY = this.xruler;
+            const copyW = this.swidth;
+            const copyH = this.sheight;
+
+            if (this._notesBuffer.width > 0 && this._notesBuffer.height > 0 && copyW > 0 && copyH > 0) {
+                this.ctx.drawImage(this._notesBuffer,
+                    srcX, srcY, copyW, copyH,
+                    destX, destY, copyW, copyH
+                );
+            }
 
             // During drag: draw only selected/dragged notes directly (they move each frame)
             if (this._isDraggingNotes) {
