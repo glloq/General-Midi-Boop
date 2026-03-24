@@ -3541,6 +3541,9 @@ class MidiEditorModal {
      * Rafraîchir les boutons de canal
      */
     refreshChannelButtons() {
+        // Close any open channel settings popover before rebuilding buttons
+        this._closeChannelSettingsPopover();
+
         const channelsToolbar = this.container?.querySelector('.channels-toolbar');
         if (channelsToolbar) {
             channelsToolbar.innerHTML = this.renderChannelButtons();
@@ -5798,16 +5801,27 @@ class MidiEditorModal {
     /**
      * Open/close channel settings popover
      */
-    _toggleChannelSettingsPopover(channel, buttonEl) {
-        // Close any existing popover
+    /**
+     * Close channel settings popover and clean up its outside-click handler.
+     */
+    _closeChannelSettingsPopover() {
         const existingPopover = this.container?.querySelector('.channel-settings-popover');
         if (existingPopover) {
             existingPopover.remove();
         }
+        if (this._closeChannelSettingsOnOutsideClick) {
+            document.removeEventListener('mousedown', this._closeChannelSettingsOnOutsideClick, true);
+            this._closeChannelSettingsOnOutsideClick = null;
+        }
+        this._channelSettingsOpen = -1;
+    }
 
-        // If same channel, just close
-        if (this._channelSettingsOpen === channel) {
-            this._channelSettingsOpen = -1;
+    _toggleChannelSettingsPopover(channel, buttonEl) {
+        const wasOpen = this._channelSettingsOpen === channel;
+        this._closeChannelSettingsPopover();
+
+        // If same channel, just close (already done above)
+        if (wasOpen) {
             return;
         }
 
@@ -5876,15 +5890,13 @@ class MidiEditorModal {
         popover.style.transform = 'translateX(-50%)';
         this.container.appendChild(popover);
 
-        // Close popover on click outside
-        const closeOnOutsideClick = (e) => {
+        // Close popover on click outside (store handler so it can be cleaned up)
+        this._closeChannelSettingsOnOutsideClick = (e) => {
             if (!popover.contains(e.target) && !e.target.closest('.channel-settings-btn')) {
-                popover.remove();
-                this._channelSettingsOpen = -1;
-                document.removeEventListener('mousedown', closeOnOutsideClick, true);
+                this._closeChannelSettingsPopover();
             }
         };
-        setTimeout(() => document.addEventListener('mousedown', closeOnOutsideClick, true), 0);
+        setTimeout(() => document.addEventListener('mousedown', this._closeChannelSettingsOnOutsideClick, true), 0);
 
         // Event: enabled checkbox
         const checkbox = popover.querySelector('.channel-enabled-checkbox');
