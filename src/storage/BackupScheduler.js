@@ -18,6 +18,7 @@ class BackupScheduler {
     this.maxBackups = options.maxBackups || DEFAULT_MAX_BACKUPS;
     this.cronExpression = options.cron || DEFAULT_CRON;
     this.job = null;
+    this._running = false;
 
     // Ensure backup directory exists
     if (!fs.existsSync(this.backupDir)) {
@@ -35,6 +36,12 @@ class BackupScheduler {
   }
 
   async runBackup() {
+    if (this._running) {
+      this.app.logger.warn('Backup already in progress, skipping');
+      return;
+    }
+    this._running = true;
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(this.backupDir, `midimind-${timestamp}.db`);
 
@@ -44,26 +51,35 @@ class BackupScheduler {
       this._pruneOldBackups();
     } catch (error) {
       this.app.logger.error(`Scheduled backup failed: ${error.message}`);
+    } finally {
+      this._running = false;
     }
   }
 
   _pruneOldBackups() {
     try {
-      const files = fs
-        .readdirSync(this.backupDir)
-        .filter((f) => f.startsWith('midimind-') && f.endsWith('.db'))
-        .map((f) => ({
-          name: f,
-          path: path.join(this.backupDir, f),
-          mtime: fs.statSync(path.join(this.backupDir, f)).mtimeMs
-        }))
-        .sort((a, b) => b.mtime - a.mtime);
+      const files = [];
+      for (const name of fs.readdirSync(this.backupDir)) {
+        if (!name.startsWith('midimind-') || !name.endsWith('.db')) continue;
+        const filePath = path.join(this.backupDir, name);
+        try {
+          const stat = fs.statSync(filePath);
+          files.push({ name, path: filePath, mtime: stat.mtimeMs });
+        } catch {
+          // File may have been deleted between readdir and stat
+        }
+      }
+
+      files.sort((a, b) => b.mtime - a.mtime);
 
       if (files.length > this.maxBackups) {
-        const toDelete = files.slice(this.maxBackups);
-        for (const file of toDelete) {
-          fs.unlinkSync(file.path);
-          this.app.logger.info(`Pruned old backup: ${file.name}`);
+        for (const file of files.slice(this.maxBackups)) {
+          try {
+            fs.unlinkSync(file.path);
+            this.app.logger.info(`Pruned old backup: ${file.name}`);
+          } catch {
+            // File may already be deleted
+          }
         }
       }
     } catch (error) {

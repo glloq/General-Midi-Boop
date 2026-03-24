@@ -1,6 +1,7 @@
 // src/api/HttpServer.js
 import express from 'express';
 import helmet from 'helmet';
+import { timingSafeEqual } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -33,10 +34,16 @@ class HttpServer {
     // API token authentication (optional, enabled via MAESTRO_API_TOKEN env var)
     const apiToken = process.env.MAESTRO_API_TOKEN;
     if (apiToken) {
+      const apiTokenBuf = Buffer.from(apiToken);
       this.expressApp.use('/api', (req, res, next) => {
         if (req.path === '/health') return next(); // Health check always public
-        const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-        if (token !== apiToken) {
+        const token = req.headers.authorization?.replace('Bearer ', '') || '';
+        try {
+          const tokenBuf = Buffer.from(token);
+          if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
+            return res.status(401).json({ error: 'Unauthorized' });
+          }
+        } catch {
           return res.status(401).json({ error: 'Unauthorized' });
         }
         next();

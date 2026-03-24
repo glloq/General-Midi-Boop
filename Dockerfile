@@ -1,12 +1,12 @@
 # Stage 1: Build dependencies
-FROM node:18-slim AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
 # Stage 2: Production image
-FROM node:18-slim
+FROM node:20-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
@@ -20,11 +20,14 @@ COPY server.js ./
 COPY src/ ./src/
 COPY public/ ./public/
 COPY migrations/ ./migrations/
-COPY config.json ./
 COPY locales/ ./locales/
 
-# Create data and log directories
-RUN mkdir -p data logs backups
+# Create data and log directories with proper ownership
+RUN mkdir -p data logs backups && \
+    adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 ENV NODE_ENV=production
 ENV PORT=8080

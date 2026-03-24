@@ -253,7 +253,7 @@ class Application {
       this.wsServer.start(); // start() already calls startHeartbeat()
 
       // Start automated backups
-      this.backupScheduler = new BackupScheduler(this);
+      this._registerService('backupScheduler', new BackupScheduler(this));
       this.backupScheduler.start();
 
       this.running = true;

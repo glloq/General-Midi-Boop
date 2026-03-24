@@ -14,7 +14,7 @@ export default defineConfig({
       input: resolve(__dirname, 'public/index.html')
     },
     minify: 'oxc',
-    sourcemap: true
+    sourcemap: false
   },
   server: {
     proxy: {

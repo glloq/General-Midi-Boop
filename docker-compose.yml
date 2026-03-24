@@ -11,8 +11,20 @@ services:
       - NODE_ENV=production
       - PORT=8080
       - MAESTRO_LOG_LEVEL=${MAESTRO_LOG_LEVEL:-info}
+      # Set MAESTRO_API_TOKEN in .env to enable authentication.
+      # WARNING: If unset, API and WebSocket have no authentication.
       - MAESTRO_API_TOKEN=${MAESTRO_API_TOKEN:-}
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   maestro-data:

@@ -1,5 +1,6 @@
 // src/api/WebSocketServer.js
 import { WebSocketServer as WSServer } from 'ws';
+import { timingSafeEqual } from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -31,12 +32,22 @@ class WebSocketServer {
       verifyClient: apiToken
         ? ({ req }, done) => {
             const url = new URL(req.url, 'http://localhost');
-            const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'];
-            if (token !== apiToken) {
-              this.app.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+            const token =
+              url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
+            try {
+              const tokenBuf = Buffer.from(token);
+              const apiTokenBuf = Buffer.from(apiToken);
+              if (
+                tokenBuf.length !== apiTokenBuf.length ||
+                !timingSafeEqual(tokenBuf, apiTokenBuf)
+              ) {
+                this.app.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+                done(false, 401, 'Unauthorized');
+              } else {
+                done(true);
+              }
+            } catch {
               done(false, 401, 'Unauthorized');
-            } else {
-              done(true);
             }
           }
         : undefined
