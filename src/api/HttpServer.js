@@ -1,5 +1,6 @@
 // src/api/HttpServer.js
 import express from 'express';
+import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -21,13 +22,37 @@ class HttpServer {
   }
 
   setupRoutes() {
+    // Security headers
+    this.expressApp.use(
+      helmet({
+        contentSecurityPolicy: false, // Disabled for SPA with inline scripts
+        crossOriginEmbedderPolicy: false
+      })
+    );
+
+    // API token authentication (optional, enabled via MAESTRO_API_TOKEN env var)
+    const apiToken = process.env.MAESTRO_API_TOKEN;
+    if (apiToken) {
+      this.expressApp.use('/api', (req, res, next) => {
+        if (req.path === '/health') return next(); // Health check always public
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+        if (token !== apiToken) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+        next();
+      });
+      this.app.logger.info('API token authentication enabled');
+    }
+
     // Serve static files from public directory
     const publicPath = path.join(__dirname, '../../public');
-    this.expressApp.use(express.static(publicPath, {
-      etag: true,
-      lastModified: true,
-      maxAge: 0 // No caching for development - JS files always fresh
-    }));
+    this.expressApp.use(
+      express.static(publicPath, {
+        etag: true,
+        lastModified: true,
+        maxAge: 0 // No caching for development - JS files always fresh
+      })
+    );
 
     // API health check
     this.expressApp.get('/api/health', (req, res) => {

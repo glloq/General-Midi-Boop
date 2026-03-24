@@ -23,9 +23,23 @@ class WebSocketServer {
   }
 
   start() {
+    const apiToken = process.env.MAESTRO_API_TOKEN;
+
     // Attach WebSocket server to existing HTTP server
     this.wss = new WSServer({
-      server: this.httpServer
+      server: this.httpServer,
+      verifyClient: apiToken
+        ? ({ req }, done) => {
+            const url = new URL(req.url, 'http://localhost');
+            const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'];
+            if (token !== apiToken) {
+              this.app.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+              done(false, 401, 'Unauthorized');
+            } else {
+              done(true);
+            }
+          }
+        : undefined
     });
 
     this.wss.on('connection', (ws, req) => {
@@ -43,18 +57,20 @@ class WebSocketServer {
   handleConnection(ws, req) {
     const clientIp = req.socket.remoteAddress;
     this.app.logger.info(`Client connected: ${clientIp}`);
-    
+
     this.clients.add(ws);
 
     // Send welcome message
-    ws.send(JSON.stringify({
-      type: 'event',
-      event: 'connected',
-      data: {
-        version: APP_VERSION,
-        timestamp: Date.now()
-      }
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'event',
+        event: 'connected',
+        data: {
+          version: APP_VERSION,
+          timestamp: Date.now()
+        }
+      })
+    );
 
     // Handle messages
     ws.on('message', (data) => {
@@ -124,11 +140,13 @@ class WebSocketServer {
 
     let sent = 0;
     const stale = [];
-    this.clients.forEach(client => {
-      if (client.readyState === 1) { // OPEN
+    this.clients.forEach((client) => {
+      if (client.readyState === 1) {
+        // OPEN
         client.send(message);
         sent++;
-      } else if (client.readyState > 1) { // CLOSING or CLOSED
+      } else if (client.readyState > 1) {
+        // CLOSING or CLOSED
         stale.push(client);
       }
     });
@@ -141,24 +159,27 @@ class WebSocketServer {
   }
 
   send(ws, type, data) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(JSON.stringify({
-        type: type,
-        data: data,
-        timestamp: Date.now()
-      }));
+    if (ws.readyState === 1) {
+      // OPEN
+      ws.send(
+        JSON.stringify({
+          type: type,
+          data: data,
+          timestamp: Date.now()
+        })
+      );
     }
   }
 
   startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
-      this.clients.forEach(ws => {
+      this.clients.forEach((ws) => {
         if (!ws.isAlive) {
           ws.terminate();
           this.clients.delete(ws);
           return;
         }
-        
+
         ws.isAlive = false;
         ws.ping();
       });
@@ -170,7 +191,7 @@ class WebSocketServer {
       clearInterval(this.heartbeatInterval);
     }
 
-    this.clients.forEach(client => {
+    this.clients.forEach((client) => {
       client.close();
     });
 
