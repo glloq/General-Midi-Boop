@@ -251,11 +251,9 @@ class MidiEditorCCPanel {
             } else {
                 this.syncTempoEditor();
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        if (m.tempoEditor && m.tempoEditor.resize) {
-                            m.tempoEditor.resize();
-                        }
-                    });
+                    if (m.tempoEditor && m.tempoEditor.resize) {
+                        m.tempoEditor.resize();
+                    }
                 });
             }
 
@@ -271,11 +269,9 @@ class MidiEditorCCPanel {
                 m.velocityEditor.setSequence(m.fullSequence);
                 this.syncVelocityEditor();
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        if (m.velocityEditor && m.velocityEditor.resize) {
-                            m.velocityEditor.resize();
-                        }
-                    });
+                    if (m.velocityEditor && m.velocityEditor.resize) {
+                        m.velocityEditor.resize();
+                    }
                 });
             }
 
@@ -291,11 +287,9 @@ class MidiEditorCCPanel {
             } else {
                 m.ccEditor.setCC(ccType);
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        if (m.ccEditor && m.ccEditor.resize) {
-                            m.ccEditor.resize();
-                        }
-                    });
+                    if (m.ccEditor && m.ccEditor.resize) {
+                        m.ccEditor.resize();
+                    }
                 });
                 this.updateEditorChannelSelector();
             }
