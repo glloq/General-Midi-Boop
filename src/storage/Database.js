@@ -8,6 +8,7 @@ import MidiDatabase from './MidiDatabase.js';
 import InstrumentDatabase from './InstrumentDatabase.js';
 import LightingDatabase from './LightingDatabase.js';
 import StringInstrumentDatabase from './StringInstrumentDatabase.js';
+import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,13 +76,14 @@ class DatabaseManager {
 
       // Load and run migrations
       const migrationsDir = path.join(__dirname, '../../migrations');
-      const migrationFiles = fs.readdirSync(migrationsDir)
-        .filter(f => f.endsWith('.sql'))
+      const migrationFiles = fs
+        .readdirSync(migrationsDir)
+        .filter((f) => f.endsWith('.sql'))
         .sort();
 
       for (const file of migrationFiles) {
         const version = parseInt(file.split('_')[0]);
-        
+
         if (version > currentVersion) {
           this.runMigration(version, file, migrationsDir);
         }
@@ -137,20 +139,46 @@ class DatabaseManager {
    */
   ensureInstrumentCapabilitiesColumns() {
     const requiredColumns = [
-      { name: 'note_range_min', sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_min INTEGER' },
-      { name: 'note_range_max', sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_max INTEGER' },
-      { name: 'supported_ccs', sql: 'ALTER TABLE instruments_latency ADD COLUMN supported_ccs TEXT' },
-      { name: 'note_selection_mode', sql: "ALTER TABLE instruments_latency ADD COLUMN note_selection_mode TEXT DEFAULT 'range'" },
-      { name: 'selected_notes', sql: 'ALTER TABLE instruments_latency ADD COLUMN selected_notes TEXT' },
-      { name: 'capabilities_source', sql: "ALTER TABLE instruments_latency ADD COLUMN capabilities_source TEXT DEFAULT 'manual'" },
-      { name: 'capabilities_updated_at', sql: 'ALTER TABLE instruments_latency ADD COLUMN capabilities_updated_at TEXT' },
+      {
+        name: 'note_range_min',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_min INTEGER'
+      },
+      {
+        name: 'note_range_max',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_max INTEGER'
+      },
+      {
+        name: 'supported_ccs',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN supported_ccs TEXT'
+      },
+      {
+        name: 'note_selection_mode',
+        sql: "ALTER TABLE instruments_latency ADD COLUMN note_selection_mode TEXT DEFAULT 'range'"
+      },
+      {
+        name: 'selected_notes',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN selected_notes TEXT'
+      },
+      {
+        name: 'capabilities_source',
+        sql: "ALTER TABLE instruments_latency ADD COLUMN capabilities_source TEXT DEFAULT 'manual'"
+      },
+      {
+        name: 'capabilities_updated_at',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN capabilities_updated_at TEXT'
+      },
       { name: 'gm_program', sql: 'ALTER TABLE instruments_latency ADD COLUMN gm_program INTEGER' },
-      { name: 'polyphony', sql: 'ALTER TABLE instruments_latency ADD COLUMN polyphony INTEGER DEFAULT 16' }
+      {
+        name: 'polyphony',
+        sql: 'ALTER TABLE instruments_latency ADD COLUMN polyphony INTEGER DEFAULT 16'
+      }
     ];
 
     try {
-      const existingColumns = this.db.prepare("SELECT name FROM pragma_table_info('instruments_latency')").all();
-      const existingNames = new Set(existingColumns.map(c => c.name));
+      const existingColumns = this.db
+        .prepare("SELECT name FROM pragma_table_info('instruments_latency')")
+        .all();
+      const existingNames = new Set(existingColumns.map((c) => c.name));
 
       for (const col of requiredColumns) {
         if (!existingNames.has(col.name)) {
@@ -215,41 +243,16 @@ class DatabaseManager {
 
   updateRoute(routeId, updates) {
     try {
-      const fields = [];
-      const values = [];
+      const result = buildDynamicUpdate(
+        'routes',
+        updates,
+        ['source_device', 'destination_device', 'channel_mapping', 'filter', 'enabled'],
+        { transforms: { enabled: (v) => (v ? 1 : 0) } }
+      );
+      if (!result) return;
 
-      if (updates.source_device !== undefined) {
-        fields.push('source_device = ?');
-        values.push(updates.source_device);
-      }
-      if (updates.destination_device !== undefined) {
-        fields.push('destination_device = ?');
-        values.push(updates.destination_device);
-      }
-      if (updates.channel_mapping !== undefined) {
-        fields.push('channel_mapping = ?');
-        values.push(updates.channel_mapping);
-      }
-      if (updates.filter !== undefined) {
-        fields.push('filter = ?');
-        values.push(updates.filter);
-      }
-      if (updates.enabled !== undefined) {
-        fields.push('enabled = ?');
-        values.push(updates.enabled ? 1 : 0);
-      }
-
-      if (fields.length === 0) {
-        return;
-      }
-
-      values.push(routeId);
-
-      const stmt = this.db.prepare(`
-        UPDATE routes SET ${fields.join(', ')} WHERE id = ?
-      `);
-
-      stmt.run(...values);
+      result.values.push(routeId);
+      this.db.prepare(result.sql).run(...result.values);
     } catch (error) {
       this.app.logger.error(`Failed to update route: ${error.message}`);
       throw error;
@@ -277,13 +280,7 @@ class DatabaseManager {
       `);
 
       const now = new Date().toISOString();
-      const result = stmt.run(
-        session.name,
-        session.description || null,
-        session.data,
-        now,
-        now
-      );
+      const result = stmt.run(session.name, session.description || null, session.data, now, now);
 
       return result.lastInsertRowid;
     } catch (error) {
@@ -314,32 +311,18 @@ class DatabaseManager {
 
   updateSession(sessionId, updates) {
     try {
-      const fields = [];
-      const values = [];
+      // Always update the timestamp
+      const withTimestamp = { ...updates, updated_at: new Date().toISOString() };
+      const result = buildDynamicUpdate('sessions', withTimestamp, [
+        'name',
+        'description',
+        'data',
+        'updated_at'
+      ]);
+      if (!result) return;
 
-      if (updates.name !== undefined) {
-        fields.push('name = ?');
-        values.push(updates.name);
-      }
-      if (updates.description !== undefined) {
-        fields.push('description = ?');
-        values.push(updates.description);
-      }
-      if (updates.data !== undefined) {
-        fields.push('data = ?');
-        values.push(updates.data);
-      }
-
-      fields.push('updated_at = ?');
-      values.push(new Date().toISOString());
-
-      values.push(sessionId);
-
-      const stmt = this.db.prepare(`
-        UPDATE sessions SET ${fields.join(', ')} WHERE id = ?
-      `);
-
-      stmt.run(...values);
+      result.values.push(sessionId);
+      this.db.prepare(result.sql).run(...result.values);
     } catch (error) {
       this.app.logger.error(`Failed to update session: ${error.message}`);
       throw error;
@@ -367,12 +350,7 @@ class DatabaseManager {
       `);
 
       const now = new Date().toISOString();
-      const result = stmt.run(
-        playlist.name,
-        playlist.description || null,
-        now,
-        now
-      );
+      const result = stmt.run(playlist.name, playlist.description || null, now, now);
 
       return result.lastInsertRowid;
     } catch (error) {
@@ -414,108 +392,260 @@ class DatabaseManager {
   // ==================== DELEGATE TO SUB-MODULES ====================
 
   // MIDI Files
-  insertFile(file) { return this.midiDB.insertFile(file); }
-  getFile(fileId) { return this.midiDB.getFile(fileId); }
-  getFiles(folder) { return this.midiDB.getFiles(folder); }
-  getAllFiles(options) { return this.midiDB.getAllFiles(options); }
-  updateFile(fileId, updates) { return this.midiDB.updateFile(fileId, updates); }
-  deleteFile(fileId) { return this.midiDB.deleteFile(fileId); }
-  getFolders() { return this.midiDB.getFolders(); }
-  searchFiles(query) { return this.midiDB.searchFiles(query); }
-  filterFiles(filters) { return this.midiDB.filterFiles(filters); }
+  insertFile(file) {
+    return this.midiDB.insertFile(file);
+  }
+  getFile(fileId) {
+    return this.midiDB.getFile(fileId);
+  }
+  getFiles(folder) {
+    return this.midiDB.getFiles(folder);
+  }
+  getAllFiles(options) {
+    return this.midiDB.getAllFiles(options);
+  }
+  updateFile(fileId, updates) {
+    return this.midiDB.updateFile(fileId, updates);
+  }
+  deleteFile(fileId) {
+    return this.midiDB.deleteFile(fileId);
+  }
+  getFolders() {
+    return this.midiDB.getFolders();
+  }
+  searchFiles(query) {
+    return this.midiDB.searchFiles(query);
+  }
+  filterFiles(filters) {
+    return this.midiDB.filterFiles(filters);
+  }
 
   // MIDI File Channels
-  insertFileChannels(fileId, channels) { return this.midiDB.insertFileChannels(fileId, channels); }
-  getFileChannels(fileId) { return this.midiDB.getFileChannels(fileId); }
-  deleteFileChannels(fileId) { return this.midiDB.deleteFileChannels(fileId); }
-  getDistinctInstruments() { return this.midiDB.getDistinctInstruments(); }
-  getDistinctCategories() { return this.midiDB.getDistinctCategories(); }
-  findFilesByInstrument(instruments, mode) { return this.midiDB.findFilesByInstrument(instruments, mode); }
-  findFilesByCategory(categories, mode) { return this.midiDB.findFilesByCategory(categories, mode); }
+  insertFileChannels(fileId, channels) {
+    return this.midiDB.insertFileChannels(fileId, channels);
+  }
+  getFileChannels(fileId) {
+    return this.midiDB.getFileChannels(fileId);
+  }
+  deleteFileChannels(fileId) {
+    return this.midiDB.deleteFileChannels(fileId);
+  }
+  getDistinctInstruments() {
+    return this.midiDB.getDistinctInstruments();
+  }
+  getDistinctCategories() {
+    return this.midiDB.getDistinctCategories();
+  }
+  findFilesByInstrument(instruments, mode) {
+    return this.midiDB.findFilesByInstrument(instruments, mode);
+  }
+  findFilesByCategory(categories, mode) {
+    return this.midiDB.findFilesByCategory(categories, mode);
+  }
 
   // Instruments
-  insertInstrument(instrument) { return this.instrumentDB.insertInstrument(instrument); }
-  getInstrument(instrumentId) { return this.instrumentDB.getInstrument(instrumentId); }
-  getInstruments() { return this.instrumentDB.getInstruments(); }
-  updateInstrument(instrumentId, updates) { return this.instrumentDB.updateInstrument(instrumentId, updates); }
-  deleteInstrument(instrumentId) { return this.instrumentDB.deleteInstrument(instrumentId); }
+  insertInstrument(instrument) {
+    return this.instrumentDB.insertInstrument(instrument);
+  }
+  getInstrument(instrumentId) {
+    return this.instrumentDB.getInstrument(instrumentId);
+  }
+  getInstruments() {
+    return this.instrumentDB.getInstruments();
+  }
+  updateInstrument(instrumentId, updates) {
+    return this.instrumentDB.updateInstrument(instrumentId, updates);
+  }
+  deleteInstrument(instrumentId) {
+    return this.instrumentDB.deleteInstrument(instrumentId);
+  }
 
   // Latency Profiles
-  saveLatencyProfile(profile) { return this.instrumentDB.saveLatencyProfile(profile); }
-  getLatencyProfile(deviceId) { return this.instrumentDB.getLatencyProfile(deviceId); }
-  getLatencyProfiles() { return this.instrumentDB.getLatencyProfiles(); }
-  deleteLatencyProfile(deviceId) { return this.instrumentDB.deleteLatencyProfile(deviceId); }
+  saveLatencyProfile(profile) {
+    return this.instrumentDB.saveLatencyProfile(profile);
+  }
+  getLatencyProfile(deviceId) {
+    return this.instrumentDB.getLatencyProfile(deviceId);
+  }
+  getLatencyProfiles() {
+    return this.instrumentDB.getLatencyProfiles();
+  }
+  deleteLatencyProfile(deviceId) {
+    return this.instrumentDB.deleteLatencyProfile(deviceId);
+  }
 
   // Presets
-  insertPreset(preset) { return this.instrumentDB.insertPreset(preset); }
-  getPreset(presetId) { return this.instrumentDB.getPreset(presetId); }
-  getPresets(type) { return this.instrumentDB.getPresets(type); }
-  updatePreset(presetId, updates) { return this.instrumentDB.updatePreset(presetId, updates); }
-  deletePreset(presetId) { return this.instrumentDB.deletePreset(presetId); }
+  insertPreset(preset) {
+    return this.instrumentDB.insertPreset(preset);
+  }
+  getPreset(presetId) {
+    return this.instrumentDB.getPreset(presetId);
+  }
+  getPresets(type) {
+    return this.instrumentDB.getPresets(type);
+  }
+  updatePreset(presetId, updates) {
+    return this.instrumentDB.updatePreset(presetId, updates);
+  }
+  deletePreset(presetId) {
+    return this.instrumentDB.deletePreset(presetId);
+  }
 
   // Instrument Settings
-  updateInstrumentSettings(...args) { return this.instrumentDB.updateInstrumentSettings(...args); }
-  getInstrumentSettings(...args) { return this.instrumentDB.getInstrumentSettings(...args); }
-  saveSysExIdentity(...args) { return this.instrumentDB.saveSysExIdentity(...args); }
-  findInstrumentByMac(macAddress) { return this.instrumentDB.findInstrumentByMac(macAddress); }
-  findInstrumentByUsbSerial(usbSerialNumber) { return this.instrumentDB.findInstrumentByUsbSerial(usbSerialNumber); }
+  updateInstrumentSettings(...args) {
+    return this.instrumentDB.updateInstrumentSettings(...args);
+  }
+  getInstrumentSettings(...args) {
+    return this.instrumentDB.getInstrumentSettings(...args);
+  }
+  saveSysExIdentity(...args) {
+    return this.instrumentDB.saveSysExIdentity(...args);
+  }
+  findInstrumentByMac(macAddress) {
+    return this.instrumentDB.findInstrumentByMac(macAddress);
+  }
+  findInstrumentByUsbSerial(usbSerialNumber) {
+    return this.instrumentDB.findInstrumentByUsbSerial(usbSerialNumber);
+  }
 
   // Instrument Capabilities
-  updateInstrumentCapabilities(...args) { return this.instrumentDB.updateInstrumentCapabilities(...args); }
-  getInstrumentCapabilities(...args) { return this.instrumentDB.getInstrumentCapabilities(...args); }
-  getAllInstrumentCapabilities() { return this.instrumentDB.getAllInstrumentCapabilities(); }
-  getInstrumentsWithCapabilities() { return this.instrumentDB.getInstrumentsWithCapabilities(); }
-  getRegisteredInstrumentIds() { return this.instrumentDB.getRegisteredInstrumentIds(); }
+  updateInstrumentCapabilities(...args) {
+    return this.instrumentDB.updateInstrumentCapabilities(...args);
+  }
+  getInstrumentCapabilities(...args) {
+    return this.instrumentDB.getInstrumentCapabilities(...args);
+  }
+  getAllInstrumentCapabilities() {
+    return this.instrumentDB.getAllInstrumentCapabilities();
+  }
+  getInstrumentsWithCapabilities() {
+    return this.instrumentDB.getInstrumentsWithCapabilities();
+  }
+  getRegisteredInstrumentIds() {
+    return this.instrumentDB.getRegisteredInstrumentIds();
+  }
 
   // Routing persistence
-  insertRouting(routing) { return this.instrumentDB.insertRouting(routing); }
-  getRoutingsByFile(fileId, includeDisabled) { return this.instrumentDB.getRoutingsByFile(fileId, includeDisabled); }
-  deleteRoutingsByFile(fileId) { return this.instrumentDB.deleteRoutingsByFile(fileId); }
-  getInstrumentsByDevice(deviceId) { return this.instrumentDB.getInstrumentsByDevice(deviceId); }
+  insertRouting(routing) {
+    return this.instrumentDB.insertRouting(routing);
+  }
+  getRoutingsByFile(fileId, includeDisabled) {
+    return this.instrumentDB.getRoutingsByFile(fileId, includeDisabled);
+  }
+  deleteRoutingsByFile(fileId) {
+    return this.instrumentDB.deleteRoutingsByFile(fileId);
+  }
+  getInstrumentsByDevice(deviceId) {
+    return this.instrumentDB.getInstrumentsByDevice(deviceId);
+  }
 
   // Lighting Devices
-  insertLightingDevice(device) { return this.lightingDB.insertDevice(device); }
-  getLightingDevice(id) { return this.lightingDB.getDevice(id); }
-  getLightingDevices() { return this.lightingDB.getDevices(); }
-  updateLightingDevice(id, updates) { return this.lightingDB.updateDevice(id, updates); }
-  deleteLightingDevice(id) { return this.lightingDB.deleteDevice(id); }
+  insertLightingDevice(device) {
+    return this.lightingDB.insertDevice(device);
+  }
+  getLightingDevice(id) {
+    return this.lightingDB.getDevice(id);
+  }
+  getLightingDevices() {
+    return this.lightingDB.getDevices();
+  }
+  updateLightingDevice(id, updates) {
+    return this.lightingDB.updateDevice(id, updates);
+  }
+  deleteLightingDevice(id) {
+    return this.lightingDB.deleteDevice(id);
+  }
 
   // Lighting Rules
-  insertLightingRule(rule) { return this.lightingDB.insertRule(rule); }
-  getLightingRule(id) { return this.lightingDB.getRule(id); }
-  getLightingRulesForDevice(deviceId) { return this.lightingDB.getRulesForDevice(deviceId); }
-  getAllEnabledLightingRules() { return this.lightingDB.getAllEnabledRules(); }
-  getAllLightingRules() { return this.lightingDB.getAllRules(); }
-  updateLightingRule(id, updates) { return this.lightingDB.updateRule(id, updates); }
-  deleteLightingRule(id) { return this.lightingDB.deleteRule(id); }
+  insertLightingRule(rule) {
+    return this.lightingDB.insertRule(rule);
+  }
+  getLightingRule(id) {
+    return this.lightingDB.getRule(id);
+  }
+  getLightingRulesForDevice(deviceId) {
+    return this.lightingDB.getRulesForDevice(deviceId);
+  }
+  getAllEnabledLightingRules() {
+    return this.lightingDB.getAllEnabledRules();
+  }
+  getAllLightingRules() {
+    return this.lightingDB.getAllRules();
+  }
+  updateLightingRule(id, updates) {
+    return this.lightingDB.updateRule(id, updates);
+  }
+  deleteLightingRule(id) {
+    return this.lightingDB.deleteRule(id);
+  }
 
   // Lighting Presets
-  insertLightingPreset(preset) { return this.lightingDB.insertPreset(preset); }
-  getLightingPresets() { return this.lightingDB.getPresets(); }
-  deleteLightingPreset(id) { return this.lightingDB.deletePreset(id); }
+  insertLightingPreset(preset) {
+    return this.lightingDB.insertPreset(preset);
+  }
+  getLightingPresets() {
+    return this.lightingDB.getPresets();
+  }
+  deleteLightingPreset(id) {
+    return this.lightingDB.deletePreset(id);
+  }
 
   // Lighting Groups
-  insertLightingGroup(name, deviceIds) { return this.lightingDB.insertGroup(name, deviceIds); }
-  getLightingGroups() { return this.lightingDB.getGroups(); }
-  updateLightingGroup(name, deviceIds) { return this.lightingDB.updateGroup(name, deviceIds); }
-  deleteLightingGroup(name) { return this.lightingDB.deleteGroup(name); }
+  insertLightingGroup(name, deviceIds) {
+    return this.lightingDB.insertGroup(name, deviceIds);
+  }
+  getLightingGroups() {
+    return this.lightingDB.getGroups();
+  }
+  updateLightingGroup(name, deviceIds) {
+    return this.lightingDB.updateGroup(name, deviceIds);
+  }
+  deleteLightingGroup(name) {
+    return this.lightingDB.deleteGroup(name);
+  }
 
   // String Instruments
-  createStringInstrument(config) { return this.stringInstrumentDB.createStringInstrument(config); }
-  getStringInstrument(deviceId, channel) { return this.stringInstrumentDB.getStringInstrument(deviceId, channel); }
-  getStringInstrumentById(id) { return this.stringInstrumentDB.getStringInstrumentById(id); }
-  getAllStringInstruments() { return this.stringInstrumentDB.getAllStringInstruments(); }
-  getStringInstrumentsByDevice(deviceId) { return this.stringInstrumentDB.getStringInstrumentsByDevice(deviceId); }
-  updateStringInstrument(id, updates) { return this.stringInstrumentDB.updateStringInstrument(id, updates); }
-  deleteStringInstrument(id) { return this.stringInstrumentDB.deleteStringInstrument(id); }
-  deleteStringInstrumentByDeviceChannel(deviceId, channel) { return this.stringInstrumentDB.deleteStringInstrumentByDeviceChannel(deviceId, channel); }
+  createStringInstrument(config) {
+    return this.stringInstrumentDB.createStringInstrument(config);
+  }
+  getStringInstrument(deviceId, channel) {
+    return this.stringInstrumentDB.getStringInstrument(deviceId, channel);
+  }
+  getStringInstrumentById(id) {
+    return this.stringInstrumentDB.getStringInstrumentById(id);
+  }
+  getAllStringInstruments() {
+    return this.stringInstrumentDB.getAllStringInstruments();
+  }
+  getStringInstrumentsByDevice(deviceId) {
+    return this.stringInstrumentDB.getStringInstrumentsByDevice(deviceId);
+  }
+  updateStringInstrument(id, updates) {
+    return this.stringInstrumentDB.updateStringInstrument(id, updates);
+  }
+  deleteStringInstrument(id) {
+    return this.stringInstrumentDB.deleteStringInstrument(id);
+  }
+  deleteStringInstrumentByDeviceChannel(deviceId, channel) {
+    return this.stringInstrumentDB.deleteStringInstrumentByDeviceChannel(deviceId, channel);
+  }
 
   // Tablature Data
-  saveTablature(...args) { return this.stringInstrumentDB.saveTablature(...args); }
-  getTablature(midiFileId, channel) { return this.stringInstrumentDB.getTablature(midiFileId, channel); }
-  getTablaturesByFile(midiFileId) { return this.stringInstrumentDB.getTablaturesByFile(midiFileId); }
-  deleteTablature(midiFileId, channel) { return this.stringInstrumentDB.deleteTablature(midiFileId, channel); }
-  deleteTablaturesByFile(midiFileId) { return this.stringInstrumentDB.deleteTablaturesByFile(midiFileId); }
+  saveTablature(...args) {
+    return this.stringInstrumentDB.saveTablature(...args);
+  }
+  getTablature(midiFileId, channel) {
+    return this.stringInstrumentDB.getTablature(midiFileId, channel);
+  }
+  getTablaturesByFile(midiFileId) {
+    return this.stringInstrumentDB.getTablaturesByFile(midiFileId);
+  }
+  deleteTablature(midiFileId, channel) {
+    return this.stringInstrumentDB.deleteTablature(midiFileId, channel);
+  }
+  deleteTablaturesByFile(midiFileId) {
+    return this.stringInstrumentDB.deleteTablaturesByFile(midiFileId);
+  }
 
   // ==================== UTILITIES ====================
 
