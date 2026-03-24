@@ -401,8 +401,10 @@ class MidiUtils {
       case 'polyaftertouch':
         return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
       case 'pitchbend': {
-        const value = data.value ?? 8192;
-        return [0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F];
+        // Accept both centered (-8192..8191) and raw 14-bit (0..16383) formats
+        let raw = data.value ?? 8192;
+        if (raw < 0) raw += 8192; // Convert centered format to raw 14-bit
+        return [0xE0 | channel, raw & 0x7F, (raw >> 7) & 0x7F];
       }
       case 'sysex':
         return Array.isArray(data) ? data : (data.bytes || []);

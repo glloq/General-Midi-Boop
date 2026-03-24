@@ -281,8 +281,8 @@ class FileManager {
           trackNames: analysis.trackNames || []
         });
 
-        // Update note range
-        if (analysis.noteRange) {
+        // Update note range (guard against null values from empty channels)
+        if (analysis.noteRange && analysis.noteRange.min !== null && analysis.noteRange.max !== null) {
           noteMin = Math.min(noteMin, analysis.noteRange.min);
           noteMax = Math.max(noteMax, analysis.noteRange.max);
         }

@@ -168,16 +168,24 @@ class JsonMidiConverter {
     try {
       const midi = parseMidi(buffer);
       const ppq = midi.header.ticksPerBeat || 480;
-      
-      let tempo = 120;
+
+      // Collect all tempo events with absolute tick positions
+      const tempoEvents = [];
       for (const track of midi.tracks) {
-        const tempoEvent = track.find(e => e.type === 'setTempo');
-        if (tempoEvent) {
-          tempo = 60000000 / tempoEvent.microsecondsPerBeat;
-          break;
+        let trackTicks = 0;
+        for (const event of track) {
+          trackTicks += event.deltaTime;
+          if (event.type === 'setTempo') {
+            tempoEvents.push({
+              tick: trackTicks,
+              microsecondsPerBeat: event.microsecondsPerBeat
+            });
+          }
         }
       }
+      tempoEvents.sort((a, b) => a.tick - b.tick);
 
+      // Calculate total ticks across all tracks
       let maxTicks = 0;
       midi.tracks.forEach(track => {
         let trackTicks = 0;
@@ -187,9 +195,32 @@ class JsonMidiConverter {
         maxTicks = Math.max(maxTicks, trackTicks);
       });
 
-      const beatsPerSecond = tempo / 60;
-      const ticksPerSecond = beatsPerSecond * ppq;
-      return maxTicks / ticksPerSecond;
+      if (tempoEvents.length <= 1) {
+        // Single tempo: simple calculation
+        const tempo = tempoEvents.length === 1
+          ? 60000000 / tempoEvents[0].microsecondsPerBeat
+          : 120;
+        const beatsPerSecond = tempo / 60;
+        const ticksPerSecond = beatsPerSecond * ppq;
+        return maxTicks / ticksPerSecond;
+      }
+
+      // Multi-tempo: walk through tempo changes
+      let cumulativeSeconds = 0;
+      let lastTick = 0;
+      let currentMicrosPerBeat = tempoEvents[0].microsecondsPerBeat;
+
+      for (let i = 1; i < tempoEvents.length; i++) {
+        const deltaTicks = tempoEvents[i].tick - lastTick;
+        cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
+        lastTick = tempoEvents[i].tick;
+        currentMicrosPerBeat = tempoEvents[i].microsecondsPerBeat;
+      }
+      // Add remaining ticks after last tempo change
+      const remainingTicks = maxTicks - lastTick;
+      cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);
+
+      return cumulativeSeconds;
     } catch (error) {
       this.logger.error(`Calculate duration failed: ${error.message}`);
       throw error;

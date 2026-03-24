@@ -149,7 +149,7 @@ class ChannelAnalyzer {
 
     for (const event of noteEvents) {
       if (event.type === 'noteOn' && event.velocity > 0) {
-        const note = event.note || event.noteNumber || 0;
+        const note = event.note ?? event.noteNumber ?? 0;
         min = Math.min(min, note);
         max = Math.max(max, note);
       }
@@ -173,7 +173,7 @@ class ChannelAnalyzer {
 
     for (const event of noteEvents) {
       if (event.type === 'noteOn' && event.velocity > 0) {
-        const note = event.note || event.noteNumber || 0;
+        const note = event.note ?? event.noteNumber ?? 0;
         histogram[note] = (histogram[note] || 0) + 1;
       }
     }
@@ -196,25 +196,32 @@ class ChannelAnalyzer {
    * @returns {Object} - { max, avg }
    */
   calculatePolyphony(noteEvents) {
-    const activeNotes = new Map(); // note -> time
+    const activeNotes = new Map(); // note -> count (handles duplicate noteOn without noteOff)
     let maxPoly = 0;
     let totalPoly = 0;
     let measurements = 0;
+    let totalActive = 0; // track total active note count separately from Map.size
 
     for (const event of noteEvents) {
-      const note = event.note || event.noteNumber || 0;
-      const time = event.time || 0;
+      const note = event.note ?? event.noteNumber ?? 0;
 
       if (event.type === 'noteOn' && event.velocity > 0) {
-        activeNotes.set(note, time);
+        const count = activeNotes.get(note) || 0;
+        activeNotes.set(note, count + 1);
+        totalActive++;
       } else if (event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0)) {
-        activeNotes.delete(note);
+        const count = activeNotes.get(note) || 0;
+        if (count <= 1) {
+          activeNotes.delete(note);
+        } else {
+          activeNotes.set(note, count - 1);
+        }
+        if (totalActive > 0) totalActive--;
       }
 
-      const currentPoly = activeNotes.size;
-      if (currentPoly > 0) {
-        maxPoly = Math.max(maxPoly, currentPoly);
-        totalPoly += currentPoly;
+      if (totalActive > 0) {
+        maxPoly = Math.max(maxPoly, totalActive);
+        totalPoly += totalActive;
         measurements++;
       }
     }
