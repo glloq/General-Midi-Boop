@@ -169,15 +169,6 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
         this._notesDirty = true;
         this._isDraggingNotes = false;
 
-        // OPTIMISATION: Oversized notes buffer for fast scrolling
-        // Renders notes into a buffer wider/taller than viewport.
-        // During scroll, composite with offset instead of rebuilding.
-        this._notesBufferPadding = 3.0; // 3x viewport width/height
-        this._notesBufferOriginX = 0;   // xoffset at which buffer was rendered
-        this._notesBufferOriginY = 0;   // yoffset at which buffer was rendered
-        this._notesBufferRangeX = 0;    // xrange at which buffer was rendered
-        this._notesBufferRangeY = 0;    // yrange at which buffer was rendered
-
         /**
          * Fast scroll path: update xoffset/yoffset WITHOUT triggering layout().
          * Avoids DOM style updates and double redraws during view-drag.
@@ -188,22 +179,9 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this._xoffset = newXOffset;
             this._yoffset = newYOffset;
 
-            // Check if we can reuse the oversized notes buffer
-            const padX = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeX;
-            const padY = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeY;
-            const bufMinX = this._notesBufferOriginX - padX;
-            const bufMaxX = this._notesBufferOriginX + this._notesBufferRangeX + padX;
-            const bufMinY = this._notesBufferOriginY - padY;
-            const bufMaxY = this._notesBufferOriginY + this._notesBufferRangeY + padY;
-
-            if (newXOffset < bufMinX || newXOffset + this.xrange > bufMaxX ||
-                newYOffset < bufMinY || newYOffset + this.yrange > bufMaxY ||
-                this._notesBufferRangeX !== this.xrange || this._notesBufferRangeY !== this.yrange) {
-                // Scrolled outside buffer bounds — need full rebuild
-                this._notesDirty = true;
-            }
-            // Grid always needs redraw on scroll (positions change)
+            // Both buffers need rebuild (positions changed)
             this._gridDirty = true;
+            this._notesDirty = true;
 
             this.redrawThrottled();
         };
@@ -1488,10 +1466,12 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this.swidth=proll.width-this.yruler;
             this.swidth-=this.kbwidth;
             this.sheight=proll.height-this.xruler;
-            // Resize offscreen buffers only when canvas dimensions change
+            // Resize offscreen buffers to match canvas dimensions
             if (this._gridBuffer.width !== proll.width || this._gridBuffer.height !== proll.height) {
                 this._gridBuffer.width = proll.width;
                 this._gridBuffer.height = proll.height;
+            }
+            if (this._notesBuffer.width !== proll.width || this._notesBuffer.height !== proll.height) {
                 this._notesBuffer.width = proll.width;
                 this._notesBuffer.height = proll.height;
             }
@@ -1784,55 +1764,35 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
         };
 
         /**
-         * Render notes to the offscreen buffer with oversized padding for fast scrolling.
-         * The buffer covers a larger area than the viewport so scrolling can composite
-         * with an offset instead of rebuilding the buffer every frame.
+         * Render all non-selected notes to the offscreen notes buffer.
+         * Uses same coordinate system as the main canvas for simple 1:1 compositing.
          * @private
          */
         this._renderNotesBuffer=function() {
-            const pad = this._notesBufferPadding;
-            const extraX = (pad - 1) / 2 * this.xrange;
-            const extraY = (pad - 1) / 2 * this.yrange;
-
-            // Store the viewport state this buffer was rendered for
-            this._notesBufferOriginX = this.xoffset;
-            this._notesBufferOriginY = this.yoffset;
-            this._notesBufferRangeX = this.xrange;
-            this._notesBufferRangeY = this.yrange;
-
-            // Resize buffer to hold the padded area (in pixels)
-            const bufW = Math.ceil(this.swidth * pad) + this.yruler + this.kbwidth;
-            const bufH = Math.ceil(this.sheight * pad) + this.xruler;
-            if (this._notesBuffer.width !== bufW || this._notesBuffer.height !== bufH) {
-                this._notesBuffer.width = bufW;
-                this._notesBuffer.height = bufH;
-            }
-
             const ctx = this._notesBufferCtx;
-            ctx.clearRect(0, 0, bufW, bufH);
-
-            // Expanded visible range for the oversized buffer
-            const bufXOffset = Math.max(0, this.xoffset - extraX);
-            const bufYOffset = this.yoffset - extraY;
-            const bufXEnd = this.xoffset + this.xrange + extraX;
-            const bufYEnd = this.yoffset + this.yrange + extraY;
+            ctx.clearRect(0, 0, this._notesBuffer.width, this._notesBuffer.height);
 
             const l = this.sequence.length;
+            const visEnd = this.xoffset + this.xrange;
+            const visYEnd = this.yoffset + this.yrange;
+
             for (let s = 0; s < l; ++s) {
                 const ev = this.sequence[s];
-                if (ev.t + ev.g < bufXOffset || ev.t > bufXEnd) continue;
-                if (ev.n < bufYOffset || ev.n > bufYEnd) continue;
+                // Viewport culling
+                if (ev.t + ev.g < this.xoffset || ev.t > visEnd) continue;
+                if (ev.n < this.yoffset || ev.n > visYEnd) continue;
+                // During drag: skip selected notes (they'll be drawn live on main canvas)
                 if (this._isDraggingNotes && ev.f) continue;
 
-                // Draw note relative to buffer origin (not viewport)
+                // Draw using same coordinates as main canvas
                 const channel = ev.c !== undefined ? ev.c : 0;
                 const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
                 ctx.fillStyle = ev.f ? this.colnotesel : channelColor;
 
                 const w = ev.g * this.stepw;
-                let x = (ev.t - bufXOffset) * this.stepw + this.yruler + this.kbwidth;
+                let x = (ev.t - this.xoffset) * this.stepw + this.yruler + this.kbwidth;
                 let x2 = (x + w) | 0; x |= 0;
-                let y = bufH - this.xruler - (ev.n - bufYOffset) * this.steph;
+                let y = this.height - (ev.n - this.yoffset) * this.steph;
                 let y2 = (y - this.steph) | 0; y |= 0;
                 ctx.fillRect(x, y, x2 - x, y2 - y);
 
@@ -1891,34 +1851,10 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 this._renderNotesBuffer();
             }
 
-            // Composite: clear → grid → notes (with scroll offset) → rulers → overlay
+            // Composite: clear → grid → notes → rulers → overlay
             this.ctx.clearRect(0, 0, this.width, this.height);
             this.ctx.drawImage(this._gridBuffer, 0, 0);
-
-            // Compute source offset into the oversized notes buffer
-            const extraX = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeX;
-            const extraY = (this._notesBufferPadding - 1) / 2 * this._notesBufferRangeY;
-            const bufXOffset = Math.max(0, this._notesBufferOriginX - extraX);
-            const bufYOffset = this._notesBufferOriginY - extraY;
-
-            // Pixel offset: how far current viewport has scrolled from buffer origin
-            const dx = (this.xoffset - bufXOffset) * this.stepw;
-            const dy = (bufYOffset - this.yoffset) * this.steph;
-
-            // Source rect in the oversized buffer, dest rect on main canvas
-            const srcX = dx + this.yruler + this.kbwidth;
-            const srcY = dy;
-            const destX = this.yruler + this.kbwidth;
-            const destY = this.xruler;
-            const copyW = this.swidth;
-            const copyH = this.sheight;
-
-            if (this._notesBuffer.width > 0 && this._notesBuffer.height > 0 && copyW > 0 && copyH > 0) {
-                this.ctx.drawImage(this._notesBuffer,
-                    srcX, srcY, copyW, copyH,
-                    destX, destY, copyW, copyH
-                );
-            }
+            this.ctx.drawImage(this._notesBuffer, 0, 0);
 
             // During drag: draw only selected/dragged notes directly (they move each frame)
             if (this._isDraggingNotes) {
