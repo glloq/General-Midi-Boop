@@ -5809,9 +5809,9 @@ class MidiEditorModal {
         if (existingPopover) {
             existingPopover.remove();
         }
-        if (this._closeChannelSettingsOnOutsideClick) {
-            document.removeEventListener('mousedown', this._closeChannelSettingsOnOutsideClick, true);
-            this._closeChannelSettingsOnOutsideClick = null;
+        const existingBackdrop = this.container?.querySelector('.channel-settings-backdrop');
+        if (existingBackdrop) {
+            existingBackdrop.remove();
         }
         this._channelSettingsOpen = -1;
     }
@@ -5888,15 +5888,16 @@ class MidiEditorModal {
         popover.style.top = `${rect.bottom + 4}px`;
         popover.style.left = `${rect.left + rect.width / 2}px`;
         popover.style.transform = 'translateX(-50%)';
+        // Backdrop: transparent overlay that closes popover on click outside
+        const backdrop = document.createElement('div');
+        backdrop.className = 'channel-settings-backdrop';
+        backdrop.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this._closeChannelSettingsPopover();
+        });
+        this.container.appendChild(backdrop);
         this.container.appendChild(popover);
-
-        // Close popover on click outside (store handler so it can be cleaned up)
-        this._closeChannelSettingsOnOutsideClick = (e) => {
-            if (!popover.contains(e.target) && !e.target.closest('.channel-settings-btn')) {
-                this._closeChannelSettingsPopover();
-            }
-        };
-        setTimeout(() => document.addEventListener('mousedown', this._closeChannelSettingsOnOutsideClick, true), 0);
 
         // Event: enabled checkbox
         const checkbox = popover.querySelector('.channel-enabled-checkbox');
