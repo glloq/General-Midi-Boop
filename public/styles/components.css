@@ -869,9 +869,9 @@
     display: flex;
     flex-wrap: nowrap;
     gap: 4px;
-    padding: 4px 6px;
-    height: 68px;
-    min-height: 68px;
+    padding: 3px 6px;
+    height: 78px;
+    min-height: 78px;
     box-sizing: border-box;
     background: #252525;
     border-bottom: 1px solid #3a3a3a;
@@ -1089,7 +1089,7 @@
 
 .midi-editor-modal .channel-buttons {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: nowrap;
     align-items: flex-start;
 }
@@ -1099,8 +1099,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 4px 10px;
-    height: 42px;
+    padding: 3px 8px;
+    height: 40px;
     box-sizing: border-box;
     background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
     border: 3px solid #555;
@@ -1199,7 +1199,7 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 2px;
+    gap: 1px;
 }
 
 /* Row: channel button + settings gear side by side */

@@ -5876,6 +5876,16 @@ class MidiEditorModal {
         popover.style.transform = 'translateX(-50%)';
         this.container.appendChild(popover);
 
+        // Close popover on click outside
+        const closeOnOutsideClick = (e) => {
+            if (!popover.contains(e.target) && !e.target.closest('.channel-settings-btn')) {
+                popover.remove();
+                this._channelSettingsOpen = -1;
+                document.removeEventListener('mousedown', closeOnOutsideClick, true);
+            }
+        };
+        setTimeout(() => document.addEventListener('mousedown', closeOnOutsideClick, true), 0);
+
         // Event: enabled checkbox
         const checkbox = popover.querySelector('.channel-enabled-checkbox');
         checkbox.addEventListener('change', () => {
