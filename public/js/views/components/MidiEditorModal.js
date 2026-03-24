@@ -5960,17 +5960,6 @@ class MidiEditorModal {
             this.syncMutedChannels();
         });
 
-        // Close on outside click (deferred to avoid immediate close)
-        setTimeout(() => {
-            const closeHandler = (e) => {
-                if (!popover.contains(e.target)) {
-                    popover.remove();
-                    this._channelSettingsOpen = -1;
-                    document.removeEventListener('mousedown', closeHandler);
-                }
-            };
-            document.addEventListener('mousedown', closeHandler);
-        }, 0);
     }
 
     /**
