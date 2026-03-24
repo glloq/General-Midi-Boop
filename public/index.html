@@ -11345,6 +11345,10 @@
                 if (!header) return;
                 const section = header.closest('.filter-accordion-section');
                 section.classList.toggle('collapsed');
+                // Reload instruments when routing section is expanded
+                if (section.dataset.section === 'routing' && !section.classList.contains('collapsed')) {
+                    if (typeof loadInstrumentsList === 'function') loadInstrumentsList();
+                }
                 // Save state
                 const state = {};
                 accordionSections.forEach(s => { state[s.dataset.section] = s.classList.contains('collapsed'); });
