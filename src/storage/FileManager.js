@@ -394,21 +394,66 @@ class FileManager {
   listFiles(folder = '/') {
     try {
       const files = this.app.database.getFiles(folder);
-      
+
+      // Batch-fetch routing status for all files in one query
+      const fileIds = files.map(f => f.id);
+      const routingMap = this._batchGetRoutingStatus(fileIds, files);
+
       return files.map(file => ({
         id: file.id,
         filename: file.filename,
         size: file.size,
+        sizeFormatted: this.formatFileSize(file.size),
         tracks: file.tracks,
         duration: file.duration,
-        tempo: file.tempo,
+        durationFormatted: this.formatDuration(file.duration || 0),
+        tempo: Math.round(file.tempo || 120),
+        channelCount: file.channel_count || 0,
         uploadedAt: file.uploaded_at,
-        folder: file.folder
+        folder: file.folder,
+        routingStatus: routingMap.get(file.id) || 'unrouted'
       }));
     } catch (error) {
       this.app.logger.error(`List files failed: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Batch-compute routing status for multiple files using a single SQL query.
+   * @param {number[]} fileIds
+   * @param {Array} files - raw file rows from DB (with channel_count, tracks)
+   * @returns {Map<number, string>} fileId -> routingStatus
+   */
+  _batchGetRoutingStatus(fileIds, files) {
+    const result = new Map();
+    if (fileIds.length === 0) return result;
+
+    try {
+      const routingCounts = this.app.database.getRoutingCountsByFiles(fileIds);
+
+      // Build a quick lookup for effective channel count per file
+      const channelCountMap = new Map();
+      for (const file of files) {
+        channelCountMap.set(file.id, file.channel_count || file.tracks || 1);
+      }
+
+      for (const row of routingCounts) {
+        const effectiveChannelCount = channelCountMap.get(row.midi_file_id) || 1;
+        const routedCount = row.count;
+
+        if (routedCount > 0 && routedCount < effectiveChannelCount) {
+          result.set(row.midi_file_id, 'partial');
+        } else if (routedCount >= effectiveChannelCount && effectiveChannelCount > 0) {
+          const minScore = row.min_score ?? 0;
+          result.set(row.midi_file_id, minScore === 100 ? 'playable' : 'routed_incomplete');
+        }
+      }
+    } catch (err) {
+      this.app.logger.warn(`Batch routing status failed: ${err.message}`);
+    }
+
+    return result;
   }
 
   getFile(fileId) {

@@ -1218,6 +1218,28 @@ class InstrumentDatabase {
   }
 
   /**
+   * Get routing counts and min compatibility score for multiple files in one query.
+   * @param {number[]} fileIds
+   * @returns {Array<{midi_file_id: number, count: number, min_score: number}>}
+   */
+  getRoutingCountsByFiles(fileIds) {
+    if (fileIds.length === 0) return [];
+    try {
+      const placeholders = fileIds.map(() => '?').join(',');
+      const stmt = this.db.prepare(`
+        SELECT midi_file_id, COUNT(*) as count, MIN(compatibility_score) as min_score
+        FROM midi_instrument_routings
+        WHERE midi_file_id IN (${placeholders}) AND enabled = 1
+        GROUP BY midi_file_id
+      `);
+      return stmt.all(...fileIds);
+    } catch (error) {
+      this.logger.error(`Failed to get routing counts by files: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Delete all routings for a MIDI file
    * @param {number} fileId
    */
