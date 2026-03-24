@@ -2282,16 +2282,16 @@ class MidiEditorModal {
             // _refreshStringInstrumentChannels() may later adjust based on DB cc_enabled
             let tabBtn = '';
             let windBtn = '';
-            if (ch.channel !== 9) {
-                const hasRouting = this.channelRouting.has(ch.channel);
-                if (!hasRouting) {
+            try {
+                if (ch.channel !== 9 && !this.channelRouting.has(ch.channel)) {
                     // TAB: GM string instrument detection
-                    const isGmString = typeof MidiEditorChannelPanel !== 'undefined' &&
-                        MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null;
-                    const ccEnabled = this._stringInstrumentCCEnabled?.get(ch.channel);
-                    if (isGmString && ccEnabled !== false) {
-                        tabBtn = `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
-                            title="${this.t('tablature.tabButton', { instrument: ch.instrument || this.t('stringInstrument.string') })}">${this.t('midiEditor.tabButton')}</button>`;
+                    if (typeof MidiEditorChannelPanel !== 'undefined' &&
+                        MidiEditorChannelPanel.getStringInstrumentCategory(ch.program) !== null) {
+                        const ccEnabled = this._stringInstrumentCCEnabled?.get(ch.channel);
+                        if (ccEnabled !== false) {
+                            tabBtn = `<button class="channel-tab-btn" data-channel="${ch.channel}" data-color="${color}"
+                                title="${this.t('tablature.tabButton', { instrument: ch.instrument || this.t('stringInstrument.string') })}">${this.t('midiEditor.tabButton')}</button>`;
+                        }
                     }
                     // WIND: GM wind instrument detection (56-79)
                     if (typeof WindInstrumentDatabase !== 'undefined' && WindInstrumentDatabase.isWindInstrument(ch.program)) {
@@ -2300,7 +2300,7 @@ class MidiEditorModal {
                             title="${this.t('windEditor.windEditorTitle', { name: preset?.name || this.t('windEditor.icon') })}">${this.t('midiEditor.windButton')}</button>`;
                     }
                 }
-            }
+            } catch { /* ignore — buttons will be added by _refreshStringInstrumentChannels */ }
 
             // Show routed instrument name (real device) if available
             const routedName = this.getRoutedInstrumentName(ch.channel);
