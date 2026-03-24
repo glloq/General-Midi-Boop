@@ -4435,6 +4435,177 @@
         body.theme-dark .close-btn:hover {
             color: #fff;
         }
+
+        /* ========== FILTER ACCORDION ========== */
+        .filter-accordion-section {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .filter-accordion-section:last-child {
+            border-bottom: none;
+        }
+
+        body.theme-dark .filter-accordion-section {
+            border-bottom-color: #444;
+        }
+
+        .filter-accordion-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 4px;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+
+        .filter-accordion-header:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        body.theme-dark .filter-accordion-header:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .filter-accordion-icon {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+            color: #666;
+            flex-shrink: 0;
+            width: 14px;
+            text-align: center;
+        }
+
+        body.theme-dark .filter-accordion-icon {
+            color: #999;
+        }
+
+        .filter-accordion-section.collapsed .filter-accordion-icon {
+            transform: rotate(-90deg);
+        }
+
+        .filter-accordion-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #333;
+            flex: 1;
+        }
+
+        body.theme-dark .filter-accordion-title {
+            color: #ccc;
+        }
+
+        .filter-accordion-badge {
+            display: none;
+            background: #007bff;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            flex-shrink: 0;
+        }
+
+        .filter-accordion-badge.visible {
+            display: inline-flex;
+        }
+
+        .filter-accordion-body {
+            padding: 0 4px 10px 4px;
+            overflow: hidden;
+        }
+
+        .filter-accordion-section.collapsed .filter-accordion-body {
+            display: none;
+        }
+
+        .filter-subgroup {
+            margin-bottom: 10px;
+        }
+
+        .filter-subgroup:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ========== GM CATEGORY CHIPS ========== */
+        .gm-chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .gm-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            background: white;
+            color: #374151;
+        }
+
+        .gm-chip:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
+
+        .gm-chip.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .gm-chip:focus-visible {
+            outline: 2px solid #007bff;
+            outline-offset: 1px;
+        }
+
+        body.theme-dark .gm-chip {
+            background: #3d3d3d;
+            border-color: #555;
+            color: #ccc;
+        }
+
+        body.theme-dark .gm-chip:hover {
+            border-color: #4a9eff;
+            color: #4a9eff;
+        }
+
+        body.theme-dark .gm-chip.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .gm-chip-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .gm-clear-link {
+            font-size: 11px;
+            color: #007bff;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            text-decoration: underline;
+        }
+
+        .gm-clear-link:hover {
+            color: #0056b3;
+        }
     </style>
 
     <!-- CSS externe: variables (thèmes) + themes (overrides dark/colored) + composants modaux -->
@@ -4717,163 +4888,175 @@
             </div>
 
             <div class="filters-panel-body">
-                <!-- Duration Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">⏱ <span data-i18n="filters.duration">Durée</span></label>
-                    <div class="filter-row">
-                        <input type="number" id="filterDurationMin" class="filter-input" data-i18n-placeholder="filters.durationMinSec" placeholder="Min (sec)" min="0" step="1">
-                        <span>-</span>
-                        <input type="number" id="filterDurationMax" class="filter-input" data-i18n-placeholder="filters.durationMaxSec" placeholder="Max (sec)" min="0" step="1">
+
+                <!-- Section 1: Propriétés du fichier -->
+                <div class="filter-accordion-section collapsed" data-section="properties">
+                    <div class="filter-accordion-header">
+                        <span class="filter-accordion-icon">▼</span>
+                        <span class="filter-accordion-title" data-i18n="filters.sectionProperties">Propriétés du fichier</span>
+                        <span class="filter-accordion-badge" data-section-badge="properties">0</span>
+                    </div>
+                    <div class="filter-accordion-body">
+                        <div class="filter-subgroup">
+                            <label class="filter-label">⏱ <span data-i18n="filters.duration">Durée</span></label>
+                            <div class="filter-row">
+                                <input type="number" id="filterDurationMin" class="filter-input" data-i18n-placeholder="filters.durationMinSec" placeholder="Min (sec)" min="0" step="1">
+                                <span>-</span>
+                                <input type="number" id="filterDurationMax" class="filter-input" data-i18n-placeholder="filters.durationMaxSec" placeholder="Max (sec)" min="0" step="1">
+                            </div>
+                        </div>
+                        <div class="filter-subgroup">
+                            <label class="filter-label">🎵 <span data-i18n="filters.tempo">Tempo (BPM)</span></label>
+                            <div class="filter-row">
+                                <input type="number" id="filterTempoMin" class="filter-input" placeholder="Min" min="0" step="1">
+                                <span>-</span>
+                                <input type="number" id="filterTempoMax" class="filter-input" placeholder="Max" min="0" step="1">
+                            </div>
+                            <div class="filter-presets" style="margin-top: 6px;">
+                                <button class="preset-btn" data-tempo="0,80" data-i18n="filters.tempoSlow">Lent</button>
+                                <button class="preset-btn" data-tempo="80,120" data-i18n="filters.tempoModerate">Modéré</button>
+                                <button class="preset-btn" data-tempo="120,999" data-i18n="filters.tempoFast">Rapide</button>
+                            </div>
+                        </div>
+                        <div class="filter-subgroup">
+                            <label class="filter-label">🎚 <span data-i18n="filters.trackCount">Nombre de pistes</span></label>
+                            <div class="filter-row">
+                                <input type="number" id="filterTracksMin" class="filter-input" placeholder="Min" min="1" step="1">
+                                <span>-</span>
+                                <input type="number" id="filterTracksMax" class="filter-input" placeholder="Max" min="1" step="1">
+                            </div>
+                        </div>
+                        <div class="filter-subgroup">
+                            <label class="filter-label">📄 <span data-i18n="filters.fileType">Type de fichier</span></label>
+                            <div class="checkbox-group">
+                                <label><input type="radio" name="isOriginal" value="all" checked> <span data-i18n="filters.fileTypeAll">Tous</span></label>
+                                <label><input type="radio" name="isOriginal" value="true"> <span data-i18n="filters.fileTypeOriginals">Originaux</span></label>
+                                <label><input type="radio" name="isOriginal" value="false"> <span data-i18n="filters.fileTypeAdapted">Adaptés</span></label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Tempo Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">🎵 <span data-i18n="filters.tempo">Tempo (BPM)</span></label>
-                    <div class="filter-row">
-                        <input type="number" id="filterTempoMin" class="filter-input" placeholder="Min" min="0" step="1">
-                        <span>-</span>
-                        <input type="number" id="filterTempoMax" class="filter-input" placeholder="Max" min="0" step="1">
+                <!-- Section 2: Instruments -->
+                <div class="filter-accordion-section" data-section="instruments">
+                    <div class="filter-accordion-header">
+                        <span class="filter-accordion-icon">▼</span>
+                        <span class="filter-accordion-title" data-i18n="filters.sectionInstruments">Instruments</span>
+                        <span class="filter-accordion-badge" data-section-badge="instruments">0</span>
                     </div>
-                    <div class="filter-presets" style="margin-top: 6px;">
-                        <button class="preset-btn" data-tempo="0,80" data-i18n="filters.tempoSlow">Lent</button>
-                        <button class="preset-btn" data-tempo="80,120" data-i18n="filters.tempoModerate">Modéré</button>
-                        <button class="preset-btn" data-tempo="120,999" data-i18n="filters.tempoFast">Rapide</button>
-                    </div>
-                </div>
-
-                <!-- Track Count Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">🎚 <span data-i18n="filters.trackCount">Nombre de pistes</span></label>
-                    <div class="filter-row">
-                        <input type="number" id="filterTracksMin" class="filter-input" placeholder="Min" min="1" step="1">
-                        <span>-</span>
-                        <input type="number" id="filterTracksMax" class="filter-input" placeholder="Max" min="1" step="1">
-                    </div>
-                </div>
-
-                <!-- Instrument Types Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">🎹 <span data-i18n="filters.instrumentTypes">Types d'instruments</span></label>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" class="filter-instrument" value="Drums"> <span data-i18n="filters.instrumentTypeDrums">Drums</span></label>
-                        <label><input type="checkbox" class="filter-instrument" value="Bass"> <span data-i18n="filters.instrumentTypeBass">Basse</span></label>
-                        <label><input type="checkbox" class="filter-instrument" value="Melody"> <span data-i18n="filters.instrumentTypeMelody">Mélodie</span></label>
-                        <label><input type="checkbox" class="filter-instrument" value="Harmony"> <span data-i18n="filters.instrumentTypeHarmony">Harmonie</span></label>
-                        <label><input type="checkbox" class="filter-instrument" value="Percussion"> <span data-i18n="filters.instrumentTypePercussion">Percussion</span></label>
-                    </div>
-                    <div style="margin-top: 8px;">
-                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
-                        <select id="filterInstrumentMode" class="filter-select">
-                            <option value="ANY" data-i18n="filters.modeAny">Au moins un</option>
-                            <option value="ALL" data-i18n="filters.modeAll">Tous</option>
-                            <option value="EXACT" data-i18n="filters.modeExact">Exactement</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- GM Instrument Categories Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">🎼 <span data-i18n="filters.gmCategories">Catégories GM</span></label>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" class="filter-gm-category" value="Piano"> <span data-i18n="instruments.categories.piano">Piano</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Chromatic Percussion"> <span data-i18n="filters.gmCategoryChromatic">Perc. chromatiques</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Organ"> <span data-i18n="instruments.categories.organ">Orgue</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Guitar"> <span data-i18n="instruments.categories.guitar">Guitare</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Bass"> <span data-i18n="instruments.categories.bass">Basse</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Strings"> <span data-i18n="instruments.categories.strings">Cordes</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Ensemble"> <span data-i18n="instruments.categories.ensemble">Ensemble</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Brass"> <span data-i18n="instruments.categories.brass">Cuivres</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Reed"> <span data-i18n="instruments.categories.reed">Anches</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Pipe"> <span data-i18n="filters.gmCategoryPipe">Flûtes / Bois</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Lead"> <span data-i18n="instruments.categories.synthLead">Synth Lead</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Pad"> <span data-i18n="instruments.categories.synthPad">Synth Pad</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Synth Effects"> <span data-i18n="instruments.categories.synthEffects">Synth Effects</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Ethnic"> <span data-i18n="instruments.categories.ethnic">Ethnique</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Percussive"> <span data-i18n="instruments.categories.percussive">Percussif</span></label>
-                        <label><input type="checkbox" class="filter-gm-category" value="Sound Effects"> <span data-i18n="instruments.categories.soundEffects">Effets sonores</span></label>
-                    </div>
-                    <div style="margin-top: 8px;">
-                        <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
-                        <select id="filterGmMode" class="filter-select">
-                            <option value="ANY" data-i18n="filters.gmModeAny">Au moins une</option>
-                            <option value="ALL" data-i18n="filters.gmModeAll">Toutes présentes</option>
-                        </select>
+                    <div class="filter-accordion-body">
+                        <div class="filter-subgroup">
+                            <label class="filter-label">🎹 <span data-i18n="filters.instrumentTypes">Types d'instruments</span></label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" class="filter-instrument" value="Drums"> <span data-i18n="filters.instrumentTypeDrums">Drums</span></label>
+                                <label><input type="checkbox" class="filter-instrument" value="Bass"> <span data-i18n="filters.instrumentTypeBass">Basse</span></label>
+                                <label><input type="checkbox" class="filter-instrument" value="Melody"> <span data-i18n="filters.instrumentTypeMelody">Mélodie</span></label>
+                                <label><input type="checkbox" class="filter-instrument" value="Harmony"> <span data-i18n="filters.instrumentTypeHarmony">Harmonie</span></label>
+                                <label><input type="checkbox" class="filter-instrument" value="Percussion"> <span data-i18n="filters.instrumentTypePercussion">Percussion</span></label>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
+                                <select id="filterInstrumentMode" class="filter-select">
+                                    <option value="ANY" data-i18n="filters.modeAny">Au moins un</option>
+                                    <option value="ALL" data-i18n="filters.modeAll">Tous</option>
+                                    <option value="EXACT" data-i18n="filters.modeExact">Exactement</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="filter-subgroup">
+                            <div class="gm-chip-header">
+                                <label class="filter-label" style="margin-bottom: 0;">🎼 <span data-i18n="filters.gmCategories">Catégories GM</span></label>
+                                <button class="gm-clear-link" id="gmClearAll" data-i18n="filters.clearAll" style="display: none;">Tout effacer</button>
+                            </div>
+                            <div class="gm-chip-container">
+                                <span class="gm-chip" data-value="Piano" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.piano">Piano</span>
+                                <span class="gm-chip" data-value="Chromatic Percussion" role="checkbox" aria-checked="false" tabindex="0" data-i18n="filters.gmCategoryChromatic">Perc. chrom.</span>
+                                <span class="gm-chip" data-value="Organ" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.organ">Orgue</span>
+                                <span class="gm-chip" data-value="Guitar" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.guitar">Guitare</span>
+                                <span class="gm-chip" data-value="Bass" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.bass">Basse</span>
+                                <span class="gm-chip" data-value="Strings" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.strings">Cordes</span>
+                                <span class="gm-chip" data-value="Ensemble" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.ensemble">Ensemble</span>
+                                <span class="gm-chip" data-value="Brass" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.brass">Cuivres</span>
+                                <span class="gm-chip" data-value="Reed" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.reed">Anches</span>
+                                <span class="gm-chip" data-value="Pipe" role="checkbox" aria-checked="false" tabindex="0" data-i18n="filters.gmCategoryPipe">Bois</span>
+                                <span class="gm-chip" data-value="Synth Lead" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.synthLead">Synth Lead</span>
+                                <span class="gm-chip" data-value="Synth Pad" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.synthPad">Synth Pad</span>
+                                <span class="gm-chip" data-value="Synth Effects" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.synthEffects">Synth FX</span>
+                                <span class="gm-chip" data-value="Ethnic" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.ethnic">Ethnique</span>
+                                <span class="gm-chip" data-value="Percussive" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.percussive">Percussif</span>
+                                <span class="gm-chip" data-value="Sound Effects" role="checkbox" aria-checked="false" tabindex="0" data-i18n="instruments.categories.soundEffects">Effets</span>
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <label class="filter-label" style="font-size: 0.9em;" data-i18n="filters.mode">Mode :</label>
+                                <select id="filterGmMode" class="filter-select">
+                                    <option value="ANY" data-i18n="filters.gmModeAny">Au moins une</option>
+                                    <option value="ALL" data-i18n="filters.gmModeAll">Toutes présentes</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Routing Status Filter (checkboxes with color indicators) -->
-                <div class="filter-group">
-                    <label class="filter-label">⚙️ <span data-i18n="filters.routingStatus">Statut de routage</span></label>
-                    <div class="checkbox-group routing-status-checkboxes">
-                        <label>
-                            <input type="checkbox" class="filter-routing-status" value="unrouted">
-                            <span class="routing-indicator-dot" style="background: #9ca3af;"></span>
-                            <span data-i18n="filters.routingUnrouted">Non routé</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="filter-routing-status" value="partial">
-                            <span class="routing-indicator-dot" style="background: #f59e0b;"></span>
-                            <span data-i18n="filters.routingPartial">Partiellement routé</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="filter-routing-status" value="routed_incomplete">
-                            <span class="routing-indicator-dot" style="background: #3b82f6;"></span>
-                            <span data-i18n="filters.routingRoutedIncomplete">Routé (notes manquantes)</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="filter-routing-status" value="playable">
-                            <span class="routing-indicator-dot" style="background: #10b981;"></span>
-                            <span data-i18n="filters.routingPlayable">Jouable à 100%</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="filter-routing-status" value="auto_assigned">
-                            <span class="routing-indicator-dot indicator-circle" style="background: #3b82f6;"></span>
-                            <span data-i18n="filters.routingAutoAssigned">Auto-assigné (adapté)</span>
-                        </label>
+                <!-- Section 3: Routage & compatibilité -->
+                <div class="filter-accordion-section collapsed" data-section="routing">
+                    <div class="filter-accordion-header">
+                        <span class="filter-accordion-icon">▼</span>
+                        <span class="filter-accordion-title" data-i18n="filters.sectionRouting">Routage & compatibilité</span>
+                        <span class="filter-accordion-badge" data-section-badge="routing">0</span>
+                    </div>
+                    <div class="filter-accordion-body">
+                        <div class="filter-subgroup">
+                            <label class="filter-label">⚙️ <span data-i18n="filters.routingStatus">Statut de routage</span></label>
+                            <div class="checkbox-group routing-status-checkboxes">
+                                <label>
+                                    <input type="checkbox" class="filter-routing-status" value="unrouted">
+                                    <span class="routing-indicator-dot" style="background: #9ca3af;"></span>
+                                    <span data-i18n="filters.routingUnrouted">Non routé</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" class="filter-routing-status" value="partial">
+                                    <span class="routing-indicator-dot" style="background: #f59e0b;"></span>
+                                    <span data-i18n="filters.routingPartial">Partiellement routé</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" class="filter-routing-status" value="routed_incomplete">
+                                    <span class="routing-indicator-dot" style="background: #3b82f6;"></span>
+                                    <span data-i18n="filters.routingRoutedIncomplete">Routé (notes manquantes)</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" class="filter-routing-status" value="playable">
+                                    <span class="routing-indicator-dot" style="background: #10b981;"></span>
+                                    <span data-i18n="filters.routingPlayable">Jouable à 100%</span>
+                                </label>
+                                <label>
+                                    <input type="checkbox" class="filter-routing-status" value="auto_assigned">
+                                    <span class="routing-indicator-dot indicator-circle" style="background: #3b82f6;"></span>
+                                    <span data-i18n="filters.routingAutoAssigned">Auto-assigné (adapté)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filter-subgroup">
+                            <label class="filter-label">🎸 <span data-i18n="filters.playableOnInstruments">Jouable sur instruments</span></label>
+                            <div class="filter-row" style="margin-bottom: 8px;">
+                                <select id="filterInstrumentSource" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
+                                    <option value="connected" data-i18n="filters.connectedOnly">Connectés uniquement</option>
+                                    <option value="registered" data-i18n="filters.allRegistered">Tous enregistrés</option>
+                                </select>
+                                <button id="refreshInstrumentsBtn" class="btn btn-sm" data-i18n-title="filters.refreshList" title="Rafraîchir la liste">🔄</button>
+                            </div>
+                            <select id="filterPlayableInstruments" class="filter-select" multiple size="5">
+                            </select>
+                            <div class="filter-row" style="margin-top: 6px;">
+                                <label class="filter-label" style="font-size: 0.9em; margin-bottom: 0; white-space: nowrap;" data-i18n="filters.mode">Mode :</label>
+                                <select id="filterPlayableMode" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
+                                    <option value="routed" data-i18n="filters.playableModeRouted">Routé vers</option>
+                                    <option value="compatible" data-i18n="filters.playableModeCompatible">Compatible avec</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Playable on Instruments Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">🎸 <span data-i18n="filters.playableOnInstruments">Jouable sur instruments</span></label>
-                    <div class="filter-row" style="margin-bottom: 8px;">
-                        <select id="filterInstrumentSource" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
-                            <option value="connected" data-i18n="filters.connectedOnly">Connectés uniquement</option>
-                            <option value="registered" data-i18n="filters.allRegistered">Tous enregistrés</option>
-                        </select>
-                        <button id="refreshInstrumentsBtn" class="btn btn-sm" data-i18n-title="filters.refreshList" title="Rafraîchir la liste">🔄</button>
-                    </div>
-                    <select id="filterPlayableInstruments" class="filter-select" multiple size="5">
-                    </select>
-                    <div class="filter-row" style="margin-top: 6px;">
-                        <label class="filter-label" style="font-size: 0.9em; margin-bottom: 0; white-space: nowrap;" data-i18n="filters.mode">Mode :</label>
-                        <select id="filterPlayableMode" class="filter-select" style="flex: 1; min-width: 0; width: 0;">
-                            <option value="routed" data-i18n="filters.playableModeRouted">Routé vers</option>
-                            <option value="compatible" data-i18n="filters.playableModeCompatible">Compatible avec</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Is Original Filter -->
-                <div class="filter-group">
-                    <label class="filter-label">📄 <span data-i18n="filters.fileType">Type de fichier</span></label>
-                    <div class="checkbox-group">
-                        <label><input type="radio" name="isOriginal" value="all" checked> <span data-i18n="filters.fileTypeAll">Tous</span></label>
-                        <label><input type="radio" name="isOriginal" value="true"> <span data-i18n="filters.fileTypeOriginals">Originaux</span></label>
-                        <label><input type="radio" name="isOriginal" value="false"> <span data-i18n="filters.fileTypeAdapted">Adaptés</span></label>
-                    </div>
-                </div>
-
-                <!-- Quick Filters -->
-                <div class="filter-group">
-                    <label class="filter-label">⚡ <span data-i18n="filters.quickFilters">Filtres rapides</span></label>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" id="filterHasDrums" value="1"> <span data-i18n="filters.containsDrums">Contient drums</span></label>
-                        <label><input type="checkbox" id="filterHasMelody" value="1"> <span data-i18n="filters.containsMelody">Contient mélodie</span></label>
-                        <label><input type="checkbox" id="filterHasBass" value="1"> <span data-i18n="filters.containsBass">Contient basse</span></label>
-                    </div>
-                </div>
             </div>
 
             <!-- Reanalysis banner (shown when files lack metadata) -->
@@ -11144,6 +11327,50 @@
                 if (filtersPanelOverlay) filtersPanelOverlay.style.display = 'none';
             }
 
+            // ==================== ACCORDION TOGGLE ====================
+            const accordionSections = document.querySelectorAll('.filter-accordion-section');
+            // Restore saved accordion state
+            try {
+                const savedState = JSON.parse(localStorage.getItem('maestro_filter_sections') || '{}');
+                accordionSections.forEach(section => {
+                    const key = section.dataset.section;
+                    if (savedState[key] !== undefined) {
+                        section.classList.toggle('collapsed', savedState[key]);
+                    }
+                });
+            } catch (e) { /* ignore */ }
+
+            document.querySelector('.filters-panel-body').addEventListener('click', (e) => {
+                const header = e.target.closest('.filter-accordion-header');
+                if (!header) return;
+                const section = header.closest('.filter-accordion-section');
+                section.classList.toggle('collapsed');
+                // Save state
+                const state = {};
+                accordionSections.forEach(s => { state[s.dataset.section] = s.classList.contains('collapsed'); });
+                try { localStorage.setItem('maestro_filter_sections', JSON.stringify(state)); } catch (e) { /* ignore */ }
+            });
+
+            // ==================== SECTION BADGE COUNTER ====================
+            const sectionFilterKeys = {
+                properties: ['durationMin', 'durationMax', 'tempoMin', 'tempoMax', 'tracksMin', 'tracksMax', 'isOriginal'],
+                instruments: ['instrumentTypes', 'hasDrums', 'hasMelody', 'hasBass', 'gmCategories'],
+                routing: ['routingStatuses', 'playableOnInstruments']
+            };
+
+            function updateSectionBadges() {
+                if (!filterManager) return;
+                const activeKeys = new Set(filterManager.getActiveFilters().map(f => f.key));
+                for (const [section, keys] of Object.entries(sectionFilterKeys)) {
+                    const count = keys.filter(k => activeKeys.has(k)).length;
+                    const badge = document.querySelector(`[data-section-badge="${section}"]`);
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.classList.toggle('visible', count > 0);
+                    }
+                }
+            }
+
             // Duration filter
             const durationMin = document.getElementById('filterDurationMin');
             const durationMax = document.getElementById('filterDurationMax');
@@ -11185,9 +11412,11 @@
                 filterManager.setFilter('tracksMax', tracksMax.value ? parseInt(tracksMax.value) : null);
             });
 
-            // Instrument types filter
+            // Instrument types filter (merged with quick filters: hasDrums/hasMelody/hasBass)
             const instrumentCheckboxes = document.querySelectorAll('.filter-instrument');
             const instrumentMode = document.getElementById('filterInstrumentMode');
+
+            const quickFilterMap = { 'Drums': 'hasDrums', 'Melody': 'hasMelody', 'Bass': 'hasBass' };
 
             instrumentCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
@@ -11195,6 +11424,11 @@
                         .filter(cb => cb.checked)
                         .map(cb => cb.value);
                     filterManager.setFilter('instrumentTypes', selectedInstruments);
+                    // Sync quick-filter keys
+                    const qfKey = quickFilterMap[checkbox.value];
+                    if (qfKey) {
+                        filterManager.setFilter(qfKey, checkbox.checked ? true : null);
+                    }
                 });
             });
 
@@ -11202,17 +11436,44 @@
                 filterManager.setFilter('instrumentMode', instrumentMode.value);
             });
 
-            // GM Categories filter (checkboxes)
-            const gmCategoryCheckboxes = document.querySelectorAll('.filter-gm-category');
+            // GM Categories filter (chip-based UI)
+            const gmChipContainer = document.querySelector('.gm-chip-container');
+            const gmClearAll = document.getElementById('gmClearAll');
             const gmModeSelect = document.getElementById('filterGmMode');
 
-            gmCategoryCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', () => {
-                    const selected = Array.from(gmCategoryCheckboxes)
-                        .filter(cb => cb.checked)
-                        .map(cb => cb.value);
-                    filterManager.setFilter('gmCategories', selected);
+            function updateGmClearLink() {
+                const hasActive = gmChipContainer.querySelector('.gm-chip.active');
+                gmClearAll.style.display = hasActive ? 'inline' : 'none';
+            }
+
+            gmChipContainer.addEventListener('click', (e) => {
+                const chip = e.target.closest('.gm-chip');
+                if (!chip) return;
+                chip.classList.toggle('active');
+                chip.setAttribute('aria-checked', chip.classList.contains('active'));
+                const selected = Array.from(gmChipContainer.querySelectorAll('.gm-chip.active'))
+                    .map(c => c.dataset.value);
+                filterManager.setFilter('gmCategories', selected);
+                updateGmClearLink();
+            });
+
+            // Keyboard accessibility for GM chips
+            gmChipContainer.addEventListener('keydown', (e) => {
+                const chip = e.target.closest('.gm-chip');
+                if (!chip) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    chip.click();
+                }
+            });
+
+            gmClearAll.addEventListener('click', () => {
+                gmChipContainer.querySelectorAll('.gm-chip.active').forEach(c => {
+                    c.classList.remove('active');
+                    c.setAttribute('aria-checked', 'false');
                 });
+                filterManager.setFilter('gmCategories', []);
+                updateGmClearLink();
             });
 
             gmModeSelect.addEventListener('change', () => {
@@ -11317,21 +11578,6 @@
                 });
             });
 
-            // Quick filters
-            const hasDrumsCheckbox = document.getElementById('filterHasDrums');
-            const hasMelodyCheckbox = document.getElementById('filterHasMelody');
-            const hasBassCheckbox = document.getElementById('filterHasBass');
-
-            hasDrumsCheckbox.addEventListener('change', () => {
-                filterManager.setFilter('hasDrums', hasDrumsCheckbox.checked ? true : null);
-            });
-            hasMelodyCheckbox.addEventListener('change', () => {
-                filterManager.setFilter('hasMelody', hasMelodyCheckbox.checked ? true : null);
-            });
-            hasBassCheckbox.addEventListener('change', () => {
-                filterManager.setFilter('hasBass', hasBassCheckbox.checked ? true : null);
-            });
-
             // Reset filters button
             resetFiltersBtn.addEventListener('click', async () => {
                 // Reset all inputs
@@ -11343,21 +11589,24 @@
                 tracksMax.value = '';
                 instrumentCheckboxes.forEach(cb => cb.checked = false);
                 instrumentMode.value = 'ANY';
-                gmCategoryCheckboxes.forEach(cb => cb.checked = false);
+                // Reset GM chips
+                gmChipContainer.querySelectorAll('.gm-chip.active').forEach(c => {
+                    c.classList.remove('active');
+                    c.setAttribute('aria-checked', 'false');
+                });
+                gmClearAll.style.display = 'none';
                 gmModeSelect.value = 'ANY';
                 routingStatusCheckboxes.forEach(cb => cb.checked = false);
                 playableInstrumentsSelect.selectedIndex = -1;
                 playableModeSelect.value = 'routed';
                 document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
-                hasDrumsCheckbox.checked = false;
-                hasMelodyCheckbox.checked = false;
-                hasBassCheckbox.checked = false;
 
                 // Reset filter manager
                 filterManager.resetFilters();
 
                 // Update display and reload files without filters
                 updateFilterBadges();
+                updateSectionBadges();
                 await loadFiles();
             });
 
@@ -11370,6 +11619,7 @@
             // Filter change callback
             filterManager.onFilterChange = (filters) => {
                 updateFilterBadges();
+                updateSectionBadges();
             };
 
             // Filter applied callback
@@ -11505,8 +11755,17 @@
             } else if (key === 'instrumentTypes') {
                 document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                 filterManager.setFilter('instrumentTypes', []);
+                // Also clear synced quick-filter keys
+                filterManager.setFilter('hasDrums', null);
+                filterManager.setFilter('hasMelody', null);
+                filterManager.setFilter('hasBass', null);
             } else if (key === 'gmCategories') {
-                document.querySelectorAll('.filter-gm-category').forEach(cb => cb.checked = false);
+                document.querySelectorAll('.gm-chip.active').forEach(c => {
+                    c.classList.remove('active');
+                    c.setAttribute('aria-checked', 'false');
+                });
+                const clearLink = document.getElementById('gmClearAll');
+                if (clearLink) clearLink.style.display = 'none';
                 document.getElementById('filterGmMode').value = 'ANY';
                 filterManager.setFilter('gmCategories', []);
                 filterManager.setFilter('gmMode', 'ANY');
@@ -11534,19 +11793,30 @@
                 document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
                 filterManager.setFilter('isOriginal', null);
             } else if (key === 'hasDrums') {
-                document.getElementById('filterHasDrums').checked = false;
+                const drumsCheckbox = document.querySelector('.filter-instrument[value="Drums"]');
+                if (drumsCheckbox) drumsCheckbox.checked = false;
                 filterManager.setFilter('hasDrums', null);
+                // Also remove from instrumentTypes
+                const types1 = (filterManager.getFilter('instrumentTypes') || []).filter(t => t !== 'Drums');
+                filterManager.setFilter('instrumentTypes', types1);
             } else if (key === 'hasMelody') {
-                document.getElementById('filterHasMelody').checked = false;
+                const melodyCheckbox = document.querySelector('.filter-instrument[value="Melody"]');
+                if (melodyCheckbox) melodyCheckbox.checked = false;
                 filterManager.setFilter('hasMelody', null);
+                const types2 = (filterManager.getFilter('instrumentTypes') || []).filter(t => t !== 'Melody');
+                filterManager.setFilter('instrumentTypes', types2);
             } else if (key === 'hasBass') {
-                document.getElementById('filterHasBass').checked = false;
+                const bassCheckbox = document.querySelector('.filter-instrument[value="Bass"]');
+                if (bassCheckbox) bassCheckbox.checked = false;
                 filterManager.setFilter('hasBass', null);
+                const types3 = (filterManager.getFilter('instrumentTypes') || []).filter(t => t !== 'Bass');
+                filterManager.setFilter('instrumentTypes', types3);
             } else {
                 filterManager.resetFilter(key);
             }
 
             updateFilterBadges();
+            updateSectionBadges();
             applyFiltersAndRefresh();
         }
 
