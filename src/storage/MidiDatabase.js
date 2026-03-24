@@ -347,9 +347,9 @@ class MidiDatabase {
         params.push(filters.uploadedBefore);
       }
 
-      // Is original filter
+      // Is original filter (COALESCE handles NULL for pre-migration files, treating them as originals)
       if (filters.isOriginal !== undefined) {
-        wheres.push('mf.is_original = ?');
+        wheres.push('COALESCE(mf.is_original, 1) = ?');
         params.push(filters.isOriginal ? 1 : 0);
       }
 
@@ -440,7 +440,7 @@ class MidiDatabase {
         }
       }
 
-      // Routing status filter (detailed: unrouted, partial, full, validated, playable, routed_incomplete, auto_assigned)
+      // Routing status filter (detailed: unrouted, partial, playable, routed_incomplete, auto_assigned)
       // Supports single status (routingStatus) or multiple statuses (routingStatuses array)
       const statusList = filters.routingStatuses || (filters.routingStatus ? [filters.routingStatus] : []);
       if (statusList.length > 0) {
@@ -512,8 +512,8 @@ class MidiDatabase {
         filters.playableOnInstruments.forEach(id => params.push(id));
       }
 
-      // Simple routing existence filter (legacy) — skip if routingStatus is active
-      if (!filters.routingStatus) {
+      // Simple routing existence filter (legacy) — skip if routingStatus/routingStatuses is active
+      if (!filters.routingStatus && (!filters.routingStatuses || filters.routingStatuses.length === 0)) {
         if (filters.hasRouting === true) {
           wheres.push('mir.id IS NOT NULL');
         } else if (filters.hasRouting === false) {
@@ -691,6 +691,27 @@ class MidiDatabase {
     } catch (error) {
       this.logger.error(`Failed to get distinct instruments: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Count files that need metadata re-analysis
+   * (files with NULL or empty instrument_types, or no midi_file_channels rows)
+   * @returns {number}
+   */
+  countFilesNeedingReanalysis() {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT COUNT(*) as count FROM midi_files
+        WHERE instrument_types IS NULL
+          OR instrument_types = '[]'
+          OR has_drums IS NULL
+          OR id NOT IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
+      `);
+      return stmt.get().count;
+    } catch (error) {
+      this.logger.error(`Failed to count files needing reanalysis: ${error.message}`);
+      return 0;
     }
   }
 

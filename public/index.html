@@ -4222,6 +4222,24 @@
             overflow-x: hidden;
         }
 
+        .reanalysis-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #fef3c7;
+            border-top: 1px solid #f59e0b;
+            font-size: 0.85em;
+            color: #92400e;
+        }
+        .reanalysis-banner span { flex: 1; }
+        .reanalysis-banner .btn-small { padding: 4px 8px; font-size: 0.85em; white-space: nowrap; }
+        body.theme-dark .reanalysis-banner {
+            background: #422006;
+            border-top-color: #b45309;
+            color: #fcd34d;
+        }
+
         .filters-panel-footer {
             display: flex;
             gap: 8px;
@@ -4640,6 +4658,8 @@
                                     <option value="date" data-i18n="ui.sortDate">Date</option>
                                     <option value="size" data-i18n="ui.sortSize">Taille</option>
                                     <option value="duration" data-i18n="ui.sortDuration">Durée</option>
+                                    <option value="tempo" data-i18n="ui.sortTempo">Tempo</option>
+                                    <option value="tracks" data-i18n="ui.sortTracks">Pistes</option>
                                 </select>
                                 <button id="sortOrder" class="sort-order-btn" data-i18n-title="ui.sortOrder" title="Ordre de tri">
                                     ↓
@@ -4854,6 +4874,12 @@
                         <label><input type="checkbox" id="filterHasBass" value="1"> <span data-i18n="filters.containsBass">Contient basse</span></label>
                     </div>
                 </div>
+            </div>
+
+            <!-- Reanalysis banner (shown when files lack metadata) -->
+            <div id="reanalysisBanner" class="reanalysis-banner" style="display: none;">
+                <span id="reanalysisMessage"></span>
+                <button id="reanalyzeBtn" class="btn btn-small">🔄 <span data-i18n="filters.reanalyze">Réanalyser</span></button>
             </div>
 
             <div class="filters-panel-footer">
@@ -6367,8 +6393,8 @@
 
         // Fonction pour trier les fichiers
         async function sortFiles(files) {
-            // Si tri par métadonnées, on doit d'abord charger toutes les métadonnées
-            if (['size', 'duration'].includes(currentSortBy)) {
+            // Si tri par métadonnées non présentes directement, charger les métadonnées
+            if (['size', 'duration', 'tempo', 'tracks'].includes(currentSortBy)) {
                 // Charger les métadonnées pour tous les fichiers
                 await Promise.all(files.map(async (file) => {
                     if (!metadataCache.has(file.id)) {
@@ -6398,21 +6424,41 @@
                         compareValue = dateA - dateB;
                         break;
 
-                    case 'size':
+                    case 'size': {
                         const metaA = metadataCache.get(a.id);
                         const metaB = metadataCache.get(b.id);
-                        const sizeA = metaA ? metaA.size : 0;
-                        const sizeB = metaB ? metaB.size : 0;
+                        const sizeA = a.size || (metaA ? metaA.size : 0);
+                        const sizeB = b.size || (metaB ? metaB.size : 0);
                         compareValue = sizeA - sizeB;
                         break;
+                    }
 
-                    case 'duration':
+                    case 'duration': {
                         const metaDurA = metadataCache.get(a.id);
                         const metaDurB = metadataCache.get(b.id);
-                        const durA = metaDurA ? metaDurA.duration : 0;
-                        const durB = metaDurB ? metaDurB.duration : 0;
+                        const durA = a.duration || (metaDurA ? metaDurA.duration : 0);
+                        const durB = b.duration || (metaDurB ? metaDurB.duration : 0);
                         compareValue = durA - durB;
                         break;
+                    }
+
+                    case 'tempo': {
+                        const metaTempoA = metadataCache.get(a.id);
+                        const metaTempoB = metadataCache.get(b.id);
+                        const tempoA = a.tempo || (metaTempoA ? metaTempoA.tempo : 0);
+                        const tempoB = b.tempo || (metaTempoB ? metaTempoB.tempo : 0);
+                        compareValue = tempoA - tempoB;
+                        break;
+                    }
+
+                    case 'tracks': {
+                        const metaTracksA = metadataCache.get(a.id);
+                        const metaTracksB = metadataCache.get(b.id);
+                        const tracksA = a.tracks || (metaTracksA ? metaTracksA.tracks : 0);
+                        const tracksB = b.tracks || (metaTracksB ? metaTracksB.tracks : 0);
+                        compareValue = tracksA - tracksB;
+                        break;
+                    }
                 }
 
                 return currentSortOrder === 'asc' ? compareValue : -compareValue;
@@ -6420,6 +6466,9 @@
 
             return sorted;
         }
+
+        // Mapping des noms de tri UI vers les champs backend
+        const sortFieldMap = { name: 'filename', date: 'uploaded_at', size: 'size', duration: 'duration', tempo: 'tempo', tracks: 'tracks' };
 
         // Initialiser les contrôles de tri
         function initSortControls() {
@@ -6431,6 +6480,11 @@
             // Changement du critère de tri
             sortBySelect.addEventListener('change', () => {
                 currentSortBy = sortBySelect.value;
+                // Synchroniser avec FilterManager pour le tri serveur
+                if (typeof filterManager !== 'undefined' && filterManager) {
+                    filterManager.setFilter('sortBy', sortFieldMap[sortBySelect.value] || sortBySelect.value);
+                    filterManager.setFilter('sortOrder', currentSortOrder.toUpperCase());
+                }
                 loadFiles();
             });
 
@@ -6439,6 +6493,10 @@
                 currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
                 sortOrderBtn.classList.toggle('ascending', currentSortOrder === 'asc');
                 sortOrderBtn.textContent = currentSortOrder === 'asc' ? '↑' : '↓';
+                // Synchroniser avec FilterManager pour le tri serveur
+                if (typeof filterManager !== 'undefined' && filterManager) {
+                    filterManager.setFilter('sortOrder', currentSortOrder.toUpperCase());
+                }
                 loadFiles();
             });
         }
@@ -11292,6 +11350,46 @@
                 updateSearchStats(files.length, isClientSide);
             };
 
+            // Reanalysis banner: check if files need metadata backfill
+            const reanalysisBanner = document.getElementById('reanalysisBanner');
+            const reanalysisMessage = document.getElementById('reanalysisMessage');
+            const reanalyzeBtn = document.getElementById('reanalyzeBtn');
+
+            async function checkReanalysisNeeded() {
+                try {
+                    const response = await api.sendCommand('file_reanalyze_check');
+                    if (response.success && response.needsReanalysis > 0) {
+                        reanalysisMessage.textContent = `⚠️ ${response.needsReanalysis} fichier(s) sans métadonnées d'instruments. Les filtres avancés ne fonctionneront pas pour ces fichiers.`;
+                        reanalysisBanner.style.display = 'flex';
+                    } else {
+                        reanalysisBanner.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.warn('[Filters] Could not check reanalysis status:', err);
+                }
+            }
+
+            reanalyzeBtn.addEventListener('click', async () => {
+                reanalyzeBtn.disabled = true;
+                reanalysisMessage.textContent = '⏳ Réanalyse en cours...';
+                try {
+                    const response = await api.sendCommand('file_reanalyze_all');
+                    if (response.success) {
+                        reanalysisMessage.textContent = `✅ ${response.analyzed} fichier(s) réanalysé(s). ${response.failed} échec(s).`;
+                        setTimeout(() => { reanalysisBanner.style.display = 'none'; }, 3000);
+                        // Invalidate filter cache since metadata changed
+                        filterManager.invalidateCache();
+                    }
+                } catch (err) {
+                    reanalysisMessage.textContent = `❌ Erreur: ${err.message}`;
+                } finally {
+                    reanalyzeBtn.disabled = false;
+                }
+            });
+
+            // Check on filter panel open
+            checkReanalysisNeeded();
+
             log('✓ Filtres avancés initialisés', 'info');
           } catch (error) {
             console.error('[Filters] Init failed:', error);
@@ -11312,7 +11410,7 @@
 
             // Skip keys that are sub-parts of compound filters or mode selectors
             const skipKeys = new Set([
-                'instrumentMode', 'playableMode', 'validatedThreshold', 'gmMode',
+                'instrumentMode', 'playableMode', 'gmMode',
                 'includeSubfolders'
             ]);
 

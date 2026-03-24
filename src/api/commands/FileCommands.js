@@ -118,7 +118,6 @@ async function fileFilter(app, data) {
     // Routing status filter (supports single string or array of statuses)
     routingStatus: data.routingStatus,
     routingStatuses: data.routingStatuses,
-    validatedThreshold: data.validatedThreshold,
 
     // Playable on instruments filter
     playableOnInstruments: data.playableOnInstruments,
@@ -204,6 +203,14 @@ async function fileReanalyzeAll(app) {
   };
 }
 
+function fileReanalyzeCheck(app) {
+  const count = app.database.countFilesNeedingReanalysis();
+  return {
+    success: true,
+    needsReanalysis: count
+  };
+}
+
 async function fileRoutingStatus(app, data) {
   const fileId = data.fileId;
   if (!fileId) throw new Error('fileId is required');
@@ -266,6 +273,7 @@ export function register(registry, app) {
   registry.register('file_filter', (data) => fileFilter(app, data));
   registry.register('file_channels', (data) => fileChannels(app, data));
   registry.register('file_reanalyze_all', () => fileReanalyzeAll(app));
+  registry.register('file_reanalyze_check', () => fileReanalyzeCheck(app));
   registry.register('file_routing_status', (data) => fileRoutingStatus(app, data));
   registry.register('midi_instruments_list', () => midiInstrumentsList(app));
   registry.register('midi_categories_list', () => midiCategoriesList(app));

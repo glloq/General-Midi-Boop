@@ -54,9 +54,8 @@ class FilterManager {
       channelCountMin: null,
       channelCountMax: null,
       hasRouting: null, // null | true | false
-      routingStatus: null, // null | 'unrouted' | 'partial' | 'full' | 'validated' | 'playable' (legacy single)
+      routingStatus: null, // null | 'unrouted' | 'partial' | 'playable' | 'routed_incomplete' | 'auto_assigned' (legacy single)
       routingStatuses: [], // Array of routing statuses for multi-select checkboxes
-      validatedThreshold: null,
       playableOnInstruments: [], // Array of instrument IDs
       playableMode: 'routed', // 'routed' | 'compatible'
       isOriginal: null, // null | true | false
@@ -242,9 +241,7 @@ class FilterManager {
         const labels = {
           unrouted: t('filters.routingUnrouted'),
           partial: t('filters.routingPartial'),
-          full: t('filters.routingFull'),
           routed_incomplete: t('filters.routingRoutedIncomplete'),
-          validated: t('filters.routingValidated'),
           playable: t('filters.routingPlayable'),
           auto_assigned: t('filters.routingAutoAssigned')
         };
@@ -254,9 +251,7 @@ class FilterManager {
         const statusLabels = {
           unrouted: t('filters.routingUnrouted'),
           partial: t('filters.routingPartial'),
-          full: t('filters.routingFull'),
           routed_incomplete: t('filters.routingRoutedIncomplete'),
-          validated: t('filters.routingValidated'),
           playable: t('filters.routingPlayable'),
           auto_assigned: t('filters.routingAutoAssigned')
         };
