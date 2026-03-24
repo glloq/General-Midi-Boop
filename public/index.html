@@ -6288,7 +6288,7 @@
             const allCheckboxes = document.querySelectorAll('.file-checkbox');
             allCheckboxes.forEach(cb => {
                 cb.checked = true;
-                const fileId = cb.closest('.file-item').dataset.fileId;
+                const fileId = Number(cb.closest('.file-item').dataset.fileId);
                 selectedFileIds.add(fileId);
             });
             updateBatchActionsBar();
@@ -6312,30 +6312,44 @@
                 {
                     title: 'Suppression multiple',
                     icon: '🗑️',
-                    confirmText: 'Supprimer',
+                    okText: 'Supprimer',
                     cancelText: 'Annuler'
                 }
             );
 
             if (!confirmed) return;
 
-            try {
-                // Supprimer chaque fichier
-                for (const fileId of selectedFileIds) {
-                    await api.sendCommand('file_delete', { fileId: fileId });
-                }
+            let deleted = 0;
+            let failed = 0;
+            const idsToDelete = [...selectedFileIds];
 
-                log(`✓ ${count} fichier${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}`, 'info');
-                selectedFileIds.clear();
-                updateBatchActionsBar();
-                loadFiles();
-            } catch (error) {
-                log(`Erreur lors de la suppression: ${error.message}`, 'error');
-                await showAlert(`Erreur lors de la suppression: ${error.message}`, {
-                    title: 'Erreur',
-                    icon: '❌'
-                });
+            for (const fileId of idsToDelete) {
+                try {
+                    await api.sendCommand('file_delete', { fileId: fileId });
+                    // Nettoyer la config de routage et le cache
+                    delete fileRoutingConfig[fileId];
+                    metadataCache.delete(fileId);
+                    selectedFileIds.delete(fileId);
+                    deleted++;
+                } catch (error) {
+                    console.error(`Erreur suppression fichier ${fileId}:`, error);
+                    failed++;
+                }
             }
+
+            if (deleted > 0) {
+                saveRoutingConfig();
+            }
+
+            if (failed > 0) {
+                log(`⚠️ ${deleted} supprimé(s), ${failed} erreur(s)`, 'error');
+            } else {
+                log(`✓ ${deleted} fichier${deleted > 1 ? 's' : ''} supprimé${deleted > 1 ? 's' : ''}`, 'info');
+            }
+
+            selectedFileIds.clear();
+            updateBatchActionsBar();
+            loadFiles();
         }
 
         async function batchMoveFiles() {
@@ -8173,9 +8187,12 @@
                 await api.sendCommand('file_delete', { fileId });
                 log(`🗑️ ${i18n.t('fileOperations.fileDeleted')}`);
 
-                // Supprimer aussi la config de routage
+                // Nettoyer la config de routage, le cache et la sélection
                 delete fileRoutingConfig[fileId];
                 saveRoutingConfig();
+                metadataCache.delete(fileId);
+                selectedFileIds.delete(fileId);
+                updateBatchActionsBar();
 
                 loadFiles();
             } catch (error) {

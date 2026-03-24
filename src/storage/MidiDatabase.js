@@ -183,8 +183,15 @@ class MidiDatabase {
 
   deleteFile(fileId) {
     try {
+      const numericId = Number(fileId);
+      if (!Number.isFinite(numericId) || numericId <= 0) {
+        throw new Error(`Invalid file ID: ${fileId}`);
+      }
       const stmt = this.db.prepare('DELETE FROM midi_files WHERE id = ?');
-      stmt.run(fileId);
+      const result = stmt.run(numericId);
+      if (result.changes === 0) {
+        throw new Error(`File not found in database: ${numericId}`);
+      }
     } catch (error) {
       this.logger.error(`Failed to delete file: ${error.message}`);
       throw error;

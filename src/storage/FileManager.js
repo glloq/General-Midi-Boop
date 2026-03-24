@@ -574,13 +574,25 @@ class FileManager {
 
   async deleteFile(fileId) {
     try {
-      const file = this.app.database.getFile(fileId);
-      if (!file) {
-        throw new Error(`File not found: ${fileId}`);
+      const numericId = Number(fileId);
+      if (!Number.isFinite(numericId) || numericId <= 0) {
+        throw new Error(`Invalid file ID: ${fileId}`);
       }
 
-      this.app.database.deleteFile(fileId);
-      this.app.logger.info(`File deleted: ${file.filename} (${fileId})`);
+      const file = this.app.database.getFile(numericId);
+      if (!file) {
+        throw new Error(`File not found: ${numericId}`);
+      }
+
+      // Explicitly delete related channel data (defense in depth alongside CASCADE)
+      try {
+        this.app.database.deleteFileChannels(numericId);
+      } catch (err) {
+        this.app.logger.warn(`Failed to delete file channels for ${numericId}: ${err.message}`);
+      }
+
+      this.app.database.deleteFile(numericId);
+      this.app.logger.info(`File deleted: ${file.filename} (${numericId})`);
 
       // Broadcast file list update
       this.broadcastFileList();
