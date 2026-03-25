@@ -580,12 +580,16 @@ class MidiEditorModal {
             return;
         }
 
+        // Déterminer quels canaux ont des données pour le CC actif
+        const channelsWithData = this.getCCChannelsUsed ? this.getCCChannelsUsed() : [];
+
         // Générer les boutons uniquement pour les canaux présents
-        channelSelector.innerHTML = channelsToShow.map(channel => `
-            <button class="cc-channel-btn ${channel === activeChannel ? 'active' : ''}" data-channel="${channel}" title="${this.t('midiEditor.channelTip', { channel: channel + 1 })}">
-                ${channel + 1}
-            </button>
-        `).join('');
+        channelSelector.innerHTML = channelsToShow.map(channel => {
+            const classes = ['cc-channel-btn'];
+            if (channel === activeChannel) classes.push('active');
+            if (channelsWithData.includes(channel)) classes.push('has-cc-data');
+            return `<button class="${classes.join(' ')}" data-channel="${channel}" title="${this.t('midiEditor.channelTip', { channel: channel + 1 })}">${channel + 1}</button>`;
+        }).join('');
 
         // Réattacher les event listeners
         this.attachEditorChannelListeners();
@@ -629,6 +633,11 @@ class MidiEditorModal {
             } else if (this.ccEditor) {
                 this.ccEditor.setChannel(channel);
                 this.log('info', `Canal CC sélectionné: ${channel + 1}`);
+            }
+
+            // Mettre à jour le highlight des CC et l'indicateur actif
+            if (this.ccPanel) {
+                this.ccPanel.highlightUsedCCButtons();
             }
         });
     }

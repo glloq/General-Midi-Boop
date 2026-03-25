@@ -238,27 +238,33 @@
     position: relative;
 }
 
+/* CC sélectionné : fond bleu vif + glow pour bien le distinguer */
 .cc-type-btn.active {
-    background: #2196F3;
-    border-color: #2196F3;
+    background: #1565C0;
+    border-color: #1565C0;
     color: #fff;
     z-index: 2;
     position: relative;
     font-weight: bold;
+    box-shadow: 0 0 6px rgba(21, 101, 192, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
 }
 
 /* Indicateur visuel pour les CC ayant des données sur le canal sélectionné */
 .cc-type-btn.has-data {
-    border-bottom: 2px solid #FF9800;
-    color: #FF9800;
-    font-weight: 600;
+    border-bottom: 3px solid #FF9800;
+    color: #E65100;
+    font-weight: 700;
+    background: rgba(255, 152, 0, 0.08);
 }
 
+/* CC sélectionné ET ayant des données : fond bleu + liseré orange vif en bas */
 .cc-type-btn.active.has-data {
-    background: #2196F3;
-    border-color: #2196F3;
-    border-bottom: 2px solid #FFB74D;
+    background: #1565C0;
+    border-color: #1565C0;
+    border-bottom: 3px solid #FFB300;
     color: #fff;
+    box-shadow: 0 0 6px rgba(21, 101, 192, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
 /* Boutons horizontaux pour outils */
@@ -367,23 +373,31 @@
     color: #fff;
 }
 
+/* Canal sélectionné : fond bleu vif + glow */
 .cc-channel-btn.active {
-    background: #2196F3;
-    border-color: #2196F3;
+    background: #1565C0;
+    border-color: #1565C0;
     color: #fff;
     font-weight: bold;
-    box-shadow: 0 0 4px rgba(33, 150, 243, 0.5);
+    box-shadow: 0 0 6px rgba(21, 101, 192, 0.6);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
 }
 
 /* Canal ayant des données pour le CC actif */
 .cc-channel-btn.has-cc-data {
-    border-bottom: 2px solid #FF9800;
-    color: #FF9800;
+    border-bottom: 3px solid #FF9800;
+    color: #E65100;
+    font-weight: 700;
+    background: rgba(255, 152, 0, 0.08);
 }
 
+/* Canal sélectionné ET ayant des données */
 .cc-channel-btn.active.has-cc-data {
+    background: #1565C0;
+    border-color: #1565C0;
+    border-bottom: 3px solid #FFB300;
     color: #fff;
-    border-bottom: 2px solid #FFB74D;
+    box-shadow: 0 0 6px rgba(21, 101, 192, 0.6);
 }
 
 /* Input CC# libre */
@@ -744,26 +758,42 @@ body.dark-mode .cc-type-btn:hover {
     color: #e0e0e0;
 }
 
+body.dark-mode .cc-type-btn.active {
+    background: #1565C0;
+    border-color: #1565C0;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.5);
+}
+
 body.dark-mode .cc-type-btn.has-data {
-    border-bottom: 2px solid #FFB74D;
+    border-bottom: 3px solid #FFB74D;
     color: #FFB74D;
+    background: rgba(255, 183, 77, 0.1);
 }
 
 body.dark-mode .cc-type-btn.active.has-data {
-    background: #1976D2;
-    border-color: #1976D2;
-    border-bottom: 2px solid #FFB74D;
+    background: #1565C0;
+    border-color: #1565C0;
+    border-bottom: 3px solid #FFB300;
     color: #fff;
+}
+
+body.dark-mode .cc-channel-btn.active {
+    background: #1565C0;
+    border-color: #1565C0;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.5);
 }
 
 body.dark-mode .cc-channel-btn.has-cc-data {
-    border-bottom: 2px solid #FFB74D;
+    border-bottom: 3px solid #FFB74D;
     color: #FFB74D;
+    background: rgba(255, 183, 77, 0.1);
 }
 
 body.dark-mode .cc-channel-btn.active.has-cc-data {
+    background: #1565C0;
+    border-color: #1565C0;
+    border-bottom: 3px solid #FFB300;
     color: #fff;
-    border-bottom: 2px solid #FFB74D;
 }
 
 body.dark-mode .cc-custom-input {
