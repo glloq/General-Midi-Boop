@@ -1222,17 +1222,30 @@ class InstrumentDatabase {
    * @param {number[]} fileIds
    * @returns {Array<{midi_file_id: number, count: number, min_score: number}>}
    */
-  getRoutingCountsByFiles(fileIds) {
+  /**
+   * @param {number[]} fileIds
+   * @param {Set<string>} [connectedDeviceIds] - If provided, only count routings to these devices
+   */
+  getRoutingCountsByFiles(fileIds, connectedDeviceIds) {
     if (fileIds.length === 0) return [];
     try {
-      const placeholders = fileIds.map(() => '?').join(',');
+      const filePlaceholders = fileIds.map(() => '?').join(',');
+      const params = [...fileIds];
+
+      let deviceFilter = '';
+      if (connectedDeviceIds && connectedDeviceIds.size > 0) {
+        const devicePlaceholders = [...connectedDeviceIds].map(() => '?').join(',');
+        deviceFilter = ` AND device_id IN (${devicePlaceholders})`;
+        params.push(...connectedDeviceIds);
+      }
+
       const stmt = this.db.prepare(`
         SELECT midi_file_id, COUNT(*) as count, MIN(compatibility_score) as min_score
         FROM midi_instrument_routings
-        WHERE midi_file_id IN (${placeholders}) AND enabled = 1
+        WHERE midi_file_id IN (${filePlaceholders}) AND enabled = 1${deviceFilter}
         GROUP BY midi_file_id
       `);
-      return stmt.all(...fileIds);
+      return stmt.all(...params);
     } catch (error) {
       this.logger.error(`Failed to get routing counts by files: ${error.message}`);
       return [];

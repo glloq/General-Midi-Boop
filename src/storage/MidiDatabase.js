@@ -458,14 +458,22 @@ class MidiDatabase {
           }
         }
 
+        // Build device filter clause for routing subqueries (only count routings to connected devices)
+        // Device IDs come from server's deviceManager (trusted source), safe to embed as literals
+        let deviceFilterSql = '';
+        if (filters.connectedDeviceIds && filters.connectedDeviceIds.length > 0) {
+          const safeIds = filters.connectedDeviceIds.map(id => `'${String(id).replace(/'/g, "''")}'`).join(',');
+          deviceFilterSql = ` AND device_id IN (${safeIds})`;
+        }
+
         // Subquery for counting enabled routings for this file
-        const routedCountSql = '(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
+        const routedCountSql = `(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1${deviceFilterSql})`;
         // Subquery for min compatibility score
-        const minScoreSql = '(SELECT MIN(compatibility_score) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
+        const minScoreSql = `(SELECT MIN(compatibility_score) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1${deviceFilterSql})`;
         // Effective channel count: use channel_count if set, else 1 (NOT mf.tracks which is SMF track count, not MIDI channels)
         const channelCountSql = 'COALESCE(NULLIF(mf.channel_count, 0), 1)';
         // Subquery for auto-assigned check
-        const hasAutoAssignedSql = '(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1 AND auto_assigned = 1)';
+        const hasAutoAssignedSql = `(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1 AND auto_assigned = 1${deviceFilterSql})`;
 
         const orConditions = [];
         for (const status of statusList) {

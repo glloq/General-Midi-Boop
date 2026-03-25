@@ -276,62 +276,15 @@ class Application {
         this.logger.warn(`Auto-reanalysis failed (non-critical): ${error.message}`);
       }
 
-      // Clean up stale routing records pointing to devices that no longer exist
-      try {
-        this._cleanupStaleRoutings();
-      } catch (error) {
-        this.logger.warn(`Stale routing cleanup failed (non-critical): ${error.message}`);
-      }
+      // Note: stale routing records (pointing to disconnected devices) are NOT deleted,
+      // as they preserve the user's routing configuration for when devices reconnect.
+      // Instead, routing status computation filters by connected devices at query time.
     } catch (error) {
       this.logger.error(`Start failed: ${error.message}`);
       throw error;
     }
   }
 
-  /**
-   * Remove routing records from midi_instrument_routings that point to
-   * devices not currently connected. This fixes stale display states
-   * (files showing as routed when their target devices no longer exist).
-   */
-  _cleanupStaleRoutings() {
-    const knownDevices = new Set();
-    const deviceList = this.deviceManager?.getDeviceList?.() || [];
-    for (const d of deviceList) {
-      if (d.id) knownDevices.add(d.id);
-    }
-
-    if (knownDevices.size === 0) {
-      this.logger.info('[Routing Cleanup] No devices connected — skipping stale routing cleanup');
-      return;
-    }
-
-    // Get all distinct device_ids referenced in routings
-    try {
-      const rows = this.database.db.prepare(
-        'SELECT DISTINCT device_id FROM midi_instrument_routings WHERE enabled = 1'
-      ).all();
-
-      const staleDeviceIds = rows
-        .map(r => r.device_id)
-        .filter(id => id && !knownDevices.has(id));
-
-      if (staleDeviceIds.length === 0) {
-        return;
-      }
-
-      // Delete routings for stale devices
-      const placeholders = staleDeviceIds.map(() => '?').join(',');
-      const result = this.database.db.prepare(
-        `DELETE FROM midi_instrument_routings WHERE device_id IN (${placeholders})`
-      ).run(...staleDeviceIds);
-
-      this.logger.info(
-        `[Routing Cleanup] Removed ${result.changes} stale routing(s) for ${staleDeviceIds.length} device(s): ${staleDeviceIds.join(', ')}`
-      );
-    } catch (err) {
-      this.logger.warn(`[Routing Cleanup] Failed: ${err.message}`);
-    }
-  }
 
   async stop() {
     try {

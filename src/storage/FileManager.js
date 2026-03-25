@@ -430,7 +430,9 @@ class FileManager {
     if (fileIds.length === 0) return result;
 
     try {
-      const routingCounts = this.app.database.getRoutingCountsByFiles(fileIds);
+      // Only count routings to currently connected devices
+      const connectedDeviceIds = this._getConnectedDeviceIds();
+      const routingCounts = this.app.database.getRoutingCountsByFiles(fileIds, connectedDeviceIds);
 
       // Build a quick lookup for effective channel count per file
       const channelCountMap = new Map();
@@ -457,6 +459,24 @@ class FileManager {
     }
 
     return result;
+  }
+
+  /**
+   * Get set of currently connected device IDs.
+   * Returns null if device manager is unavailable (skip filtering).
+   */
+  _getConnectedDeviceIds() {
+    try {
+      const deviceList = this.app.deviceManager?.getDeviceList?.();
+      if (!deviceList || deviceList.length === 0) return null;
+      const ids = new Set();
+      for (const d of deviceList) {
+        if (d.id) ids.add(d.id);
+      }
+      return ids.size > 0 ? ids : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   getFile(fileId) {
@@ -532,14 +552,20 @@ class FileManager {
         }
       }
 
-      // Routing status computation
+      // Routing status computation — only count routings to connected devices
       let routingStatus = 'unrouted';
       let isAdapted = false;
       let hasAutoAssigned = false;
       try {
         const routings = this.app.database.getRoutingsByFile(fileId);
+        const connectedDeviceIds = this._getConnectedDeviceIds();
         const effectiveChannelCount = channels.length || file.channel_count || 1;
-        const enabledRoutings = routings.filter(r => r.enabled !== false);
+        const enabledRoutings = routings.filter(r => {
+          if (r.enabled === false) return false;
+          // If we have a device list, only count routings to connected devices
+          if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
+          return true;
+        });
         const routedCount = enabledRoutings.length;
 
         if (routedCount > 0 && routedCount < effectiveChannelCount) {

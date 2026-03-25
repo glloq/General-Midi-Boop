@@ -135,6 +135,14 @@ async function fileFilter(app, data) {
     offset: (Number.isInteger(data.offset) && data.offset >= 0) ? data.offset : undefined
   };
 
+  // Inject connected device IDs for routing status accuracy
+  try {
+    const deviceList = app.deviceManager?.getDeviceList?.() || [];
+    if (deviceList.length > 0) {
+      filters.connectedDeviceIds = deviceList.map(d => d.id).filter(Boolean);
+    }
+  } catch (e) { /* skip device filtering */ }
+
   // Remove empty/null/undefined values (FilterManager sends null as default for inactive filters)
   Object.keys(filters).forEach(key => {
     const val = filters[key];
@@ -221,7 +229,21 @@ async function fileRoutingStatus(app, data) {
   const routings = app.database.getRoutingsByFile(fileId);
   // Use channel_count (actual MIDI channels), NOT file.tracks (SMF track count)
   const channelCount = file.channel_count || 1;
-  const enabledRoutings = routings.filter(r => r.enabled !== false);
+
+  // Only count routings to currently connected devices
+  let connectedDeviceIds = null;
+  try {
+    const deviceList = app.deviceManager?.getDeviceList?.() || [];
+    if (deviceList.length > 0) {
+      connectedDeviceIds = new Set(deviceList.map(d => d.id).filter(Boolean));
+    }
+  } catch (e) { /* skip filtering */ }
+
+  const enabledRoutings = routings.filter(r => {
+    if (r.enabled === false) return false;
+    if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
+    return true;
+  });
   const routedCount = enabledRoutings.length;
 
   let status = 'unrouted';
