@@ -842,6 +842,11 @@ class MidiEditorModal {
 
         // Synchroniser les canaux mutés avec le synthétiseur (pendant la lecture)
         this.syncMutedChannels();
+
+        // Refresh playable notes highlights (hidden channels should not show highlights)
+        if (this.channelPlayableHighlights.size > 0) {
+            this._syncPianoRollHighlights();
+        }
     }
 
     /**
@@ -6500,8 +6505,10 @@ class MidiEditorModal {
         if (!this.pianoRoll) return;
 
         // Build a structure the piano roll can use: Map<channel, {notes: Set|null, color: string}>
+        // Only include highlights for visible (active) channels
         const highlights = new Map();
         this.channelPlayableHighlights.forEach((notes, ch) => {
+            if (!this.activeChannels.has(ch)) return;
             const color = this.channelColors[ch % this.channelColors.length];
             highlights.set(ch, { notes, color });
         });
