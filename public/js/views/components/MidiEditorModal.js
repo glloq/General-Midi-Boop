@@ -5683,6 +5683,9 @@ class MidiEditorModal {
             height: 20,
             onNavigate: (percentage) => {
                 this.scrollHorizontal(percentage);
+            },
+            onZoom: (factor) => {
+                this.zoomHorizontal(factor);
             }
         });
 

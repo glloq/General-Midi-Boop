@@ -29,8 +29,9 @@ class NavigationOverviewBar {
         this.xrange = 1920;
         this.maxTick = 0;
 
-        // Callback
+        // Callbacks
         this.onNavigate = options.onNavigate || null;
+        this.onZoom = options.onZoom || null;
 
         // Interaction state
         this._isDragging = false;
@@ -53,6 +54,10 @@ class NavigationOverviewBar {
         this.canvas.addEventListener('mousedown', this._onMouseDown);
         window.addEventListener('mousemove', this._onMouseMove);
         window.addEventListener('mouseup', this._onMouseUp);
+
+        // Wheel event (zoom)
+        this._onWheel = this._handleWheel.bind(this);
+        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
 
         // Touch events
         this._onTouchStart = this._handleTouchStart.bind(this);
@@ -136,6 +141,7 @@ class NavigationOverviewBar {
         this.canvas.removeEventListener('mousedown', this._onMouseDown);
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mouseup', this._onMouseUp);
+        this.canvas.removeEventListener('wheel', this._onWheel);
         this.canvas.removeEventListener('touchstart', this._onTouchStart);
         this.canvas.removeEventListener('touchmove', this._onTouchMove);
         this.canvas.removeEventListener('touchend', this._onTouchEnd);
@@ -286,6 +292,14 @@ class NavigationOverviewBar {
         if (this.onNavigate) {
             this.onNavigate(percentage);
         }
+    }
+
+    _handleWheel(e) {
+        e.preventDefault();
+        if (!this.onZoom) return;
+        // deltaY > 0 = scroll down = zoom out, deltaY < 0 = scroll up = zoom in
+        const factor = e.deltaY > 0 ? 1.25 : 0.8;
+        this.onZoom(factor);
     }
 
     _handleMouseDown(e) {
