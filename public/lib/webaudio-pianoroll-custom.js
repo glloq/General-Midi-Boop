@@ -1534,19 +1534,29 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                         if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
                         return {r:parseInt(hex.substr(0,2),16),g:parseInt(hex.substr(2,2),16),b:parseInt(hex.substr(4,2),16)};
                     };
-                    const _blend = function(base, tint, t) {
-                        return 'rgb('+Math.round(base.r+(tint.r-base.r)*t)+','+Math.round(base.g+(tint.g-base.g)*t)+','+Math.round(base.b+(tint.b-base.b)*t)+')';
-                    };
+                    // Accumulate tints per note from all channels, then blend the average
+                    const tintAccum = new Array(128);
+                    for(let y=0;y<128;++y) tintAccum[y] = [];
                     this.channelPlayableHighlights.forEach(function(info) {
                         const tint = _parseHex(info.color);
-                    const notes = info.notes;
+                        const notes = info.notes;
+                        for(let y=0;y<128;++y){
+                            if(!notes || notes.has(y)) {
+                                tintAccum[y].push(tint);
+                            }
+                        }
+                    });
                     for(let y=0;y<128;++y){
-                        if(!notes || notes.has(y)) {
-                            noteHighlightLt[y] = _blend(baseLt, tint, 0.40);
-                            noteHighlightDk[y] = _blend(baseDk, tint, 0.40);
+                        if(tintAccum[y].length > 0) {
+                            // Average all tint colors, increase intensity for multi-channel overlap
+                            var r=0,g=0,b=0;
+                            for(var i=0;i<tintAccum[y].length;++i){ r+=tintAccum[y][i].r; g+=tintAccum[y][i].g; b+=tintAccum[y][i].b; }
+                            r/=tintAccum[y].length; g/=tintAccum[y].length; b/=tintAccum[y].length;
+                            var blendT = Math.min(0.65, 0.40 + (tintAccum[y].length - 1) * 0.10);
+                            noteHighlightLt[y] = 'rgb('+Math.round(baseLt.r+(r-baseLt.r)*blendT)+','+Math.round(baseLt.g+(g-baseLt.g)*blendT)+','+Math.round(baseLt.b+(b-baseLt.b)*blendT)+')';
+                            noteHighlightDk[y] = 'rgb('+Math.round(baseDk.r+(r-baseDk.r)*blendT)+','+Math.round(baseDk.g+(g-baseDk.g)*blendT)+','+Math.round(baseDk.b+(b-baseDk.b)*blendT)+')';
                         }
                     }
-                });
                     this._cachedHighlightLt = noteHighlightLt;
                     this._cachedHighlightDk = noteHighlightDk;
                     this._highlightsDirty = false;
@@ -1746,6 +1756,12 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             const channel = ev.c !== undefined ? ev.c : 0;
             const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
 
+            // Semi-transparency when multiple channels are active so overlapping notes blend
+            const prevAlpha = ctx.globalAlpha;
+            if (this._multiChannelAlpha < 1.0 && !ev.f) {
+                ctx.globalAlpha = this._multiChannelAlpha;
+            }
+
             ctx.fillStyle = ev.f ? this.colnotesel : channelColor;
             const w = ev.g * this.stepw;
             let x = (ev.t - this.xoffset) * this.stepw + this.yruler + this.kbwidth;
@@ -1755,12 +1771,14 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             ctx.fillRect(x, y, x2 - x, y2 - y);
             // Borders (skip during drag for performance)
             if (!this._isDraggingNotes) {
+                ctx.globalAlpha = prevAlpha; // borders always fully opaque
                 ctx.fillStyle = ev.f ? this.colnoteselborder : this.colnoteborder;
                 ctx.fillRect(x, y, 1, y2 - y);
                 ctx.fillRect(x2, y, 1, y2 - y);
                 ctx.fillRect(x, y, x2 - x, 1);
                 ctx.fillRect(x, y2, x2 - x, 1);
             }
+            ctx.globalAlpha = prevAlpha;
         };
 
         /**
@@ -1787,6 +1805,12 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 // Draw using same coordinates as main canvas
                 const channel = ev.c !== undefined ? ev.c : 0;
                 const channelColor = this.channelColors ? this.channelColors[channel % this.channelColors.length] : this.colnote;
+
+                // Semi-transparency when multiple channels active
+                if (this._multiChannelAlpha < 1.0 && !ev.f) {
+                    ctx.globalAlpha = this._multiChannelAlpha;
+                }
+
                 ctx.fillStyle = ev.f ? this.colnotesel : channelColor;
 
                 const w = ev.g * this.stepw;
@@ -1796,6 +1820,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 let y2 = (y - this.steph) | 0; y |= 0;
                 ctx.fillRect(x, y, x2 - x, y2 - y);
 
+                ctx.globalAlpha = 1.0; // borders always fully opaque
                 if (!this._isDraggingNotes) {
                     ctx.fillStyle = ev.f ? this.colnoteselborder : this.colnoteborder;
                     ctx.fillRect(x, y, 1, y2 - y);
@@ -1838,6 +1863,15 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 return;
             this.stepw = this.swidth/this.xrange;
             this.steph = this.sheight/this.yrange;
+
+            // Compute note alpha: semi-transparent when multiple channels are visible
+            var channelSet = new Set();
+            for(var s=0;s<this.sequence.length;++s) {
+                var ch = this.sequence[s].c;
+                if(ch !== undefined) channelSet.add(ch);
+                if(channelSet.size > 1) break; // early exit
+            }
+            this._multiChannelAlpha = channelSet.size > 1 ? 0.7 : 1.0;
 
             // Rebuild offscreen grid buffer if needed
             if (this._gridDirty) {

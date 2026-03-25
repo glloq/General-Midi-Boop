@@ -491,6 +491,16 @@ class PianoRollView {
             else hi = mid;
         }
 
+        // Compute alpha: semi-transparent when multiple channels are visible
+        const visibleChannels = new Set();
+        for (let i = lo; i < this.notes.length; i++) {
+            const n = this.notes[i];
+            if (n.startTime > endTime) break;
+            if (!this.mutedChannels.has(n.channel)) visibleChannels.add(n.channel);
+            if (visibleChannels.size > 1) break;
+        }
+        const noteAlpha = visibleChannels.size > 1 ? 0.7 : 1.0;
+
         // Draw only visible notes starting from binary search result
         for (let i = lo; i < this.notes.length; i++) {
             const n = this.notes[i];
@@ -505,10 +515,12 @@ class PianoRollView {
             // Y position (inversé)
             const y = h - ((n.note - this.noteMin) / noteRange) * h;
 
-            // Couleur
+            // Couleur avec semi-transparence pour le mélange multi-canal
+            this.ctx.globalAlpha = muted ? 0.4 : noteAlpha;
             this.ctx.fillStyle = muted ? this.mutedColor : this.channelColors[n.channel % 16];
             this.ctx.fillRect(x1, y - noteH / 2, Math.max(2, x2 - x1), noteH);
         }
+        this.ctx.globalAlpha = 1.0;
 
         // Playhead
         const isColoredTheme = document.body.classList.contains('theme-colored');
