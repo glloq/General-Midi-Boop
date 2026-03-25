@@ -246,6 +246,16 @@
     position: relative;
 }
 
+/* Indicateur visuel pour les CC ayant des données sur le canal sélectionné */
+.cc-type-btn.has-data {
+    border-bottom: 2px solid #4CAF50;
+    color: #4CAF50;
+}
+
+.cc-type-btn.active.has-data {
+    color: #fff;
+}
+
 /* Boutons horizontaux pour outils */
 .cc-tool-buttons-horizontal {
     display: flex;
@@ -650,6 +660,15 @@ body.dark-mode .cc-type-btn:hover {
     background: #353535;
     border-color: #555;
     color: #e0e0e0;
+}
+
+body.dark-mode .cc-type-btn.has-data {
+    border-bottom: 2px solid #66BB6A;
+    color: #66BB6A;
+}
+
+body.dark-mode .cc-type-btn.active.has-data {
+    color: #fff;
 }
 
 body.dark-mode .cc-tool-btn {
