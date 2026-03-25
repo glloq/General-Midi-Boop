@@ -28,6 +28,8 @@ class CCPitchbendEditor {
         this.currentTool = 'select'; // 'select', 'move', 'line', 'draw'
         this.currentCC = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc77', 'pitchbend'
         this.currentChannel = 0;
+        this.currentNote = null; // Pour poly aftertouch : note filtrée
+        this.curveType = 'linear'; // Type de courbe pour l'outil ligne : 'linear', 'exponential', 'logarithmic', 'sine'
         this.isDrawing = false;
         this.lastDrawPosition = null;
         this.lastDrawTicks = null; // Dernier tick où un point a été créé en mode dessin
@@ -92,8 +94,26 @@ class CCPitchbendEditor {
             pointer-events: none;
         `;
 
+        // Tooltip pour afficher la valeur sous le curseur
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'cc-editor-tooltip';
+        this.tooltip.style.cssText = `
+            position: absolute;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+            white-space: nowrap;
+        `;
+
         this.element.appendChild(this.canvas);
         this.element.appendChild(this.overlay);
+        this.element.appendChild(this.tooltip);
         this.container.appendChild(this.element);
 
         // Redimensionner le canvas
@@ -198,6 +218,27 @@ class CCPitchbendEditor {
         this.renderThrottled();
     }
 
+    setNote(note) {
+        this.currentNote = note;
+        this.cancelInteractions();
+        this.isDirty = true;
+        this.renderThrottled();
+    }
+
+    setCurveType(curveType) {
+        this.curveType = curveType;
+    }
+
+    applyCurve(t) {
+        switch (this.curveType) {
+            case 'linear': return t;
+            case 'exponential': return t * t;
+            case 'logarithmic': return Math.sqrt(t);
+            case 'sine': return (1 - Math.cos(t * Math.PI)) / 2;
+            default: return t;
+        }
+    }
+
     cancelInteractions() {
         // Annuler toutes les interactions en cours
         this.lineStart = null;
@@ -272,6 +313,10 @@ class CCPitchbendEditor {
             channel: channel,
             id: Date.now() + Math.random()
         };
+        // Pour poly aftertouch, attacher la note courante
+        if (this.currentCC === 'polyAftertouch' && this.currentNote !== null) {
+            event.note = this.currentNote;
+        }
         this.events.push(event);
 
         if (autoSave) {
@@ -413,6 +458,38 @@ class CCPitchbendEditor {
             // Prévisualisation de la ligne
             this.renderLinePreview(this.lineStart, { ticks, value });
         }
+
+        // Toujours mettre à jour le tooltip
+        this.updateTooltip(x, y, ticks, value);
+    }
+
+    updateTooltip(x, y, ticks, value) {
+        if (!this.tooltip) return;
+
+        // Formater la valeur selon le type
+        let valueStr;
+        if (this.currentCC === 'pitchbend') {
+            valueStr = `PB: ${value}`;
+        } else if (this.currentCC === 'aftertouch') {
+            valueStr = `AT: ${value}`;
+        } else if (this.currentCC === 'polyAftertouch') {
+            valueStr = `PAT: ${value}`;
+        } else {
+            valueStr = `Val: ${value}`;
+        }
+
+        // Formater le temps en mesures:temps:ticks
+        const ppq = this.options.timebase || 480;
+        const beat = Math.floor(ticks / ppq);
+        const measure = Math.floor(beat / 4) + 1;
+        const beatInMeasure = (beat % 4) + 1;
+        const tickInBeat = ticks % ppq;
+        const timeStr = `${measure}:${beatInMeasure}:${String(tickInBeat).padStart(3, '0')}`;
+
+        this.tooltip.textContent = `${timeStr}  ${valueStr}`;
+        this.tooltip.style.display = 'block';
+        this.tooltip.style.left = `${x + 12}px`;
+        this.tooltip.style.top = `${y - 24}px`;
     }
 
     handleMouseUp(e) {
@@ -442,6 +519,7 @@ class CCPitchbendEditor {
 
     handleMouseLeave(e) {
         this.handleMouseUp(e);
+        if (this.tooltip) this.tooltip.style.display = 'none';
     }
 
     handleKeyDown(e) {
@@ -535,7 +613,8 @@ class CCPitchbendEditor {
         // Utiliser autoSave=false pour ne pas sauvegarder à chaque point
         for (let t = minTicks; t <= maxTicks; t += this.options.grid) {
             const progress = ticksRange > 0 ? (t - minTicks) / ticksRange : 0;
-            const value = Math.round(startValue + valueRange * progress);
+            const curveProgress = this.applyCurve(progress);
+            const value = Math.round(startValue + valueRange * curveProgress);
             this.addEvent(t, value, this.currentChannel, false);
         }
 
@@ -822,13 +901,27 @@ class CCPitchbendEditor {
             this.renderScheduled = true;
             requestAnimationFrame(() => {
                 this.render();
-                // Dessiner la ligne de prévisualisation par-dessus
+                // Dessiner la courbe de prévisualisation par-dessus
                 this.ctx.strokeStyle = '#9E9E9E';
                 this.ctx.lineWidth = 1;
                 this.ctx.setLineDash([5, 5]);
                 this.ctx.beginPath();
-                this.ctx.moveTo(this.ticksToX(start.ticks), this.valueToY(start.value));
-                this.ctx.lineTo(this.ticksToX(end.ticks), this.valueToY(end.value));
+
+                const segments = 30;
+                for (let i = 0; i <= segments; i++) {
+                    const t = i / segments;
+                    const curveT = this.applyCurve(t);
+                    const ticks = start.ticks + (end.ticks - start.ticks) * t;
+                    const value = start.value + (end.value - start.value) * curveT;
+                    const x = this.ticksToX(ticks);
+                    const y = this.valueToY(value);
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                }
+
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
                 this.renderScheduled = false;
@@ -839,10 +932,14 @@ class CCPitchbendEditor {
     // === Filtrage ===
 
     getFilteredEvents() {
-        return this.events.filter(event =>
-            event.type === this.currentCC &&
-            event.channel === this.currentChannel
-        );
+        return this.events.filter(event => {
+            if (event.type !== this.currentCC || event.channel !== this.currentChannel) return false;
+            // Pour poly aftertouch, filtrer aussi par note
+            if (this.currentCC === 'polyAftertouch' && this.currentNote !== null) {
+                return event.note === this.currentNote;
+            }
+            return true;
+        });
     }
 
     // === Synchronisation ===

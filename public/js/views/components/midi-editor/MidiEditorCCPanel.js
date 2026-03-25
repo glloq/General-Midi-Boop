@@ -355,7 +355,10 @@ class MidiEditorCCPanel {
                 this.updateEditorChannelSelector();
             }
 
-            this.hideCurveButtons();
+            this.showCurveButtons();
+
+            // Afficher/masquer le sélecteur de note pour poly aftertouch
+            this.updateNoteSelectorVisibility(ccType);
         }
 
         this.updateDeleteButtonState();
@@ -552,13 +555,20 @@ class MidiEditorCCPanel {
             return;
         }
 
-        m.ccEvents = editorEvents.map(e => ({
-            type: e.type,
-            ticks: e.ticks,
-            channel: e.channel,
-            value: e.value,
-            id: e.id
-        }));
+        m.ccEvents = editorEvents.map(e => {
+            const evt = {
+                type: e.type,
+                ticks: e.ticks,
+                channel: e.channel,
+                value: e.value,
+                id: e.id
+            };
+            // Préserver le champ note pour poly aftertouch
+            if (e.note !== undefined) {
+                evt.note = e.note;
+            }
+            return evt;
+        });
 
         m.log('info', `Synchronized ${m.ccEvents.length} CC/pitchbend events from editor`);
 
@@ -715,10 +725,15 @@ class MidiEditorCCPanel {
                     btn.addEventListener('click', (e) => {
                         e.preventDefault();
                         const curveType = btn.dataset.curve;
-                        if (curveType && m.tempoEditor) {
+                        if (curveType) {
                             ccCurveButtons.forEach(b => b.classList.remove('active'));
                             btn.classList.add('active');
-                            m.tempoEditor.setCurveType(curveType);
+                            // Appliquer au bon éditeur selon le type actif
+                            if (m.currentCCType === 'tempo' && m.tempoEditor) {
+                                m.tempoEditor.setCurveType(curveType);
+                            } else if (m.ccEditor) {
+                                m.ccEditor.setCurveType(curveType);
+                            }
                         }
                     });
                 });
@@ -915,6 +930,29 @@ class MidiEditorCCPanel {
                         id: Date.now() + Math.random() + m.ccEvents.length
                     });
                 }
+
+                if (event.type === 'channelAftertouch') {
+                    const channel = event.channel !== undefined ? event.channel : 0;
+                    m.ccEvents.push({
+                        type: 'aftertouch',
+                        ticks: currentTick,
+                        channel: channel,
+                        value: event.amount !== undefined ? event.amount : event.value,
+                        id: Date.now() + Math.random() + m.ccEvents.length
+                    });
+                }
+
+                if (event.type === 'noteAftertouch') {
+                    const channel = event.channel !== undefined ? event.channel : 0;
+                    m.ccEvents.push({
+                        type: 'polyAftertouch',
+                        ticks: currentTick,
+                        channel: channel,
+                        note: event.noteNumber,
+                        value: event.amount !== undefined ? event.amount : event.value,
+                        id: Date.now() + Math.random() + m.ccEvents.length
+                    });
+                }
             });
         });
 
@@ -999,6 +1037,103 @@ class MidiEditorCCPanel {
         m.log('info', `Added ${sortedCCs.length} dynamic CC buttons: ${sortedCCs.join(', ')}`);
 
         this.highlightUsedCCButtons();
+    }
+
+    // ========================================================================
+    // POLY AFTERTOUCH NOTE SELECTOR
+    // ========================================================================
+
+    /**
+     * Obtenir les notes ayant des evenements polyAftertouch sur un canal donne
+     */
+    getPolyAftertouchNotes(channel) {
+        const m = this.modal;
+        const notes = new Set();
+        m.ccEvents.forEach(event => {
+            if (event.type === 'polyAftertouch' && event.channel === channel && event.note !== undefined) {
+                notes.add(event.note);
+            }
+        });
+        return Array.from(notes).sort((a, b) => a - b);
+    }
+
+    /**
+     * Afficher/masquer le selecteur de note selon le type CC actif
+     */
+    updateNoteSelectorVisibility(ccType) {
+        const m = this.modal;
+        let noteSelector = m.container?.querySelector('#poly-note-selector');
+
+        if (ccType === 'polyAftertouch') {
+            if (!noteSelector) {
+                // Créer le sélecteur de note
+                const channelSelector = document.getElementById('editor-channel-selector');
+                if (!channelSelector) return;
+
+                const noteSelectorHTML = `
+                    <div id="poly-note-selector" class="cc-note-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px;">
+                        <label class="cc-toolbar-label">${m.t('midiEditor.noteSelector')}</label>
+                        <div id="poly-note-buttons" style="display: flex; gap: 2px; flex-wrap: wrap;"></div>
+                    </div>
+                `;
+                channelSelector.insertAdjacentHTML('afterend', noteSelectorHTML);
+            } else {
+                noteSelector.style.display = 'flex';
+            }
+            this.updateNoteSelectorButtons();
+        } else {
+            if (noteSelector) {
+                noteSelector.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Mettre a jour les boutons de note pour poly aftertouch
+     */
+    updateNoteSelectorButtons() {
+        const m = this.modal;
+        const container = document.getElementById('poly-note-buttons');
+        if (!container) return;
+
+        const channel = m.ccEditor ? m.ccEditor.currentChannel : 0;
+        const notes = this.getPolyAftertouchNotes(channel);
+
+        if (notes.length === 0) {
+            container.innerHTML = `<span class="cc-no-channels">${m.t('midiEditor.noAftertouchInFile')}</span>`;
+            return;
+        }
+
+        // Noms de notes MIDI
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const currentNote = m.ccEditor ? m.ccEditor.currentNote : null;
+
+        container.innerHTML = notes.map(note => {
+            const octave = Math.floor(note / 12) - 1;
+            const name = noteNames[note % 12] + octave;
+            return `<button class="cc-channel-btn ${note === currentNote ? 'active' : ''}" data-note="${note}" title="MIDI ${note}">${name}</button>`;
+        }).join('');
+
+        // Attacher les listeners
+        container.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const note = parseInt(btn.dataset.note);
+                if (!isNaN(note) && m.ccEditor) {
+                    container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    m.ccEditor.setNote(note);
+                    m.log('info', `Note poly aftertouch selectionnee: ${note}`);
+                }
+            });
+        });
+
+        // Sélectionner la première note si aucune n'est sélectionnée
+        if (currentNote === null && notes.length > 0 && m.ccEditor) {
+            m.ccEditor.setNote(notes[0]);
+            const firstBtn = container.querySelector('button');
+            if (firstBtn) firstBtn.classList.add('active');
+        }
     }
 }
 

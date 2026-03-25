@@ -542,7 +542,7 @@ class MidiEditorFileOps {
         if (m.ccEvents && m.ccEvents.length > 0) {
             m.log('info', `Adding ${m.ccEvents.length} CC/pitchbend events to MIDI file`);
 
-            let ccCount = 0, pbCount = 0;
+            let ccCount = 0, pbCount = 0, atCount = 0, patCount = 0;
             m.ccEvents.forEach(ccEvent => {
                 if (ccEvent.type.startsWith('cc')) {
                     const controllerNumber = parseInt(ccEvent.type.replace('cc', ''));
@@ -562,10 +562,27 @@ class MidiEditorFileOps {
                         value: ccEvent.value
                     });
                     pbCount++;
+                } else if (ccEvent.type === 'aftertouch') {
+                    events.push({
+                        absoluteTime: ccEvent.ticks || ccEvent.tick,
+                        type: 'channelAftertouch',
+                        channel: ccEvent.channel,
+                        amount: ccEvent.value
+                    });
+                    atCount++;
+                } else if (ccEvent.type === 'polyAftertouch') {
+                    events.push({
+                        absoluteTime: ccEvent.ticks || ccEvent.tick,
+                        type: 'noteAftertouch',
+                        channel: ccEvent.channel,
+                        noteNumber: ccEvent.note,
+                        amount: ccEvent.value
+                    });
+                    patCount++;
                 }
             });
 
-            m.log('info', `Converted to MIDI: ${ccCount} CC events, ${pbCount} pitchbend events`);
+            m.log('info', `Converted to MIDI: ${ccCount} CC, ${pbCount} pitchbend, ${atCount} aftertouch, ${patCount} poly aftertouch events`);
         } else {
             m.log('warn', 'No CC/Pitchbend events to save');
         }
@@ -594,6 +611,11 @@ class MidiEditorFileOps {
                 trackEvent.value = event.value;
             } else if (event.type === 'pitchBend') {
                 trackEvent.value = event.value;
+            } else if (event.type === 'channelAftertouch') {
+                trackEvent.amount = event.amount;
+            } else if (event.type === 'noteAftertouch') {
+                trackEvent.noteNumber = event.noteNumber;
+                trackEvent.amount = event.amount;
             } else if (event.type === 'setTempo') {
                 trackEvent.microsecondsPerBeat = event.microsecondsPerBeat;
                 delete trackEvent.channel;

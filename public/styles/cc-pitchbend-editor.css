@@ -368,6 +368,43 @@
     color: #fff;
 }
 
+/* Input CC# libre */
+.cc-custom-input {
+    width: 48px;
+    padding: 3px 4px;
+    font-size: 11px;
+    font-family: monospace;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 3px;
+    background: var(--bg-secondary, #fff);
+    color: var(--text-primary, #333);
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.cc-custom-input::-webkit-inner-spin-button,
+.cc-custom-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cc-custom-input:focus {
+    outline: none;
+    border-color: var(--accent-primary, #667eea);
+}
+
+.cc-custom-group {
+    align-items: center;
+}
+
+/* Sélecteur de note pour poly aftertouch */
+.cc-note-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+}
+
 /* Message quand aucun canal n'est disponible */
 .cc-no-channels {
     padding: 8px;
@@ -669,6 +706,12 @@ body.dark-mode .cc-type-btn.has-data {
 
 body.dark-mode .cc-type-btn.active.has-data {
     color: #fff;
+}
+
+body.dark-mode .cc-custom-input {
+    background: #2d2d2d;
+    border-color: #444;
+    color: #e0e0e0;
 }
 
 body.dark-mode .cc-tool-btn {

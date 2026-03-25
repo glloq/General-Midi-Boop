@@ -1151,8 +1151,13 @@ class MidiEditorModal {
                 this.updateEditorChannelSelector();
             }
 
-            // Masquer les boutons de courbes
-            this.hideCurveButtons();
+            // Afficher les boutons de courbes pour les CC aussi
+            this.showCurveButtons();
+
+            // Afficher/masquer le sélecteur de note pour poly aftertouch
+            if (this.ccPanel) {
+                this.ccPanel.updateNoteSelectorVisibility(ccType);
+            }
         }
 
         // Mettre à jour l'état du bouton de suppression après le changement de type
@@ -1682,13 +1687,17 @@ class MidiEditorModal {
                     btn.addEventListener('click', (e) => {
                         e.preventDefault();
                         const curveType = btn.dataset.curve;
-                        if (curveType && this.tempoEditor) {
+                        if (curveType) {
                             // Désactiver tous les boutons
                             ccCurveButtons.forEach(b => b.classList.remove('active'));
                             // Activer le bouton cliqué
                             btn.classList.add('active');
-                            // Changer le type de courbe
-                            this.tempoEditor.setCurveType(curveType);
+                            // Changer le type de courbe pour l'éditeur actif
+                            if (this.currentCCType === 'tempo' && this.tempoEditor) {
+                                this.tempoEditor.setCurveType(curveType);
+                            } else if (this.ccEditor) {
+                                this.ccEditor.setCurveType(curveType);
+                            }
                         }
                     });
                 });
@@ -2899,11 +2908,28 @@ class MidiEditorModal {
                                                 <button class="cc-type-btn" data-cc-type="cc5" title="${this.t('midiEditor.ccPortamentoTime')}">CC5</button>
                                             </div>
                                         </div>
+                                        <!-- Groupe Touch (Aftertouch) -->
+                                        <div class="cc-btn-group" data-group="touch">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupTouch')}</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn" data-cc-type="aftertouch" title="${this.t('midiEditor.ccChannelAftertouch')}">AT</button>
+                                                <button class="cc-type-btn" data-cc-type="polyAftertouch" title="${this.t('midiEditor.ccPolyAftertouch')}">PAT</button>
+                                            </div>
+                                        </div>
                                         <!-- Groupe Note/Global -->
                                         <div class="cc-btn-group" data-group="note">
                                             <div class="cc-btn-group-buttons">
                                                 <button class="cc-type-btn" data-cc-type="velocity" title="${this.t('midiEditor.ccNoteVelocity')}">VEL</button>
                                                 <button class="cc-type-btn" data-cc-type="tempo" title="${this.t('midiEditor.ccTempoAutomation')}">♩</button>
+                                            </div>
+                                        </div>
+                                        <!-- Groupe CC# libre -->
+                                        <div class="cc-btn-group" data-group="custom">
+                                            <span class="cc-group-label">${this.t('midiEditor.groupCustomCC')}</span>
+                                            <div class="cc-btn-group-buttons cc-custom-group">
+                                                <input type="number" id="custom-cc-input" min="0" max="127" placeholder="CC#"
+                                                       class="cc-custom-input" title="${this.t('midiEditor.ccCustomGo')}">
+                                                <button class="cc-type-btn" id="custom-cc-go-btn" title="${this.t('midiEditor.ccCustomGo')}">GO</button>
                                             </div>
                                         </div>
                                         <!-- Groupe dynamique (CC détectés non-statiques) -->
@@ -5404,6 +5430,33 @@ class MidiEditorModal {
                 return;
             }
         });
+
+        // CC# libre : bouton GO et input Enter
+        const customCCInput = document.getElementById('custom-cc-input');
+        const customCCGoBtn = document.getElementById('custom-cc-go-btn');
+        const applyCustomCC = () => {
+            if (!customCCInput) return;
+            const ccNum = parseInt(customCCInput.value);
+            if (!isNaN(ccNum) && ccNum >= 0 && ccNum <= 127) {
+                this.selectCCType('cc' + ccNum);
+                this.log('info', `CC# libre selectionne: CC${ccNum}`);
+            }
+        };
+        if (customCCGoBtn) {
+            customCCGoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                applyCustomCC();
+            });
+        }
+        if (customCCInput) {
+            customCCInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyCustomCC();
+                }
+                e.stopPropagation(); // Empêcher les raccourcis clavier globaux
+            });
+        }
 
         // Les event listeners pour les boutons de canal sont attachés
         // dans attachEditorChannelListeners() appelé depuis updateEditorChannelSelector()
