@@ -6044,6 +6044,10 @@ class MidiEditorModal {
      * Set channel routing to a specific connected device
      */
     setChannelRouting(channel, deviceValue) {
+        // Close the settings popover to prevent its capture-phase mousedown
+        // handler from interfering with subsequent button clicks.
+        this._closeChannelSettingsPopover();
+
         if (deviceValue) {
             this.channelRouting.set(channel, deviceValue);
         } else {
@@ -6088,32 +6092,38 @@ class MidiEditorModal {
             // Clear previous routing state before repopulating
             this.channelRouting.clear();
 
-            if (!result || !result.routings || result.routings.length === 0) {
-                this.refreshChannelButtons();
-                return;
-            }
-
-            // Build a lookup of multi-instrument devices
-            const multiInstrumentDevices = new Set();
-            for (const device of this.connectedDevices) {
-                if (device._multiInstrument) {
-                    multiInstrumentDevices.add(device.id);
+            if (result && result.routings && result.routings.length > 0) {
+                // Build a lookup of multi-instrument devices
+                const multiInstrumentDevices = new Set();
+                for (const device of this.connectedDevices) {
+                    if (device._multiInstrument) {
+                        multiInstrumentDevices.add(device.id);
+                    }
                 }
+
+                for (const routing of result.routings) {
+                    if (routing.channel == null || !routing.device_id) continue;
+                    // Reconstruct the routing key: deviceId::targetChannel for multi-instrument, otherwise deviceId
+                    const isMulti = multiInstrumentDevices.has(routing.device_id);
+                    const routingKey = isMulti
+                        ? `${routing.device_id}::${routing.target_channel != null ? routing.target_channel : routing.channel}`
+                        : routing.device_id;
+                    this.channelRouting.set(routing.channel, routingKey);
+                }
+
+                this.log('info', `Restored ${this.channelRouting.size} saved channel routing(s) from database`);
             }
 
-            for (const routing of result.routings) {
-                if (routing.channel == null || !routing.device_id) continue;
-                // Reconstruct the routing key: deviceId::targetChannel for multi-instrument, otherwise deviceId
-                const isMulti = multiInstrumentDevices.has(routing.device_id);
-                const routingKey = isMulti
-                    ? `${routing.device_id}::${routing.target_channel != null ? routing.target_channel : routing.channel}`
-                    : routing.device_id;
-                this.channelRouting.set(routing.channel, routingKey);
-            }
+            // Use non-destructive DOM updates instead of refreshChannelButtons()
+            // which uses innerHTML and destroys elements under the cursor,
+            // breaking hover/click state on all channel buttons.
+            this._updateAllChipRoutings();
+            this.updateChannelButtons();
+            this._refreshStringInstrumentChannels();
 
-            this.log('info', `Restored ${this.channelRouting.size} saved channel routing(s) from database`);
-            this.refreshChannelButtons();
-            this._emitRoutingChanged();
+            if (this.channelRouting.size > 0) {
+                this._emitRoutingChanged();
+            }
         } catch (error) {
             this.log('warn', 'Failed to load saved routings:', error);
         }
@@ -6403,6 +6413,25 @@ class MidiEditorModal {
             const windBtn = group.querySelector('.channel-wind-btn');
             if (windBtn) windBtn.remove();
         }
+    }
+
+    /**
+     * Non-destructive update of routing indicators on ALL channel chips.
+     * Iterates through every chip group and calls _updateChipRouting for each,
+     * preserving existing DOM elements (no innerHTML rebuild).
+     */
+    _updateAllChipRoutings() {
+        const chipGroups = this.container?.querySelectorAll('.channel-chip-group');
+        if (!chipGroups) return;
+
+        chipGroups.forEach(group => {
+            const chip = group.querySelector('.channel-chip');
+            if (!chip) return;
+            const ch = parseInt(chip.dataset.channel);
+            if (!isNaN(ch)) {
+                this._updateChipRouting(ch);
+            }
+        });
     }
 
     /**
