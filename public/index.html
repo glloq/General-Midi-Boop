@@ -150,6 +150,34 @@
             background: #4d4d4d;
         }
 
+        /* Dark theme: routing status strip + gradient */
+        body.theme-dark .file-item::before {
+            background: #4b5563;
+        }
+        body.theme-dark .file-item.routed::before,
+        body.theme-dark .file-item.routing-playable::before {
+            background: #10b981;
+            box-shadow: 2px 0 8px rgba(16, 185, 129, 0.4);
+        }
+        body.theme-dark .file-item.routed,
+        body.theme-dark .file-item.routing-playable {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #3d3d3d;
+        }
+        body.theme-dark .file-item.routing-partial::before {
+            background: #f59e0b;
+            box-shadow: 2px 0 8px rgba(245, 158, 11, 0.4);
+        }
+        body.theme-dark .file-item.routing-partial {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #3d3d3d;
+        }
+        body.theme-dark .file-item.routing-routed-incomplete::before {
+            background: #3b82f6;
+            box-shadow: 2px 0 8px rgba(59, 130, 246, 0.4);
+        }
+        body.theme-dark .file-item.routing-routed-incomplete {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #3d3d3d;
+        }
+
         body.theme-dark .folder-item {
             background: #4a3f1f;
             border-left-color: #f59e0b;
@@ -846,14 +874,19 @@
         body.theme-colored .display-mode-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3); }
 
         /* File grid view */
-        body.theme-colored .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid rgba(118, 75, 162, 0.15); border-left: 3px solid rgba(102, 126, 234, 0.3); backdrop-filter: blur(8px); }
-        body.theme-colored .file-list.view-grid .file-item:hover { border-color: rgba(118, 75, 162, 0.35); border-left-color: #667eea; box-shadow: 0 8px 20px rgba(118, 75, 162, 0.18); background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(232, 236, 254, 0.6)); }
-        body.theme-colored .file-list.view-grid .file-item.selected { border-color: #764ba2; border-left-color: #764ba2; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); box-shadow: 0 4px 14px rgba(118, 75, 162, 0.2); }
+        body.theme-colored .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid rgba(118, 75, 162, 0.15); backdrop-filter: blur(8px); }
+        body.theme-colored .file-list.view-grid .file-item::before { background: rgba(102, 126, 234, 0.3); }
+        body.theme-colored .file-list.view-grid .file-item:hover { border-color: rgba(118, 75, 162, 0.35); box-shadow: 0 8px 20px rgba(118, 75, 162, 0.18); background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(232, 236, 254, 0.6)); }
+        body.theme-colored .file-list.view-grid .file-item:hover::before { background: #667eea; }
+        body.theme-colored .file-list.view-grid .file-item.selected { border-color: #764ba2; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); box-shadow: 0 4px 14px rgba(118, 75, 162, 0.2); }
+        body.theme-colored .file-list.view-grid .file-item.selected::before { background: #764ba2; }
 
         /* Compact view */
-        body.theme-colored .file-list.view-compact .file-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); border-left: 3px solid transparent; }
-        body.theme-colored .file-list.view-compact .file-item:hover { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.06)); border-left-color: #667eea; }
-        body.theme-colored .file-list.view-compact .file-item.selected { background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); border-left-color: #764ba2; }
+        body.theme-colored .file-list.view-compact .file-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); }
+        body.theme-colored .file-list.view-compact .file-item:hover { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.06)); }
+        body.theme-colored .file-list.view-compact .file-item:hover::before { background: #667eea; }
+        body.theme-colored .file-list.view-compact .file-item.selected { background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); }
+        body.theme-colored .file-list.view-compact .file-item.selected::before { background: #764ba2; }
 
         /* Header info */
         body.theme-colored .header-file-name { color: #ffffff; }
@@ -1423,6 +1456,7 @@
 
         .file-item {
             padding: 4px;
+            padding-left: 14px;
             background: #f9fafb;
             border-radius: 6px;
             margin-bottom: 8px;
@@ -1431,6 +1465,8 @@
             align-items: center;
             cursor: grab;
             transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
 
         .file-item:hover {
@@ -1596,18 +1632,50 @@
             min-width: fit-content;
         }
 
-        /* 🆕 Nouveaux styles pour les boutons et badges */
+        /* ========================================================================
+         * ROUTING STATUS STRIP (pseudo-element left indicator)
+         * ======================================================================== */
+
+        .file-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            border-radius: 6px 0 0 6px;
+            background: #d1d5db;
+            transition: background 0.3s, box-shadow 0.3s;
+            z-index: 1;
+        }
+
+        /* Green: routed / playable */
+        .file-item.routed::before,
+        .file-item.routing-playable::before {
+            background: #10b981;
+            box-shadow: 2px 0 8px rgba(16, 185, 129, 0.35);
+        }
         .file-item.routed,
         .file-item.routing-playable {
-            border-left: 3px solid #10b981;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 40%), #f9fafb;
         }
 
+        /* Orange/Amber: partial */
+        .file-item.routing-partial::before {
+            background: #f59e0b;
+            box-shadow: 2px 0 8px rgba(245, 158, 11, 0.35);
+        }
         .file-item.routing-partial {
-            border-left: 3px solid #f59e0b;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 40%), #f9fafb;
         }
 
+        /* Blue: routed-incomplete */
+        .file-item.routing-routed-incomplete::before {
+            background: #3b82f6;
+            box-shadow: 2px 0 8px rgba(59, 130, 246, 0.35);
+        }
         .file-item.routing-routed-incomplete {
-            border-left: 3px solid #3b82f6;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 40%), #f9fafb;
         }
 
         .file-item.selected {
@@ -2108,29 +2176,43 @@
 
         .file-list.view-compact .file-item {
             padding: 3px 8px;
+            padding-left: 14px;
             margin-bottom: 0;
             border-radius: 3px;
             background: transparent;
-            border-left: 3px solid transparent;
             min-height: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-list.view-compact .file-item::before {
+            width: 4px;
+            border-radius: 3px 0 0 3px;
+        }
+
+        /* Compact: routing background tints */
+        .file-list.view-compact .file-item.routed,
+        .file-list.view-compact .file-item.routing-playable {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 30%);
+        }
+        .file-list.view-compact .file-item.routing-partial {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 30%);
+        }
+        .file-list.view-compact .file-item.routing-routed-incomplete {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 30%);
         }
 
         .file-list.view-compact .file-item:hover {
             background: #f0f1f3;
         }
 
-        .file-list.view-compact .file-item.routed {
-            border-left-color: #10b981;
-        }
-
         .file-list.view-compact .file-item.selected {
             background: #e0e7ff;
-            border-left-color: #667eea;
-            border-top: none;
-            border-right: none;
-            border-bottom: none;
-            border-left: 3px solid #667eea;
             box-shadow: none;
+        }
+        .file-list.view-compact .file-item.selected::before {
+            background: #667eea;
+            box-shadow: 2px 0 6px rgba(102, 126, 234, 0.3);
         }
 
         .file-list.view-compact .file-checkbox {
@@ -2221,21 +2303,18 @@
             white-space: nowrap;
         }
 
-        body.theme-dark .file-list.view-compact .file-item {
-            border-left-color: transparent;
-        }
+        /* Dark compact: strip colors handled by global dark ::before rules */
 
         body.theme-dark .file-list.view-compact .file-item:hover {
             background: #374151;
         }
 
-        body.theme-dark .file-list.view-compact .file-item.routed {
-            border-left-color: #10b981;
-        }
-
         body.theme-dark .file-list.view-compact .file-item.selected {
             background: #3d4a7a;
-            border-left-color: #8b9bea;
+        }
+        body.theme-dark .file-list.view-compact .file-item.selected::before {
+            background: #8b9bea;
+            box-shadow: 2px 0 6px rgba(139, 155, 234, 0.3);
         }
 
         /* ========================================================================
@@ -2253,6 +2332,7 @@
             flex-direction: column;
             align-items: stretch;
             padding: 12px;
+            padding-left: 16px;
             margin-bottom: 0;
             border-radius: 8px;
             background: #ffffff;
@@ -2261,6 +2341,12 @@
             transition: all 0.2s;
             cursor: grab;
             position: relative;
+            overflow: hidden;
+        }
+
+        .file-list.view-grid .file-item::before {
+            width: 5px;
+            border-radius: 8px 0 0 8px;
         }
 
         .file-list.view-grid .file-item:hover {
@@ -2269,8 +2355,16 @@
             transform: translateY(-2px);
         }
 
-        .file-list.view-grid .file-item.routed {
-            border-left: 3px solid #10b981;
+        /* Grid: routing background tints */
+        .file-list.view-grid .file-item.routed,
+        .file-list.view-grid .file-item.routing-playable {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 30%), #ffffff;
+        }
+        .file-list.view-grid .file-item.routing-partial {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 30%), #ffffff;
+        }
+        .file-list.view-grid .file-item.routing-routed-incomplete {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 30%), #ffffff;
         }
 
         .file-list.view-grid .file-item.selected {
@@ -2373,6 +2467,18 @@
         body.theme-dark .file-list.view-grid .file-item.selected {
             background: #3d4a7a;
             border-color: #8b9bea;
+        }
+
+        /* Grid dark: routing background tints */
+        body.theme-dark .file-list.view-grid .file-item.routed,
+        body.theme-dark .file-list.view-grid .file-item.routing-playable {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 30%), #2d2d2d;
+        }
+        body.theme-dark .file-list.view-grid .file-item.routing-partial {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 30%), #2d2d2d;
+        }
+        body.theme-dark .file-list.view-grid .file-item.routing-routed-incomplete {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 30%), #2d2d2d;
         }
 
         body.theme-dark .file-list.view-grid .file-metadata {
