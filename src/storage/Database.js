@@ -36,7 +36,30 @@ class DatabaseManager {
     this.lightingDB = new LightingDatabase(this.db, this.app.logger);
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.app.logger);
 
+    // Repair: populate channel_count from midi_file_channels for files missing it
+    this._repairMissingChannelCounts();
+
     this.app.logger.info('Database initialized');
+  }
+
+  /**
+   * Fix files where channel_count is 0 but midi_file_channels has actual channel data.
+   * This can happen if files were uploaded before channel analysis was implemented.
+   */
+  _repairMissingChannelCounts() {
+    try {
+      const result = this.db.prepare(`
+        UPDATE midi_files SET channel_count = (
+          SELECT COUNT(*) FROM midi_file_channels WHERE midi_file_id = midi_files.id
+        ) WHERE (channel_count IS NULL OR channel_count = 0)
+          AND id IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
+      `).run();
+      if (result.changes > 0) {
+        this.app.logger.info(`[DB Repair] Updated channel_count for ${result.changes} file(s) from midi_file_channels`);
+      }
+    } catch (err) {
+      this.app.logger.warn(`[DB Repair] Failed to repair channel counts: ${err.message}`);
+    }
   }
 
   ensureDataDir() {

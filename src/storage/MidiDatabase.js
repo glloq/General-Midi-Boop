@@ -462,8 +462,8 @@ class MidiDatabase {
         const routedCountSql = '(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
         // Subquery for min compatibility score
         const minScoreSql = '(SELECT MIN(compatibility_score) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1)';
-        // Effective channel count: use channel_count if set, else tracks count, else 1
-        const channelCountSql = 'COALESCE(NULLIF(mf.channel_count, 0), mf.tracks, 1)';
+        // Effective channel count: use channel_count if set, else 1 (NOT mf.tracks which is SMF track count, not MIDI channels)
+        const channelCountSql = 'COALESCE(NULLIF(mf.channel_count, 0), 1)';
         // Subquery for auto-assigned check
         const hasAutoAssignedSql = '(SELECT COUNT(*) FROM midi_instrument_routings WHERE midi_file_id = mf.id AND enabled = 1 AND auto_assigned = 1)';
 
@@ -477,10 +477,12 @@ class MidiDatabase {
               orConditions.push(`(${routedCountSql} > 0 AND ${routedCountSql} < ${channelCountSql})`);
               break;
             case 'routed_incomplete':
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} < 100)`);
+              // Only routed_incomplete if there ARE actual scores and min < 100
+              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} IS NOT NULL AND ${minScoreSql} < 100)`);
               break;
             case 'playable':
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} = 100)`);
+              // Playable if all scores are 100 OR all scores are NULL (manual routings)
+              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND (${minScoreSql} IS NULL OR ${minScoreSql} = 100))`);
               break;
             case 'auto_assigned':
               orConditions.push(`(${hasAutoAssignedSql} > 0)`);

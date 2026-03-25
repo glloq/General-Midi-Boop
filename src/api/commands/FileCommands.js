@@ -219,7 +219,8 @@ async function fileRoutingStatus(app, data) {
   if (!file) throw new Error(`File not found: ${fileId}`);
 
   const routings = app.database.getRoutingsByFile(fileId);
-  const channelCount = file.channel_count || file.tracks || 1;
+  // Use channel_count (actual MIDI channels), NOT file.tracks (SMF track count)
+  const channelCount = file.channel_count || 1;
   const enabledRoutings = routings.filter(r => r.enabled !== false);
   const routedCount = enabledRoutings.length;
 
@@ -227,8 +228,10 @@ async function fileRoutingStatus(app, data) {
   if (routedCount > 0 && routedCount < channelCount) {
     status = 'partial';
   } else if (routedCount >= channelCount && channelCount > 0) {
-    const minScore = Math.min(...enabledRoutings.map(r => r.compatibility_score ?? 0));
-    status = minScore === 100 ? 'playable' : 'routed_incomplete';
+    // Filter out NULL scores (manual routings without compatibility data)
+    const scores = enabledRoutings.map(r => r.compatibility_score).filter(s => s !== null && s !== undefined);
+    const minScore = scores.length > 0 ? Math.min(...scores) : null;
+    status = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
   }
 
   const hasAutoAssigned = enabledRoutings.some(r => r.auto_assigned);

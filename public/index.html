@@ -6203,7 +6203,29 @@
                     // Sync localStorage routing data to DB (for routing status filter)
                     if (Object.keys(fileRoutingConfig).length > 0) {
                         api.sendCommand('file_routing_bulk_sync', { routings: fileRoutingConfig })
-                            .then(r => console.log(`[Routing] Bulk sync: ${r.synced} channels, ${r.files} files`))
+                            .then(r => {
+                                console.log(`[Routing] Bulk sync: ${r.synced} channels, ${r.files} files`);
+                                // Clean localStorage of invalid device routings
+                                if (r.invalidDevices && r.invalidDevices.length > 0) {
+                                    console.warn(`[Routing] Removing invalid devices from localStorage: ${r.invalidDevices.join(', ')}`);
+                                    const invalidSet = new Set(r.invalidDevices);
+                                    let cleaned = false;
+                                    for (const [fileId, config] of Object.entries(fileRoutingConfig)) {
+                                        if (!config.channels) continue;
+                                        for (const [ch, val] of Object.entries(config.channels)) {
+                                            const devId = val.split('::')[0];
+                                            if (invalidSet.has(devId)) {
+                                                delete config.channels[ch];
+                                                cleaned = true;
+                                            }
+                                        }
+                                        if (Object.keys(config.channels).length === 0) {
+                                            delete fileRoutingConfig[fileId];
+                                        }
+                                    }
+                                    if (cleaned) saveRoutingConfig();
+                                }
+                            })
                             .catch(e => console.warn('[Routing] Bulk sync failed:', e.message));
                     }
                 });
@@ -6994,42 +7016,16 @@
             }
         }
 
-        // Compute initial routing status from fileRoutingConfig (before async metadata)
-        function getInitialRoutingStatus(fileId, file) {
-            const config = fileRoutingConfig[fileId];
-            if (!config || !config.channels) return 'unrouted';
 
-            const routedDeviceIds = Object.values(config.channels);
-            if (routedDeviceIds.length === 0) return 'unrouted';
-
-            // Check virtual instruments setting
-            let virtualEnabled = false;
-            try {
-                const saved = localStorage.getItem('maestro_settings');
-                if (saved) virtualEnabled = !!JSON.parse(saved).virtualInstrument;
-            } catch (e) { /* ignore */ }
-
-            const routedCount = virtualEnabled
-                ? routedDeviceIds.filter(id => id).length
-                : routedDeviceIds.filter(id => id && id !== 'virtual-instrument' && !id.startsWith('virtual_')).length;
-
-            if (routedCount === 0) return 'unrouted';
-
-            // Use file.channel_count or file.tracks to detect partial
-            const channelCount = file.channel_count || file.tracks || 1;
-            if (routedCount < channelCount) return 'partial';
-
-            // Fully routed — can't distinguish routed_incomplete from playable without scores
-            return 'routed_incomplete';
-        }
 
         // Créer l'élément HTML pour un fichier
         function createFileElement(file) {
-            const routed = isFileRouted(file.id);
-            const initialStatus = file.routingStatus || getInitialRoutingStatus(file.id, file);
+            // Use backend routingStatus as single source of truth (not localStorage)
+            const initialStatus = file.routingStatus || 'unrouted';
+            const routed = initialStatus !== 'unrouted';
 
             const li = document.createElement('li');
-            li.className = 'file-item' + (initialStatus !== 'unrouted' ? ` routing-${initialStatus}` : '') + (routed ? ' routed' : '');
+            li.className = 'file-item' + (routed ? ` routing-${initialStatus} routed` : '');
             li.draggable = true;
             li.dataset.fileId = file.id;
             li.dataset.fileName = file.filename;
