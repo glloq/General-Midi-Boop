@@ -289,37 +289,32 @@ class CalibrationModal extends BaseModal {
         try {
             this.instruments = [];
 
-            // Try instrument_list_connected first (registered instruments with proper names)
-            try {
-                const response = await this.api.sendCommand('instrument_list_connected');
-                const instruments = response.instruments || [];
-                for (const inst of instruments) {
-                    const deviceId = inst.device_id || inst.id;
-                    const channel = inst.channel !== undefined ? inst.channel : 0;
-                    const name = inst.custom_name || inst.name || `${deviceId} ch${channel}`;
-                    this.instruments.push({
-                        deviceId: deviceId,
-                        deviceName: name,
-                        channel: channel,
-                        displayName: name,
-                        key: `${deviceId}:${channel}`
-                    });
-                }
-            } catch (e) {
-                this.logger.warn('CalibrationModal', 'instrument_list_connected failed, falling back to listDevices:', e);
-            }
+            // Use device_list (same as main app loadDevices) to get all devices with their instruments
+            const devices = await this.api.listDevices();
 
-            // Fallback: if no instruments found, try raw MIDI device list
-            if (this.instruments.length === 0) {
-                const devices = await this.api.listDevices();
-                const connectedDevices = devices.filter(d => d.status === 2 || d.connected);
-
-                for (const device of connectedDevices) {
+            for (const device of devices) {
+                // Device has a sub-array of configured instruments (multi-channel)
+                if (device.instruments && device.instruments.length > 0) {
+                    for (const inst of device.instruments) {
+                        const channel = inst.channel !== undefined ? inst.channel : 0;
+                        const name = inst.custom_name || inst.name || device.displayName || device.name || device.id;
+                        const displayName = `${name} - Ch ${channel + 1}`;
+                        this.instruments.push({
+                            deviceId: device.id,
+                            deviceName: device.displayName || device.name || device.id,
+                            channel: channel,
+                            displayName: displayName,
+                            key: `${device.id}:${channel}`
+                        });
+                    }
+                } else {
+                    // No configured instruments: show the device itself on channel 0
+                    const name = device.displayName || device.name || device.id;
                     this.instruments.push({
                         deviceId: device.id,
-                        deviceName: device.name,
+                        deviceName: name,
                         channel: 0,
-                        displayName: `${device.name}`,
+                        displayName: name,
                         key: `${device.id}:0`
                     });
                 }
