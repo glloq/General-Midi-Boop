@@ -60,6 +60,50 @@ class MidiEditorCCPanel {
                 btn.classList.remove('has-data');
             }
         });
+
+        // Mettre a jour l'indicateur CC + Canal actif
+        this.updateActiveIndicator(activeChannel);
+    }
+
+    /**
+     * Mettre a jour l'indicateur CC + Canal actif dans la toolbar
+     */
+    updateActiveIndicator(activeChannel) {
+        const m = this.modal;
+        const label = document.getElementById('cc-active-label');
+        if (!label) return;
+
+        // Formater le nom du CC actif
+        let ccName;
+        const ccType = m.currentCCType;
+        if (ccType === 'velocity') {
+            ccName = 'VEL';
+        } else if (ccType === 'tempo') {
+            ccName = 'TEMPO';
+            label.textContent = ccName;
+            return;
+        } else if (ccType === 'pitchbend') {
+            ccName = 'PB';
+        } else if (ccType === 'aftertouch') {
+            ccName = 'AT';
+        } else if (ccType === 'polyAftertouch') {
+            ccName = 'PAT';
+        } else if (ccType.startsWith('cc')) {
+            ccName = ccType.toUpperCase();
+        } else {
+            ccName = ccType;
+        }
+
+        // Compter les evenements pour ce CC + canal
+        let eventCount = 0;
+        if (ccType === 'velocity') {
+            eventCount = m.fullSequence ? m.fullSequence.filter(n => n.c === activeChannel).length : 0;
+        } else {
+            eventCount = m.ccEvents ? m.ccEvents.filter(e => e.type === ccType && e.channel === activeChannel).length : 0;
+        }
+
+        const countStr = eventCount > 0 ? ` (${eventCount})` : '';
+        label.textContent = `${ccName} · Ch${activeChannel + 1}${countStr}`;
     }
 
     /**
@@ -126,11 +170,15 @@ class MidiEditorCCPanel {
             return;
         }
 
-        channelSelector.innerHTML = channelsToShow.map(channel => `
-            <button class="cc-channel-btn ${channel === activeChannel ? 'active' : ''}" data-channel="${channel}" title="${m.t('midiEditor.channelTip', { channel: channel + 1 })}">
-                ${channel + 1}
-            </button>
-        `).join('');
+        // Déterminer quels canaux ont des données pour le CC actif
+        const channelsWithData = this.getCCChannelsUsed();
+
+        channelSelector.innerHTML = channelsToShow.map(channel => {
+            const classes = ['cc-channel-btn'];
+            if (channel === activeChannel) classes.push('active');
+            if (channelsWithData.includes(channel)) classes.push('has-cc-data');
+            return `<button class="${classes.join(' ')}" data-channel="${channel}" title="${m.t('midiEditor.channelTip', { channel: channel + 1 })}">${channel + 1}</button>`;
+        }).join('');
 
         this.attachEditorChannelListeners();
         this.highlightUsedCCButtons();

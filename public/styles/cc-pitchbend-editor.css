@@ -239,20 +239,25 @@
 }
 
 .cc-type-btn.active {
-    background: #4CAF50;
-    border-color: #4CAF50;
+    background: #2196F3;
+    border-color: #2196F3;
     color: #fff;
     z-index: 2;
     position: relative;
+    font-weight: bold;
 }
 
 /* Indicateur visuel pour les CC ayant des données sur le canal sélectionné */
 .cc-type-btn.has-data {
-    border-bottom: 2px solid #4CAF50;
-    color: #4CAF50;
+    border-bottom: 2px solid #FF9800;
+    color: #FF9800;
+    font-weight: 600;
 }
 
 .cc-type-btn.active.has-data {
+    background: #2196F3;
+    border-color: #2196F3;
+    border-bottom: 2px solid #FFB74D;
     color: #fff;
 }
 
@@ -366,6 +371,19 @@
     background: #2196F3;
     border-color: #2196F3;
     color: #fff;
+    font-weight: bold;
+    box-shadow: 0 0 4px rgba(33, 150, 243, 0.5);
+}
+
+/* Canal ayant des données pour le CC actif */
+.cc-channel-btn.has-cc-data {
+    border-bottom: 2px solid #FF9800;
+    color: #FF9800;
+}
+
+.cc-channel-btn.active.has-cc-data {
+    color: #fff;
+    border-bottom: 2px solid #FFB74D;
 }
 
 /* Input CC# libre */
@@ -395,6 +413,33 @@
 
 .cc-custom-group {
     align-items: center;
+}
+
+/* Indicateur CC + Canal actif */
+.cc-active-indicator {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    padding-left: 8px;
+}
+
+.cc-active-label {
+    font-size: 11px;
+    font-weight: bold;
+    font-family: monospace;
+    color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    border-radius: 4px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+}
+
+body.dark-mode .cc-active-label {
+    color: #64B5F6;
+    background: rgba(33, 150, 243, 0.15);
+    border-color: rgba(33, 150, 243, 0.35);
 }
 
 /* Sélecteur de note pour poly aftertouch */
@@ -700,12 +745,25 @@ body.dark-mode .cc-type-btn:hover {
 }
 
 body.dark-mode .cc-type-btn.has-data {
-    border-bottom: 2px solid #66BB6A;
-    color: #66BB6A;
+    border-bottom: 2px solid #FFB74D;
+    color: #FFB74D;
 }
 
 body.dark-mode .cc-type-btn.active.has-data {
+    background: #1976D2;
+    border-color: #1976D2;
+    border-bottom: 2px solid #FFB74D;
     color: #fff;
+}
+
+body.dark-mode .cc-channel-btn.has-cc-data {
+    border-bottom: 2px solid #FFB74D;
+    color: #FFB74D;
+}
+
+body.dark-mode .cc-channel-btn.active.has-cc-data {
+    color: #fff;
+    border-bottom: 2px solid #FFB74D;
 }
 
 body.dark-mode .cc-custom-input {

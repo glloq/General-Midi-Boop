@@ -2896,6 +2896,13 @@ class MidiEditorModal {
                                     <div class="cc-channel-selector-horizontal" id="editor-channel-selector">
                                         <!-- Les canaux seront ajoutés dynamiquement -->
                                     </div>
+
+                                    <div class="cc-toolbar-divider"></div>
+
+                                    <!-- Indicateur CC + Canal actif -->
+                                    <div class="cc-active-indicator" id="cc-active-indicator">
+                                        <span class="cc-active-label" id="cc-active-label">CC1 · Ch1</span>
+                                    </div>
                                 </div>
 
                                 <!-- Layout de l'éditeur (pleine hauteur sans sidebar) -->
