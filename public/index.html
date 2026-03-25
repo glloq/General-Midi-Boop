@@ -179,16 +179,21 @@
         }
 
         body.theme-dark .folder-item {
-            background: #4a3f1f;
-            border-left-color: #f59e0b;
+            background: #b45309;
+            border: none;
+            color: #fef3c7;
+            box-shadow: 4px 4px 0px #78350f;
         }
 
         body.theme-dark .folder-item:hover {
-            background: #5a4f2f;
+            background: #d97706;
+            box-shadow: 3px 3px 0px #78350f;
+            transform: translate(1px, 1px);
         }
 
         body.theme-dark .folder-item.open {
-            background: #5a4f2f;
+            background: #d97706;
+            box-shadow: 4px 4px 0px #78350f;
         }
 
         body.theme-dark .device-item {
@@ -705,9 +710,9 @@
             color: #667eea;
         }
 
-        body.theme-colored .folder-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); border-left: 3px solid transparent; transition: all 0.2s ease; }
-        body.theme-colored .folder-item:hover { background: linear-gradient(135deg, rgba(255, 209, 102, 0.1), rgba(102, 126, 234, 0.06)); border-left-color: #ffd166; }
-        body.theme-colored .folder-item.open { background: linear-gradient(135deg, rgba(255, 209, 102, 0.08), rgba(102, 126, 234, 0.04)); border-left-color: #f0b429; }
+        body.theme-colored .folder-item { background: #fbbf24; border: none; color: #451a03; box-shadow: 4px 4px 0px #d97706; transition: all 0.15s ease; }
+        body.theme-colored .folder-item:hover { background: #fcd34d; box-shadow: 3px 3px 0px #d97706; transform: translate(1px, 1px); }
+        body.theme-colored .folder-item.open { background: #f59e0b; box-shadow: 4px 4px 0px #b45309; }
 
         body.theme-colored .folder-item .folder-icon,
         body.theme-colored .folder-item .icon {
@@ -1481,27 +1486,34 @@
 
         .folder-item {
             padding: 4px;
-            background: #fef3c7;
+            background: #fbbf24;
             border-radius: 6px;
             margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            border-left: 4px solid #f59e0b;
+            border: none;
+            color: #451a03;
+            box-shadow: 4px 4px 0px #b45309;
+            transition: all 0.15s ease;
         }
 
         .folder-item:hover {
-            background: #fde68a;
+            background: #fcd34d;
+            box-shadow: 3px 3px 0px #b45309;
+            transform: translate(1px, 1px);
         }
 
         .folder-item.drag-over {
-            border: 2px dashed #f59e0b;
-            background: #fcd34d;
+            border: 2px dashed #78350f;
+            background: #f59e0b;
+            box-shadow: 4px 4px 0px #92400e;
         }
 
         .folder-item.open {
-            background: #fde68a;
+            background: #f59e0b;
+            box-shadow: 4px 4px 0px #92400e;
         }
 
         .folder-title {
