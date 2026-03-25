@@ -5576,6 +5576,9 @@
         // 🆕 Stockage du routage configuré par fichier
         let fileRoutingConfig = {};
 
+        // Backend routing status cache (source of truth for display)
+        const fileRoutingStatusCache = new Map();
+
         // 🆕 Instance du modal d'édition MIDI
         let midiEditorModal = null;
 
@@ -6200,34 +6203,11 @@
                     initBatchActions(); // Initialiser les actions par lots
                     initAdvancedFilters(); // Initialiser les filtres avancés
 
-                    // Sync localStorage routing data to DB (for routing status filter)
-                    if (Object.keys(fileRoutingConfig).length > 0) {
-                        api.sendCommand('file_routing_bulk_sync', { routings: fileRoutingConfig })
-                            .then(r => {
-                                console.log(`[Routing] Bulk sync: ${r.synced} channels, ${r.files} files`);
-                                // Clean localStorage of invalid device routings
-                                if (r.invalidDevices && r.invalidDevices.length > 0) {
-                                    console.warn(`[Routing] Removing invalid devices from localStorage: ${r.invalidDevices.join(', ')}`);
-                                    const invalidSet = new Set(r.invalidDevices);
-                                    let cleaned = false;
-                                    for (const [fileId, config] of Object.entries(fileRoutingConfig)) {
-                                        if (!config.channels) continue;
-                                        for (const [ch, val] of Object.entries(config.channels)) {
-                                            const devId = val.split('::')[0];
-                                            if (invalidSet.has(devId)) {
-                                                delete config.channels[ch];
-                                                cleaned = true;
-                                            }
-                                        }
-                                        if (Object.keys(config.channels).length === 0) {
-                                            delete fileRoutingConfig[fileId];
-                                        }
-                                    }
-                                    if (cleaned) saveRoutingConfig();
-                                }
-                            })
-                            .catch(e => console.warn('[Routing] Bulk sync failed:', e.message));
-                    }
+                    // NOTE: file_routing_bulk_sync removed — it caused a cycle where
+                    // localStorage stale data was re-inserted into DB on every page load.
+                    // The DB is now the single source of truth for routing status.
+                    // Routings are written to DB only via file_routing_sync (per-file save)
+                    // and auto-assignment. localStorage is only used as a UI cache.
                 });
 
                 api.on('disconnected', () => {
@@ -6956,6 +6936,9 @@
 
             // Update routing status visual indicators from metadata
             if (metadata.routingStatus) {
+                // Update backend status cache
+                fileRoutingStatusCache.set(String(fileId), metadata.routingStatus);
+
                 const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
                 if (fileItem) {
                     // Update left border class
@@ -7023,6 +7006,9 @@
             // Use backend routingStatus as single source of truth (not localStorage)
             const initialStatus = file.routingStatus || 'unrouted';
             const routed = initialStatus !== 'unrouted';
+
+            // Cache backend routing status for use by playFile() etc.
+            fileRoutingStatusCache.set(String(file.id), initialStatus);
 
             const li = document.createElement('li');
             li.className = 'file-item' + (routed ? ` routing-${initialStatus} routed` : '');
@@ -8752,8 +8738,8 @@
                 }
             }
 
-            // Fetch current routing from DB (source of truth), fallback to localStorage
-            let currentConfig = fileRoutingConfig[fileId] || { channels: {} };
+            // Fetch current routing from DB (source of truth)
+            let currentConfig = { channels: {} };
             try {
                 const result = await api.sendCommand('get_file_routings', { fileId });
                 if (result && result.routings && result.routings.length > 0) {
@@ -8766,12 +8752,11 @@
                         }
                     }
                     currentConfig = { channels: dbChannels, configured: true };
-                    // Keep localStorage in sync
-                    fileRoutingConfig[fileId] = currentConfig;
-                    saveRoutingConfig();
                 }
             } catch (err) {
+                // Fallback to localStorage if DB fetch fails
                 console.warn('[Routing] DB fetch failed, using localStorage fallback:', err);
+                currentConfig = fileRoutingConfig[fileId] || { channels: {} };
             }
 
             let channelHTML = channels.map(ch => {
@@ -8998,7 +8983,9 @@
 
         // 🆕 Lire un fichier avec vérification du routage
         async function playFile(fileId, filename) {
-            const routed = isFileRouted(fileId);
+            // Check routing status from backend cache (DB is source of truth)
+            const backendStatus = fileRoutingStatusCache.get(String(fileId));
+            const routed = (backendStatus && backendStatus !== 'unrouted') || isFileRouted(fileId);
 
             if (!routed) {
                 const shouldConfigure = await showConfirm(
