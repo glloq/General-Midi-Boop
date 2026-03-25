@@ -287,19 +287,40 @@ class CalibrationModal extends BaseModal {
         if (!listEl) return;
 
         try {
-            const devices = await this.api.listDevices();
-            const connectedDevices = devices.filter(d => d.status === 2 || d.connected);
-
             this.instruments = [];
-            for (const device of connectedDevices) {
-                const channels = device.channels || 16;
-                for (let ch = 0; ch < channels; ch++) {
+
+            // Try instrument_list_connected first (registered instruments with proper names)
+            try {
+                const response = await this.api.sendCommand('instrument_list_connected');
+                const instruments = response.instruments || [];
+                for (const inst of instruments) {
+                    const deviceId = inst.device_id || inst.id;
+                    const channel = inst.channel !== undefined ? inst.channel : 0;
+                    const name = inst.custom_name || inst.name || `${deviceId} ch${channel}`;
+                    this.instruments.push({
+                        deviceId: deviceId,
+                        deviceName: name,
+                        channel: channel,
+                        displayName: name,
+                        key: `${deviceId}:${channel}`
+                    });
+                }
+            } catch (e) {
+                this.logger.warn('CalibrationModal', 'instrument_list_connected failed, falling back to listDevices:', e);
+            }
+
+            // Fallback: if no instruments found, try raw MIDI device list
+            if (this.instruments.length === 0) {
+                const devices = await this.api.listDevices();
+                const connectedDevices = devices.filter(d => d.status === 2 || d.connected);
+
+                for (const device of connectedDevices) {
                     this.instruments.push({
                         deviceId: device.id,
                         deviceName: device.name,
-                        channel: ch,
-                        displayName: `${device.name} - Canal ${ch + 1}`,
-                        key: `${device.id}:${ch}`
+                        channel: 0,
+                        displayName: `${device.name}`,
+                        key: `${device.id}:0`
                     });
                 }
             }

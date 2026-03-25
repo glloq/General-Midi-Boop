@@ -1,81 +1,32 @@
 /* ============================================================================
  * Fichier: styles/calibration-modal.css
  * Description: Styles pour le modal de calibration des délais (Microphone)
+ * Structure: BaseModal -> .modal-overlay > .modal-dialog.calibration-modal
+ *                                            > .modal-header + .modal-body + .modal-footer
  * ============================================================================ */
 
-/* ========== OVERLAY ========== */
-.calibration-modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-}
-
-.calibration-modal-overlay[style*="display: flex"] {
-    display: flex !important;
-}
-
-/* ========== MODAL CONTAINER ========== */
+/* ========== MODAL DIALOG (BaseModal customClass) ========== */
 .calibration-modal {
-    background: white;
-    border-radius: 12px;
-    padding: 0;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 700px;
-    width: 90%;
+    max-width: 700px !important;
+    width: 90% !important;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    animation: modalFadeIn 0.2s ease-out;
+    overflow: hidden;
 }
 
-/* ========== HEADER ========== */
-.calibration-modal-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.calibration-modal-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.calibration-modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #999;
-    line-height: 1;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: all 0.2s;
-}
-
-.calibration-modal-close:hover {
-    background: #f0f0f0;
-    color: #333;
-}
-
-/* ========== BODY ========== */
-.calibration-modal-body {
+/* ========== BODY (scrollable) ========== */
+.calibration-modal .modal-body {
     padding: 12px 16px;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
+}
+
+/* ========== FOOTER ========== */
+.calibration-modal .modal-footer {
+    flex-shrink: 0;
+    border-top: 1px solid #e5e7eb;
 }
 
 /* ========== MODE TOGGLE (Simple/Advanced) ========== */
@@ -187,6 +138,7 @@
     border-radius: 6px;
     outline: none;
     transition: border-color 0.2s;
+    box-sizing: border-box;
 }
 
 .calibration-select:focus,
@@ -345,11 +297,11 @@
 }
 
 .calibration-instrument-item {
-    padding: 12px 16px;
+    padding: 10px 12px;
     border-bottom: 1px solid #f0f0f0;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -583,36 +535,21 @@
     width: 100%;
 }
 
-/* ========== FOOTER ========== */
-.calibration-modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    flex-shrink: 0;
-}
-
 /* ========== DARK THEME ========== */
 body.theme-dark .calibration-modal {
     background: #2d2d2d;
 }
 
-body.theme-dark .calibration-modal-header {
+body.theme-dark .calibration-modal .modal-header {
     border-bottom-color: #444;
 }
 
-body.theme-dark .calibration-modal-title {
+body.theme-dark .calibration-modal .modal-header h2 {
     color: #e0e0e0;
 }
 
-body.theme-dark .calibration-modal-close {
-    color: #999;
-}
-
-body.theme-dark .calibration-modal-close:hover {
-    background: #3d3d3d;
-    color: #e0e0e0;
+body.theme-dark .calibration-modal .modal-footer {
+    border-top-color: #444;
 }
 
 body.theme-dark .calibration-section {
@@ -674,10 +611,6 @@ body.theme-dark .calibration-result-item {
 
 body.theme-dark .calibration-result-instrument-name {
     color: #e0e0e0;
-}
-
-body.theme-dark .calibration-modal-footer {
-    border-top-color: #444;
 }
 
 body.theme-dark .calibration-vu-meter-bar {
