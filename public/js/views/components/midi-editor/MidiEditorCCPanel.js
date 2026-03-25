@@ -17,6 +17,52 @@ class MidiEditorCCPanel {
     // ========================================================================
 
     /**
+     * Obtenir les types CC utilises sur un canal donne
+     */
+    getUsedCCTypesForChannel(channel) {
+        const m = this.modal;
+        const usedTypes = new Set();
+        m.ccEvents.forEach(event => {
+            if (event.channel === channel) {
+                usedTypes.add(event.type);
+            }
+        });
+        // Verifier aussi velocity (notes presentes sur ce canal)
+        if (m.fullSequence && m.fullSequence.some(note => note.c === channel)) {
+            usedTypes.add('velocity');
+        }
+        return usedTypes;
+    }
+
+    /**
+     * Mettre a jour le highlight des boutons CC selon les donnees presentes sur le canal actif
+     */
+    highlightUsedCCButtons() {
+        const m = this.modal;
+        if (!m.container) return;
+
+        // Determiner le canal actif
+        let activeChannel = 0;
+        if (m.currentCCType === 'velocity' && m.velocityEditor) {
+            activeChannel = m.velocityEditor.currentChannel;
+        } else if (m.ccEditor) {
+            activeChannel = m.ccEditor.currentChannel;
+        }
+
+        const usedTypes = this.getUsedCCTypesForChannel(activeChannel);
+
+        const ccTypeButtons = m.container.querySelectorAll('.cc-type-btn');
+        ccTypeButtons.forEach(btn => {
+            const ccType = btn.dataset.ccType;
+            if (usedTypes.has(ccType)) {
+                btn.classList.add('has-data');
+            } else {
+                btn.classList.remove('has-data');
+            }
+        });
+    }
+
+    /**
      * Obtenir l'ensemble de TOUS les canaux ayant des evenements CC/Pitchbend
      */
     getAllCCChannels() {
@@ -87,6 +133,7 @@ class MidiEditorCCPanel {
         `).join('');
 
         this.attachEditorChannelListeners();
+        this.highlightUsedCCButtons();
 
         m.log('info', `Selecteur de canal mis a jour - Type ${m.currentCCType}: ${channelsToShow.length} canaux`);
     }
@@ -122,6 +169,8 @@ class MidiEditorCCPanel {
                         m.ccEditor.setChannel(channel);
                         m.log('info', `Canal CC selectionne: ${channel + 1}`);
                     }
+
+                    this.highlightUsedCCButtons();
                 }
             });
         });
@@ -298,6 +347,7 @@ class MidiEditorCCPanel {
         }
 
         this.updateDeleteButtonState();
+        this.highlightUsedCCButtons();
     }
 
     // ========================================================================
@@ -872,6 +922,8 @@ class MidiEditorCCPanel {
         if (usedChannels.length > 0) {
             m.log('info', `  - Canaux utilises: ${usedChannels.map(c => c + 1).join(', ')}`);
         }
+
+        this.highlightUsedCCButtons();
     }
 
     // ========================================================================
@@ -929,6 +981,8 @@ class MidiEditorCCPanel {
         });
 
         m.log('info', `Added ${sortedCCs.length} dynamic CC buttons: ${sortedCCs.join(', ')}`);
+
+        this.highlightUsedCCButtons();
     }
 }
 
