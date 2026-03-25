@@ -93,11 +93,17 @@ class TablatureEditor {
         this._detachCanvasEvents();
         this._attachCanvasEvents();
 
+        // Update main toolbar mode buttons for tablature editor
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
+
         // Resize canvases after layout settles (split view needs recalculation)
         // Use double-rAF to ensure the browser has completed layout first
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
+                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
             });
         });
     }
@@ -111,6 +117,11 @@ class TablatureEditor {
 
         // Restore the piano roll
         this._setPianoRollVisible(true);
+
+        // Restore main toolbar for piano roll
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
     }
 
     /**
@@ -195,14 +206,6 @@ class TablatureEditor {
                         <button class="tab-tool-btn tab-mode-btn" data-action="tab-mode" data-mode="change-string" title="${this.t('tablature.modeChangeString')}">&#x21C5;</button>
                     </span>
                     <span class="tab-separator"></span>
-                    <button class="tab-tool-btn" data-action="tab-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
-                    <button class="tab-tool-btn" data-action="tab-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="tab-tool-btn" data-action="tab-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('tablature.copyShort')}</button>
-                    <button class="tab-tool-btn" data-action="tab-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('tablature.pasteShort')}</button>
-                    <button class="tab-tool-btn" data-action="tab-zoom-in" title="${this.t('tablature.zoomIn')}">+</button>
-                    <button class="tab-tool-btn" data-action="tab-zoom-out" title="${this.t('tablature.zoomOut')}">-</button>
-                    <button class="tab-tool-btn" data-action="tab-delete" title="${this.t('tablature.deleteSelected')}">${this.t('tablature.deleteShort')}</button>
-                    <button class="tab-tool-btn" data-action="tab-select-all" title="${this.t('tablature.selectAll')}">${this.t('tablature.selectAllShort')}</button>
                     <button class="tab-tool-btn tab-close-btn" data-action="tab-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>

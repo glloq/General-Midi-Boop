@@ -85,10 +85,16 @@ class DrumPatternEditor {
         this._detachCanvasEvents();
         this._attachCanvasEvents();
 
-        // Resize after layout settles
+        // Update main toolbar mode buttons for drum editor
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
+
+        // Resize after layout settles and sync timeline alignment
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
+                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
             });
         });
     }
@@ -100,6 +106,11 @@ class DrumPatternEditor {
         this.isVisible = false;
         this._detachCanvasEvents();
         this._setPianoRollVisible(true);
+
+        // Restore main toolbar for piano roll
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
     }
 
     _setPianoRollVisible(visible) {
@@ -160,15 +171,6 @@ class DrumPatternEditor {
                     <button class="drum-tool-btn drum-mode-btn active" data-action="drum-mode" data-mode="pan" title="${this.t('windEditor.pan')}">&#x2725;</button>
                     <button class="drum-tool-btn drum-mode-btn" data-action="drum-mode" data-mode="select" title="${this.t('windEditor.select')}">&#x2B1C;</button>
                     <span class="drum-separator"></span>
-                    <button class="drum-tool-btn" data-action="drum-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
-                    <button class="drum-tool-btn" data-action="drum-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="drum-tool-btn" data-action="drum-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('drumPattern.copyShort')}</button>
-                    <button class="drum-tool-btn" data-action="drum-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('drumPattern.pasteShort')}</button>
-                    <span class="drum-separator"></span>
-                    <button class="drum-tool-btn" data-action="drum-zoom-in" title="${this.t('drumPattern.zoomIn')}">+</button>
-                    <button class="drum-tool-btn" data-action="drum-zoom-out" title="${this.t('drumPattern.zoomOut')}">-</button>
-                    <button class="drum-tool-btn" data-action="drum-delete" title="${this.t('drumPattern.deleteSelected')}">${this.t('drumPattern.deleteShort')}</button>
-                    <button class="drum-tool-btn" data-action="drum-select-all" title="${this.t('drumPattern.selectAll')}">${this.t('drumPattern.selectAllShort')}</button>
                     <button class="drum-tool-btn drum-close-btn" data-action="drum-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>

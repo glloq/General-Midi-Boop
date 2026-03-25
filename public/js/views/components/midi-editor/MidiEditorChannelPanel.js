@@ -133,11 +133,10 @@ class MidiEditorChannelPanel {
 
             if (isActive) {
                 chip.classList.add('active');
-                chip.style.cssText = `--chip-color: ${color}; --chip-bg: ${color}20; --chip-border: ${color}cc;`;
             } else {
                 chip.classList.remove('active');
-                chip.style.cssText = `--chip-color: ${color}; --chip-bg: transparent; --chip-border: ${color}4d;`;
             }
+            chip.style.cssText = `--chip-color: ${color};`;
 
             // Update playable notes indicator
             const isPlayableHighlighted = m.channelPlayableHighlights?.has(channel);

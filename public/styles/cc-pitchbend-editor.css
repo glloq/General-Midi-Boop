@@ -44,6 +44,7 @@
     min-height: 200px;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 /* Piano roll wrapper - prend tout l'espace sauf le slider horizontal */
@@ -51,6 +52,7 @@
     flex: 1;
     position: relative;
     min-height: 150px;
+    margin-right: 40px; /* leave room for vertical scrollbar */
 }
 
 /* Slider horizontal - toujours visible, en dehors du wrapper */

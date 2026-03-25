@@ -864,7 +864,18 @@
     font-weight: 600;
 }
 
-/* Toolbar des canaux - Chip strip layout */
+/* Wrapper pour channels toolbar + bouton show-all fixe a droite */
+.midi-editor-modal .channels-toolbar-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    background: #252525;
+    border-bottom: 1px solid #3a3a3a;
+    min-height: 54px;
+    position: relative;
+}
+
+/* Toolbar des canaux - Chip strip layout (scrollable) */
 .midi-editor-modal .channels-toolbar {
     display: flex;
     flex-wrap: nowrap;
@@ -873,12 +884,13 @@
     min-height: 54px;
     box-sizing: border-box;
     background: #252525;
-    border-bottom: 1px solid #3a3a3a;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
     scrollbar-color: #555 #252525;
     align-items: flex-start;
+    flex: 1;
+    min-width: 0;
 }
 
 /* Sections de la toolbar */
@@ -898,11 +910,11 @@
 /* Boutons de la toolbar - taille maximale et couleurs */
 .midi-editor-modal .tool-btn {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 6px 8px;
+    gap: 1px;
+    padding: 4px 8px;
     background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
     border: 2px solid #555;
     border-radius: 6px;
@@ -925,6 +937,14 @@
     color: #ccc;
 }
 
+.midi-editor-modal .tool-btn .btn-shortcut {
+    font-size: 8px;
+    color: #999;
+    letter-spacing: 0.3px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
 .midi-editor-modal .tool-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
@@ -941,6 +961,13 @@
     opacity: 0.4;
     cursor: not-allowed;
     border-color: #444;
+}
+
+.midi-editor-modal .tool-btn.mode-unsupported {
+    opacity: 0.2;
+    cursor: not-allowed;
+    border-color: #333;
+    background: #1a1a1a;
 }
 
 /* Couleurs spécifiques par action */
@@ -1122,12 +1149,12 @@
     padding: 0;
     min-height: 44px;
     box-sizing: border-box;
-    background: var(--chip-bg, #1e1e1e);
-    border: 1px solid var(--chip-border, #555);
+    background: color-mix(in srgb, var(--chip-color, #555) 20%, #1e1e1e);
+    border: 1px solid color-mix(in srgb, var(--chip-color, #555) 30%, #333);
     border-right: none;
     border-radius: 6px 0 0 6px;
     cursor: pointer;
-    transition: box-shadow 0.15s ease;
+    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
@@ -1135,28 +1162,19 @@
 }
 
 .midi-editor-modal .channel-chip:hover {
+    background: color-mix(in srgb, var(--chip-color, #555) 30%, #1e1e1e);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .midi-editor-modal .channel-chip.active {
+    background: color-mix(in srgb, var(--chip-color, #555) 50%, #1e1e1e);
+    border-color: color-mix(in srgb, var(--chip-color, #555) 70%, #333);
     box-shadow: 0 0 8px color-mix(in srgb, var(--chip-color, #555) 30%, transparent);
 }
 
 .midi-editor-modal .channel-chip.active:hover {
+    background: color-mix(in srgb, var(--chip-color, #555) 55%, #1e1e1e);
     box-shadow: 0 0 12px color-mix(in srgb, var(--chip-color, #555) 40%, transparent);
-}
-
-/* Color bar on the left edge */
-.midi-editor-modal .chip-color-bar {
-    width: 4px;
-    align-self: stretch;
-    flex-shrink: 0;
-    opacity: 0.5;
-    transition: opacity 0.15s ease;
-}
-
-.midi-editor-modal .channel-chip.active .chip-color-bar {
-    opacity: 1;
 }
 
 /* Chip content area */
@@ -1285,33 +1303,32 @@
 .midi-editor-modal .channel-global-actions {
     display: flex;
     align-items: center;
-    padding: 0 4px 0 8px;
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    background: linear-gradient(90deg, transparent 0%, #252525 20%, #252525 100%);
+    padding: 0 6px;
     flex-shrink: 0;
+    background: linear-gradient(90deg, transparent 0%, #252525 30%, #252525 100%);
+    z-index: 2;
 }
 
 .midi-editor-modal .btn-show-all-channels {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-    background: #2a2a2a;
-    border: 1px solid #555;
-    border-radius: 6px;
-    color: #ccc;
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    background: linear-gradient(180deg, #3a4a5a 0%, #2a3a4a 100%);
+    border: 2px solid #4a6a8a;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .midi-editor-modal .btn-show-all-channels:hover {
-    color: #fff;
-    background: #3a3a3a;
-    border-color: #888;
+    background: linear-gradient(180deg, #4a5a6a 0%, #3a4a5a 100%);
+    border-color: #5a8aba;
+    transform: scale(1.05);
+    box-shadow: 0 3px 10px rgba(74, 106, 138, 0.4);
 }
 
 /* Legacy compat: hide old elements if still in DOM */
@@ -1521,10 +1538,11 @@
     position: absolute;
     right: 0;
     top: 0;
-    bottom: 40px;
+    bottom: 40px; /* leave room for horizontal scrollbar */
     width: 40px;
-    height: calc(100% - 40px);
+    height: auto;
     flex-direction: column;
+    z-index: 10;
 }
 
 /* Boutons de navigation des sliders */

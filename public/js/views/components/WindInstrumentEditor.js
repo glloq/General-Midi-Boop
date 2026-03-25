@@ -77,9 +77,15 @@ class WindInstrumentEditor {
         this._detachCanvasEvents();
         this._attachCanvasEvents();
 
+        // Update main toolbar mode buttons for wind editor
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
+                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
                 // Center view on the notes after layout settles
                 if (this.renderer && this.melodyCanvasEl &&
                     this.melodyCanvasEl.width > 0 && this.melodyCanvasEl.height > 0) {
@@ -102,6 +108,11 @@ class WindInstrumentEditor {
         this.isVisible = false;
         this._detachCanvasEvents();
         this._setPianoRollVisible(true);
+
+        // Restore main toolbar for piano roll
+        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
+        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
+        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
     }
 
     _setPianoRollVisible(visible) {
@@ -154,15 +165,6 @@ class WindInstrumentEditor {
                     <button class="wind-tool-btn wind-mode-btn active" data-action="wind-mode" data-mode="pan" title="${this.t('windEditor.pan')}">&#x2725;</button>
                     <button class="wind-tool-btn wind-mode-btn" data-action="wind-mode" data-mode="select" title="${this.t('windEditor.select')}">&#x2B1C;</button>
                     <span class="wind-separator"></span>
-                    <button class="wind-tool-btn" data-action="wind-undo" title="${this.t('midiEditor.undo')} (Ctrl+Z)">&#8630;</button>
-                    <button class="wind-tool-btn" data-action="wind-redo" title="${this.t('midiEditor.redo')} (Ctrl+Y)">&#8631;</button>
-                    <button class="wind-tool-btn" data-action="wind-copy" title="${this.t('midiEditor.copy')} (Ctrl+C)">${this.t('windEditor.copyShort')}</button>
-                    <button class="wind-tool-btn" data-action="wind-paste" title="${this.t('midiEditor.paste')} (Ctrl+V)">${this.t('windEditor.pasteShort')}</button>
-                    <span class="wind-separator"></span>
-                    <button class="wind-tool-btn" data-action="wind-zoom-in" title="${this.t('windEditor.zoomIn', { defaultValue: 'Zoom in' })}">+</button>
-                    <button class="wind-tool-btn" data-action="wind-zoom-out" title="${this.t('windEditor.zoomOut', { defaultValue: 'Zoom out' })}">-</button>
-                    <button class="wind-tool-btn" data-action="wind-delete" title="${this.t('windEditor.deleteSelected', { defaultValue: 'Delete' })}">${this.t('windEditor.deleteShort')}</button>
-                    <button class="wind-tool-btn" data-action="wind-select-all" title="${this.t('windEditor.selectAll', { defaultValue: 'Select all' })}">${this.t('windEditor.selectAllShort')}</button>
                     <button class="wind-tool-btn wind-close-btn" data-action="wind-close" title="${this.t('common.close')}">&times;</button>
                 </div>
             </div>
