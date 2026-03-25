@@ -105,10 +105,21 @@ async function fileRoutingSync(app, data) {
   app.database.deleteRoutingsByFile(data.fileId);
 
   if (!data.channels || Object.keys(data.channels).length === 0) {
-    return { success: true, synced: 0 };
+    return { success: true, synced: 0, invalidDevices: [] };
   }
 
+  // Build set of known device IDs for validation
+  const knownDevices = new Set();
+  try {
+    const deviceList = app.deviceManager?.getDeviceList?.() || [];
+    for (const d of deviceList) {
+      if (d.id) knownDevices.add(d.id);
+    }
+  } catch (e) { /* ignore — skip validation if device list unavailable */ }
+
   let synced = 0;
+  const invalidDeviceIds = new Set();
+
   for (const [channelStr, routingValue] of Object.entries(data.channels)) {
     const channel = parseInt(channelStr, 10);
     if (isNaN(channel) || !routingValue) continue;
@@ -117,6 +128,12 @@ async function fileRoutingSync(app, data) {
     const parts = routingValue.split('::');
     const deviceId = parts[0];
     const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
+
+    // Skip routings to devices that don't exist
+    if (knownDevices.size > 0 && !knownDevices.has(deviceId)) {
+      invalidDeviceIds.add(deviceId);
+      continue;
+    }
 
     try {
       app.database.insertRouting({
@@ -139,8 +156,11 @@ async function fileRoutingSync(app, data) {
     }
   }
 
+  if (invalidDeviceIds.size > 0) {
+    app.logger.info(`[fileRoutingSync] Skipped invalid device(s): ${[...invalidDeviceIds].join(', ')}`);
+  }
   app.logger.info(`[fileRoutingSync] Synced ${synced} channels for file ${data.fileId}`);
-  return { success: true, synced };
+  return { success: true, synced, invalidDevices: [...invalidDeviceIds] };
 }
 
 /**
@@ -150,11 +170,23 @@ async function fileRoutingSync(app, data) {
  */
 async function fileRoutingBulkSync(app, data) {
   if (!data.routings || typeof data.routings !== 'object') {
-    return { success: true, synced: 0, files: 0 };
+    return { success: true, synced: 0, files: 0, invalidDevices: [] };
   }
 
   let totalSynced = 0;
   let fileCount = 0;
+  const invalidDeviceIds = new Set();
+
+  // Build set of known device IDs for validation
+  const knownDevices = new Set();
+  try {
+    const deviceList = app.deviceManager?.getDeviceList?.() || [];
+    for (const d of deviceList) {
+      if (d.id) knownDevices.add(d.id);
+    }
+  } catch (e) {
+    app.logger.warn(`[fileRoutingBulkSync] Could not get device list: ${e.message}`);
+  }
 
   for (const [fileId, config] of Object.entries(data.routings)) {
     if (!config.channels || Object.keys(config.channels).length === 0) continue;
@@ -162,15 +194,28 @@ async function fileRoutingBulkSync(app, data) {
     // Delete existing routings for this file
     app.database.deleteRoutingsByFile(parseInt(fileId, 10));
 
-    for (const [channelStr, deviceId] of Object.entries(config.channels)) {
+    let hasValidRouting = false;
+    for (const [channelStr, routingValue] of Object.entries(config.channels)) {
       const channel = parseInt(channelStr, 10);
-      if (isNaN(channel) || !deviceId) continue;
+      if (isNaN(channel) || !routingValue) continue;
+
+      // Extract deviceId (may be "deviceId::targetChannel")
+      const deviceId = routingValue.split('::')[0];
+
+      // Skip routings to devices that don't exist (unless we couldn't get device list)
+      if (knownDevices.size > 0 && !knownDevices.has(deviceId)) {
+        invalidDeviceIds.add(deviceId);
+        continue;
+      }
 
       try {
+        const parts = routingValue.split('::');
+        const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
+
         app.database.insertRouting({
           midi_file_id: parseInt(fileId, 10),
           channel: channel,
-          target_channel: channel,
+          target_channel: isNaN(targetChannel) ? channel : targetChannel,
           device_id: deviceId,
           instrument_name: null,
           compatibility_score: null,
@@ -182,15 +227,19 @@ async function fileRoutingBulkSync(app, data) {
           created_at: config.lastModified || Date.now()
         });
         totalSynced++;
+        hasValidRouting = true;
       } catch (error) {
         app.logger.warn(`[fileRoutingBulkSync] Failed channel ${channel} for file ${fileId}: ${error.message}`);
       }
     }
-    fileCount++;
+    if (hasValidRouting) fileCount++;
   }
 
+  if (invalidDeviceIds.size > 0) {
+    app.logger.info(`[fileRoutingBulkSync] Skipped ${invalidDeviceIds.size} invalid device(s): ${[...invalidDeviceIds].join(', ')}`);
+  }
   app.logger.info(`[fileRoutingBulkSync] Synced ${totalSynced} channels across ${fileCount} files`);
-  return { success: true, synced: totalSynced, files: fileCount };
+  return { success: true, synced: totalSynced, files: fileCount, invalidDevices: [...invalidDeviceIds] };
 }
 
 export function register(registry, app) {

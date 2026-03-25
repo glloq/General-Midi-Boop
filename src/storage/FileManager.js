@@ -435,7 +435,9 @@ class FileManager {
       // Build a quick lookup for effective channel count per file
       const channelCountMap = new Map();
       for (const file of files) {
-        channelCountMap.set(file.id, file.channel_count || file.tracks || 1);
+        // Use channel_count (actual MIDI channels with notes), NOT file.tracks (SMF track count).
+        // SMF tracks != MIDI channels — a 16-track file may use only 5 channels.
+        channelCountMap.set(file.id, file.channel_count || 1);
       }
 
       for (const row of routingCounts) {
@@ -445,8 +447,9 @@ class FileManager {
         if (routedCount > 0 && routedCount < effectiveChannelCount) {
           result.set(row.midi_file_id, 'partial');
         } else if (routedCount >= effectiveChannelCount && effectiveChannelCount > 0) {
-          const minScore = row.min_score ?? 0;
-          result.set(row.midi_file_id, minScore === 100 ? 'playable' : 'routed_incomplete');
+          // NULL min_score means all routings are manual (no compatibility score) => treat as playable
+          const minScore = row.min_score;
+          result.set(row.midi_file_id, (minScore === null || minScore === undefined || minScore === 100) ? 'playable' : 'routed_incomplete');
         }
       }
     } catch (err) {
@@ -535,15 +538,17 @@ class FileManager {
       let hasAutoAssigned = false;
       try {
         const routings = this.app.database.getRoutingsByFile(fileId);
-        const effectiveChannelCount = channels.length || file.channel_count || file.tracks || 1;
+        const effectiveChannelCount = channels.length || file.channel_count || 1;
         const enabledRoutings = routings.filter(r => r.enabled !== false);
         const routedCount = enabledRoutings.length;
 
         if (routedCount > 0 && routedCount < effectiveChannelCount) {
           routingStatus = 'partial';
         } else if (routedCount >= effectiveChannelCount && effectiveChannelCount > 0) {
-          const minScore = Math.min(...enabledRoutings.map(r => r.compatibility_score ?? 0));
-          routingStatus = minScore === 100 ? 'playable' : 'routed_incomplete';
+          // Filter out NULL scores (manual routings) — only consider actual compatibility scores
+          const scores = enabledRoutings.map(r => r.compatibility_score).filter(s => s !== null && s !== undefined);
+          const minScore = scores.length > 0 ? Math.min(...scores) : null;
+          routingStatus = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
         }
 
         isAdapted = file.is_original === 0 || file.is_original === false;
