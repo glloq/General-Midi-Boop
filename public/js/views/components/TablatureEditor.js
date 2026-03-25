@@ -134,14 +134,12 @@ class TablatureEditor {
         if (!notesSection) return;
 
         const pianoRollWrapper = notesSection.querySelector('.piano-roll-wrapper');
-        const hScrollControls = notesSection.querySelector('.scroll-controls-horizontal');
 
         if (visible) {
             // Restore piano roll
             if (pianoRollWrapper) pianoRollWrapper.style.display = '';
         } else {
             // Hide piano roll — tablature takes full space
-            // Keep horizontal scroll controls visible for tablature navigation
             if (pianoRollWrapper) pianoRollWrapper.style.display = 'none';
         }
     }

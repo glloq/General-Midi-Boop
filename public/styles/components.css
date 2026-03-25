@@ -1494,145 +1494,18 @@
     background: #1a1a1a;
 }
 
-/* Scrollbars style page web - Plus visibles et plus gros */
-.midi-editor-modal .scroll-slider {
-    background: #1a1a1a;
-    border: 1px solid #444;
-    outline: none;
-    -webkit-appearance: none;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.midi-editor-modal .scroll-horizontal {
-    width: auto;
-    flex: 1;
-    height: 40px;
-    order: 2;
-}
-
-.midi-editor-modal .scroll-vertical {
-    width: 40px;
-    height: auto;
-    flex: 1;
-    writing-mode: bt-lr;
-    -webkit-appearance: slider-vertical;
-}
-
-/* Conteneurs des sliders avec boutons */
-.midi-editor-modal .scroll-controls {
-    display: flex;
-    align-items: center;
-    background: #1a1a1a;
-    border: 1px solid #444;
-}
-
-.midi-editor-modal .scroll-controls-horizontal {
+/* Navigation Overview Bar */
+.navigation-overview-wrap {
+    position: relative;
     width: 100%;
-    height: 40px;
-    flex-direction: row;
-    order: 2;
-}
-
-.midi-editor-modal .scroll-controls-vertical {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 40px; /* leave room for horizontal scrollbar */
-    width: 40px;
-    height: auto;
-    flex-direction: column;
-    z-index: 10;
-}
-
-/* Boutons de navigation des sliders */
-.midi-editor-modal .scroll-btn {
-    background: #2a2a2a;
-    border: 1px solid #555;
-    color: #d0d0d0;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 0;
-    margin: 0;
+    height: 20px;
     flex-shrink: 0;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-.midi-editor-modal .scroll-btn:hover {
-    background: #3a3a3a;
-    color: #ffffff;
-    border-color: #667eea;
-}
-
-.midi-editor-modal .scroll-btn:active {
-    background: #1a1a1a;
-}
-
-.midi-editor-modal .scroll-btn-left,
-.midi-editor-modal .scroll-btn-right {
-    width: 40px;
-    height: 38px;
-}
-
-.midi-editor-modal .scroll-btn-up,
-.midi-editor-modal .scroll-btn-down {
-    width: 38px;
-    height: 40px;
-}
-
-.midi-editor-modal .scroll-slider::-webkit-slider-track {
-    background: #1a1a1a;
-    border-radius: 0;
-}
-
-.midi-editor-modal .scroll-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    background: #d0d0d0;
-    border: 1px solid #999;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-
-.midi-editor-modal .scroll-horizontal::-webkit-slider-thumb {
-    width: 150px;
-    height: 36px;
-    border-radius: 4px;
-}
-
-.midi-editor-modal .scroll-vertical::-webkit-slider-thumb {
-    width: 36px;
-    height: 120px;
-    border-radius: 4px;
-}
-
-.midi-editor-modal .scroll-slider::-webkit-slider-thumb:hover {
-    background: #ffffff;
-    border-color: #667eea;
-    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
-}
-
-.midi-editor-modal .scroll-slider::-moz-range-track {
-    background: #1a1a1a;
-    border-radius: 0;
-}
-
-.midi-editor-modal .scroll-slider::-moz-range-thumb {
-    background: #d0d0d0;
-    border: 1px solid #999;
-    border-radius: 3px;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-
-.midi-editor-modal .scroll-slider::-moz-range-thumb:hover {
-    background: #ffffff;
-    border-color: #667eea;
-    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
-}
-
+.navigation-overview-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
 /* Boutons flottants en overlay (en bas à droite) */
 .midi-editor-modal .modal-floating-buttons {
     position: absolute;

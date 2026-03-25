@@ -333,16 +333,13 @@ class MidiEditorPlayback {
         if (m.tablatureEditor && m.tablatureEditor.isVisible) {
             m.tablatureEditor.updatePlayhead(tick);
 
-            // Sync horizontal slider with tablature scroll position
-            const scrollHSlider = document.getElementById('scroll-h-slider');
-            if (scrollHSlider && m.tablatureEditor.renderer) {
+            // Sync navigation overview bar with tablature scroll position
+            if (m.navigationBar && m.tablatureEditor.renderer) {
                 const maxTick = m.midiData?.maxTick || 0;
                 const renderer = m.tablatureEditor.renderer;
                 const canvasWidth = m.tablatureEditor.tabCanvasEl?.width || 800;
                 const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
-                const maxOffset = Math.max(1, maxTick - visibleTicks);
-                const percentage = Math.min(100, (renderer.scrollX / maxOffset) * 100);
-                scrollHSlider.value = percentage;
+                m.navigationBar.setViewport(renderer.scrollX, visibleTicks, maxTick);
             }
         }
 

@@ -591,25 +591,11 @@ class WindInstrumentEditor {
 
         const maxTick = this.modal.midiData?.maxTick || 0;
 
-        // Update horizontal scroll bar
-        const scrollHSlider = document.getElementById('scroll-h-slider');
-        if (scrollHSlider && maxTick > 0 && this.renderer) {
+        // Update navigation overview bar
+        if (this.modal.navigationBar && maxTick > 0 && this.renderer) {
             const canvasWidth = this.melodyCanvasEl?.width || 800;
             const visibleTicks = (canvasWidth - this.renderer.headerWidth) * this.renderer.ticksPerPixel;
-            const maxOffset = Math.max(1, maxTick - visibleTicks);
-            const percentage = Math.min(100, (this.renderer.scrollX / maxOffset) * 100);
-            scrollHSlider.value = percentage;
-        }
-
-        // Update vertical scroll bar
-        const scrollVSlider = document.getElementById('scroll-v-slider');
-        if (scrollVSlider && this.renderer) {
-            const totalRange = 128;
-            const displayRange = this.renderer.displayNoteMax - this.renderer.displayNoteMin;
-            const maxOffset = Math.max(1, totalRange - displayRange);
-            const yoffset = this.renderer.displayNoteMin;
-            const percentage = Math.min(100, (yoffset / maxOffset) * 100);
-            scrollVSlider.value = percentage;
+            this.modal.navigationBar.setViewport(this.renderer.scrollX, visibleTicks, maxTick);
         }
     }
 

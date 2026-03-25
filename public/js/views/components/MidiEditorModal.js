@@ -2766,24 +2766,14 @@ class MidiEditorModal {
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
+                            <!-- Navigation Overview Bar -->
+                            <div class="navigation-overview-wrap" id="navigation-overview-container"></div>
                             <!-- Playback Timeline Bar -->
                             <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll sera inséré ici -->
                                 </div>
-                            </div>
-                            <!-- Slider horizontal avec boutons (toujours visible) -->
-                            <div class="scroll-controls scroll-controls-horizontal">
-                                <button class="scroll-btn scroll-btn-left" data-action="scroll-left">◄</button>
-                                <input type="range" class="scroll-slider scroll-horizontal" id="scroll-h-slider" min="0" max="100" value="0" step="1">
-                                <button class="scroll-btn scroll-btn-right" data-action="scroll-right">►</button>
-                            </div>
-                            <!-- Slider vertical: couvre toute la hauteur (timeline + piano roll) -->
-                            <div class="scroll-controls scroll-controls-vertical">
-                                <button class="scroll-btn scroll-btn-up" data-action="scroll-up">▲</button>
-                                <input type="range" class="scroll-slider scroll-vertical" id="scroll-v-slider" min="0" max="100" value="0" step="1" orient="vertical">
-                                <button class="scroll-btn scroll-btn-down" data-action="scroll-down">▼</button>
                             </div>
                         </div>
 
@@ -3039,8 +3029,8 @@ class MidiEditorModal {
             this.pianoRoll.defaultChannel = Array.from(this.activeChannels)[0];
         }
 
-        // Initialiser les sliders de navigation
-        this.initializeScrollSliders(maxTick, minNote, maxNote, xrange, noteRange, yoffset);
+        // Initialiser la barre de navigation overview
+        this._initNavigationOverview(maxTick, xrange);
 
         // Synchroniser les sliders avec la navigation native du piano roll
         this.setupScrollSynchronization();
@@ -4648,8 +4638,10 @@ class MidiEditorModal {
                         this.pianoRoll.redraw();
                     }
                 }
-                // Sync horizontal slider
-                this.updateHorizontalSlider(newScrollX);
+                // Sync navigation overview bar
+                const maxTick = this.midiData?.maxTick || 0;
+                const xrange = this.pianoRoll?.xrange || 1920;
+                this.navigationBar?.setViewport(newScrollX, xrange, maxTick);
                 // Sync tablature
                 if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) {
                     this.tablatureEditor.renderer.setScrollX(newScrollX);
@@ -4746,16 +4738,13 @@ class MidiEditorModal {
         if (this.tablatureEditor && this.tablatureEditor.isVisible) {
             this.tablatureEditor.updatePlayhead(tick);
 
-            // Sync horizontal slider with tablature scroll position
-            const scrollHSlider = document.getElementById('scroll-h-slider');
-            if (scrollHSlider && this.tablatureEditor.renderer) {
+            // Sync navigation overview bar with tablature scroll position
+            if (this.navigationBar && this.tablatureEditor.renderer) {
                 const maxTick = this.midiData?.maxTick || 0;
                 const renderer = this.tablatureEditor.renderer;
                 const canvasWidth = this.tablatureEditor.tabCanvasEl?.width || 800;
                 const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
-                const maxOffset = Math.max(1, maxTick - visibleTicks);
-                const percentage = Math.min(100, (renderer.scrollX / maxOffset) * 100);
-                scrollHSlider.value = percentage;
+                this.navigationBar.setViewport(renderer.scrollX, visibleTicks, maxTick);
             }
         }
 
@@ -5125,18 +5114,6 @@ class MidiEditorModal {
                     this.zoomVertical(1.25);
                     break;
 
-                // Boutons de navigation des sliders
-                case 'scroll-left':
-                    this.scrollByHalf('left');
-                    break;
-                case 'scroll-right':
-                    this.scrollByHalf('right');
-                    break;
-                case 'scroll-up':
-                    this.scrollByHalf('up');
-                    break;
-                case 'scroll-down':
-                    this.scrollByHalf('down');
                     break;
 
                 // Nouveaux boutons d'édition
@@ -5367,35 +5344,6 @@ class MidiEditorModal {
         // dans attachEditorChannelListeners() appelé depuis updateEditorChannelSelector()
         // pour éviter les conflits lors de la mise à jour dynamique des canaux
 
-        // Sliders de navigation (scroll) avec throttle à 15fps
-        const scrollHSlider = document.getElementById('scroll-h-slider');
-        const scrollVSlider = document.getElementById('scroll-v-slider');
-
-        let lastScrollUpdateH = 0;
-        let lastScrollUpdateV = 0;
-        const throttleDelay = 66; // ~15fps (1000ms / 15 = 66.67ms)
-
-        if (scrollHSlider) {
-            scrollHSlider.addEventListener('input', (e) => {
-                const now = Date.now();
-                if (now - lastScrollUpdateH < throttleDelay) return;
-                lastScrollUpdateH = now;
-
-                const value = parseInt(e.target.value);
-                this.scrollHorizontal(value);
-            });
-        }
-
-        if (scrollVSlider) {
-            scrollVSlider.addEventListener('input', (e) => {
-                const now = Date.now();
-                if (now - lastScrollUpdateV < throttleDelay) return;
-                lastScrollUpdateV = now;
-
-                const value = parseInt(e.target.value);
-                this.scrollVertical(value);
-            });
-        }
 
         // Sélecteur d'instrument pour nouveaux canaux
         const instrumentSelector = document.getElementById('instrument-selector');
@@ -5472,16 +5420,8 @@ class MidiEditorModal {
                 notesSection.style.setProperty('min-height', '0px', 'important');
                 ccSection.style.setProperty('min-height', '0px', 'important');
 
-                // Empêcher le slider horizontal de déborder au-dessus de la section CC
+                // Empêcher le contenu de déborder au-dessus de la section CC
                 notesSection.style.setProperty('overflow', 'hidden', 'important');
-
-                // Positionner le slider horizontal en sticky pour qu'il reste visible au-dessus de CC
-                const horizontalSlider = notesSection.querySelector('.scroll-controls-horizontal');
-                if (horizontalSlider) {
-                    horizontalSlider.style.position = 'sticky';
-                    horizontalSlider.style.bottom = '0';
-                    horizontalSlider.style.zIndex = '100';
-                }
 
                 document.body.style.cursor = 'ns-resize';
                 resizeBar.classList.add('dragging');
@@ -5727,31 +5667,31 @@ class MidiEditorModal {
     }
 
     /**
-     * Initialiser les sliders de navigation avec les bonnes valeurs
+     * Initialiser la barre de navigation overview
      */
-    initializeScrollSliders(maxTick, minNote, maxNote, xrange, noteRange, yoffset) {
-        const scrollHSlider = document.getElementById('scroll-h-slider');
-        const scrollVSlider = document.getElementById('scroll-v-slider');
+    _initNavigationOverview(maxTick, xrange) {
+        const overviewContainer = this.container?.querySelector('#navigation-overview-container');
+        if (!overviewContainer || typeof NavigationOverviewBar === 'undefined') return;
 
-        if (scrollHSlider) {
-            // Position initiale horizontale: 0 (début du fichier)
-            scrollHSlider.value = 0;
-            this.log('info', `Horizontal slider initialized: maxTick=${maxTick}, xrange=${xrange}`);
+        // Clean up previous instance
+        if (this.navigationBar) {
+            this.navigationBar.destroy();
+            this.navigationBar = null;
         }
 
-        if (scrollVSlider) {
-            // Position initiale verticale: centrée
-            const totalMidiRange = 128;
-            const maxVOffset = Math.max(0, totalMidiRange - noteRange);
-            const initialVPercentage = maxVOffset > 0 ? (yoffset / maxVOffset) * 100 : 0;
-            scrollVSlider.value = initialVPercentage;
-            this.log('info', `Vertical slider initialized: yoffset=${yoffset}, percentage=${initialVPercentage.toFixed(1)}%`);
-        }
+        this.navigationBar = new NavigationOverviewBar(overviewContainer, {
+            height: 20,
+            onNavigate: (percentage) => {
+                this.scrollHorizontal(percentage);
+            }
+        });
+
+        this.navigationBar.setViewport(0, xrange, maxTick);
+        this.log('info', `Navigation overview bar initialized: maxTick=${maxTick}, xrange=${xrange}`);
     }
 
     /**
-     * Synchroniser les sliders avec la navigation native du piano roll
-     * (clic sur timeline/clavier)
+     * Synchroniser la barre de navigation overview avec le piano roll
      */
     setupScrollSynchronization() {
         if (!this.pianoRoll) return;
@@ -5784,7 +5724,6 @@ class MidiEditorModal {
 
             if (xOffsetChanged || yOffsetChanged || xRangeChanged) {
                 idleCount = 0;
-                // Repasser en mode actif si on était en idle
                 if (this._syncIdle) {
                     this._syncIdle = false;
                     clearInterval(this.syncInterval);
@@ -5792,7 +5731,6 @@ class MidiEditorModal {
                 }
             } else {
                 idleCount++;
-                // Passer en mode idle après IDLE_THRESHOLD cycles sans changement
                 if (!this._syncIdle && idleCount >= IDLE_THRESHOLD) {
                     this._syncIdle = true;
                     clearInterval(this.syncInterval);
@@ -5801,7 +5739,10 @@ class MidiEditorModal {
             }
 
             if (xOffsetChanged || xRangeChanged) {
-                this.updateHorizontalSlider(currentXOffset);
+                // Update navigation overview bar
+                const maxTick = this.midiData?.maxTick || 0;
+                this.navigationBar?.setViewport(currentXOffset, currentXRange, maxTick);
+
                 if (!syncScheduled) {
                     syncScheduled = true;
                     requestAnimationFrame(() => {
@@ -5814,7 +5755,6 @@ class MidiEditorModal {
             }
 
             if (yOffsetChanged) {
-                this.updateVerticalSlider(currentYOffset);
                 lastYOffset = currentYOffset;
             }
         };
@@ -5823,39 +5763,6 @@ class MidiEditorModal {
         this.syncInterval = setInterval(pollFn, ACTIVE_INTERVAL);
     }
 
-    /**
-     * Mettre à jour le slider horizontal selon xoffset actuel
-     */
-    updateHorizontalSlider(xoffset) {
-        const scrollHSlider = document.getElementById('scroll-h-slider');
-        if (!scrollHSlider) return;
-
-        const maxTick = this.midiData?.maxTick || 0;
-        const xrange = this.pianoRoll.xrange || parseInt(this.pianoRoll.getAttribute('xrange')) || 128;
-        const maxOffset = Math.max(0, maxTick - xrange);
-
-        if (maxOffset > 0) {
-            const percentage = (xoffset / maxOffset) * 100;
-            scrollHSlider.value = percentage;
-        }
-    }
-
-    /**
-     * Mettre à jour le slider vertical selon yoffset actuel
-     */
-    updateVerticalSlider(yoffset) {
-        const scrollVSlider = document.getElementById('scroll-v-slider');
-        if (!scrollVSlider) return;
-
-        const yrange = this.pianoRoll.yrange || parseInt(this.pianoRoll.getAttribute('yrange')) || 36;
-        const totalMidiRange = 128;
-        const maxOffset = Math.max(0, totalMidiRange - yrange);
-
-        if (maxOffset > 0) {
-            const percentage = (yoffset / maxOffset) * 100;
-            scrollVSlider.value = percentage;
-        }
-    }
 
     /**
      * Défilement horizontal (0-100%)
@@ -5936,62 +5843,6 @@ class MidiEditorModal {
         }
     }
 
-    /**
-     * Déplacer la vue de moitié dans une direction
-     * @param {string} direction - 'left', 'right', 'up', 'down'
-     */
-    scrollByHalf(direction) {
-        if (!this.pianoRoll) return;
-
-        if (direction === 'left' || direction === 'right') {
-            // Déplacement horizontal
-            const currentXOffset = this.pianoRoll.xoffset || 0;
-            const xrange = this.pianoRoll.xrange || parseInt(this.pianoRoll.getAttribute('xrange')) || 128;
-            const maxTick = this.midiData?.maxTick || 0;
-            const maxOffset = Math.max(0, maxTick - xrange);
-
-            // Déplacer de la moitié de xrange
-            const halfRange = xrange / 2;
-            let newOffset;
-
-            if (direction === 'left') {
-                newOffset = Math.max(0, currentXOffset - halfRange);
-            } else { // right
-                newOffset = Math.min(maxOffset, currentXOffset + halfRange);
-            }
-
-            // Convertir en pourcentage et utiliser scrollHorizontal
-            const percentage = maxOffset > 0 ? (newOffset / maxOffset) * 100 : 0;
-            this.scrollHorizontal(percentage);
-
-            // Mettre à jour le slider
-            this.updateHorizontalSlider(newOffset);
-
-        } else if (direction === 'up' || direction === 'down') {
-            // Déplacement vertical
-            const currentYOffset = this.pianoRoll.yoffset || 0;
-            const yrange = this.pianoRoll.yrange || parseInt(this.pianoRoll.getAttribute('yrange')) || 36;
-            const totalMidiRange = 128;
-            const maxOffset = Math.max(0, totalMidiRange - yrange);
-
-            // Déplacer de la moitié de yrange
-            const halfRange = yrange / 2;
-            let newOffset;
-
-            if (direction === 'up') {
-                newOffset = Math.min(maxOffset, currentYOffset + halfRange);
-            } else { // down
-                newOffset = Math.max(0, currentYOffset - halfRange);
-            }
-
-            // Convertir en pourcentage et utiliser scrollVertical
-            const percentage = maxOffset > 0 ? (newOffset / maxOffset) * 100 : 0;
-            this.scrollVertical(percentage);
-
-            // Mettre à jour le slider
-            this.updateVerticalSlider(newOffset);
-        }
-    }
 
     // ========================================================================
     // TABLATURE EDITOR
@@ -7216,6 +7067,12 @@ class MidiEditorModal {
         if (this.pianoRoll) {
             this.pianoRoll.remove();
             this.pianoRoll = null;
+        }
+
+        // Nettoyer la barre de navigation overview
+        if (this.navigationBar) {
+            this.navigationBar.destroy();
+            this.navigationBar = null;
         }
 
         // Nettoyer la barre de timeline

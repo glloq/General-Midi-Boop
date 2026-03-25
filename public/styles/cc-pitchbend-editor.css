@@ -47,18 +47,11 @@
     position: relative;
 }
 
-/* Piano roll wrapper - prend tout l'espace sauf le slider horizontal */
+/* Piano roll wrapper - prend tout l'espace disponible */
 .piano-roll-wrapper {
     flex: 1;
     position: relative;
     min-height: 150px;
-    margin-right: 40px; /* leave room for vertical scrollbar */
-}
-
-/* Slider horizontal - toujours visible, en dehors du wrapper */
-.notes-section > .scroll-controls-horizontal {
-    flex: 0 0 auto;
-    z-index: 5;
 }
 
 /* Section CC - utilise tout l'espace disponible ou se collapse */
