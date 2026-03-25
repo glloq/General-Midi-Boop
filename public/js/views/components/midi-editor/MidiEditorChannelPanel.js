@@ -133,15 +133,28 @@ class MidiEditorChannelPanel {
 
             if (isActive) {
                 chip.classList.add('active');
+                chip.style.cssText = `--chip-color: ${color}; --chip-bg: ${color}20; --chip-border: ${color}cc;`;
             } else {
                 chip.classList.remove('active');
+                chip.style.cssText = `--chip-color: ${color}; --chip-bg: transparent; --chip-border: ${color}4d;`;
             }
-            chip.style.cssText = `--chip-color: ${color};`;
 
             // Update playable notes indicator
             const isPlayableHighlighted = m.channelPlayableHighlights?.has(channel);
             chip.classList.toggle('playable-active', !!isPlayableHighlighted);
         });
+
+        // Update gear button border colors to match chip
+        const gears = m.container?.querySelectorAll('.chip-settings-btn');
+        if (gears) {
+            gears.forEach(gear => {
+                const channel = parseInt(gear.dataset.channel);
+                const chip = m.container?.querySelector(`.channel-chip[data-channel="${channel}"]`);
+                if (chip) {
+                    gear.style.setProperty('--chip-border', chip.style.getPropertyValue('--chip-border'));
+                }
+            });
+        }
 
         m.updateStats();
     }
