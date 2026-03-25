@@ -2388,11 +2388,6 @@ class MidiEditorModal {
 
         html += '</div>';
 
-        // Bouton global "Show All" sticky à droite
-        html += `<div class="channel-global-actions">
-            <button class="btn-show-all-channels" title="${this.t('midiEditor.showAllChannels')}">👁</button>
-        </div>`;
-
         return html;
     }
 
@@ -2749,8 +2744,13 @@ class MidiEditorModal {
                 </div>
                 <div class="modal-body">
                     <!-- Toolbar des canaux (juste sous le header) -->
-                    <div class="channels-toolbar">
-                        ${this.renderChannelButtons()}
+                    <div class="channels-toolbar-wrapper">
+                        <div class="channels-toolbar">
+                            ${this.renderChannelButtons()}
+                        </div>
+                        <div class="channel-global-actions">
+                            <button class="btn-show-all-channels" title="${this.t('midiEditor.showAllChannels')}">👁️</button>
+                        </div>
                     </div>
 
                     <!-- Toolbar d'édition (compacte, icônes seules + tooltips) -->

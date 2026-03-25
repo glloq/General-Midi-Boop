@@ -864,7 +864,18 @@
     font-weight: 600;
 }
 
-/* Toolbar des canaux - Chip strip layout */
+/* Wrapper pour channels toolbar + bouton show-all fixe a droite */
+.midi-editor-modal .channels-toolbar-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    background: #252525;
+    border-bottom: 1px solid #3a3a3a;
+    min-height: 54px;
+    position: relative;
+}
+
+/* Toolbar des canaux - Chip strip layout (scrollable) */
 .midi-editor-modal .channels-toolbar {
     display: flex;
     flex-wrap: nowrap;
@@ -873,12 +884,13 @@
     min-height: 54px;
     box-sizing: border-box;
     background: #252525;
-    border-bottom: 1px solid #3a3a3a;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
     scrollbar-color: #555 #252525;
     align-items: flex-start;
+    flex: 1;
+    min-width: 0;
 }
 
 /* Sections de la toolbar */
@@ -1291,33 +1303,32 @@
 .midi-editor-modal .channel-global-actions {
     display: flex;
     align-items: center;
-    padding: 0 4px 0 8px;
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    background: linear-gradient(90deg, transparent 0%, #252525 20%, #252525 100%);
+    padding: 0 6px;
     flex-shrink: 0;
+    background: linear-gradient(90deg, transparent 0%, #252525 30%, #252525 100%);
+    z-index: 2;
 }
 
 .midi-editor-modal .btn-show-all-channels {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-    background: #2a2a2a;
-    border: 1px solid #555;
-    border-radius: 6px;
-    color: #ccc;
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    background: linear-gradient(180deg, #3a4a5a 0%, #2a3a4a 100%);
+    border: 2px solid #4a6a8a;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .midi-editor-modal .btn-show-all-channels:hover {
-    color: #fff;
-    background: #3a3a3a;
-    border-color: #888;
+    background: linear-gradient(180deg, #4a5a6a 0%, #3a4a5a 100%);
+    border-color: #5a8aba;
+    transform: scale(1.05);
+    box-shadow: 0 3px 10px rgba(74, 106, 138, 0.4);
 }
 
 /* Legacy compat: hide old elements if still in DOM */
