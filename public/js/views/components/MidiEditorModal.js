@@ -1309,19 +1309,38 @@ class MidiEditorModal {
     /**
      * Synchroniser tous les éditeurs (CC et Velocity) avec le piano roll
      */
+    /**
+     * Get the header width (left offset) of the currently active editor view.
+     * This is needed to align the PlaybackTimelineBar with the active editor.
+     */
+    _getActiveEditorHeaderWidth() {
+        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) {
+            return this.tablatureEditor.renderer.headerWidth || 40;
+        }
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.renderer) {
+            return this.windInstrumentEditor.renderer.headerWidth || 50;
+        }
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.gridRenderer) {
+            return this.drumPatternEditor.gridRenderer.headerWidth || 80;
+        }
+        // Default: piano roll (yruler 24 + kbwidth 40)
+        return 64;
+    }
+
     syncAllEditors() {
         this.syncCCEditor();
         this.syncVelocityEditor();
         this.syncTempoEditor();
 
-        // Sync PlaybackTimelineBar with piano roll scroll/zoom
+        // Sync PlaybackTimelineBar with active editor scroll/zoom
         if (this.timelineBar && this.pianoRoll) {
             const xoffset = this.pianoRoll.xoffset || 0;
             const xrange = this.pianoRoll.xrange || 1920;
             const containerWidth = this.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
-            const pianoLeftOffset = 64; // yruler (24) + kbwidth (40)
+            const activeLeftOffset = this._getActiveEditorHeaderWidth();
+            this.timelineBar.setLeftOffset(activeLeftOffset);
             this.timelineBar.setScrollX(xoffset);
-            this.timelineBar.setZoom(xrange / Math.max(1, containerWidth - pianoLeftOffset));
+            this.timelineBar.setZoom(xrange / Math.max(1, containerWidth - activeLeftOffset));
         }
     }
 
@@ -4407,9 +4426,8 @@ class MidiEditorModal {
             this.timelineBar = null;
         }
 
-        // Compute leftOffset to align with piano roll note area
-        // Piano roll offset = yruler (24px, octave labels) + kbwidth (40px, keyboard)
-        const pianoLeftOffset = 24 + 40; // 64px
+        // Compute leftOffset to align with active editor's note area
+        const pianoLeftOffset = this._getActiveEditorHeaderWidth();
 
         this.timelineBar = new PlaybackTimelineBar(timelineContainer, {
             ticksPerBeat: ticksPerBeat,

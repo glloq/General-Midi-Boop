@@ -166,6 +166,13 @@ class PlaybackTimelineBar {
     // PUBLIC API
     // ========================================================================
 
+    setLeftOffset(px) {
+        if (this.leftOffset !== px) {
+            this.leftOffset = px;
+            this._dirty = true; this._scheduleRender();
+        }
+    }
+
     setZoom(ticksPerPixel) {
         this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
         this._dirty = true; this._scheduleRender();
