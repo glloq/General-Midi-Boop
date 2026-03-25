@@ -356,6 +356,86 @@ class DelayCalibrator {
     });
   }
 
+  // =========================================================================
+  // MONITORING (VU-meter temps réel)
+  // =========================================================================
+
+  /**
+   * Démarre le monitoring audio continu pour VU-mètre
+   * Envoie le niveau RMS via le callback toutes les ~100ms
+   * @param {Function} callback - Appelé avec { rms, peak }
+   * @param {Object} [options] - Options (alsaDevice)
+   */
+  startMonitoring(callback, options = {}) {
+    if (this.monitorProcess) {
+      this.stopMonitoring();
+    }
+
+    const device = options.alsaDevice || this.config.alsaDevice;
+    this.monitorCallback = callback;
+    this.monitorPeakRMS = 0;
+
+    this.monitorProcess = spawn('arecord', [
+      '-D', device,
+      '-f', this.config.format,
+      '-r', this.config.sampleRate.toString(),
+      '-c', this.config.channels.toString(),
+      '-t', 'raw'
+    ]);
+
+    this.monitorProcess.stdout.on('data', (chunk) => {
+      const rms = this.calculateRMS(chunk);
+      if (rms > this.monitorPeakRMS) this.monitorPeakRMS = rms;
+
+      if (this.monitorCallback) {
+        this.monitorCallback({ rms, peak: this.monitorPeakRMS });
+      }
+    });
+
+    this.monitorProcess.stderr.on('data', (data) => {
+      // arecord writes info to stderr, ignore non-errors
+      const msg = data.toString();
+      if (msg.includes('Error') || msg.includes('error')) {
+        this.logger.warn(`Monitor arecord stderr: ${msg}`);
+      }
+    });
+
+    this.monitorProcess.on('error', (error) => {
+      this.logger.error(`Monitor arecord error: ${error.message}`);
+      this.monitorProcess = null;
+    });
+
+    this.monitorProcess.on('close', () => {
+      this.monitorProcess = null;
+    });
+
+    // Decay peak over time
+    this.monitorPeakInterval = setInterval(() => {
+      this.monitorPeakRMS *= 0.9;
+    }, 500);
+
+    this.logger.info('Audio monitoring started');
+  }
+
+  /**
+   * Arrête le monitoring audio
+   */
+  stopMonitoring() {
+    if (this.monitorProcess) {
+      this.monitorProcess.kill('SIGTERM');
+      this.monitorProcess = null;
+    }
+
+    if (this.monitorPeakInterval) {
+      clearInterval(this.monitorPeakInterval);
+      this.monitorPeakInterval = null;
+    }
+
+    this.monitorCallback = null;
+    this.monitorPeakRMS = 0;
+    this.logger.info('Audio monitoring stopped');
+  }
+
   /**
    * Utilitaire: sleep
    */
@@ -368,6 +448,7 @@ class DelayCalibrator {
    */
   destroy() {
     this.stopRecording();
+    this.stopMonitoring();
   }
 }
 

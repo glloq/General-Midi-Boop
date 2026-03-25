@@ -69,6 +69,33 @@ async function calibrateListAlsaDevices(app) {
   return { devices: devices };
 }
 
+async function calibratePreviewNote(app, data) {
+  const { deviceId, channel } = data;
+  await app.delayCalibrator.sendTestNote(deviceId, channel);
+  return { success: true };
+}
+
+async function calibrateMonitorStart(app, data) {
+  const alsaDevice = data.alsaDevice;
+
+  // Stop existing monitor if running
+  app.delayCalibrator.stopMonitoring();
+
+  // Start monitoring and broadcast levels via WebSocket
+  app.delayCalibrator.startMonitoring((level) => {
+    if (app.wsServer && app.wsServer.broadcast) {
+      app.wsServer.broadcast('calibration:audio_level', level);
+    }
+  }, { alsaDevice });
+
+  return { success: true };
+}
+
+async function calibrateMonitorStop(app) {
+  app.delayCalibrator.stopMonitoring();
+  return { success: true };
+}
+
 export function register(registry, app) {
   registry.register('latency_measure', (data) => latencyMeasure(app, data));
   registry.register('latency_set', (data) => latencySet(app, data));
@@ -80,4 +107,7 @@ export function register(registry, app) {
   registry.register('latency_export', () => latencyExport(app));
   registry.register('calibrate_delay', (data) => calibrateDelay(app, data));
   registry.register('calibrate_list_alsa_devices', () => calibrateListAlsaDevices(app));
+  registry.register('calibrate_preview_note', (data) => calibratePreviewNote(app, data));
+  registry.register('calibrate_monitor_start', (data) => calibrateMonitorStart(app, data));
+  registry.register('calibrate_monitor_stop', () => calibrateMonitorStop(app));
 }
