@@ -747,7 +747,7 @@ body.dark-mode .tab-fret-input {
     gap: 0;
     padding: 6px 8px;
     border-right: 1px solid var(--border-color, #ddd);
-    min-width: 170px;
+    min-width: 140px;
     flex-shrink: 0;
     background: var(--bg-secondary, #fafafa);
 }
@@ -772,7 +772,6 @@ body.dark-mode .tab-fret-input {
 .si-neck-col-hdr:nth-child(1) { width: 22px; text-align: center; }
 .si-neck-col-hdr:nth-child(2) { min-width: 28px; }
 .si-neck-col-hdr:nth-child(3) { width: 42px; text-align: center; }
-.si-neck-col-hdr:nth-child(4) { width: 38px; text-align: center; }
 
 .si-neck-string-row {
     display: flex;
@@ -796,10 +795,6 @@ body.dark-mode .tab-fret-input {
     width: 42px;
     padding: 2px 3px;
     font-size: 11px;
-}
-
-.si-neck-string-row .si-frets-val {
-    width: 38px;
 }
 
 .si-neck-canvas-panel {
