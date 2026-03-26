@@ -508,10 +508,13 @@ class StringInstrumentConfigModal extends BaseModal {
             canvas.width = w;
             canvas.height = 120;
 
+            const initFrets = this.config.frets_per_string
+                || new Array(this.config.num_strings).fill(this.config.num_frets);
+
             this.neckDiagram = new NeckDiagramConfig(canvas, {
                 numStrings: this.config.num_strings,
-                numFrets: this.config.num_frets,
-                fretsPerString: this.config.frets_per_string,
+                numFrets: 36,
+                fretsPerString: initFrets,
                 tuning: this.config.tuning,
                 isFretless: this.config.is_fretless,
                 onChange: (fretsPerString) => {

@@ -1173,7 +1173,7 @@ class InstrumentSettingsModal extends BaseModal {
         const tab = this._getActiveTab();
         const config = tab?.stringInstrumentConfig;
         const numStrings = config?.num_strings || parseInt(this.$('#siNumStrings')?.value) || 6;
-        const numFrets = config?.num_frets ?? 24;
+        const numFrets = 36; // Always allow full range; per-string values hold actual fret counts
         const tuning = config?.tuning || [];
 
         requestAnimationFrame(() => {
@@ -1182,10 +1182,14 @@ class InstrumentSettingsModal extends BaseModal {
             canvas.width = w;
             canvas.height = Math.max(120, numStrings * 22 + 36);
 
+            // If no per-string frets, create uniform array from saved num_frets
+            const initFrets = config?.frets_per_string
+                || new Array(numStrings).fill(config?.num_frets ?? 24);
+
             this._neckDiagram = new NeckDiagramConfig(canvas, {
                 numStrings,
                 numFrets,
-                fretsPerString: config?.frets_per_string || null,
+                fretsPerString: initFrets,
                 tuning,
                 isFretless: config?.is_fretless || false,
                 onChange: (fretsPerString) => {
