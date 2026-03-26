@@ -144,15 +144,15 @@ class MidiEditorCCPanel {
         }
 
         let channelsToShow = [];
-        let activeChannel = 0;
+        let activeChannel = -1;
 
         if (m.currentCCType === 'velocity') {
             channelsToShow = m.channels.map(ch => ch.channel).sort((a, b) => a - b);
-            activeChannel = m.velocityEditor ? m.velocityEditor.currentChannel : 0;
+            activeChannel = m.velocityEditor ? m.velocityEditor.currentChannel : -1;
         } else {
             const usedChannels = this.getCCChannelsUsed();
             channelsToShow = usedChannels.length > 0 ? usedChannels : this.getAllCCChannels();
-            activeChannel = m.ccEditor ? m.ccEditor.currentChannel : 0;
+            activeChannel = m.ccEditor ? m.ccEditor.currentChannel : -1;
         }
 
         if (channelsToShow.length === 0) {
@@ -160,6 +160,16 @@ class MidiEditorCCPanel {
             channelSelector.innerHTML = `<div class="cc-no-channels">${message}</div>`;
             m.log('info', message);
             return;
+        }
+
+        // S'assurer que le canal actif est dans la liste, sinon prendre le premier
+        if (!channelsToShow.includes(activeChannel)) {
+            activeChannel = channelsToShow[0];
+            if (m.currentCCType === 'velocity' && m.velocityEditor) {
+                m.velocityEditor.setChannel(activeChannel);
+            } else if (m.ccEditor) {
+                m.ccEditor.setChannel(activeChannel);
+            }
         }
 
         // Déterminer quels canaux ont des données pour le CC actif
