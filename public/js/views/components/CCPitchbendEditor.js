@@ -30,6 +30,7 @@ class CCPitchbendEditor {
         this.currentChannel = 0;
         this.currentNote = null; // Pour poly aftertouch : note filtrée
         this.curveType = 'linear'; // Type de courbe pour l'outil ligne : 'linear', 'exponential', 'logarithmic', 'sine'
+        this.drawDensityMultiplier = 1; // Multiplicateur de densité de points : <1 = plus dense, >1 = moins dense
         this.isDrawing = false;
         this.lastDrawPosition = null;
         this.lastDrawTicks = null; // Dernier tick où un point a été créé en mode dessin
@@ -227,6 +228,10 @@ class CCPitchbendEditor {
 
     setCurveType(curveType) {
         this.curveType = curveType;
+    }
+
+    setDrawDensity(multiplier) {
+        this.drawDensityMultiplier = multiplier;
     }
 
     applyCurve(t) {
@@ -428,7 +433,7 @@ class CCPitchbendEditor {
         if (this.isDrawing && this.currentTool === 'draw') {
             // Dessin continu - créer un point seulement si on a avancé d'au moins un tick de grille
             const snappedTicks = this.snapToGrid(ticks);
-            if (this.lastDrawTicks === null || Math.abs(snappedTicks - this.lastDrawTicks) >= this.options.grid) {
+            if (this.lastDrawTicks === null || Math.abs(snappedTicks - this.lastDrawTicks) >= this.options.grid * this.drawDensityMultiplier) {
                 this.addEvent(ticks, value, this.currentChannel, false); // Ne pas sauvegarder immédiatement
                 this.lastDrawTicks = snappedTicks;
                 this.lastDrawPosition = { x, y };

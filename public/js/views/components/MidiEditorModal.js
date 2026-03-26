@@ -2918,6 +2918,7 @@ class MidiEditorModal {
                                 <div class="cc-header-channels" id="editor-channel-selector">
                                     <!-- Les canaux seront ajoutés dynamiquement -->
                                 </div>
+                                <button class="cc-settings-btn" id="cc-draw-settings-btn" title="${this.t('midiEditor.drawSettings') || 'Réglages de dessin'}">⚙</button>
                             </div>
 
                             <!-- Contenu de l'éditeur CC/Velocity -->
@@ -5438,6 +5439,15 @@ class MidiEditorModal {
                 ccTitle.addEventListener('click', (e) => {
                     e.preventDefault();
                     this.toggleCCSection();
+                });
+            }
+            // Bouton engrenage pour réglages de dessin CC
+            const ccDrawSettingsBtn = ccSectionHeader.querySelector('#cc-draw-settings-btn');
+            if (ccDrawSettingsBtn) {
+                ccDrawSettingsBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (this.ccPanel) this.ccPanel.toggleDrawSettingsPopover();
                 });
             }
         }
