@@ -7551,6 +7551,7 @@ class MidiEditorModal {
         this.ccEvents = [];
         this.ccSectionExpanded = false;
         this.currentCCType = 'cc1';
+        this._ccChannelDelegationAttached = false;
 
         // Nettoyer l'éditeur de vélocité
         if (this.velocityEditor) {
