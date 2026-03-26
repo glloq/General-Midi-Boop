@@ -327,6 +327,8 @@
     "ccBreathController": "Contrôleur de souffle",
     "ccExpressionController": "Contrôleur d'expression",
     "ccPitchWheel": "Molette de pitch",
+    "ccAftertouch": "Aftertouch canal",
+    "ccPolyAftertouch": "Aftertouch polyphonique",
     "ccVibratoRate": "Vitesse de vibrato",
     "ccVibratoDepth": "Profondeur de vibrato",
     "ccVibratoDelay": "Délai de vibrato",

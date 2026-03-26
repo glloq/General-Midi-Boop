@@ -701,6 +701,31 @@ class MidiEditorModal {
                         id: Date.now() + Math.random() + this.ccEvents.length
                     });
                 }
+
+                // Channel Aftertouch events
+                if (event.type === 'channelAftertouch') {
+                    const channel = event.channel !== undefined ? event.channel : 0;
+                    this.ccEvents.push({
+                        type: 'aftertouch',
+                        ticks: currentTick,
+                        channel: channel,
+                        value: event.amount !== undefined ? event.amount : (event.value || 0),
+                        id: Date.now() + Math.random() + this.ccEvents.length
+                    });
+                }
+
+                // Polyphonic Aftertouch events (polyAftertouch from CustomMidiParser, noteAftertouch from midi-file lib)
+                if (event.type === 'polyAftertouch' || event.type === 'noteAftertouch') {
+                    const channel = event.channel !== undefined ? event.channel : 0;
+                    this.ccEvents.push({
+                        type: 'polyAftertouch',
+                        ticks: currentTick,
+                        channel: channel,
+                        note: event.noteNumber,
+                        value: event.pressure !== undefined ? event.pressure : (event.amount !== undefined ? event.amount : (event.value || 0)),
+                        id: Date.now() + Math.random() + this.ccEvents.length
+                    });
+                }
             });
         });
 
@@ -764,7 +789,7 @@ class MidiEditorModal {
         if (!dynamicContainer || !dynamicGroup) return;
 
         // CC couverts par les boutons statiques
-        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend']);
+        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend', 'aftertouch', 'polyAftertouch']);
 
         // Trouver les CC présents dans le fichier mais pas en statique
         const detectedCCs = new Set();
@@ -1929,7 +1954,7 @@ class MidiEditorModal {
         if (this.ccEvents && this.ccEvents.length > 0) {
             this.log('info', `Adding ${this.ccEvents.length} CC/pitchbend events to MIDI file`);
 
-            let ccCount = 0, pbCount = 0;
+            let ccCount = 0, pbCount = 0, atCount = 0;
             this.ccEvents.forEach(ccEvent => {
                 // Convertir le type de l'éditeur (cc1, cc2, cc5, cc7, cc10, cc11, cc74) en numéro de contrôleur
                 if (ccEvent.type.startsWith('cc')) {
@@ -1951,10 +1976,27 @@ class MidiEditorModal {
                         value: ccEvent.value
                     });
                     pbCount++;
+                } else if (ccEvent.type === 'aftertouch') {
+                    events.push({
+                        absoluteTime: ccEvent.ticks || ccEvent.tick,
+                        type: 'channelAftertouch',
+                        channel: ccEvent.channel,
+                        amount: ccEvent.value
+                    });
+                    atCount++;
+                } else if (ccEvent.type === 'polyAftertouch') {
+                    events.push({
+                        absoluteTime: ccEvent.ticks || ccEvent.tick,
+                        type: 'polyAftertouch',
+                        channel: ccEvent.channel,
+                        noteNumber: ccEvent.note || 0,
+                        pressure: ccEvent.value
+                    });
+                    atCount++;
                 }
             });
 
-            this.log('info', `Converted to MIDI: ${ccCount} CC events, ${pbCount} pitchbend events`);
+            this.log('info', `Converted to MIDI: ${ccCount} CC, ${pbCount} pitchbend, ${atCount} aftertouch events`);
         } else {
             this.log('warn', 'No CC/Pitchbend events to save');
         }
@@ -2887,7 +2929,6 @@ class MidiEditorModal {
                                                 <button class="cc-type-btn active" data-cc-type="cc1" title="${this.t('midiEditor.ccModulationWheel')}">CC1</button>
                                                 <button class="cc-type-btn" data-cc-type="cc2" title="${this.t('midiEditor.ccBreathController')}">CC2</button>
                                                 <button class="cc-type-btn" data-cc-type="cc11" title="${this.t('midiEditor.ccExpressionController')}">CC11</button>
-                                                <button class="cc-type-btn" data-cc-type="pitchbend" title="${this.t('midiEditor.ccPitchWheel')}">PB</button>
                                             </div>
                                         </div>
                                         <!-- Groupe Vibrato -->
@@ -2916,21 +2957,6 @@ class MidiEditorModal {
                                                 <button class="cc-type-btn" data-cc-type="cc5" title="${this.t('midiEditor.ccPortamentoTime')}">CC5</button>
                                             </div>
                                         </div>
-                                        <!-- Groupe Touch (Aftertouch) -->
-                                        <div class="cc-btn-group" data-group="touch">
-                                            <span class="cc-group-label">${this.t('midiEditor.groupTouch')}</span>
-                                            <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="aftertouch" title="${this.t('midiEditor.ccChannelAftertouch')}">AT</button>
-                                                <button class="cc-type-btn" data-cc-type="polyAftertouch" title="${this.t('midiEditor.ccPolyAftertouch')}">PAT</button>
-                                            </div>
-                                        </div>
-                                        <!-- Groupe Note/Global -->
-                                        <div class="cc-btn-group" data-group="note">
-                                            <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn" data-cc-type="velocity" title="${this.t('midiEditor.ccNoteVelocity')}">VEL</button>
-                                                <button class="cc-type-btn" data-cc-type="tempo" title="${this.t('midiEditor.ccTempoAutomation')}">♩</button>
-                                            </div>
-                                        </div>
                                         <!-- Groupe CC# libre -->
                                         <div class="cc-btn-group" data-group="custom">
                                             <span class="cc-group-label">${this.t('midiEditor.groupCustomCC')}</span>
@@ -2944,6 +2970,17 @@ class MidiEditorModal {
                                         <div class="cc-btn-group cc-dynamic-group" data-group="other" style="display:none;">
                                             <span class="cc-group-label">+</span>
                                             <div class="cc-btn-group-buttons" id="cc-dynamic-buttons"></div>
+                                        </div>
+
+                                        <div class="cc-toolbar-divider"></div>
+
+                                        <!-- Boutons standalone -->
+                                        <div class="cc-standalone-buttons">
+                                            <button class="cc-type-btn cc-standalone-btn" data-cc-type="pitchbend" title="${this.t('midiEditor.ccPitchWheel')}">PB</button>
+                                            <button class="cc-type-btn cc-standalone-btn" data-cc-type="aftertouch" title="${this.t('midiEditor.ccAftertouch')}">AT</button>
+                                            <button class="cc-type-btn cc-standalone-btn" data-cc-type="polyAftertouch" title="${this.t('midiEditor.ccPolyAftertouch')}">PolyAT</button>
+                                            <button class="cc-type-btn cc-standalone-btn" data-cc-type="velocity" title="${this.t('midiEditor.ccNoteVelocity')}">VEL</button>
+                                            <button class="cc-type-btn cc-standalone-btn cc-tempo-btn" data-cc-type="tempo" title="${this.t('midiEditor.ccTempoAutomation')}">🕐 BPM</button>
                                         </div>
                                     </div>
 

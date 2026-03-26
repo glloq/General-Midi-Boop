@@ -979,25 +979,27 @@ class MidiEditorCCPanel {
                     });
                 }
 
+                // Channel Aftertouch events
                 if (event.type === 'channelAftertouch') {
                     const channel = event.channel !== undefined ? event.channel : 0;
                     m.ccEvents.push({
                         type: 'aftertouch',
                         ticks: currentTick,
                         channel: channel,
-                        value: event.amount !== undefined ? event.amount : event.value,
+                        value: event.amount !== undefined ? event.amount : (event.value || 0),
                         id: Date.now() + Math.random() + m.ccEvents.length
                     });
                 }
 
-                if (event.type === 'noteAftertouch') {
+                // Polyphonic Aftertouch events (polyAftertouch from CustomMidiParser, noteAftertouch from midi-file lib)
+                if (event.type === 'polyAftertouch' || event.type === 'noteAftertouch') {
                     const channel = event.channel !== undefined ? event.channel : 0;
                     m.ccEvents.push({
                         type: 'polyAftertouch',
                         ticks: currentTick,
                         channel: channel,
                         note: event.noteNumber,
-                        value: event.amount !== undefined ? event.amount : event.value,
+                        value: event.pressure !== undefined ? event.pressure : (event.amount !== undefined ? event.amount : (event.value || 0)),
                         id: Date.now() + Math.random() + m.ccEvents.length
                     });
                 }
@@ -1041,7 +1043,7 @@ class MidiEditorCCPanel {
         const dynamicGroup = m.container?.querySelector('.cc-dynamic-group');
         if (!dynamicContainer || !dynamicGroup) return;
 
-        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend']);
+        const staticCCs = new Set(['cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend', 'aftertouch', 'polyAftertouch']);
 
         const detectedCCs = new Set();
         m.ccEvents.forEach(e => {

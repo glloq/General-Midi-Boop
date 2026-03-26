@@ -327,6 +327,8 @@
     "ccBreathController": "Breath Controller",
     "ccExpressionController": "Expression Controller",
     "ccPitchWheel": "Pitch Wheel",
+    "ccAftertouch": "Channel Aftertouch",
+    "ccPolyAftertouch": "Polyphonic Aftertouch",
     "ccVibratoRate": "Vibrato Rate",
     "ccVibratoDepth": "Vibrato Depth",
     "ccVibratoDelay": "Vibrato Delay",

@@ -137,8 +137,6 @@
     background: var(--bg-tertiary, #e9ecef);
     border-bottom: 1px solid var(--border-color, #e9ecef);
     flex-wrap: wrap;
-    max-height: 65px; /* LIMITE: Maximum 65px pour toolbar (groupes + labels) */
-    overflow: hidden;
 }
 
 .cc-toolbar-label {
@@ -265,6 +263,24 @@
     border-bottom: 3px solid #FFB300;
     color: #fff;
     box-shadow: 0 0 6px rgba(21, 101, 192, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+/* Boutons standalone (PB, AT, PolyAT, VEL, BPM) */
+.cc-standalone-buttons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cc-type-btn.cc-standalone-btn {
+    border-radius: 3px;
+    margin-left: 0;
+}
+
+.cc-type-btn.cc-tempo-btn {
+    padding: 3px 10px;
+    font-size: 10px;
 }
 
 /* Boutons horizontaux pour outils */
@@ -642,9 +658,22 @@ body.dark-mode .cc-active-label {
         flex-wrap: wrap;
     }
 
+    .cc-type-toolbar {
+        gap: 4px;
+        padding: 4px 8px;
+    }
+
+    .cc-type-buttons-horizontal {
+        gap: 6px;
+    }
+
     .cc-tool-btn,
     .cc-type-btn {
         padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .cc-type-btn.cc-tempo-btn {
         font-size: 11px;
     }
 
