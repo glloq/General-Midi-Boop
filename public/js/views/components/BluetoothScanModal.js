@@ -759,26 +759,33 @@ class BluetoothScanModal {
     renderBluetoothDisabled() {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
+        const isColored = document.body.classList.contains('theme-colored');
+        const warnBg = isColored ? 'linear-gradient(135deg, rgba(240, 180, 41, 0.12) 0%, rgba(240, 180, 41, 0.08) 100%)' : 'linear-gradient(135deg, #fff3cd 0%, #ffe5b4 100%)';
+        const warnBorder = isColored ? 'rgba(240, 180, 41, 0.4)' : '#ffc107';
+        const warnText = isColored ? 'var(--text-primary, #856404)' : '#856404';
+        const btnBg = isColored ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #ffc107 0%, #ff9800 100%)';
+        const btnShadow = isColored ? '0 2px 8px rgba(118, 75, 162, 0.4)' : '0 2px 8px rgba(255, 193, 7, 0.4)';
+
         return `
             <div class="bluetooth-disabled-section" style="
-                background: linear-gradient(135deg, #fff3cd 0%, #ffe5b4 100%);
-                border: 2px solid #ffc107;
+                background: ${warnBg};
+                border: 2px solid ${warnBorder};
                 border-radius: 12px;
                 padding: 20px;
                 margin-bottom: 20px;
                 text-align: center;
             ">
                 <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
-                <h3 style="margin: 0 0 12px; color: #856404; font-size: 18px;">
+                <h3 style="margin: 0 0 12px; color: ${warnText}; font-size: 18px;">
                     ${t('bluetooth.disabled.title')}
                 </h3>
-                <p style="margin: 0 0 16px; color: #856404; font-size: 14px;">
+                <p style="margin: 0 0 16px; color: ${warnText}; font-size: 14px;">
                     ${t('bluetooth.disabled.message')}<br>
                     ${t('bluetooth.disabled.enableMessage')}
                 </p>
                 <button class="btn-power-on" data-action="power_on" style="
                     padding: 12px 24px;
-                    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+                    background: ${btnBg};
                     color: #fff;
                     border: none;
                     border-radius: 8px;
@@ -786,7 +793,7 @@ class BluetoothScanModal {
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.2s;
-                    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+                    box-shadow: ${btnShadow};
                 ">
                     🔌 ${t('bluetooth.disabled.enableButton')}
                 </button>

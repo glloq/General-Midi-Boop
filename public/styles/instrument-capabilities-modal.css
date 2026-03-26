@@ -265,6 +265,26 @@ body.dark-mode .instrument-capabilities-modal .modal-close:hover {
 body.theme-colored .instrument-capabilities-modal .modal-container {
   background: #ffffff;
   box-shadow: 0 20px 60px rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .instrument-capabilities-modal .modal-header {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+  color: #fff !important;
+  border-bottom-color: rgba(118, 75, 162, 0.2) !important;
+}
+
+body.theme-colored .instrument-capabilities-modal .modal-header h2 {
+  color: #fff !important;
+}
+
+body.theme-colored .instrument-capabilities-modal .modal-close {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+body.theme-colored .instrument-capabilities-modal .modal-close:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.25) !important;
 }
 
 body.theme-colored .instrument-capabilities-modal .modal-body {

@@ -750,8 +750,9 @@ class CalibrationModal extends BaseModal {
 
         // Colors
         const isDark = document.body.classList.contains('theme-dark');
-        const textColor = isDark ? '#ccc' : '#555';
-        const gridColor = isDark ? '#444' : '#e5e7eb';
+        const isColored = document.body.classList.contains('theme-colored');
+        const textColor = isDark ? '#ccc' : isColored ? '#4a3f6b' : '#555';
+        const gridColor = isDark ? '#444' : isColored ? '#ddd6f3' : '#e5e7eb';
 
         // Grid lines
         ctx.strokeStyle = gridColor;
