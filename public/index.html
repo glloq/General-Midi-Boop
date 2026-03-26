@@ -5129,7 +5129,21 @@
     <script src="js/views/components/midi-editor/MidiEditorPlayback.js"></script>
     <script src="js/views/components/midi-editor/MidiEditorFileOps.js"></script>
 
-    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components) -->
+    <!-- MIDI Editor Mixin Modules (loaded before MidiEditorModal.js) -->
+    <script src="js/views/components/midi-editor/MidiEditorConstants.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorSequence.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorCC.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorDrawSettings.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorCCPicker.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorRenderer.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorRouting.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorEditActions.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorDialogs.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorEvents.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorTablature.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorLifecycle.js"></script>
+
+    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components + mixins) -->
     <script src="js/views/components/TablatureRenderer.js"></script>
     <script src="js/views/components/FretboardDiagram.js"></script>
     <script src="js/views/components/NeckDiagramConfig.js"></script>
