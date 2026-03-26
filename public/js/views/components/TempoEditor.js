@@ -60,13 +60,14 @@ class TempoEditor {
         // Conteneur principal
         this.element = document.createElement('div');
         this.element.className = 'tempo-editor';
+        const isColored = document.body.classList.contains('theme-colored');
         this.element.style.cssText = `
             width: 100%;
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: #1a1a1a;
-            border-top: 1px solid #333;
+            background: ${isColored ? '#f0f4ff' : '#1a1a1a'};
+            border-top: 1px solid ${isColored ? '#d4daff' : '#333'};
             position: relative;
             overflow: hidden;
             min-height: 0;
@@ -625,7 +626,8 @@ class TempoEditor {
         ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
 
         // Fond de la zone de labels
-        ctx.fillStyle = '#1e1e1e';
+        const isColored = document.body.classList.contains('theme-colored');
+        ctx.fillStyle = isColored ? '#e0e4f8' : '#1e1e1e';
         ctx.fillRect(0, 0, labelMargin, this.gridCanvas.height);
 
         // Grille verticale (temps) — synchronisée avec xoffset
@@ -640,7 +642,7 @@ class TempoEditor {
 
             // Trait plus marqué sur les temps forts (noire)
             const isBeat = (t % ticksPerBeat) === 0;
-            ctx.strokeStyle = isBeat ? '#383838' : '#2a2a2a';
+            ctx.strokeStyle = isColored ? (isBeat ? '#d4daff' : '#e8ecff') : (isBeat ? '#383838' : '#2a2a2a');
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(x, 0);
@@ -658,7 +660,7 @@ class TempoEditor {
 
             // Ligne plus marquée à 120 BPM (tempo standard)
             const isDefault = tempo === 120;
-            ctx.strokeStyle = isDefault ? '#444' : '#2a2a2a';
+            ctx.strokeStyle = isColored ? (isDefault ? '#b0b8e8' : '#e8ecff') : (isDefault ? '#444' : '#2a2a2a');
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(labelMargin, y);
@@ -666,7 +668,7 @@ class TempoEditor {
             ctx.stroke();
 
             // Label dans la marge
-            ctx.fillStyle = isDefault ? '#aaa' : '#666';
+            ctx.fillStyle = isColored ? (isDefault ? '#5a6089' : '#9498b8') : (isDefault ? '#aaa' : '#666');
             ctx.font = '10px monospace';
             ctx.textAlign = 'right';
             ctx.fillText(`${tempo}`, labelMargin - 5, y + 4);
@@ -678,7 +680,8 @@ class TempoEditor {
         const defaultTempo = 120;
         const y = this.tempoToY(defaultTempo);
 
-        this.ctx.strokeStyle = '#555';
+        const isColored = document.body.classList.contains('theme-colored');
+        this.ctx.strokeStyle = isColored ? '#b0b8e8' : '#555';
         this.ctx.lineWidth = 1;
         this.ctx.setLineDash([5, 5]);
         this.ctx.beginPath();

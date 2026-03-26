@@ -62,13 +62,14 @@ class CCPitchbendEditor {
         // Conteneur principal
         this.element = document.createElement('div');
         this.element.className = 'cc-pitchbend-editor';
+        const isColored = document.body.classList.contains('theme-colored');
         this.element.style.cssText = `
             width: 100%;
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: #1a1a1a;
-            border-top: 1px solid #333;
+            background: ${isColored ? '#f0f4ff' : '#1a1a1a'};
+            border-top: 1px solid ${isColored ? '#d4daff' : '#333'};
             position: relative;
             overflow: hidden;
             min-height: 0;
@@ -695,7 +696,8 @@ class CCPitchbendEditor {
         ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
 
         // Grille verticale (temps)
-        ctx.strokeStyle = '#3a3a3a'; // Plus clair pour être visible
+        const isColored = document.body.classList.contains('theme-colored');
+        ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
         ctx.lineWidth = 1;
 
         const gridSize = this.options.grid;
@@ -716,7 +718,7 @@ class CCPitchbendEditor {
         if (this.currentCC === 'pitchbend') {
             // Pour pitchbend : lignes aux valeurs -8192, -4096, 0, 4096, 8191
             const values = [-8192, -4096, 0, 4096, 8191];
-            ctx.strokeStyle = '#3a3a3a'; // Plus clair
+            ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
             ctx.lineWidth = 1;
 
             values.forEach(value => {
@@ -729,11 +731,11 @@ class CCPitchbendEditor {
                 ctx.stroke();
 
                 // Zone de label (fond)
-                ctx.fillStyle = '#1a1a1a';
+                ctx.fillStyle = isColored ? '#f0f4ff' : '#1a1a1a';
                 ctx.fillRect(0, y - 7, labelMargin - 2, 14);
 
                 // Label
-                ctx.fillStyle = '#aaa'; // Plus clair
+                ctx.fillStyle = isColored ? '#5a6089' : '#aaa';
                 ctx.font = '11px monospace';
                 ctx.textAlign = 'right';
                 ctx.fillText(value.toString(), labelMargin - 5, y + 4);
@@ -741,7 +743,7 @@ class CCPitchbendEditor {
         } else {
             // Pour CC : lignes aux valeurs 0, 32, 64, 96, 127
             const values = [0, 32, 64, 96, 127];
-            ctx.strokeStyle = '#3a3a3a'; // Plus clair
+            ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
             ctx.lineWidth = 1;
 
             values.forEach(value => {
@@ -754,11 +756,11 @@ class CCPitchbendEditor {
                 ctx.stroke();
 
                 // Zone de label (fond)
-                ctx.fillStyle = '#1a1a1a';
+                ctx.fillStyle = isColored ? '#f0f4ff' : '#1a1a1a';
                 ctx.fillRect(0, y - 7, labelMargin - 2, 14);
 
                 // Label
-                ctx.fillStyle = '#aaa'; // Plus clair
+                ctx.fillStyle = isColored ? '#5a6089' : '#aaa';
                 ctx.font = '11px monospace';
                 ctx.textAlign = 'right';
                 ctx.fillText(value.toString(), labelMargin - 5, y + 4);
@@ -766,7 +768,7 @@ class CCPitchbendEditor {
         }
 
         // Bordure verticale séparant la zone de labels
-        ctx.strokeStyle = '#555'; // Plus clair
+        ctx.strokeStyle = isColored ? '#b0b8e8' : '#555';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(labelMargin, 0);
@@ -781,9 +783,10 @@ class CCPitchbendEditor {
         const filteredEvents = this.getFilteredEvents();
         const labelMargin = 50;
 
+        const isColored = document.body.classList.contains('theme-colored');
         if (this.currentCC === 'pitchbend') {
             // Pour pitchbend : toujours afficher une barre centrale à 0
-            this.ctx.strokeStyle = '#888';
+            this.ctx.strokeStyle = isColored ? '#667eea' : '#888';
             this.ctx.lineWidth = 2;
             const y = this.valueToY(0);
             this.ctx.beginPath();
@@ -793,7 +796,7 @@ class CCPitchbendEditor {
         } else {
             // Pour CC : afficher une barre à 0 si pas d'événements
             if (filteredEvents.length === 0) {
-                this.ctx.strokeStyle = '#666';
+                this.ctx.strokeStyle = isColored ? '#8898d8' : '#666';
                 this.ctx.lineWidth = 2;
                 this.ctx.setLineDash([5, 5]);
                 const y = this.valueToY(0);

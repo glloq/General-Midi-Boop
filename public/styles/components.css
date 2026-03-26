@@ -1666,3 +1666,320 @@ body.theme-colored .midi-editor-modal .modal-close:hover {
 body.theme-colored .midi-editor-modal .modal-title {
     color: #fff;
 }
+
+/* --- MIDI Editor Body & Toolbar --- */
+body.theme-colored .midi-editor-modal .modal-body {
+    background: #f0f4ff;
+}
+
+body.theme-colored .midi-editor-modal .editor-toolbar {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.06));
+    border-bottom-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .toolbar-label {
+    color: #5a6089;
+}
+
+body.theme-colored .midi-editor-modal .toolbar-label span {
+    color: var(--text-primary);
+}
+
+body.theme-colored .midi-editor-modal .toolbar-divider {
+    background: rgba(118, 75, 162, 0.15);
+}
+
+/* --- MIDI Editor Tool Buttons (colored theme) --- */
+body.theme-colored .midi-editor-modal .tool-btn {
+    background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,242,255,0.95) 100%);
+    border: 2px solid rgba(118, 75, 162, 0.2);
+    color: var(--text-primary);
+    box-shadow: 0 2px 4px rgba(118, 75, 162, 0.1);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn .btn-label {
+    color: #5a6089;
+}
+
+body.theme-colored .midi-editor-modal .tool-btn .btn-shortcut {
+    color: #9498b8;
+}
+
+body.theme-colored .midi-editor-modal .tool-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0ff 100%);
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn:disabled {
+    border-color: rgba(118, 75, 162, 0.1);
+    opacity: 0.4;
+}
+
+body.theme-colored .midi-editor-modal .tool-btn.mode-unsupported {
+    border-color: rgba(118, 75, 162, 0.08);
+    background: rgba(240, 242, 255, 0.5);
+    opacity: 0.2;
+}
+
+/* Action-specific button colors for colored theme */
+body.theme-colored .midi-editor-modal .tool-btn[data-action="undo"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="redo"] {
+    background: linear-gradient(180deg, rgba(224, 236, 255, 0.9) 0%, rgba(210, 225, 250, 0.95) 100%);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="undo"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="redo"]:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgba(234, 244, 255, 1) 0%, rgba(220, 235, 255, 1) 100%);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-view"] {
+    background: linear-gradient(180deg, rgba(240, 230, 255, 0.9) 0%, rgba(230, 218, 250, 0.95) 100%);
+    border-color: rgba(118, 75, 162, 0.3);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-view"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-view"].active {
+    background: linear-gradient(180deg, rgba(245, 238, 255, 1) 0%, rgba(238, 228, 255, 1) 100%);
+    border-color: #764ba2;
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-select"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-notes"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-add-note"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-resize-note"] {
+    background: linear-gradient(180deg, rgba(220, 245, 230, 0.9) 0%, rgba(210, 238, 220, 0.95) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-select"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-notes"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-add-note"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-resize-note"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-select"].active,
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-drag-notes"].active,
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-add-note"].active,
+body.theme-colored .midi-editor-modal .tool-btn[data-action="mode-resize-note"].active {
+    background: linear-gradient(180deg, rgba(230, 250, 238, 1) 0%, rgba(220, 245, 230, 1) 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="copy"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="paste"],
+body.theme-colored .midi-editor-modal .tool-btn[data-action="delete"] {
+    background: linear-gradient(180deg, rgba(255, 228, 230, 0.9) 0%, rgba(250, 218, 222, 0.95) 100%);
+    border-color: rgba(232, 54, 93, 0.25);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn[data-action="copy"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="paste"]:hover:not(:disabled),
+body.theme-colored .midi-editor-modal .tool-btn[data-action="delete"]:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgba(255, 238, 240, 1) 0%, rgba(255, 228, 232, 1) 100%);
+    border-color: rgba(232, 54, 93, 0.4);
+}
+
+/* --- Compact & Snap buttons (colored theme) --- */
+body.theme-colored .midi-editor-modal .tool-btn-compact {
+    background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(240,242,255,0.95) 100%);
+    border: 2px solid rgba(118, 75, 162, 0.2);
+    color: var(--text-primary);
+    box-shadow: 0 2px 4px rgba(118, 75, 162, 0.1);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn-compact:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0ff 100%);
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn-snap {
+    background: linear-gradient(180deg, rgba(220, 245, 230, 0.9) 0%, rgba(210, 238, 220, 0.95) 100%);
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    color: var(--text-primary);
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.1);
+}
+
+body.theme-colored .midi-editor-modal .tool-btn-snap:hover {
+    background: linear-gradient(180deg, rgba(230, 250, 238, 1) 0%, rgba(220, 245, 230, 1) 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+body.theme-colored .midi-editor-modal .snap-label {
+    color: #5a6089;
+}
+
+body.theme-colored .midi-editor-modal .snap-select {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(118, 75, 162, 0.2);
+    color: var(--text-primary);
+}
+
+body.theme-colored .midi-editor-modal .snap-select:hover,
+body.theme-colored .midi-editor-modal .snap-select:focus {
+    border-color: #667eea;
+}
+
+/* --- Channels Toolbar (colored theme) --- */
+body.theme-colored .midi-editor-modal .channels-toolbar-wrapper {
+    background: rgba(102, 126, 234, 0.06);
+    border-bottom-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .channels-toolbar {
+    background: rgba(102, 126, 234, 0.06);
+    scrollbar-color: rgba(118, 75, 162, 0.3) rgba(102, 126, 234, 0.06);
+}
+
+/* --- Channel Chips (colored theme) --- */
+body.theme-colored .midi-editor-modal .channel-chip {
+    background: color-mix(in srgb, var(--chip-color, #667eea) 15%, #f0f4ff);
+    border-color: color-mix(in srgb, var(--chip-color, #667eea) 25%, #d4daff);
+}
+
+body.theme-colored .midi-editor-modal .channel-chip:hover {
+    background: color-mix(in srgb, var(--chip-color, #667eea) 22%, #f0f4ff);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+body.theme-colored .midi-editor-modal .channel-chip.active {
+    background: color-mix(in srgb, var(--chip-color, #667eea) 35%, #f0f4ff);
+    border-color: color-mix(in srgb, var(--chip-color, #667eea) 55%, #d4daff);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--chip-color, #667eea) 20%, transparent);
+}
+
+body.theme-colored .midi-editor-modal .channel-chip.active:hover {
+    background: color-mix(in srgb, var(--chip-color, #667eea) 40%, #f0f4ff);
+}
+
+body.theme-colored .midi-editor-modal .chip-number {
+    color: var(--text-primary);
+}
+
+body.theme-colored .midi-editor-modal .chip-dot {
+    color: #9498b8;
+}
+
+body.theme-colored .midi-editor-modal .chip-instrument {
+    color: #5a6089;
+}
+
+body.theme-colored .midi-editor-modal .channel-chip.active .chip-instrument {
+    color: var(--text-primary);
+}
+
+body.theme-colored .midi-editor-modal .chip-routing-line {
+    color: rgba(90, 96, 137, 0.7);
+}
+
+/* --- Chip Settings Gear (colored theme) --- */
+body.theme-colored .midi-editor-modal .chip-settings-btn {
+    color: #9498b8;
+    background: rgba(240, 244, 255, 0.8);
+    border-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .chip-settings-btn:hover {
+    color: #667eea;
+    background: rgba(240, 244, 255, 1);
+}
+
+body.theme-colored .midi-editor-modal .channel-chip-row:hover > .chip-settings-btn {
+    color: #5a6089;
+    border-color: rgba(118, 75, 162, 0.25);
+}
+
+/* --- Global Actions & Show All Channels (colored theme) --- */
+body.theme-colored .midi-editor-modal .channel-global-actions {
+    background: linear-gradient(90deg, transparent 0%, rgba(240, 244, 255, 0.9) 30%, rgba(240, 244, 255, 1) 100%);
+}
+
+body.theme-colored .midi-editor-modal .btn-show-all-channels {
+    background: linear-gradient(180deg, rgba(224, 236, 255, 0.9) 0%, rgba(210, 225, 250, 0.95) 100%);
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .btn-show-all-channels:hover {
+    background: linear-gradient(180deg, rgba(234, 244, 255, 1) 0%, rgba(220, 235, 255, 1) 100%);
+    border-color: #667eea;
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.25);
+}
+
+/* --- Channel Settings Popover (colored theme) --- */
+body.theme-colored .channel-settings-popover {
+    background: #ffffff;
+    border: 1px solid rgba(118, 75, 162, 0.2);
+    box-shadow: 0 8px 24px rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .channel-settings-header {
+    color: #5a6089;
+    border-bottom-color: rgba(118, 75, 162, 0.12);
+}
+
+body.theme-colored .channel-settings-section + .channel-settings-section {
+    border-top-color: rgba(118, 75, 162, 0.12);
+}
+
+body.theme-colored .channel-settings-toggle {
+    color: var(--text-primary);
+}
+
+body.theme-colored .channel-settings-label {
+    color: #9498b8;
+}
+
+body.theme-colored .channel-routing-select {
+    background: rgba(240, 244, 255, 0.8);
+    color: var(--text-primary);
+    border-color: rgba(118, 75, 162, 0.2);
+}
+
+body.theme-colored .channel-routing-select:focus {
+    border-color: #667eea;
+}
+
+body.theme-colored .channel-visibility-actions {
+    border-top-color: rgba(118, 75, 162, 0.12);
+}
+
+body.theme-colored .channel-hide-others-btn,
+body.theme-colored .channel-show-all-btn {
+    color: #5a6089;
+    background: rgba(240, 244, 255, 0.8);
+    border-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .channel-hide-others-btn:hover,
+body.theme-colored .channel-show-all-btn:hover {
+    color: #667eea;
+    background: rgba(240, 244, 255, 1);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+/* --- Channel Tab Buttons (colored theme) --- */
+body.theme-colored .midi-editor-modal .channel-tab-btn {
+    color: #5a6089;
+    background: linear-gradient(180deg, rgba(240, 244, 255, 0.9) 0%, rgba(232, 236, 250, 0.95) 100%);
+    border-color: rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .channel-tab-btn:hover {
+    color: #667eea;
+    background: linear-gradient(180deg, rgba(248, 250, 255, 1) 0%, rgba(240, 244, 255, 1) 100%);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+body.theme-colored .midi-editor-modal .channel-tab-btn.active {
+    color: #fff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* --- Piano Roll Container (colored theme) --- */
+body.theme-colored .midi-editor-modal .piano-roll-container {
+    background: #f0f4ff;
+}

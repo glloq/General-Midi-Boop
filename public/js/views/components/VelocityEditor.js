@@ -636,7 +636,8 @@ class VelocityEditor {
         ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
 
         // Grille verticale (temps) - IDENTIQUE À CC
-        ctx.strokeStyle = '#3a3a3a'; // IDENTIQUE À CC: Plus clair
+        const isColored = document.body.classList.contains('theme-colored');
+        ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
         ctx.lineWidth = 1;
 
         const gridSize = this.options.grid;
@@ -655,8 +656,7 @@ class VelocityEditor {
 
         // Grille horizontale (valeurs de vélocité) - IDENTIQUE À CC
         const values = [0, 32, 64, 96, 127]; // IDENTIQUE À CC
-        const isColored = document.body.classList.contains('theme-colored');
-        ctx.strokeStyle = '#3a3a3a'; // IDENTIQUE À CC
+        ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
         ctx.lineWidth = 1;
 
         values.forEach(value => {
