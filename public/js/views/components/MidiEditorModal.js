@@ -3240,17 +3240,17 @@ class MidiEditorModal {
                                                 <button class="cc-type-btn" data-cc-type="cc5" title="${this.t('midiEditor.ccPortamentoTime')}">CC5</button>
                                             </div>
                                         </div>
+                                        <!-- Groupe dynamique (CC détectés non-statiques) -->
+                                        <div class="cc-btn-group cc-dynamic-group" data-group="other" style="display:none;">
+                                            <span class="cc-group-label">+</span>
+                                            <div class="cc-btn-group-buttons" id="cc-dynamic-buttons"></div>
+                                        </div>
                                         <!-- Bouton + pour ajouter un CC depuis la liste -->
                                         <div class="cc-btn-group" data-group="custom">
                                             <span class="cc-group-label">&nbsp;</span>
                                             <div class="cc-btn-group-buttons">
                                                 <button class="cc-type-btn cc-add-btn" id="cc-add-btn" title="${this.t('midiEditor.addCC') || 'Ajouter un CC'}">+</button>
                                             </div>
-                                        </div>
-                                        <!-- Groupe dynamique (CC détectés non-statiques) -->
-                                        <div class="cc-btn-group cc-dynamic-group" data-group="other" style="display:none;">
-                                            <span class="cc-group-label">+</span>
-                                            <div class="cc-btn-group-buttons" id="cc-dynamic-buttons"></div>
                                         </div>
 
                                         <div class="cc-toolbar-divider"></div>
