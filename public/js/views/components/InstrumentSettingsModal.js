@@ -175,6 +175,11 @@ class InstrumentSettingsModal extends BaseModal {
         if (window.currentDeviceSettings) {
             window.currentDeviceSettings = null;
         }
+        // Cleanup neck diagram
+        if (this._neckDiagram) {
+            this._neckDiagram.destroy();
+            this._neckDiagram = null;
+        }
     }
 
     // ========== TABS BAR ==========
@@ -410,6 +415,24 @@ class InstrumentSettingsModal extends BaseModal {
 
         const numStrings = config ? config.num_strings : 6;
 
+        // CC config values
+        const ccEnabled = config ? (config.cc_enabled !== false) : true;
+        const ccStrNum = config?.cc_string_number ?? 20;
+        const ccStrMin = config?.cc_string_min ?? 1;
+        const ccStrMax = config?.cc_string_max ?? 12;
+        const ccStrOff = config?.cc_string_offset ?? 0;
+        const ccFretNum = config?.cc_fret_number ?? 21;
+        const ccFretMin = config?.cc_fret_min ?? 0;
+        const ccFretMax = config?.cc_fret_max ?? 36;
+        const ccFretOff = config?.cc_fret_offset ?? 0;
+        const ccCollapsed = ccEnabled ? '' : 'si-collapsed';
+
+        // Per-string fret mode
+        const fretsPerString = config?.frets_per_string || null;
+        const isFretless = config?.is_fretless || false;
+        const numFrets = config?.num_frets ?? 24;
+        const capoFret = config?.capo_fret ?? 0;
+
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> ${this.t('instrumentSettings.sectionStrings') || 'Instrument à cordes'}</h3>
 
@@ -429,6 +452,74 @@ class InstrumentSettingsModal extends BaseModal {
                     <label>${this.t('stringInstrument.tuning') || 'Accordage'}</label>
                     <div id="siTuningGrid" class="ism-tuning-grid">${tuningRows}</div>
                 </div>
+
+                <div class="si-cc-toggle-row" style="margin-top:8px">
+                    <div class="si-field si-checkbox-field">
+                        <input type="checkbox" id="ism-cc-enabled" ${ccEnabled ? 'checked' : ''}>
+                        <label for="ism-cc-enabled">${this.t('stringInstrument.ccEnabled') || 'CC String/Fret Control'}</label>
+                    </div>
+                </div>
+
+                <div class="si-cc-config-section ${ccCollapsed}" id="ism-cc-config-section">
+                    <label class="si-section-title">CC Control</label>
+                    <div class="si-cc-row">
+                        <span class="si-cc-label">String Select</span>
+                        <div class="si-cc-params">
+                            <div class="si-cc-param">
+                                <label>CC#</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-num" value="${ccStrNum}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Min</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-min" value="${ccStrMin}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Max</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-max" value="${ccStrMax}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Offset</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-offset" value="${ccStrOff}" min="-127" max="127">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="si-cc-row">
+                        <span class="si-cc-label">Fret Select</span>
+                        <div class="si-cc-params">
+                            <div class="si-cc-param">
+                                <label>CC#</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-num" value="${ccFretNum}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Min</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-min" value="${ccFretMin}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Max</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-max" value="${ccFretMax}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label>Offset</label>
+                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-offset" value="${ccFretOff}" min="-127" max="127">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                ${!isFretless ? `
+                <div class="si-neck-section" style="margin-top:8px">
+                    <div class="si-neck-header">
+                        <label class="si-section-title">${this.t('stringInstrument.numFrets') || 'Frettes'}</label>
+                        <div class="si-field si-checkbox-field si-neck-mode-toggle">
+                            <input type="checkbox" id="ism-per-string-mode" ${fretsPerString ? 'checked' : ''}>
+                            <label for="ism-per-string-mode">Par corde</label>
+                        </div>
+                    </div>
+                    <div class="si-neck-diagram-wrapper">
+                        <canvas id="ism-neck-canvas" width="500" height="140"></canvas>
+                    </div>
+                </div>
+                ` : ''}
             </div>
         `;
     }
@@ -784,13 +875,39 @@ class InstrumentSettingsModal extends BaseModal {
                 const instrumentName = typeof getGMInstrumentName === 'function'
                     ? (getGMInstrumentName(gmProgram || 0) || 'Guitar') : 'Guitar';
 
+                // CC config from modal inputs
+                const ccEnabled = this.$('#ism-cc-enabled')?.checked ?? true;
+                const ccStringNumber = parseInt(this.$('#ism-cc-str-num')?.value) || 20;
+                const ccStringMin = parseInt(this.$('#ism-cc-str-min')?.value) ?? 1;
+                const ccStringMax = parseInt(this.$('#ism-cc-str-max')?.value) ?? 12;
+                const ccStringOffset = parseInt(this.$('#ism-cc-str-offset')?.value) || 0;
+                const ccFretNumber = parseInt(this.$('#ism-cc-fret-num')?.value) || 21;
+                const ccFretMin = parseInt(this.$('#ism-cc-fret-min')?.value) ?? 0;
+                const ccFretMax = parseInt(this.$('#ism-cc-fret-max')?.value) ?? 36;
+                const ccFretOffset = parseInt(this.$('#ism-cc-fret-offset')?.value) || 0;
+
+                // Per-string frets from neck diagram
+                const tab = this._getActiveTab();
+                const fretsPerStringData = this._neckDiagram
+                    ? this._neckDiagram.getFretsPerString()
+                    : (tab?.stringInstrumentConfig?.frets_per_string || null);
+
                 const siData = {
                     device_id: this.device.id, channel: saveChannel,
                     instrument_name: instrumentName, num_strings: numStrings,
-                    num_frets: maxFrets, tuning, is_fretless: 0, capo_fret: 0
+                    num_frets: maxFrets, tuning, is_fretless: 0, capo_fret: 0,
+                    cc_enabled: ccEnabled,
+                    cc_string_number: ccStringNumber,
+                    cc_string_min: ccStringMin,
+                    cc_string_max: ccStringMax,
+                    cc_string_offset: ccStringOffset,
+                    cc_fret_number: ccFretNumber,
+                    cc_fret_min: ccFretMin,
+                    cc_fret_max: ccFretMax,
+                    cc_fret_offset: ccFretOffset,
+                    frets_per_string: fretsPerStringData
                 };
 
-                const tab = this._getActiveTab();
                 if (tab?.stringInstrumentConfig?.id) {
                     siData.id = tab.stringInstrumentConfig.id;
                     await this.api.sendCommand('string_instrument_update', siData);
@@ -932,6 +1049,46 @@ class InstrumentSettingsModal extends BaseModal {
         }
     }
 
+    // ========== NECK DIAGRAM ==========
+
+    _initNeckDiagram() {
+        // Destroy old instance
+        if (this._neckDiagram) {
+            this._neckDiagram.destroy();
+            this._neckDiagram = null;
+        }
+
+        const canvas = this.dialog?.querySelector('#ism-neck-canvas');
+        if (!canvas || typeof NeckDiagramConfig === 'undefined') return;
+
+        const tab = this._getActiveTab();
+        const config = tab?.stringInstrumentConfig;
+        const numStrings = config?.num_strings || parseInt(this.$('#siNumStrings')?.value) || 6;
+        const numFrets = config?.num_frets ?? 24;
+        const tuning = config?.tuning || [];
+
+        requestAnimationFrame(() => {
+            const wrapper = canvas.parentElement;
+            const w = wrapper?.clientWidth || 500;
+            canvas.width = w;
+            canvas.height = 140;
+
+            this._neckDiagram = new NeckDiagramConfig(canvas, {
+                numStrings,
+                numFrets,
+                fretsPerString: config?.frets_per_string || null,
+                tuning,
+                isFretless: config?.is_fretless || false,
+                onChange: (fretsPerString) => {
+                    // Store on the tab config for save
+                    if (tab && tab.stringInstrumentConfig) {
+                        tab.stringInstrumentConfig.frets_per_string = fretsPerString;
+                    }
+                }
+            });
+        });
+    }
+
     // ========== EVENT LISTENERS ==========
 
     _attachListeners() {
@@ -1034,6 +1191,30 @@ class InstrumentSettingsModal extends BaseModal {
             });
         });
 
+        // CC enabled toggle (strings section)
+        const ismCcEnabled = this.$('#ism-cc-enabled');
+        if (ismCcEnabled) {
+            ismCcEnabled.addEventListener('change', (e) => {
+                const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
+                if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
+            });
+        }
+
+        // Per-string mode toggle
+        const ismPerStringMode = this.$('#ism-per-string-mode');
+        if (ismPerStringMode) {
+            ismPerStringMode.addEventListener('change', (e) => {
+                if (this._neckDiagram) {
+                    if (!e.target.checked) {
+                        this._neckDiagram.setUniformFrets(this._neckDiagram.numFrets);
+                    }
+                }
+            });
+        }
+
+        // Init neck diagram
+        this._initNeckDiagram();
+
         // GM Program change
         const gmSelect = this.$('#gmProgramSelect');
         if (gmSelect) {
@@ -1056,7 +1237,18 @@ class InstrumentSettingsModal extends BaseModal {
                 });
                 // Refresh strings section content (preset dropdown depends on GM category)
                 const stringsSection = this.$('.ism-section[data-section="strings"]');
-                if (stringsSection) stringsSection.innerHTML = this._renderStringsSection();
+                if (stringsSection) {
+                    stringsSection.innerHTML = this._renderStringsSection();
+                    // Re-attach CC toggle and neck diagram
+                    const ismCcEnabled = this.$('#ism-cc-enabled');
+                    if (ismCcEnabled) {
+                        ismCcEnabled.addEventListener('change', (e) => {
+                            const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
+                            if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
+                        });
+                    }
+                    this._initNeckDiagram();
+                }
             });
         }
     }
