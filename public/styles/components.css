@@ -1593,3 +1593,76 @@
         gap: 4px;
     }
 }
+
+/* ========== COLORED THEME - Base Modals ========== */
+body.theme-colored .modal {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+body.theme-colored .modal-content {
+    background: linear-gradient(135deg, #f3eeff, #eee8f8, #f8eef4);
+    color: var(--text-primary);
+    box-shadow: 0 20px 60px rgba(118, 75, 162, 0.25);
+    border: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .modal-dialog {
+    background: linear-gradient(135deg, #f3eeff, #eee8f8, #f8eef4);
+    color: var(--text-primary);
+    box-shadow: 0 20px 60px rgba(118, 75, 162, 0.25);
+    border: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .modal-header {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    color: #fff;
+    border-bottom-color: rgba(118, 75, 162, 0.2);
+}
+
+body.theme-colored .modal-title {
+    color: #fff;
+}
+
+body.theme-colored .close {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+body.theme-colored .close:hover {
+    color: #fff;
+}
+
+body.theme-colored .modal-body {
+    color: var(--text-primary);
+}
+
+body.theme-colored .modal-footer {
+    background: rgba(118, 75, 162, 0.06);
+    border-top: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+/* ========== COLORED THEME - MIDI Editor Modal ========== */
+body.theme-colored .midi-editor-modal .modal-dialog {
+    background: linear-gradient(135deg, #f3eeff, #eee8f8, #f8eef4);
+    box-shadow: 0 25px 60px rgba(118, 75, 162, 0.3);
+    border: 1px solid rgba(118, 75, 162, 0.15);
+}
+
+body.theme-colored .midi-editor-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+body.theme-colored .midi-editor-modal .modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+body.theme-colored .midi-editor-modal .modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+body.theme-colored .midi-editor-modal .modal-title {
+    color: #fff;
+}

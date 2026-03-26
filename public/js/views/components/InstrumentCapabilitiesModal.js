@@ -55,8 +55,8 @@ class InstrumentCapabilitiesModal {
 
     const modalHTML = `
       <div class="modal-overlay instrument-capabilities-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
-        <div class="modal-container" style="background: white; border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-          <div class="modal-header" style="padding: 16px 20px; border-bottom: 2px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; position: relative;">
+        <div class="modal-container" style="background: var(--bg-secondary, white); border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+          <div class="modal-header" style="padding: 16px 20px; border-bottom: 2px solid var(--border-color, #e5e7eb); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; position: relative;">
             <h2 style="margin: 0 0 4px 0; font-size: 20px; padding-right: 40px;">${_t('instrumentCapabilities.title')}</h2>
             <p style="margin: 0; opacity: 0.9; font-size: 13px;">
               ${_t('instrumentCapabilities.subtitle')}
@@ -70,8 +70,8 @@ class InstrumentCapabilitiesModal {
             <!-- Contenu dynamique -->
           </div>
 
-          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
-            <div style="color: #666; font-size: 13px;">
+          <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border-color, #e5e7eb); background: var(--bg-tertiary, #f9fafb);">
+            <div style="color: var(--text-muted, #666); font-size: 13px;">
               <span id="progressText">${_t('instrumentCapabilities.progress', { current: 1, total: totalCount })}</span>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -159,11 +159,11 @@ class InstrumentCapabilitiesModal {
    */
   generateInstrumentForm(instrument, validation) {
     return `
-      <div style="margin-bottom: 12px; padding: 12px; background: #f0f7ff; border: 2px solid #3b82f6; border-radius: 8px;">
-        <h3 style="margin: 0 0 4px 0; color: #1e40af; font-size: 16px;">
+      <div style="margin-bottom: 12px; padding: 12px; background: rgba(102, 126, 234, 0.08); border: 2px solid var(--accent-primary, #3b82f6); border-radius: 8px;">
+        <h3 style="margin: 0 0 4px 0; color: var(--accent-primary, #1e40af); font-size: 16px;">
           ${escapeHtml(instrument.custom_name || instrument.name)}
         </h3>
-        <div style="color: #666; font-size: 12px;">
+        <div style="color: var(--text-muted, #666); font-size: 12px;">
           ${_t('instrumentCapabilities.type')}: ${escapeHtml(instrument.type || _t('common.unknown'))} •
           ${_t('instrumentCapabilities.manufacturer')}: ${escapeHtml(instrument.manufacturer || _t('common.unknown'))}
         </div>
@@ -183,7 +183,7 @@ class InstrumentCapabilitiesModal {
           <h4 style="margin: 0 0 10px 0; color: #f59e0b; font-size: 14px;">
             ${_t('instrumentCapabilities.recommendedFields')}
           </h4>
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 12px;">
+          <p style="margin: 0 0 8px 0; color: var(--text-muted, #666); font-size: 12px;">
             ${_t('instrumentCapabilities.recommendedHint')}
           </p>
           ${validation.recommended.map(field => this.generateFieldInput(instrument, field, false)).join('')}
@@ -214,7 +214,7 @@ class InstrumentCapabilitiesModal {
                  id="${inputId}"
                  value="${currentValue !== null && currentValue !== undefined ? currentValue : ''}"
                  onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                 style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                 style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 14px;"
                  ${required ? 'required' : ''}>
         `;
         break;
@@ -229,9 +229,9 @@ class InstrumentCapabilitiesModal {
                    max="127"
                    onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
                    oninput="(function(el){ var n = instrumentCapabilitiesModalInstance.getNoteNameFromMidi(parseInt(el.value)); document.getElementById('${inputId}_name').textContent = n; })(this)"
-                   style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                   style="flex: 1; padding: 8px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 14px;"
                    ${required ? 'required' : ''}>
-            <span id="${inputId}_name" style="color: #666; font-size: 13px; min-width: 50px;">
+            <span id="${inputId}_name" style="color: var(--text-muted, #666); font-size: 13px; min-width: 50px;">
               ${currentValue !== null && currentValue !== undefined ? this.getNoteNameFromMidi(currentValue) : ''}
             </span>
           </div>
@@ -243,7 +243,7 @@ class InstrumentCapabilitiesModal {
           inputHTML = `
             <select id="${inputId}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"
+                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 14px;"
                     ${required ? 'required' : ''}>
               <option value="">-- ${_t('instrumentCapabilities.select')} --</option>
               <option value="range" ${currentValue === 'range' ? 'selected' : ''}>
@@ -258,7 +258,7 @@ class InstrumentCapabilitiesModal {
           inputHTML = `
             <select id="${inputId}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 14px;">
               <option value="">-- ${_t('instrumentCapabilities.select')} --</option>
               <option value="keyboard" ${currentValue === 'keyboard' ? 'selected' : ''}>${_t('instrumentCapabilities.typeKeyboard')}</option>
               <option value="synth" ${currentValue === 'synth' ? 'selected' : ''}>${_t('instrumentCapabilities.typeSynth')}</option>
@@ -295,7 +295,7 @@ class InstrumentCapabilitiesModal {
         inputHTML = `
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
             ${commonCCs.map(cc => `
-              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 4px; background: var(--bg-tertiary, #f9fafb);">
                 <input type="checkbox"
                        value="${cc.value}"
                        ${currentCCs.includes(cc.value) ? 'checked' : ''}
@@ -314,9 +314,9 @@ class InstrumentCapabilitiesModal {
           <textarea id="${inputId}"
                     placeholder="${_t('instrumentCapabilities.noteArrayPlaceholder')}"
                     onchange="instrumentCapabilitiesModalInstance.updateField('${field.field}', this.value)"
-                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; min-height: 60px;"
+                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 13px; font-family: monospace; min-height: 60px;"
                     ${required ? 'required' : ''}>${currentNotes}</textarea>
-          <div style="color: #666; font-size: 11px; margin-top: 4px;">
+          <div style="color: var(--text-muted, #666); font-size: 11px; margin-top: 4px;">
             ${_t('instrumentCapabilities.commonDrums')}
           </div>
         `;
@@ -341,7 +341,7 @@ class InstrumentCapabilitiesModal {
    */
   generateDefaultsButton(instrument) {
     return `
-      <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+      <div style="margin-top: 16px; padding: 12px; background: var(--bg-tertiary, #f9fafb); border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px;">
         <button class="btn"
                 onclick="instrumentCapabilitiesModalInstance.applyDefaults()"
                 style="width: 100%; margin-bottom: 8px;">
@@ -444,7 +444,7 @@ class InstrumentCapabilitiesModal {
 
     const banner = document.createElement('div');
     banner.id = 'string-instrument-banner';
-    banner.style.cssText = 'margin: 8px 0; padding: 10px 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; color: #166534; font-size: 13px;';
+    banner.style.cssText = 'margin: 8px 0; padding: 10px 14px; background: var(--success-bg, #f0fdf4); border: 1px solid var(--success-border, #86efac); border-radius: 8px; color: var(--success-text, #166534); font-size: 13px;';
     banner.textContent = message;
 
     contentElement.insertBefore(banner, contentElement.firstChild);
