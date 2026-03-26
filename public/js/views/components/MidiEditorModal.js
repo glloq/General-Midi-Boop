@@ -630,10 +630,11 @@ class MidiEditorModal {
         // Les boutons .cc-channel-btn sont recréés dynamiquement, l'event delegation
         // sur le container parent évite de réattacher des listeners à chaque update
         if (this._ccChannelDelegationAttached) return;
-        this._ccChannelDelegationAttached = true;
 
         const channelSelector = document.getElementById('editor-channel-selector');
         if (!channelSelector) return;
+
+        this._ccChannelDelegationAttached = true;
 
         channelSelector.addEventListener('click', (e) => {
             const btn = e.target.closest('.cc-channel-btn');
@@ -1623,15 +1624,15 @@ class MidiEditorModal {
         // Mettre à jour le sélecteur de canal pour afficher uniquement les canaux utilisés
         this.updateCCChannelSelector();
 
-        // Obtenir le canal actif (premier canal utilisé pour ce type, sinon premier canal avec CC/PB)
+        // Obtenir le canal actif (premier canal du fichier, ou premier canal avec CC, ou 0)
+        const fileChannels = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
         const usedChannels = this.getCCChannelsUsed();
-        const allChannels = this.getAllCCChannels();
-        const activeChannel = usedChannels.length > 0 ? usedChannels[0] : (allChannels.length > 0 ? allChannels[0] : 0);
+        const activeChannel = fileChannels.length > 0 ? fileChannels[0] : (usedChannels.length > 0 ? usedChannels[0] : 0);
         this.ccEditor.setChannel(activeChannel);
 
         this.highlightUsedCCButtons();
 
-        this.log('info', `CC Editor initialized - Type: ${this.currentCCType}, Channel: ${activeChannel + 1}, Type channels: [${usedChannels.map(c => c + 1).join(', ')}], All CC channels: [${allChannels.map(c => c + 1).join(', ')}]`);
+        this.log('info', `CC Editor initialized - Type: ${this.currentCCType}, Channel: ${activeChannel + 1}, File channels: [${fileChannels.map(c => c + 1).join(', ')}]`);
 
         // Ajouter un écouteur pour mettre à jour le bouton de suppression lors des interactions
         container.addEventListener('mouseup', () => {
