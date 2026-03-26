@@ -1154,19 +1154,38 @@ class MidiEditorModal {
     /**
      * Sélectionner le meilleur type CC pour un canal donné
      * Si le type actuel n'a pas de données sur le canal, sélectionner le premier type avec données
+     * Si aucun CC sur le canal, afficher un message
      */
     selectBestCCTypeForChannel(channel) {
+        // Ne rien faire si on est en mode velocity ou tempo
+        if (this.currentCCType === 'velocity' || this.currentCCType === 'tempo') return;
+
         const usedTypes = this.getUsedCCTypesForChannel(channel);
+        const ccTypes = Array.from(usedTypes).filter(t => t !== 'velocity' && t !== 'tempo');
+
+        // Masquer le message "aucun CC" s'il existe
+        const ccEditorContainer = document.getElementById('cc-editor-container');
+        const existingMsg = ccEditorContainer?.querySelector('.cc-no-data-message');
+        if (existingMsg) existingMsg.remove();
+
+        if (ccTypes.length === 0) {
+            // Aucun CC sur ce canal — afficher un message dans l'éditeur
+            if (ccEditorContainer && this.ccEditor) {
+                const msg = document.createElement('div');
+                msg.className = 'cc-no-data-message';
+                msg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#888;font-size:13px;pointer-events:none;z-index:1;';
+                msg.textContent = this.t('midiEditor.noCCOnChannel') || 'No CC on this channel';
+                ccEditorContainer.appendChild(msg);
+            }
+            // Garder le type actuel pour permettre le dessin de nouveaux CC
+            return;
+        }
 
         // Si le type actuel a des données sur ce canal, le garder
         if (usedTypes.has(this.currentCCType)) return;
 
-        // Chercher le premier CC type avec des données sur ce canal (hors velocity/tempo)
-        const ccTypes = Array.from(usedTypes).filter(t => t !== 'velocity' && t !== 'tempo');
-        if (ccTypes.length > 0) {
-            this.selectCCType(ccTypes[0]);
-        }
-        // Sinon garder le type actuel (l'utilisateur peut dessiner de nouveaux CC)
+        // Sinon sélectionner le premier CC type avec données sur ce canal
+        this.selectCCType(ccTypes[0]);
     }
 
     /**
@@ -1175,6 +1194,10 @@ class MidiEditorModal {
     selectCCType(ccType) {
         this.currentCCType = ccType;
         this.log('info', `Type sélectionné: ${ccType}`);
+
+        // Retirer le message "aucun CC" s'il existe
+        const noDataMsg = document.querySelector('.cc-no-data-message');
+        if (noDataMsg) noDataMsg.remove();
 
         // Mettre à jour les boutons
         const ccTypeButtons = this.container?.querySelectorAll('.cc-type-btn');
