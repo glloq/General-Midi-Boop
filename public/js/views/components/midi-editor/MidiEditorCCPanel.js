@@ -42,32 +42,15 @@ class MidiEditorCCPanel {
         const m = this.modal;
         if (!m.container) return;
 
-        // Determiner le canal actif depuis les editeurs ou les canaux disponibles
-        let activeChannel = null;
-        if (m.currentCCType === 'velocity' && m.velocityEditor) {
-            activeChannel = m.velocityEditor.currentChannel;
-        } else if (m.ccEditor) {
-            activeChannel = m.ccEditor.currentChannel;
-        }
-
-        // Fallback: premier canal disponible
-        if (activeChannel === null) {
-            const allChannels = this.getAllCCChannels();
-            if (allChannels.length > 0) {
-                activeChannel = allChannels[0];
-            } else if (m.channels && m.channels.length > 0) {
-                activeChannel = m.channels[0].channel;
-            } else {
-                activeChannel = 0;
-            }
-        }
+        // Source de verite : le bouton canal actif dans le DOM
+        const activeBtn = m.container.querySelector('#editor-channel-selector .cc-channel-btn.active');
+        const activeChannel = activeBtn ? parseInt(activeBtn.dataset.channel) :
+            (m.channels && m.channels.length > 0 ? m.channels[0].channel : 0);
 
         const usedTypes = this.getUsedCCTypesForChannel(activeChannel);
-        // Types toujours visibles (pas des CC)
         const alwaysVisible = new Set(['velocity', 'tempo']);
 
-        const ccTypeButtons = m.container.querySelectorAll('.cc-type-btn');
-        ccTypeButtons.forEach(btn => {
+        m.container.querySelectorAll('.cc-type-btn').forEach(btn => {
             const ccType = btn.dataset.ccType;
             if (!ccType) return; // bouton GO du custom CC
 
@@ -75,24 +58,13 @@ class MidiEditorCCPanel {
             const isActive = btn.classList.contains('active');
             const isAlwaysVisible = alwaysVisible.has(ccType);
 
-            if (hasData) {
-                btn.classList.add('has-data');
-            } else {
-                btn.classList.remove('has-data');
-            }
-
-            // Masquer les boutons CC sans données (sauf actif et toujours visibles)
-            if (isAlwaysVisible || hasData || isActive) {
-                btn.style.display = '';
-            } else {
-                btn.style.display = 'none';
-            }
+            btn.classList.toggle('has-data', hasData);
+            btn.style.display = (isAlwaysVisible || hasData || isActive) ? '' : 'none';
         });
 
         // Masquer les groupes CC entierement vides
-        const groups = m.container.querySelectorAll('.cc-btn-group:not(.cc-dynamic-group)');
-        groups.forEach(group => {
-            if (group.dataset.group === 'custom') return; // toujours visible
+        m.container.querySelectorAll('.cc-btn-group:not(.cc-dynamic-group)').forEach(group => {
+            if (group.dataset.group === 'custom') return;
             const visibleBtns = group.querySelectorAll('.cc-type-btn:not([style*="display: none"])');
             group.style.display = visibleBtns.length > 0 ? '' : 'none';
         });

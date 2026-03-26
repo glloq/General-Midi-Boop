@@ -649,9 +649,6 @@ class MidiEditorModal {
 
             // Mettre à jour le highlight des CC et l'indicateur actif
             this.highlightUsedCCButtons();
-            if (this.ccPanel) {
-                this.ccPanel.highlightUsedCCButtons();
-            }
         });
     }
 
@@ -1197,11 +1194,6 @@ class MidiEditorModal {
 
             // Afficher les boutons de courbes pour les CC aussi
             this.showCurveButtons();
-
-            // Afficher/masquer le sélecteur de note pour poly aftertouch
-            if (this.ccPanel) {
-                this.ccPanel.updateNoteSelectorVisibility(ccType);
-            }
         }
 
         // Mettre à jour l'état du bouton de suppression après le changement de type
@@ -1232,30 +1224,15 @@ class MidiEditorModal {
     highlightUsedCCButtons() {
         if (!this.container) return;
 
-        let activeChannel = null;
-        if (this.currentCCType === 'velocity' && this.velocityEditor) {
-            activeChannel = this.velocityEditor.currentChannel;
-        } else if (this.ccEditor) {
-            activeChannel = this.ccEditor.currentChannel;
-        }
-
-        if (activeChannel === null) {
-            const allChannels = this.getAllCCChannels();
-            if (allChannels.length > 0) {
-                activeChannel = allChannels[0];
-            } else if (this.channels && this.channels.length > 0) {
-                activeChannel = this.channels[0].channel;
-            } else {
-                activeChannel = 0;
-            }
-        }
+        // Source de vérité : le bouton canal actif dans le DOM
+        const activeBtn = this.container.querySelector('#editor-channel-selector .cc-channel-btn.active');
+        const activeChannel = activeBtn ? parseInt(activeBtn.dataset.channel) :
+            (this.channels && this.channels.length > 0 ? this.channels[0].channel : 0);
 
         const usedTypes = this.getUsedCCTypesForChannel(activeChannel);
-        // Types toujours visibles (pas des CC)
         const alwaysVisible = new Set(['velocity', 'tempo']);
 
-        const ccTypeButtons = this.container.querySelectorAll('.cc-type-btn');
-        ccTypeButtons.forEach(btn => {
+        this.container.querySelectorAll('.cc-type-btn').forEach(btn => {
             const ccType = btn.dataset.ccType;
             if (!ccType) return; // bouton GO du custom CC
 
@@ -1263,24 +1240,13 @@ class MidiEditorModal {
             const isActive = btn.classList.contains('active');
             const isAlwaysVisible = alwaysVisible.has(ccType);
 
-            if (hasData) {
-                btn.classList.add('has-data');
-            } else {
-                btn.classList.remove('has-data');
-            }
-
-            // Masquer les boutons CC sans données (sauf actif et toujours visibles)
-            if (isAlwaysVisible || hasData || isActive) {
-                btn.style.display = '';
-            } else {
-                btn.style.display = 'none';
-            }
+            btn.classList.toggle('has-data', hasData);
+            btn.style.display = (isAlwaysVisible || hasData || isActive) ? '' : 'none';
         });
 
         // Masquer les groupes CC entierement vides
-        const groups = this.container.querySelectorAll('.cc-btn-group:not(.cc-dynamic-group)');
-        groups.forEach(group => {
-            if (group.dataset.group === 'custom') return; // toujours visible
+        this.container.querySelectorAll('.cc-btn-group:not(.cc-dynamic-group)').forEach(group => {
+            if (group.dataset.group === 'custom') return;
             const visibleBtns = group.querySelectorAll('.cc-type-btn:not([style*="display: none"])');
             group.style.display = visibleBtns.length > 0 ? '' : 'none';
         });
