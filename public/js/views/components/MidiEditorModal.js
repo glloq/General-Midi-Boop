@@ -564,12 +564,12 @@ class MidiEditorModal {
         if (this.currentCCType === 'velocity') {
             // Pour la vélocité, afficher tous les canaux ayant des notes
             channelsToShow = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
-            activeChannel = this.velocityEditor ? this.velocityEditor.currentChannel : 0;
+            activeChannel = this.velocityEditor ? this.velocityEditor.currentChannel : -1;
         } else {
             // Pour CC/Pitchbend, afficher les canaux utilisés pour ce type
             const usedChannels = this.getCCChannelsUsed();
             channelsToShow = usedChannels.length > 0 ? usedChannels : this.getAllCCChannels();
-            activeChannel = this.ccEditor ? this.ccEditor.currentChannel : 0;
+            activeChannel = this.ccEditor ? this.ccEditor.currentChannel : -1;
         }
 
         // Si aucun canal, afficher un message
@@ -578,6 +578,17 @@ class MidiEditorModal {
             channelSelector.innerHTML = `<div class="cc-no-channels">${message}</div>`;
             this.log('info', message);
             return;
+        }
+
+        // S'assurer que le canal actif est dans la liste, sinon prendre le premier
+        if (!channelsToShow.includes(activeChannel)) {
+            activeChannel = channelsToShow[0];
+            // Appliquer le canal dans l'éditeur
+            if (this.currentCCType === 'velocity' && this.velocityEditor) {
+                this.velocityEditor.setChannel(activeChannel);
+            } else if (this.ccEditor) {
+                this.ccEditor.setChannel(activeChannel);
+            }
         }
 
         // Déterminer quels canaux ont des données pour le CC actif
