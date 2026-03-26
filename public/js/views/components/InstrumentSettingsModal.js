@@ -433,11 +433,11 @@ class InstrumentSettingsModal extends BaseModal {
         const numFrets = config?.num_frets ?? 24;
 
         // Build string rows for the side panel (note + MIDI input per string)
+        // Order: highest pitch (last string) at top, lowest at bottom — matches neck diagram
         let stringRows = '';
-        for (let i = 0; i < numStrings; i++) {
+        for (let i = numStrings - 1; i >= 0; i--) {
             const note = tuning[i] || 40;
             const noteName = NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
-            const stringFrets = fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets;
             stringRows += `
                 <div class="si-neck-string-row">
                     <span class="si-string-num">${i + 1}</span>
@@ -445,8 +445,8 @@ class InstrumentSettingsModal extends BaseModal {
                     <input type="number" class="si-input si-input-xs si-tuning-val" id="siTuning${i}"
                            data-string="${i}" value="${note}" min="0" max="127"
                            title="MIDI" onchange="onSiTuningChanged(${i}, this)">
-                    <input type="number" class="si-input si-input-xs si-frets-val" id="siFrets${i}"
-                           value="${stringFrets}" min="0" max="36" title="Frettes">
+                    <input type="hidden" class="si-frets-val" id="siFrets${i}"
+                           value="${fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets}">
                 </div>`;
         }
 
@@ -471,7 +471,6 @@ class InstrumentSettingsModal extends BaseModal {
                             <span class="si-neck-col-hdr">#</span>
                             <span class="si-neck-col-hdr">Note</span>
                             <span class="si-neck-col-hdr">MIDI</span>
-                            <span class="si-neck-col-hdr">Fret</span>
                         </div>
                         ${stringRows}
                     </div>
@@ -1065,6 +1064,35 @@ class InstrumentSettingsModal extends BaseModal {
 
     // ========== NECK DIAGRAM ==========
 
+    _attachStringsSectionListeners() {
+        // CC toggle
+        const ismCcEnabled = this.$('#ism-cc-enabled');
+        if (ismCcEnabled) {
+            ismCcEnabled.addEventListener('change', (e) => {
+                const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
+                if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
+            });
+        }
+
+        // Num strings change -> re-render entire strings section
+        const siNumStrings = this.$('#siNumStrings');
+        if (siNumStrings) {
+            siNumStrings.addEventListener('change', () => {
+                // Let legacy onSiStringsChanged run first, then refresh
+                setTimeout(() => {
+                    const stringsSection = this.$('.ism-section[data-section="strings"]');
+                    if (stringsSection) {
+                        stringsSection.innerHTML = this._renderStringsSection();
+                        this._attachStringsSectionListeners();
+                    }
+                }, 50);
+            });
+        }
+
+        // Init neck diagram (also wires tuning/fret input listeners)
+        this._initNeckDiagram();
+    }
+
     _initNeckDiagram() {
         // Destroy old instance
         if (this._neckDiagram) {
@@ -1243,29 +1271,8 @@ class InstrumentSettingsModal extends BaseModal {
             });
         });
 
-        // CC enabled toggle (strings section)
-        const ismCcEnabled = this.$('#ism-cc-enabled');
-        if (ismCcEnabled) {
-            ismCcEnabled.addEventListener('change', (e) => {
-                const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
-                if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
-            });
-        }
-
-        // Per-string mode toggle
-        const ismPerStringMode = this.$('#ism-per-string-mode');
-        if (ismPerStringMode) {
-            ismPerStringMode.addEventListener('change', (e) => {
-                if (this._neckDiagram) {
-                    if (!e.target.checked) {
-                        this._neckDiagram.setUniformFrets(this._neckDiagram.numFrets);
-                    }
-                }
-            });
-        }
-
-        // Init neck diagram
-        this._initNeckDiagram();
+        // Init CC toggle, neck diagram, and all string section listeners
+        this._attachStringsSectionListeners();
 
         // GM Program change
         const gmSelect = this.$('#gmProgramSelect');
@@ -1291,15 +1298,7 @@ class InstrumentSettingsModal extends BaseModal {
                 const stringsSection = this.$('.ism-section[data-section="strings"]');
                 if (stringsSection) {
                     stringsSection.innerHTML = this._renderStringsSection();
-                    // Re-attach CC toggle and neck diagram
-                    const ismCcEnabled = this.$('#ism-cc-enabled');
-                    if (ismCcEnabled) {
-                        ismCcEnabled.addEventListener('change', (e) => {
-                            const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
-                            if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
-                        });
-                    }
-                    this._initNeckDiagram();
+                    this._attachStringsSectionListeners();
                 }
             });
         }
