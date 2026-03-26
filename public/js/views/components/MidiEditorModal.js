@@ -1169,15 +1169,22 @@ class MidiEditorModal {
         if (existingMsg) existingMsg.remove();
 
         if (ccTypes.length === 0) {
-            // Aucun CC sur ce canal — afficher un message dans l'éditeur
-            if (ccEditorContainer && this.ccEditor) {
+            // Aucun CC sur ce canal — déselectionner tous les boutons CC
+            this.container?.querySelectorAll('.cc-type-btn').forEach(btn => {
+                const type = btn.dataset.ccType;
+                if (type && type !== 'velocity' && type !== 'tempo') {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Afficher un message dans l'éditeur
+            if (ccEditorContainer) {
                 const msg = document.createElement('div');
                 msg.className = 'cc-no-data-message';
                 msg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#888;font-size:13px;pointer-events:none;z-index:1;';
                 msg.textContent = this.t('midiEditor.noCCOnChannel') || 'No CC on this channel';
                 ccEditorContainer.appendChild(msg);
             }
-            // Garder le type actuel pour permettre le dessin de nouveaux CC
             return;
         }
 
