@@ -2924,6 +2924,122 @@
             color: #f59e0b;
         }
 
+        /* MIDI debug message type colors */
+        .log-line.midi-notes { color: #4ade80; }
+        .log-line.midi-cc { color: #60a5fa; }
+        .log-line.midi-program { color: #c084fc; }
+        .log-line.midi-pitchbend { color: #fbbf24; }
+        .log-line.midi-aftertouch { color: #2dd4bf; }
+        .log-line.midi-system { color: #f87171; }
+        .log-line.midi-sysex { color: #fb923c; }
+
+        /* Debug Filter Toolbar */
+        .debug-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #111827;
+            border-bottom: 1px solid #374151;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .debug-filter-group {
+            display: flex;
+            gap: 3px;
+        }
+
+        .debug-filter-separator {
+            width: 1px;
+            height: 22px;
+            background: #374151;
+            margin: 0 4px;
+        }
+
+        .debug-filter-btn {
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            background: #1f2937;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .debug-filter-btn:hover {
+            background: #374151;
+            color: #e5e7eb;
+        }
+
+        .debug-filter-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+        }
+
+        .debug-filter-btn.paused {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #000;
+        }
+
+        .debug-filter-pill {
+            padding: 2px 7px;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid #4b5563;
+            border-radius: 12px;
+            background: #1f2937;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .debug-filter-pill:hover {
+            background: #374151;
+            color: #e5e7eb;
+        }
+
+        .debug-filter-pill.active[data-type="notes"] { background: #166534; border-color: #4ade80; color: #4ade80; }
+        .debug-filter-pill.active[data-type="cc"] { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+        .debug-filter-pill.active[data-type="program"] { background: #3b1f6e; border-color: #c084fc; color: #c084fc; }
+        .debug-filter-pill.active[data-type="pitchbend"] { background: #713f12; border-color: #fbbf24; color: #fbbf24; }
+        .debug-filter-pill.active[data-type="aftertouch"] { background: #134e4a; border-color: #2dd4bf; color: #2dd4bf; }
+        .debug-filter-pill.active[data-type="system"] { background: #7f1d1d; border-color: #f87171; color: #f87171; }
+
+        .debug-filter-select {
+            padding: 3px 6px;
+            font-size: 11px;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            background: #1f2937;
+            color: #e5e7eb;
+            cursor: pointer;
+            max-width: 120px;
+        }
+
+        .debug-filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #9ca3af;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .debug-filter-checkbox input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
         .loading {
             position: fixed;
             top: 0;
@@ -4648,6 +4764,49 @@
             <!-- Console -->
             <section class="card hidden" id="debugConsole" aria-labelledby="debugConsoleHeading">
                 <h2 id="debugConsoleHeading">📋 <span data-i18n="ui.debugConsole">Console de débogage</span></h2>
+                <!-- Debug Filter Toolbar -->
+                <div id="debugFilterBar" class="debug-filter-bar">
+                    <!-- Source toggles -->
+                    <div class="debug-filter-group">
+                        <button class="debug-filter-btn active" data-source="app" title="Messages applicatifs">App</button>
+                        <button class="debug-filter-btn active" data-source="midi" title="Messages MIDI">MIDI</button>
+                    </div>
+                    <div class="debug-filter-separator"></div>
+                    <!-- MIDI Type filters -->
+                    <div class="debug-filter-group" id="midiTypeFilters">
+                        <button class="debug-filter-pill active" data-type="notes" title="Note On/Off">Notes</button>
+                        <button class="debug-filter-pill active" data-type="cc" title="Control Change">CC</button>
+                        <button class="debug-filter-pill active" data-type="program" title="Program Change">Prog</button>
+                        <button class="debug-filter-pill active" data-type="pitchbend" title="Pitch Bend">Pitch</button>
+                        <button class="debug-filter-pill active" data-type="aftertouch" title="Aftertouch">AfterT</button>
+                        <button class="debug-filter-pill active" data-type="system" title="System (Start/Stop/Clock/SysEx)">System</button>
+                    </div>
+                    <div class="debug-filter-separator"></div>
+                    <!-- Channel filter -->
+                    <select id="debugChannelFilter" class="debug-filter-select" title="Filtre par canal MIDI">
+                        <option value="all">Tous canaux</option>
+                        <option value="0">Ch 1</option><option value="1">Ch 2</option>
+                        <option value="2">Ch 3</option><option value="3">Ch 4</option>
+                        <option value="4">Ch 5</option><option value="5">Ch 6</option>
+                        <option value="6">Ch 7</option><option value="7">Ch 8</option>
+                        <option value="8">Ch 9</option><option value="9">Ch 10 (Drums)</option>
+                        <option value="10">Ch 11</option><option value="11">Ch 12</option>
+                        <option value="12">Ch 13</option><option value="13">Ch 14</option>
+                        <option value="14">Ch 15</option><option value="15">Ch 16</option>
+                    </select>
+                    <!-- Device filter -->
+                    <select id="debugDeviceFilter" class="debug-filter-select" title="Filtre par device">
+                        <option value="all">Tous devices</option>
+                    </select>
+                    <div class="debug-filter-separator"></div>
+                    <!-- Options -->
+                    <label class="debug-filter-checkbox" title="Masquer les messages Clock et Active Sensing (haute fréquence)">
+                        <input type="checkbox" id="debugHideClock" checked>
+                        <span>Masquer Clock</span>
+                    </label>
+                    <button id="debugPause" class="debug-filter-btn" title="Pause / Reprendre le défilement">⏸️</button>
+                    <button id="debugClear" class="debug-filter-btn" title="Vider la console">🗑️</button>
+                </div>
                 <div class="log-console" id="logConsole" role="log" aria-live="polite" aria-label="Debug log output"></div>
             </section>
         </div>
@@ -5734,16 +5893,337 @@
             return hasRealDevice;
         }
 
-        // Logger
+        // ===== Debug Filter State =====
+        const debugFilters = (() => {
+            const saved = localStorage.getItem('debugFilters');
+            const defaults = {
+                sources: { app: true, midi: true },
+                types: { notes: true, cc: true, program: true, pitchbend: true, aftertouch: true, system: true },
+                channel: 'all',
+                device: 'all',
+                hideClock: true,
+                paused: false
+            };
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    return { ...defaults, ...parsed, sources: { ...defaults.sources, ...parsed.sources }, types: { ...defaults.types, ...parsed.types } };
+                } catch (e) { /* ignore */ }
+            }
+            return defaults;
+        })();
+        let debugMonitorActive = false;
+        const DEBUG_MAX_LINES = 500;
+
+        // Note names for MIDI display
+        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        function midiNoteToName(note) {
+            const octave = Math.floor(note / 12) - 1;
+            return `${NOTE_NAMES[note % 12]}${octave}`;
+        }
+
+        // Map MIDI message type to filter category
+        function getMidiTypeCategory(type) {
+            switch (type) {
+                case 'noteon': case 'noteoff': return 'notes';
+                case 'cc': return 'cc';
+                case 'program': return 'program';
+                case 'pitchbend': return 'pitchbend';
+                case 'poly aftertouch': case 'channel aftertouch': return 'aftertouch';
+                case 'sysex': case 'clock': case 'start': case 'stop': case 'continue':
+                case 'activesensing': case 'reset': case 'mtc': case 'songposition':
+                case 'songselect': return 'system';
+                default: return 'system';
+            }
+        }
+
+        // Check if a MIDI message is high-frequency (clock/active sensing)
+        function isHighFrequencyMsg(type) {
+            return type === 'clock' || type === 'activesensing' || type === 'mtc';
+        }
+
+        // Format a MIDI message for display
+        function formatMidiMessage(type, data, device) {
+            const ch = data.channel !== undefined ? `Ch${data.channel + 1}` : '';
+            const dev = device ? `[${device}]` : '';
+            switch (type) {
+                case 'noteon':
+                    return `NoteOn   ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity}  ${dev}`;
+                case 'noteoff':
+                    return `NoteOff  ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity || 0}  ${dev}`;
+                case 'cc':
+                    return `CC       ${ch}  cc#${data.controller}  val:${data.value}  ${dev}`;
+                case 'program':
+                    return `ProgChg  ${ch}  prog:${data.program || data.number || 0}  ${dev}`;
+                case 'pitchbend':
+                    return `PitchBnd ${ch}  val:${data.value}  ${dev}`;
+                case 'poly aftertouch':
+                    return `PolyAT   ${ch}  note:${data.note} pres:${data.pressure}  ${dev}`;
+                case 'channel aftertouch':
+                    return `ChanAT   ${ch}  pres:${data.pressure}  ${dev}`;
+                case 'sysex':
+                    const sysData = data.data || data.bytes || [];
+                    return `SysEx    ${sysData.length} bytes  ${dev}`;
+                case 'clock':
+                    return `Clock    ${dev}`;
+                case 'start':
+                    return `Start    ${dev}`;
+                case 'stop':
+                    return `Stop     ${dev}`;
+                case 'continue':
+                    return `Continue ${dev}`;
+                default:
+                    return `${type}  ${ch}  ${dev}`;
+            }
+        }
+
+        // Check if a MIDI message passes current filters
+        function passesMidiFilter(type, data, device) {
+            if (!debugFilters.sources.midi) return false;
+
+            const category = getMidiTypeCategory(type);
+            if (!debugFilters.types[category]) return false;
+
+            if (debugFilters.hideClock && isHighFrequencyMsg(type)) return false;
+
+            if (debugFilters.channel !== 'all' && data.channel !== undefined) {
+                if (data.channel !== parseInt(debugFilters.channel)) return false;
+            }
+
+            if (debugFilters.device !== 'all' && device) {
+                if (device !== debugFilters.device) return false;
+            }
+
+            return true;
+        }
+
+        // Trim log console to max lines
+        function trimLogConsole() {
+            const logEl = document.getElementById('logConsole');
+            while (logEl.childElementCount > DEBUG_MAX_LINES) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        // Logger (app messages)
         function log(message, type = 'info') {
-            const console = document.getElementById('logConsole');
+            if (!debugFilters.sources.app) return;
+            const logEl = document.getElementById('logConsole');
             const line = document.createElement('div');
             line.className = `log-line ${type}`;
+            line.dataset.source = 'app';
             const time = new Date().toLocaleTimeString();
             line.textContent = `[${time}] ${message}`;
-            console.appendChild(line);
-            console.scrollTop = console.scrollHeight;
+            logEl.appendChild(line);
+            trimLogConsole();
+            if (!debugFilters.paused) {
+                logEl.scrollTop = logEl.scrollHeight;
+            }
         }
+
+        // MIDI Logger
+        function logMidi(eventData) {
+            const { device, type, data, timestamp } = eventData;
+            if (!passesMidiFilter(type, data, device)) return;
+
+            const logEl = document.getElementById('logConsole');
+            const line = document.createElement('div');
+            const category = getMidiTypeCategory(type);
+            line.className = `log-line midi-${category}`;
+            line.dataset.source = 'midi';
+            line.dataset.midiType = category;
+            if (data.channel !== undefined) line.dataset.channel = data.channel;
+            if (device) line.dataset.device = device;
+
+            const time = new Date(timestamp || Date.now()).toLocaleTimeString('fr-FR', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
+            });
+            line.textContent = `[${time}] ${formatMidiMessage(type, data, device)}`;
+            logEl.appendChild(line);
+            trimLogConsole();
+            if (!debugFilters.paused) {
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+        }
+
+        // Save debug filter state to localStorage
+        function saveDebugFilters() {
+            const toSave = { ...debugFilters };
+            delete toSave.paused; // Don't persist pause state
+            localStorage.setItem('debugFilters', JSON.stringify(toSave));
+        }
+
+        // Apply filters to existing log lines (show/hide)
+        function applyDebugFiltersToExisting() {
+            const logEl = document.getElementById('logConsole');
+            if (!logEl) return;
+            for (const line of logEl.children) {
+                const source = line.dataset.source || 'app';
+                if (source === 'app') {
+                    line.style.display = debugFilters.sources.app ? '' : 'none';
+                } else if (source === 'midi') {
+                    const midiType = line.dataset.midiType;
+                    const channel = line.dataset.channel;
+                    const device = line.dataset.device;
+                    let visible = debugFilters.sources.midi;
+                    if (visible && midiType) visible = debugFilters.types[midiType] !== false;
+                    if (visible && debugFilters.channel !== 'all' && channel !== undefined) {
+                        visible = channel === String(debugFilters.channel);
+                    }
+                    if (visible && debugFilters.device !== 'all' && device) {
+                        visible = device === debugFilters.device;
+                    }
+                    line.style.display = visible ? '' : 'none';
+                }
+            }
+        }
+
+        // Initialize debug filter toolbar
+        function initDebugFilters() {
+            const bar = document.getElementById('debugFilterBar');
+            if (!bar) return;
+
+            // Restore saved filter state to UI
+            bar.querySelectorAll('.debug-filter-btn[data-source]').forEach(btn => {
+                const source = btn.dataset.source;
+                btn.classList.toggle('active', debugFilters.sources[source]);
+            });
+            bar.querySelectorAll('.debug-filter-pill[data-type]').forEach(btn => {
+                const type = btn.dataset.type;
+                btn.classList.toggle('active', debugFilters.types[type]);
+            });
+            const channelSel = document.getElementById('debugChannelFilter');
+            if (channelSel) channelSel.value = debugFilters.channel;
+            const deviceSel = document.getElementById('debugDeviceFilter');
+            if (deviceSel) deviceSel.value = debugFilters.device;
+            const hideClockEl = document.getElementById('debugHideClock');
+            if (hideClockEl) hideClockEl.checked = debugFilters.hideClock;
+
+            // Source toggle handlers
+            bar.querySelectorAll('.debug-filter-btn[data-source]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const source = btn.dataset.source;
+                    debugFilters.sources[source] = !debugFilters.sources[source];
+                    btn.classList.toggle('active', debugFilters.sources[source]);
+                    // Show/hide MIDI type pills when MIDI source is toggled
+                    if (source === 'midi') {
+                        const typeFilters = document.getElementById('midiTypeFilters');
+                        if (typeFilters) typeFilters.style.opacity = debugFilters.sources.midi ? '1' : '0.3';
+                    }
+                    applyDebugFiltersToExisting();
+                    saveDebugFilters();
+                });
+            });
+
+            // Type pill toggle handlers
+            bar.querySelectorAll('.debug-filter-pill[data-type]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.dataset.type;
+                    debugFilters.types[type] = !debugFilters.types[type];
+                    btn.classList.toggle('active', debugFilters.types[type]);
+                    applyDebugFiltersToExisting();
+                    saveDebugFilters();
+                });
+            });
+
+            // Channel filter
+            if (channelSel) {
+                channelSel.addEventListener('change', () => {
+                    debugFilters.channel = channelSel.value;
+                    applyDebugFiltersToExisting();
+                    saveDebugFilters();
+                });
+            }
+
+            // Device filter
+            if (deviceSel) {
+                deviceSel.addEventListener('change', () => {
+                    debugFilters.device = deviceSel.value;
+                    applyDebugFiltersToExisting();
+                    saveDebugFilters();
+                });
+            }
+
+            // Hide clock checkbox
+            if (hideClockEl) {
+                hideClockEl.addEventListener('change', () => {
+                    debugFilters.hideClock = hideClockEl.checked;
+                    saveDebugFilters();
+                });
+            }
+
+            // Pause button
+            const pauseBtn = document.getElementById('debugPause');
+            if (pauseBtn) {
+                pauseBtn.addEventListener('click', () => {
+                    debugFilters.paused = !debugFilters.paused;
+                    pauseBtn.classList.toggle('paused', debugFilters.paused);
+                    pauseBtn.textContent = debugFilters.paused ? '▶️' : '⏸️';
+                    pauseBtn.title = debugFilters.paused ? 'Reprendre le défilement' : 'Pause';
+                    if (!debugFilters.paused) {
+                        const logEl = document.getElementById('logConsole');
+                        logEl.scrollTop = logEl.scrollHeight;
+                    }
+                });
+            }
+
+            // Clear button
+            const clearBtn = document.getElementById('debugClear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    const logEl = document.getElementById('logConsole');
+                    logEl.innerHTML = '';
+                });
+            }
+
+            // Restore MIDI type pills opacity
+            if (!debugFilters.sources.midi) {
+                const typeFilters = document.getElementById('midiTypeFilters');
+                if (typeFilters) typeFilters.style.opacity = '0.3';
+            }
+        }
+
+        // Update device filter dropdown with connected devices
+        function updateDebugDeviceFilter(devices) {
+            const sel = document.getElementById('debugDeviceFilter');
+            if (!sel) return;
+            const currentValue = sel.value;
+            sel.innerHTML = '<option value="all">Tous devices</option>';
+            if (devices && devices.length > 0) {
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id || d.name;
+                    opt.textContent = d.name || d.id;
+                    sel.appendChild(opt);
+                });
+            }
+            sel.value = currentValue;
+            // If saved device no longer exists, reset to all
+            if (sel.value !== currentValue) {
+                sel.value = 'all';
+                debugFilters.device = 'all';
+            }
+        }
+
+        // Start/stop MIDI monitoring when debug console opens/closes
+        function startDebugMonitoring() {
+            if (debugMonitorActive || !window.api) return;
+            debugMonitorActive = true;
+            window.api.sendCommand('monitor_start_all').catch(e => {
+                console.warn('Failed to start monitor_all:', e.message);
+            });
+        }
+
+        function stopDebugMonitoring() {
+            if (!debugMonitorActive || !window.api) return;
+            debugMonitorActive = false;
+            window.api.sendCommand('monitor_stop_all').catch(e => {
+                console.warn('Failed to stop monitor_all:', e.message);
+            });
+        }
+
+        // Initialize filters on page load
+        initDebugFilters();
 
         // Connexion WebSocket
         async function connectWebSocket() {
@@ -5926,6 +6406,20 @@
                                 log(`Erreur sauvegarde identité: ${error.message}`, 'error');
                             });
                         }
+                    }
+                });
+
+                // MIDI Monitor Events (debug console)
+                api.on('monitor_event', (data) => {
+                    logMidi(data);
+                });
+
+                // On reconnect, restart monitoring if debug console was open
+                api.on('connected', () => {
+                    const debugConsole = document.getElementById('debugConsole');
+                    if (debugConsole && !debugConsole.classList.contains('hidden')) {
+                        debugMonitorActive = false; // Reset flag so startDebugMonitoring works
+                        startDebugMonitoring();
                     }
                 });
 
@@ -7483,6 +7977,7 @@
                     }
                     // Sauvegarder tous les périphériques pour le routage
                     availableDevices = devices;
+                    updateDebugDeviceFilter(connectedDevices);
                     log(`${devices.length} périphérique(s) trouvé(s), ${connectedDevices.length} connecté(s)`);
                     return;
                 }
@@ -7593,6 +8088,7 @@
 
                 // Sauvegarder les périphériques enrichis pour le routage de canaux
                 availableDevices = enrichedDevices;
+                updateDebugDeviceFilter(connectedDevices);
 
             } catch (error) {
                 log(`Erreur chargement périphériques: ${error.message}`, 'error');
@@ -10516,10 +11012,14 @@
                 debugResizeHandle.classList.add('visible');
                 const savedHeight = parseInt(localStorage.getItem('debugConsoleHeight')) || defaultDebugHeight;
                 debugConsole.style.height = savedHeight + 'px';
+                // Start MIDI monitoring
+                startDebugMonitoring();
             } else {
                 // Hide resize handle
                 debugResizeHandle.classList.remove('visible');
                 debugConsole.style.height = '';
+                // Stop MIDI monitoring
+                stopDebugMonitoring();
             }
         });
 
