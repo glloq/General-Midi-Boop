@@ -945,15 +945,14 @@ class CCPitchbendEditor {
     // === Synchronisation ===
 
     syncWith(pianoRoll) {
-        // Synchroniser avec les paramètres du piano roll
         const oldXRange = this.options.xrange;
         const oldXOffset = this.options.xoffset;
         const oldGrid = this.options.grid;
 
-        this.options.xrange = pianoRoll.xrange || this.options.xrange;
-        this.options.xoffset = pianoRoll.xoffset || this.options.xoffset;
-        this.options.grid = pianoRoll.grid || this.options.grid;
-        this.options.timebase = pianoRoll.timebase || this.options.timebase;
+        this.options.xrange = pianoRoll.xrange;
+        this.options.xoffset = pianoRoll.xoffset;
+        this.options.grid = pianoRoll.grid;
+        this.options.timebase = pianoRoll.timebase;
 
         // OPTIMISATION: Marquer la grille comme dirty si les paramètres ont changé
         if (oldXRange !== this.options.xrange ||
