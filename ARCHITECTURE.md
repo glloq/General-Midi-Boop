@@ -64,7 +64,14 @@ Ma-est-tro/
 │   │   ├── MidiRouter.js      # Message routing
 │   │   ├── MidiPlayer.js      # File playback
 │   │   ├── AutoAssigner.js    # Instrument auto-assignment
-│   │   └── LatencyCompensator.js
+│   │   ├── ChannelAnalyzer.js # MIDI channel analysis
+│   │   ├── InstrumentMatcher.js # Scoring & matching
+│   │   ├── DrumNoteMapper.js  # Drum note mapping
+│   │   ├── MidiTransposer.js  # Note transposition
+│   │   ├── TablatureConverter.js # MIDI ↔ tablature conversion
+│   │   ├── LatencyCompensator.js
+│   │   ├── ScoringConfig.js   # Assignment scoring weights
+│   │   └── AnalysisCache.js   # LRU analysis cache
 │   ├── storage/               # Persistence layer
 │   │   ├── Database.js        # Main facade (SQLite + migrations)
 │   │   ├── MidiDatabase.js    # MIDI file queries
@@ -75,8 +82,20 @@ Ma-est-tro/
 │   │   ├── BackupScheduler.js # Automated backups
 │   │   └── dbHelpers.js       # Shared query builders
 │   ├── managers/              # Optional service managers
-│   │   ├── BluetoothManager.js
-│   │   └── NetworkManager.js
+│   │   ├── BluetoothManager.js  # BLE MIDI
+│   │   ├── NetworkManager.js    # RTP-MIDI
+│   │   ├── SerialMidiManager.js # GPIO UART MIDI
+│   │   └── LightingManager.js  # Lighting orchestration
+│   ├── lighting/              # Lighting drivers
+│   │   ├── LightingEffectsEngine.js
+│   │   ├── GpioStripDriver.js # GPIO LED strips
+│   │   ├── ArtNetDriver.js    # DMX via ArtNet
+│   │   ├── SacnDriver.js      # sACN/E1.31
+│   │   ├── OscLightDriver.js  # OSC control
+│   │   ├── HttpLightDriver.js # HTTP webhooks
+│   │   └── MqttLightDriver.js # MQTT
+│   ├── audio/
+│   │   └── DelayCalibrator.js # Microphone-based latency calibration
 │   ├── config/
 │   │   └── Config.js          # Config with env-var overrides
 │   └── utils/
@@ -84,13 +103,14 @@ Ma-est-tro/
 ├── public/                    # Frontend SPA
 │   ├── js/
 │   │   ├── core/              # BaseView, BaseModal, EventBus, etc.
-│   │   ├── views/             # UI views
+│   │   ├── views/components/  # 35+ UI components
 │   │   ├── api/               # BackendAPIClient (WebSocket)
+│   │   ├── audio/             # Synthesizer modules
 │   │   └── utils/             # Helpers
-│   └── css/
-├── migrations/                # SQL migration files (numbered)
-├── locales/                   # i18n translation files
-├── tests/                     # Jest test suites
+│   ├── locales/               # i18n translation files (28 languages)
+│   └── styles/                # CSS stylesheets
+├── migrations/                # SQL migration files (29 numbered)
+├── tests/                     # Jest + Vitest test suites
 └── docs/                      # Feature documentation
 ```
 
@@ -125,7 +145,7 @@ MIDI Device → DeviceManager → EventBus → MidiRouter → Output Device
 ## Database
 
 - **Engine**: SQLite (better-sqlite3) with WAL mode
-- **Migrations**: 22+ numbered SQL files, auto-run at startup in transactions
+- **Migrations**: 29 numbered SQL files, auto-run at startup in transactions
 - **Backup**: Automated daily via BackupScheduler (node-schedule)
 - **Sub-modules**: MidiDatabase, InstrumentDatabase, LightingDatabase, StringInstrumentDatabase
 
