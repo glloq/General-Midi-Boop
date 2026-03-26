@@ -77,17 +77,15 @@
 /* Header de la section CC (collapsible) */
 .cc-section-header {
     flex: 0 0 auto;
-    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
     background: var(--bg-tertiary, #e9ecef);
     border-bottom: 1px solid var(--border-color, #e9ecef);
-    cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
     z-index: 10;
-}
-
-.cc-section-header:hover {
-    background: var(--bg-secondary, #fff);
+    gap: 0;
+    min-height: 28px;
 }
 
 .cc-section-title {
@@ -97,8 +95,75 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary, #2c3e50);
-    width: 100%;
-    position: relative;
+    cursor: pointer;
+    padding: 4px 0;
+    flex-shrink: 0;
+}
+
+.cc-section-title:hover {
+    color: var(--accent-primary, #667eea);
+}
+
+/* Onglets canaux dans le header */
+.cc-header-channels {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-left: 16px;
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.cc-header-channels .cc-channel-btn {
+    padding: 5px 10px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--text-secondary, #6c757d);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    min-width: 28px;
+    line-height: 1;
+    box-shadow: none;
+}
+
+.cc-header-channels .cc-channel-btn:hover {
+    color: var(--accent-primary, #667eea);
+    background: rgba(102, 126, 234, 0.08);
+    border-bottom-color: var(--accent-primary, #667eea);
+}
+
+.cc-header-channels .cc-channel-btn.active {
+    color: #1565C0;
+    border-bottom: 2px solid #1565C0;
+    background: rgba(21, 101, 192, 0.08);
+    font-weight: bold;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.cc-header-channels .cc-channel-btn.has-cc-data {
+    color: #E65100;
+    border-bottom: 2px solid #FF9800;
+    background: transparent;
+    font-weight: 700;
+}
+
+.cc-header-channels .cc-channel-btn.active.has-cc-data {
+    color: #1565C0;
+    border-bottom: 2px solid #1565C0;
+    background: rgba(21, 101, 192, 0.08);
+}
+
+.cc-header-channels .cc-no-channels {
+    font-size: 10px;
+    color: var(--text-secondary, #999);
+    padding: 4px 8px;
 }
 
 .cc-collapse-icon {
@@ -736,12 +801,42 @@ body.dark-mode .cc-section-header {
     border-bottom-color: #333;
 }
 
-body.dark-mode .cc-section-header:hover {
-    background: linear-gradient(180deg, #353535 0%, #2a2a2a 100%);
-}
-
 body.dark-mode .cc-section-title {
     color: #e0e0e0;
+}
+
+body.dark-mode .cc-section-title:hover {
+    color: #64B5F6;
+}
+
+body.dark-mode .cc-header-channels .cc-channel-btn {
+    color: #999;
+    background: transparent;
+    border-bottom-color: transparent;
+}
+
+body.dark-mode .cc-header-channels .cc-channel-btn:hover {
+    color: #64B5F6;
+    background: rgba(100, 181, 246, 0.1);
+    border-bottom-color: #64B5F6;
+}
+
+body.dark-mode .cc-header-channels .cc-channel-btn.active {
+    color: #64B5F6;
+    border-bottom-color: #64B5F6;
+    background: rgba(100, 181, 246, 0.1);
+}
+
+body.dark-mode .cc-header-channels .cc-channel-btn.has-cc-data {
+    color: #FFB74D;
+    border-bottom-color: #FFB74D;
+    background: transparent;
+}
+
+body.dark-mode .cc-header-channels .cc-channel-btn.active.has-cc-data {
+    color: #64B5F6;
+    border-bottom-color: #64B5F6;
+    background: rgba(100, 181, 246, 0.1);
 }
 
 body.dark-mode .cc-type-toolbar {

@@ -2908,11 +2908,14 @@ class MidiEditorModal {
 
                         <!-- Section CC/Pitchbend/Velocity (collapsible) -->
                         <div class="midi-editor-section cc-section collapsed" id="cc-section">
-                            <!-- Header collapsible -->
+                            <!-- Header collapsible avec sélecteur de canal -->
                             <div class="cc-section-header collapsed" id="cc-section-header">
                                 <div class="cc-section-title">
                                     <span class="cc-collapse-icon">▼</span>
                                     <span>${this.t('midiEditor.ccSection')}</span>
+                                </div>
+                                <div class="cc-header-channels" id="editor-channel-selector">
+                                    <!-- Les canaux seront ajoutés dynamiquement -->
                                 </div>
                             </div>
 
@@ -3000,14 +3003,6 @@ class MidiEditorModal {
                                         🗑️
                                     </button>
 
-                                    <div class="cc-toolbar-divider"></div>
-
-                                    <label class="cc-toolbar-label">${this.t('midiEditor.ccChannelFilter')}</label>
-                                    <div class="cc-channel-selector-horizontal" id="editor-channel-selector">
-                                        <!-- Les canaux seront ajoutés dynamiquement -->
-                                    </div>
-
-                                    <div class="cc-toolbar-divider"></div>
                                 </div>
 
                                 <!-- Layout de l'éditeur (pleine hauteur sans sidebar) -->
@@ -5434,13 +5429,16 @@ class MidiEditorModal {
             });
         }
 
-        // Header de la section CC (collapse/expand)
+        // Header de la section CC (collapse/expand) — uniquement sur le titre, pas les onglets canal
         const ccSectionHeader = document.getElementById('cc-section-header');
         if (ccSectionHeader) {
-            ccSectionHeader.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.toggleCCSection();
-            });
+            const ccTitle = ccSectionHeader.querySelector('.cc-section-title');
+            if (ccTitle) {
+                ccTitle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.toggleCCSection();
+                });
+            }
         }
 
         // Boutons de type CC (horizontaux)
