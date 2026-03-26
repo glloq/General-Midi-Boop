@@ -374,8 +374,17 @@ class DeviceManager {
   sendMessage(deviceName, type, data) {
     // Broadcast to debug monitor if monitorAll is active
     if (this.app.midiRouter?.monitorAll && this.app.wsServer) {
+      // Resolve instrument name from database
+      let instrumentName = null;
+      if (this.app.database && data && data.channel !== undefined) {
+        try {
+          const settings = this.app.database.getInstrumentSettings(deviceName, data.channel);
+          if (settings) instrumentName = settings.custom_name || settings.name;
+        } catch (e) { /* ignore */ }
+      }
       this.app.wsServer.broadcast('monitor_event', {
         device: deviceName,
+        instrumentName: instrumentName,
         type: type,
         data: data,
         timestamp: Date.now(),

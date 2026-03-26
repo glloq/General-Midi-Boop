@@ -315,8 +315,17 @@ class MidiRouter {
 
   broadcastMonitorEvent(deviceId, type, msg) {
     if (this.app.wsServer) {
+      // Resolve instrument name from database
+      let instrumentName = null;
+      if (this.app.database && msg && msg.channel !== undefined) {
+        try {
+          const settings = this.app.database.getInstrumentSettings(deviceId, msg.channel);
+          if (settings) instrumentName = settings.custom_name || settings.name;
+        } catch (e) { /* ignore */ }
+      }
       this.app.wsServer.broadcast('monitor_event', {
         device: deviceId,
+        instrumentName: instrumentName,
         type: type,
         data: msg,
         timestamp: Date.now()

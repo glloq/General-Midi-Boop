@@ -3040,6 +3040,61 @@
             accent-color: #667eea;
         }
 
+        /* Debug Instrument Grid */
+        .debug-instrument-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            background: #0d1117;
+            border-bottom: 1px solid #374151;
+            flex-shrink: 0;
+            min-height: 28px;
+        }
+
+        .debug-instrument-label {
+            font-size: 10px;
+            color: #6b7280;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .debug-instrument-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .debug-instrument-empty {
+            font-size: 10px;
+            color: #4b5563;
+            font-style: italic;
+        }
+
+        .debug-instrument-chip {
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            background: #1f2937;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .debug-instrument-chip:hover {
+            background: #374151;
+            color: #e5e7eb;
+        }
+
+        .debug-instrument-chip.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+        }
+
         .loading {
             position: fixed;
             top: 0;
@@ -4794,10 +4849,6 @@
                         <option value="12">Ch 13</option><option value="13">Ch 14</option>
                         <option value="14">Ch 15</option><option value="15">Ch 16</option>
                     </select>
-                    <!-- Device filter -->
-                    <select id="debugDeviceFilter" class="debug-filter-select" title="Filtre par device">
-                        <option value="all">Tous devices</option>
-                    </select>
                     <div class="debug-filter-separator"></div>
                     <!-- Options -->
                     <label class="debug-filter-checkbox" title="Masquer les messages Clock et Active Sensing (haute fréquence)">
@@ -4806,6 +4857,13 @@
                     </label>
                     <button id="debugPause" class="debug-filter-btn" title="Pause / Reprendre le défilement">⏸️</button>
                     <button id="debugClear" class="debug-filter-btn" title="Vider la console">🗑️</button>
+                </div>
+                <!-- Instrument filter grid -->
+                <div id="debugInstrumentBar" class="debug-instrument-bar">
+                    <span class="debug-instrument-label">Instruments :</span>
+                    <div id="debugInstrumentGrid" class="debug-instrument-grid">
+                        <span class="debug-instrument-empty">Aucun instrument connecté</span>
+                    </div>
                 </div>
                 <div class="log-console" id="logConsole" role="log" aria-live="polite" aria-label="Debug log output"></div>
             </section>
@@ -5900,14 +5958,14 @@
                 sources: { app: true, midi: true },
                 types: { notes: true, cc: true, program: true, pitchbend: true, aftertouch: true, system: true },
                 channel: 'all',
-                device: 'all',
+                instruments: [], // empty = all, otherwise array of instrument names to show
                 hideClock: true,
                 paused: false
             };
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    return { ...defaults, ...parsed, sources: { ...defaults.sources, ...parsed.sources }, types: { ...defaults.types, ...parsed.types } };
+                    return { ...defaults, ...parsed, sources: { ...defaults.sources, ...parsed.sources }, types: { ...defaults.types, ...parsed.types }, instruments: parsed.instruments || [] };
                 } catch (e) { /* ignore */ }
             }
             return defaults;
@@ -5945,42 +6003,42 @@
         }
 
         // Format a MIDI message for display
-        function formatMidiMessage(type, data, device) {
+        function formatMidiMessage(type, data, instrumentName) {
             const ch = data.channel !== undefined ? `Ch${data.channel + 1}` : '';
-            const dev = device ? `[${device}]` : '';
+            const inst = instrumentName ? `[${instrumentName}]` : '';
             switch (type) {
                 case 'noteon':
-                    return `NoteOn   ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity}  ${dev}`;
+                    return `NoteOn   ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity}  ${inst}`;
                 case 'noteoff':
-                    return `NoteOff  ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity || 0}  ${dev}`;
+                    return `NoteOff  ${ch}  ${midiNoteToName(data.note)} (${data.note})  vel:${data.velocity || 0}  ${inst}`;
                 case 'cc':
-                    return `CC       ${ch}  cc#${data.controller}  val:${data.value}  ${dev}`;
+                    return `CC       ${ch}  cc#${data.controller}  val:${data.value}  ${inst}`;
                 case 'program':
-                    return `ProgChg  ${ch}  prog:${data.program || data.number || 0}  ${dev}`;
+                    return `ProgChg  ${ch}  prog:${data.program || data.number || 0}  ${inst}`;
                 case 'pitchbend':
-                    return `PitchBnd ${ch}  val:${data.value}  ${dev}`;
+                    return `PitchBnd ${ch}  val:${data.value}  ${inst}`;
                 case 'poly aftertouch':
-                    return `PolyAT   ${ch}  note:${data.note} pres:${data.pressure}  ${dev}`;
+                    return `PolyAT   ${ch}  note:${data.note} pres:${data.pressure}  ${inst}`;
                 case 'channel aftertouch':
-                    return `ChanAT   ${ch}  pres:${data.pressure}  ${dev}`;
+                    return `ChanAT   ${ch}  pres:${data.pressure}  ${inst}`;
                 case 'sysex':
                     const sysData = data.data || data.bytes || [];
-                    return `SysEx    ${sysData.length} bytes  ${dev}`;
+                    return `SysEx    ${sysData.length} bytes  ${inst}`;
                 case 'clock':
-                    return `Clock    ${dev}`;
+                    return `Clock    ${inst}`;
                 case 'start':
-                    return `Start    ${dev}`;
+                    return `Start    ${inst}`;
                 case 'stop':
-                    return `Stop     ${dev}`;
+                    return `Stop     ${inst}`;
                 case 'continue':
-                    return `Continue ${dev}`;
+                    return `Continue ${inst}`;
                 default:
-                    return `${type}  ${ch}  ${dev}`;
+                    return `${type}  ${ch}  ${inst}`;
             }
         }
 
         // Check if a MIDI message passes current filters
-        function passesMidiFilter(type, data, device) {
+        function passesMidiFilter(type, data, instrumentName) {
             if (!debugFilters.sources.midi) return false;
 
             const category = getMidiTypeCategory(type);
@@ -5992,8 +6050,9 @@
                 if (data.channel !== parseInt(debugFilters.channel)) return false;
             }
 
-            if (debugFilters.device !== 'all' && device) {
-                if (device !== debugFilters.device) return false;
+            // Instrument filter: if instruments selected, only show those
+            if (debugFilters.instruments.length > 0 && instrumentName) {
+                if (!debugFilters.instruments.includes(instrumentName)) return false;
             }
 
             return true;
@@ -6028,8 +6087,9 @@
         // MIDI Logger (rate-limited: max 100 msgs/sec to protect browser)
         function logMidi(eventData) {
             if (!eventData || !eventData.type) return;
-            const { device, type, data, timestamp } = eventData;
-            if (!data || !passesMidiFilter(type, data, device)) return;
+            const { device, type, data, timestamp, instrumentName } = eventData;
+            const instName = instrumentName || device || '';
+            if (!data || !passesMidiFilter(type, data, instName)) return;
 
             // Rate limiting
             debugMidiCount++;
@@ -6046,11 +6106,11 @@
             line.dataset.source = 'midi';
             line.dataset.midiType = category;
             if (data.channel !== undefined) line.dataset.channel = data.channel;
-            if (device) line.dataset.device = device;
+            if (instName) line.dataset.instrument = instName;
 
             const now = new Date(timestamp || Date.now());
             const time = now.toLocaleTimeString() + '.' + String(now.getMilliseconds()).padStart(3, '0');
-            line.textContent = `[${time}] ${formatMidiMessage(type, data, device)}`;
+            line.textContent = `[${time}] ${formatMidiMessage(type, data, instName)}`;
             logEl.appendChild(line);
             trimLogConsole();
             if (!debugFilters.paused) {
@@ -6076,14 +6136,14 @@
                 } else if (source === 'midi') {
                     const midiType = line.dataset.midiType;
                     const channel = line.dataset.channel;
-                    const device = line.dataset.device;
+                    const instrument = line.dataset.instrument;
                     let visible = debugFilters.sources.midi;
                     if (visible && midiType) visible = debugFilters.types[midiType] !== false;
                     if (visible && debugFilters.channel !== 'all' && channel !== undefined) {
                         visible = channel === String(debugFilters.channel);
                     }
-                    if (visible && debugFilters.device !== 'all' && device) {
-                        visible = device === debugFilters.device;
+                    if (visible && debugFilters.instruments.length > 0 && instrument) {
+                        visible = debugFilters.instruments.includes(instrument);
                     }
                     line.style.display = visible ? '' : 'none';
                 }
@@ -6106,8 +6166,6 @@
             });
             const channelSel = document.getElementById('debugChannelFilter');
             if (channelSel) channelSel.value = debugFilters.channel;
-            const deviceSel = document.getElementById('debugDeviceFilter');
-            if (deviceSel) deviceSel.value = debugFilters.device;
             const hideClockEl = document.getElementById('debugHideClock');
             if (hideClockEl) hideClockEl.checked = debugFilters.hideClock;
 
@@ -6142,15 +6200,6 @@
             if (channelSel) {
                 channelSel.addEventListener('change', () => {
                     debugFilters.channel = channelSel.value;
-                    applyDebugFiltersToExisting();
-                    saveDebugFilters();
-                });
-            }
-
-            // Device filter
-            if (deviceSel) {
-                deviceSel.addEventListener('change', () => {
-                    debugFilters.device = deviceSel.value;
                     applyDebugFiltersToExisting();
                     saveDebugFilters();
                 });
@@ -6195,26 +6244,54 @@
             }
         }
 
-        // Update device filter dropdown with connected devices
-        function updateDebugDeviceFilter(devices) {
-            const sel = document.getElementById('debugDeviceFilter');
-            if (!sel) return;
-            const currentValue = sel.value;
-            sel.innerHTML = '<option value="all">Tous devices</option>';
+        // Update instrument grid with connected instruments
+        function updateDebugInstrumentGrid(devices) {
+            const grid = document.getElementById('debugInstrumentGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            // Build list of instrument names from connected devices
+            const instrumentNames = [];
             if (devices && devices.length > 0) {
                 devices.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d.id || d.name;
-                    opt.textContent = d.name || d.id;
-                    sel.appendChild(opt);
+                    const name = d.displayName || d.customName || d.name || d.id;
+                    if (name && !instrumentNames.includes(name)) {
+                        instrumentNames.push(name);
+                    }
                 });
             }
-            sel.value = currentValue;
-            // If saved device no longer exists, reset to all
-            if (sel.value !== currentValue) {
-                sel.value = 'all';
-                debugFilters.device = 'all';
+
+            if (instrumentNames.length === 0) {
+                grid.innerHTML = '<span class="debug-instrument-empty">Aucun instrument connecté</span>';
+                return;
             }
+
+            // Clean up saved instruments that no longer exist
+            debugFilters.instruments = debugFilters.instruments.filter(n => instrumentNames.includes(n));
+
+            instrumentNames.forEach(name => {
+                const chip = document.createElement('button');
+                chip.className = 'debug-instrument-chip';
+                chip.textContent = name;
+                chip.title = name;
+                // Active = selected (if no selection, none are highlighted = show all)
+                if (debugFilters.instruments.includes(name)) {
+                    chip.classList.add('active');
+                }
+                chip.addEventListener('click', () => {
+                    const idx = debugFilters.instruments.indexOf(name);
+                    if (idx >= 0) {
+                        debugFilters.instruments.splice(idx, 1);
+                        chip.classList.remove('active');
+                    } else {
+                        debugFilters.instruments.push(name);
+                        chip.classList.add('active');
+                    }
+                    applyDebugFiltersToExisting();
+                    saveDebugFilters();
+                });
+                grid.appendChild(chip);
+            });
         }
 
         // Start/stop MIDI monitoring when debug console opens/closes
@@ -7987,7 +8064,7 @@
                     }
                     // Sauvegarder tous les périphériques pour le routage
                     availableDevices = devices;
-                    updateDebugDeviceFilter(connectedDevices);
+                    updateDebugInstrumentGrid(connectedDevices);
                     log(`${devices.length} périphérique(s) trouvé(s), ${connectedDevices.length} connecté(s)`);
                     return;
                 }
@@ -8098,7 +8175,7 @@
 
                 // Sauvegarder les périphériques enrichis pour le routage de canaux
                 availableDevices = enrichedDevices;
-                updateDebugDeviceFilter(connectedDevices);
+                updateDebugInstrumentGrid(connectedDevices);
 
             } catch (error) {
                 log(`Erreur chargement périphériques: ${error.message}`, 'error');
