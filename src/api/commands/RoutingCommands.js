@@ -52,6 +52,16 @@ async function monitorStop(app, data) {
   return { success: true };
 }
 
+async function monitorStartAll(app) {
+  app.midiRouter.startMonitorAll();
+  return { success: true };
+}
+
+async function monitorStopAll(app) {
+  app.midiRouter.stopMonitorAll();
+  return { success: true };
+}
+
 async function routeTest(app, data) {
   // Send test MIDI message through route
   return { success: true };
@@ -253,6 +263,8 @@ export function register(registry, app) {
   registry.register('channel_map', (data) => channelMap(app, data));
   registry.register('monitor_start', (data) => monitorStart(app, data));
   registry.register('monitor_stop', (data) => monitorStop(app, data));
+  registry.register('monitor_start_all', () => monitorStartAll(app));
+  registry.register('monitor_stop_all', () => monitorStopAll(app));
   registry.register('route_test', (data) => routeTest(app, data));
   registry.register('route_duplicate', (data) => routeDuplicate(app, data));
   registry.register('route_export', (data) => routeExport(app, data));

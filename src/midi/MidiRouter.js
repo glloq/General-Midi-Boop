@@ -8,6 +8,7 @@ class MidiRouter {
     this.routes = new Map();
     this.routesBySource = new Map(); // Secondary index: source -> Set of routeIds
     this.monitors = new Set();
+    this.monitorAll = false; // Broadcast all MIDI messages when debug console is open
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._compensationCache = new Map();
     this._compensationCacheTimer = setInterval(() => {
@@ -220,8 +221,8 @@ class MidiRouter {
       }
     }
 
-    // Handle monitors
-    if (this.monitors.has(sourceDevice)) {
+    // Handle monitors (per-device or global debug monitor)
+    if (this.monitorAll || this.monitors.has(sourceDevice)) {
       this.broadcastMonitorEvent(sourceDevice, type, msg);
     }
   }
@@ -300,6 +301,16 @@ class MidiRouter {
   stopMonitor(deviceId) {
     this.monitors.delete(deviceId);
     this.app.logger.info(`Monitor stopped for device: ${deviceId}`);
+  }
+
+  startMonitorAll() {
+    this.monitorAll = true;
+    this.app.logger.info('Monitor ALL devices started (debug console)');
+  }
+
+  stopMonitorAll() {
+    this.monitorAll = false;
+    this.app.logger.info('Monitor ALL devices stopped (debug console)');
   }
 
   broadcastMonitorEvent(deviceId, type, msg) {
