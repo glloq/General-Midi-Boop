@@ -176,6 +176,10 @@
     transform: rotate(-90deg);
 }
 
+.cc-section-header.collapsed .cc-header-channels {
+    display: none;
+}
+
 /* Contenu de la section CC */
 .cc-section-content {
     flex: 1;
