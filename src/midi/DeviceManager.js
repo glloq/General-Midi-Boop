@@ -372,6 +372,17 @@ class DeviceManager {
   }
 
   sendMessage(deviceName, type, data) {
+    // Broadcast to debug monitor if monitorAll is active
+    if (this.app.midiRouter?.monitorAll && this.app.wsServer) {
+      this.app.wsServer.broadcast('monitor_event', {
+        device: deviceName,
+        type: type,
+        data: data,
+        timestamp: Date.now(),
+        direction: 'out'
+      });
+    }
+
     // Vérifier si c'est un périphérique USB MIDI
     const output = this.outputs.get(deviceName);
     if (output) {
