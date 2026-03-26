@@ -243,6 +243,7 @@
     "noActiveChannel": "No active channel",
     "noNotesInFile": "No notes in this file",
     "noCCInFile": "No CC/Pitchbend in this file",
+    "noCCOnChannel": "No CC on this channel — use tools to create some",
     "ccSection": "CC / Pitch Bend / Velocity",
     "type": "Type:",
     "tools": "Tools:",
