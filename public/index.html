@@ -6244,21 +6244,41 @@
             }
         }
 
-        // Update instrument grid with connected instruments
-        function updateDebugInstrumentGrid(devices) {
+        // Update instrument grid with connected instruments (loads all instruments per device)
+        async function updateDebugInstrumentGrid(devices) {
             const grid = document.getElementById('debugInstrumentGrid');
             if (!grid) return;
             grid.innerHTML = '';
 
-            // Build list of instrument names from connected devices
+            // Build list of instrument names from all channels of all connected devices
             const instrumentNames = [];
-            if (devices && devices.length > 0) {
-                devices.forEach(d => {
-                    const name = d.displayName || d.customName || d.name || d.id;
-                    if (name && !instrumentNames.includes(name)) {
-                        instrumentNames.push(name);
+            if (devices && devices.length > 0 && window.api) {
+                for (const d of devices) {
+                    try {
+                        const result = await window.api.sendCommand('instrument_list_by_device', { deviceId: d.id });
+                        const instruments = result?.instruments || [];
+                        if (instruments.length > 0) {
+                            instruments.forEach(inst => {
+                                const name = inst.custom_name || inst.name || d.displayName || d.name || d.id;
+                                if (name && !instrumentNames.includes(name)) {
+                                    instrumentNames.push(name);
+                                }
+                            });
+                        } else {
+                            // No instruments configured: use device name as fallback
+                            const name = d.displayName || d.customName || d.name || d.id;
+                            if (name && !instrumentNames.includes(name)) {
+                                instrumentNames.push(name);
+                            }
+                        }
+                    } catch (e) {
+                        // Fallback to device name
+                        const name = d.displayName || d.customName || d.name || d.id;
+                        if (name && !instrumentNames.includes(name)) {
+                            instrumentNames.push(name);
+                        }
                     }
-                });
+                }
             }
 
             if (instrumentNames.length === 0) {
