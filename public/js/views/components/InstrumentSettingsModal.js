@@ -444,7 +444,7 @@ class InstrumentSettingsModal extends BaseModal {
                     <span class="si-string-note-badge" id="ismBadge${i}">${noteName}</span>
                     <input type="number" class="si-input si-input-xs si-tuning-val" id="siTuning${i}"
                            data-string="${i}" value="${note}" min="0" max="127"
-                           title="MIDI" onchange="onSiTuningChanged(${i}, this)">
+                           title="MIDI">
                     <input type="hidden" class="si-frets-val" id="siFrets${i}"
                            value="${fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets}">
                 </div>`;
@@ -457,11 +457,11 @@ class InstrumentSettingsModal extends BaseModal {
                 <div class="ism-form-row">
                     <div class="ism-form-group">
                         <label>${this.t('stringInstrument.tuningPreset') || 'Preset d\'accordage'}</label>
-                        <select id="siPresetSelect" onchange="onSiPresetChanged(this)">${presetOptions}</select>
+                        <select id="siPresetSelect">${presetOptions}</select>
                     </div>
                     <div class="ism-form-group ism-narrow">
                         <label>${this.t('stringInstrument.numStrings') || 'Cordes'}</label>
-                        <input type="number" id="siNumStrings" value="${numStrings}" min="1" max="12" onchange="onSiStringsChanged(this)">
+                        <input type="number" id="siNumStrings" value="${numStrings}" min="1" max="12">
                     </div>
                 </div>
 
@@ -1074,18 +1074,85 @@ class InstrumentSettingsModal extends BaseModal {
             });
         }
 
-        // Num strings change -> re-render entire strings section
+        // Num strings change -> update config then re-render
         const siNumStrings = this.$('#siNumStrings');
         if (siNumStrings) {
             siNumStrings.addEventListener('change', () => {
-                // Let legacy onSiStringsChanged run first, then refresh
-                setTimeout(() => {
-                    const stringsSection = this.$('.ism-section[data-section="strings"]');
-                    if (stringsSection) {
-                        stringsSection.innerHTML = this._renderStringsSection();
-                        this._attachStringsSectionListeners();
+                const num = parseInt(siNumStrings.value);
+                if (isNaN(num) || num < 1 || num > 12) return;
+
+                const tab = this._getActiveTab();
+                if (!tab) return;
+
+                // Ensure stringInstrumentConfig exists
+                if (!tab.stringInstrumentConfig) {
+                    tab.stringInstrumentConfig = {
+                        num_strings: 6, num_frets: 24,
+                        tuning: [40, 45, 50, 55, 59, 64],
+                        is_fretless: false, capo_fret: 0, cc_enabled: true
+                    };
+                }
+                const cfg = tab.stringInstrumentConfig;
+
+                // Collect current tuning from DOM before re-render
+                const currentTuning = [];
+                for (let i = 0; i < 12; i++) {
+                    const el = this.$(`#siTuning${i}`);
+                    if (el) currentTuning.push(parseInt(el.value) || 40);
+                }
+                // Extend tuning if adding strings
+                while (currentTuning.length < num) {
+                    const last = currentTuning[currentTuning.length - 1] || 40;
+                    currentTuning.push(Math.min(127, last + 5));
+                }
+
+                // Update config
+                cfg.num_strings = num;
+                cfg.tuning = currentTuning.slice(0, num);
+
+                // Adjust frets_per_string if set
+                if (cfg.frets_per_string) {
+                    while (cfg.frets_per_string.length < num) {
+                        cfg.frets_per_string.push(cfg.num_frets || 24);
                     }
-                }, 50);
+                    cfg.frets_per_string = cfg.frets_per_string.slice(0, num);
+                }
+
+                // Re-render
+                const stringsSection = this.$('.ism-section[data-section="strings"]');
+                if (stringsSection) {
+                    stringsSection.innerHTML = this._renderStringsSection();
+                    this._attachStringsSectionListeners();
+                }
+            });
+        }
+
+        // Preset change -> update config then re-render
+        const siPreset = this.$('#siPresetSelect');
+        if (siPreset) {
+            siPreset.addEventListener('change', () => {
+                if (!siPreset.value || !this.tuningPresets) return;
+                const preset = this.tuningPresets[siPreset.value];
+                if (!preset) return;
+
+                const tab = this._getActiveTab();
+                if (!tab) return;
+                if (!tab.stringInstrumentConfig) {
+                    tab.stringInstrumentConfig = {};
+                }
+                const cfg = tab.stringInstrumentConfig;
+                cfg.num_strings = preset.strings;
+                cfg.num_frets = preset.frets;
+                cfg.tuning = [...preset.tuning];
+                cfg.is_fretless = !!preset.fretless;
+                cfg.frets_per_string = null;
+
+                // Re-render
+                const stringsSection = this.$('.ism-section[data-section="strings"]');
+                if (stringsSection) {
+                    stringsSection.innerHTML = this._renderStringsSection();
+                    this._attachStringsSectionListeners();
+                }
             });
         }
 
