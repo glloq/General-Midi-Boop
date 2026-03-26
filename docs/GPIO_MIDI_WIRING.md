@@ -1,25 +1,25 @@
-# MIDI Serie via GPIO - Guide de cablage
+# Serial MIDI via GPIO - Wiring Guide
 
-Ce guide explique comment connecter des instruments MIDI aux broches GPIO du Raspberry Pi en utilisant le protocole MIDI serie standard (31250 baud, 8N1).
+This guide explains how to connect MIDI instruments to the Raspberry Pi GPIO pins using the standard serial MIDI protocol (31250 baud, 8N1).
 
-## Sommaire
+## Table of Contents
 
-1. [HATs MIDI commerciaux (Plug & Play)](#hats-midi-commerciaux-plug--play)
-2. [Compatibilite Raspberry Pi](#compatibilite-raspberry-pi)
-3. [Circuit MIDI OUT (DIY)](#circuit-midi-out-gpio-tx-vers-din-5-broches)
-4. [Circuit MIDI IN (DIY)](#circuit-midi-in-din-5-broches-vers-gpio-rx)
-5. [Configuration du Raspberry Pi](#configuration-du-raspberry-pi)
-6. [Correspondance UARTs par modele](#correspondance-uarts-par-modele)
-7. [Liste des composants (DIY)](#liste-des-composants)
-8. [Depannage](#depannage)
+1. [Commercial MIDI HATs (Plug & Play)](#commercial-midi-hats-plug--play)
+2. [Raspberry Pi Compatibility](#raspberry-pi-compatibility)
+3. [MIDI OUT Circuit (DIY)](#midi-out-circuit-gpio-tx-to-din-5-pin)
+4. [MIDI IN Circuit (DIY)](#midi-in-circuit-din-5-pin-to-gpio-rx)
+5. [Raspberry Pi Configuration](#raspberry-pi-configuration)
+6. [UART Mapping by Model](#uart-mapping-by-model)
+7. [Component List (DIY)](#component-list)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
-## HATs MIDI commerciaux (Plug & Play)
+## Commercial MIDI HATs (Plug & Play)
 
-Si vous ne souhaitez pas souder de composants, plusieurs HATs MIDI du commerce se branchent directement sur le connecteur GPIO 40 broches du Raspberry Pi. Ils integrent les circuits d'optoisolation et de mise en forme du signal MIDI.
+If you do not wish to solder components, several commercial MIDI HATs plug directly into the Raspberry Pi 40-pin GPIO header. They include built-in opto-isolation and MIDI signal conditioning circuits.
 
-### Blokas Pimidi (recommande pour multi-ports)
+### Blokas Pimidi (recommended for multi-port)
 
 ```
 ┌──────────────────────────────────────┐
@@ -35,30 +35,30 @@ Si vous ne souhaitez pas souder de composants, plusieurs HATs MIDI du commerce s
 └──────────────────────────────────────┘
 ```
 
-| Caracteristique | Detail |
-|-----------------|--------|
-| **Ports** | 2x MIDI IN + 2x MIDI OUT (DIN-5) par HAT |
-| **Empilable** | Jusqu'a 4 HATs = 8 IN / 8 OUT |
-| **Interface** | I2C + 2 GPIO (laisse les autres GPIO libres) |
-| **Latence** | 1.28ms (loopback) |
-| **Compatibilite** | Pi 3, Pi 4, Pi 5 |
-| **Connecteurs** | DIN-5 standard |
+| Feature | Detail |
+|---------|--------|
+| **Ports** | 2x MIDI IN + 2x MIDI OUT (DIN-5) per HAT |
+| **Stackable** | Up to 4 HATs = 8 IN / 8 OUT |
+| **Interface** | I2C + 2 GPIO (leaves other GPIO pins free) |
+| **Latency** | 1.28ms (loopback) |
+| **Compatibility** | Pi 3, Pi 4, Pi 5 |
+| **Connectors** | Standard DIN-5 |
 | **API** | Python (pimidipy) |
-| **Prix** | ~99 EUR |
-| **Site** | [blokas.io/pimidi](https://blokas.io/pimidi/) |
+| **Price** | ~99 EUR |
+| **Website** | [blokas.io/pimidi](https://blokas.io/pimidi/) |
 
-**Avantages** : Duplicateur GPIO 40 broches integre (empilable avec d'autres HATs), latence tres faible, API Python, jusqu'a 8x8 ports.
+**Advantages**: Built-in 40-pin GPIO pass-through (stackable with other HATs), very low latency, Python API, up to 8x8 ports.
 
-**Installation** :
+**Installation**:
 ```bash
-# Installer le driver Pimidi
+# Install the Pimidi driver
 curl https://blokas.io/pimidi/install.sh | sh
 
-# Les ports apparaissent comme des ports ALSA MIDI standards
+# Ports appear as standard ALSA MIDI ports
 aconnect -l
 ```
 
-> **Note** : Le Pimidi utilise I2C et non UART. Il n'utilise pas `/dev/ttyAMA*` mais apparait comme un peripherique MIDI ALSA. Ma-est-tro le detectera comme un port MIDI systeme standard (pas via le module Serial MIDI GPIO).
+> **Note**: The Pimidi uses I2C, not UART. It does not use `/dev/ttyAMA*` but appears as an ALSA MIDI device. Ma-est-tro will detect it as a standard system MIDI port (not via the Serial MIDI GPIO module).
 
 ---
 
@@ -79,18 +79,18 @@ aconnect -l
 └──────────────────────────────────────┘
 ```
 
-| Caracteristique | Detail |
-|-----------------|--------|
-| **Ports MIDI** | 1x MIDI IN + 1x MIDI OUT (DIN-5) |
+| Feature | Detail |
+|---------|--------|
+| **MIDI Ports** | 1x MIDI IN + 1x MIDI OUT (DIN-5) |
 | **Audio** | Stereo IN/OUT, 192kHz 24-bit, Burr-Brown DAC/ADC |
-| **Controles** | Gain, Volume, bouton programmable |
-| **Compatibilite** | Pi 1B+, Pi 2, Pi 3, Pi 4, Pi Zero |
-| **Prix** | ~89 USD |
-| **Site** | [blokas.io/pisound](https://blokas.io/pisound/) |
+| **Controls** | Gain, Volume, programmable button |
+| **Compatibility** | Pi 1B+, Pi 2, Pi 3, Pi 4, Pi Zero |
+| **Price** | ~89 USD |
+| **Website** | [blokas.io/pisound](https://blokas.io/pisound/) |
 
-**Avantages** : Solution tout-en-un MIDI + Audio haute qualite, ideal si vous avez aussi besoin de sorties audio.
+**Advantages**: All-in-one MIDI + high-quality audio solution, ideal if you also need audio outputs.
 
-> **Note** : Le Pisound n'est pas encore compatible Pi 5. Pour Pi 5, voir le **Pisound Micro** (~69 EUR) sur [blokas.io/pisound-micro](https://blokas.io/pisound-micro/).
+> **Note**: The Pisound is not yet compatible with Pi 5. For Pi 5, see the **Pisound Micro** (~69 EUR) at [blokas.io/pisound-micro](https://blokas.io/pisound-micro/).
 
 ---
 
@@ -110,25 +110,25 @@ aconnect -l
 └──────────────────────────────────────┘
 ```
 
-| Caracteristique | Detail |
-|-----------------|--------|
-| **Ports** | 1x MIDI IN + 1x MIDI OUT (mini-jack TRS 3.5mm, adaptateurs DIN-5 inclus) |
-| **Interface** | UART0 direct (GPIO14 TX, GPIO15 RX) |
-| **Buffer** | 5V MIDI standard (meilleure compatibilite) |
-| **I/O (v1.2+)** | 16 GPIO supplementaires via MCP23017 (boutons, encodeurs, LEDs) |
-| **Compatibilite** | Pi Zero, Pi 3, Pi 4, Pi 5 |
-| **Prix** | ~25-36 EUR |
-| **Site** | [domoshop.eu](https://domoshop.eu/collections/raspberry-pi-midi) |
+| Feature | Detail |
+|---------|--------|
+| **Ports** | 1x MIDI IN + 1x MIDI OUT (3.5mm TRS mini-jack, DIN-5 adapters included) |
+| **Interface** | Direct UART0 (GPIO14 TX, GPIO15 RX) |
+| **Buffer** | 5V MIDI standard (better compatibility) |
+| **I/O (v1.2+)** | 16 additional GPIO via MCP23017 (buttons, encoders, LEDs) |
+| **Compatibility** | Pi Zero, Pi 3, Pi 4, Pi 5 |
+| **Price** | ~25-36 EUR |
+| **Website** | [domoshop.eu](https://domoshop.eu/collections/raspberry-pi-midi) |
 
-**Avantages** : Compact, abordable, connecteurs mini-jack (gain de place), buffer 5V pour compatibilite maximale, GPIO supplementaires sur v1.2+.
+**Advantages**: Compact, affordable, mini-jack connectors (space-saving), 5V buffer for maximum compatibility, additional GPIO on v1.2+.
 
-> **Note** : Le Slim MIDI Hat utilise UART0 (`/dev/ttyAMA0`). Il est compatible avec le module Serial MIDI GPIO de Ma-est-tro. Activez-le dans les reglages et le port `/dev/ttyAMA0` sera detecte automatiquement.
+> **Note**: The Slim MIDI Hat uses UART0 (`/dev/ttyAMA0`). It is compatible with the Ma-est-tro Serial MIDI GPIO module. Enable it in the settings and the `/dev/ttyAMA0` port will be detected automatically.
 
-**Installation** :
+**Installation**:
 ```bash
-# /boot/config.txt (ou /boot/firmware/config.txt)
+# /boot/config.txt (or /boot/firmware/config.txt)
 enable_uart=1
-dtoverlay=disable-bt      # Libere UART0 pour le MIDI
+dtoverlay=disable-bt      # Free UART0 for MIDI
 
 # Permissions
 sudo usermod -aG dialout $USER
@@ -139,66 +139,66 @@ sudo reboot
 
 ### OSA Electronics MIDI Board
 
-| Caracteristique | Detail |
-|-----------------|--------|
+| Feature | Detail |
+|---------|--------|
 | **Ports** | 1x MIDI IN + 1x MIDI OUT (DIN-5) |
-| **Interface** | UART0 direct (GPIO14/15) |
-| **Compatibilite** | Pi A+, B+, Pi 2, Pi 3, Pi 4, Pi 5 |
+| **Interface** | Direct UART0 (GPIO14/15) |
+| **Compatibility** | Pi A+, B+, Pi 2, Pi 3, Pi 4, Pi 5 |
 | **Zynthian** | Compatible |
-| **Site** | [osaelectronics.com](https://www.osaelectronics.com/product/midi-board-for-raspberry-pi/) |
+| **Website** | [osaelectronics.com](https://www.osaelectronics.com/product/midi-board-for-raspberry-pi/) |
 
-**Avantages** : Simple, connecteurs DIN-5 standard, documentation complete avec guide de configuration.
+**Advantages**: Simple, standard DIN-5 connectors, comprehensive documentation with setup guide.
 
-> **Note** : Utilise UART0 comme le Domoshop. Compatible avec le module Serial MIDI de Ma-est-tro.
+> **Note**: Uses UART0 like the Domoshop. Compatible with the Ma-est-tro Serial MIDI module.
 
 ---
 
-### Tableau comparatif
+### Comparison Table
 
-| HAT | Ports MIDI | Audio | Empilable | Interface | Pi 5 | Prix |
+| HAT | MIDI Ports | Audio | Stackable | Interface | Pi 5 | Price |
 |-----|-----------|-------|-----------|-----------|------|------|
-| **Pimidi** | 2 IN + 2 OUT | Non | Oui (x4 = 8x8) | I2C | Oui | ~99 EUR |
-| **Pisound** | 1 IN + 1 OUT | Oui (192kHz) | Non | SPI | Non* | ~89 USD |
-| **Slim MIDI Hat** | 1 IN + 1 OUT | Non | Non | UART | Oui | ~25-36 EUR |
-| **OSA MIDI Board** | 1 IN + 1 OUT | Non | Non | UART | Oui | ~20-30 EUR |
+| **Pimidi** | 2 IN + 2 OUT | No | Yes (x4 = 8x8) | I2C | Yes | ~99 EUR |
+| **Pisound** | 1 IN + 1 OUT | Yes (192kHz) | No | SPI | No* | ~89 USD |
+| **Slim MIDI Hat** | 1 IN + 1 OUT | No | No | UART | Yes | ~25-36 EUR |
+| **OSA MIDI Board** | 1 IN + 1 OUT | No | No | UART | Yes | ~20-30 EUR |
 
-\* Pisound Micro disponible pour Pi 5 (~69 EUR)
+\* Pisound Micro available for Pi 5 (~69 EUR)
 
-### Compatibilite avec Ma-est-tro
+### Compatibility with Ma-est-tro
 
-| HAT | Detection | Module utilise |
-|-----|-----------|----------------|
-| **Pimidi** | Automatique (ALSA MIDI) | Ports MIDI systeme (comme USB) |
-| **Pisound** | Automatique (ALSA MIDI) | Ports MIDI systeme (comme USB) |
-| **Slim MIDI Hat** | Via `/dev/ttyAMA0` | **Serial MIDI GPIO** (activer dans reglages) |
-| **OSA MIDI Board** | Via `/dev/ttyAMA0` | **Serial MIDI GPIO** (activer dans reglages) |
+| HAT | Detection | Module Used |
+|-----|-----------|-------------|
+| **Pimidi** | Automatic (ALSA MIDI) | System MIDI ports (like USB) |
+| **Pisound** | Automatic (ALSA MIDI) | System MIDI ports (like USB) |
+| **Slim MIDI Hat** | Via `/dev/ttyAMA0` | **Serial MIDI GPIO** (enable in settings) |
+| **OSA MIDI Board** | Via `/dev/ttyAMA0` | **Serial MIDI GPIO** (enable in settings) |
 
-> Les HATs bases sur I2C/SPI (Pimidi, Pisound) apparaissent comme des ports MIDI standards et sont detectes automatiquement par Ma-est-tro sans activer l'option Serial MIDI GPIO. Les HATs bases sur UART (Domoshop, OSA) necessitent l'activation de l'option Serial MIDI GPIO dans les reglages.
-
----
-
-## Fabrication DIY (Do It Yourself)
-
-Si vous preferez construire votre propre circuit MIDI, les sections suivantes detaillent le cablage composant par composant.
+> I2C/SPI-based HATs (Pimidi, Pisound) appear as standard MIDI ports and are automatically detected by Ma-est-tro without enabling the Serial MIDI GPIO option. UART-based HATs (Domoshop, OSA) require enabling the Serial MIDI GPIO option in the settings.
 
 ---
 
-## Compatibilite Raspberry Pi
+## DIY Build (Do It Yourself)
 
-| Modele | UARTs disponibles | Notes |
-|--------|-------------------|-------|
-| **Pi 3B/3B+** | 1 (mini UART partage avec BT) | Il faut desactiver le Bluetooth pour liberer UART0 |
-| **Pi 4B** | Jusqu'a 6 (UART0 + UART2-5 via overlays) | Recommande - meilleur support multi-UART |
-| **Pi 5** | Jusqu'a 5 UARTs natifs | Meilleur DMA, timing MIDI precis |
-| **Pi Zero 2W** | 1 (mini UART partage avec BT) | Comme le Pi 3, desactiver BT pour UART0 |
+If you prefer to build your own MIDI circuit, the following sections detail the wiring component by component.
 
 ---
 
-## Circuit MIDI OUT (GPIO TX vers DIN 5 broches)
+## Raspberry Pi Compatibility
 
-Le circuit MIDI OUT envoie les donnees du Raspberry Pi vers un instrument MIDI.
+| Model | Available UARTs | Notes |
+|-------|-----------------|-------|
+| **Pi 3B/3B+** | 1 (mini UART shared with BT) | Bluetooth must be disabled to free UART0 |
+| **Pi 4B** | Up to 6 (UART0 + UART2-5 via overlays) | Recommended - best multi-UART support |
+| **Pi 5** | Up to 5 native UARTs | Better DMA, precise MIDI timing |
+| **Pi Zero 2W** | 1 (mini UART shared with BT) | Same as Pi 3, disable BT for UART0 |
 
-### Schema
+---
+
+## MIDI OUT Circuit (GPIO TX to DIN 5-pin)
+
+The MIDI OUT circuit sends data from the Raspberry Pi to a MIDI instrument.
+
+### Schematic
 
 ```
                     DIN-5 Female (vue de face, cote soudure)
@@ -218,13 +218,13 @@ GPIO TX ──── [220 ohm] ────────────────�
 GND ────────────────────────────────────── Pin 2 (Shield/GND)
 ```
 
-### Explication
+### Explanation
 
-- La specification MIDI utilise une boucle de courant. Le TX du Pi commute le courant a travers les resistances.
-- Les resistances de 220 ohm limitent le courant a environ 5mA (norme MIDI).
-- **Important** : Le Pi fonctionne en 3.3V. La plupart des recepteurs MIDI modernes acceptent cette tension, mais certains instruments anciens (5V) peuvent necessiter un buffer de niveau (74HCT04 ou SN7407).
+- The MIDI specification uses a current loop. The Pi's TX switches the current through the resistors.
+- The 220 ohm resistors limit the current to approximately 5mA (MIDI standard).
+- **Important**: The Pi operates at 3.3V. Most modern MIDI receivers accept this voltage, but some older instruments (5V) may require a level buffer (74HCT04 or SN7407).
 
-### Schema avec buffer de niveau (optionnel, pour instruments 5V)
+### Schematic with level buffer (optional, for 5V instruments)
 
 ```
 GPIO TX ──── [220 ohm] ── 74HCT04 ── [220 ohm] ── DIN Pin 5
@@ -234,11 +234,11 @@ GND ─────────────────────────�
 
 ---
 
-## Circuit MIDI IN (DIN 5 broches vers GPIO RX)
+## MIDI IN Circuit (DIN 5-pin to GPIO RX)
 
-Le circuit MIDI IN recoit les donnees d'un instrument MIDI vers le Raspberry Pi. Un optocoupler (6N138) est **obligatoire** pour isoler electriquement les deux appareils.
+The MIDI IN circuit receives data from a MIDI instrument to the Raspberry Pi. An optocoupler (6N138) is **required** to electrically isolate the two devices.
 
-### Schema
+### Schematic
 
 ```
 DIN-5 Female                  6N138 Optocoupler              Raspberry Pi
@@ -261,7 +261,7 @@ Pin 4 ───────────────────── 3 │Catho
                       └──── vers GPIO RX
 ```
 
-### Brochage du 6N138
+### 6N138 Pinout
 
 ```
         ┌────────┐
@@ -272,14 +272,14 @@ Pin 4 ───────────────────── 3 │Catho
         └────────┘
 ```
 
-### Explication
+### Explanation
 
-- L'optocoupler isole electriquement l'emetteur MIDI du Raspberry Pi (protection contre les boucles de masse).
-- La resistance de 220 ohm sur l'anode (pin 2) limite le courant de la LED interne.
-- Le pull-up de 10k ohm sur la sortie (pin 6) assure un signal propre pour le GPIO RX.
-- La diode 1N4148 (optionnelle) en anti-parallele sur l'anode peut proteger contre les inversions de polarite.
+- The optocoupler electrically isolates the MIDI transmitter from the Raspberry Pi (protection against ground loops).
+- The 220 ohm resistor on the anode (pin 2) limits the current to the internal LED.
+- The 10k ohm pull-up on the output (pin 6) ensures a clean signal for GPIO RX.
+- A 1N4148 diode (optional) in anti-parallel across the anode can protect against polarity reversal.
 
-### Version complete avec protection
+### Full version with protection
 
 ```
 DIN Pin 4 ──── ┐
@@ -296,38 +296,38 @@ DIN Pin 4 ────────────────┘── 6N138 Pin 3 
 
 ---
 
-## Configuration du Raspberry Pi
+## Raspberry Pi Configuration
 
 ### Raspberry Pi 3B/3B+
 
 ```bash
-# /boot/config.txt (ou /boot/firmware/config.txt sur les OS recents)
+# /boot/config.txt (or /boot/firmware/config.txt on recent OS versions)
 
-# Desactiver le Bluetooth pour liberer UART0 (PL011) sur GPIO14/15
+# Disable Bluetooth to free UART0 (PL011) on GPIO14/15
 dtoverlay=disable-bt
 
-# Desactiver le service Bluetooth systemd
+# Disable the Bluetooth systemd service
 sudo systemctl disable hciuart
 ```
 
-Apres modification, un seul UART est disponible : `/dev/ttyAMA0` (GPIO14 TX, GPIO15 RX).
+After modification, a single UART is available: `/dev/ttyAMA0` (GPIO14 TX, GPIO15 RX).
 
-### Raspberry Pi 4B (recommande)
+### Raspberry Pi 4B (recommended)
 
 ```bash
 # /boot/config.txt
 
-# Option 1 : Desactiver le Bluetooth pour liberer UART0
+# Option 1: Disable Bluetooth to free UART0
 dtoverlay=disable-bt
 
-# Option 2 : Garder le Bluetooth et utiliser les UARTs supplementaires
-# (UART0 reste utilise par BT, mais UART2-5 sont disponibles)
+# Option 2: Keep Bluetooth and use additional UARTs
+# (UART0 remains used by BT, but UART2-5 are available)
 
-# Activer des UARTs supplementaires (choisir selon les GPIO disponibles) :
-dtoverlay=uart2    # UART2 sur GPIO0 (TX) / GPIO1 (RX)
-dtoverlay=uart3    # UART3 sur GPIO4 (TX) / GPIO5 (RX)
-dtoverlay=uart4    # UART4 sur GPIO8 (TX) / GPIO9 (RX)
-dtoverlay=uart5    # UART5 sur GPIO12 (TX) / GPIO13 (RX)
+# Enable additional UARTs (choose according to available GPIO):
+dtoverlay=uart2    # UART2 on GPIO0 (TX) / GPIO1 (RX)
+dtoverlay=uart3    # UART3 on GPIO4 (TX) / GPIO5 (RX)
+dtoverlay=uart4    # UART4 on GPIO8 (TX) / GPIO9 (RX)
+dtoverlay=uart5    # UART5 on GPIO12 (TX) / GPIO13 (RX)
 ```
 
 ### Raspberry Pi 5
@@ -335,48 +335,48 @@ dtoverlay=uart5    # UART5 sur GPIO12 (TX) / GPIO13 (RX)
 ```bash
 # /boot/firmware/config.txt
 
-# Le Pi 5 utilise un chipset different (RP1)
-# UART0 est sur GPIO14/15 par defaut
+# The Pi 5 uses a different chipset (RP1)
+# UART0 is on GPIO14/15 by default
 dtoverlay=uart0-pi5
 
-# UARTs supplementaires
+# Additional UARTs
 dtoverlay=uart2-pi5    # GPIO0/1
 dtoverlay=uart3-pi5    # GPIO4/5
 dtoverlay=uart4-pi5    # GPIO8/9
 ```
 
-### Permissions utilisateur (tous modeles)
+### User permissions (all models)
 
 ```bash
-# Ajouter l'utilisateur au groupe dialout pour acceder aux ports serie
+# Add user to the dialout group to access serial ports
 sudo usermod -aG dialout $USER
 
-# Redemarrer pour appliquer
+# Reboot to apply
 sudo reboot
 ```
 
-### Verifier la configuration
+### Verify the configuration
 
 ```bash
-# Lister les ports serie disponibles
+# List available serial ports
 ls -la /dev/ttyAMA*
 
-# Tester la vitesse 31250 baud
+# Test 31250 baud rate
 stty -F /dev/ttyAMA0 31250
 
-# Verifier les overlays actifs
+# Check active overlays
 dtoverlay -l
 ```
 
 ---
 
-## Correspondance UARTs par modele
+## UART Mapping by Model
 
 ### Raspberry Pi 4B
 
 | UART | Device | GPIO TX | GPIO RX | Overlay |
 |------|--------|---------|---------|---------|
-| 0 | /dev/ttyAMA0 | GPIO14 (pin 8) | GPIO15 (pin 10) | `disable-bt` ou par defaut |
+| 0 | /dev/ttyAMA0 | GPIO14 (pin 8) | GPIO15 (pin 10) | `disable-bt` or default |
 | 2 | /dev/ttyAMA1 | GPIO0 (pin 27) | GPIO1 (pin 28) | `uart2` |
 | 3 | /dev/ttyAMA2 | GPIO4 (pin 7) | GPIO5 (pin 29) | `uart3` |
 | 4 | /dev/ttyAMA3 | GPIO8 (pin 24) | GPIO9 (pin 21) | `uart4` |
@@ -386,10 +386,10 @@ dtoverlay -l
 
 | UART | Device | GPIO TX | GPIO RX | Notes |
 |------|--------|---------|---------|-------|
-| 0 (PL011) | /dev/ttyAMA0 | GPIO14 (pin 8) | GPIO15 (pin 10) | Necessite `disable-bt` |
-| 1 (mini) | /dev/ttyS0 | GPIO14 (pin 8) | GPIO15 (pin 10) | Par defaut (instable a 31250 baud) |
+| 0 (PL011) | /dev/ttyAMA0 | GPIO14 (pin 8) | GPIO15 (pin 10) | Requires `disable-bt` |
+| 1 (mini) | /dev/ttyS0 | GPIO14 (pin 8) | GPIO15 (pin 10) | Default (unstable at 31250 baud) |
 
-> **Attention** : Le mini UART du Pi 3 est lie a la frequence du CPU et peut etre instable a 31250 baud. Utilisez toujours le PL011 (UART0) avec `dtoverlay=disable-bt`.
+> **Warning**: The Pi 3 mini UART is tied to the CPU frequency and can be unstable at 31250 baud. Always use the PL011 (UART0) with `dtoverlay=disable-bt`.
 
 ### Raspberry Pi 5
 
@@ -402,63 +402,63 @@ dtoverlay -l
 
 ---
 
-## Liste des composants
+## Component List
 
-### Pour un port MIDI OUT :
+### For one MIDI OUT port:
 
-| Composant | Quantite | Ref |
+| Component | Quantity | Ref |
 |-----------|----------|-----|
-| Resistance 220 ohm 1/4W | 2 | - |
-| Connecteur DIN-5 femelle | 1 | Chassis ou cable |
+| 220 ohm 1/4W resistor | 2 | - |
+| DIN-5 female connector | 1 | Panel-mount or cable |
 
-### Pour un port MIDI IN :
+### For one MIDI IN port:
 
-| Composant | Quantite | Ref |
+| Component | Quantity | Ref |
 |-----------|----------|-----|
-| Optocoupler 6N138 | 1 | (ou 6N139, H11L1) |
-| Resistance 220 ohm 1/4W | 1 | Protection LED |
-| Resistance 470 ohm 1/4W | 1 | Alimentation Vcc |
-| Resistance 10k ohm 1/4W | 1 | Pull-up sortie |
-| Diode 1N4148 | 1 | Protection (optionnel) |
-| Connecteur DIN-5 femelle | 1 | Chassis ou cable |
+| 6N138 optocoupler | 1 | (or 6N139, H11L1) |
+| 220 ohm 1/4W resistor | 1 | LED protection |
+| 470 ohm 1/4W resistor | 1 | Vcc power supply |
+| 10k ohm 1/4W resistor | 1 | Output pull-up |
+| 1N4148 diode | 1 | Protection (optional) |
+| DIN-5 female connector | 1 | Panel-mount or cable |
 
-### Pour un port MIDI IN + OUT complet :
+### For a complete MIDI IN + OUT port:
 
-Combiner les deux listes ci-dessus. Les composants sont peu couteux (<2 EUR par port).
+Combine the two lists above. Components are inexpensive (<2 EUR per port).
 
-### Alternatives commerciales (plug & play)
+### Commercial alternatives (plug & play)
 
-Voir la section [HATs MIDI commerciaux](#hats-midi-commerciaux-plug--play) en debut de document pour un comparatif complet des solutions du commerce (Pimidi, Pisound, Slim MIDI Hat, OSA MIDI Board).
+See the [Commercial MIDI HATs](#commercial-midi-hats-plug--play) section at the beginning of this document for a full comparison of off-the-shelf solutions (Pimidi, Pisound, Slim MIDI Hat, OSA MIDI Board).
 
 ---
 
-## Depannage
+## Troubleshooting
 
-### Le port ne s'ouvre pas
+### Port does not open
 
 ```
 Permission denied for /dev/ttyAMA0
 ```
-Solution : `sudo usermod -aG dialout $USER && sudo reboot`
+Solution: `sudo usermod -aG dialout $USER && sudo reboot`
 
-### Le port n'est pas detecte
+### Port is not detected
 
 ```
 Serial device not found: /dev/ttyAMA0
 ```
-Solution : Verifier `/boot/config.txt` et les overlays UART. Redemarrer apres modification.
+Solution: Check `/boot/config.txt` and UART overlays. Reboot after making changes.
 
-### Le 31250 baud n'est pas supporte
+### 31250 baud is not supported
 
-Le mini UART (`ttyS0`) du Pi 3 peut ne pas supporter 31250 baud de maniere fiable.
-Solution : Utiliser le PL011 (`ttyAMA0`) avec `dtoverlay=disable-bt`.
+The mini UART (`ttyS0`) on the Pi 3 may not reliably support 31250 baud.
+Solution: Use the PL011 (`ttyAMA0`) with `dtoverlay=disable-bt`.
 
-### Les notes sont corrompues ou decalees
+### Notes are corrupted or offset
 
-- Verifier le cablage (inversion TX/RX)
-- Verifier la masse commune entre le Pi et l'instrument
-- Verifier que le 6N138 est correctement alimente (pin 8 = Vcc)
+- Check wiring (TX/RX inversion)
+- Check common ground between the Pi and the instrument
+- Verify that the 6N138 is properly powered (pin 8 = Vcc)
 
-### Le Bluetooth ne fonctionne plus
+### Bluetooth no longer works
 
-Normal si `dtoverlay=disable-bt` est active. Sur Pi 4, utiliser UART2-5 a la place pour garder le Bluetooth.
+This is expected if `dtoverlay=disable-bt` is enabled. On Pi 4, use UART2-5 instead to keep Bluetooth.

@@ -2,7 +2,7 @@
 
 > **MIDI Orchestration System for Raspberry Pi with Modern Web Interface**
 
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B%2B%2F4%2F5-red)](https://www.raspberrypi.org/)
 
@@ -35,6 +35,18 @@ Support for multiple connection types:
 
 Configure each device with custom name, latency compensation, instrument type, note range, and polyphony.
 
+### Lighting Control
+
+Multiple driver support for stage and ambient lighting synchronized with MIDI playback:
+- **GPIO LED Strips** - Direct control of LED strips via Raspberry Pi GPIO
+- **ArtNet DMX** - Industry-standard DMX over Ethernet
+- **sACN/E1.31** - Streaming ACN protocol for DMX
+- **OSC** - Open Sound Control integration
+- **HTTP** - HTTP-based lighting APIs
+- **MQTT** - IoT messaging protocol for smart lighting
+
+Includes a lighting effects engine, DMX fixture profiles, and full synchronization with MIDI playback.
+
 ### Auto-Adaptation of MIDI Files
 
 Ma-est-tro can automatically analyze a MIDI file and assign each channel to the best-suited connected instrument:
@@ -43,8 +55,6 @@ Ma-est-tro can automatically analyze a MIDI file and assign each channel to the 
 - **Intelligent drum mapping** - Remaps General MIDI drum notes (35-81) to available instrument notes with priority-based substitution (kick → snare → hi-hat → crash → toms)
 - **Octave wrapping** - Option to extend note range by wrapping notes into available octaves
 - **Audio preview** - Listen to assignments before committing
-
-See [docs/MIDI_ASSIGNMENT_ADAPTATION_GUIDE.md](./docs/MIDI_ASSIGNMENT_ADAPTATION_GUIDE.md) for details.
 
 ### MIDI Files
 
@@ -61,16 +71,30 @@ See [docs/MIDI_ASSIGNMENT_ADAPTATION_GUIDE.md](./docs/MIDI_ASSIGNMENT_ADAPTATION
 
 ![MIDI Editor](docs/images/editor.png)
 
-Built-in Piano Roll editor:
-- Add, move, delete notes
-- Snap grid (1/1 to 1/16)
-- 16 channels with distinct colors
-- CC & Pitchbend editing
+Built-in multi-mode editor with four specialized views:
+- **Piano Roll** - Traditional note editor with add, move, delete notes, snap grid (1/1 to 1/16), 16 channels with distinct colors, CC & Pitchbend editing
+- **Tablature Editor** - String instrument tablature with bidirectional MIDI-Tab conversion
+- **Drum Pattern Editor** - Visual drum grid editor for creating and editing drum patterns
+- **Wind Instrument Editor** - Specialized editor for wind instrument articulations
+
+Common features across all editors:
 - Built-in synthesizer for preview
 - **Tempo automation** - Tempo curve editor with visual automation
 - **Instrument selector** - Display playable note range for connected instruments
 - **Ctrl+A** to select all notes
 - **Cursor repositioning** during playback pause
+
+### String Instruments & Tablature
+
+Control real acoustic string instruments via solenoids/servos through MIDI CC. Includes a tablature editor with bidirectional MIDI-Tab conversion. Supports guitar, bass, violin, ukulele, and more with 19 tuning presets. See [docs/TABLATURE_IMPLEMENTATION.md](./docs/TABLATURE_IMPLEMENTATION.md) for details.
+
+### Drum Pattern Editor
+
+Visual drum grid editor for creating and editing drum patterns. Provides an intuitive grid-based interface for programming drum tracks with General MIDI drum mapping support.
+
+### Wind Instrument Editor
+
+Specialized editor for wind instrument articulations, allowing precise control over breath dynamics, tonguing, and expression parameters.
 
 ### Virtual Keyboard
 
@@ -112,14 +136,57 @@ Available in 28 languages: English, French, Spanish, German, Italian, Portuguese
 
 MIDI instrument names are translated in all supported languages.
 
+## Development
+
+### Prerequisites
+
+- Node.js >= 20.0.0
+
+### Setup
+
+```bash
+git clone https://github.com/glloq/Ma-est-tro.git
+cd Ma-est-tro
+npm install
+```
+
+### Commands
+
+- `npm run dev` - Development server with hot reload
+- `npm start` - Production server
+- `npm test` - Run backend tests (Jest)
+- `npm run test:frontend` - Run frontend tests (Vitest)
+- `npm run lint` - ESLint check
+- `npm run format` - Prettier formatting
+- `npm run build` - Vite production build
+
+### Docker
+
+```bash
+docker-compose up -d
+```
+
+## Deployment
+
+Three deployment options are available:
+
+- **Direct Node.js** - Run directly with `npm start` for simple setups
+- **PM2** - Process manager for production with auto-restart and monitoring
+- **Docker** - Containerized deployment with `docker-compose up -d`
+
+See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed instructions on each option.
+
 ## Documentation
 
 - [Installation Guide](./docs/INSTALLATION.md)
-- [Installation Verification](./docs/INSTALLATION_VERIFICATION.md)
-- [GPIO MIDI Wiring Guide](./docs/GPIO_MIDI_WIRING.md)
-- [MIDI Auto-Assignment & Adaptation Guide](./docs/MIDI_ASSIGNMENT_ADAPTATION_GUIDE.md)
-- [Drum Note Mapping Guide](./docs/DRUMS_ASSIGNMENT_GUIDE.md)
-- [SysEx Identity](./docs/SYSEX_IDENTITY.md)
+- [Architecture](./ARCHITECTURE.md)
+- [API Reference](./docs/API.md)
+- [Auto-Assignment System](./docs/AUTO_ASSIGNMENT.md)
+- [Tablature System](./docs/TABLATURE_IMPLEMENTATION.md)
+- [GPIO MIDI Wiring](./docs/GPIO_MIDI_WIRING.md)
+- [SysEx Identity Protocol](./docs/SYSEX_IDENTITY.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Changelog](./CHANGELOG.md)
 
 ## License
 

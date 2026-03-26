@@ -11,6 +11,10 @@ Complete installation and configuration guide for Ma-est-tro.
 - [Starting the Server](#starting-the-server)
 - [Accessing the Interface](#accessing-the-interface)
 - [Configuration](#configuration)
+- [Environment Variables](#environment-variables)
+- [Bluetooth LE MIDI Setup](#bluetooth-le-midi-setup)
+- [Network MIDI (RTP-MIDI) Setup](#network-midi-rtp-midi-setup)
+- [Docker Deployment](#docker-deployment)
 - [Service Management](#service-management)
 - [Updating](#updating)
 - [Troubleshooting](#troubleshooting)
@@ -28,6 +32,7 @@ Complete installation and configuration guide for Ma-est-tro.
 
 ### Software
 - Raspberry Pi OS (Bookworm or newer recommended)
+- Node.js >= 20.0.0
 - Internet connection for installation
 
 ---
@@ -47,7 +52,7 @@ chmod +x scripts/Install.sh
 ```
 
 The script automatically installs:
-- Node.js 18 LTS
+- Node.js 20 LTS
 - System dependencies (ALSA, Bluetooth, build tools)
 - PM2 process manager
 - SQLite database
@@ -59,8 +64,8 @@ The script automatically installs:
 If you prefer manual installation:
 
 ```bash
-# Install Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Install system dependencies
@@ -136,17 +141,14 @@ Edit `config.json` to customize settings:
 
 ```json
 {
-  "server": {
-    "port": 8080,
-    "host": "0.0.0.0"
-  },
-  "midi": {
-    "defaultLatency": 10,
-    "enableBluetooth": true
-  },
-  "logging": {
-    "level": "info"
-  }
+  "server": { "port": 8080, "wsPort": 8080, "staticPath": "./public" },
+  "midi": { "bufferSize": 1024, "sampleRate": 44100, "defaultLatency": 10 },
+  "database": { "path": "./data/midimind.db" },
+  "logging": { "level": "info", "file": "./logs/midimind.log", "console": true },
+  "playback": { "defaultTempo": 120, "defaultVolume": 100, "lookahead": 100 },
+  "latency": { "defaultIterations": 5, "recalibrationDays": 7 },
+  "ble": { "enabled": false, "scanDuration": 10000 },
+  "serial": { "enabled": false, "autoDetect": true, "baudRate": 31250, "ports": [] }
 }
 ```
 
@@ -155,20 +157,179 @@ Edit `config.json` to customize settings:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `server.port` | 8080 | HTTP server port |
-| `server.host` | 0.0.0.0 | Listen address (0.0.0.0 for all interfaces) |
+| `server.wsPort` | 8080 | WebSocket server port |
+| `server.staticPath` | ./public | Path to static frontend files |
 
 ### MIDI Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `midi.bufferSize` | 1024 | MIDI buffer size |
+| `midi.sampleRate` | 44100 | Audio sample rate |
 | `midi.defaultLatency` | 10 | Default latency compensation in ms |
-| `midi.enableBluetooth` | true | Enable Bluetooth device scanning |
+
+### Playback Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `playback.defaultTempo` | 120 | Default playback tempo (BPM) |
+| `playback.defaultVolume` | 100 | Default playback volume (0-127) |
+| `playback.lookahead` | 100 | Playback lookahead in ms |
+
+### Latency Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `latency.defaultIterations` | 5 | Number of iterations for latency calibration |
+| `latency.recalibrationDays` | 7 | Days before recalibration is suggested |
+
+### Database Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `database.path` | ./data/midimind.db | Path to SQLite database file |
 
 ### Logging
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `logging.level` | info | Log level: debug, info, warn, error |
+| `logging.file` | ./logs/midimind.log | Log file path |
+| `logging.console` | true | Enable console logging |
+
+### BLE (Bluetooth Low Energy)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ble.enabled` | false | Enable Bluetooth LE MIDI scanning |
+| `ble.scanDuration` | 10000 | BLE scan duration in ms |
+
+### Serial MIDI
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `serial.enabled` | false | Enable serial MIDI support |
+| `serial.autoDetect` | true | Auto-detect serial MIDI devices |
+| `serial.baudRate` | 31250 | Serial baud rate (MIDI standard: 31250) |
+| `serial.ports` | [] | Manually specified serial ports |
+
+---
+
+## Environment Variables
+
+All configuration values can be overridden with environment variables. Create a `.env` file in the project root (see `.env.example` for a template).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAESTRO_SERVER_PORT` | 8080 | HTTP server port |
+| `MAESTRO_SERVER_WS_PORT` | 8080 | WebSocket server port |
+| `MAESTRO_DATABASE_PATH` | ./data/midimind.db | Path to SQLite database |
+| `MAESTRO_LOG_LEVEL` | info | Log level: debug, info, warn, error |
+| `MAESTRO_LOG_FILE` | ./logs/midimind.log | Log file path |
+| `MAESTRO_BLE_ENABLED` | false | Enable Bluetooth LE MIDI |
+| `MAESTRO_SERIAL_ENABLED` | false | Enable serial MIDI |
+| `MAESTRO_SERIAL_BAUD_RATE` | 31250 | Serial baud rate |
+| `MAESTRO_API_TOKEN` | *(none)* | Optional API authentication token |
+| `PORT` | 8080 | Legacy alias for `MAESTRO_SERVER_PORT` |
+
+Example `.env` file:
+
+```bash
+MAESTRO_SERVER_PORT=3000
+MAESTRO_LOG_LEVEL=debug
+MAESTRO_BLE_ENABLED=true
+MAESTRO_API_TOKEN=my-secret-token
+```
+
+Environment variables take precedence over values in `config.json`.
+
+---
+
+## Bluetooth LE MIDI Setup
+
+Ma-est-tro supports Bluetooth Low Energy (BLE) MIDI devices using the BLE MIDI Service UUID `03b80e5a-ede8-4b33-a751-6ce34ec4c700`. The integration uses node-ble, which communicates with Bluez via D-Bus.
+
+### Prerequisites
+
+- Bluetooth hardware (built-in on Raspberry Pi 3B+ and later)
+- The `bluez` package (installed automatically by the installation script)
+
+### Configuration
+
+Enable BLE MIDI in `config.json`:
+
+```json
+{
+  "ble": {
+    "enabled": true,
+    "scanDuration": 10000
+  }
+}
+```
+
+Or via environment variable:
+
+```bash
+MAESTRO_BLE_ENABLED=true
+```
+
+### User Permissions
+
+Your user must be a member of the `bluetooth` group:
+
+```bash
+sudo usermod -a -G bluetooth $USER
+```
+
+Log out and log back in for the group change to take effect.
+
+### Scanning and Pairing
+
+Once BLE is enabled, scan for and pair Bluetooth MIDI devices directly from the Ma-est-tro web interface. The interface will discover nearby BLE MIDI instruments and allow you to connect to them.
+
+---
+
+## Network MIDI (RTP-MIDI) Setup
+
+Ma-est-tro supports RTP-MIDI, a session-based protocol for sending MIDI data over a network connection.
+
+### How It Works
+
+RTP-MIDI uses `RtpMidiSession` for connection management, allowing you to connect to MIDI instruments and controllers on your local network.
+
+### Usage
+
+From the Ma-est-tro web interface, you can scan the local network for available RTP-MIDI instruments. Discovered instruments can be connected and used just like locally attached MIDI devices.
+
+No additional configuration is required beyond having network connectivity between Ma-est-tro and the target instruments.
+
+---
+
+## Docker Deployment
+
+Ma-est-tro can be deployed using Docker for simplified setup and isolation.
+
+### Quick Start
+
+```bash
+docker-compose up -d
+```
+
+This uses the provided `Dockerfile` and `docker-compose.yml` in the project root.
+
+### Data Persistence
+
+The Docker Compose configuration includes volume mounts to persist data between container restarts:
+
+- `./data` - SQLite database
+- `./uploads` - Uploaded MIDI files
+- `./logs` - Application logs
+
+To stop the container:
+
+```bash
+docker-compose down
+```
 
 ---
 
@@ -294,29 +455,30 @@ sudo usermod -a -G audio,bluetooth $USER
 
 ```
 Ma-est-tro/
-├── scripts/              # Installation and update scripts
-│   ├── Install.sh        # Main installation script
-│   └── update.sh         # Update script
-├── src/                  # Backend (Node.js)
-│   ├── api/              # WebSocket server and HTTP API
-│   ├── midi/             # MIDI device management and playback
-│   ├── storage/          # Database and file management
-│   └── managers/         # Bluetooth and Network managers
-├── public/               # Frontend (Web interface)
-│   ├── js/               # JavaScript components
-│   ├── locales/          # Translation files (28 languages)
-│   └── styles/           # CSS stylesheets
-├── docs/                 # Documentation
-├── migrations/           # Database migrations
-├── data/                 # SQLite database (created at runtime)
-├── uploads/              # Uploaded MIDI files
-├── logs/                 # Application logs
-└── config.json           # Configuration file
+├── server.js                  # Entry point
+├── config.json                # Default configuration
+├── .env.example               # Environment variable template
+├── Dockerfile                 # Docker image
+├── docker-compose.yml         # Docker composition
+├── ecosystem.config.cjs       # PM2 config
+├── src/
+│   ├── core/                  # Application framework (EventBus, Logger, DI)
+│   ├── api/                   # HTTP server, WebSocket, commands
+│   ├── midi/                  # MIDI device management, playback, analysis
+│   ├── storage/               # Database, file management, backups
+│   ├── managers/              # Bluetooth, Network, Serial, Lighting managers
+│   ├── lighting/              # LED/DMX lighting effects
+│   ├── audio/                 # Delay calibration
+│   └── config/                # Configuration management
+├── public/                    # Frontend (Web SPA)
+│   ├── js/                    # JavaScript components
+│   ├── locales/               # Translations (28 languages)
+│   └── styles/                # CSS stylesheets
+├── docs/                      # Documentation
+├── migrations/                # SQLite migrations (29 files)
+├── tests/                     # Test suites
+├── scripts/                   # Installation/update scripts
+├── data/                      # SQLite database (runtime)
+├── uploads/                   # MIDI files (runtime)
+└── logs/                      # Application logs (runtime)
 ```
-
----
-
-## Related Documentation
-
-- [Bluetooth Setup](./BLUETOOTH_SETUP.md) - Configure Bluetooth LE MIDI
-- [Network MIDI Setup](./NETWORK_MIDI_SETUP.md) - Configure RTP-MIDI

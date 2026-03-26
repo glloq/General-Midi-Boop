@@ -1,1448 +1,582 @@
-# Documentation Complète : Auto-Assignation des Canaux MIDI
+# MIDI Auto-Assignment & Adaptation System
 
-## Table des Matières
+> Comprehensive guide to Ma-est-tro's automatic MIDI channel assignment and instrument adaptation system.
 
-1. [Vue d'Ensemble](#vue-densemble)
-2. [Concepts Fondamentaux](#concepts-fondamentaux)
-3. [Architecture du Système](#architecture-du-système)
-4. [Capacités des Instruments](#capacités-des-instruments)
-5. [Algorithme de Scoring](#algorithme-de-scoring)
-6. [Transposition et Adaptation](#transposition-et-adaptation)
-7. [Octave Wrapping](#octave-wrapping)
-8. [Guide d'Utilisation](#guide-dutilisation)
-9. [Exemples Pratiques](#exemples-pratiques)
-10. [Référence Technique](#référence-technique)
+## Table of Contents
 
----
-
-## Vue d'Ensemble
-
-### Qu'est-ce que l'Auto-Assignation ?
-
-L'auto-assignation est un système intelligent qui analyse les canaux MIDI d'un fichier et propose automatiquement les meilleurs instruments connectés pour jouer chaque canal, en tenant compte de :
-
-- **Type d'instrument** (piano, drums, bass, strings, etc.)
-- **Plage de notes jouables** (note_range_min/max)
-- **Capacités polyphoniques** (nombre de notes simultanées)
-- **Control Changes supportés** (CC7, CC11, CC64, etc.)
-- **Modes de jeu** (continu vs discret pour les drums)
-
-### Objectifs du Système
-
-1. **Automatisation** : Réduire le travail manuel d'assignation canal par canal
-2. **Qualité** : Maximiser la compatibilité entre canaux MIDI et instruments
-3. **Préservation** : Garder la mélodie originale autant que possible (transpositions par octaves)
-4. **Flexibilité** : Offrir plusieurs choix par canal avec scores de compatibilité
-5. **Non-Destructif** : Créer des fichiers adaptés sans modifier l'original
+1. [Overview](#overview)
+2. [System Architecture](#system-architecture)
+3. [Channel Analysis](#channel-analysis)
+4. [Scoring Algorithm](#scoring-algorithm)
+5. [Transposition & Adaptation](#transposition--adaptation)
+6. [Octave Wrapping](#octave-wrapping)
+7. [Drum Note Mapping](#drum-note-mapping)
+8. [Cache Management](#cache-management)
+9. [API Reference](#api-reference)
+10. [Usage Guide](#usage-guide)
+11. [Configuration](#configuration)
+12. [Best Practices](#best-practices)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Concepts Fondamentaux
+## Overview
 
-### Canaux MIDI (0-15)
+Ma-est-tro can automatically analyze a MIDI file and assign each channel to the best-suited connected instrument. The system evaluates instrument capabilities, generates compatibility scores (0-100), and can adapt MIDI data (transposition, octave wrapping, drum remapping) to fit available hardware.
 
-Un fichier MIDI standard peut contenir jusqu'à 16 canaux (0-15). Chaque canal représente généralement une partie instrumentale :
+### Components
 
-- **Canal 9 (MIDI 10)** : Traditionnellement réservé aux drums
-- **Canaux 0-8, 10-15** : Instruments mélodiques/harmoniques
+| Module | File | Purpose |
+|--------|------|---------|
+| AutoAssigner | `src/midi/AutoAssigner.js` | Orchestrates the full assignment pipeline |
+| ChannelAnalyzer | `src/midi/ChannelAnalyzer.js` | Analyzes MIDI file channels |
+| InstrumentMatcher | `src/midi/InstrumentMatcher.js` | Scores instrument compatibility |
+| DrumNoteMapper | `src/midi/DrumNoteMapper.js` | Intelligent drum note remapping |
+| MidiTransposer | `src/midi/MidiTransposer.js` | Note transposition |
+| ScoringConfig | `src/midi/ScoringConfig.js` | Scoring weights and thresholds |
+| AnalysisCache | `src/midi/AnalysisCache.js` | LRU cache for analysis results |
 
-### General MIDI (GM) Programs
+### Processing Pipeline
 
-Le standard General MIDI définit 128 programmes (0-127) organisés en catégories :
+```
+File Selection → Channel Analysis → Instrument Scoring → Assignment → Adaptation → Play
+                      │                     │                              │
+                ChannelAnalyzer      InstrumentMatcher          MidiTransposer
+                                           │                   DrumNoteMapper
+                                     ScoringConfig
+```
 
-| Plage | Catégorie | Exemples |
-|-------|-----------|----------|
-| 0-7 | Piano | Acoustic Grand Piano, Electric Piano |
+---
+
+## System Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                  AutoAssignModal (UI)                  │
+│  Channel list │ Suggestions │ Preview │ Apply button  │
+└──────────────────────┬───────────────────────────────┘
+                       │ WebSocket
+┌──────────────────────┼───────────────────────────────┐
+│                 AutoAssigner                           │
+│                      │                                │
+│    ┌─────────────────┼─────────────────┐              │
+│    ▼                 ▼                 ▼              │
+│ ChannelAnalyzer  InstrumentMatcher  DrumNoteMapper    │
+│    │                 │                 │              │
+│    ▼                 ▼                 ▼              │
+│ AnalysisCache    ScoringConfig    MidiTransposer      │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## Channel Analysis
+
+The `ChannelAnalyzer` extracts detailed information from each MIDI channel:
+
+### Extracted Data Per Channel
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `noteRange` | `{min, max}` | Lowest and highest MIDI notes used |
+| `noteDistribution` | `Map<note, count>` | Frequency of each note |
+| `polyphony` | `{max, avg}` | Maximum and average simultaneous notes |
+| `usedCCs` | `number[]` | List of Control Change numbers used |
+| `primaryProgram` | `number` | Most-used GM program number |
+| `estimatedType` | `string` | Detected instrument type with confidence |
+| `density` | `number` | Notes per second |
+
+### Instrument Type Detection
+
+9 types are detected based on channel characteristics:
+
+| Type | Detection Criteria |
+|------|-------------------|
+| `drums` | Channel 10 (index 9), or percussion program (112-127) |
+| `bass` | Low note range, programs 32-39 |
+| `piano` | Programs 0-7, wide range |
+| `strings` | Programs 40-55, sustained notes |
+| `organ` | Programs 16-23 |
+| `lead` | Programs 80-87, monophonic tendency |
+| `pad` | Programs 88-95, sustained chords |
+| `brass` | Programs 56-63 |
+| `percussive` | Programs 112-119 |
+
+### General MIDI Program Categories
+
+| Range | Category | Examples |
+|-------|----------|---------|
+| 0-7 | Piano | Acoustic Grand, Electric Piano |
 | 8-15 | Chromatic Percussion | Celesta, Glockenspiel, Vibraphone |
-| 16-23 | Organ | Drawbar Organ, Church Organ |
-| 24-31 | Guitar | Acoustic Guitar, Electric Guitar |
-| 32-39 | Bass | Acoustic Bass, Electric Bass, Synth Bass |
-| 40-47 | Strings | Violin, Viola, Cello, Orchestra Strings |
-| 48-55 | Ensemble | String Ensemble, Choir, Orchestra Hit |
+| 16-23 | Organ | Hammond, Church, Accordion |
+| 24-31 | Guitar | Acoustic, Electric, Distortion |
+| 32-39 | Bass | Acoustic, Electric, Slap |
+| 40-47 | Strings | Violin, Viola, Cello, Ensemble |
+| 48-55 | Ensemble | Choir, Orchestra Hit |
 | 56-63 | Brass | Trumpet, Trombone, French Horn |
 | 64-71 | Reed | Saxophone, Oboe, Clarinet |
 | 72-79 | Pipe | Flute, Recorder, Pan Flute |
-| 80-87 | Synth Lead | Square Lead, Sawtooth Lead |
-| 88-95 | Synth Pad | Warm Pad, Poly Synth Pad |
-| 96-103 | Synth Effects | Rain, Soundtrack, Crystal |
+| 80-87 | Synth Lead | Square, Sawtooth |
+| 88-95 | Synth Pad | New Age, Warm, Polysynth |
+| 96-103 | Synth Effects | Rain, Soundtrack |
 | 104-111 | Ethnic | Sitar, Banjo, Shamisen |
 | 112-119 | Percussive | Tinkle Bell, Steel Drums |
-| 120-127 | Sound Effects | Guitar Fret Noise, Seashore, Helicopter |
-
-### Analyse de Canal
-
-Avant d'assigner un instrument, le système analyse chaque canal pour extraire :
-
-```javascript
-{
-  channel: 0,                    // Numéro du canal (0-15)
-  noteRange: { min: 48, max: 84 }, // Plage de notes utilisées
-  polyphony: { max: 6, avg: 3.2 }, // Polyphonie max et moyenne
-  usedCCs: [7, 11, 64, 71],      // Control Changes utilisés
-  programs: [0],                  // Programmes MIDI utilisés
-  density: 8.5,                   // Notes par beat en moyenne
-  estimatedType: {                // Type estimé
-    type: 'piano',
-    confidence: 85,
-    scores: {
-      piano: 85,
-      strings: 60,
-      organ: 40,
-      // ...
-    }
-  }
-}
-```
-
-### Types d'Instruments Détectés
-
-Le système peut détecter automatiquement :
-
-- **drums** : Canal 9, haute densité, plage étroite, programmes 0-127 sur canal 9
-- **bass** : Notes basses (< 48), faible polyphonie (1-2), programmes 32-39
-- **piano** : Large plage, haute polyphonie (> 4), programmes 0-7
-- **strings** : Moyenne polyphonie (3-6), programmes 40-55
-- **organ** : Haute polyphonie, sustain CC64, programmes 16-23
-- **lead** : Faible polyphonie (1-2), notes hautes, programmes 80-87
-- **pad** : Haute polyphonie, longues notes, programmes 88-95
-- **brass** : Moyenne polyphonie, programmes 56-63
-- **percussive** : Faible polyphonie, notes courtes, programmes 112-119
+| 120-127 | Sound Effects | Guitar Fret Noise, Gunshot |
 
 ---
 
-## Architecture du Système
+## Scoring Algorithm
 
-### Composants Principaux
+Each instrument receives a compatibility score from 0 to 100 based on 6 weighted criteria.
+
+### Score Breakdown
+
+| Criterion | Max Points | Weight |
+|-----------|-----------|--------|
+| Program Match | 30 | 30% |
+| Note Range | 25 | 25% |
+| Polyphony | 15 | 15% |
+| Control Changes | 15 | 15% |
+| Instrument Type | 10 | 10% |
+| Channel Special | 5 | 5% |
+| **Total** | **100** | **100%** |
+
+### 1. Program Match (30 points)
+
+- **Exact match** (same GM program): 30 points
+- **Category match** (same program family, e.g., both piano programs): 20 points
+- **No match**: 0 points
+
+### 2. Note Range (25 points)
+
+Evaluates how well the channel's notes fit within the instrument's range.
+
+Three evaluation modes:
+- **Direct fit**: All notes within range → full score
+- **With transposition**: Notes fit after shifting by N semitones → partial score minus transposition penalty
+- **With octave wrapping**: Notes wrapped into available range → partial score
+
+For **discrete mode** instruments (drum pads), scoring checks individual note availability rather than continuous range.
+
+### 3. Polyphony (15 points)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     AutoAssignModal.js                       │
-│                   (Interface Utilisateur)                    │
-└────────────┬────────────────────────────────────────────────┘
-             │
-             ├─► Affichage des suggestions
-             ├─► Sélection manuelle
-             ├─► Preview audio
-             └─► Application finale
-                        │
-        ┌───────────────┴───────────────┐
-        │                               │
-        ▼                               ▼
-┌─────────────────┐            ┌──────────────────┐
-│  AutoAssigner   │            │  AudioPreview    │
-└────────┬────────┘            └──────────────────┘
-         │
-         ├─► ChannelAnalyzer (analyse canaux MIDI)
-         ├─► InstrumentMatcher (calcul compatibilité)
-         └─► MidiTransposer (adaptation du fichier)
+score = min(1, instrument.polyphony / channel.maxPolyphony) * 15
 ```
 
-### Flux de Traitement
+An instrument with equal or greater polyphony than the channel needs gets full marks.
+
+### 4. Control Changes (15 points)
 
 ```
-1. Sélection fichier MIDI
-        │
-        ▼
-2. Analyse de chaque canal
-   ├─► Extraction plage de notes
-   ├─► Calcul polyphonie
-   ├─► Détection CCs utilisés
-   ├─► Estimation type d'instrument
-   └─► Calcul densité de notes
-        │
-        ▼
-3. Génération de suggestions
-   ├─► Pour chaque canal :
-   │   └─► Pour chaque instrument :
-   │       ├─► Calcul score de compatibilité
-   │       ├─► Calcul transposition optimale
-   │       └─► Détection octave wrapping
-   │
-   ├─► Tri par score (meilleur en premier)
-   └─► Sélection top-N (défaut: 5)
-        │
-        ▼
-4. Présentation à l'utilisateur
-   ├─► Affichage des options par canal
-   ├─► Mise en surbrillance du recommandé
-   └─► Options de preview audio
-        │
-        ▼
-5. Sélection et application
-   ├─► Utilisateur sélectionne ou accepte auto
-   ├─► Preview optionnel (original vs adapté)
-   ├─► Application des transpositions
-   ├─► Création fichier adapté
-   └─► Sauvegarde des routings
+supportRatio = supportedCCs.length / usedCCs.length
+score = supportRatio * 15
 ```
 
-### Fichiers Source
+Common CCs evaluated: Modulation (1), Volume (7), Pan (10), Expression (11), Sustain (64), Portamento (65), Soft Pedal (67), Reverb (91), Chorus (93), Pitch Bend.
 
-| Fichier | Rôle | Lignes |
-|---------|------|--------|
-| `src/midi/ChannelAnalyzer.js` | Analyse des canaux MIDI | ~520 |
-| `src/midi/InstrumentMatcher.js` | Scoring de compatibilité | ~450 |
-| `src/midi/AutoAssigner.js` | Orchestration générale | ~290 |
-| `src/midi/MidiTransposer.js` | Application des transpositions | ~200 |
-| `src/midi/AnalysisCache.js` | Cache LRU pour performances | ~180 |
-| `src/midi/ScoringConfig.js` | Configuration des poids | ~150 |
-| `public/js/views/components/AutoAssignModal.js` | Interface utilisateur | ~650 |
-| `public/js/audio/AudioPreview.js` | Preview audio | ~240 |
+### 5. Instrument Type (10 points)
+
+Compares the detected channel type with the instrument's declared type:
+- **Exact type match**: 10 points
+- **Compatible type** (e.g., `piano` ↔ `keyboard`): 7 points
+- **Partial match**: 3 points
+- **No match**: 0 points
+
+Score is further weighted by the type detection confidence level.
+
+### 6. Channel Special (5 points)
+
+- **Channel 9 (drums)** assigned to a drum instrument: +3 points
+- **Exact GM program match** bonus: +2 points
 
 ---
 
-## Capacités des Instruments
+## Transposition & Adaptation
 
-### Définition des Capacités
+When a channel's notes don't fit an instrument's range, the system calculates an optimal transposition.
 
-Chaque instrument dans la base de données possède des propriétés définissant ses capacités :
-
-```javascript
-{
-  id: 1,
-  device_id: "device_abc123",
-  name: "Yamaha PSR-E373",
-  custom_name: "Mon Clavier Principal",
-
-  // Capacités MIDI
-  gm_program: 0,              // Programme GM (0 = Acoustic Grand Piano)
-  note_range_min: 21,         // Note la plus basse (A0)
-  note_range_max: 108,        // Note la plus haute (C8)
-  polyphony: 48,              // Nombre max de notes simultanées
-
-  // Mode de jeu
-  mode: "continuous",         // "continuous" ou "discrete"
-  selected_notes: null,       // Pour mode discrete: [36, 38, 42, ...]
-
-  // Control Changes supportés
-  supported_ccs: [1, 7, 10, 11, 64, 71, 72, 73, 74, 91, 93],
-
-  // Metadata
-  type: "keyboard",
-  manufacturer: "Yamaha",
-  // ...
-}
-```
-
-### Mode Continu vs Discret
-
-#### Mode Continu (`continuous`)
-
-Pour les instruments mélodiques/harmoniques qui peuvent jouer n'importe quelle note dans leur plage :
-
-- **Pianos**, **Guitares**, **Synthés**, **Strings**
-- Plage définie par `note_range_min` et `note_range_max`
-- Toutes les notes MIDI entre min et max sont jouables
-
-#### Mode Discret (`discrete`)
-
-Pour les instruments qui ne peuvent jouer que des notes spécifiques :
-
-- **Drums** : Chaque pad correspond à un son spécifique
-- **Sample Pads** : Notes assignées à des samples
-- Plage définie par `selected_notes` (array de numéros MIDI)
-
-Exemple de batterie électronique :
-```javascript
-{
-  mode: "discrete",
-  selected_notes: [
-    36,  // Kick (Bass Drum)
-    38,  // Snare
-    42,  // Closed Hi-Hat
-    44,  // Pedal Hi-Hat
-    46,  // Open Hi-Hat
-    48,  // Tom 1
-    50,  // Tom 2
-    // ...
-  ]
-}
-```
-
-### Control Changes (CCs)
-
-Les Control Changes permettent de contrôler des paramètres expressifs :
-
-| CC | Nom | Usage |
-|----|-----|-------|
-| 1 | Modulation | Vibrato, tremolo |
-| 7 | Volume | Volume du canal |
-| 10 | Pan | Position stéréo |
-| 11 | Expression | Nuances dynamiques |
-| 64 | Sustain Pedal | Pédale de sustain (piano) |
-| 71 | Resonance | Filtre résonance (synth) |
-| 72 | Release Time | Temps de release |
-| 73 | Attack Time | Temps d'attack |
-| 74 | Brightness | Brillance du timbre |
-| 91 | Reverb Depth | Niveau de réverbération |
-| 93 | Chorus Depth | Niveau de chorus |
-
-Un instrument qui supporte plus de CCs aura un score bonus si le canal MIDI les utilise.
-
----
-
-## Algorithme de Scoring
-
-### Vue d'Ensemble du Score
-
-Le score de compatibilité est calculé sur **100 points** avec 6 critères pondérés :
+### Center-Point Algorithm
 
 ```
-Score Total = Score_Program (30pts)
-            + Score_NoteRange (25pts)
-            + Score_Polyphony (15pts)
-            + Score_CCs (15pts)
-            + Score_Type (10pts)
-            + Score_ChannelSpecial (5pts)
+channelCenter = (channel.noteRange.min + channel.noteRange.max) / 2
+instrumentCenter = (instrument.noteRange.min + instrument.noteRange.max) / 2
+rawShift = instrumentCenter - channelCenter
+transposition = round(rawShift / 12) * 12  // Round to nearest octave
 ```
 
-### 1. Score Program Match (30 points max)
-
-Compare le programme MIDI du canal avec celui de l'instrument :
-
-```javascript
-// Match parfait (même programme GM)
-if (channelProgram === instrumentProgram) {
-  score = 30;
-}
-// Même catégorie GM (ex: tous les deux des pianos)
-else if (sameCategory(channelProgram, instrumentProgram)) {
-  score = 20;
-}
-// Catégories différentes
-else {
-  score = 0;
-}
-```
-
-**Exemples** :
-- Canal utilise program 0 (Acoustic Grand Piano), Instrument gm_program = 0 → **30 pts**
-- Canal utilise program 1 (Bright Acoustic Piano), Instrument gm_program = 2 (Electric Grand Piano) → **20 pts** (même catégorie Piano)
-- Canal utilise program 0 (Piano), Instrument gm_program = 40 (Violin) → **0 pt**
-
-### 2. Score Note Range (25 points max)
-
-Évalue si les notes du canal rentrent dans la plage de l'instrument :
-
-```javascript
-// Mode Discrete (drums)
-if (instrument.mode === 'discrete') {
-  const supportRatio = notesSupported / totalNotesInChannel;
-
-  if (supportRatio === 1.0) {
-    score = 25;  // Toutes les notes supportées
-  } else if (supportRatio >= 0.7) {
-    score = 20;  // 70%+ des notes supportées
-  } else if (supportRatio > 0) {
-    score = Math.round(supportRatio * 15);  // Partiel
-  } else {
-    score = 0;   // Incompatible
-  }
-}
-
-// Mode Continuous
-else {
-  const octaveShift = calculateOptimalOctaveShift(channel, instrument);
-
-  if (octaveShift.compatible === false) {
-    score = 0;  // Impossible de fitter
-  }
-  else if (octaveShift.octaves === 0) {
-    score = 25;  // Parfait, pas de transposition
-  }
-  else {
-    // Pénalité de 3 pts par octave de transposition
-    score = Math.max(0, 20 - Math.abs(octaveShift.octaves) * 3);
-  }
-}
-```
-
-**Exemples** :
-- Canal: 48-72 (C3-C5), Instrument: 21-108 (A0-C8), Transposition: 0 octave → **25 pts**
-- Canal: 60-84, Instrument: 48-84, Transposition: -1 octave → **17 pts** (20 - 3)
-- Canal: 24-48, Instrument: 48-84, Transposition: +2 octaves → **14 pts** (20 - 6)
-
-### 3. Score Polyphony (15 points max)
-
-Compare la polyphonie requise par le canal avec celle de l'instrument :
-
-```javascript
-const channelMaxPolyphony = channel.polyphony.max;  // Ex: 6 notes simultanées
-const instrumentPolyphony = instrument.polyphony;    // Ex: 48
-
-if (instrumentPolyphony >= channelMaxPolyphony) {
-  // Instrument peut gérer toute la polyphonie
-  score = 15;
-}
-else {
-  // Polyphonie insuffisante (pénalité)
-  const ratio = instrumentPolyphony / channelMaxPolyphony;
-  score = Math.round(ratio * 15);
-
-  // Note: créera un warning dans la compatibilité
-}
-```
-
-**Exemples** :
-- Canal max poly: 4, Instrument poly: 48 → **15 pts**
-- Canal max poly: 6, Instrument poly: 8 → **15 pts**
-- Canal max poly: 8, Instrument poly: 4 → **7 pts** (4/8 * 15) + Warning
-
-### 4. Score Control Changes (15 points max)
-
-Vérifie combien de CCs utilisés par le canal sont supportés par l'instrument :
-
-```javascript
-const channelCCs = [7, 11, 64, 71];  // CCs utilisés par le canal
-const instrumentCCs = [1, 7, 10, 11, 64, 71, 91, 93];  // CCs supportés
-
-const supported = channelCCs.filter(cc => instrumentCCs.includes(cc));
-const ratio = supported.length / channelCCs.length;
-
-score = Math.round(ratio * 15);
-```
-
-**Exemples** :
-- Canal CCs: [7, 11, 64], Instrument CCs: [7, 10, 11, 64, 71] → **15 pts** (3/3 = 100%)
-- Canal CCs: [7, 11, 64, 71], Instrument CCs: [7, 11] → **7 pts** (2/4 = 50%)
-- Canal CCs: [], Instrument CCs: [...] → **15 pts** (pas de CCs requis = compatible)
-
-### 5. Score Instrument Type (10 points max)
-
-Compare le type estimé du canal avec le type de l'instrument :
-
-```javascript
-const channelType = channel.estimatedType.type;        // Ex: "piano"
-const channelConfidence = channel.estimatedType.confidence; // Ex: 85
-const instrumentType = instrument.type;                // Ex: "keyboard"
-
-// Mapping des types similaires
-const typeMapping = {
-  'piano': ['keyboard', 'piano'],
-  'drums': ['drums', 'percussion'],
-  'bass': ['bass', 'keyboard'],
-  'strings': ['strings', 'keyboard'],
-  // ...
-};
-
-if (typeMapping[channelType]?.includes(instrumentType)) {
-  // Match de type, score basé sur la confiance
-  score = Math.round((channelConfidence / 100) * 10);
-}
-else {
-  score = 0;
-}
-```
-
-**Exemples** :
-- Canal type: "piano" (conf: 90%), Instrument: "keyboard" → **9 pts**
-- Canal type: "drums" (conf: 95%), Instrument: "drums" → **9 pts**
-- Canal type: "piano" (conf: 85%), Instrument: "strings" → **0 pt**
-
-### 6. Score Channel Special (5 points max)
-
-Bonus pour les correspondances spéciales :
-
-```javascript
-// Canal 9 (drums) avec instrument drums
-if (channel.number === 9 && instrument.type === 'drums') {
-  score = 5;
-}
-// Instrument avec gm_program correspondant exactement
-else if (channel.programs[0] === instrument.gm_program) {
-  score = 5;
-}
-else {
-  score = 0;
-}
-```
-
-### Calcul du Score Final
-
-```javascript
-const totalScore =
-  programScore +      // 0-30
-  noteRangeScore +    // 0-25
-  polyphonyScore +    // 0-15
-  ccScore +           // 0-15
-  typeScore +         // 0-10
-  channelSpecialScore; // 0-5
-
-// Total max: 100 points
-```
-
-### Interprétation des Scores
-
-| Score | Évaluation | Signification |
-|-------|------------|---------------|
-| 90-100 | ⭐⭐⭐⭐⭐ Excellent | Match quasi-parfait |
-| 70-89 | ⭐⭐⭐⭐ Très Bon | Très compatible, recommandé |
-| 50-69 | ⭐⭐⭐ Bon | Compatible, utilisable |
-| 30-49 | ⭐⭐ Acceptable | Possible mais sous-optimal |
-| 0-29 | ⭐ Faible | Peu compatible, à éviter |
-
----
-
-## Transposition et Adaptation
-
-### Principe de la Transposition par Octaves
-
-Le système privilégie les **transpositions par octaves complètes** (multiples de 12 semitones) pour préserver la mélodie :
-
-```
-Octave = 12 semitones
-+1 octave = +12 semitones (monter d'une octave)
--1 octave = -12 semitones (descendre d'une octave)
-+2 octaves = +24 semitones
--2 octaves = -24 semitones
-```
-
-### Calcul de la Transposition Optimale
-
-```javascript
-// 1. Calculer les centres de plage
-const channelCenter = (channel.noteRange.min + channel.noteRange.max) / 2;
-const instrumentCenter = (instrument.note_range_min + instrument.note_range_max) / 2;
-
-// 2. Différence brute
-const rawShift = instrumentCenter - channelCenter;
-
-// 3. Arrondir au multiple de 12 le plus proche
-const octaves = Math.round(rawShift / 12);
-const semitones = octaves * 12;
-
-// 4. Vérifier que toutes les notes rentrent
-const newMin = channel.noteRange.min + semitones;
-const newMax = channel.noteRange.max + semitones;
-
-if (newMin >= instrument.note_range_min &&
-    newMax <= instrument.note_range_max) {
-  // Transposition valide
-  return { semitones, octaves, compatible: true };
-}
-
-// 5. Si échec, essayer ±1 octave
-for (offset of [-1, 1]) {
-  const altOctaves = octaves + offset;
-  const altSemitones = altOctaves * 12;
-  // ... test de validation
-}
-```
-
-### Exemples de Transposition
-
-#### Exemple 1 : Piano vers Piano (pas de transposition)
-
-```
-Canal MIDI:
-  - Plage: C3 (48) → C5 (72)
-  - Centre: 60 (C4)
-
-Instrument:
-  - Plage: A0 (21) → C8 (108)
-  - Centre: 64.5
-
-Calcul:
-  rawShift = 64.5 - 60 = 4.5
-  octaves = round(4.5 / 12) = 0
-  semitones = 0
-
-Résultat: Pas de transposition nécessaire ✓
-```
-
-#### Exemple 2 : Piano Aigu vers Piano (descendre)
-
-```
-Canal MIDI:
-  - Plage: C5 (72) → C7 (96)
-  - Centre: 84
-
-Instrument:
-  - Plage: C2 (36) → C6 (84)
-  - Centre: 60
-
-Calcul:
-  rawShift = 60 - 84 = -24
-  octaves = round(-24 / 12) = -2
-  semitones = -24
-
-Vérification:
-  newMin = 72 + (-24) = 48 ✓ (>= 36)
-  newMax = 96 + (-24) = 72 ✓ (<= 84)
-
-Résultat: -2 octaves (descendre de 2 octaves) ✓
-```
-
-#### Exemple 3 : Bass vers Piano (monter)
-
-```
-Canal MIDI:
-  - Plage: E1 (28) → E3 (52)
-  - Centre: 40
-
-Instrument:
-  - Plage: C3 (48) → C6 (84)
-  - Centre: 66
-
-Calcul:
-  rawShift = 66 - 40 = 26
-  octaves = round(26 / 12) = 2
-  semitones = 24
-
-Vérification:
-  newMin = 28 + 24 = 52 ✓ (>= 48)
-  newMax = 52 + 24 = 76 ✓ (<= 84)
-
-Résultat: +2 octaves (monter de 2 octaves) ✓
-```
-
-### Note Remapping (Drums)
-
-Pour les instruments en mode `discrete` (drums), les notes sont mappées individuellement :
-
-```javascript
-// Canal drums utilise: [36, 38, 42, 46, 48, 50]
-// Instrument supporte: [36, 38, 42, 45, 47, 49, 51]
-
-const noteRemapping = {
-  46: 45,  // Open Hi-Hat → Tom 1 (note la plus proche)
-  48: 47,  // Tom 1 → Tom 2
-  50: 49,  // Tom 2 → Crash
-  // Notes 36, 38, 42 sont supportées directement (pas de mapping)
-};
-```
-
-Le mapping utilise la **note disponible la plus proche** :
-
-```javascript
-function findClosestNote(targetNote, availableNotes) {
-  let closest = availableNotes[0];
-  let minDistance = Math.abs(targetNote - closest);
-
-  for (const note of availableNotes) {
-    const distance = Math.abs(targetNote - note);
-    if (distance < minDistance) {
-      minDistance = distance;
-      closest = note;
-    }
-  }
-
-  return closest;
-}
-```
-
-### Application de la Transposition
-
-Le `MidiTransposer` applique les transpositions en deux étapes :
-
-```javascript
-// 1. Transposition par semitones (octaves)
-if (transposition.semitones !== 0) {
-  currentNote = originalNote + transposition.semitones;
-  currentNote = clamp(currentNote, 0, 127);  // Limiter à la plage MIDI valide
-}
-
-// 2. Note remapping (drums + octave wrapping)
-if (transposition.noteRemapping[currentNote] !== undefined) {
-  currentNote = transposition.noteRemapping[currentNote];
-}
-
-// Mise à jour de l'événement MIDI
-event.note = currentNote;
-```
-
-Cette approche garantit que :
-1. La mélodie est préservée (transposition par octaves)
-2. Les notes hors plage sont gérées (remapping)
-3. Les notes invalides sont clampées (0-127)
+If the rounded transposition doesn't cover all notes, the algorithm tries ±1 octave and picks the best fit.
+
+### Examples
+
+| Scenario | Channel Range | Instrument Range | Transposition |
+|----------|--------------|-----------------|---------------|
+| Piano → Piano | C2-C7 | C2-C7 | 0 (no change) |
+| High Piano → Low Piano | C5-C8 | C1-C5 | -24 (-2 octaves) |
+| Bass → Piano | E1-E3 | C2-C7 | +24 (+2 octaves) |
 
 ---
 
 ## Octave Wrapping
 
-### Concept
+When transposition alone isn't sufficient, octave wrapping maps out-of-range notes into the instrument's available octaves.
 
-L'**octave wrapping** permet d'étendre la compatibilité des instruments avec des plages limitées en "repliant" les notes qui dépassent :
+### How It Works
 
-- **Notes en dessous** de la plage → **+12 semitones** (montées d'une octave)
-- **Notes au dessus** de la plage → **-12 semitones** (descendues d'une octave)
+1. Determine the instrument's playable range
+2. For each note outside the range:
+   - If too low: shift up by octaves until within range
+   - If too high: shift down by octaves until within range
+3. Create a note mapping table
 
-C'est une option **activable manuellement** par l'utilisateur pour chaque canal.
+### Known Limitation
 
-### Quand Utiliser l'Octave Wrapping ?
-
-#### Cas d'Usage Typiques
-
-1. **Instrument avec plage limitée** jouant un canal large
-   ```
-   Canal: C2 (36) → C6 (84)
-   Instrument: C3 (48) → C5 (72)
-
-   Transposition optimale: +12 semitones
-   Résultat: 48-96, mais max = 72
-
-   → Notes 73-84 dépassent
-   → Avec wrapping: 73-84 → 61-72 (descendre d'une octave)
-   ```
-
-2. **Préserver plus de notes** dans la plage cible
-   ```
-   Canal drums: Notes 24, 28, 36, 38, 48, 50, 60
-   Instrument: 36-60
-
-   Sans wrapping: Notes 24, 28 perdues
-   Avec wrapping: 24 → 36, 28 → 40 (montées)
-   ```
-
-3. **Éviter les coupures** de notes extrêmes
-   ```
-   Passage orchestral avec notes très graves et très aiguës
-   Instrument ne couvre pas toute la plage
-
-   → Wrapping permet de garder toutes les notes
-   ```
-
-### Calcul du Wrapping
-
-```javascript
-function calculateOctaveWrapping(channelRange, instrumentCaps, baseSemitones) {
-  const mapping = {};
-  let notesBelow = 0;
-  let notesAbove = 0;
-
-  // Pour chaque note du canal
-  for (let note = channelRange.min; note <= channelRange.max; note++) {
-    const transposedNote = note + baseSemitones;
-
-    // Note trop basse → monter d'une octave
-    if (transposedNote < instrumentCaps.min) {
-      const wrappedNote = transposedNote + 12;
-
-      // Vérifier que c'est maintenant dans la plage
-      if (wrappedNote >= instrumentCaps.min &&
-          wrappedNote <= instrumentCaps.max) {
-        mapping[transposedNote] = wrappedNote;
-        notesBelow++;
-      }
-    }
-
-    // Note trop haute → descendre d'une octave
-    else if (transposedNote > instrumentCaps.max) {
-      const wrappedNote = transposedNote - 12;
-
-      if (wrappedNote >= instrumentCaps.min &&
-          wrappedNote <= instrumentCaps.max) {
-        mapping[transposedNote] = wrappedNote;
-        notesAbove++;
-      }
-    }
-  }
-
-  return {
-    hasWrapping: notesBelow > 0 || notesAbove > 0,
-    mapping: Object.keys(mapping).length > 0 ? mapping : null,
-    info: `${notesBelow} note(s) wrapped up, ${notesAbove} note(s) wrapped down`,
-    notesBelow,
-    notesAbove
-  };
-}
-```
-
-### Exemple Détaillé
-
-```
-Configuration:
-  Canal MIDI: E2 (40) → E5 (76)
-  Instrument: C3 (48) → C5 (72)
-
-Étape 1 - Transposition optimale:
-  Centre canal: 58
-  Centre instrument: 60
-  Shift optimal: +0 octave (0 semitones)
-
-  Mais: 40 < 48 (notes trop basses)
-        76 > 72 (notes trop hautes)
-
-Étape 2 - Essai transposition +1 octave:
-  Shift: +12 semitones
-  Nouvelle plage: 52-88
-
-  52 >= 48 ✓
-  88 > 72 ✗ (notes 73-88 dépassent)
-
-Étape 3 - Octave Wrapping:
-  Notes qui dépassent: 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88
-
-  Mapping wrapping:
-    73 → 61 (-12)
-    74 → 62
-    75 → 63
-    76 → 64
-    77 → 65
-    78 → 66
-    79 → 67
-    80 → 68
-    81 → 69
-    82 → 70
-    83 → 71
-    84 → 72
-    85 → 73  ✗ (> 72, on ne wrap pas deux fois)
-    86 → 74  ✗
-    87 → 75  ✗
-    88 → 76  ✗
-
-Résultat:
-  - 12 notes wrappées avec succès
-  - 4 notes toujours hors plage (abandonnées)
-  - Info: "12 note(s) wrapped down"
-```
-
-### Limitations
-
-1. **Pas de wrapping multiple** : Une note n'est wrappée qu'une seule fois
-2. **Vérification de plage** : La note wrappée doit être dans la plage de l'instrument
-3. **Perte possible** : Si le wrapping ne fonctionne pas, la note est perdue
-4. **Harmonies altérées** : Le wrapping peut créer des collisions harmoniques
-
-### Interface Utilisateur
-
-Quand le wrapping est disponible, une checkbox apparaît :
-
-```
-┌─────────────────────────────────────────────────────┐
-│ 🔄 Enable Octave Wrapping                           │
-│                                                      │
-│ Octave wrapping available: 5 note(s) wrapped up,    │
-│ 8 note(s) wrapped down                              │
-└─────────────────────────────────────────────────────┘
-```
-
-L'utilisateur peut :
-- ✅ Activer le wrapping → notes wrappées appliquées
-- ❌ Désactiver le wrapping → notes hors plage perdues/clampées
+Octave wrapping can create **note duplicates** when multiple source notes from different octaves wrap to the same target note. This is flagged in the quality assessment.
 
 ---
 
-## Guide d'Utilisation
+## Drum Note Mapping
 
-### Étape 1 : Ouvrir l'Auto-Assignation
+Drum instruments require special handling because each MIDI note represents a specific percussion sound rather than a pitch.
 
-1. Sélectionner un fichier MIDI dans la liste
-2. Cliquer sur le bouton **"✏ Edit"** pour ouvrir l'éditeur MIDI
-3. Dans l'éditeur, cliquer sur **"🎯 Auto-Assign Instruments"**
+### Why Drums Are Different
 
-### Étape 2 : Analyse Automatique
+| Aspect | Melodic Instruments | Drums |
+|--------|-------------------|-------|
+| MIDI Note | Pitch (C4, D5...) | Specific sound (Kick, Snare...) |
+| Transposition | Shift by semitones | Not applicable |
+| Mapping | Range-based | Function-based |
+| MIDI Channel | Any (1-16) | Typically channel 10 |
+| Standard | GM Program numbers | GM Drum Map (notes 35-81) |
 
-Le système analyse automatiquement :
+### General MIDI Drum Map
 
-```
-┌─────────────────────────────────────────┐
-│ Analyzing MIDI file...                  │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 90%              │
-│                                         │
-│ ✓ Analyzed 8 channels                  │
-│ ✓ Found 156 instruments                │
-│ ✓ Generated 40 suggestions              │
-└─────────────────────────────────────────┘
-```
+| Note | Name | Category |
+|------|------|----------|
+| 35 | Acoustic Bass Drum | Kick |
+| 36 | Bass Drum 1 | Kick |
+| 37 | Side Stick | Snare Variation |
+| 38 | Acoustic Snare | Snare |
+| 39 | Hand Clap | Snare Variation |
+| 40 | Electric Snare | Snare |
+| 41 | Low Floor Tom | Tom |
+| 42 | Closed Hi-Hat | Hi-Hat |
+| 43 | High Floor Tom | Tom |
+| 44 | Pedal Hi-Hat | Hi-Hat |
+| 45 | Low Tom | Tom |
+| 46 | Open Hi-Hat | Hi-Hat |
+| 47 | Low-Mid Tom | Tom |
+| 48 | Hi-Mid Tom | Tom |
+| 49 | Crash Cymbal 1 | Cymbal |
+| 50 | High Tom | Tom |
+| 51 | Ride Cymbal 1 | Cymbal |
+| 52 | Chinese Cymbal | Cymbal |
+| 53 | Ride Bell | Cymbal |
+| 54 | Tambourine | Latin |
+| 55 | Splash Cymbal | Cymbal |
+| 56 | Cowbell | Latin |
+| 57 | Crash Cymbal 2 | Cymbal |
+| 58 | Vibraslap | Misc |
+| 59 | Ride Cymbal 2 | Cymbal |
+| 60 | Hi Bongo | Latin |
+| 61 | Low Bongo | Latin |
+| 62 | Mute Hi Conga | Latin |
+| 63 | Open Hi Conga | Latin |
+| 64 | Low Conga | Latin |
+| 65 | High Timbale | Latin |
+| 66 | Low Timbale | Latin |
+| 67 | High Agogo | Latin |
+| 68 | Low Agogo | Latin |
+| 69 | Cabasa | Latin |
+| 70 | Maracas | Latin |
+| 71 | Short Whistle | Misc |
+| 72 | Long Whistle | Misc |
+| 73 | Short Guiro | Latin |
+| 74 | Long Guiro | Latin |
+| 75 | Claves | Latin |
+| 76 | Hi Wood Block | Misc |
+| 77 | Low Wood Block | Misc |
+| 78 | Mute Cuica | Latin |
+| 79 | Open Cuica | Latin |
+| 80 | Mute Triangle | Misc |
+| 81 | Open Triangle | Misc |
 
-### Étape 3 : Revue des Suggestions
+### Drum Categories
 
-Pour chaque canal actif, le système affiche :
+The `DrumNoteMapper` groups notes by musical function for intelligent substitution:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Channel 1                                                        │
-│                                                                  │
-│ 📊 Stats: C3-C5 (48-72) • Poly: 6 • Type: piano (85%)          │
-│ ├─────────────────────────────────────────────────────────────┤│
-│                                                                  │
-│ ┌───────────────────────────────────────────────────────────┐  │
-│ │ ✓ Yamaha PSR-E373                                95 ⭐⭐⭐⭐⭐│  │
-│ │   Piano • C2-C6 • Poly: 48                               │  │
-│ │   ✓ Perfect program match • No transposition             │  │
-│ │                                                 RECOMMENDED│  │
-│ └───────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│ ┌───────────────────────────────────────────────────────────┐  │
-│ │   Roland FP-30                                  88 ⭐⭐⭐⭐⭐│  │
-│ │   Piano • A0-C8 • Poly: 128                              │  │
-│ │   ✓ Perfect program match • No transposition             │  │
-│ └───────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│ ┌───────────────────────────────────────────────────────────┐  │
-│ │   Korg Minilogue XD                             62 ⭐⭐⭐   │  │
-│ │   Synth • C2-C6 • Poly: 4                                │  │
-│ │   ⚠ Different program category                           │  │
-│ │   ⚠ Insufficient polyphony (4 vs 6 required)             │  │
-│ └───────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│ 🔄 Enable Octave Wrapping                                       │
-│    Octave wrapping available: 3 note(s) wrapped down           │
-│                                                                  │
-│ [🔊 Preview Channel 1]                                          │
-└─────────────────────────────────────────────────────────────────┘
-```
+**1. Kick (35-36)** — Rhythmic foundation
+- Substitution order: 36 → 35 → 41 → 43
 
-### Étape 4 : Sélection Manuelle (Optionnel)
+**2. Snare (37-40)** — Backbeat articulation
+- Substitution order: 38 → 40 → 37 → 39
 
-- Cliquer sur une option pour la sélectionner (surlignée en vert)
-- Le premier choix est automatiquement sélectionné
-- Vous pouvez changer la sélection pour n'importe quel canal
+**3. Hi-Hat (42, 44, 46)** — Groove subdivision
+- Substitution order: 42 → 44 → 46 → 54 → 70
 
-### Étape 5 : Activer/Désactiver Octave Wrapping
+**4. Toms (41, 43, 45, 47, 48, 50)** — Fills, organized low → high
+- Distributed across available tom pads
 
-Si disponible :
+**5. Cymbals - Crash (49, 55, 57)** — Section accents
+- Substitution order: 49 → 57 → 55 → 51
 
-- ☑️ Cocher pour activer le wrapping → plus de notes jouées
-- ☐ Décocher pour désactiver → notes hors plage perdues
+**6. Cymbals - Ride (51, 53, 59)** — Pattern support
+- Substitution order: 51 → 59 → 53 → 42
 
-### Étape 6 : Preview Audio (Optionnel)
+**7. Latin Percussion (54, 56, 60-68)** — Color/ornamentation
+- Cross-category fallbacks to toms or misc
 
-Trois options de preview :
+### Priority Matrix
 
-1. **🎵 Preview Original** : Écouter le fichier MIDI original (sans modifications)
-2. **🎵 Preview Adapted** : Écouter avec toutes les transpositions/wrapping appliqués
-3. **🔊 Preview Channel X** : Écouter un canal spécifique isolé
+| Priority | Notes | Weight | Required |
+|----------|-------|--------|----------|
+| **1 - Essential** | Kick, Snare, Closed Hi-Hat, Crash | 100, 100, 90, 70 | Yes |
+| **2 - Important** | Open Hi-Hat, Tom Low, Tom High, Ride | 60, 50, 50, 40 | Recommended |
+| **3 - Optional** | Tom Mid, Rim Shot, Hand Clap, Latin, Misc | 30, 25, 20, 15, 10 | Nice to have |
 
-```
-[🎵 Preview Original] [🎵 Preview Adapted] [⏹ Stop]
-```
+### 4-Stage Mapping Algorithm
 
-Le preview joue **15 secondes** depuis le début du fichier.
+1. **Analyze** target instrument capabilities (available notes, categories present)
+2. **Classify** MIDI file drum notes by category and usage frequency
+3. **Assign essential** notes first (kick → snare → hi-hat → crash), using substitution chains
+4. **Assign remaining** by priority level, with substitution or omission for unavailable sounds
 
-### Étape 7 : Application
+### Mapping Quality Score (0-100)
 
-Deux options pour appliquer :
+| Component | Weight | Description |
+|-----------|--------|-------------|
+| Essential preserved | 40% | Are kick, snare, hi-hat, crash mapped? |
+| Important preserved | 30% | Are open hi-hat, toms, ride mapped? |
+| Optional preserved | 15% | Are latin, misc percussion mapped? |
+| Coverage ratio | 10% | % of MIDI notes that have a mapping |
+| Accuracy ratio | 5% | % of exact matches vs substitutions |
 
-#### Option A : Apply Assignments (Standard)
+### Device Scenarios
 
-```
-[Apply Assignments]
-```
-
-- Applique les sélections manuelles
-- Demande confirmation
-- Affiche un résumé :
-
-```
-┌─────────────────────────────────────────┐
-│ Summary                                  │
-│                                         │
-│ Channels to assign: 8                   │
-│ • 5 with transposition                  │
-│ • 2 with note remapping                 │
-│ • 3 with octave wrapping                │
-│                                         │
-│ This will create:                       │
-│ • 1 adapted MIDI file                   │
-│ • 8 instrument routings                 │
-│                                         │
-│ Continue?                               │
-│                                         │
-│        [Cancel]  [Confirm]              │
-└─────────────────────────────────────────┘
-```
-
-#### Option B : Quick Assign & Apply
-
-```
-[⚡ Quick Assign & Apply]
-```
-
-- Utilise automatiquement les recommandations (premier choix)
-- Pas de sélection manuelle requise
-- Application immédiate après confirmation
-
-### Étape 8 : Résultat
-
-Après application :
-
-```
-✓ Adapted file created: song_adapted.mid
-✓ 8 instrument routings saved
-✓ File ready to play
-
-┌─────────────────────────────────────────┐
-│ Assignments Summary:                     │
-│                                         │
-│ Ch 1: Yamaha PSR-E373 (0 semitones)    │
-│ Ch 2: Roland FP-30 (-12 semitones)     │
-│ Ch 3: Alesis V49 (+24 semitones)       │
-│ Ch 9: Alesis Nitro Mesh (drums)        │
-│ ...                                     │
-└─────────────────────────────────────────┘
-```
-
-Le fichier adapté est maintenant disponible dans la liste et peut être joué immédiatement.
+| Scenario | Pads | Typical Devices | Expected Score |
+|----------|------|----------------|---------------|
+| Complete Kit | 20+ | Roland TD-27, Yamaha DTX10K | 90-100 |
+| Standard Kit | 12-15 | Roland TD-17, Yamaha DTX6K | 70-90 |
+| Minimal Kit | 8-10 | Roland TD-1K, Yamaha DTX402 | 50-70 |
+| Pad Controller | 16-25 | Akai MPD226, NI Maschine | 60-80 |
+| Keyboard Pads | <8 | Akai MPK Mini, M-Audio Oxygen | 30-50 |
 
 ---
 
-## Exemples Pratiques
+## Cache Management
 
-### Exemple 1 : Fichier Piano Solo
+Analysis results are cached to avoid re-computation.
 
-**Contexte** :
-- 1 canal MIDI (canal 0)
-- Programme: 0 (Acoustic Grand Piano)
-- Plage: C2 (36) → C6 (84)
-- Polyphonie max: 8 notes simultanées
-- CCs: 7 (volume), 11 (expression), 64 (sustain)
+| Setting | Value |
+|---------|-------|
+| Max entries | 100 |
+| TTL | 10 minutes (600,000 ms) |
+| Auto-cleanup | Every 5 minutes |
+| Cache key | File ID (analysis), File ID + instruments hash (suggestions) |
 
-**Instruments Disponibles** :
-1. Yamaha P-125 (piano numérique, poly 192, plage A0-C8)
-2. Casio CDP-S100 (piano compact, poly 48, plage A0-C8)
-3. Korg SV-2 (stage piano, poly 128, plage A0-C8)
-
-**Résultat Auto-Assignation** :
-
-```
-Channel 0 - Suggestions:
-
-1. Yamaha P-125                    Score: 100 ⭐⭐⭐⭐⭐ [RECOMMENDED]
-   ✓ Perfect program match (Piano)
-   ✓ Perfect note range fit (no transposition)
-   ✓ Polyphony 192 > 8 required
-   ✓ All CCs supported
-   ✓ Type match: piano
-
-2. Korg SV-2                       Score: 100 ⭐⭐⭐⭐⭐
-   (Identique)
-
-3. Casio CDP-S100                  Score: 100 ⭐⭐⭐⭐⭐
-   (Identique)
-```
-
-**Décision** : N'importe lequel des trois est parfait. L'utilisateur choisit selon ses préférences.
+The cache is automatically invalidated when:
+- A MIDI file is modified
+- Instrument configuration changes
+- Cache TTL expires
 
 ---
 
-### Exemple 2 : Fichier Drums + Bass + Piano
+## API Reference
 
-**Contexte** :
-- Canal 9 : Drums (GM Drum Kit)
-- Canal 1 : Bass (programme 33, Electric Bass Finger)
-- Canal 0 : Piano (programme 0)
-
-**Instruments Disponibles** :
-1. Yamaha PSR-E373 (clavier arrangeur, poly 48, C2-C6)
-2. Alesis Nitro Mesh (batterie électronique, pads: 36,38,42,46,48,50,51)
-3. Korg Volca Bass (bass synth, poly 3, C1-C4)
-4. Roland FP-30 (piano, poly 128, A0-C8)
-
-**Résultat Auto-Assignation** :
-
-```
-Channel 9 (Drums) - Suggestions:
-
-1. Alesis Nitro Mesh               Score: 95 ⭐⭐⭐⭐⭐ [RECOMMENDED]
-   ✓ Channel 9 drums match
-   ✓ Type: drums
-   ✓ 85% notes supported
-   ⚠ 15% notes will be remapped
-
-2. Yamaha PSR-E373                 Score: 45 ⭐⭐
-   ⚠ Not a drums instrument
-   ⚠ Different program category
-
-
-Channel 1 (Bass) - Suggestions:
-
-1. Korg Volca Bass                 Score: 82 ⭐⭐⭐⭐ [RECOMMENDED]
-   ✓ Program category match (Bass)
-   ✓ Type: bass
-   ✓ Transposition: +1 octave (bass range fits)
-   ⚠ Polyphony 3 (bass uses 1-2, OK)
-
-2. Yamaha PSR-E373                 Score: 70 ⭐⭐⭐⭐
-   ✓ Can play bass program
-   ✓ Transposition: +2 octaves
-   ⚠ Not a dedicated bass instrument
-
-
-Channel 0 (Piano) - Suggestions:
-
-1. Roland FP-30                    Score: 100 ⭐⭐⭐⭐⭐ [RECOMMENDED]
-   ✓ Perfect program match
-   ✓ No transposition
-   ✓ High polyphony
-
-2. Yamaha PSR-E373                 Score: 95 ⭐⭐⭐⭐⭐
-   ✓ Perfect program match
-   ✓ No transposition
-   ✓ Adequate polyphony
-```
-
-**Application** :
-- Canal 9 → Alesis Nitro Mesh (drums)
-- Canal 1 → Korg Volca Bass (+12 semitones)
-- Canal 0 → Roland FP-30 (0 semitones)
-
----
-
-### Exemple 3 : Fichier Orchestral Complexe
-
-**Contexte** :
-- Canal 0 : Strings (programme 48, C3-C6)
-- Canal 1 : Brass (programme 56, C3-C5)
-- Canal 2 : Flute (programme 73, C4-C7)
-- Canal 3 : Timpani (programme 47, C2-C3)
-
-**Instruments Disponibles** :
-1. Yamaha PSR-E373 (clavier, C2-C6, poly 48)
-2. Roland Juno-DS (synth, A0-C8, poly 128)
-3. Korg Minilogue (synth, C2-C6, poly 4)
-
-**Problème** : Pas d'instruments spécialisés (strings, brass, etc.)
-
-**Résultat Auto-Assignation** :
-
-```
-Channel 0 (Strings) - Suggestions:
-
-1. Roland Juno-DS                  Score: 65 ⭐⭐⭐ [RECOMMENDED]
-   ⚠ Different program (synth vs strings)
-   ✓ Note range fits (no transposition)
-   ✓ High polyphony (good for strings)
-   ✓ Can emulate strings with synth pad
-
-2. Yamaha PSR-E373                 Score: 60 ⭐⭐⭐
-   ⚠ Different program
-   ✓ Note range fits
-   ✓ Has string sounds built-in
-
-
-Channel 1 (Brass) - Suggestions:
-
-1. Roland Juno-DS                  Score: 62 ⭐⭐⭐ [RECOMMENDED]
-   ⚠ Different program category
-   ✓ Note range fits
-   ✓ Polyphony adequate
-
-(Déjà assigné à canal 0, conflit possible)
-
-
-Channel 2 (Flute) - Suggestions:
-
-1. Roland Juno-DS                  Score: 58 ⭐⭐⭐ [RECOMMENDED]
-   ⚠ Different program
-   ✓ Transposition: -1 octave
-   ✓ Low polyphony OK (flute = 1 note)
-
-2. Yamaha PSR-E373                 Score: 55 ⭐⭐⭐
-   ⚠ Different program
-   ✓ Transposition: -1 octave
-
-
-Channel 3 (Timpani) - Suggestions:
-
-1. Korg Minilogue                  Score: 48 ⭐⭐ [RECOMMENDED]
-   ⚠ Very different program
-   ✓ Transposition: +1 octave
-   ⚠ Low polyphony (but timpani uses 1-2)
-
-2. Yamaha PSR-E373                 Score: 45 ⭐⭐
-   ⚠ Different program
-   ✓ Note range fits after +1 octave
-```
-
-**Commentaire** :
-- Scores plus faibles (45-65) car pas d'instruments orchestraux dédiés
-- Le système fait de son mieux avec les synthés disponibles
-- Utilisateur peut accepter ou chercher de meilleurs instruments
-
----
-
-## Référence Technique
-
-### Configuration des Poids (ScoringConfig.js)
-
-```javascript
-const config = {
-  weights: {
-    programMatch: 30,      // Correspondance de programme GM
-    noteRange: 25,         // Compatibilité de plage de notes
-    polyphony: 15,         // Capacité polyphonique
-    ccSupport: 15,         // Support des Control Changes
-    instrumentType: 10,    // Correspondance de type
-    channelSpecial: 5      // Bonus canal spécial (drums)
-  },
-
-  bonuses: {
-    perfectProgramMatch: 30,     // Programme exact
-    sameCategoryMatch: 20,       // Même catégorie GM
-    perfectNoteRangeFit: 25,     // Plage parfaite
-    allCCsSupported: 15,         // Tous les CCs disponibles
-    typeConfidenceHigh: 10,      // Confiance type > 80%
-    channel9Drums: 5             // Canal 9 + drums
-  },
-
-  penalties: {
-    transpositionPerOctave: 3,   // -3pts par octave
-    polyphonyInsufficient: 10,   // Polyphonie < requise
-    partialNoteSupport: 5,       // Support partiel (< 70%)
-    ccMismatch: 5                // CCs manquants
-  },
-
-  thresholds: {
-    excellentScore: 90,          // ⭐⭐⭐⭐⭐
-    veryGoodScore: 70,           // ⭐⭐⭐⭐
-    goodScore: 50,               // ⭐⭐⭐
-    acceptableScore: 30,         // ⭐⭐
-    minCompatibleScore: 10       // ⭐
-  }
-};
-```
-
-### Cache de Performance (AnalysisCache.js)
-
-Le système utilise un cache LRU pour optimiser les performances :
-
-```javascript
-const cache = new AnalysisCache({
-  maxSize: 100,        // 100 entrées max
-  ttl: 600000         // 10 minutes de validité
-});
-
-// Clé: fileId + channel
-cache.set(fileId, channel, analysisData);
-const cached = cache.get(fileId, channel);
-
-// Invalidation
-cache.invalidateFile(fileId);  // Supprimer toutes les analyses d'un fichier
-cache.cleanup();               // Nettoyer les entrées expirées
-```
-
-**Gains de performance** :
-- Première analyse : ~50ms par canal
-- Avec cache : ~0.5ms par canal (100x plus rapide)
-
-### Commandes API
+### WebSocket Commands
 
 #### `analyze_channel`
 
-Analyse un canal spécifique d'un fichier MIDI.
+Analyze a MIDI file's channels.
 
-```javascript
-const result = await apiClient.sendCommand('analyze_channel', {
-  fileId: 123,
-  channel: 0
-});
+```json
+// Request
+{ "command": "analyze_channel", "id": "1", "fileId": 42 }
 
-// Résultat:
+// Response
 {
-  channel: 0,
-  noteRange: { min: 48, max: 84 },
-  polyphony: { max: 6, avg: 3.2 },
-  usedCCs: [7, 11, 64],
-  programs: [0],
-  density: 5.3,
-  estimatedType: {
-    type: 'piano',
-    confidence: 85,
-    scores: { piano: 85, strings: 60, ... }
+  "type": "response", "id": "1",
+  "data": {
+    "channels": {
+      "0": {
+        "noteRange": { "min": 48, "max": 84 },
+        "polyphony": { "max": 4, "avg": 2.1 },
+        "primaryProgram": 0,
+        "estimatedType": "piano",
+        "typeConfidence": 0.92,
+        "usedCCs": [1, 7, 10, 64],
+        "density": 3.5
+      }
+    }
   }
 }
 ```
 
 #### `generate_assignment_suggestions`
 
-Génère les suggestions d'assignation pour tous les canaux.
+Generate scored instrument suggestions per channel.
 
-```javascript
-const result = await apiClient.sendCommand('generate_assignment_suggestions', {
-  fileId: 123,
-  options: {
-    topN: 5,                    // Top-N suggestions par canal
-    minScore: 10,               // Score minimum
-    allowConflicts: false       // Éviter d'assigner le même instrument 2x
-  }
-});
+```json
+// Request
+{ "command": "generate_assignment_suggestions", "id": "2", "fileId": 42 }
 
-// Résultat:
+// Response
 {
-  suggestions: {
-    0: [
-      {
-        instrument: { id: 1, name: 'Yamaha PSR-E373', ... },
-        compatibility: {
-          score: 95,
-          transposition: { semitones: 0, octaves: 0 },
-          octaveWrapping: null,
-          issues: [],
-          info: ['Perfect program match', 'No transposition']
+  "type": "response", "id": "2",
+  "data": {
+    "suggestions": {
+      "0": [
+        {
+          "deviceId": "usb-midi-1",
+          "channel": 0,
+          "score": 87,
+          "scoreDetails": {
+            "program": 30, "noteRange": 22, "polyphony": 15,
+            "controlChanges": 10, "type": 8, "special": 2
+          },
+          "transposition": 0,
+          "adaptations": []
         }
-      },
-      // ... 4 autres suggestions
-    ],
-    1: [ ... ],
-    // ... autres canaux
-  },
-  autoSelection: {
-    0: 'device_abc123',   // Meilleur instrument par canal
-    1: 'device_def456',
-    // ...
-  },
-  confidence: 'high'      // 'high', 'medium', 'low'
+      ]
+    },
+    "autoSelection": { "0": "usb-midi-1" },
+    "confidence": 0.85
+  }
 }
 ```
 
 #### `apply_assignments`
 
-Applique les assignations et crée le fichier adapté.
-
-```javascript
-const result = await apiClient.sendCommand('apply_assignments', {
-  originalFileId: 123,
-  assignments: {
-    0: {
-      deviceId: 'device_abc123',
-      instrumentId: 1,
-      transposition: { semitones: 0, octaves: 0 },
-      noteRemapping: null,
-      octaveWrappingEnabled: false
-    },
-    1: {
-      deviceId: 'device_def456',
-      instrumentId: 2,
-      transposition: { semitones: 12, octaves: 1 },
-      noteRemapping: null,
-      octaveWrappingEnabled: false
-    },
-    // ...
-  },
-  createAdaptedFile: true    // true = créer fichier adapté
-});
-
-// Résultat:
-{
-  success: true,
-  adaptedFileId: 456,
-  routingsCreated: 8,
-  stats: {
-    channelsModified: 5,
-    notesTransposed: 1247,
-    notesRemapped: 0
-  }
-}
-```
-
-### Structure de la Base de Données
-
-#### Table `midi_files`
-
-```sql
-CREATE TABLE midi_files (
-  id INTEGER PRIMARY KEY,
-  filename TEXT NOT NULL,
-  data BLOB NOT NULL,
-  format INTEGER,
-  tracks INTEGER,
-  ppq INTEGER,
-  created_at TIMESTAMP,
-
-  -- Adaptation support
-  is_original BOOLEAN DEFAULT 1,
-  parent_file_id INTEGER REFERENCES midi_files(id),
-  adaptation_metadata TEXT  -- JSON: { assignments, transpositions, stats }
-);
-```
-
-#### Table `midi_instrument_routings`
-
-```sql
-CREATE TABLE midi_instrument_routings (
-  id INTEGER PRIMARY KEY,
-  midi_file_id INTEGER NOT NULL REFERENCES midi_files(id),
-  midi_channel INTEGER NOT NULL,
-  instrument_id INTEGER NOT NULL REFERENCES instruments(id),
-
-  -- Auto-assignment data
-  compatibility_score INTEGER,
-  transposition_applied INTEGER,  -- Semitones
-  auto_assigned BOOLEAN DEFAULT 0,
-  assignment_reason TEXT,
-  note_remapping TEXT,  -- JSON: { 36: 38, 42: 45, ... }
-
-  UNIQUE(midi_file_id, midi_channel)
-);
-```
-
-### Format JSON d'Adaptation
+Apply assignments, create adapted file copy, and configure routing.
 
 ```json
+// Request
 {
-  "adapted_from": 123,
-  "adapted_at": "2026-01-20T23:45:12Z",
+  "command": "apply_assignments", "id": "3",
+  "fileId": 42,
   "assignments": {
-    "0": {
-      "deviceId": "device_abc123",
-      "instrumentName": "Yamaha PSR-E373",
-      "score": 95,
-      "transposition": { "semitones": 0, "octaves": 0 },
-      "noteRemapping": null,
-      "octaveWrappingEnabled": false
-    },
-    "1": {
-      "deviceId": "device_def456",
-      "instrumentName": "Korg Volca Bass",
-      "score": 82,
-      "transposition": { "semitones": 12, "octaves": 1 },
-      "noteRemapping": null,
-      "octaveWrappingEnabled": false
-    },
-    "9": {
-      "deviceId": "device_ghi789",
-      "instrumentName": "Alesis Nitro Mesh",
-      "score": 90,
-      "transposition": { "semitones": 0, "octaves": 0 },
-      "noteRemapping": {
-        "46": "45",
-        "48": "47",
-        "50": "49"
-      },
-      "octaveWrappingEnabled": false
+    "0": { "deviceId": "usb-midi-1", "channel": 0, "transposition": 0, "octaveWrap": false }
+  }
+}
+
+// Response
+{
+  "type": "response", "id": "3",
+  "data": {
+    "adaptedFileId": 43,
+    "routingApplied": true,
+    "stats": {
+      "channelsModified": 1,
+      "notesTransposed": 0,
+      "notesRemapped": 0
     }
-  },
-  "stats": {
-    "channelsModified": 3,
-    "notesTransposed": 856,
-    "notesRemapped": 124
   }
 }
 ```
 
 ---
 
-## Conclusion
+## Usage Guide
 
-Le système d'auto-assignation des canaux MIDI offre une solution intelligente et flexible pour connecter automatiquement des fichiers MIDI aux instruments disponibles. En combinant :
-
-- **Analyse approfondie** des caractéristiques MIDI
-- **Scoring multi-critères** pondéré
-- **Transposition par octaves** préservant la mélodie
-- **Octave wrapping** pour étendre la compatibilité
-- **Interface intuitive** avec preview audio
-- **Optimisations de performance** (cache LRU)
-
-Le système permet de réduire considérablement le temps de configuration tout en maximisant la qualité du résultat musical.
-
-### Ressources Additionnelles
-
-- **Code source** : `src/midi/` et `public/js/views/components/`
-- **Migrations** : `migrations/016_auto_assignment_support.sql`
-- **Tests** : (À venir)
-- **Exemples** : `examples/auto-assignment/`
-
-### Support
-
-Pour toute question ou problème :
-- Ouvrir une issue sur GitHub
-- Consulter les logs du système
-- Activer le mode debug dans les Settings
+1. **Open auto-assign**: Right-click a MIDI file → "Auto-Assign"
+2. **Review analysis**: The system displays each channel with detected type, note range, polyphony, and density
+3. **Review suggestions**: Each channel shows ranked instrument suggestions with compatibility scores
+4. **Adjust options**: Toggle octave wrapping per channel if needed
+5. **Preview**: Click "Preview" to hear the assignment before committing
+6. **Apply**: Click "Apply" to create an adapted copy and set routing
+7. **Play**: The adapted file is ready for playback with the assigned instruments
 
 ---
 
-**Version** : 1.0.0
-**Dernière mise à jour** : 2026-01-20
-**Auteur** : MidiMind Development Team
+## Configuration
+
+### ScoringConfig Weights
+
+```javascript
+{
+  weights: { program: 30, noteRange: 25, polyphony: 15, controlChanges: 15, instrumentType: 10, channelSpecial: 5 },
+  bonuses: { exactProgramMatch: 2, drumChannelMatch: 3 },
+  penalties: { transpositionPerOctave: 3 },
+  thresholds: { minimumScore: 20, goodScore: 60, excellentScore: 85 }
+}
+```
+
+### Drum Mapping Options
+
+```javascript
+{
+  mode: 'intelligent',        // 'intelligent' | 'closest' | 'strict'
+  allowSubstitution: true,
+  allowSharing: true,
+  allowOmission: true,
+  preserveEssentials: true,
+  preferExactMatch: true,
+  minQualityScore: 50,
+  minEssentialCoverage: 0.75,
+  warnOnLowQuality: true,
+  suggestAlternatives: true
+}
+```
+
+---
+
+## Best Practices
+
+### For MIDI File Creators
+
+- Use **channel 10** (index 9) for drums — this is the GM standard
+- Set correct **GM program numbers** on each channel
+- Use standard **GM drum notes** (35-81) for maximum compatibility
+- Document non-standard mappings if deviating from GM
+
+### For Instrument Configuration
+
+- Set **accurate note ranges** matching the physical instrument
+- Define correct **polyphony limits**
+- Choose the appropriate **instrument type**
+- For drums: map **essential notes first** (kick, snare, hi-hat, crash)
+- Set the **mode** correctly: `continuous` for melodic, `discrete` for pads
+
+### Score Interpretation
+
+| Score Range | Rating | Meaning |
+|-------------|--------|---------|
+| 85-100 | Excellent | Near-perfect match, minimal adaptation |
+| 60-84 | Good | Solid match, some transposition may apply |
+| 40-59 | Acceptable | Playable with compromises |
+| 20-39 | Poor | Significant limitations, many adaptations |
+| 0-19 | Incompatible | Not recommended for this channel |
+
+---
+
+## Troubleshooting
+
+### Low scores (< 50)
+
+- Check instrument configuration: is the note range correct?
+- Verify the instrument type matches the channel content
+- Ensure GM program numbers are set on instruments
+
+### Drum mapping issues
+
+- Verify channel 10 detection (drums on other channels may not be detected)
+- Check that the instrument is configured in `discrete` mode
+- Ensure essential drum notes (kick 36, snare 38, hi-hat 42, crash 49) are mapped
+
+### No suggestions generated
+
+- Ensure at least one instrument is connected and enabled
+- Check that instruments have their capabilities configured
+- Verify the MIDI file is valid and contains note data
+
+### Wrong assignments
+
+- Review instrument capabilities (note range, polyphony, type)
+- Check for conflicting channel assignments (same instrument used on multiple channels)
+- Try toggling octave wrapping for better range coverage
+
+### Audio preview not working
+
+- Ensure the browser supports Web Audio API
+- Check that the built-in synthesizer is loaded
+- Verify the MIDI file has valid note data on the selected channel
