@@ -407,13 +407,13 @@ class InstrumentSettingsModal extends BaseModal {
         const config = tab.stringInstrumentConfig;
         const gmCategory = typeof getGmStringCategory === 'function' ? getGmStringCategory(settings.gm_program) : null;
 
-        // Reuse global helpers
+        // Reuse global helpers for preset dropdown
         const presetOptions = typeof renderSiPresetOptions === 'function'
             ? renderSiPresetOptions(this.tuningPresets, config, gmCategory) : '';
-        const tuningRows = typeof renderSiTuningRows === 'function'
-            ? renderSiTuningRows(config, config ? config.num_frets : 24) : '';
 
         const numStrings = config ? config.num_strings : 6;
+        const tuning = config?.tuning || [40, 45, 50, 55, 59, 64];
+        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         // CC config values
         const ccEnabled = config ? (config.cc_enabled !== false) : true;
@@ -431,7 +431,24 @@ class InstrumentSettingsModal extends BaseModal {
         const fretsPerString = config?.frets_per_string || null;
         const isFretless = config?.is_fretless || false;
         const numFrets = config?.num_frets ?? 24;
-        const capoFret = config?.capo_fret ?? 0;
+
+        // Build string rows for the side panel (note + MIDI input per string)
+        let stringRows = '';
+        for (let i = 0; i < numStrings; i++) {
+            const note = tuning[i] || 40;
+            const noteName = NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
+            const stringFrets = fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets;
+            stringRows += `
+                <div class="si-neck-string-row">
+                    <span class="si-string-num">${i + 1}</span>
+                    <span class="si-string-note-badge" id="ismBadge${i}">${noteName}</span>
+                    <input type="number" class="si-input si-input-xs si-tuning-val" id="siTuning${i}"
+                           data-string="${i}" value="${note}" min="0" max="127"
+                           title="MIDI" onchange="onSiTuningChanged(${i}, this)">
+                    <input type="number" class="si-input si-input-xs si-frets-val" id="siFrets${i}"
+                           value="${stringFrets}" min="0" max="36" title="Frettes">
+                </div>`;
+        }
 
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> ${this.t('instrumentSettings.sectionStrings') || 'Instrument à cordes'}</h3>
@@ -448,9 +465,21 @@ class InstrumentSettingsModal extends BaseModal {
                     </div>
                 </div>
 
-                <div class="ism-form-group">
-                    <label>${this.t('stringInstrument.tuning') || 'Accordage'}</label>
-                    <div id="siTuningGrid" class="ism-tuning-grid">${tuningRows}</div>
+                <div class="si-neck-combined">
+                    <div class="si-neck-strings-panel">
+                        <div class="si-neck-strings-header">
+                            <span class="si-neck-col-hdr">#</span>
+                            <span class="si-neck-col-hdr">Note</span>
+                            <span class="si-neck-col-hdr">MIDI</span>
+                            <span class="si-neck-col-hdr">Fret</span>
+                        </div>
+                        ${stringRows}
+                    </div>
+                    ${!isFretless ? `
+                    <div class="si-neck-canvas-panel">
+                        <canvas id="ism-neck-canvas" width="400" height="${Math.max(120, numStrings * 22 + 36)}"></canvas>
+                    </div>
+                    ` : ''}
                 </div>
 
                 <div class="si-cc-toggle-row" style="margin-top:8px">
@@ -505,21 +534,6 @@ class InstrumentSettingsModal extends BaseModal {
                         </div>
                     </div>
                 </div>
-
-                ${!isFretless ? `
-                <div class="si-neck-section" style="margin-top:8px">
-                    <div class="si-neck-header">
-                        <label class="si-section-title">${this.t('stringInstrument.numFrets') || 'Frettes'}</label>
-                        <div class="si-field si-checkbox-field si-neck-mode-toggle">
-                            <input type="checkbox" id="ism-per-string-mode" ${fretsPerString ? 'checked' : ''}>
-                            <label for="ism-per-string-mode">Par corde</label>
-                        </div>
-                    </div>
-                    <div class="si-neck-diagram-wrapper">
-                        <canvas id="ism-neck-canvas" width="500" height="140"></canvas>
-                    </div>
-                </div>
-                ` : ''}
             </div>
         `;
     }
@@ -1069,9 +1083,9 @@ class InstrumentSettingsModal extends BaseModal {
 
         requestAnimationFrame(() => {
             const wrapper = canvas.parentElement;
-            const w = wrapper?.clientWidth || 500;
+            const w = wrapper?.clientWidth || 400;
             canvas.width = w;
-            canvas.height = 140;
+            canvas.height = Math.max(120, numStrings * 22 + 36);
 
             this._neckDiagram = new NeckDiagramConfig(canvas, {
                 numStrings,
@@ -1080,10 +1094,48 @@ class InstrumentSettingsModal extends BaseModal {
                 tuning,
                 isFretless: config?.is_fretless || false,
                 onChange: (fretsPerString) => {
+                    // Sync fret inputs in the side panel
+                    if (fretsPerString) {
+                        for (let i = 0; i < fretsPerString.length; i++) {
+                            const input = this.$(`#siFrets${i}`);
+                            if (input) input.value = fretsPerString[i];
+                        }
+                    }
                     // Store on the tab config for save
                     if (tab && tab.stringInstrumentConfig) {
                         tab.stringInstrumentConfig.frets_per_string = fretsPerString;
                     }
+                }
+            });
+        });
+
+        // Wire fret inputs -> neck diagram sync
+        this.$$('.si-frets-val').forEach(input => {
+            input.addEventListener('change', () => {
+                if (!this._neckDiagram) return;
+                const idx = parseInt(input.id.replace('siFrets', ''));
+                if (isNaN(idx)) return;
+                const val = parseInt(input.value) || 0;
+                this._neckDiagram.fretsPerString[idx] = Math.max(0, Math.min(36, val));
+                this._neckDiagram.redraw();
+            });
+        });
+
+        // Wire tuning inputs -> neck diagram sync + badge update
+        this.$$('.si-tuning-val').forEach(input => {
+            input.addEventListener('change', () => {
+                const idx = parseInt(input.dataset.string);
+                if (isNaN(idx)) return;
+                const val = parseInt(input.value);
+                if (isNaN(val) || val < 0 || val > 127) return;
+                // Update badge
+                const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const badge = this.$(`#ismBadge${idx}`);
+                if (badge) badge.textContent = NOTE_NAMES[val % 12] + (Math.floor(val / 12) - 1);
+                // Update neck diagram
+                if (this._neckDiagram && this._neckDiagram.tuning[idx] !== undefined) {
+                    this._neckDiagram.tuning[idx] = val;
+                    this._neckDiagram.redraw();
                 }
             });
         });
