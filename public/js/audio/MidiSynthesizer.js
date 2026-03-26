@@ -25,6 +25,7 @@ class MidiSynthesizer {
         // Tempo et timing
         this.tempo = 120; // BPM
         this.ticksPerBeat = 480; // PPQ standard
+        this.tempoMap = []; // [{ticks, tempo, timeSeconds}] - tempo map triée par ticks
 
         // Canaux et instruments
         this.channelInstruments = new Array(16).fill(0);
@@ -500,27 +501,79 @@ class MidiSynthesizer {
     }
 
     /**
-     * Convertir ticks en secondes
+     * Convertir ticks en secondes (avec support du tempo map)
      */
     ticksToSeconds(ticks) {
-        const beatsPerSecond = this.tempo / 60;
-        const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
-        return ticks / ticksPerSecond;
+        if (this.tempoMap.length === 0) {
+            const beatsPerSecond = this.tempo / 60;
+            const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
+            return ticks / ticksPerSecond;
+        }
+
+        let seconds = 0;
+        let prevTick = 0;
+        let currentTempo = this.tempoMap[0].tempo;
+
+        for (let i = 0; i < this.tempoMap.length; i++) {
+            const entry = this.tempoMap[i];
+            if (entry.ticks >= ticks) break;
+
+            const segmentTicks = entry.ticks - prevTick;
+            const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
+            seconds += segmentTicks / ticksPerSecond;
+
+            prevTick = entry.ticks;
+            currentTempo = entry.tempo;
+        }
+
+        // Segment restant après le dernier point de tempo
+        const remainingTicks = ticks - prevTick;
+        const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
+        seconds += remainingTicks / ticksPerSecond;
+
+        return seconds;
     }
 
     /**
-     * Convertir secondes en ticks
+     * Convertir secondes en ticks (avec support du tempo map)
      */
     secondsToTicks(seconds) {
-        const beatsPerSecond = this.tempo / 60;
-        const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
-        return Math.round(seconds * ticksPerSecond);
+        if (this.tempoMap.length === 0) {
+            const beatsPerSecond = this.tempo / 60;
+            const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
+            return Math.round(seconds * ticksPerSecond);
+        }
+
+        let accumulatedSeconds = 0;
+        let prevTick = 0;
+        let currentTempo = this.tempoMap[0].tempo;
+
+        for (let i = 0; i < this.tempoMap.length; i++) {
+            const entry = this.tempoMap[i];
+            const segmentTicks = entry.ticks - prevTick;
+            const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
+            const segmentDuration = segmentTicks / ticksPerSecond;
+
+            if (accumulatedSeconds + segmentDuration >= seconds) {
+                const remainingSeconds = seconds - accumulatedSeconds;
+                return Math.round(prevTick + remainingSeconds * ticksPerSecond);
+            }
+
+            accumulatedSeconds += segmentDuration;
+            prevTick = entry.ticks;
+            currentTempo = entry.tempo;
+        }
+
+        // Au-delà du dernier point de tempo
+        const remainingSeconds = seconds - accumulatedSeconds;
+        const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
+        return Math.round(prevTick + remainingSeconds * ticksPerSecond);
     }
 
     /**
      * Charger une séquence
      */
-    loadSequence(sequence, tempo = 120, ticksPerBeat = 480) {
+    loadSequence(sequence, tempo = 120, ticksPerBeat = 480, tempoEvents = null) {
         this.sequence = sequence.map(note => ({
             t: note.t,
             g: note.g,
@@ -531,6 +584,15 @@ class MidiSynthesizer {
 
         this.tempo = tempo;
         this.ticksPerBeat = ticksPerBeat;
+
+        // Construire le tempo map à partir des événements de tempo
+        if (tempoEvents && tempoEvents.length > 0) {
+            this.tempoMap = tempoEvents
+                .map(e => ({ ticks: e.ticks, tempo: e.tempo }))
+                .sort((a, b) => a.ticks - b.ticks);
+        } else {
+            this.tempoMap = [];
+        }
 
         this.sequence.sort((a, b) => a.t - b.t);
 
@@ -544,7 +606,7 @@ class MidiSynthesizer {
         this.startTick = 0;
         this.currentTick = 0;
 
-        this.log('info', `Sequence loaded: ${this.sequence.length} notes, ${this.ticksToSeconds(maxEndTick).toFixed(2)}s at ${tempo} BPM`);
+        this.log('info', `Sequence loaded: ${this.sequence.length} notes, ${this.ticksToSeconds(maxEndTick).toFixed(2)}s at ${tempo} BPM${this.tempoMap.length > 0 ? `, ${this.tempoMap.length} tempo changes` : ''}`);
     }
 
     /**

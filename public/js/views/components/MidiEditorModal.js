@@ -4538,7 +4538,10 @@ class MidiEditorModal {
         const tempo = this.tempo || 120;
         const ticksPerBeat = this.ticksPerBeat || 480;
 
-        this.synthesizer.loadSequence(sequence, tempo, ticksPerBeat);
+        // Synchroniser les événements de tempo depuis l'éditeur si ouvert
+        this.syncTempoEventsFromEditor();
+
+        this.synthesizer.loadSequence(sequence, tempo, ticksPerBeat, this.tempoEvents);
 
         // Configurer les instruments pour chaque canal
         this.channels.forEach(ch => {
