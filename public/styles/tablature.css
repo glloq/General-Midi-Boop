@@ -326,13 +326,14 @@ body.dark-mode .tab-fret-input {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    max-height: 2000px;
     transition: max-height 0.3s ease, opacity 0.3s ease;
     overflow: hidden;
 }
 
 .si-details-section.si-collapsed {
     max-height: 0;
-    opacity: 0.4;
+    opacity: 0;
     pointer-events: none;
     margin: 0;
 }
@@ -640,13 +641,14 @@ body.dark-mode .tab-fret-input {
     background: rgba(102, 126, 234, 0.04);
     border: 1px solid rgba(102, 126, 234, 0.12);
     border-radius: var(--border-radius, 4px);
-    transition: max-height 0.3s ease, opacity 0.3s ease;
+    max-height: 500px;
+    transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
     overflow: hidden;
 }
 
 .si-cc-config-section.si-collapsed {
     max-height: 0;
-    opacity: 0.4;
+    opacity: 0;
     pointer-events: none;
     margin: 0;
     padding: 0 12px;

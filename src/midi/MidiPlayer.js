@@ -265,14 +265,14 @@ class MidiPlayer {
           if (instrument) {
             if (instrument.cc_enabled === false) continue;
             ccConfig = {
-              ccStringNumber: instrument.cc_string_number !== undefined ? instrument.cc_string_number : 20,
-              ccStringMin: instrument.cc_string_min !== undefined ? instrument.cc_string_min : 1,
-              ccStringMax: instrument.cc_string_max !== undefined ? instrument.cc_string_max : 12,
-              ccStringOffset: instrument.cc_string_offset || 0,
-              ccFretNumber: instrument.cc_fret_number !== undefined ? instrument.cc_fret_number : 21,
-              ccFretMin: instrument.cc_fret_min !== undefined ? instrument.cc_fret_min : 0,
-              ccFretMax: instrument.cc_fret_max !== undefined ? instrument.cc_fret_max : 36,
-              ccFretOffset: instrument.cc_fret_offset || 0
+              ccStringNumber: instrument.cc_string_number ?? 20,
+              ccStringMin: instrument.cc_string_min ?? 1,
+              ccStringMax: instrument.cc_string_max ?? 12,
+              ccStringOffset: instrument.cc_string_offset ?? 0,
+              ccFretNumber: instrument.cc_fret_number ?? 21,
+              ccFretMin: instrument.cc_fret_min ?? 0,
+              ccFretMax: instrument.cc_fret_max ?? 36,
+              ccFretOffset: instrument.cc_fret_offset ?? 0
             };
           }
         } catch (e) { /* ignore lookup errors */ }
@@ -321,23 +321,25 @@ class MidiPlayer {
 
       // Match within 50ms tolerance
       if (bestMatch && bestTimeDiff < 0.05) {
-        // Apply offset and clamp to configured range
-        const stringVal = Math.max(ccConfig.ccStringMin, Math.min(ccConfig.ccStringMax, bestMatch.string + ccConfig.ccStringOffset));
-        const fretVal = Math.max(ccConfig.ccFretMin, Math.min(ccConfig.ccFretMax, Math.round(bestMatch.fret) + ccConfig.ccFretOffset));
+        // Apply offset, clamp to configured range, then clamp to MIDI 0-127
+        const stringRaw = bestMatch.string + ccConfig.ccStringOffset;
+        const stringVal = Math.max(0, Math.min(127, Math.max(ccConfig.ccStringMin, Math.min(ccConfig.ccStringMax, stringRaw))));
+        const fretRaw = Math.round(bestMatch.fret) + ccConfig.ccFretOffset;
+        const fretVal = Math.max(0, Math.min(127, Math.max(ccConfig.ccFretMin, Math.min(ccConfig.ccFretMax, fretRaw))));
 
         ccEvents.push({
           time: event.time - EPSILON,
           type: 'controller',
           channel: event.channel,
           controller: ccConfig.ccStringNumber,
-          value: Math.min(127, Math.max(0, stringVal))
+          value: stringVal
         });
         ccEvents.push({
           time: event.time - EPSILON,
           type: 'controller',
           channel: event.channel,
           controller: ccConfig.ccFretNumber,
-          value: Math.min(127, Math.max(0, fretVal))
+          value: fretVal
         });
       }
     }

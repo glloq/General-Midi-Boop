@@ -348,6 +348,13 @@ class StringInstrumentConfigModal extends BaseModal {
     // EVENTS
     // ========================================================================
 
+    onClose() {
+        if (this.neckDiagram) {
+            this.neckDiagram.destroy();
+            this.neckDiagram = null;
+        }
+    }
+
     onOpen() {
         if (!this.dialog) return;
 
@@ -494,23 +501,27 @@ class StringInstrumentConfigModal extends BaseModal {
         const canvas = this.dialog?.querySelector('#si-neck-canvas');
         if (!canvas || typeof NeckDiagramConfig === 'undefined') return;
 
-        // Size canvas to wrapper
-        const wrapper = canvas.parentElement;
-        if (wrapper) {
-            canvas.width = wrapper.clientWidth || 500;
+        const createDiagram = () => {
+            // Size canvas to wrapper
+            const wrapper = canvas.parentElement;
+            const w = wrapper?.clientWidth || 500;
+            canvas.width = w;
             canvas.height = 120;
-        }
 
-        this.neckDiagram = new NeckDiagramConfig(canvas, {
-            numStrings: this.config.num_strings,
-            numFrets: this.config.num_frets,
-            fretsPerString: this.config.frets_per_string,
-            tuning: this.config.tuning,
-            isFretless: this.config.is_fretless,
-            onChange: (fretsPerString) => {
-                this.config.frets_per_string = fretsPerString;
-            }
-        });
+            this.neckDiagram = new NeckDiagramConfig(canvas, {
+                numStrings: this.config.num_strings,
+                numFrets: this.config.num_frets,
+                fretsPerString: this.config.frets_per_string,
+                tuning: this.config.tuning,
+                isFretless: this.config.is_fretless,
+                onChange: (fretsPerString) => {
+                    this.config.frets_per_string = fretsPerString;
+                }
+            });
+        };
+
+        // Defer to next frame to ensure DOM layout is complete
+        requestAnimationFrame(createDiagram);
     }
 
     _updateNeckDiagram() {

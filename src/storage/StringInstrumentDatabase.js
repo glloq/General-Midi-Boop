@@ -305,6 +305,9 @@ class StringInstrumentDatabase {
       }
       for (const ccField of ['cc_string_offset', 'cc_fret_offset']) {
         if (updates[ccField] !== undefined) {
+          if (updates[ccField] < -127 || updates[ccField] > 127) {
+            throw new Error(`${ccField} must be between -127 and 127`);
+          }
           fields.push(`${ccField} = ?`);
           values.push(updates[ccField]);
         }

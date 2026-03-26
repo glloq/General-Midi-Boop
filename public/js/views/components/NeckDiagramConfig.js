@@ -385,7 +385,7 @@ class NeckDiagramConfig {
             const endX = neck.x + neck.width;
 
             // Draw semi-transparent overlay on inactive zone
-            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.fillStyle = this.colors.inactiveZone;
             ctx.fillRect(startX, stringY - spacing * 0.4, endX - startX, spacing * 0.8);
 
             // Dashed border at the boundary

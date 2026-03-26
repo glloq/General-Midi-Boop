@@ -72,7 +72,7 @@ class TablatureConverter {
 
     // Precompute the playable range per string (using per-string frets if available)
     this.stringRanges = this.effectiveTuning.map((openNote, i) => {
-      const maxFrets = this.fretsPerString ? (this.fretsPerString[i] || this.numFrets) : this.numFrets;
+      const maxFrets = this.fretsPerString?.[i] ?? this.numFrets;
       return {
         min: openNote,
         max: this.isFretless ? openNote + 48 : openNote + maxFrets
@@ -506,8 +506,9 @@ class TablatureConverter {
 
       // Generate CC events (string select + fret select) only if cc_enabled
       if (this.ccEnabled) {
-        // String select: apply offset and clamp to configured range
-        const stringVal = Math.max(this.ccStringMin, Math.min(this.ccStringMax, event.string + this.ccStringOffset));
+        // String select: apply offset, clamp to configured range, then clamp to MIDI 0-127
+        const stringRaw = event.string + this.ccStringOffset;
+        const stringVal = Math.max(0, Math.min(127, Math.max(this.ccStringMin, Math.min(this.ccStringMax, stringRaw))));
         ccEvents.push({
           tick: event.tick,
           cc: this.ccStringNumber,
@@ -515,8 +516,9 @@ class TablatureConverter {
           channel: event.channel ?? 0
         });
 
-        // Fret select: apply offset and clamp to configured range
-        const fretVal = Math.max(this.ccFretMin, Math.min(this.ccFretMax, Math.round(event.fret) + this.ccFretOffset));
+        // Fret select: apply offset, clamp to configured range, then clamp to MIDI 0-127
+        const fretRaw = Math.round(event.fret) + this.ccFretOffset;
+        const fretVal = Math.max(0, Math.min(127, Math.max(this.ccFretMin, Math.min(this.ccFretMax, fretRaw))));
         ccEvents.push({
           tick: event.tick,
           cc: this.ccFretNumber,
@@ -593,7 +595,7 @@ class TablatureConverter {
         }
       } else {
         // Use per-string fret count if available, otherwise global numFrets
-        const maxFret = this.fretsPerString ? (this.fretsPerString[i] || this.numFrets) : this.numFrets;
+        const maxFret = this.fretsPerString?.[i] ?? this.numFrets;
         if (fret <= maxFret) {
           positions.push({ string: i + 1, fret });
         }
