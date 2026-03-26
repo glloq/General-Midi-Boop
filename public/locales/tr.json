@@ -352,6 +352,7 @@
     "drawSettings": "Draw settings",
     "drawDensity": "Point density",
     "drawDensityTip": "Minimum spacing between points in draw mode",
+    "addCC": "Add a CC",
     "notesChannel": "{count} notes - Channel {channel}",
     "bpmLabel": "BPM",
     "tempoChanged": "Tempo: {tempo} BPM",

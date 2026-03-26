@@ -353,6 +353,7 @@
     "drawSettings": "Réglages de dessin",
     "drawDensity": "Densité de points",
     "drawDensityTip": "Espacement minimum entre les points en mode dessin",
+    "addCC": "Ajouter un CC",
     "notesChannel": "{count} notes - Canal {channel}",
     "bpmLabel": "BPM",
     "tempoChanged": "Tempo : {tempo} BPM",

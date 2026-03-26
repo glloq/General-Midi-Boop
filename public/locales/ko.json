@@ -352,6 +352,7 @@
     "drawSettings": "그리기 설정",
     "drawDensity": "포인트 밀도",
     "drawDensityTip": "그리기 모드에서 포인트 간 최소 간격",
+    "addCC": "CC 추가",
     "notesChannel": "{count} notes - Channel {channel}",
     "bpmLabel": "BPM",
     "tempoChanged": "Tempo: {tempo} BPM",

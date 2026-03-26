@@ -352,6 +352,7 @@
     "drawSettings": "Настройки рисования",
     "drawDensity": "Плотность точек",
     "drawDensityTip": "Минимальное расстояние между точками в режиме рисования",
+    "addCC": "Добавить CC",
     "notesChannel": "{count} notes - Channel {channel}",
     "bpmLabel": "BPM",
     "tempoChanged": "Tempo: {tempo} BPM",

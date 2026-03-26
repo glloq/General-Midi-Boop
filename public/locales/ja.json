@@ -352,6 +352,7 @@
     "drawSettings": "描画設定",
     "drawDensity": "ポイント密度",
     "drawDensityTip": "描画モードでのポイント間の最小間隔",
+    "addCC": "CCを追加",
     "notesChannel": "{count} notes - Channel {channel}",
     "bpmLabel": "BPM",
     "tempoChanged": "Tempo: {tempo} BPM",

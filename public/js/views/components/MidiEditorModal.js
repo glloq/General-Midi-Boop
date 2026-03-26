@@ -773,14 +773,42 @@ class MidiEditorModal {
         0: 'Bank Select', 1: 'Modulation', 2: 'Breath', 3: 'Ctrl 3', 4: 'Foot',
         5: 'Portamento', 6: 'Data Entry', 7: 'Volume', 8: 'Balance', 9: 'Ctrl 9',
         10: 'Pan', 11: 'Expression', 12: 'FX Ctrl 1', 13: 'FX Ctrl 2',
+        14: 'Ctrl 14', 15: 'Ctrl 15', 16: 'GP Ctrl 1', 17: 'GP Ctrl 2',
+        18: 'GP Ctrl 3', 19: 'GP Ctrl 4', 20: 'Ctrl 20', 21: 'Ctrl 21',
+        22: 'Ctrl 22', 23: 'Ctrl 23', 24: 'Ctrl 24', 25: 'Ctrl 25',
+        26: 'Ctrl 26', 27: 'Ctrl 27', 28: 'Ctrl 28', 29: 'Ctrl 29',
+        30: 'Ctrl 30', 31: 'Ctrl 31',
+        32: 'Bank Select LSB', 33: 'Mod Wheel LSB', 34: 'Breath LSB',
+        35: 'Ctrl 35', 36: 'Foot LSB', 37: 'Porta LSB', 38: 'Data Entry LSB',
+        39: 'Volume LSB', 40: 'Balance LSB', 41: 'Ctrl 41', 42: 'Pan LSB',
+        43: 'Expression LSB',
         64: 'Sustain', 65: 'Portamento On', 66: 'Sostenuto', 67: 'Soft Pedal',
         68: 'Legato', 69: 'Hold 2', 70: 'Variation', 71: 'Resonance',
         72: 'Release', 73: 'Attack', 74: 'Brightness', 75: 'Decay',
         76: 'Vib Rate', 77: 'Vib Depth', 78: 'Vib Delay',
-        84: 'Porta Ctrl', 91: 'Reverb', 92: 'Tremolo', 93: 'Chorus',
-        94: 'Detune', 95: 'Phaser', 120: 'All Sound Off', 121: 'Reset All',
-        123: 'All Notes Off'
+        79: 'Ctrl 79', 80: 'GP Ctrl 5', 81: 'GP Ctrl 6', 82: 'GP Ctrl 7',
+        83: 'GP Ctrl 8', 84: 'Porta Ctrl', 85: 'Ctrl 85', 86: 'Ctrl 86',
+        87: 'Ctrl 87', 88: 'Velocity Prefix', 89: 'Ctrl 89', 90: 'Ctrl 90',
+        91: 'Reverb', 92: 'Tremolo', 93: 'Chorus', 94: 'Detune', 95: 'Phaser',
+        96: 'Data Inc', 97: 'Data Dec', 98: 'NRPN LSB', 99: 'NRPN MSB',
+        100: 'RPN LSB', 101: 'RPN MSB',
+        120: 'All Sound Off', 121: 'Reset All', 122: 'Local Ctrl',
+        123: 'All Notes Off', 124: 'Omni Off', 125: 'Omni On',
+        126: 'Mono On', 127: 'Poly On'
     };
+
+    /**
+     * Categories de CC pour le picker (groupes logiques)
+     */
+    static CC_CATEGORIES = [
+        { name: 'Performance', ccs: [1, 2, 4, 11, 64, 65, 66, 67, 68] },
+        { name: 'Mix', ccs: [7, 10, 8, 91, 92, 93, 94, 95] },
+        { name: 'Tone / Timbre', ccs: [71, 72, 73, 74, 75, 76, 77, 78, 70] },
+        { name: 'Portamento', ccs: [5, 84] },
+        { name: 'Data / Bank', ccs: [0, 6, 32, 38, 96, 97, 98, 99, 100, 101] },
+        { name: 'General Purpose', ccs: [16, 17, 18, 19, 80, 81, 82, 83] },
+        { name: 'Channel Mode', ccs: [120, 121, 122, 123, 124, 125, 126, 127] }
+    ];
 
     _getCCName(ccNum) {
         const key = 'ccNames.' + ccNum;
@@ -1363,6 +1391,136 @@ class MidiEditorModal {
             this.tempoEditor.setDrawDensity(multiplier);
         }
         this.log('info', `Draw density set to ${multiplier}`);
+    }
+
+    // ========================================================================
+    // CC PICKER MODAL
+    // ========================================================================
+
+    /**
+     * Ouvrir le picker de CC pour ajouter un CC à la liste
+     */
+    openCCPicker() {
+        // Fermer si déjà ouvert
+        let existing = this.container?.querySelector('#cc-picker-modal');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+
+        const addBtn = this.container?.querySelector('#cc-add-btn');
+        if (!addBtn) return;
+
+        // Déterminer quels CC sont déjà visibles (ont des données ou sont des boutons statiques)
+        const allUsedTypes = this.getAllUsedCCTypes();
+        const staticCCNums = new Set([1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]);
+
+        // Construire le contenu HTML du picker par catégories
+        let categoriesHTML = '';
+        MidiEditorModal.CC_CATEGORIES.forEach(cat => {
+            const buttonsHTML = cat.ccs.map(ccNum => {
+                const ccName = this._getCCName(ccNum);
+                const ccType = `cc${ccNum}`;
+                const isUsed = allUsedTypes.has(ccType);
+                const isStatic = staticCCNums.has(ccNum);
+                const classes = ['cc-picker-item'];
+                if (isUsed) classes.push('has-data');
+                if (isStatic) classes.push('is-static');
+                return `<button class="${classes.join(' ')}" data-cc-num="${ccNum}" title="CC${ccNum} - ${ccName}">
+                    <span class="cc-picker-num">CC${ccNum}</span>
+                    <span class="cc-picker-name">${ccName}</span>
+                    ${isUsed ? '<span class="cc-picker-badge">●</span>' : ''}
+                </button>`;
+            }).join('');
+
+            categoriesHTML += `
+                <div class="cc-picker-category">
+                    <div class="cc-picker-category-title">${cat.name}</div>
+                    <div class="cc-picker-category-items">${buttonsHTML}</div>
+                </div>
+            `;
+        });
+
+        // Ajouter un champ de saisie libre en bas
+        const customInputHTML = `
+            <div class="cc-picker-custom">
+                <label class="cc-picker-category-title">${this.t('midiEditor.groupCustomCC') || 'CC# libre'}</label>
+                <div class="cc-picker-custom-row">
+                    <input type="number" id="cc-picker-custom-input" min="0" max="127" placeholder="0-127" class="cc-picker-custom-input">
+                    <button class="cc-picker-custom-go" id="cc-picker-custom-go">OK</button>
+                </div>
+            </div>
+        `;
+
+        const picker = document.createElement('div');
+        picker.id = 'cc-picker-modal';
+        picker.className = 'cc-picker-modal';
+        picker.innerHTML = `
+            <div class="cc-picker-header">
+                <span class="cc-picker-title">${this.t('midiEditor.addCC') || 'Ajouter un CC'}</span>
+                <button class="cc-picker-close" id="cc-picker-close">✕</button>
+            </div>
+            <div class="cc-picker-body">
+                ${categoriesHTML}
+                ${customInputHTML}
+            </div>
+        `;
+
+        // Positionner le picker sous le bouton +
+        const toolbar = this.container?.querySelector('.cc-type-toolbar');
+        if (toolbar) {
+            toolbar.style.position = 'relative';
+            toolbar.appendChild(picker);
+        }
+
+        // Listeners
+        picker.querySelectorAll('.cc-picker-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const ccNum = parseInt(item.dataset.ccNum);
+                if (!isNaN(ccNum)) {
+                    this.selectCCType(`cc${ccNum}`);
+                    picker.remove();
+                    this.log('info', `CC picker: CC${ccNum} selected`);
+                }
+            });
+        });
+
+        const closeBtn = picker.querySelector('#cc-picker-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                picker.remove();
+            });
+        }
+
+        const customInput = picker.querySelector('#cc-picker-custom-input');
+        const customGo = picker.querySelector('#cc-picker-custom-go');
+        const applyCustom = () => {
+            if (!customInput) return;
+            const ccNum = parseInt(customInput.value);
+            if (!isNaN(ccNum) && ccNum >= 0 && ccNum <= 127) {
+                this.selectCCType(`cc${ccNum}`);
+                picker.remove();
+                this.log('info', `CC picker custom: CC${ccNum} selected`);
+            }
+        };
+        if (customGo) customGo.addEventListener('click', (e) => { e.preventDefault(); applyCustom(); });
+        if (customInput) customInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); applyCustom(); }
+            e.stopPropagation();
+        });
+
+        // Fermer en cliquant en dehors
+        const closeOnOutside = (e) => {
+            if (!picker.contains(e.target) && e.target !== addBtn) {
+                picker.remove();
+                document.removeEventListener('mousedown', closeOnOutside);
+            }
+        };
+        setTimeout(() => document.addEventListener('mousedown', closeOnOutside), 0);
     }
 
     /**
@@ -3075,13 +3233,11 @@ class MidiEditorModal {
                                                 <button class="cc-type-btn" data-cc-type="cc5" title="${this.t('midiEditor.ccPortamentoTime')}">CC5</button>
                                             </div>
                                         </div>
-                                        <!-- Groupe CC# libre -->
+                                        <!-- Bouton + pour ajouter un CC depuis la liste -->
                                         <div class="cc-btn-group" data-group="custom">
-                                            <span class="cc-group-label">${this.t('midiEditor.groupCustomCC')}</span>
-                                            <div class="cc-btn-group-buttons cc-custom-group">
-                                                <input type="number" id="custom-cc-input" min="0" max="127" placeholder="CC#"
-                                                       class="cc-custom-input" title="${this.t('midiEditor.ccCustomGo')}">
-                                                <button class="cc-type-btn" id="custom-cc-go-btn" title="${this.t('midiEditor.ccCustomGo')}">GO</button>
+                                            <span class="cc-group-label">&nbsp;</span>
+                                            <div class="cc-btn-group-buttons">
+                                                <button class="cc-type-btn cc-add-btn" id="cc-add-btn" title="${this.t('midiEditor.addCC') || 'Ajouter un CC'}">+</button>
                                             </div>
                                         </div>
                                         <!-- Groupe dynamique (CC détectés non-statiques) -->
@@ -5600,30 +5756,13 @@ class MidiEditorModal {
             }
         });
 
-        // CC# libre : bouton GO et input Enter
-        const customCCInput = document.getElementById('custom-cc-input');
-        const customCCGoBtn = document.getElementById('custom-cc-go-btn');
-        const applyCustomCC = () => {
-            if (!customCCInput) return;
-            const ccNum = parseInt(customCCInput.value);
-            if (!isNaN(ccNum) && ccNum >= 0 && ccNum <= 127) {
-                this.selectCCType('cc' + ccNum);
-                this.log('info', `CC# libre selectionne: CC${ccNum}`);
-            }
-        };
-        if (customCCGoBtn) {
-            customCCGoBtn.addEventListener('click', (e) => {
+        // Bouton + pour ouvrir le CC picker
+        const ccAddBtn = document.getElementById('cc-add-btn');
+        if (ccAddBtn) {
+            ccAddBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                applyCustomCC();
-            });
-        }
-        if (customCCInput) {
-            customCCInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    applyCustomCC();
-                }
-                e.stopPropagation(); // Empêcher les raccourcis clavier globaux
+                e.stopPropagation();
+                this.openCCPicker();
             });
         }
 
