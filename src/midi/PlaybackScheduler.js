@@ -11,6 +11,8 @@ const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in millisecond
 
 // MIDI CC constants
 const MIDI_CC_ALL_NOTES_OFF = 123;
+const MIDI_CC_STRING_SELECT = 20;
+const MIDI_CC_FRET_SELECT = 21;
 
 class PlaybackScheduler {
   /**
@@ -21,12 +23,14 @@ class PlaybackScheduler {
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
+    this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
     // Invalidate sync_delay cache immediately when instrument settings change
     this._onSettingsChanged = () => {
       this._syncDelayCache.clear();
+      this._stringCCCache.clear();
       this._maxCompensationMs = 0;
     };
     this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
@@ -60,8 +64,29 @@ class PlaybackScheduler {
    */
   resetForPlayback() {
     this._syncDelayCache.clear();
+    this._stringCCCache.clear();
     this._failedDevices.clear();
     this._maxCompensationMs = 0;
+  }
+
+  /**
+   * Check if CC 20/21 (string/fret select) is allowed for a given device+channel.
+   * Returns true only if a string instrument with cc_enabled exists for that pair.
+   */
+  _isStringCCAllowed(deviceId, channel) {
+    const cacheKey = `${deviceId}:${channel}`;
+    if (this._stringCCCache.has(cacheKey)) {
+      return this._stringCCCache.get(cacheKey);
+    }
+    let allowed = false;
+    try {
+      const instrument = this.app.database?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
+      allowed = instrument != null && instrument.cc_enabled !== false;
+    } catch (e) {
+      allowed = false;
+    }
+    this._stringCCCache.set(cacheKey, allowed);
+    return allowed;
   }
 
   /**
@@ -211,6 +236,12 @@ class PlaybackScheduler {
         velocity: event.velocity
       });
     } else if (event.type === 'controller') {
+      // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
+      if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
+        if (!this._isStringCCAllowed(routing.device, outChannel)) {
+          return;
+        }
+      }
       sendResult = device.sendMessage(routing.device, 'cc', {
         channel: outChannel,
         controller: event.controller,

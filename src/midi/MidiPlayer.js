@@ -223,29 +223,28 @@ class MidiPlayer {
     for (const tab of tablatures) {
       if (!Array.isArray(tab.tablature_data) || tab.tablature_data.length === 0) continue;
 
-      let ccConfig = {
-        ccStringNumber: 20, ccStringMin: 1, ccStringMax: 12, ccStringOffset: 0,
-        ccFretNumber: 21, ccFretMin: 0, ccFretMax: 36, ccFretOffset: 0
-      };
+      // CC 20/21 only for string instruments with cc_enabled
+      if (!tab.string_instrument_id) continue;
 
-      if (tab.string_instrument_id) {
-        try {
-          const instrument = this.app.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
-          if (instrument) {
-            if (instrument.cc_enabled === false) continue;
-            ccConfig = {
-              ccStringNumber: instrument.cc_string_number ?? 20,
-              ccStringMin: instrument.cc_string_min ?? 1,
-              ccStringMax: instrument.cc_string_max ?? 12,
-              ccStringOffset: instrument.cc_string_offset ?? 0,
-              ccFretNumber: instrument.cc_fret_number ?? 21,
-              ccFretMin: instrument.cc_fret_min ?? 0,
-              ccFretMax: instrument.cc_fret_max ?? 36,
-              ccFretOffset: instrument.cc_fret_offset ?? 0
-            };
-          }
-        } catch (e) { /* ignore lookup errors */ }
+      let instrument;
+      try {
+        instrument = this.app.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
+      } catch (e) {
+        this.app.logger.debug(`Skipping tablature CC: instrument lookup failed for ID ${tab.string_instrument_id}`);
+        continue;
       }
+      if (!instrument || instrument.cc_enabled === false) continue;
+
+      const ccConfig = {
+        ccStringNumber: instrument.cc_string_number ?? 20,
+        ccStringMin: instrument.cc_string_min ?? 1,
+        ccStringMax: instrument.cc_string_max ?? 12,
+        ccStringOffset: instrument.cc_string_offset ?? 0,
+        ccFretNumber: instrument.cc_fret_number ?? 21,
+        ccFretMin: instrument.cc_fret_min ?? 0,
+        ccFretMax: instrument.cc_fret_max ?? 36,
+        ccFretOffset: instrument.cc_fret_offset ?? 0
+      };
 
       const channel = tab.channel || 0;
       const events = [];
