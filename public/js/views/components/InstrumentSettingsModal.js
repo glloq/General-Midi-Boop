@@ -438,7 +438,7 @@ class InstrumentSettingsModal extends BaseModal {
             const color = InstrumentSettingsModal.CHANNEL_COLORS[ch % 16];
             const name = tab.settings.custom_name || tab.settings.name || `Ch ${ch + 1}`;
             const isDrum = (ch === 9);
-            html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color};` : ''}">
+            html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color}; background: ${color}1a;` : ''}">
                 <span class="ism-tab-ch" style="background: ${color};">Ch ${ch + 1}${isDrum ? ' DR' : ''}</span>
                 <span class="ism-tab-name">${this.escape(name)}</span>
             </button>`;

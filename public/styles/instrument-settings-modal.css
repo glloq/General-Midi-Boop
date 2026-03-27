@@ -13,10 +13,44 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .ism-modal .modal-header {
   margin-bottom: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 16px;
+}
+
+.ism-modal .modal-header h2 {
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.ism-modal .modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  font-weight: 300;
+}
+
+.ism-modal .modal-close:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
 }
 
 .ism-modal .modal-body {
@@ -147,6 +181,9 @@
   width: 20px;
   text-align: center;
   flex-shrink: 0;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', sans-serif;
+  -webkit-text-fill-color: initial;
+  color: initial;
 }
 
 .ism-nav-label {
@@ -192,6 +229,9 @@
 
 .ism-section-title-icon {
   font-size: 22px;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', sans-serif;
+  -webkit-text-fill-color: initial;
+  color: initial;
 }
 
 /* ========== Form Groups ========== */
@@ -819,8 +859,12 @@ body.dark-mode .ism-tab {
   color: var(--text-muted, #718096);
 }
 
+body.dark-mode .ism-tab.active {
+  background: none !important;
+}
+
 body.dark-mode .ism-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 body.dark-mode .ism-section-title {
@@ -959,13 +1003,14 @@ body.theme-colored .ism-tab {
 }
 
 body.theme-colored .ism-tab:hover {
-  background: rgba(102, 126, 234, 0.08);
+  background: rgba(102, 126, 234, 0.08) !important;
   color: var(--text-primary);
 }
 
 body.theme-colored .ism-tab.active {
   color: #667eea;
   border-bottom-color: #667eea;
+  background: none !important;
 }
 
 body.theme-colored .ism-section-title {
