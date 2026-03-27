@@ -511,7 +511,9 @@
         "drumKit": "Zestaw perkusyjny GM",
         "whiteKeys": "Białe klawisze",
         "blackKeys": "Czarne klawisze",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Żądaj tożsamości",
+        "applyRecommendedCCs": "Zastosuj zalecane CC"
     },
     "channelRouter": {
         "title": "Konfiguracja routingu MIDI",

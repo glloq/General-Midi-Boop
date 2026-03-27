@@ -511,7 +511,9 @@
         "drumKit": "GM鼓组",
         "whiteKeys": "白键",
         "blackKeys": "黑键",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "请求身份识别",
+        "applyRecommendedCCs": "应用推荐的CC"
     },
     "channelRouter": {
         "title": "MIDI路由配置",

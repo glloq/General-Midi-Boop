@@ -511,7 +511,9 @@
         "drumKit": "GM 드럼 키트",
         "whiteKeys": "흰 건반",
         "blackKeys": "검은 건반",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "신원 요청",
+        "applyRecommendedCCs": "추천 CC 적용"
     },
     "channelRouter": {
         "title": "MIDI 라우팅 설정",

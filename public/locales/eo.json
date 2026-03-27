@@ -511,7 +511,9 @@
         "drumKit": "GM Tamburo-aro",
         "whiteKeys": "Blankaj klavoj",
         "blackKeys": "Nigraj klavoj",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Peti identon",
+        "applyRecommendedCCs": "Apliki rekomendatajn CC"
     },
     "channelRouter": {
         "title": "MIDI-direkta agordo",

@@ -511,7 +511,9 @@
         "drumKit": "GM Bicí sada",
         "whiteKeys": "Bílé klávesy",
         "blackKeys": "Černé klávesy",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Vyžádat identitu",
+        "applyRecommendedCCs": "Použít doporučené CC"
     },
     "channelRouter": {
         "title": "Konfigurace MIDI směrování",

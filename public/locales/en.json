@@ -536,7 +536,9 @@
         "midiChannelHelp": "MIDI channel used by this instrument (already-used channels are disabled)",
         "capabilitiesSource": "Capabilities source",
         "saveErrorTitle": "Save error",
-        "drumToggleAll": "Check/uncheck all"
+        "drumToggleAll": "Check/uncheck all",
+        "requestIdentity": "Request identity",
+        "applyRecommendedCCs": "Apply recommended CCs"
     },
     "lighting": {
         "title": "Lighting Control",

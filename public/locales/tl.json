@@ -511,7 +511,9 @@
         "drumKit": "GM Drum Kit",
         "whiteKeys": "Puting key",
         "blackKeys": "Itim na key",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Humiling ng pagkakakilanlan",
+        "applyRecommendedCCs": "Ilapat ang inirerekomendang CC"
     },
     "channelRouter": {
         "title": "MIDI Routing Configuration",

@@ -511,7 +511,9 @@
         "drumKit": "GM Davul Seti",
         "whiteKeys": "Beyaz tuşlar",
         "blackKeys": "Siyah tuşlar",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Kimlik iste",
+        "applyRecommendedCCs": "Önerilen CC'leri uygula"
     },
     "channelRouter": {
         "title": "MIDI Yönlendirme Yapılandırması",

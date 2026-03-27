@@ -511,7 +511,9 @@
         "drumKit": "GM Drum Kit",
         "whiteKeys": "คีย์ขาว",
         "blackKeys": "คีย์ดำ",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "ขอข้อมูลระบุตัวตน",
+        "applyRecommendedCCs": "ใช้ CC ที่แนะนำ"
     },
     "channelRouter": {
         "title": "การกำหนดค่าการกำหนดเส้นทาง MIDI",

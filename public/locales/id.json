@@ -511,7 +511,9 @@
         "drumKit": "Kit Drum GM",
         "whiteKeys": "Tuts putih",
         "blackKeys": "Tuts hitam",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Minta identitas",
+        "applyRecommendedCCs": "Terapkan CC yang direkomendasikan"
     },
     "channelRouter": {
         "title": "Konfigurasi Routing MIDI",

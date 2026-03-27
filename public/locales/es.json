@@ -511,7 +511,9 @@
         "drumKit": "Kit de batería GM",
         "whiteKeys": "Teclas blancas",
         "blackKeys": "Teclas negras",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Solicitar identidad",
+        "applyRecommendedCCs": "Aplicar CC recomendados"
     },
     "channelRouter": {
         "title": "Configuración de enrutamiento MIDI",

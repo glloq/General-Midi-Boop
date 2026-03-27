@@ -511,7 +511,9 @@
         "drumKit": "GM Trumset",
         "whiteKeys": "Vita tangenter",
         "blackKeys": "Svarta tangenter",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Begär identitet",
+        "applyRecommendedCCs": "Tillämpa rekommenderade CC"
     },
     "channelRouter": {
         "title": "MIDI-routningskonfiguration",

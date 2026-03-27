@@ -536,7 +536,9 @@
         "midiChannelHelp": "Canal MIDI utilisé par cet instrument (les canaux déjà utilisés sont désactivés)",
         "capabilitiesSource": "Source des capacités",
         "saveErrorTitle": "Erreur de sauvegarde",
-        "drumToggleAll": "Tout cocher/décocher"
+        "drumToggleAll": "Tout cocher/décocher",
+        "requestIdentity": "Demander l'identité",
+        "applyRecommendedCCs": "Appliquer les CC recommandés"
     },
     "lighting": {
         "title": "Contrôle Lumière",

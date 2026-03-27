@@ -511,7 +511,9 @@
         "drumKit": "GM Ударні",
         "whiteKeys": "Білі клавіші",
         "blackKeys": "Чорні клавіші",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Запитати ідентифікацію",
+        "applyRecommendedCCs": "Застосувати рекомендовані CC"
     },
     "channelRouter": {
         "title": "Конфігурація маршрутизації MIDI",

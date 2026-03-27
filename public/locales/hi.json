@@ -511,7 +511,9 @@
         "drumKit": "GM ड्रम किट",
         "whiteKeys": "सफेद कुंजियां",
         "blackKeys": "काली कुंजियां",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "पहचान का अनुरोध करें",
+        "applyRecommendedCCs": "अनुशंसित CC लागू करें"
     },
     "channelRouter": {
         "title": "MIDI रूटिंग कॉन्फ़िगरेशन",

@@ -511,7 +511,9 @@
         "drumKit": "Bộ trống GM",
         "whiteKeys": "Phím trắng",
         "blackKeys": "Phím đen",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Yêu cầu nhận dạng",
+        "applyRecommendedCCs": "Áp dụng CC được đề xuất"
     },
     "channelRouter": {
         "title": "Cấu hình Định tuyến MIDI",

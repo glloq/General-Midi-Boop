@@ -511,7 +511,9 @@
         "drumKit": "GMドラムキット",
         "whiteKeys": "白鍵",
         "blackKeys": "黒鍵",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "IDを要求",
+        "applyRecommendedCCs": "推奨CCを適用"
     },
     "channelRouter": {
         "title": "MIDIルーティング設定",

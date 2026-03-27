@@ -511,7 +511,9 @@
         "drumKit": "GM Dobkészlet",
         "whiteKeys": "Fehér billentyűk",
         "blackKeys": "Fekete billentyűk",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Azonosítás kérése",
+        "applyRecommendedCCs": "Ajánlott CC-k alkalmazása"
     },
     "channelRouter": {
         "title": "MIDI útvonalkonfiguráció",

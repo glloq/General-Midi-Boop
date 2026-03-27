@@ -511,7 +511,9 @@
         "drumKit": "GM Schlagzeug",
         "whiteKeys": "Weiße Tasten",
         "blackKeys": "Schwarze Tasten",
-        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save."
+        "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
+        "requestIdentity": "Identität anfordern",
+        "applyRecommendedCCs": "Empfohlene CC anwenden"
     },
     "channelRouter": {
         "title": "MIDI-Routing-Konfiguration",
