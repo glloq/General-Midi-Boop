@@ -72,7 +72,6 @@
 
             // New fields
             const octaveMode = (this.$('#octaveModeInput')?.value || '').trim() || 'chromatic';
-            const rootNote = parseInt(this.$('#rootNoteInput')?.value) || 0;
             const commTimeout = parseInt(this.$('#commTimeout')?.value) || null;
 
             // Save base settings
@@ -85,7 +84,6 @@
                 name: this.device.name,
                 gm_program: gmProgram,
                 octave_mode: octaveMode,
-                root_note: rootNote,
                 comm_timeout: commTimeout
             });
 

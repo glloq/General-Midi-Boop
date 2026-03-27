@@ -1582,6 +1582,11 @@ body.theme-colored .ism-scale-selector select {
   height: 4px;
 }
 
+/* Muted keys: in range but not in selected octave mode */
+.piano-key.ism-muted {
+  opacity: 0.3;
+}
+
 /* ========== Dark mode additions ========== */
 body.theme-dark .ism-octave-selector {
   background: rgba(255, 255, 255, 0.03);

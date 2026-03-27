@@ -230,19 +230,15 @@
         var updateOctaveMode = function() {
             const activeBtn = self.$('.ism-octave-btn.active');
             const modeKey = activeBtn ? activeBtn.dataset.octave : 'chromatic';
-            const rootNoteSelect = self.$('#rootNoteSelect');
-            const root = rootNoteSelect ? parseInt(rootNoteSelect.value) : 0;
-            // Update hidden inputs
+            // Update hidden input
             const modeInput = self.$('#octaveModeInput');
             if (modeInput) modeInput.value = modeKey;
-            const rootInput = self.$('#rootNoteInput');
-            if (rootInput) rootInput.value = root;
             // Compute playable notes
             const minInput = document.getElementById('noteRangeMin');
             const maxInput = document.getElementById('noteRangeMax');
             const rangeMin = minInput && minInput.value !== '' ? parseInt(minInput.value) : 21;
             const rangeMax = maxInput && maxInput.value !== '' ? parseInt(maxInput.value) : 108;
-            const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey, root);
+            const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey);
             const playableInput = self.$('#playableNotesInput');
             if (playableInput) playableInput.value = JSON.stringify(playableNotes);
             // Update info
@@ -258,27 +254,28 @@
                 updateOctaveMode();
             });
         });
-        const rootNoteSelect = this.$('#rootNoteSelect');
-        if (rootNoteSelect) rootNoteSelect.addEventListener('change', updateOctaveMode);
     };
 
     /**
-     * Highlight playable notes on the mini piano keyboard
+     * Highlight playable notes on the mini piano keyboard.
+     * Marks non-playable keys as dimmed (ism-muted) and playable keys with a dot (ism-playable).
      */
     ISMListeners._highlightPlayableNotes = function(playableNotes) {
-        // Use document.getElementById as fallback since piano is rendered by global function
         const pianoEl = document.getElementById('pianoKeyboardMini');
         if (!pianoEl) return;
         const noteSet = new Set(playableNotes);
-        // Remove previous highlights
-        pianoEl.querySelectorAll('.piano-key').forEach(function(key) {
-            key.classList.remove('ism-playable');
-        });
-        // Add highlights for playable notes
         pianoEl.querySelectorAll('.piano-key').forEach(function(key) {
             const note = parseInt(key.dataset.note);
-            if (!isNaN(note) && noteSet.has(note)) {
-                key.classList.add('ism-playable');
+            key.classList.remove('ism-playable', 'ism-muted');
+            if (isNaN(note)) return;
+            // Only apply within the selected range (keys with in-range, range-start, range-end)
+            const inRange = key.classList.contains('in-range') || key.classList.contains('range-start') || key.classList.contains('range-end');
+            if (inRange || !key.classList.contains('disabled')) {
+                if (noteSet.has(note)) {
+                    key.classList.add('ism-playable');
+                } else if (inRange) {
+                    key.classList.add('ism-muted');
+                }
             }
         });
     };

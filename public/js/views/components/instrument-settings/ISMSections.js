@@ -154,8 +154,6 @@
         const isDrum = this.activeChannel === 9 || (gmProgram !== null && gmProgram !== undefined && gmProgram >= 128);
         const noteMode = settings.note_selection_mode || 'range';
         const octaveMode = settings.octave_mode || 'chromatic';
-        const rootNote = settings.root_note || 0;
-        const NOTE_NAMES_SHORT = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         // CC data
         const currentCCs = settings.supported_ccs
@@ -184,16 +182,10 @@
             </button>`;
         }
 
-        // Root note selector
-        let rootNoteOptions = '';
-        for (let i = 0; i < 12; i++) {
-            rootNoteOptions += `<option value="${i}" ${i === rootNote ? 'selected' : ''}>${NOTE_NAMES_SHORT[i]}</option>`;
-        }
-
         // Compute playable notes for display info
         const rangeMin = settings.note_range_min != null ? settings.note_range_min : 21;
         const rangeMax = settings.note_range_max != null ? settings.note_range_max : 108;
-        const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, octaveMode, rootNote);
+        const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, octaveMode);
 
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎹</span> ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
@@ -212,11 +204,7 @@
 
                     <div class="ism-octave-selector" style="${noteMode === 'discrete' ? 'display: none;' : ''}" id="octaveModeSelector">
                         <div class="ism-octave-toggle">${octaveToggleHtml}</div>
-                        <div class="ism-octave-root-row">
-                            <label>Tonique</label>
-                            <select id="rootNoteSelect">${rootNoteOptions}</select>
-                            <span class="ism-octave-count" id="octaveInfo">${playableNotes.length} notes jouables</span>
-                        </div>
+                        <span class="ism-octave-count" id="octaveInfo">${playableNotes.length} notes jouables</span>
                     </div>
 
                     <div class="ism-piano-container">
@@ -246,7 +234,6 @@
                     <input type="hidden" id="noteRangeMax" value="${settings.note_range_max != null ? settings.note_range_max : ''}">
                     <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
                     <input type="hidden" id="octaveModeInput" value="${octaveMode}">
-                    <input type="hidden" id="rootNoteInput" value="${rootNote}">
                     <input type="hidden" id="playableNotesInput" value="${JSON.stringify(playableNotes)}">
                 </div>
             </div>
