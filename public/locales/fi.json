@@ -513,7 +513,12 @@
         "blackKeys": "Mustat koskettimet",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Pyydä tunnistautumista",
-        "applyRecommendedCCs": "Käytä suositeltuja CC:itä"
+        "applyRecommendedCCs": "Käytä suositeltuja CC:itä",
+        "commTimeout": "Viestinnän aikakatkaisu (ms)",
+        "commTimeoutHelp": "Enimmäisodotusaika vastaukselle (ms)",
+        "titleNew": "Instrumentin asetukset",
+        "supportedCCsHelp": "Pilkuilla erotetut CC-numerot. Esim.: 1=Modulaatio, 7=Äänenvoimakkuus, 64=Sustain. Tyhjä = kaikki CC:t.",
+        "measureDelay": "Mittaa"
     },
     "channelRouter": {
         "title": "MIDI-reitityksen määritys",

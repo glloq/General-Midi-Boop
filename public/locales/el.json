@@ -513,7 +513,12 @@
         "blackKeys": "Μαύρα πλήκτρα",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Αίτηση ταυτότητας",
-        "applyRecommendedCCs": "Εφαρμογή προτεινόμενων CC"
+        "applyRecommendedCCs": "Εφαρμογή προτεινόμενων CC",
+        "commTimeout": "Χρονικό όριο επικοινωνίας (ms)",
+        "commTimeoutHelp": "Μέγιστος χρόνος αναμονής απάντησης (σε ms)",
+        "titleNew": "Ρυθμίσεις οργάνου",
+        "supportedCCsHelp": "Λίστα αριθμών CC χωρισμένων με κόμμα. Π.χ.: 1=Modulation, 7=Ένταση, 64=Sustain. Κενό = όλα τα CC.",
+        "measureDelay": "Μέτρηση"
     },
     "channelRouter": {
         "title": "Διαμόρφωση Δρομολόγησης MIDI",

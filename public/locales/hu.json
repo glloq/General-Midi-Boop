@@ -513,7 +513,12 @@
         "blackKeys": "Fekete billentyűk",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Azonosítás kérése",
-        "applyRecommendedCCs": "Ajánlott CC-k alkalmazása"
+        "applyRecommendedCCs": "Ajánlott CC-k alkalmazása",
+        "commTimeout": "Kommunikációs időtúllépés (ms)",
+        "commTimeoutHelp": "Maximális várakozási idő válaszra (ms-ban)",
+        "titleNew": "Hangszer beállítások",
+        "supportedCCsHelp": "Vesszővel elválasztott CC-számok. Pl.: 1=Moduláció, 7=Hangerő, 64=Sustain. Üres = összes CC.",
+        "measureDelay": "Mérés"
     },
     "channelRouter": {
         "title": "MIDI útvonalkonfiguráció",

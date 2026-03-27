@@ -513,7 +513,12 @@
         "blackKeys": "Phím đen",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Yêu cầu nhận dạng",
-        "applyRecommendedCCs": "Áp dụng CC được đề xuất"
+        "applyRecommendedCCs": "Áp dụng CC được đề xuất",
+        "commTimeout": "Thời gian chờ giao tiếp (ms)",
+        "commTimeoutHelp": "Thời gian chờ phản hồi tối đa (tính bằng ms)",
+        "titleNew": "Cài đặt nhạc cụ",
+        "supportedCCsHelp": "Danh sách số CC phân cách bằng dấu phẩy. VD: 1=Modulation, 7=Volume, 64=Sustain. Để trống = tất cả CC.",
+        "measureDelay": "Đo"
     },
     "channelRouter": {
         "title": "Cấu hình Định tuyến MIDI",

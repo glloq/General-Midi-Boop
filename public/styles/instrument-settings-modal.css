@@ -15,9 +15,14 @@
   flex-direction: column;
 }
 
+.ism-modal .modal-header {
+  margin-bottom: 0;
+}
+
 .ism-modal .modal-body {
   flex: 1;
   padding: 0;
+  margin-bottom: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;

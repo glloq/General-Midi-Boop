@@ -513,7 +513,12 @@
         "blackKeys": "คีย์ดำ",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "ขอข้อมูลระบุตัวตน",
-        "applyRecommendedCCs": "ใช้ CC ที่แนะนำ"
+        "applyRecommendedCCs": "ใช้ CC ที่แนะนำ",
+        "commTimeout": "หมดเวลาการสื่อสาร (ms)",
+        "commTimeoutHelp": "เวลารอการตอบกลับสูงสุด (เป็น ms)",
+        "titleNew": "การตั้งค่าเครื่องดนตรี",
+        "supportedCCsHelp": "รายการหมายเลข CC คั่นด้วยเครื่องหมายจุลภาค เช่น: 1=Modulation, 7=Volume, 64=Sustain ว่างเปล่า = CC ทั้งหมด",
+        "measureDelay": "วัด"
     },
     "channelRouter": {
         "title": "การกำหนดค่าการกำหนดเส้นทาง MIDI",

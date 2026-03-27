@@ -513,7 +513,12 @@
         "blackKeys": "Svarte tangenter",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Be om identitet",
-        "applyRecommendedCCs": "Bruk anbefalte CC-er"
+        "applyRecommendedCCs": "Bruk anbefalte CC-er",
+        "commTimeout": "Kommunikasjons-tidsavbrudd (ms)",
+        "commTimeoutHelp": "Maksimal ventetid for svar (i ms)",
+        "titleNew": "Instrumentinnstillinger",
+        "supportedCCsHelp": "Kommaseparerte CC-numre. F.eks.: 1=Modulasjon, 7=Volum, 64=Sustain. Tom = alle CC-er.",
+        "measureDelay": "Mål"
     },
     "channelRouter": {
         "title": "MIDI-rutingkonfigurasjon",

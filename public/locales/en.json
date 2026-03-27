@@ -538,7 +538,12 @@
         "saveErrorTitle": "Save error",
         "drumToggleAll": "Check/uncheck all",
         "requestIdentity": "Request identity",
-        "applyRecommendedCCs": "Apply recommended CCs"
+        "applyRecommendedCCs": "Apply recommended CCs",
+        "commTimeout": "Communication timeout (ms)",
+        "commTimeoutHelp": "Maximum wait time for a response (in ms)",
+        "titleNew": "Instrument Settings",
+        "supportedCCsHelp": "Comma-separated CC numbers. E.g.: 1=Modulation, 7=Volume, 64=Sustain. Leave empty for all CCs.",
+        "measureDelay": "Measure"
     },
     "lighting": {
         "title": "Lighting Control",

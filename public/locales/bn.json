@@ -513,7 +513,12 @@
         "blackKeys": "কালো কী",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "পরিচয় অনুরোধ করুন",
-        "applyRecommendedCCs": "প্রস্তাবিত CC প্রয়োগ করুন"
+        "applyRecommendedCCs": "প্রস্তাবিত CC প্রয়োগ করুন",
+        "commTimeout": "যোগাযোগ টাইমআউট (ms)",
+        "commTimeoutHelp": "প্রতিক্রিয়ার জন্য সর্বোচ্চ অপেক্ষার সময় (ms-এ)",
+        "titleNew": "যন্ত্রের সেটিংস",
+        "supportedCCsHelp": "কমা দিয়ে আলাদা CC নম্বরের তালিকা। উদা: 1=মডুলেশন, 7=ভলিউম, 64=সাস্টেইন। সব CC-র জন্য খালি রাখুন।",
+        "measureDelay": "পরিমাপ করুন"
     },
     "channelRouter": {
         "title": "MIDI রাউটিং কনফিগারেশন",

@@ -513,7 +513,12 @@
         "blackKeys": "Tuts hitam",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Minta identitas",
-        "applyRecommendedCCs": "Terapkan CC yang direkomendasikan"
+        "applyRecommendedCCs": "Terapkan CC yang direkomendasikan",
+        "commTimeout": "Batas waktu komunikasi (ms)",
+        "commTimeoutHelp": "Waktu tunggu maksimum untuk respons (dalam ms)",
+        "titleNew": "Pengaturan instrumen",
+        "supportedCCsHelp": "Daftar nomor CC dipisahkan koma. Cth: 1=Modulasi, 7=Volume, 64=Sustain. Kosongkan untuk semua CC.",
+        "measureDelay": "Ukur"
     },
     "channelRouter": {
         "title": "Konfigurasi Routing MIDI",

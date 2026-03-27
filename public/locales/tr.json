@@ -513,7 +513,12 @@
         "blackKeys": "Siyah tuşlar",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Kimlik iste",
-        "applyRecommendedCCs": "Önerilen CC'leri uygula"
+        "applyRecommendedCCs": "Önerilen CC'leri uygula",
+        "commTimeout": "İletişim zaman aşımı (ms)",
+        "commTimeoutHelp": "Yanıt için maksimum bekleme süresi (ms cinsinden)",
+        "titleNew": "Enstrüman ayarları",
+        "supportedCCsHelp": "Virgülle ayrılmış CC numaraları. Örn.: 1=Modülasyon, 7=Ses, 64=Sustain. Boş = tüm CC'ler.",
+        "measureDelay": "Ölç"
     },
     "channelRouter": {
         "title": "MIDI Yönlendirme Yapılandırması",
