@@ -1008,9 +1008,7 @@ body.theme-colored .ism-tab:hover {
 }
 
 body.theme-colored .ism-tab.active {
-  color: #667eea;
   border-bottom-color: #667eea;
-  background: none !important;
 }
 
 body.theme-colored .ism-section-title {
