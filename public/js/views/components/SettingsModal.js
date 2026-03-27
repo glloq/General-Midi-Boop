@@ -61,9 +61,10 @@ class SettingsModal {
 
                 // Migration: convertir keyboardKeys → keyboardOctaves si nécessaire
                 if (parsed.keyboardKeys !== undefined && parsed.keyboardOctaves === undefined) {
-                    parsed.keyboardOctaves = Math.ceil(parsed.keyboardKeys / 12);
+                    const oldKeys = parsed.keyboardKeys;
+                    parsed.keyboardOctaves = Math.ceil(oldKeys / 12);
                     delete parsed.keyboardKeys;
-                    this.logger?.info(`Migrated keyboardKeys (${parsed.keyboardKeys}) to keyboardOctaves (${parsed.keyboardOctaves})`);
+                    this.logger?.info(`Migrated keyboardKeys (${oldKeys}) to keyboardOctaves (${parsed.keyboardOctaves})`);
                 }
 
                 return { ...defaults, ...parsed };

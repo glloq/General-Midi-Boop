@@ -116,15 +116,16 @@
                     ? (getGMInstrumentName(gmProgram || 0) || 'Guitar') : 'Guitar';
 
                 // CC config from modal inputs
+                const _int = (v, def) => { const n = parseInt(v); return isNaN(n) ? def : n; };
                 const ccEnabled = this.$('#ism-cc-enabled')?.checked ?? true;
-                const ccStringNumber = parseInt(this.$('#ism-cc-str-num')?.value) || 20;
-                const ccStringMin = parseInt(this.$('#ism-cc-str-min')?.value) ?? 1;
-                const ccStringMax = parseInt(this.$('#ism-cc-str-max')?.value) ?? 12;
-                const ccStringOffset = parseInt(this.$('#ism-cc-str-offset')?.value) || 0;
-                const ccFretNumber = parseInt(this.$('#ism-cc-fret-num')?.value) || 21;
-                const ccFretMin = parseInt(this.$('#ism-cc-fret-min')?.value) ?? 0;
-                const ccFretMax = parseInt(this.$('#ism-cc-fret-max')?.value) ?? 36;
-                const ccFretOffset = parseInt(this.$('#ism-cc-fret-offset')?.value) || 0;
+                const ccStringNumber = _int(this.$('#ism-cc-str-num')?.value, 20);
+                const ccStringMin = _int(this.$('#ism-cc-str-min')?.value, 1);
+                const ccStringMax = _int(this.$('#ism-cc-str-max')?.value, 12);
+                const ccStringOffset = _int(this.$('#ism-cc-str-offset')?.value, 0);
+                const ccFretNumber = _int(this.$('#ism-cc-fret-num')?.value, 21);
+                const ccFretMin = _int(this.$('#ism-cc-fret-min')?.value, 0);
+                const ccFretMax = _int(this.$('#ism-cc-fret-max')?.value, 36);
+                const ccFretOffset = _int(this.$('#ism-cc-fret-offset')?.value, 0);
 
                 // Per-string frets from neck diagram
                 const tab = this._getActiveTab();

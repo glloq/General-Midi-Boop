@@ -303,13 +303,32 @@ async function instrumentUpdateSettings(app, data) {
     throw new Error('custom_name must not exceed 255 characters');
   }
 
+  // Validate octave_mode
+  if (data.octave_mode !== undefined && data.octave_mode !== null) {
+    const validModes = ['chromatic', 'diatonic', 'pentatonic'];
+    if (!validModes.includes(data.octave_mode)) {
+      throw new Error('octave_mode must be one of: chromatic, diatonic, pentatonic');
+    }
+  }
+
+  // Validate comm_timeout
+  if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
+    const timeout = parseInt(data.comm_timeout);
+    if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
+      throw new Error('comm_timeout must be between 100 and 30000 milliseconds');
+    }
+    data.comm_timeout = timeout;
+  }
+
   const id = app.database.updateInstrumentSettings(data.deviceId, channel, {
     custom_name: data.custom_name,
     sync_delay: data.sync_delay,
     mac_address: data.mac_address,
     usb_serial_number: usbSerialNumber,
     name: data.name,
-    gm_program: data.gm_program
+    gm_program: data.gm_program,
+    octave_mode: data.octave_mode,
+    comm_timeout: data.comm_timeout
   });
 
   // Notify routing/playback systems to invalidate cached compensation values
@@ -782,6 +801,7 @@ export function register(registry, app) {
   registry.register('device_set_properties', (data) => deviceSetProperties(app, data));
   registry.register('device_enable', (data) => deviceEnable(app, data));
   registry.register('device_identity_request', (data) => deviceIdentityRequest(app, data));
+  registry.register('sysex_identity_request', (data) => deviceIdentityRequest(app, data));
   registry.register('device_save_sysex_identity', (data) => deviceSaveSysExIdentity(app, data));
   registry.register('instrument_update_settings', (data) => instrumentUpdateSettings(app, data));
   registry.register('instrument_get_settings', (data) => instrumentGetSettings(app, data));

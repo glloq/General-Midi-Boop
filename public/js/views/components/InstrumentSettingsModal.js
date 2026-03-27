@@ -342,6 +342,49 @@ class InstrumentSettingsModal extends BaseModal {
 
     async showCreate(deviceId) {
         this.isCreationMode = true;
+        try {
+            this.tuningPresets = {};
+            try {
+                const resp = await this.api.sendCommand('string_instrument_get_presets', {});
+                if (resp && resp.presets) this.tuningPresets = resp.presets;
+            } catch (e) { /* no presets */ }
+
+            // Start with empty defaults on channel 0
+            const defaultSettings = {
+                custom_name: '',
+                gm_program: null,
+                note_selection_mode: 'range',
+                note_range_min: 21,
+                note_range_max: 108,
+                selected_notes: null,
+                supported_ccs: [],
+                polyphony: 16,
+                sync_delay: 0,
+                mac_address: null,
+                octave_mode: 'chromatic',
+                comm_timeout: 5000
+            };
+
+            this.device = { id: deviceId, name: deviceId, displayName: deviceId };
+            this.instrumentTabs = [{ channel: 0, settings: defaultSettings, stringInstrumentConfig: null, isBleDevice: false }];
+            this.activeChannel = 0;
+            this.activeSection = 'identity';
+
+            this._syncGlobalState();
+
+            this.options.title = '';
+            this.open();
+
+            const headerEl = this.$('.modal-header h2');
+            if (headerEl) {
+                headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.titleNew') || this.t('instrumentSettings.title')} — ${this.escape(deviceId)}`;
+            }
+        } catch (error) {
+            console.error('Error opening instrument creation:', error);
+            if (typeof showAlert === 'function') {
+                await showAlert(`${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`, { title: this.t('common.error') || 'Erreur', icon: '❌' });
+            }
+        }
     }
 
     // ========== BaseModal OVERRIDES ==========

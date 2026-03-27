@@ -377,6 +377,14 @@ class InstrumentDatabase {
           fields.push('gm_program = ?');
           values.push(settings.gm_program);
         }
+        if (settings.octave_mode !== undefined) {
+          fields.push('octave_mode = ?');
+          values.push(settings.octave_mode);
+        }
+        if (settings.comm_timeout !== undefined) {
+          fields.push('comm_timeout = ?');
+          values.push(settings.comm_timeout);
+        }
 
         if (fields.length === 0) {
           return existing.id;
@@ -394,8 +402,8 @@ class InstrumentDatabase {
         // Insert new entry with correct channel
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
-            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -408,7 +416,9 @@ class InstrumentDatabase {
           settings.sync_delay || 0,
           settings.mac_address || null,
           settings.usb_serial_number || null,
-          settings.gm_program !== undefined ? settings.gm_program : null
+          settings.gm_program !== undefined ? settings.gm_program : null,
+          settings.octave_mode || 'chromatic',
+          settings.comm_timeout !== undefined ? settings.comm_timeout : 5000
         );
 
         return id;
