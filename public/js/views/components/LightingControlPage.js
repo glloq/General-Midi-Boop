@@ -38,37 +38,29 @@ class LightingControlPage {
 
   showToast(message, type = 'info') {
     const icons = { success: '✓', error: '✗', info: 'ℹ', warning: '⚠' };
-    const colors = {
-      success: { bg: '#10b981', text: 'white' },
-      error: { bg: '#ef4444', text: 'white' },
-      info: { bg: '#3b82f6', text: 'white' },
-      warning: { bg: '#f59e0b', text: 'white' }
-    };
-    const style = colors[type] || colors.info;
     const toast = document.createElement('div');
-    toast.style.cssText = `position:fixed;top:24px;right:24px;z-index:10020;padding:12px 20px;border-radius:10px;background:${style.bg};color:${style.text};font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.25);display:flex;align-items:center;gap:8px;max-width:400px;opacity:0;transform:translateY(-10px);transition:all 0.25s ease;`;
-    toast.innerHTML = `<span style="font-weight:bold;font-size:16px;">${icons[type] || 'ℹ'}</span> ${this._escapeHtml(message)}`;
+    toast.className = `lighting-toast lighting-toast--${type}`;
+    toast.innerHTML = `<span class="lighting-toast-icon">${icons[type] || 'ℹ'}</span> ${this._escapeHtml(message)}`;
     document.body.appendChild(toast);
-    requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+    requestAnimationFrame(() => toast.classList.add('lighting-toast--visible'));
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-10px)';
+      toast.classList.remove('lighting-toast--visible');
       setTimeout(() => toast.remove(), 300);
     }, 3500);
   }
 
   _confirm(message) {
-    const t = this._t();
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
-      overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10020;display:flex;align-items:center;justify-content:center;`;
+      overlay.className = 'lighting-form-overlay';
+      overlay.style.zIndex = '10020';
       overlay.innerHTML = `
-        <div style="background:${t.bg};border-radius:12px;padding:24px;width:380px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
-          <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
-          <p style="margin:0 0 20px;font-size:14px;color:${t.text};line-height:1.5;">${this._escapeHtml(message)}</p>
-          <div style="display:flex;gap:10px;justify-content:center;">
-            <button id="_lcpConfirmNo" style="padding:8px 20px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:13px;min-width:80px;">Annuler</button>
-            <button id="_lcpConfirmYes" style="padding:8px 20px;border:none;border-radius:8px;background:#ef4444;color:white;cursor:pointer;font-size:13px;font-weight:600;min-width:80px;">Confirmer</button>
+        <div class="lighting-confirm-dialog">
+          <div class="lighting-confirm-icon">⚠️</div>
+          <p class="lighting-confirm-message">${this._escapeHtml(message)}</p>
+          <div class="lighting-confirm-actions">
+            <button class="lighting-btn lighting-btn--secondary" style="min-width:80px;font-size:13px;" id="_lcpConfirmNo">Annuler</button>
+            <button class="lighting-btn lighting-btn--danger" style="min-width:80px;font-size:13px;" id="_lcpConfirmYes">Confirmer</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
@@ -108,105 +100,131 @@ class LightingControlPage {
   async show() {
     this.createModal();
     await this.loadData();
+    // Global ref needed for onclick handlers in mixin-generated HTML
+    // TODO: migrate remaining mixin onclick handlers to event delegation
     window.lightingControlPageInstance = this;
   }
 
   close() {
+    // Cleanup ResizeObserver
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
+    // Cleanup keyboard handler
+    if (this._escHandler) {
+      document.removeEventListener('keydown', this._escHandler);
+      this._escHandler = null;
+    }
+
+    // Remove any open sub-panels
+    ['lightingDeviceForm', 'lightingRuleForm', 'lightingPresetsPanel',
+     'lightingEffectsPanel', 'lightingGroupsPanel', 'lightingScanPanel',
+     'lightingColorWheel'].forEach(id => {
+      document.getElementById(id)?.remove();
+    });
+
+    // Remove modal
     if (this.modal) {
       this.modal.remove();
       this.modal = null;
     }
-    if (this._escHandler) {
-      document.removeEventListener('keydown', this._escHandler);
+
+    // Restore body scroll
+    document.body.style.overflow = '';
+
+    // Clean global ref
+    if (window.lightingControlPageInstance === this) {
+      delete window.lightingControlPageInstance;
     }
   }
 
   // ==================== MODAL CREATION ====================
 
   createModal() {
-    if (this.modal) this.modal.remove();
-    const t = this._t();
+    if (this.modal) this.close();
 
     const div = document.createElement('div');
     div.innerHTML = `
-      <div class="lighting-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;">
-        <div class="lighting-modal-container" style="background:${t.bg};border-radius:12px;width:95%;max-width:1400px;height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+      <div class="lighting-modal-overlay">
+        <div class="lighting-modal-container">
 
           <!-- Header -->
-          <div style="padding:14px 20px;background:linear-gradient(135deg,#eab308 0%,#f59e0b 50%,#d97706 100%);color:white;flex-shrink:0;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-              <h2 style="margin:0;font-size:20px;white-space:nowrap;">💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <button onclick="lightingControlPageInstance.showEffectsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
-                <button onclick="lightingControlPageInstance.showGroupsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
-                <button onclick="lightingControlPageInstance.showPresetsPanel()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
-                <button onclick="lightingControlPageInstance.blackout()" style="padding:5px 12px;border:2px solid rgba(255,100,100,0.6);border-radius:8px;background:rgba(255,50,50,0.3);color:white;cursor:pointer;font-size:12px;font-weight:700;">🚫 Blackout</button>
-                <button onclick="lightingControlPageInstance.allOff()" style="padding:5px 12px;border:2px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-size:12px;">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
-                <button onclick="lightingControlPageInstance.close()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;">×</button>
+          <div class="lighting-modal-header">
+            <div class="lighting-header-row">
+              <h2>💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
+              <div class="lighting-header-actions">
+                <button class="lighting-header-btn" data-action="showEffectsPanel">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
+                <button class="lighting-header-btn" data-action="showGroupsPanel">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
+                <button class="lighting-header-btn" data-action="showPresetsPanel">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
+                <button class="lighting-header-btn lighting-header-btn--danger" data-action="blackout">🚫 Blackout</button>
+                <button class="lighting-header-btn" data-action="allOff">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
+                <button class="lighting-header-close" data-action="close">×</button>
               </div>
             </div>
             <!-- Mobile tab bar -->
-            <div id="lightingMobileTabs" style="display:none;margin-top:8px;gap:4px;">
-              <button id="lightingTabDevices" onclick="lightingControlPageInstance.showMobilePanel('devices')" style="flex:1;padding:6px;border:none;border-radius:6px;background:rgba(255,255,255,0.3);color:white;cursor:pointer;font-size:12px;font-weight:600;">📋 Dispositifs</button>
-              <button id="lightingTabRules" onclick="lightingControlPageInstance.showMobilePanel('rules')" style="flex:1;padding:6px;border:none;border-radius:6px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);cursor:pointer;font-size:12px;">📐 Règles</button>
+            <div id="lightingMobileTabs" class="lighting-mobile-tabs">
+              <button id="lightingTabDevices" class="lighting-mobile-tab lighting-mobile-tab--active" data-action="showMobilePanel" data-panel="devices">📋 Dispositifs</button>
+              <button id="lightingTabRules" class="lighting-mobile-tab" data-action="showMobilePanel" data-panel="rules">📐 Règles</button>
             </div>
           </div>
 
           <!-- Keyboard Shortcuts Bar -->
-          <div style="padding:3px 20px;background:${t.bgAlt};border-bottom:1px solid ${t.border};display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:10px;color:${t.textMuted};">
+          <div class="lighting-shortcuts-bar">
             <span>⌨️ Raccourcis:</span>
-            <span><kbd style="padding:1px 4px;border:1px solid ${t.borderLight};border-radius:3px;background:${t.cardBg};font-size:10px;">Espace</kbd> Blackout</span>
-            <span><kbd style="padding:1px 4px;border:1px solid ${t.borderLight};border-radius:3px;background:${t.cardBg};font-size:10px;">O</kbd> All Off</span>
-            <span><kbd style="padding:1px 4px;border:1px solid ${t.borderLight};border-radius:3px;background:${t.cardBg};font-size:10px;">T</kbd> Test</span>
-            <span><kbd style="padding:1px 4px;border:1px solid ${t.borderLight};border-radius:3px;background:${t.cardBg};font-size:10px;">Esc</kbd> Fermer</span>
+            <span><kbd>Espace</kbd> Blackout</span>
+            <span><kbd>O</kbd> All Off</span>
+            <span><kbd>T</kbd> Test</span>
+            <span><kbd>Esc</kbd> Fermer</span>
           </div>
 
           <!-- Master Dimmer Bar -->
-          <div style="padding:6px 20px;background:${t.bgAlt};border-bottom:1px solid ${t.border};display:flex;align-items:center;gap:10px;flex-shrink:0;">
-            <span style="font-size:11px;font-weight:600;color:${t.textSec};white-space:nowrap;">🔆 Master</span>
-            <input id="lightingMasterDimmer" type="range" min="0" max="255" value="255" style="flex:1;height:6px;" oninput="lightingControlPageInstance._onMasterDimmerChange(this.value)">
-            <span id="lightingMasterDimmerVal" style="font-size:11px;color:${t.textSec};min-width:35px;text-align:right;">100%</span>
+          <div class="lighting-dimmer-bar">
+            <span class="lighting-dimmer-label">🔆 Master</span>
+            <input id="lightingMasterDimmer" type="range" min="0" max="255" value="255" data-action="masterDimmer">
+            <span id="lightingMasterDimmerVal" class="lighting-dimmer-val">100%</span>
           </div>
 
           <!-- Body: two-panel layout -->
-          <div id="lightingBody" style="display:flex;flex:1;overflow:hidden;">
+          <div id="lightingBody" class="lighting-body">
 
             <!-- Left panel: Device list -->
-            <div id="lightingDevicePanel" style="width:300px;min-width:260px;border-right:2px solid ${t.border};display:flex;flex-direction:column;background:${t.bgAlt};">
-              <div style="padding:10px 14px;border-bottom:1px solid ${t.border};display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-weight:600;font-size:13px;color:${t.text};">📋 ${i18n.t('lighting.devices') || 'Dispositifs'}</span>
-                <button onclick="lightingControlPageInstance.scanDevices()" style="padding:4px 8px;border:1px solid #3b82f6;border-radius:6px;background:${t.btnBg};color:#2563eb;cursor:pointer;font-size:11px;" title="Scanner le réseau">🔍</button>
-                <button onclick="lightingControlPageInstance.showAddDeviceForm()" style="padding:4px 10px;border:1px solid #eab308;border-radius:6px;background:${t.btnBg};color:#b45309;cursor:pointer;font-size:12px;">+ ${i18n.t('lighting.addDevice') || 'Ajouter'}</button>
+            <div id="lightingDevicePanel" class="lighting-device-panel">
+              <div class="lighting-device-panel-header">
+                <span class="lighting-device-panel-title">📋 ${i18n.t('lighting.devices') || 'Dispositifs'}</span>
+                <button class="lighting-btn--scan" data-action="scanDevices" title="Scanner le réseau">🔍</button>
+                <button class="lighting-btn--outline lighting-btn--outline-yellow" data-action="showAddDeviceForm" style="padding:4px 10px;font-size:12px;">+ ${i18n.t('lighting.addDevice') || 'Ajouter'}</button>
               </div>
-              <div id="lightingDeviceList" style="flex:1;overflow-y:auto;padding:6px;">
-                <div style="padding:20px;text-align:center;color:${t.textMuted};">Chargement...</div>
+              <div id="lightingDeviceList" class="lighting-device-list">
+                <div class="lighting-empty-state">Chargement...</div>
               </div>
             </div>
 
             <!-- Right panel: Rules for selected device -->
-            <div id="lightingRulesPanel" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-              <div id="lightingRulesHeader" style="padding:10px 14px;border-bottom:1px solid ${t.border};display:flex;justify-content:space-between;align-items:center;background:${t.headerRulesBg};flex-wrap:wrap;gap:6px;">
-                <span style="font-weight:600;font-size:13px;color:${t.text};" id="lightingRulesTitle">📐 ${i18n.t('lighting.selectDevice') || 'Sélectionnez un dispositif'}</span>
-                <div id="lightingRulesActions" style="display:none;gap:6px;flex-wrap:wrap;">
-                  <button onclick="lightingControlPageInstance.reconnectDevice()" id="lightingReconnectBtn" style="display:none;padding:4px 8px;border:1px solid #f59e0b;border-radius:6px;background:${t.btnBg};color:#d97706;cursor:pointer;font-size:11px;">🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}</button>
-                  <button onclick="lightingControlPageInstance.showEditDeviceForm()" style="padding:4px 8px;border:1px solid #8b5cf6;border-radius:6px;background:${t.btnBg};color:#7c3aed;cursor:pointer;font-size:11px;">✏️ Modifier</button>
-                  <button onclick="lightingControlPageInstance.testDevice()" style="padding:4px 8px;border:1px solid #3b82f6;border-radius:6px;background:${t.btnBg};color:#2563eb;cursor:pointer;font-size:11px;">🔦 ${i18n.t('lighting.testDevice') || 'Tester'}</button>
-                  <button onclick="lightingControlPageInstance.batchToggleRules(true)" style="padding:4px 6px;border:1px solid ${t.borderLight};border-radius:4px;background:none;color:${t.textMuted};cursor:pointer;font-size:9px;" title="${i18n.t('lighting.enableAll') || 'Tout activer'}">✅All</button>
-                  <button onclick="lightingControlPageInstance.batchToggleRules(false)" style="padding:4px 6px;border:1px solid ${t.borderLight};border-radius:4px;background:none;color:${t.textMuted};cursor:pointer;font-size:9px;" title="${i18n.t('lighting.disableAll') || 'Tout désactiver'}">⬜All</button>
-                  <button onclick="lightingControlPageInstance.showAddRuleForm()" style="padding:4px 8px;border:1px solid #10b981;border-radius:6px;background:${t.btnBg};color:#059669;cursor:pointer;font-size:11px;">+ ${i18n.t('lighting.addRule') || 'Règle'}</button>
+            <div id="lightingRulesPanel" class="lighting-rules-panel">
+              <div id="lightingRulesHeader" class="lighting-rules-header">
+                <span class="lighting-rules-title" id="lightingRulesTitle">📐 ${i18n.t('lighting.selectDevice') || 'Sélectionnez un dispositif'}</span>
+                <div id="lightingRulesActions" class="lighting-rules-actions">
+                  <button data-action="reconnectDevice" id="lightingReconnectBtn" class="lighting-btn--outline lighting-btn--outline-yellow" style="display:none;">🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}</button>
+                  <button data-action="showEditDeviceForm" class="lighting-btn--outline lighting-btn--outline-purple">✏️ Modifier</button>
+                  <button data-action="testDevice" class="lighting-btn--outline lighting-btn--outline-blue">🔦 ${i18n.t('lighting.testDevice') || 'Tester'}</button>
+                  <button data-action="batchToggleRules" data-enabled="true" class="lighting-btn--mini" title="${i18n.t('lighting.enableAll') || 'Tout activer'}">✅All</button>
+                  <button data-action="batchToggleRules" data-enabled="false" class="lighting-btn--mini" title="${i18n.t('lighting.disableAll') || 'Tout désactiver'}">⬜All</button>
+                  <button data-action="showAddRuleForm" class="lighting-btn--outline lighting-btn--outline-green">+ ${i18n.t('lighting.addRule') || 'Règle'}</button>
                 </div>
               </div>
               <!-- LED Preview Strip -->
-              <div id="lightingLedPreview" style="display:none;padding:6px 14px;border-bottom:1px solid ${t.borderLight};background:${t.bgAlt};">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                  <span style="font-size:10px;font-weight:600;color:${t.textMuted};">LED Preview</span>
-                  <button onclick="lightingControlPageInstance._testPreviewRainbow()" style="padding:1px 6px;border:1px solid ${t.borderLight};border-radius:4px;background:none;color:${t.textMuted};cursor:pointer;font-size:9px;">🌈 Test</button>
-                  <button onclick="lightingControlPageInstance._clearPreview()" style="padding:1px 6px;border:1px solid ${t.borderLight};border-radius:4px;background:none;color:${t.textMuted};cursor:pointer;font-size:9px;">⬛ Clear</button>
+              <div id="lightingLedPreview" class="lighting-led-preview">
+                <div class="lighting-led-preview-header">
+                  <span class="lighting-led-preview-label">LED Preview</span>
+                  <button data-action="_testPreviewRainbow" class="lighting-btn--mini">🌈 Test</button>
+                  <button data-action="_clearPreview" class="lighting-btn--mini">⬛ Clear</button>
                 </div>
-                <div id="lightingLedStripViz" style="display:flex;gap:1px;flex-wrap:wrap;min-height:10px;"></div>
+                <div id="lightingLedStripViz" class="lighting-led-strip-viz"></div>
               </div>
-              <div id="lightingRulesList" style="flex:1;overflow-y:auto;padding:10px;">
-                <div style="padding:40px;text-align:center;color:${t.textMuted};font-size:13px;">
+              <div id="lightingRulesList" class="lighting-rules-list">
+                <div class="lighting-empty-state" style="padding:40px;font-size:13px;">
                   ← ${i18n.t('lighting.selectDeviceHint') || 'Sélectionnez un dispositif pour voir ses règles'}
                 </div>
               </div>
@@ -219,8 +237,11 @@ class LightingControlPage {
     this.modal = div.firstElementChild;
     document.body.appendChild(this.modal);
 
+    // Event delegation for data-action buttons
+    this._setupEventDelegation();
+
+    // Keyboard shortcuts
     this._escHandler = (e) => {
-      // Don't trigger shortcuts if typing in input
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
@@ -231,12 +252,73 @@ class LightingControlPage {
       else if (e.key === 't' || e.key === 'T') this.testDevice();
     };
     document.addEventListener('keydown', this._escHandler);
+
+    // Close on overlay click
     this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.close(); });
 
-    // Responsive: check width
+    // Responsive
     this._checkResponsive();
     this._resizeObserver = new ResizeObserver(() => this._checkResponsive());
     this._resizeObserver.observe(this.modal.querySelector('.lighting-modal-container'));
+  }
+
+  // ==================== EVENT DELEGATION ====================
+
+  _setupEventDelegation() {
+    if (!this.modal) return;
+
+    // Click delegation
+    this.modal.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      // Simple actions (no params)
+      const simpleMethods = [
+        'showEffectsPanel', 'showGroupsPanel', 'showPresetsPanel',
+        'blackout', 'allOff', 'close', 'testDevice',
+        'showAddDeviceForm', 'showEditDeviceForm', 'showAddRuleForm',
+        'scanDevices', 'reconnectDevice',
+        '_testPreviewRainbow', '_clearPreview'
+      ];
+      if (simpleMethods.includes(action) && typeof this[action] === 'function') {
+        this[action]();
+        return;
+      }
+
+      // Parameterized actions
+      if (action === 'showMobilePanel') {
+        this.showMobilePanel(btn.dataset.panel);
+      } else if (action === 'batchToggleRules') {
+        this.batchToggleRules(btn.dataset.enabled === 'true');
+      } else if (action === 'selectDevice') {
+        this.selectDevice(parseInt(btn.dataset.id));
+      } else if (action === 'deleteDevice') {
+        e.stopPropagation();
+        this.deleteDevice(parseInt(btn.dataset.id));
+      } else if (action === 'cloneDevice') {
+        e.stopPropagation();
+        this.cloneDevice(parseInt(btn.dataset.id));
+      } else if (action === 'testRule') {
+        this.testRule(parseInt(btn.dataset.id));
+      } else if (action === 'editRule') {
+        this.editRule(parseInt(btn.dataset.id));
+      } else if (action === 'cloneRule') {
+        this.cloneRule(parseInt(btn.dataset.id));
+      } else if (action === 'deleteRule') {
+        this.deleteRule(parseInt(btn.dataset.id));
+      } else if (action === 'toggleRule') {
+        this.toggleRule(parseInt(btn.dataset.id), btn.dataset.enabled === 'true');
+      } else if (action === 'moveRulePriority') {
+        this.moveRulePriority(parseInt(btn.dataset.id), parseInt(btn.dataset.delta));
+      }
+    });
+
+    // Master dimmer input
+    const dimmer = this.modal.querySelector('#lightingMasterDimmer');
+    if (dimmer) {
+      dimmer.addEventListener('input', () => this._onMasterDimmerChange(dimmer.value));
+    }
   }
 
   _checkResponsive() {
@@ -248,7 +330,6 @@ class LightingControlPage {
     const rulesPanel = document.getElementById('lightingRulesPanel');
 
     if (w < 640) {
-      // Mobile: show tabs, toggle panels
       if (tabs) tabs.style.display = 'flex';
       if (this.mobilePanelView === 'devices') {
         if (devicePanel) { devicePanel.style.display = 'flex'; devicePanel.style.width = '100%'; devicePanel.style.minWidth = '0'; devicePanel.style.borderRight = 'none'; }
@@ -258,9 +339,8 @@ class LightingControlPage {
         if (rulesPanel) rulesPanel.style.display = 'flex';
       }
     } else {
-      // Desktop: hide tabs, show both panels
       if (tabs) tabs.style.display = 'none';
-      if (devicePanel) { devicePanel.style.display = 'flex'; devicePanel.style.width = '300px'; devicePanel.style.minWidth = '260px'; devicePanel.style.borderRight = `2px solid ${this._t().border}`; }
+      if (devicePanel) { devicePanel.style.display = 'flex'; devicePanel.style.width = ''; devicePanel.style.minWidth = ''; devicePanel.style.borderRight = ''; }
       if (rulesPanel) rulesPanel.style.display = 'flex';
     }
   }
@@ -269,11 +349,11 @@ class LightingControlPage {
     this.mobilePanelView = panel;
     const tabD = document.getElementById('lightingTabDevices');
     const tabR = document.getElementById('lightingTabRules');
-    if (tabD && tabR) {
-      tabD.style.background = panel === 'devices' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
-      tabD.style.color = panel === 'devices' ? 'white' : 'rgba(255,255,255,0.7)';
-      tabR.style.background = panel === 'rules' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
-      tabR.style.color = panel === 'rules' ? 'white' : 'rgba(255,255,255,0.7)';
+    if (tabD) {
+      tabD.classList.toggle('lighting-mobile-tab--active', panel === 'devices');
+    }
+    if (tabR) {
+      tabR.classList.toggle('lighting-mobile-tab--active', panel === 'rules');
     }
     this._checkResponsive();
   }
@@ -311,10 +391,7 @@ class LightingControlPage {
     }
   }
 
-  _safeColor(c) {
-    // Sanitize a color value for safe CSS injection (only allow hex colors)
-    return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '#888';
-  }
+  // _safeColor is provided by LightingHelpersMixin
 
   async _createGroup() {
     const name = document.getElementById('lgFormName')?.value.trim();
@@ -632,9 +709,7 @@ class LightingControlPage {
     if (nl) nl.style.display = type === 'note_led' ? 'block' : 'none';
   }
 
-  _isEffectType(type) {
-    return ['strobe', 'rainbow', 'chase', 'fire', 'breathe', 'sparkle', 'color_cycle', 'wave'].includes(type);
-  }
+  // _isEffectType is provided by LightingHelpersMixin
 
   _updateGradientPreview() {
     const low = document.getElementById('lrFormColorLow')?.value || '#0000FF';
@@ -644,7 +719,7 @@ class LightingControlPage {
     if (preview) preview.style.background = `linear-gradient(to right,${low},${mid},${high})`;
   }
 
-  _clamp(val, min, max) { return Math.max(min, Math.min(max, parseInt(val) || min)); }
+  // _clamp is provided by LightingHelpersMixin
 
   async editRule(ruleId) {
     const rule = this.rules.find(r => r.id === ruleId);
@@ -703,93 +778,33 @@ class LightingControlPage {
     } catch (error) { this.showToast(error.message, 'error'); }
   }
 
-  // ==================== ACTIONS ====================
+  // Actions (testDevice, testRule, allOff, blackout, _onMasterDimmerChange)
+  // are provided by LightingHelpersMixin
 
-  async testDevice() {
-    if (!this.selectedDeviceId) return;
-    try { await this.apiClient.sendCommand('lighting_device_test', { id: this.selectedDeviceId }); }
-    catch (error) { this.showToast(error.message, 'error'); }
-  }
-
-  async testRule(ruleId) {
-    try { await this.apiClient.sendCommand('lighting_rule_test', { id: ruleId }); }
-    catch (error) { this.showToast(error.message, 'error'); }
-  }
-
-  async allOff() {
-    try { await this.apiClient.sendCommand('lighting_all_off'); }
-    catch (error) { this.showToast(error.message, 'error'); }
-  }
-
-  async blackout() {
-    try { await this.apiClient.sendCommand('lighting_blackout'); }
-    catch (error) { this.showToast(error.message, 'error'); }
-  }
-
-  async _onMasterDimmerChange(value) {
-    const val = parseInt(value);
-    const label = document.getElementById('lightingMasterDimmerVal');
-    if (label) label.textContent = Math.round(val / 2.55) + '%';
-    try { await this.apiClient.sendCommand('lighting_master_dimmer', { value: val }); }
-    catch (error) { /* ignore - too many events */ }
-  }
-
-  // ==================== HELPERS ====================
-
-  _getTypeIcon(type) {
-    return { gpio: '🔌', gpio_strip: '💠', serial: '🔗', artnet: '🌐', sacn: '📡', mqtt: '📶', http: '🌍', osc: '🎛️', midi: '🎵' }[type] || '💡';
-  }
-
-  _getTriggerLabel(trigger) {
-    return { noteon: 'Note On', noteoff: 'Note Off', cc: 'CC', any: 'Tous' }[trigger] || trigger || 'Note On';
-  }
-
-  _getActionLabel(type) {
-    return {
-      static: i18n.t('lighting.colorStatic') || 'Couleur fixe',
-      velocity_mapped: i18n.t('lighting.colorVelocity') || 'Gradient',
-      note_color: '🎹 Note→Couleur', color_temp: '🌡️ Temp. couleur', random_color: '🎲 Aléatoire',
-      note_led: '🎹 Note→LED', vu_meter: '📊 VU-mètre',
-      pulse: 'Pulse', fade: 'Fade',
-      strobe: '⚡ Stroboscope', rainbow: '🌈 Arc-en-ciel', chase: '🏃 Chenillard',
-      fire: '🔥 Feu', breathe: '💨 Respiration', sparkle: '✨ Étincelles',
-      color_cycle: '🎨 Cycle', wave: '🌊 Vague'
-    }[type] || type || 'Couleur fixe';
-  }
-
-  _getInstrumentName(instrumentId) {
-    if (!instrumentId) return i18n.t('lighting.anyInstrument') || 'Tout instrument';
-    const inst = this.instruments.find(i => i.id === instrumentId);
-    return inst ? (inst.custom_name || inst.name || instrumentId) : instrumentId;
-  }
-
-  _getColorMapValue(colorMap, key) {
-    if (!colorMap) return null;
-    return colorMap[String(key)] || null;
-  }
-
-  _noteName(midi) {
-    const n = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    return n[midi % 12] + (Math.floor(midi / 12) - 1);
-  }
-
-  _setPreviewLed(index, color) {
-    const led = document.querySelector(`.led-preview-pixel[data-index="${index}"]`);
-    if (led) led.style.background = color;
-  }
-
-  _testPreviewRainbow() {
-    const pixels = document.querySelectorAll('.led-preview-pixel');
-    pixels.forEach((pixel, i) => {
-      const hue = (i * 360 / pixels.length) % 360;
-      pixel.style.background = `hsl(${hue}, 100%, 50%)`;
-    });
-    // Auto-clear after 2 seconds
-    setTimeout(() => this._clearPreview(), 2000);
-  }
-
-  _clearPreview() {
-    const pixels = document.querySelectorAll('.led-preview-pixel');
-    pixels.forEach(pixel => { pixel.style.background = '#333'; });
-  }
+  // Helpers, LED preview, and color utilities are provided by LightingHelpersMixin
 }
+
+// ============================================================================
+// MIXIN CONNECTION
+// Apply mixins to the prototype. Mixins are loaded via <script> tags before
+// this file. Methods defined directly on the class take precedence over mixin
+// methods (they are applied first, class methods shadow them).
+// ============================================================================
+(function() {
+  const mixins = [
+    window.LightingHelpersMixin,
+    window.LightingFormsMixin,
+    window.LightingDeviceUIMixin,
+    window.LightingPresetsUIMixin
+  ];
+  mixins.forEach(mixin => {
+    if (!mixin) return;
+    Object.keys(mixin).forEach(key => {
+      // Only add mixin method if NOT already defined on the class prototype
+      // This avoids overwriting class methods with mixin duplicates
+      if (!LightingControlPage.prototype.hasOwnProperty(key)) {
+        LightingControlPage.prototype[key] = mixin[key];
+      }
+    });
+  });
+})();

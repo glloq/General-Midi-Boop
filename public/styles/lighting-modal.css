@@ -1,0 +1,1206 @@
+/* ============================================================================
+ * lighting-modal.css
+ * Styles for the Lighting Control Modal (LightingControlPage)
+ * ============================================================================ */
+
+/* ==================== CSS CUSTOM PROPERTIES (THEME) ==================== */
+
+.lighting-modal-overlay {
+  --lt-bg: white;
+  --lt-bg-alt: #f9fafb;
+  --lt-bg-hover: #fefce8;
+  --lt-bg-selected: #fefce8;
+  --lt-border-selected: #eab308;
+  --lt-border: #e5e7eb;
+  --lt-border-light: #e5e7eb;
+  --lt-text: #333;
+  --lt-text-sec: #666;
+  --lt-text-muted: #999;
+  --lt-card-bg: white;
+  --lt-card-header: #f9fafb;
+  --lt-input-bg: white;
+  --lt-input-border: #d1d5db;
+  --lt-input-text: #333;
+  --lt-btn-bg: white;
+  --lt-btn-border: #d1d5db;
+  --lt-header-rules-bg: #fefce8;
+}
+
+.theme-dark .lighting-modal-overlay {
+  --lt-bg: #1e1e1e;
+  --lt-bg-alt: #2d2d2d;
+  --lt-bg-hover: #353535;
+  --lt-bg-selected: #3d3520;
+  --lt-border-selected: #eab308;
+  --lt-border: #404040;
+  --lt-border-light: #333;
+  --lt-text: #e0e0e0;
+  --lt-text-sec: #aaa;
+  --lt-text-muted: #777;
+  --lt-card-bg: #2d2d2d;
+  --lt-card-header: #353535;
+  --lt-input-bg: #3d3d3d;
+  --lt-input-border: #555;
+  --lt-input-text: #e0e0e0;
+  --lt-btn-bg: #3d3d3d;
+  --lt-btn-border: #555;
+  --lt-header-rules-bg: #3d3520;
+}
+
+/* ==================== MAIN MODAL ==================== */
+
+.lighting-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lighting-modal-container {
+  background: var(--lt-bg);
+  border-radius: 12px;
+  width: 95%;
+  max-width: 1400px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* ==================== HEADER ==================== */
+
+.lighting-modal-header {
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #eab308 0%, #f59e0b 50%, #d97706 100%);
+  color: white;
+  flex-shrink: 0;
+}
+
+.lighting-modal-header .lighting-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lighting-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.lighting-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lighting-header-btn {
+  padding: 5px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.lighting-header-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lighting-header-btn--danger {
+  border-color: rgba(255, 100, 100, 0.6);
+  background: rgba(255, 50, 50, 0.3);
+  font-weight: 700;
+}
+
+.lighting-header-btn--danger:hover {
+  background: rgba(255, 50, 50, 0.45);
+}
+
+.lighting-header-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lighting-header-close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ==================== MOBILE TABS ==================== */
+
+.lighting-mobile-tabs {
+  display: none;
+  margin-top: 8px;
+  gap: 4px;
+}
+
+.lighting-mobile-tab {
+  flex: 1;
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.lighting-mobile-tab--active {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: 600;
+}
+
+/* ==================== SHORTCUTS BAR ==================== */
+
+.lighting-shortcuts-bar {
+  padding: 3px 20px;
+  background: var(--lt-bg-alt);
+  border-bottom: 1px solid var(--lt-border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--lt-text-muted);
+}
+
+.lighting-shortcuts-bar kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--lt-border-light);
+  border-radius: 3px;
+  background: var(--lt-card-bg);
+  font-size: 10px;
+}
+
+/* ==================== MASTER DIMMER BAR ==================== */
+
+.lighting-dimmer-bar {
+  padding: 6px 20px;
+  background: var(--lt-bg-alt);
+  border-bottom: 1px solid var(--lt-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.lighting-dimmer-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lt-text-sec);
+  white-space: nowrap;
+}
+
+.lighting-dimmer-bar input[type="range"] {
+  flex: 1;
+  height: 6px;
+}
+
+.lighting-dimmer-val {
+  font-size: 11px;
+  color: var(--lt-text-sec);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* ==================== TWO-PANEL BODY ==================== */
+
+.lighting-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ==================== DEVICE PANEL (LEFT) ==================== */
+
+.lighting-device-panel {
+  width: 300px;
+  min-width: 260px;
+  border-right: 2px solid var(--lt-border);
+  display: flex;
+  flex-direction: column;
+  background: var(--lt-bg-alt);
+}
+
+.lighting-device-panel-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--lt-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.lighting-device-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--lt-text);
+}
+
+.lighting-device-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+/* ==================== DEVICE CARD ==================== */
+
+.lighting-device-card {
+  padding: 8px 10px;
+  margin-bottom: 3px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--lt-card-bg);
+  transition: all 0.15s;
+}
+
+.lighting-device-card:hover {
+  background: var(--lt-bg-hover);
+}
+
+.lighting-device-card--selected {
+  border-color: var(--lt-border-selected);
+  background: var(--lt-bg-selected);
+}
+
+.lighting-device-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lighting-device-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lighting-device-icon {
+  font-size: 16px;
+}
+
+.lighting-device-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lighting-device-meta {
+  font-size: 10px;
+  color: var(--lt-text-muted);
+}
+
+.lighting-device-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+/* ==================== RULES PANEL (RIGHT) ==================== */
+
+.lighting-rules-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lighting-rules-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--lt-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--lt-header-rules-bg);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lighting-rules-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--lt-text);
+}
+
+.lighting-rules-actions {
+  display: none;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lighting-rules-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* ==================== RULE CARD ==================== */
+
+.lighting-rule-card {
+  border: 1px solid var(--lt-border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: var(--lt-card-bg);
+}
+
+.lighting-rule-card--disabled {
+  opacity: 0.5;
+}
+
+.lighting-rule-card-header {
+  padding: 8px 12px;
+  background: var(--lt-card-header);
+  border-bottom: 1px solid var(--lt-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lighting-rule-card-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lighting-rule-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lighting-rule-instrument {
+  font-size: 10px;
+  color: var(--lt-text-muted);
+  background: var(--lt-bg-alt);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.lighting-rule-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.lighting-rule-card-body {
+  padding: 8px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: 11px;
+  color: var(--lt-text-sec);
+}
+
+/* ==================== COLOR PREVIEW ==================== */
+
+.lighting-color-pill {
+  width: 28px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.lighting-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  flex-shrink: 0;
+}
+
+/* ==================== LED PREVIEW ==================== */
+
+.lighting-led-preview {
+  display: none;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--lt-border-light);
+  background: var(--lt-bg-alt);
+}
+
+.lighting-led-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.lighting-led-preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--lt-text-muted);
+}
+
+.lighting-led-strip-viz {
+  display: flex;
+  gap: 1px;
+  flex-wrap: wrap;
+  min-height: 10px;
+}
+
+.led-preview-pixel {
+  background: #333;
+  transition: background 0.1s;
+}
+
+/* ==================== FORM OVERLAY (Sub-panels) ==================== */
+
+.lighting-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lighting-form-dialog {
+  background: var(--lt-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.lighting-form-dialog--sm {
+  width: 400px;
+  max-width: 90vw;
+}
+
+.lighting-form-dialog--md {
+  width: 420px;
+  max-width: 92vw;
+}
+
+.lighting-form-dialog--lg {
+  width: 460px;
+  max-width: 92vw;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.lighting-form-dialog--xl {
+  width: 520px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.lighting-form-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  color: var(--lt-text);
+}
+
+.lighting-form-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lt-text-sec);
+  margin-bottom: 8px;
+}
+
+/* ==================== FORM ELEMENTS ==================== */
+
+.lighting-form-group {
+  margin-bottom: 12px;
+}
+
+.lighting-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lt-text);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.lighting-form-label--sm {
+  font-size: 11px;
+  color: var(--lt-text-sec);
+  margin-bottom: 2px;
+}
+
+.lighting-form-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--lt-input-border);
+  border-radius: 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+  background: var(--lt-input-bg);
+  color: var(--lt-input-text);
+}
+
+.lighting-form-input--sm {
+  padding: 5px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+.lighting-form-input--compact {
+  padding: 6px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.lighting-form-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--lt-input-border);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--lt-input-bg);
+  color: var(--lt-input-text);
+}
+
+.lighting-form-select--compact {
+  padding: 6px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.lighting-form-error {
+  font-size: 11px;
+  color: #ef4444;
+  display: none;
+}
+
+.lighting-form-hint {
+  font-size: 10px;
+  color: var(--lt-text-muted);
+  margin-bottom: 8px;
+}
+
+.lighting-form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lighting-form-row > * {
+  flex: 1;
+}
+
+.lighting-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.lighting-form-separator {
+  border: none;
+  border-top: 1px solid var(--lt-border);
+  margin: 12px 0;
+}
+
+/* ==================== BUTTONS ==================== */
+
+.lighting-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  border: none;
+}
+
+.lighting-btn--primary {
+  background: #eab308;
+  color: white;
+  font-weight: 600;
+}
+
+.lighting-btn--primary:hover {
+  background: #ca9a06;
+}
+
+.lighting-btn--success {
+  background: #10b981;
+  color: white;
+  font-weight: 600;
+}
+
+.lighting-btn--success:hover {
+  background: #0d9668;
+}
+
+.lighting-btn--danger {
+  background: #ef4444;
+  color: white;
+  font-weight: 600;
+}
+
+.lighting-btn--danger:hover {
+  background: #dc2626;
+}
+
+.lighting-btn--secondary {
+  border: 1px solid var(--lt-btn-border);
+  background: var(--lt-btn-bg);
+  color: var(--lt-text);
+}
+
+.lighting-btn--secondary:hover {
+  opacity: 0.85;
+}
+
+.lighting-btn--outline {
+  background: none;
+  border: 1px solid;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.lighting-btn--outline-blue {
+  border-color: #3b82f6;
+  color: #2563eb;
+  background: var(--lt-btn-bg);
+}
+
+.lighting-btn--outline-green {
+  border-color: #10b981;
+  color: #059669;
+  background: var(--lt-btn-bg);
+}
+
+.lighting-btn--outline-purple {
+  border-color: #8b5cf6;
+  color: #7c3aed;
+  background: var(--lt-btn-bg);
+}
+
+.lighting-btn--outline-yellow {
+  border-color: #f59e0b;
+  color: #d97706;
+  background: var(--lt-btn-bg);
+}
+
+.lighting-btn--outline-red {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: var(--lt-btn-bg);
+}
+
+.lighting-btn--icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--lt-text-muted);
+}
+
+.lighting-btn--icon:hover {
+  opacity: 0.7;
+}
+
+.lighting-btn--mini {
+  padding: 4px 6px;
+  border: 1px solid var(--lt-border-light);
+  border-radius: 4px;
+  background: none;
+  color: var(--lt-text-muted);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.lighting-btn--full {
+  width: 100%;
+}
+
+.lighting-btn--scan {
+  padding: 4px 8px;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  background: var(--lt-btn-bg);
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+/* ==================== TOAST ==================== */
+
+.lighting-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10020;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 400px;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.25s ease;
+}
+
+.lighting-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lighting-toast--success {
+  background: #10b981;
+  color: white;
+}
+
+.lighting-toast--error {
+  background: #ef4444;
+  color: white;
+}
+
+.lighting-toast--info {
+  background: #3b82f6;
+  color: white;
+}
+
+.lighting-toast--warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.lighting-toast-icon {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* ==================== CONFIRM DIALOG ==================== */
+
+.lighting-confirm-dialog {
+  background: var(--lt-bg);
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.lighting-confirm-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.lighting-confirm-message {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--lt-text);
+  line-height: 1.5;
+}
+
+.lighting-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* ==================== QUICK COLOR PRESETS ==================== */
+
+.lighting-color-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lighting-color-btn:hover {
+  transform: scale(1.15);
+  transition: transform 0.1s;
+}
+
+/* ==================== COLOR WHEEL ==================== */
+
+.lighting-color-wheel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lighting-color-wheel-dialog {
+  background: var(--lt-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.lighting-color-wheel-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--lt-text);
+}
+
+.lighting-color-wheel-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.lighting-color-wheel-canvas {
+  cursor: crosshair;
+  border-radius: 50%;
+}
+
+.lighting-color-wheel-brightness {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.lighting-color-wheel-preview {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lighting-color-wheel-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--lt-border);
+}
+
+.lighting-color-wheel-hex {
+  font-size: 14px;
+  color: var(--lt-text);
+  font-family: monospace;
+}
+
+.lighting-color-wheel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+/* ==================== GROUPS PANEL ==================== */
+
+.lighting-group-card {
+  padding: 8px 10px;
+  border: 1px solid var(--lt-border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--lt-card-bg);
+}
+
+.lighting-group-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.lighting-group-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lt-text);
+}
+
+.lighting-group-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.lighting-group-devices {
+  font-size: 11px;
+  color: var(--lt-text-muted);
+}
+
+.lighting-group-create {
+  margin-bottom: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--lt-border-light);
+  border-radius: 8px;
+}
+
+.lighting-group-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.lighting-group-checkbox span {
+  font-size: 12px;
+  color: var(--lt-text);
+}
+
+/* ==================== EFFECTS PANEL ==================== */
+
+.lighting-effect-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid var(--lt-border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  background: var(--lt-card-bg);
+}
+
+.lighting-effect-name {
+  font-size: 12px;
+  color: var(--lt-text);
+}
+
+.lighting-bpm-display {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--lt-text);
+}
+
+.lighting-bpm-label {
+  font-size: 10px;
+  color: var(--lt-text-muted);
+}
+
+.lighting-tap-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #8b5cf6;
+  border-radius: 8px;
+  background: var(--lt-bg-alt);
+  color: #8b5cf6;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ==================== PRESETS PANEL ==================== */
+
+.lighting-preset-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid var(--lt-border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--lt-card-bg);
+}
+
+.lighting-preset-name {
+  font-size: 13px;
+  color: var(--lt-text);
+  font-weight: 500;
+}
+
+.lighting-preset-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ==================== SCAN PANEL ==================== */
+
+.lighting-scan-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--lt-border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--lt-card-bg);
+  text-align: left;
+}
+
+.lighting-scan-result-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lt-text);
+}
+
+.lighting-scan-result-meta {
+  font-size: 11px;
+  color: var(--lt-text-muted);
+}
+
+/* ==================== MIDI LEARN BUTTON ==================== */
+
+.lighting-midi-learn-btn {
+  width: 100%;
+  padding: 10px;
+  border: 2px dashed #f59e0b;
+  border-radius: 8px;
+  background: none;
+  color: #d97706;
+  cursor: pointer;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+/* ==================== STRIP / SEGMENT ENTRIES ==================== */
+
+.lighting-strip-entry {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 6px;
+  border: 1px solid var(--lt-input-border);
+  border-radius: 8px;
+  background: var(--lt-bg-alt);
+}
+
+.lighting-segment-entry {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.lighting-add-entry-btn {
+  padding: 4px 10px;
+  border: 1px dashed var(--lt-input-border);
+  border-radius: 6px;
+  background: none;
+  color: var(--lt-text-sec);
+  cursor: pointer;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
+.lighting-remove-entry-btn {
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ==================== EMPTY STATE ==================== */
+
+.lighting-empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--lt-text-muted);
+}
+
+.lighting-empty-state-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.lighting-empty-state-text {
+  margin: 0;
+  font-size: 12px;
+}
+
+.lighting-empty-state-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--lt-text-muted);
+}
+
+/* ==================== GRADIENT PREVIEW ==================== */
+
+.lighting-gradient-preview {
+  width: 100%;
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--lt-border);
+  margin-top: 4px;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 640px) {
+  .lighting-modal-container {
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .lighting-mobile-tabs {
+    display: flex;
+  }
+
+  .lighting-shortcuts-bar {
+    display: none;
+  }
+
+  .lighting-device-panel {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+  }
+}
+
+/* ==================== ANIMATION ==================== */
+
+@keyframes lightingModalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lighting-modal-container {
+  animation: lightingModalSlideIn 0.2s ease-out;
+}

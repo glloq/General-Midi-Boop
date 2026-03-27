@@ -9,14 +9,13 @@
     LightingDeviceUIMixin.renderDeviceList = function() {
     const container = document.getElementById('lightingDeviceList');
     if (!container) return;
-    const t = this._t();
 
     if (this.devices.length === 0) {
       container.innerHTML = `
-        <div style="padding:20px;text-align:center;color:${t.textMuted};">
-          <div style="font-size:28px;margin-bottom:6px;">💡</div>
-          <p style="margin:0;font-size:12px;">${i18n.t('lighting.noDevices') || 'Aucun dispositif configuré'}</p>
-          <p style="margin:4px 0 0;font-size:11px;color:${t.textMuted};">${i18n.t('lighting.addDeviceHint') || 'Cliquez sur Ajouter'}</p>
+        <div class="lighting-empty-state">
+          <div class="lighting-empty-state-icon">💡</div>
+          <p class="lighting-empty-state-text">${i18n.t('lighting.noDevices') || 'Aucun dispositif configuré'}</p>
+          <p class="lighting-empty-state-hint">${i18n.t('lighting.addDeviceHint') || 'Cliquez sur Ajouter'}</p>
         </div>`;
       return;
     }
@@ -27,20 +26,20 @@
       const dot = device.connected ? '🟢' : '⚪';
 
       return `
-        <div onclick="lightingControlPageInstance.selectDevice(${device.id})"
-             style="padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;border:2px solid ${sel ? t.borderSelected : 'transparent'};background:${sel ? t.bgSelected : t.cardBg};transition:all 0.15s;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div style="display:flex;align-items:center;gap:7px;min-width:0;flex:1;">
-              <span style="font-size:16px;">${icon}</span>
+        <div class="lighting-device-card ${sel ? 'lighting-device-card--selected' : ''}"
+             data-action="selectDevice" data-id="${device.id}">
+          <div class="lighting-device-card-row">
+            <div class="lighting-device-info">
+              <span class="lighting-device-icon">${icon}</span>
               <div style="min-width:0;flex:1;">
-                <div style="font-size:12px;font-weight:600;color:${t.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._escapeHtml(device.name)}</div>
-                <div style="font-size:10px;color:${t.textMuted};">${device.type.toUpperCase()} · ${device.led_count} LED${device.led_count > 1 ? 's' : ''}</div>
+                <div class="lighting-device-name">${this._escapeHtml(device.name)}</div>
+                <div class="lighting-device-meta">${device.type.toUpperCase()} · ${device.led_count} LED${device.led_count > 1 ? 's' : ''}</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+            <div class="lighting-device-actions">
               <span style="font-size:9px;">${dot}</span>
-              <button onclick="event.stopPropagation();lightingControlPageInstance.cloneDevice(${device.id})" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:2px;" title="Dupliquer">📋</button>
-              <button onclick="event.stopPropagation();lightingControlPageInstance.deleteDevice(${device.id})" style="background:none;border:none;cursor:pointer;font-size:12px;color:${t.textMuted};padding:2px;" title="Supprimer">🗑</button>
+              <button class="lighting-btn--icon" data-action="cloneDevice" data-id="${device.id}" style="font-size:11px;" title="Dupliquer">📋</button>
+              <button class="lighting-btn--icon" data-action="deleteDevice" data-id="${device.id}" style="font-size:12px;" title="Supprimer">🗑</button>
             </div>
           </div>
         </div>`;
@@ -55,7 +54,6 @@
     const actions = document.getElementById('lightingRulesActions');
     const reconnectBtn = document.getElementById('lightingReconnectBtn');
     if (!container) return;
-    const t = this._t();
 
     const device = this.devices.find(d => d.id === this.selectedDeviceId);
     if (!device) return;
@@ -73,18 +71,18 @@
 
     if (this.rules.length === 0) {
       container.innerHTML = `
-        <div style="padding:30px;text-align:center;color:${t.textMuted};">
-          <div style="font-size:28px;margin-bottom:6px;">📐</div>
-          <p style="margin:0;font-size:12px;">${i18n.t('lighting.noRules') || 'Aucune règle configurée'}</p>
-          <p style="margin:4px 0 0;font-size:11px;">${i18n.t('lighting.addRuleHint') || 'Ajoutez une règle pour réagir aux événements MIDI'}</p>
+        <div class="lighting-empty-state" style="padding:30px;">
+          <div class="lighting-empty-state-icon">📐</div>
+          <p class="lighting-empty-state-text">${i18n.t('lighting.noRules') || 'Aucune règle configurée'}</p>
+          <p class="lighting-empty-state-hint">${i18n.t('lighting.addRuleHint') || 'Ajoutez une règle pour réagir aux événements MIDI'}</p>
         </div>`;
       return;
     }
 
-    container.innerHTML = this.rules.map(rule => this._renderRuleCard(rule, t)).join('');
+    container.innerHTML = this.rules.map(rule => this._renderRuleCard(rule)).join('');
   }
 
-    LightingDeviceUIMixin._renderRuleCard = function(rule, t) {
+    LightingDeviceUIMixin._renderRuleCard = function(rule) {
     const cond = rule.condition_config || {};
     const action = rule.action_config || {};
     const instrument = this._getInstrumentName(rule.instrument_id);
@@ -92,24 +90,24 @@
     const colorPreview = this._buildColorPreview(action);
 
     return `
-      <div style="border:1px solid ${t.border};border-radius:10px;margin-bottom:8px;overflow:hidden;background:${t.cardBg};${!rule.enabled ? 'opacity:0.5;' : ''}">
-        <div style="padding:8px 12px;background:${t.cardHeader};border-bottom:1px solid ${t.borderLight};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
-          <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">
+      <div class="lighting-rule-card ${!rule.enabled ? 'lighting-rule-card--disabled' : ''}">
+        <div class="lighting-rule-card-header">
+          <div class="lighting-rule-card-info">
             ${colorPreview}
-            <span style="font-size:12px;font-weight:600;color:${t.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._escapeHtml(rule.name || triggerLabel)}</span>
-            <span style="font-size:10px;color:${t.textMuted};background:${t.bgAlt};padding:1px 5px;border-radius:4px;white-space:nowrap;">${this._escapeHtml(instrument)}</span>
+            <span class="lighting-rule-name">${this._escapeHtml(rule.name || triggerLabel)}</span>
+            <span class="lighting-rule-instrument">${this._escapeHtml(instrument)}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
-            <button onclick="lightingControlPageInstance.moveRulePriority(${rule.id},1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:1px;" title="Priorité +">⬆</button>
-            <button onclick="lightingControlPageInstance.moveRulePriority(${rule.id},-1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};padding:1px;" title="Priorité -">⬇</button>
-            <button onclick="lightingControlPageInstance.testRule(${rule.id})" style="background:none;border:1px solid #3b82f6;border-radius:4px;color:#3b82f6;cursor:pointer;font-size:10px;padding:2px 6px;">Test</button>
-            <button onclick="lightingControlPageInstance.toggleRule(${rule.id},${!rule.enabled})" style="background:none;border:none;cursor:pointer;font-size:13px;">${rule.enabled ? '✅' : '⬜'}</button>
-            <button onclick="lightingControlPageInstance.editRule(${rule.id})" style="background:none;border:none;cursor:pointer;font-size:13px;">✏️</button>
-            <button onclick="lightingControlPageInstance.cloneRule(${rule.id})" style="background:none;border:none;cursor:pointer;font-size:11px;color:${t.textMuted};" title="Dupliquer">📋</button>
-            <button onclick="lightingControlPageInstance.deleteRule(${rule.id})" style="background:none;border:none;cursor:pointer;font-size:13px;">🗑</button>
+          <div class="lighting-rule-card-actions">
+            <button class="lighting-btn--icon" data-action="moveRulePriority" data-id="${rule.id}" data-delta="1" style="font-size:11px;" title="Priorité +">⬆</button>
+            <button class="lighting-btn--icon" data-action="moveRulePriority" data-id="${rule.id}" data-delta="-1" style="font-size:11px;" title="Priorité -">⬇</button>
+            <button class="lighting-btn--outline lighting-btn--outline-blue" data-action="testRule" data-id="${rule.id}" style="font-size:10px;padding:2px 6px;">Test</button>
+            <button class="lighting-btn--icon" data-action="toggleRule" data-id="${rule.id}" data-enabled="${!rule.enabled}" style="font-size:13px;">${rule.enabled ? '✅' : '⬜'}</button>
+            <button class="lighting-btn--icon" data-action="editRule" data-id="${rule.id}" style="font-size:13px;">✏️</button>
+            <button class="lighting-btn--icon" data-action="cloneRule" data-id="${rule.id}" style="font-size:11px;" title="Dupliquer">📋</button>
+            <button class="lighting-btn--icon" data-action="deleteRule" data-id="${rule.id}" style="font-size:13px;">🗑</button>
           </div>
         </div>
-        <div style="padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:${t.textSec};">
+        <div class="lighting-rule-card-body">
           <div><b>${i18n.t('lighting.triggerType') || 'Déclencheur'}:</b> ${triggerLabel}</div>
           <div><b>${i18n.t('lighting.channel') || 'Canal'}:</b> ${cond.channels?.length ? cond.channels.map(c => c + 1).join(', ') : 'Tous'}</div>
           <div><b>${i18n.t('lighting.velocityRange') || 'Vélocité'}:</b> ${cond.velocity_min || 0}–${cond.velocity_max || 127}</div>
@@ -121,58 +119,7 @@
       </div>`;
   }
 
-    LightingDeviceUIMixin._buildColorPreview = function(action) {
-    const pill = (bg) => `<div style="width:28px;height:16px;border-radius:4px;background:${bg};border:1px solid #ddd;flex-shrink:0;"></div>`;
-    if (action.type === 'velocity_mapped' && action.color_map) {
-      const c0 = this._safeColor(action.color_map['0'] || '#0000FF');
-      const c64 = this._safeColor(action.color_map['64'] || '#FFFF00');
-      const c127 = this._safeColor(action.color_map['127'] || '#FF0000');
-      return pill(`linear-gradient(to right,${c0},${c64},${c127})`);
-    }
-    if (action.type === 'rainbow' || action.type === 'color_cycle') {
-      return pill('linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000)');
-    }
-    if (action.type === 'fire') {
-      return pill('linear-gradient(to right,#FF4500,#FF8C00,#FFD700,#FF6347)');
-    }
-    if (action.type === 'vu_meter') {
-      return pill('linear-gradient(to right,#00FF00,#FFFF00,#FF0000)');
-    }
-    if (action.type === 'note_color') {
-      return pill('linear-gradient(to right,#FF0000,#FF8000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF,#FF0000)');
-    }
-    if (action.type === 'color_temp') {
-      return pill('linear-gradient(to right,#FF9329,#FFD4A3,#FFF4E5,#CAE2FF)');
-    }
-    if (action.type === 'random_color') {
-      return pill('linear-gradient(to right,#FF0000,#00FF00,#0000FF,#FF00FF,#FFFF00)');
-    }
-    if (action.type === 'note_led') {
-      return pill('linear-gradient(to right,#FF0000,#FFFF00,#00FF00,#00FFFF,#0000FF,#FF00FF)');
-    }
-    if (action.type === 'sparkle') {
-      return pill('linear-gradient(135deg,#333 25%,#FFF 30%,#333 35%,#FFF 60%,#333 65%,#FFF 80%,#333 85%)');
-    }
-    if (action.type === 'strobe') {
-      return pill('linear-gradient(to right,#FFF 0%,#FFF 45%,#000 50%,#000 95%,#FFF 100%)');
-    }
-    if (action.type === 'chase') {
-      const c1 = this._safeColor(action.color || '#FF0000');
-      const c2 = this._safeColor(action.color2 || '#000000');
-      return pill(`repeating-linear-gradient(to right,${c1} 0px,${c1} 7px,${c2} 7px,${c2} 14px)`);
-    }
-    if (action.type === 'wave') {
-      const c1 = this._safeColor(action.color || '#0000FF');
-      const c2 = this._safeColor(action.color2 || '#000000');
-      return pill(`linear-gradient(to right,${c2},${c1},${c2},${c1},${c2})`);
-    }
-    if (action.type === 'breathe') {
-      const c = this._safeColor(action.color || '#FF0000');
-      return pill(`linear-gradient(to right,#000,${c},#000)`);
-    }
-    const color = this._safeColor(action.color || '#FFFFFF');
-    return `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #ddd;flex-shrink:0;"></div>`;
-  }
+  // _buildColorPreview is provided by LightingHelpersMixin
 
   // ==================== DEVICE GROUPS PANEL ====================
 
