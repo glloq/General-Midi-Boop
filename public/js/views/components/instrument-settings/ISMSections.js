@@ -278,7 +278,6 @@
                 ${recommendedCCs.length > 0 ? `<button type="button" class="btn btn-small ism-apply-recommended-ccs" id="applyRecommendedCCs">✨ ${this.t('instrumentSettings.applyRecommendedCCs') || 'Appliquer les CC recommandés'}</button>` : ''}
                 ${ccAccordionHtml}
                 <input type="hidden" id="supportedCCs" value="${currentCCs.join(', ')}">
-                <span class="ism-form-hint">${this.t('instrumentSettings.supportedCCsHelp') || 'Sélectionnez les Control Changes supportés par cet instrument'}</span>
             </div>
         `;
     };
