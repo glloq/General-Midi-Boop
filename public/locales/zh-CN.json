@@ -513,7 +513,12 @@
         "blackKeys": "黑键",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "请求身份识别",
-        "applyRecommendedCCs": "应用推荐的CC"
+        "applyRecommendedCCs": "应用推荐的CC",
+        "commTimeout": "通信超时 (ms)",
+        "commTimeoutHelp": "等待响应的最大时间（毫秒）",
+        "titleNew": "乐器设置",
+        "supportedCCsHelp": "逗号分隔的CC编号列表。例：1=调制, 7=音量, 64=延音。留空=所有CC。",
+        "measureDelay": "测量"
     },
     "channelRouter": {
         "title": "MIDI路由配置",

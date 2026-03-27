@@ -538,7 +538,12 @@
         "saveErrorTitle": "Erreur de sauvegarde",
         "drumToggleAll": "Tout cocher/décocher",
         "requestIdentity": "Demander l'identité",
-        "applyRecommendedCCs": "Appliquer les CC recommandés"
+        "applyRecommendedCCs": "Appliquer les CC recommandés",
+        "commTimeout": "Timeout de communication (ms)",
+        "commTimeoutHelp": "Délai d'attente maximal pour une réponse (en ms)",
+        "titleNew": "Réglages de l'instrument",
+        "supportedCCsHelp": "Liste des numéros CC séparés par des virgules. Ex: 1=Modulation, 7=Volume, 64=Sustain. Laissez vide pour tous les CC.",
+        "measureDelay": "Mesurer"
     },
     "lighting": {
         "title": "Contrôle Lumière",

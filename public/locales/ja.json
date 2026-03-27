@@ -513,7 +513,12 @@
         "blackKeys": "黒鍵",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "IDを要求",
-        "applyRecommendedCCs": "推奨CCを適用"
+        "applyRecommendedCCs": "推奨CCを適用",
+        "commTimeout": "通信タイムアウト (ms)",
+        "commTimeoutHelp": "応答の最大待機時間 (ミリ秒)",
+        "titleNew": "楽器設定",
+        "supportedCCsHelp": "カンマ区切りのCC番号リスト。例: 1=モジュレーション, 7=ボリューム, 64=サスティン。空欄=全CC。",
+        "measureDelay": "測定"
     },
     "channelRouter": {
         "title": "MIDIルーティング設定",

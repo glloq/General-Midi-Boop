@@ -513,7 +513,12 @@
         "blackKeys": "Teclas negras",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Solicitar identidad",
-        "applyRecommendedCCs": "Aplicar CC recomendados"
+        "applyRecommendedCCs": "Aplicar CC recomendados",
+        "commTimeout": "Tiempo de espera de comunicación (ms)",
+        "commTimeoutHelp": "Tiempo máximo de espera para una respuesta (en ms)",
+        "titleNew": "Ajustes del instrumento",
+        "supportedCCsHelp": "Lista de números CC separados por comas. Ej.: 1=Modulación, 7=Volumen, 64=Sustain. Vacío = todos los CC.",
+        "measureDelay": "Medir"
     },
     "channelRouter": {
         "title": "Configuración de enrutamiento MIDI",

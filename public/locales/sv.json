@@ -513,7 +513,12 @@
         "blackKeys": "Svarta tangenter",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Begär identitet",
-        "applyRecommendedCCs": "Tillämpa rekommenderade CC"
+        "applyRecommendedCCs": "Tillämpa rekommenderade CC",
+        "commTimeout": "Kommunikations-timeout (ms)",
+        "commTimeoutHelp": "Maximal väntetid för svar (i ms)",
+        "titleNew": "Instrumentinställningar",
+        "supportedCCsHelp": "Kommaseparerade CC-nummer. T.ex.: 1=Modulation, 7=Volym, 64=Sustain. Tomt = alla CC.",
+        "measureDelay": "Mät"
     },
     "channelRouter": {
         "title": "MIDI-routningskonfiguration",

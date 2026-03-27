@@ -513,7 +513,12 @@
         "blackKeys": "काली कुंजियां",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "पहचान का अनुरोध करें",
-        "applyRecommendedCCs": "अनुशंसित CC लागू करें"
+        "applyRecommendedCCs": "अनुशंसित CC लागू करें",
+        "commTimeout": "संचार टाइमआउट (ms)",
+        "commTimeoutHelp": "प्रतिक्रिया के लिए अधिकतम प्रतीक्षा समय (ms में)",
+        "titleNew": "वाद्य यंत्र सेटिंग्स",
+        "supportedCCsHelp": "अल्पविराम से अलग CC संख्याओं की सूची। उदा: 1=मॉड्यूलेशन, 7=वॉल्यूम, 64=सस्टेन। सभी CC के लिए खाली छोड़ें।",
+        "measureDelay": "मापें"
     },
     "channelRouter": {
         "title": "MIDI रूटिंग कॉन्फ़िगरेशन",

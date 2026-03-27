@@ -513,7 +513,12 @@
         "blackKeys": "Nigraj klavoj",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Peti identon",
-        "applyRecommendedCCs": "Apliki rekomendatajn CC"
+        "applyRecommendedCCs": "Apliki rekomendatajn CC",
+        "commTimeout": "Komunika templimo (ms)",
+        "commTimeoutHelp": "Maksimuma atendotempo por respondo (en ms)",
+        "titleNew": "Instrumentaj agordoj",
+        "supportedCCsHelp": "Listo de CC-numeroj apartigitaj per komoj. Ekz.: 1=Modulado, 7=Volumo, 64=Sustain. Malplena = ĉiuj CC.",
+        "measureDelay": "Mezuri"
     },
     "channelRouter": {
         "title": "MIDI-direkta agordo",

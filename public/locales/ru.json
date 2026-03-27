@@ -513,7 +513,12 @@
         "blackKeys": "Чёрные клавиши",
         "drumKitNotice": "Drum kits use MIDI channel 10 and discrete note mode. These settings will be applied automatically on save.",
         "requestIdentity": "Запросить идентификацию",
-        "applyRecommendedCCs": "Применить рекомендуемые CC"
+        "applyRecommendedCCs": "Применить рекомендуемые CC",
+        "commTimeout": "Тайм-аут связи (мс)",
+        "commTimeoutHelp": "Максимальное время ожидания ответа (в мс)",
+        "titleNew": "Настройки инструмента",
+        "supportedCCsHelp": "Список номеров CC через запятую. Пр.: 1=Модуляция, 7=Громкость, 64=Сустейн. Пусто = все CC.",
+        "measureDelay": "Измерить"
     },
     "channelRouter": {
         "title": "Настройка маршрутизации MIDI",
