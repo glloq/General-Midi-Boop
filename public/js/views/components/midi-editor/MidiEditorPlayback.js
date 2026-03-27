@@ -221,6 +221,10 @@ class MidiEditorPlayback {
         // Skip if tablature is already visible
         if (m.tablatureEditor && m.tablatureEditor.isVisible) return;
 
+        // Skip if another specialized editor is already open
+        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) return;
+        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) return;
+
         // Only auto-activate for a single active channel
         if (m.activeChannels.size !== 1) return;
 
