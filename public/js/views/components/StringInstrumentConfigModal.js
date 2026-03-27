@@ -56,7 +56,7 @@ class StringInstrumentConfigModal extends BaseModal {
         this.neckDiagram = null;
 
         // Piano constants
-        this.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        this.NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         this.PIANO_RANGE_LOW = 24;   // C1
         this.PIANO_RANGE_HIGH = 96;  // C7
     }

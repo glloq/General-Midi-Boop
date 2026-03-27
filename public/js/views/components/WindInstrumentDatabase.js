@@ -106,7 +106,7 @@ class WindInstrumentDatabase {
     // NOTE NAMES (for pitch label display)
     // ========================================================================
 
-    static NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    static NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
     static noteName(midiNote) {
         const octave = Math.floor(midiNote / 12) - 1;

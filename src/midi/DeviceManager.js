@@ -1,4 +1,6 @@
 // src/midi/DeviceManager.js
+import DeviceDiscovery from './DeviceDiscovery.js';
+
 let easymidi;
 let midiAvailable = false;
 try {
@@ -15,9 +17,6 @@ try {
     Output: class { constructor() { throw new Error('MIDI not available'); } }
   };
 }
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
 
 // Device connection status constants
 const DEVICE_STATUS = {
@@ -25,9 +24,6 @@ const DEVICE_STATUS = {
   CONNECTING: 1,
   CONNECTED: 2
 };
-
-// Timing constants
-const PORT_RELEASE_DELAY_MS = 250; // Delay to ensure MIDI ports are released
 
 class DeviceManager {
   constructor(app) {
@@ -37,13 +33,29 @@ class DeviceManager {
     this.outputs = new Map();
     this.virtualDevices = new Map();
 
-    // Hot-plug detection
-    this.hotPlugInterval = null;
-    this.hotPlugCheckIntervalMs = 5000; // Check every 5 seconds
-    this.knownInputs = new Set();
-    this.knownOutputs = new Set();
-
     this.midiAvailable = midiAvailable;
+
+    // Delegate discovery, hot-plug monitoring, and USB serial detection
+    this.discovery = new DeviceDiscovery(app, easymidi, midiAvailable);
+    this.discovery.setChangeCallbacks(
+      async (change) => {
+        // Handle individual device changes from hot-plug monitoring
+        if (change.type === 'addInput') {
+          this.addInput(change.name);
+        } else if (change.type === 'addOutput') {
+          this.addOutput(change.name);
+        } else if (change.type === 'update') {
+          await this.updateDeviceMap();
+          this.broadcastDeviceList();
+          this.app.logger.info(`Device list updated: ${this.devices.size} device(s)`);
+        }
+      },
+      async () => {
+        // Full rescan callback
+        await this.scanDevices();
+      }
+    );
+
     if (!midiAvailable) {
       this.app.logger.warn('DeviceManager initialized WITHOUT hardware MIDI support (native library not available)');
     } else {
@@ -52,89 +64,15 @@ class DeviceManager {
   }
 
   async scanDevices() {
-    if (!this.midiAvailable) {
-      this.app.logger.warn('MIDI scan skipped: native MIDI library not available');
-      return [];
-    }
+    await this.discovery.scanAndReopen(
+      this.inputs,
+      this.outputs,
+      (name) => this.addInput(name),
+      (name) => this.addOutput(name)
+    );
 
-    // Close all existing connections first to ensure clean state
-    this.app.logger.info('Closing existing MIDI connections...');
-
-    // Close inputs with error handling
-    const inputsToClose = Array.from(this.inputs.entries());
-    for (const [name, input] of inputsToClose) {
-      try {
-        // Remove all listeners first to avoid issues
-        input.removeAllListeners();
-        input.close();
-        this.app.logger.info(`✓ Closed input: ${name}`);
-      } catch (error) {
-        this.app.logger.warn(`Failed to close input ${name}: ${error.message}`);
-      }
-    }
-
-    // Close outputs with error handling
-    const outputsToClose = Array.from(this.outputs.entries());
-    for (const [name, output] of outputsToClose) {
-      try {
-        output.close();
-        this.app.logger.info(`✓ Closed output: ${name}`);
-      } catch (error) {
-        this.app.logger.warn(`Failed to close output ${name}: ${error.message}`);
-      }
-    }
-
-    // Clear all maps
-    this.inputs.clear();
-    this.outputs.clear();
+    // Clear devices before rebuilding
     this.devices.clear();
-
-    // Longer delay to ensure ports are properly released and system recognizes changes
-    this.app.logger.info('Waiting for ports to release...');
-    await new Promise(resolve => setTimeout(resolve, PORT_RELEASE_DELAY_MS));
-
-    // USB MIDI devices - get fresh list
-    const inputs = easymidi.getInputs();
-    const outputs = easymidi.getOutputs();
-
-    this.app.logger.info(`Scanning devices: ${inputs.length} inputs, ${outputs.length} outputs`);
-    this.app.logger.info(`Input devices found: ${JSON.stringify(inputs)}`);
-    this.app.logger.info(`Output devices found: ${JSON.stringify(outputs)}`);
-
-    // Add inputs (filter out system devices)
-    for (const name of inputs) {
-      // Skip MIDI Through ports (system virtual ports)
-      if (this.isSystemDevice(name)) {
-        this.app.logger.info(`Skipping system device (input): ${name}`);
-        continue;
-      }
-
-      try {
-        this.addInput(name);
-        this.app.logger.info(`✓ Input device added: ${name}`);
-      } catch (error) {
-        this.app.logger.error(`✗ Failed to add input ${name}: ${error.message}`);
-      }
-    }
-
-    // Add outputs (filter out system devices)
-    for (const name of outputs) {
-      // Skip MIDI Through ports (system virtual ports)
-      if (this.isSystemDevice(name)) {
-        this.app.logger.info(`Skipping system device (output): ${name}`);
-        continue;
-      }
-
-      try {
-        this.addOutput(name);
-        this.app.logger.info(`✓ Output device added: ${name}`);
-      } catch (error) {
-        this.app.logger.error(`✗ Failed to add output ${name}: ${error.message}`);
-      }
-    }
-
-    // BLE MIDI (sera implémenté en Phase 7)
-    // await this.scanBLE();
 
     // Update devices map
     await this.updateDeviceMap();
@@ -146,8 +84,8 @@ class DeviceManager {
     this.app.logger.info(`Scan complete: ${deviceList.length} device(s) found`);
 
     // Restart hot-plug monitoring with fresh device lists
-    this.stopHotPlugMonitoring();
-    this.startHotPlugMonitoring();
+    this.discovery.stopHotPlugMonitoring();
+    this.discovery.startHotPlugMonitoring(this.inputs, this.outputs);
 
     return deviceList;
   }
@@ -189,8 +127,6 @@ class DeviceManager {
 
     try {
       const output = new easymidi.Output(name);
-
-      // Store with error tracking
       this.outputs.set(name, output);
     } catch (error) {
       this.app.logger.error(`Cannot open output ${name}: ${error.message}`);
@@ -206,12 +142,12 @@ class DeviceManager {
     this.app.logger.debug(`Output names: ${Array.from(this.outputs.keys()).join(', ')}`);
 
     // Get USB serial numbers for all connected devices
-    const serialNumbers = await this.getUsbSerialNumbers();
+    const serialNumbers = await this.discovery.getUsbSerialNumbers();
 
-    // Add USB devices (reuse serialNumbers fetched above to avoid N redundant calls)
+    // Add USB devices
     for (const [name, input] of this.inputs) {
       if (!this.devices.has(name)) {
-        const serialNumber = this._findSerialNumberInMap(name, serialNumbers);
+        const serialNumber = this.discovery.findSerialNumberInMap(name, serialNumbers);
 
         this.devices.set(name, {
           id: name,
@@ -233,7 +169,7 @@ class DeviceManager {
 
     for (const [name, output] of this.outputs) {
       if (!this.devices.has(name)) {
-        const serialNumber = this._findSerialNumberInMap(name, serialNumbers);
+        const serialNumber = this.discovery.findSerialNumberInMap(name, serialNumbers);
 
         this.devices.set(name, {
           id: name,
@@ -273,11 +209,10 @@ class DeviceManager {
     const usbDevices = Array.from(this.devices.values());
     const allDevices = [...usbDevices];
 
-    // Ajouter les périphériques Bluetooth appairés et connectés
+    // Ajouter les peripheriques Bluetooth apaires et connectes
     if (this.app.bluetoothManager) {
       const pairedDevices = this.app.bluetoothManager.getPairedDevices() || [];
 
-      // Ajouter seulement les périphériques connectés à la liste des instruments disponibles
       const connectedBluetoothDevices = pairedDevices
         .filter(device => device.connected)
         .map(device => ({
@@ -285,8 +220,8 @@ class DeviceManager {
           name: device.name,
           manufacturer: 'Bluetooth',
           type: 'bluetooth',
-          input: true,  // BLE MIDI supporte généralement l'entrée
-          output: true, // BLE MIDI supporte généralement la sortie
+          input: true,
+          output: true,
           enabled: true,
           connected: true,
           status: DEVICE_STATUS.CONNECTED,
@@ -296,7 +231,7 @@ class DeviceManager {
       allDevices.push(...connectedBluetoothDevices);
     }
 
-    // Ajouter les périphériques réseau connectés
+    // Ajouter les peripheriques reseau connectes
     if (this.app.networkManager) {
       const networkDevices = (this.app.networkManager.getConnectedDevices() || [])
         .map(device => ({
@@ -304,8 +239,8 @@ class DeviceManager {
           name: device.name || `Network MIDI (${device.ip})`,
           manufacturer: 'Network',
           type: 'network',
-          input: true,  // Network MIDI supporte généralement l'entrée
-          output: true, // Network MIDI supporte généralement la sortie
+          input: true,
+          output: true,
           enabled: true,
           connected: true,
           status: DEVICE_STATUS.CONNECTED,
@@ -316,7 +251,7 @@ class DeviceManager {
       allDevices.push(...networkDevices);
     }
 
-    // Ajouter les périphériques série MIDI (GPIO UART)
+    // Ajouter les peripheriques serie MIDI (GPIO UART)
     if (this.app.serialMidiManager) {
       const serialPorts = (this.app.serialMidiManager.getConnectedPorts() || [])
         .map(port => ({
@@ -335,8 +270,7 @@ class DeviceManager {
       allDevices.push(...serialPorts);
     }
 
-    // Dédupliquer par nom (évite doublons USB input/output et USB/Bluetooth/Network)
-    // Priorité: Network > Bluetooth > Serial > USB (first seen wins, so sort by priority)
+    // Dedupliquer par nom
     const typePriority = { network: 0, bluetooth: 1, serial: 2, usb: 3, virtual: 4 };
     allDevices.sort((a, b) => (typePriority[a.type] ?? 99) - (typePriority[b.type] ?? 99));
     const uniqueDevices = [];
@@ -347,9 +281,7 @@ class DeviceManager {
       this.app.logger.debug(`  - "${d.name}" (${d.type})`);
     });
 
-    // Fonction pour normaliser un nom (retire suffixes courants)
     const normalizeName = (name) => {
-      // Retirer les suffixes de port MIDI (ex: ":Lyre-Test MIDI 128:0" -> "Lyre-Test")
       let normalized = name.split(':')[0].trim();
       return normalized;
     };
@@ -374,7 +306,6 @@ class DeviceManager {
   sendMessage(deviceName, type, data) {
     // Broadcast to debug monitor if monitorAll is active
     if (this.app.midiRouter?.monitorAll && this.app.wsServer) {
-      // Resolve instrument name from database
       let instrumentName = null;
       if (this.app.database && data && data.channel !== undefined) {
         try {
@@ -392,7 +323,7 @@ class DeviceManager {
       });
     }
 
-    // Vérifier si c'est un périphérique USB MIDI
+    // Check USB MIDI device
     const output = this.outputs.get(deviceName);
     if (output) {
       try {
@@ -404,9 +335,7 @@ class DeviceManager {
       }
     }
 
-    // Sinon, vérifier si c'est un périphérique Bluetooth
-    // Note: getDeviceList() uses device.address as the ID for Bluetooth devices,
-    // so we must match by address (primary) as well as name (fallback)
+    // Check Bluetooth device
     if (this.app.bluetoothManager) {
       const pairedDevices = this.app.bluetoothManager.getPairedDevices();
       const bleDevice = pairedDevices.find(d =>
@@ -415,12 +344,11 @@ class DeviceManager {
 
       if (bleDevice && bleDevice.connected) {
         try {
-          // Envoyer via Bluetooth MIDI (fire-and-forget for real-time performance)
           this.app.bluetoothManager.sendMidiMessage(bleDevice.address, type, data)
             .catch(error => {
               this.app.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
             });
-          return true; // Optimistic: BLE write is queued
+          return true;
         } catch (error) {
           this.app.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
           return false;
@@ -428,9 +356,7 @@ class DeviceManager {
       }
     }
 
-    // Sinon, vérifier si c'est un périphérique réseau
-    // Note: getDeviceList() uses device.ip as the ID for network devices,
-    // so we must match by ip (primary) as well as name/address (fallback)
+    // Check network device
     if (this.app.networkManager) {
       const networkDevices = this.app.networkManager.getConnectedDevices();
       const networkDevice = networkDevices.find(d =>
@@ -439,12 +365,11 @@ class DeviceManager {
 
       if (networkDevice) {
         try {
-          // Envoyer via Network MIDI (RTP-MIDI, fire-and-forget for real-time)
           this.app.networkManager.sendMidiMessage(networkDevice.ip, type, data)
             .catch(error => {
               this.app.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
             });
-          return true; // Optimistic: UDP packet is queued
+          return true;
         } catch (error) {
           this.app.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
           return false;
@@ -452,7 +377,7 @@ class DeviceManager {
       }
     }
 
-    // Sinon, vérifier si c'est un périphérique série MIDI (GPIO)
+    // Check serial MIDI device (GPIO)
     if (this.app.serialMidiManager) {
       const serialPorts = this.app.serialMidiManager.getConnectedPorts();
       const serialPort = serialPorts.find(p =>
@@ -476,19 +401,13 @@ class DeviceManager {
 
   /**
    * Send SysEx Identity Request to a device using MidiMind Block 1 protocol
-   * Format: F0 7D 00 01 00 F7
-   * @param {string} deviceName - Name of the device
-   * @param {number} deviceId - MIDI device ID (unused in MidiMind protocol, kept for compatibility)
-   * @returns {boolean} Success status
    */
   sendIdentityRequest(deviceName, deviceId = 0x7F) {
-    // Debug: log available outputs
     this.app.logger.debug(`Looking for output: ${deviceName}`);
     this.app.logger.debug(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
 
     const output = this.outputs.get(deviceName);
     if (!output) {
-      // Check if device exists as input only
       const hasInput = this.inputs.has(deviceName);
       if (hasInput) {
         this.app.logger.warn(`Device ${deviceName} is input-only, cannot send SysEx messages`);
@@ -501,12 +420,6 @@ class DeviceManager {
     }
 
     try {
-      // MidiMind Block 1 Identity Request SysEx message
-      // Format: F0 7D 00 01 00 F7
-      // Protocol: Custom SysEx (Educational/Development use)
-      // Manufacturer ID: 0x00 (MidiMind)
-      // Block ID: 0x01 (Identification)
-      // Request flag: 0x00 (request)
       const sysexData = [
         0xF0,        // SysEx Start
         0x7D,        // Custom SysEx (Educational/Development)
@@ -530,7 +443,6 @@ class DeviceManager {
 
     // Parse SysEx Identity Reply if applicable
     if (type === 'sysex') {
-      // Log ALL SysEx messages for debugging
       const bytes = Array.isArray(msg) ? msg : (msg.bytes || []);
       this.app.logger.info(`SysEx message received from ${deviceName}: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')} (${bytes.length} bytes)`);
 
@@ -538,7 +450,6 @@ class DeviceManager {
       if (identityInfo) {
         this.app.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
 
-        // Persist identity to database
         if (this.app.database) {
           try {
             this.app.database.saveSysExIdentity(deviceName, 0, identityInfo);
@@ -548,7 +459,6 @@ class DeviceManager {
           }
         }
 
-        // Broadcast parsed identity info to WebSocket clients
         if (this.app.wsServer) {
           this.app.wsServer.broadcast('device_identity', {
             device: deviceName,
@@ -587,8 +497,6 @@ class DeviceManager {
 
   /**
    * Decode a 32-bit value from 5 bytes of 7-bit encoded data
-   * @param {Array} data - Array of 5 bytes (7-bit encoded)
-   * @returns {number} 32-bit value
    */
   decode7BitTo32Bit(data) {
     let value = 0;
@@ -596,94 +504,58 @@ class DeviceManager {
     value |= (data[1] & 0x7F) << 7;
     value |= (data[2] & 0x7F) << 14;
     value |= (data[3] & 0x7F) << 21;
-    value |= (data[4] & 0x07) << 28;  // Only 3 bits useful (bits 28-31)
-    return value >>> 0;  // Convert to unsigned 32-bit
+    value |= (data[4] & 0x07) << 28;
+    return value >>> 0;
   }
 
   /**
    * Parse SysEx Identity Reply message using MidiMind Block 1 protocol
-   * Format: F0 7D 00 01 01 <version> <deviceId[5]> <name[32]> <firmware[3]> <features[5]> F7
-   * Total size: 52 bytes
-   * @param {Array|Object} msg - SysEx message data (includes F0 and F7)
-   * @returns {Object|null} Parsed identity info or null if not an identity reply
    */
   parseIdentityReply(msg) {
-    // Convert to array if necessary
     const bytes = Array.isArray(msg) ? msg : (msg.bytes || []);
 
-    // Debug: log received SysEx message
     this.app.logger.debug(`Received SysEx message: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')}`);
     this.app.logger.debug(`Length: ${bytes.length}, First: 0x${bytes[0]?.toString(16).toUpperCase()}, Last: 0x${bytes[bytes.length - 1]?.toString(16).toUpperCase()}`);
 
-    // Check for MidiMind Block 1 Identity Reply
-    // Format: F0 7D 00 01 01 <version> <deviceId[5]> <name[32]> <firmware[3]> <features[5]> F7
-    // Total size: 52 bytes
-    if (bytes.length !== 52) {
-      this.app.logger.debug(`Not a MidiMind Block 1 message (expected 52 bytes, got ${bytes.length})`);
-      return null;
-    }
-    if (bytes[0] !== 0xF0) {
-      this.app.logger.debug(`Not a SysEx message (first byte: 0x${bytes[0]?.toString(16).toUpperCase()})`);
-      return null;
-    }
-    if (bytes[1] !== 0x7D) {
-      this.app.logger.debug(`Not a Custom SysEx message (byte[1]: 0x${bytes[1]?.toString(16).toUpperCase()})`);
-      return null;
-    }
-    if (bytes[2] !== 0x00) {
-      this.app.logger.debug(`Not a MidiMind message (byte[2]: 0x${bytes[2]?.toString(16).toUpperCase()})`);
-      return null;
-    }
-    if (bytes[3] !== 0x01) {
-      this.app.logger.debug(`Not a Block 1 message (byte[3]: 0x${bytes[3]?.toString(16).toUpperCase()})`);
-      return null;
-    }
-    if (bytes[4] !== 0x01) {
-      this.app.logger.debug(`Not an Identity Reply (byte[4]: 0x${bytes[4]?.toString(16).toUpperCase()})`);
-      return null;
-    }
-    if (bytes[51] !== 0xF7) {
-      this.app.logger.debug(`Invalid SysEx end marker (byte[51]: 0x${bytes[51]?.toString(16).toUpperCase()})`);
-      return null;
-    }
+    if (bytes.length !== 52) return null;
+    if (bytes[0] !== 0xF0) return null;
+    if (bytes[1] !== 0x7D) return null;
+    if (bytes[2] !== 0x00) return null;
+    if (bytes[3] !== 0x01) return null;
+    if (bytes[4] !== 0x01) return null;
+    if (bytes[51] !== 0xF7) return null;
 
     let pos = 5;
 
-    // Parse Block Version (1 byte)
     const blockVersion = bytes[pos];
     pos += 1;
 
-    // Parse Device ID (5 bytes, 7-bit encoded to 32-bit)
     const deviceIdBytes = bytes.slice(pos, pos + 5);
     const deviceId = this.decode7BitTo32Bit(deviceIdBytes);
     pos += 5;
 
-    // Parse Device Name (32 bytes, null-terminated ASCII string)
     const nameBytes = bytes.slice(pos, pos + 32);
     let deviceName = '';
     for (let i = 0; i < nameBytes.length; i++) {
-      if (nameBytes[i] === 0x00) break;  // Null terminator
+      if (nameBytes[i] === 0x00) break;
       deviceName += String.fromCharCode(nameBytes[i]);
     }
     pos += 32;
 
-    // Parse Firmware version (3 bytes: major, minor, patch)
     const firmwareMajor = bytes[pos];
     const firmwareMinor = bytes[pos + 1];
     const firmwarePatch = bytes[pos + 2];
     const firmwareVersion = `${firmwareMajor}.${firmwareMinor}.${firmwarePatch}`;
     pos += 3;
 
-    // Parse Feature Flags (5 bytes, 7-bit encoded to 32-bit)
     const featureBytes = bytes.slice(pos, pos + 5);
     const features = this.decode7BitTo32Bit(featureBytes);
     pos += 5;
 
-    // Decode feature flags
     const featureFlags = {
-      noteMap: (features & 0x01) !== 0,           // Bit 0: Note Map support
-      velocityCurves: (features & 0x02) !== 0,    // Bit 1: Velocity Curves support
-      ccMapping: (features & 0x04) !== 0          // Bit 2: CC Mapping support
+      noteMap: (features & 0x01) !== 0,
+      velocityCurves: (features & 0x02) !== 0,
+      ccMapping: (features & 0x04) !== 0
     };
 
     return {
@@ -708,59 +580,25 @@ class DeviceManager {
 
   /**
    * Get manufacturer name from manufacturer ID
-   * @param {number} id - Manufacturer ID (1 byte)
-   * @returns {string} Manufacturer name
    */
   getManufacturerName(id) {
     const manufacturers = {
-      0x01: 'Sequential Circuits',
-      0x02: 'IDP',
-      0x03: 'Voyetra/Octave-Plateau',
-      0x04: 'Moog',
-      0x05: 'Passport Designs',
-      0x06: 'Lexicon',
-      0x07: 'Kurzweil',
-      0x08: 'Fender',
-      0x09: 'Gulbransen',
-      0x0A: 'AKG Acoustics',
-      0x0B: 'Voyce Music',
-      0x0C: 'Waveframe',
-      0x0D: 'ADA',
-      0x0E: 'Garfield Electronics',
-      0x0F: 'Ensoniq',
-      0x10: 'Oberheim',
-      0x11: 'Apple',
-      0x12: 'Grey Matter Response',
-      0x13: 'Digidesign',
-      0x14: 'Palmtree Instruments',
-      0x15: 'JLCooper Electronics',
-      0x16: 'Lowrey',
-      0x17: 'Adams-Smith',
-      0x18: 'E-mu',
-      0x19: 'Harmony Systems',
-      0x1A: 'ART',
-      0x1B: 'Baldwin',
-      0x1C: 'Eventide',
-      0x1D: 'Inventronics',
-      0x20: 'Clarity',
-      0x21: 'Passac',
-      0x22: 'SIEL',
-      0x23: 'Synthaxe',
-      0x25: 'Hohner',
-      0x26: 'Twister',
-      0x27: 'Solton',
-      0x28: 'Jellinghaus MS',
-      0x2F: 'Elka',
-      0x36: 'Cheetah',
-      0x3E: 'Waldorf',
-      0x40: 'Kawai',
-      0x41: 'Roland',
-      0x42: 'Korg',
-      0x43: 'Yamaha',
-      0x44: 'Casio',
-      0x47: 'Akai'
+      0x01: 'Sequential Circuits', 0x02: 'IDP', 0x03: 'Voyetra/Octave-Plateau',
+      0x04: 'Moog', 0x05: 'Passport Designs', 0x06: 'Lexicon',
+      0x07: 'Kurzweil', 0x08: 'Fender', 0x09: 'Gulbransen',
+      0x0A: 'AKG Acoustics', 0x0B: 'Voyce Music', 0x0C: 'Waveframe',
+      0x0D: 'ADA', 0x0E: 'Garfield Electronics', 0x0F: 'Ensoniq',
+      0x10: 'Oberheim', 0x11: 'Apple', 0x12: 'Grey Matter Response',
+      0x13: 'Digidesign', 0x14: 'Palmtree Instruments', 0x15: 'JLCooper Electronics',
+      0x16: 'Lowrey', 0x17: 'Adams-Smith', 0x18: 'E-mu',
+      0x19: 'Harmony Systems', 0x1A: 'ART', 0x1B: 'Baldwin',
+      0x1C: 'Eventide', 0x1D: 'Inventronics', 0x20: 'Clarity',
+      0x21: 'Passac', 0x22: 'SIEL', 0x23: 'Synthaxe',
+      0x25: 'Hohner', 0x26: 'Twister', 0x27: 'Solton',
+      0x28: 'Jellinghaus MS', 0x2F: 'Elka', 0x36: 'Cheetah',
+      0x3E: 'Waldorf', 0x40: 'Kawai', 0x41: 'Roland',
+      0x42: 'Korg', 0x43: 'Yamaha', 0x44: 'Casio', 0x47: 'Akai'
     };
-
     return manufacturers[id] || 'Unknown';
   }
 
@@ -772,7 +610,6 @@ class DeviceManager {
     const input = new easymidi.Input(name, true);
     const output = new easymidi.Output(name, true);
 
-    // Setup input handlers
     input.on('noteon', (msg) => this.handleMidiMessage(name, 'noteon', msg));
     input.on('noteoff', (msg) => this.handleMidiMessage(name, 'noteoff', msg));
     input.on('cc', (msg) => this.handleMidiMessage(name, 'cc', msg));
@@ -816,200 +653,29 @@ class DeviceManager {
     return this.devices.get(deviceId);
   }
 
+  // Delegate to discovery
   isSystemDevice(name) {
-    // Filter out system MIDI Through ports and other virtual system devices
-    const systemPatterns = [
-      /^Midi Through/i,                    // ALSA MIDI Through ports
-      /^Through Port/i,                    // macOS MIDI Through
-      /^Microsoft GS Wavetable/i,          // Windows system synth
-      /^RtMidi Output/i,                   // RtMidi virtual outputs (easymidi library)
-      /^RtMidi Input/i,                    // RtMidi virtual inputs (easymidi library)
-      /^RtMidi.*Client/i,                  // RtMidi client ports
-      /^IAC Driver/i,                      // macOS Inter-Application Communication
-      /^Bus \d+/i,                         // Generic virtual bus ports
-      /^Midi.*Virtual/i,                   // Generic virtual MIDI ports
-      /^CoreMIDI/i,                        // macOS CoreMIDI system ports
-      /^FLUID Synth/i,                     // FluidSynth virtual ports
-      /^Gervill/i,                         // Java Gervill soft synth
-      /^LoopBe/i,                          // LoopBe virtual MIDI cable
-      /^loopMIDI/i                         // loopMIDI virtual ports
-    ];
-
-    return systemPatterns.some(pattern => pattern.test(name));
+    return this.discovery.isSystemDevice(name);
   }
 
-  /**
-   * Get USB serial numbers for connected devices
-   * Returns a map of device paths to serial numbers
-   */
   async getUsbSerialNumbers() {
-    const serialNumbers = {};
-
-    try {
-      // Method 1: Check /dev/serial/by-id/ (most reliable on Linux)
-      const serialByIdPath = '/dev/serial/by-id';
-      if (fs.existsSync(serialByIdPath)) {
-        const devices = fs.readdirSync(serialByIdPath);
-
-        for (const device of devices) {
-          try {
-            const fullPath = path.join(serialByIdPath, device);
-            const realPath = fs.realpathSync(fullPath);
-
-            // Extract serial number from device name
-            // Format: usb-<vendor>_<product>_<serial>-if00-port0
-            const match = device.match(/usb-(.+?)_(.+?)_([^-]+)/);
-            if (match) {
-              const serialNumber = match[3];
-              serialNumbers[realPath] = serialNumber;
-              serialNumbers[path.basename(realPath)] = serialNumber;
-
-              this.app.logger.debug(`Found USB device: ${device} -> ${serialNumber}`);
-            }
-          } catch (error) {
-            this.app.logger.warn(`Failed to read serial device ${device}: ${error.message}`);
-          }
-        }
-      }
-
-      // Method 2: Use udevadm for additional info (if available)
-      try {
-        // List all tty devices
-        const ttyDevices = fs.readdirSync('/sys/class/tty')
-          .filter(d => d.startsWith('ttyUSB') || d.startsWith('ttyACM'));
-
-        for (const tty of ttyDevices) {
-          try {
-            const cmd = `udevadm info --name=/dev/${tty} --query=property 2>/dev/null | grep -E "ID_SERIAL_SHORT|ID_SERIAL"`;
-            const output = execSync(cmd, { encoding: 'utf8', timeout: 1000 });
-
-            const lines = output.split('\n');
-            let serialShort = null;
-            let serial = null;
-
-            for (const line of lines) {
-              if (line.startsWith('ID_SERIAL_SHORT=')) {
-                serialShort = line.split('=')[1];
-              } else if (line.startsWith('ID_SERIAL=')) {
-                serial = line.split('=')[1];
-              }
-            }
-
-            const serialNum = serialShort || serial;
-            if (serialNum) {
-              serialNumbers[`/dev/${tty}`] = serialNum;
-              serialNumbers[tty] = serialNum;
-              this.app.logger.debug(`Found USB serial for ${tty}: ${serialNum}`);
-            }
-          } catch (error) {
-            // Ignore errors for individual devices
-          }
-        }
-      } catch (error) {
-        this.app.logger.warn(`udevadm not available: ${error.message}`);
-      }
-
-      // Method 3: Check /sys/class/sound/ for USB MIDI class-compliant devices
-      // These don't appear as ttyUSB/ttyACM but still have serial numbers in sysfs
-      try {
-        const soundDevices = fs.readdirSync('/sys/class/sound')
-          .filter(d => d.startsWith('card'));
-
-        for (const card of soundDevices) {
-          try {
-            const deviceLink = `/sys/class/sound/${card}/device`;
-            if (!fs.existsSync(deviceLink)) continue;
-
-            // Walk up the sysfs tree to find the USB device's serial number
-            let usbPath = fs.realpathSync(deviceLink);
-            let serial = null;
-
-            for (let i = 0; i < 10 && usbPath !== '/'; i++) {
-              const serialFile = path.join(usbPath, 'serial');
-              if (fs.existsSync(serialFile)) {
-                serial = fs.readFileSync(serialFile, 'utf8').trim();
-                break;
-              }
-              usbPath = path.dirname(usbPath);
-            }
-
-            if (serial) {
-              const idFile = `/proc/asound/${card}/id`;
-              let cardId = card;
-              if (fs.existsSync(idFile)) {
-                cardId = fs.readFileSync(idFile, 'utf8').trim();
-              }
-              serialNumbers[cardId] = serial;
-              this.app.logger.debug(`Found USB MIDI serial for ${cardId}: ${serial}`);
-            }
-          } catch (error) {
-            // Skip individual card errors
-          }
-        }
-      } catch (error) {
-        this.app.logger.debug(`/sys/class/sound not available: ${error.message}`);
-      }
-
-    } catch (error) {
-      this.app.logger.warn(`Failed to get USB serial numbers: ${error.message}`);
-    }
-
-    return serialNumbers;
+    return this.discovery.getUsbSerialNumbers();
   }
 
-  /**
-   * Synchronous lookup of serial number from a pre-fetched serial numbers map
-   */
   _findSerialNumberInMap(deviceName, serialNumbers) {
-    for (const [devicePath, serialNumber] of Object.entries(serialNumbers)) {
-      if (deviceName.includes(path.basename(devicePath)) ||
-          devicePath.includes(deviceName.toLowerCase())) {
-        return serialNumber;
-      }
-    }
-
-    const cardMatch = deviceName.match(/card\s*(\d+)/i) || deviceName.match(/MIDI\s*(\d+)/i);
-    if (cardMatch) {
-      const cardNum = cardMatch[1];
-      const keys = Object.keys(serialNumbers);
-      if (keys.length > 0 && parseInt(cardNum) < keys.length) {
-        return serialNumbers[keys[parseInt(cardNum)]];
-      }
-    }
-
-    return null;
+    return this.discovery.findSerialNumberInMap(deviceName, serialNumbers);
   }
 
-  /**
-   * Try to find USB serial number for a MIDI device
-   */
   async findSerialNumberForDevice(deviceName) {
-    const serialNumbers = await this.getUsbSerialNumbers();
+    return this.discovery.findSerialNumberForDevice(deviceName);
+  }
 
-    // Try to match device name with serial port
-    // ALSA MIDI devices often contain the card number
-    // Example: "USB MIDI Device MIDI 1" -> card 1
+  startHotPlugMonitoring() {
+    this.discovery.startHotPlugMonitoring(this.inputs, this.outputs);
+  }
 
-    for (const [devicePath, serialNumber] of Object.entries(serialNumbers)) {
-      // Check if the device path or name matches
-      if (deviceName.includes(path.basename(devicePath)) ||
-          devicePath.includes(deviceName.toLowerCase())) {
-        return serialNumber;
-      }
-    }
-
-    // If no match found, try to extract card number and match
-    const cardMatch = deviceName.match(/card\s*(\d+)/i) || deviceName.match(/MIDI\s*(\d+)/i);
-    if (cardMatch) {
-      const cardNum = cardMatch[1];
-      // Try to find matching serial number (this is a heuristic)
-      const keys = Object.keys(serialNumbers);
-      if (keys.length > 0 && parseInt(cardNum) < keys.length) {
-        return serialNumbers[keys[parseInt(cardNum)]];
-      }
-    }
-
-    return null;
+  stopHotPlugMonitoring() {
+    this.discovery.stopHotPlugMonitoring();
   }
 
   broadcastDeviceList() {
@@ -1020,300 +686,9 @@ class DeviceManager {
     }
   }
 
-  // ==================== HOT-PLUG MONITORING ====================
-
-  /**
-   * Start automatic hot-plug monitoring
-   */
-  startHotPlugMonitoring() {
-    if (this.hotPlugInterval) {
-      return; // Already running
-    }
-
-    this.app.logger.info(`Starting hot-plug monitoring (check every ${this.hotPlugCheckIntervalMs}ms)`);
-
-    // Initialize known devices from current inputs/outputs maps (already open, no new ALSA clients)
-    this.knownInputs = new Set(this.inputs.keys());
-    this.knownOutputs = new Set(this.outputs.keys());
-
-    // Track consecutive failures to implement backoff
-    this.hotPlugFailures = 0;
-
-    // Start periodic checking
-    this.hotPlugInterval = setInterval(() => {
-      this.checkDeviceChanges();
-    }, this.hotPlugCheckIntervalMs);
-  }
-
-  /**
-   * Stop automatic hot-plug monitoring
-   */
-  stopHotPlugMonitoring() {
-    if (this.hotPlugInterval) {
-      clearInterval(this.hotPlugInterval);
-      this.hotPlugInterval = null;
-      this.app.logger.info('Hot-plug monitoring stopped');
-    }
-  }
-
-  /**
-   * Detect MIDI device changes using /proc/asound/ (Linux) to avoid
-   * leaking ALSA sequencer clients. Falls back to easymidi if /proc/asound
-   * is not available.
-   * @returns {{ inputs: Set<string>, outputs: Set<string> } | null} Current ports, or null on error
-   */
-  _detectCurrentPorts() {
-    // Method 1: Use /proc/asound/ to detect USB MIDI cards without opening ALSA clients
-    // This avoids the "Cannot allocate memory" leak from repeated easymidi.getInputs()/getOutputs()
-    try {
-      const cardsPath = '/proc/asound/cards';
-      if (fs.existsSync(cardsPath)) {
-        const cardsContent = fs.readFileSync(cardsPath, 'utf8');
-        // Parse card numbers from /proc/asound/cards
-        // Format: " 0 [CARD0          ]: Type - Name\n                      Long name"
-        const cardNumbers = [];
-        for (const line of cardsContent.split('\n')) {
-          const match = line.match(/^\s*(\d+)\s+\[/);
-          if (match) cardNumbers.push(parseInt(match[1]));
-        }
-
-        // Check which cards have MIDI (rawmidi) interfaces
-        // Look for any midi* entry (midi0, midi1, midi2, ...) to support
-        // devices connected through USB hubs which may use indices other than 0
-        const midiDeviceNames = new Set();
-        for (const cardNum of cardNumbers) {
-          try {
-            const cardDir = `/proc/asound/card${cardNum}`;
-            const entries = fs.readdirSync(cardDir);
-            const hasMidi = entries.some(entry => /^midi\d+$/.test(entry));
-            if (hasMidi) {
-              // Read the card's ID for the device name
-              const idPath = `/proc/asound/card${cardNum}/id`;
-              let cardId = `card${cardNum}`;
-              if (fs.existsSync(idPath)) {
-                cardId = fs.readFileSync(idPath, 'utf8').trim();
-              }
-              midiDeviceNames.add(cardId);
-            }
-          } catch (e) {
-            // Skip this card
-          }
-        }
-
-        // Compare with known devices using normalized names
-        // We return the raw card IDs - the caller will match against known device names
-        return { cardIds: midiDeviceNames, method: 'proc' };
-      }
-    } catch (e) {
-      this.app.logger.debug(`/proc/asound not available: ${e.message}`);
-    }
-
-    // Method 2: Fallback to easymidi (only if /proc/asound not available, e.g., macOS)
-    // This WILL leak ALSA clients on Linux - but it's the only option on other platforms
-    try {
-      const currentInputs = new Set(easymidi.getInputs().filter(name => !this.isSystemDevice(name)));
-      const currentOutputs = new Set(easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
-      return { inputs: currentInputs, outputs: currentOutputs, method: 'easymidi' };
-    } catch (e) {
-      this.app.logger.error(`Failed to enumerate MIDI ports: ${e.message}`);
-      return null;
-    }
-  }
-
-  /**
-   * Check for device changes without closing existing connections.
-   * Uses /proc/asound/ on Linux to avoid ALSA sequencer client leak.
-   */
-  async checkDeviceChanges() {
-    try {
-      const ports = this._detectCurrentPorts();
-
-      if (!ports) {
-        // Detection failed entirely
-        this.hotPlugFailures = (this.hotPlugFailures || 0) + 1;
-        if (this.hotPlugFailures >= 5) {
-          this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
-          this.stopHotPlugMonitoring();
-        }
-        return;
-      }
-
-      let hasChanges = false;
-
-      if (ports.method === 'proc') {
-        // /proc/asound method: compare card IDs with known device names
-        const currentCardIds = ports.cardIds;
-
-        // Check for removed devices: a known input/output whose card ID is no longer present
-        const removedInputs = [];
-        for (const name of this.knownInputs) {
-          // Normalize the ALSA name to get the card ID portion
-          const cardId = name.split(':')[0].trim();
-          // Check if any current card ID matches (partial match for flexibility)
-          const stillPresent = [...currentCardIds].some(id =>
-            cardId.toLowerCase().includes(id.toLowerCase()) ||
-            id.toLowerCase().includes(cardId.toLowerCase())
-          );
-          if (!stillPresent) {
-            removedInputs.push(name);
-          }
-        }
-
-        for (const name of removedInputs) {
-          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
-          const input = this.inputs.get(name);
-          if (input) {
-            try {
-              input.removeAllListeners();
-              input.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-            }
-            this.inputs.delete(name);
-          }
-          this.knownInputs.delete(name);
-          hasChanges = true;
-        }
-
-        const removedOutputs = [];
-        for (const name of this.knownOutputs) {
-          const cardId = name.split(':')[0].trim();
-          const stillPresent = [...currentCardIds].some(id =>
-            cardId.toLowerCase().includes(id.toLowerCase()) ||
-            id.toLowerCase().includes(cardId.toLowerCase())
-          );
-          if (!stillPresent) {
-            removedOutputs.push(name);
-          }
-        }
-
-        for (const name of removedOutputs) {
-          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
-          const output = this.outputs.get(name);
-          if (output) {
-            try {
-              output.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-            }
-            this.outputs.delete(name);
-          }
-          this.knownOutputs.delete(name);
-          hasChanges = true;
-        }
-
-        // Check for new devices: a card ID not matching any known device
-        const knownCardIds = new Set();
-        for (const name of [...this.knownInputs, ...this.knownOutputs]) {
-          const cardId = name.split(':')[0].trim().toLowerCase();
-          knownCardIds.add(cardId);
-        }
-
-        for (const cardId of currentCardIds) {
-          const isKnown = [...knownCardIds].some(known =>
-            known.includes(cardId.toLowerCase()) ||
-            cardId.toLowerCase().includes(known)
-          );
-          if (!isKnown) {
-            // New device detected - need to use easymidi ONCE to get full port names
-            this.app.logger.info(`🔌 New MIDI card detected: ${cardId} - rescanning...`);
-            // Trigger a full rescan (which properly opens/closes connections)
-            await this.scanDevices();
-            return; // scanDevices already handles everything
-          }
-        }
-      } else {
-        // easymidi method (non-Linux fallback): original logic
-        const currentInputs = ports.inputs;
-        const currentOutputs = ports.outputs;
-
-        // Check for new inputs
-        for (const name of currentInputs) {
-          if (!this.knownInputs.has(name)) {
-            this.app.logger.info(`🔌 New MIDI input detected: ${name}`);
-            try {
-              this.addInput(name);
-              this.knownInputs.add(name);
-              hasChanges = true;
-            } catch (error) {
-              this.app.logger.error(`Failed to add new input ${name}: ${error.message}`);
-            }
-          }
-        }
-
-        // Check for removed inputs
-        const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
-        for (const name of removedInputs) {
-          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
-          const input = this.inputs.get(name);
-          if (input) {
-            try {
-              input.removeAllListeners();
-              input.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-            }
-            this.inputs.delete(name);
-          }
-          this.knownInputs.delete(name);
-          hasChanges = true;
-        }
-
-        // Check for new outputs
-        for (const name of currentOutputs) {
-          if (!this.knownOutputs.has(name)) {
-            this.app.logger.info(`🔌 New MIDI output detected: ${name}`);
-            try {
-              this.addOutput(name);
-              this.knownOutputs.add(name);
-              hasChanges = true;
-            } catch (error) {
-              this.app.logger.error(`Failed to add new output ${name}: ${error.message}`);
-            }
-          }
-        }
-
-        // Check for removed outputs
-        const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
-        for (const name of removedOutputs) {
-          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
-          const output = this.outputs.get(name);
-          if (output) {
-            try {
-              output.close();
-            } catch (error) {
-              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-            }
-            this.outputs.delete(name);
-          }
-          this.knownOutputs.delete(name);
-          hasChanges = true;
-        }
-      }
-
-      // Reset failure counter on success
-      this.hotPlugFailures = 0;
-
-      // If there were changes, update the device map and broadcast
-      if (hasChanges) {
-        await this.updateDeviceMap();
-        this.broadcastDeviceList();
-        this.app.logger.info(`Device list updated: ${this.devices.size} device(s)`);
-      }
-
-    } catch (error) {
-      this.app.logger.error(`Error checking device changes: ${error.message}`);
-      this.hotPlugFailures = (this.hotPlugFailures || 0) + 1;
-      if (this.hotPlugFailures >= 5) {
-        this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
-        this.stopHotPlugMonitoring();
-      }
-    }
-  }
-
   close() {
     // Stop hot-plug monitoring
-    this.stopHotPlugMonitoring();
+    this.discovery.stopHotPlugMonitoring();
 
     // Close all inputs (remove listeners first to prevent callbacks during close)
     this.inputs.forEach(input => {

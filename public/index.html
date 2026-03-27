@@ -5071,9 +5071,9 @@
     <!-- Delay Calibration Modal: now handled by CalibrationModal.js -->
 
     <!-- Scripts -->
+    <script src="js/utils/MidiConstants.js"></script>
     <script src="js/utils/escapeHtml.js"></script>
     <script src="js/utils/a11y.js"></script>
-    <script src="js/utils/FilterManager.js"></script>
     <script src="js/api/BackendAPIClient.js"></script>
 
     <!-- i18n - Internationalization (must be loaded before components) -->
@@ -5089,12 +5089,6 @@
 
     <!-- Webaudio-pianoroll library - VERSION CUSTOM avec coloration par canal MIDI -->
     <script src="lib/webaudio-pianoroll-custom.js"></script>
-
-    <!-- MIDI utilities -->
-    <script src="js/utils/MidiParser.js"></script>
-
-    <!-- Command History for Undo/Redo -->
-    <script src="js/utils/CommandHistory.js"></script>
 
     <!-- CC/Pitchbend Editor Component -->
     <script src="js/views/components/CCPitchbendEditor.js"></script>
@@ -5116,9 +5110,17 @@
 
     <!-- Instrument Capabilities Modal Component (no modal dependency) -->
     <script src="js/views/components/InstrumentCapabilitiesModal.js"></script>
+    <!-- Instrument Settings Modal Sub-Components -->
+    <script src="js/views/components/instrument-settings/ISMNavigation.js"></script>
+    <script src="js/views/components/instrument-settings/ISMSections.js"></script>
+    <script src="js/views/components/instrument-settings/ISMEvents.js"></script>
+    <script src="js/views/components/instrument-settings/ISMTemplates.js"></script>
     <script src="js/views/components/InstrumentSettingsModal.js"></script>
 
-    <!-- Auto-Assign Modal Component -->
+    <!-- Auto-Assign Modal Sub-Components -->
+    <script src="js/views/components/auto-assign/AutoAssignUI.js"></script>
+    <script src="js/views/components/auto-assign/AutoAssignViz.js"></script>
+    <script src="js/views/components/auto-assign/AutoAssignActions.js"></script>
     <script src="js/views/components/AutoAssignModal.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
@@ -5129,7 +5131,21 @@
     <script src="js/views/components/midi-editor/MidiEditorPlayback.js"></script>
     <script src="js/views/components/midi-editor/MidiEditorFileOps.js"></script>
 
-    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components) -->
+    <!-- MIDI Editor Mixin Modules (loaded before MidiEditorModal.js) -->
+    <script src="js/views/components/midi-editor/MidiEditorConstants.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorSequence.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorCC.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorDrawSettings.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorCCPicker.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorRenderer.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorRouting.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorEditActions.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorDialogs.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorEvents.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorTablature.js"></script>
+    <script src="js/views/components/midi-editor/MidiEditorLifecycle.js"></script>
+
+    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components + mixins) -->
     <script src="js/views/components/TablatureRenderer.js"></script>
     <script src="js/views/components/FretboardDiagram.js"></script>
     <script src="js/views/components/NeckDiagramConfig.js"></script>
@@ -5148,6 +5164,11 @@
 
     <!-- Instrument Management Page Component -->
     <script src="js/views/components/InstrumentManagementPage.js"></script>
+    <!-- Lighting Control Page Sub-Components -->
+    <script src="js/views/components/lighting/LightingForms.js"></script>
+    <script src="js/views/components/lighting/LightingDeviceUI.js"></script>
+    <script src="js/views/components/lighting/LightingPresetsUI.js"></script>
+    <script src="js/views/components/lighting/LightingHelpersMixin.js"></script>
     <script src="js/views/components/LightingControlPage.js"></script>
 
     <!-- Bluetooth Scan Modal Component -->
@@ -5160,9 +5181,19 @@
     <script src="js/views/components/NetworkScanModal.js"></script>
 
     <!-- Keyboard Modal Component (Simplified version) -->
+    <!-- Keyboard Modal Sub-Components -->
+    <script src="js/views/components/keyboard/KeyboardPiano.js"></script>
+    <script src="js/views/components/keyboard/KeyboardEvents.js"></script>
+    <script src="js/views/components/keyboard/KeyboardControls.js"></script>
     <script src="js/views/components/KeyboardModal_NEW.js"></script>
 
     <!-- Settings Modal Component -->
+    <!-- Settings Modal Sub-Components -->
+    <script src="js/views/components/settings/SettingsModalContent.js"></script>
+    <script src="js/views/components/settings/SettingsTheme.js"></script>
+    <script src="js/views/components/settings/SettingsSerial.js"></script>
+    <script src="js/views/components/settings/SettingsUpdate.js"></script>
+    <script src="js/views/components/settings/SettingsTemplates.js"></script>
     <script src="js/views/components/SettingsModal.js"></script>
 
     <!-- Piano Roll View Component -->
@@ -5977,7 +6008,7 @@
         let debugMidiResetTimer = null;
 
         // Note names for MIDI debug display
-        const DEBUG_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const DEBUG_NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         function midiNoteToName(note) {
             const octave = Math.floor(note / 12) - 1;
             return `${DEBUG_NOTE_NAMES[note % 12]}${octave}`;
@@ -9277,7 +9308,7 @@
             banjo:      ['banjo_'],
         };
 
-        const SI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const SI_NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         function siNoteName(midi) {
             return SI_NOTE_NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
@@ -9930,7 +9961,7 @@
         // ========== PIANO RANGE SELECTOR ==========
 
         // Noms des notes
-        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         // Variables pour la sélection
         let pianoRangeSelectionMode = 'start'; // 'start' ou 'end' (pour mode range)
