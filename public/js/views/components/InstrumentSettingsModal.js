@@ -59,11 +59,87 @@ class InstrumentSettingsModal extends BaseModal {
 
     static SECTIONS = [
         { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
-        { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes' },
-        { id: 'strings',  icon: '🎸', labelKey: 'instrumentSettings.sectionStrings',  fallback: 'Cordes', conditional: true },
-        { id: 'drums',    icon: '🥁', labelKey: 'instrumentSettings.sectionDrums',    fallback: 'Percussions', conditional: true },
+        { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
+
+    static CC_GROUPS = {
+        performance: { label: 'Performance', ccs: [1, 2, 4, 11, 64, 65, 66, 67, 68, 84] },
+        volume:      { label: 'Volume & Pan', ccs: [7, 8, 10] },
+        sound:       { label: 'Son / Timbre', ccs: [70, 71, 72, 73, 74, 75, 76, 77, 78, 79] },
+        effects:     { label: 'Effets', ccs: [91, 92, 93, 94, 95] },
+        dataBank:    { label: 'Data / Bank', ccs: [0, 6, 32, 38, 96, 97, 98, 99, 100, 101] },
+        robotics:    { label: 'Robotique (libres)', ccs: [14, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 85, 86, 87, 88, 89, 90, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119] },
+        channelMode: { label: 'Channel Mode', ccs: [120, 121, 122, 123, 124, 125, 126, 127] }
+    };
+
+    static GM_RECOMMENDED_CCS = {
+        piano:       [1, 7, 10, 11, 64, 71, 91, 93],
+        chromPerc:   [1, 7, 10, 11, 64, 91, 93],
+        organ:       [1, 7, 10, 11, 91, 93],
+        guitar:      [1, 7, 10, 11, 64, 71, 74, 91, 93],
+        bass:        [1, 7, 10, 11, 64, 71, 74, 91],
+        strings:     [1, 7, 10, 11, 64, 71, 74, 91, 93],
+        ensemble:    [1, 7, 10, 11, 64, 91, 93],
+        brass:       [1, 2, 7, 10, 11, 64, 71, 91],
+        reed:        [1, 2, 7, 10, 11, 64, 71, 91],
+        pipe:        [1, 2, 7, 10, 11, 64, 91],
+        synthLead:   [1, 7, 10, 11, 71, 74, 91, 93],
+        synthPad:    [1, 7, 10, 11, 71, 74, 91, 93],
+        synthFx:     [1, 7, 10, 11, 71, 74, 91, 93],
+        ethnic:      [1, 7, 10, 11, 91],
+        percussive:  [7, 10, 91],
+        soundFx:     [7, 10, 91],
+        drums:       [7, 10, 91]
+    };
+
+    static SCALE_TYPES = {
+        chromatic:      { name: 'Chromatique',          intervals: [0,1,2,3,4,5,6,7,8,9,10,11] },
+        major:          { name: 'Majeure',              intervals: [0,2,4,5,7,9,11] },
+        minor:          { name: 'Mineure naturelle',    intervals: [0,2,3,5,7,8,10] },
+        pentatonic:     { name: 'Pentatonique majeure', intervals: [0,2,4,7,9] },
+        pentatonicMin:  { name: 'Pentatonique mineure', intervals: [0,3,5,7,10] },
+        blues:          { name: 'Blues',                 intervals: [0,3,5,6,7,10] },
+        harmonicMin:    { name: 'Mineure harmonique',   intervals: [0,2,3,5,7,8,11] },
+        dorian:         { name: 'Dorien',               intervals: [0,2,3,5,7,9,10] },
+        mixolydian:     { name: 'Mixolydien',           intervals: [0,2,4,5,7,9,10] },
+        majorChord:     { name: 'Accord majeur',        intervals: [0,4,7] },
+        minorChord:     { name: 'Accord mineur',        intervals: [0,3,7] },
+        seventh:        { name: 'Septième',             intervals: [0,4,7,10] },
+        diminished:     { name: 'Diminué',              intervals: [0,3,6,9] },
+        augmented:      { name: 'Augmenté',             intervals: [0,4,8] },
+        sus2:           { name: 'Sus2',                 intervals: [0,2,7] },
+        sus4:           { name: 'Sus4',                 intervals: [0,5,7] }
+    };
+
+    static MICROPROCESSOR_PATTERNS = [
+        { pattern: /arduino\s*(mega|uno|nano|due|leo|micro|mini|zero|mkr|33|every)/i, name: 'Arduino', variant: null },
+        { pattern: /arduino/i, name: 'Arduino', variant: null },
+        { pattern: /teensy\s*(4\.[01]|3\.[0-6]|LC|2\.0|2\+\+)?/i, name: 'Teensy', variant: null },
+        { pattern: /esp32[\s-]?(s[23]|c[236]|h2)?/i, name: 'ESP32', variant: null },
+        { pattern: /raspberry\s*pi\s*(pico|zero|[0-5])?/i, name: 'Raspberry Pi', variant: null },
+        { pattern: /stm32[a-z]?[0-9]*/i, name: 'STM32', variant: null },
+        { pattern: /rp2040|pico/i, name: 'RP2040/Pico', variant: null },
+        { pattern: /feather/i, name: 'Adafruit Feather', variant: null },
+        { pattern: /seeeduino|xiao/i, name: 'Seeeduino', variant: null }
+    ];
+
+    static GM_CATEGORY_EMOJIS = {
+        piano: '🎹', chromPerc: '🔔', organ: '🎹', guitar: '🎸',
+        bass: '🎸', strings: '🎻', ensemble: '🎻', brass: '🎺',
+        reed: '🎷', pipe: '🪈', synthLead: '🎛️', synthPad: '🎛️',
+        synthFx: '🎛️', ethnic: '🪕', percussive: '🥁', soundFx: '🔊',
+        drums: '🥁'
+    };
+
+    static COMM_PROTOCOLS = {
+        midi_din:  { label: 'MIDI DIN (5-pin)', icon: '🎵' },
+        midi_usb:  { label: 'MIDI USB', icon: '🔌' },
+        midi_ble:  { label: 'MIDI BLE (Bluetooth)', icon: '📶' },
+        midi_wifi: { label: 'MIDI WiFi (RTP/rtpMIDI)', icon: '📡' },
+        serial_raw: { label: 'Serial brut (raw)', icon: '⚡' },
+        osc:       { label: 'OSC (Open Sound Control)', icon: '🌐' }
+    };
 
     constructor(api) {
         super({
@@ -129,6 +205,12 @@ class InstrumentSettingsModal extends BaseModal {
 
             this._initPianoForActiveTab();
 
+            // Wire SysEx identity event listener
+            this._sysexHandler = (data) => this.handleSysExIdentity(data);
+            if (this.api && typeof this.api.on === 'function') {
+                this.api.on('device_identity', this._sysexHandler);
+            }
+
         } catch (error) {
             console.error('Error opening instrument settings:', error);
             if (typeof showAlert === 'function') {
@@ -176,6 +258,10 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram.destroy();
             this._neckDiagram = null;
         }
+        if (this._sysexHandler && this.api && typeof this.api.off === 'function') {
+            this.api.off('device_identity', this._sysexHandler);
+            this._sysexHandler = null;
+        }
     }
 
     // ========== TABS BAR ==========
@@ -203,16 +289,8 @@ class InstrumentSettingsModal extends BaseModal {
     // ========== SIDEBAR ==========
 
     _renderSidebar() {
-        const tab = this._getActiveTab();
-        const settings = tab ? tab.settings : {};
-        const gmProgram = settings.gm_program;
-        const isString = typeof isGmStringInstrument === 'function' && isGmStringInstrument(gmProgram);
-        const isDrum = this.activeChannel === 9 || (gmProgram !== null && gmProgram !== undefined && gmProgram >= 128);
-
         let html = '<nav class="ism-sidebar">';
         for (const sec of InstrumentSettingsModal.SECTIONS) {
-            if (sec.id === 'strings' && !isString) continue;
-            if (sec.id === 'drums' && !isDrum) continue;
             const active = this.activeSection === sec.id ? 'active' : '';
             html += `<button type="button" class="ism-nav-item ${active}" data-section="${sec.id}">
                 <span class="ism-nav-icon">${sec.icon}</span>
@@ -259,6 +337,33 @@ class InstrumentSettingsModal extends BaseModal {
                 }
             }, 50);
         }
+    }
+
+    _detectMicroprocessor(deviceName, sysexName) {
+        const patterns = InstrumentSettingsModal.MICROPROCESSOR_PATTERNS;
+        const sources = [deviceName, sysexName].filter(Boolean);
+        for (const src of sources) {
+            for (const entry of patterns) {
+                const match = src.match(entry.pattern);
+                if (match) {
+                    return { name: entry.name, variant: match[1] || null, source: src };
+                }
+            }
+        }
+        return null;
+    }
+
+    _getGmCategoryKey(gmProgram) {
+        if (gmProgram == null) return null;
+        if (gmProgram >= 128) return 'drums';
+        const categoryKeys = [
+            'piano', 'chromPerc', 'organ', 'guitar',
+            'bass', 'strings', 'ensemble', 'brass',
+            'reed', 'pipe', 'synthLead', 'synthPad',
+            'synthFx', 'ethnic', 'percussive', 'soundFx'
+        ];
+        const index = Math.floor(gmProgram / 8);
+        return categoryKeys[index] || null;
     }
 }
 

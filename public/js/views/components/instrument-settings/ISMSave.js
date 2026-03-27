@@ -70,6 +70,12 @@
                 }
             }
 
+            // New fields
+            const scaleType = (this.$('#scaleTypeInput')?.value || '').trim() || null;
+            const commProtocol = (this.$('#commProtocol')?.value || '').trim() || null;
+            const serialBaudrate = parseInt(this.$('#serialBaudrate')?.value) || null;
+            const commTimeout = parseInt(this.$('#commTimeout')?.value) || null;
+
             // Save base settings
             await this.api.sendCommand('instrument_update_settings', {
                 deviceId: this.device.id,
@@ -78,7 +84,11 @@
                 sync_delay: syncDelay,
                 mac_address: macAddress || null,
                 name: this.device.name,
-                gm_program: gmProgram
+                gm_program: gmProgram,
+                scale_type: scaleType,
+                comm_protocol: commProtocol,
+                serial_baudrate: serialBaudrate,
+                comm_timeout: commTimeout
             });
 
             // String instrument path
