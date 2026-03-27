@@ -1558,10 +1558,6 @@ body.theme-colored .ism-scale-selector select {
 }
 
 /* ========== Playable notes highlight on piano ========== */
-.piano-key.ism-playable {
-  position: relative;
-}
-
 .piano-key.ism-playable::after {
   content: '';
   position: absolute;
@@ -1575,7 +1571,7 @@ body.theme-colored .ism-scale-selector select {
   pointer-events: none;
 }
 
-.piano-key.black.ism-playable::after {
+.piano-key-black.ism-playable::after {
   background: #a5b4fc;
   bottom: 2px;
   width: 4px;
