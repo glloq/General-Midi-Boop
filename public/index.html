@@ -1261,6 +1261,9 @@
             list-style: none;
             margin-top: 12px;
             overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0;
         }
 
         .main-grid::-webkit-scrollbar {
@@ -2353,14 +2356,14 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 10px;
-            padding: 12px;
+            padding: 0;
         }
 
         .file-list.view-grid .file-item {
             flex-direction: column;
             align-items: stretch;
             padding: 12px;
-            padding-left: 20px;
+            padding-left: 26px;
             margin-bottom: 0;
             border-radius: 8px;
             background: #ffffff;
@@ -2373,7 +2376,7 @@
         }
 
         .file-list.view-grid .file-item::before {
-            width: 10px;
+            width: 16px;
             border-radius: 8px 0 0 8px;
         }
 
@@ -2441,15 +2444,15 @@
             font-size: 12px;
         }
 
-        /* Grid state ribbon */
+        /* Grid state symbol */
         .file-list.view-grid .file-grid-state {
             display: flex;
             align-items: center;
             gap: 4px;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 3px;
+            padding: 0;
+            background: transparent;
             position: absolute;
             top: 8px;
             right: 8px;
@@ -2457,28 +2460,28 @@
 
         .file-list.view-grid .file-grid-state.state-routed,
         .file-list.view-grid .file-grid-state.state-playable {
-            background: #d1fae5;
-            color: #065f46;
+            background: transparent;
+            color: #10b981;
         }
 
         .file-list.view-grid .file-grid-state.state-unrouted {
-            background: #fef3c7;
-            color: #92400e;
+            background: transparent;
+            color: #9ca3af;
         }
 
         .file-list.view-grid .file-grid-state.state-partial {
-            background: #fef3c7;
-            color: #92400e;
+            background: transparent;
+            color: #f59e0b;
         }
 
         .file-list.view-grid .file-grid-state.state-routed-incomplete {
-            background: #dbeafe;
-            color: #1e40af;
+            background: transparent;
+            color: #3b82f6;
         }
 
         .file-list.view-grid .file-grid-state.state-playing {
-            background: #dbeafe;
-            color: #1e40af;
+            background: transparent;
+            color: #3b82f6;
             animation: statePulse 1.5s infinite;
         }
 
@@ -2519,28 +2522,28 @@
 
         body.theme-dark .file-list.view-grid .file-grid-state.state-routed,
         body.theme-dark .file-list.view-grid .file-grid-state.state-playable {
-            background: #064e3b;
-            color: #6ee7b7;
+            background: transparent;
+            color: #34d399;
         }
 
         body.theme-dark .file-list.view-grid .file-grid-state.state-unrouted {
-            background: #78350f;
-            color: #fcd34d;
+            background: transparent;
+            color: #6b7280;
         }
 
         body.theme-dark .file-list.view-grid .file-grid-state.state-partial {
-            background: #78350f;
-            color: #fcd34d;
+            background: transparent;
+            color: #fbbf24;
         }
 
         body.theme-dark .file-list.view-grid .file-grid-state.state-routed-incomplete {
-            background: #1e3a5f;
-            color: #93c5fd;
+            background: transparent;
+            color: #60a5fa;
         }
 
         body.theme-dark .file-list.view-grid .file-grid-state.state-playing {
-            background: #1e3a5f;
-            color: #93c5fd;
+            background: transparent;
+            color: #60a5fa;
         }
 
         /* Dark theme: state dots with enhanced visibility */
