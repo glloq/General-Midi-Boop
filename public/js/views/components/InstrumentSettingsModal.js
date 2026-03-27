@@ -64,13 +64,139 @@ class InstrumentSettingsModal extends BaseModal {
     ];
 
     static CC_GROUPS = {
-        performance: { label: 'Performance', ccs: [1, 2, 4, 11, 64, 65, 66, 67, 68, 84] },
-        volume:      { label: 'Volume & Pan', ccs: [7, 8, 10] },
-        sound:       { label: 'Son / Timbre', ccs: [70, 71, 72, 73, 74, 75, 76, 77, 78, 79] },
-        effects:     { label: 'Effets', ccs: [91, 92, 93, 94, 95] },
-        dataBank:    { label: 'Data / Bank', ccs: [0, 6, 32, 38, 96, 97, 98, 99, 100, 101] },
-        robotics:    { label: 'Robotique (libres)', ccs: [14, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 85, 86, 87, 88, 89, 90, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119] },
-        channelMode: { label: 'Channel Mode', ccs: [120, 121, 122, 123, 124, 125, 126, 127] }
+        performance: {
+            label: 'Performance', icon: '🎹',
+            ccs: {
+                1:  { name: 'Modulation Wheel', desc: 'Vibrato, trémolo ou effet modulant', range: '0-127' },
+                2:  { name: 'Breath Controller', desc: 'Contrôle par souffle (instruments à vent)', range: '0-127' },
+                4:  { name: 'Foot Controller', desc: 'Pédale d\'expression au pied', range: '0-127' },
+                5:  { name: 'Portamento Time', desc: 'Vitesse du glissando entre notes', range: '0-127' },
+                11: { name: 'Expression', desc: 'Volume expressif (sous-volume du CC7)', range: '0-127' },
+                64: { name: 'Sustain Pedal', desc: 'Pédale de maintien (on/off)', range: '0=off, 64+=on' },
+                65: { name: 'Portamento On/Off', desc: 'Active le glissando entre notes', range: '0=off, 64+=on' },
+                66: { name: 'Sostenuto', desc: 'Maintient les notes déjà enfoncées', range: '0=off, 64+=on' },
+                67: { name: 'Soft Pedal', desc: 'Pédale douce (réduit le volume/timbre)', range: '0=off, 64+=on' },
+                68: { name: 'Legato Footswitch', desc: 'Mode legato entre notes successives', range: '0=off, 64+=on' },
+                69: { name: 'Hold 2', desc: 'Prolonge la résonance des notes', range: '0=off, 64+=on' },
+                84: { name: 'Portamento Control', desc: 'Note source du portamento', range: '0-127 (note)' }
+            }
+        },
+        volume: {
+            label: 'Volume & Pan', icon: '🔊',
+            ccs: {
+                7:  { name: 'Volume', desc: 'Volume principal du canal', range: '0-127' },
+                8:  { name: 'Balance', desc: 'Balance stéréo gauche/droite', range: '0=L, 64=C, 127=R' },
+                10: { name: 'Pan', desc: 'Panoramique stéréo', range: '0=L, 64=C, 127=R' }
+            }
+        },
+        sound: {
+            label: 'Son / Timbre', icon: '🎛️',
+            ccs: {
+                70: { name: 'Sound Variation', desc: 'Variation timbrale du son', range: '0-127' },
+                71: { name: 'Resonance', desc: 'Résonance du filtre (Q)', range: '0-127' },
+                72: { name: 'Release Time', desc: 'Temps de relâchement de l\'enveloppe', range: '0-127' },
+                73: { name: 'Attack Time', desc: 'Temps d\'attaque de l\'enveloppe', range: '0-127' },
+                74: { name: 'Brightness (Cutoff)', desc: 'Fréquence de coupure du filtre', range: '0-127' },
+                75: { name: 'Decay Time', desc: 'Temps de déclin de l\'enveloppe', range: '0-127' },
+                76: { name: 'Vibrato Rate', desc: 'Vitesse du vibrato', range: '0-127' },
+                77: { name: 'Vibrato Depth', desc: 'Profondeur du vibrato', range: '0-127' },
+                78: { name: 'Vibrato Delay', desc: 'Délai avant début du vibrato', range: '0-127' },
+                79: { name: 'Sound Controller 10', desc: 'Contrôle de son générique', range: '0-127' }
+            }
+        },
+        effects: {
+            label: 'Effets', icon: '✨',
+            ccs: {
+                12: { name: 'Effect Control 1', desc: 'Contrôle de l\'effet 1 (paramètre)', range: '0-127' },
+                13: { name: 'Effect Control 2', desc: 'Contrôle de l\'effet 2 (paramètre)', range: '0-127' },
+                91: { name: 'Reverb Depth', desc: 'Profondeur de réverbération', range: '0-127' },
+                92: { name: 'Tremolo Depth', desc: 'Profondeur du trémolo', range: '0-127' },
+                93: { name: 'Chorus Depth', desc: 'Profondeur du chorus', range: '0-127' },
+                94: { name: 'Detune Depth', desc: 'Profondeur du détunage', range: '0-127' },
+                95: { name: 'Phaser Depth', desc: 'Profondeur du phaser', range: '0-127' }
+            }
+        },
+        dataBank: {
+            label: 'Data / Bank', icon: '💾',
+            ccs: {
+                0:  { name: 'Bank Select MSB', desc: 'Sélection de banque (octet haut)', range: '0-127' },
+                6:  { name: 'Data Entry MSB', desc: 'Valeur de donnée RPN/NRPN (haut)', range: '0-127' },
+                32: { name: 'Bank Select LSB', desc: 'Sélection de banque (octet bas)', range: '0-127' },
+                38: { name: 'Data Entry LSB', desc: 'Valeur de donnée RPN/NRPN (bas)', range: '0-127' },
+                96: { name: 'Data Increment', desc: 'Incrémente la valeur RPN/NRPN', range: 'N/A' },
+                97: { name: 'Data Decrement', desc: 'Décrémente la valeur RPN/NRPN', range: 'N/A' },
+                98: { name: 'NRPN LSB', desc: 'Paramètre non-enregistré (octet bas)', range: '0-127' },
+                99: { name: 'NRPN MSB', desc: 'Paramètre non-enregistré (octet haut)', range: '0-127' },
+                100: { name: 'RPN LSB', desc: 'Paramètre enregistré (octet bas)', range: '0-127' },
+                101: { name: 'RPN MSB', desc: 'Paramètre enregistré (octet haut)', range: '0-127' }
+            }
+        },
+        robotics: {
+            label: 'Robotique (libres)', icon: '🤖',
+            ccs: {
+                3:  { name: 'CC 3', desc: 'Non défini — usage libre', range: '0-127' },
+                9:  { name: 'CC 9', desc: 'Non défini — usage libre', range: '0-127' },
+                14: { name: 'CC 14', desc: 'Non défini — usage libre', range: '0-127' },
+                15: { name: 'CC 15', desc: 'Non défini — usage libre', range: '0-127' },
+                16: { name: 'General Purpose 1', desc: 'Usage libre (GP1)', range: '0-127' },
+                17: { name: 'General Purpose 2', desc: 'Usage libre (GP2)', range: '0-127' },
+                18: { name: 'General Purpose 3', desc: 'Usage libre (GP3)', range: '0-127' },
+                19: { name: 'General Purpose 4', desc: 'Usage libre (GP4)', range: '0-127' },
+                20: { name: 'CC 20 (String Select)', desc: 'Sélection de corde (robotique)', range: '0-127' },
+                21: { name: 'CC 21 (Fret Select)', desc: 'Sélection de frette (robotique)', range: '0-127' },
+                22: { name: 'CC 22', desc: 'Non défini — usage libre', range: '0-127' },
+                23: { name: 'CC 23', desc: 'Non défini — usage libre', range: '0-127' },
+                24: { name: 'CC 24', desc: 'Non défini — usage libre', range: '0-127' },
+                25: { name: 'CC 25', desc: 'Non défini — usage libre', range: '0-127' },
+                26: { name: 'CC 26', desc: 'Non défini — usage libre', range: '0-127' },
+                27: { name: 'CC 27', desc: 'Non défini — usage libre', range: '0-127' },
+                28: { name: 'CC 28', desc: 'Non défini — usage libre', range: '0-127' },
+                29: { name: 'CC 29', desc: 'Non défini — usage libre', range: '0-127' },
+                30: { name: 'CC 30', desc: 'Non défini — usage libre', range: '0-127' },
+                31: { name: 'CC 31', desc: 'Non défini — usage libre', range: '0-127' },
+                80: { name: 'General Purpose 5', desc: 'Usage libre (GP5, on/off)', range: '0=off, 64+=on' },
+                81: { name: 'General Purpose 6', desc: 'Usage libre (GP6, on/off)', range: '0=off, 64+=on' },
+                82: { name: 'General Purpose 7', desc: 'Usage libre (GP7, on/off)', range: '0=off, 64+=on' },
+                83: { name: 'General Purpose 8', desc: 'Usage libre (GP8, on/off)', range: '0=off, 64+=on' },
+                85: { name: 'CC 85', desc: 'Non défini — usage libre', range: '0-127' },
+                86: { name: 'CC 86', desc: 'Non défini — usage libre', range: '0-127' },
+                87: { name: 'CC 87', desc: 'Non défini — usage libre', range: '0-127' },
+                88: { name: 'CC 88', desc: 'Non défini — usage libre', range: '0-127' },
+                89: { name: 'CC 89', desc: 'Non défini — usage libre', range: '0-127' },
+                90: { name: 'CC 90', desc: 'Non défini — usage libre', range: '0-127' },
+                102: { name: 'CC 102', desc: 'Non défini — usage libre', range: '0-127' },
+                103: { name: 'CC 103', desc: 'Non défini — usage libre', range: '0-127' },
+                104: { name: 'CC 104', desc: 'Non défini — usage libre', range: '0-127' },
+                105: { name: 'CC 105', desc: 'Non défini — usage libre', range: '0-127' },
+                106: { name: 'CC 106', desc: 'Non défini — usage libre', range: '0-127' },
+                107: { name: 'CC 107', desc: 'Non défini — usage libre', range: '0-127' },
+                108: { name: 'CC 108', desc: 'Non défini — usage libre', range: '0-127' },
+                109: { name: 'CC 109', desc: 'Non défini — usage libre', range: '0-127' },
+                110: { name: 'CC 110', desc: 'Non défini — usage libre', range: '0-127' },
+                111: { name: 'CC 111', desc: 'Non défini — usage libre', range: '0-127' },
+                112: { name: 'CC 112', desc: 'Non défini — usage libre', range: '0-127' },
+                113: { name: 'CC 113', desc: 'Non défini — usage libre', range: '0-127' },
+                114: { name: 'CC 114', desc: 'Non défini — usage libre', range: '0-127' },
+                115: { name: 'CC 115', desc: 'Non défini — usage libre', range: '0-127' },
+                116: { name: 'CC 116', desc: 'Non défini — usage libre', range: '0-127' },
+                117: { name: 'CC 117', desc: 'Non défini — usage libre', range: '0-127' },
+                118: { name: 'CC 118', desc: 'Non défini — usage libre', range: '0-127' },
+                119: { name: 'CC 119', desc: 'Non défini — usage libre', range: '0-127' }
+            }
+        },
+        channelMode: {
+            label: 'Channel Mode', icon: '📡',
+            ccs: {
+                120: { name: 'All Sound Off', desc: 'Coupe immédiatement tous les sons', range: '0 (fixe)' },
+                121: { name: 'Reset All Controllers', desc: 'Réinitialise tous les CC à leur défaut', range: '0 (fixe)' },
+                122: { name: 'Local Control', desc: 'Active/désactive le clavier local', range: '0=off, 127=on' },
+                123: { name: 'All Notes Off', desc: 'Envoie un Note Off sur toutes les notes', range: '0 (fixe)' },
+                124: { name: 'Omni Mode Off', desc: 'Désactive la réception omni-canal', range: '0 (fixe)' },
+                125: { name: 'Omni Mode On', desc: 'Active la réception omni-canal', range: '0 (fixe)' },
+                126: { name: 'Mono Mode On', desc: 'Mode monophonique (N canaux)', range: '0-16 (nb canaux)' },
+                127: { name: 'Poly Mode On', desc: 'Mode polyphonique standard', range: '0 (fixe)' }
+            }
+        }
     };
 
     static GM_RECOMMENDED_CCS = {
@@ -93,24 +219,51 @@ class InstrumentSettingsModal extends BaseModal {
         drums:       [7, 10, 91]
     };
 
-    static SCALE_TYPES = {
-        chromatic:      { name: 'Chromatique',          intervals: [0,1,2,3,4,5,6,7,8,9,10,11] },
-        major:          { name: 'Majeure',              intervals: [0,2,4,5,7,9,11] },
-        minor:          { name: 'Mineure naturelle',    intervals: [0,2,3,5,7,8,10] },
-        pentatonic:     { name: 'Pentatonique majeure', intervals: [0,2,4,7,9] },
-        pentatonicMin:  { name: 'Pentatonique mineure', intervals: [0,3,5,7,10] },
-        blues:          { name: 'Blues',                 intervals: [0,3,5,6,7,10] },
-        harmonicMin:    { name: 'Mineure harmonique',   intervals: [0,2,3,5,7,8,11] },
-        dorian:         { name: 'Dorien',               intervals: [0,2,3,5,7,9,10] },
-        mixolydian:     { name: 'Mixolydien',           intervals: [0,2,4,5,7,9,10] },
-        majorChord:     { name: 'Accord majeur',        intervals: [0,4,7] },
-        minorChord:     { name: 'Accord mineur',        intervals: [0,3,7] },
-        seventh:        { name: 'Septième',             intervals: [0,4,7,10] },
-        diminished:     { name: 'Diminué',              intervals: [0,3,6,9] },
-        augmented:      { name: 'Augmenté',             intervals: [0,4,8] },
-        sus2:           { name: 'Sus2',                 intervals: [0,2,7] },
-        sus4:           { name: 'Sus4',                 intervals: [0,5,7] }
+    // Octave modes: how many notes per octave are selectable
+    // intervals = array of semitone offsets within one octave (0-11)
+    static OCTAVE_MODES = {
+        chromatic:      { name: 'Chromatique (12/oct)',     count: 12, intervals: [0,1,2,3,4,5,6,7,8,9,10,11] },
+        major:          { name: 'Majeure (7/oct)',          count: 7,  intervals: [0,2,4,5,7,9,11] },
+        minor:          { name: 'Mineure naturelle (7/oct)',count: 7,  intervals: [0,2,3,5,7,8,10] },
+        harmonicMin:    { name: 'Mineure harmonique (7/oct)',count: 7, intervals: [0,2,3,5,7,8,11] },
+        dorian:         { name: 'Dorien (7/oct)',           count: 7,  intervals: [0,2,3,5,7,9,10] },
+        mixolydian:     { name: 'Mixolydien (7/oct)',       count: 7,  intervals: [0,2,4,5,7,9,10] },
+        pentatonic:     { name: 'Pentatonique maj. (5/oct)',count: 5,  intervals: [0,2,4,7,9] },
+        pentatonicMin:  { name: 'Pentatonique min. (5/oct)',count: 5,  intervals: [0,3,5,7,10] },
+        blues:          { name: 'Blues (6/oct)',             count: 6,  intervals: [0,3,5,6,7,10] },
+        wholeNote:      { name: 'Tons entiers (6/oct)',     count: 6,  intervals: [0,2,4,6,8,10] },
+        majorChord:     { name: 'Accord majeur (3/oct)',    count: 3,  intervals: [0,4,7] },
+        minorChord:     { name: 'Accord mineur (3/oct)',    count: 3,  intervals: [0,3,7] },
+        seventh:        { name: 'Septième (4/oct)',         count: 4,  intervals: [0,4,7,10] },
+        diminished:     { name: 'Diminué (4/oct)',          count: 4,  intervals: [0,3,6,9] },
+        augmented:      { name: 'Augmenté (3/oct)',         count: 3,  intervals: [0,4,8] },
+        sus2:           { name: 'Sus2 (3/oct)',             count: 3,  intervals: [0,2,7] },
+        sus4:           { name: 'Sus4 (3/oct)',             count: 3,  intervals: [0,5,7] }
     };
+
+    /**
+     * Compute playable MIDI notes for a given range + octave mode
+     * @param {number} min - MIDI note min (0-127)
+     * @param {number} max - MIDI note max (0-127)
+     * @param {string} modeKey - key in OCTAVE_MODES
+     * @param {number} rootNote - root note (0-11, 0=C)
+     * @returns {number[]} array of MIDI note numbers
+     */
+    static computePlayableNotes(min, max, modeKey, rootNote = 0) {
+        const mode = InstrumentSettingsModal.OCTAVE_MODES[modeKey];
+        if (!mode || modeKey === 'chromatic') {
+            // All notes in range
+            const notes = [];
+            for (let n = min; n <= max; n++) notes.push(n);
+            return notes;
+        }
+        const notes = [];
+        for (let n = min; n <= max; n++) {
+            const semitone = ((n - rootNote) % 12 + 12) % 12;
+            if (mode.intervals.includes(semitone)) notes.push(n);
+        }
+        return notes;
+    }
 
     static MICROPROCESSOR_PATTERNS = [
         { pattern: /arduino\s*(mega|uno|nano|due|leo|micro|mini|zero|mkr|33|every)/i, name: 'Arduino', variant: null },

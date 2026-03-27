@@ -71,7 +71,8 @@
             }
 
             // New fields
-            const scaleType = (this.$('#scaleTypeInput')?.value || '').trim() || null;
+            const octaveMode = (this.$('#octaveModeInput')?.value || '').trim() || 'chromatic';
+            const rootNote = parseInt(this.$('#rootNoteInput')?.value) || 0;
             const commProtocol = (this.$('#commProtocol')?.value || '').trim() || null;
             const serialBaudrate = parseInt(this.$('#serialBaudrate')?.value) || null;
             const commTimeout = parseInt(this.$('#commTimeout')?.value) || null;
@@ -85,7 +86,8 @@
                 mac_address: macAddress || null,
                 name: this.device.name,
                 gm_program: gmProgram,
-                scale_type: scaleType,
+                octave_mode: octaveMode,
+                root_note: rootNote,
                 comm_protocol: commProtocol,
                 serial_baudrate: serialBaudrate,
                 comm_timeout: commTimeout

@@ -213,26 +213,69 @@
     // ========== SHARED LISTENER HELPERS ==========
 
     ISMListeners._wireNotesModeListeners = function() {
+        const self = this;
         // Note selection mode toggle
         this.$$('.ism-mode-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const mode = btn.dataset.mode;
-                this.$$('.ism-mode-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.mode === mode); });
+                self.$$('.ism-mode-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.mode === mode); });
                 if (typeof setNoteSelectionMode === 'function') setNoteSelectionMode(mode);
-                // Show/hide scale selector
-                const scaleSelector = this.$('#scaleSelector');
-                if (scaleSelector) scaleSelector.style.display = (mode === 'discrete') ? 'none' : '';
-            }.bind(this));
-        }.bind(this));
+                // Show/hide octave mode selector
+                const octaveSelector = self.$('#octaveModeSelector');
+                if (octaveSelector) octaveSelector.style.display = (mode === 'discrete') ? 'none' : '';
+            });
+        });
 
-        // Scale type selector
-        const scaleTypeSelect = this.$('#scaleTypeSelect');
-        if (scaleTypeSelect) {
-            scaleTypeSelect.addEventListener('change', function() {
-                const scaleInput = this.$('#scaleTypeInput');
-                if (scaleInput) scaleInput.value = scaleTypeSelect.value;
-            }.bind(this));
-        }
+        // Octave mode selector
+        const octaveModeSelect = this.$('#octaveModeSelect');
+        const rootNoteSelect = this.$('#rootNoteSelect');
+        const updateOctaveMode = function() {
+            const modeKey = octaveModeSelect ? octaveModeSelect.value : 'chromatic';
+            const root = rootNoteSelect ? parseInt(rootNoteSelect.value) : 0;
+            // Update hidden inputs
+            const modeInput = self.$('#octaveModeInput');
+            if (modeInput) modeInput.value = modeKey;
+            const rootInput = self.$('#rootNoteInput');
+            if (rootInput) rootInput.value = root;
+            // Compute playable notes
+            const minInput = self.$('#noteRangeMin');
+            const maxInput = self.$('#noteRangeMax');
+            const rangeMin = minInput && minInput.value !== '' ? parseInt(minInput.value) : 21;
+            const rangeMax = maxInput && maxInput.value !== '' ? parseInt(maxInput.value) : 108;
+            const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey, root);
+            const playableInput = self.$('#playableNotesInput');
+            if (playableInput) playableInput.value = JSON.stringify(playableNotes);
+            // Update info display
+            const mode = InstrumentSettingsModal.OCTAVE_MODES[modeKey];
+            const infoEl = self.$('#octaveInfo');
+            if (infoEl && mode) {
+                infoEl.innerHTML = `<span class="ism-octave-badge">${mode.count} notes/octave</span><span class="ism-octave-count">${playableNotes.length} notes jouables sur la plage</span>`;
+            }
+            // Highlight playable notes on piano keyboard
+            self._highlightPlayableNotes(playableNotes);
+        };
+        if (octaveModeSelect) octaveModeSelect.addEventListener('change', updateOctaveMode);
+        if (rootNoteSelect) rootNoteSelect.addEventListener('change', updateOctaveMode);
+    };
+
+    /**
+     * Highlight playable notes on the mini piano keyboard
+     */
+    ISMListeners._highlightPlayableNotes = function(playableNotes) {
+        const pianoEl = this.$('#pianoKeyboardMini');
+        if (!pianoEl) return;
+        const noteSet = new Set(playableNotes);
+        // Remove previous highlights
+        pianoEl.querySelectorAll('.piano-key').forEach(function(key) {
+            key.classList.remove('ism-playable');
+        });
+        // Add highlights for playable notes
+        pianoEl.querySelectorAll('.piano-key').forEach(function(key) {
+            const note = parseInt(key.dataset.note);
+            if (!isNaN(note) && noteSet.has(note)) {
+                key.classList.add('ism-playable');
+            }
+        });
     };
 
     ISMListeners._wireCCAccordionListeners = function() {

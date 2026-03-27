@@ -153,7 +153,9 @@
         const isString = typeof isGmStringInstrument === 'function' && isGmStringInstrument(gmProgram);
         const isDrum = this.activeChannel === 9 || (gmProgram !== null && gmProgram !== undefined && gmProgram >= 128);
         const noteMode = settings.note_selection_mode || 'range';
-        const scaleType = settings.scale_type || 'chromatic';
+        const octaveMode = settings.octave_mode || 'chromatic';
+        const rootNote = settings.root_note || 0;
+        const NOTE_NAMES_SHORT = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         // CC data
         const currentCCs = settings.supported_ccs
@@ -171,12 +173,25 @@
             ? tab.stringInstrumentConfig.num_strings
             : (settings.polyphony || '');
 
-        // Scale type selector options
-        const scaleTypes = InstrumentSettingsModal.SCALE_TYPES;
-        let scaleOptions = '';
-        for (const key of Object.keys(scaleTypes)) {
-            scaleOptions += `<option value="${key}" ${key === scaleType ? 'selected' : ''}>${scaleTypes[key].name}</option>`;
+        // Octave mode selector options
+        const octaveModes = InstrumentSettingsModal.OCTAVE_MODES;
+        let octaveOptions = '';
+        for (const key of Object.keys(octaveModes)) {
+            octaveOptions += `<option value="${key}" ${key === octaveMode ? 'selected' : ''}>${octaveModes[key].name}</option>`;
         }
+
+        // Root note selector
+        let rootNoteOptions = '';
+        for (let i = 0; i < 12; i++) {
+            rootNoteOptions += `<option value="${i}" ${i === rootNote ? 'selected' : ''}>${NOTE_NAMES_SHORT[i]}</option>`;
+        }
+
+        // Compute playable notes for display info
+        const rangeMin = settings.note_range_min != null ? settings.note_range_min : 21;
+        const rangeMax = settings.note_range_max != null ? settings.note_range_max : 108;
+        const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, octaveMode, rootNote);
+        const currentMode = octaveModes[octaveMode];
+        const notesPerOctInfo = currentMode ? `${currentMode.count} notes/octave` : '';
 
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎹</span> ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
@@ -193,9 +208,21 @@
                         </button>
                     </div>
 
-                    <div class="ism-scale-selector" style="${noteMode === 'discrete' ? 'display: none;' : ''}" id="scaleSelector">
-                        <label>${this.t('instrumentSettings.scaleType') || 'Gamme / Type d\'accord'}</label>
-                        <select id="scaleTypeSelect">${scaleOptions}</select>
+                    <div class="ism-octave-selector" style="${noteMode === 'discrete' ? 'display: none;' : ''}" id="octaveModeSelector">
+                        <div class="ism-form-row">
+                            <div class="ism-form-group" style="flex:2">
+                                <label>Notes par octave</label>
+                                <select id="octaveModeSelect">${octaveOptions}</select>
+                            </div>
+                            <div class="ism-form-group" style="flex:1">
+                                <label>Tonique</label>
+                                <select id="rootNoteSelect">${rootNoteOptions}</select>
+                            </div>
+                        </div>
+                        <div class="ism-octave-info" id="octaveInfo">
+                            <span class="ism-octave-badge">${notesPerOctInfo}</span>
+                            <span class="ism-octave-count">${playableNotes.length} notes jouables sur la plage</span>
+                        </div>
                     </div>
 
                     <div class="ism-piano-container">
@@ -224,7 +251,9 @@
                     <input type="hidden" id="noteRangeMin" value="${settings.note_range_min != null ? settings.note_range_min : ''}">
                     <input type="hidden" id="noteRangeMax" value="${settings.note_range_max != null ? settings.note_range_max : ''}">
                     <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
-                    <input type="hidden" id="scaleTypeInput" value="${scaleType}">
+                    <input type="hidden" id="octaveModeInput" value="${octaveMode}">
+                    <input type="hidden" id="rootNoteInput" value="${rootNote}">
+                    <input type="hidden" id="playableNotesInput" value="${JSON.stringify(playableNotes)}">
                 </div>
             </div>
 
@@ -259,26 +288,30 @@
         let html = '<div class="ism-cc-accordion">';
         for (const groupId of Object.keys(groups)) {
             const group = groups[groupId];
-            const ccs = group.ccs;
-            const checkedCount = ccs.filter(function(cc) { return currentCCs.includes(cc); }).length;
+            const ccsObj = group.ccs; // now an object { ccNum: { name, desc, range } }
+            const ccNums = Object.keys(ccsObj).map(Number);
+            const checkedCount = ccNums.filter(function(cc) { return currentCCs.includes(cc); }).length;
             const isExpanded = checkedCount > 0;
 
             let ccsHtml = '';
-            for (let i = 0; i < ccs.length; i++) {
-                const cc = ccs[i];
-                const checked = currentCCs.includes(cc) ? 'checked' : '';
-                const isRecommended = recommendedCCs.includes(cc);
-                ccsHtml += `<label class="ism-cc-item ${checked ? 'checked' : ''}">
-                    <input type="checkbox" class="ism-cc-checkbox" value="${cc}" ${checked}>
-                    <span class="ism-cc-num">${cc}</span>
-                    ${isRecommended ? '<span class="ism-cc-recommended" title="Recommandé">★</span>' : ''}
+            for (const ccNum of ccNums) {
+                const info = ccsObj[ccNum];
+                const checked = currentCCs.includes(ccNum) ? 'checked' : '';
+                const isRecommended = recommendedCCs.includes(ccNum);
+                ccsHtml += `<label class="ism-cc-item ${checked ? 'checked' : ''}" title="${this.escape(info.desc + ' | ' + info.range)}">
+                    <input type="checkbox" class="ism-cc-checkbox" value="${ccNum}" ${checked}>
+                    <span class="ism-cc-num">${ccNum}</span>
+                    <span class="ism-cc-name">${this.escape(info.name)}</span>
+                    <span class="ism-cc-range">${this.escape(info.range)}</span>
+                    ${isRecommended ? '<span class="ism-cc-recommended" title="Recommandé pour cet instrument">★</span>' : ''}
                 </label>`;
             }
 
             html += `<div class="ism-cc-group ${isExpanded ? 'expanded' : ''}" data-group="${groupId}">
                 <div class="ism-cc-group-header">
+                    <span class="ism-cc-group-icon">${group.icon || ''}</span>
                     <span class="ism-cc-group-name">${group.label}</span>
-                    <span class="ism-cc-group-badge">${checkedCount}/${ccs.length}</span>
+                    <span class="ism-cc-group-badge">${checkedCount}/${ccNums.length}</span>
                     <span class="ism-cc-group-chevron">▸</span>
                 </div>
                 <div class="ism-cc-group-body">

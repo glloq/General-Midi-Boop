@@ -1413,3 +1413,135 @@ body.theme-colored .ism-scale-selector select {
     grid-template-columns: 1fr;
   }
 }
+
+/* ========== Octave Mode Selector ========== */
+.ism-octave-selector {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-secondary, #f9fafb);
+}
+
+.ism-octave-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.ism-octave-badge {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ism-octave-count {
+  color: var(--text-muted, #6b7280);
+}
+
+/* ========== CC Item with detailed info ========== */
+.ism-cc-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s ease;
+  min-height: 30px;
+}
+
+.ism-cc-item:hover {
+  background: rgba(102, 126, 234, 0.06);
+}
+
+.ism-cc-item.checked {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.ism-cc-num {
+  font-weight: 700;
+  color: var(--text-muted, #6b7280);
+  min-width: 26px;
+  font-size: 11px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ism-cc-name {
+  flex: 1;
+  color: var(--text-primary, #1f2937);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ism-cc-range {
+  color: var(--text-muted, #9ca3af);
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ism-cc-recommended {
+  color: #f59e0b;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.ism-cc-group-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ========== Playable notes highlight on piano ========== */
+.piano-key.ism-playable {
+  position: relative;
+}
+
+.piano-key.ism-playable::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6366f1;
+  pointer-events: none;
+}
+
+.piano-key.black.ism-playable::after {
+  background: #a5b4fc;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+}
+
+/* ========== Dark mode additions ========== */
+body.theme-dark .ism-octave-selector {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.theme-dark .ism-octave-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+body.theme-dark .ism-cc-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+body.theme-dark .ism-cc-range {
+  color: rgba(255, 255, 255, 0.4);
+}
