@@ -45,24 +45,7 @@ class FretboardDiagram {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                fretboard: '#c8b898',
-                fretWire: '#a0a0b8',
-                nut: '#e8e0d8',
-                string: '#5a6089',
-                stringLabel: '#5a6089',
-                fretNumber: '#9498b8',
-                fingerDot: '#667eea',
-                fingerDotActive: '#ef476f',
-                fingerText: '#ffffff',
-                openString: '#06d6a0',
-                mutedString: '#ef476f',
-                marker: 'rgba(102,126,234,0.08)',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 fretboard: '#2d1f0e',
@@ -80,19 +63,19 @@ class FretboardDiagram {
             };
         } else {
             this.colors = {
-                background: '#f5f0e8',
-                fretboard: '#d4a574',
-                fretWire: '#aaaaaa',
-                nut: '#f0f0e0',
-                string: '#666666',
-                stringLabel: '#555555',
-                fretNumber: '#888888',
+                background: '#f0f4ff',
+                fretboard: '#c8b898',
+                fretWire: '#a0a0b8',
+                nut: '#e8e0d8',
+                string: '#5a6089',
+                stringLabel: '#5a6089',
+                fretNumber: '#9498b8',
                 fingerDot: '#667eea',
-                fingerDotActive: '#ff4444',
+                fingerDotActive: '#ef476f',
                 fingerText: '#ffffff',
-                openString: '#28a745',
-                mutedString: '#dc3545',
-                marker: 'rgba(0,0,0,0.08)',
+                openString: '#06d6a0',
+                mutedString: '#ef476f',
+                marker: 'rgba(102,126,234,0.08)',
             };
         }
     }

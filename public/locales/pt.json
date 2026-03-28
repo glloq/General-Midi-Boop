@@ -34,9 +34,9 @@
         "title": "Configurações",
         "theme": {
             "title": "Tema",
-            "light": "Claro",
             "dark": "Escuro",
-            "colored": "Colorido"
+            "colored": "Colorido",
+            "darkDescription": "Ativar o modo escuro"
         },
         "keyboard": {
             "title": "Teclado",

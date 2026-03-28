@@ -73,22 +73,16 @@ class PianoRollView {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
-        if (isColored) {
-            this.bgColor = '#e8eeff';
-            this.mutedColor = '#9498b8';
-            this.gridColor = '#d4daff';
-            this.labelColor = '#5a6089';
-        } else if (isDark) {
+        if (isDark) {
             this.bgColor = '#111';
             this.mutedColor = '#444';
             this.gridColor = '#333';
             this.labelColor = '#888';
         } else {
-            this.bgColor = '#111';
-            this.mutedColor = '#444';
-            this.gridColor = '#333';
-            this.labelColor = '#888';
+            this.bgColor = '#e8eeff';
+            this.mutedColor = '#9498b8';
+            this.gridColor = '#d4daff';
+            this.labelColor = '#5a6089';
         }
     }
 
@@ -523,8 +517,8 @@ class PianoRollView {
         this.ctx.globalAlpha = 1.0;
 
         // Playhead
-        const isColoredTheme = document.body.classList.contains('theme-colored');
-        this.ctx.strokeStyle = isColoredTheme ? '#667eea' : '#fff';
+        const isDarkTheme = document.body.classList.contains('dark-mode');
+        this.ctx.strokeStyle = isDarkTheme ? '#fff' : '#667eea';
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         this.ctx.moveTo(playheadX, 0);
@@ -534,7 +528,7 @@ class PianoRollView {
         // Temps - directement en secondes
         const m = Math.floor(this.currentTime / 60);
         const s = Math.floor(this.currentTime % 60);
-        this.ctx.fillStyle = isColoredTheme ? '#2d3561' : '#fff';
+        this.ctx.fillStyle = isDarkTheme ? '#fff' : '#2d3561';
         this.ctx.font = '12px monospace';
         this.ctx.textAlign = 'left';
         this.ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, 5, 15);

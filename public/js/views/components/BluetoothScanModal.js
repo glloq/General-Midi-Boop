@@ -759,12 +759,12 @@ class BluetoothScanModal {
     renderBluetoothDisabled() {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
-        const isColored = document.body.classList.contains('theme-colored');
-        const warnBg = isColored ? 'linear-gradient(135deg, rgba(240, 180, 41, 0.12) 0%, rgba(240, 180, 41, 0.08) 100%)' : 'linear-gradient(135deg, #fff3cd 0%, #ffe5b4 100%)';
-        const warnBorder = isColored ? 'rgba(240, 180, 41, 0.4)' : '#ffc107';
-        const warnText = isColored ? 'var(--text-primary, #856404)' : '#856404';
-        const btnBg = isColored ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #ffc107 0%, #ff9800 100%)';
-        const btnShadow = isColored ? '0 2px 8px rgba(118, 75, 162, 0.4)' : '0 2px 8px rgba(255, 193, 7, 0.4)';
+        const isDark = document.body.classList.contains('dark-mode');
+        const warnBg = isDark ? 'linear-gradient(135deg, #fff3cd 0%, #ffe5b4 100%)' : 'linear-gradient(135deg, rgba(240, 180, 41, 0.12) 0%, rgba(240, 180, 41, 0.08) 100%)';
+        const warnBorder = isDark ? '#ffc107' : 'rgba(240, 180, 41, 0.4)';
+        const warnText = isDark ? '#856404' : 'var(--text-primary, #856404)';
+        const btnBg = isDark ? 'linear-gradient(135deg, #ffc107 0%, #ff9800 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        const btnShadow = isDark ? '0 2px 8px rgba(255, 193, 7, 0.4)' : '0 2px 8px rgba(118, 75, 162, 0.4)';
 
         return `
             <div class="bluetooth-disabled-section" style="

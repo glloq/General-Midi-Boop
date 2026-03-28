@@ -26,9 +26,3 @@ body.dark-mode .playback-timeline-wrap {
     background: var(--bg-secondary, #2d3748);
     border-bottom-color: var(--border-color, #4a5568);
 }
-
-/* ---- Colored theme overrides ---- */
-body.theme-colored .playback-timeline-wrap {
-    background: var(--bg-tertiary, #ddd6f3);
-    border-bottom-color: var(--border-color, rgba(118, 75, 162, 0.25));
-}

@@ -34,9 +34,9 @@
         "title": "การตั้งค่า",
         "theme": {
             "title": "ธีม",
-            "light": "สว่าง",
             "dark": "มืด",
-            "colored": "สีสัน"
+            "colored": "สีสัน",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "คีย์บอร์ด",

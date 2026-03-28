@@ -34,9 +34,9 @@
         "title": "Настройки",
         "theme": {
             "title": "Тема",
-            "light": "Светлая",
             "dark": "Тёмная",
-            "colored": "Цветная"
+            "colored": "Цветная",
+            "darkDescription": "Включить тёмный режим"
         },
         "keyboard": {
             "title": "Клавиатура",

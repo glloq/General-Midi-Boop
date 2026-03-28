@@ -81,17 +81,8 @@ class NavigationOverviewBar {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
 
-        if (isColored) {
-            this.colors = {
-                background: '#e8e0f0',
-                tick: 'rgba(118, 75, 162, 0.15)',
-                viewportBorder: '#764ba2',
-                viewportFill: 'rgba(118, 75, 162, 0.18)',
-                border: 'rgba(118, 75, 162, 0.25)',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1e1e2e',
                 tick: 'rgba(255, 255, 255, 0.06)',
@@ -101,11 +92,11 @@ class NavigationOverviewBar {
             };
         } else {
             this.colors = {
-                background: '#f0f0f0',
-                tick: 'rgba(0, 0, 0, 0.06)',
-                viewportBorder: '#667eea',
-                viewportFill: 'rgba(102, 126, 234, 0.18)',
-                border: '#ddd',
+                background: '#e8e0f0',
+                tick: 'rgba(118, 75, 162, 0.15)',
+                viewportBorder: '#764ba2',
+                viewportFill: 'rgba(118, 75, 162, 0.18)',
+                border: 'rgba(118, 75, 162, 0.25)',
             };
         }
 

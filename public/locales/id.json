@@ -34,9 +34,9 @@
         "title": "Pengaturan",
         "theme": {
             "title": "Tema",
-            "light": "Terang",
             "dark": "Gelap",
-            "colored": "Berwarna"
+            "colored": "Berwarna",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Keyboard",

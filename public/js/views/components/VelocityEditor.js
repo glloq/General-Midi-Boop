@@ -64,8 +64,8 @@ class VelocityEditor {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: ${document.body.classList.contains('theme-colored') ? '#f0f4ff' : '#1a1a1a'};
-            border-top: 1px solid ${document.body.classList.contains('theme-colored') ? '#d4daff' : '#333'};
+            background: ${document.body.classList.contains('dark-mode') ? '#1a1a1a' : '#f0f4ff'};
+            border-top: 1px solid ${document.body.classList.contains('dark-mode') ? '#333' : '#d4daff'};
             position: relative;
             overflow: hidden;
             min-height: 0;
@@ -636,8 +636,8 @@ class VelocityEditor {
         ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
 
         // Grille verticale (temps) - IDENTIQUE À CC
-        const isColored = document.body.classList.contains('theme-colored');
-        ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
+        const isDark = document.body.classList.contains('dark-mode');
+        ctx.strokeStyle = isDark ? '#3a3a3a' : '#d4daff';
         ctx.lineWidth = 1;
 
         const gridSize = this.options.grid;
@@ -656,7 +656,7 @@ class VelocityEditor {
 
         // Grille horizontale (valeurs de vélocité) - IDENTIQUE À CC
         const values = [0, 32, 64, 96, 127]; // IDENTIQUE À CC
-        ctx.strokeStyle = isColored ? '#d4daff' : '#3a3a3a';
+        ctx.strokeStyle = isDark ? '#3a3a3a' : '#d4daff';
         ctx.lineWidth = 1;
 
         values.forEach(value => {
@@ -669,18 +669,18 @@ class VelocityEditor {
             ctx.stroke();
 
             // Zone de label (fond)
-            ctx.fillStyle = isColored ? '#f0f4ff' : '#1a1a1a';
+            ctx.fillStyle = isDark ? '#1a1a1a' : '#f0f4ff';
             ctx.fillRect(0, y - 7, labelMargin - 2, 14);
 
             // Label
-            ctx.fillStyle = isColored ? '#5a6089' : '#aaa';
+            ctx.fillStyle = isDark ? '#aaa' : '#5a6089';
             ctx.font = '11px monospace';
             ctx.textAlign = 'right';
             ctx.fillText(value.toString(), labelMargin - 5, y + 4);
         });
 
         // Bordure verticale séparant la zone de labels
-        ctx.strokeStyle = isColored ? '#b0b8e8' : '#555';
+        ctx.strokeStyle = isDark ? '#555' : '#b0b8e8';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(labelMargin, 0);

@@ -4,7 +4,7 @@
    Ce fichier DOIT être chargé en premier. Il définit toutes les variables CSS utilisées
    par l'application. Aucun autre fichier ne doit redéfinir de variables :root.
 
-   Thème clair par défaut, thème sombre via body.dark-mode, coloré via body.theme-colored.
+   Thème coloré par défaut, thème sombre via body.dark-mode.
    ====================================================================================== */
 
 :root {
@@ -25,99 +25,100 @@
     --transition-normal: 0.3s ease;
     --transition-slow: 0.5s ease;
 
-    /* ===== THÈME CLAIR (défaut) ===== */
+    /* ===== THÈME COLORÉ (défaut) ===== */
 
     /* Backgrounds */
-    --bg-primary: #f8f9fa;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #e9ecef;
+    --bg-primary: linear-gradient(135deg, #e8f0fe 0%, #f3e8ff 50%, #fce8f0 100%);
+    --bg-primary-flat: #eae4f7;
+    --bg-secondary: rgba(255, 255, 255, 0.75);
+    --bg-tertiary: #ddd6f3;
 
     /* Textes */
-    --text-primary: #2c3e50;
-    --text-secondary: #6c757d;
-    --text-muted: #adb5bd;
-    --text-disabled: #ced4da;
+    --text-primary: #1a1040;
+    --text-secondary: #4a3f6b;
+    --text-muted: #8078a0;
+    --text-disabled: #b8b2cc;
 
     /* Borders */
-    --border-color: #e9ecef;
-    --border-light: #f1f3f4;
+    --border-color: rgba(118, 75, 162, 0.25);
+    --border-light: rgba(102, 126, 234, 0.18);
 
     /* Accents */
     --accent-primary: #667eea;
     --accent-secondary: #764ba2;
     --accent-gradient: linear-gradient(135deg, #667eea, #764ba2);
-    --color-primary: #4ECDC4;
-    --color-secondary: #FF6B6B;
-    --color-accent: #FFD93D;
+    --color-primary: #00c896;
+    --color-secondary: #e8365d;
+    --color-accent: #f0b429;
 
     /* Status */
-    --success-color: #28a745;
-    --warning-color: #ffc107;
-    --danger-color: #dc3545;
-    --info-color: #17a2b8;
+    --success-color: #00c896;
+    --warning-color: #f0b429;
+    --danger-color: #e8365d;
+    --info-color: #0d8ecf;
 
     /* Shadows */
-    --shadow-light: 0 2px 4px rgba(0,0,0,0.05);
-    --shadow-medium: 0 4px 20px rgba(0,0,0,0.08);
-    --shadow-heavy: 0 8px 30px rgba(0,0,0,0.12);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.16);
-    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.20);
+    --shadow-light: 0 2px 8px rgba(118, 75, 162, 0.14);
+    --shadow-medium: 0 4px 20px rgba(118, 75, 162, 0.18);
+    --shadow-heavy: 0 8px 30px rgba(118, 75, 162, 0.25);
+    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.12);
+    --shadow-md: 0 4px 8px rgba(118, 75, 162, 0.18);
+    --shadow-lg: 0 10px 25px rgba(118, 75, 162, 0.25);
 
     /* Cards */
-    --card-bg: #ffffff;
-    --header-bg: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.7);
+    --header-bg: rgba(255, 255, 255, 0.6);
 
     /* ===== MODULE-SPECIFIC VARIABLES ===== */
 
     /* Editor */
-    --primary-color: #4ECDC4;
-    --primary-hover: #45B7D1;
-    --primary-active: #3AAFA9;
-    --secondary-color: #333;
-    --accent-warning: #FF9800;
-    --accent-danger: #F44336;
-    --accent-success: #4CAF50;
+    --primary-color: #667eea;
+    --primary-hover: #5468d4;
+    --primary-active: #4558be;
+    --secondary-color: #764ba2;
+    --accent-warning: #f0b429;
+    --accent-danger: #e8365d;
+    --accent-success: #00c896;
 
     /* Instruments */
     --instrument-primary: #667eea;
-    --instrument-success: #2ecc71;
-    --instrument-warning: #f39c12;
-    --instrument-error: #e74c3c;
-    --instrument-usb: #3498db;
-    --instrument-wifi: #2ecc71;
-    --instrument-bluetooth: #9b59b6;
-    --instrument-bg: #ffffff;
-    --instrument-border: #e0e0e0;
-    --instrument-shadow: rgba(0, 0, 0, 0.1);
+    --instrument-success: #00c896;
+    --instrument-warning: #f0b429;
+    --instrument-error: #e8365d;
+    --instrument-usb: #0d8ecf;
+    --instrument-wifi: #00c896;
+    --instrument-bluetooth: #764ba2;
+    --instrument-bg: rgba(255, 255, 255, 0.7);
+    --instrument-border: rgba(118, 75, 162, 0.25);
+    --instrument-shadow: rgba(118, 75, 162, 0.18);
 
     /* Bluetooth */
-    --bluetooth-primary: #9b59b6;
-    --bluetooth-success: #2ecc71;
-    --bluetooth-danger: #e74c3c;
-    --bluetooth-border: #e0e0e0;
-    --bluetooth-shadow: rgba(0, 0, 0, 0.1);
+    --bluetooth-primary: #764ba2;
+    --bluetooth-success: #00c896;
+    --bluetooth-danger: #e8365d;
+    --bluetooth-border: rgba(118, 75, 162, 0.25);
+    --bluetooth-shadow: rgba(118, 75, 162, 0.18);
 
     /* Network */
-    --network-primary: #3498db;
-    --network-secondary: #2980b9;
-    --network-success: #2ecc71;
-    --network-danger: #e74c3c;
-    --network-border: #e0e0e0;
-    --network-shadow: rgba(0, 0, 0, 0.1);
+    --network-primary: #118ab2;
+    --network-secondary: #073b4c;
+    --network-success: #06d6a0;
+    --network-danger: #ef476f;
+    --network-border: #d4daff;
+    --network-shadow: rgba(17, 138, 178, 0.12);
 
     /* Focus (accessibility) */
-    --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.4);
+    --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.35);
 
     /* Scrollbar (touch-friendly) */
     --scrollbar-size: 14px;
-    --scrollbar-track-bg: var(--bg-tertiary);
-    --scrollbar-thumb-bg: var(--accent-primary);
-    --scrollbar-thumb-hover: var(--accent-secondary);
+    --scrollbar-track-bg: #e8eeff;
+    --scrollbar-thumb-bg: #667eea;
+    --scrollbar-thumb-hover: #764ba2;
     --scrollbar-thumb-active: #5a6fd6;
     --scrollbar-thumb-radius: 7px;
-    --scrollbar-thumb-border: 3px solid var(--bg-tertiary);
-    --scrollbar-corner-bg: var(--bg-tertiary);
+    --scrollbar-thumb-border: 3px solid #e8eeff;
+    --scrollbar-corner-bg: #e8eeff;
 }
 
 /* ===== THÈME SOMBRE ===== */
@@ -168,92 +169,9 @@ body.dark-mode {
     color: var(--text-primary);
 }
 
-/* ===== THÈME COLORÉ ===== */
-body.theme-colored {
-    --bg-primary: linear-gradient(135deg, #e8f0fe 0%, #f3e8ff 50%, #fce8f0 100%);
-    --bg-primary-flat: #eae4f7;
-    --bg-secondary: rgba(255, 255, 255, 0.75);
-    --bg-tertiary: #ddd6f3;
-
-    --text-primary: #1a1040;
-    --text-secondary: #4a3f6b;
-    --text-muted: #8078a0;
-    --text-disabled: #b8b2cc;
-
-    --border-color: rgba(118, 75, 162, 0.25);
-    --border-light: rgba(102, 126, 234, 0.18);
-
-    --accent-primary: #667eea;
-    --accent-secondary: #764ba2;
-    --accent-gradient: linear-gradient(135deg, #667eea, #764ba2);
-
-    --color-primary: #00c896;
-    --color-secondary: #e8365d;
-    --color-accent: #f0b429;
-
-    --success-color: #00c896;
-    --warning-color: #f0b429;
-    --danger-color: #e8365d;
-    --info-color: #0d8ecf;
-
-    --shadow-light: 0 2px 8px rgba(118, 75, 162, 0.14);
-    --shadow-medium: 0 4px 20px rgba(118, 75, 162, 0.18);
-    --shadow-heavy: 0 8px 30px rgba(118, 75, 162, 0.25);
-    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.12);
-    --shadow-md: 0 4px 8px rgba(118, 75, 162, 0.18);
-    --shadow-lg: 0 10px 25px rgba(118, 75, 162, 0.25);
-
-    --card-bg: rgba(255, 255, 255, 0.7);
-    --header-bg: rgba(255, 255, 255, 0.6);
-
-    --primary-color: #667eea;
-    --primary-hover: #5468d4;
-    --primary-active: #4558be;
-    --secondary-color: #764ba2;
-    --accent-warning: #f0b429;
-    --accent-danger: #e8365d;
-    --accent-success: #00c896;
-
-    --instrument-primary: #667eea;
-    --instrument-success: #00c896;
-    --instrument-warning: #f0b429;
-    --instrument-error: #e8365d;
-    --instrument-usb: #0d8ecf;
-    --instrument-wifi: #00c896;
-    --instrument-bluetooth: #764ba2;
-    --instrument-bg: rgba(255, 255, 255, 0.7);
-    --instrument-border: rgba(118, 75, 162, 0.25);
-    --instrument-shadow: rgba(118, 75, 162, 0.18);
-
-    --bluetooth-primary: #764ba2;
-    --bluetooth-success: #00c896;
-    --bluetooth-danger: #e8365d;
-    --bluetooth-border: rgba(118, 75, 162, 0.25);
-    --bluetooth-shadow: rgba(118, 75, 162, 0.18);
-
-    --network-primary: #118ab2;
-    --network-secondary: #073b4c;
-    --network-success: #06d6a0;
-    --network-danger: #ef476f;
-    --network-border: #d4daff;
-    --network-shadow: rgba(17, 138, 178, 0.12);
-
-    --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.35);
-
-    --scrollbar-track-bg: #e8eeff;
-    --scrollbar-thumb-bg: #667eea;
-    --scrollbar-thumb-hover: #764ba2;
-    --scrollbar-thumb-active: #5a6fd6;
-    --scrollbar-thumb-border: 3px solid #e8eeff;
-    --scrollbar-corner-bg: #e8eeff;
-
-    background: var(--bg-primary);
-    color: var(--text-primary);
-}
-
 /* ===== AUTO-DÉTECTION DU THÈME SYSTÈME ===== */
 @media (prefers-color-scheme: dark) {
-    body:not(.light-mode):not(.dark-mode) {
+    body:not(.dark-mode):not(.theme-colored) {
         --bg-primary: #1a1a1a;
         --bg-secondary: #2d3748;
         --bg-tertiary: #4a5568;

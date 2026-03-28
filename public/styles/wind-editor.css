@@ -365,68 +365,7 @@ body.dark-mode .wind-info-value {
 
 body.dark-mode .wind-info-label {
     color: #a0aec0;
-}
-
-/* ---- Colored Theme ---- */
-body.theme-colored .wind-editor-panel {
-    border-top-color: var(--border-color);
-}
-
-body.theme-colored .wind-editor-header {
-    background: linear-gradient(135deg, rgba(74, 144, 217, 0.06), rgba(102, 126, 234, 0.04));
-    border-bottom-color: var(--border-color);
-}
-
-body.theme-colored .wind-tool-btn {
-    background: rgba(74, 144, 217, 0.06);
-    color: var(--text-primary);
-    border-color: rgba(74, 144, 217, 0.2);
-}
-
-body.theme-colored .wind-tool-btn:hover {
-    background: #4a90d9;
-    color: #fff;
-}
-
-body.theme-colored .wind-separator {
-    background: var(--border-color);
-}
-
-body.theme-colored .wind-tools-panel-wrapper {
-    border-left-color: var(--border-color);
-    background: #f0f4ff;
-}
-
-body.theme-colored .wind-tools-section {
-    background: rgba(74, 144, 217, 0.04);
-    border-color: rgba(74, 144, 217, 0.12);
-}
-
-body.theme-colored .wind-tools-btn,
-body.theme-colored .wind-art-btn {
-    background: #ffffff;
-    color: var(--text-primary);
-    border-color: rgba(74, 144, 217, 0.2);
-}
-
-body.theme-colored .wind-tools-btn:hover,
-body.theme-colored .wind-art-btn:hover {
-    background: #4a90d9;
-    color: #fff;
-}
-
-body.theme-colored .wind-art-btn.active {
-    background: #4a90d9;
-    color: #fff;
-}
-
-body.theme-colored .wind-velocity-input {
-    background: #ffffff;
-    color: var(--text-primary);
-    border-color: var(--border-color);
-}
-
-/* ---- Responsive ---- */
+}/* ---- Responsive ---- */
 @media (max-width: 768px) {
     .wind-tools-panel-wrapper {
         display: none;

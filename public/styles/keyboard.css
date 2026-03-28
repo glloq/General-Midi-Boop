@@ -264,36 +264,3 @@ body.performance-mode .keyboard-canvas,
 body.performance-mode .btn-preset {
     transition: none !important;
 }
-
-/* ============================================================================
-   THÈME COLORÉ - KEYBOARD PAGE
-   ============================================================================ */
-
-body.theme-colored .keyboard-page {
-    background: transparent;
-}
-
-body.theme-colored .keyboard-controls {
-    background: linear-gradient(135deg, rgba(118, 75, 162, 0.08), rgba(102, 126, 234, 0.06));
-    border: 1px solid rgba(118, 75, 162, 0.15);
-}
-
-body.theme-colored .keyboard-canvas-wrapper {
-    background: rgba(255, 255, 255, 0.5);
-    border: 2px solid rgba(118, 75, 162, 0.2);
-    backdrop-filter: blur(8px);
-}
-
-body.theme-colored .keyboard-legend {
-    background: linear-gradient(135deg, rgba(118, 75, 162, 0.06), rgba(102, 126, 234, 0.04));
-}
-
-body.theme-colored .btn-preset {
-    background: linear-gradient(135deg, rgba(118, 75, 162, 0.08), rgba(102, 126, 234, 0.06));
-    border: 1px solid rgba(118, 75, 162, 0.2);
-}
-
-body.theme-colored .btn-preset:hover {
-    background: #764ba2;
-    color: #ffffff;
-}

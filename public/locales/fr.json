@@ -35,9 +35,9 @@
         "title": "Réglages",
         "theme": {
             "title": "Thème",
-            "light": "Light",
             "dark": "Dark",
-            "colored": "Colored"
+            "colored": "Colored",
+            "darkDescription": "Activer le mode sombre"
         },
         "keyboard": {
             "title": "Clavier",

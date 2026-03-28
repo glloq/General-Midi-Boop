@@ -34,9 +34,9 @@
         "title": "Asetukset",
         "theme": {
             "title": "Teema",
-            "light": "Vaalea",
             "dark": "Tumma",
-            "colored": "Värillinen"
+            "colored": "Värillinen",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Näppäimistö",

@@ -91,24 +91,7 @@ class TablatureRenderer {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                stringLine: '#b0b8e8',
-                stringLabel: '#5a6089',
-                fretNumber: '#2d3561',
-                fretNumberSelected: '#ffffff',
-                fretNumberBg: 'transparent',
-                fretNumberSelectedBg: '#667eea',
-                measureLine: '#d4daff',
-                beatLine: '#e8eeff',
-                playhead: '#ef476f',
-                hoverHighlight: 'rgba(102,126,234,0.15)',
-                selectionRect: 'rgba(102,126,234,0.3)',
-                unplayable: '#ef476f',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 stringLine: '#4a5568',
@@ -126,19 +109,19 @@ class TablatureRenderer {
             };
         } else {
             this.colors = {
-                background: '#ffffff',
-                stringLine: '#999999',
-                stringLabel: '#666666',
-                fretNumber: '#222222',
+                background: '#f0f4ff',
+                stringLine: '#b0b8e8',
+                stringLabel: '#5a6089',
+                fretNumber: '#2d3561',
                 fretNumberSelected: '#ffffff',
                 fretNumberBg: 'transparent',
                 fretNumberSelectedBg: '#667eea',
-                measureLine: '#e0e0e0',
-                beatLine: '#f0f0f0',
-                playhead: '#ff4444',
-                hoverHighlight: 'rgba(102,126,234,0.1)',
+                measureLine: '#d4daff',
+                beatLine: '#e8eeff',
+                playhead: '#ef476f',
+                hoverHighlight: 'rgba(102,126,234,0.15)',
                 selectionRect: 'rgba(102,126,234,0.3)',
-                unplayable: '#cc0000',
+                unplayable: '#ef476f',
             };
         }
     }

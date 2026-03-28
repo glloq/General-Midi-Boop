@@ -34,9 +34,9 @@
         "title": "Налаштування",
         "theme": {
             "title": "Тема",
-            "light": "Світла",
             "dark": "Темна",
-            "colored": "Кольорова"
+            "colored": "Кольорова",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Клавіатура",

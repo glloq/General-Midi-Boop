@@ -34,9 +34,9 @@
         "title": "Instellingen",
         "theme": {
             "title": "Thema",
-            "light": "Licht",
             "dark": "Donker",
-            "colored": "Gekleurd"
+            "colored": "Gekleurd",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Toetsenbord",

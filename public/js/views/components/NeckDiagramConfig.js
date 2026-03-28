@@ -82,27 +82,8 @@ class NeckDiagramConfig {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
 
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                neck: '#c8b898',
-                fretWire: '#a0a0b8',
-                nut: '#e8e0d8',
-                string: '#5a6089',
-                stringLabel: '#5a6089',
-                fretNumber: '#9498b8',
-                marker: 'rgba(102,126,234,0.1)',
-                markerDot: 'rgba(102,126,234,0.25)',
-                handle: '#667eea',
-                handleHover: '#5a6fd6',
-                handleText: '#ffffff',
-                bodyFill: '#b8a888',
-                bodyStroke: '#a09878',
-                inactiveZone: 'rgba(102,126,234,0.06)',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 neck: '#2d1f0e',
@@ -122,21 +103,21 @@ class NeckDiagramConfig {
             };
         } else {
             this.colors = {
-                background: '#f5f0e8',
-                neck: '#d4a574',
-                fretWire: '#aaaaaa',
-                nut: '#f0f0e0',
-                string: '#666666',
-                stringLabel: '#555555',
-                fretNumber: '#888888',
-                marker: 'rgba(0,0,0,0.06)',
-                markerDot: 'rgba(0,0,0,0.12)',
+                background: '#f0f4ff',
+                neck: '#c8b898',
+                fretWire: '#a0a0b8',
+                nut: '#e8e0d8',
+                string: '#5a6089',
+                stringLabel: '#5a6089',
+                fretNumber: '#9498b8',
+                marker: 'rgba(102,126,234,0.1)',
+                markerDot: 'rgba(102,126,234,0.25)',
                 handle: '#667eea',
                 handleHover: '#5a6fd6',
                 handleText: '#ffffff',
-                bodyFill: '#c49464',
-                bodyStroke: '#a07850',
-                inactiveZone: 'rgba(0,0,0,0.03)',
+                bodyFill: '#b8a888',
+                bodyStroke: '#a09878',
+                inactiveZone: 'rgba(102,126,234,0.06)',
             };
         }
     }

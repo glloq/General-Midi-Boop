@@ -34,9 +34,9 @@
         "title": "सेटिंग्स",
         "theme": {
             "title": "थीम",
-            "light": "लाइट",
             "dark": "डार्क",
-            "colored": "रंगीन"
+            "colored": "रंगीन",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "कीबोर्ड",

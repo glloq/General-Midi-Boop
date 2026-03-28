@@ -405,71 +405,7 @@ body.dark-mode .drum-velocity-input {
     background: #2d3748;
     color: #e0e0e0;
     border-color: #4a5568;
-}
-
-/* ---- Colored Theme ---- */
-body.theme-colored .drum-pattern-editor-panel {
-    border-top-color: var(--border-color);
-}
-
-body.theme-colored .drum-pattern-header {
-    background: linear-gradient(135deg, rgba(239, 71, 111, 0.06), rgba(118, 75, 162, 0.04));
-    border-bottom-color: var(--border-color);
-}
-
-body.theme-colored .drum-tool-btn {
-    background: rgba(239, 71, 111, 0.06);
-    color: var(--text-primary);
-    border-color: rgba(239, 71, 111, 0.2);
-}
-
-body.theme-colored .drum-tool-btn:hover {
-    background: #ef476f;
-    color: #fff;
-}
-
-body.theme-colored .drum-separator {
-    background: var(--border-color);
-}
-
-body.theme-colored .drum-tools-panel-wrapper {
-    border-left-color: var(--border-color);
-    background: #f0f4ff;
-}
-
-body.theme-colored .drum-tools-section {
-    background: rgba(239, 71, 111, 0.04);
-    border-color: rgba(239, 71, 111, 0.12);
-}
-
-body.theme-colored .drum-tools-btn {
-    background: #ffffff;
-    color: var(--text-primary);
-    border-color: rgba(239, 71, 111, 0.2);
-}
-
-body.theme-colored .drum-tools-btn:hover {
-    background: #ef476f;
-    color: #fff;
-}
-
-body.theme-colored .drum-pattern-info {
-    background: #ffffff;
-}
-
-body.theme-colored .drum-quantize-select {
-    background: #ffffff;
-    color: var(--text-primary);
-    border-color: var(--border-color);
-}
-
-body.theme-colored .drum-velocity-input {
-    background: #ffffff;
-    color: var(--text-primary);
-    border-color: var(--border-color);
-}
-
-/* ---- Responsive ---- */
+}/* ---- Responsive ---- */
 @media (max-width: 768px) {
     .drum-tools-panel-wrapper {
         display: none;

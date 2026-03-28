@@ -34,9 +34,9 @@
         "title": "Beállítások",
         "theme": {
             "title": "Téma",
-            "light": "Világos",
             "dark": "Sötét",
-            "colored": "Színes"
+            "colored": "Színes",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Billentyűzet",

@@ -34,9 +34,9 @@
         "title": "Ρυθμίσεις",
         "theme": {
             "title": "Θέμα",
-            "light": "Φωτεινό",
             "dark": "Σκοτεινό",
-            "colored": "Έγχρωμο"
+            "colored": "Έγχρωμο",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Πληκτρολόγιο",

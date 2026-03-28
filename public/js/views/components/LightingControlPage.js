@@ -31,7 +31,7 @@ class LightingControlPage {
   // ==================== THEME DETECTION ====================
 
   _isDark() {
-    return document.body.classList.contains('theme-dark');
+    return document.body.classList.contains('dark-mode');
   }
 
   // ==================== TOAST & CONFIRM ====================

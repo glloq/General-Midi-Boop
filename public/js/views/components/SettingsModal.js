@@ -2,7 +2,7 @@
  * SettingsModal - Modal pour les réglages de l'application
  *
  * Fonctionnalités :
- * - Modification du thème (dark, light, colored)
+ * - Modification du thème (colored par défaut, dark en option)
  * - Ajustement du nombre de touches du clavier
  * - Modification du temps d'affichage des notes
  * - Gestion de l'instrument virtuel
@@ -43,7 +43,7 @@ class SettingsModal {
      */
     loadSettings() {
         const defaults = {
-            theme: 'light',
+            theme: 'colored',
             keyboardOctaves: 2, // 2 octaves par défaut (24 touches)
             noteDisplayTime: 20, // secondes
             virtualInstrument: false,
@@ -65,6 +65,12 @@ class SettingsModal {
                     parsed.keyboardOctaves = Math.ceil(oldKeys / 12);
                     delete parsed.keyboardKeys;
                     this.logger?.info(`Migrated keyboardKeys (${oldKeys}) to keyboardOctaves (${parsed.keyboardOctaves})`);
+                }
+
+                // Migration: thème light supprimé → colored
+                if (parsed.theme === 'light') {
+                    parsed.theme = 'colored';
+                    this.logger?.info('Migrated theme light → colored');
                 }
 
                 return { ...defaults, ...parsed };
@@ -239,9 +245,7 @@ class SettingsModal {
             });
         }
 
-        this.modal.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.selectTheme(btn.dataset.theme));
-        });
+        // Dark mode toggle - pas d'action immédiate, appliqué au save
 
         const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
         const keyboardValue = this.modal.querySelector('#keyboardOctavesValue');
@@ -292,7 +296,8 @@ class SettingsModal {
         document.addEventListener('keydown', this._escHandler);
 
         // Restaurer les valeurs actuelles
-        this.selectTheme(this.settings.theme);
+        const darkModeToggle = this.modal.querySelector('#darkModeToggle');
+        if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
 
         const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
         const keyboardValue = this.modal.querySelector('#keyboardOctavesValue');
@@ -344,7 +349,7 @@ class SettingsModal {
      * Sauvegarder et appliquer les paramètres
      */
     save() {
-        const activeThemeBtn = this.modal.querySelector('.theme-btn.active');
+        const darkModeToggle = this.modal.querySelector('#darkModeToggle');
         const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
         const timeRange = this.modal.querySelector('#noteDisplayTimeRange');
         const virtualToggle = this.modal.querySelector('#virtualInstrumentToggle');
@@ -355,7 +360,7 @@ class SettingsModal {
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
 
         const newSettings = {
-            theme: activeThemeBtn ? activeThemeBtn.dataset.theme : this.settings.theme,
+            theme: darkModeToggle ? (darkModeToggle.checked ? 'dark' : 'colored') : this.settings.theme,
             keyboardOctaves: keyboardRange ? parseInt(keyboardRange.value) : this.settings.keyboardOctaves,
             noteDisplayTime: timeRange ? parseInt(timeRange.value) : this.settings.noteDisplayTime,
             virtualInstrument: virtualToggle ? virtualToggle.checked : this.settings.virtualInstrument,

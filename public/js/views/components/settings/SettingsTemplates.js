@@ -50,58 +50,26 @@
             <!-- Thème -->
             <div class="settings-section" style="margin-top: 24px;">
                 <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎨 ${i18n.t('settings.theme.title')}</h3>
-                <div class="theme-options" style="display: flex; gap: 12px;">
-                    <button class="theme-btn" data-theme="light" style="
-                        flex: 1;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        background: white;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        font-size: 14px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 8px;
-                    ">
-                        <span style="font-size: 24px;">☀️</span>
-                        <span>${i18n.t('settings.theme.light')}</span>
-                    </button>
-                    <button class="theme-btn" data-theme="dark" style="
-                        flex: 1;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        background: white;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        font-size: 14px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 8px;
-                    ">
-                        <span style="font-size: 24px;">🌙</span>
-                        <span>${i18n.t('settings.theme.dark')}</span>
-                    </button>
-                    <button class="theme-btn" data-theme="colored" style="
-                        flex: 1;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        background: white;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        font-size: 14px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 8px;
-                    ">
-                        <span style="font-size: 24px;">🎨</span>
-                        <span>${i18n.t('settings.theme.colored')}</span>
-                    </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">🌙 ${i18n.t('settings.theme.dark')}</p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.theme.darkDescription') || 'Activer le mode sombre'}</p>
+                    </div>
+                    <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                        <input type="checkbox" id="darkModeToggle" ${this.settings.theme === 'dark' ? 'checked' : ''}
+                               style="opacity: 0; width: 0; height: 0;">
+                        <span class="toggle-slider" style="
+                            position: absolute;
+                            cursor: pointer;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background-color: #ccc;
+                            transition: 0.4s;
+                            border-radius: 30px;
+                        "></span>
+                    </label>
                 </div>
             </div>
 
@@ -409,8 +377,9 @@
             content.innerHTML = this.renderContent();
             // Reattach events for new elements
             this.attachContentEventListeners();
-            // Restore values
-            this.selectTheme(this.settings.theme);
+            // Restore dark mode toggle value
+            const darkModeToggle = this.modal.querySelector('#darkModeToggle');
+            if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
             // Re-check updates (HTML was regenerated)
             this.checkForUpdates();
         }

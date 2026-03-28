@@ -34,9 +34,9 @@
         "title": "Agordoj",
         "theme": {
             "title": "Etoso",
-            "light": "Hela",
             "dark": "Malhela",
-            "colored": "Kolora"
+            "colored": "Kolora",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klavaro",

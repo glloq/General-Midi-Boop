@@ -35,9 +35,9 @@
         "title": "Settings",
         "theme": {
             "title": "Theme",
-            "light": "Light",
             "dark": "Dark",
-            "colored": "Colored"
+            "colored": "Colored",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Keyboard",

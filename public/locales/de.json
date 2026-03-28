@@ -34,9 +34,9 @@
         "title": "Einstellungen",
         "theme": {
             "title": "Thema",
-            "light": "Hell",
             "dark": "Dunkel",
-            "colored": "Farbig"
+            "colored": "Farbig",
+            "darkDescription": "Dunkelmodus aktivieren"
         },
         "keyboard": {
             "title": "Tastatur",

@@ -119,21 +119,8 @@ class PlaybackTimelineBar {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
 
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                gridLine: '#d4daff',
-                measureLine: '#b0b8e8',
-                headerText: '#5a6089',
-                beatText: '#9498b8',
-                playhead: '#ff4444',
-                rangeMarker: '#4caf50',
-                rangeFill: 'rgba(76, 175, 80, 0.10)',
-                border: '#d4daff',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 gridLine: '#2d3748',
@@ -147,15 +134,15 @@ class PlaybackTimelineBar {
             };
         } else {
             this.colors = {
-                background: '#ffffff',
-                gridLine: '#f0f0f0',
-                measureLine: '#ddd',
-                headerText: '#555',
-                beatText: '#999',
+                background: '#f0f4ff',
+                gridLine: '#d4daff',
+                measureLine: '#b0b8e8',
+                headerText: '#5a6089',
+                beatText: '#9498b8',
                 playhead: '#ff4444',
                 rangeMarker: '#4caf50',
-                rangeFill: 'rgba(76, 175, 80, 0.08)',
-                border: '#e0e0e0',
+                rangeFill: 'rgba(76, 175, 80, 0.10)',
+                border: '#d4daff',
             };
         }
 

@@ -153,29 +153,7 @@ class DrumGridRenderer {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                rowEven: '#e8ecff',
-                rowOdd: '#f0f4ff',
-                gridLine: '#d4daff',
-                measureLine: '#b0b8e8',
-                beatLine: '#d4daff',
-                headerBg: '#e0e4f8',
-                headerText: '#5a6089',
-                beatNumber: '#9498b8',
-                playhead: '#ef476f',
-                hoverRow: 'rgba(102,126,234,0.08)',
-                selectedBg: '#667eea',
-                selectionRect: 'rgba(102,126,234,0.3)',
-            };
-            this.categoryColors = {
-                kick: '#667eea', snare: '#ef476f', hihat: '#06d6a0',
-                tom: '#ffd166', crash: '#118ab2', ride: '#073b4c',
-                latin: '#9b59b6', misc: '#8e99a4'
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 rowEven: '#1e2234',
@@ -198,24 +176,24 @@ class DrumGridRenderer {
             };
         } else {
             this.colors = {
-                background: '#ffffff',
-                rowEven: '#f8f9fa',
-                rowOdd: '#ffffff',
-                gridLine: '#f0f0f0',
-                measureLine: '#ddd',
-                beatLine: '#f0f0f0',
-                headerBg: '#f5f5f5',
-                headerText: '#555',
-                beatNumber: '#999',
-                playhead: '#ff4444',
-                hoverRow: 'rgba(102,126,234,0.06)',
+                background: '#f0f4ff',
+                rowEven: '#e8ecff',
+                rowOdd: '#f0f4ff',
+                gridLine: '#d4daff',
+                measureLine: '#b0b8e8',
+                beatLine: '#d4daff',
+                headerBg: '#e0e4f8',
+                headerText: '#5a6089',
+                beatNumber: '#9498b8',
+                playhead: '#ef476f',
+                hoverRow: 'rgba(102,126,234,0.08)',
                 selectedBg: '#667eea',
                 selectionRect: 'rgba(102,126,234,0.3)',
             };
             this.categoryColors = {
-                kick: '#667eea', snare: '#dc3545', hihat: '#28a745',
-                tom: '#fd7e14', crash: '#0dcaf0', ride: '#6c757d',
-                latin: '#9b59b6', misc: '#adb5bd'
+                kick: '#667eea', snare: '#ef476f', hihat: '#06d6a0',
+                tom: '#ffd166', crash: '#118ab2', ride: '#073b4c',
+                latin: '#9b59b6', misc: '#8e99a4'
             };
         }
     }

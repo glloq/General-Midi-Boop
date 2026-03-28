@@ -52,17 +52,17 @@
             z-index: 10003 !important;
         `;
 
-        const isColored = document.body.classList.contains('theme-colored');
-        const dlgBg = isColored ? '#ffffff' : '#2a2a2a';
-        const dlgBorder = isColored ? '#ef476f' : '#ff6b6b';
-        const dlgShadow = isColored ? '0 4px 20px rgba(102,126,234,0.2)' : '0 4px 20px rgba(0,0,0,0.5)';
-        const dlgTextColor = isColored ? '#2d3561' : '#ddd';
-        const dlgWarnColor = isColored ? '#ef476f' : '#ff6b6b';
-        const cancelBg = isColored ? '#e8eeff' : '#444';
-        const cancelBorder = isColored ? '#d4daff' : '#666';
-        const cancelColor = isColored ? '#2d3561' : '#fff';
-        const saveBg = isColored ? '#06d6a0' : '#4CAF50';
-        const discardBg = isColored ? '#ef476f' : '#f44336';
+        const isDark = document.body.classList.contains('dark-mode');
+        const dlgBg = isDark ? '#2a2a2a' : '#ffffff';
+        const dlgBorder = isDark ? '#ff6b6b' : '#ef476f';
+        const dlgShadow = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(102,126,234,0.2)';
+        const dlgTextColor = isDark ? '#ddd' : '#2d3561';
+        const dlgWarnColor = isDark ? '#ff6b6b' : '#ef476f';
+        const cancelBg = isDark ? '#444' : '#e8eeff';
+        const cancelBorder = isDark ? '#666' : '#d4daff';
+        const cancelColor = isDark ? '#fff' : '#2d3561';
+        const saveBg = isDark ? '#4CAF50' : '#06d6a0';
+        const discardBg = isDark ? '#f44336' : '#ef476f';
 
         confirmModal.innerHTML = `
             <div class="modal-dialog" style="

@@ -34,9 +34,9 @@
         "title": "設定",
         "theme": {
             "title": "テーマ",
-            "light": "ライト",
             "dark": "ダーク",
-            "colored": "カラー"
+            "colored": "カラー",
+            "darkDescription": "ダークモードを有効にする"
         },
         "keyboard": {
             "title": "キーボード",

@@ -817,7 +817,6 @@
         if (!this.pianoRoll) return;
 
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
 
         if (isDark) {
             this.pianoRoll.setAttribute('collt', '#262830');
@@ -827,7 +826,7 @@
             this.pianoRoll.setAttribute('colrulerfg', '#8890a0');
             this.pianoRoll.setAttribute('colrulerborder', '#2e3038');
             this.pianoRoll.setAttribute('colnoteborder', 'rgba(255,255,255,0.1)');
-        } else if (isColored) {
+        } else {
             this.pianoRoll.setAttribute('collt', '#f7f7fc');
             this.pianoRoll.setAttribute('coldk', '#f0f0f8');
             this.pianoRoll.setAttribute('colgrid', '#e8e8f2');
@@ -835,14 +834,6 @@
             this.pianoRoll.setAttribute('colrulerfg', '#4a3f6b');
             this.pianoRoll.setAttribute('colrulerborder', '#e8e8f2');
             this.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.15)');
-        } else {
-            this.pianoRoll.setAttribute('collt', '#ffffff');
-            this.pianoRoll.setAttribute('coldk', '#f5f6f8');
-            this.pianoRoll.setAttribute('colgrid', '#eceef1');
-            this.pianoRoll.setAttribute('colrulerbg', '#f0f1f3');
-            this.pianoRoll.setAttribute('colrulerfg', '#495057');
-            this.pianoRoll.setAttribute('colrulerborder', '#eceef1');
-            this.pianoRoll.setAttribute('colnoteborder', 'rgba(0,0,0,0.08)');
         }
     }
 

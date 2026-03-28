@@ -28,17 +28,6 @@
                 transform: translateX(30px);
             }
 
-            .theme-btn.active {
-                border-color: #667eea !important;
-                background: #f0f4ff !important;
-            }
-
-            .theme-btn:hover {
-                border-color: #667eea !important;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
-            }
-
             .language-select:hover,
             .language-select:focus {
                 border-color: #667eea !important;
@@ -64,15 +53,12 @@
     };
 
     /**
-     * Select a theme (visual toggle in modal)
+     * Select a theme (update toggle state in modal)
      */
     SettingsTheme.selectTheme = function(theme) {
-        this.modal.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        const selectedBtn = this.modal.querySelector(`[data-theme="${theme}"]`);
-        if (selectedBtn) {
-            selectedBtn.classList.add('active');
+        const darkModeToggle = this.modal.querySelector('#darkModeToggle');
+        if (darkModeToggle) {
+            darkModeToggle.checked = theme === 'dark';
         }
     };
 
@@ -83,7 +69,7 @@
         const root = document.documentElement;
 
         // Remove previous theme classes
-        document.body.classList.remove('theme-light', 'theme-dark', 'theme-colored', 'dark-mode');
+        document.body.classList.remove('theme-dark', 'theme-colored', 'dark-mode');
 
         // Clean all inline custom properties to avoid leaking between themes
         const propsToClean = [
@@ -111,52 +97,33 @@
         ];
         propsToClean.forEach(p => root.style.removeProperty(p));
 
-        // Add new class
-        document.body.classList.add(`theme-${theme}`);
-        // Also add dark-mode class for CSS compatibility (used by themes.css, variables.css, etc.)
         if (theme === 'dark') {
-            document.body.classList.add('dark-mode');
-        }
-
-        // Apply CSS variables per theme (inline reinforcement for consistency)
-        switch (theme) {
-            case 'dark':
-                root.style.setProperty('--bg-primary', '#1a1a1a');
-                root.style.setProperty('--bg-secondary', '#2d2d2d');
-                root.style.setProperty('--text-primary', '#ffffff');
-                root.style.setProperty('--text-secondary', '#cccccc');
-                root.style.setProperty('--border-color', '#404040');
-                root.style.setProperty('--card-bg', '#2d2d2d');
-                root.style.setProperty('--header-bg', '#2d2d2d');
-                break;
-
-            case 'colored':
-                root.style.setProperty('--bg-primary', '#f0f4ff');
-                root.style.setProperty('--bg-secondary', '#ffffff');
-                root.style.setProperty('--bg-tertiary', '#e8eeff');
-                root.style.setProperty('--text-primary', '#2d3561');
-                root.style.setProperty('--text-secondary', '#5a6089');
-                root.style.setProperty('--border-color', '#d4daff');
-                root.style.setProperty('--card-bg', '#ffffff');
-                root.style.setProperty('--header-bg', 'rgba(255, 255, 255, 0.92)');
-                root.style.setProperty('--accent-primary', '#667eea');
-                root.style.setProperty('--accent-secondary', '#764ba2');
-                root.style.setProperty('--success-color', '#06d6a0');
-                root.style.setProperty('--warning-color', '#ffd166');
-                root.style.setProperty('--danger-color', '#ef476f');
-                root.style.setProperty('--info-color', '#118ab2');
-                break;
-
-            case 'light':
-            default:
-                root.style.setProperty('--bg-primary', '#f9fafb');
-                root.style.setProperty('--bg-secondary', '#ffffff');
-                root.style.setProperty('--text-primary', '#333333');
-                root.style.setProperty('--text-secondary', '#666666');
-                root.style.setProperty('--border-color', '#e5e7eb');
-                root.style.setProperty('--card-bg', '#ffffff');
-                root.style.setProperty('--header-bg', '#ffffff');
-                break;
+            // Dark mode
+            document.body.classList.add('theme-dark', 'dark-mode');
+            root.style.setProperty('--bg-primary', '#1a1a1a');
+            root.style.setProperty('--bg-secondary', '#2d2d2d');
+            root.style.setProperty('--text-primary', '#ffffff');
+            root.style.setProperty('--text-secondary', '#cccccc');
+            root.style.setProperty('--border-color', '#404040');
+            root.style.setProperty('--card-bg', '#2d2d2d');
+            root.style.setProperty('--header-bg', '#2d2d2d');
+        } else {
+            // Colored mode (default)
+            document.body.classList.add('theme-colored');
+            root.style.setProperty('--bg-primary', '#f0f4ff');
+            root.style.setProperty('--bg-secondary', '#ffffff');
+            root.style.setProperty('--bg-tertiary', '#e8eeff');
+            root.style.setProperty('--text-primary', '#2d3561');
+            root.style.setProperty('--text-secondary', '#5a6089');
+            root.style.setProperty('--border-color', '#d4daff');
+            root.style.setProperty('--card-bg', '#ffffff');
+            root.style.setProperty('--header-bg', 'rgba(255, 255, 255, 0.92)');
+            root.style.setProperty('--accent-primary', '#667eea');
+            root.style.setProperty('--accent-secondary', '#764ba2');
+            root.style.setProperty('--success-color', '#06d6a0');
+            root.style.setProperty('--warning-color', '#ffd166');
+            root.style.setProperty('--danger-color', '#ef476f');
+            root.style.setProperty('--info-color', '#118ab2');
         }
 
         // Notify canvas renderers to update their colors

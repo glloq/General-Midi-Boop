@@ -34,9 +34,9 @@
         "title": "Impostazioni",
         "theme": {
             "title": "Tema",
-            "light": "Chiaro",
             "dark": "Scuro",
-            "colored": "Colorato"
+            "colored": "Colorato",
+            "darkDescription": "Attiva la modalità scura"
         },
         "keyboard": {
             "title": "Tastiera",

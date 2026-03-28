@@ -34,9 +34,9 @@
         "title": "설정",
         "theme": {
             "title": "테마",
-            "light": "라이트",
             "dark": "다크",
-            "colored": "컬러"
+            "colored": "컬러",
+            "darkDescription": "다크 모드 활성화"
         },
         "keyboard": {
             "title": "키보드",

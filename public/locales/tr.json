@@ -34,9 +34,9 @@
         "title": "Ayarlar",
         "theme": {
             "title": "Tema",
-            "light": "Açık",
             "dark": "Koyu",
-            "colored": "Renkli"
+            "colored": "Renkli",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klavye",

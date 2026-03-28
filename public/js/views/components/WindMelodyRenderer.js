@@ -101,30 +101,7 @@ class WindMelodyRenderer {
 
     updateTheme() {
         const isDark = document.body.classList.contains('dark-mode');
-        const isColored = document.body.classList.contains('theme-colored');
-        if (isColored) {
-            this.colors = {
-                background: '#f0f4ff',
-                gridLine: '#d4daff',
-                measureLine: '#b0b8e8',
-                beatLine: '#d4daff',
-                headerBg: '#e0e4f8',
-                headerText: '#5a6089',
-                beatNumber: '#9498b8',
-                playhead: '#ef476f',
-                noteColor: '#667eea',
-                noteSelected: '#ef476f',
-                noteOutOfRange: '#ff4444',
-                comfortZone: 'rgba(102,126,234,0.06)',
-                extendedZone: 'rgba(255,209,102,0.10)',
-                outOfRangeZone: 'rgba(100,100,100,0.12)',
-                breathRequired: '#ef476f',
-                breathSuggested: '#ffa726',
-                selectionRect: 'rgba(102,126,234,0.25)',
-                octaveLine: '#c0c8f0',
-                articulationColor: '#5a6089',
-            };
-        } else if (isDark) {
+        if (isDark) {
             this.colors = {
                 background: '#1a1a2e',
                 gridLine: '#2d3748',
@@ -148,25 +125,25 @@ class WindMelodyRenderer {
             };
         } else {
             this.colors = {
-                background: '#ffffff',
-                gridLine: '#f0f0f0',
-                measureLine: '#ddd',
-                beatLine: '#f0f0f0',
-                headerBg: '#f5f5f5',
-                headerText: '#555',
-                beatNumber: '#999',
-                playhead: '#ff4444',
-                noteColor: '#4a90d9',
-                noteSelected: '#dc3545',
+                background: '#f0f4ff',
+                gridLine: '#d4daff',
+                measureLine: '#b0b8e8',
+                beatLine: '#d4daff',
+                headerBg: '#e0e4f8',
+                headerText: '#5a6089',
+                beatNumber: '#9498b8',
+                playhead: '#ef476f',
+                noteColor: '#667eea',
+                noteSelected: '#ef476f',
                 noteOutOfRange: '#ff4444',
-                comfortZone: 'rgba(74,144,217,0.06)',
-                extendedZone: 'rgba(255,193,7,0.08)',
-                outOfRangeZone: 'rgba(100,100,100,0.10)',
-                breathRequired: '#dc3545',
-                breathSuggested: '#ff9800',
-                selectionRect: 'rgba(74,144,217,0.25)',
-                octaveLine: '#e0e0e0',
-                articulationColor: '#555',
+                comfortZone: 'rgba(102,126,234,0.06)',
+                extendedZone: 'rgba(255,209,102,0.10)',
+                outOfRangeZone: 'rgba(100,100,100,0.12)',
+                breathRequired: '#ef476f',
+                breathSuggested: '#ffa726',
+                selectionRect: 'rgba(102,126,234,0.25)',
+                octaveLine: '#c0c8f0',
+                articulationColor: '#5a6089',
             };
         }
     }

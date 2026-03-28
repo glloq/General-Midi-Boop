@@ -34,9 +34,9 @@
         "title": "Indstillinger",
         "theme": {
             "title": "Tema",
-            "light": "Lyst",
             "dark": "Mørkt",
-            "colored": "Farverigt"
+            "colored": "Farverigt",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Tastatur",

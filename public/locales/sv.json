@@ -34,9 +34,9 @@
         "title": "Inställningar",
         "theme": {
             "title": "Tema",
-            "light": "Ljust",
             "dark": "Mörkt",
-            "colored": "Färgglatt"
+            "colored": "Färgglatt",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Tangentbord",

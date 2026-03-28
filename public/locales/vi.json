@@ -34,9 +34,9 @@
         "title": "Cài đặt",
         "theme": {
             "title": "Giao diện",
-            "light": "Sáng",
             "dark": "Tối",
-            "colored": "Màu sắc"
+            "colored": "Màu sắc",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Bàn phím",

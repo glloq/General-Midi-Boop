@@ -34,9 +34,9 @@
         "title": "Ustawienia",
         "theme": {
             "title": "Motyw",
-            "light": "Jasny",
             "dark": "Ciemny",
-            "colored": "Kolorowy"
+            "colored": "Kolorowy",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klawiatura",

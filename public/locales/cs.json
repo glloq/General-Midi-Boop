@@ -34,9 +34,9 @@
         "title": "Nastavení",
         "theme": {
             "title": "Téma",
-            "light": "Světlé",
             "dark": "Tmavé",
-            "colored": "Barevné"
+            "colored": "Barevné",
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klávesnice",
