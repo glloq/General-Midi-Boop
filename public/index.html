@@ -762,14 +762,12 @@
 
         /* Fichiers */
         .file-item {
-            border: 1px solid #1a1a2e;
-            border-left: 3px solid #1a1a2e;
+            border: 1px solid #d1d5db;
             transition: all 0.2s ease;
         }
 
         .file-item:hover {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.08), rgba(239, 71, 111, 0.04));
-            border-left-color: #667eea;
+            background: #f3f4f6;
         }
 
         .file-item.selected {
@@ -788,9 +786,9 @@
             color: #667eea;
         }
 
-        .folder-item { background: #fbbf24; border: none; color: #451a03; box-shadow: 4px 4px 0px #d97706; transition: all 0.15s ease; }
-        .folder-item:hover { background: #fcd34d; box-shadow: 3px 3px 0px #d97706; }
-        .folder-item.open { background: #f59e0b; box-shadow: 4px 4px 0px #b45309; }
+        .folder-item { background: #fbbf24; border: 1px solid #d1d5db; color: #451a03; box-shadow: none; transition: all 0.15s ease; }
+        .folder-item:hover { background: #fcd34d; }
+        .folder-item.open { background: #f59e0b; }
 
         .folder-item .folder-icon,
         .folder-item .icon {
@@ -953,9 +951,9 @@
         .display-mode-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3); }
 
         /* File grid view */
-        .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid #1a1a2e; backdrop-filter: blur(8px); }
+        .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid #d1d5db; backdrop-filter: blur(8px); }
         .file-list.view-grid .file-item::before { background: rgba(102, 126, 234, 0.3); }
-        .file-list.view-grid .file-item:hover { border-color: rgba(118, 75, 162, 0.35); box-shadow: 0 8px 20px rgba(118, 75, 162, 0.18); background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(232, 236, 254, 0.6)); }
+        .file-list.view-grid .file-item:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); background: #ffffff; }
         .file-list.view-grid .file-item:hover::before { background: #667eea; }
         .file-list.view-grid .file-item.selected { border-color: #764ba2; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); box-shadow: 0 4px 14px rgba(118, 75, 162, 0.2); }
         .file-list.view-grid .file-item.selected::before { background: #764ba2; }
@@ -1608,9 +1606,9 @@
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            border: none;
+            border: 1px solid #d1d5db;
             color: #451a03;
-            box-shadow: 4px 4px 0px #b45309;
+            box-shadow: none;
             transition: all 0.15s ease;
         }
 
@@ -1627,7 +1625,7 @@
 
         .folder-item.open {
             background: #f59e0b;
-            box-shadow: 4px 4px 0px #92400e;
+            box-shadow: none;
         }
 
         .folder-title {
@@ -2662,17 +2660,15 @@
             margin-bottom: 0;
             border-radius: 8px;
             background: #fffbeb;
-            border: 1px solid #f59e0b;
-            border-left: 3px solid #f59e0b;
-            box-shadow: 0 1px 3px rgba(245, 158, 11, 0.1);
+            border: 1px solid #d1d5db;
+            box-shadow: none;
             transition: all 0.2s;
             cursor: pointer;
             position: relative;
         }
 
         .file-list.view-grid .folder-item:hover {
-            border-color: #d97706;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+            background: #fef3c7;
         }
 
         .file-list.view-grid .folder-item.open {
