@@ -523,16 +523,14 @@ class InstrumentSettingsModal extends BaseModal {
                 centerNote = Math.round((s.note_range_min + s.note_range_max) / 2);
             }
 
-            // 2) Set start octave BEFORE calling initPianoKeyboard
+            // 2) Set start note BEFORE calling initPianoKeyboard
             const OCTAVE_WIDTH = 126;
-            const availableWidth = viewport.offsetWidth - 20;
+            const availableWidth = viewport.offsetWidth;
             const visibleOctaves = Math.max(1, Math.floor(availableWidth / OCTAVE_WIDTH));
-            const targetOctave = Math.floor(centerNote / 12) - 1;
-            const startOctave = targetOctave - Math.floor(visibleOctaves / 2);
-
-            const MIN_OCT = typeof MIN_OCTAVE !== 'undefined' ? MIN_OCTAVE : -1;
-            const MAX_OCT = typeof MAX_OCTAVE !== 'undefined' ? MAX_OCTAVE : 9;
-            window.currentPianoStartOctave = Math.max(MIN_OCT, Math.min(MAX_OCT - visibleOctaves + 1, startOctave));
+            const visibleNotes = visibleOctaves * 12;
+            const startNote = Math.max(0, centerNote - Math.floor(visibleNotes / 2));
+            const maxStart = Math.max(0, 127 - visibleNotes + 1);
+            window.currentPianoStartNote = Math.min(maxStart, startNote);
 
             // 3) Init piano
             initPianoKeyboard(
