@@ -9976,13 +9976,14 @@
         const MIN_OCTAVE = -1; // C-1 (note 0)
         const MAX_OCTAVE = 9;  // G9 (note 127 = G9)
         const OCTAVE_WIDTH = 126; // Largeur approximative d'une octave en pixels (7 touches blanches x 18px)
-        let currentPianoStartOctave = 3; // Commence à C3 (octave du milieu)
+        const NAV_STEP = 3; // Nombre de demi-tons par clic de navigation
+        let currentPianoStartNote = 48; // Commence à C3 (MIDI 48, octave du milieu)
 
         // Calculer le nombre d'octaves visibles en fonction de la taille de la fenêtre
         function getVisibleOctaves() {
             const viewport = document.querySelector('.piano-viewport');
             if (!viewport) return 3; // Défaut
-            const availableWidth = viewport.clientWidth - 20; // Marge de sécurité
+            const availableWidth = viewport.clientWidth;
             const octaves = Math.max(1, Math.floor(availableWidth / OCTAVE_WIDTH));
             return Math.min(octaves, 11); // Max 11 octaves (toute la plage MIDI)
         }
@@ -10153,19 +10154,19 @@
             currentNoteSelectionMode = mode;
             selectedDiscreteNotes = new Set(selectedNotes);
 
-            // Déterminer l'octave de départ selon les notes sélectionnées
+            // Déterminer la note de départ selon les notes sélectionnées
             if (mode === 'range' && minNote !== null && minNote !== undefined) {
-                currentPianoStartOctave = Math.floor(minNote / 12) - 1;
+                currentPianoStartNote = minNote;
             } else if (mode === 'discrete' && selectedNotes.length > 0) {
-                const firstNote = Math.min(...selectedNotes);
-                currentPianoStartOctave = Math.floor(firstNote / 12) - 1;
+                currentPianoStartNote = Math.min(...selectedNotes);
             } else {
-                currentPianoStartOctave = 3; // Par défaut C3
+                currentPianoStartNote = 48; // Par défaut C3 (MIDI 48)
             }
 
-            // S'assurer que l'octave est dans les limites
+            // S'assurer que la note est dans les limites
             const visibleOctaves = getVisibleOctaves();
-            currentPianoStartOctave = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE - visibleOctaves + 1, currentPianoStartOctave));
+            const maxStart = Math.max(0, 127 - visibleOctaves * 12 + 1);
+            currentPianoStartNote = Math.max(0, Math.min(maxStart, currentPianoStartNote));
 
             // Rendre le piano
             renderPianoKeyboard();
@@ -10201,12 +10202,10 @@
             container.innerHTML = '';
 
             const visibleOctaves = getVisibleOctaves();
-            const startOctave = currentPianoStartOctave;
-            const endOctave = startOctave + visibleOctaves - 1;
 
             // Calculer les notes de début et fin
-            const startNote = Math.max(0, (startOctave + 1) * 12); // C de l'octave
-            const endNote = Math.min(127, (endOctave + 2) * 12 - 1); // Fin de l'octave
+            const startNote = Math.max(0, currentPianoStartNote);
+            const endNote = Math.min(127, currentPianoStartNote + visibleOctaves * 12 - 1);
 
             let currentOctave = -2;
             let octaveDiv = null;
@@ -10261,6 +10260,18 @@
                 container.appendChild(octaveDiv);
             }
 
+            // Étirer le clavier pour remplir toute la largeur du viewport
+            const viewport = document.querySelector('.piano-viewport');
+            if (viewport && container.scrollWidth > 0) {
+                const scale = viewport.clientWidth / container.scrollWidth;
+                if (scale > 0 && scale !== 1) {
+                    container.style.transformOrigin = 'left top';
+                    container.style.transform = `scaleX(${scale})`;
+                } else {
+                    container.style.transform = '';
+                }
+            }
+
             // Mettre à jour l'indicateur et les boutons de navigation
             updatePianoOctaveIndicator();
             updatePianoNavButtons();
@@ -10282,15 +10293,16 @@
 
         // Naviguer dans le piano
         function navigatePiano(direction) {
-            const visibleOctaves = getVisibleOctaves();
-            currentPianoStartOctave += direction;
+            currentPianoStartNote += direction * NAV_STEP;
 
             // Limiter la navigation
-            if (currentPianoStartOctave < MIN_OCTAVE) {
-                currentPianoStartOctave = MIN_OCTAVE;
+            if (currentPianoStartNote < 0) {
+                currentPianoStartNote = 0;
             }
-            if (currentPianoStartOctave > MAX_OCTAVE - visibleOctaves + 1) {
-                currentPianoStartOctave = MAX_OCTAVE - visibleOctaves + 1;
+            const visibleOctaves = getVisibleOctaves();
+            const maxStart = Math.max(0, 127 - visibleOctaves * 12 + 1);
+            if (currentPianoStartNote > maxStart) {
+                currentPianoStartNote = maxStart;
             }
 
             renderPianoKeyboard();
@@ -10301,23 +10313,24 @@
             const indicator = document.getElementById('pianoOctaveIndicator');
             if (indicator) {
                 const visibleOctaves = getVisibleOctaves();
-                const startOctave = currentPianoStartOctave;
-                const endOctave = startOctave + visibleOctaves - 1;
-                indicator.textContent = `C${startOctave} → C${endOctave + 1}`;
+                const startNote = Math.max(0, currentPianoStartNote);
+                const endNote = Math.min(127, currentPianoStartNote + visibleOctaves * 12 - 1);
+                indicator.textContent = `${getNoteNameWithOctave(startNote)} → ${getNoteNameWithOctave(endNote)}`;
             }
         }
 
         // Mettre à jour les boutons de navigation
         function updatePianoNavButtons() {
             const visibleOctaves = getVisibleOctaves();
+            const maxStart = Math.max(0, 127 - visibleOctaves * 12 + 1);
             const leftBtn = document.getElementById('pianoNavLeft');
             const rightBtn = document.getElementById('pianoNavRight');
 
             if (leftBtn) {
-                leftBtn.disabled = currentPianoStartOctave <= MIN_OCTAVE;
+                leftBtn.disabled = currentPianoStartNote <= 0;
             }
             if (rightBtn) {
-                rightBtn.disabled = currentPianoStartOctave >= MAX_OCTAVE - visibleOctaves + 1;
+                rightBtn.disabled = currentPianoStartNote >= maxStart;
             }
         }
 
@@ -10451,12 +10464,12 @@
             scrollToNote(min);
         }
 
-        // Naviguer vers une note (change l'octave visible)
+        // Naviguer vers une note (change la vue visible)
         function scrollToNote(note) {
             if (note === null || note === undefined) return;
             const visibleOctaves = getVisibleOctaves();
-            const targetOctave = Math.floor(note / 12) - 1;
-            currentPianoStartOctave = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE - visibleOctaves + 1, targetOctave));
+            const maxStart = Math.max(0, 127 - visibleOctaves * 12 + 1);
+            currentPianoStartNote = Math.max(0, Math.min(maxStart, note));
             renderPianoKeyboard();
         }
 
