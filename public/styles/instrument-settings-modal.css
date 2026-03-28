@@ -989,6 +989,12 @@ body.theme-colored .ism-modal .modal-body {
   background: linear-gradient(135deg, #f8f4ff, #f0f0ff, #fff4f8);
 }
 
+body.theme-colored .ism-modal .modal-dialog {
+  background: linear-gradient(135deg, #f3eeff, #eee8f8, #f8eef4);
+  border: 1px solid rgba(118, 75, 162, 0.15);
+  box-shadow: 0 20px 60px rgba(118, 75, 162, 0.25);
+}
+
 body.theme-colored .ism-content {
   background: transparent;
 }
