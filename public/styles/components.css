@@ -904,6 +904,7 @@
     padding: 0;
     margin: 0;
     overflow: hidden;
+    position: relative;
     background: #dde4f0;
     min-height: 0; /* Important pour flex container */
     border-radius: 0 0 12px 12px;
@@ -1582,16 +1583,19 @@
     height: 100%;
 }
 
-/* Boutons alignés à droite, au-dessus de l'éditeur */
+/* Boutons flottants en bas à droite, en overlay sur l'éditeur */
 .midi-editor-modal .modal-floating-buttons {
+    position: absolute;
+    bottom: 0;
+    right: 0;
     display: flex;
-    justify-content: flex-end;
     gap: 0;
     z-index: 1000;
-    flex-shrink: 0;
+    pointer-events: none;
 }
 
 .midi-editor-modal .modal-floating-buttons button {
+    pointer-events: auto;
     border-radius: 0;
     border: none;
     border-left: 1px solid rgba(255, 255, 255, 0.2);
