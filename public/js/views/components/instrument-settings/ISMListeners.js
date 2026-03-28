@@ -294,6 +294,7 @@
                 cb.closest('.ism-cc-item').classList.toggle('checked', cb.checked);
                 this._updateCCHiddenInput();
                 this._updateCCGroupBadges();
+                this._updateActiveCCsSummary();
             }.bind(this));
         }.bind(this));
     };
@@ -315,6 +316,7 @@
         });
         this._updateCCHiddenInput();
         this._updateCCGroupBadges();
+        this._updateActiveCCsSummary();
     };
 
     ISMListeners._wireDrumListeners = function() {
@@ -451,6 +453,14 @@
         this.$$('.ism-cc-checkbox:checked').forEach(function(c) { selected.push(parseInt(c.value)); });
         const hidden = this.$('#supportedCCs');
         if (hidden) hidden.value = selected.join(', ');
+    };
+
+    ISMListeners._updateActiveCCsSummary = function() {
+        const summary = this.$('#activeCCsSummary');
+        if (!summary) return;
+        const selected = [];
+        this.$$('.ism-cc-checkbox:checked').forEach(function(c) { selected.push(parseInt(c.value)); });
+        summary.innerHTML = this._renderActiveCCsSummary(selected);
     };
 
     ISMListeners._updateCCGroupBadges = function() {

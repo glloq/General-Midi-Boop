@@ -1160,6 +1160,38 @@ body.dark-mode .ism-drum-kit-desc {
   margin-left: 2px;
 }
 
+/* ========== Active CCs Summary ========== */
+.ism-active-ccs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.ism-active-ccs-empty {
+  font-size: 12px;
+  color: var(--text-muted, #9ca3af);
+  font-style: italic;
+}
+
+.ism-active-cc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-primary, #374151);
+  border: 1px solid var(--border-color, #e5e7eb);
+  white-space: nowrap;
+}
+
+.ism-active-cc-num {
+  font-weight: 700;
+  color: var(--accent-color, #667eea);
+}
+
 .ism-apply-recommended-ccs {
   margin-bottom: 8px;
 }

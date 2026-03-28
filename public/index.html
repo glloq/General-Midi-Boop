@@ -9971,7 +9971,7 @@
             const viewport = document.querySelector('.piano-viewport');
             if (!viewport) return 3; // Défaut
             const availableWidth = viewport.clientWidth;
-            const octaves = Math.max(1, Math.floor(availableWidth / OCTAVE_WIDTH));
+            const octaves = Math.max(1, Math.round(availableWidth / OCTAVE_WIDTH));
             return Math.min(octaves, 11); // Max 11 octaves (toute la plage MIDI)
         }
 

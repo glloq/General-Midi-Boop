@@ -265,6 +265,9 @@
 
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.supportedCCs') || 'CC supportés'}</label>
+                <div class="ism-active-ccs-summary" id="activeCCsSummary">
+                    ${this._renderActiveCCsSummary(currentCCs)}
+                </div>
                 ${recommendedCCs.length > 0 ? `<button type="button" class="btn btn-small ism-apply-recommended-ccs" id="applyRecommendedCCs">✨ ${this.t('instrumentSettings.applyRecommendedCCs') || 'Appliquer les CC recommandés'}</button>` : ''}
                 ${ccAccordionHtml}
                 <input type="hidden" id="supportedCCs" value="${currentCCs.join(', ')}">
@@ -310,6 +313,26 @@
         }
         html += '</div>';
         return html;
+    };
+
+    ISMSections._renderActiveCCsSummary = function(activeCCs) {
+        if (!activeCCs || activeCCs.length === 0) {
+            return '<span class="ism-active-ccs-empty">Aucun CC actif</span>';
+        }
+        const groups = InstrumentSettingsModal.CC_GROUPS;
+        // Build a flat map of CC number -> name
+        const ccNames = {};
+        for (const groupId of Object.keys(groups)) {
+            const ccsObj = groups[groupId].ccs;
+            for (const ccNum of Object.keys(ccsObj)) {
+                ccNames[Number(ccNum)] = ccsObj[ccNum].name;
+            }
+        }
+        const sorted = [...activeCCs].sort((a, b) => a - b);
+        return sorted.map(function(cc) {
+            const name = ccNames[cc] || ('CC ' + cc);
+            return `<span class="ism-active-cc-tag" title="${this.escape(name)}"><span class="ism-active-cc-num">${cc}</span> ${this.escape(name)}</span>`;
+        }.bind(this)).join('');
     };
 
     ISMSections._renderStringsContent = function() {
