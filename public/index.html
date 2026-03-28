@@ -626,13 +626,9 @@
         }
 
         .midi-files-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
             border-bottom: none;
-            border-radius: 12px 12px 0 0;
-            padding: 10px 18px;
-            position: sticky;
-            top: 0;
-            z-index: 50;
+            border-radius: 0;
+            padding: 6px 8px;
         }
 
         .midi-files-header h2 {
@@ -669,12 +665,8 @@
         }
 
         .search-bar-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #e84393 100%);
-            padding: 10px 18px;
+            padding: 6px 8px;
             border-bottom: none;
-            position: sticky;
-            top: 0;
-            z-index: 49;
         }
 
         .search-bar-container .search-input {
@@ -1027,13 +1019,13 @@
 
         header {
             background: white;
-            border-radius: 12px;
+            border-radius: 12px 12px 0 0;
             padding: 6px 10px;
-            margin-bottom: 6px;
+            margin-bottom: 0;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             position: sticky;
             top: 0;
-            z-index: 60; /* Au-dessus du piano roll */
+            z-index: 60;
             flex-shrink: 0;
         }
 
@@ -1238,7 +1230,7 @@
         }
 
         .main-grid > .card {
-            border-radius: 12px 12px 0 0;
+            border-radius: 0;
         }
 
         .card {
@@ -2874,12 +2866,48 @@
          * RESPONSIVE ADJUSTMENTS FOR DISPLAY MODES
          * ======================================================================== */
 
+        /* Responsive - tablette */
+        @media (max-width: 900px) {
+            .midi-files-header {
+                flex-wrap: wrap;
+            }
+            .midi-files-header .upload-drop-zone {
+                order: 2;
+                flex-basis: 100%;
+            }
+            .search-bar-container > div:first-child {
+                flex-wrap: wrap;
+            }
+            .search-bar-container .search-bar {
+                flex: 1 1 100% !important;
+            }
+        }
+
+        /* Responsive - mobile */
         @media (max-width: 600px) {
+            header {
+                padding: 4px 6px;
+            }
+            .midi-files-header {
+                padding: 4px 6px;
+            }
+            .midi-files-header .upload-drop-zone-text {
+                display: none;
+            }
+            .search-bar-container {
+                padding: 4px 6px;
+            }
+            .search-bar-container > div:first-child {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .search-bar-container .search-bar {
+                flex: 1 1 100% !important;
+            }
             .file-list.view-grid {
                 grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
                 gap: 8px;
             }
-
             .display-mode-toggle {
                 display: none;
             }
@@ -4799,25 +4827,78 @@
                         <div class="header-progress-fill" id="headerProgressFill"></div>
                     </div>
                 </div>
+
+                <!-- Gestion fichiers -->
+                <div class="midi-files-header">
+                    <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
+                    <h2 id="midiFilesHeading">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
+                    <div class="upload-drop-zone" id="uploadDropZone">
+                        <div class="upload-drop-zone-content">
+                            <span class="upload-drop-zone-icon">📥</span>
+                            <div class="upload-drop-zone-text">
+                                <span data-i18n="ui.dropFilesHere">Glissez-déposez ou</span>
+                                <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
+                </div>
+
+                <!-- Recherche et tri -->
+                <div class="search-bar-container">
+                    <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
+                        <div class="search-bar" style="flex: 1;">
+                            <span class="search-icon">🔍</span>
+                            <input
+                                type="text"
+                                id="fileSearchInput"
+                                class="search-input"
+                                data-i18n-placeholder="ui.searchFile"
+                                placeholder="Rechercher un fichier..."
+                                autocomplete="off"
+                            />
+                            <button class="search-clear-btn" id="searchClearBtn" aria-label="Clear search">×</button>
+                        </div>
+
+                        <div class="sort-controls">
+                            <select id="sortBy" class="sort-select" data-i18n-title="ui.sortBy" title="Trier par">
+                                <option value="name" data-i18n="ui.sortName">Nom</option>
+                                <option value="date" data-i18n="ui.sortDate">Date</option>
+                                <option value="size" data-i18n="ui.sortSize">Taille</option>
+                                <option value="duration" data-i18n="ui.sortDuration">Durée</option>
+                                <option value="tempo" data-i18n="ui.sortTempo">Tempo</option>
+                                <option value="tracks" data-i18n="ui.sortTracks">Pistes</option>
+                            </select>
+                            <button id="sortOrder" class="sort-order-btn" data-i18n-title="ui.sortOrder" title="Ordre de tri">
+                                ↓
+                            </button>
+                        </div>
+
+                        <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 8px 12px;">
+                            🔍 <span data-i18n="filters.filtersButton">Filtres</span>
+                        </button>
+
+                        <div class="display-mode-toggle" id="displayModeToggle">
+                            <button class="display-mode-btn active" data-mode="blocks" title="Affichage en blocs">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="14" height="3" rx="1"/><rect x="1" y="6" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
+                            </button>
+                            <button class="display-mode-btn" data-mode="compact" title="Liste compacte">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.5"/><rect x="1" y="5.5" width="14" height="1.5" rx="0.5"/><rect x="1" y="9" width="14" height="1.5" rx="0.5"/><rect x="1" y="12.5" width="14" height="1.5" rx="0.5"/></svg>
+                            </button>
+                            <button class="display-mode-btn" data-mode="grid" title="Affichage en grille">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="activeFiltersBadges" style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;"></div>
+                    <div class="search-stats" id="searchStats"></div>
+                </div>
             </header>
 
             <div class="main-grid">
                 <!-- Fichiers MIDI -->
-                <section class="card" aria-labelledby="midiFilesHeading">
-                    <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
-                    <div class="midi-files-header">
-                        <h2 id="midiFilesHeading">📁 <span data-i18n="ui.midiFiles">Fichiers MIDI</span></h2>
-                        <div class="upload-drop-zone" id="uploadDropZone">
-                            <div class="upload-drop-zone-content">
-                                <span class="upload-drop-zone-icon">📥</span>
-                                <div class="upload-drop-zone-text">
-                                    <span data-i18n="ui.dropFilesHere">Glissez-déposez ou</span>
-                                    <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
-                    </div>
+                <section class="card" aria-label="MIDI files">
 
                     <div class="drop-zone-root" id="dropZoneRoot" data-i18n="ui.dropToRoot">
                         📂 Déposer ici pour remettre à la racine
@@ -4834,63 +4915,6 @@
                             <button class="btn" id="batchMove" data-i18n="ui.moveTo">📁 Déplacer vers...</button>
                             <button class="btn btn-danger" id="batchDelete" data-i18n="ui.deleteSelected">🗑️ Supprimer</button>
                         </div>
-                    </div>
-
-                    <!-- Search and Sort Bar -->
-                    <div class="search-bar-container">
-                        <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
-                            <!-- Search -->
-                            <div class="search-bar" style="flex: 1;">
-                                <span class="search-icon">🔍</span>
-                                <input
-                                    type="text"
-                                    id="fileSearchInput"
-                                    class="search-input"
-                                    data-i18n-placeholder="ui.searchFile"
-                                    placeholder="Rechercher un fichier..."
-                                    autocomplete="off"
-                                />
-                                <button class="search-clear-btn" id="searchClearBtn" aria-label="Clear search">×</button>
-                            </div>
-
-                            <!-- Sort -->
-                            <div class="sort-controls">
-                                <select id="sortBy" class="sort-select" data-i18n-title="ui.sortBy" title="Trier par">
-                                    <option value="name" data-i18n="ui.sortName">Nom</option>
-                                    <option value="date" data-i18n="ui.sortDate">Date</option>
-                                    <option value="size" data-i18n="ui.sortSize">Taille</option>
-                                    <option value="duration" data-i18n="ui.sortDuration">Durée</option>
-                                    <option value="tempo" data-i18n="ui.sortTempo">Tempo</option>
-                                    <option value="tracks" data-i18n="ui.sortTracks">Pistes</option>
-                                </select>
-                                <button id="sortOrder" class="sort-order-btn" data-i18n-title="ui.sortOrder" title="Ordre de tri">
-                                    ↓
-                                </button>
-                            </div>
-
-                            <!-- Advanced Filters Button -->
-                            <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 8px 12px;">
-                                🔍 <span data-i18n="filters.filtersButton">Filtres</span>
-                            </button>
-
-                            <!-- Display Mode Toggle -->
-                            <div class="display-mode-toggle" id="displayModeToggle">
-                                <button class="display-mode-btn active" data-mode="blocks" title="Affichage en blocs">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="14" height="3" rx="1"/><rect x="1" y="6" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
-                                </button>
-                                <button class="display-mode-btn" data-mode="compact" title="Liste compacte">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="1.5" rx="0.5"/><rect x="1" y="5.5" width="14" height="1.5" rx="0.5"/><rect x="1" y="9" width="14" height="1.5" rx="0.5"/><rect x="1" y="12.5" width="14" height="1.5" rx="0.5"/></svg>
-                                </button>
-                                <button class="display-mode-btn" data-mode="grid" title="Affichage en grille">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Active Filters Badges -->
-                        <div id="activeFiltersBadges" style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;"></div>
-
-                        <div class="search-stats" id="searchStats"></div>
                     </div>
 
                     <ul class="file-list" id="fileList" role="listbox" aria-label="MIDI files">
