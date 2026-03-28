@@ -356,14 +356,22 @@
         }
 
         let dragging = false;
+        let pickRAF = null;
+        const throttledPick = (e) => {
+            if (pickRAF) return;
+            pickRAF = requestAnimationFrame(() => {
+                pickColor(e);
+                pickRAF = null;
+            });
+        };
         canvas.addEventListener('mousedown', (e) => { dragging = true; pickColor(e); });
-        canvas.addEventListener('mousemove', (e) => { if (dragging) pickColor(e); });
+        canvas.addEventListener('mousemove', (e) => { if (dragging) throttledPick(e); });
         canvas.addEventListener('mouseup', () => { dragging = false; });
         canvas.addEventListener('click', pickColor);
 
         // Touch support
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); pickColor(e.touches[0]); });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); pickColor(e.touches[0]); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); throttledPick(e.touches[0]); });
 
         document.getElementById('colorWheelApply').addEventListener('click', () => {
             const target = document.getElementById(safeTargetId);

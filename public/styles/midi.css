@@ -37,7 +37,7 @@
 
 /* ===== TOUCHES DE PIANO ===== */
 .piano-key-display {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
     user-select: none;
     font-family: 'Monaco', 'Menlo', monospace;
@@ -78,7 +78,7 @@
     position: absolute;
     border-radius: 3px;
     cursor: crosshair;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.1);
 }
@@ -91,7 +91,7 @@
 }
 
 .midi-note-aligned {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: crosshair;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
@@ -161,7 +161,7 @@
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     font-size: 0.8rem;
 }
 
@@ -180,7 +180,7 @@
     height: 6px;
     border-radius: 3px;
     outline: none;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     cursor: pointer;
     background: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) var(--progress, 0%), var(--border-color) var(--progress, 0%), var(--border-color) 100%);
 }
@@ -194,7 +194,7 @@
     background: var(--accent-primary);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 #progressSlider::-webkit-slider-thumb:hover {
@@ -219,7 +219,7 @@
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 10px;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .instrument-assignment:hover {
@@ -271,7 +271,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.8rem;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .mute-btn.muted {
@@ -310,7 +310,7 @@
 
 /* Versions compactes */
 #assignmentsContent {
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .assignment-compact {
@@ -335,7 +335,7 @@
     padding: 10px;
     background: var(--bg-primary);
     border-radius: 8px;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .thumbnail-view.active {
@@ -370,7 +370,7 @@
     margin-right: 1px;
     border-radius: 1px;
     opacity: 0.8;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .waveform-bar:hover {
@@ -422,7 +422,7 @@
     background: transparent;
     border-radius: 20px 20px 0 0;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     font-size: 0.9rem;
     font-weight: 500;
     color: var(--text-secondary);
@@ -438,7 +438,7 @@
     width: 0;
     height: 2px;
     background: var(--accent-primary);
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     transform: translateX(-50%);
 }
 
@@ -469,7 +469,7 @@
 
 .timeline-segment {
     border-radius: 2px 2px 0 0;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     position: relative;
 }
 
@@ -489,7 +489,7 @@
 
 /* ===== STYLES POUR LES PISTES ===== */
 .track-item {
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     border: 1px solid transparent;
     position: relative;
     overflow: hidden;
@@ -545,7 +545,7 @@
 
 .track-controls .btn {
     opacity: 0.7;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     font-size: 0.8rem;
     padding: 4px 8px;
     margin: 0 2px;
@@ -572,7 +572,7 @@
 }
 
 .piano-key {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
     user-select: none;
     border: 1px solid #34495e;

@@ -223,7 +223,7 @@ async function fileRoutingStatus(app, data) {
   const fileId = data.fileId;
   if (!fileId) throw new Error('fileId is required');
 
-  const file = app.database.getFile(fileId);
+  const file = app.database.getFileInfo(fileId);
   if (!file) throw new Error(`File not found: ${fileId}`);
 
   const routings = app.database.getRoutingsByFile(fileId);

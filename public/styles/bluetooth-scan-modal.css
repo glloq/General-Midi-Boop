@@ -115,7 +115,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     position: absolute !important;
     top: 12px !important;
     right: 16px !important;
@@ -189,7 +189,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, transform 0.3s, opacity 0.3s, box-shadow 0.3s, border-color 0.3s;
 }
 
 .btn-scan:hover:not(:disabled) {
@@ -238,7 +238,7 @@
     background: #fafbfc;
     border: 2px solid #e8eaed;
     border-radius: 12px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bluetooth-device:hover {
@@ -337,7 +337,7 @@
     min-width: 100px !important;
     border: none !important;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
 }
 

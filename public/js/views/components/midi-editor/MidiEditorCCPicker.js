@@ -89,18 +89,19 @@
             toolbar.appendChild(picker);
         }
 
-    // Listeners
-        picker.querySelectorAll('.cc-picker-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const ccNum = parseInt(item.dataset.ccNum);
-                if (!isNaN(ccNum)) {
-                    this.selectCCType(`cc${ccNum}`);
-                    picker.remove();
-                    this.log('info', `CC picker: CC${ccNum} selected`);
-                }
-            });
+    // Event delegation: single listener on picker body for all CC items
+        const pickerBody = picker.querySelector('.cc-picker-body') || picker;
+        pickerBody.addEventListener('click', (e) => {
+            const item = e.target.closest('.cc-picker-item');
+            if (!item) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const ccNum = parseInt(item.dataset.ccNum);
+            if (!isNaN(ccNum)) {
+                this.selectCCType(`cc${ccNum}`);
+                picker.remove();
+                this.log('info', `CC picker: CC${ccNum} selected`);
+            }
         });
 
         const closeBtn = picker.querySelector('#cc-picker-close');

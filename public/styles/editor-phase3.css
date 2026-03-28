@@ -121,7 +121,7 @@
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -191,7 +191,7 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .preset-item:hover {
@@ -429,7 +429,7 @@
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 10px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .suggestion-item:hover {

@@ -578,6 +578,20 @@
             const threshold = 140;
             let detected = false;
 
+            const cleanup = () => {
+                clearInterval(checkInterval);
+                stream.getTracks().forEach(function(t) { t.stop(); });
+                audioCtx.close().catch(() => {});
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '🎤 Mesurer';
+                }
+                this._micTestCleanup = null;
+            };
+
+            // Store cleanup reference for modal close
+            this._micTestCleanup = cleanup;
+
             var checkInterval = setInterval(function() {
                 analyser.getByteTimeDomainData(dataArray);
                 for (let i = 0; i < dataArray.length; i++) {
@@ -587,30 +601,18 @@
                     }
                 }
                 if (detected) {
-                    clearInterval(checkInterval);
                     const delay = Math.round(performance.now() - startTime);
-                    stream.getTracks().forEach(function(t) { t.stop(); });
-                    audioCtx.close();
+                    cleanup();
 
                     const syncInput = this.$('#syncDelay');
                     if (syncInput) syncInput.value = delay;
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '🎤 Mesurer';
-                    }
                 }
             }.bind(this), 10);
 
             // Timeout after 5s
             setTimeout(function() {
                 if (!detected) {
-                    clearInterval(checkInterval);
-                    stream.getTracks().forEach(function(t) { t.stop(); });
-                    audioCtx.close();
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '🎤 Mesurer';
-                    }
+                    cleanup();
                 }
             }, 5000);
         }.bind(this)).catch(function() {

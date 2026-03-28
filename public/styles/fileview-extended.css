@@ -57,7 +57,7 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .btn-upload:hover,
@@ -112,7 +112,7 @@
     background: white;
     font-size: 16px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .btn-icon:hover {
@@ -152,7 +152,7 @@
     border: 1px solid #dee2e6;
     border-radius: 6px;
     gap: 10px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     cursor: pointer;
     min-height: 40px;
 }
@@ -303,7 +303,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .btn-primary:hover {
@@ -395,7 +395,7 @@
 .btn-primary,
 .btn-upload,
 .btn-refresh {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ========================================================================

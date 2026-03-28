@@ -65,6 +65,20 @@ class MidiDatabase {
     }
   }
 
+  /**
+   * Get file metadata without the large BLOB data field.
+   * Use this when you only need file info, not the actual MIDI data.
+   */
+  getFileInfo(fileId) {
+    try {
+      const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files WHERE id = ?`);
+      return stmt.get(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to get file info: ${error.message}`);
+      throw error;
+    }
+  }
+
   getFiles(folder = '/') {
     try {
       const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files WHERE folder = ? ORDER BY uploaded_at DESC`);

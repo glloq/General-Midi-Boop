@@ -471,6 +471,9 @@ class DatabaseManager {
   getFile(fileId) {
     return this.midiDB.getFile(fileId);
   }
+  getFileInfo(fileId) {
+    return this.midiDB.getFileInfo(fileId);
+  }
   getFiles(folder) {
     return this.midiDB.getFiles(folder);
   }

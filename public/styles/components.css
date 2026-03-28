@@ -110,7 +110,7 @@
     border: 2px solid #e9ecef;
     border-radius: 8px;
     font-size: 0.9rem;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     background: white;
 }
 
@@ -145,7 +145,7 @@
     z-index: 1100;
     transform: translateX(400px);
     opacity: 0;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .notification.show {
@@ -394,7 +394,7 @@
     color: #ccc;
     cursor: pointer;
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .debug-filter.active {
@@ -431,7 +431,7 @@
     background: transparent;
     cursor: pointer;
     border-bottom: 2px solid transparent;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     font-weight: 500;
     color: #6c757d;
 }
@@ -476,7 +476,7 @@
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     z-index: 1000;
 }
 
@@ -557,7 +557,7 @@
     width: 20px;
     background-color: #eee;
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     border: 2px solid #ddd;
 }
 
@@ -789,7 +789,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     padding: 0;
     font-weight: 300;
 }
@@ -808,7 +808,7 @@
     border-radius: 6px;
     font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
     margin-left: auto;
 }
@@ -936,7 +936,7 @@
     border: 2px solid #555;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     min-height: 36px;
     color: #fff;
     font-size: 12px;
@@ -1055,7 +1055,7 @@
     border: 2px solid #555;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     min-height: 48px;
     color: #fff;
     font-size: 12px;
@@ -1080,7 +1080,7 @@
     border: 2px solid #4a8a4a;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     min-height: 48px;
     color: #fff;
     font-size: 14px;
@@ -1337,7 +1337,7 @@
     border: 2px solid #4a6a8a;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
@@ -1457,7 +1457,7 @@
     border: 1px solid #555;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .channel-hide-others-btn:hover,
@@ -1486,7 +1486,7 @@
     border: 1px solid #555;
     border-radius: 0 0 6px 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     text-align: center;
     line-height: 1;
 }
@@ -1537,7 +1537,7 @@
 .midi-editor-modal .modal-floating-buttons button {
     pointer-events: auto; /* Réactive le clic sur les boutons */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .midi-editor-modal .modal-floating-buttons button:hover {

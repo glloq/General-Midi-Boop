@@ -41,7 +41,7 @@
     color: #fff;
     cursor: pointer;
     font-size: 13px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -146,7 +146,7 @@
     text-align: center;
     vertical-align: middle;
     background: #2a2a2a;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     position: relative;
 }
 
@@ -375,7 +375,7 @@
     border-radius: 4px;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .dest-badge:hover {
@@ -419,7 +419,7 @@
     color: #4ECDC4;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .add-dest-btn:hover {
@@ -458,7 +458,7 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     display: flex;
     align-items: center;
     gap: 8px;

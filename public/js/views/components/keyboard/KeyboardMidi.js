@@ -101,6 +101,12 @@
         const onEnd = () => {
             if (!this._modWheelDragging) return;
             this._modWheelDragging = false;
+            // Remove global listeners when drag ends
+            document.removeEventListener('mousemove', this._modWheelOnMove);
+            document.removeEventListener('mouseup', this._modWheelOnEnd);
+            document.removeEventListener('touchmove', this._modWheelOnTouchMove);
+            document.removeEventListener('touchend', this._modWheelOnEnd);
+            document.removeEventListener('touchcancel', this._modWheelOnEnd);
             thumb.classList.remove('dragging');
             thumb.classList.add('returning');
             fill.classList.add('returning');
@@ -114,7 +120,7 @@
             }, 300);
         };
 
-        // Mouse events
+        // Mouse events - attach global listeners only during drag
         this._modWheelOnTrackDown = (e) => {
             e.preventDefault();
             this._modWheelDragging = true;
@@ -122,6 +128,8 @@
             thumb.classList.remove('returning');
             fill.classList.remove('returning');
             onMove(e.clientY);
+            document.addEventListener('mousemove', this._modWheelOnMove);
+            document.addEventListener('mouseup', this._modWheelOnEnd);
         };
         this._modWheelOnMove = (e) => onMove(e.clientY);
         this._modWheelOnEnd = onEnd;
@@ -132,18 +140,16 @@
             thumb.classList.remove('returning');
             fill.classList.remove('returning');
             onMove(e.touches[0].clientY);
+            document.addEventListener('touchmove', this._modWheelOnTouchMove, { passive: false });
+            document.addEventListener('touchend', this._modWheelOnEnd);
+            document.addEventListener('touchcancel', this._modWheelOnEnd);
         };
         this._modWheelOnTouchMove = (e) => {
             if (this._modWheelDragging) onMove(e.touches[0].clientY);
         };
 
         track.addEventListener('mousedown', this._modWheelOnTrackDown);
-        document.addEventListener('mousemove', this._modWheelOnMove);
-        document.addEventListener('mouseup', this._modWheelOnEnd);
         track.addEventListener('touchstart', this._modWheelOnTouchStart, { passive: false });
-        document.addEventListener('touchmove', this._modWheelOnTouchMove, { passive: false });
-        document.addEventListener('touchend', this._modWheelOnEnd);
-        document.addEventListener('touchcancel', this._modWheelOnEnd);
     };
 
     KeyboardMidi._updateModWheelPosition = function(value) {

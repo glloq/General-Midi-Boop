@@ -75,7 +75,7 @@
     font-family: monospace;
     color: var(--text-primary);
     pointer-events: none;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
 }
 
 #velocityValue {
@@ -125,7 +125,7 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     min-width: 200px;
 }
 
@@ -176,7 +176,7 @@
     font-family: monospace;
     color: var(--text-primary);
     pointer-events: none;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
 }
 
 #ccTime,
@@ -274,7 +274,7 @@
     cursor: pointer;
     font-size: 24px;
     line-height: 1;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -330,7 +330,7 @@
     color: var(--text-primary);
     font-size: 14px;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .form-input:hover {
@@ -391,7 +391,7 @@
     border: 2px solid #fff;
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .form-range::-webkit-slider-thumb:hover {
@@ -406,7 +406,7 @@
     border: 2px solid #fff;
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .form-range::-moz-range-thumb:hover {
@@ -435,7 +435,7 @@
 
 .velocity-bar-fill {
     height: 100%;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -453,7 +453,7 @@
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .modal-footer .btn-primary {
@@ -493,7 +493,7 @@
     cursor: pointer;
     font-size: 20px;
     line-height: 1;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -606,7 +606,7 @@
 /* Canvas hover effects */
 #velocityCanvas,
 #modulationCanvas {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 /* Button press effect */

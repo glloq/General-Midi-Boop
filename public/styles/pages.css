@@ -42,7 +42,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
     cursor: pointer;
 }
 
@@ -107,7 +107,7 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .file-card-btn:hover {
@@ -139,7 +139,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .playlist-card:hover {
@@ -198,7 +198,7 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .playlist-card-btn:hover {
@@ -251,7 +251,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .btn-scan:hover {
@@ -290,7 +290,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .device-card:hover {
@@ -340,7 +340,7 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .btn-connect:hover {
@@ -360,7 +360,7 @@
     border: 1px solid var(--color-success);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .connected-device:hover {
@@ -421,7 +421,7 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .btn-settings:hover {
