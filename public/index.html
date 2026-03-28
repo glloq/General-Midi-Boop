@@ -1403,12 +1403,14 @@
 
         .search-input {
             flex: 1;
-            padding: 10px 40px 10px 40px;
-            border: 2px solid #e5e7eb;
+            padding: 0 40px;
+            height: 36px;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             font-size: 14px;
             transition: all 0.3s ease;
             background: #ffffff;
+            box-sizing: border-box;
         }
 
         .search-input:focus {
@@ -1483,14 +1485,16 @@
         }
 
         .sort-select {
-            padding: 8px 12px;
-            border: 2px solid #e5e7eb;
+            padding: 0 12px;
+            height: 36px;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             font-size: 14px;
             background: #ffffff;
             cursor: pointer;
             transition: all 0.3s ease;
             min-width: 120px;
+            box-sizing: border-box;
         }
 
         .sort-select:focus {
@@ -1500,17 +1504,19 @@
         }
 
         .sort-order-btn {
-            width: 40px;
-            height: 40px;
-            border: 2px solid #e5e7eb;
+            width: 36px;
+            height: 36px;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             background: #ffffff;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
+            box-sizing: border-box;
         }
 
         .sort-order-btn:hover {
@@ -4880,7 +4886,7 @@
                                     </button>
                                 </div>
 
-                                <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 8px 12px;">
+                                <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 0 12px; height: 36px; box-sizing: border-box;">
                                     🔍 <span data-i18n="filters.filtersButton">Filtres</span>
                                 </button>
 
