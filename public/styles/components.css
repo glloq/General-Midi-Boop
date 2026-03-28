@@ -1611,17 +1611,9 @@
     border-radius: 8px 0 0 0;
 }
 
-.midi-editor-modal .modal-floating-buttons button.btn-primary:hover {
+.midi-editor-modal .modal-floating-buttons button:hover {
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25) !important;
-    background: linear-gradient(135deg, #5a6fd8, #6a4190) !important;
-    color: white !important;
-    transform: none !important;
-}
-
-.midi-editor-modal .modal-floating-buttons button.btn-secondary:hover {
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25) !important;
-    background: #4a5258 !important;
-    border-color: #4a5258 !important;
+    filter: brightness(0.8) !important;
     color: white !important;
     transform: none !important;
 }
