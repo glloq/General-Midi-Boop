@@ -17,16 +17,16 @@
     * Fermer la modale
     */
     MidiEditorLifecycleMixin.close = function() {
-        console.log('[MidiEditor] close() called, isDirty:', this.isDirty);
+        this.log('debug', `close() called, isDirty: ${this.isDirty}`);
 
     // Vérifier les modifications non sauvegardées
         if (this.isDirty) {
-            console.log('[MidiEditor] Has unsaved changes, showing modal');
+            this.log('debug', 'Has unsaved changes, showing modal');
             this.showUnsavedChangesModal();
             return;
         }
 
-        console.log('[MidiEditor] No unsaved changes, closing directly');
+        this.log('debug', 'No unsaved changes, closing directly');
         this.doClose();
     }
 
@@ -34,7 +34,7 @@
     * Afficher la modal de confirmation pour modifications non sauvegardées
     */
     MidiEditorLifecycleMixin.showUnsavedChangesModal = function() {
-        console.log('[MidiEditor] Showing unsaved changes modal');
+        this.log('debug', 'Showing unsaved changes modal');
 
     // Créer la modal de confirmation
         const confirmModal = document.createElement('div');
@@ -132,12 +132,12 @@
         `;
 
         document.body.appendChild(confirmModal);
-        console.log('[MidiEditor] Modal appended to body');
+        this.log('debug', 'Modal appended to body');
 
     // Fermer avec Escape
         const escHandler = (e) => {
             if (e.key === 'Escape') {
-                console.log('[MidiEditor] Escape pressed in modal');
+                this.log('debug', 'Escape pressed in modal');
                 confirmModal.remove();
                 document.removeEventListener('keydown', escHandler);
             }
@@ -147,7 +147,7 @@
     // Bouton Annuler
         const cancelBtn = confirmModal.querySelector('#unsaved-cancel-btn');
         cancelBtn.addEventListener('click', () => {
-            console.log('[MidiEditor] Cancel clicked');
+            this.log('debug', 'Cancel clicked');
             document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
         });
@@ -155,7 +155,7 @@
     // Bouton Sauvegarder et fermer
         const saveBtn = confirmModal.querySelector('#unsaved-save-btn');
         saveBtn.addEventListener('click', async () => {
-            console.log('[MidiEditor] Save and close clicked');
+            this.log('debug', 'Save and close clicked');
             document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
             await this.saveMidiFile();
@@ -166,7 +166,7 @@
     // Bouton Fermer sans sauvegarder
         const discardBtn = confirmModal.querySelector('#unsaved-discard-btn');
         discardBtn.addEventListener('click', () => {
-            console.log('[MidiEditor] Discard and close clicked');
+            this.log('debug', 'Discard and close clicked');
             document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
             this.doClose();
@@ -186,7 +186,12 @@
             this.localeUnsubscribe = null;
         }
 
-    // Arrêter la synchronisation des sliders
+    // Arrêter la synchronisation viewport
+        if (this.pianoRoll && this._viewportChangeHandler) {
+            this.pianoRoll.removeEventListener('viewportchange', this._viewportChangeHandler);
+            this._viewportChangeHandler = null;
+        }
+        // Fallback: clear legacy polling interval if still present
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;

@@ -184,6 +184,11 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this._notesDirty = true;
 
             this.redrawThrottled();
+
+            // Dispatch event for external sync consumers (replaces polling)
+            this.dispatchEvent(new CustomEvent('viewportchange', {
+                detail: { xoffset: newXOffset, yoffset: newYOffset, xrange: this._xrange }
+            }));
         };
 
         // Fonction throttled pour redraw (limite à 60fps)
@@ -1478,6 +1483,11 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this._gridDirty = true;
             this._notesDirty = true;
             this.redraw();
+
+            // Dispatch event for external sync consumers (replaces polling)
+            this.dispatchEvent(new CustomEvent('viewportchange', {
+                detail: { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange }
+            }));
         };
         this.redrawMarker=function(){
             if(!this.initialized)

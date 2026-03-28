@@ -66,8 +66,8 @@ class EventBus {
         // Mode event-driven : traitement déclenché par emit() au lieu d'un timer à 10ms
         this._processingScheduled = false;
 
-        // Nettoyer les caches périodiquement
-        this._cacheCleanupTimer = setInterval(() => this.cleanCaches(), 60000);
+        // Cache cleanup is now on-demand (triggered when cache exceeds threshold)
+        this._cacheCleanupTimer = null;
 
         console.log('✓ EventBus initialized');
     }
@@ -228,8 +228,12 @@ class EventBus {
                     }
                     
                     this.throttleCache.set(key, now);
+                    // On-demand cache cleanup when cache grows large
+                    if (this.throttleCache.size > 100) {
+                        this.cleanCaches();
+                    }
                 }
-                
+
                 // Debouncing
                 if (listener.debounce > 0) {
                     const key = `${event}_${listener.id}`;

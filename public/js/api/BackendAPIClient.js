@@ -108,6 +108,7 @@ class BackendAPIClient {
     attemptReconnect() {
         if (this._reconnecting) return;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this._reconnecting = false;
             console.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Call connect() manually to retry.`);
             this.emit('reconnect_failed');
             return;

@@ -11,7 +11,7 @@
     padding: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     border: 1px solid #e9ecef;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
     margin-bottom: 10px;
 }
 
@@ -44,7 +44,7 @@
     border-radius: 8px;
     font-size: 0.9rem;
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, background-color 0.3s ease;
     text-decoration: none;
     display: inline-block;
     text-align: center;

@@ -52,13 +52,14 @@ class LightingManager extends EventEmitter {
     // Periodic cleanup of stale activeNotes and check driver health
     this._healthCheckInterval = setInterval(() => {
       // Cap activeNotes per device to prevent memory leak from lost note-offs
+      // MIDI has 128 notes max; 16 simultaneous is already generous
       for (const [deviceId, notes] of this.activeNotes) {
-        if (notes.size > 128) {
+        if (notes.size > 16) {
           notes.clear();
           this.logger.warn(`Cleared stale activeNotes for device ${deviceId}`);
         }
       }
-    }, 30000);
+    }, 10000);
   }
 
   // ==================== DATA LOADING ====================

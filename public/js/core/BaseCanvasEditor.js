@@ -749,7 +749,7 @@ class BaseCanvasEditor {
         if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         this._saveStateTimer = setTimeout(() => {
             this._doSaveState();
-        }, 100);
+        }, 300);
     }
 
     /** @private */
@@ -770,8 +770,8 @@ class BaseCanvasEditor {
         this.history.push(state);
         this.historyIndex++;
 
-        // Cap history at 20 entries (reduced from 50 for memory efficiency)
-        if (this.history.length > 20) {
+        // Cap history at 15 entries for memory efficiency
+        if (this.history.length > 15) {
             this.history.shift();
             this.historyIndex--;
         }
@@ -881,17 +881,7 @@ class BaseCanvasEditor {
 
     /** Recalculate canvas dimensions to match the container. */
     resize() {
-        // Force reflow up the DOM chain to get accurate measurements
-        if (this.container) {
-            void this.container.offsetHeight;
-        }
-        if (this.container && this.container.parentElement) {
-            void this.container.parentElement.offsetHeight;
-        }
-        if (this.element) {
-            void this.element.offsetHeight;
-        }
-
+        // getBoundingClientRect forces reflow naturally when needed
         const rect = this.element.getBoundingClientRect();
         const width = rect.width;
         const height = rect.height;
@@ -930,8 +920,10 @@ class BaseCanvasEditor {
 
             // Stability check: if the height changed dramatically, verify
             // after one frame that the layout has settled.
-            if (oldHeight > 0 && Math.abs(height - oldHeight) > 50) {
+            if (oldHeight > 0 && Math.abs(height - oldHeight) > 50 && !this._resizeStabilizing) {
+                this._resizeStabilizing = true;
                 requestAnimationFrame(() => {
+                    this._resizeStabilizing = false;
                     const newHeight = this.element.getBoundingClientRect().height;
                     if (Math.abs(newHeight - height) > 2) {
                         this.resize();

@@ -659,71 +659,29 @@
     MidiEditorEventsMixin.setupScrollSynchronization = function() {
         if (!this.pianoRoll) return;
 
-        let lastXOffset = this.pianoRoll.xoffset || 0;
-        let lastYOffset = this.pianoRoll.yoffset || 0;
-        let lastXRange = this.pianoRoll.xrange || 1920;
         let syncScheduled = false;
-    // OPTIMISATION: Intervalle adaptatif - ralentit quand idle, accélère quand actif
-        let idleCount = 0;
-        const ACTIVE_INTERVAL = 50;   // 20fps quand actif
-        const IDLE_INTERVAL = 200;    // 5fps quand idle
-        const IDLE_THRESHOLD = 10;    // 10 cycles sans changement → passer en idle
 
-        const pollFn = () => {
-            if (!this.pianoRoll) {
-                clearInterval(this.syncInterval);
-                return;
-            }
-
+        const onViewportChange = (e) => {
             if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) return;
 
-            const currentXOffset = this.pianoRoll.xoffset || 0;
-            const currentYOffset = this.pianoRoll.yoffset || 0;
-            const currentXRange = this.pianoRoll.xrange || 1920;
+            const { xoffset, yoffset, xrange } = e.detail;
 
-            const xOffsetChanged = Math.abs(currentXOffset - lastXOffset) > 0.5;
-            const yOffsetChanged = Math.abs(currentYOffset - lastYOffset) > 0.01;
-            const xRangeChanged = Math.abs(currentXRange - lastXRange) > 0.5;
+            // Update navigation overview bar
+            const maxTick = this.midiData?.maxTick || 0;
+            this.navigationBar?.setViewport(xoffset, xrange, maxTick);
 
-            if (xOffsetChanged || yOffsetChanged || xRangeChanged) {
-                idleCount = 0;
-                if (this._syncIdle) {
-                    this._syncIdle = false;
-                    clearInterval(this.syncInterval);
-                    this.syncInterval = setInterval(pollFn, ACTIVE_INTERVAL);
-                }
-            } else {
-                idleCount++;
-                if (!this._syncIdle && idleCount >= IDLE_THRESHOLD) {
-                    this._syncIdle = true;
-                    clearInterval(this.syncInterval);
-                    this.syncInterval = setInterval(pollFn, IDLE_INTERVAL);
-                }
-            }
-
-            if (xOffsetChanged || xRangeChanged) {
-    // Update navigation overview bar
-                const maxTick = this.midiData?.maxTick || 0;
-                this.navigationBar?.setViewport(currentXOffset, currentXRange, maxTick);
-
-                if (!syncScheduled) {
-                    syncScheduled = true;
-                    requestAnimationFrame(() => {
-                        this.syncAllEditors();
-                        syncScheduled = false;
-                    });
-                }
-                lastXOffset = currentXOffset;
-                lastXRange = currentXRange;
-            }
-
-            if (yOffsetChanged) {
-                lastYOffset = currentYOffset;
+            if (!syncScheduled) {
+                syncScheduled = true;
+                requestAnimationFrame(() => {
+                    this.syncAllEditors();
+                    syncScheduled = false;
+                });
             }
         };
 
-        this._syncIdle = false;
-        this.syncInterval = setInterval(pollFn, ACTIVE_INTERVAL);
+        this.pianoRoll.addEventListener('viewportchange', onViewportChange);
+        // Store reference for cleanup
+        this._viewportChangeHandler = onViewportChange;
     }
 
 

@@ -913,19 +913,20 @@ class MidiSynthesizer {
         this.schedulerInterval = setInterval(() => this.scheduleNotes(), 50);
 
         const updateCursor = () => {
-            if (this.isPlaying) {
-                const currentTime = this.audioContext.currentTime;
-                const elapsedTime = currentTime - this.startTime;
-                this.currentTick = this.startTick + this.secondsToTicks(elapsedTime);
+            if (!this.isPlaying) return; // Stop RAF chain when not playing
+            const currentTime = this.audioContext.currentTime;
+            const elapsedTime = currentTime - this.startTime;
+            this.currentTick = this.startTick + this.secondsToTicks(elapsedTime);
 
-                if (this.onTickUpdate) {
-                    this.onTickUpdate(this.currentTick);
-                }
-
-                this.animationFrame = requestAnimationFrame(updateCursor);
+            if (this.onTickUpdate) {
+                this.onTickUpdate(this.currentTick);
             }
+
+            this.animationFrame = requestAnimationFrame(updateCursor);
         };
-        this.animationFrame = requestAnimationFrame(updateCursor);
+        if (this.isPlaying) {
+            this.animationFrame = requestAnimationFrame(updateCursor);
+        }
     }
 
     /**
@@ -977,10 +978,12 @@ class MidiSynthesizer {
 
         this.lastScheduledTick = Math.max(this.lastScheduledTick, scheduleEndTick);
 
-        // Periodic cleanup: cap active envelopes to prevent unbounded growth
-        // Keep only the most recent 200 envelopes (older ones have likely finished)
-        if (this.activeEnvelopes.length > 200) {
-            this.activeEnvelopes = this.activeEnvelopes.slice(-200);
+        // Periodic cleanup: remove finished envelopes based on audio time
+        if (this.activeEnvelopes.length > 100) {
+            const now = this.audioContext.currentTime;
+            this.activeEnvelopes = this.activeEnvelopes.filter(
+                env => env.when !== undefined && (env.when + (env.duration || 0)) > now
+            );
         }
     }
 
