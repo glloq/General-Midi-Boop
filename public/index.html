@@ -3278,7 +3278,7 @@
             display: flex;
             position: relative;
             height: 80px;
-            min-width: 100%;
+            width: 100%;
             user-select: none;
         }
 
@@ -3305,13 +3305,13 @@
         }
 
         .piano-key-white {
-            width: 18px;
             height: 70px;
             background: linear-gradient(180deg, #fff 0%, #f5f5f5 100%);
             border: 1px solid #ccc;
             border-radius: 0 0 3px 3px;
             margin-right: -1px;
             z-index: 1;
+            box-sizing: border-box;
         }
 
         .piano-key-white:hover:not(.disabled) {
@@ -3338,12 +3338,10 @@
 
         .piano-key-black {
             position: absolute;
-            width: 12px;
             height: 45px;
             background: linear-gradient(180deg, #333 0%, #1a1a1a 100%);
             border-radius: 0 0 2px 2px;
             z-index: 2;
-            margin-left: -6px;
         }
 
         .piano-key-black:hover:not(.disabled) {
@@ -9965,7 +9963,7 @@
         const MIN_OCTAVE = -1; // C-1 (note 0)
         const MAX_OCTAVE = 9;  // G9 (note 127 = G9)
         const OCTAVE_WIDTH = 126; // Largeur approximative d'une octave en pixels (7 touches blanches x 18px)
-        const NAV_STEP = 3; // Nombre de demi-tons par clic de navigation
+        const NAV_STEP = 7; // Nombre de demi-tons par clic de navigation (une quinte)
         let currentPianoStartNote = 48; // Commence à C3 (MIDI 48, octave du milieu)
 
         // Calculer le nombre d'octaves visibles en fonction de la taille de la fenêtre
@@ -10157,8 +10155,9 @@
             const maxStart = Math.max(0, 127 - visibleOctaves * 12 + 1);
             currentPianoStartNote = Math.max(0, Math.min(maxStart, currentPianoStartNote));
 
-            // Rendre le piano
+            // Rendre le piano et observer les redimensionnements
             renderPianoKeyboard();
+            setupPianoResizeObserver();
 
             // Mettre à jour l'UI selon le mode
             setNoteSelectionMode(mode);
@@ -10171,17 +10170,29 @@
             }
         }
 
-        // Réagir au redimensionnement de la fenêtre
-        let resizeTimeout = null;
-        window.addEventListener('resize', () => {
-            if (resizeTimeout) clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
+        // Réagir au redimensionnement (fenêtre ou viewport du piano)
+        let pianoResizeTimeout = null;
+        function debouncedPianoRender() {
+            if (pianoResizeTimeout) clearTimeout(pianoResizeTimeout);
+            pianoResizeTimeout = setTimeout(() => {
                 const container = document.getElementById('pianoKeyboardMini');
                 if (container) {
                     renderPianoKeyboard();
                 }
             }, 150);
-        });
+        }
+        window.addEventListener('resize', debouncedPianoRender);
+
+        // Observer le viewport du piano pour redimensionnement (ex: ouverture/fermeture modale)
+        let pianoResizeObserver = null;
+        function setupPianoResizeObserver() {
+            if (pianoResizeObserver) pianoResizeObserver.disconnect();
+            const viewport = document.querySelector('.piano-viewport');
+            if (viewport && typeof ResizeObserver !== 'undefined') {
+                pianoResizeObserver = new ResizeObserver(debouncedPianoRender);
+                pianoResizeObserver.observe(viewport);
+            }
+        }
 
         // Rendre le clavier piano (octaves visibles selon taille)
         function renderPianoKeyboard() {
@@ -10189,16 +10200,30 @@
             if (!container) return;
 
             container.innerHTML = '';
+            container.style.transform = '';
 
+            const viewport = document.querySelector('.piano-viewport');
+            const viewportWidth = viewport ? viewport.clientWidth : 400;
             const visibleOctaves = getVisibleOctaves();
 
             // Calculer les notes de début et fin
             const startNote = Math.max(0, currentPianoStartNote);
             const endNote = Math.min(127, currentPianoStartNote + visibleOctaves * 12 - 1);
 
+            // Compter les touches blanches pour calculer la largeur dynamique
+            let whiteKeyCount = 0;
+            for (let n = startNote; n <= endNote; n++) {
+                if (!isBlackKey(n)) whiteKeyCount++;
+            }
+
+            // Largeur dynamique des touches pour remplir tout le viewport
+            const whiteKeyWidth = whiteKeyCount > 0 ? viewportWidth / whiteKeyCount : 18;
+            const blackKeyWidth = whiteKeyWidth * 0.65;
+            const blackKeyHeight = 45;
+
             let currentOctave = -2;
             let octaveDiv = null;
-            let whiteKeyIndex = 0;
+            let octaveWhiteKeyIndex = 0;
 
             for (let note = startNote; note <= endNote; note++) {
                 const octave = Math.floor(note / 12) - 1;
@@ -10211,13 +10236,16 @@
                     octaveDiv = document.createElement('div');
                     octaveDiv.className = 'piano-octave';
                     currentOctave = octave;
-                    whiteKeyIndex = 0;
+                    octaveWhiteKeyIndex = 0;
 
-                    // Label d'octave
-                    const label = document.createElement('span');
-                    label.className = 'piano-octave-label';
-                    label.textContent = 'C' + octave;
-                    octaveDiv.appendChild(label);
+                    // Label d'octave (seulement si on commence sur un C)
+                    const firstNoteInOctave = note % 12;
+                    if (firstNoteInOctave === 0) {
+                        const label = document.createElement('span');
+                        label.className = 'piano-octave-label';
+                        label.textContent = 'C' + octave;
+                        octaveDiv.appendChild(label);
+                    }
                 }
 
                 const isBlack = isBlackKey(note);
@@ -10235,10 +10263,12 @@
                 key.addEventListener('click', () => onPianoKeyClick(note));
 
                 if (isBlack) {
-                    // Positionner la touche noire au-dessus de la touche blanche précédente
-                    key.style.left = (whiteKeyIndex * 18 - 6) + 'px';
+                    key.style.width = blackKeyWidth + 'px';
+                    key.style.height = blackKeyHeight + 'px';
+                    key.style.left = (octaveWhiteKeyIndex * whiteKeyWidth - blackKeyWidth / 2) + 'px';
                 } else {
-                    whiteKeyIndex++;
+                    key.style.width = whiteKeyWidth + 'px';
+                    octaveWhiteKeyIndex++;
                 }
 
                 octaveDiv.appendChild(key);
@@ -10247,18 +10277,6 @@
             // Ajouter la dernière octave
             if (octaveDiv) {
                 container.appendChild(octaveDiv);
-            }
-
-            // Étirer le clavier pour remplir toute la largeur du viewport
-            const viewport = document.querySelector('.piano-viewport');
-            if (viewport && container.scrollWidth > 0) {
-                const scale = viewport.clientWidth / container.scrollWidth;
-                if (scale > 0 && scale !== 1) {
-                    container.style.transformOrigin = 'left top';
-                    container.style.transform = `scaleX(${scale})`;
-                } else {
-                    container.style.transform = '';
-                }
             }
 
             // Mettre à jour l'indicateur et les boutons de navigation
