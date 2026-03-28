@@ -1148,8 +1148,8 @@
     padding: 0;
     min-height: 44px;
     box-sizing: border-box;
-    background: color-mix(in srgb, var(--chip-color, #555) 20%, #1e1e1e);
-    border: 1px solid color-mix(in srgb, var(--chip-color, #555) 30%, #333);
+    background: color-mix(in srgb, var(--chip-color, #555) 35%, #1e1e1e);
+    border: 1px solid color-mix(in srgb, var(--chip-color, #555) 45%, #333);
     border-right: none;
     border-radius: 6px 0 0 6px;
     cursor: pointer;
@@ -1161,19 +1161,19 @@
 }
 
 .midi-editor-modal .channel-chip:hover {
-    background: color-mix(in srgb, var(--chip-color, #555) 30%, #1e1e1e);
+    background: color-mix(in srgb, var(--chip-color, #555) 45%, #1e1e1e);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .midi-editor-modal .channel-chip.active {
-    background: color-mix(in srgb, var(--chip-color, #555) 50%, #1e1e1e);
-    border-color: color-mix(in srgb, var(--chip-color, #555) 70%, #333);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--chip-color, #555) 30%, transparent);
+    background: color-mix(in srgb, var(--chip-color, #555) 65%, #1e1e1e);
+    border: 2px solid var(--chip-color, #555);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--chip-color, #555) 40%, transparent);
 }
 
 .midi-editor-modal .channel-chip.active:hover {
-    background: color-mix(in srgb, var(--chip-color, #555) 55%, #1e1e1e);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--chip-color, #555) 40%, transparent);
+    background: color-mix(in srgb, var(--chip-color, #555) 70%, #1e1e1e);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--chip-color, #555) 50%, transparent);
 }
 
 /* Chip content area */
