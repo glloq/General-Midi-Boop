@@ -255,10 +255,10 @@
 /* Exception: garder le modal éditeur MIDI avec ses propres styles */
 .midi-editor-modal .modal-dialog {
     padding: 0;
-    max-width: 98vw;
-    width: 98vw;
-    height: 95vh;
-    max-height: 95vh;
+    max-width: 100vw;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
 }
 
 @keyframes modalSlideIn {
@@ -700,13 +700,12 @@
     bottom: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    background: rgba(0, 0, 0, 0.85) !important;
-    backdrop-filter: blur(4px);
+    background: #000 !important;
     z-index: 10002 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 8px;
+    padding: 0;
     animation: fadeIn 0.2s ease-out;
     margin: 0 !important;
     transform: none !important;
@@ -724,15 +723,15 @@
 
 /* Dialog centré avec taille maximale optimale */
 .midi-editor-modal .modal-dialog {
-    width: 98vw !important;
-    max-width: 1800px !important;
-    height: 95vh !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
     max-height: none !important;
     margin: 0 !important;
     padding: 0 !important; /* AJOUT: Retirer padding pour gain de place */
     background: #1a1a1a; /* Fond noir pour éviter la bande blanche */
-    border-radius: 12px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border-radius: 0;
+    box-shadow: none;
     animation: scaleIn 0.2s ease-out;
     position: relative !important;
     display: flex;
@@ -759,7 +758,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    border-radius: 12px;
+    border-radius: 0;
     overflow: hidden;
 }
 
