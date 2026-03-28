@@ -97,19 +97,21 @@
             <div class="modal-dialog modal-xl">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <h3>🎹 ${this.t('midiEditor.title')}</h3>
+                        <h3>🎹 ÉdiB∞p</h3>
                         <span class="title-separator">—</span>
                         <span class="file-name" id="editor-file-name">${escapeHtml(this.currentFilename || this.currentFile || '')}</span>
                         <button class="btn-rename-file" data-action="rename-file" title="${this.t('midiEditor.renameFile')}">✏️</button>
-                        <span class="title-separator">—</span>
-                        <div class="tempo-control">
-                            <label for="tempo-input">♩ ${this.t('midiEditor.bpmLabel')}:</label>
-                            <input type="number" id="tempo-input" class="tempo-input" min="20" max="300" step="1" value="${this.tempo || 120}" title="${this.t('midiEditor.tempoTip')}">
-                        </div>
                     </div>
-                    <button class="header-auto-assign-btn" data-action="auto-assign" title="${this.t('autoAssign.title')}">
-                        🎯 ${this.t('midiEditor.autoAssign')}
-                    </button>
+                    <div class="tempo-control">
+                        <span class="tempo-label">♩</span>
+                        <input type="number" id="tempo-input" class="tempo-input" min="20" max="300" step="1" value="${this.tempo || 120}" title="${this.t('midiEditor.tempoTip')}">
+                        <span class="tempo-unit">BPM</span>
+                    </div>
+                    <div class="header-right-actions">
+                        <button class="header-auto-assign-btn" data-action="auto-assign" title="${this.t('autoAssign.title')}">
+                            🎯 ${this.t('midiEditor.autoAssign')}
+                        </button>
+                    </div>
                     <button class="modal-close" data-action="close">&times;</button>
                 </div>
                 <div class="modal-body">
