@@ -100,7 +100,7 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
     position: relative;
     box-shadow: var(--shadow-light, 0 2px 4px rgba(0,0,0,0.05));
@@ -191,7 +191,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     cursor: pointer;
     font-size: 12px;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
     min-width: 36px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -225,7 +225,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     cursor: pointer;
     font-size: 13px;
     font-weight: 700;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
     min-width: 48px;
     text-align: center;
@@ -323,7 +323,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
 }
 
@@ -350,7 +350,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
 }
 
@@ -413,7 +413,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     min-width: 80px;
 }
 
@@ -619,7 +619,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
 }
 
 /* ===== VELOCITY & MODULATION EDITORS ===== */
@@ -656,7 +656,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     cursor: pointer;
     font-size: 18px;
     line-height: 1;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .close-btn:hover {
@@ -744,7 +744,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .transport-btn:hover {
@@ -948,7 +948,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     padding: 4px 8px;
     border-radius: 4px;
     opacity: 0.6;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -1057,7 +1057,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     border-radius: 8px;
     cursor: pointer;
     border: none;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     font-weight: 500;
 }
 
@@ -1092,7 +1092,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
 .playback-btn {
     min-width: 40px;
     padding: 6px 10px;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .playback-btn .icon {
@@ -1303,7 +1303,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 

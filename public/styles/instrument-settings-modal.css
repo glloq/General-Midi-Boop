@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   padding: 0;
   font-weight: 300;
 }
@@ -85,7 +85,7 @@
   font-size: 13px;
   color: var(--text-muted, #6b7280);
   border-bottom: 3px solid transparent;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -160,7 +160,7 @@
   color: var(--text-secondary, #4b5563);
   text-align: left;
   width: 100%;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   border-left: 3px solid transparent;
 }
 
@@ -304,7 +304,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   text-align: center;
 }
 
@@ -340,7 +340,7 @@
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
   user-select: none;
 }
 
@@ -656,7 +656,7 @@
   border-radius: 12px;
   background: var(--bg-primary, white);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   text-align: left;
 }
 
@@ -726,7 +726,7 @@
   cursor: pointer;
   font-size: 13px;
   color: var(--text-secondary, #4b5563);
-  transition: all 0.15s;
+  transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
 .ism-mode-btn:hover {
@@ -1307,7 +1307,7 @@ body.dark-mode .ism-scale-selector select {
   border-radius: 8px;
   background: var(--bg-primary, #fff);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .ism-octave-btn:hover {

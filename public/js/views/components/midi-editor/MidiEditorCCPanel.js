@@ -195,28 +195,32 @@ class MidiEditorCCPanel {
         const m = this.modal;
         if (!m.container) return;
 
-        const channelButtons = m.container.querySelectorAll('.cc-channel-btn');
-        channelButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const channel = parseInt(btn.dataset.channel);
+        // Event delegation: single listener on channel selector container
+        const channelSelector = m.container.querySelector('.cc-channel-selector');
+        if (!channelSelector || channelSelector._delegated) return;
+        channelSelector._delegated = true;
 
-                if (!isNaN(channel)) {
-                    channelButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+        channelSelector.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cc-channel-btn');
+            if (!btn) return;
+            e.preventDefault();
+            const channel = parseInt(btn.dataset.channel);
 
-                    if (m.currentCCType === 'velocity' && m.velocityEditor) {
-                        m.velocityEditor.setChannel(channel);
-                        m.log('info', `Canal velocite selectionne: ${channel + 1}`);
-                    } else if (m.ccEditor) {
-                        m.ccEditor.setChannel(channel);
-                        m.log('info', `Canal CC selectionne: ${channel + 1}`);
-                    }
+            if (!isNaN(channel)) {
+                channelSelector.querySelectorAll('.cc-channel-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
 
-                    this.highlightUsedCCButtons();
-                    this.updateDynamicCCButtons();
+                if (m.currentCCType === 'velocity' && m.velocityEditor) {
+                    m.velocityEditor.setChannel(channel);
+                    m.log('info', `Canal velocite selectionne: ${channel + 1}`);
+                } else if (m.ccEditor) {
+                    m.ccEditor.setChannel(channel);
+                    m.log('info', `Canal CC selectionne: ${channel + 1}`);
                 }
-            });
+
+                this.highlightUsedCCButtons();
+                this.updateDynamicCCButtons();
+            }
         });
     }
 

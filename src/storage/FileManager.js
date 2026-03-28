@@ -655,7 +655,7 @@ class FileManager {
         throw new Error(`Invalid file ID: ${fileId}`);
       }
 
-      const file = this.app.database.getFile(numericId);
+      const file = this.app.database.getFileInfo(numericId);
       if (!file) {
         throw new Error(`File not found: ${numericId}`);
       }
@@ -728,7 +728,7 @@ class FileManager {
 
   async renameFile(fileId, newFilename) {
     try {
-      const file = this.app.database.getFile(fileId);
+      const file = this.app.database.getFileInfo(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
@@ -751,7 +751,7 @@ class FileManager {
 
   async moveFile(fileId, newFolder) {
     try {
-      const file = this.app.database.getFile(fileId);
+      const file = this.app.database.getFileInfo(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
@@ -852,7 +852,7 @@ class FileManager {
 
   async saveFileAs(fileId, newFilename, midiData) {
     try {
-      const file = this.app.database.getFile(fileId);
+      const file = this.app.database.getFileInfo(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }

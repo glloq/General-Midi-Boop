@@ -321,7 +321,7 @@
     border: 1px solid #ef476f;
     border-radius: 0 0 6px 6px;
     cursor: pointer;
-    transition: all var(--transition-fast, 0.15s);
+    transition: background-color var(--transition-fast, 0.15s), transform var(--transition-fast, 0.15s), opacity var(--transition-fast, 0.15s), box-shadow var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
 }
 
 .channel-drum-btn:hover {

@@ -60,7 +60,7 @@
     border-top: 2px solid var(--border-color, #e9ecef);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease-out;
+    transition: background-color 0.3s ease-out, transform 0.3s ease-out, opacity 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out;
     min-height: 0;
 }
 
@@ -125,7 +125,7 @@
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
     text-align: center;
     min-width: 28px;
     line-height: 1;
@@ -186,7 +186,7 @@
     display: flex;           /* CRITICAL: doit être flex container pour ses enfants */
     flex-direction: column;
     overflow: hidden;
-    transition: all 0.3s ease-out;
+    transition: background-color 0.3s ease-out, transform 0.3s ease-out, opacity 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out;
     min-height: 0;
     max-height: 100%; /* AJOUT: Contraindre au conteneur parent */
 }
@@ -277,7 +277,7 @@
     font-size: 9px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
     text-align: center;
     white-space: nowrap;
     line-height: 1.2;
@@ -390,7 +390,7 @@
     color: var(--text-secondary, #6c757d);
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
     line-height: 1;
     min-width: 32px;
@@ -418,7 +418,7 @@
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
     display: flex;
     align-items: center;
@@ -468,7 +468,7 @@
     font-size: 10px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
     min-width: 24px;
     line-height: 1;
@@ -564,7 +564,7 @@
     display: none; /* Cachée par défaut */
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     user-select: none;
     position: relative;
     z-index: 50;
@@ -671,7 +671,7 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -1049,7 +1049,7 @@ body.dark-mode .midi-editor-section.cc-section {
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
     margin-left: -1px;
     position: relative;
 }
@@ -1284,7 +1284,7 @@ body.dark-mode .cc-type-btn.has-data-other {
     border: 1px solid var(--border-color, #dee2e6);
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.12s;
+    transition: background-color 0.12s, transform 0.12s, opacity 0.12s, box-shadow 0.12s, border-color 0.12s;
     position: relative;
     white-space: nowrap;
 }

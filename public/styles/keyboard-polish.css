@@ -43,7 +43,7 @@
     background: rgba(255, 255, 255, 0.1);
     padding: 6px 10px;
     border-radius: 8px;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
 }
 
 /* ========================================================================
@@ -74,7 +74,7 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .instrument-dropdown:hover {
@@ -123,7 +123,7 @@
     background: rgba(255, 255, 255, 0.15);
     border-radius: 20px;
     font-size: 14px;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .status-item .status-icon {
@@ -204,7 +204,7 @@
     background: rgba(255, 255, 255, 0.3);
     outline: none;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .velocity-slider::-webkit-slider-thumb {
@@ -216,7 +216,7 @@
     background: white;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .velocity-slider::-webkit-slider-thumb:hover {
@@ -234,7 +234,7 @@
     padding: 4px 10px;
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 /* ========================================================================
@@ -255,7 +255,7 @@
     color: white;
     font-size: 16px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .btn-octave:hover {
@@ -311,7 +311,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .btn-speaker:hover {
@@ -347,7 +347,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .btn-help:hover {
@@ -363,7 +363,7 @@
 .piano-key,
 .drum-pad,
 .scale-pad {
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .piano-key:hover:not(.disabled),
@@ -477,7 +477,7 @@
     height: 36px;
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;

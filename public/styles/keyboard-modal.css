@@ -166,7 +166,7 @@
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
 .keyboard-header-controls .btn-octave-down:hover,
@@ -198,7 +198,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     flex-shrink: 0;
 }
 
@@ -512,7 +512,7 @@
 .piano-key {
     cursor: pointer;
     user-select: none;
-    transition: all 0.05s ease;
+    transition: background-color 0.05s ease, transform 0.05s ease, opacity 0.05s ease, box-shadow 0.05s ease, border-color 0.05s ease;
     border-radius: 0 0 4px 4px;
 }
 

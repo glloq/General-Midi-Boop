@@ -777,17 +777,29 @@ class LightingManager extends EventEmitter {
 
   _broadcastLedState(deviceId, ledIndex, r, g, b) {
     if (this.app.wsServer && this._ledBroadcastEnabled) {
-      // Throttle: only send max 30 times per second per device
-      const now = Date.now();
-      const key = `led_${deviceId}`;
-      if (!this._lastLedBroadcast) this._lastLedBroadcast = new Map();
-      const last = this._lastLedBroadcast.get(key) || 0;
-      if (now - last < 33) return; // 33ms = ~30fps
-      this._lastLedBroadcast.set(key, now);
+      // Batch LED updates: accumulate changes and flush at ~30fps per device
+      if (!this._ledBatchBuffer) this._ledBatchBuffer = new Map();
+      if (!this._ledBatchTimers) this._ledBatchTimers = new Map();
 
-      this.app.wsServer.broadcast('lighting_led_state', {
-        deviceId, ledIndex, r, g, b
-      });
+      const key = `led_${deviceId}`;
+      if (!this._ledBatchBuffer.has(key)) {
+        this._ledBatchBuffer.set(key, []);
+      }
+      this._ledBatchBuffer.get(key).push({ ledIndex, r, g, b });
+
+      // Schedule flush if not already pending
+      if (!this._ledBatchTimers.has(key)) {
+        this._ledBatchTimers.set(key, setTimeout(() => {
+          const updates = this._ledBatchBuffer.get(key);
+          this._ledBatchBuffer.delete(key);
+          this._ledBatchTimers.delete(key);
+          if (updates && updates.length > 0) {
+            this.app.wsServer.broadcast('lighting_led_state', {
+              deviceId, leds: updates
+            });
+          }
+        }, 33)); // ~30fps
+      }
     }
   }
 
@@ -958,6 +970,22 @@ class LightingManager extends EventEmitter {
       clearInterval(this._healthCheckInterval);
       this._healthCheckInterval = null;
     }
+
+    // Clear LED batch timers
+    if (this._ledBatchTimers) {
+      for (const timer of this._ledBatchTimers.values()) {
+        clearTimeout(timer);
+      }
+      this._ledBatchTimers.clear();
+    }
+    if (this._ledBatchBuffer) this._ledBatchBuffer.clear();
+
+    // Clear active fades
+    for (const [key, fade] of this.activeFades) {
+      if (fade.interval) clearInterval(fade.interval);
+    }
+    this.activeFades.clear();
+
     this.effectsEngine.shutdown();
     this.allOff();
     for (const [id] of this.drivers) {

@@ -241,7 +241,7 @@
     border: 1px solid var(--instrument-border);
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .status-btn:hover {
@@ -287,7 +287,7 @@
     border: 1px solid var(--instrument-border);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .action-btn:hover:not(.disabled) {
@@ -367,7 +367,7 @@
     border-left: 4px solid var(--instrument-primary);
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .group-header:hover {
@@ -405,7 +405,7 @@
 
 .group-content {
     padding: 15px 0;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     overflow: hidden;
 }
 
@@ -572,7 +572,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 13px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .filter-btn:hover {
@@ -808,7 +808,7 @@
 }
 
 .instrument-card.drop-target {
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .instrument-card.drag-over {
@@ -921,7 +921,7 @@
     border: 1px solid var(--instrument-border);
     border-radius: 8px;
     box-shadow: 0 2px 4px var(--instrument-shadow);
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .device-card:hover {
@@ -1011,7 +1011,7 @@
     background: white;
     cursor: pointer;
     font-size: 16px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1155,7 +1155,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .modal-close:hover {
@@ -1282,7 +1282,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .btn-primary:hover {
@@ -1307,7 +1307,7 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .btn-secondary:hover {
