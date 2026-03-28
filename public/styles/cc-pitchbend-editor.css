@@ -649,7 +649,7 @@
 /* Indicateurs de canal */
 .channel-indicator {
     font-size: 10px;
-    color: #666;
+    color: var(--text-muted);
     margin-left: auto;
 }
 
@@ -657,27 +657,27 @@
 .toolbar-divider {
     width: 1px;
     height: 20px;
-    background: #444;
+    background: var(--border-color);
     margin: 0 4px;
 }
 
 /* Mode toggle button */
 .mode-toggle-btn {
     padding: 6px 14px;
-    background: linear-gradient(180deg, #3d3d3d 0%, #323232 100%);
-    border: 1px solid #555;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
-    color: #e0e0e0;
+    color: var(--text-primary);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-light);
 }
 
 .mode-toggle-btn:hover {
-    background: linear-gradient(180deg, #454545 0%, #3a3a3a 100%);
-    border-color: #666;
+    background: var(--bg-tertiary);
+    border-color: var(--accent-primary);
 }
 
 .mode-toggle-btn.cc-mode {
@@ -704,8 +704,8 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #444;
-    color: #aaa;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
     font-size: 11px;
     font-weight: bold;
     cursor: help;
@@ -713,7 +713,7 @@
 }
 
 .cc-info:hover {
-    background: #555;
+    background: var(--accent-primary);
     color: #fff;
 }
 

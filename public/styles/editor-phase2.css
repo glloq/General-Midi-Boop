@@ -67,7 +67,7 @@
     position: absolute;
     top: 16px;
     right: 16px;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 6px 12px;
@@ -76,6 +76,7 @@
     color: var(--text-primary);
     pointer-events: none;
     backdrop-filter: blur(4px);
+    box-shadow: var(--shadow-medium);
 }
 
 #velocityValue {
@@ -118,8 +119,8 @@
 
 .cc-select {
     padding: 6px 12px;
-    background: var(--secondary-color);
-    border: 1px solid #444;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
     font-size: 12px;
@@ -130,8 +131,8 @@
 }
 
 .cc-select:hover {
-    background: #404040;
-    border-color: #555;
+    background: var(--bg-tertiary);
+    border-color: var(--accent-primary);
 }
 
 .cc-select:focus:not(:focus-visible) {
@@ -168,7 +169,7 @@
     position: absolute;
     top: 16px;
     right: 16px;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 6px 12px;
@@ -177,6 +178,7 @@
     color: var(--text-primary);
     pointer-events: none;
     backdrop-filter: blur(4px);
+    box-shadow: var(--shadow-medium);
 }
 
 #ccTime,
@@ -334,7 +336,7 @@
 }
 
 .form-input:hover {
-    border-color: #555;
+    border-color: var(--accent-primary);
 }
 
 .form-input:focus:not(:focus-visible) {
@@ -474,8 +476,8 @@
 }
 
 .modal-footer .btn-secondary:hover {
-    background: #404040;
-    border-color: #555;
+    background: var(--bg-tertiary);
+    border-color: var(--accent-primary);
 }
 
 /* ============================================================================
@@ -487,7 +489,7 @@
     height: 28px;
     padding: 0;
     background: transparent;
-    border: 1px solid #444;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
     cursor: pointer;
