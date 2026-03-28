@@ -785,13 +785,13 @@
             this.pianoRoll.setAttribute('colrulerborder', '#2e3038');
             this.pianoRoll.setAttribute('colnoteborder', 'rgba(255,255,255,0.1)');
         } else {
-            this.pianoRoll.setAttribute('collt', '#f7f7fc');
-            this.pianoRoll.setAttribute('coldk', '#f0f0f8');
-            this.pianoRoll.setAttribute('colgrid', '#e8e8f2');
-            this.pianoRoll.setAttribute('colrulerbg', '#ededf6');
+            this.pianoRoll.setAttribute('collt', '#ddd6f3');
+            this.pianoRoll.setAttribute('coldk', '#d2cae8');
+            this.pianoRoll.setAttribute('colgrid', '#c8c0de');
+            this.pianoRoll.setAttribute('colrulerbg', '#d5cdef');
             this.pianoRoll.setAttribute('colrulerfg', '#4a3f6b');
-            this.pianoRoll.setAttribute('colrulerborder', '#e8e8f2');
-            this.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.15)');
+            this.pianoRoll.setAttribute('colrulerborder', '#c0b8d8');
+            this.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.25)');
         }
     }
 

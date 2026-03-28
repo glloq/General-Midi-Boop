@@ -79,10 +79,10 @@ class PianoRollView {
             this.gridColor = '#333';
             this.labelColor = '#888';
         } else {
-            this.bgColor = '#e8eeff';
-            this.mutedColor = '#9498b8';
-            this.gridColor = '#d4daff';
-            this.labelColor = '#5a6089';
+            this.bgColor = '#d8d0ec';
+            this.mutedColor = '#9490b0';
+            this.gridColor = '#c8c0de';
+            this.labelColor = '#4a3f6b';
         }
     }
 

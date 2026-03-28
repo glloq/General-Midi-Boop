@@ -151,6 +151,29 @@ body.dark-mode .piano-roll-header {
     border-bottom-color: var(--border-color);
 }
 
+/* Piano Roll View (playback overlay) */
+body.dark-mode .piano-roll-view {
+    background: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .piano-roll-view-header {
+    background: #2a2a2a;
+    border-bottom-color: #444;
+}
+
+body.dark-mode .piano-roll-view-title {
+    color: #fff;
+}
+
+body.dark-mode .piano-roll-title-text {
+    color: #4ECDC4;
+}
+
+body.dark-mode .piano-roll-view-content {
+    background: #111;
+}
+
 body.dark-mode .visualizer-controls {
     background: var(--bg-tertiary);
     border-top-color: var(--border-color);
