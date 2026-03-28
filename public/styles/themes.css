@@ -174,6 +174,207 @@ body.dark-mode .piano-roll-view-content {
     background: #111;
 }
 
+/* MIDI Editor Modal (dark mode) */
+body.dark-mode .midi-editor-modal .modal-dialog {
+    background: #1a1a1a;
+}
+
+body.dark-mode .midi-editor-modal .modal-body {
+    background: #1a1a1a;
+}
+
+body.dark-mode .midi-editor-modal .editor-toolbar {
+    background: #2a2a2a;
+    border-bottom-color: #3a3a3a;
+}
+
+body.dark-mode .midi-editor-modal .toolbar-label {
+    color: #aaa;
+}
+
+body.dark-mode .midi-editor-modal .toolbar-label span {
+    color: #fff;
+}
+
+body.dark-mode .midi-editor-modal .channels-toolbar-wrapper {
+    background: #252525;
+    border-bottom-color: #3a3a3a;
+}
+
+body.dark-mode .midi-editor-modal .channels-toolbar {
+    background: #252525;
+    scrollbar-color: #555 #252525;
+}
+
+body.dark-mode .midi-editor-modal .toolbar-divider {
+    background: #444;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn {
+    background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+    border-color: #555;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .midi-editor-modal .tool-btn .btn-label {
+    color: #ccc;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn .btn-shortcut {
+    color: #999;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #4a4a4a 0%, #3a3a3a 100%);
+    border-color: #667eea;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .midi-editor-modal .tool-btn:disabled {
+    border-color: #444;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn.mode-unsupported {
+    border-color: #333;
+    background: #1a1a1a;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="undo"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="redo"] {
+    background: linear-gradient(180deg, #3a4a5a 0%, #2a3a4a 100%);
+    border-color: #4a6a8a;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-view"] {
+    background: linear-gradient(180deg, #4a3a5a 0%, #3a2a4a 100%);
+    border-color: #6a4a8a;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-select"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-notes"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-add-note"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-resize-note"] {
+    background: linear-gradient(180deg, #3a5a3a 0%, #2a4a2a 100%);
+    border-color: #4a8a4a;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="copy"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="paste"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="delete"] {
+    background: linear-gradient(180deg, #5a3a3a 0%, #4a2a2a 100%);
+    border-color: #8a4a4a;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn-compact {
+    background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+    border-color: #555;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .midi-editor-modal .tool-btn-snap {
+    background: linear-gradient(180deg, #3a4a3a 0%, #2a3a2a 100%);
+    border-color: #4a8a4a;
+    color: #fff;
+}
+
+body.dark-mode .midi-editor-modal .snap-label {
+    color: #aaa;
+}
+
+body.dark-mode .midi-editor-modal .snap-select {
+    background: #1a1a1a;
+    border-color: #444;
+    color: #fff;
+}
+
+body.dark-mode .midi-editor-modal .channel-chip {
+    background: color-mix(in srgb, var(--chip-color, #555) 35%, #1e1e1e);
+    border-color: color-mix(in srgb, var(--chip-color, #555) 45%, #333);
+}
+
+body.dark-mode .midi-editor-modal .channel-chip.active {
+    background: color-mix(in srgb, var(--chip-color, #555) 65%, #1e1e1e);
+    border-color: var(--chip-color, #555);
+}
+
+body.dark-mode .midi-editor-modal .chip-settings-btn {
+    color: #777;
+    background: #1a1a1a;
+}
+
+body.dark-mode .midi-editor-modal .chip-settings-btn:hover {
+    color: #fff;
+    background: #2a2a2a;
+}
+
+body.dark-mode .midi-editor-modal .channel-global-actions {
+    background: linear-gradient(90deg, transparent 0%, #252525 30%, #252525 100%);
+}
+
+body.dark-mode .midi-editor-modal .btn-show-all-channels {
+    background: linear-gradient(180deg, #3a4a5a 0%, #2a3a4a 100%);
+    border-color: #4a6a8a;
+}
+
+body.dark-mode .midi-editor-modal .channel-tab-btn {
+    color: #aaa;
+    background: linear-gradient(180deg, #222 0%, #111 100%);
+    border-color: #555;
+}
+
+body.dark-mode .midi-editor-modal .channel-tab-btn:hover {
+    color: #fff;
+    background: linear-gradient(180deg, #333 0%, #222 100%);
+}
+
+body.dark-mode .midi-editor-modal .piano-roll-container {
+    background: #1a1a1a;
+}
+
+body.dark-mode .channel-settings-popover {
+    background: #1e1e1e;
+    border-color: #555;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .channel-settings-header {
+    color: #ccc;
+    border-bottom-color: #333;
+}
+
+body.dark-mode .channel-settings-toggle {
+    color: #ddd;
+}
+
+body.dark-mode .channel-settings-label {
+    color: #999;
+}
+
+body.dark-mode .channel-routing-select {
+    background: #111;
+    color: #ddd;
+    border-color: #444;
+}
+
+body.dark-mode .channel-visibility-actions {
+    border-top-color: #333;
+}
+
+body.dark-mode .channel-hide-others-btn,
+body.dark-mode .channel-show-all-btn {
+    color: #ccc;
+    background: #2a2a2a;
+    border-color: #555;
+}
+
+body.dark-mode .channel-hide-others-btn:hover,
+body.dark-mode .channel-show-all-btn:hover {
+    color: #fff;
+    background: #3a3a3a;
+}
+
 body.dark-mode .visualizer-controls {
     background: var(--bg-tertiary);
     border-top-color: var(--border-color);
