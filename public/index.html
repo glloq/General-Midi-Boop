@@ -762,8 +762,8 @@
 
         /* Fichiers */
         .file-item {
-            border-bottom: 1px solid rgba(118, 75, 162, 0.1);
-            border-left: 3px solid transparent;
+            border: 1px solid #1a1a2e;
+            border-left: 3px solid #1a1a2e;
             transition: all 0.2s ease;
         }
 
@@ -953,7 +953,7 @@
         .display-mode-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3); }
 
         /* File grid view */
-        .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid rgba(118, 75, 162, 0.15); backdrop-filter: blur(8px); }
+        .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid #1a1a2e; backdrop-filter: blur(8px); }
         .file-list.view-grid .file-item::before { background: rgba(102, 126, 234, 0.3); }
         .file-list.view-grid .file-item:hover { border-color: rgba(118, 75, 162, 0.35); box-shadow: 0 8px 20px rgba(118, 75, 162, 0.18); background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(232, 236, 254, 0.6)); }
         .file-list.view-grid .file-item:hover::before { background: #667eea; }
@@ -968,13 +968,13 @@
         .file-list.view-compact .file-item.selected::before { background: #764ba2; }
 
         /* Header info */
-        .header-file-name { color: #ffffff; }
-        .header-time { color: rgba(255, 255, 255, 0.85); }
-        .header-progress { background: rgba(255, 255, 255, 0.25); }
-        .header-progress-fill { background: linear-gradient(90deg, #06d6a0, #ffd166); }
-        .header-controls .btn { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: white !important; }
-        .header-controls .btn:hover { background: rgba(255, 255, 255, 0.35) !important; }
-        .header-controls .btn-danger { background: rgba(239, 71, 111, 0.7) !important; border: 1px solid rgba(239, 71, 111, 0.5) !important; }
+        .header-file-name { color: #1a1a2e; }
+        .header-time { color: #333; }
+        .header-progress { background: rgba(0, 0, 0, 0.1); }
+        .header-progress-fill { background: #1a1a2e; }
+        .header-controls .btn { background: rgba(255, 255, 255, 0.5) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; color: #1a1a2e !important; }
+        .header-controls .btn:hover { background: rgba(255, 255, 255, 0.7) !important; }
+        .header-controls .btn-danger { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #dc2626 !important; }
 
         /* Search bar et contrôles */
         .search-bar { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(118, 75, 162, 0.2); }
