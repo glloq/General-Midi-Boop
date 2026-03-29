@@ -28,12 +28,13 @@ class HttpServer {
     // Gzip compression for all responses
     this.expressApp.use(compression());
 
-    // Security headers (CSP disabled — embedded SPA with inline scripts
-    // and external WebAudioFont resources; not practical for this architecture)
+    // Security headers (CSP disabled — embedded SPA with inline scripts,
+    // CORP/COEP disabled — app accessed via IP on local network)
     this.expressApp.use(
       helmet({
         contentSecurityPolicy: false,
-        crossOriginEmbedderPolicy: false
+        crossOriginEmbedderPolicy: false,
+        crossOriginResourcePolicy: false
       })
     );
 
