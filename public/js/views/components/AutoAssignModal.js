@@ -686,7 +686,27 @@ class AutoAssignModal {
     return parts.join(' &bull; ');
   }
 
-  // getScoreColor() - canonical version in AutoAssignUtils mixin
+  // Fallback methods — overridden by AutoAssignUtilsMixin if loaded
+  getScoreColor(score) {
+    if (score >= 80) return 'var(--aa-score-excellent, #00c896)';
+    if (score >= 60) return 'var(--aa-score-good, #7bc67e)';
+    if (score >= 40) return 'var(--aa-score-fair, #f0b429)';
+    return 'var(--aa-score-poor, #e8365d)';
+  }
+
+  getScoreClass(score) {
+    if (score >= 80) return 'aa-color-excellent';
+    if (score >= 60) return 'aa-color-good';
+    if (score >= 40) return 'aa-color-fair';
+    return 'aa-color-poor';
+  }
+
+  getScoreBgClass(score) {
+    if (score >= 80) return 'aa-bg-excellent';
+    if (score >= 60) return 'aa-bg-good';
+    if (score >= 40) return 'aa-bg-fair';
+    return 'aa-bg-poor';
+  }
 
   getScoreStars(score) {
     const filled = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 40 ? 2 : 1;
@@ -835,6 +855,7 @@ const _autoassignMixins = [
     typeof AutoAssignUIMixin !== 'undefined' ? AutoAssignUIMixin : null,
     typeof AutoAssignVizMixin !== 'undefined' ? AutoAssignVizMixin : null,
     typeof AutoAssignActionsMixin !== 'undefined' ? AutoAssignActionsMixin : null,
+    typeof AutoAssignUtilsMixin !== 'undefined' ? AutoAssignUtilsMixin : null,
 ];
 _autoassignMixins.forEach(m => { if (m) Object.keys(m).forEach(k => { AutoAssignModal.prototype[k] = m[k]; }); });
 
