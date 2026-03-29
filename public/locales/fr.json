@@ -989,7 +989,9 @@
         "reviewSplits": "Voir les découpes",
         "acceptAllSplits": "Accepter toutes les découpes",
         "acceptAllSplitsConfirm": "Accepter {count} proposition(s) de découpe ?",
-        "unsavedChanges": "Vous avez des modifications non enregistrées. Fermer quand même ?",
+        "unsavedChanges": "Modifications non enregistrées",
+        "unsavedChangesMessage": "Vous avez modifié des assignations d'instruments, des stratégies ou des transpositions qui n'ont pas été appliquées. Fermer annulera ces modifications.",
+        "discardChanges": "Abandonner les modifications",
         "channelsAssigned": "canal/canaux assigné(s)",
         "allChannelsSkipped": "Tous les canaux ont été ignorés — aucun instrument compatible disponible. Veuillez ajouter ou configurer des instruments dans les paramètres."
     },

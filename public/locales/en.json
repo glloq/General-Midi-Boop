@@ -989,7 +989,9 @@
         "reviewSplits": "Review splits",
         "acceptAllSplits": "Accept all splits",
         "acceptAllSplitsConfirm": "Accept {count} split proposal(s)?",
-        "unsavedChanges": "You have unsaved changes. Close anyway?",
+        "unsavedChanges": "Unsaved Changes",
+        "unsavedChangesMessage": "You have modified instrument assignments, strategies, or transpositions that haven't been applied yet. Closing will discard these changes.",
+        "discardChanges": "Discard Changes",
         "channelsAssigned": "channel(s) assigned",
         "allChannelsSkipped": "All channels were auto-skipped — no compatible instruments available. Please add or configure instruments in settings."
     },

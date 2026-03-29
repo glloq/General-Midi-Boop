@@ -661,7 +661,12 @@ class AutoAssignModal {
     }
 
     if (typeof window.showConfirm === 'function') {
-      const confirmed = await window.showConfirm(summary);
+      const confirmed = await window.showConfirm(summary, {
+        title: _t('autoAssign.quickAssign'),
+        icon: '⚡',
+        okText: _t('autoAssign.quickAssign'),
+        danger: false
+      });
       if (!confirmed) return;
     } else {
       if (!confirm(summary)) return;
@@ -777,13 +782,26 @@ class AutoAssignModal {
   }
 
   /**
-   * Close the modal (with unsaved changes confirmation)
+   * Close the modal (with unsaved changes confirmation via styled modal)
    * @param {boolean} [force=false] - Skip dirty check (used after successful apply)
    */
-  close(force) {
+  async close(force) {
     if (!force && this._isDirty) {
-      const msg = typeof i18n !== 'undefined' ? i18n.t('autoAssign.unsavedChanges') : 'You have unsaved changes. Close anyway?';
-      if (!confirm(msg)) return;
+      if (typeof window.showConfirm === 'function') {
+        const confirmed = await window.showConfirm(
+          _t('autoAssign.unsavedChangesMessage'),
+          {
+            title: _t('autoAssign.unsavedChanges'),
+            icon: '⚠️',
+            okText: _t('autoAssign.discardChanges'),
+            cancelText: _t('common.cancel'),
+            danger: true
+          }
+        );
+        if (!confirmed) return;
+      } else {
+        if (!confirm(_t('autoAssign.unsavedChanges'))) return;
+      }
     }
     this.stopPreview();
 
@@ -878,13 +896,19 @@ class AutoAssignModal {
   /**
    * Accept all pending split proposals at once
    */
-  acceptAllSplits() {
+  async acceptAllSplits() {
     const pendingCount = Object.keys(this.splitProposals).filter(ch => !this.splitChannels.has(Number(ch))).length;
     if (pendingCount === 0) return;
-    const msg = typeof i18n !== 'undefined'
-      ? i18n.t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount })
-      : `Accept ${pendingCount} split proposal(s)?`;
-    if (!confirm(msg)) return;
+
+    if (typeof window.showConfirm === 'function') {
+      const confirmed = await window.showConfirm(
+        _t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount }),
+        { title: _t('autoAssign.acceptAllSplits'), icon: '⇅', danger: false }
+      );
+      if (!confirmed) return;
+    } else {
+      if (!confirm(_t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount }))) return;
+    }
 
     for (const [ch, proposal] of Object.entries(this.splitProposals)) {
       const channel = Number(ch);
