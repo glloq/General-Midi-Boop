@@ -11,11 +11,11 @@ const ScoringConfig = {
    * Poids maximum pour chaque critère (total = 100)
    */
   weights: {
-    programMatch: 30,      // Match du programme MIDI GM (réduit de 34)
-    noteRange: 27,         // Compatibilité de plage de notes (réduit de 29)
-    polyphony: 13,         // Polyphonie suffisante (réduit de 15)
-    ccSupport: 5,          // Support des contrôleurs MIDI (réduit de 7)
-    instrumentType: 20,    // Type d'instrument hiérarchique (augmenté de 10 → 20)
+    programMatch: 20,      // Match du programme MIDI GM
+    noteRange: 40,         // Compatibilité de plage de notes (critère #1 : jouabilité)
+    polyphony: 10,         // Polyphonie suffisante
+    ccSupport: 5,          // Support des contrôleurs MIDI
+    instrumentType: 20,    // Type d'instrument hiérarchique
     channelSpecial: 5      // Canal spécial (ex: canal 10 = drums)
   },
 
@@ -57,9 +57,9 @@ const ScoringConfig = {
    * Bonus pour bons matchs
    */
   bonuses: {
-    perfectProgramMatch: 30,      // Programme MIDI exact
-    sameCategoryMatch: 20,        // Même catégorie GM
-    perfectNoteRange: 25,         // Pas de transposition
+    perfectProgramMatch: 20,      // Programme MIDI exact
+    sameCategoryMatch: 15,        // Même catégorie GM
+    perfectNoteRange: 38,         // Pas de transposition (note range = critère #1)
     highPolyphonyMargin: 15,      // Marge de polyphonie > 8
     allCCsSupported: 7,           // Tous les CCs supportés
     typeMatch: 10,                // Type détecté correspond (legacy)
@@ -73,16 +73,16 @@ const ScoringConfig = {
    * Configuration specifique percussion / canal 10 (index 9)
    */
   percussion: {
-    drumChannelNonDrumPenalty: -20,    // Instrument non-drum assigne au canal 9
-    nonDrumChannelDrumPenalty: -15,    // Instrument drum-only assigne a un canal non-9
-    drumChannelDrumBonus: 15,          // Instrument drum assigne au canal 9 (remplace ancien +5)
+    drumChannelNonDrumPenalty: -100,   // Instrument non-drum assigne au canal 9 → BLOCAGE
+    nonDrumChannelDrumPenalty: -100,   // Instrument drum-only assigne a un canal non-9 → BLOCAGE
+    drumChannelDrumBonus: 15,          // Instrument drum assigne au canal 9
     drumChannelWeights: {
-      programMatch: 10,       // Reduit (drums n'utilisent pas les programmes GM standard sur ch10)
-      noteRange: 37,          // Augmente (qualite du mapping drum est critique)
+      programMatch: 5,        // Reduit (drums n'utilisent pas les programmes GM standard sur ch10)
+      noteRange: 45,          // Augmente (qualite du mapping drum = critique)
       polyphony: 10,          // Reduit (drums = polyphonie limitee)
       ccSupport: 5,           // Faible impact pour drums
-      instrumentType: 23,     // Augmente (type match critique pour drums)
-      channelSpecial: 15      // Augmente (bonus canal drums)
+      instrumentType: 20,     // Type match pour drums
+      channelSpecial: 15      // Bonus canal drums
     }
   },
 
