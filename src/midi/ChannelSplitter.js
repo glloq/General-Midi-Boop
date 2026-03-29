@@ -180,14 +180,14 @@ class ChannelSplitter {
     // Pas besoin de split si la polyphonie du canal est faible
     if (channelMaxPoly <= 1) return null;
 
-    // Filtrer les instruments avec polyphonie définie
-    const withPoly = instruments.filter(inst => {
-      const poly = inst.polyphony || 16;
-      // L'instrument seul ne suffit pas
-      return poly < channelMaxPoly;
-    });
+    // Garder tous les instruments jouables (polyphonie > 0)
+    const withPoly = instruments.filter(inst => (inst.polyphony || 16) > 0);
 
     if (withPoly.length < 2) return null;
+
+    // Vérifier qu'aucun instrument seul ne suffit (sinon pas besoin de split)
+    const anyCoversAll = withPoly.some(inst => (inst.polyphony || 16) >= channelMaxPoly);
+    if (anyCoversAll) return null;
 
     // Calculer la polyphonie combinée
     const totalPolyphony = withPoly.reduce((sum, inst) => sum + (inst.polyphony || 16), 0);
@@ -237,6 +237,12 @@ class ChannelSplitter {
    * @returns {SplitProposal|null}
    */
   calculateMixedSplit(channelAnalysis, instruments) {
+    if (!channelAnalysis.noteRange ||
+        channelAnalysis.noteRange.min === null ||
+        channelAnalysis.noteRange.max === null) {
+      return null;
+    }
+
     const channelMin = channelAnalysis.noteRange.min;
     const channelMax = channelAnalysis.noteRange.max;
 

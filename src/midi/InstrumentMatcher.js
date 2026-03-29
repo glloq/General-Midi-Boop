@@ -895,9 +895,9 @@ class InstrumentMatcher {
   }
 
   /**
-   * Détermine le type d'un instrument
+   * Détermine le type d'un instrument (hiérarchique + générique)
    * @param {Object} instrument
-   * @returns {string}
+   * @returns {{ type: string, category: string|null, subtype: string|null }}
    */
   getInstrumentType(instrument) {
     // Priorité 1 : utiliser le type hiérarchique stocké en DB
