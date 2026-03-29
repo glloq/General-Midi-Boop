@@ -2843,6 +2843,11 @@ body.dark-mode .aa-inline-preview:hover {
   filter: brightness(0.85);
 }
 
+.aa-panel-channel,
+.aa-panel-instrument {
+  /* Panel content layout variants */
+}
+
 .aa-panel-actions {
   margin-top: 12px;
 }

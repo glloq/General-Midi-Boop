@@ -292,7 +292,7 @@
       displayMin = Math.max(0, analysis.noteRange.min - 6);
       displayMax = Math.min(127, analysis.noteRange.max + 6);
     }
-    if (instrument?.note_range_min != null) {
+    if (instrument?.note_range_min != null && instrument?.note_range_max != null) {
       displayMin = Math.min(displayMin, Math.max(0, instrument.note_range_min - 6));
       displayMax = Math.max(displayMax, Math.min(127, instrument.note_range_max + 6));
     }
@@ -350,9 +350,12 @@
     const inst = this._findInstrument(instrumentId);
     if (!inst) return;
 
-    // Use global instrument settings modal if available
+    // Try global function, or InstrumentSettingsModal directly
     if (typeof window.openInstrumentSettings === 'function') {
       window.openInstrumentSettings(inst.device_id, inst.channel);
+    } else if (typeof window.InstrumentSettingsModal !== 'undefined' && this.apiClient) {
+      const settingsModal = new window.InstrumentSettingsModal(this.apiClient);
+      settingsModal.show(inst.id);
     } else if (typeof showToast === 'function') {
       showToast(_t('autoAssign.matrix.settingsNotAvailable'), 'warning');
     }

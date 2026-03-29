@@ -538,7 +538,8 @@ class AutoAssignModal {
   _updateMatrixRowHighlight(channel) {
     if (!this.modal) return;
     this.modal.querySelectorAll('.aa-matrix-row-header').forEach(el => {
-      el.classList.toggle('selected', parseInt(el.closest('tr')?.querySelector('[data-channel]')?.dataset.channel || el.textContent.match(/\d+/)?.[0]) - 1 === channel);
+      const ch = parseInt(el.dataset.channel);
+      el.classList.toggle('selected', ch === channel);
     });
   }
 
@@ -548,7 +549,7 @@ class AutoAssignModal {
   _updateMatrixColHighlight(instrumentId) {
     if (!this.modal) return;
     this.modal.querySelectorAll('.aa-matrix-col-header').forEach(el => {
-      el.classList.toggle('selected', el.dataset?.instrumentId === instrumentId);
+      el.classList.toggle('selected', el.dataset.instrumentId === instrumentId);
     });
   }
 

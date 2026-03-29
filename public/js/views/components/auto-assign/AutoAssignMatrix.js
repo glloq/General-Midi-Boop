@@ -59,14 +59,15 @@
 
       return `
         <th class="aa-matrix-col-header ${isSelected ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}"
+            data-instrument-id="${inst.id}"
             onclick="autoAssignModalInstance.selectMatrixInstrument('${inst.id}')"
-            title="${escapeHtml(displayName)}${inst.note_range_min != null ? '\n' + this.midiNoteToName(inst.note_range_min) + '-' + this.midiNoteToName(inst.note_range_max) : ''}">
+            title="${escapeHtml(displayName)}${inst.note_range_min != null && inst.note_range_max != null ? '\n' + this.midiNoteToName(inst.note_range_min) + '-' + this.midiNoteToName(inst.note_range_max) : ''}">
           <div class="aa-matrix-inst-header">
             <span class="aa-matrix-inst-icon">${typeIcon}</span>
             <span class="aa-matrix-inst-name">${escapeHtml(shortName)}</span>
             <span class="aa-matrix-inst-conn">${connectionIcon}</span>
           </div>
-          ${inst.note_range_min != null ? `<div class="aa-matrix-inst-range">${this.midiNoteToName(inst.note_range_min)}-${this.midiNoteToName(inst.note_range_max)}</div>` : ''}
+          ${inst.note_range_min != null && inst.note_range_max != null ? `<div class="aa-matrix-inst-range">${this.midiNoteToName(inst.note_range_min)}-${this.midiNoteToName(inst.note_range_max)}</div>` : ''}
         </th>
       `;
     }).join('');
@@ -87,6 +88,7 @@
       // Row header
       const rowHeader = `
         <th class="aa-matrix-row-header ${isSelected ? 'selected' : ''} ${isSkipped ? 'skipped' : ''}"
+            data-channel="${channel}"
             onclick="autoAssignModalInstance.selectMatrixChannel(${channel})"
             title="Canal ${channel + 1}${gmName ? ' - ' + gmName : ''}">
           <div class="aa-matrix-ch-header">

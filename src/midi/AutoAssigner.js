@@ -81,22 +81,44 @@ class AutoAssigner {
       // 3. Pour chaque canal, scorer tous les instruments
       const suggestions = {};
       const lowScoreSuggestions = {};
+      // Collecter tous les scores bruts pour la matrice (si demandé)
+      const allScoresRaw = includeMatrix ? {} : null;
 
       for (const analysis of channelAnalyses) {
         const scores = [];
         const lowScores = [];
 
         const isDrumChannel = analysis.channel === 9 || analysis.estimatedType === 'drums';
+        if (includeMatrix) allScoresRaw[analysis.channel] = {};
 
         for (const instrument of availableInstruments) {
           // Hard filter: drums only to drums, non-drums never to drums
           const isDrumInstrument = instrument.instrument_type === 'drums'
             || (instrument.note_selection_mode === 'discrete' && instrument.instrument_type !== 'chromatic_percussion');
 
-          if (isDrumChannel && !isDrumInstrument) continue;
-          if (!isDrumChannel && isDrumInstrument) continue;
+          if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
+            // Marquer incompatible dans la matrice
+            if (includeMatrix) {
+              allScoresRaw[analysis.channel][instrument.id] = {
+                score: 0,
+                incompatible: true,
+                reason: isDrumChannel ? 'non_drum_instrument' : 'drum_instrument_on_melodic'
+              };
+            }
+            continue;
+          }
 
           const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
+
+          // Stocker dans la matrice brute
+          if (includeMatrix) {
+            allScoresRaw[analysis.channel][instrument.id] = {
+              score: compatibility.score,
+              transposition: compatibility.transposition,
+              issues: compatibility.issues,
+              incompatible: false
+            };
+          }
 
           const entry = {
             instrument: {
@@ -142,13 +164,12 @@ class AutoAssigner {
       // 6. Calculer score de confiance global
       const confidenceScore = this.calculateConfidence(autoSelection, channelAnalyses.length);
 
-      // 7. Pré-calculer la matrice complète (tous les scores canal × instrument)
+      // 7. Construire la matrice et la liste d'instruments (si demandé)
       let matrixScores = null;
       let instrumentList = null;
       if (includeMatrix) {
-        const matrixResult = this._buildMatrix(channelAnalyses, availableInstruments);
-        matrixScores = matrixResult.matrixScores;
-        instrumentList = matrixResult.instrumentList;
+        matrixScores = allScoresRaw;
+        instrumentList = this._buildInstrumentList(availableInstruments);
       }
 
       return {
@@ -175,16 +196,12 @@ class AutoAssigner {
   }
 
   /**
-   * Construit la matrice complète des scores canal × instrument
-   * @param {Array} channelAnalyses - Analyses de tous les canaux actifs
+   * Construit la liste d'instruments avec infos résumées pour le frontend
    * @param {Array} availableInstruments - Tous les instruments disponibles
-   * @returns {{ matrixScores: Object, instrumentList: Array }}
+   * @returns {Array}
    */
-  _buildMatrix(channelAnalyses, availableInstruments) {
-    const matrixScores = {};
-
-    // Construire la liste d'instruments avec infos résumées
-    const instrumentList = availableInstruments.map(inst => ({
+  _buildInstrumentList(availableInstruments) {
+    return availableInstruments.map(inst => ({
       id: inst.id,
       device_id: inst.device_id,
       channel: inst.channel,
@@ -196,6 +213,7 @@ class AutoAssigner {
       note_range_min: inst.note_range_min,
       note_range_max: inst.note_range_max,
       note_selection_mode: inst.note_selection_mode,
+      selected_notes: inst.selected_notes,
       polyphony: inst.polyphony || 16,
       sync_delay: inst.sync_delay || 0,
       supported_ccs: inst.supported_ccs,
@@ -203,38 +221,6 @@ class AutoAssigner {
       mac_address: inst.mac_address,
       usb_serial_number: inst.usb_serial_number
     }));
-
-    for (const analysis of channelAnalyses) {
-      const channelScores = {};
-      const isDrumChannel = analysis.channel === 9 || analysis.estimatedType === 'drums';
-
-      for (const instrument of availableInstruments) {
-        const isDrumInstrument = instrument.instrument_type === 'drums'
-          || (instrument.note_selection_mode === 'discrete' && instrument.instrument_type !== 'chromatic_percussion');
-
-        // Marquer les incompatibilités drums/non-drums
-        if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
-          channelScores[instrument.id] = {
-            score: 0,
-            incompatible: true,
-            reason: isDrumChannel ? 'non_drum_instrument' : 'drum_instrument_on_melodic'
-          };
-          continue;
-        }
-
-        const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
-        channelScores[instrument.id] = {
-          score: compatibility.score,
-          transposition: compatibility.transposition,
-          issues: compatibility.issues,
-          incompatible: false
-        };
-      }
-
-      matrixScores[analysis.channel] = channelScores;
-    }
-
-    return { matrixScores, instrumentList };
   }
 
   /**
