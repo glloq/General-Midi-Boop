@@ -128,8 +128,8 @@ body.dark-mode .aa-confirm-cancel:hover {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
-  /* z-index > 10003 (MIDI editor modal) since auto-assign opens on top of it */
-  z-index: 10005;
+  /* z-index > 10002 (MIDI editor modal) — !important to override .modal-overlay rule in components.css */
+  z-index: 10005 !important;
   display: flex;
   align-items: center;
   justify-content: center;
