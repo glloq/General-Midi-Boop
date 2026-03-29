@@ -249,7 +249,7 @@
           </div>
         </div>
         <div class="aa-option-actions">
-          <button class="aa-score-detail-toggle" onclick="autoAssignModalInstance.toggleScoreDetails('${detailKey}')">
+          <button class="aa-score-detail-toggle" aria-expanded="${showDetails}" onclick="autoAssignModalInstance.toggleScoreDetails('${detailKey}')">
             ${showDetails ? _t('autoAssign.hideDetails') : _t('autoAssign.showDetails')}
           </button>
           ${this.midiData ? `
@@ -314,7 +314,7 @@
     if (mappingEntries.length === 0 && usedNotes.length === 0) {
       return `
         <div class="aa-drum-mapping-section">
-          <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
+          <button class="aa-toggle-drum-mapping" aria-expanded="${showMapping}" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
             ${showMapping ? '&#9660;' : '&#9654;'} ${_t('autoAssign.drumMapping')}
           </button>
           ${showMapping ? `<p class="aa-no-compatible">${_t('autoAssign.noDrumMapping')}</p>` : ''}
@@ -384,7 +384,7 @@
       const expanded = this.expandedDrumCategories[`${ch}_${cat.key}`] || false;
       return `
         <div class="aa-drum-category">
-          <button class="aa-drum-category-header ${cat.status}" onclick="autoAssignModalInstance.toggleDrumCategory(${channel}, '${cat.key}')">
+          <button class="aa-drum-category-header ${cat.status}" aria-expanded="${expanded}" onclick="autoAssignModalInstance.toggleDrumCategory(${channel}, '${cat.key}')">
             <span>${expanded ? '&#9660;' : '&#9654;'} ${cat.label}</span>
             <span class="aa-drum-cat-count">${cat.mapped}/${cat.total}${cat.modified > 0 ? ` (${cat.modified} sub.)` : ''}</span>
           </button>
@@ -440,7 +440,7 @@
 
     return `
       <div class="aa-drum-mapping-section">
-        <button class="aa-toggle-drum-mapping" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
+        <button class="aa-toggle-drum-mapping" aria-expanded="${showMapping}" onclick="autoAssignModalInstance.toggleDrumMapping('${ch}')">
           ${showMapping ? '&#9660;' : '&#9654;'} ${_t('autoAssign.drumMapping')}
           ${totalModified > 0
             ? `<span class="aa-drum-mapping-count">${totalModified} ${_t('autoAssign.substitutions')}</span>`

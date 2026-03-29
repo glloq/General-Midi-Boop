@@ -1964,6 +1964,51 @@ body.dark-mode .aa-drum-arrow {
     min-width: auto;
     width: 100%;
   }
+
+  /* Piano roll: reduce height and hide octave markers on mobile */
+  .aa-piano-roll {
+    height: 24px;
+  }
+
+  .aa-piano-roll-octaves {
+    display: none;
+  }
+
+  .aa-piano-roll-legend {
+    flex-wrap: wrap;
+    font-size: 10px;
+  }
+
+  /* Adaptation result: stack on mobile */
+  .aa-adaptation-result {
+    font-size: 11px;
+  }
+
+  /* Split coverage bar: reduce height */
+  .aa-split-bar {
+    height: 20px;
+  }
+
+  .aa-split-segments {
+    flex-direction: column;
+  }
+
+  /* Overview banner: stack on mobile */
+  .aa-overview-banner.split {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  /* Footer center: stack preview buttons */
+  .aa-footer-center {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .aa-footer-center .btn {
+    width: 100%;
+  }
 }
 /* ==========================================================================
    View Mode Toggle (Overview / Detail)
@@ -2068,6 +2113,11 @@ body.dark-mode .aa-drum-arrow {
 
 .aa-overview-row:hover {
   background: var(--bg-primary, #f5f7ff);
+}
+
+.aa-overview-row:focus {
+  outline: 2px solid var(--accent-primary, #667eea);
+  outline-offset: -2px;
 }
 
 .aa-overview-row td {

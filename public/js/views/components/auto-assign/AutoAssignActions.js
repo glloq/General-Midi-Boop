@@ -341,6 +341,9 @@
       this.showStopButton();
     } catch (error) {
       console.error('Preview error:', error);
+      if (typeof window.showToast === 'function') {
+        window.showToast(_t('autoAssign.previewFailed') + ': ' + (error.message || ''), 'error');
+      }
     } finally {
       this._previewInProgress = false;
     }
@@ -412,6 +415,24 @@
         }
         // 'ignore': no transposition, just base remapping
 
+        // Apply drum strategy filtering (mirrors validateAndApply logic)
+        const drumStrategy = adaptation.drumStrategy || 'intelligent';
+        if (drumStrategy === 'direct') {
+          const filtered = {};
+          for (const [src, tgt] of Object.entries(noteRemapping)) {
+            if (parseInt(src) === tgt) filtered[src] = tgt;
+          }
+          noteRemapping = filtered;
+        } else if (drumStrategy === 'manual') {
+          noteRemapping = {};
+        }
+
+        // Apply manual drum note overrides on top
+        const drumOverrides = this.drumMappingOverrides[ch] || {};
+        if (Object.keys(drumOverrides).length > 0) {
+          noteRemapping = { ...noteRemapping, ...drumOverrides };
+        }
+
         transposition.noteRemapping = Object.keys(noteRemapping).length > 0 ? noteRemapping : null;
 
         // Instrument sound
@@ -477,6 +498,9 @@
       this.showStopButton();
     } catch (error) {
       console.error('Preview original error:', error);
+      if (typeof window.showToast === 'function') {
+        window.showToast(_t('autoAssign.previewFailed') + ': ' + (error.message || ''), 'error');
+      }
     } finally {
       this._previewInProgress = false;
     }

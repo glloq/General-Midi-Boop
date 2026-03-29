@@ -284,7 +284,9 @@
 
       return `
         <tr class="aa-overview-row ${isSkipped ? 'skipped' : ''} ${statusClass}"
-            onclick="autoAssignModalInstance.overviewGoToChannel(${channel})">
+            tabindex="0" role="button"
+            onclick="autoAssignModalInstance.overviewGoToChannel(${channel})"
+            onkeydown="if(event.key==='Enter')autoAssignModalInstance.overviewGoToChannel(${channel})">
           <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''} ${splitBadge}</td>
           <td class="aa-ov-original">${escapeHtml(gmName)}</td>
           <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : `${escapeHtml(assignedName)} ${strategyBadge}`}</td>
@@ -466,7 +468,7 @@
       const showLow = this.showLowScores[ch] || false;
       const fallbackHTML = lowOptions.length > 0 ? `
         <div class="aa-low-scores-section">
-          <button class="aa-toggle-low-scores" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
+          <button class="aa-toggle-low-scores" aria-expanded="${showLow}" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
             ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowOptions.length})
           </button>
           ${showLow ? `
@@ -502,7 +504,7 @@
     const showLow = this.showLowScores[ch] || false;
     const lowScoreHTML = (!isSkipped && lowScoreOptions.length > 0) ? `
       <div class="aa-low-scores-section">
-        <button class="aa-toggle-low-scores" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
+        <button class="aa-toggle-low-scores" aria-expanded="${showLow}" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
           ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowScoreOptions.length})
         </button>
         ${showLow ? `

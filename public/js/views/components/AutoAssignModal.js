@@ -577,12 +577,7 @@ class AutoAssignModal {
     if (!this.adaptationSettings[ch]) return;
     this.adaptationSettings[ch].noteOffset = (this.adaptationSettings[ch].noteOffset || 0) + delta;
     this.adaptationSettings[ch].noteOffset = Math.max(-24, Math.min(24, this.adaptationSettings[ch].noteOffset));
-
-    const el = document.getElementById(`noteOffset_${channel}`);
-    if (el) {
-      const val = this.adaptationSettings[ch].noteOffset;
-      el.textContent = `${val > 0 ? '+' : ''}${val}`;
-    }
+    this.refreshCurrentTab();
   }
 
   /**
@@ -591,8 +586,7 @@ class AutoAssignModal {
   resetNoteOffset(channel) {
     const ch = String(channel);
     this.adaptationSettings[ch].noteOffset = 0;
-    const el = document.getElementById(`noteOffset_${channel}`);
-    if (el) el.textContent = '0';
+    this.refreshCurrentTab();
   }
 
   /**
