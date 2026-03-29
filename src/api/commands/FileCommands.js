@@ -177,6 +177,9 @@ async function fileFilter(app, data) {
   if (data.routingStatus) {
     appliedFilters.push(`routing status: ${data.routingStatus}`);
   }
+  if (data.routingStatuses && data.routingStatuses.length > 0) {
+    appliedFilters.push(`routing statuses: ${data.routingStatuses.join(', ')}`);
+  }
   if (data.playableOnInstruments && data.playableOnInstruments.length > 0) {
     appliedFilters.push(`playable on: ${data.playableOnInstruments.join(', ')} (${data.playableMode || 'routed'})`);
   }
