@@ -28,21 +28,11 @@ class HttpServer {
     // Gzip compression for all responses
     this.expressApp.use(compression());
 
-    // Security headers with Content Security Policy
+    // Security headers (CSP disabled — embedded SPA with inline scripts
+    // and external WebAudioFont resources; not practical for this architecture)
     this.expressApp.use(
       helmet({
-        contentSecurityPolicy: {
-          directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://surikov.github.io"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            connectSrc: ["'self'", 'ws:', 'wss:', 'https://surikov.github.io'],
-            imgSrc: ["'self'", 'data:'],
-            fontSrc: ["'self'"],
-            objectSrc: ["'none'"],
-            frameAncestors: ["'none'"]
-          }
-        },
+        contentSecurityPolicy: false,
         crossOriginEmbedderPolicy: false
       })
     );
