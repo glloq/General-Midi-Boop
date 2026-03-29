@@ -483,14 +483,14 @@
       const width = ((segMax - segMin + 1) / totalSpan * 100).toFixed(1);
       const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
       const color = colors[i % colors.length];
-      return `<div class="aa-split-bar-segment" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName}: ${this.noteToName(segMin)}-${this.noteToName(segMax)}"></div>`;
+      return `<div class="aa-split-bar-segment" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName}: ${this.midiNoteToName(segMin)}-${this.midiNoteToName(segMax)}"></div>`;
     }).join('');
 
     // Segment cards
     const segmentCards = proposal.segments.map((seg, i) => {
       const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
       const rangeText = seg.noteRange
-        ? `${this.noteToName(seg.noteRange.min)} - ${this.noteToName(seg.noteRange.max)}`
+        ? `${this.midiNoteToName(seg.noteRange.min)} - ${this.midiNoteToName(seg.noteRange.max)}`
         : (seg.strategy === 'round_robin' ? _t('autoAssign.roundRobin') : '—');
       const polyText = seg.polyphonyShare ? `${_t('autoAssign.polyphony')}: ${seg.polyphonyShare}` : '';
 
@@ -521,8 +521,8 @@
             ${segmentBars}
           </div>
           <div class="aa-split-range-labels">
-            <span>${this.noteToName(channelMin)}</span>
-            <span>${this.noteToName(channelMax)}</span>
+            <span>${this.midiNoteToName(channelMin)}</span>
+            <span>${this.midiNoteToName(channelMax)}</span>
           </div>
         </div>
         <div class="aa-split-segments">
@@ -531,7 +531,7 @@
         ${proposal.overlapZones && proposal.overlapZones.length > 0 ? `
           <div class="aa-split-overlap">
             ${proposal.overlapZones.map(z =>
-              `<span class="aa-split-overlap-info">${_t('autoAssign.overlapZone')}: ${this.noteToName(z.min)}-${this.noteToName(z.max)}</span>`
+              `<span class="aa-split-overlap-info">${_t('autoAssign.overlapZone')}: ${this.midiNoteToName(z.min)}-${this.midiNoteToName(z.max)}</span>`
             ).join('')}
           </div>
         ` : ''}

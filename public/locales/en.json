@@ -1012,7 +1012,16 @@
         "fullSettingsHint": "Access advanced configuration, latency settings, and more",
         "defaultsFailed": "Failed to load suggested defaults",
         "saveFailed": "Failed to save instrument capabilities",
-        "fullSettingsComingSoon": "Full instrument settings page coming soon!"
+        "fullSettingsComingSoon": "Full instrument settings page coming soon!",
+        "splitByRange": "By range",
+        "splitByPolyphony": "By polyphony",
+        "splitMixed": "Mixed",
+        "roundRobin": "Round-robin",
+        "overlapZone": "Overlap zone",
+        "splitProposed": "Split proposed",
+        "acceptSplit": "Accept split",
+        "cancelSplit": "Cancel split",
+        "ignoreSplit": "Ignore"
     },
     "instruments": {
         "categories": {

@@ -717,7 +717,18 @@ class MidiPlayer {
 
     if (this.outputDevice) {
       const routing = this.getOutputForChannel(channel);
-      if (routing && routing.device) {
+      if (Array.isArray(routing)) {
+        // Split routing: send All Notes Off to each segment
+        for (const seg of routing) {
+          if (seg && seg.device) {
+            this.app.deviceManager.sendMessage(seg.device, 'cc', {
+              channel: seg.targetChannel,
+              controller: MIDI_CC_ALL_NOTES_OFF,
+              value: 0
+            });
+          }
+        }
+      } else if (routing && routing.device) {
         this.app.deviceManager.sendMessage(routing.device, 'cc', {
           channel: routing.targetChannel,
           controller: MIDI_CC_ALL_NOTES_OFF,

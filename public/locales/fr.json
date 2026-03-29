@@ -1012,7 +1012,16 @@
         "fullSettingsHint": "Accéder à la configuration avancée, réglages de latence, et plus",
         "defaultsFailed": "Échec du chargement des valeurs par défaut",
         "saveFailed": "Échec de la sauvegarde des capacités",
-        "fullSettingsComingSoon": "Page de réglages complets bientôt disponible !"
+        "fullSettingsComingSoon": "Page de réglages complets bientôt disponible !",
+        "splitByRange": "Par plage",
+        "splitByPolyphony": "Par polyphonie",
+        "splitMixed": "Mixte",
+        "roundRobin": "Round-robin",
+        "overlapZone": "Zone de recouvrement",
+        "splitProposed": "Découpage proposé",
+        "acceptSplit": "Accepter le découpage",
+        "cancelSplit": "Annuler le découpage",
+        "ignoreSplit": "Ignorer"
     },
     "instruments": {
         "categories": {

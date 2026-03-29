@@ -224,7 +224,7 @@
         const segments = this.splitAssignments[channel].segments || [];
         assignedName = segments.map(seg => {
           const name = seg.instrumentName || 'Instrument';
-          const range = seg.noteRange ? `(${this.noteToName(seg.noteRange.min)}-${this.noteToName(seg.noteRange.max)})` : '';
+          const range = seg.noteRange ? `(${this.midiNoteToName(seg.noteRange.min)}-${this.midiNoteToName(seg.noteRange.max)})` : '';
           return `${name} ${range}`;
         }).join(' + ');
       } else {
@@ -437,7 +437,7 @@
         ${showLow ? `
           <div class="aa-low-scores-list">
             ${lowScoreOptions.map((option, index) => {
-              return this.renderInstrumentOption(channel, option, options.length + index, selectedDeviceId, true);
+              return this.renderInstrumentOption(channel, option, options.length + index, selectedInstrumentId, true);
             }).join('')}
           </div>
         ` : ''}

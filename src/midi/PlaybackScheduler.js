@@ -247,6 +247,7 @@ class PlaybackScheduler {
 
     // Use targetChannel from routing
     const outChannel = routing.targetChannel;
+    const device = this.app.deviceManager;
     let sendResult = true;
 
     if (event.type === 'noteOn') {
@@ -426,6 +427,14 @@ class PlaybackScheduler {
     let maxComp = 0;
     if (state.channelRouting) {
       for (const [channel, routing] of state.channelRouting) {
+        // Handle split routing: iterate over segments
+        if (routing && routing.split && routing.segments) {
+          for (const seg of routing.segments) {
+            const comp = this._getSyncDelay(seg.device, seg.targetChannel);
+            if (comp > maxComp) maxComp = comp;
+          }
+          continue;
+        }
         const deviceId = typeof routing === 'string' ? routing : routing.device;
         const targetCh = typeof routing === 'string' ? channel : routing.targetChannel;
         const comp = this._getSyncDelay(deviceId, targetCh);
