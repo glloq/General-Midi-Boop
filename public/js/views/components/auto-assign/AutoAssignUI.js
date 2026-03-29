@@ -73,6 +73,10 @@
                   </span>
                 </div>
                 <div class="aa-view-toggle">
+                  <button class="aa-view-btn ${this.viewMode === 'matrix' ? 'active' : ''}"
+                          onclick="autoAssignModalInstance.setViewMode('matrix')">
+                    ${_t('autoAssign.matrix.title')}
+                  </button>
                   <button class="aa-view-btn ${this.viewMode === 'overview' ? 'active' : ''}"
                           onclick="autoAssignModalInstance.setViewMode('overview')">
                     ${_t('autoAssign.overviewTitle')}
@@ -90,7 +94,11 @@
             <button class="modal-close" onclick="autoAssignModalInstance.close()" aria-label="${_t('common.close')}">&times;</button>
           </div>
 
-          ${this.viewMode === 'detail' ? `
+          ${this.viewMode === 'matrix' && typeof this.renderMatrixView === 'function' ? `
+            <div class="modal-body aa-body aa-body-matrix" id="aaTabContent" role="region" aria-live="polite">
+              ${this.renderMatrixView()}
+            </div>
+          ` : this.viewMode === 'detail' ? `
             <div class="aa-tabs-bar" role="tablist" aria-label="${_t('autoAssign.title')}">
               ${tabsHTML}
             </div>
@@ -112,19 +120,27 @@
             <button class="btn" onclick="autoAssignModalInstance.close()">
               ${_t('common.cancel')}
             </button>
-            <div class="aa-footer-center">
-              ${this.midiData ? `
-                <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${this.activeTab})" title="${_t('autoAssign.previewOriginalTip')}">
-                  ${_t('autoAssign.previewOriginal')}
-                </button>
-                <button class="btn" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
-                  ${_t('autoAssign.previewChannel', {num: this.activeTab + 1})}
-                </button>
-                <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
-                  ${_t('autoAssign.stop')}
-                </button>
-              ` : ''}
-            </div>
+            ${this.viewMode !== 'matrix' ? `
+              <div class="aa-footer-center">
+                ${this.midiData ? `
+                  <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${this.activeTab})" title="${_t('autoAssign.previewOriginalTip')}">
+                    ${_t('autoAssign.previewOriginal')}
+                  </button>
+                  <button class="btn" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
+                    ${_t('autoAssign.previewChannel', {num: this.activeTab + 1})}
+                  </button>
+                  <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
+                    ${_t('autoAssign.stop')}
+                  </button>
+                ` : ''}
+              </div>
+            ` : `
+              <div class="aa-footer-center">
+                <span class="aa-footer-info">
+                  ${_t('autoAssign.matrix.clickToAssign')}
+                </span>
+              </div>
+            `}
             <div class="aa-footer-right">
               ${Object.keys(this.splitProposals).filter(ch => !this.splitChannels.has(Number(ch))).length > 0 ? `
                 <button class="btn" onclick="autoAssignModalInstance.acceptAllSplits()">
@@ -153,10 +169,10 @@
 
     this._escHandler = (e) => {
       if (e.key === 'Escape') {
-        // In detail view, go back to overview first; in overview, close modal
-        if (this.viewMode === 'detail') {
+        // In detail view, go back to matrix; in overview, go back to matrix; in matrix, close
+        if (this.viewMode === 'detail' || this.viewMode === 'overview') {
           e.preventDefault();
-          this.setViewMode('overview');
+          this.setViewMode('matrix');
         } else {
           this.close();
         }

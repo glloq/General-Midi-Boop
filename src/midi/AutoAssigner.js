@@ -37,7 +37,7 @@ class AutoAssigner {
    * @returns {Promise<AssignmentSuggestions>}
    */
   async generateSuggestions(midiData, options = {}) {
-    const { topN = 5, minScore = 30, excludeVirtual = false } = options;
+    const { topN = 5, minScore = 30, excludeVirtual = false, includeMatrix = false } = options;
 
     try {
       // 1. Récupérer tous les instruments disponibles avec leurs capabilities
@@ -81,22 +81,44 @@ class AutoAssigner {
       // 3. Pour chaque canal, scorer tous les instruments
       const suggestions = {};
       const lowScoreSuggestions = {};
+      // Collecter tous les scores bruts pour la matrice (si demandé)
+      const allScoresRaw = includeMatrix ? {} : null;
 
       for (const analysis of channelAnalyses) {
         const scores = [];
         const lowScores = [];
 
         const isDrumChannel = analysis.channel === 9 || analysis.estimatedType === 'drums';
+        if (includeMatrix) allScoresRaw[analysis.channel] = {};
 
         for (const instrument of availableInstruments) {
           // Hard filter: drums only to drums, non-drums never to drums
           const isDrumInstrument = instrument.instrument_type === 'drums'
             || (instrument.note_selection_mode === 'discrete' && instrument.instrument_type !== 'chromatic_percussion');
 
-          if (isDrumChannel && !isDrumInstrument) continue;
-          if (!isDrumChannel && isDrumInstrument) continue;
+          if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
+            // Marquer incompatible dans la matrice
+            if (includeMatrix) {
+              allScoresRaw[analysis.channel][instrument.id] = {
+                score: 0,
+                incompatible: true,
+                reason: isDrumChannel ? 'non_drum_instrument' : 'drum_instrument_on_melodic'
+              };
+            }
+            continue;
+          }
 
           const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
+
+          // Stocker dans la matrice brute
+          if (includeMatrix) {
+            allScoresRaw[analysis.channel][instrument.id] = {
+              score: compatibility.score,
+              transposition: compatibility.transposition,
+              issues: compatibility.issues,
+              incompatible: false
+            };
+          }
 
           const entry = {
             instrument: {
@@ -142,6 +164,14 @@ class AutoAssigner {
       // 6. Calculer score de confiance global
       const confidenceScore = this.calculateConfidence(autoSelection, channelAnalyses.length);
 
+      // 7. Construire la matrice et la liste d'instruments (si demandé)
+      let matrixScores = null;
+      let instrumentList = null;
+      if (includeMatrix) {
+        matrixScores = allScoresRaw;
+        instrumentList = this._buildInstrumentList(availableInstruments);
+      }
+
       return {
         success: true,
         suggestions,
@@ -150,6 +180,8 @@ class AutoAssigner {
         splitProposals,
         channelAnalyses,
         confidenceScore,
+        matrixScores,
+        instrumentList,
         stats: {
           channelCount: channelAnalyses.length,
           instrumentCount: availableInstruments.length,
@@ -161,6 +193,34 @@ class AutoAssigner {
       this.logger.error(`Error generating suggestions: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Construit la liste d'instruments avec infos résumées pour le frontend
+   * @param {Array} availableInstruments - Tous les instruments disponibles
+   * @returns {Array}
+   */
+  _buildInstrumentList(availableInstruments) {
+    return availableInstruments.map(inst => ({
+      id: inst.id,
+      device_id: inst.device_id,
+      channel: inst.channel,
+      name: inst.name || inst.custom_name || 'Unknown',
+      custom_name: inst.custom_name,
+      gm_program: inst.gm_program,
+      instrument_type: inst.instrument_type,
+      instrument_subtype: inst.instrument_subtype,
+      note_range_min: inst.note_range_min,
+      note_range_max: inst.note_range_max,
+      note_selection_mode: inst.note_selection_mode,
+      selected_notes: inst.selected_notes,
+      polyphony: inst.polyphony || 16,
+      sync_delay: inst.sync_delay || 0,
+      supported_ccs: inst.supported_ccs,
+      capabilities_source: inst.capabilities_source,
+      mac_address: inst.mac_address,
+      usb_serial_number: inst.usb_serial_number
+    }));
   }
 
   /**

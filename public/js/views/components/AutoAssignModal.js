@@ -32,7 +32,11 @@ class AutoAssignModal {
     this._isDirty = false; // Tracks unsaved modifications
     this.activeTab = null; // Currently active channel tab
     this.channels = []; // Sorted channel list
-    this.viewMode = 'overview'; // 'overview' or 'detail'
+    this.viewMode = 'matrix'; // 'matrix', 'overview', or 'detail'
+    this.selectedChannel = null; // Selected channel in matrix view (left panel)
+    this.selectedInstrumentId = null; // Selected instrument in matrix view (right panel)
+    this.matrixScores = null; // Pre-computed matrix scores { channel: { instrumentId: { score, ... } } }
+    this.instrumentList = null; // List of all instruments with info
     this.channelDetailsExpanded = {}; // Per-channel toggle for progressive disclosure
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.lowScoreSuggestions = {}; // Low-score instruments per channel
@@ -255,12 +259,13 @@ class AutoAssignModal {
         }
       } catch (e) { /* ignore */ }
 
-      // Generate suggestions
+      // Generate suggestions (with matrix data for routing overview)
       const response = await this.apiClient.sendCommand('generate_assignment_suggestions', {
         fileId: fileId,
         topN: 5,
         minScore: 30,
-        excludeVirtual: excludeVirtual
+        excludeVirtual: excludeVirtual,
+        includeMatrix: true
       });
 
       if (!response.success) {
@@ -273,6 +278,8 @@ class AutoAssignModal {
       this.autoSelection = response.autoSelection;
       this.confidenceScore = response.confidenceScore;
       this.splitProposals = response.splitProposals || {};
+      this.matrixScores = response.matrixScores || null;
+      this.instrumentList = response.instrumentList || null;
 
       if (response.channelAnalyses) {
         for (const analysis of response.channelAnalyses) {
@@ -388,7 +395,7 @@ class AutoAssignModal {
   }
 
   /**
-   * Switch between 'overview' and 'detail' view modes
+   * Switch between 'matrix', 'overview' and 'detail' view modes
    */
   setViewMode(mode) {
     this.viewMode = mode;
@@ -396,12 +403,154 @@ class AutoAssignModal {
   }
 
   /**
-   * Navigate from overview to detail view for a specific channel
+   * Navigate from overview/matrix to detail view for a specific channel
    */
   overviewGoToChannel(channel) {
     this.activeTab = channel;
     this.viewMode = 'detail';
     this.showTabbedUI();
+  }
+
+  /**
+   * Navigate from matrix to detail view for a channel
+   */
+  goToDetailFromMatrix(channel) {
+    this.activeTab = channel;
+    this.viewMode = 'detail';
+    this.showTabbedUI();
+  }
+
+  /**
+   * Select a channel in the matrix view (updates left panel)
+   */
+  selectMatrixChannel(channel) {
+    this.selectedChannel = channel;
+    this.activeTab = channel;
+    // Update left panel
+    const panel = document.getElementById('aaChannelPanel');
+    if (panel) {
+      panel.innerHTML = this.renderChannelPanel(channel);
+    }
+    // Update row highlight
+    this._updateMatrixRowHighlight(channel);
+    // Update action bar
+    this.refreshMatrixView();
+  }
+
+  /**
+   * Select an instrument in the matrix view (updates right panel)
+   */
+  selectMatrixInstrument(instrumentId) {
+    this.selectedInstrumentId = instrumentId;
+    // Update right panel
+    const panel = document.getElementById('aaInstrumentPanel');
+    if (panel) {
+      panel.innerHTML = this.renderInstrumentPanel(instrumentId);
+    }
+    // Update column highlight
+    this._updateMatrixColHighlight(instrumentId);
+  }
+
+  /**
+   * Assign a channel to an instrument from the matrix (click on cell)
+   */
+  assignFromMatrix(channel, instrumentId) {
+    // Select the channel and instrument for panels
+    this.selectedChannel = channel;
+    this.selectedInstrumentId = instrumentId;
+
+    // Find the instrument in suggestions or instrumentList
+    const ch = String(channel);
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.id === instrumentId);
+
+    if (selectedOption) {
+      // Use the existing selectInstrument method
+      this.selectInstrument(channel, instrumentId);
+    } else if (this.instrumentList) {
+      // Instrument not in top suggestions — build assignment from matrix data + instrumentList
+      const inst = this.instrumentList.find(i => i.id === instrumentId);
+      const matrixData = this.matrixScores?.[channel]?.[instrumentId];
+      if (inst && matrixData && !matrixData.incompatible) {
+        const existingAnalysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[channel] || null;
+        this.selectedAssignments[ch] = {
+          deviceId: inst.device_id,
+          instrumentId: inst.id,
+          instrumentName: inst.name,
+          customName: inst.custom_name,
+          gmProgram: inst.gm_program,
+          noteRangeMin: inst.note_range_min,
+          noteRangeMax: inst.note_range_max,
+          noteSelectionMode: inst.note_selection_mode,
+          score: matrixData.score,
+          transposition: matrixData.transposition,
+          issues: matrixData.issues,
+          channelAnalysis: existingAnalysis
+        };
+        this.adaptationSettings[ch] = {
+          ...this.adaptationSettings[ch],
+          transpositionSemitones: matrixData.transposition?.semitones || 0,
+          strategy: matrixData.transposition?.semitones ? 'transpose' : 'ignore'
+        };
+        this.skippedChannels.delete(channel);
+        this._isDirty = true;
+      }
+    }
+
+    this.refreshMatrixView();
+  }
+
+  /**
+   * Set adaptation strategy from matrix action bar
+   */
+  setMatrixStrategy(channel, strategy) {
+    this.setStrategy(channel, strategy);
+    this.refreshMatrixView();
+  }
+
+  /**
+   * Set transposition from matrix action bar slider
+   */
+  setMatrixTransposition(channel, semitones) {
+    const ch = String(channel);
+    if (!this.adaptationSettings[ch]) return;
+    this._isDirty = true;
+    this.adaptationSettings[ch].transpositionSemitones = Math.max(-48, Math.min(48, semitones));
+    // Update the displayed value
+    const valueEl = this.modal?.querySelector('.aa-matrix-transpose-value');
+    if (valueEl) {
+      valueEl.textContent = (semitones > 0 ? '+' : '') + semitones;
+    }
+  }
+
+  /**
+   * Toggle skip for a channel from matrix view
+   */
+  toggleSkipChannel(channel) {
+    const isSkipped = this.skippedChannels.has(channel);
+    this.toggleChannel(channel, isSkipped); // isSkipped=true → enable, false → skip
+    this.refreshMatrixView();
+  }
+
+  /**
+   * Update matrix row highlight (visual only)
+   */
+  _updateMatrixRowHighlight(channel) {
+    if (!this.modal) return;
+    this.modal.querySelectorAll('.aa-matrix-row-header').forEach(el => {
+      const ch = parseInt(el.dataset.channel);
+      el.classList.toggle('selected', ch === channel);
+    });
+  }
+
+  /**
+   * Update matrix column highlight (visual only)
+   */
+  _updateMatrixColHighlight(instrumentId) {
+    if (!this.modal) return;
+    this.modal.querySelectorAll('.aa-matrix-col-header').forEach(el => {
+      el.classList.toggle('selected', el.dataset.instrumentId === instrumentId);
+    });
   }
 
   /**
@@ -663,6 +812,10 @@ class AutoAssignModal {
    * Refresh current tab content without full re-render
    */
   refreshCurrentTab() {
+    if (this.viewMode === 'matrix') {
+      this.refreshMatrixView();
+      return;
+    }
     this.refreshStickyHeader();
     const content = document.getElementById('aaTabContent');
     if (content) {
@@ -972,6 +1125,8 @@ const _autoassignMixins = [
     typeof AutoAssignVizMixin !== 'undefined' ? AutoAssignVizMixin : null,
     typeof AutoAssignActionsMixin !== 'undefined' ? AutoAssignActionsMixin : null,
     typeof AutoAssignUtilsMixin !== 'undefined' ? AutoAssignUtilsMixin : null,
+    typeof AutoAssignMatrixMixin !== 'undefined' ? AutoAssignMatrixMixin : null,
+    typeof AutoAssignPanelsMixin !== 'undefined' ? AutoAssignPanelsMixin : null,
 ];
 _autoassignMixins.forEach(m => { if (m) Object.keys(m).forEach(k => { AutoAssignModal.prototype[k] = m[k]; }); });
 

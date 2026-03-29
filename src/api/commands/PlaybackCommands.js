@@ -230,7 +230,8 @@ async function generateAssignmentSuggestions(app, data) {
   const options = {
     topN: data.topN || 5,
     minScore: data.minScore || 30,
-    excludeVirtual: data.excludeVirtual || false
+    excludeVirtual: data.excludeVirtual || false,
+    includeMatrix: data.includeMatrix || false
   };
 
   // Get MIDI file from database
@@ -261,7 +262,7 @@ async function generateAssignmentSuggestions(app, data) {
     };
   }
 
-  return {
+  const response = {
     success: true,
     suggestions: result.suggestions,
     lowScoreSuggestions: result.lowScoreSuggestions || {},
@@ -271,6 +272,14 @@ async function generateAssignmentSuggestions(app, data) {
     confidenceScore: result.confidenceScore,
     stats: result.stats
   };
+
+  // Inclure les données de matrice si demandé
+  if (result.matrixScores) {
+    response.matrixScores = result.matrixScores;
+    response.instrumentList = result.instrumentList;
+  }
+
+  return response;
 }
 
 /**
