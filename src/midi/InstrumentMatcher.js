@@ -198,13 +198,14 @@ class InstrumentMatcher {
     // Compatibilite = notes ET polyphonie ET percussion doivent etre compatibles
     const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
 
-    // Build score breakdown for UI detail display
+    // Build score breakdown for UI detail display (cap each sub-score at its max)
+    const capScore = (val, max) => Math.min(Math.round(val), max);
     const scoreBreakdown = {
-      program: { score: Math.round(programScore.score), max: this.config.getWeight('programMatch') },
-      noteRange: { score: Math.round(noteScore.score), max: this.config.getWeight('noteRange') },
-      polyphony: { score: Math.round(polyScore.score), max: this.config.getWeight('polyphony') },
-      ccSupport: { score: Math.round(ccScore.score), max: this.config.getWeight('ccSupport') },
-      instrumentType: { score: Math.round(typeScore.score), max: this.config.getWeight('instrumentType') },
+      program: { score: capScore(programScore.score, this.config.getWeight('programMatch')), max: this.config.getWeight('programMatch') },
+      noteRange: { score: capScore(noteScore.score, this.config.getWeight('noteRange')), max: this.config.getWeight('noteRange') },
+      polyphony: { score: capScore(polyScore.score, this.config.getWeight('polyphony')), max: this.config.getWeight('polyphony') },
+      ccSupport: { score: capScore(ccScore.score, this.config.getWeight('ccSupport')), max: this.config.getWeight('ccSupport') },
+      instrumentType: { score: capScore(typeScore.score, this.config.getWeight('instrumentType')), max: this.config.getWeight('instrumentType') },
       percussion: { score: Math.round(percussionPenalty), max: isDrumChannel ? this.config.getPercussionValue('drumChannelDrumBonus') : 0 }
     };
 
@@ -695,29 +696,30 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scorePolyphony(channelMaxPoly, instrumentPoly, isDefault = false) {
+    const maxScore = this.config.getWeight('polyphony'); // 10
     const margin = instrumentPoly - channelMaxPoly;
 
-    // Polyphonie non configuree : plafonner a 10/15 meme si marge excellente
+    // Polyphonie non configuree : score max mais prudent
     if (isDefault && margin >= 0) {
       return {
-        score: 10,
+        score: maxScore,
         info: `Polyphony not configured (default ${instrumentPoly}), likely sufficient for ${channelMaxPoly} needed`
       };
     }
 
     if (margin >= 8) {
       return {
-        score: 15,
+        score: maxScore,
         info: `Excellent polyphony (${instrumentPoly} available, ${channelMaxPoly} needed)`
       };
     } else if (margin >= 4) {
       return {
-        score: 10,
+        score: Math.round(maxScore * 0.7),
         info: `Good polyphony (${instrumentPoly} available, ${channelMaxPoly} needed)`
       };
     } else if (margin >= 0) {
       return {
-        score: 5,
+        score: Math.round(maxScore * 0.5),
         info: `Sufficient polyphony (${instrumentPoly} available, ${channelMaxPoly} needed)`
       };
     } else if (margin >= -4) {
@@ -749,8 +751,9 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scoreCCSupport(channelCCs, instrumentCCs) {
+    const maxCCScore = this.config.getWeight('ccSupport'); // 5
     if (channelCCs.length === 0) {
-      return { score: 15, info: 'No CCs used by channel' };
+      return { score: maxCCScore, info: 'No CCs used by channel' };
     }
 
     // Si l'instrument n'a pas de liste de CCs configuree : score neutre (pas plein)
@@ -870,12 +873,14 @@ class InstrumentMatcher {
   scoreHierarchicalType(channelCategory, channelSubtype, instCategory, instSubtype, maxScore) {
     // 1. Match exact de catégorie
     if (channelCategory === instCategory) {
-      let score = maxScore; // 20/20
+      // Base: exact category match = maxScore - subtypeBonus headroom
+      const subtypeBonus = this.config.getBonus('subtypeMatch'); // 5
+      let score = maxScore - subtypeBonus; // 15/20 for category only
       let info = `Exact type match: ${channelCategory}`;
 
-      // Bonus sous-type si les deux sont définis et identiques
+      // Bonus sous-type si les deux sont définis et identiques → full maxScore
       if (channelSubtype && instSubtype && channelSubtype === instSubtype) {
-        score += this.config.getBonus('subtypeMatch'); // +5
+        score = maxScore; // 20/20 for category + subtype
         info = `Perfect type+subtype match: ${channelCategory}/${channelSubtype}`;
       }
 
