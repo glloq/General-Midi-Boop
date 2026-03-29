@@ -160,10 +160,33 @@ class PlaybackScheduler {
     const eventTime = event.time;
     const delay = Math.max(0, eventTime - currentPosition);
 
-    // Get the target device + channel for this source channel
-    const routing = getOutputForChannel(event.channel);
+    // For note events, pass the note to routing for split support
+    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const note = isNoteEvent ? (event.note ?? null) : null;
+    const routing = getOutputForChannel(event.channel, note);
 
-    if (!routing || !routing.device) {
+    if (!routing) {
+      this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+      return;
+    }
+
+    // Handle broadcast (split routing returns array for non-note events)
+    if (Array.isArray(routing)) {
+      // Schedule for each segment
+      for (const segRouting of routing) {
+        if (!segRouting || !segRouting.device) continue;
+        const syncDelay = this._getSyncDelay(segRouting.device, segRouting.targetChannel);
+        const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
+        const timeoutId = setTimeout(() => {
+          this.pendingTimeouts.delete(timeoutId);
+          this._sendEventToRouting(event, segRouting, state);
+        }, adjustedDelay * 1000);
+        this.pendingTimeouts.add(timeoutId);
+      }
+      return;
+    }
+
+    if (!routing.device) {
       this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
       return;
     }
@@ -203,8 +226,19 @@ class PlaybackScheduler {
       return;
     }
 
-    const device = this.app.deviceManager;
-    const routing = getOutputForChannel(event.channel);
+    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const note = isNoteEvent ? (event.note ?? null) : null;
+    const routing = getOutputForChannel(event.channel, note);
+
+    // Handle broadcast for split routing (non-note events go to all segments)
+    if (Array.isArray(routing)) {
+      for (const segRouting of routing) {
+        if (segRouting && segRouting.device) {
+          this._sendEventToRouting(event, segRouting, state);
+        }
+      }
+      return;
+    }
 
     if (!routing || !routing.device) {
       this.app.logger.warn(`No output device for channel ${event.channel + 1}`);
@@ -285,6 +319,36 @@ class PlaybackScheduler {
   }
 
   /**
+   * Send a single event to a specific routing target (used for split broadcast)
+   * @param {Object} event
+   * @param {Object} routing - { device, targetChannel }
+   * @param {Object} state
+   */
+  _sendEventToRouting(event, routing, state) {
+    if (!state.playing) return;
+    if (state.mutedChannels && state.mutedChannels.has(event.channel)) return;
+
+    const device = this.app.deviceManager;
+    const outChannel = routing.targetChannel;
+
+    if (event.type === 'noteOn') {
+      if (event.velocity === 0) {
+        device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: event.note, velocity: 0 });
+      } else {
+        device.sendMessage(routing.device, 'noteon', { channel: outChannel, note: event.note, velocity: event.velocity });
+      }
+    } else if (event.type === 'noteOff') {
+      device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: event.note, velocity: event.velocity });
+    } else if (event.type === 'controller') {
+      device.sendMessage(routing.device, 'cc', { channel: outChannel, controller: event.controller, value: event.value });
+    } else if (event.type === 'pitchBend') {
+      device.sendMessage(routing.device, 'pitchbend', { channel: outChannel, value: event.value });
+    } else if (event.type === 'programChange') {
+      device.sendMessage(routing.device, 'program', { channel: outChannel, program: event.program });
+    }
+  }
+
+  /**
    * Send All Notes Off to all routed devices/channels.
    * @param {string} outputDevice - Default output device
    * @param {Map} channelRouting - Channel routing map
@@ -301,6 +365,18 @@ class PlaybackScheduler {
     const channelsPerDevice = new Map();
 
     for (const [sourceChannel, routing] of channelRouting) {
+      // Handle split routing: extract all segment devices
+      if (routing && routing.split && routing.segments) {
+        for (const seg of routing.segments) {
+          if (!seg.device) continue;
+          if (!channelsPerDevice.has(seg.device)) {
+            channelsPerDevice.set(seg.device, new Set());
+          }
+          channelsPerDevice.get(seg.device).add(seg.targetChannel);
+        }
+        continue;
+      }
+
       const deviceName = typeof routing === 'string' ? routing : routing?.device;
       const targetChannel = typeof routing === 'string' ? sourceChannel : routing.targetChannel;
       if (!deviceName) continue;

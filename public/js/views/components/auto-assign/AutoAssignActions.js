@@ -99,11 +99,32 @@
    * Validate all channels and apply: create adapted file, close modals, open editor
    */
     AutoAssignActionsMixin.validateAndApply = async function() {
-    // Filter out skipped channels
+    // Filter out skipped channels and merge split assignments
     const activeAssignments = {};
+
+    // Add normal (non-split) assignments
     for (const [channel, assignment] of Object.entries(this.selectedAssignments)) {
-      if (!this.skippedChannels.has(parseInt(channel))) {
+      if (!this.skippedChannels.has(parseInt(channel)) && !this.splitChannels.has(parseInt(channel))) {
         activeAssignments[channel] = assignment;
+      }
+    }
+
+    // Add split assignments
+    for (const [channel, proposal] of Object.entries(this.splitAssignments)) {
+      if (!this.skippedChannels.has(parseInt(channel))) {
+        activeAssignments[channel] = {
+          split: true,
+          splitMode: proposal.type,
+          segments: proposal.segments.map(seg => ({
+            deviceId: seg.deviceId,
+            instrumentId: seg.instrumentId,
+            instrumentChannel: seg.instrumentChannel,
+            instrumentName: seg.instrumentName,
+            noteRange: seg.noteRange,
+            polyphonyShare: seg.polyphonyShare,
+            score: proposal.quality
+          }))
+        };
       }
     }
 

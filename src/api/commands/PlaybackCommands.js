@@ -374,7 +374,50 @@ async function applyAssignments(app, data) {
   for (const [channel, assignment] of Object.entries(data.assignments)) {
     const channelNum = parseInt(channel);
 
-    // Resolve targetChannel (instrument's actual MIDI channel on device)
+    // Handle split assignments (one channel → multiple instruments)
+    if (assignment.split && assignment.segments) {
+      const segments = assignment.segments.map(seg => {
+        const segTargetChannel = seg.instrumentChannel !== undefined
+          ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+          : channelNum;
+
+        return {
+          target_channel: segTargetChannel,
+          device_id: seg.deviceId,
+          instrument_name: seg.instrumentName,
+          compatibility_score: seg.score || null,
+          transposition_applied: 0,
+          auto_assigned: true,
+          assignment_reason: `Split ${assignment.splitMode || 'range'}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
+          note_remapping: null,
+          enabled: true,
+          created_at: Date.now(),
+          split_mode: assignment.splitMode || 'range',
+          split_note_min: seg.noteRange?.min ?? null,
+          split_note_max: seg.noteRange?.max ?? null,
+          split_polyphony_share: seg.polyphonyShare ?? null
+        };
+      });
+
+      try {
+        app.database.insertSplitRoutings(targetFileId, channelNum, segments);
+      } catch (dbError) {
+        app.logger.warn(`Failed to persist split routings for channel ${channelNum}: ${dbError.message}`);
+      }
+
+      // Apply split routing to MidiPlayer if currently loaded
+      if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+        app.midiPlayer.setChannelSplitRouting(channelNum, segments);
+      }
+
+      routings.push(...segments.map(s => ({ ...s, midi_file_id: targetFileId, channel: channelNum })));
+      app.logger.info(
+        `Split channel ${channelNum} across ${segments.length} instruments (${assignment.splitMode})`
+      );
+      continue;
+    }
+
+    // Standard single-instrument assignment
     let instrumentTargetChannel = assignment.instrumentChannel !== undefined
       ? Math.max(0, Math.min(15, parseInt(assignment.instrumentChannel) || 0))
       : channelNum;
@@ -382,7 +425,7 @@ async function applyAssignments(app, data) {
     const routing = {
       midi_file_id: targetFileId,
       channel: channelNum,
-      target_channel: instrumentTargetChannel, // Persist instrument's MIDI channel for reload
+      target_channel: instrumentTargetChannel,
       device_id: assignment.deviceId,
       instrument_name: assignment.instrumentName,
       compatibility_score: assignment.score,
@@ -396,7 +439,6 @@ async function applyAssignments(app, data) {
       created_at: Date.now()
     };
 
-    // Persist routing to database
     try {
       app.database.insertRouting(routing);
     } catch (dbError) {
@@ -404,7 +446,6 @@ async function applyAssignments(app, data) {
     }
     routings.push(routing);
 
-    // Also apply to MidiPlayer if currently loaded
     if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
       app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
     }

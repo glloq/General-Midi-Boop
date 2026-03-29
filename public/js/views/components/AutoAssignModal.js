@@ -40,6 +40,9 @@ class AutoAssignModal {
     this.showDrumMapping = {}; // Per-channel toggle for drum mapping view
     this.drumMappingOverrides = {}; // Per-channel drum note overrides { channel: { midiNote: instrumentNote } }
     this.expandedDrumCategories = {}; // Per-channel/category toggle { 'ch_category': true/false }
+    this.splitProposals = {}; // { channel: SplitProposal } from backend
+    this.splitChannels = new Set(); // Channels where user accepted a split
+    this.splitAssignments = {}; // { channel: SplitProposal } accepted splits
 
     // GM Drum categories (mirrored from DrumNoteMapper backend)
     this.DRUM_CATEGORIES = {
@@ -216,6 +219,7 @@ class AutoAssignModal {
       this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection;
       this.confidenceScore = response.confidenceScore;
+      this.splitProposals = response.splitProposals || {};
 
       if (response.channelAnalyses) {
         for (const analysis of response.channelAnalyses) {
@@ -774,6 +778,55 @@ class AutoAssignModal {
     if (window.autoAssignModalInstance === this) {
       delete window.autoAssignModalInstance;
     }
+  }
+
+  // ==================== SPLIT MANAGEMENT ====================
+
+  /**
+   * Accept a split proposal for a channel
+   * @param {number} channel
+   */
+  acceptSplit(channel) {
+    const proposal = this.splitProposals[channel];
+    if (!proposal) return;
+
+    this.splitChannels.add(channel);
+    this.splitAssignments[channel] = proposal;
+
+    // Remove from skipped if it was auto-skipped
+    this.skippedChannels.delete(channel);
+
+    // Clear single instrument selection for this channel
+    delete this.selectedAssignments[channel];
+
+    this.refreshCurrentTab();
+    this.refreshTabBar();
+  }
+
+  /**
+   * Reject a split proposal — revert to normal or skipped
+   * @param {number} channel
+   */
+  rejectSplit(channel) {
+    this.splitChannels.delete(channel);
+    delete this.splitAssignments[channel];
+
+    // If was auto-skipped, re-skip it
+    if (this.autoSkippedChannels.has(channel)) {
+      this.skippedChannels.add(channel);
+    }
+
+    this.refreshCurrentTab();
+    this.refreshTabBar();
+  }
+
+  /**
+   * Check if a channel is in split mode
+   * @param {number} channel
+   * @returns {boolean}
+   */
+  isSplitChannel(channel) {
+    return this.splitChannels.has(channel);
   }
 }
 

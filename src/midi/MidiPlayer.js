@@ -612,6 +612,34 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Set split routing: one channel → multiple instruments based on note ranges
+   * @param {number} channel - Source MIDI channel
+   * @param {Array<Object>} segments - [{ device_id, target_channel, split_note_min, split_note_max }]
+   */
+  setChannelSplitRouting(channel, segments) {
+    const splitRouting = {
+      split: true,
+      segments: segments.map(seg => ({
+        device: seg.device_id,
+        targetChannel: seg.target_channel !== undefined ? seg.target_channel : channel,
+        noteMin: seg.split_note_min ?? 0,
+        noteMax: seg.split_note_max ?? 127,
+        polyphonyShare: seg.split_polyphony_share ?? null
+      }))
+    };
+
+    this.channelRouting.set(channel, splitRouting);
+    this.scheduler.invalidateCompensationCache();
+
+    const channelInfo = this.channels.find(c => c.channel === channel);
+    if (channelInfo) {
+      channelInfo.assignedDevice = segments.map(s => s.device_id).join('+');
+    }
+
+    this.app.logger.info(`Channel ${channel + 1} split across ${segments.length} instruments`);
+  }
+
   clearChannelRouting() {
     this.channelRouting.clear();
     this.scheduler.invalidateCompensationCache();
@@ -636,12 +664,43 @@ class MidiPlayer {
     });
   }
 
-  getOutputForChannel(channel) {
+  /**
+   * Get output routing for a channel, optionally considering the note for split routing
+   * @param {number} channel
+   * @param {number|null} [note=null] - MIDI note number (for split routing)
+   * @returns {Object|Array|null} - { device, targetChannel } or array for broadcast, or null if muted
+   */
+  getOutputForChannel(channel, note = null) {
     if (this.channelRouting.has(channel)) {
       const routing = this.channelRouting.get(channel);
+
+      // Legacy string format
       if (typeof routing === 'string') {
         return { device: routing, targetChannel: channel };
       }
+
+      // Split routing: route based on note
+      if (routing.split && routing.segments) {
+        if (note !== null) {
+          // Find segment covering this note
+          for (const seg of routing.segments) {
+            if (note >= seg.noteMin && note <= seg.noteMax) {
+              return { device: seg.device, targetChannel: seg.targetChannel };
+            }
+          }
+          // Note outside all ranges: route to closest segment
+          let closest = routing.segments[0];
+          let minDist = Infinity;
+          for (const seg of routing.segments) {
+            const dist = Math.min(Math.abs(note - seg.noteMin), Math.abs(note - seg.noteMax));
+            if (dist < minDist) { minDist = dist; closest = seg; }
+          }
+          return { device: closest.device, targetChannel: closest.targetChannel };
+        }
+        // No note specified (CC, pitchBend, etc.) → return all segments for broadcast
+        return routing.segments.map(seg => ({ device: seg.device, targetChannel: seg.targetChannel }));
+      }
+
       return routing;
     }
 

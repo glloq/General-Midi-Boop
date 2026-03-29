@@ -80,6 +80,12 @@ class ChannelSplitter {
    * @returns {SplitProposal|null}
    */
   calculateRangeSplit(channelAnalysis, instruments) {
+    if (!channelAnalysis.noteRange ||
+        channelAnalysis.noteRange.min === null ||
+        channelAnalysis.noteRange.max === null) {
+      return null;
+    }
+
     const channelMin = channelAnalysis.noteRange.min;
     const channelMax = channelAnalysis.noteRange.max;
     const channelSpan = channelMax - channelMin;

@@ -453,5 +453,98 @@
     `;
   }
 
+  // ========================================================================
+  // SPLIT PROPOSAL RENDERING
+  // ========================================================================
+
+  /**
+   * Render split proposal section for a channel
+   * @param {number} channel
+   * @returns {string} HTML
+   */
+  AutoAssignVizMixin.renderSplitProposal = function(channel) {
+    const proposal = this.splitProposals[channel];
+    if (!proposal) return '';
+
+    const isSplit = this.isSplitChannel(channel);
+    const analysis = this.channelAnalyses[channel];
+    const channelMin = analysis?.noteRange?.min ?? 0;
+    const channelMax = analysis?.noteRange?.max ?? 127;
+
+    const typeLabels = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+    const typeLabel = typeLabels[proposal.type] || proposal.type;
+
+    // Build coverage bar (visual representation of note ranges)
+    const totalSpan = Math.max(1, channelMax - channelMin + 1);
+    const segmentBars = proposal.segments.map((seg, i) => {
+      const segMin = seg.noteRange?.min ?? channelMin;
+      const segMax = seg.noteRange?.max ?? channelMax;
+      const left = ((segMin - channelMin) / totalSpan * 100).toFixed(1);
+      const width = ((segMax - segMin + 1) / totalSpan * 100).toFixed(1);
+      const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
+      const color = colors[i % colors.length];
+      return `<div class="aa-split-bar-segment" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName}: ${this.noteToName(segMin)}-${this.noteToName(segMax)}"></div>`;
+    }).join('');
+
+    // Segment cards
+    const segmentCards = proposal.segments.map((seg, i) => {
+      const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
+      const rangeText = seg.noteRange
+        ? `${this.noteToName(seg.noteRange.min)} - ${this.noteToName(seg.noteRange.max)}`
+        : (seg.strategy === 'round_robin' ? _t('autoAssign.roundRobin') : '—');
+      const polyText = seg.polyphonyShare ? `${_t('autoAssign.polyphony')}: ${seg.polyphonyShare}` : '';
+
+      return `
+        <div class="aa-split-segment">
+          <div class="aa-split-segment-color" style="background:${colors[i % colors.length]}"></div>
+          <div class="aa-split-segment-info">
+            <span class="aa-split-segment-name">${escapeHtml(seg.instrumentName || 'Instrument')}</span>
+            <span class="aa-split-segment-range">${rangeText}</span>
+            ${polyText ? `<span class="aa-split-segment-poly">${polyText}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="aa-split-section ${isSplit ? 'accepted' : ''}">
+        <div class="aa-split-header">
+          <span class="aa-split-icon">⇅</span>
+          <span class="aa-split-title">${_t('autoAssign.splitProposed')}</span>
+          <span class="aa-split-type-badge">${typeLabel}</span>
+          <span class="aa-split-quality" style="color: ${this.getScoreColor(proposal.quality)}">
+            ${this.getScoreStars(proposal.quality)} ${proposal.quality}/100
+          </span>
+        </div>
+        <div class="aa-split-coverage">
+          <div class="aa-split-bar">
+            ${segmentBars}
+          </div>
+          <div class="aa-split-range-labels">
+            <span>${this.noteToName(channelMin)}</span>
+            <span>${this.noteToName(channelMax)}</span>
+          </div>
+        </div>
+        <div class="aa-split-segments">
+          ${segmentCards}
+        </div>
+        ${proposal.overlapZones && proposal.overlapZones.length > 0 ? `
+          <div class="aa-split-overlap">
+            ${proposal.overlapZones.map(z =>
+              `<span class="aa-split-overlap-info">${_t('autoAssign.overlapZone')}: ${this.noteToName(z.min)}-${this.noteToName(z.max)}</span>`
+            ).join('')}
+          </div>
+        ` : ''}
+        <div class="aa-split-actions">
+          ${isSplit
+            ? `<button class="btn aa-split-reject" onclick="autoAssignModalInstance.rejectSplit(${channel})">${_t('autoAssign.cancelSplit')}</button>`
+            : `<button class="btn btn-primary aa-split-accept" onclick="autoAssignModalInstance.acceptSplit(${channel})">${_t('autoAssign.acceptSplit')}</button>
+               <button class="btn aa-split-ignore" onclick="autoAssignModalInstance.rejectSplit(${channel})">${_t('autoAssign.ignoreSplit')}</button>`
+          }
+        </div>
+      </div>
+    `;
+  };
+
     if (typeof window !== 'undefined') window.AutoAssignVizMixin = AutoAssignVizMixin;
 })();

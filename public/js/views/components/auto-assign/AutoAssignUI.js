@@ -22,8 +22,9 @@
       const channel = parseInt(ch);
       const isActive = channel === this.activeTab;
       const isSkipped = this.skippedChannels.has(channel);
+      const isSplit = this.isSplitChannel(channel);
       const assignment = this.selectedAssignments[ch];
-      const score = assignment?.score || 0;
+      const score = isSplit ? (this.splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
       const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
       const gmName = channel === 9
         ? _t('autoAssign.drums')
@@ -32,7 +33,7 @@
       const gmShort = gmName.length > 14 ? gmName.slice(0, 13) + '…' : gmName;
 
       return `
-        <button class="aa-tab ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''}"
+        <button class="aa-tab ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''} ${isSplit ? 'split' : ''}"
                 role="tab"
                 aria-selected="${isActive}"
                 aria-controls="aaTabContent"
@@ -43,6 +44,7 @@
           <div class="aa-tab-main">
             <span class="aa-tab-label">Ch ${channel + 1}</span>
             ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
+            ${isSplit ? '<span class="aa-tab-split">SP</span>' : ''}
             ${isSkipped
               ? '<span class="aa-tab-status skipped">—</span>'
               : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
@@ -206,8 +208,9 @@
     const rows = this.channels.map(ch => {
       const channel = parseInt(ch);
       const isSkipped = this.skippedChannels.has(channel);
+      const isSplit = this.isSplitChannel(channel);
       const assignment = this.selectedAssignments[ch];
-      const score = assignment?.score || 0;
+      const score = isSplit ? (this.splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
       const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
 
       // Original MIDI instrument
@@ -215,8 +218,18 @@
         ? _t('autoAssign.drums')
         : (this.getGmProgramName(analysis?.primaryProgram) || '—');
 
-      // Assigned instrument
-      const assignedName = assignment?.customName || assignment?.instrumentName || '—';
+      // Assigned instrument(s)
+      let assignedName;
+      if (isSplit && this.splitAssignments[channel]) {
+        const segments = this.splitAssignments[channel].segments || [];
+        assignedName = segments.map(seg => {
+          const name = seg.instrumentName || 'Instrument';
+          const range = seg.noteRange ? `(${this.noteToName(seg.noteRange.min)}-${this.noteToName(seg.noteRange.max)})` : '';
+          return `${name} ${range}`;
+        }).join(' + ');
+      } else {
+        assignedName = assignment?.customName || assignment?.instrumentName || '—';
+      }
 
       // Status
       let statusIcon, statusClass, statusLabel;
@@ -395,11 +408,14 @@
         </div>
       ` : '';
 
+      // Split proposal for channels with no single-instrument match
+      const splitHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
+
       return `
         <div class="aa-tab-content">
           ${statsHTML}
           ${skipHTML}
-          <p class="aa-no-compatible">${_t('autoAssign.noCompatible')}</p>
+          ${splitHTML || `<p class="aa-no-compatible">${_t('autoAssign.noCompatible')}</p>`}
           ${fallbackHTML}
         </div>
       `;
@@ -435,17 +451,23 @@
     const isDrumChannel = channel === 9 || (analysis && analysis.estimatedType === 'drums');
     const drumMappingHTML = (!isSkipped && isDrumChannel && selectedInstrumentId) ? this.renderDrumMappingSection(channel) : '';
 
+    // Split proposal (show if available and channel has suggestions)
+    const splitProposalHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
+
     return `
       <div class="aa-tab-content">
         ${collapseHTML}
         ${statsHTML}
         ${skipHTML}
-        <div class="aa-instruments-list">
-          ${optionsHTML}
-        </div>
-        ${lowScoreHTML}
-        ${adaptationHTML}
-        ${drumMappingHTML}
+        ${this.isSplitChannel(channel) ? splitProposalHTML : `
+          <div class="aa-instruments-list">
+            ${optionsHTML}
+          </div>
+          ${lowScoreHTML}
+          ${adaptationHTML}
+          ${drumMappingHTML}
+          ${splitProposalHTML}
+        `}
       </div>
     `;
   }

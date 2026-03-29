@@ -2214,3 +2214,219 @@ body.dark-mode .aa-inline-preview {
 body.dark-mode .aa-inline-preview:hover {
   background: #3d3d4f;
 }
+
+/* ========================================================================
+   CHANNEL SPLIT STYLES
+   ======================================================================== */
+
+.aa-tab.split {
+  border-left: 3px solid #667eea;
+}
+
+.aa-tab-split {
+  font-size: 9px;
+  font-weight: 700;
+  background: #667eea;
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+.aa-split-section {
+  margin-top: 16px;
+  padding: 14px;
+  border: 2px dashed #667eea;
+  border-radius: 10px;
+  background: #f0f4ff;
+}
+
+.aa-split-section.accepted {
+  border-style: solid;
+  background: #eef2ff;
+}
+
+.aa-split-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.aa-split-icon {
+  font-size: 18px;
+  color: #667eea;
+}
+
+.aa-split-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.aa-split-type-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #667eea;
+  color: #fff;
+  font-weight: 600;
+}
+
+.aa-split-quality {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aa-split-coverage {
+  margin-bottom: 12px;
+}
+
+.aa-split-bar {
+  position: relative;
+  height: 24px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.aa-split-bar-segment {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  opacity: 0.85;
+  border-radius: 3px;
+  transition: opacity 0.2s;
+}
+
+.aa-split-bar-segment:hover {
+  opacity: 1;
+}
+
+.aa-split-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.aa-split-segments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.aa-split-segment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.aa-split-segment-color {
+  width: 6px;
+  height: 32px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.aa-split-segment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aa-split-segment-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+}
+
+.aa-split-segment-range {
+  font-size: 11px;
+  color: #667;
+}
+
+.aa-split-segment-poly {
+  font-size: 11px;
+  color: #888;
+}
+
+.aa-split-overlap {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #fff8e1;
+  border-radius: 6px;
+  border: 1px solid #ffe082;
+}
+
+.aa-split-overlap-info {
+  font-size: 11px;
+  color: #f57f17;
+}
+
+.aa-split-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.aa-split-accept {
+  background: #667eea !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.aa-split-accept:hover {
+  background: #5a6fd6 !important;
+}
+
+.aa-split-reject,
+.aa-split-ignore {
+  background: #f7fafc !important;
+  border: 1px solid #cbd5e0 !important;
+  color: #4a5568 !important;
+}
+
+/* Dark mode support */
+body.dark-mode .aa-split-section {
+  background: #2a2a3e;
+  border-color: #667eea;
+}
+
+body.dark-mode .aa-split-section.accepted {
+  background: #2d2d4e;
+}
+
+body.dark-mode .aa-split-title {
+  color: #e2e8f0;
+}
+
+body.dark-mode .aa-split-bar {
+  background: #3a3a5e;
+}
+
+body.dark-mode .aa-split-segment {
+  background: #2a2a3e;
+  border-color: #4a4a6e;
+}
+
+body.dark-mode .aa-split-segment-name {
+  color: #e2e8f0;
+}
+
+body.dark-mode .aa-split-overlap {
+  background: #3a3520;
+  border-color: #665520;
+}
+
+body.dark-mode .aa-split-overlap-info {
+  color: #ffb74d;
+}
