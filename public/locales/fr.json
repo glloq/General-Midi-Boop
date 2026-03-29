@@ -975,7 +975,19 @@
         "overviewDetail": "Detail",
         "overviewAllGood": "Toutes les assignations semblent correctes",
         "viewDetails": "Details",
-        "hideSection": "Masquer"
+        "hideSection": "Masquer",
+        "splitByRange": "Par plage de notes",
+        "splitByPolyphony": "Par polyphonie",
+        "splitMixed": "Mixte",
+        "roundRobin": "Round-robin",
+        "overlapZone": "Zone de chevauchement",
+        "splitProposed": "Découpe proposée",
+        "acceptSplit": "Accepter la découpe",
+        "cancelSplit": "Annuler la découpe",
+        "ignoreSplit": "Ignorer",
+        "splitAvailableBanner": "{count} canal/canaux peuvent être découpés sur plusieurs instruments pour une meilleure couverture",
+        "reviewSplits": "Voir les découpes",
+        "acceptAllSplits": "Accepter toutes les découpes"
     },
     "instrumentCapabilities": {
         "title": "Compléter les capacités des instruments",

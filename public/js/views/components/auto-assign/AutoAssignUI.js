@@ -123,6 +123,11 @@
               ` : ''}
             </div>
             <div class="aa-footer-right">
+              ${Object.keys(this.splitProposals).filter(ch => !this.splitChannels.has(Number(ch))).length > 0 ? `
+                <button class="btn" onclick="autoAssignModalInstance.acceptAllSplits()">
+                  ${_t('autoAssign.acceptAllSplits')}
+                </button>
+              ` : ''}
               <button class="btn" onclick="autoAssignModalInstance.quickAssign()" title="${_t('autoAssign.quickAssignTip')}">
                 ${_t('autoAssign.quickAssign')}
               </button>
@@ -239,11 +244,16 @@
       }
 
       // Status
+      const hasSplitProposal = !!this.splitProposals[channel];
       let statusIcon, statusClass, statusLabel;
       if (isSkipped) {
         statusIcon = '—';
         statusClass = 'skipped';
         statusLabel = _t('autoAssign.overviewStatusSkipped');
+      } else if (isSplit) {
+        statusIcon = '&#8645;';
+        statusClass = 'ok';
+        statusLabel = _t('autoAssign.splitProposed');
       } else if (score >= 70) {
         statusIcon = '&#10003;';
         statusClass = 'ok';
@@ -254,12 +264,17 @@
         statusLabel = _t('autoAssign.overviewStatusWarning');
       }
 
+      // Badge for split availability (not yet accepted)
+      const splitBadge = (hasSplitProposal && !isSplit && !isSkipped)
+        ? '<span class="aa-tab-split" title="' + _t('autoAssign.splitProposed') + '">SP</span>'
+        : (isSplit ? '<span class="aa-tab-split active" title="' + _t('autoAssign.splitProposed') + '">SP</span>' : '');
+
       const typeIcon = analysis?.estimatedType ? this.getTypeIcon(analysis.estimatedType) : '';
 
       return `
         <tr class="aa-overview-row ${isSkipped ? 'skipped' : ''} ${statusClass}"
             onclick="autoAssignModalInstance.overviewGoToChannel(${channel})">
-          <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''}</td>
+          <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''} ${splitBadge}</td>
           <td class="aa-ov-original">${escapeHtml(gmName)}</td>
           <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : escapeHtml(assignedName)}</td>
           <td class="aa-ov-score">
@@ -283,9 +298,23 @@
       return this.skippedChannels.has(channel) || (this.selectedAssignments[ch]?.score || 0) >= 70;
     });
 
+    // Count available (non-accepted) split proposals
+    const pendingSplitChannels = Object.keys(this.splitProposals)
+      .map(Number)
+      .filter(ch => !this.splitChannels.has(ch));
+    const splitBannerHTML = pendingSplitChannels.length > 0 ? `
+      <div class="aa-overview-banner split">
+        <span>&#8645; ${_t('autoAssign.splitAvailableBanner', {count: pendingSplitChannels.length})}</span>
+        <button class="btn aa-btn-sm" onclick="autoAssignModalInstance.overviewGoToChannel(${pendingSplitChannels[0]})">
+          ${_t('autoAssign.reviewSplits')}
+        </button>
+      </div>
+    ` : '';
+
     return `
       <div class="aa-overview">
         ${allGood ? `<div class="aa-overview-banner ok">${_t('autoAssign.overviewAllGood')}</div>` : ''}
+        ${splitBannerHTML}
         <div class="aa-overview-table-wrapper">
         <table class="aa-overview-table">
           <thead>

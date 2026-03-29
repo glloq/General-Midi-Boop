@@ -975,7 +975,19 @@
         "overviewDetail": "Detail",
         "overviewAllGood": "All assignments look good",
         "viewDetails": "Details",
-        "hideSection": "Hide"
+        "hideSection": "Hide",
+        "splitByRange": "By range",
+        "splitByPolyphony": "By polyphony",
+        "splitMixed": "Mixed",
+        "roundRobin": "Round-robin",
+        "overlapZone": "Overlap zone",
+        "splitProposed": "Split proposed",
+        "acceptSplit": "Accept split",
+        "cancelSplit": "Cancel split",
+        "ignoreSplit": "Ignore",
+        "splitAvailableBanner": "{count} channel(s) can be split across multiple instruments for better coverage",
+        "reviewSplits": "Review splits",
+        "acceptAllSplits": "Accept all splits"
     },
     "instrumentCapabilities": {
         "title": "Complete Instrument Capabilities",

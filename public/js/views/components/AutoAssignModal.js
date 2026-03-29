@@ -846,6 +846,23 @@ class AutoAssignModal {
   isSplitChannel(channel) {
     return this.splitChannels.has(channel);
   }
+
+  /**
+   * Accept all pending split proposals at once
+   */
+  acceptAllSplits() {
+    for (const [ch, proposal] of Object.entries(this.splitProposals)) {
+      const channel = Number(ch);
+      if (this.splitChannels.has(channel)) continue; // already accepted
+
+      this.splitChannels.add(channel);
+      this.splitAssignments[channel] = proposal;
+      this.skippedChannels.delete(channel);
+      delete this.selectedAssignments[ch];
+    }
+    // Full re-render to update overview, tabs, and footer
+    this.showTabbedUI();
+  }
 }
 
 // Make available globally
