@@ -266,6 +266,7 @@ async function generateAssignmentSuggestions(app, data) {
     suggestions: result.suggestions,
     lowScoreSuggestions: result.lowScoreSuggestions || {},
     autoSelection: result.autoSelection,
+    splitProposals: result.splitProposals || {},
     channelAnalyses: result.channelAnalyses,
     confidenceScore: result.confidenceScore,
     stats: result.stats

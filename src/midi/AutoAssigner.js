@@ -5,6 +5,7 @@ import InstrumentMatcher from './InstrumentMatcher.js';
 import ChannelSplitter from './ChannelSplitter.js';
 import AnalysisCache from './AnalysisCache.js';
 import ScoringConfig from './ScoringConfig.js';
+import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
  * AutoAssigner - Génère des suggestions d'assignation automatique
@@ -309,8 +310,26 @@ class AutoAssigner {
       if (!channelCategory || channelCategory === 'unknown') continue;
 
       // Chercher les instruments du même type
-      const sameType = instrumentsByType[channelCategory];
-      if (!sameType || sameType.length < 2) continue;
+      let sameType = instrumentsByType[channelCategory] || [];
+
+      // Fallback: élargir à la famille si pas assez d'instruments du type exact
+      if (sameType.length < 2) {
+        const family = InstrumentTypeConfig.getFamily(channelCategory);
+        if (family) {
+          const familyMembers = InstrumentTypeConfig.families[family] || [];
+          const familyInstruments = [];
+          for (const memberType of familyMembers) {
+            if (instrumentsByType[memberType]) {
+              familyInstruments.push(...instrumentsByType[memberType]);
+            }
+          }
+          if (familyInstruments.length >= 2) {
+            sameType = familyInstruments;
+          }
+        }
+      }
+
+      if (sameType.length < 2) continue;
 
       const proposal = this.splitter.evaluateSplit(analysis, sameType);
       if (proposal) {
