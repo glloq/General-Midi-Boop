@@ -46,7 +46,8 @@ class MidiPlayer {
         throw new Error(`File ${fileId} (${file.filename}) has no MIDI data`);
       }
 
-      const buffer = Buffer.from(file.data, 'base64');
+      // Handle both Buffer (BLOB) and base64 string (legacy)
+      const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
       const midi = parseMidi(buffer);
 
       if (!midi || !midi.header || !Array.isArray(midi.tracks)) {

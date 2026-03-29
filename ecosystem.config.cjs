@@ -4,10 +4,11 @@ module.exports = {
     {
       name: 'midimind',
       script: './server.js',
+      node_args: '--max-old-space-size=384',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
-      max_memory_restart: '500M',
+      max_memory_restart: '400M',
       env: {
         NODE_ENV: 'production',
         PORT: 8080

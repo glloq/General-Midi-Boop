@@ -9,6 +9,39 @@ const __dirname = dirname(__filename);
 
 const CURRENT_API_VERSION = 1;
 
+// Map commands to their specific validator methods in JsonValidator
+const COMMAND_VALIDATORS = {
+  file_upload: 'validateFileCommand',
+  file_load: 'validateFileCommand',
+  file_delete: 'validateFileCommand',
+  file_save: 'validateFileCommand',
+  file_rename: 'validateFileCommand',
+  file_move: 'validateFileCommand',
+  file_export: 'validateFileCommand',
+  device_info: 'validateDeviceCommand',
+  device_enable: 'validateDeviceCommand',
+  device_set_properties: 'validateDeviceCommand',
+  virtual_create: 'validateDeviceCommand',
+  virtual_delete: 'validateDeviceCommand',
+  ble_connect: 'validateDeviceCommand',
+  ble_disconnect: 'validateDeviceCommand',
+  route_create: 'validateRoutingCommand',
+  route_delete: 'validateRoutingCommand',
+  route_enable: 'validateRoutingCommand',
+  filter_set: 'validateRoutingCommand',
+  filter_clear: 'validateRoutingCommand',
+  channel_map: 'validateRoutingCommand',
+  monitor_start: 'validateRoutingCommand',
+  monitor_stop: 'validateRoutingCommand',
+  playback_start: 'validatePlaybackCommand',
+  playback_seek: 'validatePlaybackCommand',
+  playback_set_loop: 'validatePlaybackCommand',
+  latency_measure: 'validateLatencyCommand',
+  latency_set: 'validateLatencyCommand',
+  latency_get: 'validateLatencyCommand',
+  latency_delete: 'validateLatencyCommand'
+};
+
 class CommandRegistry {
   constructor(app) {
     this.app = app;
@@ -77,6 +110,15 @@ class CommandRegistry {
         throw new Error(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
+      // Command-specific input validation
+      const validatorName = COMMAND_VALIDATORS[message.command];
+      if (validatorName && typeof JsonValidator[validatorName] === 'function') {
+        const cmdValidation = JsonValidator[validatorName](message.command, message.data || {});
+        if (!cmdValidation.valid) {
+          throw new Error(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
+        }
+      }
+
       // Get handler (check versioned handlers first if version specified)
       let handler;
       if (message.version && message.version !== CURRENT_API_VERSION) {
@@ -115,13 +157,26 @@ class CommandRegistry {
       this.app.logger.error(`Command ${message.command} failed: ${error.message}`);
       this.app.logger.error(error.stack);
 
+      // Filter error messages: only expose known application errors to the client,
+      // not internal paths or stack traces
+      const isKnownError = (
+        (error.code && error.code.startsWith('ERR_')) ||
+        error.message.startsWith('Invalid ') ||
+        error.message.startsWith('Unknown command') ||
+        error.message.includes('not found') ||
+        error.message.includes('is required') ||
+        error.message.includes('already exists') ||
+        error.message.includes('not connected') ||
+        error.message.includes('not available')
+      );
+
       if (ws.readyState === 1) {
         ws.send(
           JSON.stringify({
-            id: message.id, // Include request ID even in errors
+            id: message.id,
             type: 'error',
             command: message.command,
-            error: error.message,
+            error: isKnownError ? error.message : 'Internal server error',
             timestamp: Date.now()
           })
         );

@@ -4,6 +4,7 @@ import path from 'path';
 // Log rotation defaults
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_LOG_FILES = 5;
+const ROTATION_CHECK_INTERVAL = 100; // Check rotation every N writes (not every write)
 
 class Logger {
   constructor(config = {}) {
@@ -19,14 +20,30 @@ class Logger {
       error: 3
     };
     this._rotating = false;
+    this._stream = null;
+    this._writeCount = 0;
 
-    // Ensure log directory exists
+    // Ensure log directory exists and open write stream
     if (this.logFile) {
       const logDir = path.dirname(this.logFile);
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
+      this._openStream();
     }
+  }
+
+  /**
+   * Open (or reopen) the log file write stream for non-blocking I/O.
+   */
+  _openStream() {
+    if (this._stream) {
+      this._stream.end();
+    }
+    this._stream = fs.createWriteStream(this.logFile, { flags: 'a' });
+    this._stream.on('error', (err) => {
+      console.error('Log stream error:', err.message);
+    });
   }
 
   shouldLog(level) {
@@ -85,15 +102,15 @@ class Logger {
     const reset = '\x1b[0m';
     console.log(`${colors[level]}${logMessage}${reset}`);
 
-    // File output (sync to avoid write/rotation race conditions)
-    if (this.logFile) {
-      this._checkRotation();
-      const fileContent = this.jsonFormat ? this.formatJson(level, message, data) : logMessage;
-      try {
-        fs.appendFileSync(this.logFile, fileContent + '\n', 'utf8');
-      } catch (error) {
-        console.error('Failed to write to log file:', error.message);
+    // File output via non-blocking WriteStream
+    if (this._stream && !this._stream.destroyed) {
+      // Only check rotation periodically to avoid costly statSync on every write
+      if (++this._writeCount >= ROTATION_CHECK_INTERVAL) {
+        this._writeCount = 0;
+        this._checkRotation();
       }
+      const fileContent = this.jsonFormat ? this.formatJson(level, message, data) : logMessage;
+      this._stream.write(fileContent + '\n');
     }
   }
 
@@ -131,10 +148,17 @@ class Logger {
 
   /**
    * Rotate log files: app.log -> app.log.1 -> app.log.2 -> ... -> deleted
+   * Closes and reopens the write stream around the rotation.
    */
   _rotate() {
     this._rotating = true;
     try {
+      // Close current stream before renaming files
+      if (this._stream) {
+        this._stream.end();
+        this._stream = null;
+      }
+
       // Remove oldest log file
       const oldest = `${this.logFile}.${this.maxLogFiles}`;
       if (fs.existsSync(oldest)) {
@@ -154,10 +178,23 @@ class Logger {
       if (fs.existsSync(this.logFile)) {
         fs.renameSync(this.logFile, `${this.logFile}.1`);
       }
+
+      // Reopen stream for the new log file
+      this._openStream();
     } catch (error) {
       console.error('Log rotation failed:', error.message);
     } finally {
       this._rotating = false;
+    }
+  }
+
+  /**
+   * Flush and close the log stream. Call during graceful shutdown.
+   */
+  close() {
+    if (this._stream) {
+      this._stream.end();
+      this._stream = null;
     }
   }
 

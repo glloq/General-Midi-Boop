@@ -14,18 +14,37 @@ class MidiDatabase {
 
   insertFile(file) {
     try {
-      const stmt = this.db.prepare(`
-        INSERT INTO midi_files (
-          filename, data, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-          is_original, parent_file_id, adaptation_metadata,
-          instrument_types, channel_count, note_range_min, note_range_max,
-          has_drums, has_melody, has_bass
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      // Store as binary BLOB if data_blob column exists, otherwise fall back to base64 TEXT
+      const hasDataBlob = this.db.prepare("SELECT name FROM pragma_table_info('midi_files') WHERE name = 'data_blob'").get();
+
+      let stmt;
+      let dataValue;
+      if (hasDataBlob) {
+        stmt = this.db.prepare(`
+          INSERT INTO midi_files (
+            filename, data_blob, size, tracks, duration, tempo, ppq, uploaded_at, folder,
+            is_original, parent_file_id, adaptation_metadata,
+            instrument_types, channel_count, note_range_min, note_range_max,
+            has_drums, has_melody, has_bass
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        // Convert base64 string to Buffer for BLOB storage
+        dataValue = (typeof file.data === 'string') ? Buffer.from(file.data, 'base64') : file.data;
+      } else {
+        stmt = this.db.prepare(`
+          INSERT INTO midi_files (
+            filename, data, size, tracks, duration, tempo, ppq, uploaded_at, folder,
+            is_original, parent_file_id, adaptation_metadata,
+            instrument_types, channel_count, note_range_min, note_range_max,
+            has_drums, has_melody, has_bass
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        dataValue = file.data;
+      }
 
       const result = stmt.run(
         file.filename,
-        file.data,
+        dataValue,
         file.size,
         file.tracks,
         file.duration || 0,
@@ -58,7 +77,15 @@ class MidiDatabase {
   getFile(fileId) {
     try {
       const stmt = this.db.prepare('SELECT * FROM midi_files WHERE id = ?');
-      return stmt.get(fileId);
+      const row = stmt.get(fileId);
+      if (row) {
+        // Normalize: prefer data_blob (Buffer), fall back to data (base64 string)
+        if (row.data_blob) {
+          row.data = row.data_blob;
+          delete row.data_blob;
+        }
+      }
+      return row;
     } catch (error) {
       this.logger.error(`Failed to get file: ${error.message}`);
       throw error;
@@ -112,6 +139,10 @@ class MidiDatabase {
       if (updates.data !== undefined) {
         fields.push('data = ?');
         values.push(updates.data);
+      }
+      if (updates.data_blob !== undefined) {
+        fields.push('data_blob = ?');
+        values.push(updates.data_blob);
       }
       if (updates.size !== undefined) {
         fields.push('size = ?');
@@ -600,8 +631,8 @@ class MidiDatabase {
         }
       }
 
-      this.logger.info(`Filter query: ${query}`);
-      this.logger.info(`Filter params: ${JSON.stringify(params)}`);
+      this.logger.debug(`Filter query: ${query}`);
+      this.logger.debug(`Filter params: ${JSON.stringify(params)}`);
 
       // Execute query
       const stmt = this.db.prepare(query);

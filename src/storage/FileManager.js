@@ -18,7 +18,7 @@ class FileManager {
       const uploadStartTime = Date.now();
 
       // Validate size before decoding (base64 is ~4/3 of original size)
-      const MAX_MIDI_SIZE = 50 * 1024 * 1024; // 50MB max
+      const MAX_MIDI_SIZE = 10 * 1024 * 1024; // 10MB max (RPi-friendly)
       const estimatedSize = Math.ceil(base64Data.length * 3 / 4);
       if (estimatedSize > MAX_MIDI_SIZE) {
         throw new Error(`File too large: ${(estimatedSize / (1024 * 1024)).toFixed(1)}MB exceeds ${MAX_MIDI_SIZE / (1024 * 1024)}MB limit`);
@@ -379,9 +379,11 @@ class FileManager {
         throw new Error(`File not found: ${fileId}`);
       }
 
+      // Convert Buffer (BLOB) back to base64 for client export
+      const data = Buffer.isBuffer(file.data) ? file.data.toString('base64') : file.data;
       return {
         filename: file.filename,
-        data: file.data, // Already Base64
+        data: data,
         size: file.size,
         tracks: file.tracks
       };
@@ -630,7 +632,8 @@ class FileManager {
         throw new Error(`File ${fileId} (${file.filename}) has no MIDI data`);
       }
 
-      const buffer = Buffer.from(file.data, 'base64');
+      // Handle both Buffer (BLOB) and base64 string (legacy)
+      const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
       const midi = parseMidi(buffer);
 
       return {
@@ -685,7 +688,6 @@ class FileManager {
       // Convert JSON back to MIDI buffer
       const midiBytes = writeMidi(midiData);
       const buffer = Buffer.from(midiBytes);
-      const base64Data = buffer.toString('base64');
 
       // Update metadata
       const metadata = this.extractMetadata(midiData);
@@ -695,7 +697,8 @@ class FileManager {
       const instrumentMetadata = this.extractInstrumentMetadata(parsed);
 
       this.app.database.updateFile(fileId, {
-        data: base64Data,
+        data_blob: buffer,
+        data: null,
         size: buffer.length,
         tracks: midiData.tracks.length,
         duration: metadata.duration,

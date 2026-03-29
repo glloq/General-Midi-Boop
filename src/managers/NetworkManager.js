@@ -9,13 +9,14 @@
 // ============================================================================
 
 import EventEmitter from 'events';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
+import net from 'net';
 import os from 'os';
 import RtpMidiSession from './RtpMidiSession.js';
 import MidiUtils from '../utils/MidiUtils.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 class NetworkManager extends EventEmitter {
   constructor(app) {
@@ -70,6 +71,9 @@ class NetworkManager extends EventEmitter {
       throw new Error('Scan already in progress');
     }
 
+    // Sanitize timeout to prevent injection and bound resource usage
+    timeout = Math.max(1, Math.min(30, parseInt(timeout, 10) || 5));
+
     this.app.logger.info(`Starting network scan for ${timeout}s... (fullScan: ${fullScan})`);
     this.scanning = true;
     this.devices.clear();
@@ -118,10 +122,10 @@ class NetworkManager extends EventEmitter {
 
         for (const serviceType of serviceTypes) {
           try {
-            const { stdout } = await execAsync(
-              `timeout ${timeout}s avahi-browse ${serviceType} -t -r -p 2>/dev/null || true`,
+            const { stdout } = await execFileAsync(
+              'timeout', [String(timeout) + 's', 'avahi-browse', serviceType, '-t', '-r', '-p'],
               { timeout: (timeout + 1) * 1000 }
-            );
+            ).catch(() => ({ stdout: '' }));
 
             if (stdout && stdout.trim()) {
               this.parseMDNSOutput(stdout);
@@ -135,10 +139,10 @@ class NetworkManager extends EventEmitter {
         // Fallback: scanner tous les services si aucun résultat spécifique
         if (this.devices.size === 0) {
           try {
-            const { stdout } = await execAsync(
-              `timeout ${timeout}s avahi-browse -a -t -r -p 2>/dev/null || true`,
+            const { stdout } = await execFileAsync(
+              'timeout', [String(timeout) + 's', 'avahi-browse', '-a', '-t', '-r', '-p'],
               { timeout: (timeout + 1) * 1000 }
-            );
+            ).catch(() => ({ stdout: '' }));
 
             if (stdout && stdout.trim()) {
               this.parseMDNSOutput(stdout);
@@ -217,7 +221,7 @@ class NetworkManager extends EventEmitter {
       if (ip === localIP) continue;
 
       // Lancer le ping de manière asynchrone avec timeout réduit
-      const pingPromise = this.checkReachability(ip, 1) // 1 seconde au lieu de 2
+      const pingPromise = this.checkReachability(ip, 1000) // 1 second timeout
         .then(isReachable => {
           if (isReachable) {
             // Ne pas ajouter si déjà découvert via mDNS
@@ -244,8 +248,8 @@ class NetworkManager extends EventEmitter {
 
       pingPromises.push(pingPromise);
 
-      // Traiter par batch de 30 (limit concurrent child processes)
-      if (pingPromises.length >= 30) {
+      // Traiter par batch de 15 (limit concurrent connections on RPi)
+      if (pingPromises.length >= 15) {
         await Promise.all(pingPromises);
         pingPromises.length = 0; // Vider le tableau
       }
@@ -258,8 +262,8 @@ class NetworkManager extends EventEmitter {
 
     this.app.logger.info(`[NetworkManager] Subnet scan completed - ${ipFoundCount} IPs found by ping, ${this.devices.size} total devices`);
 
-    // Si aucune IP trouvée, ajouter des devices de test (environnement dev)
-    if (ipFoundCount === 0) {
+    // Si aucune IP trouvée, ajouter des devices de test (environnement dev uniquement)
+    if (ipFoundCount === 0 && process.env.NODE_ENV !== 'production') {
       this.app.logger.warn('[NetworkManager] No IPs found - adding test devices for development');
       this.addTestDevicesIP(subnet);
     }
@@ -270,6 +274,7 @@ class NetworkManager extends EventEmitter {
    * @param {string} subnet - Sous-réseau
    */
   addTestDevicesIP(subnet) {
+    if (process.env.NODE_ENV === 'production') return;
     const testIPs = [
       { ip: `${subnet}.1`, name: 'Routeur (Test)' },
       { ip: `${subnet}.10`, name: 'Ordinateur Bureau (Test)' },
@@ -319,6 +324,7 @@ class NetworkManager extends EventEmitter {
    * Ajoute des périphériques de test (pour le développement)
    */
   addTestDevices() {
+    if (process.env.NODE_ENV === 'production') return;
     // Ajouter quelques périphériques de test si aucun trouvé
     if (this.devices.size === 0) {
       this.app.logger.debug('Adding test network devices...');
@@ -463,27 +469,28 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un hôte est accessible
+   * Vérifie si un hôte est accessible via TCP connect sur le port RTP-MIDI.
+   * Utilise net.Socket au lieu de ping pour éviter le spawn de processus
+   * et vérifier directement le port MIDI.
    * @param {string} ip - Adresse IP
-   * @param {number} timeoutSec - Timeout en secondes (défaut: 2)
+   * @param {number} timeoutMs - Timeout en millisecondes (défaut: 2000)
    * @returns {Promise<boolean>} True si accessible
    */
-  async checkReachability(ip, timeoutSec = 2) {
-    try {
-      // Validate IP format to prevent command injection
-      if (!/^[\d.]+$/.test(ip) && !/^[a-fA-F\d:]+$/.test(ip)) {
-        return false;
-      }
-      if (process.platform === 'win32') {
-        await execAsync(`ping -n 1 -w ${timeoutSec * 1000} ${ip}`, { timeout: timeoutSec * 1000 });
-      } else {
-        await execAsync(`ping -c 1 -W ${timeoutSec} ${ip}`, { timeout: timeoutSec * 1000 });
-      }
-
-      return true;
-    } catch (error) {
+  async checkReachability(ip, timeoutMs = 2000) {
+    // Validate IP format
+    if (!/^[\d.]+$/.test(ip) && !/^[a-fA-F\d:]+$/.test(ip)) {
       return false;
     }
+    const safeTimeout = Math.max(500, Math.min(10000, parseInt(timeoutMs, 10) || 2000));
+
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      socket.setTimeout(safeTimeout);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+      socket.on('error', () => { socket.destroy(); resolve(false); });
+      socket.connect(5004, ip);
+    });
   }
 
   /**

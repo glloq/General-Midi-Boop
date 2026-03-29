@@ -36,10 +36,61 @@ class DatabaseManager {
     this.lightingDB = new LightingDatabase(this.db, this.app.logger);
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.app.logger);
 
+    // Migrate base64 TEXT data to binary BLOB (one-time, after migration 031)
+    this._migrateBase64ToBlob();
+
     // Repair: populate channel_count from midi_file_channels for files missing it
     this._repairMissingChannelCounts();
 
     this.app.logger.info('Database initialized');
+  }
+
+  /**
+   * Convert base64 TEXT data to binary BLOB for MIDI files.
+   * Processes in batches to limit memory usage on RPi.
+   */
+  _migrateBase64ToBlob() {
+    try {
+      // Check if data_blob column exists (migration 031 applied)
+      const columns = this.db.prepare("SELECT name FROM pragma_table_info('midi_files')").all();
+      const hasDataBlob = columns.some(c => c.name === 'data_blob');
+      if (!hasDataBlob) return;
+
+      // Find files that have base64 data but no blob
+      const pending = this.db.prepare(
+        'SELECT id FROM midi_files WHERE data IS NOT NULL AND data_blob IS NULL LIMIT 50'
+      ).all();
+
+      if (pending.length === 0) return;
+
+      this.app.logger.info(`[DB Migration] Converting ${pending.length} file(s) from base64 to BLOB...`);
+
+      const update = this.db.prepare('UPDATE midi_files SET data_blob = ?, data = NULL WHERE id = ?');
+      const select = this.db.prepare('SELECT data FROM midi_files WHERE id = ?');
+
+      const batchConvert = this.db.transaction((ids) => {
+        for (const { id } of ids) {
+          const row = select.get(id);
+          if (row && row.data) {
+            const buffer = Buffer.from(row.data, 'base64');
+            update.run(buffer, id);
+          }
+        }
+      });
+
+      batchConvert(pending);
+      this.app.logger.info(`[DB Migration] Converted ${pending.length} file(s) to BLOB format`);
+
+      // Check if more remain
+      const remaining = this.db.prepare(
+        'SELECT COUNT(*) as count FROM midi_files WHERE data IS NOT NULL AND data_blob IS NULL'
+      ).get();
+      if (remaining.count > 0) {
+        this.app.logger.info(`[DB Migration] ${remaining.count} file(s) still need conversion (will continue next startup)`);
+      }
+    } catch (err) {
+      this.app.logger.warn(`[DB Migration] Base64 to BLOB conversion: ${err.message}`);
+    }
   }
 
   /**

@@ -1,15 +1,22 @@
 // src/core/EventBus.js
 
+const MAX_LISTENERS_PER_EVENT = 50;
+
 class EventBus {
   constructor() {
     this.listeners = new Map();
+    this.maxListenersPerEvent = MAX_LISTENERS_PER_EVENT;
   }
 
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event).push(callback);
+    const list = this.listeners.get(event);
+    list.push(callback);
+    if (list.length > this.maxListenersPerEvent) {
+      console.warn(`EventBus: possible memory leak — ${list.length} listeners for "${event}" (max ${this.maxListenersPerEvent})`);
+    }
   }
 
   off(event, callback) {

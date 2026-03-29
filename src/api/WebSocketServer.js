@@ -10,8 +10,12 @@ const __wsDirname = dirname(__wsFilename);
 const wsPkg = JSON.parse(readFileSync(join(__wsDirname, '../../package.json'), 'utf8'));
 const APP_VERSION = wsPkg.version;
 
-// WebSocket timing constants
+// WebSocket constants
 const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds between heartbeat pings
+const MAX_WS_CLIENTS = 10; // Max simultaneous WebSocket connections (RPi-friendly)
+const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024; // 16MB max message size
+const RATE_LIMIT_WINDOW_MS = 1000; // Rate limit window: 1 second
+const RATE_LIMIT_MAX_MESSAGES = 60; // Max messages per window
 
 class WebSocketServer {
   constructor(app, httpServer) {
@@ -29,6 +33,7 @@ class WebSocketServer {
     // Attach WebSocket server to existing HTTP server
     this.wss = new WSServer({
       server: this.httpServer,
+      maxPayload: MAX_PAYLOAD_BYTES,
       verifyClient: apiToken
         ? ({ req }, done) => {
             const url = new URL(req.url, 'http://localhost');
@@ -62,14 +67,25 @@ class WebSocketServer {
     });
 
     this.startHeartbeat();
-    this.app.logger.info(`WebSocket server attached to HTTP server`);
+    this.app.logger.info(`WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`);
   }
 
   handleConnection(ws, req) {
     const clientIp = req.socket.remoteAddress;
-    this.app.logger.info(`Client connected: ${clientIp}`);
+
+    // Enforce connection limit
+    if (this.clients.size >= MAX_WS_CLIENTS) {
+      this.app.logger.warn(`Connection rejected (limit ${MAX_WS_CLIENTS} reached): ${clientIp}`);
+      ws.close(1013, 'Maximum connections reached');
+      return;
+    }
+
+    this.app.logger.info(`Client connected: ${clientIp} (${this.clients.size + 1}/${MAX_WS_CLIENTS})`);
 
     this.clients.add(ws);
+
+    // Rate limiting state per client
+    ws._rateLimit = { count: 0, windowStart: Date.now() };
 
     // Send welcome message
     ws.send(
@@ -83,8 +99,22 @@ class WebSocketServer {
       })
     );
 
-    // Handle messages
+    // Handle messages with rate limiting
     ws.on('message', (data) => {
+      // Rate limiting check
+      const now = Date.now();
+      const rl = ws._rateLimit;
+      if (now - rl.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rl.count = 0;
+        rl.windowStart = now;
+      }
+      if (++rl.count > RATE_LIMIT_MAX_MESSAGES) {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'error', error: 'Rate limit exceeded', timestamp: now }));
+        }
+        return;
+      }
+
       this.handleMessage(ws, data);
     });
 
@@ -140,7 +170,7 @@ class WebSocketServer {
 
   handleClose(ws, clientIp) {
     this.clients.delete(ws);
-    this.app.logger.info(`Client disconnected: ${clientIp}`);
+    this.app.logger.info(`Client disconnected: ${clientIp} (${this.clients.size}/${MAX_WS_CLIENTS})`);
   }
 
   broadcast(event, data) {
@@ -210,13 +240,19 @@ class WebSocketServer {
       clearInterval(this.heartbeatInterval);
     }
 
+    // Send close frame with reason before shutting down
     this.clients.forEach((client) => {
-      client.close();
+      if (client.readyState === 1) {
+        client.close(1001, 'Server shutting down');
+      }
     });
 
-    if (this.wss) {
-      this.wss.close();
-    }
+    // Give clients a moment to receive the close frame, then force close
+    setTimeout(() => {
+      if (this.wss) {
+        this.wss.close();
+      }
+    }, 500);
 
     this.app.logger.info('WebSocket server closed');
   }
@@ -224,6 +260,7 @@ class WebSocketServer {
   getStats() {
     return {
       clients: this.clients.size,
+      maxClients: MAX_WS_CLIENTS,
       port: this.app?.config?.server?.port
     };
   }

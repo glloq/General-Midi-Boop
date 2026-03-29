@@ -80,19 +80,31 @@ describe('Logger', () => {
   });
 
   describe('file writing', () => {
-    test('writes to log file', () => {
+    test('writes to log file', async () => {
       const logFile = path.join(tmpDir, 'test.log');
       const logger = new Logger({ level: 'info', file: logFile });
       logger.info('file test');
+
+      // Wait for the write stream to flush
+      await new Promise(resolve => {
+        logger.close();
+        setTimeout(resolve, 50);
+      });
 
       const content = fs.readFileSync(logFile, 'utf8');
       expect(content).toContain('file test');
     });
 
-    test('writes JSON format to file when enabled', () => {
+    test('writes JSON format to file when enabled', async () => {
       const logFile = path.join(tmpDir, 'json.log');
       const logger = new Logger({ level: 'info', file: logFile, jsonFormat: true });
       logger.info('json test');
+
+      // Wait for the write stream to flush
+      await new Promise(resolve => {
+        logger.close();
+        setTimeout(resolve, 50);
+      });
 
       const content = fs.readFileSync(logFile, 'utf8').trim();
       const parsed = JSON.parse(content);

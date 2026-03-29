@@ -1,4 +1,7 @@
 // src/core/Application.js
+import { randomBytes } from 'crypto';
+import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import Config from '../config/Config.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
@@ -90,9 +93,49 @@ class Application {
     );
   }
 
+  /**
+   * Ensure an API token exists. If MAESTRO_API_TOKEN is not set, generate one,
+   * persist it to .env, and set it in process.env so the HTTP/WS servers pick it up.
+   */
+  _ensureApiToken() {
+    if (process.env.MAESTRO_API_TOKEN) {
+      this.logger.info('API token already configured');
+      return;
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const envPath = resolve('.env');
+
+    try {
+      if (existsSync(envPath)) {
+        const content = readFileSync(envPath, 'utf8');
+        if (content.includes('MAESTRO_API_TOKEN')) {
+          // Variable exists but is empty — replace the line
+          const updated = content.replace(/^MAESTRO_API_TOKEN=.*$/m, `MAESTRO_API_TOKEN=${token}`);
+          writeFileSync(envPath, updated, 'utf8');
+        } else {
+          appendFileSync(envPath, `\nMAESTRO_API_TOKEN=${token}\n`, 'utf8');
+        }
+      } else {
+        writeFileSync(envPath, `MAESTRO_API_TOKEN=${token}\n`, 'utf8');
+      }
+    } catch (err) {
+      this.logger.warn(`Could not persist API token to .env: ${err.message}`);
+    }
+
+    process.env.MAESTRO_API_TOKEN = token;
+    this.logger.warn(`=== AUTO-GENERATED API TOKEN ===`);
+    this.logger.warn(`Token: ${token}`);
+    this.logger.warn(`Save this token — it is required to access the API.`);
+    this.logger.warn(`================================`);
+  }
+
   async initialize() {
     try {
       this.logger.info('Initializing application...');
+
+      // Ensure API authentication is configured
+      this._ensureApiToken();
 
       // Register app facade so container-resolved services can access legacy deps
       this.container.register('app', this._createAppFacade());

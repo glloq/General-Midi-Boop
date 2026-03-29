@@ -38,7 +38,9 @@ class Config {
       server: {
         port: 8080,
         wsPort: 8080,
-        staticPath: './public'
+        staticPath: './public',
+        sslCert: null,
+        sslKey: null
       },
       midi: {
         bufferSize: 1024,
@@ -89,7 +91,9 @@ class Config {
       MAESTRO_LOG_FILE: 'logging.file',
       MAESTRO_BLE_ENABLED: 'ble.enabled',
       MAESTRO_SERIAL_ENABLED: 'serial.enabled',
-      MAESTRO_SERIAL_BAUD_RATE: 'serial.baudRate'
+      MAESTRO_SERIAL_BAUD_RATE: 'serial.baudRate',
+      MAESTRO_SSL_CERT: 'server.sslCert',
+      MAESTRO_SSL_KEY: 'server.sslKey'
     };
 
     for (const [envKey, configKey] of Object.entries(envMap)) {
