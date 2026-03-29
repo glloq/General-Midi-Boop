@@ -5034,11 +5034,11 @@
                             </div>
                         </div>
                         <div class="filter-subgroup">
-                            <label class="filter-label">🎚 <span data-i18n="filters.trackCount">Nombre de pistes</span></label>
+                            <label class="filter-label">🎚 <span data-i18n="filters.channelCount">Nombre de canaux</span></label>
                             <div class="filter-row">
-                                <input type="number" id="filterTracksMin" class="filter-input" placeholder="Min" min="1" step="1">
+                                <input type="number" id="filterChannelCountMin" class="filter-input" placeholder="Min" min="1" step="1">
                                 <span>-</span>
-                                <input type="number" id="filterTracksMax" class="filter-input" placeholder="Max" min="1" step="1">
+                                <input type="number" id="filterChannelCountMax" class="filter-input" placeholder="Max" min="1" step="1">
                             </div>
                         </div>
                         <div class="filter-subgroup">
@@ -11535,7 +11535,7 @@
 
             // ==================== SECTION BADGE COUNTER ====================
             const sectionFilterKeys = {
-                properties: ['durationMin', 'durationMax', 'tempoMin', 'tempoMax', 'tracksMin', 'tracksMax', 'isOriginal'],
+                properties: ['durationMin', 'durationMax', 'tempoMin', 'tempoMax', 'channelCountMin', 'channelCountMax', 'isOriginal'],
                 instruments: ['instrumentTypes', 'hasDrums', 'hasMelody', 'hasBass', 'gmCategories'],
                 routing: ['routingStatuses', 'playableOnInstruments']
             };
@@ -11584,14 +11584,14 @@
                 });
             });
 
-            // Tracks filter
-            const tracksMin = document.getElementById('filterTracksMin');
-            const tracksMax = document.getElementById('filterTracksMax');
-            tracksMin.addEventListener('change', () => {
-                filterManager.setFilter('tracksMin', tracksMin.value ? parseInt(tracksMin.value) : null);
+            // Channel count filter
+            const channelCountMin = document.getElementById('filterChannelCountMin');
+            const channelCountMax = document.getElementById('filterChannelCountMax');
+            channelCountMin.addEventListener('change', () => {
+                filterManager.setFilter('channelCountMin', channelCountMin.value ? parseInt(channelCountMin.value) : null);
             });
-            tracksMax.addEventListener('change', () => {
-                filterManager.setFilter('tracksMax', tracksMax.value ? parseInt(tracksMax.value) : null);
+            channelCountMax.addEventListener('change', () => {
+                filterManager.setFilter('channelCountMax', channelCountMax.value ? parseInt(channelCountMax.value) : null);
             });
 
             // Instrument types filter (merged with quick filters: hasDrums/hasMelody/hasBass)
@@ -11767,8 +11767,8 @@
                 durationMax.value = '';
                 tempoMin.value = '';
                 tempoMax.value = '';
-                tracksMin.value = '';
-                tracksMax.value = '';
+                channelCountMin.value = '';
+                channelCountMax.value = '';
                 instrumentCheckboxes.forEach(cb => cb.checked = false);
                 instrumentMode.value = 'ANY';
                 // Reset GM chips
@@ -11889,9 +11889,6 @@
                 if ((filter.key === 'tempoMin') &&
                     filterManager.getFilter('tempoMin') === null &&
                     filterManager.getFilter('tempoMax') === null) return;
-                if ((filter.key === 'tracksMin') &&
-                    filterManager.getFilter('tracksMin') === null &&
-                    filterManager.getFilter('tracksMax') === null) return;
                 if ((filter.key === 'channelCountMin') &&
                     filterManager.getFilter('channelCountMin') === null &&
                     filterManager.getFilter('channelCountMax') === null) return;
@@ -11929,11 +11926,11 @@
                 document.getElementById('filterTempoMax').value = '';
                 filterManager.setFilter('tempoMin', null);
                 filterManager.setFilter('tempoMax', null);
-            } else if (key === 'tracksMin' || key === 'tracksMax') {
-                document.getElementById('filterTracksMin').value = '';
-                document.getElementById('filterTracksMax').value = '';
-                filterManager.setFilter('tracksMin', null);
-                filterManager.setFilter('tracksMax', null);
+            } else if (key === 'channelCountMin' || key === 'channelCountMax') {
+                document.getElementById('filterChannelCountMin').value = '';
+                document.getElementById('filterChannelCountMax').value = '';
+                filterManager.setFilter('channelCountMin', null);
+                filterManager.setFilter('channelCountMax', null);
             } else if (key === 'instrumentTypes') {
                 document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                 filterManager.setFilter('instrumentTypes', []);
@@ -11962,9 +11959,6 @@
             } else if (key === 'uploadedAfter' || key === 'uploadedBefore') {
                 filterManager.setFilter('uploadedAfter', null);
                 filterManager.setFilter('uploadedBefore', null);
-            } else if (key === 'channelCountMin' || key === 'channelCountMax') {
-                filterManager.setFilter('channelCountMin', null);
-                filterManager.setFilter('channelCountMax', null);
             } else if (key === 'gmInstruments') {
                 filterManager.setFilter('gmInstruments', []);
             } else if (key === 'gmPrograms') {

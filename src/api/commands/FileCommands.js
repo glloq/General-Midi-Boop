@@ -165,6 +165,9 @@ async function fileFilter(app, data) {
   if (data.tempoMin !== undefined || data.tempoMax !== undefined) {
     appliedFilters.push(`tempo: ${data.tempoMin || 0}-${data.tempoMax || '∞'} BPM`);
   }
+  if (data.channelCountMin !== undefined || data.channelCountMax !== undefined) {
+    appliedFilters.push(`channels: ${data.channelCountMin || 0}-${data.channelCountMax || '∞'}`);
+  }
   if (data.instrumentTypes && data.instrumentTypes.length > 0) {
     appliedFilters.push(`instruments: ${data.instrumentTypes.join(', ')} (${data.instrumentMode || 'ANY'})`);
   }
