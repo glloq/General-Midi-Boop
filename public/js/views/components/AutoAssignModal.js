@@ -404,12 +404,12 @@ class AutoAssignModal {
   renderScoreBar(labelKey, scoreData) {
     if (!scoreData) return '';
     const pct = scoreData.max > 0 ? Math.round((scoreData.score / scoreData.max) * 100) : 0;
-    const color = this.getScoreColor(pct);
+    const bgClass = this.getScoreBgClass(pct);
     return `
       <div class="aa-score-bar-row">
         <span class="aa-score-bar-label">${_t(labelKey)}</span>
         <div class="aa-score-bar-track">
-          <div class="aa-score-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+          <div class="aa-score-bar-fill ${bgClass}" style="width: ${pct}%"></div>
         </div>
         <span class="aa-score-bar-value">${scoreData.score}/${scoreData.max}</span>
       </div>
@@ -686,12 +686,7 @@ class AutoAssignModal {
     return parts.join(' &bull; ');
   }
 
-  getScoreColor(score) {
-    if (score >= 80) return '#4CAF50';
-    if (score >= 60) return '#8BC34A';
-    if (score >= 40) return '#FF9800';
-    return '#F44336';
-  }
+  // getScoreColor() - canonical version in AutoAssignUtils mixin
 
   getScoreStars(score) {
     const filled = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 40 ? 2 : 1;
@@ -760,6 +755,9 @@ class AutoAssignModal {
       this._focusTrap.release();
       this._focusTrap = null;
     }
+
+    // Restore body scrolling
+    document.body.style.overflow = this._prevBodyOverflow || '';
 
     if (this.modal) {
       if (this._overlayClickHandler) {

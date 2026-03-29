@@ -143,10 +143,24 @@
     };
 
     AutoAssignUtilsMixin.getScoreColor = function(score) {
-        if (score >= 80) return '#4CAF50';
-        if (score >= 60) return '#8BC34A';
-        if (score >= 40) return '#FF9800';
-        return '#F44336';
+        if (score >= 80) return 'var(--aa-score-excellent, #00c896)';
+        if (score >= 60) return 'var(--aa-score-good, #7bc67e)';
+        if (score >= 40) return 'var(--aa-score-fair, #f0b429)';
+        return 'var(--aa-score-poor, #e8365d)';
+    };
+
+    AutoAssignUtilsMixin.getScoreClass = function(score) {
+        if (score >= 80) return 'aa-color-excellent';
+        if (score >= 60) return 'aa-color-good';
+        if (score >= 40) return 'aa-color-fair';
+        return 'aa-color-poor';
+    };
+
+    AutoAssignUtilsMixin.getScoreBgClass = function(score) {
+        if (score >= 80) return 'aa-bg-excellent';
+        if (score >= 60) return 'aa-bg-good';
+        if (score >= 40) return 'aa-bg-fair';
+        return 'aa-bg-poor';
     };
 
     AutoAssignUtilsMixin.getScoreStars = function(score) {

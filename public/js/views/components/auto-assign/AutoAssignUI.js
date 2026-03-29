@@ -47,7 +47,7 @@
             ${isSplit ? '<span class="aa-tab-split">SP</span>' : ''}
             ${isSkipped
               ? '<span class="aa-tab-status skipped">—</span>'
-              : `<span class="aa-tab-status" style="color: ${this.getScoreColor(score)}">${score}</span>`
+              : `<span class="aa-tab-status ${this.getScoreClass(score)}">${score}</span>`
             }
           </div>
           ${gmShort ? `<div class="aa-tab-gm">${escapeHtml(gmShort)}</div>` : ''}
@@ -58,14 +58,14 @@
     const activeCount = this.channels.length - this.skippedChannels.size;
 
     const html = `
-      <div class="modal-overlay auto-assign-modal" id="autoAssignModal">
+      <div class="modal-overlay auto-assign-modal" id="autoAssignModal" role="dialog" aria-modal="true" aria-label="${_t('autoAssign.title')}">
         <div class="modal-container aa-container">
           <div class="modal-header">
             <div class="aa-header-content">
               <div class="aa-header-top">
                 <h2>${_t('autoAssign.title')}</h2>
                 <div class="aa-header-stats">
-                  <span class="aa-confidence" style="color: ${this.getScoreColor(this.confidenceScore)}">
+                  <span class="aa-confidence ${this.getScoreClass(this.confidenceScore)}">
                     ${this.getScoreStars(this.confidenceScore)} ${this.confidenceScore}/100 — ${this.getScoreLabel(this.confidenceScore)}
                   </span>
                   <span class="aa-channel-count">
@@ -87,7 +87,7 @@
                 ${this.renderRangeBar(this.activeTab)}
               </div>
             </div>
-            <button class="modal-close" onclick="autoAssignModalInstance.close()">x</button>
+            <button class="modal-close" onclick="autoAssignModalInstance.close()" aria-label="${_t('common.close')}">&times;</button>
           </div>
 
           ${this.viewMode === 'detail' ? `
@@ -138,6 +138,10 @@
     document.body.insertAdjacentHTML('beforeend', html);
     this.modal = document.getElementById('autoAssignModal');
     window.autoAssignModalInstance = this;
+
+    // Prevent body scrolling while modal is open
+    this._prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
     this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
     document.addEventListener('keydown', this._escHandler);
@@ -190,6 +194,9 @@
       tab.setAttribute('aria-selected', String(isActive));
       tab.setAttribute('tabindex', isActive ? '0' : '-1');
     });
+    // Scroll active tab into view
+    const activeTabEl = this.modal.querySelector('.aa-tab.active');
+    if (activeTabEl) activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     // Update sticky header
     this.refreshStickyHeader();
     // Update content
@@ -258,9 +265,9 @@
           <td class="aa-ov-score">
             ${isSkipped ? '—' : `
               <div class="aa-ov-score-bar">
-                <div class="aa-ov-score-fill" style="width: ${score}%; background: ${this.getScoreColor(score)}"></div>
+                <div class="aa-ov-score-fill ${this.getScoreBgClass(score)}" style="width: ${score}%"></div>
               </div>
-              <span style="color: ${this.getScoreColor(score)}">${score} — ${this.getScoreLabel(score)}</span>
+              <span class="${this.getScoreClass(score)}">${score} — ${this.getScoreLabel(score)}</span>
             `}
           </td>
           <td class="aa-ov-status">
@@ -279,6 +286,7 @@
     return `
       <div class="aa-overview">
         ${allGood ? `<div class="aa-overview-banner ok">${_t('autoAssign.overviewAllGood')}</div>` : ''}
+        <div class="aa-overview-table-wrapper">
         <table class="aa-overview-table">
           <thead>
             <tr>
@@ -293,6 +301,7 @@
             ${rows}
           </tbody>
         </table>
+        </div>
       </div>
     `;
   }
@@ -354,7 +363,7 @@
           <div class="aa-compact-summary">
             <div class="aa-compact-info">
               <span class="aa-compact-instrument">${escapeHtml(assignedName)}</span>
-              <span class="aa-compact-score" style="color: ${this.getScoreColor(score)}">
+              <span class="aa-compact-score ${this.getScoreClass(score)}">
                 ${this.getScoreStars(score)} ${score} — ${this.getScoreLabel(score)}
               </span>
             </div>

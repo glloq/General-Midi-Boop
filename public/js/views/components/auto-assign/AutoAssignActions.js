@@ -77,8 +77,8 @@
           statusEl.style.color = '';
         } else {
           statusEl.textContent = score;
-          statusEl.className = 'aa-tab-status';
-          statusEl.style.color = this.getScoreColor(score);
+          statusEl.className = 'aa-tab-status ' + this.getScoreClass(score);
+          statusEl.style.color = '';
         }
       }
     });

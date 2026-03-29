@@ -138,15 +138,7 @@ AutoAssignHelpers.formatInstrumentInfo = function(instrument, compat) {
   return parts.join(' &bull; ');
 };
 
-/**
- * Get color for a score value
- */
-AutoAssignHelpers.getScoreColor = function(score) {
-  if (score >= 80) return '#4CAF50';
-  if (score >= 60) return '#8BC34A';
-  if (score >= 40) return '#FF9800';
-  return '#F44336';
-};
+// getScoreColor() - canonical version in AutoAssignUtils mixin
 
 /**
  * Get star rating HTML for a score

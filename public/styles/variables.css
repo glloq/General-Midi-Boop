@@ -107,6 +107,29 @@
     --network-border: #d4daff;
     --network-shadow: rgba(17, 138, 178, 0.12);
 
+    /* Auto-Assign */
+    --aa-score-excellent: var(--success-color);
+    --aa-score-good: #7bc67e;
+    --aa-score-fair: var(--warning-color);
+    --aa-score-poor: var(--danger-color);
+    --aa-success-bg: rgba(0, 200, 150, 0.08);
+    --aa-success-border: rgba(0, 200, 150, 0.3);
+    --aa-success-text: #00a87a;
+    --aa-warning-bg: rgba(240, 180, 41, 0.08);
+    --aa-warning-border: rgba(240, 180, 41, 0.3);
+    --aa-warning-text: #c48800;
+    --aa-danger-bg: rgba(232, 54, 93, 0.08);
+    --aa-danger-border: rgba(232, 54, 93, 0.3);
+    --aa-danger-text: var(--danger-color);
+    --aa-drum-accent: var(--warning-color);
+    --aa-split-accent: var(--accent-primary);
+    --aa-skip-active-bg: rgba(0, 200, 150, 0.06);
+    --aa-skip-active-border: rgba(0, 200, 150, 0.25);
+    --aa-skip-active-text: var(--aa-success-text);
+    --aa-skip-inactive-bg: rgba(232, 54, 93, 0.06);
+    --aa-skip-inactive-border: rgba(232, 54, 93, 0.25);
+    --aa-skip-inactive-text: var(--aa-danger-text);
+
     /* Focus (accessibility) */
     --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.35);
 
@@ -156,6 +179,13 @@ body.dark-mode {
     --network-shadow: rgba(0, 0, 0, 0.3);
 
     --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.6);
+
+    /* Auto-Assign dark overrides */
+    --aa-score-good: #6bc96b;
+    --aa-success-text: #6bc96b;
+    --aa-warning-text: #ffb74d;
+    --aa-skip-active-text: #6bc96b;
+    --aa-skip-inactive-text: #ff6b6b;
 
     /* Scrollbar dark overrides */
     --scrollbar-track-bg: #2a2a2a;

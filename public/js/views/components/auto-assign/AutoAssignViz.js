@@ -243,8 +243,8 @@
             ` : ''}
           </div>
           <div class="aa-instrument-score">
-            <span class="aa-score-value" style="color: ${this.getScoreColor(compat.score)}">${compat.score}</span>
-            <span class="aa-score-label" style="color: ${this.getScoreColor(compat.score)}">${this.getScoreLabel(compat.score)}</span>
+            <span class="aa-score-value ${this.getScoreClass(compat.score)}">${compat.score}</span>
+            <span class="aa-score-label ${this.getScoreClass(compat.score)}">${this.getScoreLabel(compat.score)}</span>
             <span class="aa-score-stars">${this.getScoreStars(compat.score)}</span>
           </div>
         </div>
@@ -512,7 +512,7 @@
           <span class="aa-split-icon">⇅</span>
           <span class="aa-split-title">${_t('autoAssign.splitProposed')}</span>
           <span class="aa-split-type-badge">${typeLabel}</span>
-          <span class="aa-split-quality" style="color: ${this.getScoreColor(proposal.quality)}">
+          <span class="aa-split-quality ${this.getScoreClass(proposal.quality)}">
             ${this.getScoreStars(proposal.quality)} ${proposal.quality}/100
           </span>
         </div>
