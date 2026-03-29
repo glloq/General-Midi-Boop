@@ -950,8 +950,9 @@ describe('ScoringConfig', () => {
   });
 
   test('getWeight returns correct values', () => {
-    expect(ScoringConfig.getWeight('programMatch')).toBe(34);
-    expect(ScoringConfig.getWeight('noteRange')).toBe(29);
+    expect(ScoringConfig.getWeight('programMatch')).toBe(30);
+    expect(ScoringConfig.getWeight('noteRange')).toBe(27);
+    expect(ScoringConfig.getWeight('instrumentType')).toBe(20);
     expect(ScoringConfig.getWeight('nonExistent')).toBe(0);
   });
 

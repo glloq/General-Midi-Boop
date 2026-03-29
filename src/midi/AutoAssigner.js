@@ -2,6 +2,7 @@
 
 import ChannelAnalyzer from './ChannelAnalyzer.js';
 import InstrumentMatcher from './InstrumentMatcher.js';
+import ChannelSplitter from './ChannelSplitter.js';
 import AnalysisCache from './AnalysisCache.js';
 import ScoringConfig from './ScoringConfig.js';
 
@@ -17,6 +18,7 @@ class AutoAssigner {
     this.logger = logger;
     this.analyzer = new ChannelAnalyzer(logger);
     this.matcher = new InstrumentMatcher(logger);
+    this.splitter = new ChannelSplitter(logger);
     this.cache = new AnalysisCache(ScoringConfig.cache.maxSize, ScoringConfig.cache.ttl);
 
     // Cleanup périodique du cache (toutes les 5 minutes)
@@ -122,7 +124,12 @@ class AutoAssigner {
       // 4. Sélection automatique (meilleur score par canal)
       const autoSelection = this.selectBestAssignments(suggestions, channelAnalyses);
 
-      // 5. Calculer score de confiance global
+      // 5. Évaluer les splits pour les canaux skippés ou mal scorés
+      const splitProposals = this.evaluateChannelSplits(
+        channelAnalyses, autoSelection, availableInstruments
+      );
+
+      // 6. Calculer score de confiance global
       const confidenceScore = this.calculateConfidence(autoSelection, channelAnalyses.length);
 
       return {
@@ -130,12 +137,14 @@ class AutoAssigner {
         suggestions,
         lowScoreSuggestions,
         autoSelection,
+        splitProposals,
         channelAnalyses,
         confidenceScore,
         stats: {
           channelCount: channelAnalyses.length,
           instrumentCount: availableInstruments.length,
-          assignedChannels: Object.keys(autoSelection).length
+          assignedChannels: Object.keys(autoSelection).length,
+          splitChannels: Object.keys(splitProposals).length
         }
       };
     } catch (error) {
@@ -239,6 +248,71 @@ class AutoAssigner {
     assignments._autoSkipped = Array.from(autoSkipped);
 
     return assignments;
+  }
+
+  /**
+   * Évalue les splits possibles pour les canaux non-assignés ou mal scorés
+   * @param {Array} channelAnalyses
+   * @param {Object} autoSelection
+   * @param {Array} availableInstruments
+   * @returns {Object} - { channel: SplitProposal }
+   */
+  evaluateChannelSplits(channelAnalyses, autoSelection, availableInstruments) {
+    const splitProposals = {};
+    const autoSkipped = autoSelection._autoSkipped || [];
+    const triggerThreshold = ScoringConfig.splitting?.triggerBelowScore || 60;
+
+    // Identifier les canaux candidats au split
+    const candidateChannels = [];
+
+    for (const analysis of channelAnalyses) {
+      const ch = analysis.channel;
+      const assignment = autoSelection[ch];
+
+      // Canal skippé → candidat
+      if (autoSkipped.includes(ch)) {
+        candidateChannels.push(analysis);
+        continue;
+      }
+
+      // Canal assigné avec score faible → candidat
+      if (assignment && assignment.score < triggerThreshold) {
+        candidateChannels.push(analysis);
+      }
+    }
+
+    if (candidateChannels.length === 0) {
+      return splitProposals;
+    }
+
+    // Grouper les instruments disponibles par type (catégorie hiérarchique)
+    const instrumentsByType = {};
+    for (const inst of availableInstruments) {
+      const type = inst.instrument_type || 'unknown';
+      if (type === 'unknown') continue;
+      if (!instrumentsByType[type]) instrumentsByType[type] = [];
+      instrumentsByType[type].push(inst);
+    }
+
+    // Pour chaque canal candidat, chercher un split possible
+    for (const analysis of candidateChannels) {
+      const channelCategory = analysis.estimatedCategory;
+      if (!channelCategory || channelCategory === 'unknown') continue;
+
+      // Chercher les instruments du même type
+      const sameType = instrumentsByType[channelCategory];
+      if (!sameType || sameType.length < 2) continue;
+
+      const proposal = this.splitter.evaluateSplit(analysis, sameType);
+      if (proposal) {
+        splitProposals[analysis.channel] = proposal;
+        this.logger.info(
+          `Channel ${analysis.channel}: split proposed (${proposal.type}, quality=${proposal.quality}, ${proposal.segments.length} segments)`
+        );
+      }
+    }
+
+    return splitProposals;
   }
 
   /**

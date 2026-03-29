@@ -1,6 +1,7 @@
 // src/midi/ChannelAnalyzer.js
 
 import ScoringConfig from './ScoringConfig.js';
+import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
  * ChannelAnalyzer - Analyse les caractéristiques d'un canal MIDI
@@ -88,6 +89,11 @@ class ChannelAnalyzer {
       trackNames
     });
 
+    // Enrichir avec la catégorie hiérarchique depuis le programme GM
+    const hierarchicalCategory = primaryProgram !== null
+      ? InstrumentTypeConfig.detectTypeFromProgram(primaryProgram)
+      : { type: 'unknown', subtype: null };
+
     return {
       channel,
       noteRange,
@@ -105,6 +111,9 @@ class ChannelAnalyzer {
       estimatedType: typeEstimation.type,
       typeConfidence: typeEstimation.confidence,
       typeScores: typeEstimation.scores,
+      // Catégorie hiérarchique détectée depuis le programme GM
+      estimatedCategory: hierarchicalCategory.type,
+      estimatedSubtype: hierarchicalCategory.subtype,
       noteEvents // Include note events for intelligent drum mapping
     };
   }

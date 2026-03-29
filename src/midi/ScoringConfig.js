@@ -11,11 +11,11 @@ const ScoringConfig = {
    * Poids maximum pour chaque critère (total = 100)
    */
   weights: {
-    programMatch: 34,      // Match du programme MIDI GM
-    noteRange: 29,         // Compatibilité de plage de notes
-    polyphony: 15,         // Polyphonie suffisante
-    ccSupport: 7,          // Support des contrôleurs MIDI (faible impact)
-    instrumentType: 10,    // Type d'instrument (drums, bass, etc.)
+    programMatch: 30,      // Match du programme MIDI GM (réduit de 34)
+    noteRange: 27,         // Compatibilité de plage de notes (réduit de 29)
+    polyphony: 13,         // Polyphonie suffisante (réduit de 15)
+    ccSupport: 5,          // Support des contrôleurs MIDI (réduit de 7)
+    instrumentType: 20,    // Type d'instrument hiérarchique (augmenté de 10 → 20)
     channelSpecial: 5      // Canal spécial (ex: canal 10 = drums)
   },
 
@@ -62,8 +62,11 @@ const ScoringConfig = {
     perfectNoteRange: 25,         // Pas de transposition
     highPolyphonyMargin: 15,      // Marge de polyphonie > 8
     allCCsSupported: 7,           // Tous les CCs supportés
-    typeMatch: 10,                // Type détecté correspond
-    channel10Drums: 5             // Canal 10 assigné à drums
+    typeMatch: 10,                // Type détecté correspond (legacy)
+    channel10Drums: 5,            // Canal 10 assigné à drums
+    exactTypeMatch: 20,           // Type hiérarchique exact (ex: guitar ↔ guitar)
+    subtypeMatch: 5,              // Sous-type exact en plus
+    sameFamilyMatch: 12           // Même famille (ex: reed ↔ pipe = bois)
   },
 
   /**
@@ -81,6 +84,23 @@ const ScoringConfig = {
       instrumentType: 23,     // Augmente (type match critique pour drums)
       channelSpecial: 15      // Augmente (bonus canal drums)
     }
+  },
+
+  /**
+   * Configuration du channel splitting
+   */
+  splitting: {
+    minQuality: 50,               // Score minimum pour proposer un split
+    minInstruments: 2,            // Minimum d'instruments pour un split
+    maxInstruments: 4,            // Maximum d'instruments dans un split
+    weights: {
+      noteCoverage: 40,           // Couverture des notes du canal
+      polyphonyCoverage: 25,      // Polyphonie combinée suffisante
+      minimalCuts: 20,            // Moins de coupures = mieux
+      minimalOverlap: 15          // Recouvrement minimal entre instruments
+    },
+    // Score minimum du canal pour déclencher l'évaluation de split
+    triggerBelowScore: 60,
   },
 
   /**

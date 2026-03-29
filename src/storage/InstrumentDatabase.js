@@ -385,6 +385,14 @@ class InstrumentDatabase {
           fields.push('comm_timeout = ?');
           values.push(settings.comm_timeout);
         }
+        if (settings.instrument_type !== undefined) {
+          fields.push('instrument_type = ?');
+          values.push(settings.instrument_type);
+        }
+        if (settings.instrument_subtype !== undefined) {
+          fields.push('instrument_subtype = ?');
+          values.push(settings.instrument_subtype);
+        }
 
         if (fields.length === 0) {
           return existing.id;
@@ -402,8 +410,8 @@ class InstrumentDatabase {
         // Insert new entry with correct channel
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
-            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout, instrument_type, instrument_subtype
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -418,7 +426,9 @@ class InstrumentDatabase {
           settings.usb_serial_number || null,
           settings.gm_program !== undefined ? settings.gm_program : null,
           settings.octave_mode || 'chromatic',
-          settings.comm_timeout !== undefined ? settings.comm_timeout : 5000
+          settings.comm_timeout !== undefined ? settings.comm_timeout : 5000,
+          settings.instrument_type || 'unknown',
+          settings.instrument_subtype || null
         );
 
         return id;
@@ -1094,7 +1104,8 @@ class InstrumentDatabase {
           note_selection_mode, selected_notes, supported_ccs,
           capabilities_source, capabilities_updated_at,
           mac_address, usb_serial_number,
-          sysex_manufacturer_id, sysex_family, sysex_model, sysex_version
+          sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
+          instrument_type, instrument_subtype
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -1136,6 +1147,9 @@ class InstrumentDatabase {
           supported_ccs: supportedCcs,
           capabilities_source: result.capabilities_source,
           capabilities_updated_at: result.capabilities_updated_at,
+          // Type hierarchy
+          instrument_type: result.instrument_type || 'unknown',
+          instrument_subtype: result.instrument_subtype || null,
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

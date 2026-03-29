@@ -3,6 +3,7 @@
 import MidiUtils from '../utils/MidiUtils.js';
 import ScoringConfig from './ScoringConfig.js';
 import DrumNoteMapper from './DrumNoteMapper.js';
+import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
  * InstrumentMatcher - Calcule la compatibilité entre canaux MIDI et instruments
@@ -128,11 +129,14 @@ class InstrumentMatcher {
     if (ccScore.issue) issues.push(ccScore.issue);
     if (ccScore.info) info.push(ccScore.info);
 
-    // 5. Type d'instrument (+10 points max)
-    const typeScore = this.scoreInstrumentType(
-      channelAnalysis.estimatedType,
-      this.getInstrumentType(instrument)
-    );
+    // 5. Type d'instrument (+20 points max)
+    const channelTypeInfo = {
+      type: channelAnalysis.estimatedType,
+      category: channelAnalysis.estimatedCategory || null,
+      categorySubtype: channelAnalysis.estimatedSubtype || null
+    };
+    const instrumentTypeInfo = this.getInstrumentType(instrument);
+    const typeScore = this.scoreInstrumentType(channelTypeInfo, instrumentTypeInfo);
     score += typeScore.score;
     if (typeScore.info) info.push(typeScore.info);
 
@@ -795,19 +799,41 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scoreInstrumentType(channelType, instrumentType) {
-    const maxScore = this.config.getWeight('instrumentType'); // 10
+    const maxScore = this.config.getWeight('instrumentType'); // 20
 
-    // Extraire le type depuis l'objet si nécessaire
-    const channelTypeStr = channelType?.type || channelType;
+    // Extraire les infos de type hiérarchique
+    const channelTypeInfo = typeof channelType === 'object' ? channelType : { type: channelType };
+    const channelCategory = channelTypeInfo.category || null;     // ex: 'guitar'
+    const channelSubtype = channelTypeInfo.categorySubtype || null; // ex: 'nylon'
+    const channelGenericType = channelTypeInfo.type || null;       // ex: 'melody', 'bass'
 
-    // If either type is unknown, give neutral score (not penalizing)
-    if (!channelTypeStr || channelTypeStr === 'unknown' || !instrumentType || instrumentType === 'unknown') {
+    const instrumentTypeInfo = typeof instrumentType === 'object' ? instrumentType : { type: instrumentType };
+    const instCategory = instrumentTypeInfo.category || null;
+    const instSubtype = instrumentTypeInfo.subtype || null;
+    const instGenericType = instrumentTypeInfo.type || null;
+
+    // Si les deux ont une catégorie hiérarchique, utiliser le scoring hiérarchique
+    if (channelCategory && instCategory &&
+        channelCategory !== 'unknown' && instCategory !== 'unknown') {
+      return this.scoreHierarchicalType(
+        channelCategory, channelSubtype,
+        instCategory, instSubtype,
+        maxScore
+      );
+    }
+
+    // Fallback : au moins un côté n'a pas de catégorie hiérarchique
+    // Utiliser le matching générique (legacy)
+    const channelTypeStr = channelCategory || channelGenericType;
+    const instTypeStr = instCategory || instGenericType;
+
+    if (!channelTypeStr || channelTypeStr === 'unknown' ||
+        !instTypeStr || instTypeStr === 'unknown') {
       return { score: Math.round(maxScore * 0.5), info: 'Instrument type not determined' };
     }
 
-    // Mapping des types détaillés (ChannelAnalyzer) vers types génériques (getInstrumentType)
+    // Mapping legacy pour compatibilité
     const typeMapping = {
-      // Types détectés par ChannelAnalyzer → Types génériques acceptés
       'piano': ['melody', 'harmony'],
       'strings': ['melody', 'harmony'],
       'organ': ['harmony', 'melody'],
@@ -819,32 +845,52 @@ class InstrumentMatcher {
       'bass': ['bass', 'melody']
     };
 
-    // Vérifier si le type de l'instrument est acceptable pour ce canal
     const acceptableTypes = typeMapping[channelTypeStr];
-
-    if (acceptableTypes && acceptableTypes.includes(instrumentType)) {
-      // Score basé sur la position dans la liste (premier = meilleur)
-      const index = acceptableTypes.indexOf(instrumentType);
-      const baseScore = 10;
-      const score = index === 0 ? baseScore : Math.max(5, baseScore - index * 2);
-
+    if (acceptableTypes && acceptableTypes.includes(instTypeStr)) {
+      const index = acceptableTypes.indexOf(instTypeStr);
+      const score = index === 0 ? Math.round(maxScore * 0.5) : Math.round(maxScore * 0.35);
       return {
         score,
-        info: `Instrument type ${index === 0 ? 'perfect' : 'acceptable'} match: ${channelTypeStr} → ${instrumentType}`
+        info: `Legacy type match: ${channelTypeStr} → ${instTypeStr}`
       };
     }
 
-    // Fallback: anciennes combinaisons acceptables pour types génériques
-    const acceptableCombos = {
-      'melody': ['harmony', 'bass'],
-      'harmony': ['melody'],
-      'bass': ['melody']
-    };
+    return { score: 0 };
+  }
 
-    if (acceptableCombos[channelTypeStr]?.includes(instrumentType)) {
-      return { score: 5 };
+  /**
+   * Scoring hiérarchique basé sur InstrumentTypeConfig
+   * @param {string} channelCategory - Catégorie du canal (ex: 'guitar')
+   * @param {string|null} channelSubtype - Sous-type du canal (ex: 'nylon')
+   * @param {string} instCategory - Catégorie de l'instrument
+   * @param {string|null} instSubtype - Sous-type de l'instrument
+   * @param {number} maxScore - Score max (20)
+   * @returns {Object}
+   */
+  scoreHierarchicalType(channelCategory, channelSubtype, instCategory, instSubtype, maxScore) {
+    // 1. Match exact de catégorie
+    if (channelCategory === instCategory) {
+      let score = maxScore; // 20/20
+      let info = `Exact type match: ${channelCategory}`;
+
+      // Bonus sous-type si les deux sont définis et identiques
+      if (channelSubtype && instSubtype && channelSubtype === instSubtype) {
+        score += this.config.getBonus('subtypeMatch'); // +5
+        info = `Perfect type+subtype match: ${channelCategory}/${channelSubtype}`;
+      }
+
+      return { score, info };
     }
 
+    // 2. Même famille (ex: reed ↔ pipe → winds)
+    if (InstrumentTypeConfig.areSameFamily(channelCategory, instCategory)) {
+      return {
+        score: this.config.getBonus('sameFamilyMatch'), // 12
+        info: `Same family match: ${channelCategory} ↔ ${instCategory}`
+      };
+    }
+
+    // 3. Types compatibles mais pas de la même famille → score faible
     return { score: 0 };
   }
 
@@ -854,36 +900,85 @@ class InstrumentMatcher {
    * @returns {string}
    */
   getInstrumentType(instrument) {
+    // Priorité 1 : utiliser le type hiérarchique stocké en DB
+    if (instrument.instrument_type && instrument.instrument_type !== 'unknown') {
+      return {
+        type: this.getGenericType(instrument.instrument_type),
+        category: instrument.instrument_type,
+        subtype: instrument.instrument_subtype || null
+      };
+    }
+
+    // Priorité 2 : détecter depuis le programme GM
     const program = instrument.gm_program;
+    if (program !== null && program !== undefined) {
+      const detected = InstrumentTypeConfig.detectTypeFromProgram(program);
+      if (detected.type !== 'unknown') {
+        return {
+          type: this.getGenericType(detected.type),
+          category: detected.type,
+          subtype: detected.subtype
+        };
+      }
+    }
 
+    // Priorité 3 : inférence par le nom
     if (program === null || program === undefined) {
-      // Pas de programme GM : tenter inference par le nom
       const inferred = this.inferTypeFromName(instrument);
-      if (inferred !== 'unknown') return inferred;
+      if (inferred !== 'unknown') return { type: inferred, category: null, subtype: null };
 
-      // Fallback : analyser note_range si disponible
       if (instrument.note_range_min !== null && instrument.note_range_max !== null) {
         const avgNote = (instrument.note_range_min + instrument.note_range_max) / 2;
-        if (avgNote < 48) return 'bass';
+        if (avgNote < 48) return { type: 'bass', category: 'bass', subtype: null };
       }
 
-      // Mode discrete sans programme = probablement percussif
-      if (instrument.note_selection_mode === 'discrete') return 'percussive';
+      if (instrument.note_selection_mode === 'discrete') {
+        return { type: 'percussive', category: 'drums', subtype: null };
+      }
 
-      return 'unknown';
+      return { type: 'unknown', category: null, subtype: null };
     }
 
-    if (program >= 112 && program <= 119) return 'percussive';
-    if (program >= 32 && program <= 39) return 'bass';
-    if ((program >= 0 && program <= 7) || (program >= 40 && program <= 55)) return 'harmony';
+    // Fallback par programme GM (legacy)
+    if (program >= 112 && program <= 119) return { type: 'percussive', category: 'drums', subtype: null };
+    if (program >= 32 && program <= 39) return { type: 'bass', category: 'bass', subtype: null };
+    if ((program >= 0 && program <= 7) || (program >= 40 && program <= 55)) {
+      return { type: 'harmony', category: null, subtype: null };
+    }
 
-    // Analyser note_range si disponible
     if (instrument.note_range_min !== null && instrument.note_range_max !== null) {
       const avgNote = (instrument.note_range_min + instrument.note_range_max) / 2;
-      if (avgNote < 48) return 'bass';
+      if (avgNote < 48) return { type: 'bass', category: 'bass', subtype: null };
     }
 
-    return 'melody';
+    return { type: 'melody', category: null, subtype: null };
+  }
+
+  /**
+   * Convertit une catégorie hiérarchique en type générique
+   * @param {string} category - ex: 'guitar', 'brass', 'piano'
+   * @returns {string} - 'melody', 'harmony', 'bass', 'percussive', 'unknown'
+   */
+  getGenericType(category) {
+    const mapping = {
+      piano: 'harmony',
+      chromatic_percussion: 'percussive',
+      organ: 'harmony',
+      guitar: 'melody',
+      bass: 'bass',
+      strings: 'melody',
+      ensemble: 'harmony',
+      brass: 'melody',
+      reed: 'melody',
+      pipe: 'melody',
+      synth_lead: 'melody',
+      synth_pad: 'harmony',
+      synth_effects: 'melody',
+      ethnic: 'melody',
+      drums: 'percussive',
+      sound_effects: 'percussive'
+    };
+    return mapping[category] || 'unknown';
   }
 
   /**

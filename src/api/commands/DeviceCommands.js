@@ -1,75 +1,90 @@
 // src/api/commands/DeviceCommands.js
 import InstrumentDatabase from '../../storage/InstrumentDatabase.js';
+import InstrumentTypeConfig from '../../midi/InstrumentTypeConfig.js';
 
 // Presets d'instruments virtuels avec capabilities pre-configurees
 const VIRTUAL_INSTRUMENT_PRESETS = {
   piano: {
     name: 'Piano', gm_program: 0,
+    instrument_type: 'piano', instrument_subtype: 'acoustic_grand',
     note_range_min: 21, note_range_max: 108, polyphony: 64,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 91, 93]
   },
   electric_piano: {
     name: 'Piano Électrique', gm_program: 4,
+    instrument_type: 'piano', instrument_subtype: 'electric_piano_1',
     note_range_min: 28, note_range_max: 103, polyphony: 32,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 91, 93]
   },
   organ: {
     name: 'Orgue', gm_program: 19,
+    instrument_type: 'organ', instrument_subtype: 'church_organ',
     note_range_min: 36, note_range_max: 96, polyphony: 16,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 91, 93]
   },
   guitar: {
     name: 'Guitare', gm_program: 25,
+    instrument_type: 'guitar', instrument_subtype: 'steel',
     note_range_min: 40, note_range_max: 88, polyphony: 6,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64]
   },
   bass: {
     name: 'Basse', gm_program: 33,
+    instrument_type: 'bass', instrument_subtype: 'finger',
     note_range_min: 28, note_range_max: 67, polyphony: 4,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64]
   },
   violin: {
     name: 'Violon', gm_program: 40,
+    instrument_type: 'strings', instrument_subtype: 'violin',
     note_range_min: 55, note_range_max: 103, polyphony: 4,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
   },
   cello: {
     name: 'Violoncelle', gm_program: 42,
+    instrument_type: 'strings', instrument_subtype: 'cello',
     note_range_min: 36, note_range_max: 84, polyphony: 4,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
   },
   strings: {
     name: 'Ensemble Cordes', gm_program: 48,
+    instrument_type: 'ensemble', instrument_subtype: 'string_ensemble_1',
     note_range_min: 36, note_range_max: 96, polyphony: 16,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71]
   },
   trumpet: {
     name: 'Trompette', gm_program: 56,
+    instrument_type: 'brass', instrument_subtype: 'trumpet',
     note_range_min: 52, note_range_max: 84, polyphony: 1,
     note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
   },
   saxophone: {
     name: 'Saxophone', gm_program: 66,
+    instrument_type: 'reed', instrument_subtype: 'tenor_sax',
     note_range_min: 49, note_range_max: 87, polyphony: 1,
     note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
   },
   flute: {
     name: 'Flûte', gm_program: 73,
+    instrument_type: 'pipe', instrument_subtype: 'flute',
     note_range_min: 60, note_range_max: 96, polyphony: 1,
     note_selection_mode: 'range', supported_ccs: [1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]
   },
   synth_lead: {
     name: 'Synth Lead', gm_program: 80,
+    instrument_type: 'synth_lead', instrument_subtype: 'square',
     note_range_min: 36, note_range_max: 96, polyphony: 8,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71, 74, 91]
   },
   synth_pad: {
     name: 'Synth Pad', gm_program: 88,
+    instrument_type: 'synth_pad', instrument_subtype: 'new_age',
     note_range_min: 36, note_range_max: 96, polyphony: 16,
     note_selection_mode: 'range', supported_ccs: [1, 7, 10, 11, 64, 71, 74, 91]
   },
   drums: {
     name: 'Batterie', gm_program: 0, channel: 9,
+    instrument_type: 'drums', instrument_subtype: 'standard_kit',
     note_range_min: 35, note_range_max: 81, polyphony: 16,
     note_selection_mode: 'discrete',
     selected_notes: [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 53, 55, 57, 59],
@@ -617,8 +632,23 @@ async function instrumentCreateVirtual(app, data) {
 
   // Inserer dans instruments_latency avec les settings de base
   const settings = { name: name, custom_name: name };
-  if (preset) settings.gm_program = preset.gm_program;
+  if (preset) {
+    settings.gm_program = preset.gm_program;
+    settings.instrument_type = preset.instrument_type;
+    settings.instrument_subtype = preset.instrument_subtype;
+  }
   if (data.gm_program !== undefined) settings.gm_program = data.gm_program;
+  if (data.instrument_type) settings.instrument_type = data.instrument_type;
+  if (data.instrument_subtype) settings.instrument_subtype = data.instrument_subtype;
+
+  // Auto-détection du type depuis le programme GM si non fourni
+  if (!settings.instrument_type || settings.instrument_type === 'unknown') {
+    if (settings.gm_program !== undefined && settings.gm_program !== null) {
+      const detected = InstrumentTypeConfig.detectTypeFromProgram(settings.gm_program);
+      settings.instrument_type = detected.type;
+      settings.instrument_subtype = detected.subtype;
+    }
+  }
 
   app.database.updateInstrumentSettings(deviceId, channel, settings);
 
@@ -818,4 +848,12 @@ export function register(registry, app) {
   registry.register('virtual_delete', (data) => virtualDelete(app, data));
   registry.register('virtual_list', () => virtualList(app));
   registry.register('virtual_instrument_toggle', (data) => virtualInstrumentToggle(app, data));
+  registry.register('instrument_types_list', () => ({
+    categories: InstrumentTypeConfig.getCategories(),
+    hierarchy: InstrumentTypeConfig.hierarchy,
+    families: InstrumentTypeConfig.families
+  }));
+  registry.register('instrument_type_detect', (data) => ({
+    ...InstrumentTypeConfig.detectTypeFromProgram(data.gm_program)
+  }));
 }
