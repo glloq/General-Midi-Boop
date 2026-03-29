@@ -114,6 +114,9 @@
             </button>
             <div class="aa-footer-center">
               ${this.midiData ? `
+                <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${this.activeTab})" title="${_t('autoAssign.previewOriginalTip')}">
+                  ${_t('autoAssign.previewOriginal')}
+                </button>
                 <button class="btn" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
                   ${_t('autoAssign.previewChannel', {num: this.activeTab + 1})}
                 </button>
@@ -271,12 +274,20 @@
 
       const typeIcon = analysis?.estimatedType ? this.getTypeIcon(analysis.estimatedType) : '';
 
+      // Strategy badge for assigned channels
+      const adapt = this.adaptationSettings[ch] || {};
+      const strategyBadgeMap = { transpose: 'T', octaveWrap: 'W', suppress: 'S' };
+      const strategyTitleMap = { transpose: _t('autoAssign.strategyTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), suppress: _t('autoAssign.strategySuppress') };
+      const strategyBadge = (!isSkipped && !isSplit && adapt.strategy && strategyBadgeMap[adapt.strategy])
+        ? `<span class="aa-ov-strategy-badge" title="${strategyTitleMap[adapt.strategy]}">${strategyBadgeMap[adapt.strategy]}</span>`
+        : '';
+
       return `
         <tr class="aa-overview-row ${isSkipped ? 'skipped' : ''} ${statusClass}"
             onclick="autoAssignModalInstance.overviewGoToChannel(${channel})">
           <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''} ${splitBadge}</td>
           <td class="aa-ov-original">${escapeHtml(gmName)}</td>
-          <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : escapeHtml(assignedName)}</td>
+          <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : `${escapeHtml(assignedName)} ${strategyBadge}`}</td>
           <td class="aa-ov-score">
             ${isSkipped ? '—' : `
               <div class="aa-ov-score-bar">
@@ -354,12 +365,20 @@
       : '';
 
     const isAutoSkipped = this.autoSkippedChannels && this.autoSkippedChannels.has(channel);
+    const isSplit = this.isSplitChannel(channel);
+    const headerAdaptation = this.adaptationSettings[ch] || {};
+    const headerStrategy = headerAdaptation.strategy || 'ignore';
+    const strategyLabels = { transpose: _t('autoAssign.strategyTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), suppress: _t('autoAssign.strategySuppress') };
+    const strategyBadgeHTML = (!isSkipped && !isSplit && strategyLabels[headerStrategy])
+      ? `<span class="aa-ov-strategy-badge">${strategyLabels[headerStrategy]}</span>`
+      : (isSplit ? `<span class="aa-ov-strategy-badge">${_t('autoAssign.splitProposed')}</span>` : '');
 
     return `
       <div class="aa-channel-header">
         <h3>${_t('autoAssign.channel')} ${channel + 1}
           ${channel === 9 ? `<span class="aa-drum-badge">(MIDI 10)</span>` : ''}
           ${midiInstrumentHTML}
+          ${strategyBadgeHTML}
           ${isSkipped && isAutoSkipped
             ? `<span class="aa-autoskip-badge">[${_t('autoAssign.autoSkippedLabel')}]</span>`
             : isSkipped ? `<span class="aa-skipped-badge">[${_t('autoAssign.skippedLabel')}]</span>` : ''}

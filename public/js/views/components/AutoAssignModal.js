@@ -359,6 +359,9 @@ class AutoAssignModal {
     const footer = this.modal.querySelector('.aa-footer-center');
     if (!footer || !this.midiData) return;
     footer.innerHTML = `
+      <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${channel})" title="${_t('autoAssign.previewOriginalTip')}">
+        ${_t('autoAssign.previewOriginal')}
+      </button>
       <button class="btn" onclick="autoAssignModalInstance.previewChannel(${channel})" title="${_t('autoAssign.previewChannelTip')}">
         ${_t('autoAssign.previewChannel', {num: channel + 1})}
       </button>
