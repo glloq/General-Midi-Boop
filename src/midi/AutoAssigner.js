@@ -85,7 +85,16 @@ class AutoAssigner {
         const scores = [];
         const lowScores = [];
 
+        const isDrumChannel = analysis.channel === 9 || analysis.estimatedType === 'drums';
+
         for (const instrument of availableInstruments) {
+          // Hard filter: drums only to drums, non-drums never to drums
+          const isDrumInstrument = instrument.instrument_type === 'drums'
+            || (instrument.note_selection_mode === 'discrete' && instrument.instrument_type !== 'chromatic_percussion');
+
+          if (isDrumChannel && !isDrumInstrument) continue;
+          if (!isDrumChannel && isDrumInstrument) continue;
+
           const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
 
           const entry = {
