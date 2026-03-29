@@ -62,6 +62,58 @@ class AutoAssignModal {
   }
 
   /**
+   * Show a styled confirmation dialog on top of the auto-assign modal.
+   * Uses z-index higher than the auto-assign overlay (10005) so it's always visible.
+   * @param {string} message - Body text
+   * @param {Object} [options] - { title, icon, okText, cancelText, danger }
+   * @returns {Promise<boolean>}
+   */
+  _showConfirm(message, options = {}) {
+    return new Promise((resolve) => {
+      const title = options.title || _t('common.confirm');
+      const icon = options.icon || '⚠️';
+      const okText = options.okText || _t('common.confirm');
+      const cancelText = options.cancelText || _t('common.cancel');
+      const danger = options.danger !== false;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'aa-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="aa-confirm-dialog">
+          <div class="aa-confirm-icon">${icon}</div>
+          <div class="aa-confirm-title">${escapeHtml(title)}</div>
+          <div class="aa-confirm-message">${escapeHtml(message)}</div>
+          <div class="aa-confirm-buttons">
+            <button class="btn aa-confirm-cancel">${escapeHtml(cancelText)}</button>
+            <button class="btn ${danger ? 'btn-danger' : 'btn-primary'} aa-confirm-ok">${escapeHtml(okText)}</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // Animate in
+      requestAnimationFrame(() => overlay.classList.add('visible'));
+
+      const cleanup = (result) => {
+        overlay.classList.remove('visible');
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); resolve(result); }, 200);
+      };
+
+      overlay.querySelector('.aa-confirm-ok').addEventListener('click', () => cleanup(true));
+      overlay.querySelector('.aa-confirm-cancel').addEventListener('click', () => cleanup(false));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(false); });
+
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') { document.removeEventListener('keydown', keyHandler); cleanup(false); }
+      };
+      document.addEventListener('keydown', keyHandler);
+
+      // Focus cancel button (safer default)
+      overlay.querySelector('.aa-confirm-cancel').focus();
+    });
+  }
+
+  /**
    * Safely format info field (can be string or array)
    */
   formatInfo(info) {
@@ -660,17 +712,13 @@ class AutoAssignModal {
       summary += `\n↕ ${splitCount} split(s) available`;
     }
 
-    if (typeof window.showConfirm === 'function') {
-      const confirmed = await window.showConfirm(summary, {
-        title: _t('autoAssign.quickAssign'),
-        icon: '⚡',
-        okText: _t('autoAssign.quickAssign'),
-        danger: false
-      });
-      if (!confirmed) return;
-    } else {
-      if (!confirm(summary)) return;
-    }
+    const confirmed = await this._showConfirm(summary, {
+      title: _t('autoAssign.quickAssign'),
+      icon: '⚡',
+      okText: _t('autoAssign.quickAssign'),
+      danger: false
+    });
+    if (!confirmed) return;
     this.skippedChannels.clear();
     await this.validateAndApply();
   }
@@ -787,21 +835,17 @@ class AutoAssignModal {
    */
   async close(force) {
     if (!force && this._isDirty) {
-      if (typeof window.showConfirm === 'function') {
-        const confirmed = await window.showConfirm(
-          _t('autoAssign.unsavedChangesMessage'),
-          {
-            title: _t('autoAssign.unsavedChanges'),
-            icon: '⚠️',
-            okText: _t('autoAssign.discardChanges'),
-            cancelText: _t('common.cancel'),
-            danger: true
-          }
-        );
-        if (!confirmed) return;
-      } else {
-        if (!confirm(_t('autoAssign.unsavedChanges'))) return;
-      }
+      const confirmed = await this._showConfirm(
+        _t('autoAssign.unsavedChangesMessage'),
+        {
+          title: _t('autoAssign.unsavedChanges'),
+          icon: '⚠️',
+          okText: _t('autoAssign.discardChanges'),
+          cancelText: _t('common.cancel'),
+          danger: true
+        }
+      );
+      if (!confirmed) return;
     }
     this.stopPreview();
 
@@ -900,15 +944,11 @@ class AutoAssignModal {
     const pendingCount = Object.keys(this.splitProposals).filter(ch => !this.splitChannels.has(Number(ch))).length;
     if (pendingCount === 0) return;
 
-    if (typeof window.showConfirm === 'function') {
-      const confirmed = await window.showConfirm(
-        _t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount }),
-        { title: _t('autoAssign.acceptAllSplits'), icon: '⇅', danger: false }
-      );
-      if (!confirmed) return;
-    } else {
-      if (!confirm(_t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount }))) return;
-    }
+    const confirmed = await this._showConfirm(
+      _t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount }),
+      { title: _t('autoAssign.acceptAllSplits'), icon: '⇅', danger: false }
+    );
+    if (!confirmed) return;
 
     for (const [ch, proposal] of Object.entries(this.splitProposals)) {
       const channel = Number(ch);

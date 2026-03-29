@@ -1,4 +1,123 @@
 /* ==========================================================================
+   Auto-Assign Confirm Dialog (above auto-assign modal z-index)
+   ========================================================================== */
+
+.aa-confirm-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10010;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  backdrop-filter: blur(2px);
+}
+
+.aa-confirm-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.aa-confirm-dialog {
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 12px;
+  padding: 24px 28px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  transform: scale(0.95);
+  transition: transform 0.2s ease;
+}
+
+.aa-confirm-overlay.visible .aa-confirm-dialog {
+  transform: scale(1);
+}
+
+.aa-confirm-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.aa-confirm-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary, #333);
+  margin-bottom: 8px;
+}
+
+.aa-confirm-message {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  margin-bottom: 20px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.aa-confirm-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.aa-confirm-buttons .btn {
+  min-width: 110px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.aa-confirm-cancel {
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #ddd);
+}
+
+.aa-confirm-cancel:hover {
+  background: var(--bg-primary, #e8e8e8);
+}
+
+.btn-danger.aa-confirm-ok {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.btn-danger.aa-confirm-ok:hover {
+  background: #b91c1c;
+}
+
+/* Dark mode */
+body.dark-mode .aa-confirm-dialog {
+  background: #2a2a3e;
+  border-color: #4a5568;
+}
+
+body.dark-mode .aa-confirm-title {
+  color: #e0e8f0;
+}
+
+body.dark-mode .aa-confirm-message {
+  color: #a0aec0;
+}
+
+body.dark-mode .aa-confirm-cancel {
+  background: #3a3a4e;
+  color: #c0c8d4;
+  border-color: #4a5568;
+}
+
+body.dark-mode .aa-confirm-cancel:hover {
+  background: #4a4a5e;
+}
+
+/* ==========================================================================
    Auto-Assign Modal Styles - Tab-based UI
    ========================================================================== */
 
@@ -9,8 +128,8 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
-  /* z-index > 10003 (MIDI editor modal) since auto-assign opens on top of it */
-  z-index: 10005;
+  /* z-index > 10002 (MIDI editor modal) — !important to override .modal-overlay rule in components.css */
+  z-index: 10005 !important;
   display: flex;
   align-items: center;
   justify-content: center;
