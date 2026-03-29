@@ -39,7 +39,8 @@ const COMMAND_VALIDATORS = {
   latency_measure: 'validateLatencyCommand',
   latency_set: 'validateLatencyCommand',
   latency_get: 'validateLatencyCommand',
-  latency_delete: 'validateLatencyCommand'
+  latency_delete: 'validateLatencyCommand',
+  system_backup: 'validateSystemCommand'
 };
 
 class CommandRegistry {

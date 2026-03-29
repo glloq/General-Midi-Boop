@@ -35,13 +35,26 @@ async function systemInfo(app) {
   };
 }
 
+/**
+ * Guard for critical system commands — requires that API token authentication
+ * is configured. Prevents accidental or unauthorized system operations when
+ * the server runs without token protection.
+ */
+function requireTokenConfigured() {
+  if (!process.env.MAESTRO_API_TOKEN) {
+    throw new Error('System commands require MAESTRO_API_TOKEN to be configured');
+  }
+}
+
 async function systemRestart(app) {
+  requireTokenConfigured();
   app.logger.info('System restart requested');
   setTimeout(() => process.exit(0), 1000);
   return { success: true };
 }
 
 async function systemShutdown(app) {
+  requireTokenConfigured();
   app.logger.info('System shutdown requested');
   setTimeout(() => process.exit(0), 1000);
   return { success: true };
@@ -101,6 +114,7 @@ async function systemCheckUpdate(app) {
 }
 
 async function systemUpdate(app) {
+  requireTokenConfigured();
   app.logger.info('System update requested');
 
   // Prevent concurrent updates
@@ -138,7 +152,11 @@ async function systemUpdate(app) {
     detached: true,
     stdio: 'ignore',
     env: {
-      ...process.env,
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      USER: process.env.USER,
+      LANG: process.env.LANG || 'C.UTF-8',
+      NODE_ENV: process.env.NODE_ENV || 'production',
       DEBIAN_FRONTEND: 'noninteractive',
       NON_INTERACTIVE: '1',
       SERVER_PORT: String(serverPort),

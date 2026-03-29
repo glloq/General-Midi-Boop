@@ -367,6 +367,26 @@ class JsonValidator {
   }
 
   /**
+   * Validate system command data
+   */
+  static validateSystemCommand(command, data) {
+    const errors = [];
+
+    switch (command) {
+      case 'system_backup':
+        if (data.path && typeof data.path !== 'string') {
+          errors.push('path must be a string');
+        }
+        break;
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+  /**
    * Validate session data
    */
   static validateSession(data) {

@@ -113,7 +113,7 @@ describe('Logger', () => {
   });
 
   describe('rotation', () => {
-    test('rotates when file exceeds max size', () => {
+    test('rotates when file exceeds max size', async () => {
       const logFile = path.join(tmpDir, 'rotate.log');
       const logger = new Logger({
         level: 'debug',
@@ -125,6 +125,10 @@ describe('Logger', () => {
       // Write enough to trigger rotation (synchronously simulate)
       fs.writeFileSync(logFile, 'x'.repeat(200));
       logger._checkRotation();
+
+      // Wait for async stat + rotation to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      logger.close();
 
       expect(fs.existsSync(`${logFile}.1`)).toBe(true);
     });

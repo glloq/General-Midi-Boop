@@ -100,8 +100,14 @@ class EventBus {
             id: `${event}_${Date.now()}_${Math.random()}`
         };
         
-        this.listeners.get(event).push(listener);
-        
+        const list = this.listeners.get(event);
+        list.push(listener);
+
+        // Warn about possible memory leak
+        if (list.length > 50) {
+            console.warn(`EventBus: possible memory leak — ${list.length} listeners for "${event}" (max 50)`);
+        }
+
         // Retourner fonction de désabonnement
         return () => this.off(event, callback);
     }

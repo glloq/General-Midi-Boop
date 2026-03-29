@@ -132,18 +132,16 @@ class Logger {
 
   /**
    * Check if log file exceeds max size and rotate if needed.
+   * Uses async stat to avoid blocking the event loop.
    */
   _checkRotation() {
     if (this._rotating || !this.logFile) return;
 
-    try {
-      const stats = fs.statSync(this.logFile);
-      if (stats.size >= this.maxLogSize) {
+    fs.stat(this.logFile, (err, stats) => {
+      if (!err && stats.size >= this.maxLogSize) {
         this._rotate();
       }
-    } catch (_) {
-      // File may not exist yet
-    }
+    });
   }
 
   /**
