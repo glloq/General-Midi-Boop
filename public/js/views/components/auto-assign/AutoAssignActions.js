@@ -51,6 +51,7 @@
     };
 
     this.skippedChannels.delete(channel);
+    this._isDirty = true;
     this.refreshCurrentTab();
     this.refreshTabBar();
   }
@@ -241,8 +242,19 @@
         return;
       }
 
-      // Close this auto-assign modal
-      this.close();
+      // Show success feedback
+      const assignedCount = Object.keys(preparedAssignments).length;
+      const skippedCount = this.skippedChannels.size;
+      const splitCount = Object.values(preparedAssignments).filter(a => a.split).length;
+      let successMsg = `${assignedCount} ${_t('autoAssign.channelsAssigned')}`;
+      if (splitCount > 0) successMsg += `, ${splitCount} split(s)`;
+      if (skippedCount > 0) successMsg += `, ${skippedCount} ${_t('autoAssign.channelsSkipped')}`;
+      if (typeof window.showToast === 'function') {
+        window.showToast(successMsg, 'success');
+      }
+
+      // Close this auto-assign modal (force: skip dirty check after successful apply)
+      this.close(true);
 
       // If a callback was provided (routing modal context), delegate post-apply to caller
       if (this.onApply) {
@@ -374,6 +386,11 @@
         if (segments.length > 0) {
           // Use first segment's GM program for sound, combined range for constraints
           const instrumentConstraints = {};
+          // Use GM program from channel analysis for sound
+          const splitAnalysis = this.channelAnalyses[channel];
+          if (splitAnalysis?.primaryProgram != null) {
+            instrumentConstraints.gmProgram = splitAnalysis.primaryProgram;
+          }
           // Find combined note range across all segments
           const allMins = segments.map(s => s.noteRange?.min).filter(v => v != null);
           const allMaxs = segments.map(s => s.noteRange?.max).filter(v => v != null);

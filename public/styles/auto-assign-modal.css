@@ -1345,6 +1345,17 @@ body.dark-mode .aa-no-compatible {
   color: var(--aa-warning-text, #e8365d);
 }
 
+.aa-adaptation-result.critical {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  font-weight: 700;
+}
+
+.aa-adaptation-result.critical .aa-adaptation-result-fill {
+  background: #dc2626 !important;
+}
+
 .aa-adaptation-result-bar {
   height: 6px;
   background: var(--border-color, #e5e7eb);
@@ -2066,6 +2077,12 @@ body.dark-mode .aa-drum-arrow {
   background: var(--aa-success-bg);
   color: var(--aa-success-text);
   border: 1px solid var(--aa-success-border);
+}
+
+.aa-overview-banner.warning {
+  background: var(--aa-warning-bg, rgba(232, 54, 93, 0.1));
+  color: var(--aa-warning-text, #e8365d);
+  border: 1px solid rgba(232, 54, 93, 0.3);
 }
 
 .aa-overview-banner.split {

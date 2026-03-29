@@ -987,7 +987,11 @@
         "ignoreSplit": "Ignore",
         "splitAvailableBanner": "{count} channel(s) can be split across multiple instruments for better coverage",
         "reviewSplits": "Review splits",
-        "acceptAllSplits": "Accept all splits"
+        "acceptAllSplits": "Accept all splits",
+        "acceptAllSplitsConfirm": "Accept {count} split proposal(s)?",
+        "unsavedChanges": "You have unsaved changes. Close anyway?",
+        "channelsAssigned": "channel(s) assigned",
+        "allChannelsSkipped": "All channels were auto-skipped — no compatible instruments available. Please add or configure instruments in settings."
     },
     "instrumentCapabilities": {
         "title": "Complete Instrument Capabilities",

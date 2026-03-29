@@ -29,6 +29,7 @@ class AutoAssignModal {
     this.modal = null;
     this.audioPreview = null;
     this._escHandler = null;
+    this._isDirty = false; // Tracks unsaved modifications
     this.activeTab = null; // Currently active channel tab
     this.channels = []; // Sorted channel list
     this.viewMode = 'overview'; // 'overview' or 'detail'
@@ -463,6 +464,7 @@ class AutoAssignModal {
   setStrategy(channel, strategy) {
     const ch = String(channel);
     if (!this.adaptationSettings[ch]) return;
+    this._isDirty = true;
     this.adaptationSettings[ch].strategy = strategy;
 
     // When switching to octaveWrap, enable octave wrapping on the assignment
@@ -530,6 +532,7 @@ class AutoAssignModal {
    */
   toggleChannel(channel, enabled) {
     const ch = String(channel);
+    this._isDirty = true;
     if (enabled) {
       this.skippedChannels.delete(channel);
       if (!this.selectedAssignments[ch] && this.autoSelection[ch]) {
@@ -548,6 +551,7 @@ class AutoAssignModal {
   adjustTransposition(channel, delta) {
     const ch = String(channel);
     if (!this.adaptationSettings[ch]) return;
+    this._isDirty = true;
     this.adaptationSettings[ch].transpositionSemitones = (this.adaptationSettings[ch].transpositionSemitones || 0) + delta;
 
     // Clamp to reasonable range
@@ -575,6 +579,7 @@ class AutoAssignModal {
   adjustNoteOffset(channel, delta) {
     const ch = String(channel);
     if (!this.adaptationSettings[ch]) return;
+    this._isDirty = true;
     this.adaptationSettings[ch].noteOffset = (this.adaptationSettings[ch].noteOffset || 0) + delta;
     this.adaptationSettings[ch].noteOffset = Math.max(-24, Math.min(24, this.adaptationSettings[ch].noteOffset));
     this.refreshCurrentTab();
@@ -772,9 +777,14 @@ class AutoAssignModal {
   }
 
   /**
-   * Close the modal
+   * Close the modal (with unsaved changes confirmation)
+   * @param {boolean} [force=false] - Skip dirty check (used after successful apply)
    */
-  close() {
+  close(force) {
+    if (!force && this._isDirty) {
+      const msg = typeof i18n !== 'undefined' ? i18n.t('autoAssign.unsavedChanges') : 'You have unsaved changes. Close anyway?';
+      if (!confirm(msg)) return;
+    }
     this.stopPreview();
 
     if (this._escHandler) {
@@ -824,6 +834,7 @@ class AutoAssignModal {
     const proposal = this.splitProposals[channel];
     if (!proposal) return;
 
+    this._isDirty = true;
     this.splitChannels.add(channel);
     this.splitAssignments[channel] = proposal;
 
@@ -842,6 +853,7 @@ class AutoAssignModal {
    * @param {number} channel
    */
   rejectSplit(channel) {
+    this._isDirty = true;
     this.splitChannels.delete(channel);
     delete this.splitAssignments[channel];
 
@@ -867,6 +879,13 @@ class AutoAssignModal {
    * Accept all pending split proposals at once
    */
   acceptAllSplits() {
+    const pendingCount = Object.keys(this.splitProposals).filter(ch => !this.splitChannels.has(Number(ch))).length;
+    if (pendingCount === 0) return;
+    const msg = typeof i18n !== 'undefined'
+      ? i18n.t('autoAssign.acceptAllSplitsConfirm', { count: pendingCount })
+      : `Accept ${pendingCount} split proposal(s)?`;
+    if (!confirm(msg)) return;
+
     for (const [ch, proposal] of Object.entries(this.splitProposals)) {
       const channel = Number(ch);
       if (this.splitChannels.has(channel)) continue; // already accepted

@@ -987,7 +987,11 @@
         "ignoreSplit": "Ignorer",
         "splitAvailableBanner": "{count} canal/canaux peuvent être découpés sur plusieurs instruments pour une meilleure couverture",
         "reviewSplits": "Voir les découpes",
-        "acceptAllSplits": "Accepter toutes les découpes"
+        "acceptAllSplits": "Accepter toutes les découpes",
+        "acceptAllSplitsConfirm": "Accepter {count} proposition(s) de découpe ?",
+        "unsavedChanges": "Vous avez des modifications non enregistrées. Fermer quand même ?",
+        "channelsAssigned": "canal/canaux assigné(s)",
+        "allChannelsSkipped": "Tous les canaux ont été ignorés — aucun instrument compatible disponible. Veuillez ajouter ou configurer des instruments dans les paramètres."
     },
     "instrumentCapabilities": {
         "title": "Compléter les capacités des instruments",

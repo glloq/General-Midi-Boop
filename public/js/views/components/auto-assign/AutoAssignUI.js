@@ -151,7 +151,17 @@
     this._prevBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
+    this._escHandler = (e) => {
+      if (e.key === 'Escape') {
+        // In detail view, go back to overview first; in overview, close modal
+        if (this.viewMode === 'detail') {
+          e.preventDefault();
+          this.setViewMode('overview');
+        } else {
+          this.close();
+        }
+      }
+    };
     document.addEventListener('keydown', this._escHandler);
 
     this._overlayClickHandler = (e) => {
@@ -289,7 +299,11 @@
             onkeydown="if(event.key==='Enter')autoAssignModalInstance.overviewGoToChannel(${channel})">
           <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''} ${splitBadge}</td>
           <td class="aa-ov-original">${escapeHtml(gmName)}</td>
-          <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : `${escapeHtml(assignedName)} ${strategyBadge}`}</td>
+          <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : `${escapeHtml(assignedName)} ${strategyBadge}${
+            (!isSplit && assignment?.instrumentId && this.getOtherChannelsUsingInstrument(assignment.instrumentId, channel).length > 0)
+              ? ` <span class="aa-duplicate-badge" title="${_t('autoAssign.duplicateInstrumentTip', {channels: this.getOtherChannelsUsingInstrument(assignment.instrumentId, channel).join(', ')})}">!</span>`
+              : ''
+          }`}</td>
           <td class="aa-ov-score">
             ${isSkipped ? '—' : `
               <div class="aa-ov-score-bar">
@@ -311,6 +325,14 @@
       return this.skippedChannels.has(channel) || (this.selectedAssignments[ch]?.score || 0) >= 70;
     });
 
+    // Check if ALL channels are skipped (no instruments available)
+    const allSkipped = this.channels.every(ch => this.skippedChannels.has(parseInt(ch)));
+    const allSkippedHTML = allSkipped ? `
+      <div class="aa-overview-banner warning">
+        ${_t('autoAssign.allChannelsSkipped')}
+      </div>
+    ` : '';
+
     // Count available (non-accepted) split proposals
     const pendingSplitChannels = Object.keys(this.splitProposals)
       .map(Number)
@@ -326,7 +348,8 @@
 
     return `
       <div class="aa-overview">
-        ${allGood ? `<div class="aa-overview-banner ok">${_t('autoAssign.overviewAllGood')}</div>` : ''}
+        ${allSkippedHTML}
+        ${allGood && !allSkipped ? `<div class="aa-overview-banner ok">${_t('autoAssign.overviewAllGood')}</div>` : ''}
         ${splitBannerHTML}
         <div class="aa-overview-table-wrapper">
         <table class="aa-overview-table">
@@ -662,10 +685,12 @@
         const allOk = result.outOfRange === 0;
         const playable = result.inRange + result.recovered;
         const pct = Math.round((playable / result.totalNotes) * 100);
+        const allLost = playable === 0 && result.totalNotes > 0;
+        const resultClass = allLost ? 'critical' : (allOk ? 'ok' : (result.outOfRange > 3 ? 'warning' : 'partial'));
         adaptationResultHTML = `
-          <div class="aa-adaptation-result ${allOk ? 'ok' : (result.outOfRange > 3 ? 'warning' : 'partial')}">
+          <div class="aa-adaptation-result ${resultClass}">
             <div class="aa-adaptation-result-bar">
-              <div class="aa-adaptation-result-fill ${allOk ? 'aa-bg-excellent' : (pct >= 80 ? 'aa-bg-good' : (pct >= 60 ? 'aa-bg-fair' : 'aa-bg-poor'))}" style="width: ${pct}%"></div>
+              <div class="aa-adaptation-result-fill ${allOk ? 'aa-bg-excellent' : (pct >= 80 ? 'aa-bg-good' : (pct >= 60 ? 'aa-bg-fair' : 'aa-bg-poor'))}" style="width: ${Math.max(pct, allLost ? 100 : 0)}%"></div>
             </div>
             <span class="aa-adaptation-result-text">
               ${allOk
