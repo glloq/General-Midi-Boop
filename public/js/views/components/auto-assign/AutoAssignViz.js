@@ -171,7 +171,26 @@
 
     // ---- NORMAL MODE: single instrument ----
     const assignment = this.selectedAssignments[ch];
-    if (!assignment?.instrumentId) return '';
+
+    // ---- NO INSTRUMENT SELECTED: show channel range only ----
+    if (!assignment?.instrumentId) {
+      const chanMin = analysis.noteRange.min;
+      const chanMax = analysis.noteRange.max;
+      const chanLeft = pct(chanMin);
+      const chanWidth = Math.max(0.5, ((chanMax - chanMin) / 127) * 100).toFixed(1);
+      const gmName = channel === 9
+        ? _t('autoAssign.drums')
+        : (this.getGmProgramName(analysis.primaryProgram) || chanLabel);
+      return `<div class="aa-range-bar-container">
+        <div class="aa-range-bar">
+          <div class="aa-range-channel in-range" style="left:${chanLeft}%;width:${chanWidth}%"
+               title="${chanLabel}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
+        </div>
+        <div class="aa-range-legend">
+          <span class="aa-range-legend-item"><span class="aa-rleg-color chan in-range"></span>${chanLabel} — ${escapeHtml(gmName)}</span>
+        </div>
+      </div>`;
+    }
 
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
@@ -516,32 +535,49 @@
    * @returns {string} HTML
    */
   AutoAssignVizMixin.renderSplitProposal = function(channel) {
-    const proposal = this.splitProposals[channel];
-    if (!proposal) return '';
+    const baseProposal = this.splitProposals[channel];
+    if (!baseProposal) return '';
 
     const isSplit = this.isSplitChannel(channel);
     const analysis = this.channelAnalyses[channel];
     const channelMin = analysis?.noteRange?.min ?? 0;
     const channelMax = analysis?.noteRange?.max ?? 127;
 
-    const typeLabels = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
-    const typeLabel = typeLabels[proposal.type] || proposal.type;
+    // Use the active split type (user may have switched)
+    const activeProposal = this.getActiveSplitProposal
+      ? this.getActiveSplitProposal(channel)
+      : baseProposal;
+    const proposal = isSplit ? this.splitAssignments[channel] : activeProposal;
 
-    // Build coverage bar (visual representation of note ranges)
+    const typeLabels = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+
+    // Build type tabs (best + alternatives)
+    const allTypes = [baseProposal, ...(baseProposal.alternatives || [])];
+    const activeType = this.activeSplitType?.[channel] || baseProposal.type;
+    const typeTabsHTML = allTypes.length > 1 ? allTypes.map(p => {
+      const isActive = p.type === activeType;
+      const label = typeLabels[p.type] || p.type;
+      return `<button class="aa-split-type-tab ${isActive ? 'active' : ''}"
+                      onclick="autoAssignModalInstance.switchSplitType(${channel}, '${p.type}')"
+                      ${isSplit ? 'disabled' : ''}>
+        ${label} <span class="aa-split-type-quality">${p.quality}</span>
+      </button>`;
+    }).join('') : `<span class="aa-split-type-badge">${typeLabels[proposal.type] || proposal.type}</span>`;
+
+    // Build coverage bar
     const totalSpan = Math.max(1, channelMax - channelMin + 1);
+    const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
     const segmentBars = proposal.segments.map((seg, i) => {
       const segMin = seg.noteRange?.min ?? channelMin;
       const segMax = seg.noteRange?.max ?? channelMax;
       const left = ((segMin - channelMin) / totalSpan * 100).toFixed(1);
       const width = ((segMax - segMin + 1) / totalSpan * 100).toFixed(1);
-      const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
       const color = colors[i % colors.length];
       return `<div class="aa-split-bar-segment" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName}: ${this.midiNoteToName(segMin)}-${this.midiNoteToName(segMax)}"></div>`;
     }).join('');
 
     // Segment cards
     const segmentCards = proposal.segments.map((seg, i) => {
-      const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
       const rangeText = seg.noteRange
         ? `${this.midiNoteToName(seg.noteRange.min)} - ${this.midiNoteToName(seg.noteRange.max)}`
         : (seg.strategy === 'round_robin' ? _t('autoAssign.roundRobin') : '—');
@@ -559,12 +595,28 @@
       `;
     }).join('');
 
+    // Actions: different when accepted vs proposed
+    let actionsHTML;
+    if (isSplit) {
+      actionsHTML = `
+        <div class="aa-split-actions">
+          <span class="aa-split-accepted-badge">✓ ${_t('autoAssign.splitAccepted')}</span>
+          <button class="btn aa-btn-sm aa-split-remove" onclick="autoAssignModalInstance.rejectSplit(${channel})">✕ ${_t('autoAssign.removeSplit')}</button>
+        </div>`;
+    } else {
+      actionsHTML = `
+        <div class="aa-split-actions">
+          <button class="btn btn-primary aa-split-accept" onclick="autoAssignModalInstance.acceptSplit(${channel})">${_t('autoAssign.acceptSplit')}</button>
+          <button class="btn aa-split-ignore" onclick="autoAssignModalInstance.rejectSplit(${channel})">${_t('autoAssign.ignoreSplit')}</button>
+        </div>`;
+    }
+
     return `
       <div class="aa-split-section ${isSplit ? 'accepted' : ''}">
         <div class="aa-split-header">
           <span class="aa-split-icon">⇅</span>
           <span class="aa-split-title">${_t('autoAssign.splitProposed')}</span>
-          <span class="aa-split-type-badge">${typeLabel}</span>
+          <div class="aa-split-type-tabs">${typeTabsHTML}</div>
           <span class="aa-split-quality ${this.getScoreClass(proposal.quality)}">
             ${this.getScoreStars(proposal.quality)} ${proposal.quality}/100
           </span>
@@ -588,13 +640,7 @@
             ).join('')}
           </div>
         ` : ''}
-        <div class="aa-split-actions">
-          ${isSplit
-            ? `<button class="btn aa-split-reject" onclick="autoAssignModalInstance.rejectSplit(${channel})">${_t('autoAssign.cancelSplit')}</button>`
-            : `<button class="btn btn-primary aa-split-accept" onclick="autoAssignModalInstance.acceptSplit(${channel})">${_t('autoAssign.acceptSplit')}</button>
-               <button class="btn aa-split-ignore" onclick="autoAssignModalInstance.rejectSplit(${channel})">${_t('autoAssign.ignoreSplit')}</button>`
-          }
-        </div>
+        ${actionsHTML}
       </div>
     `;
   };

@@ -2870,6 +2870,93 @@ body.dark-mode .aa-inline-preview:hover {
   color: var(--text-muted, #999) !important;
 }
 
+/* Channel bar arrow and routed name */
+.aa-chbar-arrow {
+  color: var(--text-muted, #999);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.aa-chbar-routed {
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.aa-chbar-routed.skipped {
+  color: var(--text-muted, #999);
+  font-style: italic;
+}
+
+/* Split type tabs in split proposal header */
+.aa-split-type-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.aa-split-type-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 12px;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  transition: all 0.15s;
+}
+.aa-split-type-tab:hover:not(:disabled) {
+  border-color: var(--accent-primary, #667eea);
+  color: var(--accent-primary, #667eea);
+}
+.aa-split-type-tab.active {
+  background: var(--accent-primary, #667eea);
+  color: #fff;
+  border-color: var(--accent-primary, #667eea);
+}
+.aa-split-type-tab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.aa-split-type-quality {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Split accepted badge */
+.aa-split-accepted-badge {
+  color: var(--aa-score-excellent, #27ae60);
+  font-weight: 600;
+  font-size: 12px;
+}
+.aa-split-remove {
+  font-size: 11px;
+  color: var(--text-muted, #999);
+  border-color: var(--border-color, #ddd);
+}
+.aa-split-remove:hover {
+  color: var(--danger, #e74c3c);
+  border-color: var(--danger, #e74c3c);
+}
+
+/* Instrument bar remove split button (icon only) */
+.aa-instbar-remove-split {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--text-muted, #999);
+  border-style: dashed;
+  min-width: 28px;
+  justify-content: center;
+}
+.aa-instbar-remove-split:hover {
+  color: var(--danger, #e74c3c);
+  border-color: var(--danger, #e74c3c);
+}
+
 /* --- Selected Instrument Info Card --- */
 .aa-selected-instrument {
   background: var(--bg-primary, #fff);

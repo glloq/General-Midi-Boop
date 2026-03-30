@@ -677,29 +677,37 @@
       const gmName = channel === 9
         ? _t('autoAssign.drums')
         : (this.getGmProgramName(analysis?.primaryProgram) || '');
-      const gmShort = gmName.length > 12 ? gmName.slice(0, 11) + '…' : gmName;
-      const typeIcon = analysis?.estimatedType ? this.getTypeIcon(analysis.estimatedType) : '';
-
-      const isDrumChannel = channel === 9 || analysis?.estimatedType === 'drums';
-      const noteRange = analysis?.noteRange;
-      const rangeLabel = this.formatNoteRange
-        ? this.formatNoteRange(noteRange, isDrumChannel, analysis?.noteDistribution)
-        : '';
+      const gmShort = gmName.length > 16 ? gmName.slice(0, 15) + '…' : gmName;
       const typeColor = this.getTypeColor ? this.getTypeColor(analysis?.estimatedType || analysis?.estimatedCategory || '') : '';
+
+      // Routed instrument name(s)
+      let routedName = '—';
+      if (isSplit) {
+        const proposal = this.splitAssignments[channel];
+        if (proposal?.segments) {
+          routedName = proposal.segments.map(seg => {
+            const n = seg.instrumentName || '?';
+            return n.length > 14 ? n.slice(0, 13) + '…' : n;
+          }).join(', ');
+        }
+      } else if (assignment?.instrumentId) {
+        const n = assignment.customName || assignment.instrumentName || '?';
+        routedName = n.length > 18 ? n.slice(0, 17) + '…' : n;
+      }
 
       return `
         <button class="aa-chbar-btn ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''} ${this.getScoreClass(score)}"
                 data-channel="${channel}"
                 style="${typeColor ? 'border-left: 3px solid ' + typeColor : ''}"
                 onclick="autoAssignModalInstance.selectOverviewChannel(${channel})"
-                title="${escapeHtml(gmName)}${rangeLabel ? ' | ' + rangeLabel : ''}">
-          <span class="aa-chbar-icon">${typeIcon}</span>
+                title="${escapeHtml(gmName)} → ${escapeHtml(routedName)}">
           <span class="aa-chbar-label">Ch ${channel + 1}</span>
           ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
           ${isSplit ? '<span class="aa-tab-split">SP</span>' : ''}
-          ${!isSkipped ? `<span class="aa-chbar-score">${score}</span>` : '<span class="aa-chbar-score">—</span>'}
-          ${gmShort ? `<span class="aa-chbar-gm">${escapeHtml(gmShort)}</span>` : ''}
-          ${rangeLabel ? `<span class="aa-chbar-range">${rangeLabel}</span>` : ''}
+          <span class="aa-chbar-gm">${escapeHtml(gmShort)}</span>
+          <span class="aa-chbar-arrow">→</span>
+          <span class="aa-chbar-routed ${isSkipped ? 'skipped' : ''}">${escapeHtml(routedName)}</span>
+          <span class="aa-chbar-score ${this.getScoreClass(score)}">${!isSkipped ? score : '—'}</span>
         </button>
       `;
     }).join('');
@@ -737,9 +745,9 @@
       return `
         <div class="aa-instbar-content">
           <div class="aa-instbar-list">${segButtons}</div>
-          <button class="aa-instbar-btn aa-instbar-split-btn" onclick="autoAssignModalInstance.rejectSplit(${channel})"
-                  title="${_t('autoAssign.cancelSplit')}">
-            ✕ ${_t('autoAssign.cancelSplit')}
+          <button class="aa-instbar-btn aa-instbar-remove-split" onclick="autoAssignModalInstance.rejectSplit(${channel})"
+                  title="${_t('autoAssign.removeSplit')}">
+            ✕
           </button>
         </div>
       `;

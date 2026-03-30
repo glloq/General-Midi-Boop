@@ -73,6 +73,42 @@ class ChannelSplitter {
   }
 
   /**
+   * Évalue TOUS les types de split possibles et retourne le meilleur + les alternatives
+   * @param {Object} channelAnalysis
+   * @param {Array<Object>} sameTypeInstruments
+   * @returns {Object|null} - { ...bestProposal, alternatives: [SplitProposal...] } ou null
+   */
+  evaluateAllSplits(channelAnalysis, sameTypeInstruments) {
+    const minInstruments = this.config.minInstruments || 2;
+    const maxInstruments = this.config.maxInstruments || 4;
+
+    if (!sameTypeInstruments || sameTypeInstruments.length < minInstruments) {
+      return null;
+    }
+
+    const instruments = sameTypeInstruments.slice(0, maxInstruments);
+
+    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) {
+      return null;
+    }
+
+    const rangeSplit = this.calculateRangeSplit(channelAnalysis, instruments);
+    const polyphonySplit = this.calculatePolyphonySplit(channelAnalysis, instruments);
+    const mixedSplit = this.calculateMixedSplit(channelAnalysis, instruments);
+
+    const minQuality = this.config.minQuality || 50;
+    const all = [rangeSplit, polyphonySplit, mixedSplit].filter(s => s !== null && s.quality >= minQuality);
+
+    if (all.length === 0) return null;
+
+    all.sort((a, b) => b.quality - a.quality);
+    const best = all[0];
+    const alternatives = all.slice(1);
+
+    return { ...best, alternatives };
+  }
+
+  /**
    * Calcule un split par plage de notes
    * Chaque instrument reçoit les notes de sa plage physique
    * @param {Object} channelAnalysis

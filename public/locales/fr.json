@@ -1579,5 +1579,7 @@
     },
     "autoAssign.showAllToggle": "Tous",
     "autoAssign.showRoutedToggle": "Routés",
-    "autoAssign.unscored": "Non évalué"
+    "autoAssign.unscored": "Non évalué",
+    "autoAssign.splitAccepted": "Découpe appliquée",
+    "autoAssign.removeSplit": "Retirer la découpe"
 }

@@ -49,6 +49,7 @@ class AutoAssignModal {
     this.splitAssignments = {}; // { channel: SplitProposal } accepted splits
     this.allInstruments = []; // Full instrument list (for "show all" toggle)
     this.showAllInstruments = false; // Toggle for showing unrouted instruments
+    this.activeSplitType = {}; // { channel: 'range'|'polyphony'|'mixed' } — selected split type per channel
 
     // GM Drum categories (mirrored from DrumNoteMapper backend)
     this.DRUM_CATEGORIES = {
@@ -1022,7 +1023,7 @@ class AutoAssignModal {
    * @param {number} channel
    */
   acceptSplit(channel) {
-    const proposal = this.splitProposals[channel];
+    const proposal = this.getActiveSplitProposal(channel);
     if (!proposal) return;
 
     this._isDirty = true;
@@ -1064,6 +1065,42 @@ class AutoAssignModal {
    */
   isSplitChannel(channel) {
     return this.splitChannels.has(channel);
+  }
+
+  /**
+   * Switch the active split type for a channel (to view alternative proposals)
+   * @param {number} channel
+   * @param {string} type - 'range', 'polyphony', or 'mixed'
+   */
+  switchSplitType(channel, type) {
+    const proposal = this.splitProposals[channel];
+    if (!proposal) return;
+
+    // Find the matching alternative (or it's the current best)
+    if (proposal.type === type) {
+      delete this.activeSplitType[channel];
+    } else {
+      const alt = (proposal.alternatives || []).find(a => a.type === type);
+      if (!alt) return;
+      this.activeSplitType[channel] = type;
+    }
+    this.refreshCurrentTab();
+  }
+
+  /**
+   * Get the currently active split proposal for a channel (best or user-selected alternative)
+   * @param {number} channel
+   * @returns {Object|null}
+   */
+  getActiveSplitProposal(channel) {
+    const proposal = this.splitProposals[channel];
+    if (!proposal) return null;
+
+    const activeType = this.activeSplitType[channel];
+    if (!activeType || proposal.type === activeType) return proposal;
+
+    const alt = (proposal.alternatives || []).find(a => a.type === activeType);
+    return alt || proposal;
   }
 
   /**

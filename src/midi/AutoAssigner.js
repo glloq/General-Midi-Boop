@@ -395,11 +395,11 @@ class AutoAssigner {
 
       if (sameType.length < 2) continue;
 
-      const proposal = this.splitter.evaluateSplit(analysis, sameType);
+      const proposal = this.splitter.evaluateAllSplits(analysis, sameType);
       if (proposal) {
         splitProposals[analysis.channel] = proposal;
         this.logger.info(
-          `Channel ${analysis.channel}: split proposed (${proposal.type}, quality=${proposal.quality}, ${proposal.segments.length} segments)`
+          `Channel ${analysis.channel}: split proposed (${proposal.type}, quality=${proposal.quality}, ${proposal.segments.length} segments, ${(proposal.alternatives || []).length} alternatives)`
         );
       }
     }

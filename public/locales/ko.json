@@ -862,5 +862,7 @@
   },
     "autoAssign.showAllToggle": "All",
     "autoAssign.showRoutedToggle": "Routed",
-    "autoAssign.unscored": "Not scored"
+    "autoAssign.unscored": "Not scored",
+    "autoAssign.splitAccepted": "Split applied",
+    "autoAssign.removeSplit": "Remove split"
 }
