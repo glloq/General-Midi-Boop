@@ -361,64 +361,16 @@
 
     AutoAssignUIMixin.renderTabContent = function(channel) {
     const ch = String(channel);
-    const options = this.suggestions[ch] || [];
     const isSkipped = this.skippedChannels.has(channel);
     const selectedInstrumentId = this.selectedAssignments[ch]?.instrumentId;
     const analysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[ch];
     const adaptation = this.adaptationSettings[ch] || {};
     const assignment = this.selectedAssignments[ch];
-    const score = assignment?.score || 0;
+    const isDrumChannel = channel === 9 || (analysis && analysis.estimatedType === 'drums');
+    const semitones = adaptation.transpositionSemitones || 0;
 
-    // Progressive disclosure: channels with score >= 80 show compact by default
-    const isWellAssigned = score >= 80 && !isSkipped && selectedInstrumentId;
-    const isExpanded = this.channelDetailsExpanded[ch] !== undefined
-      ? this.channelDetailsExpanded[ch]
-      : !isWellAssigned; // Auto-expand problematic channels
-
-    // Compact view for well-assigned channels
-    if (isWellAssigned && !isExpanded) {
-      const assignedName = assignment?.customName || assignment?.instrumentName || '—';
-      const compactStrategy = adaptation.strategy || 'ignore';
-
-      // Show adaptation result in compact view if a strategy is active
-      let compactResultHTML = '';
-      if (compactStrategy !== 'ignore') {
-        const result = this.calculateAdaptationResult(channel, compactStrategy);
-        if (result.totalNotes > 0) {
-          const playable = result.inRange + result.recovered;
-          const allOk = result.outOfRange === 0;
-          compactResultHTML = `<span class="aa-compact-adaptation ${allOk ? 'ok' : 'warning'}">${playable}/${result.totalNotes}</span>`;
-        }
-      }
-
-      return `
-        <div class="aa-tab-content">
-          <div class="aa-compact-summary">
-            <div class="aa-compact-info">
-              <span class="aa-compact-instrument">${escapeHtml(assignedName)}</span>
-              <span class="aa-compact-score ${this.getScoreClass(score)}">
-                ${this.getScoreStars(score)} ${score} — ${this.getScoreLabel(score)}
-              </span>
-              ${compactResultHTML}
-            </div>
-            <button class="aa-compact-expand" onclick="autoAssignModalInstance.toggleChannelDetails(${channel})">
-              ${_t('autoAssign.viewDetails')} &#9660;
-            </button>
-          </div>
-          ${this.renderChannelStats(channel, analysis)}
-        </div>
-      `;
-    }
-
-    // Channel stats section
+    // Channel stats
     const statsHTML = this.renderChannelStats(channel, analysis);
-
-    // Collapse button for expanded well-assigned channels
-    const collapseHTML = isWellAssigned ? `
-      <button class="aa-compact-collapse" onclick="autoAssignModalInstance.toggleChannelDetails(${channel})">
-        ${_t('autoAssign.hideSection')} &#9650;
-      </button>
-    ` : '';
 
     // Skip toggle
     const skipHTML = `
@@ -432,92 +384,129 @@
       </div>
     `;
 
-    if (options.length === 0) {
-      // Even with no recommended instruments, show low-score ones if available
-      const lowOptions = this.lowScoreSuggestions[ch] || [];
-      const showLow = this.showLowScores[ch] || false;
-      const fallbackHTML = lowOptions.length > 0 ? `
-        <div class="aa-low-scores-section">
-          <button class="aa-toggle-low-scores" aria-expanded="${showLow}" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
-            ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowOptions.length})
-          </button>
-          ${showLow ? `
-            <div class="aa-low-scores-list">
-              ${lowOptions.map((option, index) => {
-                return this.renderInstrumentOption(channel, option, index, selectedInstrumentId, true);
-              }).join('')}
-            </div>
-          ` : ''}
-        </div>
-      ` : '';
-
-      // Split proposal for channels with no single-instrument match
-      const splitHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
-
+    // Split channel — show split viz only
+    if (this.isSplitChannel(channel)) {
+      const splitProposalHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
       return `
         <div class="aa-tab-content">
           ${statsHTML}
           ${skipHTML}
-          ${splitHTML || `<p class="aa-no-compatible">${_t('autoAssign.noCompatible')}</p>`}
-          ${fallbackHTML}
+          ${splitProposalHTML}
         </div>
       `;
     }
 
-    // Instrument options
-    const optionsHTML = isSkipped ? '' : options.map((option, index) => {
-      return this.renderInstrumentOption(channel, option, index, selectedInstrumentId, false);
-    }).join('');
+    // Selected instrument info (or placeholder)
+    const instrumentInfoHTML = this.renderSelectedInstrumentInfo(channel);
 
-    // Low-score instruments (collapsible)
-    const lowScoreOptions = this.lowScoreSuggestions[ch] || [];
-    const showLow = this.showLowScores[ch] || false;
-    const lowScoreHTML = (!isSkipped && lowScoreOptions.length > 0) ? `
-      <div class="aa-low-scores-section">
-        <button class="aa-toggle-low-scores" aria-expanded="${showLow}" onclick="autoAssignModalInstance.toggleLowScores(${channel})">
-          ${showLow ? '&#9660;' : '&#9654;'} ${_t('autoAssign.showAllInstruments')} (${lowScoreOptions.length})
-        </button>
-        ${showLow ? `
-          <div class="aa-low-scores-list">
-            ${lowScoreOptions.map((option, index) => {
-              return this.renderInstrumentOption(channel, option, options.length + index, selectedInstrumentId, true);
-            }).join('')}
-          </div>
-        ` : ''}
-      </div>
-    ` : '';
-
-    // Adaptation controls (only if not skipped and instrument selected)
+    // Adaptation controls (only if instrument selected and not skipped)
     const adaptationHTML = (!isSkipped && selectedInstrumentId) ? this.renderAdaptationControls(channel, adaptation) : '';
 
-    // Note range piano roll visualization (only for non-drum channels with an instrument selected)
-    const isDrumChannel = channel === 9 || (analysis && analysis.estimatedType === 'drums');
-    const semitones = adaptation.transpositionSemitones || 0;
+    // Piano roll visualization (non-drum channels with instrument selected)
     const noteRangeVizHTML = (!isSkipped && !isDrumChannel && selectedInstrumentId && this.renderNoteRangeViz)
       ? this.renderNoteRangeViz(channel, analysis, assignment, semitones)
       : '';
 
-    // Drum mapping config section (only for channel 9 or percussion-type channels)
+    // Drum mapping (drum channels with instrument selected)
     const drumMappingHTML = (!isSkipped && isDrumChannel && selectedInstrumentId) ? this.renderDrumMappingSection(channel) : '';
 
-    // Split proposal (show if available and channel has suggestions)
+    // Split proposal (if available but not yet accepted)
     const splitProposalHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
 
     return `
       <div class="aa-tab-content">
-        ${collapseHTML}
         ${statsHTML}
         ${skipHTML}
-        ${this.isSplitChannel(channel) ? splitProposalHTML : `
-          <div class="aa-instruments-list">
-            ${optionsHTML}
+        ${instrumentInfoHTML}
+        ${adaptationHTML}
+        ${noteRangeVizHTML}
+        ${drumMappingHTML}
+        ${splitProposalHTML}
+      </div>
+    `;
+  }
+
+  /**
+   * Render selected instrument info card
+   */
+  AutoAssignUIMixin.renderSelectedInstrumentInfo = function(channel) {
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const isSkipped = this.skippedChannels.has(channel);
+
+    if (isSkipped) return '';
+
+    if (!assignment || !assignment.instrumentId) {
+      return `
+        <div class="aa-selected-instrument aa-selected-instrument-empty">
+          <p>${_t('autoAssign.overview.selectInstrumentHint')}</p>
+        </div>
+      `;
+    }
+
+    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+    const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
+    const compat = selectedOption?.compatibility;
+    const instrument = selectedOption?.instrument;
+    const score = assignment.score || 0;
+    const displayName = assignment.customName || assignment.instrumentName || '—';
+
+    // Score breakdown bars
+    const scoreBreakdown = compat?.scoreBreakdown;
+    const breakdownHTML = scoreBreakdown ? `
+      <div class="aa-score-breakdown">
+        ${this.renderScoreBar('autoAssign.scoreProgram', scoreBreakdown.program)}
+        ${this.renderScoreBar('autoAssign.scoreNoteRange', scoreBreakdown.noteRange)}
+        ${this.renderScoreBar('autoAssign.scorePolyphony', scoreBreakdown.polyphony)}
+        ${this.renderScoreBar('autoAssign.scoreCCSupport', scoreBreakdown.ccSupport)}
+        ${this.renderScoreBar('autoAssign.scoreType', scoreBreakdown.instrumentType)}
+        ${scoreBreakdown.percussion && scoreBreakdown.percussion.max !== 0 ? this.renderScoreBar('autoAssign.scorePercussion', scoreBreakdown.percussion) : ''}
+      </div>
+    ` : '';
+
+    // Compatibility info and issues
+    const infoHTML = compat?.info ? `<div class="aa-instrument-compat-info">${this.formatInfo(compat.info)}</div>` : '';
+    const issuesHTML = compat?.issues?.length > 0 ? `
+      <div class="aa-instrument-issues">
+        ${compat.issues.map(i => escapeHtml(i.message || i)).join(' &bull; ')}
+      </div>
+    ` : '';
+
+    // Instrument details
+    const detailParts = [];
+    if (instrument) {
+      detailParts.push(this.formatInstrumentInfo(instrument, compat || {}));
+    }
+    const detailHTML = detailParts.length > 0 ? `<div class="aa-instrument-details">${detailParts.join('')}</div>` : '';
+
+    // Duplicate warning
+    const otherChannels = this.getOtherChannelsUsingInstrument(assignment.instrumentId, channel);
+    const duplicateWarning = otherChannels.length > 0
+      ? `<span class="aa-duplicate-badge" title="${_t('autoAssign.duplicateInstrumentTip', {channels: otherChannels.join(', ')})}">${_t('autoAssign.duplicateInstrument', {channels: otherChannels.join(', ')})}</span>`
+      : '';
+
+    // Preview button
+    const previewHTML = this.midiData ? `
+      <button class="btn aa-btn-sm aa-inst-preview" onclick="event.stopPropagation(); autoAssignModalInstance.previewChannel(${channel})" title="${_t('autoAssign.previewChannelTip')}">
+        &#9654; ${_t('autoAssign.previewChannel', {num: channel + 1})}
+      </button>
+    ` : '';
+
+    return `
+      <div class="aa-selected-instrument">
+        <div class="aa-selected-instrument-header">
+          <div class="aa-selected-instrument-name">${escapeHtml(displayName)} ${duplicateWarning}</div>
+          <div class="aa-selected-instrument-score">
+            <span class="aa-score-value ${this.getScoreClass(score)}">${score}</span>
+            <span class="aa-score-label ${this.getScoreClass(score)}">${this.getScoreLabel(score)}</span>
+            <span class="aa-score-stars">${this.getScoreStars(score)}</span>
           </div>
-          ${lowScoreHTML}
-          ${adaptationHTML}
-          ${noteRangeVizHTML}
-          ${drumMappingHTML}
-          ${splitProposalHTML}
-        `}
+          ${previewHTML}
+        </div>
+        ${detailHTML}
+        ${infoHTML}
+        ${issuesHTML}
+        ${breakdownHTML}
       </div>
     `;
   }

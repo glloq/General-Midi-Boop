@@ -1027,6 +1027,7 @@
         "unskipChannel": "Unskip",
         "overview": {
             "selectChannelHint": "Select a channel above to see available instruments",
+            "selectInstrumentHint": "Select an instrument in the bar above to see compatibility details",
             "adaptation": "Adaptation",
             "skip": "Skip",
             "reactivate": "Reactivate",

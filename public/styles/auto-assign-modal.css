@@ -2812,7 +2812,57 @@ body.dark-mode .aa-inline-preview:hover {
   align-items: center;
 }
 
-/* --- Channel Cards --- */
+/* --- Selected Instrument Info Card --- */
+.aa-selected-instrument {
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 10px 0;
+}
+
+.aa-selected-instrument-empty {
+  text-align: center;
+  color: var(--text-muted, #999);
+  font-style: italic;
+  padding: 24px 16px;
+  border-style: dashed;
+}
+
+.aa-selected-instrument-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.aa-selected-instrument-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #333);
+}
+
+.aa-selected-instrument-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aa-inst-preview {
+  margin-left: auto;
+}
+
+body.dark-mode .aa-selected-instrument {
+  background: var(--bg-tertiary, #2d3748);
+  border-color: var(--border-color, #4a5568);
+}
+
+body.dark-mode .aa-selected-instrument-empty {
+  color: var(--text-muted, #718096);
+}
+
+/* --- Channel Cards (legacy, kept for reference) --- */
 .aa-overview-cards {
   display: flex;
   flex-direction: column;

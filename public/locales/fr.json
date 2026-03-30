@@ -1027,6 +1027,7 @@
         "unskipChannel": "Réactiver",
         "overview": {
             "selectChannelHint": "Sélectionnez un canal ci-dessus pour voir les instruments disponibles",
+            "selectInstrumentHint": "Sélectionnez un instrument dans la barre ci-dessus pour voir les détails de compatibilité",
             "adaptation": "Adaptation",
             "skip": "Ignorer",
             "reactivate": "Réactiver",

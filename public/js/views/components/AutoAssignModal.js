@@ -37,7 +37,6 @@ class AutoAssignModal {
     this.instrumentList = null; // List of all instruments with info
     this.splitSelectionMode = null; // Channel in manual split mode (or null)
     this.manualSplitSelection = {}; // { channel: Set<instrumentId> }
-    this.channelDetailsExpanded = {}; // Per-channel toggle for progressive disclosure
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.lowScoreSuggestions = {}; // Low-score instruments per channel
     this.showLowScores = {}; // Per-channel toggle for showing low scores
@@ -562,17 +561,6 @@ class AutoAssignModal {
     `;
   }
 
-  /**
-   * Render content for a single channel tab
-   */
-  /**
-   * Toggle expanded/collapsed state for a channel's detail view
-   */
-  toggleChannelDetails(channel) {
-    const ch = String(channel);
-    this.channelDetailsExpanded[ch] = !this.channelDetailsExpanded[ch];
-    this.refreshCurrentTab();
-  }
 
   // ========================================================================
   // INSTRUMENT OPTION RENDERING
