@@ -32,13 +32,11 @@ class AutoAssignModal {
     this._isDirty = false; // Tracks unsaved modifications
     this.activeTab = null; // Currently active channel tab
     this.channels = []; // Sorted channel list
-    this.viewMode = 'overview'; // 'overview' or 'detail'
-    this.activeChannel = null; // Selected channel in overview (for instrument bar)
+    this.activeChannel = null; // Selected channel (for instrument bar + main content)
     this.matrixScores = null; // Pre-computed scores { channel: { instrumentId: { score, ... } } }
     this.instrumentList = null; // List of all instruments with info
     this.splitSelectionMode = null; // Channel in manual split mode (or null)
     this.manualSplitSelection = {}; // { channel: Set<instrumentId> }
-    this.adaptationExpanded = {}; // Per-channel toggle for adaptation section in overview cards
     this.channelDetailsExpanded = {}; // Per-channel toggle for progressive disclosure
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.lowScoreSuggestions = {}; // Low-score instruments per channel
@@ -397,22 +395,6 @@ class AutoAssignModal {
     this.modal = document.getElementById('autoAssignModal');
   }
 
-  /**
-   * Switch between 'overview' and 'detail' view modes
-   */
-  setViewMode(mode) {
-    this.viewMode = mode;
-    this.showTabbedUI();
-  }
-
-  /**
-   * Navigate from overview to detail view for a specific channel
-   */
-  overviewGoToChannel(channel) {
-    this.activeTab = channel;
-    this.viewMode = 'detail';
-    this.showTabbedUI();
-  }
 
   // ========================================================================
   // OVERVIEW INTERACTIONS
@@ -424,23 +406,7 @@ class AutoAssignModal {
   selectOverviewChannel(channel) {
     this.activeChannel = channel;
     this.activeTab = channel;
-    // Update channel bar highlights
-    if (this.modal) {
-      this.modal.querySelectorAll('.aa-chbar-btn').forEach(el => {
-        el.classList.toggle('active', parseInt(el.dataset.channel) === channel);
-      });
-    }
-    // Update instrument bar
-    const instBar = document.getElementById('aaInstrumentBar');
-    if (instBar) {
-      instBar.innerHTML = this.renderInstrumentBar(channel);
-    }
-    // Update card highlights
-    if (this.modal) {
-      this.modal.querySelectorAll('.aa-channel-card').forEach(el => {
-        el.classList.toggle('selected', parseInt(el.dataset.channel) === channel);
-      });
-    }
+    this.refreshMainContent();
   }
 
   /**
@@ -448,10 +414,9 @@ class AutoAssignModal {
    */
   assignFromOverview(channel, instrumentId) {
     this.activeChannel = channel;
+    this.activeTab = channel;
     // Use existing selectInstrument (from AutoAssignActionsMixin)
     this.selectInstrument(channel, instrumentId);
-    // Refresh overview
-    this.refreshOverview();
   }
 
   /**
@@ -541,41 +506,40 @@ class AutoAssignModal {
     this.splitSelectionMode = null;
     delete this.manualSplitSelection[channel];
     this._isDirty = true;
-    this.refreshOverview();
+    this.refreshMainContent();
   }
 
-  /**
-   * Toggle adaptation expanded/collapsed for a channel card in overview
-   */
-  toggleAdaptationExpanded(channel) {
-    const ch = String(channel);
-    this.adaptationExpanded[ch] = !this.adaptationExpanded[ch];
-    // Refresh just the card
-    const card = this.modal?.querySelector(`.aa-channel-card[data-channel="${channel}"]`);
-    if (card) {
-      card.outerHTML = this.renderChannelCard(channel);
-    }
-  }
 
   /**
-   * Refresh the overview view (cards + bars)
+   * Refresh the main content (channel detail + bars + header)
    */
-  refreshOverview() {
-    if (!this.modal || this.viewMode !== 'overview') return;
+  refreshMainContent() {
+    if (!this.modal) return;
+    const ch = this.activeChannel != null ? this.activeChannel : this.activeTab;
+    // Update main content
     const content = document.getElementById('aaTabContent');
     if (content) {
-      content.innerHTML = this.renderOverviewCards();
+      content.innerHTML = this.renderTabContent(ch);
     }
+    // Update sticky header
+    this.refreshStickyHeader();
+    // Update instrument bar
     const instBar = document.getElementById('aaInstrumentBar');
-    if (instBar && this.activeChannel !== null) {
-      instBar.innerHTML = this.renderInstrumentBar(this.activeChannel);
+    if (instBar && ch !== null) {
+      instBar.innerHTML = this.renderInstrumentBar(ch);
     }
-    // Update channel bar
+    // Update channel bar (scores/badges)
     const chBar = document.getElementById('aaChannelBar');
     if (chBar) {
       chBar.innerHTML = this.renderChannelBar();
     }
-    this.refreshTabBar();
+    // Update range bar
+    const rangeBar = document.getElementById('aaRangeBar');
+    if (rangeBar) {
+      rangeBar.innerHTML = this.renderRangeBar(ch);
+    }
+    // Update preview buttons
+    this.updatePreviewButton(ch);
   }
 
   /**
@@ -837,15 +801,7 @@ class AutoAssignModal {
    * Refresh current tab content without full re-render
    */
   refreshCurrentTab() {
-    if (this.viewMode === 'overview') {
-      this.refreshOverview();
-      return;
-    }
-    this.refreshStickyHeader();
-    const content = document.getElementById('aaTabContent');
-    if (content) {
-      content.innerHTML = this.renderTabContent(this.activeTab);
-    }
+    this.refreshMainContent();
   }
 
   /**
