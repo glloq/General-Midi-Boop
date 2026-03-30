@@ -344,6 +344,7 @@ class AutoAssignModal {
       }
 
       this.activeTab = parseInt(this.channels[0]);
+      this.activeChannel = parseInt(this.channels[0]);
       this.showTabbedUI();
     } catch (error) {
       this.showError(error.message || _t('autoAssign.generateFailed'));
@@ -397,7 +398,7 @@ class AutoAssignModal {
   }
 
   /**
-   * Switch between 'matrix', 'overview' and 'detail' view modes
+   * Switch between 'overview' and 'detail' view modes
    */
   setViewMode(mode) {
     this.viewMode = mode;
@@ -405,7 +406,7 @@ class AutoAssignModal {
   }
 
   /**
-   * Navigate from overview/matrix to detail view for a specific channel
+   * Navigate from overview to detail view for a specific channel
    */
   overviewGoToChannel(channel) {
     this.activeTab = channel;
