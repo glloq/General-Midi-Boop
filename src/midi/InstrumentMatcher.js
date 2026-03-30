@@ -198,16 +198,32 @@ class InstrumentMatcher {
     // Compatibilite = notes ET polyphonie ET percussion doivent etre compatibles
     const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
 
-    // Build score breakdown for UI detail display (cap each sub-score at its max)
-    const capScore = (val, max) => Math.min(Math.round(val), max);
-    const scoreBreakdown = {
-      program: { score: capScore(programScore.score, this.config.getWeight('programMatch')), max: this.config.getWeight('programMatch') },
-      noteRange: { score: capScore(noteScore.score, this.config.getWeight('noteRange')), max: this.config.getWeight('noteRange') },
-      polyphony: { score: capScore(polyScore.score, this.config.getWeight('polyphony')), max: this.config.getWeight('polyphony') },
-      ccSupport: { score: capScore(ccScore.score, this.config.getWeight('ccSupport')), max: this.config.getWeight('ccSupport') },
-      instrumentType: { score: capScore(typeScore.score, this.config.getWeight('instrumentType')), max: this.config.getWeight('instrumentType') },
-      percussion: { score: Math.round(percussionPenalty), max: isDrumChannel ? this.config.getPercussionValue('drumChannelDrumBonus') : 0 }
-    };
+    // Build score breakdown for UI detail display
+    // For drum channels, show reweighted scores to match the final score
+    let scoreBreakdown;
+    if (isDrumChannel) {
+      const std = this.config.weights;
+      const drum = this.config.percussion.drumChannelWeights;
+      const safeRatioBreakdown = (subScore, stdWeight, drumWeight) =>
+        stdWeight > 0 ? (subScore / stdWeight) * drumWeight : 0;
+      scoreBreakdown = {
+        program: { score: Math.round(safeRatioBreakdown(programScore.score, std.programMatch, drum.programMatch)), max: drum.programMatch },
+        noteRange: { score: Math.round(safeRatioBreakdown(noteScore.score, std.noteRange, drum.noteRange)), max: drum.noteRange },
+        polyphony: { score: Math.round(safeRatioBreakdown(polyScore.score, std.polyphony, drum.polyphony)), max: drum.polyphony },
+        ccSupport: { score: Math.round(safeRatioBreakdown(ccScore.score, std.ccSupport, drum.ccSupport)), max: drum.ccSupport },
+        instrumentType: { score: Math.round(safeRatioBreakdown(typeScore.score, std.instrumentType, drum.instrumentType)), max: drum.instrumentType },
+        percussion: { score: Math.round(percussionPenalty), max: this.config.getPercussionValue('drumChannelDrumBonus') }
+      };
+    } else {
+      scoreBreakdown = {
+        program: { score: Math.round(programScore.score), max: this.config.getWeight('programMatch') },
+        noteRange: { score: Math.round(noteScore.score), max: this.config.getWeight('noteRange') },
+        polyphony: { score: Math.round(polyScore.score), max: this.config.getWeight('polyphony') },
+        ccSupport: { score: Math.round(ccScore.score), max: this.config.getWeight('ccSupport') },
+        instrumentType: { score: Math.round(typeScore.score), max: this.config.getWeight('instrumentType') },
+        percussion: { score: 0, max: 0 }
+      };
+    }
 
     return {
       score: Math.min(100, Math.max(0, Math.round(score))),
