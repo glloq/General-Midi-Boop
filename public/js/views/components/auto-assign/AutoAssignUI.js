@@ -18,44 +18,8 @@
       document.removeEventListener('keydown', this._escHandler);
     }
 
-    const tabsHTML = this.channels.map(ch => {
-      const channel = parseInt(ch);
-      const isActive = channel === this.activeTab;
-      const isSkipped = this.skippedChannels.has(channel);
-      const isSplit = this.isSplitChannel(channel);
-      const assignment = this.selectedAssignments[ch];
-      const score = isSplit ? (this.splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
-      const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
-      const gmName = channel === 9
-        ? _t('autoAssign.drums')
-        : (this.getGmProgramName(analysis?.primaryProgram) || '');
-      // Truncate long names for tab display
-      const gmShort = gmName.length > 14 ? gmName.slice(0, 13) + '…' : gmName;
-
-      return `
-        <button class="aa-tab ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''} ${isSplit ? 'split' : ''}"
-                role="tab"
-                aria-selected="${isActive}"
-                aria-controls="aaTabContent"
-                tabindex="${isActive ? '0' : '-1'}"
-                data-channel="${channel}"
-                onclick="autoAssignModalInstance.switchTab(${channel})"
-                title="${escapeHtml(gmName)}">
-          <div class="aa-tab-main">
-            <span class="aa-tab-label">Ch ${channel + 1}</span>
-            ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
-            ${isSplit ? '<span class="aa-tab-split">SP</span>' : ''}
-            ${isSkipped
-              ? '<span class="aa-tab-status skipped">—</span>'
-              : `<span class="aa-tab-status ${this.getScoreClass(score)}">${score}</span>`
-            }
-          </div>
-          ${gmShort ? `<div class="aa-tab-gm">${escapeHtml(gmShort)}</div>` : ''}
-        </button>
-      `;
-    }).join('');
-
     const activeCount = this.channels.length - this.skippedChannels.size;
+    const activeChannel = this.activeChannel != null ? this.activeChannel : this.activeTab;
 
     const html = `
       <div class="modal-overlay auto-assign-modal" id="autoAssignModal" role="dialog" aria-modal="true" aria-label="${_t('autoAssign.title')}">
@@ -72,65 +36,42 @@
                     ${_t('autoAssign.channelsWillBeAssigned', {active: activeCount, total: this.channels.length})}
                   </span>
                 </div>
-                <div class="aa-view-toggle">
-                  <button class="aa-view-btn ${this.viewMode === 'overview' ? 'active' : ''}"
-                          onclick="autoAssignModalInstance.setViewMode('overview')">
-                    ${_t('autoAssign.overviewTitle')}
-                  </button>
-                  <button class="aa-view-btn ${this.viewMode === 'detail' ? 'active' : ''}"
-                          onclick="autoAssignModalInstance.setViewMode('detail')">
-                    ${_t('autoAssign.overviewDetail')}
-                  </button>
-                </div>
               </div>
               <div class="aa-header-range" id="aaRangeBar">
-                ${this.renderRangeBar(this.activeTab)}
+                ${this.renderRangeBar(activeChannel)}
               </div>
             </div>
             <button class="modal-close" onclick="autoAssignModalInstance.close()" aria-label="${_t('common.close')}">&times;</button>
           </div>
 
-          ${this.viewMode === 'overview' ? `
-            <div class="aa-bars-container">
-              <div class="aa-channel-bar" id="aaChannelBar">
-                ${this.renderChannelBar()}
-              </div>
-              <div class="aa-instrument-bar" id="aaInstrumentBar">
-                ${this.activeChannel !== null ? this.renderInstrumentBar(this.activeChannel) : `<div class="aa-instbar-placeholder">${_t('autoAssign.overview.selectChannelHint')}</div>`}
-              </div>
+          <div class="aa-bars-container">
+            <div class="aa-channel-bar" id="aaChannelBar">
+              ${this.renderChannelBar()}
             </div>
-            <div class="modal-body aa-body" id="aaTabContent" role="region" aria-live="polite">
-              ${this.renderOverviewCards()}
+            <div class="aa-instrument-bar" id="aaInstrumentBar">
+              ${activeChannel !== null ? this.renderInstrumentBar(activeChannel) : `<div class="aa-instbar-placeholder">${_t('autoAssign.overview.selectChannelHint')}</div>`}
             </div>
-          ` : this.viewMode === 'detail' ? `
-            <div class="aa-tabs-bar" role="tablist" aria-label="${_t('autoAssign.title')}">
-              ${tabsHTML}
-            </div>
+          </div>
 
-            <div class="aa-channel-sticky" id="aaChannelSticky">
-              ${this.renderChannelStickyHeader(this.activeTab)}
-            </div>
+          <div class="aa-channel-sticky" id="aaChannelSticky">
+            ${this.renderChannelStickyHeader(activeChannel)}
+          </div>
 
-            <div class="modal-body aa-body" id="aaTabContent" role="tabpanel" aria-live="polite">
-              ${this.renderTabContent(this.activeTab)}
-            </div>
-          ` : `
-            <div class="modal-body aa-body" id="aaTabContent" role="region" aria-live="polite">
-              ${this.renderOverviewTable()}
-            </div>
-          `}
+          <div class="modal-body aa-body" id="aaTabContent" role="region" aria-live="polite">
+            ${this.renderTabContent(activeChannel)}
+          </div>
 
           <div class="modal-footer aa-footer">
             <button class="btn" onclick="autoAssignModalInstance.close()">
               ${_t('common.cancel')}
             </button>
             <div class="aa-footer-center">
-              ${this.viewMode === 'detail' && this.midiData ? `
-                <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${this.activeTab})" title="${_t('autoAssign.previewOriginalTip')}">
+              ${this.midiData ? `
+                <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${activeChannel})" title="${_t('autoAssign.previewOriginalTip')}">
                   ${_t('autoAssign.previewOriginal')}
                 </button>
-                <button class="btn" onclick="autoAssignModalInstance.previewChannel(${this.activeTab})" title="${_t('autoAssign.previewChannelTip')}">
-                  ${_t('autoAssign.previewChannel', {num: this.activeTab + 1})}
+                <button class="btn" onclick="autoAssignModalInstance.previewChannel(${activeChannel})" title="${_t('autoAssign.previewChannelTip')}">
+                  ${_t('autoAssign.previewChannel', {num: activeChannel + 1})}
                 </button>
                 <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
                   ${_t('autoAssign.stop')}
@@ -165,12 +106,7 @@
 
     this._escHandler = (e) => {
       if (e.key === 'Escape') {
-        if (this.viewMode === 'detail') {
-          e.preventDefault();
-          this.setViewMode('overview');
-        } else {
-          this.close();
-        }
+        this.close();
       }
     };
     document.addEventListener('keydown', this._escHandler);
@@ -306,8 +242,8 @@
       return `
         <tr class="aa-overview-row ${isSkipped ? 'skipped' : ''} ${statusClass}"
             tabindex="0" role="button"
-            onclick="autoAssignModalInstance.overviewGoToChannel(${channel})"
-            onkeydown="if(event.key==='Enter')autoAssignModalInstance.overviewGoToChannel(${channel})">
+            onclick="autoAssignModalInstance.selectOverviewChannel(${channel})"
+            onkeydown="if(event.key==='Enter')autoAssignModalInstance.selectOverviewChannel(${channel})">
           <td class="aa-ov-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''} ${splitBadge}</td>
           <td class="aa-ov-original">${escapeHtml(gmName)}</td>
           <td class="aa-ov-assigned">${isSkipped ? `<span class="aa-ov-skipped">${statusLabel}</span>` : `${escapeHtml(assignedName)} ${strategyBadge}${
@@ -351,7 +287,7 @@
     const splitBannerHTML = pendingSplitChannels.length > 0 ? `
       <div class="aa-overview-banner split">
         <span>&#8645; ${_t('autoAssign.splitAvailableBanner', {count: pendingSplitChannels.length})}</span>
-        <button class="btn aa-btn-sm" onclick="autoAssignModalInstance.overviewGoToChannel(${pendingSplitChannels[0]})">
+        <button class="btn aa-btn-sm" onclick="autoAssignModalInstance.selectOverviewChannel(${pendingSplitChannels[0]})">
           ${_t('autoAssign.reviewSplits')}
         </button>
       </div>
@@ -848,177 +784,6 @@
     `;
   };
 
-  // ========================================================================
-  // OVERVIEW — CHANNEL CARDS
-  // ========================================================================
-
-  AutoAssignUIMixin.renderOverviewCards = function() {
-    const activeCount = this.channels.length - this.skippedChannels.size;
-    const allSkipped = this.channels.every(ch => this.skippedChannels.has(parseInt(ch)));
-    const allGood = this.channels.every(ch => {
-      const channel = parseInt(ch);
-      return this.skippedChannels.has(channel) || (this.selectedAssignments[ch]?.score || 0) >= 70;
-    });
-
-    let bannersHTML = '';
-    if (allSkipped) {
-      bannersHTML = `<div class="aa-overview-banner warning">${_t('autoAssign.allChannelsSkipped')}</div>`;
-    } else if (allGood) {
-      bannersHTML = `<div class="aa-overview-banner ok">${_t('autoAssign.overviewAllGood')}</div>`;
-    }
-
-    const pendingSplitChannels = Object.keys(this.splitProposals).map(Number).filter(ch => !this.splitChannels.has(ch));
-    if (pendingSplitChannels.length > 0) {
-      bannersHTML += `
-        <div class="aa-overview-banner split">
-          <span>&#8645; ${_t('autoAssign.splitAvailableBanner', {count: pendingSplitChannels.length})}</span>
-        </div>
-      `;
-    }
-
-    const cardsHTML = this.channels.map(ch => this.renderChannelCard(parseInt(ch))).join('');
-
-    return `
-      <div class="aa-overview-cards">
-        ${bannersHTML}
-        ${cardsHTML}
-      </div>
-    `;
-  };
-
-  AutoAssignUIMixin.renderChannelCard = function(channel) {
-    const ch = String(channel);
-    const isSkipped = this.skippedChannels.has(channel);
-    const isSplit = this.isSplitChannel(channel);
-    const isActive = channel === this.activeChannel;
-    const assignment = this.selectedAssignments[ch];
-    const score = isSplit ? (this.splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
-    const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
-    const adaptation = this.adaptationSettings[ch] || {};
-    const strategy = adaptation.strategy || 'ignore';
-    const isDrumChannel = channel === 9 || (analysis?.estimatedType === 'drums');
-
-    const gmName = channel === 9
-      ? _t('autoAssign.drums')
-      : (this.getGmProgramName(analysis?.primaryProgram) || '—');
-    const typeIcon = analysis?.estimatedType ? this.getTypeIcon(analysis.estimatedType) : '';
-
-    // Skip badge
-    if (isSkipped) {
-      return `
-        <div class="aa-channel-card skipped" data-channel="${channel}"
-             onclick="autoAssignModalInstance.selectOverviewChannel(${channel})">
-          <div class="aa-card-header">
-            <span class="aa-card-ch">${typeIcon} Ch ${channel + 1}</span>
-            <span class="aa-card-gm">${escapeHtml(gmName)}</span>
-            <span class="aa-card-skip-label">${_t('autoAssign.skippedLabel')}</span>
-            <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.toggleChannel(${channel}, true)">
-              ${_t('autoAssign.overview.reactivate')}
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    // Split card
-    if (isSplit) {
-      const splitProposal = this.splitAssignments[channel];
-      const splitVizHTML = this.renderSplitProposal ? this.renderSplitProposal(channel) : '';
-      return `
-        <div class="aa-channel-card split ${isActive ? 'selected' : ''}" data-channel="${channel}"
-             onclick="autoAssignModalInstance.selectOverviewChannel(${channel})">
-          <div class="aa-card-header">
-            <span class="aa-card-ch">${typeIcon} Ch ${channel + 1}</span>
-            <span class="aa-card-gm">${escapeHtml(gmName)}</span>
-            <span class="aa-tab-split">SPLIT</span>
-            <span class="aa-card-score ${this.getScoreClass(score)}">${this.getScoreStars(score)} ${score}</span>
-            <div class="aa-card-actions">
-              <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.overviewGoToChannel(${channel})">
-                ${_t('autoAssign.viewDetails')}
-              </button>
-            </div>
-          </div>
-          ${splitVizHTML}
-        </div>
-      `;
-    }
-
-    // Normal card (1→1 routing)
-    const assignedName = assignment?.customName || assignment?.instrumentName || '—';
-    const hasSplitProposal = !!this.splitProposals[channel];
-
-    // Range bar
-    const rangeBarHTML = this.renderRangeBar ? this.renderRangeBar(channel) : '';
-
-    // Adaptation badge (compact) or expanded section
-    const isExpanded = this.adaptationExpanded[ch] || false;
-    const strategyBadgeMap = { transpose: 'T', octaveWrap: 'W', suppress: 'S' };
-    const strategyBadge = strategy !== 'ignore' && strategyBadgeMap[strategy]
-      ? `<span class="aa-ov-strategy-badge">${strategyBadgeMap[strategy]}</span>` : '';
-
-    let adaptCompactHTML = '';
-    if (!isDrumChannel && strategy !== 'ignore') {
-      const result = this.calculateAdaptationResult(channel, strategy);
-      if (result.totalNotes > 0) {
-        const playable = result.inRange + result.recovered;
-        const allOk = result.outOfRange === 0;
-        adaptCompactHTML = `<span class="aa-card-adapt-result ${allOk ? 'ok' : 'warning'}">${playable}/${result.totalNotes}</span>`;
-      }
-    }
-
-    // Expanded adaptation section
-    let adaptExpandedHTML = '';
-    if (isExpanded && assignment?.instrumentId) {
-      adaptExpandedHTML = this.renderAdaptationControls(channel, adaptation);
-    }
-
-    // Preview button
-    const previewHTML = this.midiData ? `
-      <button class="btn aa-btn-sm aa-card-preview" onclick="event.stopPropagation(); autoAssignModalInstance.previewChannel(${channel})"
-              title="${_t('autoAssign.previewChannelTip')}">&#9654;</button>
-    ` : '';
-
-    // Split proposal banner (if available but not accepted)
-    const splitBannerHTML = (hasSplitProposal && !isSplit) ? `
-      <div class="aa-card-split-banner">
-        <span>&#8645; ${_t('autoAssign.splitProposed')}</span>
-        <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.acceptSplit(${channel})">
-          ${_t('autoAssign.acceptSplit')}
-        </button>
-      </div>
-    ` : '';
-
-    return `
-      <div class="aa-channel-card ${isActive ? 'selected' : ''}" data-channel="${channel}"
-           onclick="autoAssignModalInstance.selectOverviewChannel(${channel})">
-        <div class="aa-card-header">
-          <span class="aa-card-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="aa-tab-drum">DR</span>' : ''}</span>
-          <span class="aa-card-gm">${escapeHtml(gmName)}</span>
-          <span class="aa-card-assigned">${escapeHtml(assignedName)}</span>
-          <span class="aa-card-score ${this.getScoreClass(score)}">${this.getScoreStars(score)} ${score}</span>
-          ${strategyBadge}
-          ${adaptCompactHTML}
-          ${previewHTML}
-          <div class="aa-card-actions">
-            ${assignment?.instrumentId ? `
-              <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.toggleAdaptationExpanded(${channel})">
-                ${isExpanded ? _t('autoAssign.hideSection') : _t('autoAssign.overview.adaptation')} ${isExpanded ? '▲' : '▼'}
-              </button>
-            ` : ''}
-            <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.overviewGoToChannel(${channel})">
-              ${_t('autoAssign.viewDetails')}
-            </button>
-            <button class="btn aa-btn-sm" onclick="event.stopPropagation(); autoAssignModalInstance.toggleChannel(${channel}, false)">
-              ${_t('autoAssign.overview.skip')}
-            </button>
-          </div>
-        </div>
-        ${rangeBarHTML}
-        ${adaptExpandedHTML}
-        ${splitBannerHTML}
-      </div>
-    `;
-  };
 
     if (typeof window !== 'undefined') window.AutoAssignUIMixin = AutoAssignUIMixin;
 })();
