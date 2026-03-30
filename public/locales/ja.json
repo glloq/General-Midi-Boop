@@ -555,7 +555,8 @@
     "skippedCount": "{count}チャンネルスキップ",
     "notesTransposed": "ノート転調済み",
     "channelsSkipped": "チャンネルスキップ",
-    "channelsWillBeAssigned": "{total}チャンネル中{active}チャンネルが割り当てられます"
+    "channelsWillBeAssigned": "{total}チャンネル中{active}チャンネルが割り当てられます",
+    "instrument": "Instrument"
   },
   "instruments": {
     "categories": {

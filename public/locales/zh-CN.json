@@ -555,7 +555,8 @@
     "skippedCount": "{count}个通道已跳过",
     "notesTransposed": "个音符已移调",
     "channelsSkipped": "个通道已跳过",
-    "channelsWillBeAssigned": "{total}个通道中的{active}个将被分配"
+    "channelsWillBeAssigned": "{total}个通道中的{active}个将被分配",
+    "instrument": "Instrument"
   },
   "instruments": {
     "categories": {

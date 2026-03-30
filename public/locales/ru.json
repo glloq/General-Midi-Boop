@@ -555,7 +555,8 @@
     "skippedCount": "{count} канал(ов) пропущено",
     "notesTransposed": "нот(а) транспонировано",
     "channelsSkipped": "канал(ов) пропущено",
-    "channelsWillBeAssigned": "{active} из {total} каналов будут назначены"
+    "channelsWillBeAssigned": "{active} из {total} каналов будут назначены",
+    "instrument": "Instrument"
   },
   "instruments": {
     "categories": {

@@ -172,8 +172,6 @@
       }
     }
 
-    const transpoLabel = semitones ? ` (${semitones > 0 ? '+' : ''}${semitones}st)` : '';
-
     return `<div class="aa-range-bar-container">
       <div class="aa-range-bar">
         <div class="aa-range-instrument" style="left:${instLeft}%;width:${instWidth}%"
@@ -182,8 +180,8 @@
              title="${_t('autoAssign.channelNotes')}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
       </div>
       <div class="aa-range-legend">
-        <span class="aa-range-legend-item"><span class="aa-rleg-color inst"></span>${this.midiNoteToName(instMin)}-${this.midiNoteToName(instMax)}</span>
-        <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}${escapeHtml(transpoLabel)}</span>
+        <span class="aa-range-legend-item"><span class="aa-rleg-color inst"></span>${_t('autoAssign.instrument')}</span>
+        <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${_t('autoAssign.channel')}</span>
         ${summaryHTML}
       </div>
     </div>`;

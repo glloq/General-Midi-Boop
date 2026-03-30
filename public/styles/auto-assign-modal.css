@@ -400,18 +400,6 @@ body.dark-mode .aa-confirm-cancel:hover {
 }
 
 /* ==========================================================================
-   Sticky Channel Header (stays visible on scroll)
-   ========================================================================== */
-
-.aa-channel-sticky {
-  padding: 3px 14px 2px;
-  background: var(--bg-primary, #fafafa);
-  border-bottom: 1px solid var(--border-light, #e8e8e8);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-/* ==========================================================================
    Tab Content Area
    ========================================================================== */
 
@@ -865,11 +853,6 @@ body.dark-mode .aa-tab.active .aa-tab-gm {
 body.dark-mode .auto-assign-modal .aa-body {
   background: #1e1e2e;
   color: #e0e0e0;
-}
-
-body.dark-mode .aa-channel-sticky {
-  background: #1e1e2e;
-  border-bottom-color: #333;
 }
 
 body.dark-mode .aa-channel-header h3 {

@@ -1035,7 +1035,8 @@
             "split": "Split",
             "validateSplit": "Valider le split",
             "splitMode": "Mode split — sélectionnez 2+ instruments"
-        }
+        },
+        "instrument": "Instrument"
     },
     "instrumentCapabilities": {
         "title": "Compléter les capacités des instruments",

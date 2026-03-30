@@ -796,10 +796,6 @@ class AutoAssignModal {
    * Refresh sticky channel header (range bar, instrument info)
    */
   refreshStickyHeader() {
-    const sticky = document.getElementById('aaChannelSticky');
-    if (sticky) {
-      sticky.innerHTML = this.renderChannelStickyHeader(this.activeTab);
-    }
     const rangeBar = document.getElementById('aaRangeBar');
     if (rangeBar) {
       rangeBar.innerHTML = this.renderRangeBar(this.activeTab);

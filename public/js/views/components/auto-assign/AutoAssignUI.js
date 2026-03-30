@@ -53,10 +53,6 @@
             </div>
           </div>
 
-          <div class="aa-channel-sticky" id="aaChannelSticky">
-            ${this.renderChannelStickyHeader(activeChannel)}
-          </div>
-
           <div class="modal-body aa-body" id="aaTabContent" role="region" aria-live="polite">
             ${this.renderTabContent(activeChannel)}
           </div>
