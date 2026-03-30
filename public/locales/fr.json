@@ -1024,7 +1024,17 @@
             "settingsNotAvailable": "Paramètres d'instrument non disponibles dans ce contexte"
         },
         "skipChannel": "Ignorer",
-        "unskipChannel": "Réactiver"
+        "unskipChannel": "Réactiver",
+        "overview": {
+            "selectChannelHint": "Sélectionnez un canal ci-dessus pour voir les instruments disponibles",
+            "adaptation": "Adaptation",
+            "skip": "Ignorer",
+            "reactivate": "Réactiver",
+            "addSplit": "Ajouter un routage split",
+            "split": "Split",
+            "validateSplit": "Valider le split",
+            "splitMode": "Mode split — sélectionnez 2+ instruments"
+        }
     },
     "instrumentCapabilities": {
         "title": "Compléter les capacités des instruments",

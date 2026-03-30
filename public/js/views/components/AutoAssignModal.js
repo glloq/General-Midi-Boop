@@ -32,11 +32,13 @@ class AutoAssignModal {
     this._isDirty = false; // Tracks unsaved modifications
     this.activeTab = null; // Currently active channel tab
     this.channels = []; // Sorted channel list
-    this.viewMode = 'matrix'; // 'matrix', 'overview', or 'detail'
-    this.selectedChannel = null; // Selected channel in matrix view (left panel)
-    this.selectedInstrumentId = null; // Selected instrument in matrix view (right panel)
-    this.matrixScores = null; // Pre-computed matrix scores { channel: { instrumentId: { score, ... } } }
+    this.viewMode = 'overview'; // 'overview' or 'detail'
+    this.activeChannel = null; // Selected channel in overview (for instrument bar)
+    this.matrixScores = null; // Pre-computed scores { channel: { instrumentId: { score, ... } } }
     this.instrumentList = null; // List of all instruments with info
+    this.splitSelectionMode = null; // Channel in manual split mode (or null)
+    this.manualSplitSelection = {}; // { channel: Set<instrumentId> }
+    this.adaptationExpanded = {}; // Per-channel toggle for adaptation section in overview cards
     this.channelDetailsExpanded = {}; // Per-channel toggle for progressive disclosure
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.lowScoreSuggestions = {}; // Low-score instruments per channel
@@ -411,146 +413,168 @@ class AutoAssignModal {
     this.showTabbedUI();
   }
 
+  // ========================================================================
+  // OVERVIEW INTERACTIONS
+  // ========================================================================
+
   /**
-   * Navigate from matrix to detail view for a channel
+   * Select a channel in overview (updates instrument bar)
    */
-  goToDetailFromMatrix(channel) {
+  selectOverviewChannel(channel) {
+    this.activeChannel = channel;
     this.activeTab = channel;
-    this.viewMode = 'detail';
-    this.showTabbedUI();
-  }
-
-  /**
-   * Select a channel in the matrix view (updates left panel)
-   */
-  selectMatrixChannel(channel) {
-    this.selectedChannel = channel;
-    this.activeTab = channel;
-    // Update left panel
-    const panel = document.getElementById('aaChannelPanel');
-    if (panel) {
-      panel.innerHTML = this.renderChannelPanel(channel);
+    // Update channel bar highlights
+    if (this.modal) {
+      this.modal.querySelectorAll('.aa-chbar-btn').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.channel) === channel);
+      });
     }
-    // Update row highlight
-    this._updateMatrixRowHighlight(channel);
-    // Update action bar
-    this.refreshMatrixView();
-  }
-
-  /**
-   * Select an instrument in the matrix view (updates right panel)
-   */
-  selectMatrixInstrument(instrumentId) {
-    this.selectedInstrumentId = instrumentId;
-    // Update right panel
-    const panel = document.getElementById('aaInstrumentPanel');
-    if (panel) {
-      panel.innerHTML = this.renderInstrumentPanel(instrumentId);
+    // Update instrument bar
+    const instBar = document.getElementById('aaInstrumentBar');
+    if (instBar) {
+      instBar.innerHTML = this.renderInstrumentBar(channel);
     }
-    // Update column highlight
-    this._updateMatrixColHighlight(instrumentId);
+    // Update card highlights
+    if (this.modal) {
+      this.modal.querySelectorAll('.aa-channel-card').forEach(el => {
+        el.classList.toggle('selected', parseInt(el.dataset.channel) === channel);
+      });
+    }
   }
 
   /**
-   * Assign a channel to an instrument from the matrix (click on cell)
+   * Assign an instrument to a channel from the overview instrument bar
    */
-  assignFromMatrix(channel, instrumentId) {
-    // Select the channel and instrument for panels
-    this.selectedChannel = channel;
-    this.selectedInstrumentId = instrumentId;
+  assignFromOverview(channel, instrumentId) {
+    this.activeChannel = channel;
+    // Use existing selectInstrument (from AutoAssignActionsMixin)
+    this.selectInstrument(channel, instrumentId);
+    // Refresh overview
+    this.refreshOverview();
+  }
 
-    // Find the instrument in suggestions or instrumentList
+  /**
+   * Toggle split selection mode for a channel
+   */
+  toggleSplitMode(channel) {
+    if (this.splitSelectionMode === channel) {
+      // Cancel split mode
+      this.splitSelectionMode = null;
+      delete this.manualSplitSelection[channel];
+    } else {
+      this.splitSelectionMode = channel;
+      this.manualSplitSelection[channel] = new Set();
+    }
+    // Refresh instrument bar to show multi-select UI
+    const instBar = document.getElementById('aaInstrumentBar');
+    if (instBar) {
+      instBar.innerHTML = this.renderInstrumentBar(channel);
+    }
+  }
+
+  /**
+   * Toggle an instrument in manual split selection
+   */
+  toggleSplitInstrument(channel, instrumentId) {
+    if (!this.manualSplitSelection[channel]) {
+      this.manualSplitSelection[channel] = new Set();
+    }
+    const sel = this.manualSplitSelection[channel];
+    if (sel.has(instrumentId)) {
+      sel.delete(instrumentId);
+    } else {
+      sel.add(instrumentId);
+    }
+    // Refresh instrument bar
+    const instBar = document.getElementById('aaInstrumentBar');
+    if (instBar) {
+      instBar.innerHTML = this.renderInstrumentBar(channel);
+    }
+  }
+
+  /**
+   * Create a manual split from selected instruments
+   */
+  createManualSplit(channel) {
+    const sel = this.manualSplitSelection[channel];
+    if (!sel || sel.size < 2) return;
+
     const ch = String(channel);
-    const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    const selectedOption = allOptions.find(opt => opt.instrument.id === instrumentId);
+    const analysis = this.channelAnalyses[channel] || this.selectedAssignments[ch]?.channelAnalysis;
+    if (!analysis?.noteRange) return;
 
-    if (selectedOption) {
-      // Use the existing selectInstrument method
-      this.selectInstrument(channel, instrumentId);
-    } else if (this.instrumentList) {
-      // Instrument not in top suggestions — build assignment from matrix data + instrumentList
-      const inst = this.instrumentList.find(i => i.id === instrumentId);
-      const matrixData = this.matrixScores?.[channel]?.[instrumentId];
-      if (inst && matrixData && !matrixData.incompatible) {
-        const existingAnalysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[channel] || null;
-        this.selectedAssignments[ch] = {
-          deviceId: inst.device_id,
-          instrumentId: inst.id,
-          instrumentName: inst.name,
-          customName: inst.custom_name,
-          gmProgram: inst.gm_program,
-          noteRangeMin: inst.note_range_min,
-          noteRangeMax: inst.note_range_max,
-          noteSelectionMode: inst.note_selection_mode,
-          score: matrixData.score,
-          transposition: matrixData.transposition,
-          issues: matrixData.issues,
-          channelAnalysis: existingAnalysis
-        };
-        this.adaptationSettings[ch] = {
-          ...this.adaptationSettings[ch],
-          transpositionSemitones: matrixData.transposition?.semitones || 0,
-          strategy: matrixData.transposition?.semitones ? 'transpose' : 'ignore'
-        };
-        this.skippedChannels.delete(channel);
-        this._isDirty = true;
-      }
-    }
+    const channelMin = analysis.noteRange.min;
+    const channelMax = analysis.noteRange.max;
+    const totalSpan = channelMax - channelMin + 1;
 
-    this.refreshMatrixView();
-  }
+    // Build segments dividing note range equally
+    const instrumentIds = Array.from(sel);
+    const segmentSize = Math.ceil(totalSpan / instrumentIds.length);
+    const segments = instrumentIds.map((instId, i) => {
+      const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+      const option = allOptions.find(opt => opt.instrument.id === instId);
+      const inst = option?.instrument || this.instrumentList?.find(x => x.id === instId);
+      const segMin = channelMin + i * segmentSize;
+      const segMax = Math.min(channelMax, segMin + segmentSize - 1);
+      return {
+        instrumentId: instId,
+        deviceId: inst?.device_id,
+        instrumentChannel: inst?.channel,
+        instrumentName: inst?.custom_name || inst?.name || 'Instrument',
+        noteRange: { min: segMin, max: segMax },
+        polyphonyShare: Math.ceil((inst?.polyphony || 16) / instrumentIds.length)
+      };
+    });
 
-  /**
-   * Set adaptation strategy from matrix action bar
-   */
-  setMatrixStrategy(channel, strategy) {
-    this.setStrategy(channel, strategy);
-    this.refreshMatrixView();
-  }
+    const proposal = {
+      type: 'range',
+      channel: channel,
+      quality: 70,
+      segments: segments,
+      overlapZones: [],
+      gaps: []
+    };
 
-  /**
-   * Set transposition from matrix action bar slider
-   */
-  setMatrixTransposition(channel, semitones) {
-    const ch = String(channel);
-    if (!this.adaptationSettings[ch]) return;
+    this.splitProposals[channel] = proposal;
+    this.acceptSplit(channel);
+    this.splitSelectionMode = null;
+    delete this.manualSplitSelection[channel];
     this._isDirty = true;
-    this.adaptationSettings[ch].transpositionSemitones = Math.max(-48, Math.min(48, semitones));
-    // Update the displayed value
-    const valueEl = this.modal?.querySelector('.aa-matrix-transpose-value');
-    if (valueEl) {
-      valueEl.textContent = (semitones > 0 ? '+' : '') + semitones;
+    this.refreshOverview();
+  }
+
+  /**
+   * Toggle adaptation expanded/collapsed for a channel card in overview
+   */
+  toggleAdaptationExpanded(channel) {
+    const ch = String(channel);
+    this.adaptationExpanded[ch] = !this.adaptationExpanded[ch];
+    // Refresh just the card
+    const card = this.modal?.querySelector(`.aa-channel-card[data-channel="${channel}"]`);
+    if (card) {
+      card.outerHTML = this.renderChannelCard(channel);
     }
   }
 
   /**
-   * Toggle skip for a channel from matrix view
+   * Refresh the overview view (cards + bars)
    */
-  toggleSkipChannel(channel) {
-    const isSkipped = this.skippedChannels.has(channel);
-    this.toggleChannel(channel, isSkipped); // isSkipped=true → enable, false → skip
-    this.refreshMatrixView();
-  }
-
-  /**
-   * Update matrix row highlight (visual only)
-   */
-  _updateMatrixRowHighlight(channel) {
-    if (!this.modal) return;
-    this.modal.querySelectorAll('.aa-matrix-row-header').forEach(el => {
-      const ch = parseInt(el.dataset.channel);
-      el.classList.toggle('selected', ch === channel);
-    });
-  }
-
-  /**
-   * Update matrix column highlight (visual only)
-   */
-  _updateMatrixColHighlight(instrumentId) {
-    if (!this.modal) return;
-    this.modal.querySelectorAll('.aa-matrix-col-header').forEach(el => {
-      el.classList.toggle('selected', el.dataset.instrumentId === instrumentId);
-    });
+  refreshOverview() {
+    if (!this.modal || this.viewMode !== 'overview') return;
+    const content = document.getElementById('aaTabContent');
+    if (content) {
+      content.innerHTML = this.renderOverviewCards();
+    }
+    const instBar = document.getElementById('aaInstrumentBar');
+    if (instBar && this.activeChannel !== null) {
+      instBar.innerHTML = this.renderInstrumentBar(this.activeChannel);
+    }
+    // Update channel bar
+    const chBar = document.getElementById('aaChannelBar');
+    if (chBar) {
+      chBar.innerHTML = this.renderChannelBar();
+    }
+    this.refreshTabBar();
   }
 
   /**
@@ -812,8 +836,8 @@ class AutoAssignModal {
    * Refresh current tab content without full re-render
    */
   refreshCurrentTab() {
-    if (this.viewMode === 'matrix') {
-      this.refreshMatrixView();
+    if (this.viewMode === 'overview') {
+      this.refreshOverview();
       return;
     }
     this.refreshStickyHeader();
@@ -1125,8 +1149,6 @@ const _autoassignMixins = [
     typeof AutoAssignVizMixin !== 'undefined' ? AutoAssignVizMixin : null,
     typeof AutoAssignActionsMixin !== 'undefined' ? AutoAssignActionsMixin : null,
     typeof AutoAssignUtilsMixin !== 'undefined' ? AutoAssignUtilsMixin : null,
-    typeof AutoAssignMatrixMixin !== 'undefined' ? AutoAssignMatrixMixin : null,
-    typeof AutoAssignPanelsMixin !== 'undefined' ? AutoAssignPanelsMixin : null,
 ];
 _autoassignMixins.forEach(m => { if (m) Object.keys(m).forEach(k => { AutoAssignModal.prototype[k] = m[k]; }); });
 

@@ -138,9 +138,9 @@ body.dark-mode .aa-confirm-cancel:hover {
 .auto-assign-modal .modal-container {
   background: var(--bg-secondary, white);
   border-radius: var(--border-radius-xl, 12px);
-  max-width: 900px;
-  width: 95%;
-  max-height: 90vh;
+  max-width: 1400px;
+  width: 96%;
+  max-height: 94vh;
   overflow: hidden;
   box-shadow: var(--shadow-heavy);
 }
@@ -148,7 +148,7 @@ body.dark-mode .aa-confirm-cancel:hover {
 .aa-container {
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
+  max-height: 94vh;
 }
 
 .aa-channel-count {
@@ -2661,6 +2661,324 @@ body.dark-mode .aa-inline-preview:hover {
 }
 
 /* Split dark mode - now uses --aa-split-accent, var(--bg-*), var(--border-*), var(--text-*), --aa-warning-* variables */
+
+/* ==========================================================================
+   OVERVIEW — Channel Bar + Instrument Bar + Channel Cards
+   ========================================================================== */
+
+/* --- Bars Container --- */
+.aa-bars-container {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-secondary, #f8fafc);
+}
+
+/* --- Channel Bar --- */
+.aa-channel-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color, #e8ecf0);
+}
+
+.aa-chbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--bg-primary, #fff);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.aa-chbar-btn:hover {
+  border-color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.06);
+}
+
+.aa-chbar-btn.active {
+  border-color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.12);
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.2);
+}
+
+.aa-chbar-btn.skipped {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.aa-chbar-icon { font-size: 14px; }
+.aa-chbar-label { font-weight: 700; }
+.aa-chbar-score { font-size: 11px; font-weight: 700; }
+.aa-chbar-gm {
+  font-size: 10px;
+  color: var(--text-muted, #999);
+  font-weight: 400;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Instrument Bar --- */
+.aa-instrument-bar {
+  padding: 6px 12px;
+  min-height: 40px;
+}
+
+.aa-instbar-placeholder {
+  color: var(--text-muted, #999);
+  font-size: 12px;
+  font-style: italic;
+  padding: 6px 0;
+}
+
+.aa-instbar-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aa-instbar-content.split-mode {
+  background: rgba(102, 126, 234, 0.04);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.aa-instbar-list {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.aa-instbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #d0d5dd);
+  border-radius: 6px;
+  background: var(--bg-primary, #fff);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-primary, #333);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.aa-instbar-btn:hover {
+  border-color: var(--accent-primary, #667eea);
+}
+
+.aa-instbar-btn.assigned {
+  border-color: var(--aa-score-excellent);
+  background: var(--aa-success-bg);
+}
+
+.aa-instbar-btn.split-selected {
+  border-color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.12);
+}
+
+.aa-instbar-name { font-weight: 600; }
+.aa-instbar-score { font-weight: 700; font-size: 10px; }
+.aa-instbar-check {
+  color: var(--aa-score-excellent);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.aa-instbar-split-btn {
+  border-style: dashed;
+  color: var(--accent-primary, #667eea);
+  font-weight: 600;
+}
+
+.aa-instbar-split-controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* --- Channel Cards --- */
+.aa-overview-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.aa-channel-card {
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--bg-primary, #fff);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.aa-channel-card:hover {
+  border-color: var(--accent-primary, #667eea);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+
+.aa-channel-card.selected {
+  border-color: var(--accent-primary, #667eea);
+  border-width: 2px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.aa-channel-card.skipped {
+  opacity: 0.5;
+  background: var(--bg-tertiary, #f0f0f0);
+}
+
+.aa-channel-card.split {
+  border-left: 3px solid var(--aa-split-accent, #667eea);
+}
+
+.aa-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.aa-card-ch {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.aa-card-gm {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.aa-card-assigned {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--aa-success-text, #00a87a);
+  background: var(--aa-success-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.aa-card-score {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aa-card-skip-label {
+  font-size: 11px;
+  color: var(--aa-danger-text);
+  font-weight: 600;
+}
+
+.aa-card-preview {
+  font-size: 14px !important;
+  padding: 2px 8px !important;
+}
+
+.aa-card-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.aa-card-adapt-result {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.aa-card-adapt-result.ok {
+  color: var(--aa-success-text);
+  background: var(--aa-success-bg);
+}
+
+.aa-card-adapt-result.warning {
+  color: var(--aa-warning-text);
+  background: var(--aa-warning-bg);
+}
+
+/* Split proposal banner within a card */
+.aa-card-split-banner {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(102, 126, 234, 0.06);
+  border: 1px dashed var(--accent-primary, #667eea);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--accent-primary, #667eea);
+}
+
+/* Range bar inside card */
+.aa-channel-card .aa-range-bar-container {
+  margin-top: 6px;
+}
+
+/* Adaptation section inside card */
+.aa-channel-card .aa-adaptation-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #e8ecf0);
+}
+
+/* --- Dark Mode --- */
+body.dark-mode .aa-bars-container {
+  background: var(--bg-secondary, #1a2332);
+}
+
+body.dark-mode .aa-chbar-btn {
+  background: var(--bg-tertiary, #2d3748);
+  color: var(--text-primary, #e2e8f0);
+}
+
+body.dark-mode .aa-instbar-btn {
+  background: var(--bg-tertiary, #2d3748);
+  color: var(--text-primary, #e2e8f0);
+  border-color: var(--border-color, #4a5568);
+}
+
+body.dark-mode .aa-channel-card {
+  background: var(--bg-tertiary, #2d3748);
+  border-color: var(--border-color, #4a5568);
+}
+
+body.dark-mode .aa-channel-card.skipped {
+  background: var(--bg-secondary, #1a2332);
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .aa-channel-bar { padding: 6px 8px; }
+  .aa-chbar-btn { padding: 4px 8px; font-size: 11px; }
+  .aa-chbar-gm { display: none; }
+  .aa-card-header { font-size: 11px; }
+  .aa-card-actions { flex-wrap: wrap; }
+}
 
 /* ==========================================================================
    MATRIX VIEW - Routing matrix (channels × instruments)
