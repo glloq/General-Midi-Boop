@@ -261,15 +261,15 @@ describe('InstrumentMatcher', () => {
     expect(Array.isArray(result.info)).toBe(true);
   });
 
-  test('perfect program match gives 30 points', () => {
+  test('perfect program match gives 20 points', () => {
     const result = matcher.scoreProgramMatch(0, 0);
-    expect(result.score).toBe(30);
+    expect(result.score).toBe(20);
     expect(result.info).toContain('Perfect program match');
   });
 
-  test('same category match gives 20 points', () => {
+  test('same category match gives 15 points', () => {
     const result = matcher.scoreProgramMatch(0, 3); // Both piano category
-    expect(result.score).toBe(20);
+    expect(result.score).toBe(15);
   });
 
   test('no program match gives 0 points', () => {
@@ -291,14 +291,14 @@ describe('InstrumentMatcher', () => {
     expect(bothNull).toBeGreaterThanOrEqual(channelNull);
   });
 
-  test('perfect note range fit gives 25 points', () => {
+  test('perfect note range fit gives 38 points', () => {
     const result = matcher.scoreNoteCompatibility(
       { min: 48, max: 72 },
       { min: 21, max: 108, mode: 'continuous', selected: null }
     );
 
     expect(result.compatible).toBe(true);
-    expect(result.score).toBe(25);
+    expect(result.score).toBe(38);
     expect(result.transposition.semitones).toBe(0);
   });
 
@@ -326,9 +326,9 @@ describe('InstrumentMatcher', () => {
 
   test('polyphony scoring tiers', () => {
     // Excellent: margin >= 8
-    expect(matcher.scorePolyphony(4, 16).score).toBe(15);
+    expect(matcher.scorePolyphony(4, 16).score).toBe(10);
     // Good: margin >= 4
-    expect(matcher.scorePolyphony(4, 8).score).toBe(10);
+    expect(matcher.scorePolyphony(4, 8).score).toBe(7);
     // Sufficient: margin >= 0
     expect(matcher.scorePolyphony(4, 4).score).toBe(5);
     // Insufficient: margin < 0
@@ -341,15 +341,15 @@ describe('InstrumentMatcher', () => {
     const allSupported = matcher.scoreCCSupport([7, 64], [1, 7, 10, 64]).score;
     expect(allSupported).toBeGreaterThan(0);
     // No CCs used = full score
-    expect(matcher.scoreCCSupport([], [1, 7]).score).toBe(15);
+    expect(matcher.scoreCCSupport([], [1, 7]).score).toBe(5);
     // No CC list on instrument = low neutral
     const nullCC = matcher.scoreCCSupport([7, 64], null).score;
     expect(nullCC).toBeGreaterThan(0);
-    expect(nullCC).toBeLessThan(15);
+    expect(nullCC).toBeLessThan(5);
     // Partial support
     const partial = matcher.scoreCCSupport([7, 64, 91], [7, 64]);
     expect(partial.score).toBeGreaterThan(0);
-    expect(partial.score).toBeLessThan(15);
+    expect(partial.score).toBeLessThan(5);
   });
 
   test('discrete note scoring works', () => {
@@ -945,13 +945,13 @@ describe('ScoringConfig', () => {
   });
 
   test('getBonus returns correct values', () => {
-    expect(ScoringConfig.getBonus('perfectProgramMatch')).toBe(30);
+    expect(ScoringConfig.getBonus('perfectProgramMatch')).toBe(20);
     expect(ScoringConfig.getBonus('nonExistent')).toBe(0);
   });
 
   test('getWeight returns correct values', () => {
-    expect(ScoringConfig.getWeight('programMatch')).toBe(30);
-    expect(ScoringConfig.getWeight('noteRange')).toBe(27);
+    expect(ScoringConfig.getWeight('programMatch')).toBe(20);
+    expect(ScoringConfig.getWeight('noteRange')).toBe(40);
     expect(ScoringConfig.getWeight('instrumentType')).toBe(20);
     expect(ScoringConfig.getWeight('nonExistent')).toBe(0);
   });
