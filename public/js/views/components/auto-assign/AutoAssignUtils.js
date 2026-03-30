@@ -207,9 +207,88 @@
             brass: '\uD83C\uDFBA',
             woodwind: '\uD83E\uDE88',
             guitar: '\uD83C\uDFB8',
-            keyboard: '\uD83C\uDFB9'
+            keyboard: '\uD83C\uDFB9',
+            piano: '\uD83C\uDFB9',
+            chromatic_percussion: '\uD83C\uDFB6',
+            organ: '\uD83C\uDFB9',
+            ensemble: '\uD83C\uDFB5',
+            reed: '\uD83C\uDFB7',
+            pipe: '\uD83E\uDE88',
+            synth_lead: '\uD83C\uDFB9',
+            synth_pad: '\uD83C\uDFB6',
+            synth_effects: '\uD83C\uDFB6',
+            ethnic: '\uD83C\uDFB5',
+            sound_effects: '\uD83C\uDFB5'
         };
         return icons[type] || '\uD83C\uDFB5';
+    };
+
+    /**
+     * Color palette per instrument type (GM categories)
+     */
+    const INSTRUMENT_TYPE_COLORS = {
+        piano: '#4A90D9',
+        chromatic_percussion: '#9B59B6',
+        organ: '#E67E22',
+        guitar: '#27AE60',
+        bass: '#8B4513',
+        strings: '#C0392B',
+        ensemble: '#E74C3C',
+        brass: '#F1C40F',
+        reed: '#16A085',
+        pipe: '#1ABC9C',
+        synth_lead: '#E91E63',
+        synth_pad: '#9C27B0',
+        synth_effects: '#FF5722',
+        ethnic: '#795548',
+        drums: '#FF9800',
+        sound_effects: '#607D8B',
+        // Estimated type aliases
+        melody: '#4A90D9',
+        harmony: '#E74C3C',
+        pad: '#9C27B0',
+        keyboard: '#4A90D9',
+        woodwind: '#1ABC9C'
+    };
+
+    /**
+     * Get the color for an instrument type
+     * @param {string} type - Instrument type or estimated type
+     * @returns {string} Hex color
+     */
+    AutoAssignUtilsMixin.getTypeColor = function(type) {
+        return INSTRUMENT_TYPE_COLORS[type] || '#607D8B';
+    };
+
+    /**
+     * Format a note range as approximate octaves: "C2 — B5 (~4 octaves)"
+     * For drums, returns "N notes" instead.
+     */
+    AutoAssignUtilsMixin.formatNoteRange = function(noteRange, isDrums, noteDistribution) {
+        if (isDrums && noteDistribution) {
+            const count = Object.keys(noteDistribution).length;
+            return `${count} notes`;
+        }
+        if (!noteRange || noteRange.min == null || noteRange.max == null) return '—';
+        const min = this.midiNoteToName(noteRange.min);
+        const max = this.midiNoteToName(noteRange.max);
+        const span = noteRange.max - noteRange.min;
+        const octaves = Math.round(span / 12);
+        return `${min} — ${max} (~${octaves} oct.)`;
+    };
+
+    /**
+     * Get GM category from program number (for color lookup)
+     */
+    AutoAssignUtilsMixin._getGmCategory = function(program) {
+        if (program == null || program < 0 || program > 127) return '';
+        const categories = [
+            'piano', 'chromatic_percussion', 'organ', 'guitar',
+            'bass', 'strings', 'ensemble', 'brass',
+            'reed', 'pipe', 'synth_lead', 'synth_pad',
+            'synth_effects', 'ethnic', 'drums', 'sound_effects'
+        ];
+        return categories[Math.floor(program / 8)] || '';
     };
 
     /**

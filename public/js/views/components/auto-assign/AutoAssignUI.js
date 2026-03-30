@@ -450,6 +450,9 @@
     const instrument = selectedOption?.instrument;
     const score = assignment.score || 0;
     const displayName = assignment.customName || assignment.instrumentName || '—';
+    const instType = instrument?.instrument_type || '';
+    const typeColor = this.getTypeColor ? this.getTypeColor(instType) : '#607D8B';
+    const typeIcon = this.getTypeIcon ? this.getTypeIcon(instType) : '';
 
     // Score breakdown bars
     const scoreBreakdown = compat?.scoreBreakdown;
@@ -493,8 +496,10 @@
     ` : '';
 
     return `
-      <div class="aa-selected-instrument">
+      <div class="aa-selected-instrument" style="border-left: 4px solid ${typeColor}">
         <div class="aa-selected-instrument-header">
+          <span class="aa-selected-instrument-dot" style="background:${typeColor}"></span>
+          <span class="aa-selected-instrument-type-icon">${typeIcon}</span>
           <div class="aa-selected-instrument-name">${escapeHtml(displayName)} ${duplicateWarning}</div>
           <div class="aa-selected-instrument-score">
             <span class="aa-score-value ${this.getScoreClass(score)}">${score}</span>
@@ -522,11 +527,16 @@
     const typeIcon = this.getTypeIcon(analysis.estimatedType);
     const typeLabel = analysis.estimatedType ? _t(`autoAssign.type_${analysis.estimatedType}`, { _: analysis.estimatedType }) : 'N/A';
 
+    const isDrumChannel = channel === 9 || (analysis.estimatedType === 'drums');
+    const rangeDisplay = this.formatNoteRange
+      ? this.formatNoteRange(noteRange, isDrumChannel, analysis.noteDistribution)
+      : (noteRange.min != null ? `${this.midiNoteToName(noteRange.min)} — ${this.midiNoteToName(noteRange.max)}` : 'N/A');
+
     return `
       <div class="aa-channel-stats">
         <div class="aa-stat">
           <strong>${_t('autoAssign.noteRange')}:</strong>
-          ${noteRange.min != null ? `${this.midiNoteToName(noteRange.min)} — ${this.midiNoteToName(noteRange.max)} <span class="aa-stat-detail">(${noteRange.max - noteRange.min} ${_t('autoAssign.semitones')})</span>` : 'N/A'}
+          ${rangeDisplay}
         </div>
         <div class="aa-stat">
           <strong>${_t('autoAssign.polyphony')}:</strong>
@@ -674,17 +684,26 @@
       const gmShort = gmName.length > 12 ? gmName.slice(0, 11) + '…' : gmName;
       const typeIcon = analysis?.estimatedType ? this.getTypeIcon(analysis.estimatedType) : '';
 
+      const isDrumChannel = channel === 9 || analysis?.estimatedType === 'drums';
+      const noteRange = analysis?.noteRange;
+      const rangeLabel = this.formatNoteRange
+        ? this.formatNoteRange(noteRange, isDrumChannel, analysis?.noteDistribution)
+        : '';
+      const typeColor = this.getTypeColor ? this.getTypeColor(analysis?.estimatedType || analysis?.estimatedCategory || '') : '';
+
       return `
         <button class="aa-chbar-btn ${isActive ? 'active' : ''} ${isSkipped ? 'skipped' : ''} ${this.getScoreClass(score)}"
                 data-channel="${channel}"
+                style="${typeColor ? 'border-left: 3px solid ' + typeColor : ''}"
                 onclick="autoAssignModalInstance.selectOverviewChannel(${channel})"
-                title="${escapeHtml(gmName)}">
+                title="${escapeHtml(gmName)}${rangeLabel ? ' | ' + rangeLabel : ''}">
           <span class="aa-chbar-icon">${typeIcon}</span>
           <span class="aa-chbar-label">Ch ${channel + 1}</span>
           ${channel === 9 ? '<span class="aa-tab-drum">DR</span>' : ''}
           ${isSplit ? '<span class="aa-tab-split">SP</span>' : ''}
           ${!isSkipped ? `<span class="aa-chbar-score">${score}</span>` : '<span class="aa-chbar-score">—</span>'}
           ${gmShort ? `<span class="aa-chbar-gm">${escapeHtml(gmShort)}</span>` : ''}
+          ${rangeLabel ? `<span class="aa-chbar-range">${rangeLabel}</span>` : ''}
         </button>
       `;
     }).join('');
@@ -717,12 +736,18 @@
       const displayName = shortName.length > 16 ? shortName.slice(0, 15) + '…' : shortName;
 
       const safeId = escapeHtml(inst.id).replace(/'/g, "\\'");
+      const instType = inst.instrument_type || inst.gm_program != null ? (this._getGmCategory ? this._getGmCategory(inst.gm_program) : '') : '';
+      const typeColor = this.getTypeColor ? this.getTypeColor(instType || inst.instrument_type || '') : '#607D8B';
+      const instTypeIcon = this.getTypeIcon ? this.getTypeIcon(instType || inst.instrument_type || '') : '';
 
       if (isSplitMode) {
         return `
           <button class="aa-instbar-btn ${isInSplit ? 'split-selected' : ''}"
+                  style="border-left: 3px solid ${typeColor}"
                   onclick="autoAssignModalInstance.toggleSplitInstrument(${channel}, '${safeId}')"
                   title="${escapeHtml(shortName)} — ${score}/100">
+            <span class="aa-instbar-dot" style="background:${typeColor}"></span>
+            <span class="aa-instbar-icon">${instTypeIcon}</span>
             <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
             <span class="aa-instbar-score ${this.getScoreClass(score)}">${score}</span>
             ${isInSplit ? '<span class="aa-instbar-check">✓</span>' : ''}
@@ -732,8 +757,11 @@
 
       return `
         <button class="aa-instbar-btn ${isAssigned ? 'assigned' : ''}"
+                style="border-left: 3px solid ${typeColor}"
                 onclick="autoAssignModalInstance.assignFromOverview(${channel}, '${safeId}')"
                 title="${escapeHtml(shortName)} — ${score}/100">
+          <span class="aa-instbar-dot" style="background:${typeColor}"></span>
+          <span class="aa-instbar-icon">${instTypeIcon}</span>
           <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
           <span class="aa-instbar-score ${this.getScoreClass(score)}">${score}</span>
           ${isAssigned ? '<span class="aa-instbar-check">✓</span>' : ''}
