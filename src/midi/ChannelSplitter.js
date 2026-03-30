@@ -167,6 +167,7 @@ class ChannelSplitter {
         instrumentChannel: inst.channel,
         instrumentName: inst.name || inst.custom_name,
         noteRange: { min: effectiveMin, max: effectiveMax },
+        fullRange: { min: inst.note_range_min, max: inst.note_range_max },
         polyphonyShare: inst.polyphony || 16
       });
 
@@ -250,6 +251,7 @@ class ChannelSplitter {
         min: inst.note_range_min !== null ? inst.note_range_min : 0,
         max: inst.note_range_max !== null ? inst.note_range_max : 127
       },
+      fullRange: { min: inst.note_range_min, max: inst.note_range_max },
       polyphonyShare: inst.polyphony || 16,
       strategy: 'round_robin'
     }));
@@ -314,6 +316,7 @@ class ChannelSplitter {
         instrumentChannel: inst.channel,
         instrumentName: inst.name || inst.custom_name,
         noteRange: { min: effectiveMin, max: effectiveMax },
+        fullRange: { min: inst.note_range_min, max: inst.note_range_max },
         polyphonyShare: inst.polyphony || 16,
         strategy: 'range_with_polyphony'
       });

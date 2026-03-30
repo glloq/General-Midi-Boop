@@ -148,29 +148,31 @@
         ? (this.getActiveSplitProposal(channel) || splitProposal)
         : splitProposal;
 
-      // Compute global range encompassing channel + all segments (same as body)
-      let globalMin = chanMin, globalMax = chanMax;
-      for (const seg of proposal.segments) {
-        if (seg.noteRange?.min != null) globalMin = Math.min(globalMin, seg.noteRange.min);
-        if (seg.noteRange?.max != null) globalMax = Math.max(globalMax, seg.noteRange.max);
-      }
-      const totalSpan = Math.max(1, globalMax - globalMin + 1);
-      const relPct = (nMin, nMax) => ({
-        left: ((nMin - globalMin) / totalSpan * 100).toFixed(1),
-        width: Math.max(0.5, ((nMax - nMin + 1) / totalSpan * 100)).toFixed(1)
-      });
-
-      const chanBar = relPct(chanMin, chanMax);
-
-      const segmentBarsHTML = proposal.segments.map((seg, i) => {
-        const segMin = Math.max(0, seg.noteRange?.min ?? chanMin);
-        const segMax = Math.min(127, seg.noteRange?.max ?? chanMax);
-        const pos = relPct(segMin, segMax);
+      // Same absolute 0-127 coordinate system as single-instrument mode
+      // One colored bar per instrument (full playable range) + one channel bar (notes used)
+      const instBarsHTML = proposal.segments.map((seg, i) => {
+        const fullMin = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
+        const fullMax = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
+        const left = pct(fullMin);
+        const width = (((fullMax - fullMin) / 127) * 100).toFixed(1);
         const color = splitColors[i % splitColors.length];
         const name = escapeHtml(seg.instrumentName || '?');
-        return `<div class="aa-range-split-segment" style="left:${pos.left}%;width:${pos.width}%;background:${color}"
-                     title="${name}: ${this.midiNoteToName(segMin)}-${this.midiNoteToName(segMax)}"></div>`;
+        return `<div class="aa-range-instrument" style="left:${left}%;width:${width}%;background:${color};opacity:0.25;border:1px solid ${color}"
+                     title="${name}: ${this.midiNoteToName(fullMin)}-${this.midiNoteToName(fullMax)}"></div>`;
       }).join('');
+
+      // Determine if all channel notes are covered by at least one instrument
+      let allCovered = true;
+      for (const seg of proposal.segments) {
+        const fullMin = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
+        const fullMax = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
+        if (fullMin <= chanMin && fullMax >= chanMax) { allCovered = true; break; }
+      }
+      // Check combined coverage
+      const coveredMin = Math.min(...proposal.segments.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0));
+      const coveredMax = Math.max(...proposal.segments.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127));
+      allCovered = coveredMin <= chanMin && coveredMax >= chanMax;
+      const chanClass = allCovered ? 'in-range' : 'out-of-range';
 
       const legendItems = proposal.segments.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
@@ -181,14 +183,13 @@
 
       return `<div class="aa-range-bar-container">
         <div class="aa-range-bar">
-          <div class="aa-range-channel-bg" style="left:${chanBar.left}%;width:${chanBar.width}%"
+          ${instBarsHTML}
+          <div class="aa-range-channel ${chanClass}" style="left:${chanLeft}%;width:${chanWidth}%"
                title="${chanLabel}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
-          ${segmentBarsHTML}
         </div>
         <div class="aa-range-legend">
-          <span class="aa-range-legend-item"><span class="aa-rleg-color chan in-range"></span>${chanLabel}</span>
           ${legendItems}
-          <span class="aa-range-legend-item aa-range-legend-bounds">${this.midiNoteToName(globalMin)}—${this.midiNoteToName(globalMax)}</span>
+          <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${chanLabel}</span>
         </div>
       </div>`;
     }
@@ -584,28 +585,29 @@
       </button>`;
     }).join('') : `<span class="aa-split-type-badge">${typeLabels[proposal.type] || proposal.type}</span>`;
 
-    // Build coverage bar — compute global range encompassing channel + all segments
+    // Build coverage bar — absolute 0-127 coordinate system (same as header range bar)
     const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
-    let globalMin = channelMin;
-    let globalMax = channelMax;
-    for (const seg of proposal.segments) {
-      if (seg.noteRange?.min != null) globalMin = Math.min(globalMin, seg.noteRange.min);
-      if (seg.noteRange?.max != null) globalMax = Math.max(globalMax, seg.noteRange.max);
-    }
-    const totalSpan = Math.max(1, globalMax - globalMin + 1);
+    const pct = v => ((Math.max(0, Math.min(127, v)) / 127) * 100).toFixed(1);
 
-    // Channel range background (green)
-    const chanBarLeft = ((channelMin - globalMin) / totalSpan * 100).toFixed(1);
-    const chanBarWidth = ((channelMax - channelMin + 1) / totalSpan * 100).toFixed(1);
+    // Channel bar (blue/orange)
+    const chanBarLeft = pct(channelMin);
+    const chanBarWidth = Math.max(0.5, ((channelMax - channelMin) / 127) * 100).toFixed(1);
 
-    const segmentBars = proposal.segments.map((seg, i) => {
-      const segMin = Math.max(0, seg.noteRange?.min ?? channelMin);
-      const segMax = Math.min(127, seg.noteRange?.max ?? channelMax);
-      const left = ((segMin - globalMin) / totalSpan * 100).toFixed(1);
-      const width = Math.max(0.5, ((segMax - segMin + 1) / totalSpan * 100)).toFixed(1);
+    // Instrument bars (full playable range, colored)
+    const instBars = proposal.segments.map((seg, i) => {
+      const fullMin = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
+      const fullMax = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
+      const left = pct(fullMin);
+      const width = (((fullMax - fullMin) / 127) * 100).toFixed(1);
       const color = colors[i % colors.length];
-      return `<div class="aa-split-bar-segment" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName}: ${this.midiNoteToName(segMin)}-${this.midiNoteToName(segMax)}"></div>`;
+      return `<div class="aa-range-instrument" style="left:${left}%;width:${width}%;background:${color};opacity:0.25;border:1px solid ${color}" title="${seg.instrumentName}: ${this.midiNoteToName(fullMin)}-${this.midiNoteToName(fullMax)}"></div>`;
     }).join('');
+
+    // Check coverage for channel class
+    const coveredMin = Math.min(...proposal.segments.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0));
+    const coveredMax = Math.max(...proposal.segments.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127));
+    const allCovered = coveredMin <= channelMin && coveredMax >= channelMax;
+    const chanClass = allCovered ? 'in-range' : 'out-of-range';
 
     // Segment cards
     const segmentCards = proposal.segments.map((seg, i) => {
@@ -656,13 +658,13 @@
         </div>
         <div class="aa-split-coverage">
           <div class="aa-split-bar">
-            <div class="aa-split-bar-chan-bg" style="left:${chanBarLeft}%;width:${chanBarWidth}%"
+            ${instBars}
+            <div class="aa-range-channel ${chanClass}" style="left:${chanBarLeft}%;width:${chanBarWidth}%"
                  title="${_t('autoAssign.channelNotes')}: ${this.midiNoteToName(channelMin)}-${this.midiNoteToName(channelMax)}"></div>
-            ${segmentBars}
           </div>
           <div class="aa-split-range-labels">
-            <span>${this.midiNoteToName(globalMin)}</span>
-            <span>${this.midiNoteToName(globalMax)}</span>
+            <span>C-1</span>
+            <span>G9</span>
           </div>
         </div>
         <div class="aa-split-segments">
