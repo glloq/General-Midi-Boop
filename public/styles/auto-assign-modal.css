@@ -2811,6 +2811,65 @@ body.dark-mode .aa-inline-preview:hover {
   align-items: center;
 }
 
+/* Unrouted instruments (not scored) */
+.aa-instbar-btn.unrouted {
+  opacity: 0.5;
+  border-style: dashed !important;
+}
+.aa-instbar-btn.unrouted:hover {
+  opacity: 0.75;
+}
+
+/* Show all instruments toggle */
+.aa-instbar-show-all {
+  flex-shrink: 0;
+  font-size: 10px;
+  white-space: nowrap;
+  border-style: dashed;
+  color: var(--text-muted, #999);
+}
+.aa-instbar-show-all.active {
+  border-style: solid;
+  color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.08);
+}
+
+/* Split item display in instrument bar (accepted split) */
+.aa-instbar-split-item {
+  cursor: default;
+}
+.aa-instbar-split-item .aa-instbar-range {
+  display: block;
+  font-size: 9px;
+  color: var(--text-muted, #999);
+  margin-top: 1px;
+}
+
+/* Range bar split segment */
+.aa-range-split-segment {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
+  opacity: 0.7;
+}
+.aa-range-split-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(180, 180, 180, 0.2);
+  border-radius: 3px;
+}
+.aa-rleg-chan-bg {
+  background: rgba(180, 180, 180, 0.3) !important;
+  border-color: rgba(150, 150, 150, 0.5) !important;
+}
+
+/* Muted score text */
+.aa-color-muted {
+  color: var(--text-muted, #999) !important;
+}
+
 /* --- Selected Instrument Info Card --- */
 .aa-selected-instrument {
   background: var(--bg-primary, #fff);

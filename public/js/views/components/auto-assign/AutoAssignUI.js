@@ -711,15 +711,76 @@
 
   AutoAssignUIMixin.renderInstrumentBar = function(channel) {
     const ch = String(channel);
+    const splitColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
+
+    // ---- ACCEPTED SPLIT MODE: show split instruments with colored segments ----
+    if (this.isSplitChannel(channel)) {
+      const proposal = this.splitAssignments[channel];
+      if (!proposal || !proposal.segments) return '';
+
+      const segButtons = proposal.segments.map((seg, i) => {
+        const color = splitColors[i % splitColors.length];
+        const name = seg.instrumentName || '?';
+        const shortName = name.length > 16 ? name.slice(0, 15) + '…' : name;
+        const rangeLabel = seg.noteRange
+          ? `${this.midiNoteToName(seg.noteRange.min)}-${this.midiNoteToName(seg.noteRange.max)}`
+          : '';
+        return `
+          <div class="aa-instbar-btn aa-instbar-split-item" style="border-left: 3px solid ${color}">
+            <span class="aa-instbar-dot" style="background:${color}"></span>
+            <span class="aa-instbar-name">${escapeHtml(shortName)}</span>
+            ${rangeLabel ? `<span class="aa-instbar-range">${rangeLabel}</span>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="aa-instbar-content">
+          <div class="aa-instbar-list">${segButtons}</div>
+          <button class="aa-instbar-btn aa-instbar-split-btn" onclick="autoAssignModalInstance.rejectSplit(${channel})"
+                  title="${_t('autoAssign.cancelSplit')}">
+            ✕ ${_t('autoAssign.cancelSplit')}
+          </button>
+        </div>
+      `;
+    }
+
+    // ---- NORMAL / SPLIT SELECTION MODE ----
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
-    // Sort by score descending
     allOptions.sort((a, b) => b.compatibility.score - a.compatibility.score);
 
     const currentAssignment = this.selectedAssignments[ch];
     const isSplitMode = this.splitSelectionMode === channel;
     const splitSel = this.manualSplitSelection[channel] || new Set();
 
-    if (allOptions.length === 0) {
+    // Build set of routed instrument IDs for filtering unrouted
+    const routedIds = new Set(allOptions.map(o => o.instrument.id));
+
+    // Optionally add unrouted instruments when "show all" is enabled
+    let unroutedButtons = '';
+    if (this.showAllInstruments && this.allInstruments && this.allInstruments.length > 0 && !isSplitMode) {
+      const unrouted = this.allInstruments.filter(inst => !routedIds.has(inst.id));
+      unroutedButtons = unrouted.map(inst => {
+        const shortName = (inst.custom_name || inst.name || '?');
+        const displayName = shortName.length > 16 ? shortName.slice(0, 15) + '…' : shortName;
+        const safeId = escapeHtml(inst.id).replace(/'/g, "\\'");
+        const typeColor = this.getTypeColor ? this.getTypeColor(inst.instrument_type || '') : '#607D8B';
+        const instTypeIcon = this.getTypeIcon ? this.getTypeIcon(inst.instrument_type || '') : '';
+        return `
+          <button class="aa-instbar-btn unrouted"
+                  style="border-left: 3px solid ${typeColor}"
+                  onclick="autoAssignModalInstance.assignFromOverview(${channel}, '${safeId}')"
+                  title="${escapeHtml(shortName)} — ${_t('autoAssign.unscored')}">
+            <span class="aa-instbar-dot" style="background:${typeColor}"></span>
+            <span class="aa-instbar-icon">${instTypeIcon}</span>
+            <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
+            <span class="aa-instbar-score aa-color-muted">—</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    if (allOptions.length === 0 && !unroutedButtons) {
       return `<div class="aa-instbar-placeholder">${_t('autoAssign.noCompatible')}</div>`;
     }
 
@@ -789,10 +850,20 @@
       `;
     }
 
+    // "Show all instruments" toggle
+    const showAllToggle = (!isSplitMode && this.allInstruments && this.allInstruments.length > 0) ? `
+      <button class="aa-instbar-btn aa-instbar-show-all ${this.showAllInstruments ? 'active' : ''}"
+              onclick="autoAssignModalInstance.toggleAllInstruments()"
+              title="${this.showAllInstruments ? _t('autoAssign.showRoutedToggle') : _t('autoAssign.showAllToggle')}">
+        ${this.showAllInstruments ? '◉' : '○'} ${this.showAllInstruments ? _t('autoAssign.showRoutedToggle') : _t('autoAssign.showAllToggle')}
+      </button>
+    ` : '';
+
     return `
       <div class="aa-instbar-content ${isSplitMode ? 'split-mode' : ''}">
-        <div class="aa-instbar-list">${buttonsHTML}</div>
+        <div class="aa-instbar-list">${buttonsHTML}${unroutedButtons}</div>
         ${splitControls}
+        ${showAllToggle}
       </div>
     `;
   };

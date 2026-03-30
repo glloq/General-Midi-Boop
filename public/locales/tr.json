@@ -859,5 +859,8 @@
     "labelGmCategories": "GM Categories: {value} ({mode})",
     "labelGmPrograms": "GM Programs: {value}",
     "labelDate": "Date: {from} - {to}"
-  }
+  },
+    "autoAssign.showAllToggle": "All",
+    "autoAssign.showRoutedToggle": "Routed",
+    "autoAssign.unscored": "Not scored"
 }

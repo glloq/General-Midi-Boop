@@ -270,6 +270,7 @@ async function generateAssignmentSuggestions(app, data) {
     splitProposals: result.splitProposals || {},
     channelAnalyses: result.channelAnalyses,
     confidenceScore: result.confidenceScore,
+    allInstruments: result.allInstruments || [],
     stats: result.stats
   };
 

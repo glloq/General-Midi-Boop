@@ -1576,5 +1576,8 @@
         "chart": "Graphique des mesures",
         "applied": "Calibration appliquée pour {count} instrument(s)",
         "refresh": "Actualiser"
-    }
+    },
+    "autoAssign.showAllToggle": "Tous",
+    "autoAssign.showRoutedToggle": "Routés",
+    "autoAssign.unscored": "Non évalué"
 }

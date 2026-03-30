@@ -172,6 +172,9 @@ class AutoAssigner {
         instrumentList = this._buildInstrumentList(availableInstruments);
       }
 
+      // 8. Liste brute de tous les instruments (pour affichage "tous les instruments")
+      const allInstruments = this._buildInstrumentList(availableInstruments);
+
       return {
         success: true,
         suggestions,
@@ -180,6 +183,7 @@ class AutoAssigner {
         splitProposals,
         channelAnalyses,
         confidenceScore,
+        allInstruments,
         matrixScores,
         instrumentList,
         stats: {

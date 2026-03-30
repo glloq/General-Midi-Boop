@@ -47,6 +47,8 @@ class AutoAssignModal {
     this.splitProposals = {}; // { channel: SplitProposal } from backend
     this.splitChannels = new Set(); // Channels where user accepted a split
     this.splitAssignments = {}; // { channel: SplitProposal } accepted splits
+    this.allInstruments = []; // Full instrument list (for "show all" toggle)
+    this.showAllInstruments = false; // Toggle for showing unrouted instruments
 
     // GM Drum categories (mirrored from DrumNoteMapper backend)
     this.DRUM_CATEGORIES = {
@@ -277,6 +279,7 @@ class AutoAssignModal {
       this.autoSelection = response.autoSelection;
       this.confidenceScore = response.confidenceScore;
       this.splitProposals = response.splitProposals || {};
+      this.allInstruments = response.allInstruments || [];
       this.matrixScores = response.matrixScores || null;
       this.instrumentList = response.instrumentList || null;
 
@@ -601,6 +604,14 @@ class AutoAssignModal {
   // ========================================================================
   // TOGGLE METHODS
   // ========================================================================
+
+  /**
+   * Toggle showing all instruments (including unrouted) in instrument bar
+   */
+  toggleAllInstruments() {
+    this.showAllInstruments = !this.showAllInstruments;
+    this.refreshMainContent();
+  }
 
   /**
    * Toggle showing low-score instruments for a channel

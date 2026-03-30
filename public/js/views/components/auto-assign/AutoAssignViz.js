@@ -116,17 +116,62 @@
 
   /**
    * Render compact linear range bar: instrument range (green) vs channel notes (blue/orange)
+   * For splits, shows multiple colored segments per instrument.
    * For drums/discrete instruments, shows a text summary instead.
    */
     AutoAssignVizMixin.renderRangeBar = function(channel) {
     const ch = String(channel);
-    const assignment = this.selectedAssignments[ch];
-    const analysis = assignment?.channelAnalysis || this.channelAnalyses[channel];
-    const adaptation = this.adaptationSettings[ch] || {};
-    const semitones = adaptation.transpositionSemitones || 0;
-    const strategy = adaptation.strategy || 'ignore';
+    const analysis = (this.selectedAssignments[ch]?.channelAnalysis) || this.channelAnalyses[channel];
+    if (!analysis?.noteRange || analysis.noteRange.min == null) return '';
 
-    if (!analysis?.noteRange || analysis.noteRange.min == null || !assignment?.instrumentId) return '';
+    const pct = v => ((Math.max(0, Math.min(127, v)) / 127) * 100).toFixed(1);
+    const chanLabel = `Ch.${channel + 1}`;
+    const splitColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
+
+    // ---- SPLIT MODE: multiple instruments per channel ----
+    if (this.isSplitChannel(channel)) {
+      const proposal = this.splitAssignments[channel];
+      if (!proposal || !proposal.segments || proposal.segments.length === 0) return '';
+
+      const chanMin = analysis.noteRange.min;
+      const chanMax = analysis.noteRange.max;
+      const chanLeft = pct(chanMin);
+      const chanWidth = Math.max(0.5, ((chanMax - chanMin) / 127) * 100).toFixed(1);
+
+      const segmentBarsHTML = proposal.segments.map((seg, i) => {
+        const segMin = seg.noteRange?.min ?? chanMin;
+        const segMax = seg.noteRange?.max ?? chanMax;
+        const left = pct(segMin);
+        const width = Math.max(0.5, ((segMax - segMin) / 127) * 100).toFixed(1);
+        const color = splitColors[i % splitColors.length];
+        const name = escapeHtml(seg.instrumentName || '?');
+        return `<div class="aa-range-split-segment" style="left:${left}%;width:${width}%;background:${color}"
+                     title="${name}: ${this.midiNoteToName(segMin)}-${this.midiNoteToName(segMax)}"></div>`;
+      }).join('');
+
+      const legendItems = proposal.segments.map((seg, i) => {
+        const color = splitColors[i % splitColors.length];
+        const name = seg.instrumentName || '?';
+        const shortName = name.length > 18 ? name.slice(0, 17) + '…' : name;
+        return `<span class="aa-range-legend-item"><span class="aa-rleg-color" style="background:${color};border-color:${color}"></span>${escapeHtml(shortName)}</span>`;
+      }).join('');
+
+      return `<div class="aa-range-bar-container">
+        <div class="aa-range-bar">
+          <div class="aa-range-split-bg" style="left:${chanLeft}%;width:${chanWidth}%"
+               title="${chanLabel}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
+          ${segmentBarsHTML}
+        </div>
+        <div class="aa-range-legend">
+          ${legendItems}
+          <span class="aa-range-legend-item"><span class="aa-rleg-color aa-rleg-chan-bg"></span>${chanLabel}</span>
+        </div>
+      </div>`;
+    }
+
+    // ---- NORMAL MODE: single instrument ----
+    const assignment = this.selectedAssignments[ch];
+    if (!assignment?.instrumentId) return '';
 
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
@@ -138,30 +183,40 @@
       || inst.note_selection_mode === 'discrete';
 
     if (isDrumOrDiscrete) {
+      const instName = inst.custom_name || inst.name || '?';
+      const shortName = instName.length > 20 ? instName.slice(0, 19) + '…' : instName;
       const mappingCount = Object.keys(assignment.noteRemapping || {}).length;
       return `<div class="aa-range-bar-container aa-range-drums">
-        ${mappingCount} ${_t('autoAssign.notesMapped')}
+        ${escapeHtml(shortName)} — ${mappingCount} ${_t('autoAssign.notesMapped')}
       </div>`;
     }
 
-    // Positions as % of 0-127 MIDI scale
+    const adaptation = this.adaptationSettings[ch] || {};
+    const semitones = adaptation.transpositionSemitones || 0;
+    const strategy = adaptation.strategy || 'ignore';
+
     const instMin = inst.note_range_min ?? 0;
     const instMax = inst.note_range_max ?? 127;
     const chanMin = analysis.noteRange.min + semitones;
     const chanMax = analysis.noteRange.max + semitones;
 
-    const pct = v => ((Math.max(0, Math.min(127, v)) / 127) * 100).toFixed(1);
     const instLeft = pct(instMin);
     const instWidth = (((instMax - instMin) / 127) * 100).toFixed(1);
     const chanLeft = pct(chanMin);
     const chanWidth = Math.max(0.5, ((chanMax - chanMin) / 127) * 100).toFixed(1);
+
+    // Instrument display name (truncated)
+    const instName = inst.custom_name || inst.name || '?';
+    const shortInstName = instName.length > 20 ? instName.slice(0, 19) + '…' : instName;
+
+    // Channel label with transposition
+    const transpoSuffix = semitones ? ` (${semitones > 0 ? '+' : ''}${semitones}st)` : '';
 
     // Adaptation result
     const result = this.calculateAdaptationResult(channel, strategy);
     const allOk = result.outOfRange === 0;
     const chanClass = allOk ? 'in-range' : 'out-of-range';
 
-    // Compact summary
     let summaryHTML = '';
     if (result.totalNotes > 0) {
       if (allOk) {
@@ -180,8 +235,8 @@
              title="${_t('autoAssign.channelNotes')}: ${this.midiNoteToName(chanMin)}-${this.midiNoteToName(chanMax)}"></div>
       </div>
       <div class="aa-range-legend">
-        <span class="aa-range-legend-item"><span class="aa-rleg-color inst"></span>${_t('autoAssign.instrument')}</span>
-        <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${_t('autoAssign.channel')}</span>
+        <span class="aa-range-legend-item"><span class="aa-rleg-color inst"></span>${escapeHtml(shortInstName)}</span>
+        <span class="aa-range-legend-item"><span class="aa-rleg-color chan ${chanClass}"></span>${chanLabel}${escapeHtml(transpoSuffix)}</span>
         ${summaryHTML}
       </div>
     </div>`;
