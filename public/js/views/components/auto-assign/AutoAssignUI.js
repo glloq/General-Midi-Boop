@@ -443,7 +443,9 @@
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
     const compat = selectedOption?.compatibility;
-    const instrument = selectedOption?.instrument;
+    // Fallback: find instrument in allInstruments (unrouted/unscored selection)
+    const instrument = selectedOption?.instrument
+      || (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
     const score = assignment.score || 0;
     const displayName = assignment.customName || assignment.instrumentName || '—';
     const instType = instrument?.instrument_type || '';
