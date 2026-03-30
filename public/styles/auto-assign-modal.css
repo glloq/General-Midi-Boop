@@ -2540,6 +2540,17 @@ body.dark-mode .aa-inline-preview:hover {
   overflow: hidden;
 }
 
+/* Channel note range background (green) in split coverage bar */
+.aa-split-bar-chan-bg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(76, 175, 80, 0.18);
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
 .aa-split-bar-segment {
   position: absolute;
   top: 0;
@@ -2547,6 +2558,7 @@ body.dark-mode .aa-inline-preview:hover {
   opacity: 0.85;
   border-radius: 3px;
   transition: opacity 0.2s;
+  z-index: 1;
 }
 
 .aa-split-bar-segment:hover {
@@ -2851,14 +2863,28 @@ body.dark-mode .aa-inline-preview:hover {
   top: 2px;
   bottom: 2px;
   border-radius: 3px;
-  opacity: 0.7;
+  opacity: 0.75;
+  z-index: 1;
 }
+/* Channel note range background (green) behind split segments */
+.aa-range-channel-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(76, 175, 80, 0.18);
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+/* Legacy gray background — kept for backward compat */
 .aa-range-split-bg {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(180, 180, 180, 0.2);
+  background: rgba(76, 175, 80, 0.18);
+  border: 1px solid rgba(76, 175, 80, 0.35);
   border-radius: 3px;
+  box-sizing: border-box;
 }
 .aa-rleg-chan-bg {
   background: rgba(180, 180, 180, 0.3) !important;
