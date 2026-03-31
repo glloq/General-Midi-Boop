@@ -266,11 +266,12 @@
         popover.className = 'channel-settings-popover';
         popover.innerHTML = `
             <div class="channel-settings-header">
-                <span>${this.t('midiEditor.channelSettingsTitle', { channel: channel + 1 })}</span>
+                <span>⚙ ${this.t('midiEditor.channelSettingsTitle', { channel: channel + 1 })}</span>
             </div>
             <div class="channel-settings-section">
                 <label class="channel-settings-toggle">
                     <input type="checkbox" class="channel-enabled-checkbox" ${!isDisabled ? 'checked' : ''}>
+                    <span>🔊</span>
                     <span>${this.t('midiEditor.channelEnabled')}</span>
                 </label>
             </div>
@@ -280,14 +281,19 @@
                     <span class="playable-color-dot" style="background: ${color}"></span>
                     <span>${this.t('midiEditor.showPlayableNotes')}</span>
                 </label>
+                ${!hasRouting ? `<span class="channel-settings-hint">${this.t('midiEditor.playableRequiresRouting')}</span>` : ''}
             </div>
             <div class="channel-settings-section">
-                <label class="channel-settings-label">${this.t('midiEditor.channelRoutingLabel')}</label>
+                <label class="channel-settings-label">🔌 ${this.t('midiEditor.channelRoutingLabel')}</label>
+                <span class="channel-settings-hint">${this.t('midiEditor.channelRoutingHint')}</span>
                 <select class="channel-routing-select">${deviceOptions}</select>
             </div>
             <div class="channel-settings-section channel-visibility-actions">
-                <button class="channel-hide-others-btn">${this.t('midiEditor.hideOtherChannels')}</button>
-                <button class="channel-show-all-btn">${this.t('midiEditor.showAllChannels')}</button>
+                <label class="channel-settings-label">👁 ${this.t('midiEditor.visibilityTitle')}</label>
+                <div class="channel-visibility-btns">
+                    <button class="channel-hide-others-btn">👁 ${this.t('midiEditor.hideOtherChannels')}</button>
+                    <button class="channel-show-all-btn">👁 ${this.t('midiEditor.showAllChannels')}</button>
+                </div>
             </div>
         `;
 

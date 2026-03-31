@@ -374,6 +374,19 @@ body.dark-mode .channel-settings-label {
     color: #999;
 }
 
+body.dark-mode .channel-settings-hint {
+    color: #777;
+}
+
+body.dark-mode .settings-popover-hint {
+    color: #777;
+}
+
+body.dark-mode .tool-btn-apply {
+    background: #667eea;
+    border-color: #667eea;
+}
+
 body.dark-mode .channel-routing-select {
     background: #111;
     color: #ddd;

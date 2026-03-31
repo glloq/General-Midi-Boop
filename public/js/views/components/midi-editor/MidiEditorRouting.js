@@ -235,36 +235,40 @@
                         <!-- Popover Paramètres (Canal, Instrument, Device connecté) -->
                         <div class="settings-popover" id="settings-popover" style="display: none;">
                             <div class="settings-popover-section">
-                                <label class="settings-label">${this.t('midiEditor.channel')}</label>
+                                <label class="settings-label">🔀 ${this.t('midiEditor.moveToChannelTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.moveToChannelHint')}</span>
                                 <div class="settings-row">
                                     <select class="snap-select" id="channel-selector" title="${this.t('midiEditor.changeChannelTip')}">
                                         ${this.renderChannelOptions()}
                                     </select>
-                                    <button class="tool-btn-compact" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>→</button>
+                                    <button class="tool-btn-apply" data-action="change-channel" id="change-channel-btn" title="${this.t('midiEditor.applyChannel')}" disabled>${this.t('midiEditor.applyBtn')}</button>
                                 </div>
                             </div>
                             <div class="settings-popover-section">
-                                <label class="settings-label" id="instrument-label">${this.t('midiEditor.instrument')}</label>
+                                <label class="settings-label" id="instrument-label">🎵 ${this.t('midiEditor.changeInstrumentTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.changeInstrumentHint')}</span>
                                 <div class="settings-row">
                                     <select class="snap-select" id="instrument-selector" title="${this.t('midiEditor.selectInstrument')}">
                                         ${this.renderInstrumentOptions()}
                                     </select>
-                                    <button class="tool-btn-compact" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">✓</button>
+                                    <button class="tool-btn-apply" data-action="apply-instrument" id="apply-instrument-btn" title="${this.t('midiEditor.applyInstrument')}">${this.t('midiEditor.applyBtn')}</button>
                                 </div>
                             </div>
                             <div class="settings-popover-section">
-                                <label class="settings-label">🔊 Preview</label>
+                                <label class="settings-label">🔊 ${this.t('midiEditor.previewSourceTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.previewSourceHint')}</span>
                                 <button class="tool-btn-compact preview-source-toggle" id="preview-source-toggle"
                                     data-source="gm"
-                                    title="Basculer entre instrument routé et GM original">
+                                    title="${this.t('midiEditor.previewSourceHint')}">
                                     🎵 GM
                                 </button>
                             </div>
                             <div class="settings-popover-section">
-                                <label class="settings-label">🎹 Notes jouables</label>
+                                <label class="settings-label">🎹 ${this.t('midiEditor.playableNotesTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.playableNotesHint')}</span>
                                 <button class="tool-btn-compact playable-notes-toggle" id="playable-notes-toggle"
                                     data-active="false"
-                                    title="Afficher/masquer les notes jouables des instruments routés">
+                                    title="${this.t('midiEditor.playableNotesHint')}">
                                     OFF
                                 </button>
                             </div>
