@@ -15,7 +15,47 @@
     const selectedOption = options.find(opt => opt.instrument.id === instrumentId)
       || lowOptions.find(opt => opt.instrument.id === instrumentId);
 
-    if (!selectedOption) return;
+    // Fallback: instrument from allInstruments (unrouted/unscored)
+    if (!selectedOption) {
+      const inst = (this.allInstruments || []).find(i => i.id === instrumentId);
+      if (!inst) return;
+
+      const existingAnalysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[ch] || null;
+
+      this.selectedAssignments[ch] = {
+        deviceId: inst.device_id,
+        instrumentId: inst.id,
+        instrumentName: inst.name,
+        customName: inst.custom_name,
+        gmProgram: inst.gm_program,
+        noteRangeMin: inst.note_range_min,
+        noteRangeMax: inst.note_range_max,
+        noteSelectionMode: inst.note_selection_mode,
+        selectedNotes: inst.selected_notes,
+        score: 0,
+        transposition: null,
+        noteRemapping: null,
+        octaveWrapping: null,
+        octaveWrappingEnabled: false,
+        octaveWrappingInfo: null,
+        issues: [],
+        info: null,
+        channelAnalysis: existingAnalysis
+      };
+
+      this.adaptationSettings[ch] = {
+        ...this.adaptationSettings[ch],
+        transpositionSemitones: 0,
+        octaveWrappingEnabled: false,
+        strategy: 'ignore'
+      };
+
+      this.skippedChannels.delete(channel);
+      this._isDirty = true;
+      this.refreshCurrentTab();
+      this.refreshTabBar();
+      return;
+    }
 
     const existingAnalysis = this.selectedAssignments[ch]?.channelAnalysis || this.channelAnalyses[ch] || null;
 

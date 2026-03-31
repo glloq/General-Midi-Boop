@@ -215,8 +215,10 @@
 
     const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
-    if (!selectedOption) return '';
-    const inst = selectedOption.instrument;
+    // Fallback: find instrument in allInstruments (unrouted/unscored selection)
+    const inst = selectedOption?.instrument
+      || (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+    if (!inst) return '';
 
     const isDrumOrDiscrete = channel === 9
       || (analysis.estimatedType === 'drums')
