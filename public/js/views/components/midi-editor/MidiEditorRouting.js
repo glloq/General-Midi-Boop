@@ -108,6 +108,12 @@
                         <span class="tempo-unit">BPM</span>
                     </div>
                     <div class="header-right-actions">
+                        <button class="header-save-btn" data-action="save" id="save-btn" title="${this.t('midiEditor.save')}">
+                            💾 ${this.t('midiEditor.save')}
+                        </button>
+                        <button class="header-save-as-btn" data-action="save-as" id="save-as-btn" title="${this.t('midiEditor.saveAs')}">
+                            📄 ${this.t('midiEditor.saveAs')}
+                        </button>
                         <button class="header-auto-assign-btn" data-action="auto-assign" title="${this.t('autoAssign.title')}">
                             🎯 ${this.t('midiEditor.autoAssign')}
                         </button>
@@ -394,16 +400,6 @@
                         </div>
                     </div>
 
-                    <!-- Boutons en bas à droite du modal -->
-                    <div class="modal-floating-buttons">
-                        <button class="btn btn-secondary" data-action="close">${this.t('common.close')}</button>
-                        <button class="btn btn-primary" data-action="save" id="save-btn">
-                            💾 ${this.t('midiEditor.save')}
-                        </button>
-                        <button class="btn btn-secondary" data-action="save-as" id="save-as-btn" title="${this.t('midiEditor.saveAs')}">
-                            📄 ${this.t('midiEditor.saveAs')}
-                        </button>
-                    </div>
                 </div>
             </div>
         `;

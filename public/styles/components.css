@@ -855,6 +855,40 @@
     gap: 8px;
 }
 
+.midi-editor-modal .header-save-btn,
+.midi-editor-modal .header-save-as-btn {
+    background: #4a6fd8;
+    border: 1px solid #5a7fe8;
+    color: white;
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(74, 111, 216, 0.4);
+}
+
+.midi-editor-modal .header-save-btn:hover,
+.midi-editor-modal .header-save-as-btn:hover {
+    background: #5a7fe8;
+    border-color: #6a8ff8;
+    box-shadow: 0 3px 10px rgba(90, 127, 232, 0.5);
+}
+
+.midi-editor-modal .header-save-as-btn {
+    background: #5a6378;
+    border: 1px solid #6a7388;
+    box-shadow: 0 2px 6px rgba(90, 99, 120, 0.4);
+}
+
+.midi-editor-modal .header-save-as-btn:hover {
+    background: #6a7388;
+    border-color: #7a8398;
+    box-shadow: 0 3px 10px rgba(106, 115, 136, 0.5);
+}
+
 .midi-editor-modal .header-auto-assign-btn {
     background: #2d8a4e;
     border: 1px solid #3a9d5c;
@@ -1583,42 +1617,6 @@
     height: 100%;
 }
 
-/* Boutons flottants en bas à droite, en overlay sur l'éditeur */
-.midi-editor-modal .modal-floating-buttons {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    display: flex;
-    gap: 0;
-    z-index: 1000;
-    pointer-events: none;
-}
-
-.midi-editor-modal .modal-floating-buttons button {
-    pointer-events: auto;
-    border-radius: 0;
-    border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 12px 28px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.midi-editor-modal .modal-floating-buttons button:first-child {
-    border-left: none;
-    border-radius: 8px 0 0 0;
-}
-
-.midi-editor-modal .modal-floating-buttons button:hover {
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25) !important;
-    background: linear-gradient(135deg, #5a6fd8, #6a4190) !important;
-    border-color: transparent !important;
-    color: white !important;
-    transform: none !important;
-    filter: none !important;
-}
 
 .midi-editor-modal .btn-sm {
     padding: 6px 12px;
