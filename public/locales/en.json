@@ -366,6 +366,8 @@
         "windButton": "WIND",
         "drumButton": "DRUM",
         "tabButton": "TAB",
+        "editButton": "EDIT",
+        "editChannel": "Edit channel",
         "snapValues": {
             "1/1": "1/1",
             "1/2": "1/2",

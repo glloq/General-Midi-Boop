@@ -340,6 +340,17 @@ body.dark-mode .midi-editor-modal .channel-tab-btn:hover {
     background: linear-gradient(180deg, #333 0%, #222 100%);
 }
 
+body.dark-mode .midi-editor-modal .channel-edit-btn {
+    color: #aaa;
+    background: linear-gradient(180deg, #222 0%, #111 100%);
+    border-color: #555;
+}
+
+body.dark-mode .midi-editor-modal .channel-edit-btn:hover {
+    color: #fff;
+    background: linear-gradient(180deg, #333 0%, #222 100%);
+}
+
 body.dark-mode .midi-editor-modal .piano-roll-container {
     background: #1a1a1a;
 }

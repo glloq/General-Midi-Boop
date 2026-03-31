@@ -178,6 +178,14 @@
                 if (!isNaN(channel)) this._openWindEditorForChannel(channel);
                 return;
             }
+            const editBtn = e.target.closest('.channel-edit-btn');
+            if (editBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const channel = parseInt(editBtn.dataset.channel);
+                if (!isNaN(channel)) this._openPianoRollForChannel(channel);
+                return;
+            }
         });
 
     // Double-click on channel chip = Solo (hide all others)

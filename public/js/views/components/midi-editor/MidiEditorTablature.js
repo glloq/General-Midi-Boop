@@ -630,23 +630,28 @@
     * @param {number} channel
     */
     MidiEditorTablatureMixin._openTablatureForChannel = async function(channel) {
-    // First, ensure only this channel is active
+    // If tablature is already visible for this channel, toggle it off and restore channels
+        if (this.tablatureEditor && this.tablatureEditor.isVisible
+            && this.tablatureEditor.channel === channel) {
+            this.tablatureEditor.hide();
+            this._updateTabButtonState(false);
+            this._restoreActiveChannels();
+            return;
+        }
+
+    // Save active channels before switching (only saves once for direct editor switches)
+        this._saveActiveChannels();
+
+    // Ensure only this channel is active
         const previousActiveChannels = new Set(this.activeChannels);
         this.activeChannels.clear();
         this.activeChannels.add(channel);
+        this._pianoRollSoloChannel = null;
 
         this.updateSequenceFromActiveChannels(previousActiveChannels);
         if (this.channelPanel) {
             this.channelPanel.updateChannelButtons();
             this.channelPanel.updateInstrumentSelector();
-        }
-
-    // If tablature is already visible for this channel, toggle it off
-        if (this.tablatureEditor && this.tablatureEditor.isVisible
-            && this.tablatureEditor.channel === channel) {
-            this.tablatureEditor.hide();
-            this._updateTabButtonState(false);
-            return;
         }
 
     // If tablature is visible for a different channel, hide it first
@@ -658,6 +663,12 @@
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
             this.drumPatternEditor.hide();
             this._updateDrumButtonState(false);
+        }
+
+    // Hide wind editor if visible (mutually exclusive)
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+            this.windInstrumentEditor.hide();
+            this._updateWindButtonState(false);
         }
 
     // Now open tablature for the channel
@@ -789,6 +800,28 @@
                     existingWindBtn.remove();
                 }
             }
+
+    // EDIT button for channels without any specialized editor
+            const hasTab = group.querySelector('.channel-tab-btn');
+            const hasWind = group.querySelector('.channel-wind-btn');
+            const hasDrum = group.querySelector('.channel-drum-btn');
+            const existingEditBtn = group.querySelector('.channel-edit-btn');
+
+            if (!hasTab && !hasWind && !hasDrum && !existingEditBtn) {
+                const editBtn = document.createElement('button');
+                editBtn.className = 'channel-edit-btn';
+                editBtn.dataset.channel = ch;
+                editBtn.title = this.t('midiEditor.editChannel');
+                editBtn.textContent = this.t('midiEditor.editButton');
+                editBtn.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    this._openPianoRollForChannel(ch);
+                });
+                group.appendChild(editBtn);
+            } else if ((hasTab || hasWind || hasDrum) && existingEditBtn) {
+                existingEditBtn.remove();
+            }
         });
         } finally {
             this._refreshStringInstrumentPending = false;
@@ -826,12 +859,16 @@
     * @param {number} channel - MIDI channel (typically 9)
     */
     MidiEditorTablatureMixin._openDrumPatternForChannel = function(channel) {
-    // Toggle off if already visible for this channel
+    // Toggle off if already visible for this channel — restore saved channels
         if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.channel === channel) {
             this.drumPatternEditor.hide();
             this._updateDrumButtonState(false);
+            this._restoreActiveChannels();
             return;
         }
+
+    // Save active channels before switching (only saves once for direct editor switches)
+        this._saveActiveChannels();
 
     // Check if a specialty editor is currently managing notes (piano roll is stale)
         const specialtyEditorWasActive =
@@ -853,6 +890,7 @@
     // Skip piano roll sync if a specialty editor was active (fullSequence is already current)
         this.activeChannels.clear();
         this.activeChannels.add(channel);
+        this._pianoRollSoloChannel = null;
         this.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
         this.refreshChannelButtons();
 
@@ -892,12 +930,16 @@
     * @param {number} channel - MIDI channel with brass/reed/pipe program
     */
     MidiEditorTablatureMixin._openWindEditorForChannel = function(channel) {
-    // Toggle off if already visible for this channel
+    // Toggle off if already visible for this channel — restore saved channels
         if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.channel === channel) {
             this.windInstrumentEditor.hide();
             this._updateWindButtonState(false);
+            this._restoreActiveChannels();
             return;
         }
+
+    // Save active channels before switching (only saves once for direct editor switches)
+        this._saveActiveChannels();
 
     // Check if a specialty editor is currently managing notes (piano roll is stale)
         const specialtyEditorWasActive =
@@ -919,6 +961,7 @@
     // Skip piano roll sync if a specialty editor was active (fullSequence is already current)
         this.activeChannels.clear();
         this.activeChannels.add(channel);
+        this._pianoRollSoloChannel = null;
         this.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
         this.refreshChannelButtons();
 
@@ -958,6 +1001,100 @@
         windBtns.forEach(btn => {
             const ch = parseInt(btn.dataset.channel);
             btn.classList.toggle('active', active && ch === windChannel);
+        });
+    }
+
+    // ========================================================================
+    // SAVE / RESTORE ACTIVE CHANNELS
+    // ========================================================================
+
+    /**
+    * Save current active channels before opening a specialized editor.
+    * Does NOT overwrite if already saved (supports direct editor-to-editor switches).
+    */
+    MidiEditorTablatureMixin._saveActiveChannels = function() {
+        if (!this._savedActiveChannels) {
+            this._savedActiveChannels = new Set(this.activeChannels);
+        }
+    }
+
+    /**
+    * Restore previously saved active channels after closing a specialized editor.
+    */
+    MidiEditorTablatureMixin._restoreActiveChannels = function() {
+        if (!this._savedActiveChannels) return;
+
+        const previousActiveChannels = new Set(this.activeChannels);
+        this.activeChannels = new Set(this._savedActiveChannels);
+        this._savedActiveChannels = null;
+        this._pianoRollSoloChannel = null;
+
+        this.updateSequenceFromActiveChannels(previousActiveChannels);
+        if (this.channelPanel) {
+            this.channelPanel.updateChannelButtons();
+            this.channelPanel.updateInstrumentSelector();
+        }
+        if (this.playbackManager) {
+            this.playbackManager.syncMutedChannels();
+        }
+    }
+
+    // ========================================================================
+    // PIANO ROLL SOLO EDIT (for channels without specialized editors)
+    // ========================================================================
+
+    /**
+    * Open piano roll focused on a single channel (solo edit mode).
+    * Used for channels that don't have TAB/WIND/DRUM specialized editors.
+    * @param {number} channel - MIDI channel to solo-edit
+    */
+    MidiEditorTablatureMixin._openPianoRollForChannel = function(channel) {
+        // Toggle off if already in solo mode for this channel
+        if (this._pianoRollSoloChannel === channel) {
+            this._pianoRollSoloChannel = null;
+            this._restoreActiveChannels();
+            this._updateEditButtonState(false);
+            return;
+        }
+
+        // Hide any open specialized editor
+        if (this.tablatureEditor && this.tablatureEditor.isVisible) {
+            this.tablatureEditor.hide();
+            this._updateChannelTabButtons();
+        }
+        if (this.drumPatternEditor && this.drumPatternEditor.isVisible) {
+            this.drumPatternEditor.hide();
+            this._updateDrumButtonState(false);
+        }
+        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible) {
+            this.windInstrumentEditor.hide();
+            this._updateWindButtonState(false);
+        }
+
+        this._saveActiveChannels();
+
+        const previousActiveChannels = new Set(this.activeChannels);
+        this.activeChannels.clear();
+        this.activeChannels.add(channel);
+        this._pianoRollSoloChannel = channel;
+
+        this.updateSequenceFromActiveChannels(previousActiveChannels);
+        this.refreshChannelButtons();
+        this._updateEditButtonState(true);
+    }
+
+    /**
+    * Update active state of EDIT buttons
+    * @param {boolean} active
+    */
+    MidiEditorTablatureMixin._updateEditButtonState = function(active) {
+        const editBtns = this.container?.querySelectorAll('.channel-edit-btn');
+        if (!editBtns) return;
+
+        const soloChannel = this._pianoRollSoloChannel;
+        editBtns.forEach(btn => {
+            const ch = parseInt(btn.dataset.channel);
+            btn.classList.toggle('active', active && ch === soloChannel);
         });
     }
 

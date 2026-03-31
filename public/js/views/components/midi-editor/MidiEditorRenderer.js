@@ -89,6 +89,11 @@
     // Settings gear button (always visible, compact)
             const settingsBtn = `<button class="chip-settings-btn" data-channel="${ch.channel}" title="${this.t('midiEditor.channelSettings')}">⚙</button>`;
 
+    // EDIT button for channels without specialized editors
+            const editBtn = (!drumBtn && !tabBtn && !windBtn) ? `
+                <button class="channel-edit-btn" data-channel="${ch.channel}"
+                    title="${this.t('midiEditor.editChannel')}">${this.t('midiEditor.editButton')}</button>` : '';
+
             html += `
                 <div class="channel-chip-group">
                     <div class="channel-chip-row">
@@ -106,7 +111,7 @@
                         </button>
                         ${settingsBtn}
                     </div>
-                    ${drumBtn}${tabBtn}${windBtn}
+                    ${drumBtn}${tabBtn}${windBtn}${editBtn}
                 </div>
             `;
         });

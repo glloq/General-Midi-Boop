@@ -1596,6 +1596,33 @@
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
+.midi-editor-modal .channel-edit-btn {
+    display: block;
+    text-align: center;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-family: monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    line-height: 1;
+    background: transparent;
+    color: #667eea;
+    border: 1px solid #667eea;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast, 0.15s), transform var(--transition-fast, 0.15s), opacity var(--transition-fast, 0.15s), box-shadow var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
+}
+
+.midi-editor-modal .channel-edit-btn:hover {
+    background: #667eea;
+    color: #fff;
+}
+
+.midi-editor-modal .channel-edit-btn.active {
+    background: #667eea;
+    color: #fff;
+}
+
 .midi-editor-modal .piano-roll-container {
     flex: 1;
     position: relative;
