@@ -176,9 +176,6 @@ class MidiEditorPlayback {
         }
 
         if (!m.isPlaying && !m.isPaused) {
-            // Auto-activate tablature if a string instrument is configured for the active channel
-            await this._autoActivateTablature();
-
             this.loadSequenceForPlayback();
 
             // Determine start position: use cursor if within range, otherwise range start
