@@ -488,7 +488,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "File too large ({size}). Limit: {max}",
+        "duplicateFileWarning": "⚠️ File already exists - will be overwritten",
+        "releaseToUpload": "Release to upload",
+        "errorFileTooLarge": "File too large. Check the file size.",
+        "errorInvalidMidi": "This file does not appear to be a valid MIDI file. Check the format.",
+        "errorUploadTimeout": "Upload took too long. Please try again.",
+        "fileCount": "{count} file(s) — {size}"
     },
     "instrumentSettings": {
         "title": "Instrument Settings",

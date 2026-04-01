@@ -156,7 +156,7 @@ const CALIBRATION = {
 // SIZE LIMITS
 // ============================================
 const LIMITS = {
-  MAX_MIDI_FILE_SIZE: 50 * 1024 * 1024,   // 50 MB
+  MAX_MIDI_FILE_SIZE: 10 * 1024 * 1024,   // 10 MB (RPi-friendly, must stay < WebSocket 16MB payload)
   MAX_SYSEX_BUFFER_SIZE: 65536,            // 64 KB
   MAX_UNDO_HISTORY: 100,
   MAX_EDITOR_HISTORY: 50
