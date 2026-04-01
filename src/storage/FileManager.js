@@ -3,7 +3,7 @@ import { parseMidi } from 'midi-file';
 import { writeMidi } from 'midi-file';
 import ChannelAnalyzer from '../midi/ChannelAnalyzer.js';
 import MidiUtils from '../utils/MidiUtils.js';
-import constants from '../constants.js';
+import { LIMITS } from '../constants.js';
 
 class FileManager {
   constructor(app) {
@@ -19,7 +19,7 @@ class FileManager {
       const uploadStartTime = Date.now();
 
       // Validate size before decoding (base64 is ~4/3 of original size)
-      const MAX_MIDI_SIZE = constants.LIMITS.MAX_MIDI_FILE_SIZE;
+      const MAX_MIDI_SIZE = LIMITS.MAX_MIDI_FILE_SIZE;
       const estimatedSize = Math.ceil(base64Data.length * 3 / 4);
       if (estimatedSize > MAX_MIDI_SIZE) {
         throw new Error(`File too large: ${(estimatedSize / (1024 * 1024)).toFixed(1)}MB exceeds ${MAX_MIDI_SIZE / (1024 * 1024)}MB limit`);

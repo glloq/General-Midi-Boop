@@ -177,7 +177,7 @@ const EVENTS = {
   ERROR: 'error'
 };
 
-module.exports = {
+export {
   MIDI_STATUS,
   MIDI_SYSTEM_MESSAGES,
   SYSTEM_MESSAGE_LENGTH,
