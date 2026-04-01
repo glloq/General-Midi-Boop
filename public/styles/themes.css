@@ -113,6 +113,14 @@ body.dark-mode .file-browser-header {
     background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
 }
 
+body.dark-mode .file-toolbar {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .file-list {
+    background: var(--bg-primary);
+}
+
 body.dark-mode .file-upload-zone {
     border-color: var(--accent-primary);
     background: rgba(102,126,234,0.1);

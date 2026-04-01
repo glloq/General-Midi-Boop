@@ -523,7 +523,7 @@ class InstrumentManagementPage {
         margin: 4px 0;
         border-left: 4px solid ${channelColor};
         border-radius: 6px;
-        background: #fafbfc;
+        background: var(--card-bg, #fafbfc);
         display: flex;
         align-items: center;
         gap: 10px;
@@ -536,13 +536,13 @@ class InstrumentManagementPage {
         <div style="flex: 1; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             ${instrument.gm_program !== null && instrument.gm_program !== undefined
-              ? `<span style="color: #374151; font-weight: 500;">${esc(displayName)}</span>`
-              : `<span style="color: #9ca3af; font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
+              ? `<span style="color: var(--text-primary, #374151); font-weight: 500;">${esc(displayName)}</span>`
+              : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
             ${isComplete
               ? `<span style="display:inline-block;padding:1px 6px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:600;">✓</span>`
               : `<span style="display:inline-block;padding:1px 6px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:600;">⚠</span>`}
           </div>
-          <div style="display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: #9ca3af;">
+          <div style="display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
             ${instrument.note_range_min != null && instrument.note_range_max != null
               ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
               : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
