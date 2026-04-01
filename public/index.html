@@ -3708,6 +3708,14 @@
             color: #1a1a2e;
         }
 
+        .header-file-name.header-file-ready {
+            color: #16a34a;
+        }
+
+        body.theme-dark .header-file-name.header-file-ready {
+            color: #4ade80;
+        }
+
         .header-time {
             color: #666;
             font-family: 'Courier New', monospace;
@@ -6639,8 +6647,9 @@
                     updatePlaybackControls();
                     updateFileStateDots();
                     document.getElementById('headerProgressFill').style.width = '0%';
-                    document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
                     document.getElementById('headerTime').textContent = '00:00 / 00:00';
+                    // Afficher le fichier sélectionné s'il y en a un, sinon "aucun fichier"
+                    updateHeaderSelectedFile();
                     log('⏹️ Lecture arrêtée');
                     // Émettre pour le piano roll (HIGH priority pour arrêt immédiat)
                     if (window.eventBus) {
@@ -6921,6 +6930,40 @@
                     // Scroll vers le fichier si nécessaire
                     newFile.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
+            }
+
+            // Mettre à jour le header si pas en lecture
+            updateHeaderSelectedFile();
+        }
+
+        function updateHeaderSelectedFile() {
+            // Ne pas écraser le header si une lecture est en cours
+            if (isPlaying || isPaused) return;
+
+            const headerFileName = document.getElementById('headerFileName');
+            if (!selectedFileId) {
+                headerFileName.textContent = i18n.t('ui.noFileSelected');
+                headerFileName.classList.remove('header-file-ready');
+                return;
+            }
+
+            const fileItem = document.querySelector(`.file-item[data-file-id="${selectedFileId}"]`);
+            if (!fileItem) {
+                headerFileName.textContent = i18n.t('ui.noFileSelected');
+                headerFileName.classList.remove('header-file-ready');
+                return;
+            }
+
+            const filename = fileItem.dataset.fileName;
+            const backendStatus = fileRoutingStatusCache.get(String(selectedFileId));
+            const routed = (backendStatus && backendStatus !== 'unrouted') || isFileRouted(selectedFileId);
+
+            if (routed) {
+                headerFileName.textContent = '🎵 ' + filename;
+                headerFileName.classList.add('header-file-ready');
+            } else {
+                headerFileName.textContent = filename;
+                headerFileName.classList.remove('header-file-ready');
             }
         }
 
