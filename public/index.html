@@ -7464,22 +7464,26 @@
                     }
                     updateBatchActionsBar();
                     selectFile(file.id);
-                } else if (e.shiftKey && selectedFileId) {
+                } else if (e.shiftKey && selectedFileId != null) {
                     // Shift+Clic : sélectionner la plage entre le fichier courant et celui-ci
-                    const allItems = Array.from(document.querySelectorAll('.file-item'));
-                    const startIdx = allItems.findIndex(el => el.dataset.fileId === String(selectedFileId));
-                    const endIdx = allItems.findIndex(el => el.dataset.fileId === String(file.id));
+                    e.preventDefault();
+                    const allItems = Array.from(document.querySelectorAll('#fileList .file-item'));
+                    const anchorId = String(selectedFileId);
+                    const targetId = String(file.id);
+                    const startIdx = allItems.findIndex(el => String(el.dataset.fileId) === anchorId);
+                    const endIdx = allItems.findIndex(el => String(el.dataset.fileId) === targetId);
                     if (startIdx !== -1 && endIdx !== -1) {
                         const from = Math.min(startIdx, endIdx);
                         const to = Math.max(startIdx, endIdx);
                         for (let i = from; i <= to; i++) {
-                            const itemId = Number(allItems[i].dataset.fileId);
-                            selectedFileIds.add(itemId);
+                            const itemFileId = allItems[i].dataset.fileId;
+                            selectedFileIds.add(Number(itemFileId) || itemFileId);
                             const cb = allItems[i].querySelector('.file-checkbox');
                             if (cb) cb.checked = true;
                         }
                         updateBatchActionsBar();
                     }
+                    // Ne pas changer l'ancre pour permettre des sélections Shift successives
                 } else {
                     // Clic simple : sélection unique
                     selectFile(file.id);
