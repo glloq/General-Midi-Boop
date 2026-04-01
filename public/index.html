@@ -4072,6 +4072,25 @@
         }
 
         /* Upload drop zone - inline in header */
+        .file-count-badge {
+            font-size: 12px;
+            color: #888;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.04);
+            border-radius: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .file-count-badge:empty {
+            display: none;
+        }
+
+        body.theme-dark .file-count-badge {
+            color: #aaa;
+            background: rgba(255,255,255,0.06);
+        }
+
         .upload-drop-zone {
             border: 2px dashed #d1d5db;
             border-radius: 8px;
@@ -4093,6 +4112,22 @@
             border-color: #667eea;
             background: #e0e7ff;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+            transform: scale(1.02);
+            animation: pulse-drop 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-drop {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15); }
+            50% { box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.25); }
+        }
+
+        .upload-drop-zone.drag-over .upload-drop-zone-icon {
+            animation: bounce-icon 0.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes bounce-icon {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-3px); }
         }
 
         .upload-drop-zone-content {
@@ -4134,6 +4169,7 @@
         body.theme-dark .upload-drop-zone.drag-over {
             border-color: #667eea;
             background: #333355;
+            transform: scale(1.02);
         }
 
         body.theme-dark .upload-drop-zone-text {
@@ -4848,7 +4884,7 @@
                     <div class="file-toolbar">
                         <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
                         <div class="midi-files-header">
-                            <div class="upload-drop-zone" id="uploadDropZone">
+                            <div class="upload-drop-zone" id="uploadDropZone" role="button" tabindex="0" aria-describedby="dropZoneDesc">
                                 <div class="upload-drop-zone-content">
                                     <span class="upload-drop-zone-icon">📥</span>
                                     <div class="upload-drop-zone-text">
@@ -4856,7 +4892,9 @@
                                         <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
                                     </div>
                                 </div>
+                                <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi. Taille max : 10 MB. Raccourci : Ctrl+O</span>
                             </div>
+                            <span class="file-count-badge" id="fileCountBadge" aria-live="polite"></span>
                             <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
                         </div>
 
@@ -6822,9 +6860,26 @@
                 // Re-apply display mode after rebuilding file list
                 applyDisplayMode(currentDisplayMode);
 
+                // Mettre à jour le compteur de fichiers
+                updateFileCountBadge(files);
+
             } catch (error) {
                 log(`Erreur chargement fichiers: ${error.message}`, 'error');
             }
+        }
+
+        function updateFileCountBadge(files) {
+            const badge = document.getElementById('fileCountBadge');
+            if (!badge) return;
+            if (!files || files.length === 0) {
+                badge.textContent = '';
+                return;
+            }
+            const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+            const countText = (i18n.t('ui.fileCount') || '{count} fichier(s) — {size}')
+                .replace('{count}', files.length)
+                .replace('{size}', formatFileSize(totalSize));
+            badge.textContent = countText;
         }
 
         // Obtenir le dossier d'un fichier
@@ -8361,6 +8416,22 @@
         }
 
         // Upload fichier avec progression
+        const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10 MB - must match backend LIMITS.MAX_MIDI_FILE_SIZE
+
+        function getUploadErrorMessage(error, file) {
+            const msg = error.message || '';
+            if (msg.includes('too large') || msg.includes('File too large')) {
+                return i18n.t('ui.errorFileTooLarge') || `Fichier trop volumineux (${formatFileSize(file.size)}). Limite : ${formatFileSize(MAX_UPLOAD_SIZE)}`;
+            }
+            if (msg.includes('Invalid MIDI')) {
+                return i18n.t('ui.errorInvalidMidi') || 'Ce fichier ne semble pas être un MIDI valide. Vérifiez le format.';
+            }
+            if (msg.includes('timeout') || msg.includes('Timeout')) {
+                return i18n.t('ui.errorUploadTimeout') || "L'upload a pris trop de temps. Réessayez.";
+            }
+            return msg;
+        }
+
         async function uploadFile() {
             const input = document.getElementById('fileInput');
             const files = Array.from(input.files);
@@ -8380,20 +8451,27 @@
             filesList.innerHTML = '';
             doneBtn.style.display = 'none';
 
+            // Détecter les fichiers existants pour avertir des doublons
+            const existingFileNames = new Set(
+                Array.from(document.querySelectorAll('.file-item[data-file-name]'))
+                    .map(el => el.dataset.fileName.toLowerCase())
+            );
+
             // Créer les éléments pour chaque fichier
             const fileElements = files.map(file => {
+                const isDuplicate = existingFileNames.has(file.name.toLowerCase());
                 const div = document.createElement('div');
                 div.className = 'upload-file-item uploading';
                 div.innerHTML = `
                     <div class="upload-file-icon">📄</div>
                     <div class="upload-file-info">
                         <div class="upload-file-name">${file.name}</div>
-                        <div class="upload-file-size">${formatFileSize(file.size)}</div>
+                        <div class="upload-file-size">${formatFileSize(file.size)}${isDuplicate ? ' — ' + (i18n.t('ui.duplicateFileWarning') || '⚠️ Fichier déjà existant - sera écrasé') : ''}</div>
                     </div>
                     <div class="upload-file-status">⏳</div>
                 `;
                 filesList.appendChild(div);
-                return { file, element: div };
+                return { file, element: div, isDuplicate };
             });
 
             let completed = 0;
@@ -8401,6 +8479,24 @@
 
             // Upload chaque fichier séquentiellement
             for (const { file, element } of fileElements) {
+                // Validation de taille côté client
+                if (file.size > MAX_UPLOAD_SIZE) {
+                    element.classList.remove('uploading');
+                    element.classList.add('error');
+                    element.querySelector('.upload-file-status').textContent = '✗';
+                    const sizeMsg = (i18n.t('ui.fileTooLarge') || 'Fichier trop volumineux ({size}). Limite : {max}')
+                        .replace('{size}', formatFileSize(file.size))
+                        .replace('{max}', formatFileSize(MAX_UPLOAD_SIZE));
+                    element.querySelector('.upload-file-size').textContent = sizeMsg;
+                    log(`❌ ${file.name}: ${sizeMsg}`, 'error');
+                    hasErrors = true;
+                    completed++;
+                    const progress = Math.round((completed / files.length) * 100);
+                    progressBar.style.width = progress + '%';
+                    progressBar.textContent = progress + '%';
+                    continue;
+                }
+
                 try {
                     await api.uploadMidiFile(file, '/');
                     element.classList.remove('uploading');
@@ -8411,8 +8507,8 @@
                     element.classList.remove('uploading');
                     element.classList.add('error');
                     element.querySelector('.upload-file-status').textContent = '✗';
-                    element.querySelector('.upload-file-size').textContent = error.message;
-                    log(`❌ Erreur envoi ${file.name}: ${error.message}`, 'error');
+                    element.querySelector('.upload-file-size').textContent = getUploadErrorMessage(error, file);
+                    log(`❌ Erreur envoi ${file.name}: ${getUploadErrorMessage(error, file)}`, 'error');
                     hasErrors = true;
                 }
 
@@ -11097,6 +11193,21 @@
         // Drag & drop zone pour upload de fichiers
         const uploadDropZone = document.getElementById('uploadDropZone');
         const dropZoneBrowseLink = document.getElementById('dropZoneBrowseLink');
+        const dropZoneTextSpan = uploadDropZone.querySelector('.upload-drop-zone-text span');
+        const dropZoneTextStrong = uploadDropZone.querySelector('.upload-drop-zone-text strong');
+        const dropZoneOriginalText = dropZoneTextSpan ? dropZoneTextSpan.textContent : '';
+        const dropZoneOriginalStrong = dropZoneTextStrong ? dropZoneTextStrong.textContent : '';
+
+        function setDropZoneDragText(isDragging) {
+            if (!dropZoneTextSpan || !dropZoneTextStrong) return;
+            if (isDragging) {
+                dropZoneTextSpan.textContent = '';
+                dropZoneTextStrong.textContent = i18n.t('ui.releaseToUpload') || 'Relâchez pour uploader';
+            } else {
+                dropZoneTextSpan.textContent = i18n.t('ui.dropFilesHere') || dropZoneOriginalText;
+                dropZoneTextStrong.textContent = i18n.t('ui.clickToBrowse') || dropZoneOriginalStrong;
+            }
+        }
 
         dropZoneBrowseLink.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -11107,22 +11218,41 @@
             document.getElementById('fileInput').click();
         });
 
+        // Accessibilité clavier : Enter/Space ouvre le sélecteur de fichiers
+        uploadDropZone.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                document.getElementById('fileInput').click();
+            }
+        });
+
+        // Raccourci clavier global Ctrl+O / Cmd+O pour ouvrir le sélecteur
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault();
+                document.getElementById('fileInput').click();
+            }
+        });
+
         uploadDropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
             uploadDropZone.classList.add('drag-over');
+            setDropZoneDragText(true);
         });
 
         uploadDropZone.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
             uploadDropZone.classList.remove('drag-over');
+            setDropZoneDragText(false);
         });
 
         uploadDropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
             uploadDropZone.classList.remove('drag-over');
+            setDropZoneDragText(false);
 
             const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
                 f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')
@@ -11148,6 +11278,7 @@
             pageDragCounter++;
             if (pageDragCounter === 1) {
                 uploadDropZone.classList.add('drag-over');
+                setDropZoneDragText(true);
             }
         });
         document.addEventListener('dragleave', (e) => {
@@ -11156,6 +11287,7 @@
             if (pageDragCounter <= 0) {
                 pageDragCounter = 0;
                 uploadDropZone.classList.remove('drag-over');
+                setDropZoneDragText(false);
             }
         });
         document.addEventListener('dragover', (e) => e.preventDefault());
@@ -11163,6 +11295,7 @@
             e.preventDefault();
             pageDragCounter = 0;
             uploadDropZone.classList.remove('drag-over');
+            setDropZoneDragText(false);
 
             // Ignorer si le drop vient de la zone inline (déjà géré)
             if (uploadDropZone.contains(e.target)) return;
@@ -12026,6 +12159,7 @@
                 await displayFilteredFiles(filteredFiles);
 
                 log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
+                updateFileCountBadge(filteredFiles);
             } catch (error) {
                 log(`❌ Erreur application filtres: ${error.message}`, 'error');
                 const fileList = document.getElementById('fileList');
