@@ -397,7 +397,18 @@
         "routedSource": "🎸 Routed",
         "gmSource": "🎵 GM",
         "playableOn": "ON",
-        "playableOff": "OFF"
+        "playableOff": "OFF",
+        "channelRoutingHint": "Send this channel to:",
+        "playableRequiresRouting": "(requires routing)",
+        "visibilityTitle": "Visibility",
+        "moveToChannelTitle": "Move to channel",
+        "moveToChannelHint": "Move selected notes to the chosen channel",
+        "changeInstrumentHint": "Change the MIDI program of the active channel",
+        "previewSourceTitle": "Preview source",
+        "previewSourceHint": "Choose between original GM sound or routed instrument",
+        "playableNotesTitle": "Playable notes",
+        "playableNotesHint": "Show notes that the routed instrument can play",
+        "applyBtn": "Apply"
     },
     "errors": {
         "deviceNotFound": "Apparaat niet gevonden: {deviceId}",
