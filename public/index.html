@@ -7485,35 +7485,38 @@
             });
             li.addEventListener('dragend', handleDragEnd);
 
-            // Shift+Clic : utiliser mousedown car le click event est bloqué
-            // par draggable=true sur certains navigateurs (Firefox)
-            li.addEventListener('mousedown', (e) => {
-                if (!e.shiftKey) return;
+            // Gestion unifiée de la sélection via pointerdown
+            // pointerdown est garanti de se déclencher même sur les éléments draggable,
+            // contrairement à click/mousedown qui sont interceptés par le drag sur certains navigateurs
+            li.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return; // bouton gauche uniquement
                 if (e.target.tagName === 'BUTTON' || e.target.closest('button') ||
                     e.target.tagName === 'INPUT') return;
-                if (selectedFileId == null) return;
 
-                e.preventDefault(); // empêcher la sélection de texte
+                if (e.shiftKey && selectedFileId != null) {
+                    // Shift+Clic : sélectionner la plage entre l'ancre et ce fichier
+                    e.preventDefault(); // empêcher sélection texte et drag
+                    e.stopPropagation();
 
-                const allItems = Array.from(document.querySelectorAll('#fileList .file-item'));
-                const anchorId = String(selectedFileId);
-                const targetId = String(file.id);
-                const startIdx = allItems.findIndex(el => String(el.dataset.fileId) === anchorId);
-                const endIdx = allItems.findIndex(el => String(el.dataset.fileId) === targetId);
-                if (startIdx !== -1 && endIdx !== -1) {
-                    const from = Math.min(startIdx, endIdx);
-                    const to = Math.max(startIdx, endIdx);
-                    for (let idx = from; idx <= to; idx++) {
-                        selectedFileIds.add(Number(allItems[idx].dataset.fileId));
+                    const allItems = Array.from(document.querySelectorAll('#fileList .file-item'));
+                    const anchorId = String(selectedFileId);
+                    const targetId = String(file.id);
+                    const startIdx = allItems.findIndex(el => String(el.dataset.fileId) === anchorId);
+                    const endIdx = allItems.findIndex(el => String(el.dataset.fileId) === targetId);
+                    if (startIdx !== -1 && endIdx !== -1) {
+                        const from = Math.min(startIdx, endIdx);
+                        const to = Math.max(startIdx, endIdx);
+                        for (let idx = from; idx <= to; idx++) {
+                            selectedFileIds.add(Number(allItems[idx].dataset.fileId));
+                        }
+                        syncBatchSelectionUI();
                     }
-                    syncBatchSelectionUI();
                 }
             });
 
-            // Clic simple pour sélectionner
+            // Clic simple pour sélectionner (sans Shift)
             li.addEventListener('click', (e) => {
-                if (e.shiftKey) return; // déjà géré par mousedown
+                if (e.shiftKey) return; // déjà géré par pointerdown
                 if (e.target.tagName === 'BUTTON' || e.target.closest('button') ||
                     e.target.tagName === 'INPUT') return;
                 selectFile(file.id);
