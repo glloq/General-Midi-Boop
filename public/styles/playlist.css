@@ -695,3 +695,178 @@
         gap: 15px;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .playlist-view-container {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .playlist-header {
+    background: var(--card-bg);
+    border-bottom-color: var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .playlist-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-controls {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .btn-control {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-control:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-muted);
+}
+
+body.dark-mode .playlist-sidebar.left {
+    background: var(--bg-primary);
+    border-right-color: var(--border-color);
+}
+
+body.dark-mode .playlist-main {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .playlist-sidebar.right {
+    background: var(--bg-primary);
+    border-left-color: var(--border-color);
+}
+
+body.dark-mode .playlists-list-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .playlists-list-header h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-item {
+    background: var(--card-bg);
+}
+
+body.dark-mode .playlist-item:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .playlist-item-meta {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .empty-state {
+    color: var(--text-muted);
+}
+
+body.dark-mode .current-playlist-header {
+    border-bottom-color: var(--border-color);
+    background: var(--bg-primary);
+}
+
+body.dark-mode .playlist-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-file-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .playlist-file-item:hover {
+    background: var(--bg-tertiary);
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+body.dark-mode .playlist-file-item.playing {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: #667eea;
+    box-shadow: 0 2px 12px rgba(102, 126, 234, 0.3);
+}
+
+body.dark-mode .file-drag-handle {
+    color: var(--text-muted);
+}
+
+body.dark-mode .file-number {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .file-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-metadata {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .file-duration {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .no-playlist-state,
+body.dark-mode .empty-playlist-state {
+    color: var(--text-muted);
+}
+
+body.dark-mode .queue-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .queue-header h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .queue-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .queue-item:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-muted);
+}
+
+body.dark-mode .queue-item-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .queue-item-duration {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .empty-queue-state {
+    color: var(--text-muted);
+}
+
+body.dark-mode .queue-stats {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-footer {
+    background: var(--card-bg);
+    border-top-color: var(--border-color);
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-muted);
+}
+
+body.dark-mode .stat-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+}

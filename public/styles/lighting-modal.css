@@ -1204,3 +1204,83 @@
 .lighting-modal-container {
   animation: lightingModalSlideIn 0.2s ease-out;
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .lighting-modal-overlay {
+    --lt-bg: #1a1a1a;
+    --lt-bg-alt: #2d3748;
+    --lt-bg-hover: #4a5568;
+    --lt-bg-selected: #3d3520;
+    --lt-border-selected: #eab308;
+    --lt-border: #4a5568;
+    --lt-border-light: #4a5568;
+    --lt-text: #e0e0e0;
+    --lt-text-sec: #a0aec0;
+    --lt-text-muted: #718096;
+    --lt-card-bg: #2d3748;
+    --lt-card-header: #4a5568;
+    --lt-input-bg: #4a5568;
+    --lt-input-border: #718096;
+    --lt-input-text: #e0e0e0;
+    --lt-btn-bg: #4a5568;
+    --lt-btn-border: #718096;
+    --lt-header-rules-bg: #3d3520;
+}
+
+body.dark-mode .lighting-modal-container {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .lighting-color-pill {
+    border-color: #718096;
+}
+
+body.dark-mode .lighting-color-dot {
+    border-color: #718096;
+}
+
+body.dark-mode .lighting-color-btn {
+    border-color: #718096;
+}
+
+body.dark-mode .led-preview-pixel {
+    background: #1a1a1a;
+}
+
+body.dark-mode .lighting-confirm-dialog {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .lighting-form-dialog {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .lighting-color-wheel-dialog {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .lighting-color-wheel-swatch {
+    border-color: var(--border-color);
+}
+
+body.dark-mode .lighting-toast {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .lighting-tap-btn {
+    background: #2d3748;
+    color: #a78bfa;
+    border-color: #8b5cf6;
+}
+
+body.dark-mode .lighting-midi-learn-btn {
+    color: #f59e0b;
+    border-color: #f59e0b;
+}
+
+body.dark-mode .lighting-shortcuts-bar kbd {
+    background: #4a5568;
+    border-color: #718096;
+    color: #e0e0e0;
+}

@@ -264,3 +264,76 @@ body.performance-mode .keyboard-canvas,
 body.performance-mode .btn-preset {
     transition: none !important;
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .keyboard-controls {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .control-group label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .note-range-display {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .btn-preset {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-preset:hover {
+    background: var(--color-primary);
+}
+
+body.dark-mode .keyboard-canvas-wrapper {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .keyboard-legend {
+    background: var(--card-bg);
+}
+
+body.dark-mode .legend-color {
+    border-color: var(--border-color);
+}
+
+body.dark-mode .legend-item span {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .keyboard-mapping-info {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .keyboard-mapping-info h4 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .keyboard-mapping-info p {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .key-hints kbd {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .stat-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .info-banner.warning {
+    background: rgba(255, 217, 61, 0.05);
+}

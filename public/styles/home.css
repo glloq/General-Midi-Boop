@@ -424,3 +424,134 @@
     font-size: 12px;
     color: var(--text-muted);
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .home-selector {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .selector-tabs {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .selector-tab {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .selector-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .selector-content {
+    background: var(--card-bg);
+}
+
+body.dark-mode .file-item {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-item:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .file-item.active {
+    color: white;
+}
+
+body.dark-mode .file-item-info {
+    color: var(--text-muted);
+}
+
+body.dark-mode .playlist-item {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-item:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .playlist-item.active {
+    color: white;
+}
+
+body.dark-mode .playlist-item-count {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .home-visualizer {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .instruments-bar {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .instruments-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .instrument-chip {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .instrument-chip:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .instrument-chip.active {
+    color: white;
+}
+
+body.dark-mode .btn-mute-all {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-mute-all:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .btn-mute-all.muted {
+    color: white;
+}
+
+body.dark-mode .visualizer-canvas {
+    background: linear-gradient(135deg, #111111 0%, #1a1a2e 100%);
+}
+
+body.dark-mode .visualizer-info {
+    background: rgba(0, 0, 0, 0.85);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .visualizer-info span {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .empty-state {
+    color: var(--text-muted);
+}
+
+body.dark-mode .empty-state-text {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .empty-state-hint {
+    color: var(--text-muted);
+}

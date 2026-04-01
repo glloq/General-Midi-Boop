@@ -222,7 +222,7 @@
       if (!results) return;
 
       if (!res.discovered || res.discovered.length === 0) {
-        results.innerHTML = `<div style="font-size:24px;margin-bottom:8px;">🤷</div><p style="font-size:12px;color:${t.textMuted};">Aucun dispositif trouvé. Vérifiez que vos appareils sont allumés et sur le même réseau.</p>`;
+        results.innerHTML = `<div style="font-size:24px;margin-bottom:8px;">🤷</div><p style="font-size:12px;color:${t.textMuted};">${i18n.t('lighting.noDeviceFound') || 'Aucun dispositif trouvé. Vérifiez que vos appareils sont allumés et sur le même réseau.'}</p>`;
         return;
       }
 
@@ -234,12 +234,12 @@
             <div style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(d.name)}</div>
             <div style="font-size:11px;color:${t.textMuted};">${this._escapeHtml(d.type).toUpperCase()} · ${this._escapeHtml(d.host)} · ${d.led_count || '?'} LEDs</div>
           </div>
-          <button onclick="lightingControlPageInstance._addScannedDevice(lightingControlPageInstance._discoveredDevices[${idx}])" style="padding:4px 10px;border:1px solid #10b981;border-radius:6px;background:none;color:#10b981;cursor:pointer;font-size:11px;">+ Ajouter</button>
+          <button onclick="lightingControlPageInstance._addScannedDevice(lightingControlPageInstance._discoveredDevices[${idx}])" style="padding:4px 10px;border:1px solid #10b981;border-radius:6px;background:none;color:#10b981;cursor:pointer;font-size:11px;">${i18n.t('lighting.addScanned') || '+ Ajouter'}</button>
         </div>
       `).join('');
     } catch (error) {
       const results = document.getElementById('scanResults');
-      if (results) results.innerHTML = `<p style="color:#ef4444;font-size:12px;">Erreur: ${this._escapeHtml(error.message)}</p>`;
+      if (results) results.innerHTML = `<p style="color:#ef4444;font-size:12px;">${(i18n.t('lighting.errorPrefix') || 'Erreur: {error}').replace('{error}', this._escapeHtml(error.message))}</p>`;
     }
   }
 

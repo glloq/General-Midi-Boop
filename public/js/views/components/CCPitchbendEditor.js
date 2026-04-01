@@ -136,6 +136,7 @@ class CCPitchbendEditor {
         this._boundMouseLeave = this.handleMouseLeave.bind(this);
         this._boundKeyDown = this.handleKeyDown.bind(this);
         this._boundResize = this.resize.bind(this);
+        this._boundThemeChanged = () => this._onThemeChanged();
 
         // Événements souris (mousemove throttlé via rAF)
         this.canvas.addEventListener('mousedown', this._boundMouseDown);
@@ -148,6 +149,19 @@ class CCPitchbendEditor {
 
         // Redimensionnement
         window.addEventListener('resize', this._boundResize);
+
+        // Changement de thème
+        document.addEventListener('theme-changed', this._boundThemeChanged);
+    }
+
+    _onThemeChanged() {
+        const isDark = document.body.classList.contains('dark-mode');
+        if (this.element) {
+            this.element.style.background = isDark ? '#1a1a1a' : '#f0f4ff';
+            this.element.style.borderTopColor = isDark ? '#333' : '#d4daff';
+        }
+        this.gridDirty = true;
+        this.scheduleRender();
     }
 
     resize() {
@@ -1092,6 +1106,7 @@ class CCPitchbendEditor {
         }
         document.removeEventListener('keydown', this._boundKeyDown);
         window.removeEventListener('resize', this._boundResize);
+        document.removeEventListener('theme-changed', this._boundThemeChanged);
 
         if (this.element && this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);

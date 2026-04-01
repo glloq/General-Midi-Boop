@@ -733,3 +733,138 @@
 .btn-danger:hover {
     background: #d32f2f;
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .routing-panel {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .routing-panel-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .routing-quick-actions {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .routing-stats {
+    background: var(--bg-tertiary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .routing-tabs {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .tab-btn {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .tab-btn:hover {
+    background: rgba(78, 205, 196, 0.1);
+    color: var(--text-primary);
+}
+
+body.dark-mode .preset-item {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .preset-item:hover {
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.15);
+}
+
+body.dark-mode .preset-actions {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .badge-success {
+    background: var(--accent-success);
+    color: #000;
+}
+
+body.dark-mode .badge-warning {
+    background: var(--accent-warning);
+    color: #000;
+}
+
+body.dark-mode .channel-suggestions {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .channel-badge {
+    color: #000;
+}
+
+body.dark-mode .analysis-badge {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .analysis-badge.percussion {
+    background: rgba(255, 107, 107, 0.15);
+}
+
+body.dark-mode .analysis-badge.bass {
+    background: rgba(78, 205, 196, 0.15);
+}
+
+body.dark-mode .analysis-badge.piano {
+    background: rgba(103, 126, 234, 0.15);
+}
+
+body.dark-mode .suggestion-item {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .compatibility-badge.good {
+    color: #000;
+}
+
+body.dark-mode .compatibility-badge.medium {
+    color: #000;
+}
+
+body.dark-mode .compatibility-badge.low {
+    color: #fff;
+}
+
+body.dark-mode .validation-summary.valid {
+    background: rgba(76, 175, 80, 0.08);
+}
+
+body.dark-mode .validation-summary.invalid {
+    background: rgba(244, 67, 54, 0.08);
+}
+
+body.dark-mode .validation-item.error {
+    background: rgba(244, 67, 54, 0.08);
+}
+
+body.dark-mode .validation-item.warning {
+    background: rgba(255, 152, 0, 0.08);
+}
+
+body.dark-mode .validation-item.recommendation {
+    background: rgba(78, 205, 196, 0.08);
+}
+
+body.dark-mode .item-header .channel-badge {
+    color: #000;
+}
+
+body.dark-mode .btn-danger {
+    color: #fff;
+}
+
+body.dark-mode .btn-danger:hover {
+    background: #c62828;
+}
+
+body.dark-mode .btn-block.loading::after {
+    border-color: rgba(255, 255, 255, 0.2);
+    border-top-color: #fff;
+}

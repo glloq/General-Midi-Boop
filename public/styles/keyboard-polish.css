@@ -610,6 +610,124 @@
     }
 }
 
+/* ===== DARK MODE ===== */
+
+body.dark-mode .keyboard-header {
+    background: linear-gradient(135deg, #4a5a9e 0%, #5a3a7a 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .header-controls {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .instrument-dropdown {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .instrument-dropdown:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .instrument-dropdown:focus:not(:focus-visible) {
+    border-color: var(--text-secondary);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .instrument-info {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .status-item {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .status-item.has-active-notes {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .status-item.sustain-active {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: rgba(255, 215, 0, 0.4);
+}
+
+body.dark-mode .velocity-label {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .octave-display-wrapper {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .btn-octave {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-octave:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+body.dark-mode .btn-speaker {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-speaker:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-help {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-help:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .shortcuts-content {
+    background: var(--card-bg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .shortcuts-header {
+    background: linear-gradient(135deg, #4a5a9e 0%, #5a3a7a 100%);
+}
+
+body.dark-mode .shortcuts-body {
+    background: var(--card-bg);
+}
+
+body.dark-mode .shortcuts-category h4 {
+    color: #8a9bef;
+}
+
+body.dark-mode .shortcuts-category li {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .shortcuts-category span {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .shortcuts-footer {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .shortcuts-footer p {
+    color: #8a9bef;
+}
+
+body.dark-mode .shortcuts-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
 /* ============================================================================
  * FIN DU FICHIER keyboard-polish.css
  * ============================================================================

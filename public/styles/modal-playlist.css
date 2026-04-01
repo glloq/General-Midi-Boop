@@ -326,3 +326,125 @@
         width: 100%;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .playlist-editor .playlist-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .playlist-editor .form-group label {
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-editor .form-control {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-editor .form-control:focus:not(:focus-visible) {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+body.dark-mode .playlist-editor .available-files,
+body.dark-mode .playlist-editor .playlist-files {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .playlist-editor h5 {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-search-box {
+    border-bottom-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .file-search-input {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-search-input:focus:not(:focus-visible) {
+    border-color: #667eea;
+}
+
+body.dark-mode .modal-file-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .modal-file-item:hover {
+    background: var(--bg-tertiary);
+    border-color: #667eea;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+
+body.dark-mode .file-drag-handle {
+    color: var(--text-muted);
+}
+
+body.dark-mode .file-item-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-item-meta {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .file-item-duration {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .btn-add-file:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+body.dark-mode .btn-remove-file:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+body.dark-mode .empty-file-list,
+body.dark-mode .empty-playlist-editor {
+    color: var(--text-muted);
+}
+
+body.dark-mode .empty-playlist-editor small {
+    color: var(--text-muted);
+}
+
+body.dark-mode .playlist-editor-stats {
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .modal-actions {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .modal-actions .btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+body.dark-mode .modal-actions .btn-primary:hover {
+    background: #5568d3;
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+body.dark-mode .modal-actions .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .modal-actions .btn-secondary:hover {
+    background: #5a6268;
+}

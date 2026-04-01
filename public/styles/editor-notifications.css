@@ -547,3 +547,91 @@
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .editor-loader-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+body.dark-mode .editor-loader-content {
+    background: var(--bg-secondary);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .spinner {
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .toast {
+    background: var(--bg-secondary);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .toast-success {
+    background: linear-gradient(to right, rgba(76, 175, 80, 0.15), var(--bg-secondary));
+}
+
+body.dark-mode .toast-error {
+    background: linear-gradient(to right, rgba(244, 67, 54, 0.15), var(--bg-secondary));
+}
+
+body.dark-mode .toast-warning {
+    background: linear-gradient(to right, rgba(255, 152, 0, 0.15), var(--bg-secondary));
+}
+
+body.dark-mode .toast-info {
+    background: linear-gradient(to right, rgba(33, 150, 243, 0.15), var(--bg-secondary));
+}
+
+body.dark-mode .modal-overlay {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+body.dark-mode .modal-content {
+    background: var(--bg-primary);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+}
+
+body.dark-mode .modal-header {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .modal-footer {
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .instrument-item {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .instrument-item:hover {
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.15);
+}
+
+body.dark-mode .btn-primary {
+    color: #000;
+}
+
+body.dark-mode .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-secondary:hover {
+    background: #4a5568;
+}
+
+body.dark-mode .btn-danger {
+    color: #fff;
+}
+
+body.dark-mode .btn-danger:hover {
+    background: #c62828;
+}
+
+body.dark-mode .detail-item {
+    border-bottom-color: var(--border-color);
+}

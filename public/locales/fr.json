@@ -404,7 +404,11 @@
         "previewSourceHint": "Choisir entre le son GM original ou l'instrument routé",
         "playableNotesTitle": "Notes jouables",
         "playableNotesHint": "Afficher les notes que l'instrument routé peut jouer",
-        "applyBtn": "Appliquer"
+        "applyBtn": "Appliquer",
+        "routedSource": "🎸 Routé",
+        "gmSource": "🎵 GM",
+        "playableOn": "ON",
+        "playableOff": "OFF"
     },
     "errors": {
         "deviceNotFound": "Périphérique non trouvé: {deviceId}",
@@ -557,7 +561,13 @@
         "commTimeoutHelp": "Délai d'attente maximal pour une réponse (en ms)",
         "titleNew": "Réglages de l'instrument",
         "supportedCCsHelp": "Liste des numéros CC séparés par des virgules. Ex: 1=Modulation, 7=Volume, 64=Sustain. Laissez vide pour tous les CC.",
-        "measureDelay": "Mesurer"
+        "measureDelay": "Mesurer",
+        "sysexWaiting": "⏳ En attente...",
+        "sysexRequestIdentity": "🔍 Demander l'identité",
+        "sysexIdentityReceived": "✅ Identité reçue",
+        "measureListening": "🎤 Écoute...",
+        "measureButton": "🎤 Mesurer",
+        "micNotAvailable": "Le microphone n'est pas disponible dans ce navigateur."
     },
     "lighting": {
         "title": "Contrôle Lumière",
@@ -652,7 +662,7 @@
         "noteLed": "Note → LED (piano)",
         "vuMeter": "VU-mètre",
         "randomColor": "Couleur aléatoire",
-        "editDevice": "Modifier le dispositif",
+        "editDevice": "Modifier",
         "cloneRule": "Dupliquer la règle",
         "midiLearn": "MIDI Learn",
         "midiLearnHint": "Jouez une note pour auto-configurer",
@@ -667,7 +677,24 @@
         "enableAll": "Tout activer",
         "disableAll": "Tout désactiver",
         "keyboardShortcuts": "Raccourcis : Espace=Blackout, O=All Off, T=Test",
-        "priority": "Priorité"
+        "priority": "Priorité",
+        "save": "Enregistrer",
+        "midiLearnWaiting": "🎹 En attente d'un événement MIDI... (10s)",
+        "midiLearnCaptured": "✅ Capturé: {type} ch{channel} note={note} vel={velocity} cc={cc}",
+        "midiLearnNoSignal": "⏰ Pas de signal MIDI reçu. Réessayez.",
+        "midiLearnError": "❌ Erreur: {error}",
+        "midiLearnDefault": "🎹 MIDI Learn — Jouez une note pour auto-configurer la condition",
+        "noDeviceFound": "Aucun dispositif trouvé. Vérifiez que vos appareils sont allumés et sur le même réseau.",
+        "addScanned": "+ Ajouter",
+        "errorPrefix": "Erreur: {error}",
+        "manualOption": "-- Manuel --",
+        "manualSegmentOption": "-- Aucun (manuel) --",
+        "scanTitle": "Scanner les dispositifs",
+        "nameRequired": "Nom requis",
+        "selectAtLeastOneDevice": "Sélectionnez au moins un dispositif",
+        "velocityMinMaxError": "Vélocité min doit être ≤ vélocité max",
+        "noteMinMaxError": "Note min doit être ≤ note max",
+        "importError": "Erreur import: "
     },
     "instrumentManagement": {
         "title": "Gestion des instruments",

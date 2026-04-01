@@ -75,7 +75,7 @@
         this.showToast(`Import: ${res.imported} règle(s) importée(s), ${res.skipped} ignorée(s)`, 'success');
         document.getElementById('lightingPresetsPanel')?.remove();
         await this.loadData();
-      } catch (error) { this.showToast('Erreur import: ' + error.message, 'error'); }
+      } catch (error) { this.showToast((i18n.t('lighting.importError') || 'Erreur import: ') + error.message, 'error'); }
     };
     input.click();
   }

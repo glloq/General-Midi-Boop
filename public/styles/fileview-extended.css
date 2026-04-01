@@ -696,3 +696,160 @@
         color: #9ca3af;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .page-header {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+}
+
+body.dark-mode .toolbar {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .search-input {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .search-input:focus:not(:focus-visible) {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+body.dark-mode .sort-select {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-icon {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-icon:hover {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .file-row {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-row:hover {
+    background: var(--bg-tertiary);
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .file-row.selected {
+    background: rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+body.dark-mode .file-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-meta {
+    color: var(--text-muted);
+}
+
+body.dark-mode .file-actions .btn-icon {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-actions .btn-icon:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+body.dark-mode .file-details {
+    background: var(--card-bg);
+    border-left-color: var(--border-color);
+}
+
+body.dark-mode .details-header {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .btn-close {
+    color: var(--text-muted);
+}
+
+body.dark-mode .btn-close:hover {
+    color: var(--text-primary);
+}
+
+body.dark-mode .detail-row {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .detail-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .detail-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .details-actions {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .spinner {
+    border-color: var(--border-color);
+    border-top-color: #667eea;
+}
+
+body.dark-mode .empty-state h3,
+body.dark-mode .error-state h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .empty-state p,
+body.dark-mode .error-state p {
+    color: var(--text-muted);
+}
+
+body.dark-mode .routing-info,
+body.dark-mode .channel-row {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .routing-info .label,
+body.dark-mode .channel-tracks {
+    color: var(--text-muted);
+}
+
+body.dark-mode .routing-info .value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .channel-number {
+    color: #667eea;
+}
+
+body.dark-mode .device-select {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .routing-config-modal .empty-state h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .routing-config-modal .empty-state p {
+    color: var(--text-muted);
+}

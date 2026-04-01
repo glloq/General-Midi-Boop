@@ -114,3 +114,52 @@
     display: none;
   }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .inst-tabs-bar {
+    border-bottom-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .inst-tab {
+    color: var(--text-muted);
+}
+
+body.dark-mode .inst-tab:hover {
+    background: rgba(102, 126, 234, 0.12);
+    color: var(--text-primary);
+}
+
+body.dark-mode .inst-tab.active {
+    color: var(--accent-primary, #667eea);
+}
+
+body.dark-mode .inst-tab-ch {
+    color: white;
+}
+
+body.dark-mode .inst-tab-add {
+    color: var(--accent-primary, #667eea);
+}
+
+body.dark-mode .inst-tab-add:hover {
+    background: rgba(102, 126, 234, 0.2);
+}
+
+body.dark-mode .add-inst-channel-btn {
+    border-color: var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .add-inst-channel-btn:hover:not([disabled]) {
+    border-color: var(--accent-primary, #667eea);
+    background: rgba(102, 126, 234, 0.15);
+}
+
+body.dark-mode .add-inst-channel-btn.used {
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}

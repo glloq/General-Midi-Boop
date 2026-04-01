@@ -329,3 +329,73 @@ body.performance-mode .stat-card,
 body.performance-mode .btn {
     transition: none !important;
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .page-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .page-header h2 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .page-description {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .info-banner {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .stat-card {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-muted);
+}
+
+body.dark-mode .routing-header {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .routing-header h3 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .info-card {
+    background: var(--card-bg);
+}
+
+body.dark-mode .info-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .routing-item {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .channel-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .channel-stats {
+    color: var(--text-muted);
+}
+
+body.dark-mode .routing-empty {
+    color: var(--text-muted);
+}
+
+body.dark-mode .routing-actions-panel {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .actions-group h4 {
+    color: var(--text-primary);
+}

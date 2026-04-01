@@ -584,3 +584,219 @@
         width: 100%;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+/* --- Page Fichiers --- */
+
+body.dark-mode .files-section,
+body.dark-mode .playlists-section {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .file-card {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .file-card:hover {
+    background: #3a4a5c;
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .file-card-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-card-meta {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .file-card-actions {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .file-card-btn {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .file-card-btn:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #1a1a1a;
+}
+
+body.dark-mode .file-card-btn.btn-edit:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #1a1a1a;
+}
+
+body.dark-mode .playlist-card {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .playlist-card:hover {
+    background: #3a4a5c;
+    border-color: var(--color-accent);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .playlist-card-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-card-count {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .playlist-card-actions {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .playlist-card-btn {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .playlist-card-btn:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #1a1a1a;
+}
+
+body.dark-mode .playlist-card-btn.btn-delete:hover {
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+    color: var(--text-primary);
+}
+
+/* --- Page Instruments --- */
+
+body.dark-mode .instruments-discover,
+body.dark-mode .instruments-connected {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .btn-scan {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-scan:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #1a1a1a;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .device-card {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .device-card:hover {
+    background: #3a4a5c;
+    border-color: var(--color-primary);
+}
+
+body.dark-mode .device-card-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .device-card-type {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .btn-connect {
+    background: var(--color-primary);
+    color: #1a1a1a;
+}
+
+body.dark-mode .connected-device {
+    background: var(--bg-tertiary);
+    border-color: var(--color-primary);
+}
+
+body.dark-mode .connected-device:hover {
+    background: #3a4a5c;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .connected-device-name {
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-settings,
+body.dark-mode .btn-disconnect {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-settings:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #1a1a1a;
+}
+
+body.dark-mode .btn-disconnect:hover {
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .instrument-settings-panel {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .settings-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .settings-input {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .settings-info {
+    color: var(--text-muted);
+}
+
+/* --- Page Systeme --- */
+
+body.dark-mode .system-section {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .system-section h2 {
+    color: var(--color-primary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .setting-item {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .setting-label {
+    color: var(--text-primary);
+}
+
+body.dark-mode .setting-description {
+    color: var(--text-secondary);
+}

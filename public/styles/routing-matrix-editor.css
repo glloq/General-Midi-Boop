@@ -630,3 +630,294 @@
         transform: rotate(90deg);
     }
 }
+
+/* ===== LIGHT MODE ===== */
+/* Default styles above use dark colors; override for light mode */
+
+body:not(.dark-mode) .routing-matrix-editor {
+    background: var(--bg-secondary, #f8f9fa);
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .matrix-toolbar {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+    border-bottom-color: var(--border-color, rgba(118,75,162,0.25));
+}
+
+body:not(.dark-mode) .tool-btn {
+    background: var(--bg-secondary, rgba(255,255,255,0.75));
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .tool-btn:hover {
+    background: #e8e8f0;
+    border-color: #8b6bae;
+}
+
+body:not(.dark-mode) .tool-btn.active {
+    background: #4ECDC4;
+    border-color: #4ECDC4;
+    color: #000;
+}
+
+body:not(.dark-mode) .matrix-quick-stats {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+    border-bottom-color: var(--border-color, rgba(118,75,162,0.25));
+}
+
+body:not(.dark-mode) .stat-label {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .matrix-cell {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+}
+
+body:not(.dark-mode) .corner-cell {
+    background: var(--bg-secondary, rgba(255,255,255,0.75));
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .inst-header {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+}
+
+body:not(.dark-mode) .inst-header:hover {
+    background: #ede8f5;
+}
+
+body:not(.dark-mode) .inst-header.used {
+    background: #e8f5e9;
+}
+
+body:not(.dark-mode) .inst-header.selected {
+    border-color: #4ECDC4;
+    background: #e0f7f5;
+}
+
+body:not(.dark-mode) .inst-name {
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .inst-badge {
+    background: #4ECDC4;
+    color: #000;
+}
+
+body:not(.dark-mode) .ch-header {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+}
+
+body:not(.dark-mode) .ch-header:hover {
+    background: #ede8f5;
+}
+
+body:not(.dark-mode) .ch-header.selected {
+    border-color: #4ECDC4;
+    background: #e0f7f5;
+}
+
+body:not(.dark-mode) .ch-number {
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .ch-name {
+    color: var(--text-secondary, #4a3f6b);
+}
+
+body:not(.dark-mode) .ch-notes {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .routing-cell {
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+}
+
+body:not(.dark-mode) .routing-cell:hover {
+    background: #ede8f5 !important;
+}
+
+body:not(.dark-mode) .cell-indicator {
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .list-item {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+    border-radius: 8px;
+}
+
+body:not(.dark-mode) .ch-badge {
+    color: #fff;
+}
+
+body:not(.dark-mode) .ch-meta {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .list-arrow {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .inst-select {
+    background: var(--bg-secondary, rgba(255,255,255,0.75));
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .dest-badge {
+    background: var(--bg-secondary, rgba(255,255,255,0.75));
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .dest-badge:hover {
+    background: #ede8f5;
+    border-color: #4ECDC4;
+}
+
+body:not(.dark-mode) .type-badge {
+    background: #4ECDC4;
+    color: #000;
+}
+
+body:not(.dark-mode) .matrix-quick-actions {
+    background: var(--card-bg, rgba(255,255,255,0.7));
+    border-top-color: var(--border-color, rgba(118,75,162,0.25));
+}
+
+body:not(.dark-mode) .quick-action-btn {
+    background: var(--bg-secondary, rgba(255,255,255,0.75));
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .quick-action-btn:hover:not(:disabled) {
+    background: #4ECDC4;
+    border-color: #4ECDC4;
+    color: #000;
+}
+
+body:not(.dark-mode) .matrix-tooltip {
+    background: #fff;
+    border-color: var(--border-color, rgba(118,75,162,0.25));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: var(--text-primary, #1a1040);
+}
+
+body:not(.dark-mode) .tooltip-header {
+    border-bottom-color: var(--border-color, rgba(118,75,162,0.25));
+}
+
+body:not(.dark-mode) .tooltip-row span:first-child {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .tooltip-action {
+    border-top-color: var(--border-color, rgba(118,75,162,0.25));
+    color: #3ab8b0;
+}
+
+body:not(.dark-mode) .add-dest-btn {
+    border-color: #3ab8b0;
+    color: #3ab8b0;
+}
+
+body:not(.dark-mode) .add-dest-btn:hover {
+    background: rgba(78, 205, 196, 0.1);
+}
+
+body:not(.dark-mode) .matrix-empty {
+    color: var(--text-muted, #8078a0);
+}
+
+body:not(.dark-mode) .badge.disabled {
+    background: #ccc;
+    color: #666;
+}
+
+/* ===== DARK MODE ===== */
+/* Existing hardcoded dark colors are the defaults - this section ensures
+   body.dark-mode explicitly sets them via CSS variables for consistency */
+
+body.dark-mode .routing-matrix-editor {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .matrix-toolbar {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .matrix-quick-stats {
+    background: #252525;
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-muted);
+}
+
+body.dark-mode .matrix-cell {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .corner-cell {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+}
+
+body.dark-mode .inst-header {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .ch-header {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .ch-name {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .ch-notes {
+    color: var(--text-muted);
+}
+
+body.dark-mode .list-item {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .ch-meta {
+    color: var(--text-muted);
+}
+
+body.dark-mode .list-arrow {
+    color: var(--text-muted);
+}
+
+body.dark-mode .matrix-quick-actions {
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .matrix-tooltip {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .tooltip-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .tooltip-row span:first-child {
+    color: var(--text-muted);
+}
+
+body.dark-mode .tooltip-action {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .matrix-empty {
+    color: var(--text-muted);
+}

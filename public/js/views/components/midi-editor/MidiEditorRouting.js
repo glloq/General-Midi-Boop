@@ -676,10 +676,10 @@
         const btn = this.container?.querySelector('#preview-source-toggle');
         if (this.previewSource === 'gm') {
             this.previewSource = 'routed';
-            if (btn) { btn.dataset.source = 'routed'; btn.textContent = '🎸 Routé'; }
+            if (btn) { btn.dataset.source = 'routed'; btn.textContent = this.t('midiEditor.routedSource') || '🎸 Routé'; }
         } else {
             this.previewSource = 'gm';
-            if (btn) { btn.dataset.source = 'gm'; btn.textContent = '🎵 GM'; }
+            if (btn) { btn.dataset.source = 'gm'; btn.textContent = this.t('midiEditor.gmSource') || '🎵 GM'; }
         }
         if (this.synthesizer) this.loadSequenceForPlayback();
         this.log('info', `Preview source switched to: ${this.previewSource}`);
@@ -694,7 +694,7 @@
         const btn = this.container?.querySelector('#playable-notes-toggle');
         if (btn) {
             btn.dataset.active = String(this.showPlayableNotes);
-            btn.textContent = this.showPlayableNotes ? 'ON' : 'OFF';
+            btn.textContent = this.showPlayableNotes ? (this.t('midiEditor.playableOn') || 'ON') : (this.t('midiEditor.playableOff') || 'OFF');
         }
 
         if (this.showPlayableNotes) {

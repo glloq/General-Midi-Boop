@@ -141,3 +141,31 @@
         min-height: 120px;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .piano-roll-view {
+    background: var(--bg-primary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .piano-roll-view-header {
+    background: var(--bg-tertiary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .piano-roll-view-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .piano-roll-view-channels .channel-btn {
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+body.dark-mode .piano-roll-view-channels .channel-btn:hover {
+    filter: brightness(1.2);
+}
+
+body.dark-mode .piano-roll-view-content {
+    background: var(--bg-tertiary);
+}

@@ -575,3 +575,123 @@ body.performance-mode .status-dot {
 .connection-status.disconnected .status-dot {
     background: var(--color-secondary);
 }
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .app-header {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .app-title {
+    color: var(--color-primary);
+}
+
+body.dark-mode .app-version {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .nav-item {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .nav-item:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .nav-item.active {
+    background: var(--color-primary);
+    color: #1a1a1a;
+}
+
+body.dark-mode .btn {
+    background: var(--color-primary);
+    color: #1a1a1a;
+}
+
+body.dark-mode .btn:hover {
+    background: #45b8b0;
+}
+
+body.dark-mode .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn-danger {
+    background: var(--color-secondary);
+}
+
+body.dark-mode input[type="text"],
+body.dark-mode input[type="number"],
+body.dark-mode input[type="range"],
+body.dark-mode select,
+body.dark-mode textarea {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode input:focus:not(:focus-visible),
+body.dark-mode select:focus:not(:focus-visible),
+body.dark-mode textarea:focus:not(:focus-visible) {
+    border-color: var(--color-primary);
+}
+
+body.dark-mode .notification {
+    background: var(--bg-secondary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .loading-indicator {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+body.dark-mode .spinner {
+    border-color: var(--bg-tertiary);
+    border-top-color: var(--color-primary);
+}
+
+body.dark-mode .debug-console {
+    background: var(--bg-primary);
+    border-top-color: var(--color-primary);
+}
+
+body.dark-mode .debug-header {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .card {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .text-muted {
+    color: var(--text-muted);
+}
+
+body.dark-mode .connection-status {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .status-dot {
+    background: var(--text-muted);
+}
+
+body.dark-mode .connection-status.connected .status-dot {
+    background: var(--color-primary);
+}
+
+body.dark-mode .connection-status.disconnected .status-dot {
+    background: var(--color-secondary);
+}

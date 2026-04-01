@@ -171,7 +171,7 @@
         const btn = document.getElementById('lrMidiLearnBtn');
         if (!btn) return;
 
-        btn.textContent = '\uD83C\uDFB9 En attente d\'un \u00E9v\u00E9nement MIDI... (10s)';
+        btn.textContent = i18n.t('lighting.midiLearnWaiting') || '🎹 En attente d\'un événement MIDI... (10s)';
         btn.style.borderColor = '#ef4444';
         btn.style.color = '#ef4444';
         btn.disabled = true;
@@ -202,23 +202,23 @@
                     if (ccEl) ccEl.value = String(l.controller);
                 }
 
-                btn.textContent = `\u2705 Captur\u00E9: ${l.type} ch${(l.channel || 0) + 1} note=${l.note ?? '-'} vel=${l.velocity ?? '-'} cc=${l.controller ?? '-'}`;
+                btn.textContent = (i18n.t('lighting.midiLearnCaptured') || '✅ Capturé: {type} ch{channel} note={note} vel={velocity} cc={cc}').replace('{type}', l.type).replace('{channel}', (l.channel || 0) + 1).replace('{note}', l.note ?? '-').replace('{velocity}', l.velocity ?? '-').replace('{cc}', l.controller ?? '-');
                 btn.style.borderColor = '#10b981';
                 btn.style.color = '#10b981';
             } else {
-                btn.textContent = '\u23F0 Pas de signal MIDI re\u00E7u. R\u00E9essayez.';
+                btn.textContent = i18n.t('lighting.midiLearnNoSignal') || '⏰ Pas de signal MIDI reçu. Réessayez.';
                 btn.style.borderColor = '#f59e0b';
                 btn.style.color = '#d97706';
             }
         } catch (error) {
-            btn.textContent = '\u274C Erreur: ' + error.message;
+            btn.textContent = (i18n.t('lighting.midiLearnError') || '❌ Erreur: {error}').replace('{error}', error.message);
             btn.style.borderColor = '#ef4444';
             btn.style.color = '#ef4444';
         }
 
         setTimeout(() => {
             if (btn) {
-                btn.textContent = '\uD83C\uDFB9 MIDI Learn \u2014 Jouez une note pour auto-configurer la condition';
+                btn.textContent = i18n.t('lighting.midiLearnDefault') || '🎹 MIDI Learn — Jouez une note pour auto-configurer la condition';
                 btn.style.borderColor = '#f59e0b';
                 btn.style.color = '#d97706';
                 btn.disabled = false;

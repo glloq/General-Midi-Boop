@@ -1400,3 +1400,228 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     background: linear-gradient(180deg, #f55a4e 0%, #f44336 100%);
     box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
 }
+
+/* ===== DARK MODE ===== */
+
+/* Toolbar & tool buttons (supplements existing body.dark-mode .tool-btn rules) */
+body.dark-mode .tool-btn.active {
+    background: linear-gradient(180deg, #4a5fc8 0%, #3a4fb8 100%);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
+}
+
+body.dark-mode .tool-btn.active:hover {
+    background: linear-gradient(180deg, #5a6fd8 0%, #4a5fc8 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+body.dark-mode .tool-btn.btn-primary {
+    background: linear-gradient(180deg, #4ECDC4 0%, #3ab8b0 100%);
+    color: #000;
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.25);
+}
+
+body.dark-mode .tool-btn.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #5fded5 0%, #4ECDC4 100%);
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.35);
+}
+
+body.dark-mode .tool-btn-compact {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .tool-btn-compact:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .tool-btn-snap {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .tool-btn-snap:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35), 0 0 16px rgba(102, 126, 234, 0.15);
+}
+
+/* Settings popover */
+body.dark-mode .settings-popover {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+/* Context menu */
+body.dark-mode .context-menu {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .menu-item:hover:not(.disabled) {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .menu-shortcut {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+}
+
+/* Sidebars */
+body.dark-mode .editor-sidebar {
+    background: var(--card-bg);
+}
+
+body.dark-mode .editor-sidebar.left {
+    border-right-color: var(--border-color);
+}
+
+body.dark-mode .editor-sidebar.right {
+    border-left-color: var(--border-color);
+}
+
+/* Canvas & overlays */
+body.dark-mode .selection-info {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+/* Velocity & modulation editors */
+body.dark-mode .velocity-editor,
+body.dark-mode .modulation-editor {
+    background: var(--card-bg);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .velocity-canvas-container,
+body.dark-mode .modulation-canvas-container {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+/* Bottombar / transport */
+body.dark-mode .editor-bottombar {
+    background: var(--card-bg);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .transport-btn {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .transport-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Rename dialog */
+body.dark-mode .rename-dialog {
+    background: var(--card-bg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .rename-dialog-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .rename-dialog h4 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .rename-input-container {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .rename-input {
+    color: var(--text-primary);
+}
+
+body.dark-mode .rename-dialog-footer {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .rename-buttons .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .rename-buttons .btn-secondary:hover {
+    background: var(--border-color);
+}
+
+/* Title separator & file name in modal header */
+body.dark-mode .title-separator {
+    color: var(--text-muted);
+}
+
+body.dark-mode .midi-editor-modal .file-name {
+    color: var(--text-secondary);
+}
+
+/* Confirm modal */
+body.dark-mode .confirm-modal {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .confirm-modal-header {
+    background: var(--bg-tertiary);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .confirm-modal-body {
+    background: var(--card-bg);
+}
+
+body.dark-mode .confirm-modal-details {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .confirm-modal-footer {
+    background: var(--bg-tertiary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .confirm-modal-btn {
+    border-color: var(--border-color);
+}
+
+body.dark-mode .confirm-modal-btn.cancel {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .confirm-modal-btn.cancel:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .confirm-modal-btn.secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .confirm-modal-btn.secondary:hover {
+    background: var(--border-color);
+}
+
+/* Responsive dark mode: mobile sidebar overlay shadow */
+@media (max-width: 768px) {
+    body.dark-mode .editor-sidebar.right.open {
+        box-shadow: -4px 0 12px rgba(0, 0, 0, 0.7);
+    }
+}
+
+/* Snap select in dark mode */
+body.dark-mode .snap-select {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .snap-select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}

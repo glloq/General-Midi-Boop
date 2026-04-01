@@ -404,7 +404,11 @@
         "previewSourceHint": "Choose between original GM sound or routed instrument",
         "playableNotesTitle": "Playable notes",
         "playableNotesHint": "Show notes that the routed instrument can play",
-        "applyBtn": "Apply"
+        "applyBtn": "Apply",
+        "routedSource": "🎸 Routed",
+        "gmSource": "🎵 GM",
+        "playableOn": "ON",
+        "playableOff": "OFF"
     },
     "errors": {
         "deviceNotFound": "Device not found: {deviceId}",
@@ -557,7 +561,13 @@
         "commTimeoutHelp": "Maximum wait time for a response (in ms)",
         "titleNew": "Instrument Settings",
         "supportedCCsHelp": "Comma-separated CC numbers. E.g.: 1=Modulation, 7=Volume, 64=Sustain. Leave empty for all CCs.",
-        "measureDelay": "Measure"
+        "measureDelay": "Measure",
+        "sysexWaiting": "⏳ Waiting...",
+        "sysexRequestIdentity": "🔍 Request identity",
+        "sysexIdentityReceived": "✅ Identity received",
+        "measureListening": "🎤 Listening...",
+        "measureButton": "🎤 Measure",
+        "micNotAvailable": "Microphone is not available in this browser."
     },
     "lighting": {
         "title": "Lighting Control",
@@ -652,7 +662,7 @@
         "noteLed": "Note → LED (piano)",
         "vuMeter": "VU Meter",
         "randomColor": "Random Color",
-        "editDevice": "Edit Device",
+        "editDevice": "Edit",
         "cloneRule": "Duplicate Rule",
         "midiLearn": "MIDI Learn",
         "midiLearnHint": "Play a note to auto-configure",
@@ -667,7 +677,24 @@
         "enableAll": "Enable All",
         "disableAll": "Disable All",
         "keyboardShortcuts": "Shortcuts: Space=Blackout, O=All Off, T=Test",
-        "priority": "Priority"
+        "priority": "Priority",
+        "save": "Save",
+        "midiLearnWaiting": "🎹 Waiting for MIDI event... (10s)",
+        "midiLearnCaptured": "✅ Captured: {type} ch{channel} note={note} vel={velocity} cc={cc}",
+        "midiLearnNoSignal": "⏰ No MIDI signal received. Try again.",
+        "midiLearnError": "❌ Error: {error}",
+        "midiLearnDefault": "🎹 MIDI Learn — Play a note to auto-configure the condition",
+        "noDeviceFound": "No device found. Check that your devices are powered on and on the same network.",
+        "addScanned": "+ Add",
+        "errorPrefix": "Error: {error}",
+        "manualOption": "-- Manual --",
+        "manualSegmentOption": "-- None (manual) --",
+        "scanTitle": "Scan devices",
+        "nameRequired": "Name required",
+        "selectAtLeastOneDevice": "Select at least one device",
+        "velocityMinMaxError": "Velocity min must be ≤ velocity max",
+        "noteMinMaxError": "Note min must be ≤ note max",
+        "importError": "Import error: "
     },
     "instrumentManagement": {
         "title": "Instrument Management",

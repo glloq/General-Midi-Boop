@@ -70,6 +70,10 @@ class NavigationOverviewBar {
         // Resize
         window.addEventListener('resize', this._onResize);
 
+        // Theme change
+        this._onThemeChanged = () => { this.updateTheme(); this._scheduleRender(); };
+        document.addEventListener('theme-changed', this._onThemeChanged);
+
         // Initial sizing & render
         this.resize();
         this._scheduleRender();
@@ -137,6 +141,7 @@ class NavigationOverviewBar {
         this.canvas.removeEventListener('touchmove', this._onTouchMove);
         this.canvas.removeEventListener('touchend', this._onTouchEnd);
         window.removeEventListener('resize', this._onResize);
+        document.removeEventListener('theme-changed', this._onThemeChanged);
         if (this._rafId) {
             cancelAnimationFrame(this._rafId);
             this._rafId = null;

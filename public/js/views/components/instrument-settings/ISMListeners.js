@@ -480,7 +480,7 @@
         const btn = this.$('#sysexRequestBtn');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = '⏳ En attente...';
+            btn.textContent = this.t('instrumentSettings.sysexWaiting') || '⏳ En attente...';
         }
         try {
             this.api.sendCommand('sysex_identity_request', { deviceId: this.device.id });
@@ -488,14 +488,14 @@
             console.error('SysEx identity request failed:', e);
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = '🔍 Demander l\'identité';
+                btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
             }
         }
         // Timeout to re-enable button
         setTimeout(function() {
             if (btn && btn.disabled) {
                 btn.disabled = false;
-                btn.textContent = '🔍 Demander l\'identité';
+                btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
             }
         }, 5000);
     };
@@ -532,9 +532,9 @@
         const btn = this.$('#sysexRequestBtn');
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '✅ Identité reçue';
-            setTimeout(function() {
-                if (btn) btn.textContent = '🔍 Demander l\'identité';
+            btn.textContent = this.t('instrumentSettings.sysexIdentityReceived') || '✅ Identité reçue';
+            setTimeout(() => {
+                if (btn) btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
             }, 3000);
         }
     };
@@ -543,14 +543,14 @@
         // Mic-based delay measurement
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             if (typeof showAlert === 'function') {
-                showAlert('Le microphone n\'est pas disponible dans ce navigateur.', { title: 'Erreur', icon: '❌' });
+                showAlert(this.t('instrumentSettings.micNotAvailable') || 'Le microphone n\'est pas disponible dans ce navigateur.', { title: i18n.t('common.error') || 'Erreur', icon: '❌' });
             }
             return;
         }
         const btn = this.$('#measureDelayBtn');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = '🎤 Écoute...';
+            btn.textContent = this.t('instrumentSettings.measureListening') || '🎤 Écoute...';
         }
 
         const startTime = performance.now();
@@ -584,7 +584,7 @@
                 audioCtx.close().catch(() => {});
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = '🎤 Mesurer';
+                    btn.textContent = this.t('instrumentSettings.measureButton') || '🎤 Mesurer';
                 }
                 this._micTestCleanup = null;
             };

@@ -563,4 +563,171 @@
    DARK MODE (optionnel)
    ============================================================================ */
 
-/* Dark mode variables centralisées dans variables.css */
+/* ===== DARK MODE ===== */
+
+body.dark-mode .api-section {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .page-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .page-header h1 {
+    color: var(--text-primary);
+}
+
+body.dark-mode .page-header p {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .api-section-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .api-button:disabled {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .api-list-item {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .api-list-item:hover {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .status-indicator.online {
+    background: rgba(46, 125, 50, 0.2);
+    color: #66bb6a;
+}
+
+body.dark-mode .status-indicator.offline {
+    background: rgba(198, 40, 40, 0.2);
+    color: #ef5350;
+}
+
+body.dark-mode .status-indicator.warning {
+    background: rgba(230, 81, 0, 0.2);
+    color: #ffa726;
+}
+
+body.dark-mode .bluetooth-scanner {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .bluetooth-device {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .bluetooth-device-address {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .signal-bar {
+    background: var(--border-color);
+}
+
+body.dark-mode .latency-toggle {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .latency-instrument {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .latency-offset-input {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .latency-calibration {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .calibration-progress {
+    background: var(--border-color);
+}
+
+body.dark-mode .presets-list {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .preset-item:hover {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .preset-item.active {
+    background: rgba(78, 205, 196, 0.15);
+}
+
+body.dark-mode .preset-details {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .preset-info-row {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .preset-info-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .network-status {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .network-interface {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .stat-item {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .stat-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .stat-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .logger-level-selector {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .logger-level-option {
+    border-color: var(--border-color);
+}
+
+body.dark-mode .logger-level-option:hover {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .logger-level-option.active {
+    background: rgba(78, 205, 196, 0.15);
+}
+
+body.dark-mode .logger-level-description {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .logger-current-level {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .nav-separator {
+    background: var(--border-color);
+}

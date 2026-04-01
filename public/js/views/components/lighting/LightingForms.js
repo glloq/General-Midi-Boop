@@ -489,7 +489,7 @@
       const submitBtns = formEl.querySelectorAll('button');
       submitBtns.forEach(btn => {
         if (btn.textContent.trim() === 'Ajouter') {
-          btn.textContent = 'Enregistrer';
+          btn.textContent = i18n.t('lighting.save') || 'Enregistrer';
           btn.style.background = '#8b5cf6';
           btn.onclick = () => lightingControlPageInstance.submitEditDevice();
         }
@@ -916,10 +916,10 @@
 
     // Validation
     if (conditionConfig.velocity_min > conditionConfig.velocity_max) {
-      this.showToast('Vélocité min doit être ≤ vélocité max', 'warning'); return;
+      this.showToast(i18n.t('lighting.velocityMinMaxError') || 'Vélocité min doit être ≤ vélocité max', 'warning'); return;
     }
     if (conditionConfig.note_min > conditionConfig.note_max) {
-      this.showToast('Note min doit être ≤ note max', 'warning'); return;
+      this.showToast(i18n.t('lighting.noteMinMaxError') || 'Note min doit être ≤ note max', 'warning'); return;
     }
 
     try {

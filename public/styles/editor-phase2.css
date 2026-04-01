@@ -708,7 +708,115 @@
 }
 
 .btn-primary:hover {
-    box-shadow: 
+    box-shadow:
         0 4px 12px rgba(78, 205, 196, 0.3),
         0 0 0 1px rgba(78, 205, 196, 0.5);
+}
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .velocity-editor,
+body.dark-mode .modulation-editor {
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .velocity-canvas-container,
+body.dark-mode .modulation-canvas-container {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode #velocityCanvas:hover,
+body.dark-mode #modulationCanvas:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-mode .velocity-info,
+body.dark-mode .modulation-info {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .modal-overlay {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+body.dark-mode .modal-content {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+body.dark-mode .modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .modal-footer {
+    border-top-color: var(--border-color);
+}
+
+body.dark-mode .modal-close {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .form-input {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .cc-select {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .cc-select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+body.dark-mode .note-name {
+    color: #000;
+}
+
+body.dark-mode .form-range {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .form-range::-webkit-slider-thumb {
+    border-color: #e0e0e0;
+}
+
+body.dark-mode .form-range::-moz-range-thumb {
+    border-color: #e0e0e0;
+}
+
+body.dark-mode .velocity-bar {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .velocity-bar-fill {
+    color: rgba(0, 0, 0, 0.8);
+}
+
+body.dark-mode .modal-footer .btn-primary {
+    color: #000;
+}
+
+body.dark-mode .modal-footer .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .close-btn {
+    border-color: var(--border-color);
+    color: var(--text-primary);
 }

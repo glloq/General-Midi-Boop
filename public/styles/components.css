@@ -1723,3 +1723,278 @@
         gap: 4px;
     }
 }
+
+/* ===== DARK MODE ===== */
+
+/* --- Cards --- */
+body.dark-mode .card {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .card-header {
+    border-bottom-color: var(--border-light);
+}
+
+body.dark-mode .card-title {
+    color: var(--text-primary);
+}
+
+/* --- Buttons --- */
+body.dark-mode .btn {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .btn:hover {
+    background: var(--bg-tertiary);
+}
+
+/* --- Form Controls --- */
+body.dark-mode .form-control {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-mode .form-control:focus:not(:focus-visible) {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+body.dark-mode .form-label {
+    color: var(--text-secondary);
+}
+
+/* --- Notifications --- */
+body.dark-mode .notification {
+    background: var(--card-bg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .notification .notification-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .notification .notification-message {
+    color: var(--text-secondary);
+}
+
+/* --- Modals --- */
+body.dark-mode .modal {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .modal-content {
+    background-color: var(--card-bg);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .modal-dialog {
+    background-color: var(--card-bg);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .modal-header {
+    border-bottom-color: var(--border-light);
+}
+
+body.dark-mode .modal-title {
+    color: var(--text-primary);
+}
+
+body.dark-mode .close {
+    color: var(--text-muted);
+}
+
+body.dark-mode .close:hover {
+    color: var(--text-primary);
+}
+
+/* --- Progress Bar --- */
+body.dark-mode .progress {
+    background-color: var(--bg-tertiary);
+}
+
+/* --- Tabs --- */
+body.dark-mode .tab-nav {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .tab-btn {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .tab-btn:hover:not(.active) {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* --- Spinner --- */
+body.dark-mode .spinner {
+    border-color: var(--bg-tertiary);
+    border-top-color: #667eea;
+}
+
+/* --- Badges --- */
+body.dark-mode .badge-warning {
+    color: #1a1a1a;
+}
+
+/* --- Checkboxes --- */
+body.dark-mode .checkmark {
+    background-color: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .custom-checkbox:hover input ~ .checkmark {
+    background-color: #5a6a7a;
+}
+
+/* --- Backend Status --- */
+body.dark-mode .backend-status-indicator.connected {
+    background: #1a3a2a;
+    color: #68d391;
+}
+
+body.dark-mode .backend-status-indicator.disconnected {
+    background: #3a1a1a;
+    color: #fc8181;
+}
+
+body.dark-mode .backend-info-grid .info-item {
+    background: var(--bg-tertiary);
+}
+
+body.dark-mode .backend-info-grid .info-label {
+    color: var(--text-muted);
+}
+
+body.dark-mode .backend-info-grid .info-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .backend-disconnected .warning-message {
+    background: #3a2e0a;
+    color: #ecc94b;
+}
+
+body.dark-mode .backend-connected .success-message {
+    background: #1a3a2a;
+    color: #68d391;
+}
+
+body.dark-mode .help-list li {
+    color: var(--text-secondary);
+}
+
+/* --- MIDI Editor Modal --- */
+body.dark-mode .midi-editor-modal .modal-dialog {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .midi-editor-modal .modal-body {
+    background: var(--bg-primary);
+}
+
+/* --- MIDI Editor Toolbar Buttons (pastel overrides) --- */
+body.dark-mode .midi-editor-modal .tool-btn[data-action="undo"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="redo"] {
+    background: #2a3050;
+    border-color: #4a5580;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="undo"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="redo"]:hover:not(:disabled) {
+    background: #353d60;
+    border-color: #5a6890;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-view"] {
+    background: #352a40;
+    border-color: #5a4570;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-view"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-view"].active {
+    background: #402f4d;
+    border-color: #6a5580;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-select"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-notes"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-add-note"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-resize-note"] {
+    background: #1a3530;
+    border-color: #3a6a55;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-select"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-notes"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-add-note"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-resize-note"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-select"].active,
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-drag-notes"].active,
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-add-note"].active,
+body.dark-mode .midi-editor-modal .tool-btn[data-action="mode-resize-note"].active {
+    background: #254540;
+    border-color: #4a7a65;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="copy"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="paste"],
+body.dark-mode .midi-editor-modal .tool-btn[data-action="delete"] {
+    background: #3a2028;
+    border-color: #6a3a48;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn[data-action="copy"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="paste"]:hover:not(:disabled),
+body.dark-mode .midi-editor-modal .tool-btn[data-action="delete"]:hover:not(:disabled) {
+    background: #452530;
+    border-color: #7a4558;
+}
+
+/* --- MIDI Editor Snap Button --- */
+body.dark-mode .midi-editor-modal .tool-btn-snap {
+    background: #1a3530;
+    border-color: #3a6a55;
+}
+
+body.dark-mode .midi-editor-modal .tool-btn-snap:hover {
+    background: #254540;
+    border-color: #4a7a65;
+}
+
+/* --- MIDI Editor Show All Channels Button --- */
+body.dark-mode .midi-editor-modal .btn-show-all-channels {
+    background: #2a3050;
+    border-color: #4a5580;
+}
+
+body.dark-mode .midi-editor-modal .btn-show-all-channels:hover {
+    background: #353d60;
+    border-color: #5a6890;
+}
+
+/* --- MIDI Editor Channel Edit Button --- */
+body.dark-mode .midi-editor-modal .channel-edit-btn {
+    color: #8da2f0;
+    border-color: #8da2f0;
+}
+
+body.dark-mode .midi-editor-modal .channel-edit-btn:hover,
+body.dark-mode .midi-editor-modal .channel-edit-btn.active {
+    background: #667eea;
+    color: #fff;
+}
