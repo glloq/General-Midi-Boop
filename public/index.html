@@ -67,6 +67,7 @@
         .btn-instruments-toggle,
         .btn-calibration-toggle,
         .btn-lighting-toggle,
+        .btn-playlist-toggle,
         .upload-drop-zone-icon,
         .search-icon,
         .confirm-modal-icon,
@@ -100,7 +101,8 @@
         body.theme-dark .btn-debug-toggle,
         body.theme-dark .btn-instruments-toggle,
         body.theme-dark .btn-calibration-toggle,
-        body.theme-dark .btn-lighting-toggle {
+        body.theme-dark .btn-lighting-toggle,
+        body.theme-dark .btn-playlist-toggle {
             background: #3d3d3d;
             border-color: #4d4d4d;
             color: #ffffff;
@@ -525,6 +527,10 @@
             background: rgba(255, 255, 255, 0.25);
             border: 1px solid rgba(255, 255, 255, 0.4);
         }
+        .btn-playlist-toggle {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
 
         .btn-keyboard-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-settings-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
@@ -532,6 +538,47 @@
         .btn-instruments-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-calibration-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-lighting-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
+        .btn-playlist-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
+
+        /* Playlist Queue Indicator (mini bar in header during playlist playback) */
+        .playlist-queue-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.4);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: white;
+            white-space: nowrap;
+        }
+        .playlist-queue-indicator.hidden { display: none; }
+        .playlist-queue-indicator .queue-file-name {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .playlist-queue-indicator .queue-position {
+            opacity: 0.8;
+            font-size: 0.8rem;
+        }
+        .playlist-queue-indicator button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .playlist-queue-indicator button:hover {
+            background: rgba(255,255,255,0.4);
+        }
+        body.theme-dark .playlist-queue-indicator {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.5);
+        }
 
         /* Inputs */
         input,
@@ -4878,10 +4925,23 @@
                     💡
                 </button>
 
+                <button class="btn-playlist-toggle" id="playlistBtn" data-i18n-title="playlist.title" title="Playlists" aria-label="Playlists">
+                    🎶
+                </button>
+
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
                     🎤
                 </button>
                 </nav>
+
+                <div class="playlist-queue-indicator hidden" id="playlistQueueIndicator" role="status" aria-label="Playlist queue">
+                    <button id="queuePrevBtn" title="Previous" aria-label="Previous track">⏮</button>
+                    <span class="queue-file-name" id="queueFileName"></span>
+                    <span class="queue-position" id="queuePosition"></span>
+                    <button id="queueNextBtn" title="Next" aria-label="Next track">⏭</button>
+                    <button id="queueLoopBtn" title="Loop" aria-label="Toggle loop">🔁</button>
+                    <button id="queueStopBtn" title="Stop playlist" aria-label="Stop playlist">✕</button>
+                </div>
 
                 <div class="header-playback" role="region" aria-label="Playback controls">
                     <div class="header-controls">
@@ -4982,6 +5042,7 @@
                             <button class="btn" id="batchSelectAll" data-i18n="ui.selectAll">Tout sélectionner</button>
                             <button class="btn" id="batchDeselect" data-i18n="ui.deselect">Désélectionner</button>
                             <button class="btn" id="batchMove" data-i18n="ui.moveTo">📁 Déplacer vers...</button>
+                            <button class="btn" id="batchAddToPlaylist" data-i18n="playlist.addToPlaylist">📋 Ajouter à playlist</button>
                             <button class="btn btn-danger" id="batchDelete" data-i18n="ui.deleteSelected">🗑️ Supprimer</button>
                         </div>
                     </div>
@@ -7617,6 +7678,17 @@
                 playFile(file.id, file.filename);
             };
 
+            // Bouton Ajouter à playlist
+            const playlistBtn = document.createElement('button');
+            playlistBtn.className = 'btn btn-secondary btn-sm';
+            playlistBtn.title = i18n.t('playlist.addToPlaylist') || 'Add to playlist';
+            playlistBtn.textContent = '📋';
+            playlistBtn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                showAddToPlaylistMenu(file.id, file.filename, playlistBtn);
+            };
+
             // Bouton Supprimer
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn btn-danger btn-sm';
@@ -7631,6 +7703,7 @@
             actionsDiv.appendChild(editBtn);
             actionsDiv.appendChild(routeBtn);
             actionsDiv.appendChild(playBtn);
+            actionsDiv.appendChild(playlistBtn);
             actionsDiv.appendChild(deleteBtn);
 
             li.appendChild(checkbox);

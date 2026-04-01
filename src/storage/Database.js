@@ -513,6 +513,132 @@ class DatabaseManager {
     }
   }
 
+  // ==================== PLAYLIST ITEMS ====================
+
+  getPlaylistItems(playlistId) {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT pi.*, mf.filename, mf.duration, mf.tempo, mf.tracks
+        FROM playlist_items pi
+        JOIN midi_files mf ON pi.midi_id = mf.id
+        WHERE pi.playlist_id = ?
+        ORDER BY pi.position
+      `);
+      return stmt.all(playlistId);
+    } catch (error) {
+      this.app.logger.error(`Failed to get playlist items: ${error.message}`);
+      throw error;
+    }
+  }
+
+  addPlaylistItem(playlistId, midiId, position) {
+    try {
+      if (position === undefined || position === null) {
+        const maxStmt = this.db.prepare(
+          'SELECT COALESCE(MAX(position), -1) as maxPos FROM playlist_items WHERE playlist_id = ?'
+        );
+        const row = maxStmt.get(playlistId);
+        position = row.maxPos + 1;
+      }
+
+      const stmt = this.db.prepare(
+        'INSERT INTO playlist_items (playlist_id, midi_id, position) VALUES (?, ?, ?)'
+      );
+      const result = stmt.run(playlistId, midiId, position);
+
+      // Update playlist updated_at
+      this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+        .run(Date.now(), playlistId);
+
+      return result.lastInsertRowid;
+    } catch (error) {
+      this.app.logger.error(`Failed to add playlist item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  removePlaylistItem(itemId) {
+    try {
+      const item = this.db.prepare('SELECT * FROM playlist_items WHERE id = ?').get(itemId);
+      if (!item) return;
+
+      const remove = this.db.transaction(() => {
+        this.db.prepare('DELETE FROM playlist_items WHERE id = ?').run(itemId);
+        // Recompact positions
+        this.db.prepare(`
+          UPDATE playlist_items SET position = position - 1
+          WHERE playlist_id = ? AND position > ?
+        `).run(item.playlist_id, item.position);
+
+        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+          .run(Date.now(), item.playlist_id);
+      });
+      remove();
+    } catch (error) {
+      this.app.logger.error(`Failed to remove playlist item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  reorderPlaylistItem(playlistId, itemId, newPosition) {
+    try {
+      const item = this.db.prepare(
+        'SELECT * FROM playlist_items WHERE id = ? AND playlist_id = ?'
+      ).get(itemId, playlistId);
+      if (!item) throw new Error(`Playlist item ${itemId} not found`);
+
+      const oldPosition = item.position;
+      if (oldPosition === newPosition) return;
+
+      const reorder = this.db.transaction(() => {
+        if (newPosition < oldPosition) {
+          // Moving up: shift items between newPosition and oldPosition-1 down
+          this.db.prepare(`
+            UPDATE playlist_items SET position = position + 1
+            WHERE playlist_id = ? AND position >= ? AND position < ?
+          `).run(playlistId, newPosition, oldPosition);
+        } else {
+          // Moving down: shift items between oldPosition+1 and newPosition up
+          this.db.prepare(`
+            UPDATE playlist_items SET position = position - 1
+            WHERE playlist_id = ? AND position > ? AND position <= ?
+          `).run(playlistId, oldPosition, newPosition);
+        }
+
+        this.db.prepare('UPDATE playlist_items SET position = ? WHERE id = ?')
+          .run(newPosition, itemId);
+
+        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+          .run(Date.now(), playlistId);
+      });
+      reorder();
+    } catch (error) {
+      this.app.logger.error(`Failed to reorder playlist item: ${error.message}`);
+      throw error;
+    }
+  }
+
+  clearPlaylistItems(playlistId) {
+    try {
+      this.db.prepare('DELETE FROM playlist_items WHERE playlist_id = ?').run(playlistId);
+      this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+        .run(Date.now(), playlistId);
+    } catch (error) {
+      this.app.logger.error(`Failed to clear playlist items: ${error.message}`);
+      throw error;
+    }
+  }
+
+  updatePlaylistLoop(playlistId, loop) {
+    try {
+      this.db.prepare('UPDATE playlists SET loop = ?, updated_at = ? WHERE id = ?')
+        .run(loop ? 1 : 0, Date.now(), playlistId);
+    } catch (error) {
+      this.app.logger.error(`Failed to update playlist loop: ${error.message}`);
+      throw error;
+    }
+  }
+
   // ==================== DELEGATE TO SUB-MODULES ====================
 
   // MIDI Files

@@ -25,6 +25,7 @@ class PlaybackScheduler {
     this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
     this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
+    this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
     // Invalidate sync_delay cache immediately when instrument settings change
@@ -66,6 +67,7 @@ class PlaybackScheduler {
     this._syncDelayCache.clear();
     this._stringCCCache.clear();
     this._failedDevices.clear();
+    this._unroutedChannels.clear();
     this._maxCompensationMs = 0;
   }
 
@@ -115,7 +117,9 @@ class PlaybackScheduler {
 
     // Check if reached end
     if (state.position >= state.duration) {
-      if (state.loop) {
+      if (callbacks.onFileEnd) {
+        callbacks.onFileEnd();
+      } else if (state.loop) {
         callbacks.onSeek(0);
       } else {
         callbacks.onStop();
@@ -135,7 +139,7 @@ class PlaybackScheduler {
         break;
       }
 
-      this.scheduleEvent(event, state.position, getOutputForChannel, state);
+      this.scheduleEvent(event, state.position, getOutputForChannel, state, callbacks);
       idx++;
     }
 
@@ -156,7 +160,7 @@ class PlaybackScheduler {
    * @param {Function} getOutputForChannel - Routing lookup function
    * @param {Object} state - Player state (for playing check in sendEvent)
    */
-  scheduleEvent(event, currentPosition, getOutputForChannel, state) {
+  scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     const eventTime = event.time;
     const delay = Math.max(0, eventTime - currentPosition);
 
@@ -166,7 +170,15 @@ class PlaybackScheduler {
     const routing = getOutputForChannel(event.channel, note);
 
     if (!routing) {
-      this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+      if (!this._unroutedChannels.has(event.channel)) {
+        this._unroutedChannels.add(event.channel);
+        this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
+        this.app.wsServer?.broadcast('playback_channel_skipped', {
+          channel: event.channel,
+          channelDisplay: event.channel + 1,
+          reason: 'no_routing'
+        });
+      }
       return;
     }
 
@@ -205,7 +217,7 @@ class PlaybackScheduler {
 
     const timeoutId = setTimeout(() => {
       this.pendingTimeouts.delete(timeoutId);
-      this.sendEvent(event, state, getOutputForChannel);
+      this.sendEvent(event, state, getOutputForChannel, callbacks);
     }, adjustedDelay * 1000);
     this.pendingTimeouts.add(timeoutId);
   }
@@ -216,7 +228,7 @@ class PlaybackScheduler {
    * @param {Object} state - Player state { playing, mutedChannels }
    * @param {Function} getOutputForChannel - Routing lookup
    */
-  sendEvent(event, state, getOutputForChannel) {
+  sendEvent(event, state, getOutputForChannel, callbacks) {
     if (!state.playing) {
       return;
     }
@@ -241,7 +253,15 @@ class PlaybackScheduler {
     }
 
     if (!routing || !routing.device) {
-      this.app.logger.warn(`No output device for channel ${event.channel + 1}`);
+      if (!this._unroutedChannels.has(event.channel)) {
+        this._unroutedChannels.add(event.channel);
+        this.app.logger.warn(`No output device for channel ${event.channel + 1}`);
+        this.app.wsServer?.broadcast('playback_channel_skipped', {
+          channel: event.channel,
+          channelDisplay: event.channel + 1,
+          reason: 'no_routing'
+        });
+      }
       return;
     }
 
@@ -300,12 +320,44 @@ class PlaybackScheduler {
       });
     }
 
-    // Notify once per device if send fails
+    // Notify once per device if send fails, apply disconnect policy
     if (!sendResult && !this._failedDevices.has(routing.device)) {
       this._failedDevices.add(routing.device);
       this.app.logger.warn(`Device unreachable during playback: ${routing.device}`);
-      if (this.app.wsServer) {
-        this.app.wsServer.broadcast('playback_device_error', {
+
+      const policy = state.disconnectedPolicy || 'skip';
+
+      if (policy === 'pause') {
+        this.app.wsServer?.broadcast('playback_device_disconnected', {
+          deviceId: routing.device,
+          channel: event.channel,
+          policy: 'pause',
+          message: `Device ${routing.device} is unreachable`
+        });
+        if (callbacks && callbacks.onPause) {
+          callbacks.onPause();
+        }
+      } else if (policy === 'mute') {
+        // Auto-mute all channels routed to this device
+        const mutedChannels = [];
+        if (state.channelRouting) {
+          for (const [ch, r] of state.channelRouting) {
+            if (r && r.device === routing.device) {
+              state.mutedChannels.add(ch);
+              mutedChannels.push(ch);
+            }
+          }
+        }
+        this.app.wsServer?.broadcast('playback_device_disconnected', {
+          deviceId: routing.device,
+          channel: event.channel,
+          policy: 'mute',
+          mutedChannels,
+          message: `Device ${routing.device} is unreachable, channels auto-muted`
+        });
+      } else {
+        // 'skip' - existing behavior
+        this.app.wsServer?.broadcast('playback_device_error', {
           deviceId: routing.device,
           channel: event.channel,
           message: `Device ${routing.device} is unreachable`

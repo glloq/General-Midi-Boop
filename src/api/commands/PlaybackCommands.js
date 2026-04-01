@@ -630,6 +630,111 @@ async function getFileRoutings(app, data) {
   };
 }
 
+/**
+ * Validate routing for a MIDI file before playback.
+ * Checks each active channel for routing existence and device availability.
+ * @param {Object} data - { fileId }
+ * @returns {Object} - { channels, allRouted, allOnline, warnings }
+ */
+async function playbackValidateRouting(app, data) {
+  if (!data.fileId) {
+    throw new Error('fileId is required');
+  }
+
+  const file = app.database.getFile(data.fileId);
+  if (!file) {
+    throw new Error(`File not found: ${data.fileId}`);
+  }
+
+  // Parse MIDI to find active channels
+  const midiConverter = getMidiConverter(app);
+  let midiData;
+  try {
+    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
+    midiData = midiConverter.midiToJson(buffer);
+  } catch (error) {
+    throw new Error(`Failed to parse MIDI file: ${error.message}`);
+  }
+
+  // Find active channels (channels with noteOn events)
+  const activeChannels = new Set();
+  if (midiData && midiData.tracks) {
+    for (const track of midiData.tracks) {
+      for (const event of track) {
+        if ((event.type === 'noteOn' || event.type === 'noteOff') && event.channel !== undefined) {
+          activeChannels.add(event.channel);
+        }
+      }
+    }
+  }
+
+  // Get saved routings
+  const savedRoutings = app.database.getRoutingsByFile(data.fileId);
+  const routingMap = new Map();
+  for (const r of savedRoutings) {
+    if (r.channel !== null && r.channel !== undefined) {
+      routingMap.set(r.channel, r);
+    }
+  }
+
+  // Get connected devices
+  const deviceList = app.deviceManager?.getDeviceList?.() || [];
+  const connectedDevices = new Set(deviceList.filter(d => d.output).map(d => d.id));
+
+  // Build channel report
+  const channels = [];
+  const warnings = [];
+  let allRouted = true;
+  let allOnline = true;
+
+  for (const channel of [...activeChannels].sort((a, b) => a - b)) {
+    const routing = routingMap.get(channel);
+    if (!routing || !routing.device_id) {
+      channels.push({ channel, channelDisplay: channel + 1, status: 'unrouted' });
+      warnings.push(`Channel ${channel + 1} has no routing`);
+      allRouted = false;
+      allOnline = false;
+    } else {
+      const deviceOnline = connectedDevices.has(routing.device_id);
+      channels.push({
+        channel,
+        channelDisplay: channel + 1,
+        status: 'routed',
+        deviceId: routing.device_id,
+        instrumentName: routing.instrument_name,
+        deviceOnline
+      });
+      if (!deviceOnline) {
+        warnings.push(`Channel ${channel + 1}: device "${routing.instrument_name || routing.device_id}" is offline`);
+        allOnline = false;
+      }
+    }
+  }
+
+  return {
+    success: true,
+    fileId: data.fileId,
+    channels,
+    allRouted,
+    allOnline,
+    warnings
+  };
+}
+
+/**
+ * Set the disconnect policy for playback.
+ * @param {Object} data - { policy: 'skip' | 'pause' | 'mute' }
+ */
+async function playbackSetDisconnectPolicy(app, data) {
+  const validPolicies = ['skip', 'pause', 'mute'];
+  if (!data.policy || !validPolicies.includes(data.policy)) {
+    throw new Error(`Invalid policy. Must be one of: ${validPolicies.join(', ')}`);
+  }
+  app.midiPlayer.disconnectedPolicy = data.policy;
+  app.logger.info(`Disconnect policy set to: ${data.policy}`);
+  return { success: true, policy: data.policy };
+}
+
 export function register(registry, app) {
   registry.register('playback_start', (data) => playbackStart(app, data));
   registry.register('playback_stop', () => playbackStop(app));
@@ -652,4 +757,6 @@ export function register(registry, app) {
   registry.register('get_instrument_defaults', (data) => getInstrumentDefaults(app, data));
   registry.register('update_instrument_capabilities', (data) => updateInstrumentCapabilities(app, data));
   registry.register('get_file_routings', (data) => getFileRoutings(app, data));
+  registry.register('playback_validate_routing', (data) => playbackValidateRouting(app, data));
+  registry.register('playback_set_disconnect_policy', (data) => playbackSetDisconnectPolicy(app, data));
 }

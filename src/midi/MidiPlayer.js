@@ -30,6 +30,15 @@ class MidiPlayer {
     this.channelRouting = new Map(); // channel -> { device, targetChannel } mapping
     this.mutedChannels = new Set(); // Muted channels
 
+    // Queue / Playlist state
+    this.queue = [];           // [{ fileId, filename }]
+    this.queueIndex = -1;      // Current position (-1 = no queue)
+    this.queueLoop = false;    // Loop entire queue
+    this.playlistId = null;    // Active playlist ID
+
+    // Disconnect policy: 'skip' | 'pause' | 'mute'
+    this.disconnectedPolicy = 'skip';
+
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(app);
 
@@ -444,6 +453,7 @@ class MidiPlayer {
       loop: this.loop,
       channelRouting: this.channelRouting,
       mutedChannels: this.mutedChannels,
+      disconnectedPolicy: this.disconnectedPolicy,
       _lastBroadcastPosition: this._lastBroadcastPosition
     };
 
@@ -453,7 +463,9 @@ class MidiPlayer {
       {
         onStop: () => this.stop(),
         onSeek: (pos) => this.seek(pos),
-        onBroadcastPosition: () => this.broadcastPosition()
+        onBroadcastPosition: () => this.broadcastPosition(),
+        onFileEnd: () => this._handleFileEnd(),
+        onPause: () => this.pause()
       }
     );
 
@@ -750,6 +762,166 @@ class MidiPlayer {
 
   getMutedChannels() {
     return Array.from(this.mutedChannels);
+  }
+
+  // ==================== QUEUE / PLAYLIST ====================
+
+  setQueue(items, loop, playlistId) {
+    this.queue = items.map(item => ({ fileId: item.fileId, filename: item.filename }));
+    this.queueIndex = -1;
+    this.queueLoop = !!loop;
+    this.playlistId = playlistId || null;
+    this.app.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, playlist=${this.playlistId}`);
+  }
+
+  clearQueue() {
+    this.queue = [];
+    this.queueIndex = -1;
+    this.queueLoop = false;
+    this.playlistId = null;
+    this.app.logger.info('Queue cleared');
+  }
+
+  getQueueStatus() {
+    return {
+      active: this.queue.length > 0 && this.queueIndex >= 0,
+      playlistId: this.playlistId,
+      items: this.queue,
+      currentIndex: this.queueIndex,
+      totalItems: this.queue.length,
+      loop: this.queueLoop,
+      currentFile: this.queueIndex >= 0 && this.queueIndex < this.queue.length
+        ? this.queue[this.queueIndex]
+        : null
+    };
+  }
+
+  async playQueueItem(index) {
+    if (index < 0 || index >= this.queue.length) {
+      throw new Error(`Queue index out of range: ${index}`);
+    }
+
+    // Stop current playback if any
+    if (this.playing) {
+      this.playing = false;
+      this.paused = false;
+      this.scheduler.stopScheduler();
+      this.sendAllNotesOff();
+    }
+
+    this.queueIndex = index;
+    const item = this.queue[index];
+
+    // Load file
+    await this.loadFile(item.fileId);
+
+    // Auto-load saved routings from database
+    this._loadRoutingsFromDB(item.fileId);
+
+    // Determine output device
+    let outputDevice = this.outputDevice;
+    if (!outputDevice) {
+      const devices = this.app.deviceManager.getDeviceList();
+      const outputDevices = devices.filter(d => d.output && d.enabled);
+      if (outputDevices.length === 0) {
+        throw new Error('No output devices available');
+      }
+      outputDevice = outputDevices[0].id;
+    }
+
+    // Start playback
+    this.start(outputDevice);
+
+    // Broadcast queue item change
+    if (this.app.wsServer) {
+      this.app.wsServer.broadcast('playlist_item_changed', {
+        playlistId: this.playlistId,
+        index: this.queueIndex,
+        totalItems: this.queue.length,
+        fileId: item.fileId,
+        filename: item.filename
+      });
+    }
+
+    this.app.logger.info(`Playing queue item ${index + 1}/${this.queue.length}: ${item.filename}`);
+  }
+
+  async nextInQueue() {
+    if (this.queue.length === 0) return;
+
+    const nextIndex = this.queueIndex + 1;
+    if (nextIndex >= this.queue.length) {
+      if (this.queueLoop) {
+        await this.playQueueItem(0);
+      } else {
+        // End of queue
+        this.stop();
+        if (this.app.wsServer) {
+          this.app.wsServer.broadcast('playlist_ended', {
+            playlistId: this.playlistId
+          });
+        }
+        this.app.logger.info('Playlist ended');
+      }
+    } else {
+      await this.playQueueItem(nextIndex);
+    }
+  }
+
+  async previousInQueue() {
+    if (this.queue.length === 0) return;
+
+    const prevIndex = this.queueIndex - 1;
+    if (prevIndex < 0) {
+      if (this.queueLoop) {
+        await this.playQueueItem(this.queue.length - 1);
+      } else {
+        // Already at start, restart current
+        await this.playQueueItem(0);
+      }
+    } else {
+      await this.playQueueItem(prevIndex);
+    }
+  }
+
+  /**
+   * Handle end of file: advance queue or stop.
+   * Called by PlaybackScheduler when all events have been played.
+   */
+  async _handleFileEnd() {
+    if (this.loop) {
+      // Single file loop
+      this.seek(0);
+    } else if (this.queue.length > 0) {
+      // Queue active: advance to next
+      await this.nextInQueue();
+    } else {
+      this.stop();
+    }
+  }
+
+  /**
+   * Load saved channel routings from database for a file.
+   * Replicates the logic from PlaybackCommands.playbackStart.
+   */
+  _loadRoutingsFromDB(fileId) {
+    try {
+      const savedRoutings = this.app.database.getRoutingsByFile(fileId);
+      if (savedRoutings.length > 0) {
+        this.clearChannelRouting();
+        let loadedCount = 0;
+        for (const routing of savedRoutings) {
+          if (routing.channel !== null && routing.channel !== undefined && routing.device_id) {
+            const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
+            this.setChannelRouting(routing.channel, routing.device_id, targetChannel);
+            loadedCount++;
+          }
+        }
+        this.app.logger.info(`Auto-loaded ${loadedCount} routings for file ${fileId}`);
+      }
+    } catch (error) {
+      this.app.logger.warn(`Failed to load routings for file ${fileId}: ${error.message}`);
+    }
   }
 }
 
