@@ -1827,6 +1827,18 @@
             opacity: 1;
         }
 
+        .file-item.batch-selected {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .file-item.batch-selected .file-checkbox {
+            opacity: 1;
+        }
+
+        body.theme-dark .file-item.batch-selected {
+            background: rgba(102, 126, 234, 0.2);
+        }
+
         .batch-actions-bar {
             position: sticky;
             top: 0;
@@ -6981,12 +6993,13 @@
 
         // Sélection multiple
         function toggleFileSelection(fileId, checked) {
+            const id = Number(fileId);
             if (checked) {
-                selectedFileIds.add(fileId);
+                selectedFileIds.add(id);
             } else {
-                selectedFileIds.delete(fileId);
+                selectedFileIds.delete(id);
             }
-            updateBatchActionsBar();
+            syncBatchSelectionUI();
         }
 
         function updateBatchActionsBar() {
@@ -7002,6 +7015,18 @@
             }
         }
 
+        function syncBatchSelectionUI() {
+            // Synchroniser les checkboxes et le style visuel avec selectedFileIds
+            document.querySelectorAll('#fileList .file-item').forEach(el => {
+                const id = Number(el.dataset.fileId);
+                const isSelected = selectedFileIds.has(id);
+                const cb = el.querySelector('.file-checkbox');
+                if (cb) cb.checked = isSelected;
+                el.classList.toggle('batch-selected', isSelected);
+            });
+            updateBatchActionsBar();
+        }
+
         function selectAllFiles() {
             const allCheckboxes = document.querySelectorAll('.file-checkbox');
             allCheckboxes.forEach(cb => {
@@ -7009,16 +7034,12 @@
                 const fileId = Number(cb.closest('.file-item').dataset.fileId);
                 selectedFileIds.add(fileId);
             });
-            updateBatchActionsBar();
+            syncBatchSelectionUI();
         }
 
         function deselectAllFiles() {
-            const allCheckboxes = document.querySelectorAll('.file-checkbox');
-            allCheckboxes.forEach(cb => {
-                cb.checked = false;
-            });
             selectedFileIds.clear();
-            updateBatchActionsBar();
+            syncBatchSelectionUI();
         }
 
         async function batchDeleteFiles() {
@@ -7451,21 +7472,19 @@
                     return;
                 }
 
+                const numId = Number(file.id);
+
                 if (e.ctrlKey || e.metaKey) {
                     // Ctrl+Clic : toggle la sélection multiple de ce fichier
-                    const isSelected = selectedFileIds.has(file.id);
-                    const checkbox = li.querySelector('.file-checkbox');
-                    if (isSelected) {
-                        selectedFileIds.delete(file.id);
-                        if (checkbox) checkbox.checked = false;
+                    if (selectedFileIds.has(numId)) {
+                        selectedFileIds.delete(numId);
                     } else {
-                        selectedFileIds.add(file.id);
-                        if (checkbox) checkbox.checked = true;
+                        selectedFileIds.add(numId);
                     }
-                    updateBatchActionsBar();
+                    syncBatchSelectionUI();
                     selectFile(file.id);
                 } else if (e.shiftKey && selectedFileId != null) {
-                    // Shift+Clic : sélectionner la plage entre le fichier courant et celui-ci
+                    // Shift+Clic : sélectionner la plage entre l'ancre et ce fichier
                     e.preventDefault();
                     const allItems = Array.from(document.querySelectorAll('#fileList .file-item'));
                     const anchorId = String(selectedFileId);
@@ -7473,19 +7492,21 @@
                     const startIdx = allItems.findIndex(el => String(el.dataset.fileId) === anchorId);
                     const endIdx = allItems.findIndex(el => String(el.dataset.fileId) === targetId);
                     if (startIdx !== -1 && endIdx !== -1) {
+                        // Ajouter toute la plage à la sélection
                         const from = Math.min(startIdx, endIdx);
                         const to = Math.max(startIdx, endIdx);
-                        for (let i = from; i <= to; i++) {
-                            const itemFileId = allItems[i].dataset.fileId;
-                            selectedFileIds.add(Number(itemFileId) || itemFileId);
-                            const cb = allItems[i].querySelector('.file-checkbox');
-                            if (cb) cb.checked = true;
+                        for (let idx = from; idx <= to; idx++) {
+                            selectedFileIds.add(Number(allItems[idx].dataset.fileId));
                         }
-                        updateBatchActionsBar();
+                        syncBatchSelectionUI();
                     }
-                    // Ne pas changer l'ancre pour permettre des sélections Shift successives
+                    // L'ancre (selectedFileId) ne change pas pour permettre des Shift successifs
                 } else {
-                    // Clic simple : sélection unique
+                    // Clic simple : sélection unique, annuler la multi-sélection
+                    if (selectedFileIds.size > 0) {
+                        selectedFileIds.clear();
+                        syncBatchSelectionUI();
+                    }
                     selectFile(file.id);
                 }
             });
