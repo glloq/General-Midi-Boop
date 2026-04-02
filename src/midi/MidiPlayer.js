@@ -10,8 +10,10 @@ const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
 const MIDI_CC_ALL_NOTES_OFF = 123;
 
 class MidiPlayer {
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this._deps = deps; // For lazy resolution of wsServer, deviceManager
     this.playing = false;
     this.paused = false;
     this.position = 0; // seconds
@@ -43,14 +45,14 @@ class MidiPlayer {
     this._fileEndPending = false;
 
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
-    this.scheduler = new PlaybackScheduler(app);
+    this.scheduler = new PlaybackScheduler(deps);
 
-    this.app.logger.info('MidiPlayer initialized');
+    this.logger.info('MidiPlayer initialized');
   }
 
   async loadFile(fileId) {
     try {
-      const file = this.app.database.getFile(fileId);
+      const file = this.database.getFile(fileId);
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
@@ -75,7 +77,7 @@ class MidiPlayer {
       this._injectTablatureCCEvents();
       this.calculateDuration();
 
-      this.app.logger.info(`File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`);
+      this.logger.info(`File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`);
 
       return {
         filename: file.filename,
@@ -86,7 +88,7 @@ class MidiPlayer {
         channels: this.channels
       };
     } catch (error) {
-      this.app.logger.error(`Failed to load file: ${error.message}`);
+      this.logger.error(`Failed to load file: ${error.message}`);
       throw error;
     }
   }
@@ -149,7 +151,7 @@ class MidiPlayer {
       };
     });
 
-    this.app.logger.info(`Found ${this.channels.length} MIDI channels: ${this.channels.map(c => c.channelDisplay).join(', ')}`);
+    this.logger.info(`Found ${this.channels.length} MIDI channels: ${this.channels.map(c => c.channelDisplay).join(', ')}`);
   }
 
   buildEventList() {
@@ -218,13 +220,13 @@ class MidiPlayer {
    * Inject CC events (string select + fret select) from tablature data.
    */
   _injectTablatureCCEvents() {
-    if (!this.loadedFileId || !this.app.database) return;
+    if (!this.loadedFileId || !this.database) return;
 
     let tablatures;
     try {
-      tablatures = this.app.database.getTablaturesByFile(this.loadedFileId);
+      tablatures = this.database.getTablaturesByFile(this.loadedFileId);
     } catch (error) {
-      this.app.logger.debug(`No tablature data for file ${this.loadedFileId}: ${error.message}`);
+      this.logger.debug(`No tablature data for file ${this.loadedFileId}: ${error.message}`);
       return;
     }
 
@@ -241,9 +243,9 @@ class MidiPlayer {
 
       let instrument;
       try {
-        instrument = this.app.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
+        instrument = this.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
       } catch (e) {
-        this.app.logger.debug(`Skipping tablature CC: instrument lookup failed for ID ${tab.string_instrument_id}`);
+        this.logger.debug(`Skipping tablature CC: instrument lookup failed for ID ${tab.string_instrument_id}`);
         continue;
       }
       if (!instrument || instrument.cc_enabled === false) continue;
@@ -324,7 +326,7 @@ class MidiPlayer {
     if (ccEvents.length > 0) {
       this.events.push(...ccEvents);
       this.events.sort((a, b) => a.time - b.time);
-      this.app.logger.info(`Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`);
+      this.logger.info(`Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`);
     }
   }
 
@@ -409,7 +411,7 @@ class MidiPlayer {
 
   start(outputDevice, resumePosition = null) {
     if (this.playing) {
-      this.app.logger.warn('Player already playing');
+      this.logger.warn('Player already playing');
       return;
     }
 
@@ -438,7 +440,7 @@ class MidiPlayer {
     });
     this.broadcastStatus();
 
-    this.app.logger.info(`Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`);
+    this.logger.info(`Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`);
   }
 
   /**
@@ -489,7 +491,7 @@ class MidiPlayer {
     this.sendAllNotesOff();
     this.broadcastStatus();
 
-    this.app.logger.info('Playback paused');
+    this.logger.info('Playback paused');
   }
 
   resume() {
@@ -505,7 +507,7 @@ class MidiPlayer {
     });
     this.broadcastStatus();
 
-    this.app.logger.info('Playback resumed');
+    this.logger.info('Playback resumed');
   }
 
   stop() {
@@ -521,7 +523,7 @@ class MidiPlayer {
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
     this.broadcastStatus();
-    this.app.logger.info('Playback stopped');
+    this.logger.info('Playback stopped');
   }
 
   destroy() {
@@ -574,11 +576,11 @@ class MidiPlayer {
 
   setLoop(enabled) {
     this.loop = enabled;
-    this.app.logger.info(`Loop ${enabled ? 'enabled' : 'disabled'}`);
+    this.logger.info(`Loop ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   broadcastStatus() {
-    if (this.app.wsServer) {
+    if (this._deps.wsServer) {
       const status = {
         playing: this.playing,
         paused: this.paused,
@@ -595,13 +597,13 @@ class MidiPlayer {
         status.queueLoop = this.queueLoop;
         status.queueFile = this.queue[this.queueIndex] || null;
       }
-      this.app.wsServer.broadcast('playback_status', status);
+      this._deps.wsServer.broadcast('playback_status', status);
     }
   }
 
   broadcastPosition() {
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('playback_position', {
+    if (this._deps.wsServer) {
+      this._deps.wsServer.broadcast('playback_position', {
         position: this.position,
         percentage: this.duration > 0 ? (this.position / this.duration) * 100 : 0
       });
@@ -627,7 +629,7 @@ class MidiPlayer {
   setChannelRouting(channel, deviceId, targetChannel) {
     const target = (targetChannel !== undefined && targetChannel !== null) ? targetChannel : channel;
     this.channelRouting.set(channel, { device: deviceId, targetChannel: target });
-    this.app.logger.info(`Channel ${channel + 1} routed to ${deviceId} (target ch ${target + 1})`);
+    this.logger.info(`Channel ${channel + 1} routed to ${deviceId} (target ch ${target + 1})`);
 
     this.scheduler.invalidateCompensationCache();
 
@@ -662,14 +664,14 @@ class MidiPlayer {
       channelInfo.assignedDevice = segments.map(s => s.device_id).join('+');
     }
 
-    this.app.logger.info(`Channel ${channel + 1} split across ${segments.length} instruments`);
+    this.logger.info(`Channel ${channel + 1} split across ${segments.length} instruments`);
   }
 
   clearChannelRouting() {
     this.channelRouting.clear();
     this.scheduler.invalidateCompensationCache();
     this.channels.forEach(c => c.assignedDevice = null);
-    this.app.logger.info('All channel routing cleared');
+    this.logger.info('All channel routing cleared');
   }
 
   getChannelRouting() {
@@ -738,7 +740,7 @@ class MidiPlayer {
 
   muteChannel(channel) {
     this.mutedChannels.add(channel);
-    this.app.logger.info(`Channel ${channel + 1} muted`);
+    this.logger.info(`Channel ${channel + 1} muted`);
 
     if (this.outputDevice) {
       const routing = this.getOutputForChannel(channel);
@@ -746,7 +748,7 @@ class MidiPlayer {
         // Split routing: send All Notes Off to each segment
         for (const seg of routing) {
           if (seg && seg.device) {
-            this.app.deviceManager.sendMessage(seg.device, 'cc', {
+            this._deps.deviceManager.sendMessage(seg.device, 'cc', {
               channel: seg.targetChannel,
               controller: MIDI_CC_ALL_NOTES_OFF,
               value: 0
@@ -754,7 +756,7 @@ class MidiPlayer {
           }
         }
       } else if (routing && routing.device) {
-        this.app.deviceManager.sendMessage(routing.device, 'cc', {
+        this._deps.deviceManager.sendMessage(routing.device, 'cc', {
           channel: routing.targetChannel,
           controller: MIDI_CC_ALL_NOTES_OFF,
           value: 0
@@ -765,7 +767,7 @@ class MidiPlayer {
 
   unmuteChannel(channel) {
     this.mutedChannels.delete(channel);
-    this.app.logger.info(`Channel ${channel + 1} unmuted`);
+    this.logger.info(`Channel ${channel + 1} unmuted`);
   }
 
   isChannelMuted(channel) {
@@ -783,7 +785,7 @@ class MidiPlayer {
     this.queueIndex = -1;
     this.queueLoop = !!loop;
     this.playlistId = playlistId || null;
-    this.app.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, playlist=${this.playlistId}`);
+    this.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, playlist=${this.playlistId}`);
   }
 
   clearQueue() {
@@ -791,7 +793,7 @@ class MidiPlayer {
     this.queueIndex = -1;
     this.queueLoop = false;
     this.playlistId = null;
-    this.app.logger.info('Queue cleared');
+    this.logger.info('Queue cleared');
   }
 
   getQueueStatus() {
@@ -833,7 +835,7 @@ class MidiPlayer {
     // Determine output device
     let outputDevice = this.outputDevice;
     if (!outputDevice) {
-      const devices = this.app.deviceManager.getDeviceList();
+      const devices = this._deps.deviceManager.getDeviceList();
       const outputDevices = devices.filter(d => d.output && d.enabled);
       if (outputDevices.length === 0) {
         throw new Error('No output devices available');
@@ -845,8 +847,8 @@ class MidiPlayer {
     this.start(outputDevice);
 
     // Broadcast queue item change
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('playlist_item_changed', {
+    if (this._deps.wsServer) {
+      this._deps.wsServer.broadcast('playlist_item_changed', {
         playlistId: this.playlistId,
         index: this.queueIndex,
         totalItems: this.queue.length,
@@ -855,7 +857,7 @@ class MidiPlayer {
       });
     }
 
-    this.app.logger.info(`Playing queue item ${index + 1}/${this.queue.length}: ${item.filename}`);
+    this.logger.info(`Playing queue item ${index + 1}/${this.queue.length}: ${item.filename}`);
   }
 
   async nextInQueue() {
@@ -868,12 +870,12 @@ class MidiPlayer {
       } else {
         // End of queue
         this.stop();
-        if (this.app.wsServer) {
-          this.app.wsServer.broadcast('playlist_ended', {
+        if (this._deps.wsServer) {
+          this._deps.wsServer.broadcast('playlist_ended', {
             playlistId: this.playlistId
           });
         }
-        this.app.logger.info('Playlist ended');
+        this.logger.info('Playlist ended');
       }
     } else {
       await this.playQueueItem(nextIndex);
@@ -919,7 +921,7 @@ class MidiPlayer {
         this.stop();
       }
     } catch (error) {
-      this.app.logger.error(`Failed to handle file end: ${error.message}`);
+      this.logger.error(`Failed to handle file end: ${error.message}`);
       this.stop();
     } finally {
       this._fileEndPending = false;
@@ -932,7 +934,7 @@ class MidiPlayer {
    */
   _loadRoutingsFromDB(fileId) {
     try {
-      const savedRoutings = this.app.database.getRoutingsByFile(fileId);
+      const savedRoutings = this.database.getRoutingsByFile(fileId);
       if (savedRoutings.length > 0) {
         this.clearChannelRouting();
         let loadedCount = 0;
@@ -943,10 +945,10 @@ class MidiPlayer {
             loadedCount++;
           }
         }
-        this.app.logger.info(`Auto-loaded ${loadedCount} routings for file ${fileId}`);
+        this.logger.info(`Auto-loaded ${loadedCount} routings for file ${fileId}`);
       }
     } catch (error) {
-      this.app.logger.warn(`Failed to load routings for file ${fileId}: ${error.message}`);
+      this.logger.warn(`Failed to load routings for file ${fileId}: ${error.message}`);
     }
   }
 }

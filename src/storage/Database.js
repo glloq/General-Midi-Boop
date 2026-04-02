@@ -14,9 +14,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 class DatabaseManager {
-  constructor(app) {
-    this.app = app;
-    this.dbPath = app.config.database.path || './data/midimind.db';
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.config = deps.config;
+    this.dbPath = deps.config.database.path || './data/midimind.db';
     this.db = null;
     this.midiDB = null;
     this.instrumentDB = null;
@@ -31,10 +32,10 @@ class DatabaseManager {
     this.ensureInstrumentCapabilitiesColumns();
 
     // Initialize sub-modules
-    this.midiDB = new MidiDatabase(this.db, this.app.logger);
-    this.instrumentDB = new InstrumentDatabase(this.db, this.app.logger);
-    this.lightingDB = new LightingDatabase(this.db, this.app.logger);
-    this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.app.logger);
+    this.midiDB = new MidiDatabase(this.db, this.logger);
+    this.instrumentDB = new InstrumentDatabase(this.db, this.logger);
+    this.lightingDB = new LightingDatabase(this.db, this.logger);
+    this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.logger);
 
     // Migrate base64 TEXT data to binary BLOB (one-time, after migration 031)
     this._migrateBase64ToBlob();
@@ -42,7 +43,7 @@ class DatabaseManager {
     // Repair: populate channel_count from midi_file_channels for files missing it
     this._repairMissingChannelCounts();
 
-    this.app.logger.info('Database initialized');
+    this.logger.info('Database initialized');
   }
 
   /**
@@ -63,7 +64,7 @@ class DatabaseManager {
 
       if (pending.length === 0) return;
 
-      this.app.logger.info(`[DB Migration] Converting ${pending.length} file(s) from base64 to BLOB...`);
+      this.logger.info(`[DB Migration] Converting ${pending.length} file(s) from base64 to BLOB...`);
 
       const update = this.db.prepare('UPDATE midi_files SET data_blob = ?, data = NULL WHERE id = ?');
       const select = this.db.prepare('SELECT data FROM midi_files WHERE id = ?');
@@ -79,17 +80,17 @@ class DatabaseManager {
       });
 
       batchConvert(pending);
-      this.app.logger.info(`[DB Migration] Converted ${pending.length} file(s) to BLOB format`);
+      this.logger.info(`[DB Migration] Converted ${pending.length} file(s) to BLOB format`);
 
       // Check if more remain
       const remaining = this.db.prepare(
         'SELECT COUNT(*) as count FROM midi_files WHERE data IS NOT NULL AND data_blob IS NULL'
       ).get();
       if (remaining.count > 0) {
-        this.app.logger.info(`[DB Migration] ${remaining.count} file(s) still need conversion (will continue next startup)`);
+        this.logger.info(`[DB Migration] ${remaining.count} file(s) still need conversion (will continue next startup)`);
       }
     } catch (err) {
-      this.app.logger.warn(`[DB Migration] Base64 to BLOB conversion: ${err.message}`);
+      this.logger.warn(`[DB Migration] Base64 to BLOB conversion: ${err.message}`);
     }
   }
 
@@ -106,10 +107,10 @@ class DatabaseManager {
           AND id IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
       `).run();
       if (result.changes > 0) {
-        this.app.logger.info(`[DB Repair] Updated channel_count for ${result.changes} file(s) from midi_file_channels`);
+        this.logger.info(`[DB Repair] Updated channel_count for ${result.changes} file(s) from midi_file_channels`);
       }
     } catch (err) {
-      this.app.logger.warn(`[DB Repair] Failed to repair channel counts: ${err.message}`);
+      this.logger.warn(`[DB Repair] Failed to repair channel counts: ${err.message}`);
     }
   }
 
@@ -125,9 +126,9 @@ class DatabaseManager {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
-      this.app.logger.info(`Connected to database: ${this.dbPath}`);
+      this.logger.info(`Connected to database: ${this.dbPath}`);
     } catch (error) {
-      this.app.logger.error(`Failed to connect to database: ${error.message}`);
+      this.logger.error(`Failed to connect to database: ${error.message}`);
       throw error;
     }
   }
@@ -146,7 +147,7 @@ class DatabaseManager {
 
       // Get current version
       const currentVersion = this.getCurrentVersion();
-      this.app.logger.info(`Current database version: ${currentVersion}`);
+      this.logger.info(`Current database version: ${currentVersion}`);
 
       // Load and run migrations
       const migrationsDir = path.join(__dirname, '../../migrations');
@@ -163,9 +164,9 @@ class DatabaseManager {
         }
       }
 
-      this.app.logger.info('Migrations completed');
+      this.logger.info('Migrations completed');
     } catch (error) {
-      this.app.logger.error(`Migration failed: ${error.message}`);
+      this.logger.error(`Migration failed: ${error.message}`);
       throw error;
     }
   }
@@ -184,7 +185,7 @@ class DatabaseManager {
     const sql = fs.readFileSync(filePath, 'utf8');
 
     try {
-      this.app.logger.info(`Running migration ${version}: ${filename}`);
+      this.logger.info(`Running migration ${version}: ${filename}`);
 
       // Run migration in transaction
       this.db.exec('BEGIN TRANSACTION');
@@ -199,10 +200,10 @@ class DatabaseManager {
 
       this.db.exec('COMMIT');
 
-      this.app.logger.info(`Migration ${version} completed`);
+      this.logger.info(`Migration ${version} completed`);
     } catch (error) {
       this.db.exec('ROLLBACK');
-      this.app.logger.error(`Migration ${version} failed: ${error.message}`);
+      this.logger.error(`Migration ${version} failed: ${error.message}`);
       throw error;
     }
   }
@@ -225,7 +226,7 @@ class DatabaseManager {
       .all(steps);
 
     if (applied.length === 0) {
-      this.app.logger.info('No migrations to rollback');
+      this.logger.info('No migrations to rollback');
       return;
     }
 
@@ -241,15 +242,15 @@ class DatabaseManager {
       const downFile = path.join(downDir, migration.name);
       const sql = fs.readFileSync(downFile, 'utf8');
       try {
-        this.app.logger.info(`Rolling back migration ${migration.version}: ${migration.name}`);
+        this.logger.info(`Rolling back migration ${migration.version}: ${migration.name}`);
         this.db.exec('BEGIN TRANSACTION');
         this.db.exec(sql);
         this.db.prepare('DELETE FROM migrations WHERE version = ?').run(migration.version);
         this.db.exec('COMMIT');
-        this.app.logger.info(`Rollback of migration ${migration.version} completed`);
+        this.logger.info(`Rollback of migration ${migration.version} completed`);
       } catch (error) {
         this.db.exec('ROLLBACK');
-        this.app.logger.error(
+        this.logger.error(
           `Rollback of migration ${migration.version} failed: ${error.message}`
         );
         throw error;
@@ -308,14 +309,14 @@ class DatabaseManager {
         if (!existingNames.has(col.name)) {
           try {
             this.db.exec(col.sql);
-            this.app.logger.info(`Added missing column: ${col.name}`);
+            this.logger.info(`Added missing column: ${col.name}`);
           } catch (err) {
-            this.app.logger.warn(`Could not add column ${col.name}: ${err.message}`);
+            this.logger.warn(`Could not add column ${col.name}: ${err.message}`);
           }
         }
       }
     } catch (error) {
-      this.app.logger.warn(`ensureInstrumentCapabilitiesColumns: ${error.message}`);
+      this.logger.warn(`ensureInstrumentCapabilitiesColumns: ${error.message}`);
     }
   }
 
@@ -340,7 +341,7 @@ class DatabaseManager {
 
       return route.id;
     } catch (error) {
-      this.app.logger.error(`Failed to insert route: ${error.message}`);
+      this.logger.error(`Failed to insert route: ${error.message}`);
       throw error;
     }
   }
@@ -350,7 +351,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM routes WHERE id = ?');
       return stmt.get(routeId);
     } catch (error) {
-      this.app.logger.error(`Failed to get route: ${error.message}`);
+      this.logger.error(`Failed to get route: ${error.message}`);
       throw error;
     }
   }
@@ -360,7 +361,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM routes');
       return stmt.all();
     } catch (error) {
-      this.app.logger.error(`Failed to get routes: ${error.message}`);
+      this.logger.error(`Failed to get routes: ${error.message}`);
       throw error;
     }
   }
@@ -378,7 +379,7 @@ class DatabaseManager {
       result.values.push(routeId);
       this.db.prepare(result.sql).run(...result.values);
     } catch (error) {
-      this.app.logger.error(`Failed to update route: ${error.message}`);
+      this.logger.error(`Failed to update route: ${error.message}`);
       throw error;
     }
   }
@@ -388,7 +389,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('DELETE FROM routes WHERE id = ?');
       stmt.run(routeId);
     } catch (error) {
-      this.app.logger.error(`Failed to delete route: ${error.message}`);
+      this.logger.error(`Failed to delete route: ${error.message}`);
       throw error;
     }
   }
@@ -408,7 +409,7 @@ class DatabaseManager {
 
       return result.lastInsertRowid;
     } catch (error) {
-      this.app.logger.error(`Failed to insert session: ${error.message}`);
+      this.logger.error(`Failed to insert session: ${error.message}`);
       throw error;
     }
   }
@@ -418,7 +419,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM sessions WHERE id = ?');
       return stmt.get(sessionId);
     } catch (error) {
-      this.app.logger.error(`Failed to get session: ${error.message}`);
+      this.logger.error(`Failed to get session: ${error.message}`);
       throw error;
     }
   }
@@ -428,7 +429,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC');
       return stmt.all();
     } catch (error) {
-      this.app.logger.error(`Failed to get sessions: ${error.message}`);
+      this.logger.error(`Failed to get sessions: ${error.message}`);
       throw error;
     }
   }
@@ -448,7 +449,7 @@ class DatabaseManager {
       result.values.push(sessionId);
       this.db.prepare(result.sql).run(...result.values);
     } catch (error) {
-      this.app.logger.error(`Failed to update session: ${error.message}`);
+      this.logger.error(`Failed to update session: ${error.message}`);
       throw error;
     }
   }
@@ -458,7 +459,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');
       stmt.run(sessionId);
     } catch (error) {
-      this.app.logger.error(`Failed to delete session: ${error.message}`);
+      this.logger.error(`Failed to delete session: ${error.message}`);
       throw error;
     }
   }
@@ -478,7 +479,7 @@ class DatabaseManager {
 
       return result.lastInsertRowid;
     } catch (error) {
-      this.app.logger.error(`Failed to insert playlist: ${error.message}`);
+      this.logger.error(`Failed to insert playlist: ${error.message}`);
       throw error;
     }
   }
@@ -488,7 +489,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM playlists WHERE id = ?');
       return stmt.get(playlistId);
     } catch (error) {
-      this.app.logger.error(`Failed to get playlist: ${error.message}`);
+      this.logger.error(`Failed to get playlist: ${error.message}`);
       throw error;
     }
   }
@@ -498,7 +499,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('SELECT * FROM playlists ORDER BY name');
       return stmt.all();
     } catch (error) {
-      this.app.logger.error(`Failed to get playlists: ${error.message}`);
+      this.logger.error(`Failed to get playlists: ${error.message}`);
       throw error;
     }
   }
@@ -508,7 +509,7 @@ class DatabaseManager {
       const stmt = this.db.prepare('DELETE FROM playlists WHERE id = ?');
       stmt.run(playlistId);
     } catch (error) {
-      this.app.logger.error(`Failed to delete playlist: ${error.message}`);
+      this.logger.error(`Failed to delete playlist: ${error.message}`);
       throw error;
     }
   }
@@ -526,7 +527,7 @@ class DatabaseManager {
       `);
       return stmt.all(playlistId);
     } catch (error) {
-      this.app.logger.error(`Failed to get playlist items: ${error.message}`);
+      this.logger.error(`Failed to get playlist items: ${error.message}`);
       throw error;
     }
   }
@@ -552,7 +553,7 @@ class DatabaseManager {
 
       return result.lastInsertRowid;
     } catch (error) {
-      this.app.logger.error(`Failed to add playlist item: ${error.message}`);
+      this.logger.error(`Failed to add playlist item: ${error.message}`);
       throw error;
     }
   }
@@ -575,7 +576,7 @@ class DatabaseManager {
       });
       remove();
     } catch (error) {
-      this.app.logger.error(`Failed to remove playlist item: ${error.message}`);
+      this.logger.error(`Failed to remove playlist item: ${error.message}`);
       throw error;
     }
   }
@@ -613,7 +614,7 @@ class DatabaseManager {
       });
       reorder();
     } catch (error) {
-      this.app.logger.error(`Failed to reorder playlist item: ${error.message}`);
+      this.logger.error(`Failed to reorder playlist item: ${error.message}`);
       throw error;
     }
   }
@@ -624,7 +625,7 @@ class DatabaseManager {
       this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
         .run(Date.now(), playlistId);
     } catch (error) {
-      this.app.logger.error(`Failed to clear playlist items: ${error.message}`);
+      this.logger.error(`Failed to clear playlist items: ${error.message}`);
       throw error;
     }
   }
@@ -634,7 +635,7 @@ class DatabaseManager {
       this.db.prepare('UPDATE playlists SET loop = ?, updated_at = ? WHERE id = ?')
         .run(loop ? 1 : 0, Date.now(), playlistId);
     } catch (error) {
-      this.app.logger.error(`Failed to update playlist loop: ${error.message}`);
+      this.logger.error(`Failed to update playlist loop: ${error.message}`);
       throw error;
     }
   }
@@ -908,16 +909,16 @@ class DatabaseManager {
   close() {
     if (this.db) {
       this.db.close();
-      this.app.logger.info('Database closed');
+      this.logger.info('Database closed');
     }
   }
 
   async backup(backupPath) {
     try {
       await this.db.backup(backupPath);
-      this.app.logger.info(`Database backed up to: ${backupPath}`);
+      this.logger.info(`Database backed up to: ${backupPath}`);
     } catch (error) {
-      this.app.logger.error(`Backup failed: ${error.message}`);
+      this.logger.error(`Backup failed: ${error.message}`);
       throw error;
     }
   }
@@ -925,9 +926,9 @@ class DatabaseManager {
   vacuum() {
     try {
       this.db.exec('VACUUM');
-      this.app.logger.info('Database vacuumed');
+      this.logger.info('Database vacuumed');
     } catch (error) {
-      this.app.logger.error(`Vacuum failed: ${error.message}`);
+      this.logger.error(`Vacuum failed: ${error.message}`);
       throw error;
     }
   }
@@ -952,7 +953,7 @@ class DatabaseManager {
       };
       return stats;
     } catch (error) {
-      this.app.logger.error(`Failed to get stats: ${error.message}`);
+      this.logger.error(`Failed to get stats: ${error.message}`);
       throw error;
     }
   }

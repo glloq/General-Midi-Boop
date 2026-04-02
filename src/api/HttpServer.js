@@ -14,13 +14,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 class HttpServer {
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    // Support both explicit deps and legacy app object
+    this.logger = deps.logger;
+    this.config = deps.config;
+    this._deps = deps; // Keep reference for lazy service resolution in route handlers
     this.server = null;
     this.expressApp = express();
 
     this.setupRoutes();
-    this.app.logger.info('HttpServer initialized');
+    this.logger.info('HttpServer initialized');
   }
 
   setupRoutes() {
@@ -71,7 +74,7 @@ class HttpServer {
         }
         next();
       });
-      this.app.logger.info('API token authentication enabled');
+      this.logger.info('API token authentication enabled');
     }
 
     // Serve static files — use dist/ in production if available, public/ otherwise
@@ -89,7 +92,7 @@ class HttpServer {
     );
 
     // Mount API routes (health, status, metrics)
-    this.expressApp.use('/api', createApiRouter(this.app));
+    this.expressApp.use('/api', createApiRouter(this._deps));
 
     // Fallback to index.html for SPA
     this.expressApp.get('*', (req, res) => {
@@ -99,11 +102,11 @@ class HttpServer {
 
   async start() {
     return new Promise((resolve, reject) => {
-      const port = this.app.config.server.port;
-      const host = this.app.config.server.host || '0.0.0.0';
+      const port = this.config.server.port;
+      const host = this.config.server.host || '0.0.0.0';
 
-      const sslCert = this.app.config.server.sslCert;
-      const sslKey = this.app.config.server.sslKey;
+      const sslCert = this.config.server.sslCert;
+      const sslKey = this.config.server.sslKey;
 
       if (sslCert && sslKey && existsSync(sslCert) && existsSync(sslKey)) {
         this.server = createHttpsServer({
@@ -111,18 +114,18 @@ class HttpServer {
           key: readFileSync(sslKey)
         }, this.expressApp);
         this.server.listen(port, host, () => {
-          this.app.logger.info(`HTTPS server listening on https://${host}:${port}`);
+          this.logger.info(`HTTPS server listening on https://${host}:${port}`);
           resolve();
         });
       } else {
         this.server = this.expressApp.listen(port, host, () => {
-          this.app.logger.info(`HTTP server listening on http://${host}:${port}`);
+          this.logger.info(`HTTP server listening on http://${host}:${port}`);
           resolve();
         });
       }
 
       this.server.on('error', (error) => {
-        this.app.logger.error(`HTTP server error: ${error.message}`);
+        this.logger.error(`HTTP server error: ${error.message}`);
         reject(error);
       });
     });
@@ -131,7 +134,7 @@ class HttpServer {
   close() {
     if (this.server) {
       this.server.close(() => {
-        this.app.logger.info('HTTP server closed');
+        this.logger.info('HTTP server closed');
       });
     }
   }
