@@ -28,7 +28,7 @@ class PlaylistEditorModal extends BaseModal {
     this.onCloseCallback = null;
   }
 
-  set onClose(fn) {
+  set onCloseHandler(fn) {
     this.onCloseCallback = fn;
   }
 

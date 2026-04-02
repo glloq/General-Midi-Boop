@@ -1,4 +1,5 @@
 // src/api/commands/SerialCommands.js
+import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 async function serialScan(app) {
   if (!app.serialMidiManager) {
@@ -19,10 +20,10 @@ async function serialList(app) {
 
 async function serialOpen(app, data) {
   if (!app.serialMidiManager) {
-    throw new Error('Serial MIDI not available');
+    throw new ConfigurationError('Serial MIDI not available');
   }
   if (!data.path) {
-    throw new Error('path is required');
+    throw new ValidationError('path is required', 'path');
   }
 
   const result = await app.serialMidiManager.openPort(
@@ -43,10 +44,10 @@ async function serialOpen(app, data) {
 
 async function serialClose(app, data) {
   if (!app.serialMidiManager) {
-    throw new Error('Serial MIDI not available');
+    throw new ConfigurationError('Serial MIDI not available');
   }
   if (!data.path) {
-    throw new Error('path is required');
+    throw new ValidationError('path is required', 'path');
   }
 
   await app.serialMidiManager.closePort(data.path);
@@ -63,11 +64,11 @@ async function serialStatus(app) {
 
 async function serialSetEnabled(app, data) {
   if (data.enabled === undefined) {
-    throw new Error('enabled is required');
+    throw new ValidationError('enabled is required', 'enabled');
   }
 
   if (!app.serialMidiManager) {
-    throw new Error('Serial MIDI manager not initialized');
+    throw new ConfigurationError('Serial MIDI manager not initialized');
   }
 
   const result = await app.serialMidiManager.setEnabled(data.enabled);

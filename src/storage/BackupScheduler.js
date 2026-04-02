@@ -12,8 +12,9 @@ const DEFAULT_MAX_BACKUPS = 7;
 const DEFAULT_CRON = '0 3 * * *'; // Daily at 3 AM
 
 class BackupScheduler {
-  constructor(app, options = {}) {
-    this.app = app;
+  constructor(deps, options = {}) {
+    this.logger = deps.logger;
+    this.database = deps.database;
     this.backupDir = options.backupDir || DEFAULT_BACKUP_DIR;
     this.maxBackups = options.maxBackups || DEFAULT_MAX_BACKUPS;
     this.cronExpression = options.cron || DEFAULT_CRON;
@@ -30,14 +31,14 @@ class BackupScheduler {
     this.job = schedule.scheduleJob(this.cronExpression, async () => {
       await this.runBackup();
     });
-    this.app.logger.info(
+    this.logger.info(
       `Backup scheduler started (cron: ${this.cronExpression}, keep: ${this.maxBackups})`
     );
   }
 
   async runBackup() {
     if (this._running) {
-      this.app.logger.warn('Backup already in progress, skipping');
+      this.logger.warn('Backup already in progress, skipping');
       return;
     }
     this._running = true;
@@ -46,11 +47,11 @@ class BackupScheduler {
     const backupPath = path.join(this.backupDir, `midimind-${timestamp}.db`);
 
     try {
-      await this.app.database.backup(backupPath);
-      this.app.logger.info(`Scheduled backup completed: ${backupPath}`);
+      await this.database.backup(backupPath);
+      this.logger.info(`Scheduled backup completed: ${backupPath}`);
       this._pruneOldBackups();
     } catch (error) {
-      this.app.logger.error(`Scheduled backup failed: ${error.message}`);
+      this.logger.error(`Scheduled backup failed: ${error.message}`);
     } finally {
       this._running = false;
     }
@@ -76,14 +77,14 @@ class BackupScheduler {
         for (const file of files.slice(this.maxBackups)) {
           try {
             fs.unlinkSync(file.path);
-            this.app.logger.info(`Pruned old backup: ${file.name}`);
+            this.logger.info(`Pruned old backup: ${file.name}`);
           } catch {
             // File may already be deleted
           }
         }
       }
     } catch (error) {
-      this.app.logger.error(`Backup pruning failed: ${error.message}`);
+      this.logger.error(`Backup pruning failed: ${error.message}`);
     }
   }
 
@@ -91,7 +92,7 @@ class BackupScheduler {
     if (this.job) {
       this.job.cancel();
       this.job = null;
-      this.app.logger.info('Backup scheduler stopped');
+      this.logger.info('Backup scheduler stopped');
     }
   }
 }

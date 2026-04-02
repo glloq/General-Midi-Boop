@@ -1,8 +1,9 @@
 // src/api/commands/NetworkCommands.js
+import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 async function networkScan(app, data) {
   if (!app.networkManager) {
-    throw new Error('Network manager not available');
+    throw new ConfigurationError('Network manager not available');
   }
 
   const timeout = data.timeout || 5;
@@ -20,7 +21,7 @@ async function networkScan(app, data) {
 
 async function networkConnectedList(app) {
   if (!app.networkManager) {
-    throw new Error('Network manager not available');
+    throw new ConfigurationError('Network manager not available');
   }
 
   const devices = app.networkManager.getConnectedDevices();
@@ -35,11 +36,11 @@ async function networkConnectedList(app) {
 
 async function networkConnect(app, data) {
   if (!app.networkManager) {
-    throw new Error('Network manager not available');
+    throw new ConfigurationError('Network manager not available');
   }
 
   if (!data.ip && !data.address) {
-    throw new Error('Device IP address is required');
+    throw new ValidationError('Device IP address is required', 'ip');
   }
 
   const ip = data.ip || data.address;
@@ -55,11 +56,11 @@ async function networkConnect(app, data) {
 
 async function networkDisconnect(app, data) {
   if (!app.networkManager) {
-    throw new Error('Network manager not available');
+    throw new ConfigurationError('Network manager not available');
   }
 
   if (!data.ip && !data.address) {
-    throw new Error('Device IP address is required');
+    throw new ValidationError('Device IP address is required', 'ip');
   }
 
   const ip = data.ip || data.address;

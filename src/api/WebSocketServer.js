@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { ApplicationError } from '../core/errors/index.js';
 
 const __wsFilename = fileURLToPath(import.meta.url);
 const __wsDirname = dirname(__wsFilename);
@@ -18,18 +19,20 @@ const RATE_LIMIT_WINDOW_MS = 1000; // Rate limit window: 1 second
 const RATE_LIMIT_MAX_MESSAGES = 60; // Max messages per window
 
 class WebSocketServer {
-  constructor(app, httpServer) {
-    this.app = app;
+  constructor(deps, httpServer) {
+    this.logger = deps.logger;
+    this.config = deps.config;
+    this._deps = deps;
     this.httpServer = httpServer;
     this.wss = null;
     this.clients = new Set();
 
-    this.app.logger.info('WebSocketServer initialized');
+    this.logger.info('WebSocketServer initialized');
   }
 
   start() {
     const apiToken = process.env.MAESTRO_API_TOKEN;
-    const serverPort = this.app.config?.server?.port || 8080;
+    const serverPort = this.config?.server?.port || 8080;
 
     // Attach WebSocket server to existing HTTP server
     this.wss = new WSServer({
@@ -65,7 +68,7 @@ class WebSocketServer {
                 tokenBuf.length !== apiTokenBuf.length ||
                 !timingSafeEqual(tokenBuf, apiTokenBuf)
               ) {
-                this.app.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+                this.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
                 done(false, 401, 'Unauthorized');
               } else {
                 done(true);
@@ -82,11 +85,11 @@ class WebSocketServer {
     });
 
     this.wss.on('error', (error) => {
-      this.app.logger.error(`WebSocket server error: ${error.message}`);
+      this.logger.error(`WebSocket server error: ${error.message}`);
     });
 
     this.startHeartbeat();
-    this.app.logger.info(`WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`);
+    this.logger.info(`WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`);
   }
 
   handleConnection(ws, req) {
@@ -94,12 +97,12 @@ class WebSocketServer {
 
     // Enforce connection limit
     if (this.clients.size >= MAX_WS_CLIENTS) {
-      this.app.logger.warn(`Connection rejected (limit ${MAX_WS_CLIENTS} reached): ${clientIp}`);
+      this.logger.warn(`Connection rejected (limit ${MAX_WS_CLIENTS} reached): ${clientIp}`);
       ws.close(1013, 'Maximum connections reached');
       return;
     }
 
-    this.app.logger.info(`Client connected: ${clientIp} (${this.clients.size + 1}/${MAX_WS_CLIENTS})`);
+    this.logger.info(`Client connected: ${clientIp} (${this.clients.size + 1}/${MAX_WS_CLIENTS})`);
 
     this.clients.add(ws);
 
@@ -144,7 +147,7 @@ class WebSocketServer {
 
     // Handle error - clean up to prevent leaked connections
     ws.on('error', (error) => {
-      this.app.logger.error(`WebSocket client error: ${error.message}`);
+      this.logger.error(`WebSocket client error: ${error.message}`);
       this.clients.delete(ws);
     });
 
@@ -161,16 +164,16 @@ class WebSocketServer {
       parsedMessage = JSON.parse(data.toString());
 
       // Log command with ID
-      this.app.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+      this.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
 
       // Dispatch to command handler (await to catch async errors)
-      await this.app.commandHandler.handle(parsedMessage, ws);
+      await this._deps.commandHandler.handle(parsedMessage, ws);
     } catch (error) {
-      this.app.logger.error(`Failed to process message: ${error.message}`);
+      this.logger.error(`Failed to process message: ${error.message}`);
 
       // Send error response with ID if we managed to parse the message
       // Only expose error details for known application errors
-      const isAppError = error.code && error.code.startsWith('ERR_');
+      const isAppError = error instanceof ApplicationError;
       const errorResponse = {
         type: 'error',
         error: isAppError ? error.message : 'Internal server error',
@@ -189,7 +192,7 @@ class WebSocketServer {
 
   handleClose(ws, clientIp) {
     this.clients.delete(ws);
-    this.app.logger.info(`Client disconnected: ${clientIp} (${this.clients.size}/${MAX_WS_CLIENTS})`);
+    this.logger.info(`Client disconnected: ${clientIp} (${this.clients.size}/${MAX_WS_CLIENTS})`);
   }
 
   broadcast(event, data) {
@@ -202,7 +205,7 @@ class WebSocketServer {
         timestamp: Date.now()
       });
     } catch (err) {
-      this.app.logger.error(`Failed to serialize broadcast ${event}: ${err.message}`);
+      this.logger.error(`Failed to serialize broadcast ${event}: ${err.message}`);
       return;
     }
 
@@ -223,7 +226,7 @@ class WebSocketServer {
       this.clients.delete(client);
     }
 
-    this.app.logger.debug(`Broadcast ${event} to ${sent} clients`);
+    this.logger.debug(`Broadcast ${event} to ${sent} clients`);
   }
 
   send(ws, type, data) {
@@ -273,14 +276,14 @@ class WebSocketServer {
       }
     }, 500);
 
-    this.app.logger.info('WebSocket server closed');
+    this.logger.info('WebSocket server closed');
   }
 
   getStats() {
     return {
       clients: this.clients.size,
       maxClients: MAX_WS_CLIENTS,
-      port: this.app?.config?.server?.port
+      port: this.config?.server?.port
     };
   }
 }

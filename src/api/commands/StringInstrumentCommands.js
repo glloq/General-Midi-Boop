@@ -1,6 +1,7 @@
 // src/api/commands/StringInstrumentCommands.js
 
 import TablatureConverter from '../../midi/TablatureConverter.js';
+import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
 /**
  * WebSocket commands for string instrument configuration and tablature management.
@@ -35,7 +36,7 @@ async function stringInstrumentCreate(app, data) {
 }
 
 async function stringInstrumentUpdate(app, data) {
-  if (!data.id) throw new Error('id is required');
+  if (!data.id) throw new ValidationError('id is required', 'id');
 
   const updated = app.database.stringInstrumentDB.updateStringInstrument(data.id, {
     instrument_name: data.instrument_name,
@@ -67,7 +68,7 @@ async function stringInstrumentDelete(app, data) {
       data.device_id, data.channel
     );
   } else {
-    throw new Error('id or device_id is required');
+    throw new ValidationError('id or device_id is required', 'id');
   }
   return { success: true };
 }
@@ -79,7 +80,7 @@ async function stringInstrumentGet(app, data) {
   } else if (data.device_id !== undefined) {
     instrument = app.database.stringInstrumentDB.getStringInstrument(data.device_id, data.channel);
   } else {
-    throw new Error('id or device_id is required');
+    throw new ValidationError('id or device_id is required', 'id');
   }
   return { instrument };
 }
@@ -102,21 +103,21 @@ async function stringInstrumentGetPresets(app) {
 }
 
 async function stringInstrumentApplyPreset(app, data) {
-  if (!data.preset_key) throw new Error('preset_key is required');
+  if (!data.preset_key) throw new ValidationError('preset_key is required', 'preset_key');
 
   const preset = app.database.stringInstrumentDB.getTuningPreset(data.preset_key);
-  if (!preset) throw new Error(`Unknown preset: ${data.preset_key}`);
+  if (!preset) throw new NotFoundError('Preset', data.preset_key);
 
   return { preset };
 }
 
 async function stringInstrumentCreateFromPreset(app, data) {
-  if (!data.device_id) throw new Error('device_id is required');
-  if (data.channel === undefined) throw new Error('channel is required');
-  if (!data.preset) throw new Error('preset key is required');
+  if (!data.device_id) throw new ValidationError('device_id is required', 'device_id');
+  if (data.channel === undefined) throw new ValidationError('channel is required', 'channel');
+  if (!data.preset) throw new ValidationError('preset key is required', 'preset');
 
   const preset = app.database.stringInstrumentDB.getTuningPreset(data.preset);
-  if (!preset) throw new Error(`Unknown preset: ${data.preset}`);
+  if (!preset) throw new NotFoundError('Preset', data.preset);
 
   // Use UPSERT: createStringInstrument already has ON CONFLICT DO UPDATE
   const id = app.database.stringInstrumentDB.createStringInstrument({
@@ -135,9 +136,9 @@ async function stringInstrumentCreateFromPreset(app, data) {
 // ==================== TABLATURE DATA ====================
 
 async function tablatureSave(app, data) {
-  if (data.midi_file_id === undefined) throw new Error('midi_file_id is required');
-  if (data.string_instrument_id === undefined) throw new Error('string_instrument_id is required');
-  if (!Array.isArray(data.tablature_data)) throw new Error('tablature_data must be an array');
+  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
+  if (data.string_instrument_id === undefined) throw new ValidationError('string_instrument_id is required', 'string_instrument_id');
+  if (!Array.isArray(data.tablature_data)) throw new ValidationError('tablature_data must be an array', 'tablature_data');
 
   const id = app.database.stringInstrumentDB.saveTablature(
     data.midi_file_id,
@@ -149,7 +150,7 @@ async function tablatureSave(app, data) {
 }
 
 async function tablatureGet(app, data) {
-  if (data.midi_file_id === undefined) throw new Error('midi_file_id is required');
+  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   const tablature = app.database.stringInstrumentDB.getTablature(
     data.midi_file_id, data.channel
@@ -158,14 +159,14 @@ async function tablatureGet(app, data) {
 }
 
 async function tablatureGetByFile(app, data) {
-  if (data.midi_file_id === undefined) throw new Error('midi_file_id is required');
+  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   const tablatures = app.database.stringInstrumentDB.getTablaturesByFile(data.midi_file_id);
   return { tablatures };
 }
 
 async function tablatureDelete(app, data) {
-  if (data.midi_file_id === undefined) throw new Error('midi_file_id is required');
+  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   if (data.channel !== undefined) {
     app.database.stringInstrumentDB.deleteTablature(data.midi_file_id, data.channel);
@@ -178,15 +179,15 @@ async function tablatureDelete(app, data) {
 // ==================== CONVERSION ====================
 
 async function tablatureConvertFromMidi(app, data) {
-  if (!data.notes || !Array.isArray(data.notes)) throw new Error('notes array is required');
+  if (!data.notes || !Array.isArray(data.notes)) throw new ValidationError('notes array is required', 'notes');
   if (!data.instrument_config && !data.string_instrument_id) {
-    throw new Error('instrument_config or string_instrument_id is required');
+    throw new ValidationError('instrument_config or string_instrument_id is required', 'instrument_config');
   }
 
   let config = data.instrument_config;
   if (!config && data.string_instrument_id) {
     config = app.database.stringInstrumentDB.getStringInstrumentById(data.string_instrument_id);
-    if (!config) throw new Error(`String instrument ${data.string_instrument_id} not found`);
+    if (!config) throw new NotFoundError('StringInstrument', data.string_instrument_id);
   }
 
   const converter = new TablatureConverter(config);
@@ -197,15 +198,15 @@ async function tablatureConvertFromMidi(app, data) {
 }
 
 async function tablatureConvertToMidi(app, data) {
-  if (!data.tab_events || !Array.isArray(data.tab_events)) throw new Error('tab_events array is required');
+  if (!data.tab_events || !Array.isArray(data.tab_events)) throw new ValidationError('tab_events array is required', 'tab_events');
   if (!data.instrument_config && !data.string_instrument_id) {
-    throw new Error('instrument_config or string_instrument_id is required');
+    throw new ValidationError('instrument_config or string_instrument_id is required', 'instrument_config');
   }
 
   let config = data.instrument_config;
   if (!config && data.string_instrument_id) {
     config = app.database.stringInstrumentDB.getStringInstrumentById(data.string_instrument_id);
-    if (!config) throw new Error(`String instrument ${data.string_instrument_id} not found`);
+    if (!config) throw new NotFoundError('StringInstrument', data.string_instrument_id);
   }
 
   const converter = new TablatureConverter(config);

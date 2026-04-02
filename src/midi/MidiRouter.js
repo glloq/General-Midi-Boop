@@ -3,8 +3,11 @@
 const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in milliseconds (5s)
 
 class MidiRouter {
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this.eventBus = deps.eventBus;
+    this._deps = deps; // For lazy resolution of deviceManager, latencyCompensator, wsServer
     this.routes = new Map();
     this.routesBySource = new Map(); // Secondary index: source -> Set of routeIds
     this.monitors = new Set();
@@ -19,15 +22,15 @@ class MidiRouter {
     this._onSettingsChanged = () => {
       this._compensationCache.clear();
     };
-    this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+    this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
 
     this.loadRoutesFromDB();
-    this.app.logger.info('MidiRouter initialized');
+    this.logger.info('MidiRouter initialized');
   }
 
   loadRoutesFromDB() {
     try {
-      const routes = this.app.database.getRoutes();
+      const routes = this.database.getRoutes();
       let loadedCount = 0;
       routes.forEach(route => {
         try {
@@ -41,12 +44,12 @@ class MidiRouter {
           });
           loadedCount++;
         } catch (routeError) {
-          this.app.logger.error(`Failed to load route ${route.id}: ${routeError.message}`);
+          this.logger.error(`Failed to load route ${route.id}: ${routeError.message}`);
         }
       });
-      this.app.logger.info(`Loaded ${loadedCount}/${routes.length} routes from database`);
+      this.logger.info(`Loaded ${loadedCount}/${routes.length} routes from database`);
     } catch (error) {
-      this.app.logger.error(`Failed to load routes: ${error.message}`);
+      this.logger.error(`Failed to load routes: ${error.message}`);
     }
   }
 
@@ -72,7 +75,7 @@ class MidiRouter {
     // Save to database if new route
     if (!route.id) {
       try {
-        this.app.database.insertRoute({
+        this.database.insertRoute({
           id: routeId,
           source_device: route.source,
           destination_device: route.destination,
@@ -92,7 +95,7 @@ class MidiRouter {
       }
     }
 
-    this.app.logger.info(`Route added: ${routeId} (${route.source} → ${route.destination})`);
+    this.logger.info(`Route added: ${routeId} (${route.source} → ${route.destination})`);
     return routeId;
   }
 
@@ -104,7 +107,7 @@ class MidiRouter {
     const route = this.routes.get(routeId);
 
     // Delete from DB first; if DB fails, in-memory state stays consistent
-    this.app.database.deleteRoute(routeId);
+    this.database.deleteRoute(routeId);
 
     // Remove from source index
     const sourceSet = this.routesBySource.get(route.source);
@@ -116,7 +119,7 @@ class MidiRouter {
     }
 
     this.routes.delete(routeId);
-    this.app.logger.info(`Route deleted: ${routeId}`);
+    this.logger.info(`Route deleted: ${routeId}`);
   }
 
   enableRoute(routeId, enabled) {
@@ -126,8 +129,8 @@ class MidiRouter {
     }
 
     route.enabled = enabled;
-    this.app.database.updateRoute(routeId, { enabled: enabled ? 1 : 0 });
-    this.app.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
+    this.database.updateRoute(routeId, { enabled: enabled ? 1 : 0 });
+    this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   setFilter(routeId, filter) {
@@ -137,10 +140,10 @@ class MidiRouter {
     }
 
     route.filter = filter;
-    this.app.database.updateRoute(routeId, {
+    this.database.updateRoute(routeId, {
       filter: JSON.stringify(filter)
     });
-    this.app.logger.info(`Filter updated for route ${routeId}`);
+    this.logger.info(`Filter updated for route ${routeId}`);
   }
 
   setChannelMap(routeId, channelMap) {
@@ -150,10 +153,10 @@ class MidiRouter {
     }
 
     route.channelMap = channelMap;
-    this.app.database.updateRoute(routeId, {
+    this.database.updateRoute(routeId, {
       channel_mapping: JSON.stringify(channelMap)
     });
-    this.app.logger.info(`Channel map updated for route ${routeId}`);
+    this.logger.info(`Channel map updated for route ${routeId}`);
   }
 
   routeMessage(sourceDevice, type, msg) {
@@ -183,13 +186,13 @@ class MidiRouter {
             const currentRoute = this.routes.get(route.id);
             if (!currentRoute || !currentRoute.enabled) return;
 
-            const success = this.app.deviceManager.sendMessage(
+            const success = this._deps.deviceManager.sendMessage(
               route.destination,
               type,
               mapped
             );
             if (success) {
-              this.app.eventBus.emit('midi_routed', {
+              this.eventBus.emit('midi_routed', {
                 route: route.id,
                 source: sourceDevice,
                 destination: route.destination,
@@ -203,14 +206,14 @@ class MidiRouter {
         }
 
         // Send immediately (no compensation needed)
-        const success = this.app.deviceManager.sendMessage(
+        const success = this._deps.deviceManager.sendMessage(
           route.destination,
           type,
           mapped
         );
 
         if (success) {
-          this.app.eventBus.emit('midi_routed', {
+          this.eventBus.emit('midi_routed', {
             route: route.id,
             source: sourceDevice,
             destination: route.destination,
@@ -295,35 +298,35 @@ class MidiRouter {
 
   startMonitor(deviceId) {
     this.monitors.add(deviceId);
-    this.app.logger.info(`Monitor started for device: ${deviceId}`);
+    this.logger.info(`Monitor started for device: ${deviceId}`);
   }
 
   stopMonitor(deviceId) {
     this.monitors.delete(deviceId);
-    this.app.logger.info(`Monitor stopped for device: ${deviceId}`);
+    this.logger.info(`Monitor stopped for device: ${deviceId}`);
   }
 
   startMonitorAll() {
     this.monitorAll = true;
-    this.app.logger.info('Monitor ALL devices started (debug console)');
+    this.logger.info('Monitor ALL devices started (debug console)');
   }
 
   stopMonitorAll() {
     this.monitorAll = false;
-    this.app.logger.info('Monitor ALL devices stopped (debug console)');
+    this.logger.info('Monitor ALL devices stopped (debug console)');
   }
 
   broadcastMonitorEvent(deviceId, type, msg) {
-    if (this.app.wsServer) {
+    if (this._deps.wsServer) {
       // Resolve instrument name from database
       let instrumentName = null;
-      if (this.app.database && msg && msg.channel !== undefined) {
+      if (this.database && msg && msg.channel !== undefined) {
         try {
-          const settings = this.app.database.getInstrumentSettings(deviceId, msg.channel);
+          const settings = this.database.getInstrumentSettings(deviceId, msg.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
         } catch (e) { /* ignore */ }
       }
-      this.app.wsServer.broadcast('monitor_event', {
+      this._deps.wsServer.broadcast('monitor_event', {
         device: deviceId,
         instrumentName: instrumentName,
         type: type,
@@ -344,7 +347,7 @@ class MidiRouter {
    */
   _getRouteCompensation(deviceId, channel) {
     // Only apply compensation if latencyCompensator or database are available
-    if (!this.app.latencyCompensator && !this.app.database) {
+    if (!this._deps.latencyCompensator && !this.database) {
       return 0;
     }
 
@@ -356,14 +359,14 @@ class MidiRouter {
     let totalLatency = 0;
 
     // Hardware latency from LatencyCompensator
-    if (this.app.latencyCompensator) {
-      totalLatency += this.app.latencyCompensator.getLatency(deviceId) || 0;
+    if (this._deps.latencyCompensator) {
+      totalLatency += this._deps.latencyCompensator.getLatency(deviceId) || 0;
     }
 
     // User-configured sync_delay from database
-    if (this.app.database) {
+    if (this.database) {
       try {
-        const settings = this.app.database.getInstrumentSettings(deviceId, channel);
+        const settings = this.database.getInstrumentSettings(deviceId, channel);
         if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
           totalLatency += settings.sync_delay;
         }
@@ -377,7 +380,7 @@ class MidiRouter {
     // (In routeMessage, we only delay if compensation > 0)
     const clamped = Math.min(Math.max(0, totalLatency), MAX_COMPENSATION_MS);
     if (totalLatency > MAX_COMPENSATION_MS) {
-      this.app.logger.warn(`Compensation ${totalLatency.toFixed(0)}ms for device ${deviceId} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
+      this.logger.warn(`Compensation ${totalLatency.toFixed(0)}ms for device ${deviceId} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
     }
     this._compensationCache.set(cacheKey, clamped);
     return clamped;
@@ -443,13 +446,13 @@ class MidiRouter {
 
     // Remove event listeners (use stored reference for proper cleanup)
     if (this._onSettingsChanged) {
-      this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+      this.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     }
 
     this.routes.clear();
     this.routesBySource.clear();
     this.monitors.clear();
-    this.app.logger.info('MidiRouter destroyed');
+    this.logger.info('MidiRouter destroyed');
   }
 }
 

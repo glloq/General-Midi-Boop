@@ -2,6 +2,7 @@
 import MidiTransposer from '../../midi/MidiTransposer.js';
 import JsonMidiConverter from '../../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../../midi/InstrumentCapabilitiesValidator.js';
+import { ValidationError, NotFoundError, ConfigurationError, MidiError } from '../../core/errors/index.js';
 
 // Lazily-created converter instance per app (keyed by app reference)
 const converterCache = new WeakMap();
@@ -16,7 +17,7 @@ function getMidiConverter(app) {
 async function playbackStart(app, data) {
   // Load file first
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   app.logger.info(`Loading file ${data.fileId} for playback...`);
@@ -51,7 +52,7 @@ async function playbackStart(app, data) {
     const outputDevices = devices.filter(d => d.output && d.enabled);
 
     if (outputDevices.length === 0) {
-      throw new Error('No output devices available');
+      throw new ConfigurationError('No output devices available');
     }
 
     outputDevice = outputDevices[0].id;
@@ -121,21 +122,21 @@ async function playbackGetChannels(app) {
 
 async function playbackSetChannelRouting(app, data) {
   if (data.channel === undefined || data.channel === null) {
-    throw new Error('channel is required');
+    throw new ValidationError('channel is required', 'channel');
   }
   if (!data.deviceId) {
-    throw new Error('deviceId is required');
+    throw new ValidationError('deviceId is required', 'deviceId');
   }
 
   const channel = parseInt(data.channel);
   if (isNaN(channel) || channel < 0 || channel > 15) {
-    throw new Error('channel must be between 0 and 15');
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
   }
 
   // targetChannel allows remapping source channel to instrument's actual MIDI channel
   const targetChannel = data.targetChannel !== undefined ? parseInt(data.targetChannel) : channel;
   if (isNaN(targetChannel) || targetChannel < 0 || targetChannel > 15) {
-    throw new Error('targetChannel must be between 0 and 15');
+    throw new ValidationError('targetChannel must be between 0 and 15', 'channel');
   }
 
   app.midiPlayer.setChannelRouting(channel, data.deviceId, targetChannel);
@@ -156,12 +157,12 @@ async function playbackClearChannelRouting(app) {
 
 async function playbackMuteChannel(app, data) {
   if (data.channel === undefined) {
-    throw new Error('Missing channel parameter');
+    throw new ValidationError('Missing channel parameter', 'channel');
   }
 
   const channel = parseInt(data.channel);
   if (isNaN(channel) || channel < 0 || channel > 15) {
-    throw new Error('Invalid channel (must be 0-15)');
+    throw new ValidationError('Invalid channel (must be 0-15)', 'channel');
   }
 
   if (data.muted) {
@@ -185,16 +186,16 @@ async function playbackMuteChannel(app, data) {
  */
 async function analyzeChannel(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
   if (data.channel === undefined) {
-    throw new Error('channel is required');
+    throw new ValidationError('channel is required', 'channel');
   }
 
   // Get MIDI file from database
   const file = app.database.getFile(data.fileId);
   if (!file) {
-    throw new Error(`File not found: ${data.fileId}`);
+    throw new NotFoundError('File', data.fileId);
   }
 
   // Parse MIDI data
@@ -204,7 +205,7 @@ async function analyzeChannel(app, data) {
     const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
-    throw new Error(`Failed to parse MIDI file: ${error.message}`);
+    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
   }
 
   // Use singleton auto-assigner (with cache support)
@@ -224,7 +225,7 @@ async function analyzeChannel(app, data) {
  */
 async function generateAssignmentSuggestions(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   const options = {
@@ -237,7 +238,7 @@ async function generateAssignmentSuggestions(app, data) {
   // Get MIDI file from database
   const file = app.database.getFile(data.fileId);
   if (!file) {
-    throw new Error(`File not found: ${data.fileId}`);
+    throw new NotFoundError('File', data.fileId);
   }
 
   // Parse MIDI data
@@ -247,7 +248,7 @@ async function generateAssignmentSuggestions(app, data) {
     const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
-    throw new Error(`Failed to parse MIDI file: ${error.message}`);
+    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
   }
 
   // Generate suggestions using singleton auto-assigner
@@ -290,10 +291,10 @@ async function generateAssignmentSuggestions(app, data) {
  */
 async function applyAssignments(app, data) {
   if (!data.originalFileId) {
-    throw new Error('originalFileId is required');
+    throw new ValidationError('originalFileId is required', 'originalFileId');
   }
   if (!data.assignments) {
-    throw new Error('assignments is required');
+    throw new ValidationError('assignments is required', 'assignments');
   }
 
   const createAdaptedFile = data.createAdaptedFile !== false; // Default true
@@ -302,7 +303,7 @@ async function applyAssignments(app, data) {
   // Get original MIDI file
   const originalFile = app.database.getFile(data.originalFileId);
   if (!originalFile) {
-    throw new Error(`File not found: ${data.originalFileId}`);
+    throw new NotFoundError('File', data.originalFileId);
   }
 
   // Parse original MIDI data
@@ -311,7 +312,7 @@ async function applyAssignments(app, data) {
     const buffer = Buffer.isBuffer(originalFile.data) ? originalFile.data : Buffer.from(originalFile.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
-    throw new Error(`Failed to parse MIDI file: ${error.message}`);
+    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
   }
 
   let adaptedFileId = null;
@@ -348,7 +349,7 @@ async function applyAssignments(app, data) {
       try {
         adaptedBuffer = midiConverter.jsonToMidi(adaptedMidiData);
       } catch (error) {
-        throw new Error(`Failed to convert adapted MIDI: ${error.message}`);
+        throw new MidiError(`Failed to convert adapted MIDI: ${error.message}`);
       }
 
       // Generate adaptation metadata
@@ -510,7 +511,7 @@ async function getInstrumentDefaults(app, data) {
   const instrument = app.database.getInstrument(data.instrumentId);
 
   if (!instrument) {
-    throw new Error(`Instrument not found: ${data.instrumentId}`);
+    throw new NotFoundError('Instrument', data.instrumentId);
   }
 
   // Obtenir les suggestions basées sur le type
@@ -542,7 +543,7 @@ async function getInstrumentDefaults(app, data) {
  */
 async function updateInstrumentCapabilities(app, data) {
   if (!data.updates) {
-    throw new Error('updates is required');
+    throw new ValidationError('updates is required', 'updates');
   }
 
   const updated = [];
@@ -618,7 +619,7 @@ async function updateInstrumentCapabilities(app, data) {
  */
 async function getFileRoutings(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   const routings = app.database.getRoutingsByFile(data.fileId);
@@ -638,12 +639,12 @@ async function getFileRoutings(app, data) {
  */
 async function playbackValidateRouting(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   const file = app.database.getFile(data.fileId);
   if (!file) {
-    throw new Error(`File not found: ${data.fileId}`);
+    throw new NotFoundError('File', data.fileId);
   }
 
   // Parse MIDI to find active channels
@@ -653,7 +654,7 @@ async function playbackValidateRouting(app, data) {
     const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
-    throw new Error(`Failed to parse MIDI file: ${error.message}`);
+    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
   }
 
   // Find active channels (channels with noteOn events)
@@ -729,7 +730,7 @@ async function playbackValidateRouting(app, data) {
 async function playbackSetDisconnectPolicy(app, data) {
   const validPolicies = ['skip', 'pause', 'mute'];
   if (!data.policy || !validPolicies.includes(data.policy)) {
-    throw new Error(`Invalid policy. Must be one of: ${validPolicies.join(', ')}`);
+    throw new ValidationError(`Invalid policy. Must be one of: ${validPolicies.join(', ')}`, 'policy');
   }
   app.midiPlayer.disconnectedPolicy = data.policy;
   app.logger.info(`Disconnect policy set to: ${data.policy}`);

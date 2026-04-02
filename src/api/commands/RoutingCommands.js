@@ -1,4 +1,5 @@
 // src/api/commands/RoutingCommands.js
+import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
 async function routeCreate(app, data) {
   const routeId = app.midiRouter.addRoute(data);
@@ -22,7 +23,7 @@ async function routeEnable(app, data) {
 async function routeInfo(app, data) {
   const route = app.midiRouter.getRoute(data.routeId);
   if (!route) {
-    throw new Error(`Route not found: ${data.routeId}`);
+    throw new NotFoundError('Route', data.routeId);
   }
   return { route: route };
 }
@@ -65,7 +66,7 @@ async function monitorStopAll(app) {
 async function routeTest(app, data) {
   const route = app.midiRouter.getRoute(data.routeId);
   if (!route) {
-    throw new Error(`Route not found: ${data.routeId}`);
+    throw new NotFoundError('Route', data.routeId);
   }
 
   // Send a short test note (middle C, velocity 80, channel 0) through the route destination
@@ -99,7 +100,7 @@ async function routeTest(app, data) {
 async function routeDuplicate(app, data) {
   const route = app.midiRouter.getRoute(data.routeId);
   if (!route) {
-    throw new Error(`Route not found: ${data.routeId}`);
+    throw new NotFoundError('Route', data.routeId);
   }
   const newRouteId = app.midiRouter.addRoute({
     source: route.source,
@@ -114,7 +115,7 @@ async function routeDuplicate(app, data) {
 async function routeExport(app, data) {
   const route = app.midiRouter.getRoute(data.routeId);
   if (!route) {
-    throw new Error(`Route not found: ${data.routeId}`);
+    throw new NotFoundError('Route', data.routeId);
   }
   return { route: route };
 }
@@ -137,7 +138,7 @@ async function routeClearAll(app) {
  */
 async function fileRoutingSync(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   // Delete existing manual routings for this file

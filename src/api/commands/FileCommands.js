@@ -1,4 +1,5 @@
 // src/api/commands/FileCommands.js
+import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
 async function fileUpload(app, data) {
   const result = await app.fileManager.handleUpload(data.filename, data.data);
@@ -197,7 +198,7 @@ async function fileFilter(app, data) {
 
 async function fileChannels(app, data) {
   if (!data.fileId) {
-    throw new Error('fileId is required');
+    throw new ValidationError('fileId is required', 'fileId');
   }
 
   const channels = app.database.getFileChannels(data.fileId);
@@ -227,10 +228,10 @@ function fileReanalyzeCheck(app) {
 
 async function fileRoutingStatus(app, data) {
   const fileId = data.fileId;
-  if (!fileId) throw new Error('fileId is required');
+  if (!fileId) throw new ValidationError('fileId is required', 'fileId');
 
   const file = app.database.getFileInfo(fileId);
-  if (!file) throw new Error(`File not found: ${fileId}`);
+  if (!file) throw new NotFoundError('File', fileId);
 
   const routings = app.database.getRoutingsByFile(fileId);
   // Use channel_count (actual MIDI channels), NOT file.tracks (SMF track count)

@@ -1,5 +1,6 @@
 // src/api/CommandRegistry.js
 import JsonValidator from '../utils/JsonValidator.js';
+import { ApplicationError, ValidationError, NotFoundError } from '../core/errors/index.js';
 import { readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -108,7 +109,7 @@ class CommandRegistry {
       // Validate message structure
       const validation = JsonValidator.validateCommand(message);
       if (!validation.valid) {
-        throw new Error(`Invalid message: ${validation.errors.join(', ')}`);
+        throw new ValidationError(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
       // Command-specific input validation
@@ -116,7 +117,7 @@ class CommandRegistry {
       if (validatorName && typeof JsonValidator[validatorName] === 'function') {
         const cmdValidation = JsonValidator[validatorName](message.command, message.data || {});
         if (!cmdValidation.valid) {
-          throw new Error(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
+          throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
         }
       }
 
@@ -128,7 +129,7 @@ class CommandRegistry {
       }
       handler = handler || this.handlers[message.command];
       if (!handler) {
-        throw new Error(`Unknown command: ${message.command}`);
+        throw new NotFoundError('command', message.command);
       }
 
       this.app.logger.info(`Executing handler for: ${message.command}`);
@@ -158,18 +159,9 @@ class CommandRegistry {
       this.app.logger.error(`Command ${message.command} failed: ${error.message}`);
       this.app.logger.error(error.stack);
 
-      // Filter error messages: only expose known application errors to the client,
-      // not internal paths or stack traces
-      const isKnownError = (
-        (error.code && error.code.startsWith('ERR_')) ||
-        error.message.startsWith('Invalid ') ||
-        error.message.startsWith('Unknown command') ||
-        error.message.includes('not found') ||
-        error.message.includes('is required') ||
-        error.message.includes('already exists') ||
-        error.message.includes('not connected') ||
-        error.message.includes('not available')
-      );
+      // Only expose ApplicationError messages to the client;
+      // internal errors get a generic message to avoid leaking details.
+      const isKnownError = error instanceof ApplicationError;
 
       if (ws.readyState === 1) {
         ws.send(
@@ -178,6 +170,7 @@ class CommandRegistry {
             type: 'error',
             command: message.command,
             error: isKnownError ? error.message : 'Internal server error',
+            code: isKnownError ? error.code : undefined,
             timestamp: Date.now()
           })
         );

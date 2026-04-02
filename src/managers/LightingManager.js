@@ -1,6 +1,7 @@
 // src/managers/LightingManager.js
 import EventEmitter from 'events';
 import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
+import BaseLightingDriver from '../lighting/BaseLightingDriver.js';
 
 // Driver type to module path mapping
 const DRIVER_MAP = {
@@ -110,6 +111,7 @@ class LightingManager extends EventEmitter {
     try {
       const { default: DriverClass } = await import(modulePath);
       const driver = new DriverClass(device, this.logger);
+      BaseLightingDriver.validate(driver);
       await driver.connect();
       this.drivers.set(device.id, driver);
       this._broadcastDeviceStatus(device.id, true);

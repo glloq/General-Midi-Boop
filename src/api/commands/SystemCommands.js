@@ -3,6 +3,7 @@ import os from 'os';
 import { readFileSync, accessSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
+import { AuthenticationError, ValidationError } from '../../core/errors/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -42,7 +43,7 @@ async function systemInfo(app) {
  */
 function requireTokenConfigured() {
   if (!process.env.MAESTRO_API_TOKEN) {
-    throw new Error('System commands require MAESTRO_API_TOKEN to be configured');
+    throw new AuthenticationError('System commands require MAESTRO_API_TOKEN to be configured');
   }
 }
 
@@ -196,7 +197,7 @@ async function systemBackup(app, data) {
     filename = basename(data.path);
     // Reject suspicious filenames
     if (filename.includes('..') || filename.startsWith('.')) {
-      throw new Error('Invalid backup filename');
+      throw new ValidationError('Invalid backup filename', 'path');
     }
   } else {
     filename = `backup_${Date.now()}.db`;

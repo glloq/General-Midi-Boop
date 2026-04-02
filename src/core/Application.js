@@ -137,28 +137,32 @@ class Application {
       // Ensure API authentication is configured
       this._ensureApiToken();
 
-      // Register app facade so container-resolved services can access legacy deps
-      this.container.register('app', this._createAppFacade());
+      // Create the app facade — a Proxy that resolves properties from the
+      // container first, falling back to the Application instance.  Services
+      // receive this facade as their `deps` argument, so they can access any
+      // registered service by name (e.g. deps.logger, deps.database).
+      const deps = this._createAppFacade();
+      this.container.register('app', deps);
 
-      // Initialize database
-      this._registerService('database', new Database(this));
+      // Initialize database (uses deps.config, deps.logger)
+      this._registerService('database', new Database(deps));
 
       // Initialize MIDI components
-      this._registerService('deviceManager', new DeviceManager(this));
-      this._registerService('midiRouter', new MidiRouter(this));
-      this._registerService('midiPlayer', new MidiPlayer(this));
-      this._registerService('latencyCompensator', new LatencyCompensator(this));
+      this._registerService('deviceManager', new DeviceManager(deps));
+      this._registerService('midiRouter', new MidiRouter(deps));
+      this._registerService('midiPlayer', new MidiPlayer(deps));
+      this._registerService('latencyCompensator', new LatencyCompensator(deps));
       this._registerService(
         'delayCalibrator',
         new DelayCalibrator(this.deviceManager, this.logger)
       );
 
       // Initialize storage
-      this._registerService('fileManager', new FileManager(this));
+      this._registerService('fileManager', new FileManager(deps));
 
       // Initialize Bluetooth (optional - may not be available on all systems)
       try {
-        this._registerService('bluetoothManager', new BluetoothManager(this));
+        this._registerService('bluetoothManager', new BluetoothManager(deps));
         this.logger.info('Bluetooth initialized');
       } catch (error) {
         this.logger.warn(`Bluetooth not available: ${error.message}`);
@@ -166,7 +170,7 @@ class Application {
 
       // Initialize Network Manager
       try {
-        this._registerService('networkManager', new NetworkManager(this));
+        this._registerService('networkManager', new NetworkManager(deps));
         this.logger.info('Network manager initialized');
       } catch (error) {
         this.logger.warn(`Network manager not available: ${error.message}`);
@@ -175,7 +179,7 @@ class Application {
       // Initialize Serial MIDI (optional - requires serialport package)
       try {
         const { default: SerialMidiManager } = await import('../managers/SerialMidiManager.js');
-        this._registerService('serialMidiManager', new SerialMidiManager(this));
+        this._registerService('serialMidiManager', new SerialMidiManager(deps));
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
@@ -184,7 +188,7 @@ class Application {
       // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
       try {
         const { default: LightingManager } = await import('../managers/LightingManager.js');
-        this._registerService('lightingManager', new LightingManager(this));
+        this._registerService('lightingManager', new LightingManager(deps));
         this.logger.info('Lighting manager initialized');
       } catch (error) {
         this.logger.warn(`Lighting manager not available: ${error.message}`);
@@ -194,9 +198,9 @@ class Application {
       this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger));
 
       // Initialize API
-      this._registerService('commandHandler', new CommandHandler(this));
-      this._registerService('httpServer', new HttpServer(this));
-      this._registerService('wsServer', new WebSocketServer(this, null));
+      this._registerService('commandHandler', new CommandHandler(deps));
+      this._registerService('httpServer', new HttpServer(deps));
+      this._registerService('wsServer', new WebSocketServer(deps, null));
 
       // Setup event handlers
       this.setupEventHandlers();
@@ -296,7 +300,9 @@ class Application {
       this.wsServer.start(); // start() already calls startHeartbeat()
 
       // Start automated backups
-      this._registerService('backupScheduler', new BackupScheduler(this));
+      this._registerService('backupScheduler', new BackupScheduler(
+        { logger: this.logger, database: this.database }
+      ));
       this.backupScheduler.start();
 
       this.running = true;

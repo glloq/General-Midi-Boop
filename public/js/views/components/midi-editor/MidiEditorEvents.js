@@ -52,8 +52,6 @@
                     this.zoomVertical(1.25);
                     break;
 
-                    break;
-
     // Nouveaux boutons d'édition
                 case 'undo':
                     this.undo();

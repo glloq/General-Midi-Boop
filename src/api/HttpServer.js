@@ -8,20 +8,22 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { readFileSync, existsSync } from 'fs';
+import { createApiRouter } from './apiRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
-const APP_VERSION = pkg.version;
 
 class HttpServer {
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    // Support both explicit deps and legacy app object
+    this.logger = deps.logger;
+    this.config = deps.config;
+    this._deps = deps; // Keep reference for lazy service resolution in route handlers
     this.server = null;
     this.expressApp = express();
 
     this.setupRoutes();
-    this.app.logger.info('HttpServer initialized');
+    this.logger.info('HttpServer initialized');
   }
 
   setupRoutes() {
@@ -72,7 +74,7 @@ class HttpServer {
         }
         next();
       });
-      this.app.logger.info('API token authentication enabled');
+      this.logger.info('API token authentication enabled');
     }
 
     // Serve static files — use dist/ in production if available, public/ otherwise
@@ -89,59 +91,8 @@ class HttpServer {
       })
     );
 
-    // API health check
-    this.expressApp.get('/api/health', (req, res) => {
-      res.json({
-        status: 'ok',
-        version: APP_VERSION,
-        uptime: process.uptime(),
-        timestamp: Date.now()
-      });
-    });
-
-    // API status
-    this.expressApp.get('/api/status', (req, res) => {
-      res.json({
-        devices: this.app.deviceManager.getDeviceList().length,
-        routes: this.app.midiRouter.getRouteList().length,
-        files: this.app.database.getFiles('/').length,
-        memory: process.memoryUsage(),
-        uptime: process.uptime()
-      });
-    });
-
-    // Prometheus-compatible metrics endpoint
-    this.expressApp.get('/api/metrics', (req, res) => {
-      const mem = process.memoryUsage();
-      const wsClients = this.app.wsServer?.getStats()?.clients || 0;
-      const uptime = process.uptime();
-
-      const lines = [
-        '# HELP maestro_uptime_seconds Application uptime in seconds',
-        '# TYPE maestro_uptime_seconds gauge',
-        `maestro_uptime_seconds ${uptime.toFixed(1)}`,
-        '',
-        '# HELP maestro_websocket_clients Number of connected WebSocket clients',
-        '# TYPE maestro_websocket_clients gauge',
-        `maestro_websocket_clients ${wsClients}`,
-        '',
-        '# HELP maestro_memory_heap_used_bytes Node.js heap used bytes',
-        '# TYPE maestro_memory_heap_used_bytes gauge',
-        `maestro_memory_heap_used_bytes ${mem.heapUsed}`,
-        '',
-        '# HELP maestro_memory_rss_bytes Node.js RSS bytes',
-        '# TYPE maestro_memory_rss_bytes gauge',
-        `maestro_memory_rss_bytes ${mem.rss}`,
-        '',
-        `# HELP maestro_info Application version info`,
-        `# TYPE maestro_info gauge`,
-        `maestro_info{version="${APP_VERSION}"} 1`,
-        ''
-      ];
-
-      res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
-      res.send(lines.join('\n'));
-    });
+    // Mount API routes (health, status, metrics)
+    this.expressApp.use('/api', createApiRouter(this._deps));
 
     // Fallback to index.html for SPA
     this.expressApp.get('*', (req, res) => {
@@ -151,11 +102,11 @@ class HttpServer {
 
   async start() {
     return new Promise((resolve, reject) => {
-      const port = this.app.config.server.port;
-      const host = this.app.config.server.host || '0.0.0.0';
+      const port = this.config.server.port;
+      const host = this.config.server.host || '0.0.0.0';
 
-      const sslCert = this.app.config.server.sslCert;
-      const sslKey = this.app.config.server.sslKey;
+      const sslCert = this.config.server.sslCert;
+      const sslKey = this.config.server.sslKey;
 
       if (sslCert && sslKey && existsSync(sslCert) && existsSync(sslKey)) {
         this.server = createHttpsServer({
@@ -163,18 +114,18 @@ class HttpServer {
           key: readFileSync(sslKey)
         }, this.expressApp);
         this.server.listen(port, host, () => {
-          this.app.logger.info(`HTTPS server listening on https://${host}:${port}`);
+          this.logger.info(`HTTPS server listening on https://${host}:${port}`);
           resolve();
         });
       } else {
         this.server = this.expressApp.listen(port, host, () => {
-          this.app.logger.info(`HTTP server listening on http://${host}:${port}`);
+          this.logger.info(`HTTP server listening on http://${host}:${port}`);
           resolve();
         });
       }
 
       this.server.on('error', (error) => {
-        this.app.logger.error(`HTTP server error: ${error.message}`);
+        this.logger.error(`HTTP server error: ${error.message}`);
         reject(error);
       });
     });
@@ -183,7 +134,7 @@ class HttpServer {
   close() {
     if (this.server) {
       this.server.close(() => {
-        this.app.logger.info('HTTP server closed');
+        this.logger.info('HTTP server closed');
       });
     }
   }

@@ -3,15 +3,15 @@
 import CommandRegistry from './CommandRegistry.js';
 
 class CommandHandler {
-  constructor(app) {
-    this.app = app;
-    this.registry = new CommandRegistry(app);
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.registry = new CommandRegistry(deps);
     this._ready = this._init();
   }
 
   async _init() {
     await this.registry.loadCommandModules();
-    this.app.logger.info(`CommandHandler initialized with ${Object.keys(this.registry.handlers).length} commands`);
+    this.logger.info(`CommandHandler initialized with ${Object.keys(this.registry.handlers).length} commands`);
   }
 
   async handle(message, ws) {

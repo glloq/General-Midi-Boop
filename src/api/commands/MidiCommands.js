@@ -1,5 +1,6 @@
 // src/api/commands/MidiCommands.js
 import JsonValidator from '../../utils/JsonValidator.js';
+import { ValidationError } from '../../core/errors/index.js';
 
 // MIDI CC constants
 const MIDI_CC = {
@@ -10,7 +11,7 @@ const MIDI_CC = {
 async function midiSend(app, data) {
   const validation = JsonValidator.validateMidiMessage(data);
   if (!validation.valid) {
-    throw new Error(`Invalid MIDI message: ${validation.errors.join(', ')}`);
+    throw new ValidationError(`Invalid MIDI message: ${validation.errors.join(', ')}`);
   }
 
   const success = app.deviceManager.sendMessage(

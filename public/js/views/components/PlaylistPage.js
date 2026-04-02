@@ -592,7 +592,7 @@ class PlaylistPage {
     if (window.PlaylistEditorModal) {
       const modal = new window.PlaylistEditorModal(this.apiClient, this.selectedPlaylist.id);
       modal.open();
-      modal.onClose = () => this._loadPlaylistItems(this.selectedPlaylist.id);
+      modal.onCloseHandler = () => this._loadPlaylistItems(this.selectedPlaylist.id);
     } else {
       console.warn('PlaylistEditorModal not loaded');
     }

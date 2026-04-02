@@ -1,4 +1,5 @@
 // src/api/commands/SessionCommands.js
+import { NotFoundError } from '../../core/errors/index.js';
 
 async function sessionSave(app, data) {
   const sessionData = {
@@ -19,7 +20,7 @@ async function sessionSave(app, data) {
 async function sessionLoad(app, data) {
   const session = app.database.getSession(data.sessionId);
   if (!session) {
-    throw new Error(`Session not found: ${data.sessionId}`);
+    throw new NotFoundError('Session', data.sessionId);
   }
 
   const sessionData = JSON.parse(session.data);
@@ -42,7 +43,7 @@ async function sessionDelete(app, data) {
 async function sessionExport(app, data) {
   const session = app.database.getSession(data.sessionId);
   if (!session) {
-    throw new Error(`Session not found: ${data.sessionId}`);
+    throw new NotFoundError('Session', data.sessionId);
   }
   return { session: session };
 }

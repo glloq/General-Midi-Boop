@@ -1,4 +1,5 @@
 // src/api/commands/PresetCommands.js
+import { NotFoundError } from '../../core/errors/index.js';
 
 async function presetSave(app, data) {
   const presetId = app.database.insertPreset({
@@ -13,7 +14,7 @@ async function presetSave(app, data) {
 async function presetLoad(app, data) {
   const preset = app.database.getPreset(data.presetId);
   if (!preset) {
-    throw new Error(`Preset not found: ${data.presetId}`);
+    throw new NotFoundError('Preset', data.presetId);
   }
   return { preset: preset };
 }
@@ -38,7 +39,7 @@ async function presetRename(app, data) {
 async function presetExport(app, data) {
   const preset = app.database.getPreset(data.presetId);
   if (!preset) {
-    throw new Error(`Preset not found: ${data.presetId}`);
+    throw new NotFoundError('Preset', data.presetId);
   }
   return { preset: preset };
 }

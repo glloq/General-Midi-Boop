@@ -1,5 +1,7 @@
 // src/api/commands/PlaylistCommands.js
 
+import { ValidationError, NotFoundError } from '../../core/errors/index.js';
+
 async function playlistCreate(app, data) {
   const playlistId = app.database.insertPlaylist({
     name: data.name,
@@ -20,11 +22,11 @@ async function playlistList(app) {
 
 async function playlistGet(app, data) {
   if (!data.playlistId) {
-    throw new Error('playlistId is required');
+    throw new ValidationError('playlistId is required', 'playlistId');
   }
   const playlist = app.database.getPlaylist(data.playlistId);
   if (!playlist) {
-    throw new Error(`Playlist not found: ${data.playlistId}`);
+    throw new NotFoundError('Playlist', data.playlistId);
   }
   const items = app.database.getPlaylistItems(data.playlistId);
   return { playlist, items };
@@ -32,10 +34,10 @@ async function playlistGet(app, data) {
 
 async function playlistAddFile(app, data) {
   if (!data.playlistId) {
-    throw new Error('playlistId is required');
+    throw new ValidationError('playlistId is required', 'playlistId');
   }
   if (!data.midiId) {
-    throw new Error('midiId is required');
+    throw new ValidationError('midiId is required', 'midiId');
   }
   const itemId = app.database.addPlaylistItem(data.playlistId, data.midiId, data.position);
   return { success: true, itemId };
@@ -43,7 +45,7 @@ async function playlistAddFile(app, data) {
 
 async function playlistRemoveFile(app, data) {
   if (!data.itemId) {
-    throw new Error('itemId is required');
+    throw new ValidationError('itemId is required', 'itemId');
   }
   app.database.removePlaylistItem(data.itemId);
   return { success: true };
@@ -51,7 +53,7 @@ async function playlistRemoveFile(app, data) {
 
 async function playlistReorder(app, data) {
   if (!data.playlistId || !data.itemId || data.newPosition === undefined) {
-    throw new Error('playlistId, itemId, and newPosition are required');
+    throw new ValidationError('playlistId, itemId, and newPosition are required', 'playlistId,itemId,newPosition');
   }
   app.database.reorderPlaylistItem(data.playlistId, data.itemId, data.newPosition);
   return { success: true };
@@ -59,7 +61,7 @@ async function playlistReorder(app, data) {
 
 async function playlistSetLoop(app, data) {
   if (!data.playlistId) {
-    throw new Error('playlistId is required');
+    throw new ValidationError('playlistId is required', 'playlistId');
   }
   app.database.updatePlaylistLoop(data.playlistId, data.loop);
   return { success: true };
@@ -67,7 +69,7 @@ async function playlistSetLoop(app, data) {
 
 async function playlistClear(app, data) {
   if (!data.playlistId) {
-    throw new Error('playlistId is required');
+    throw new ValidationError('playlistId is required', 'playlistId');
   }
   app.database.clearPlaylistItems(data.playlistId);
   return { success: true };
@@ -75,17 +77,17 @@ async function playlistClear(app, data) {
 
 async function playlistStart(app, data) {
   if (!data.playlistId) {
-    throw new Error('playlistId is required');
+    throw new ValidationError('playlistId is required', 'playlistId');
   }
 
   const playlist = app.database.getPlaylist(data.playlistId);
   if (!playlist) {
-    throw new Error(`Playlist not found: ${data.playlistId}`);
+    throw new NotFoundError('Playlist', data.playlistId);
   }
 
   const items = app.database.getPlaylistItems(data.playlistId);
   if (items.length === 0) {
-    throw new Error('Playlist is empty');
+    throw new ValidationError('Playlist is empty');
   }
 
   // Build queue from playlist items
@@ -96,7 +98,7 @@ async function playlistStart(app, data) {
 
   const startIndex = parseInt(data.startIndex) || 0;
   if (startIndex < 0 || startIndex >= items.length) {
-    throw new Error(`startIndex ${startIndex} out of range (0-${items.length - 1})`);
+    throw new ValidationError(`startIndex ${startIndex} out of range (0-${items.length - 1})`, 'startIndex');
   }
   const loop = playlist.loop === 1;
 
@@ -118,7 +120,7 @@ async function playlistStart(app, data) {
 async function playlistNext(app) {
   const status = app.midiPlayer.getQueueStatus();
   if (!status.active) {
-    throw new Error('No active playlist');
+    throw new ValidationError('No active playlist');
   }
   await app.midiPlayer.nextInQueue();
   return { success: true, ...app.midiPlayer.getQueueStatus() };
@@ -127,7 +129,7 @@ async function playlistNext(app) {
 async function playlistPrevious(app) {
   const status = app.midiPlayer.getQueueStatus();
   if (!status.active) {
-    throw new Error('No active playlist');
+    throw new ValidationError('No active playlist');
   }
   await app.midiPlayer.previousInQueue();
   return { success: true, ...app.midiPlayer.getQueueStatus() };
