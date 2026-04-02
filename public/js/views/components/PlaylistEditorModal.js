@@ -49,36 +49,28 @@ class PlaylistEditorModal extends BaseModal {
   }
 
   renderBody() {
-    const dark = this._isDark();
-    const border = dark ? '#444' : '#dee2e6';
-    const inputBg = dark ? '#3a3a3a' : '#fff';
-    const inputColor = dark ? '#e0e0e0' : '#333';
-    const textMuted = dark ? '#999' : '#6c757d';
-    const btnBg = dark ? '#3a3a3a' : '#f3f4f6';
-    const btnBorder = dark ? '#555' : '#dee2e6';
-
     return `
       <div class="playlist-editor-content" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;min-height:0;height:100%;overflow:hidden;">
         <div class="available-files" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0;">
             <input type="text" id="playlistEditorSearch"
               placeholder="${this.t('playlist.searchFiles')}"
-              style="flex:1;padding:8px 12px;border:1px solid ${border};border-radius:6px;font-size:0.9rem;background:${inputBg};color:${inputColor};box-sizing:border-box;">
+              style="flex:1;padding:8px 12px;border:1px solid var(--border-color, #dee2e6);border-radius:6px;font-size:0.9rem;background:var(--bg-tertiary, #f8f9fa);color:var(--text-primary, #333);box-sizing:border-box;">
             <button id="playlistEditorRoutedFilter"
-              style="padding:6px 12px;border:1px solid ${btnBorder};border-radius:6px;font-size:0.8rem;cursor:pointer;background:${btnBg};color:${inputColor};white-space:nowrap;transition:all 0.2s;"
+              style="padding:6px 12px;border:1px solid var(--border-color, #dee2e6);border-radius:6px;font-size:0.8rem;cursor:pointer;background:var(--bg-tertiary, #f3f4f6);color:var(--text-primary, #333);white-space:nowrap;transition:all 0.2s;"
               title="${this.t('playlist.showRoutedOnly')}">
               🔀 ${this.t('playlist.routedOnly')}
             </button>
           </div>
-          <div id="playlistEditorFileCount" style="font-size:0.75rem;color:${textMuted};margin-bottom:6px;flex-shrink:0;"></div>
+          <div id="playlistEditorFileCount" style="font-size:0.75rem;color:var(--text-muted, #6c757d);margin-bottom:6px;flex-shrink:0;"></div>
           <div id="playlistEditorAvailableFiles" style="flex:1;overflow-y:auto;min-height:0;"></div>
         </div>
         <div class="playlist-files" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
-          <div style="font-size:0.8rem;color:${textMuted};margin-bottom:6px;flex-shrink:0;">
+          <div style="font-size:0.8rem;color:var(--text-muted, #6c757d);margin-bottom:6px;flex-shrink:0;">
             ${this.t('playlist.playlistContent')}
           </div>
           <div id="playlistEditorPlaylistItems" style="flex:1;overflow-y:auto;min-height:0;"></div>
-          <div id="playlistEditorStats" style="padding:8px 0;font-size:0.85rem;color:${textMuted};border-top:1px solid ${border};margin-top:8px;flex-shrink:0;"></div>
+          <div id="playlistEditorStats" style="padding:8px 0;font-size:0.85rem;color:var(--text-muted, #6c757d);border-top:1px solid var(--border-color, #dee2e6);margin-top:8px;flex-shrink:0;"></div>
         </div>
       </div>`;
   }
@@ -89,8 +81,18 @@ class PlaylistEditorModal extends BaseModal {
   }
 
   async onOpen() {
-    // Fix modal body height
+    // Style the modal header with accent color and fix body height
     if (this.dialog) {
+      const header = this.dialog.querySelector('.modal-header');
+      if (header) {
+        header.style.background = 'var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2))';
+        header.style.borderBottom = 'none';
+        header.style.borderRadius = '12px 12px 0 0';
+        const h2 = header.querySelector('h2');
+        if (h2) h2.style.color = '#fff';
+        const closeBtn = header.querySelector('.close');
+        if (closeBtn) closeBtn.style.color = 'rgba(255,255,255,0.8)';
+      }
       const body = this.dialog.querySelector('.modal-body');
       if (body) {
         body.style.overflow = 'hidden';
@@ -125,9 +127,9 @@ class PlaylistEditorModal extends BaseModal {
     if (filterBtn) {
       filterBtn.addEventListener('click', () => {
         this.showRoutedOnly = !this.showRoutedOnly;
-        filterBtn.style.background = this.showRoutedOnly ? '#667eea' : (this._isDark() ? '#3a3a3a' : '#f3f4f6');
-        filterBtn.style.color = this.showRoutedOnly ? '#fff' : (this._isDark() ? '#e0e0e0' : '#333');
-        filterBtn.style.borderColor = this.showRoutedOnly ? '#667eea' : (this._isDark() ? '#555' : '#dee2e6');
+        filterBtn.style.background = this.showRoutedOnly ? 'var(--accent-primary, #667eea)' : '';
+        filterBtn.style.color = this.showRoutedOnly ? '#fff' : '';
+        filterBtn.style.borderColor = this.showRoutedOnly ? 'var(--accent-primary, #667eea)' : '';
         this._renderAvailableFiles();
       });
     }
@@ -194,11 +196,6 @@ class PlaylistEditorModal extends BaseModal {
     const countEl = this.$('#playlistEditorFileCount');
     if (!container) return;
 
-    const dark = this._isDark();
-    const border = dark ? '#444' : '#dee2e6';
-    const cardBg = dark ? '#2d2d2d' : '#fff';
-    const textMuted = dark ? '#999' : '#6c757d';
-
     let files = [];
     const flatten = (items) => {
       for (const item of items) {
@@ -208,19 +205,15 @@ class PlaylistEditorModal extends BaseModal {
     };
     if (Array.isArray(this.availableFiles)) flatten(this.availableFiles);
 
-    // Search filter
     if (this.searchQuery) {
       files = files.filter(f => (f.filename || '').toLowerCase().includes(this.searchQuery));
     }
-
-    // Routed-only filter
     if (this.showRoutedOnly) {
       files = files.filter(f => this.routingStatusMap.get(f.id) === 'routed');
     }
 
     const addedIds = new Set(this.playlistItems.map(i => i.midi_id));
 
-    // Count display
     if (countEl) {
       const totalCount = files.length;
       const routedCount = files.filter(f => this.routingStatusMap.get(f.id) === 'routed').length;
@@ -230,26 +223,25 @@ class PlaylistEditorModal extends BaseModal {
     }
 
     if (files.length === 0) {
-      container.innerHTML = `<p style="color:${textMuted};text-align:center;padding:20px;">${this.showRoutedOnly ? 'No routed files found' : 'No files found'}</p>`;
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">${this.showRoutedOnly ? 'No routed files found' : 'No files found'}</p>`;
       return;
     }
 
     container.innerHTML = files.map(f => {
       const isAdded = addedIds.has(f.id);
-      const routingStatus = this.routingStatusMap.get(f.id) || 'unrouted';
-      const isRouted = routingStatus === 'routed';
-      const itemBorder = isAdded ? '#28a745' : border;
-      const itemBg = isAdded ? (dark ? 'rgba(40,167,69,0.1)' : 'rgba(40,167,69,0.05)') : cardBg;
+      const isRouted = (this.routingStatusMap.get(f.id) || 'unrouted') === 'routed';
+      const itemBorder = isAdded ? '#28a745' : 'var(--border-color, #dee2e6)';
+      const itemBg = isAdded ? 'rgba(40,167,69,0.08)' : 'var(--bg-secondary, #fff)';
       const dot = isRouted
         ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#28a745;flex-shrink:0;" title="Routed"></span>'
         : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc3545;flex-shrink:0;" title="Not routed"></span>';
 
       return `
-        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${itemBorder};background:${itemBg};transition:all 0.15s;">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${itemBorder};background:${itemBg};color:var(--text-primary, #2c3e50);transition:all 0.15s;">
           ${dot}
           <div style="flex:1;min-width:0;">
-            <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escape(f.filename || '')}</div>
-            <div style="font-size:0.72rem;color:${textMuted};">${this._formatDuration(f.duration)}</div>
+            <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this.escape(f.filename || '')}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted, #6c757d);">${this._formatDuration(f.duration)}</div>
           </div>
           <button class="btn-add-file" data-file-id="${f.id}"
                   ${isAdded ? 'disabled' : ''}
@@ -272,31 +264,25 @@ class PlaylistEditorModal extends BaseModal {
     const container = this.$('#playlistEditorPlaylistItems');
     if (!container) return;
 
-    const dark = this._isDark();
-    const border = dark ? '#444' : '#dee2e6';
-    const cardBg = dark ? '#2d2d2d' : '#fff';
-    const textMuted = dark ? '#999' : '#6c757d';
-
     if (this.playlistItems.length === 0) {
-      container.innerHTML = `<p style="color:${textMuted};text-align:center;padding:20px;">Empty playlist</p>`;
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">Empty playlist</p>`;
       this._updateStats();
       return;
     }
 
     container.innerHTML = this.playlistItems.map((item, index) => {
-      const routingStatus = this.routingStatusMap.get(item.midi_id) || 'unrouted';
-      const isRouted = routingStatus === 'routed';
+      const isRouted = (this.routingStatusMap.get(item.midi_id) || 'unrouted') === 'routed';
       const dot = isRouted
         ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#28a745;flex-shrink:0;" title="Routed"></span>'
         : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc3545;flex-shrink:0;" title="Not routed"></span>';
 
       return `
-        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${border};background:${cardBg};transition:all 0.15s;">
-          <span style="background:#667eea;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);transition:all 0.15s;">
+          <span style="background:var(--accent-primary, #667eea);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
           ${dot}
           <div style="flex:1;min-width:0;">
-            <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escape(item.filename || '')}</div>
-            <div style="font-size:0.72rem;color:${textMuted};">${this._formatDuration(item.duration)}</div>
+            <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this.escape(item.filename || '')}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted, #6c757d);">${this._formatDuration(item.duration)}</div>
           </div>
           <button class="btn-remove-file" data-item-id="${item.id}"
                   style="background:none;border:none;cursor:pointer;font-size:0.9rem;opacity:0.5;"

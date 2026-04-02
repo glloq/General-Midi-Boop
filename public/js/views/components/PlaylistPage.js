@@ -54,24 +54,22 @@ class PlaylistPage {
    */
   _showPrompt(message, defaultValue = '', icon = '🎶') {
     return new Promise((resolve) => {
-      const dark = this._isDark();
-      const bg = dark ? '#1e1e1e' : '#fff';
-      const border = dark ? '#444' : '#dee2e6';
-      const text = dark ? '#e0e0e0' : '#2c3e50';
-      const inputBg = dark ? '#2d2d2d' : '#f8f9fa';
-
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
       overlay.innerHTML = `
-        <div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:24px;width:380px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:${text};">
-          <div style="font-size:1.5rem;text-align:center;margin-bottom:12px;">${icon}</div>
-          <div style="font-size:0.95rem;margin-bottom:14px;text-align:center;">${this._escapeHtml(message)}</div>
-          <input type="text" id="_plPromptInput" value="${this._escapeHtml(defaultValue)}"
-            style="width:100%;padding:10px 12px;border:1px solid ${border};border-radius:6px;font-size:0.95rem;background:${inputBg};color:${text};box-sizing:border-box;outline:none;">
-          <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
-            <button id="_plPromptCancel" style="padding:8px 18px;border:1px solid ${border};border-radius:6px;background:transparent;color:${text};cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
-            <button id="_plPromptOk" style="padding:8px 18px;border:none;border-radius:6px;background:#667eea;color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.save')}</button>
+        <div style="background:var(--bg-secondary, #fff);border:1px solid var(--border-color, #dee2e6);border-radius:12px;overflow:hidden;width:380px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text-primary, #2c3e50);">
+          <div style="background:var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2));padding:16px 20px;text-align:center;">
+            <div style="font-size:1.5rem;margin-bottom:4px;">${icon}</div>
+          </div>
+          <div style="padding:20px 24px;">
+            <div style="font-size:0.95rem;margin-bottom:14px;text-align:center;color:var(--text-primary, #2c3e50);">${this._escapeHtml(message)}</div>
+            <input type="text" id="_plPromptInput" value="${this._escapeHtml(defaultValue)}"
+              style="width:100%;padding:10px 12px;border:1px solid var(--border-color, #dee2e6);border-radius:6px;font-size:0.95rem;background:var(--bg-tertiary, #f8f9fa);color:var(--text-primary, #2c3e50);box-sizing:border-box;outline:none;">
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+              <button id="_plPromptCancel" style="padding:8px 18px;border:1px solid var(--border-color, #dee2e6);border-radius:6px;background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
+              <button id="_plPromptOk" style="padding:8px 18px;border:none;border-radius:6px;background:var(--accent-primary, #667eea);color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.save')}</button>
+            </div>
           </div>
         </div>`;
 
@@ -103,21 +101,20 @@ class PlaylistPage {
    */
   _showConfirm(message, icon = '⚠️') {
     return new Promise((resolve) => {
-      const dark = this._isDark();
-      const bg = dark ? '#1e1e1e' : '#fff';
-      const border = dark ? '#444' : '#dee2e6';
-      const text = dark ? '#e0e0e0' : '#2c3e50';
-
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
       overlay.innerHTML = `
-        <div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:24px;width:360px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:${text};">
-          <div style="font-size:1.5rem;text-align:center;margin-bottom:12px;">${icon}</div>
-          <div style="font-size:0.95rem;margin-bottom:18px;text-align:center;">${this._escapeHtml(message)}</div>
-          <div style="display:flex;gap:10px;justify-content:flex-end;">
-            <button id="_plConfirmCancel" style="padding:8px 18px;border:1px solid ${border};border-radius:6px;background:transparent;color:${text};cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
-            <button id="_plConfirmOk" style="padding:8px 18px;border:none;border-radius:6px;background:#dc3545;color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.confirm')}</button>
+        <div style="background:var(--bg-secondary, #fff);border:1px solid var(--border-color, #dee2e6);border-radius:12px;overflow:hidden;width:360px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text-primary, #2c3e50);">
+          <div style="background:linear-gradient(135deg, #dc3545, #c82333);padding:16px 20px;text-align:center;">
+            <div style="font-size:1.5rem;">${icon}</div>
+          </div>
+          <div style="padding:20px 24px;">
+            <div style="font-size:0.95rem;margin-bottom:18px;text-align:center;color:var(--text-primary, #2c3e50);">${this._escapeHtml(message)}</div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button id="_plConfirmCancel" style="padding:8px 18px;border:1px solid var(--border-color, #dee2e6);border-radius:6px;background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
+              <button id="_plConfirmOk" style="padding:8px 18px;border:none;border-radius:6px;background:#dc3545;color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.confirm')}</button>
+            </div>
           </div>
         </div>`;
 
@@ -161,40 +158,32 @@ class PlaylistPage {
   createModal() {
     if (this.modal) this.close();
 
-    const dark = this._isDark();
-    const bg = dark ? '#1e1e1e' : '#f8f9fa';
-    const cardBg = dark ? '#2d2d2d' : '#ffffff';
-    const border = dark ? '#444' : '#dee2e6';
-    const text = dark ? '#e0e0e0' : '#2c3e50';
-    const textMuted = dark ? '#999' : '#6c757d';
-    const hdrBg = dark ? '#252525' : '#ffffff';
-
     const div = document.createElement('div');
     div.innerHTML = `
       <style>
         .plpage-overlay { position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center; }
-        .plpage-container { width:900px;height:600px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:${bg};color:${text};box-shadow:0 8px 32px rgba(0,0,0,0.3); }
-        .plpage-header { background:${hdrBg};border-bottom:2px solid ${border};padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
-        .plpage-header h2 { margin:0;font-size:1.4rem;display:flex;align-items:center;gap:10px; }
-        .plpage-close { background:none;border:1px solid ${border};border-radius:6px;cursor:pointer;font-size:1.1rem;padding:4px 10px;color:${text};transition:all 0.2s; }
-        .plpage-close:hover { background:${dark ? '#444' : '#e9ecef'}; }
+        .plpage-container { width:900px;height:600px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg-secondary, #f8f9fa);color:var(--text-primary, #2c3e50);box-shadow:0 8px 32px rgba(0,0,0,0.3); }
+        .plpage-header { background:var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2));padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
+        .plpage-header h2 { margin:0;font-size:1.4rem;display:flex;align-items:center;gap:10px;color:#fff; }
+        .plpage-close { background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;font-size:1.1rem;padding:4px 10px;color:#fff;transition:all 0.2s; }
+        .plpage-close:hover { background:rgba(255,255,255,0.35); }
         .plpage-layout { flex:1;display:grid;grid-template-columns:260px 1fr;overflow:hidden;min-height:0; }
-        .plpage-sidebar { overflow-y:auto;padding:15px;border-color:${border}; }
-        .plpage-sidebar.left { border-right:1px solid ${border}; }
-        .plpage-main { overflow-y:auto;padding:15px; }
+        .plpage-sidebar { overflow-y:auto;padding:15px; }
+        .plpage-sidebar.left { border-right:1px solid var(--border-color, #dee2e6);background:var(--bg-tertiary, #f0f0f0); }
+        .plpage-main { overflow-y:auto;padding:15px;background:var(--bg-secondary, #fff); }
         .plpage-section-hdr { display:flex;justify-content:space-between;align-items:center;margin-bottom:12px; }
-        .plpage-section-hdr h3 { margin:0;font-size:1.05rem; }
-        .plpage-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:${cardBg};border:1px solid ${border};border-radius:6px;cursor:pointer;font-size:0.85rem;color:${text};transition:all 0.2s; }
-        .plpage-btn:hover { background:${dark ? '#3a3a3a' : '#e9ecef'}; }
-        .plpage-btn.primary { background:#667eea;color:#fff;border-color:#667eea; }
-        .plpage-btn.primary:hover { background:#5a6fd6; }
-        .plpage-footer { padding:10px 20px;border-top:1px solid ${border};font-size:0.85rem;color:${textMuted};flex-shrink:0; }
+        .plpage-section-hdr h3 { margin:0;font-size:1.05rem;color:var(--text-primary, #2c3e50); }
+        .plpage-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:var(--bg-secondary, #fff);border:1px solid var(--border-color, #dee2e6);border-radius:6px;cursor:pointer;font-size:0.85rem;color:var(--text-primary, #2c3e50);transition:all 0.2s; }
+        .plpage-btn:hover { background:var(--bg-tertiary, #e9ecef); }
+        .plpage-btn.primary { background:var(--accent-primary, #667eea);color:#fff;border-color:var(--accent-primary, #667eea); }
+        .plpage-btn.primary:hover { opacity:0.9; }
+        .plpage-footer { padding:10px 20px;border-top:1px solid var(--border-color, #dee2e6);font-size:0.85rem;color:var(--text-muted, #6c757d);flex-shrink:0; }
         .plpage-actions { display:flex;gap:8px; }
 
         @media (max-width: 768px) {
           .plpage-container { width:95%;height:90vh; }
           .plpage-layout { grid-template-columns:1fr; }
-          .plpage-sidebar.left { border-right:none;border-bottom:1px solid ${border}; }
+          .plpage-sidebar.left { border-right:none;border-bottom:1px solid var(--border-color, #dee2e6); }
         }
       </style>
       <div class="plpage-overlay">
@@ -235,8 +224,6 @@ class PlaylistPage {
 
     document.body.appendChild(div);
     this.modal = div;
-    this._dark = dark;
-    this._colors = { bg, cardBg, border, text, textMuted };
 
     this._bindEvents();
   }
@@ -301,28 +288,27 @@ class PlaylistPage {
     if (!container) return;
 
     if (this.playlists.length === 0) {
-      container.innerHTML = `<p style="color:#6c757d;font-size:0.9rem;text-align:center;padding:20px;">
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);font-size:0.9rem;text-align:center;padding:20px;">
         ${this._t('playlist.noPlaylists')}
       </p>`;
       return;
     }
 
-    const c = this._colors || {};
     container.innerHTML = this.playlists.map(pl => {
       const isActive = this.selectedPlaylist && this.selectedPlaylist.id === pl.id;
       const itemBg = isActive ? 'rgba(102,126,234,0.15)' : 'transparent';
-      const itemBorder = isActive ? '2px solid #667eea' : `1px solid transparent`;
+      const itemBorder = isActive ? '2px solid var(--accent-primary, #667eea)' : '1px solid transparent';
       return `
         <div class="playlist-item${isActive ? ' active' : ''}" data-playlist-id="${pl.id}"
              style="padding:10px 12px;margin-bottom:6px;border-radius:8px;cursor:pointer;background:${itemBg};border:${itemBorder};transition:all 0.2s;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-weight:500;">${this._escapeHtml(pl.name)}</span>
+            <span style="font-weight:500;color:var(--text-primary, #2c3e50);">${this._escapeHtml(pl.name)}</span>
             <button class="playlist-delete-btn" data-playlist-id="${pl.id}"
                     style="background:none;border:none;cursor:pointer;font-size:0.85rem;opacity:0.5;padding:2px 6px;"
                     title="${this._t('common.delete')}">🗑️</button>
           </div>
-          ${pl.description ? `<div style="font-size:0.8rem;color:${c.textMuted || '#6c757d'};margin-top:2px;">${this._escapeHtml(pl.description)}</div>` : ''}
-          <div style="font-size:0.75rem;color:${c.textMuted || '#adb5bd'};margin-top:4px;">
+          ${pl.description ? `<div style="font-size:0.8rem;color:var(--text-muted, #6c757d);margin-top:2px;">${this._escapeHtml(pl.description)}</div>` : ''}
+          <div style="font-size:0.75rem;color:var(--text-muted, #adb5bd);margin-top:4px;">
             ${pl.loop ? '🔁 ' : ''}
           </div>
         </div>`;
@@ -353,7 +339,7 @@ class PlaylistPage {
     if (!container) return;
 
     if (!this.selectedPlaylist) {
-      container.innerHTML = `<p style="color:#6c757d;text-align:center;padding:40px;">${this._t('playlist.selectPlaylist')}</p>`;
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:40px;">${this._t('playlist.selectPlaylist')}</p>`;
       if (actions) actions.style.display = 'none';
       return;
     }
@@ -375,16 +361,15 @@ class PlaylistPage {
         : (this._t('playlist.loop'));
     }
 
-    const c = this._colors || {};
     if (this.playlistItems.length === 0) {
-      container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:40px;">
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:40px;">
         ${this._t('playlist.emptyPlaylist')}
       </p>`;
       return;
     }
 
     // Show loading state then render with routing data
-    container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:20px;">Loading...</p>`;
+    container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">Loading...</p>`;
 
     const routingChecks = this.playlistItems.map(item =>
       this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
@@ -394,11 +379,11 @@ class PlaylistPage {
 
     Promise.all(routingChecks).then(results => {
       const routingMap = new Map(results.map(r => [r.midi_id, r.count]));
-      this._renderPlaylistItemsWithRouting(container, routingMap, c);
+      this._renderPlaylistItemsWithRouting(container, routingMap);
     });
   }
 
-  _renderPlaylistItemsWithRouting(container, routingMap, c) {
+  _renderPlaylistItemsWithRouting(container, routingMap) {
     container.innerHTML = this.playlistItems.map((item, index) => {
       const routingCount = routingMap.get(item.midi_id);
       let routingDot = '';
@@ -413,15 +398,15 @@ class PlaylistPage {
       return `
         <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
              draggable="true"
-             style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid ${c.border || '#dee2e6'};background:${c.cardBg || '#fff'};cursor:grab;transition:all 0.2s;">
+             style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);cursor:grab;transition:all 0.2s;">
           <span class="file-drag-handle" style="cursor:grab;opacity:0.4;">⠿</span>
-          <span style="background:#667eea;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
+          <span style="background:var(--accent-primary, #667eea);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
           ${routingDot}
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._escapeHtml(item.filename)}</div>
-            <div style="font-size:0.8rem;color:${c.textMuted || '#6c757d'};">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
+            <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this._escapeHtml(item.filename)}</div>
+            <div style="font-size:0.8rem;color:var(--text-muted, #6c757d);">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
           </div>
-          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:${c.text || 'inherit'};" title="Remove">✕</button>
+          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:var(--text-muted, #999);" title="Remove">✕</button>
         </div>`;
     }).join('');
 
