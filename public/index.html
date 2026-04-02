@@ -6957,12 +6957,10 @@
                             const filesContainer = document.createElement('div');
                             filesContainer.className = 'folder-open-files';
 
-                            const folderFileIds = folderStructure[item.path].files || [];
-                            folderFileIds.forEach(fileId => {
-                                const file = files.find(f => String(f.id) === String(fileId));
-                                if (file) {
-                                    filesContainer.appendChild(createFileElement(file));
-                                }
+                            const folderFileIds = new Set((folderStructure[item.path].files || []).map(String));
+                            // Use sorted files array order (not saved folder order) to respect current sort
+                            files.filter(f => folderFileIds.has(String(f.id))).forEach(file => {
+                                filesContainer.appendChild(createFileElement(file));
                             });
 
                             wrapper.appendChild(filesContainer);
