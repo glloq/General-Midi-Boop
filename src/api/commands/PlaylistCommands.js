@@ -75,6 +75,23 @@ async function playlistClear(app, data) {
   return { success: true };
 }
 
+async function playlistUpdateSettings(app, data) {
+  if (!data.playlistId) {
+    throw new ValidationError('playlistId is required', 'playlistId');
+  }
+  const playlist = app.database.getPlaylist(data.playlistId);
+  if (!playlist) {
+    throw new NotFoundError('Playlist', data.playlistId);
+  }
+
+  const settings = {};
+  if (data.gap_seconds !== undefined) settings.gap_seconds = data.gap_seconds;
+  if (data.shuffle !== undefined) settings.shuffle = data.shuffle;
+
+  app.database.updatePlaylistSettings(data.playlistId, settings);
+  return { success: true };
+}
+
 async function playlistStart(app, data) {
   if (!data.playlistId) {
     throw new ValidationError('playlistId is required', 'playlistId');
@@ -101,9 +118,11 @@ async function playlistStart(app, data) {
     throw new ValidationError(`startIndex ${startIndex} out of range (0-${items.length - 1})`, 'startIndex');
   }
   const loop = playlist.loop === 1;
+  const shuffle = playlist.shuffle === 1;
+  const gapSeconds = playlist.gap_seconds || 0;
 
-  // Set queue in MidiPlayer
-  app.midiPlayer.setQueue(queue, loop, data.playlistId);
+  // Set queue in MidiPlayer with playback options
+  app.midiPlayer.setQueue(queue, loop, data.playlistId, { gapSeconds, shuffle });
 
   // Play first (or specified) item using the queue system
   await app.midiPlayer.playQueueItem(startIndex);
@@ -113,7 +132,9 @@ async function playlistStart(app, data) {
     playlistId: data.playlistId,
     totalItems: items.length,
     startIndex,
-    loop
+    loop,
+    shuffle,
+    gapSeconds
   };
 }
 
@@ -154,6 +175,7 @@ export function register(registry, app) {
   registry.register('playlist_remove_file', (data) => playlistRemoveFile(app, data));
   registry.register('playlist_reorder', (data) => playlistReorder(app, data));
   registry.register('playlist_set_loop', (data) => playlistSetLoop(app, data));
+  registry.register('playlist_update_settings', (data) => playlistUpdateSettings(app, data));
   registry.register('playlist_clear', (data) => playlistClear(app, data));
   registry.register('playlist_start', (data) => playlistStart(app, data));
   registry.register('playlist_next', () => playlistNext(app));

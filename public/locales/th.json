@@ -603,7 +603,12 @@
         "loop": "วนซ้ำ",
         "loopEnabled": "วนซ้ำเปิด",
         "loopDisabled": "วนซ้ำปิด",
-        "editPlaylist": "แก้ไขเพลย์ลิสต์"
+        "editPlaylist": "แก้ไขเพลย์ลิสต์",
+        "shuffle": "สุ่ม",
+        "shuffleEnabled": "เปิดการสุ่ม",
+        "shuffleDisabled": "ปิดการสุ่ม",
+        "gapDelay": "หน่วงเวลาระหว่างไฟล์",
+        "gapDelayPrompt": "วินาทีรอระหว่างไฟล์ (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

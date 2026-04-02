@@ -37,6 +37,11 @@ class MidiPlayer {
     this.queueIndex = -1;      // Current position (-1 = no queue)
     this.queueLoop = false;    // Loop entire queue
     this.playlistId = null;    // Active playlist ID
+    this.queueGapSeconds = 0;  // Delay between files (seconds)
+    this.queueShuffle = false; // Shuffle mode
+    this._gapTimer = null;     // setTimeout handle for gap delay
+    this._gapCountdownInterval = null; // Interval for countdown broadcast
+    this._gapRemaining = 0;    // Seconds remaining in gap
 
     // Disconnect policy: 'skip' | 'pause' | 'mute'
     this.disconnectedPolicy = 'skip';
@@ -511,6 +516,8 @@ class MidiPlayer {
   }
 
   stop() {
+    this._clearGapTimer();
+
     if (!this.playing) {
       return;
     }
@@ -780,19 +787,29 @@ class MidiPlayer {
 
   // ==================== QUEUE / PLAYLIST ====================
 
-  setQueue(items, loop, playlistId) {
+  setQueue(items, loop, playlistId, options = {}) {
     this.queue = items.map(item => ({ fileId: item.fileId, filename: item.filename }));
     this.queueIndex = -1;
     this.queueLoop = !!loop;
     this.playlistId = playlistId || null;
-    this.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, playlist=${this.playlistId}`);
+    this.queueGapSeconds = options.gapSeconds || 0;
+    this.queueShuffle = !!options.shuffle;
+
+    if (this.queueShuffle && this.queue.length > 1) {
+      this._shuffleQueue();
+    }
+
+    this.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, shuffle=${this.queueShuffle}, gap=${this.queueGapSeconds}s, playlist=${this.playlistId}`);
   }
 
   clearQueue() {
+    this._clearGapTimer();
     this.queue = [];
     this.queueIndex = -1;
     this.queueLoop = false;
     this.playlistId = null;
+    this.queueGapSeconds = 0;
+    this.queueShuffle = false;
     this.logger.info('Queue cleared');
   }
 
@@ -804,16 +821,70 @@ class MidiPlayer {
       currentIndex: this.queueIndex,
       totalItems: this.queue.length,
       loop: this.queueLoop,
+      gapSeconds: this.queueGapSeconds,
+      shuffle: this.queueShuffle,
+      waiting: this._gapTimer !== null,
+      waitingRemaining: this._gapRemaining,
       currentFile: this.queueIndex >= 0 && this.queueIndex < this.queue.length
         ? this.queue[this.queueIndex]
         : null
     };
   }
 
+  _clearGapTimer() {
+    if (this._gapTimer) {
+      clearTimeout(this._gapTimer);
+      this._gapTimer = null;
+    }
+    if (this._gapCountdownInterval) {
+      clearInterval(this._gapCountdownInterval);
+      this._gapCountdownInterval = null;
+    }
+    this._gapRemaining = 0;
+  }
+
+  _startGapDelay(callback) {
+    this._gapRemaining = this.queueGapSeconds;
+
+    if (this._deps.wsServer) {
+      this._deps.wsServer.broadcast('playlist_waiting', {
+        playlistId: this.playlistId,
+        remainingSeconds: this._gapRemaining
+      });
+    }
+
+    this._gapCountdownInterval = setInterval(() => {
+      this._gapRemaining--;
+      if (this._deps.wsServer && this._gapRemaining > 0) {
+        this._deps.wsServer.broadcast('playlist_waiting', {
+          playlistId: this.playlistId,
+          remainingSeconds: this._gapRemaining
+        });
+      }
+    }, 1000);
+
+    this._gapTimer = setTimeout(() => {
+      this._clearGapTimer();
+      callback();
+    }, this.queueGapSeconds * 1000);
+
+    this.logger.info(`Gap delay started: ${this.queueGapSeconds}s before next file`);
+  }
+
+  _shuffleQueue() {
+    for (let i = this.queue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
+    }
+  }
+
   async playQueueItem(index) {
     if (index < 0 || index >= this.queue.length) {
       throw new Error(`Queue index out of range: ${index}`);
     }
+
+    // Cancel any pending gap timer
+    this._clearGapTimer();
 
     // Stop current playback if any
     if (this.playing) {
@@ -866,6 +937,9 @@ class MidiPlayer {
     const nextIndex = this.queueIndex + 1;
     if (nextIndex >= this.queue.length) {
       if (this.queueLoop) {
+        if (this.queueShuffle && this.queue.length > 1) {
+          this._shuffleQueue();
+        }
         await this.playQueueItem(0);
       } else {
         // End of queue
@@ -915,7 +989,24 @@ class MidiPlayer {
         // Single file loop
         this.seek(0);
       } else if (this.queue.length > 0) {
-        // Queue active: advance to next
+        if (this.queueGapSeconds > 0) {
+          // Stop current playback during gap
+          this.playing = false;
+          this.paused = false;
+          this.scheduler.stopScheduler();
+          this.sendAllNotesOff();
+          this.broadcastStatus();
+          // Release pending flag before starting async timer
+          this._fileEndPending = false;
+          this._startGapDelay(() => {
+            this.nextInQueue().catch(err => {
+              this.logger.error(`Failed to advance queue after gap: ${err.message}`);
+              this.stop();
+            });
+          });
+          return; // _fileEndPending already cleared
+        }
+        // No gap: advance immediately
         await this.nextInQueue();
       } else {
         this.stop();

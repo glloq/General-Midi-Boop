@@ -603,7 +603,12 @@
         "loop": "Ismétlés",
         "loopEnabled": "Ismétlés bekapcsolva",
         "loopDisabled": "Ismétlés kikapcsolva",
-        "editPlaylist": "Lista szerkesztése"
+        "editPlaylist": "Lista szerkesztése",
+        "shuffle": "Keverés",
+        "shuffleEnabled": "Keverés bekapcsolva",
+        "shuffleDisabled": "Keverés kikapcsolva",
+        "gapDelay": "Késleltetés fájlok között",
+        "gapDelayPrompt": "Várakozás másodpercben fájlok között (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

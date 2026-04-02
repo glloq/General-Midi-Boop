@@ -603,7 +603,12 @@
         "loop": "Цикл",
         "loopEnabled": "Цикл увімкнено",
         "loopDisabled": "Цикл вимкнено",
-        "editPlaylist": "Редагувати плейлист"
+        "editPlaylist": "Редагувати плейлист",
+        "shuffle": "Перемішати",
+        "shuffleEnabled": "Випадковий порядок увімкнено",
+        "shuffleDisabled": "Випадковий порядок вимкнено",
+        "gapDelay": "Затримка між файлами",
+        "gapDelayPrompt": "Секунд очікування між файлами (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

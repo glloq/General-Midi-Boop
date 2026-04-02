@@ -603,7 +603,12 @@
         "loop": "Schleife",
         "loopEnabled": "Schleife aktiviert",
         "loopDisabled": "Schleife deaktiviert",
-        "editPlaylist": "Playlist bearbeiten"
+        "editPlaylist": "Playlist bearbeiten",
+        "shuffle": "Zufällig",
+        "shuffleEnabled": "Zufallswiedergabe aktiviert",
+        "shuffleDisabled": "Zufallswiedergabe deaktiviert",
+        "gapDelay": "Verzögerung zwischen Dateien",
+        "gapDelayPrompt": "Sekunden Wartezeit zwischen Dateien (0-60):"
     },
     "lighting": {
         "title": "Lichtsteuerung",

@@ -208,6 +208,8 @@ class PlaylistPage {
                 <div id="playlistItemsActions" class="plpage-actions" style="display:none;">
                   <button class="plpage-btn" id="playlistRenameBtn" title="${this._t('playlist.rename')}">✏️</button>
                   <button class="plpage-btn" id="playlistLoopBtn" title="${this._t('playlist.loop')}">🔁</button>
+                  <button class="plpage-btn" id="playlistShuffleBtn" title="${this._t('playlist.shuffle')}" style="opacity:0.4;">🔀</button>
+                  <button class="plpage-btn" id="playlistGapBtn" title="${this._t('playlist.gapDelay')}">⏱️</button>
                   <button class="plpage-btn" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles')}</button>
                   <button class="plpage-btn primary" id="playlistPlayBtn" disabled>▶ ${this._t('playlist.play')}</button>
                 </div>
@@ -255,6 +257,12 @@ class PlaylistPage {
 
     // Toggle loop
     this.modal.querySelector('#playlistLoopBtn')?.addEventListener('click', () => this._toggleLoop());
+
+    // Toggle shuffle
+    this.modal.querySelector('#playlistShuffleBtn')?.addEventListener('click', () => this._toggleShuffle());
+
+    // Set gap delay
+    this.modal.querySelector('#playlistGapBtn')?.addEventListener('click', () => this._setGapDelay());
   }
 
   // ==================== DATA LOADING ====================
@@ -276,6 +284,7 @@ class PlaylistPage {
       this.playlistItems = result.items || [];
       this._renderPlaylistItems();
       this._updateStats();
+      this._updateSettingsButtons();
     } catch (error) {
       console.error('Failed to load playlist items:', error);
     }
@@ -530,6 +539,13 @@ class PlaylistPage {
       if (loop) {
         await this.apiClient.sendCommand('playlist_set_loop', { playlistId: newId, loop: true });
       }
+      // Copy shuffle and gap_seconds settings
+      const settingsToClone = {};
+      if (this.selectedPlaylist.shuffle) settingsToClone.shuffle = true;
+      if (this.selectedPlaylist.gap_seconds) settingsToClone.gap_seconds = this.selectedPlaylist.gap_seconds;
+      if (Object.keys(settingsToClone).length > 0) {
+        await this.apiClient.sendCommand('playlist_update_settings', { playlistId: newId, ...settingsToClone });
+      }
       await this.apiClient.sendCommand('playlist_delete', { playlistId: oldId });
       await this.loadPlaylists();
       await this._loadPlaylistItems(newId);
@@ -557,6 +573,77 @@ class PlaylistPage {
       }
     } catch (error) {
       console.error('Failed to toggle loop:', error);
+    }
+  }
+
+  async _toggleShuffle() {
+    if (!this.selectedPlaylist) return;
+    const newShuffle = this.selectedPlaylist.shuffle !== 1;
+    try {
+      await this.apiClient.sendCommand('playlist_update_settings', {
+        playlistId: this.selectedPlaylist.id,
+        shuffle: newShuffle
+      });
+      this.selectedPlaylist.shuffle = newShuffle ? 1 : 0;
+      const shuffleBtn = this.modal?.querySelector('#playlistShuffleBtn');
+      if (shuffleBtn) {
+        shuffleBtn.style.opacity = newShuffle ? '1' : '0.4';
+        shuffleBtn.title = newShuffle
+          ? (this._t('playlist.shuffleEnabled'))
+          : (this._t('playlist.shuffle'));
+      }
+    } catch (error) {
+      console.error('Failed to toggle shuffle:', error);
+    }
+  }
+
+  async _setGapDelay() {
+    if (!this.selectedPlaylist) return;
+    const currentGap = this.selectedPlaylist.gap_seconds || 0;
+    const input = await this._showPrompt(
+      this._t('playlist.gapDelayPrompt'),
+      String(currentGap),
+      '⏱️'
+    );
+    if (input === null) return;
+    const seconds = Math.max(0, Math.min(60, parseInt(input) || 0));
+    try {
+      await this.apiClient.sendCommand('playlist_update_settings', {
+        playlistId: this.selectedPlaylist.id,
+        gap_seconds: seconds
+      });
+      this.selectedPlaylist.gap_seconds = seconds;
+      this._updateGapButton();
+    } catch (error) {
+      console.error('Failed to set gap delay:', error);
+    }
+  }
+
+  _updateGapButton() {
+    const gapBtn = this.modal?.querySelector('#playlistGapBtn');
+    if (!gapBtn) return;
+    const gap = this.selectedPlaylist?.gap_seconds || 0;
+    gapBtn.textContent = gap > 0 ? `⏱️ ${gap}s` : '⏱️';
+    gapBtn.style.opacity = gap > 0 ? '1' : '0.7';
+  }
+
+  _updateSettingsButtons() {
+    if (!this.selectedPlaylist) return;
+    // Shuffle button
+    const shuffleBtn = this.modal?.querySelector('#playlistShuffleBtn');
+    if (shuffleBtn) {
+      const shuffleOn = this.selectedPlaylist.shuffle === 1;
+      shuffleBtn.style.opacity = shuffleOn ? '1' : '0.4';
+      shuffleBtn.title = shuffleOn
+        ? (this._t('playlist.shuffleEnabled'))
+        : (this._t('playlist.shuffle'));
+    }
+    // Gap button
+    this._updateGapButton();
+    // Loop button
+    const loopBtn = this.modal?.querySelector('#playlistLoopBtn');
+    if (loopBtn) {
+      loopBtn.style.opacity = this.selectedPlaylist.loop === 1 ? '1' : '0.4';
     }
   }
 

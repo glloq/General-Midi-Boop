@@ -603,7 +603,12 @@
         "loop": "Ulangi",
         "loopEnabled": "Ulangi aktif",
         "loopDisabled": "Ulangi nonaktif",
-        "editPlaylist": "Edit Daftar Putar"
+        "editPlaylist": "Edit Daftar Putar",
+        "shuffle": "Acak",
+        "shuffleEnabled": "Mode acak aktif",
+        "shuffleDisabled": "Mode acak nonaktif",
+        "gapDelay": "Jeda antar file",
+        "gapDelayPrompt": "Detik tunggu antar file (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

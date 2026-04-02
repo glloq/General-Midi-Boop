@@ -603,7 +603,12 @@
         "loop": "Gjenta",
         "loopEnabled": "Gjentakelse på",
         "loopDisabled": "Gjentakelse av",
-        "editPlaylist": "Rediger spilleliste"
+        "editPlaylist": "Rediger spilleliste",
+        "shuffle": "Tilfeldig",
+        "shuffleEnabled": "Tilfeldig avspilling aktivert",
+        "shuffleDisabled": "Tilfeldig avspilling deaktivert",
+        "gapDelay": "Forsinkelse mellom filer",
+        "gapDelayPrompt": "Sekunder å vente mellom filer (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

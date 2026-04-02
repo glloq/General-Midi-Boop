@@ -603,7 +603,12 @@
         "loop": "Loop",
         "loopEnabled": "Loop aktiveret",
         "loopDisabled": "Loop deaktiveret",
-        "editPlaylist": "Rediger playliste"
+        "editPlaylist": "Rediger playliste",
+        "shuffle": "Bland",
+        "shuffleEnabled": "Blanding aktiveret",
+        "shuffleDisabled": "Blanding deaktiveret",
+        "gapDelay": "Forsinkelse mellem filer",
+        "gapDelayPrompt": "Sekunder mellem filer (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

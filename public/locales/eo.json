@@ -603,7 +603,12 @@
         "loop": "Buklo",
         "loopEnabled": "Buklo aktiva",
         "loopDisabled": "Buklo malaktiva",
-        "editPlaylist": "Redakti ludliston"
+        "editPlaylist": "Redakti ludliston",
+        "shuffle": "Miksi",
+        "shuffleEnabled": "Miksado ŝaltita",
+        "shuffleDisabled": "Miksado malŝaltita",
+        "gapDelay": "Prokrasto inter dosieroj",
+        "gapDelayPrompt": "Sekundoj atendi inter dosieroj (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

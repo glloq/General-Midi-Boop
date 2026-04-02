@@ -603,7 +603,12 @@
         "loop": "লুপ",
         "loopEnabled": "লুপ সক্রিয়",
         "loopDisabled": "লুপ নিষ্ক্রিয়",
-        "editPlaylist": "প্লেলিস্ট সম্পাদনা"
+        "editPlaylist": "প্লেলিস্ট সম্পাদনা",
+        "shuffle": "শাফেল",
+        "shuffleEnabled": "শাফেল সক্রিয়",
+        "shuffleDisabled": "শাফেল নিষ্ক্রিয়",
+        "gapDelay": "ফাইলের মধ্যে বিলম্ব",
+        "gapDelayPrompt": "ফাইলের মধ্যে অপেক্ষার সেকেন্ড (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

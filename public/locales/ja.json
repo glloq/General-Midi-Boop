@@ -603,7 +603,12 @@
         "loop": "ループ",
         "loopEnabled": "ループ有効",
         "loopDisabled": "ループ無効",
-        "editPlaylist": "プレイリストを編集"
+        "editPlaylist": "プレイリストを編集",
+        "shuffle": "シャッフル",
+        "shuffleEnabled": "シャッフル有効",
+        "shuffleDisabled": "シャッフル無効",
+        "gapDelay": "ファイル間の遅延",
+        "gapDelayPrompt": "ファイル間の待機秒数 (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

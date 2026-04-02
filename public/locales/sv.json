@@ -603,7 +603,12 @@
         "loop": "Upprepa",
         "loopEnabled": "Upprepning på",
         "loopDisabled": "Upprepning av",
-        "editPlaylist": "Redigera spellista"
+        "editPlaylist": "Redigera spellista",
+        "shuffle": "Blanda",
+        "shuffleEnabled": "Blandning aktiverad",
+        "shuffleDisabled": "Blandning inaktiverad",
+        "gapDelay": "Fördröjning mellan filer",
+        "gapDelayPrompt": "Sekunder att vänta mellan filer (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

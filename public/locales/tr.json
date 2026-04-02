@@ -603,7 +603,12 @@
         "loop": "Döngü",
         "loopEnabled": "Döngü açık",
         "loopDisabled": "Döngü kapalı",
-        "editPlaylist": "Listeyi düzenle"
+        "editPlaylist": "Listeyi düzenle",
+        "shuffle": "Karıştır",
+        "shuffleEnabled": "Karıştırma açık",
+        "shuffleDisabled": "Karıştırma kapalı",
+        "gapDelay": "Dosyalar arası gecikme",
+        "gapDelayPrompt": "Dosyalar arasında bekleme süresi (saniye, 0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

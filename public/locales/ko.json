@@ -603,7 +603,12 @@
         "loop": "반복",
         "loopEnabled": "반복 활성화",
         "loopDisabled": "반복 비활성화",
-        "editPlaylist": "재생목록 편집"
+        "editPlaylist": "재생목록 편집",
+        "shuffle": "셔플",
+        "shuffleEnabled": "셔플 활성화",
+        "shuffleDisabled": "셔플 비활성화",
+        "gapDelay": "파일 간 지연",
+        "gapDelayPrompt": "파일 간 대기 시간(초) (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

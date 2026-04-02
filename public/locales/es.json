@@ -618,7 +618,12 @@
         "loop": "Bucle",
         "loopEnabled": "Bucle activado",
         "loopDisabled": "Bucle desactivado",
-        "editPlaylist": "Editar lista"
+        "editPlaylist": "Editar lista",
+        "shuffle": "Aleatorio",
+        "shuffleEnabled": "Reproducción aleatoria activada",
+        "shuffleDisabled": "Reproducción aleatoria desactivada",
+        "gapDelay": "Retraso entre archivos",
+        "gapDelayPrompt": "Segundos de espera entre archivos (0-60):"
     },
     "lighting": {
         "title": "Control de iluminación",

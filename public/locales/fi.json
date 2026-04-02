@@ -603,7 +603,12 @@
         "loop": "Silmukka",
         "loopEnabled": "Silmukka päällä",
         "loopDisabled": "Silmukka pois",
-        "editPlaylist": "Muokkaa soittolistaa"
+        "editPlaylist": "Muokkaa soittolistaa",
+        "shuffle": "Sekoita",
+        "shuffleEnabled": "Satunnaistoisto käytössä",
+        "shuffleDisabled": "Satunnaistoisto pois käytöstä",
+        "gapDelay": "Viive tiedostojen välillä",
+        "gapDelayPrompt": "Sekuntia tiedostojen välillä (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

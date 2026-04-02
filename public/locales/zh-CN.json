@@ -603,7 +603,12 @@
         "loop": "循环",
         "loopEnabled": "循环已开启",
         "loopDisabled": "循环已关闭",
-        "editPlaylist": "编辑播放列表"
+        "editPlaylist": "编辑播放列表",
+        "shuffle": "随机播放",
+        "shuffleEnabled": "随机播放已启用",
+        "shuffleDisabled": "随机播放已禁用",
+        "gapDelay": "文件间延迟",
+        "gapDelayPrompt": "文件间等待秒数 (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

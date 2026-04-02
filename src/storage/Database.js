@@ -640,6 +640,29 @@ class DatabaseManager {
     }
   }
 
+  updatePlaylistSettings(playlistId, settings) {
+    try {
+      const updates = [];
+      const params = [];
+      if (settings.gap_seconds !== undefined) {
+        updates.push('gap_seconds = ?');
+        params.push(Math.max(0, Math.min(60, parseInt(settings.gap_seconds) || 0)));
+      }
+      if (settings.shuffle !== undefined) {
+        updates.push('shuffle = ?');
+        params.push(settings.shuffle ? 1 : 0);
+      }
+      if (updates.length === 0) return;
+      updates.push('updated_at = ?');
+      params.push(Date.now());
+      params.push(playlistId);
+      this.db.prepare(`UPDATE playlists SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    } catch (error) {
+      this.logger.error(`Failed to update playlist settings: ${error.message}`);
+      throw error;
+    }
+  }
+
   // ==================== DELEGATE TO SUB-MODULES ====================
 
   // MIDI Files

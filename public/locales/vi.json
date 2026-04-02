@@ -603,7 +603,12 @@
         "loop": "Lặp lại",
         "loopEnabled": "Lặp lại bật",
         "loopDisabled": "Lặp lại tắt",
-        "editPlaylist": "Chỉnh sửa danh sách"
+        "editPlaylist": "Chỉnh sửa danh sách",
+        "shuffle": "Xáo trộn",
+        "shuffleEnabled": "Phát ngẫu nhiên bật",
+        "shuffleDisabled": "Phát ngẫu nhiên tắt",
+        "gapDelay": "Độ trễ giữa các tệp",
+        "gapDelayPrompt": "Giây chờ giữa các tệp (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

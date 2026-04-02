@@ -603,7 +603,12 @@
         "loop": "Pętla",
         "loopEnabled": "Pętla włączona",
         "loopDisabled": "Pętla wyłączona",
-        "editPlaylist": "Edytuj playlistę"
+        "editPlaylist": "Edytuj playlistę",
+        "shuffle": "Losowo",
+        "shuffleEnabled": "Odtwarzanie losowe włączone",
+        "shuffleDisabled": "Odtwarzanie losowe wyłączone",
+        "gapDelay": "Opóźnienie między plikami",
+        "gapDelayPrompt": "Sekundy oczekiwania między plikami (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

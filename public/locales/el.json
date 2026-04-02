@@ -603,7 +603,12 @@
         "loop": "Επανάληψη",
         "loopEnabled": "Επανάληψη ενεργή",
         "loopDisabled": "Επανάληψη ανενεργή",
-        "editPlaylist": "Επεξεργασία λίστας"
+        "editPlaylist": "Επεξεργασία λίστας",
+        "shuffle": "Τυχαία",
+        "shuffleEnabled": "Τυχαία αναπαραγωγή ενεργή",
+        "shuffleDisabled": "Τυχαία αναπαραγωγή ανενεργή",
+        "gapDelay": "Καθυστέρηση μεταξύ αρχείων",
+        "gapDelayPrompt": "Δευτερόλεπτα αναμονής μεταξύ αρχείων (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

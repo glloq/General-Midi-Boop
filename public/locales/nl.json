@@ -603,7 +603,12 @@
         "loop": "Herhalen",
         "loopEnabled": "Herhaling aan",
         "loopDisabled": "Herhaling uit",
-        "editPlaylist": "Afspeellijst bewerken"
+        "editPlaylist": "Afspeellijst bewerken",
+        "shuffle": "Willekeurig",
+        "shuffleEnabled": "Willekeurig afspelen aan",
+        "shuffleDisabled": "Willekeurig afspelen uit",
+        "gapDelay": "Vertraging tussen bestanden",
+        "gapDelayPrompt": "Seconden wachten tussen bestanden (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

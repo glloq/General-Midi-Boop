@@ -610,7 +610,12 @@
         "loop": "Loop",
         "loopEnabled": "Loop enabled",
         "loopDisabled": "Loop disabled",
-        "editPlaylist": "Edit Playlist"
+        "editPlaylist": "Edit Playlist",
+        "shuffle": "Shuffle",
+        "shuffleEnabled": "Shuffle enabled",
+        "shuffleDisabled": "Shuffle disabled",
+        "gapDelay": "Delay between files",
+        "gapDelayPrompt": "Seconds to wait between files (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

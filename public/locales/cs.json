@@ -603,7 +603,12 @@
         "loop": "Smyčka",
         "loopEnabled": "Smyčka zapnuta",
         "loopDisabled": "Smyčka vypnuta",
-        "editPlaylist": "Upravit playlist"
+        "editPlaylist": "Upravit playlist",
+        "shuffle": "Náhodně",
+        "shuffleEnabled": "Náhodné přehrávání zapnuto",
+        "shuffleDisabled": "Náhodné přehrávání vypnuto",
+        "gapDelay": "Prodleva mezi soubory",
+        "gapDelayPrompt": "Sekund čekání mezi soubory (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

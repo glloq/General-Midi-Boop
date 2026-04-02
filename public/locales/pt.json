@@ -603,7 +603,12 @@
         "loop": "Repetir",
         "loopEnabled": "Repetição ativada",
         "loopDisabled": "Repetição desativada",
-        "editPlaylist": "Editar playlist"
+        "editPlaylist": "Editar playlist",
+        "shuffle": "Aleatório",
+        "shuffleEnabled": "Reprodução aleatória ativada",
+        "shuffleDisabled": "Reprodução aleatória desativada",
+        "gapDelay": "Atraso entre ficheiros",
+        "gapDelayPrompt": "Segundos de espera entre ficheiros (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

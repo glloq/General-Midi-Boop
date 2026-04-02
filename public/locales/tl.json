@@ -603,7 +603,12 @@
         "loop": "Ulitin",
         "loopEnabled": "Pag-ulit aktibo",
         "loopDisabled": "Pag-ulit hindi aktibo",
-        "editPlaylist": "I-edit ang playlist"
+        "editPlaylist": "I-edit ang playlist",
+        "shuffle": "I-shuffle",
+        "shuffleEnabled": "Shuffle naka-on",
+        "shuffleDisabled": "Shuffle naka-off",
+        "gapDelay": "Pagitan ng mga file",
+        "gapDelayPrompt": "Segundong hintayin sa pagitan ng mga file (0-60):"
     },
     "lighting": {
         "title": "Lighting Control",

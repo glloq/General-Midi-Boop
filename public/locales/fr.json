@@ -610,7 +610,12 @@
         "loop": "Boucle",
         "loopEnabled": "Boucle activée",
         "loopDisabled": "Boucle désactivée",
-        "editPlaylist": "Modifier la playlist"
+        "editPlaylist": "Modifier la playlist",
+        "shuffle": "Aléatoire",
+        "shuffleEnabled": "Lecture aléatoire activée",
+        "shuffleDisabled": "Lecture aléatoire désactivée",
+        "gapDelay": "Délai entre les fichiers",
+        "gapDelayPrompt": "Secondes d'attente entre les fichiers (0-60) :"
     },
     "lighting": {
         "title": "Contrôle Lumière",
