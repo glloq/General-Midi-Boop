@@ -39,6 +39,9 @@ class MidiPlayer {
     // Disconnect policy: 'skip' | 'pause' | 'mute'
     this.disconnectedPolicy = 'skip';
 
+    // Guard against concurrent _handleFileEnd calls
+    this._fileEndPending = false;
+
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(app);
 
@@ -896,21 +899,30 @@ class MidiPlayer {
   /**
    * Handle end of file: advance queue or stop.
    * Called by PlaybackScheduler when all events have been played.
+   * Uses _fileEndPending flag to prevent multiple concurrent invocations
+   * (scheduler ticks can fire before async queue advance completes).
    */
   async _handleFileEnd() {
-    if (this.loop) {
-      // Single file loop
-      this.seek(0);
-    } else if (this.queue.length > 0) {
-      // Queue active: advance to next
-      try {
+    if (this._fileEndPending) {
+      return;
+    }
+    this._fileEndPending = true;
+
+    try {
+      if (this.loop) {
+        // Single file loop
+        this.seek(0);
+      } else if (this.queue.length > 0) {
+        // Queue active: advance to next
         await this.nextInQueue();
-      } catch (error) {
-        this.app.logger.error(`Failed to advance queue: ${error.message}`);
+      } else {
         this.stop();
       }
-    } else {
+    } catch (error) {
+      this.app.logger.error(`Failed to handle file end: ${error.message}`);
       this.stop();
+    } finally {
+      this._fileEndPending = false;
     }
   }
 

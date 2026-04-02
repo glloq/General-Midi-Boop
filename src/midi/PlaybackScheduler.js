@@ -290,6 +290,11 @@ class PlaybackScheduler {
         note: event.note,
         velocity: event.velocity
       });
+    } else if (event.type === 'programChange') {
+      sendResult = device.sendMessage(routing.device, 'program', {
+        channel: outChannel,
+        program: event.program
+      });
     } else if (event.type === 'controller') {
       // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
       if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
@@ -395,8 +400,14 @@ class PlaybackScheduler {
         }
       }
       device.sendMessage(routing.device, 'cc', { channel: outChannel, controller: event.controller, value: event.value });
+    } else if (event.type === 'programChange') {
+      device.sendMessage(routing.device, 'program', { channel: outChannel, program: event.program });
     } else if (event.type === 'pitchBend') {
       device.sendMessage(routing.device, 'pitchbend', { channel: outChannel, value: event.value });
+    } else if (event.type === 'channelAftertouch') {
+      device.sendMessage(routing.device, 'channel aftertouch', { channel: outChannel, pressure: event.value });
+    } else if (event.type === 'noteAftertouch') {
+      device.sendMessage(routing.device, 'poly aftertouch', { channel: outChannel, note: event.note, pressure: event.value });
     }
   }
 

@@ -201,7 +201,7 @@ async function analyzeChannel(app, data) {
   let midiData;
   try {
     const midiConverter = getMidiConverter(app);
-    const buffer = Buffer.from(file.data, 'base64');
+    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
     throw new Error(`Failed to parse MIDI file: ${error.message}`);
@@ -244,7 +244,7 @@ async function generateAssignmentSuggestions(app, data) {
   let midiData;
   try {
     const midiConverter = getMidiConverter(app);
-    const buffer = Buffer.from(file.data, 'base64');
+    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
     throw new Error(`Failed to parse MIDI file: ${error.message}`);
@@ -308,7 +308,7 @@ async function applyAssignments(app, data) {
   // Parse original MIDI data
   let midiData;
   try {
-    const buffer = Buffer.from(originalFile.data, 'base64');
+    const buffer = Buffer.isBuffer(originalFile.data) ? originalFile.data : Buffer.from(originalFile.data, 'base64');
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
     throw new Error(`Failed to parse MIDI file: ${error.message}`);
@@ -660,7 +660,8 @@ async function playbackValidateRouting(app, data) {
   const activeChannels = new Set();
   if (midiData && midiData.tracks) {
     for (const track of midiData.tracks) {
-      for (const event of track) {
+      const events = track.events || track;
+      for (const event of events) {
         if ((event.type === 'noteOn' || event.type === 'noteOff') && event.channel !== undefined) {
           activeChannels.add(event.channel);
         }

@@ -530,7 +530,7 @@ class FileManager {
       // Fallback: if no channel data in DB, parse from MIDI blob
       if (channels.length === 0 && file.data) {
         try {
-          const buffer = Buffer.from(file.data, 'base64');
+          const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
           const midi = parseMidi(buffer);
           format = midi.header.format;
           const channelsUsed = new Set();
@@ -994,7 +994,7 @@ class FileManager {
             failed++;
             continue;
           }
-          const buffer = Buffer.from(file.data, 'base64');
+          const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
           const midi = parseMidi(buffer);
           const instrumentMetadata = this.extractInstrumentMetadata(midi);
 
