@@ -133,6 +133,11 @@
             border-color: #e74c3c;
         }
 
+        body.theme-dark .btn-playlist-toggle:hover {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
         body.theme-dark .btn-lighting-toggle:hover {
             background: #eab308;
             border-color: #eab308;
@@ -527,18 +532,12 @@
             background: rgba(255, 255, 255, 0.25);
             border: 1px solid rgba(255, 255, 255, 0.4);
         }
-        .btn-playlist-toggle {
-            background: rgba(255, 255, 255, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-        }
-
         .btn-keyboard-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-settings-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-debug-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-instruments-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-calibration-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
         .btn-lighting-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
-        .btn-playlist-toggle:hover { background: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 12px rgba(255, 255, 255, 0.3); }
 
         /* Playlist Queue Indicator (mini bar in header during playlist playback) */
         .playlist-queue-indicator {
@@ -1225,10 +1224,35 @@
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
         }
 
-        .btn-lighting-toggle {
+        .btn-playlist-toggle {
             position: absolute;
             top: 9px;
             left: 130px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            z-index: 10;
+        }
+
+        .btn-playlist-toggle:hover {
+            background: #667eea;
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-lighting-toggle {
+            position: absolute;
+            top: 9px;
+            left: 185px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -3754,7 +3778,7 @@
         /* Contrôles de lecture dans le header */
         .header-playback {
             margin-top: 0;
-            padding: 0 190px;
+            padding: 0 245px;
             pointer-events: none;
         }
 
@@ -4923,12 +4947,12 @@
                     🎸
                 </button>
 
-                <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière" aria-label="Lighting control">
-                    💡
-                </button>
-
                 <button class="btn-playlist-toggle" id="playlistBtn" data-i18n-title="playlist.title" title="Playlists" aria-label="Playlists">
                     🎶
+                </button>
+
+                <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière" aria-label="Lighting control">
+                    💡
                 </button>
 
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">

@@ -68,54 +68,81 @@ class PlaylistPage {
   createModal() {
     if (this.modal) this.close();
 
+    const dark = this._isDark();
+    const bg = dark ? '#1e1e1e' : '#f8f9fa';
+    const cardBg = dark ? '#2d2d2d' : '#ffffff';
+    const border = dark ? '#444' : '#dee2e6';
+    const text = dark ? '#e0e0e0' : '#2c3e50';
+    const textMuted = dark ? '#999' : '#6c757d';
+    const hdrBg = dark ? '#252525' : '#ffffff';
+
     const div = document.createElement('div');
     div.innerHTML = `
-      <div class="playlist-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:stretch;justify-content:center;">
-        <div class="playlist-view-container" style="width:100%;max-width:1400px;margin:20px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
-          <!-- Header -->
-          <div class="playlist-header">
-            <div class="playlist-header-content">
-              <h2 class="playlist-title"><span class="icon">🎶</span> ${this._t('playlist.title') || 'Playlists'}</h2>
-              <div class="header-right">
-                <button class="btn-control" id="playlistPageCloseBtn" title="Close">✕</button>
-              </div>
-            </div>
+      <style>
+        .plpage-overlay { position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center; }
+        .plpage-container { width:95%;max-width:1400px;max-height:90vh;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:${bg};color:${text};box-shadow:0 8px 32px rgba(0,0,0,0.3); }
+        .plpage-header { background:${hdrBg};border-bottom:2px solid ${border};padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
+        .plpage-header h2 { margin:0;font-size:1.4rem;display:flex;align-items:center;gap:10px; }
+        .plpage-close { background:none;border:1px solid ${border};border-radius:6px;cursor:pointer;font-size:1.1rem;padding:4px 10px;color:${text};transition:all 0.2s; }
+        .plpage-close:hover { background:${dark ? '#444' : '#e9ecef'}; }
+        .plpage-layout { flex:1;display:grid;grid-template-columns:260px 1fr 280px;overflow:hidden;min-height:0; }
+        .plpage-sidebar { overflow-y:auto;padding:15px;border-color:${border}; }
+        .plpage-sidebar.left { border-right:1px solid ${border}; }
+        .plpage-sidebar.right { border-left:1px solid ${border}; }
+        .plpage-main { overflow-y:auto;padding:15px; }
+        .plpage-section-hdr { display:flex;justify-content:space-between;align-items:center;margin-bottom:12px; }
+        .plpage-section-hdr h3 { margin:0;font-size:1.05rem; }
+        .plpage-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:${cardBg};border:1px solid ${border};border-radius:6px;cursor:pointer;font-size:0.85rem;color:${text};transition:all 0.2s; }
+        .plpage-btn:hover { background:${dark ? '#3a3a3a' : '#e9ecef'}; }
+        .plpage-btn.primary { background:#667eea;color:#fff;border-color:#667eea; }
+        .plpage-btn.primary:hover { background:#5a6fd6; }
+        .plpage-footer { padding:10px 20px;border-top:1px solid ${border};font-size:0.85rem;color:${textMuted};flex-shrink:0; }
+        .plpage-actions { display:flex;gap:8px; }
+
+        @media (max-width: 992px) {
+          .plpage-layout { grid-template-columns:1fr; }
+          .plpage-sidebar.right { display:none; }
+          .plpage-sidebar.left { border-right:none;border-bottom:1px solid ${border}; }
+        }
+      </style>
+      <div class="plpage-overlay">
+        <div class="plpage-container">
+          <div class="plpage-header">
+            <h2>🎶 ${this._t('playlist.title') || 'Playlists'}</h2>
+            <button class="plpage-close" id="playlistPageCloseBtn" title="Close">✕</button>
           </div>
 
-          <!-- Main Layout -->
-          <div class="playlist-layout" style="flex:1;display:grid;grid-template-columns:280px 1fr 300px;overflow:hidden;">
-            <!-- Left Sidebar: Playlist List -->
-            <div class="playlist-sidebar left" style="overflow-y:auto;border-right:1px solid #dee2e6;padding:15px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 style="margin:0;font-size:1.1rem;">${this._t('playlist.myPlaylists') || 'My Playlists'}</h3>
-                <button class="btn-control" id="playlistCreateBtn" title="${this._t('playlist.create') || 'New playlist'}">+</button>
+          <div class="plpage-layout">
+            <div class="plpage-sidebar left">
+              <div class="plpage-section-hdr">
+                <h3>${this._t('playlist.myPlaylists') || 'My Playlists'}</h3>
+                <button class="plpage-btn" id="playlistCreateBtn" title="${this._t('playlist.create') || 'New playlist'}">+</button>
               </div>
               <div id="playlistListContainer"></div>
             </div>
 
-            <!-- Center: Playlist Items -->
-            <div class="playlist-main" style="overflow-y:auto;padding:15px;">
-              <div id="playlistItemsHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 id="playlistItemsTitle" style="margin:0;font-size:1.1rem;">${this._t('playlist.selectPlaylist') || 'Select a playlist'}</h3>
-                <div id="playlistItemsActions" style="display:none;gap:8px;">
-                  <button class="btn-control" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles') || 'Add files'}</button>
-                  <button class="btn-control" id="playlistPlayBtn" style="background:#667eea;color:white;">▶ ${this._t('playlist.play') || 'Play'}</button>
+            <div class="plpage-main">
+              <div class="plpage-section-hdr">
+                <h3 id="playlistItemsTitle">${this._t('playlist.selectPlaylist') || 'Select a playlist'}</h3>
+                <div id="playlistItemsActions" class="plpage-actions" style="display:none;">
+                  <button class="plpage-btn" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles') || 'Add files'}</button>
+                  <button class="plpage-btn primary" id="playlistPlayBtn">▶ ${this._t('playlist.play') || 'Play'}</button>
                 </div>
               </div>
               <div id="playlistItemsContainer"></div>
             </div>
 
-            <!-- Right Sidebar: Queue Status -->
-            <div class="playlist-sidebar right" style="overflow-y:auto;border-left:1px solid #dee2e6;padding:15px;">
-              <h3 style="margin:0;font-size:1.1rem;margin-bottom:12px;">${this._t('playlist.queueStatus') || 'Queue'}</h3>
+            <div class="plpage-sidebar right">
+              <div class="plpage-section-hdr">
+                <h3>${this._t('playlist.queueStatus') || 'Queue'}</h3>
+              </div>
               <div id="playlistQueueContainer">
-                <p style="color:#6c757d;font-size:0.9rem;">${this._t('playlist.noActiveQueue') || 'No active playlist'}</p>
+                <p style="color:${textMuted};font-size:0.9rem;">${this._t('playlist.noActiveQueue') || 'No active playlist'}</p>
               </div>
             </div>
           </div>
 
-          <!-- Footer -->
-          <div class="playlist-footer" style="padding:10px 20px;border-top:1px solid #dee2e6;display:flex;justify-content:space-between;font-size:0.85rem;color:#6c757d;">
+          <div class="plpage-footer">
             <span id="playlistStatsInfo"></span>
           </div>
         </div>
@@ -123,18 +150,8 @@ class PlaylistPage {
 
     document.body.appendChild(div);
     this.modal = div;
-
-    // Apply dark mode
-    if (this._isDark()) {
-      const container = div.querySelector('.playlist-view-container');
-      if (container) container.style.background = '#1e1e1e';
-      div.querySelectorAll('.playlist-sidebar').forEach(s => {
-        s.style.borderColor = '#333';
-      });
-    } else {
-      const container = div.querySelector('.playlist-view-container');
-      if (container) container.style.background = '#f8f9fa';
-    }
+    this._dark = dark;
+    this._colors = { bg, cardBg, border, text, textMuted };
 
     this._bindEvents();
   }
@@ -199,21 +216,22 @@ class PlaylistPage {
       return;
     }
 
+    const c = this._colors || {};
     container.innerHTML = this.playlists.map(pl => {
       const isActive = this.selectedPlaylist && this.selectedPlaylist.id === pl.id;
-      const bg = isActive ? (this._isDark() ? 'rgba(102,126,234,0.2)' : '#e8ecfe') : 'transparent';
-      const border = isActive ? '2px solid #667eea' : '1px solid transparent';
+      const itemBg = isActive ? 'rgba(102,126,234,0.15)' : 'transparent';
+      const itemBorder = isActive ? '2px solid #667eea' : `1px solid transparent`;
       return `
         <div class="playlist-item${isActive ? ' active' : ''}" data-playlist-id="${pl.id}"
-             style="padding:10px 12px;margin-bottom:6px;border-radius:8px;cursor:pointer;background:${bg};border:${border};transition:all 0.2s;">
+             style="padding:10px 12px;margin-bottom:6px;border-radius:8px;cursor:pointer;background:${itemBg};border:${itemBorder};transition:all 0.2s;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:500;">${this._escapeHtml(pl.name)}</span>
             <button class="playlist-delete-btn" data-playlist-id="${pl.id}"
                     style="background:none;border:none;cursor:pointer;font-size:0.85rem;opacity:0.5;padding:2px 6px;"
                     title="${this._t('common.delete') || 'Delete'}">🗑️</button>
           </div>
-          ${pl.description ? `<div style="font-size:0.8rem;color:#6c757d;margin-top:2px;">${this._escapeHtml(pl.description)}</div>` : ''}
-          <div style="font-size:0.75rem;color:#adb5bd;margin-top:4px;">
+          ${pl.description ? `<div style="font-size:0.8rem;color:${c.textMuted || '#6c757d'};margin-top:2px;">${this._escapeHtml(pl.description)}</div>` : ''}
+          <div style="font-size:0.75rem;color:${c.textMuted || '#adb5bd'};margin-top:4px;">
             ${pl.loop ? '🔁 ' : ''}
           </div>
         </div>`;
@@ -252,28 +270,56 @@ class PlaylistPage {
     if (title) title.textContent = this._escapeHtml(this.selectedPlaylist.name);
     if (actions) actions.style.display = 'flex';
 
+    const c = this._colors || {};
     if (this.playlistItems.length === 0) {
-      container.innerHTML = `<p style="color:#6c757d;text-align:center;padding:40px;">
+      container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:40px;">
         ${this._t('playlist.emptyPlaylist') || 'Empty playlist. Click "Add files" to add MIDI files.'}
       </p>`;
       return;
     }
 
-    container.innerHTML = this.playlistItems.map((item, index) => `
-      <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
-           draggable="true"
-           style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid ${this._isDark() ? '#333' : '#dee2e6'};background:${this._isDark() ? '#2d2d2d' : 'white'};cursor:grab;transition:all 0.2s;">
-        <span class="file-drag-handle" style="cursor:grab;opacity:0.4;">⠿</span>
-        <span class="file-item-number" style="background:#667eea;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._escapeHtml(item.filename)}</div>
-          <div style="font-size:0.8rem;color:#6c757d;">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
-        </div>
-        <div class="file-actions" style="display:flex;gap:4px;">
-          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;" title="Remove">✕</button>
-        </div>
-      </div>
-    `).join('');
+    // Check routing status for each file
+    const routingChecks = this.playlistItems.map(item => {
+      return this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
+        .then(res => ({ midi_id: item.midi_id, count: (res.routings || []).length }))
+        .catch(() => ({ midi_id: item.midi_id, count: 0 }));
+    });
+
+    Promise.all(routingChecks).then(results => {
+      const routingMap = new Map(results.map(r => [r.midi_id, r.count]));
+      this._renderPlaylistItemsWithRouting(container, routingMap, c);
+    });
+
+    // Render immediately without routing info, then update
+    this._renderPlaylistItemsWithRouting(container, new Map(), c);
+  }
+
+  _renderPlaylistItemsWithRouting(container, routingMap, c) {
+    container.innerHTML = this.playlistItems.map((item, index) => {
+      const routingCount = routingMap.get(item.midi_id);
+      let routingDot = '';
+      if (routingCount === undefined) {
+        routingDot = '<span title="Checking..." style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#adb5bd;flex-shrink:0;"></span>';
+      } else if (routingCount > 0) {
+        routingDot = `<span title="Routed (${routingCount} ch)" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;flex-shrink:0;"></span>`;
+      } else {
+        routingDot = '<span title="Not routed" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;flex-shrink:0;"></span>';
+      }
+
+      return `
+        <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
+             draggable="true"
+             style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid ${c.border || '#dee2e6'};background:${c.cardBg || '#fff'};cursor:grab;transition:all 0.2s;">
+          <span class="file-drag-handle" style="cursor:grab;opacity:0.4;">⠿</span>
+          <span style="background:#667eea;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
+          ${routingDot}
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._escapeHtml(item.filename)}</div>
+            <div style="font-size:0.8rem;color:${c.textMuted || '#6c757d'};">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
+          </div>
+          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:${c.text || 'inherit'};" title="Remove">✕</button>
+        </div>`;
+    }).join('');
 
     // Bind remove buttons
     container.querySelectorAll('.btn-remove-file').forEach(btn => {
@@ -286,6 +332,9 @@ class PlaylistPage {
     // Setup drag and drop
     this._setupDragAndDrop(container);
   }
+
+  // Bridge: old _renderPlaylistItems still ends by calling this now
+  // (routing check is async, so we need both sync and async paths)
 
   _updateStats() {
     const info = this.modal?.querySelector('#playlistStatsInfo');
