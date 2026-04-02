@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "চ্যানেল",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "ফাইল খুব বড় ({size})। সীমা: {max}",
+        "duplicateFileWarning": "⚠️ ফাইল ইতিমধ্যে বিদ্যমান - ওভাররাইট হবে",
+        "releaseToUpload": "আপলোড করতে ছেড়ে দিন",
+        "errorFileTooLarge": "ফাইল খুব বড়। ফাইলের আকার পরীক্ষা করুন।",
+        "errorInvalidMidi": "এই ফাইলটি একটি বৈধ MIDI ফাইল বলে মনে হচ্ছে না। ফরম্যাট পরীক্ষা করুন।",
+        "errorUploadTimeout": "আপলোডে অনেক সময় লেগেছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
+        "fileCount": "{count} ফাইল — {size}"
     },
     "instrumentSettings": {
         "title": "যন্ত্র সেটিংস",
