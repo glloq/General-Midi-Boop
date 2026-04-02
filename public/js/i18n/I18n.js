@@ -86,7 +86,9 @@
          */
         async loadLocale(locale) {
             try {
-                const response = await fetch(`/locales/${locale}.json`);
+                // Cache-bust to ensure fresh translations after updates
+                const cacheBust = `v=${Date.now()}`;
+                const response = await fetch(`/locales/${locale}.json?${cacheBust}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
