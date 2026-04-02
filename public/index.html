@@ -9321,7 +9321,7 @@
 
         // 🆕 Lire un fichier avec vérification du routage
         async function playFile(fileId, filename) {
-            // Check routing status from backend cache (DB is source of truth)
+            // Vérifier que le fichier a un routage configuré (backend DB est la source de vérité)
             const backendStatus = fileRoutingStatusCache.get(String(fileId));
             const routed = (backendStatus && backendStatus !== 'unrouted') || isFileRouted(fileId);
 
@@ -9343,97 +9343,8 @@
                 return;
             }
 
-            // Appliquer le routage sauvegardé
-            let config = fileRoutingConfig[fileId];
-            if (!config || !config.channels) {
-                // Local config missing - fetch from backend DB (same pattern as configureRouting)
-                try {
-                    const result = await api.sendCommand('get_file_routings', { fileId });
-                    if (result && result.routings && result.routings.length > 0) {
-                        const dbChannels = {};
-                        for (const r of result.routings) {
-                            if (r.channel != null && r.device_id) {
-                                dbChannels[r.channel] = r.target_channel != null
-                                    ? `${r.device_id}::${r.target_channel}`
-                                    : r.device_id;
-                            }
-                        }
-                        config = { channels: dbChannels, configured: true, lastModified: Date.now() };
-                        fileRoutingConfig[fileId] = config;
-                        saveRoutingConfig();
-                    }
-                } catch (err) {
-                    console.warn('[playFile] Failed to fetch routings from backend:', err);
-                }
-            }
-
-            if (!config || !config.channels || Object.keys(config.channels).length === 0) {
-                log('Configuration de routage invalide', 'error');
-                return;
-            }
-
-            // Vérifier si tous les canaux sont routés vers l'instrument virtuel
-            const allVirtual = Object.values(config.channels).every(deviceId => deviceId === 'virtual-instrument');
-            const hasVirtual = Object.values(config.channels).some(deviceId => deviceId === 'virtual-instrument');
-
-            // Mode lecture virtuelle pure (tous les canaux → virtuel)
-            if (allVirtual) {
-                log(`🎹 Mode lecture virtuelle pour ${filename}`, 'info');
-
-                try {
-                    // Définir l'ID du fichier AVANT de lancer la lecture
-                    currentFileId = fileId;
-                    document.getElementById('headerFileName').textContent = filename;
-                    updatePlaybackControls();
-
-                    // Créer ou réinitialiser le player virtuel
-                    if (!virtualPlayer) {
-                        virtualPlayer = new VirtualMidiPlayer({ info: log, warn: log, error: log });
-                    } else {
-                        virtualPlayer.stop(); // Arrêter toute lecture en cours
-                    }
-
-                    // IMPORTANT: Exposer le player globalement pour accès direct au timing
-                    window.virtualPlayer = virtualPlayer;
-
-                    // Charger le fichier et démarrer la lecture
-                    await virtualPlayer.load(fileId, filename, config.channels);
-                    await virtualPlayer.play();
-
-                    log(`▶️ Lecture virtuelle de ${filename}`, 'info');
-                } catch (error) {
-                    log(`Erreur lecture virtuelle: ${error.message}`, 'error');
-                    currentFileId = null;
-                    document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
-                    updatePlaybackControls();
-                }
-                return;
-            }
-
-            // Mode mixte ou backend pur
-            if (hasVirtual) {
-                log(`ℹ️ ${i18n.t('ui.mixedModeInfo')}`, 'info');
-            }
-
-            // Appliquer le routage aux canaux non-virtuels
-            for (const [channel, routingValue] of Object.entries(config.channels)) {
-                const parts = routingValue.split('::');
-                const deviceId = parts[0];
-                const targetChannel = parts.length > 1 ? parseInt(parts[1]) : undefined;
-                if (deviceId !== 'virtual-instrument') {
-                    try {
-                        const routingCmd = { channel: parseInt(channel), deviceId };
-                        if (targetChannel !== undefined) routingCmd.targetChannel = targetChannel;
-                        await api.sendCommand('playback_set_channel_routing', routingCmd);
-                    } catch (error) {
-                        log(`Erreur application routage canal ${channel}: ${error.message}`, 'error');
-                    }
-                } else {
-                    log(i18n.t('ui.channelToVirtualIgnored', { channel }), 'info');
-                }
-            }
-
-            // Lancer la lecture via le backend
+            // Lancer la lecture via le backend (même chemin que la playlist)
+            // Le backend charge le fichier, applique les routages depuis la DB, et envoie les messages MIDI aux instruments
             try {
                 currentFileId = fileId;
                 document.getElementById('headerFileName').textContent = filename;
@@ -9492,31 +9403,10 @@
                     window.eventBus.emit('playback:play', { fileId: fileId });
                 }
             } catch (error) {
-                log(`⚠️ Backend: ${error.message} - bascule en lecture virtuelle`, 'warning');
-                // Fallback: try virtual playback when backend fails (e.g. no output devices)
-                try {
-                    if (!virtualPlayer) {
-                        virtualPlayer = new VirtualMidiPlayer({ info: log, warn: log, error: log });
-                    } else {
-                        virtualPlayer.stop();
-                    }
-                    window.virtualPlayer = virtualPlayer;
-                    const virtualRouting = {};
-                    for (const ch of Object.keys(config.channels)) {
-                        virtualRouting[ch] = 'virtual-instrument';
-                    }
-                    await virtualPlayer.load(fileId, filename, virtualRouting);
-                    await virtualPlayer.play();
-                    log(`▶️ Lecture virtuelle de ${filename} (fallback)`, 'info');
-                    if (window.eventBus) {
-                        window.eventBus.emit('playback:play', { fileId: fileId });
-                    }
-                } catch (fallbackError) {
-                    log(`Erreur lecture: ${fallbackError.message}`, 'error');
-                    currentFileId = null;
-                    document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
-                    updatePlaybackControls();
-                }
+                log(`Erreur lecture: ${error.message}`, 'error');
+                currentFileId = null;
+                document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
+                updatePlaybackControls();
             }
         }
 
