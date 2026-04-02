@@ -7347,13 +7347,18 @@
 
             if (!sortBySelect || !sortOrderBtn) return;
 
+            // Synchroniser l'état initial avec FilterManager
+            if (typeof filterManager !== 'undefined' && filterManager) {
+                filterManager.setFilter('sortBy', sortFieldMap[currentSortBy] || currentSortBy);
+                filterManager.setFilter('sortOrder', currentSortOrder.toUpperCase());
+            }
+
             // Changement du critère de tri
             sortBySelect.addEventListener('change', () => {
                 currentSortBy = sortBySelect.value;
                 // Synchroniser avec FilterManager pour le tri serveur
                 if (typeof filterManager !== 'undefined' && filterManager) {
                     filterManager.setFilter('sortBy', sortFieldMap[sortBySelect.value] || sortBySelect.value);
-                    filterManager.setFilter('sortOrder', currentSortOrder.toUpperCase());
                 }
                 loadFiles();
             });
@@ -12507,11 +12512,8 @@
                 return;
             }
 
-            // Sort files
-            const sortedFiles = await sortFiles(files);
-
-            // Create file elements (without folder organization for now)
-            sortedFiles.forEach(file => {
+            // Files are already sorted server-side via SQL ORDER BY
+            files.forEach(file => {
                 fileList.appendChild(createFileElement(file));
             });
 

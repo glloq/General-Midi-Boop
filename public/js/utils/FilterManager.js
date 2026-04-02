@@ -73,8 +73,8 @@ class FilterManager {
       hasBass: null,
 
       // Sorting
-      sortBy: 'uploaded_at',
-      sortOrder: 'DESC',
+      sortBy: 'filename',
+      sortOrder: 'ASC',
 
       // Pagination
       limit: null,
