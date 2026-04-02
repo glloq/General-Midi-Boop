@@ -119,7 +119,7 @@ class SettingsModal {
         this.modal = document.createElement('div');
         this.modal.className = 'settings-modal';
         this.modal.style.cssText = `
-            background: white;
+            background: var(--bg-secondary, white);
             border-radius: 12px;
             padding: 0;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -136,7 +136,7 @@ class SettingsModal {
         header.className = 'settings-modal-header';
         header.style.cssText = `
             padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -176,7 +176,7 @@ class SettingsModal {
         footer.className = 'settings-modal-footer';
         footer.style.cssText = `
             padding: 16px 24px;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--border-color, #e5e7eb);
             display: flex;
             justify-content: flex-end;
             gap: 12px;
@@ -184,10 +184,10 @@ class SettingsModal {
         footer.innerHTML = `
             <button class="btn btn-secondary settings-cancel-btn" style="
                 padding: 10px 20px;
-                border: 1px solid #e5e7eb;
+                border: 1px solid var(--border-color, #e5e7eb);
                 border-radius: 6px;
-                background: white;
-                color: #666;
+                background: var(--bg-secondary, white);
+                color: var(--text-secondary, #666);
                 cursor: pointer;
                 font-size: 14px;
                 transition: all 0.2s;

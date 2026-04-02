@@ -14,24 +14,24 @@
             <!-- GROUPE A : Apparence                    -->
             <!-- ═══════════════════════════════════════ -->
             <div class="settings-group">
-                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid var(--border-color, #e5e7eb); padding-bottom: 8px;">
                     ${i18n.t('settings.groups.appearance') || 'Apparence'}
                 </h2>
 
                 <!-- Langue -->
                 <div class="settings-section">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🌐 ${i18n.t('settings.language.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🌐 ${i18n.t('settings.language.title')}</h3>
                     <div class="language-selector-container" style="position: relative;">
                         <select id="languageSelect" class="language-select" style="
                             width: 100%;
                             padding: 12px 16px;
                             padding-right: 40px;
-                            border: 2px solid #e5e7eb;
+                            border: 2px solid var(--border-color, #e5e7eb);
                             border-radius: 8px;
-                            background: white;
+                            background: var(--bg-secondary, white);
                             cursor: pointer;
                             font-size: 15px;
-                            color: #333;
+                            color: var(--text-primary, #333);
                             appearance: none;
                             -webkit-appearance: none;
                             -moz-appearance: none;
@@ -49,7 +49,7 @@
                             top: 50%;
                             transform: translateY(-50%);
                             pointer-events: none;
-                            color: #666;
+                            color: var(--text-secondary, #666);
                             font-size: 12px;
                         ">▼</span>
                     </div>
@@ -57,11 +57,11 @@
 
                 <!-- Thème -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎨 ${i18n.t('settings.theme.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎨 ${i18n.t('settings.theme.title')}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">🌙 ${i18n.t('settings.theme.dark')}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.theme.darkDescription') || 'Activer le mode sombre'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">🌙 ${i18n.t('settings.theme.dark')}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.theme.darkDescription') || 'Activer le mode sombre'}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="darkModeToggle" ${this.settings.theme === 'dark' ? 'checked' : ''}
@@ -86,22 +86,22 @@
             <!-- GROUPE B : Lecture & Affichage           -->
             <!-- ═══════════════════════════════════════ -->
             <div class="settings-group" style="margin-top: 28px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid var(--border-color, #e5e7eb); padding-bottom: 8px;">
                     ${i18n.t('settings.groups.playback') || 'Lecture & Affichage'}
                 </h2>
 
                 <!-- Clavier -->
                 <div class="settings-section">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎹 ${i18n.t('settings.keyboard.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎹 ${i18n.t('settings.keyboard.title')}</h3>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <label style="font-size: 14px; color: #666;">
+                        <label style="font-size: 14px; color: var(--text-secondary, #666);">
                             ${i18n.t('settings.keyboard.octaveCount')} : <strong id="keyboardOctavesValue">${this.settings.keyboardOctaves}</strong>
-                            <span style="color: #999; font-weight: normal;">(<span id="keyboardTouchesCount">${this.settings.keyboardOctaves * 12}</span> ${i18n.t('common.keys')})</span>
+                            <span style="color: var(--text-muted, #999); font-weight: normal;">(<span id="keyboardTouchesCount">${this.settings.keyboardOctaves * 12}</span> ${i18n.t('common.keys')})</span>
                         </label>
                         <input type="range" id="keyboardOctavesRange" min="1" max="4" step="1"
                                value="${this.settings.keyboardOctaves}"
                                style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #999;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted, #999);">
                             <span>1 ${i18n.t('common.octave')}</span>
                             <span>4 ${i18n.t('common.octaves')}</span>
                         </div>
@@ -110,15 +110,15 @@
 
                 <!-- Temps d'affichage -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">⏱️ ${i18n.t('settings.noteDisplay.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">⏱️ ${i18n.t('settings.noteDisplay.title')}</h3>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <label style="font-size: 14px; color: #666;">
+                        <label style="font-size: 14px; color: var(--text-secondary, #666);">
                             ${i18n.t('settings.noteDisplay.visibleDuration')} : <strong id="noteDisplayTimeValue">${this.settings.noteDisplayTime}s</strong>
                         </label>
                         <input type="range" id="noteDisplayTimeRange" min="5" max="60" step="5"
                                value="${this.settings.noteDisplayTime}"
                                style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #999;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted, #999);">
                             <span>${i18n.t('settings.noteDisplay.minSeconds')}</span>
                             <span>${i18n.t('settings.noteDisplay.maxSeconds')}</span>
                         </div>
@@ -127,11 +127,11 @@
 
                 <!-- Instrument virtuel -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎵 ${i18n.t('settings.virtualInstrument.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎵 ${i18n.t('settings.virtualInstrument.title')}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.virtualInstrument.enable')}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.virtualInstrument.description')}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.virtualInstrument.enable')}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.virtualInstrument.description')}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="virtualInstrumentToggle" ${this.settings.virtualInstrument ? 'checked' : ''}
@@ -153,11 +153,11 @@
 
                 <!-- Piano Roll -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎹 ${i18n.t('settings.pianoRoll.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎹 ${i18n.t('settings.pianoRoll.title')}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.pianoRoll.enable')}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.pianoRoll.description')}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.pianoRoll.enable')}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.pianoRoll.description')}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="showPianoRollToggle" ${this.settings.showPianoRoll ? 'checked' : ''}
@@ -182,17 +182,17 @@
             <!-- GROUPE C : Boutons d'interface           -->
             <!-- ═══════════════════════════════════════ -->
             <div class="settings-group" style="margin-top: 28px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid var(--border-color, #e5e7eb); padding-bottom: 8px;">
                     ${i18n.t('settings.groups.buttons') || "Boutons d'interface"}
                 </h2>
 
                 <!-- Bouton Playlist -->
                 <div class="settings-section">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎶 ${i18n.t('settings.playlistButton.title') || 'Bouton Playlist'}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎶 ${i18n.t('settings.playlistButton.title') || 'Bouton Playlist'}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.playlistButton.enable') || 'Afficher le bouton playlist'}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.playlistButton.description') || 'Affiche le bouton playlist dans la barre de navigation'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.playlistButton.enable') || 'Afficher le bouton playlist'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.playlistButton.description') || 'Affiche le bouton playlist dans la barre de navigation'}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="showPlaylistButtonToggle" ${this.settings.showPlaylistButton ? 'checked' : ''}
@@ -214,11 +214,11 @@
 
                 <!-- Bouton Debug -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🐞 ${i18n.t('settings.debugButton.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🐞 ${i18n.t('settings.debugButton.title')}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.debugButton.enable')}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.debugButton.description')}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.debugButton.enable')}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.debugButton.description')}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="showDebugButtonToggle" ${this.settings.showDebugButton ? 'checked' : ''}
@@ -240,11 +240,11 @@
 
                 <!-- Bouton Calibration Micro -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🎤 ${i18n.t('settings.calibrationButton.title') || 'Bouton Calibration Micro'}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎤 ${i18n.t('settings.calibrationButton.title') || 'Bouton Calibration Micro'}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.calibrationButton.enable') || 'Afficher le bouton de calibration'}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.calibrationButton.description') || 'Affiche le bouton microphone pour calibrer les délais audio des instruments'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.calibrationButton.enable') || 'Afficher le bouton de calibration'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.calibrationButton.description') || 'Affiche le bouton microphone pour calibrer les délais audio des instruments'}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="showCalibrationButtonToggle" ${this.settings.showCalibrationButton ? 'checked' : ''}
@@ -266,11 +266,11 @@
 
                 <!-- Bouton Contrôle Lumière -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">💡 ${i18n.t('settings.lightingButton.title') || 'Bouton Contrôle Lumière'}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">💡 ${i18n.t('settings.lightingButton.title') || 'Bouton Contrôle Lumière'}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.lightingButton.enable') || 'Afficher le bouton de contrôle lumière'}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.lightingButton.description') || 'Affiche le bouton ampoule pour gérer les bandeaux LED et règles lumière'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.lightingButton.enable') || 'Afficher le bouton de contrôle lumière'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.lightingButton.description') || 'Affiche le bouton ampoule pour gérer les bandeaux LED et règles lumière'}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="showLightingButtonToggle" ${this.settings.showLightingButton ? 'checked' : ''}
@@ -295,17 +295,17 @@
             <!-- GROUPE D : Matériel & Système            -->
             <!-- ═══════════════════════════════════════ -->
             <div class="settings-group" style="margin-top: 28px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid var(--border-color, #e5e7eb); padding-bottom: 8px;">
                     ${i18n.t('settings.groups.system') || 'Matériel & Système'}
                 </h2>
 
                 <!-- Serial MIDI GPIO -->
                 <div class="settings-section">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">${i18n.t('settings.serialMidi.title')}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">${i18n.t('settings.serialMidi.title')}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.serialMidi.enable')}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.serialMidi.description')}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.serialMidi.enable')}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.serialMidi.description')}</p>
                         </div>
                         <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
                             <input type="checkbox" id="serialMidiToggle" ${this.settings.serialMidiEnabled ? 'checked' : ''}
@@ -327,12 +327,12 @@
                     <!-- Serial MIDI port management (shown when enabled) -->
                     <div id="serialMidiPortsSection" style="margin-top: 16px; display: ${this.settings.serialMidiEnabled ? 'block' : 'none'};">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <span style="font-size: 14px; color: #333; font-weight: 500;">${i18n.t('settings.serialMidi.ports')}</span>
+                            <span style="font-size: 14px; color: var(--text-primary, #333); font-weight: 500;">${i18n.t('settings.serialMidi.ports')}</span>
                             <button id="serialScanBtn" style="
                                 padding: 6px 14px;
                                 border: 1px solid #667eea;
                                 border-radius: 6px;
-                                background: white;
+                                background: var(--bg-secondary, white);
                                 color: #667eea;
                                 cursor: pointer;
                                 font-size: 13px;
@@ -340,12 +340,12 @@
                             ">${i18n.t('settings.serialMidi.scan')}</button>
                         </div>
                         <div id="serialPortsList" style="
-                            border: 1px solid #e5e7eb;
+                            border: 1px solid var(--border-color, #e5e7eb);
                             border-radius: 8px;
                             overflow: hidden;
                             min-height: 60px;
                         ">
-                            <div style="padding: 16px; text-align: center; color: #999; font-size: 13px;">
+                            <div style="padding: 16px; text-align: center; color: var(--text-muted, #999); font-size: 13px;">
                                 ${i18n.t('settings.serialMidi.clickScan')}
                             </div>
                         </div>
@@ -354,15 +354,15 @@
 
                 <!-- Mise à jour -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
-                    <div id="versionStatus" style="margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: #f3f4f6; color: #666; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
+                    <div id="versionStatus" style="margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 13px; display: flex; align-items: center; gap: 10px;">
                         <span style="animation: pulse 1.5s infinite;">⏳</span>
                         <span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
-                            <p style="margin: 0; font-size: 12px; color: #666;">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
                         </div>
                         <button id="systemUpdateBtn" style="
                             padding: 12px 24px;
