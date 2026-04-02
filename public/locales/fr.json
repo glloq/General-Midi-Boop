@@ -486,6 +486,7 @@
         "sortDate": "Date",
         "sortSize": "Taille",
         "sortDuration": "Durée",
+        "sortChannels": "Canaux",
         "advancedFilters": "Filtres avancés",
         "selectAll": "Tout sélectionner",
         "deselect": "Désélectionner",

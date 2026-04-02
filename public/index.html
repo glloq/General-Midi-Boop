@@ -1555,7 +1555,7 @@
         }
 
         .sort-order-btn.ascending {
-            transform: rotate(180deg);
+            /* Direction indicated by text content (↑/↓), no rotation needed */
         }
 
         body.theme-dark .sort-select,
@@ -4988,10 +4988,10 @@
                                         <option value="size" data-i18n="ui.sortSize">Taille</option>
                                         <option value="duration" data-i18n="ui.sortDuration">Durée</option>
                                         <option value="tempo" data-i18n="ui.sortTempo">Tempo</option>
-                                        <option value="tracks" data-i18n="ui.sortTracks">Pistes</option>
+                                        <option value="channels" data-i18n="ui.sortChannels">Canaux</option>
                                     </select>
-                                    <button id="sortOrder" class="sort-order-btn" data-i18n-title="ui.sortOrder" title="Ordre de tri">
-                                        ↓
+                                    <button id="sortOrder" class="sort-order-btn ascending" data-i18n-title="ui.sortOrder" title="Ordre de tri">
+                                        ↑
                                     </button>
                                 </div>
 
@@ -7264,7 +7264,7 @@
         // Fonction pour trier les fichiers
         async function sortFiles(files) {
             // Si tri par métadonnées non présentes directement, charger les métadonnées
-            if (['size', 'duration', 'tempo', 'tracks'].includes(currentSortBy)) {
+            if (['size', 'duration', 'tempo', 'channels'].includes(currentSortBy)) {
                 // Charger les métadonnées pour tous les fichiers
                 await Promise.all(files.map(async (file) => {
                     if (!metadataCache.has(file.id)) {
@@ -7321,12 +7321,12 @@
                         break;
                     }
 
-                    case 'tracks': {
-                        const metaTracksA = metadataCache.get(a.id);
-                        const metaTracksB = metadataCache.get(b.id);
-                        const tracksA = a.tracks || (metaTracksA ? metaTracksA.tracks : 0);
-                        const tracksB = b.tracks || (metaTracksB ? metaTracksB.tracks : 0);
-                        compareValue = tracksA - tracksB;
+                    case 'channels': {
+                        const metaChA = metadataCache.get(a.id);
+                        const metaChB = metadataCache.get(b.id);
+                        const chA = a.channel_count || (metaChA ? metaChA.channel_count : 0);
+                        const chB = b.channel_count || (metaChB ? metaChB.channel_count : 0);
+                        compareValue = chA - chB;
                         break;
                     }
                 }
@@ -7338,7 +7338,7 @@
         }
 
         // Mapping des noms de tri UI vers les champs backend
-        const sortFieldMap = { name: 'filename', date: 'uploaded_at', size: 'size', duration: 'duration', tempo: 'tempo', tracks: 'tracks' };
+        const sortFieldMap = { name: 'filename', date: 'uploaded_at', size: 'size', duration: 'duration', tempo: 'tempo', channels: 'channel_count' };
 
         // Initialiser les contrôles de tri
         function initSortControls() {
