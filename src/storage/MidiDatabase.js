@@ -556,11 +556,42 @@ class MidiDatabase {
           wheres.push(`mf.id IN (
             SELECT DISTINCT mfc2.midi_file_id
             FROM midi_file_channels mfc2
-            INNER JOIN instruments_latency il ON (
-              (il.note_range_min IS NULL OR mfc2.note_range_max >= il.note_range_min)
-              AND (il.note_range_max IS NULL OR mfc2.note_range_min <= il.note_range_max)
+            WHERE EXISTS (
+              SELECT 1 FROM instruments_latency il
+              WHERE il.id IN (${placeholders})
+              AND (
+                -- Exact type match
+                mfc2.estimated_type = il.instrument_type
+                -- Family: keyboards
+                OR (mfc2.estimated_type IN ('piano','organ','chromatic_percussion')
+                    AND il.instrument_type IN ('piano','organ','chromatic_percussion'))
+                -- Family: strings
+                OR (mfc2.estimated_type IN ('strings','ensemble')
+                    AND il.instrument_type IN ('strings','ensemble'))
+                -- Family: winds
+                OR (mfc2.estimated_type IN ('brass','reed','pipe')
+                    AND il.instrument_type IN ('brass','reed','pipe'))
+                -- Family: synths
+                OR (mfc2.estimated_type IN ('synth_lead','synth_pad','synth_effects')
+                    AND il.instrument_type IN ('synth_lead','synth_pad','synth_effects'))
+                -- Family: percussion
+                OR (mfc2.estimated_type IN ('drums','chromatic_percussion')
+                    AND il.instrument_type IN ('drums','chromatic_percussion'))
+                -- Channel 9 = drums
+                OR (mfc2.channel = 9 AND il.instrument_type IN ('drums','chromatic_percussion'))
+                -- Fallback: unknown instrument type -> accept based on note range only
+                OR il.instrument_type IS NULL OR il.instrument_type = 'unknown' OR il.instrument_type = ''
+              )
+              AND (
+                -- Note range compatibility (secondary: skip if either side lacks data)
+                (il.note_range_min IS NULL AND il.note_range_max IS NULL)
+                OR (mfc2.note_range_min IS NULL AND mfc2.note_range_max IS NULL)
+                OR (
+                  COALESCE(mfc2.note_range_max, 127) >= COALESCE(il.note_range_min, 0)
+                  AND COALESCE(mfc2.note_range_min, 0) <= COALESCE(il.note_range_max, 127)
+                )
+              )
             )
-            WHERE il.id IN (${placeholders})
           )`);
         } else {
           wheres.push(`mf.id IN (
