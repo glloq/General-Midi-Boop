@@ -79,6 +79,17 @@
             "enable": "Afficher le bouton de contrôle lumière",
             "description": "Affiche le bouton ampoule pour gérer les bandeaux LED et règles lumière"
         },
+        "playlistButton": {
+            "title": "Bouton Playlist",
+            "enable": "Afficher le bouton playlist",
+            "description": "Affiche le bouton playlist dans la barre de navigation"
+        },
+        "groups": {
+            "appearance": "Apparence",
+            "playback": "Lecture & Affichage",
+            "buttons": "Boutons d'interface",
+            "system": "Matériel & Système"
+        },
         "serialMidi": {
             "title": "MIDI Série (GPIO)",
             "enable": "Activer les ports MIDI série",

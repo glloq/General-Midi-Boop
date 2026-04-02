@@ -80,6 +80,17 @@
             "enable": "Lichtsteuerungsknopf anzeigen",
             "description": "Zeigt den Glühbirnenknopf zur Verwaltung von LED-Streifen und Beleuchtungsregeln"
         },
+        "playlistButton": {
+            "title": "Playlist Button",
+            "enable": "Show playlist button",
+            "description": "Shows the playlist button in the navigation bar"
+        },
+        "groups": {
+            "appearance": "Appearance",
+            "playback": "Playback & Display",
+            "buttons": "Interface Buttons",
+            "system": "Hardware & System"
+        },
         "serialMidi": {
             "title": "Serielles MIDI (GPIO)",
             "enable": "Serielle MIDI-Ports aktivieren",

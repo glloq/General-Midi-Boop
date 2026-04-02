@@ -51,6 +51,7 @@ class SettingsModal {
             showDebugButton: true,
             showCalibrationButton: false,
             showLightingButton: false,
+            showPlaylistButton: true,
             serialMidiEnabled: false
         };
 
@@ -325,6 +326,9 @@ class SettingsModal {
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
         if (lightingButtonToggle) lightingButtonToggle.checked = this.settings.showLightingButton;
 
+        const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
+        if (playlistButtonToggle) playlistButtonToggle.checked = this.settings.showPlaylistButton;
+
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         if (serialMidiToggle) serialMidiToggle.checked = this.settings.serialMidiEnabled;
         const serialPortsSection = this.modal.querySelector('#serialMidiPortsSection');
@@ -357,6 +361,7 @@ class SettingsModal {
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
         const calibrationButtonToggle = this.modal.querySelector('#showCalibrationButtonToggle');
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
+        const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
 
         const newSettings = {
@@ -368,6 +373,7 @@ class SettingsModal {
             showDebugButton: debugButtonToggle ? debugButtonToggle.checked : this.settings.showDebugButton,
             showCalibrationButton: calibrationButtonToggle ? calibrationButtonToggle.checked : this.settings.showCalibrationButton,
             showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
+            showPlaylistButton: playlistButtonToggle ? playlistButtonToggle.checked : this.settings.showPlaylistButton,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled
         };
 
@@ -379,6 +385,7 @@ class SettingsModal {
         const debugButtonChanged = newSettings.showDebugButton !== this.settings.showDebugButton;
         const calibrationButtonChanged = newSettings.showCalibrationButton !== this.settings.showCalibrationButton;
         const lightingButtonChanged = newSettings.showLightingButton !== this.settings.showLightingButton;
+        const playlistButtonChanged = newSettings.showPlaylistButton !== this.settings.showPlaylistButton;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
 
         this.settings = newSettings;
@@ -408,6 +415,10 @@ class SettingsModal {
             this.eventBus?.emit('settings:lighting_button_changed', { enabled: newSettings.showLightingButton });
             this.applyLightingButton(newSettings.showLightingButton);
         }
+        if (playlistButtonChanged) {
+            this.eventBus?.emit('settings:playlist_button_changed', { enabled: newSettings.showPlaylistButton });
+            this.applyPlaylistButton(newSettings.showPlaylistButton);
+        }
         if (serialMidiChanged) this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
 
         this.close();
@@ -422,6 +433,7 @@ class SettingsModal {
         this.applyDebugButton(this.settings.showDebugButton);
         this.applyCalibrationButton(this.settings.showCalibrationButton);
         this.applyLightingButton(this.settings.showLightingButton);
+        this.applyPlaylistButton(this.settings.showPlaylistButton);
     }
 
     applyDebugButton(show) {
@@ -439,6 +451,11 @@ class SettingsModal {
     applyLightingButton(show) {
         const lightingBtn = document.getElementById('lightingBtn');
         if (lightingBtn) lightingBtn.style.display = show ? 'flex' : 'none';
+    }
+
+    applyPlaylistButton(show) {
+        const playlistBtn = document.getElementById('playlistBtn');
+        if (playlistBtn) playlistBtn.style.display = show ? '' : 'none';
     }
 
     /**

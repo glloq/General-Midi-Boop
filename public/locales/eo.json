@@ -80,6 +80,17 @@
             "enable": "Show lighting control button",
             "description": "Shows the light bulb button to manage LED strips and lighting rules"
         },
+        "playlistButton": {
+            "title": "Playlist Button",
+            "enable": "Show playlist button",
+            "description": "Shows the playlist button in the navigation bar"
+        },
+        "groups": {
+            "appearance": "Appearance",
+            "playback": "Playback & Display",
+            "buttons": "Interface Buttons",
+            "system": "Hardware & System"
+        },
         "serialMidi": {
             "title": "Seria MIDI (GPIO)",
             "enable": "Ebligi seriajn MIDI-pordojn",

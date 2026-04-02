@@ -80,6 +80,17 @@
             "enable": "Mostrar botón de control de iluminación",
             "description": "Añadir un botón de acceso rápido al control de iluminación en la barra de navegación"
         },
+        "playlistButton": {
+            "title": "Playlist Button",
+            "enable": "Show playlist button",
+            "description": "Shows the playlist button in the navigation bar"
+        },
+        "groups": {
+            "appearance": "Appearance",
+            "playback": "Playback & Display",
+            "buttons": "Interface Buttons",
+            "system": "Hardware & System"
+        },
         "serialMidi": {
             "title": "MIDI Serie (GPIO)",
             "enable": "Activar puertos MIDI serie",
