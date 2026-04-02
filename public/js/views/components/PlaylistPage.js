@@ -31,12 +31,9 @@ class PlaylistPage {
     return document.body.classList.contains('dark-mode') || document.body.classList.contains('theme-dark');
   }
 
-  _t(key, fallback, params) {
-    if (typeof i18n !== 'undefined' && i18n.t) {
-      const result = i18n.t(key, params || {});
-      if (result && result !== key) return result;
-    }
-    return fallback || key;
+  _t(key) {
+    if (typeof i18n !== 'undefined' && i18n.t) return i18n.t(key);
+    return key;
   }
 
   _formatDuration(seconds) {
@@ -110,27 +107,27 @@ class PlaylistPage {
       <div class="plpage-overlay">
         <div class="plpage-container">
           <div class="plpage-header">
-            <h2>🎶 ${this._t('playlist.title', 'Playlists')}</h2>
+            <h2>🎶 ${this._t('playlist.title')}</h2>
             <button class="plpage-close" id="playlistPageCloseBtn" title="Close">✕</button>
           </div>
 
           <div class="plpage-layout">
             <div class="plpage-sidebar left">
               <div class="plpage-section-hdr">
-                <h3>${this._t('playlist.myPlaylists', 'My Playlists')}</h3>
-                <button class="plpage-btn" id="playlistCreateBtn" title="${this._t('playlist.create', 'New playlist')}">+</button>
+                <h3>${this._t('playlist.myPlaylists')}</h3>
+                <button class="plpage-btn" id="playlistCreateBtn" title="${this._t('playlist.create')}">+</button>
               </div>
               <div id="playlistListContainer"></div>
             </div>
 
             <div class="plpage-main">
               <div class="plpage-section-hdr">
-                <h3 id="playlistItemsTitle">${this._t('playlist.selectPlaylist', 'Select a playlist')}</h3>
+                <h3 id="playlistItemsTitle">${this._t('playlist.selectPlaylist')}</h3>
                 <div id="playlistItemsActions" class="plpage-actions" style="display:none;">
-                  <button class="plpage-btn" id="playlistRenameBtn" title="${this._t('playlist.rename', 'Rename')}">✏️</button>
-                  <button class="plpage-btn" id="playlistLoopBtn" title="${this._t('playlist.loop', 'Loop')}">🔁</button>
-                  <button class="plpage-btn" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles', 'Add files')}</button>
-                  <button class="plpage-btn primary" id="playlistPlayBtn" disabled>▶ ${this._t('playlist.play', 'Play')}</button>
+                  <button class="plpage-btn" id="playlistRenameBtn" title="${this._t('playlist.rename')}">✏️</button>
+                  <button class="plpage-btn" id="playlistLoopBtn" title="${this._t('playlist.loop')}">🔁</button>
+                  <button class="plpage-btn" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles')}</button>
+                  <button class="plpage-btn primary" id="playlistPlayBtn" disabled>▶ ${this._t('playlist.play')}</button>
                 </div>
               </div>
               <div id="playlistItemsContainer"></div>
@@ -212,7 +209,7 @@ class PlaylistPage {
 
     if (this.playlists.length === 0) {
       container.innerHTML = `<p style="color:#6c757d;font-size:0.9rem;text-align:center;padding:20px;">
-        ${this._t('playlist.noPlaylists', 'No playlists yet. Click + to create one.')}
+        ${this._t('playlist.noPlaylists')}
       </p>`;
       return;
     }
@@ -229,7 +226,7 @@ class PlaylistPage {
             <span style="font-weight:500;">${this._escapeHtml(pl.name)}</span>
             <button class="playlist-delete-btn" data-playlist-id="${pl.id}"
                     style="background:none;border:none;cursor:pointer;font-size:0.85rem;opacity:0.5;padding:2px 6px;"
-                    title="${this._t('common.delete', 'Delete')}">🗑️</button>
+                    title="${this._t('common.delete')}">🗑️</button>
           </div>
           ${pl.description ? `<div style="font-size:0.8rem;color:${c.textMuted || '#6c757d'};margin-top:2px;">${this._escapeHtml(pl.description)}</div>` : ''}
           <div style="font-size:0.75rem;color:${c.textMuted || '#adb5bd'};margin-top:4px;">
@@ -263,7 +260,7 @@ class PlaylistPage {
     if (!container) return;
 
     if (!this.selectedPlaylist) {
-      container.innerHTML = `<p style="color:#6c757d;text-align:center;padding:40px;">${this._t('playlist.selectPlaylist', 'Select a playlist')}</p>`;
+      container.innerHTML = `<p style="color:#6c757d;text-align:center;padding:40px;">${this._t('playlist.selectPlaylist')}</p>`;
       if (actions) actions.style.display = 'none';
       return;
     }
@@ -281,14 +278,14 @@ class PlaylistPage {
       const isLoop = this.selectedPlaylist.loop === 1;
       loopBtn.style.opacity = isLoop ? '1' : '0.4';
       loopBtn.title = isLoop
-        ? (this._t('playlist.loopEnabled', 'Loop enabled'))
-        : (this._t('playlist.loop', 'Loop'));
+        ? (this._t('playlist.loopEnabled'))
+        : (this._t('playlist.loop'));
     }
 
     const c = this._colors || {};
     if (this.playlistItems.length === 0) {
       container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:40px;">
-        ${this._t('playlist.emptyPlaylist', 'Empty playlist. Click "Add files" to add MIDI files.')}
+        ${this._t('playlist.emptyPlaylist')}
       </p>`;
       return;
     }
@@ -416,7 +413,7 @@ class PlaylistPage {
   // ==================== ACTIONS ====================
 
   async _createPlaylist() {
-    const name = prompt(this._t('playlist.enterName', 'Enter playlist name:'));
+    const name = prompt(this._t('playlist.enterName'));
     if (!name || !name.trim()) return;
 
     try {
@@ -430,7 +427,7 @@ class PlaylistPage {
   async _renamePlaylist() {
     if (!this.selectedPlaylist) return;
     const newName = prompt(
-      this._t('playlist.enterNewName', 'Enter new name:'),
+      this._t('playlist.enterNewName'),
       this.selectedPlaylist.name
     );
     if (!newName || !newName.trim() || newName.trim() === this.selectedPlaylist.name) return;
@@ -476,8 +473,8 @@ class PlaylistPage {
       if (loopBtn) {
         loopBtn.style.opacity = newLoop ? '1' : '0.4';
         loopBtn.title = newLoop
-          ? (this._t('playlist.loopEnabled', 'Loop enabled'))
-          : (this._t('playlist.loop', 'Loop'));
+          ? (this._t('playlist.loopEnabled'))
+          : (this._t('playlist.loop'));
       }
     } catch (error) {
       console.error('Failed to toggle loop:', error);
@@ -485,7 +482,7 @@ class PlaylistPage {
   }
 
   async _deletePlaylist(playlistId) {
-    if (!confirm(this._t('playlist.confirmDelete', 'Delete this playlist?'))) return;
+    if (!confirm(this._t('playlist.confirmDelete'))) return;
 
     try {
       await this.apiClient.sendCommand('playlist_delete', { playlistId });
