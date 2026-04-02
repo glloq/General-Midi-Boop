@@ -9344,8 +9344,30 @@
             }
 
             // Appliquer le routage sauvegardé
-            const config = fileRoutingConfig[fileId];
+            let config = fileRoutingConfig[fileId];
             if (!config || !config.channels) {
+                // Local config missing - fetch from backend DB (same pattern as configureRouting)
+                try {
+                    const result = await api.sendCommand('get_file_routings', { fileId });
+                    if (result && result.routings && result.routings.length > 0) {
+                        const dbChannels = {};
+                        for (const r of result.routings) {
+                            if (r.channel != null && r.device_id) {
+                                dbChannels[r.channel] = r.target_channel != null
+                                    ? `${r.device_id}::${r.target_channel}`
+                                    : r.device_id;
+                            }
+                        }
+                        config = { channels: dbChannels, configured: true, lastModified: Date.now() };
+                        fileRoutingConfig[fileId] = config;
+                        saveRoutingConfig();
+                    }
+                } catch (err) {
+                    console.warn('[playFile] Failed to fetch routings from backend:', err);
+                }
+            }
+
+            if (!config || !config.channels || Object.keys(config.channels).length === 0) {
                 log('Configuration de routage invalide', 'error');
                 return;
             }
