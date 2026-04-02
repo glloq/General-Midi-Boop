@@ -101,7 +101,6 @@ class LightingControlPage {
     this.createModal();
     await this.loadData();
     // Global ref needed for onclick handlers in mixin-generated HTML
-    // TODO: migrate remaining mixin onclick handlers to event delegation
     window.lightingControlPageInstance = this;
   }
 
