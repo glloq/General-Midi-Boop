@@ -448,4 +448,4 @@ class InstrumentSettingsDB {
   }
 }
 
-module.exports = InstrumentSettingsDB;
+export default InstrumentSettingsDB;
