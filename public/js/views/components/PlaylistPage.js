@@ -124,8 +124,10 @@ class PlaylistPage {
               <div class="plpage-section-hdr">
                 <h3 id="playlistItemsTitle">${this._t('playlist.selectPlaylist') || 'Select a playlist'}</h3>
                 <div id="playlistItemsActions" class="plpage-actions" style="display:none;">
+                  <button class="plpage-btn" id="playlistRenameBtn" title="${this._t('playlist.rename') || 'Rename'}">✏️</button>
+                  <button class="plpage-btn" id="playlistLoopBtn" title="${this._t('playlist.loop') || 'Loop'}">🔁</button>
                   <button class="plpage-btn" id="playlistAddFilesBtn">+ ${this._t('playlist.addFiles') || 'Add files'}</button>
-                  <button class="plpage-btn primary" id="playlistPlayBtn">▶ ${this._t('playlist.play') || 'Play'}</button>
+                  <button class="plpage-btn primary" id="playlistPlayBtn" disabled>▶ ${this._t('playlist.play') || 'Play'}</button>
                 </div>
               </div>
               <div id="playlistItemsContainer"></div>
@@ -167,6 +169,12 @@ class PlaylistPage {
 
     // Play playlist
     this.modal.querySelector('#playlistPlayBtn')?.addEventListener('click', () => this._playPlaylist());
+
+    // Rename playlist
+    this.modal.querySelector('#playlistRenameBtn')?.addEventListener('click', () => this._renamePlaylist());
+
+    // Toggle loop
+    this.modal.querySelector('#playlistLoopBtn')?.addEventListener('click', () => this._toggleLoop());
   }
 
   // ==================== DATA LOADING ====================
@@ -260,6 +268,20 @@ class PlaylistPage {
     if (title) title.textContent = this._escapeHtml(this.selectedPlaylist.name);
     if (actions) actions.style.display = 'flex';
 
+    // Update play button state
+    const playBtn = this.modal?.querySelector('#playlistPlayBtn');
+    if (playBtn) playBtn.disabled = this.playlistItems.length === 0;
+
+    // Update loop button visual
+    const loopBtn = this.modal?.querySelector('#playlistLoopBtn');
+    if (loopBtn) {
+      const isLoop = this.selectedPlaylist.loop === 1;
+      loopBtn.style.opacity = isLoop ? '1' : '0.4';
+      loopBtn.title = isLoop
+        ? (this._t('playlist.loopEnabled') || 'Loop enabled')
+        : (this._t('playlist.loop') || 'Loop');
+    }
+
     const c = this._colors || {};
     if (this.playlistItems.length === 0) {
       container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:40px;">
@@ -268,20 +290,19 @@ class PlaylistPage {
       return;
     }
 
-    // Check routing status for each file
-    const routingChecks = this.playlistItems.map(item => {
-      return this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
+    // Show loading state then render with routing data
+    container.innerHTML = `<p style="color:${c.textMuted || '#6c757d'};text-align:center;padding:20px;">Loading...</p>`;
+
+    const routingChecks = this.playlistItems.map(item =>
+      this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
         .then(res => ({ midi_id: item.midi_id, count: (res.routings || []).length }))
-        .catch(() => ({ midi_id: item.midi_id, count: 0 }));
-    });
+        .catch(() => ({ midi_id: item.midi_id, count: 0 }))
+    );
 
     Promise.all(routingChecks).then(results => {
       const routingMap = new Map(results.map(r => [r.midi_id, r.count]));
       this._renderPlaylistItemsWithRouting(container, routingMap, c);
     });
-
-    // Render immediately without routing info, then update
-    this._renderPlaylistItemsWithRouting(container, new Map(), c);
   }
 
   _renderPlaylistItemsWithRouting(container, routingMap, c) {
@@ -400,6 +421,63 @@ class PlaylistPage {
       await this.loadPlaylists();
     } catch (error) {
       console.error('Failed to create playlist:', error);
+    }
+  }
+
+  async _renamePlaylist() {
+    if (!this.selectedPlaylist) return;
+    const newName = prompt(
+      this._t('playlist.enterNewName') || 'Enter new name:',
+      this.selectedPlaylist.name
+    );
+    if (!newName || !newName.trim() || newName.trim() === this.selectedPlaylist.name) return;
+
+    try {
+      await this.apiClient.sendCommand('playlist_create', {
+        name: newName.trim(),
+        description: this.selectedPlaylist.description
+      });
+      // Delete old and reload — no rename command exists, so recreate
+      // Actually, let's just update the DB directly via a dedicated approach
+      // For now, use delete + create + re-add items pattern
+      const items = [...this.playlistItems];
+      const oldId = this.selectedPlaylist.id;
+      const loop = this.selectedPlaylist.loop;
+      const res = await this.apiClient.sendCommand('playlist_create', { name: newName.trim() });
+      const newId = res.playlistId;
+      for (const item of items) {
+        await this.apiClient.sendCommand('playlist_add_file', { playlistId: newId, midiId: item.midi_id });
+      }
+      if (loop) {
+        await this.apiClient.sendCommand('playlist_set_loop', { playlistId: newId, loop: true });
+      }
+      await this.apiClient.sendCommand('playlist_delete', { playlistId: oldId });
+      await this.loadPlaylists();
+      await this._loadPlaylistItems(newId);
+    } catch (error) {
+      console.error('Failed to rename playlist:', error);
+    }
+  }
+
+  async _toggleLoop() {
+    if (!this.selectedPlaylist) return;
+    const newLoop = this.selectedPlaylist.loop !== 1;
+    try {
+      await this.apiClient.sendCommand('playlist_set_loop', {
+        playlistId: this.selectedPlaylist.id,
+        loop: newLoop
+      });
+      this.selectedPlaylist.loop = newLoop ? 1 : 0;
+      // Update button visual
+      const loopBtn = this.modal?.querySelector('#playlistLoopBtn');
+      if (loopBtn) {
+        loopBtn.style.opacity = newLoop ? '1' : '0.4';
+        loopBtn.title = newLoop
+          ? (this._t('playlist.loopEnabled') || 'Loop enabled')
+          : (this._t('playlist.loop') || 'Loop');
+      }
+    } catch (error) {
+      console.error('Failed to toggle loop:', error);
     }
   }
 

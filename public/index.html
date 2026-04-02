@@ -8905,7 +8905,7 @@
 
                 const menu = document.createElement('div');
                 menu.className = 'playlist-dropdown-menu';
-                menu.style.cssText = 'position:absolute;z-index:10001;background:white;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:6px 0;min-width:200px;';
+                menu.style.cssText = 'position:fixed;z-index:10001;background:white;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:6px 0;min-width:200px;';
 
                 if (document.body.classList.contains('theme-dark') || document.body.classList.contains('dark-mode')) {
                     menu.style.background = '#2d2d2d';
@@ -8970,10 +8970,11 @@
                 });
                 menu.appendChild(newItem);
 
-                // Position relative to anchor
+                // Position relative to anchor (fixed so it stays with button)
                 const rect = anchorElement.getBoundingClientRect();
-                menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-                menu.style.left = (rect.left + window.scrollX) + 'px';
+                menu.style.position = 'fixed';
+                menu.style.top = (rect.bottom + 4) + 'px';
+                menu.style.left = rect.left + 'px';
                 document.body.appendChild(menu);
 
                 // Close on click outside

@@ -576,14 +576,23 @@ class MidiPlayer {
 
   broadcastStatus() {
     if (this.app.wsServer) {
-      this.app.wsServer.broadcast('playback_status', {
+      const status = {
         playing: this.playing,
         paused: this.paused,
         position: this.position,
         duration: this.duration,
         percentage: this.duration > 0 ? (this.position / this.duration) * 100 : 0,
         loop: this.loop
-      });
+      };
+      // Include queue/playlist info if active
+      if (this.queue.length > 0 && this.queueIndex >= 0) {
+        status.playlistId = this.playlistId;
+        status.queueIndex = this.queueIndex;
+        status.queueTotal = this.queue.length;
+        status.queueLoop = this.queueLoop;
+        status.queueFile = this.queue[this.queueIndex] || null;
+      }
+      this.app.wsServer.broadcast('playback_status', status);
     }
   }
 

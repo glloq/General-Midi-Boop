@@ -8,45 +8,53 @@
 |---------|------|
 | `src/storage/Database.js` | 6 méthodes playlist_items (get, add, remove, reorder, clear, updateLoop) |
 | `src/api/commands/PlaylistCommands.js` | 14 commandes WebSocket (CRUD + start/next/prev/stop/status) |
-| `src/midi/MidiPlayer.js` | Queue system (setQueue, playQueueItem, nextInQueue, previousInQueue, _handleFileEnd) + disconnect policy |
-| `src/midi/PlaybackScheduler.js` | Callback onFileEnd, playback_channel_skipped event, disconnect policy branching |
+| `src/midi/MidiPlayer.js` | Queue system (setQueue, playQueueItem, nextInQueue, previousInQueue, _handleFileEnd), disconnect policy, broadcastStatus avec info queue |
+| `src/midi/PlaybackScheduler.js` | Callback onFileEnd, playback_channel_skipped event, disconnect policy branching (skip/pause/mute), CC filtering dans split routing |
 | `src/api/commands/PlaybackCommands.js` | playback_validate_routing + playback_set_disconnect_policy |
 
 ### Frontend
 
 | Fichier | Rôle |
 |---------|------|
-| `public/js/views/components/PlaylistPage.js` | Page modale pleine (3 colonnes: playlists, items, queue) |
-| `public/js/views/components/PlaylistEditorModal.js` | Modal d'ajout de fichiers (2 colonnes: fichiers dispo, playlist) |
-| `public/styles/playlist.css` | Styles PlaylistPage (872 lignes, pré-existant) |
-| `public/styles/modal-playlist.css` | Styles PlaylistEditorModal (451 lignes, pré-existant) |
-| `public/index.html` | Bouton header, boutons fichier/batch, mini-queue indicator, WebSocket handlers |
+| `public/js/views/components/PlaylistPage.js` | Page modale fixe 900x600px (2 colonnes: playlists + items), rename, loop toggle, drag-and-drop reorder, routing status dots |
+| `public/js/views/components/PlaylistEditorModal.js` | Modal d'ajout de fichiers (2 colonnes: fichiers dispo avec filtre "Routed only" + playlist items), routing status dots |
+| `public/styles/playlist.css` | Styles PlaylistPage (scopés sous .playlist-view-container) |
+| `public/styles/modal-playlist.css` | Styles PlaylistEditorModal |
+| `public/index.html` | Bouton header cercle 🎶, bouton fichier 📋, batch action, boutons prev/next dans header-playback, WebSocket handlers |
+| `public/locales/en.json`, `fr.json` | Traductions i18n (section "playlist") |
 
 ### Base de données
 
-Tables `playlists` et `playlist_items` (migration 007, pré-existantes).
+Tables `playlists` (id, name, description, loop, created_at, updated_at) et `playlist_items` (id, playlist_id, midi_id, position) — migration 007.
 
 ## Parcours utilisateur
 
 ### Accès
-- Bouton `🎶` dans le header → ouvre PlaylistPage (modal pleine page)
-- Mini-indicateur de queue dans le header pendant la lecture d'une playlist
+- Bouton cercle `🎶` dans le header (entre instruments 🎸 et lighting 💡)
+- Ouvre PlaylistPage en modal fixe 900x600px
 
-### Création
-1. Cliquer `🎶` → Page playlist → Bouton "+"
-2. Nommer la playlist → créée et sélectionnée
-3. Bouton "Add files" → PlaylistEditorModal (2 colonnes)
-4. Chercher/ajouter des fichiers → fermer → items visibles
+### Gestion des playlists
+- Créer : bouton "+" dans la sidebar gauche → prompt nom
+- Renommer : bouton ✏️ dans le header central (recrée la playlist avec le nouveau nom)
+- Supprimer : bouton 🗑️ sur chaque playlist dans la sidebar
+- Boucle : bouton 🔁 toggle dans le header central (opacité visuelle)
 
-### Ajout rapide depuis la liste de fichiers
-- Bouton `📋` par fichier → dropdown des playlists existantes
-- Sélection batch + bouton "📋 Ajouter à playlist"
+### Ajout de fichiers
+- Depuis PlaylistPage : bouton "+ Add files" → PlaylistEditorModal
+  - 2 colonnes : fichiers disponibles (avec recherche + filtre "Routed only") | contenu playlist
+  - Pastilles vertes/rouges indiquant le statut de routing
+  - Compteur de fichiers routés
+- Depuis la liste principale : bouton 📋 par fichier → dropdown des playlists
+- Action batch : sélection multiple + bouton "📋 Ajouter à playlist"
 
 ### Lecture
-1. Bouton "▶ Play" dans PlaylistPage → démarre la playlist
-2. Mini-queue visible dans le header : ⏮ Previous | ⏭ Next | 🔁 Loop | ✕ Stop
-3. Transitions automatiques entre fichiers (stop-load-start)
-4. Routings rechargés depuis la DB pour chaque fichier
+- Bouton "▶ Play" dans PlaylistPage (désactivé si playlist vide)
+- Contrôles dans header-playback existant :
+  - ⏮ Previous / ⏭ Next (affichés uniquement pendant lecture playlist)
+  - ▶️/⏸️ Play/Pause fonctionne pour les playlists
+  - ⏹️ Stop arrête la playlist et vide la queue
+  - Info playlist "3/12" à côté du nom de fichier
+- Transitions automatiques entre fichiers (stop-load-start avec rechargement des routings)
 
 ## Gestion des instruments non-routés
 
@@ -81,6 +89,7 @@ Commande `playback_set_disconnect_policy` :
 ### Events WebSocket émis
 - `playlist_item_changed` : `{ playlistId, index, totalItems, fileId, filename }`
 - `playlist_ended` : `{ playlistId }`
+- `playback_status` : inclut `playlistId, queueIndex, queueTotal, queueLoop, queueFile` si playlist active
 - `playback_channel_skipped` : `{ channel, channelDisplay, reason }`
 - `playback_device_error` : `{ deviceId, channel, message }`
 - `playback_device_disconnected` : `{ deviceId, channel, policy, mutedChannels?, message }`
