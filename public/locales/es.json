@@ -606,7 +606,8 @@
         "enterNewName": "Nuevo nombre:",
         "loop": "Bucle",
         "loopEnabled": "Bucle activado",
-        "loopDisabled": "Bucle desactivado"
+        "loopDisabled": "Bucle desactivado",
+        "editPlaylist": "Editar lista"
     },
     "lighting": {
         "title": "Control de iluminación",

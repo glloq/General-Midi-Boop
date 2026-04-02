@@ -591,7 +591,8 @@
         "enterNewName": "Zadejte nový název:",
         "loop": "Smyčka",
         "loopEnabled": "Smyčka zapnuta",
-        "loopDisabled": "Smyčka vypnuta"
+        "loopDisabled": "Smyčka vypnuta",
+        "editPlaylist": "Upravit playlist"
     },
     "lighting": {
         "title": "Lighting Control",

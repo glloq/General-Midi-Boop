@@ -591,7 +591,8 @@
         "enterNewName": "Νέο όνομα:",
         "loop": "Επανάληψη",
         "loopEnabled": "Επανάληψη ενεργή",
-        "loopDisabled": "Επανάληψη ανενεργή"
+        "loopDisabled": "Επανάληψη ανενεργή",
+        "editPlaylist": "Επεξεργασία λίστας"
     },
     "lighting": {
         "title": "Lighting Control",

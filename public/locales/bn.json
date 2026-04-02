@@ -591,7 +591,8 @@
         "enterNewName": "নতুন নাম লিখুন:",
         "loop": "লুপ",
         "loopEnabled": "লুপ সক্রিয়",
-        "loopDisabled": "লুপ নিষ্ক্রিয়"
+        "loopDisabled": "লুপ নিষ্ক্রিয়",
+        "editPlaylist": "প্লেলিস্ট সম্পাদনা"
     },
     "lighting": {
         "title": "Lighting Control",

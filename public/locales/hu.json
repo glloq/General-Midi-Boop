@@ -591,7 +591,8 @@
         "enterNewName": "Új név:",
         "loop": "Ismétlés",
         "loopEnabled": "Ismétlés bekapcsolva",
-        "loopDisabled": "Ismétlés kikapcsolva"
+        "loopDisabled": "Ismétlés kikapcsolva",
+        "editPlaylist": "Lista szerkesztése"
     },
     "lighting": {
         "title": "Lighting Control",

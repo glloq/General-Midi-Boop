@@ -591,7 +591,8 @@
         "enterNewName": "Indtast nyt navn:",
         "loop": "Loop",
         "loopEnabled": "Loop aktiveret",
-        "loopDisabled": "Loop deaktiveret"
+        "loopDisabled": "Loop deaktiveret",
+        "editPlaylist": "Rediger playliste"
     },
     "lighting": {
         "title": "Lighting Control",

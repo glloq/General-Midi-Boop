@@ -591,7 +591,8 @@
         "enterNewName": "Nama baru:",
         "loop": "Ulangi",
         "loopEnabled": "Ulangi aktif",
-        "loopDisabled": "Ulangi nonaktif"
+        "loopDisabled": "Ulangi nonaktif",
+        "editPlaylist": "Edit Daftar Putar"
     },
     "lighting": {
         "title": "Lighting Control",

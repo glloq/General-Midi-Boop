@@ -591,7 +591,8 @@
         "enterNewName": "नया नाम:",
         "loop": "लूप",
         "loopEnabled": "लूप सक्रिय",
-        "loopDisabled": "लूप निष्क्रिय"
+        "loopDisabled": "लूप निष्क्रिय",
+        "editPlaylist": "प्लेलिस्ट संपादित करें"
     },
     "lighting": {
         "title": "Lighting Control",

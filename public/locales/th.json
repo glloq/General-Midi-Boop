@@ -591,7 +591,8 @@
         "enterNewName": "ชื่อใหม่:",
         "loop": "วนซ้ำ",
         "loopEnabled": "วนซ้ำเปิด",
-        "loopDisabled": "วนซ้ำปิด"
+        "loopDisabled": "วนซ้ำปิด",
+        "editPlaylist": "แก้ไขเพลย์ลิสต์"
     },
     "lighting": {
         "title": "Lighting Control",

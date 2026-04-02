@@ -591,7 +591,8 @@
         "enterNewName": "Uusi nimi:",
         "loop": "Silmukka",
         "loopEnabled": "Silmukka päällä",
-        "loopDisabled": "Silmukka pois"
+        "loopDisabled": "Silmukka pois",
+        "editPlaylist": "Muokkaa soittolistaa"
     },
     "lighting": {
         "title": "Lighting Control",

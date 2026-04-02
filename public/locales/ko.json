@@ -591,7 +591,8 @@
         "enterNewName": "새 이름:",
         "loop": "반복",
         "loopEnabled": "반복 활성화",
-        "loopDisabled": "반복 비활성화"
+        "loopDisabled": "반복 비활성화",
+        "editPlaylist": "재생목록 편집"
     },
     "lighting": {
         "title": "Lighting Control",

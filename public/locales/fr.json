@@ -309,7 +309,7 @@
         "stop": "Arrêt",
         "synthInitError": "Impossible d'initialiser le synthétiseur audio",
         "changeChannelTitle": "Changer de canal",
-        "changeInstrumentTitle": "Changer d'instrument",
+        "changeInstrumentTitle": "Changer l'instrument GM",
         "apply": "Appliquer",
         "sameInstrument": "Même instrument déjà sélectionné",
         "noChannelAvailable": "Aucun canal disponible",
@@ -398,7 +398,6 @@
         "visibilityTitle": "Visibilité",
         "moveToChannelTitle": "Déplacer vers un canal",
         "moveToChannelHint": "Déplace les notes sélectionnées vers le canal choisi",
-        "changeInstrumentTitle": "Changer l'instrument GM",
         "changeInstrumentHint": "Change le programme MIDI du canal actif",
         "previewSourceTitle": "Source de préécoute",
         "previewSourceHint": "Choisir entre le son GM original ou l'instrument routé",
@@ -598,7 +597,8 @@
         "enterNewName": "Nouveau nom :",
         "loop": "Boucle",
         "loopEnabled": "Boucle activée",
-        "loopDisabled": "Boucle désactivée"
+        "loopDisabled": "Boucle désactivée",
+        "editPlaylist": "Modifier la playlist"
     },
     "lighting": {
         "title": "Contrôle Lumière",

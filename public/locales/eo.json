@@ -591,7 +591,8 @@
         "enterNewName": "Nova nomo:",
         "loop": "Buklo",
         "loopEnabled": "Buklo aktiva",
-        "loopDisabled": "Buklo malaktiva"
+        "loopDisabled": "Buklo malaktiva",
+        "editPlaylist": "Redakti ludliston"
     },
     "lighting": {
         "title": "Lighting Control",

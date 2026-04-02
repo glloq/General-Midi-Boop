@@ -591,7 +591,8 @@
         "enterNewName": "新しい名前:",
         "loop": "ループ",
         "loopEnabled": "ループ有効",
-        "loopDisabled": "ループ無効"
+        "loopDisabled": "ループ無効",
+        "editPlaylist": "プレイリストを編集"
     },
     "lighting": {
         "title": "Lighting Control",

@@ -591,7 +591,8 @@
         "enterNewName": "Nytt namn:",
         "loop": "Upprepa",
         "loopEnabled": "Upprepning på",
-        "loopDisabled": "Upprepning av"
+        "loopDisabled": "Upprepning av",
+        "editPlaylist": "Redigera spellista"
     },
     "lighting": {
         "title": "Lighting Control",

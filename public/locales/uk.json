@@ -591,7 +591,8 @@
         "enterNewName": "Нова назва:",
         "loop": "Цикл",
         "loopEnabled": "Цикл увімкнено",
-        "loopDisabled": "Цикл вимкнено"
+        "loopDisabled": "Цикл вимкнено",
+        "editPlaylist": "Редагувати плейлист"
     },
     "lighting": {
         "title": "Lighting Control",

@@ -591,7 +591,8 @@
         "enterNewName": "Yeni ad:",
         "loop": "Döngü",
         "loopEnabled": "Döngü açık",
-        "loopDisabled": "Döngü kapalı"
+        "loopDisabled": "Döngü kapalı",
+        "editPlaylist": "Listeyi düzenle"
     },
     "lighting": {
         "title": "Lighting Control",

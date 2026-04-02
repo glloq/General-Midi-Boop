@@ -32,6 +32,15 @@ class PlaylistEditorModal extends BaseModal {
     this.onCloseCallback = fn;
   }
 
+  // Override BaseModal.t() to support fallback when key is not found
+  t(key, fallback) {
+    if (typeof i18n !== 'undefined' && i18n.t) {
+      const result = i18n.t(key);
+      if (result && result !== key) return result;
+    }
+    return fallback || key;
+  }
+
   _isDark() {
     return document.body.classList.contains('dark-mode') || document.body.classList.contains('theme-dark');
   }
@@ -57,12 +66,12 @@ class PlaylistEditorModal extends BaseModal {
         <div class="available-files" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0;">
             <input type="text" id="playlistEditorSearch"
-              placeholder="${this.t('playlist.searchFiles') || 'Search files...'}"
+              placeholder="${this.t('playlist.searchFiles', 'Search files...')}"
               style="flex:1;padding:8px 12px;border:1px solid ${border};border-radius:6px;font-size:0.9rem;background:${inputBg};color:${inputColor};box-sizing:border-box;">
             <button id="playlistEditorRoutedFilter"
               style="padding:6px 12px;border:1px solid ${btnBorder};border-radius:6px;font-size:0.8rem;cursor:pointer;background:${btnBg};color:${inputColor};white-space:nowrap;transition:all 0.2s;"
-              title="${this.t('playlist.showRoutedOnly') || 'Show only routed files'}">
-              🔀 ${this.t('playlist.routedOnly') || 'Routed only'}
+              title="${this.t('playlist.showRoutedOnly', 'Show only routed files')}">
+              🔀 ${this.t('playlist.routedOnly', 'Routed only')}
             </button>
           </div>
           <div id="playlistEditorFileCount" style="font-size:0.75rem;color:${textMuted};margin-bottom:6px;flex-shrink:0;"></div>
@@ -70,7 +79,7 @@ class PlaylistEditorModal extends BaseModal {
         </div>
         <div class="playlist-files" style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
           <div style="font-size:0.8rem;color:${textMuted};margin-bottom:6px;flex-shrink:0;">
-            ${this.t('playlist.playlistContent') || 'Playlist Content'}
+            ${this.t('playlist.playlistContent', 'Playlist Content')}
           </div>
           <div id="playlistEditorPlaylistItems" style="flex:1;overflow-y:auto;min-height:0;"></div>
           <div id="playlistEditorStats" style="padding:8px 0;font-size:0.85rem;color:${textMuted};border-top:1px solid ${border};margin-top:8px;flex-shrink:0;"></div>
@@ -80,7 +89,7 @@ class PlaylistEditorModal extends BaseModal {
 
   renderFooter() {
     return `
-      <button class="btn btn-secondary" id="playlistEditorCloseBtn">${this.t('common.close') || 'Close'}</button>`;
+      <button class="btn btn-secondary" id="playlistEditorCloseBtn">${this.t('common.close', 'Close')}</button>`;
   }
 
   async onOpen() {

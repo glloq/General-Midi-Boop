@@ -591,7 +591,8 @@
         "enterNewName": "新名称：",
         "loop": "循环",
         "loopEnabled": "循环已开启",
-        "loopDisabled": "循环已关闭"
+        "loopDisabled": "循环已关闭",
+        "editPlaylist": "编辑播放列表"
     },
     "lighting": {
         "title": "Lighting Control",

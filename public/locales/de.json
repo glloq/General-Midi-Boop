@@ -591,7 +591,8 @@
         "enterNewName": "Neuen Namen eingeben:",
         "loop": "Schleife",
         "loopEnabled": "Schleife aktiviert",
-        "loopDisabled": "Schleife deaktiviert"
+        "loopDisabled": "Schleife deaktiviert",
+        "editPlaylist": "Playlist bearbeiten"
     },
     "lighting": {
         "title": "Lichtsteuerung",

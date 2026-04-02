@@ -591,7 +591,8 @@
         "enterNewName": "Nytt navn:",
         "loop": "Gjenta",
         "loopEnabled": "Gjentakelse på",
-        "loopDisabled": "Gjentakelse av"
+        "loopDisabled": "Gjentakelse av",
+        "editPlaylist": "Rediger spilleliste"
     },
     "lighting": {
         "title": "Lighting Control",

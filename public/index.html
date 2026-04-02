@@ -5615,6 +5615,15 @@
 
         // ========== VARIABLES GLOBALES ==========
 
+        // Helper: translate with fallback (i18n.t returns key when missing)
+        function tt(key, fallback) {
+            if (typeof i18n !== 'undefined' && i18n.t) {
+                const v = i18n.t(key);
+                if (v && v !== key) return v;
+            }
+            return fallback || key;
+        }
+
         let api;
         let currentFileId = null;
         let isPlaying = false;
@@ -7719,7 +7728,7 @@
             // Bouton Ajouter à playlist
             const playlistBtn = document.createElement('button');
             playlistBtn.className = 'btn btn-secondary btn-sm';
-            playlistBtn.title = i18n.t('playlist.addToPlaylist') || 'Add to playlist';
+            playlistBtn.title = tt('playlist.addToPlaylist', 'Add to playlist');
             playlistBtn.textContent = '📋';
             playlistBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -8948,10 +8957,10 @@
 
                 const newItem = document.createElement('div');
                 newItem.style.cssText = 'padding:8px 14px;cursor:pointer;font-size:0.9rem;font-weight:500;color:#667eea;';
-                newItem.textContent = '+ ' + (i18n.t('playlist.newPlaylist') || 'New playlist...');
+                newItem.textContent = '+ ' + tt('playlist.newPlaylist', 'New playlist...');
                 newItem.addEventListener('click', async () => {
                     menu.remove();
-                    const name = prompt(i18n.t('playlist.enterName') || 'Enter playlist name:');
+                    const name = prompt(tt('playlist.enterName', 'Enter playlist name:'));
                     if (!name || !name.trim()) return;
                     try {
                         const res = await api.sendCommand('playlist_create', { name: name.trim() });

@@ -591,7 +591,8 @@
         "enterNewName": "Novo nome:",
         "loop": "Repetir",
         "loopEnabled": "Repetição ativada",
-        "loopDisabled": "Repetição desativada"
+        "loopDisabled": "Repetição desativada",
+        "editPlaylist": "Editar playlist"
     },
     "lighting": {
         "title": "Lighting Control",

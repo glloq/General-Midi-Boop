@@ -591,7 +591,8 @@
         "enterNewName": "Bagong pangalan:",
         "loop": "Ulitin",
         "loopEnabled": "Pag-ulit aktibo",
-        "loopDisabled": "Pag-ulit hindi aktibo"
+        "loopDisabled": "Pag-ulit hindi aktibo",
+        "editPlaylist": "I-edit ang playlist"
     },
     "lighting": {
         "title": "Lighting Control",

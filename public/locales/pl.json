@@ -591,7 +591,8 @@
         "enterNewName": "Nowa nazwa:",
         "loop": "Pętla",
         "loopEnabled": "Pętla włączona",
-        "loopDisabled": "Pętla wyłączona"
+        "loopDisabled": "Pętla wyłączona",
+        "editPlaylist": "Edytuj playlistę"
     },
     "lighting": {
         "title": "Lighting Control",

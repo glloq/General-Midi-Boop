@@ -591,7 +591,8 @@
         "enterNewName": "Nieuwe naam:",
         "loop": "Herhalen",
         "loopEnabled": "Herhaling aan",
-        "loopDisabled": "Herhaling uit"
+        "loopDisabled": "Herhaling uit",
+        "editPlaylist": "Afspeellijst bewerken"
     },
     "lighting": {
         "title": "Lighting Control",

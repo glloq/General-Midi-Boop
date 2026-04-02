@@ -309,7 +309,7 @@
         "stop": "Stop",
         "synthInitError": "Unable to initialize audio synthesizer",
         "changeChannelTitle": "Change Channel",
-        "changeInstrumentTitle": "Change Instrument",
+        "changeInstrumentTitle": "Change GM instrument",
         "apply": "Apply",
         "sameInstrument": "Same instrument already selected",
         "noChannelAvailable": "No channel available",
@@ -398,7 +398,6 @@
         "visibilityTitle": "Visibility",
         "moveToChannelTitle": "Move to channel",
         "moveToChannelHint": "Move selected notes to the chosen channel",
-        "changeInstrumentTitle": "Change GM instrument",
         "changeInstrumentHint": "Change the MIDI program of the active channel",
         "previewSourceTitle": "Preview source",
         "previewSourceHint": "Choose between original GM sound or routed instrument",
@@ -598,7 +597,8 @@
         "enterNewName": "Enter new name:",
         "loop": "Loop",
         "loopEnabled": "Loop enabled",
-        "loopDisabled": "Loop disabled"
+        "loopDisabled": "Loop disabled",
+        "editPlaylist": "Edit Playlist"
     },
     "lighting": {
         "title": "Lighting Control",
