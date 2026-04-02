@@ -43,6 +43,99 @@ class PlaylistPage {
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
+  // ==================== DIALOGS ====================
+
+  /**
+   * Show a styled prompt dialog (replaces native prompt())
+   * @param {string} message - Label text
+   * @param {string} [defaultValue] - Pre-filled input value
+   * @param {string} [icon] - Emoji icon
+   * @returns {Promise<string|null>} User input or null if cancelled
+   */
+  _showPrompt(message, defaultValue = '', icon = '🎶') {
+    return new Promise((resolve) => {
+      const dark = this._isDark();
+      const bg = dark ? '#1e1e1e' : '#fff';
+      const border = dark ? '#444' : '#dee2e6';
+      const text = dark ? '#e0e0e0' : '#2c3e50';
+      const inputBg = dark ? '#2d2d2d' : '#f8f9fa';
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+
+      overlay.innerHTML = `
+        <div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:24px;width:380px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:${text};">
+          <div style="font-size:1.5rem;text-align:center;margin-bottom:12px;">${icon}</div>
+          <div style="font-size:0.95rem;margin-bottom:14px;text-align:center;">${this._escapeHtml(message)}</div>
+          <input type="text" id="_plPromptInput" value="${this._escapeHtml(defaultValue)}"
+            style="width:100%;padding:10px 12px;border:1px solid ${border};border-radius:6px;font-size:0.95rem;background:${inputBg};color:${text};box-sizing:border-box;outline:none;">
+          <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+            <button id="_plPromptCancel" style="padding:8px 18px;border:1px solid ${border};border-radius:6px;background:transparent;color:${text};cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
+            <button id="_plPromptOk" style="padding:8px 18px;border:none;border-radius:6px;background:#667eea;color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.save')}</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('#_plPromptInput');
+      const okBtn = overlay.querySelector('#_plPromptOk');
+      const cancelBtn = overlay.querySelector('#_plPromptCancel');
+
+      const close = (val) => { overlay.remove(); resolve(val); };
+
+      okBtn.addEventListener('click', () => close(input.value));
+      cancelBtn.addEventListener('click', () => close(null));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') close(input.value);
+        if (e.key === 'Escape') close(null);
+      });
+
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    });
+  }
+
+  /**
+   * Show a styled confirm dialog (replaces native confirm())
+   * @param {string} message - Confirmation message
+   * @param {string} [icon] - Emoji icon
+   * @returns {Promise<boolean>}
+   */
+  _showConfirm(message, icon = '⚠️') {
+    return new Promise((resolve) => {
+      const dark = this._isDark();
+      const bg = dark ? '#1e1e1e' : '#fff';
+      const border = dark ? '#444' : '#dee2e6';
+      const text = dark ? '#e0e0e0' : '#2c3e50';
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+
+      overlay.innerHTML = `
+        <div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:24px;width:360px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:${text};">
+          <div style="font-size:1.5rem;text-align:center;margin-bottom:12px;">${icon}</div>
+          <div style="font-size:0.95rem;margin-bottom:18px;text-align:center;">${this._escapeHtml(message)}</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button id="_plConfirmCancel" style="padding:8px 18px;border:1px solid ${border};border-radius:6px;background:transparent;color:${text};cursor:pointer;font-size:0.9rem;">${this._t('common.cancel')}</button>
+            <button id="_plConfirmOk" style="padding:8px 18px;border:none;border-radius:6px;background:#dc3545;color:#fff;cursor:pointer;font-size:0.9rem;">${this._t('common.confirm')}</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+
+      const close = (val) => { overlay.remove(); resolve(val); };
+
+      overlay.querySelector('#_plConfirmOk').addEventListener('click', () => close(true));
+      overlay.querySelector('#_plConfirmCancel').addEventListener('click', () => close(false));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+      document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { document.removeEventListener('keydown', esc); close(false); }
+      });
+
+      overlay.querySelector('#_plConfirmCancel').focus();
+    });
+  }
+
   // ==================== SHOW / CLOSE ====================
 
   async show() {
@@ -413,7 +506,7 @@ class PlaylistPage {
   // ==================== ACTIONS ====================
 
   async _createPlaylist() {
-    const name = prompt(this._t('playlist.enterName'));
+    const name = await this._showPrompt(this._t('playlist.enterName'), '', '🎶');
     if (!name || !name.trim()) return;
 
     try {
@@ -426,9 +519,10 @@ class PlaylistPage {
 
   async _renamePlaylist() {
     if (!this.selectedPlaylist) return;
-    const newName = prompt(
+    const newName = await this._showPrompt(
       this._t('playlist.enterNewName'),
-      this.selectedPlaylist.name
+      this.selectedPlaylist.name,
+      '✏️'
     );
     if (!newName || !newName.trim() || newName.trim() === this.selectedPlaylist.name) return;
 
@@ -482,7 +576,8 @@ class PlaylistPage {
   }
 
   async _deletePlaylist(playlistId) {
-    if (!confirm(this._t('playlist.confirmDelete'))) return;
+    const confirmed = await this._showConfirm(this._t('playlist.confirmDelete'), '🗑️');
+    if (!confirmed) return;
 
     try {
       await this.apiClient.sendCommand('playlist_delete', { playlistId });
