@@ -556,40 +556,42 @@ class MidiDatabase {
           wheres.push(`mf.id IN (
             SELECT DISTINCT mfc2.midi_file_id
             FROM midi_file_channels mfc2
-            WHERE EXISTS (
-              SELECT 1 FROM instruments_latency il
-              WHERE il.id IN (${placeholders})
-              AND (
-                -- Exact type match
-                mfc2.estimated_type = il.instrument_type
-                -- Family: keyboards
-                OR (mfc2.estimated_type IN ('piano','organ','chromatic_percussion')
-                    AND il.instrument_type IN ('piano','organ','chromatic_percussion'))
-                -- Family: strings
-                OR (mfc2.estimated_type IN ('strings','ensemble')
-                    AND il.instrument_type IN ('strings','ensemble'))
-                -- Family: winds
-                OR (mfc2.estimated_type IN ('brass','reed','pipe')
-                    AND il.instrument_type IN ('brass','reed','pipe'))
-                -- Family: synths
-                OR (mfc2.estimated_type IN ('synth_lead','synth_pad','synth_effects')
-                    AND il.instrument_type IN ('synth_lead','synth_pad','synth_effects'))
-                -- Family: percussion
-                OR (mfc2.estimated_type IN ('drums','chromatic_percussion')
-                    AND il.instrument_type IN ('drums','chromatic_percussion'))
-                -- Channel 9 = drums
-                OR (mfc2.channel = 9 AND il.instrument_type IN ('drums','chromatic_percussion'))
-                -- Fallback: unknown instrument type -> accept based on note range only
-                OR il.instrument_type IS NULL OR il.instrument_type = 'unknown' OR il.instrument_type = ''
+            INNER JOIN instruments_latency il ON il.id IN (${placeholders})
+            WHERE (
+              -- TYPE COMPATIBILITY (gm_category -> instrument_type via normalization)
+              (
+                -- Direct match: normalize gm_category to instrument_type format
+                (il.instrument_type IS NOT NULL AND il.instrument_type != 'unknown'
+                 AND il.instrument_type != ''
+                 AND LOWER(REPLACE(COALESCE(mfc2.gm_category, ''), ' ', '_')) = il.instrument_type)
+                OR
+                -- Drums: channel 9 or Percussive category
+                (il.instrument_type = 'drums'
+                 AND (mfc2.channel = 9 OR mfc2.gm_category = 'Percussive'))
+                OR
+                -- Unknown instrument type: match any channel (rely on note range)
+                (il.instrument_type IS NULL OR il.instrument_type = 'unknown' OR il.instrument_type = '')
               )
-              AND (
-                -- Note range compatibility (secondary: skip if either side lacks data)
-                (il.note_range_min IS NULL AND il.note_range_max IS NULL)
-                OR (mfc2.note_range_min IS NULL AND mfc2.note_range_max IS NULL)
-                OR (
-                  COALESCE(mfc2.note_range_max, 127) >= COALESCE(il.note_range_min, 0)
-                  AND COALESCE(mfc2.note_range_min, 0) <= COALESCE(il.note_range_max, 127)
-                )
+              AND
+              -- NOTE RANGE COMPATIBILITY
+              (
+                CASE COALESCE(il.note_selection_mode, 'range')
+                  WHEN 'discrete' THEN
+                    -- Discrete mode: at least one selected note in channel range
+                    il.selected_notes IS NULL
+                    OR EXISTS (
+                      SELECT 1 FROM json_each(il.selected_notes) je
+                      WHERE (mfc2.note_range_min IS NULL OR je.value >= mfc2.note_range_min)
+                        AND (mfc2.note_range_max IS NULL OR je.value <= mfc2.note_range_max)
+                    )
+                  ELSE
+                    -- Range mode: overlap check, NULL = no restriction
+                    (il.note_range_min IS NULL OR mfc2.note_range_max IS NULL
+                     OR mfc2.note_range_max >= il.note_range_min)
+                    AND
+                    (il.note_range_max IS NULL OR mfc2.note_range_min IS NULL
+                     OR mfc2.note_range_min <= il.note_range_max)
+                END
               )
             )
           )`);
