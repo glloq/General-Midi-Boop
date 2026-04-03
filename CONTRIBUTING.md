@@ -102,7 +102,6 @@ The following areas have been identified through code audits as needing attentio
 ### Security (High Priority)
 
 - **XSS in InstrumentManagementPage**: `displayName`, `instrument.id`, and error messages are injected into `innerHTML` without `escapeHtml()`. All dynamic content in HTML should be escaped.
-- **MIDI parser infinite loops**: `readVariableLength` and `parseTrack` in CustomMidiParser can loop forever on corrupted files. Add `bytesRead` guards.
 - **MidiMessage property injection**: `MidiMessage.parseObject()` lacks a property whitelist.
 
 ### MIDI Core (High Priority)

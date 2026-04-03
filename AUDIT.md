@@ -20,7 +20,7 @@ src/
   managers/                # Bluetooth, Serial, Network, Lighting, RTP
   storage/                 # Database facade, 4 sous-modules DB, FileManager, BackupScheduler
   audio/                   # DelayCalibrator
-  utils/                   # MidiUtils, JsonValidator, CustomMidiParser
+  utils/                   # MidiUtils, JsonValidator
   types/                   # index.ts (types TypeScript)
 public/
   js/                      # Frontend SPA vanilla JS
