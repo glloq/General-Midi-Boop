@@ -1053,9 +1053,10 @@
 
         .header-tools {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             padding: 9px 20px;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .header-tools-left,
@@ -1063,6 +1064,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .btn-keyboard-toggle {
@@ -3714,13 +3716,8 @@
 
         /* Contrôles de lecture dans le header */
         .header-playback {
-            margin-top: 0;
-            padding: 0 190px;
-            pointer-events: none;
-        }
-
-        .header-playback * {
-            pointer-events: auto;
+            flex: 1;
+            min-width: 0;
         }
 
         .header-file-name {
@@ -3746,7 +3743,6 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
-            margin-bottom: 12px;
         }
 
         .header-controls .btn {
@@ -3762,9 +3758,12 @@
             display: none;
         }
 
+        .header-progress-wrapper {
+            width: 100%;
+        }
+
         .header-progress {
-            width: calc(100% + 380px);
-            margin-left: -190px;
+            width: 100%;
             height: 6px;
             background: #e5e7eb;
             border-radius: 0;
@@ -3776,6 +3775,17 @@
             background: rgba(255, 255, 255, 0.9);
             width: 0%;
             transition: width 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .header-tools {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .header-playback {
+                flex-basis: 100%;
+                order: 3;
+            }
         }
 
         /* Modal de confirmation personnalisée */
@@ -4894,6 +4904,18 @@
                 </button>
                 </div>
 
+                <div class="header-playback" role="region" aria-label="Playback controls">
+                    <div class="header-controls">
+                        <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
+                        <span class="header-playlist-info hidden" id="headerPlaylistInfo" style="font-size:0.8rem;opacity:0.7;"></span>
+                        <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
+                        <button class="btn" id="headerPrevBtn" style="display:none;" aria-label="Previous track" title="Previous">⏮</button>
+                        <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
+                        <button class="btn" id="headerNextBtn" style="display:none;" aria-label="Next track" title="Next">⏭</button>
+                        <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
+                    </div>
+                </div>
+
                 <div class="header-tools-right">
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
                     🎤
@@ -4909,17 +4931,7 @@
                 </div>
                 </nav>
 
-                <div class="header-playback" role="region" aria-label="Playback controls">
-                    <div class="header-controls">
-                        <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
-                        <span class="header-playlist-info hidden" id="headerPlaylistInfo" style="font-size:0.8rem;opacity:0.7;"></span>
-                        <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
-                        <button class="btn" id="headerPrevBtn" style="display:none;" aria-label="Previous track" title="Previous">⏮</button>
-                        <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
-                        <button class="btn" id="headerNextBtn" style="display:none;" aria-label="Next track" title="Next">⏭</button>
-                        <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
-                    </div>
-
+                <div class="header-progress-wrapper">
                     <div class="header-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Playback progress">
                         <div class="header-progress-fill" id="headerProgressFill"></div>
                     </div>
