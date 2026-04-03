@@ -11,9 +11,12 @@ if [[ "$1" == "--non-interactive" ]]; then
     NON_INTERACTIVE=1
 fi
 
-# Log file for non-interactive debugging
-LOG_FILE="/tmp/midimind-update.log"
-STATUS_FILE="/tmp/midimind-update-status"
+# Log/status files — use project logs/ dir to avoid /tmp permission conflicts
+SCRIPT_DIR_EARLY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" 2>/dev/null && pwd )"
+PROJECT_DIR_EARLY="$( cd "$SCRIPT_DIR_EARLY/.." 2>/dev/null && pwd )"
+LOG_FILE="${PROJECT_DIR_EARLY}/logs/update.log"
+STATUS_FILE="${PROJECT_DIR_EARLY}/logs/update-status"
+mkdir -p "${PROJECT_DIR_EARLY}/logs" 2>/dev/null || true
 
 # Immediate startup marker - BEFORE any redirect, so we know bash started
 echo "$(date '+%Y-%m-%d %H:%M:%S') script_started pid=$$ non_interactive=$NON_INTERACTIVE" > "$STATUS_FILE" 2>/dev/null

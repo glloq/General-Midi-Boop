@@ -1,6 +1,6 @@
 // src/api/commands/SystemCommands.js
 import os from 'os';
-import { readFileSync, accessSync, openSync, closeSync, constants as fsConstants } from 'fs';
+import { readFileSync, accessSync, openSync, closeSync, mkdirSync, unlinkSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { AuthenticationError, ValidationError } from '../../core/errors/index.js';
@@ -147,12 +147,15 @@ async function systemUpdate(app) {
   const { spawn } = await import('child_process');
   const serverPort = app.config?.server?.port || 8080;
 
-  // Open log file from Node.js so the child has a valid stdout/stderr
-  // This is critical: with stdio:'ignore', the child's fds point to /dev/null
-  // and if the bash exec redirect fails, ALL output is lost silently.
-  const logPath = '/tmp/midimind-update.log';
+  // Open log file from Node.js so the child has a valid stdout/stderr.
+  // Use the project logs/ directory to avoid /tmp permission conflicts.
+  const logsDir = join(PROJECT_ROOT, 'logs');
+  try { mkdirSync(logsDir, { recursive: true }); } catch { /* exists */ }
+  const logPath = join(logsDir, 'update.log');
   let logFd;
   try {
+    // Remove stale file that may be owned by another user
+    try { unlinkSync(logPath); } catch { /* doesn't exist */ }
     logFd = openSync(logPath, 'w');
   } catch (err) {
     app.logger.error(`Cannot open update log file ${logPath}: ${err.message}`);
