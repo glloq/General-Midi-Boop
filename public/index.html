@@ -7729,17 +7729,6 @@
                 playFile(file.id, file.filename);
             };
 
-            // Bouton Ajouter à playlist
-            const playlistBtn = document.createElement('button');
-            playlistBtn.className = 'btn btn-secondary btn-sm';
-            playlistBtn.title = tt('playlist.addToPlaylist');
-            playlistBtn.textContent = '📋';
-            playlistBtn.onclick = (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                showAddToPlaylistMenu(file.id, file.filename, playlistBtn);
-            };
-
             // Bouton Supprimer
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn btn-danger btn-sm';
@@ -7754,7 +7743,6 @@
             actionsDiv.appendChild(editBtn);
             actionsDiv.appendChild(routeBtn);
             actionsDiv.appendChild(playBtn);
-            actionsDiv.appendChild(playlistBtn);
             actionsDiv.appendChild(deleteBtn);
 
             li.appendChild(checkbox);
