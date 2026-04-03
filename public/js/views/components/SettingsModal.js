@@ -438,9 +438,7 @@ class SettingsModal {
 
     applyDebugButton(show) {
         const debugToggle = document.getElementById('debugToggle');
-        const settingsToggle = document.getElementById('settingsToggle');
-        if (debugToggle) debugToggle.style.display = show ? '' : 'none';
-        if (settingsToggle) settingsToggle.style.right = show ? '75px' : '20px';
+        if (debugToggle) debugToggle.style.display = show ? 'flex' : 'none';
     }
 
     applyCalibrationButton(show) {
@@ -455,7 +453,7 @@ class SettingsModal {
 
     applyPlaylistButton(show) {
         const playlistBtn = document.getElementById('playlistBtn');
-        if (playlistBtn) playlistBtn.style.display = show ? '' : 'none';
+        if (playlistBtn) playlistBtn.style.display = show ? 'flex' : 'none';
     }
 
     /**

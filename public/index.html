@@ -1051,10 +1051,21 @@
             font-size: 14px;
         }
 
+        .header-tools {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 20px;
+        }
+
+        .header-tools-left,
+        .header-tools-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
         .btn-keyboard-toggle {
-            position: absolute;
-            top: 9px;
-            left: 20px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1077,9 +1088,6 @@
         }
 
         .btn-debug-toggle {
-            position: absolute;
-            top: 9px;
-            right: 20px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1108,9 +1116,6 @@
         }
 
         .btn-settings-toggle {
-            position: absolute;
-            top: 9px;
-            right: 75px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1133,9 +1138,6 @@
         }
 
         .btn-instruments-toggle {
-            position: absolute;
-            top: 9px;
-            left: 75px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1158,9 +1160,6 @@
         }
 
         .btn-calibration-toggle {
-            position: absolute;
-            top: 9px;
-            right: 130px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1183,9 +1182,6 @@
         }
 
         .btn-playlist-toggle {
-            position: absolute;
-            top: 9px;
-            left: 130px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -1208,9 +1204,6 @@
         }
 
         .btn-lighting-toggle {
-            position: absolute;
-            top: 9px;
-            left: 185px;
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
             border-radius: 50%;
@@ -4883,16 +4876,9 @@
         <div class="container">
             <header role="banner" aria-label="Application toolbar">
                 <nav aria-label="Application tools" class="header-tools">
+                <div class="header-tools-left">
                 <button class="btn-keyboard-toggle" id="openKeyboardBtn" data-i18n-title="ui.openKeyboard" title="Ouvrir le clavier MIDI" aria-label="MIDI Keyboard">
                     🎹
-                </button>
-
-                <button class="btn-settings-toggle" id="settingsToggle" data-i18n-title="ui.settings" title="Réglages" aria-label="Settings">
-                    ⚙️
-                </button>
-
-                <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs" aria-label="Debug console" aria-expanded="false" aria-controls="debugConsole">
-                    🐞
                 </button>
 
                 <button class="btn-instruments-toggle" id="instrumentsBtn" data-i18n-title="instrumentManagement.title" title="Gestion des instruments" aria-label="Instrument management">
@@ -4906,10 +4892,21 @@
                 <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière" aria-label="Lighting control">
                     💡
                 </button>
+                </div>
 
+                <div class="header-tools-right">
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
                     🎤
                 </button>
+
+                <button class="btn-settings-toggle" id="settingsToggle" data-i18n-title="ui.settings" title="Réglages" aria-label="Settings">
+                    ⚙️
+                </button>
+
+                <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs" aria-label="Debug console" aria-expanded="false" aria-controls="debugConsole">
+                    🐞
+                </button>
+                </div>
                 </nav>
 
                 <div class="header-playback" role="region" aria-label="Playback controls">
