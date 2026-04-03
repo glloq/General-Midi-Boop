@@ -37,8 +37,7 @@
             "title": "থিম",
             "dark": "গাঢ়",
             "colored": "রঙিন",
-            "darkDescription": "Enable dark mode",
-            "light": "হালকা"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "কীবোর্ড",

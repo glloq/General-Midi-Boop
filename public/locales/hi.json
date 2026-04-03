@@ -37,8 +37,7 @@
             "title": "थीम",
             "dark": "डार्क",
             "colored": "रंगीन",
-            "darkDescription": "Enable dark mode",
-            "light": "लाइट"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "कीबोर्ड",

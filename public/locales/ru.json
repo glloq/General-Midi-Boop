@@ -37,8 +37,7 @@
             "title": "Тема",
             "dark": "Тёмная",
             "colored": "Цветная",
-            "darkDescription": "Enable dark mode",
-            "light": "Светлая"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Клавиатура",

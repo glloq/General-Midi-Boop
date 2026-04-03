@@ -37,8 +37,7 @@
             "title": "主题",
             "dark": "深色",
             "colored": "彩色",
-            "darkDescription": "Enable dark mode",
-            "light": "浅色"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "键盘",

@@ -37,8 +37,7 @@
             "title": "테마",
             "dark": "다크",
             "colored": "컬러",
-            "darkDescription": "Enable dark mode",
-            "light": "라이트"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "키보드",

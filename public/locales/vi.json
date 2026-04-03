@@ -37,8 +37,7 @@
             "title": "Giao diện",
             "dark": "Tối",
             "colored": "Màu sắc",
-            "darkDescription": "Enable dark mode",
-            "light": "Sáng"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Bàn phím",

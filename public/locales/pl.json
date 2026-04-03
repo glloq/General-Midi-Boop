@@ -37,8 +37,7 @@
             "title": "Motyw",
             "dark": "Ciemny",
             "colored": "Kolorowy",
-            "darkDescription": "Enable dark mode",
-            "light": "Jasny"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klawiatura",

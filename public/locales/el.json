@@ -37,8 +37,7 @@
             "title": "Θέμα",
             "dark": "Σκοτεινό",
             "colored": "Έγχρωμο",
-            "darkDescription": "Enable dark mode",
-            "light": "Φωτεινό"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Πληκτρολόγιο",

@@ -37,8 +37,7 @@
             "title": "テーマ",
             "dark": "ダーク",
             "colored": "カラー",
-            "darkDescription": "Enable dark mode",
-            "light": "ライト"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "キーボード",

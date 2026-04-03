@@ -37,8 +37,7 @@
             "title": "Etoso",
             "dark": "Malhela",
             "colored": "Kolora",
-            "darkDescription": "Enable dark mode",
-            "light": "Hela"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Klavaro",

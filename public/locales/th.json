@@ -37,8 +37,7 @@
             "title": "ธีม",
             "dark": "มืด",
             "colored": "สีสัน",
-            "darkDescription": "Enable dark mode",
-            "light": "สว่าง"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "คีย์บอร์ด",

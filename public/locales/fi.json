@@ -37,8 +37,7 @@
             "title": "Teema",
             "dark": "Tumma",
             "colored": "Värillinen",
-            "darkDescription": "Enable dark mode",
-            "light": "Vaalea"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Näppäimistö",

@@ -37,8 +37,7 @@
             "title": "Tema",
             "dark": "Mörkt",
             "colored": "Färgglatt",
-            "darkDescription": "Enable dark mode",
-            "light": "Ljust"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Tangentbord",

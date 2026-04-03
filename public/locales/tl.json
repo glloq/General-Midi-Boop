@@ -37,8 +37,7 @@
             "title": "Tema",
             "dark": "Madilim",
             "colored": "Makukulay",
-            "darkDescription": "Enable dark mode",
-            "light": "Maliwanag"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Keyboard",

@@ -37,8 +37,7 @@
             "title": "Tema",
             "dark": "Mørkt",
             "colored": "Fargerikt",
-            "darkDescription": "Enable dark mode",
-            "light": "Lyst"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Tastatur",

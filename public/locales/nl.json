@@ -37,8 +37,7 @@
             "title": "Thema",
             "dark": "Donker",
             "colored": "Gekleurd",
-            "darkDescription": "Enable dark mode",
-            "light": "Licht"
+            "darkDescription": "Enable dark mode"
         },
         "keyboard": {
             "title": "Toetsenbord",
