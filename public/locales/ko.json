@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "채널",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "파일이 너무 큽니다 ({size}). 제한: {max}",
+        "duplicateFileWarning": "⚠️ 파일이 이미 존재합니다 - 덮어쓰기됩니다",
+        "releaseToUpload": "놓아서 업로드",
+        "errorFileTooLarge": "파일이 너무 큽니다. 파일 크기를 확인하세요.",
+        "errorInvalidMidi": "이 파일은 유효한 MIDI 파일이 아닌 것 같습니다. 형식을 확인하세요.",
+        "errorUploadTimeout": "업로드 시간이 너무 오래 걸렸습니다. 다시 시도해 주세요.",
+        "fileCount": "{count}개 파일 — {size}"
     },
     "instrumentSettings": {
         "title": "악기 설정",
