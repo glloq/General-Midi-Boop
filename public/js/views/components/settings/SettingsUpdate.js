@@ -51,17 +51,22 @@
             if (!api || !api.sendCommand) {
                 throw new Error('API not available');
             }
+            console.log('[SystemUpdate] Sending system_update command...');
             const result = await api.sendCommand('system_update', {}, 300000);
+            console.log('[SystemUpdate] Response received:', JSON.stringify(result));
             if (result && result.success === false) {
                 throw new Error(result.error || 'Update failed to start');
             }
             this._showUpdateSuccess(statusEl);
         } catch (error) {
+            console.error('[SystemUpdate] Error:', error.message);
             // WebSocket disconnect or timeout during update means the server is restarting = success
             const msg = (error.message || '').toLowerCase();
             if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected') || msg.includes('timeout')) {
+                console.log('[SystemUpdate] Connection lost during update — treating as server restart');
                 this._showUpdateSuccess(statusEl);
             } else {
+                console.error('[SystemUpdate] Real error, showing failure UI');
                 statusEl.style.background = '#fef2f2';
                 statusEl.style.color = '#dc2626';
                 statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
@@ -128,6 +133,7 @@
      * Show update success and wait for server restart
      */
     SettingsUpdate._showUpdateSuccess = function(statusEl) {
+        console.log('[SystemUpdate] Waiting for server restart (preUpdateUptime:', this._serverUptime, ')');
         statusEl.style.background = '#eef2ff';
         statusEl.style.color = '#667eea';
         statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
