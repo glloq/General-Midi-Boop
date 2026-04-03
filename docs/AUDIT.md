@@ -225,11 +225,9 @@ const originalNote = event.note ?? event.noteNumber;
 
 ---
 
-### 3.10. MOYEN — Seuil ESLint a 150 warnings
+### 3.10. CORRIGE — Seuil ESLint reduit de 150 a 5 warnings
 
-**Probleme** : `lint-staged` autorise 150 warnings ESLint. Cela indique une dette technique.
-
-**Evolution** : Reduire progressivement (150 -> 100 -> 50 -> 0) en corrigeant les warnings par lot.
+**Etat** : Tous les warnings ESLint ont ete corriges (140 -> 1). Le seuil `lint-staged` a ete abaisse de 150 a 5. Le seul warning restant est un `no-control-regex` intentionnel dans `JsonValidator.js`.
 
 ---
 
@@ -337,7 +335,7 @@ const originalNote = event.note ?? event.noteNumber;
 | Metrique | Actuel | Cible Phase 2 | Cible Phase 4 |
 |---|---|---|---|
 | Couverture tests backend | ~8% | 30% | 60% |
-| ESLint warnings max | 150 | 50 | 0 |
+| ESLint warnings max | 1 | 1 | 0 |
 | Fichiers >700 lignes (backend) | 11 | 8 | 3 |
 | Services avec DI explicite (`deps`) | ~5/15 | 10/15 | 15/15 |
 | Fichiers test / fichiers source | 13/165 | 30/165 | 60/165 |

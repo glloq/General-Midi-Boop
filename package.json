@@ -68,7 +68,7 @@
   },
   "lint-staged": {
     "*.js": [
-      "eslint --max-warnings 150",
+      "eslint --max-warnings 5",
       "prettier --check"
     ]
   },
