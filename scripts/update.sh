@@ -14,7 +14,13 @@ fi
 # Log file for non-interactive debugging
 LOG_FILE="/tmp/midimind-update.log"
 STATUS_FILE="/tmp/midimind-update-status"
+
+# Immediate startup marker - BEFORE any redirect, so we know bash started
+echo "$(date '+%Y-%m-%d %H:%M:%S') script_started pid=$$ non_interactive=$NON_INTERACTIVE" > "$STATUS_FILE" 2>/dev/null
+
 if [ "$NON_INTERACTIVE" = "1" ]; then
+    # Note: when spawned from Node.js, stdout/stderr already point to the log file
+    # via stdio fd passthrough. This exec is a safety net for manual runs.
     exec > "$LOG_FILE" 2>&1
 fi
 

@@ -1,6 +1,6 @@
 // src/api/commands/SystemCommands.js
 import os from 'os';
-import { readFileSync, accessSync, constants as fsConstants } from 'fs';
+import { readFileSync, accessSync, openSync, closeSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { AuthenticationError, ValidationError } from '../../core/errors/index.js';
@@ -147,11 +147,27 @@ async function systemUpdate(app) {
   const { spawn } = await import('child_process');
   const serverPort = app.config?.server?.port || 8080;
 
+  // Open log file from Node.js so the child has a valid stdout/stderr
+  // This is critical: with stdio:'ignore', the child's fds point to /dev/null
+  // and if the bash exec redirect fails, ALL output is lost silently.
+  const logPath = '/tmp/midimind-update.log';
+  let logFd;
+  try {
+    logFd = openSync(logPath, 'w');
+  } catch (err) {
+    app.logger.error(`Cannot open update log file ${logPath}: ${err.message}`);
+    _updateInProgress = false;
+    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
+    return { success: false, error: `Cannot open update log: ${err.message}` };
+  }
+
+  app.logger.info(`Spawning update script: bash ${scriptPath} --non-interactive (cwd: ${cwd})`);
+
   // Launch update script detached so it survives server restart
   const child = spawn('bash', [scriptPath, '--non-interactive'], {
     cwd,
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logFd, logFd],
     env: {
       ...process.env,
       DEBIAN_FRONTEND: 'noninteractive',
@@ -159,6 +175,14 @@ async function systemUpdate(app) {
       SERVER_PORT: String(serverPort),
       UPDATE_DELAY_SECONDS: '3'
     }
+  });
+
+  // Close fd in parent process (child has its own copy)
+  try { closeSync(logFd); } catch { /* ignore */ }
+
+  // Monitor child process for premature exit (diagnostic)
+  child.on('exit', (code, signal) => {
+    app.logger.warn(`Update script process exited: code=${code}, signal=${signal}`);
   });
 
   // Wait briefly to catch immediate spawn failures
