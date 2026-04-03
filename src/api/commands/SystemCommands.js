@@ -153,11 +153,7 @@ async function systemUpdate(app) {
     detached: true,
     stdio: 'ignore',
     env: {
-      PATH: process.env.PATH,
-      HOME: process.env.HOME,
-      USER: process.env.USER,
-      LANG: process.env.LANG || 'C.UTF-8',
-      NODE_ENV: process.env.NODE_ENV || 'production',
+      ...process.env,
       DEBIAN_FRONTEND: 'noninteractive',
       NON_INTERACTIVE: '1',
       SERVER_PORT: String(serverPort),

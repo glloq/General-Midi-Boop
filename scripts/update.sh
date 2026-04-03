@@ -194,6 +194,7 @@ if systemctl is-active --quiet midimind 2>/dev/null; then
 fi
 
 print_info "Server management: PM2_MANAGED=$PM2_MANAGED, SYSTEMD_MANAGED=$SYSTEMD_MANAGED, PM2_AVAILABLE=$PM2_AVAILABLE"
+print_info "PM2_HOME=${PM2_HOME:-<unset>}, NVM_DIR=${NVM_DIR:-<unset>}"
 
 # ============================================================================
 # 1. Check Git Status
@@ -238,6 +239,13 @@ print_header "2. Stopping Server"
 
 # Stop the server - try managed methods first, then fallback to direct kill
 _stop_direct() {
+    # Defensive: try pm2 stop first to prevent autorestart race condition
+    # when the process is killed directly while PM2 is managing it
+    if command -v pm2 &> /dev/null; then
+        pm2 stop midimind 2>/dev/null || true
+        sleep 1
+    fi
+
     if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
         lsof -ti:$SERVER_PORT | xargs -r kill 2>/dev/null || true
         sleep 2
