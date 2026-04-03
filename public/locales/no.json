@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "Kanaler",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "Filen er for stor ({size}). Grense: {max}",
+        "duplicateFileWarning": "⚠️ Filen eksisterer allerede - vil bli overskrevet",
+        "releaseToUpload": "Slipp for å laste opp",
+        "errorFileTooLarge": "Filen er for stor. Sjekk filstørrelsen.",
+        "errorInvalidMidi": "Denne filen ser ikke ut til å være en gyldig MIDI-fil. Sjekk formatet.",
+        "errorUploadTimeout": "Opplastingen tok for lang tid. Vennligst prøv igjen.",
+        "fileCount": "{count} fil(er) — {size}"
     },
     "instrumentSettings": {
         "title": "Instrumentinnstillinger",
