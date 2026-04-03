@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "चैनल",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "फ़ाइल बहुत बड़ी है ({size})। सीमा: {max}",
+        "duplicateFileWarning": "⚠️ फ़ाइल पहले से मौजूद है - ओवरराइट की जाएगी",
+        "releaseToUpload": "अपलोड करने के लिए छोड़ें",
+        "errorFileTooLarge": "फ़ाइल बहुत बड़ी है। फ़ाइल का आकार जाँचें।",
+        "errorInvalidMidi": "यह फ़ाइल एक वैध MIDI फ़ाइल नहीं लगती। प्रारूप जाँचें।",
+        "errorUploadTimeout": "अपलोड में बहुत समय लगा। कृपया पुनः प्रयास करें।",
+        "fileCount": "{count} फ़ाइल — {size}"
     },
     "instrumentSettings": {
         "title": "इंस्ट्रूमेंट सेटिंग्स",
