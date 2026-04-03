@@ -212,7 +212,7 @@ class AudioPreview {
             continue;
           }
 
-          let note = event.note || event.noteNumber || 60;
+          let note = event.note ?? event.noteNumber ?? 60;
 
           // Apply transposition if exists
           const transposition = transpositions[channel];

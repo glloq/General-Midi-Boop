@@ -1,6 +1,7 @@
 // src/midi/MidiRouter.js
+import { TIMING } from '../constants.js';
 
-const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in milliseconds (5s)
+const MAX_COMPENSATION_MS = TIMING.MAX_COMPENSATION_MS;
 
 class MidiRouter {
   constructor(deps) {

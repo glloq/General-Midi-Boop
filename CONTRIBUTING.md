@@ -97,20 +97,24 @@ See [docs/API.md](./docs/API.md) for the complete API reference (146 commands).
 
 ## Known Issues & Improvement Areas
 
-The following areas have been identified through code audits as needing attention. Contributions in these areas are especially welcome.
+The following areas have been identified through code audits as needing attention. Contributions in these areas are especially welcome. See [docs/AUDIT.md](./docs/AUDIT.md) for the full audit report.
 
 ### Security (High Priority)
 
-- **XSS in InstrumentManagementPage**: `displayName`, `instrument.id`, and error messages are injected into `innerHTML` without `escapeHtml()`. All dynamic content in HTML should be escaped.
 - **MidiMessage property injection**: `MidiMessage.parseObject()` lacks a property whitelist.
 
 ### MIDI Core (High Priority)
 
-- **Note 0 bug**: The `||` operator treats MIDI note 0 as falsy in ChannelAnalyzer and DrumNoteMapper. Use `??` (nullish coalescing) instead.
-- **Drum counting doubled**: `noteOff` events are counted as `noteOn` in drum analysis. Add event type filter.
+- ~~**Note 0 bug**: Fixed — `ChannelAnalyzer`, `DrumNoteMapper`, `MidiTransposer`, and `AudioPreview` now use `??` (nullish coalescing).~~
+- ~~**Drum counting doubled**: Fixed — `classifyDrumNotes()` now filters `noteOn` events only.~~
 - **Scoring weights sum**: ScoringConfig type detection weights sum to 130 instead of 100.
 - **Octave wrapping duplicates**: Multiple source notes can wrap to the same target note.
-- **Polyphony under-counted**: Duplicate `noteOn` without `noteOff` not tracked; needs `Map<note, count>`.
+
+### Architecture (High Priority)
+
+- **God Object `Application`**: ~10 services still use `this.app` instead of explicit dependency injection via `deps`. See AUDIT.md section 3.1.
+- **Database facade**: ~960 lines of passthrough wrappers. Should register sub-modules directly in ServiceContainer. See AUDIT.md section 3.2.
+- **Large files**: 11 backend files and 3 frontend files exceed 700 lines. See AUDIT.md section 3.8.
 
 ### UI/Editors (Medium Priority)
 
@@ -135,4 +139,4 @@ The following areas have been identified through code audits as needing attentio
 
 - **ALSA parsing**: `DelayCalibrator` regex uses French keyword `carte` which fails on English systems. Needs multilingual support.
 - **Double migration tracking**: Both a `migrations` table and `schema_version` are used. Should unify.
-- No rate limiting on WebSocket connections.
+- **Outdated dependencies**: Express 4.x (5.x available), better-sqlite3 9.x (12.x available). See AUDIT.md section 3.13.

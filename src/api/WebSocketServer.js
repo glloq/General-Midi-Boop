@@ -5,14 +5,15 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApplicationError } from '../core/errors/index.js';
+import { TIMING } from '../constants.js';
 
 const __wsFilename = fileURLToPath(import.meta.url);
 const __wsDirname = dirname(__wsFilename);
 const wsPkg = JSON.parse(readFileSync(join(__wsDirname, '../../package.json'), 'utf8'));
 const APP_VERSION = wsPkg.version;
 
-// WebSocket constants
-const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds between heartbeat pings
+// WebSocket constants (centralized in constants.js where applicable)
+const HEARTBEAT_INTERVAL_MS = TIMING.HEARTBEAT_INTERVAL_MS;
 const MAX_WS_CLIENTS = 10; // Max simultaneous WebSocket connections (RPi-friendly)
 const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024; // 16MB max message size
 const RATE_LIMIT_WINDOW_MS = 1000; // Rate limit window: 1 second

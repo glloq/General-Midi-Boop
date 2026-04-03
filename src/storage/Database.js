@@ -707,6 +707,9 @@ class DatabaseManager {
   deleteFileChannels(fileId) {
     return this.midiDB.deleteFileChannels(fileId);
   }
+  countFilesWithoutChannels() {
+    return this.midiDB.countFilesWithoutChannels();
+  }
   getDistinctInstruments() {
     return this.midiDB.getDistinctInstruments();
   }

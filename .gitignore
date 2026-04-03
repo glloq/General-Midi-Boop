@@ -45,6 +45,15 @@ backups/
 # Test coverage
 coverage/
 
+# TypeScript
+*.tsbuildinfo
+
+# Process files
+*.pid
+
+# Environment overrides
+.env.*.local
+
 # Temporary files
 tmp/
 temp/

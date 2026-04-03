@@ -54,7 +54,7 @@ class MidiTransposer {
 
         // Process note events (noteOn, noteOff)
         if (event.type === 'noteOn' || event.type === 'noteOff') {
-          const originalNote = event.note || event.noteNumber;
+          const originalNote = event.note ?? event.noteNumber;
           let currentNote = originalNote;
 
           // Step 1: Apply transposition by semitones
@@ -104,7 +104,7 @@ class MidiTransposer {
           }
         } else if (event.type === 'keyPressure' || event.type === 'polyAftertouch') {
           // Aftertouch polyphonique - apply same logic
-          const originalNote = event.note || event.noteNumber;
+          const originalNote = event.note ?? event.noteNumber;
           let currentNote = originalNote;
 
           if (transposition.semitones && transposition.semitones !== 0) {
