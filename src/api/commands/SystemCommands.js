@@ -180,9 +180,14 @@ async function systemUpdate(app) {
   // Close fd in parent process (child has its own copy)
   try { closeSync(logFd); } catch { /* ignore */ }
 
-  // Monitor child process for premature exit (diagnostic)
+  // Monitor child process exit. The script double-forks to escape PM2 treekill,
+  // so the first fork exits immediately with code 0 (expected). Only warn on errors.
   child.on('exit', (code, signal) => {
-    app.logger.warn(`Update script process exited: code=${code}, signal=${signal}`);
+    if (code === 0) {
+      app.logger.info('Update script first fork exited (double-fork detach)');
+    } else {
+      app.logger.warn(`Update script process exited unexpectedly: code=${code}, signal=${signal}`);
+    }
   });
 
   // Wait briefly to catch immediate spawn failures
