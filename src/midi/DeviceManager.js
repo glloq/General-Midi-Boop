@@ -145,7 +145,7 @@ class DeviceManager {
     const serialNumbers = await this.discovery.getUsbSerialNumbers();
 
     // Add USB devices
-    for (const [name, input] of this.inputs) {
+    for (const [name] of this.inputs) {
       if (!this.devices.has(name)) {
         const serialNumber = this.discovery.findSerialNumberInMap(name, serialNumbers);
 
@@ -167,7 +167,7 @@ class DeviceManager {
       }
     }
 
-    for (const [name, output] of this.outputs) {
+    for (const [name] of this.outputs) {
       if (!this.devices.has(name)) {
         const serialNumber = this.discovery.findSerialNumberInMap(name, serialNumbers);
 
@@ -402,7 +402,7 @@ class DeviceManager {
   /**
    * Send SysEx Identity Request to a device using MidiMind Block 1 protocol
    */
-  sendIdentityRequest(deviceName, deviceId = 0x7F) {
+  sendIdentityRequest(deviceName, _deviceId = 0x7F) {
     this.app.logger.debug(`Looking for output: ${deviceName}`);
     this.app.logger.debug(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
 

@@ -376,7 +376,7 @@ class MidiSynthesizer {
             return Promise.resolve(null);
         }
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, _reject) => {
             const script = document.createElement('script');
             script.src = presetInfo.url;
             script.onload = () => {

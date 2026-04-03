@@ -146,7 +146,7 @@ async function deviceInfo(app, data) {
   return { device: device };
 }
 
-async function deviceSetProperties(app, data) {
+async function deviceSetProperties(_app, _data) {
   // Future implementation for device-specific settings
   return { success: true };
 }

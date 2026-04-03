@@ -913,7 +913,7 @@ class LightingManager extends EventEmitter {
 
   blackout() {
     this.effectsEngine.stopAllEffects();
-    for (const [key, fade] of this.activeFades) {
+    for (const [, fade] of this.activeFades) {
       clearInterval(fade.interval);
     }
     this.activeFades.clear();
@@ -927,7 +927,7 @@ class LightingManager extends EventEmitter {
     // Stop all effects
     this.effectsEngine.stopAllEffects();
     // Clear all active fades
-    for (const [key, fade] of this.activeFades) {
+    for (const [, fade] of this.activeFades) {
       clearInterval(fade.interval);
     }
     this.activeFades.clear();
@@ -983,7 +983,7 @@ class LightingManager extends EventEmitter {
     if (this._ledBatchBuffer) this._ledBatchBuffer.clear();
 
     // Clear active fades
-    for (const [key, fade] of this.activeFades) {
+    for (const [, fade] of this.activeFades) {
       if (fade.interval) clearInterval(fade.interval);
     }
     this.activeFades.clear();

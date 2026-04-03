@@ -146,7 +146,7 @@ class VelocityEditor {
 
     resize() {
         // Forcer le reflow pour obtenir les dimensions finales
-        const forceReflow = this.element.offsetHeight;
+        void this.element.offsetHeight;
 
         const rect = this.element.getBoundingClientRect();
         const width = rect.width;
@@ -469,8 +469,6 @@ class VelocityEditor {
     // === Utilitaires de sélection ===
 
     getNoteAtPosition(x, y, threshold = 8) {
-        const ticks = this.xToTicks(x);
-
         // CORRECTION: Retourner l'index dans this.sequence (pas filtered)
         for (let i = 0; i < this.sequence.length; i++) {
             const note = this.sequence[i];

@@ -244,8 +244,6 @@ class MidiEditorToolbar {
             return;
         }
 
-        const sourceChannels = new Set(selectedNotes.map(n => n.c));
-
         const targetChannelInfo = m.channels.find(ch => ch.channel === newChannel);
 
         if (!targetChannelInfo && instrumentSelector) {

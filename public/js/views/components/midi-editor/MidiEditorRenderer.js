@@ -127,7 +127,6 @@
     MidiEditorRendererMixin.renderChannelOptions = function() {
         let options = '';
         for (let i = 0; i < 16; i++) {
-            const instrumentName = i === 9 ? this.t('midiEditor.drumKit') : this.getInstrumentName(0);
             options += `<option value="${i}">Canal ${i + 1}${i === 9 ? ' (Drums)' : ''}</option>`;
         }
         return options;

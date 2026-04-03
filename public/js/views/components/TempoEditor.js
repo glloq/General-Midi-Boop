@@ -9,6 +9,7 @@
  * - Respect de la grille temporelle et du zoom
  */
 
+// eslint-disable-next-line no-unused-vars
 class TempoEditor {
     constructor(container, options = {}) {
         this.container = container;

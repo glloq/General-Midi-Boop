@@ -591,7 +591,7 @@ class SerialMidiManager extends EventEmitter {
     let portInfo = this.openPorts.get(portPath);
     if (!portInfo) {
       // Try to find by name
-      for (const [p, info] of this.openPorts) {
+      for (const [, info] of this.openPorts) {
         if (info.name === portPath) {
           portInfo = info;
           break;

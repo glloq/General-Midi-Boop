@@ -89,7 +89,7 @@ class BaseLightingDriver extends EventEmitter {
    * @param {number} b - Blue 0-255
    * @param {number} [brightness=255] - Brightness 0-255
    */
-  setColor(ledIndex, r, g, b, brightness = 255) {
+  setColor(ledIndex, r, g, b, _brightness = 255) {
     throw new Error(`${this.constructor.name}.setColor() must be implemented`);
   }
 

@@ -170,7 +170,7 @@
             return;
         }
 
-        this.midiData.tracks.forEach((track, trackIndex) => {
+        this.midiData.tracks.forEach((track, _trackIndex) => {
             if (!track.events) {
                 return;
             }

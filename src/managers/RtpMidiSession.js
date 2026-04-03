@@ -96,7 +96,7 @@ class RtpMidiSession extends EventEmitter {
    * @param {Buffer} msg - Message reçu
    * @param {Object} rinfo - Informations sur l'émetteur
    */
-  handleIncomingMessage(msg, rinfo) {
+  handleIncomingMessage(msg, _rinfo) {
     try {
       // Parser le paquet RTP
       const rtpPacket = this.parseRtpPacket(msg);
@@ -128,7 +128,6 @@ class RtpMidiSession extends EventEmitter {
     const padding = (buffer[0] >> 5) & 0x01;
     const extension = (buffer[0] >> 4) & 0x01;
     const csrcCount = buffer[0] & 0x0F;
-    const marker = (buffer[1] >> 7) & 0x01;
     const payloadType = buffer[1] & 0x7F;
     const sequenceNumber = buffer.readUInt16BE(2);
     const timestamp = buffer.readUInt32BE(4);

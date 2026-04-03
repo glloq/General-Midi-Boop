@@ -153,7 +153,6 @@ class StringInstrumentConfigModal extends BaseModal {
         const tuningRows = c.tuning.map((note, i) => {
             const noteName = this._noteName(note);
             const stringNum = i + 1;
-            const stringLabel = `${this.t('stringInstrument.string')} ${stringNum}`;
             return `
                 <div class="si-string-row" data-string="${i}">
                     <div class="si-string-label">

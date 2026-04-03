@@ -230,7 +230,7 @@ class MidiFileParser {
   convertMidiToJSON(midi) {
     // Log channel statistics for debugging
     const channelCounts = new Map();
-    midi.tracks.forEach((track, trackIdx) => {
+    midi.tracks.forEach((track, _trackIdx) => {
       track.forEach(event => {
         if (event.channel !== undefined) {
           channelCounts.set(event.channel, (channelCounts.get(event.channel) || 0) + 1);

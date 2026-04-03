@@ -11,6 +11,7 @@
 //   - Drag on empty area → jump then drag continuously
 // ============================================================================
 
+// eslint-disable-next-line no-unused-vars
 class NavigationOverviewBar {
     constructor(container, options = {}) {
         this.container = container;

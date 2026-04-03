@@ -1,7 +1,7 @@
 // src/api/commands/InstrumentSettingsCommands.js
 import InstrumentDatabase from '../../storage/InstrumentDatabase.js';
 import InstrumentTypeConfig from '../../midi/InstrumentTypeConfig.js';
-import { ValidationError, NotFoundError, ConfigurationError } from '../../core/errors/index.js';
+import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 async function instrumentUpdateSettings(app, data) {
   if (!app.database) {

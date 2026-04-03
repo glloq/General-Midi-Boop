@@ -23,7 +23,7 @@ function bench(name, fn, iterations = 10000) {
   return { name, avgMs: parseFloat(avgMs), opsPerSec, iterations };
 }
 
-async function benchAsync(name, fn, iterations = 1000) {
+async function benchAsync(name, fn, iterations = 1000) { // eslint-disable-line no-unused-vars
   // Warmup
   for (let i = 0; i < 10; i++) await fn();
 
@@ -48,7 +48,7 @@ const results = [];
 console.log('EventBus:');
 const { default: EventBus } = await import('../../src/core/EventBus.js');
 const bus = new EventBus();
-let counter = 0;
+let counter = 0; // eslint-disable-line no-unused-vars
 bus.on('bench', () => {
   counter++;
 });

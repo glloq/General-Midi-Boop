@@ -1151,7 +1151,7 @@ describe('AutoAssigner', () => {
 
     // Cache should be empty for this file
     // We can verify by checking cache stats
-    const stats = autoAssigner.cache.getStats();
+    autoAssigner.cache.getStats();
     // After invalidation, file 42's entries should be gone
   });
 

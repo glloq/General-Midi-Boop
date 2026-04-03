@@ -1,6 +1,6 @@
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import CommandRegistry from '../src/api/CommandRegistry.js';
-import { ApplicationError, ValidationError, NotFoundError } from '../src/core/errors/index.js';
+import { ValidationError, NotFoundError } from '../src/core/errors/index.js';
 
 // Minimal mock for the `app` object used by CommandRegistry
 function createMockApp() {

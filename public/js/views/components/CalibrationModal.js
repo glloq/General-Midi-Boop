@@ -473,7 +473,6 @@ class CalibrationModal extends BaseModal {
 
         const fill = this.$('#calibVuFill');
         const rmsDisplay = this.$('#calibRmsValue');
-        const threshold = this._getThreshold();
 
         if (fill) {
             // Scale RMS relative to a max of 0.15 for visual range
@@ -684,11 +683,9 @@ class CalibrationModal extends BaseModal {
 
     async _applyResults() {
         let appliedCount = 0;
-        let failedCount = 0;
 
-        for (const [key, result] of Object.entries(this.state.results)) {
+        for (const [, result] of Object.entries(this.state.results)) {
             if (!result.success) {
-                failedCount++;
                 continue;
             }
 
@@ -701,7 +698,6 @@ class CalibrationModal extends BaseModal {
                 appliedCount++;
             } catch (error) {
                 this.logger.error('CalibrationModal', 'Failed to apply delay:', error);
-                failedCount++;
             }
         }
 

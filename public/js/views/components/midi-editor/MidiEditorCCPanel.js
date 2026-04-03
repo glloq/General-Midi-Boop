@@ -931,7 +931,7 @@ class MidiEditorCCPanel {
             return;
         }
 
-        m.midiData.tracks.forEach((track, trackIndex) => {
+        m.midiData.tracks.forEach((track, _trackIndex) => {
             if (!track.events) {
                 return;
             }

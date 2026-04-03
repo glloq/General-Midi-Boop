@@ -99,17 +99,17 @@ async function playbackSetLoop(app, data) {
   return { success: true };
 }
 
-async function playbackSetTempo(app, data) {
+async function playbackSetTempo(_app, _data) {
   // Future implementation
   return { success: true };
 }
 
-async function playbackTranspose(app, data) {
+async function playbackTranspose(_app, _data) {
   // Future implementation
   return { success: true };
 }
 
-async function playbackSetVolume(app, data) {
+async function playbackSetVolume(_app, _data) {
   // Future implementation
   return { success: true };
 }
@@ -755,7 +755,7 @@ export function register(registry, app) {
   registry.register('analyze_channel', (data) => analyzeChannel(app, data));
   registry.register('generate_assignment_suggestions', (data) => generateAssignmentSuggestions(app, data));
   registry.register('apply_assignments', (data) => applyAssignments(app, data));
-  registry.register('validate_instrument_capabilities', (data) => validateInstrumentCapabilities(app));
+  registry.register('validate_instrument_capabilities', (_data) => validateInstrumentCapabilities(app));
   registry.register('get_instrument_defaults', (data) => getInstrumentDefaults(app, data));
   registry.register('update_instrument_capabilities', (data) => updateInstrumentCapabilities(app, data));
   registry.register('get_file_routings', (data) => getFileRoutings(app, data));

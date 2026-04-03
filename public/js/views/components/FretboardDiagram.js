@@ -193,7 +193,7 @@ class FretboardDiagram {
         ctx.fillRect(x1, this.topMargin, x2 - x1, h - this.topMargin - this.bottomMargin);
     }
 
-    _drawFrets(w, h) {
+    _drawFrets(_w, _h) {
         const ctx = this.ctx;
         ctx.strokeStyle = this.colors.fretWire;
 
@@ -210,7 +210,7 @@ class FretboardDiagram {
         }
     }
 
-    _drawNut(w, h) {
+    _drawNut(_w, _h) {
         if (this.fretOffset > 0) return;
 
         const ctx = this.ctx;
@@ -263,7 +263,7 @@ class FretboardDiagram {
         }
     }
 
-    _drawStringLabels(w, h) {
+    _drawStringLabels(_w, _h) {
         const ctx = this.ctx;
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -295,7 +295,7 @@ class FretboardDiagram {
         }
     }
 
-    _drawFretNumbers(w, h) {
+    _drawFretNumbers(_w, _h) {
         const ctx = this.ctx;
         ctx.fillStyle = this.colors.fretNumber;
         ctx.font = '10px monospace';
@@ -314,7 +314,7 @@ class FretboardDiagram {
         }
     }
 
-    _drawFretMarkers(w, h) {
+    _drawFretMarkers(_w, _h) {
         const ctx = this.ctx;
         ctx.fillStyle = this.colors.marker;
 
@@ -346,7 +346,7 @@ class FretboardDiagram {
         }
     }
 
-    _drawActivePositions(w, h) {
+    _drawActivePositions(_w, _h) {
         const ctx = this.ctx;
 
         for (const pos of this.activePositions) {

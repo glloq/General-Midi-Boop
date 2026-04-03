@@ -254,10 +254,9 @@ class NeckDiagramConfig {
         this._drawHandles(neck);
     }
 
-    _drawHead(neck, h) {
+    _drawHead(neck, _h) {
         const ctx = this.ctx;
         const headX = this.leftMargin;
-        const headW = this.headWidth;
 
         // Simplified head shape
         ctx.fillStyle = this.colors.bodyFill;
@@ -275,7 +274,7 @@ class NeckDiagramConfig {
         ctx.stroke();
     }
 
-    _drawBody(neck, h) {
+    _drawBody(neck, _h) {
         const ctx = this.ctx;
         const bodyX = neck.x + neck.width;
         const bw = this.bodyWidth;
@@ -415,7 +414,7 @@ class NeckDiagramConfig {
         }
     }
 
-    _drawStringLabels(neck) {
+    _drawStringLabels(_neck) {
         const ctx = this.ctx;
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
@@ -449,11 +448,10 @@ class NeckDiagramConfig {
         }
     }
 
-    _drawHandles(neck) {
+    _drawHandles(_neck) {
         if (this.isFretless) return;
 
         const ctx = this.ctx;
-        const spacing = neck.height / (this.numStrings + 1);
         const handleRadius = 7;
 
         for (let i = 0; i < this.numStrings; i++) {

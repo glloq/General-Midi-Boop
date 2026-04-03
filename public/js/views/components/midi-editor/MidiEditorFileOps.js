@@ -115,7 +115,7 @@ class MidiEditorFileOps {
             let noteOnCount = 0;
             let noteOffCount = 0;
 
-            track.events.forEach((event, eventIndex) => {
+            track.events.forEach((event, _eventIndex) => {
                 currentTick += event.deltaTime || 0;
 
                 if (event.type === 'programChange') {
@@ -182,7 +182,7 @@ class MidiEditorFileOps {
             });
 
             // Flush orphaned notes (noteOn without matching noteOff at end of track)
-            for (const [key, noteOn] of activeNotes) {
+            for (const [, noteOn] of activeNotes) {
                 const defaultGate = Math.max(1, currentTick - noteOn.tick);
                 allNotes.push({
                     tick: noteOn.tick,

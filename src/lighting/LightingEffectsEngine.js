@@ -205,7 +205,7 @@ class LightingEffectsEngine {
     }
   }
 
-  _fire(driver, startLed, endLed, brightness, state) {
+  _fire(driver, startLed, endLed, brightness, _state) {
     // Simulate fire with random warm colors
     for (let i = startLed; i <= endLed; i++) {
       const flicker = Math.random();

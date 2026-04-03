@@ -381,9 +381,6 @@
             return;
         }
 
-    // Mémoriser les canaux source avant le déplacement
-        const sourceChannels = new Set(selectedNotes.map(n => n.c));
-
     // Vérifier si le canal cible existe déjà
         const targetChannelInfo = this.channels.find(ch => ch.channel === newChannel);
 

@@ -570,7 +570,7 @@ class TablatureEditor {
         this._showFretInput(event.tick, event.string, index);
     }
 
-    _handleTabSelection(e) {
+    _handleTabSelection(_e) {
         // Update fretboard to show selected positions
         if (this.fretboard && this.renderer) {
             const positions = this.renderer.getSelectedEvents()
@@ -579,7 +579,7 @@ class TablatureEditor {
         }
     }
 
-    _handleTabMove(e) {
+    _handleTabMove(_e) {
         // Notes were moved by drag — sync back to MIDI
         this.tabEvents = this.renderer.tabEvents;
         this.syncToMidi();

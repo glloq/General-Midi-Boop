@@ -13,6 +13,7 @@
 //   - Touch support for all interactions
 // ============================================================================
 
+// eslint-disable-next-line no-unused-vars
 class PlaybackTimelineBar {
     constructor(container, options = {}) {
         // Create canvas element inside container

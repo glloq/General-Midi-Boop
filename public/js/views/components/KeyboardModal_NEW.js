@@ -120,7 +120,7 @@ class KeyboardModalNew {
         }
 
         // Écouter les connexions/déconnexions Bluetooth pour rafraîchir la liste
-        this.eventBus.on('bluetooth:connected', async (data) => {
+        this.eventBus.on('bluetooth:connected', async (_data) => {
             this.logger.info('[KeyboardModal] Bluetooth device connected, refreshing device list...');
             if (this.isOpen) {
                 await this.loadDevices();
@@ -128,7 +128,7 @@ class KeyboardModalNew {
             }
         });
 
-        this.eventBus.on('bluetooth:disconnected', async (data) => {
+        this.eventBus.on('bluetooth:disconnected', async (_data) => {
             this.logger.info('[KeyboardModal] Bluetooth device disconnected, refreshing device list...');
             if (this.isOpen) {
                 await this.loadDevices();
@@ -136,7 +136,7 @@ class KeyboardModalNew {
             }
         });
 
-        this.eventBus.on('bluetooth:unpaired', async (data) => {
+        this.eventBus.on('bluetooth:unpaired', async (_data) => {
             this.logger.info('[KeyboardModal] Bluetooth device unpaired, refreshing device list...');
             if (this.isOpen) {
                 await this.loadDevices();

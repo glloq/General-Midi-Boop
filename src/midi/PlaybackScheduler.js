@@ -482,7 +482,7 @@ class PlaybackScheduler {
    * @param {Function} getOutputForChannel - Routing lookup
    * @returns {number} Maximum compensation in milliseconds
    */
-  _getMaxActiveCompensation(state, getOutputForChannel) {
+  _getMaxActiveCompensation(state, _getOutputForChannel) {
     if (this._maxCompensationMs > 0) {
       return this._maxCompensationMs;
     }

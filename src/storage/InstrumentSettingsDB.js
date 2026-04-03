@@ -95,7 +95,7 @@ class InstrumentSettingsDB {
         `);
 
         const id = `${deviceId}_${channel}`;
-        const result = stmt.run(
+        stmt.run(
           id,
           deviceId,
           channel,

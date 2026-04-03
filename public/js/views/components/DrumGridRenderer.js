@@ -466,7 +466,7 @@ class DrumGridRenderer {
         }
     }
 
-    _drawHits(w, h) {
+    _drawHits(w, _h) {
         const ctx = this.ctx;
         const startTick = this.scrollX;
         const endTick = startTick + (w - this.headerWidth) * this.ticksPerPixel;
@@ -852,7 +852,7 @@ class DrumGridRenderer {
         }
     }
 
-    _handleMouseUp(e) {
+    _handleMouseUp(_e) {
         if (this._isDragging && this._dragMode === 'select' && this.selectionRect) {
             const r = this.selectionRect;
             const minX = Math.min(r.x1, r.x2);

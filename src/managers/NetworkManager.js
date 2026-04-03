@@ -200,7 +200,7 @@ class NetworkManager extends EventEmitter {
    * @param {string} subnet - Sous-réseau à scanner (ex: "192.168.1")
    * @param {number} timeout - Timeout en secondes
    */
-  async scanSubnetIPs(subnet, timeout) {
+  async scanSubnetIPs(subnet, _timeout) {
     this.app.logger.info(`[NetworkManager] Scanning full subnet ${subnet}.0/24...`);
 
     const pingPromises = [];
@@ -332,7 +332,7 @@ class NetworkManager extends EventEmitter {
       const subnet = this.getLocalSubnet();
 
       // Simuler quelques instruments réseau possibles
-      const testDevices = [
+      const testDevices = [ // eslint-disable-line no-unused-vars
         {
           ip: `${subnet}.100`,
           address: `${subnet}.100`,
@@ -691,7 +691,7 @@ class NetworkManager extends EventEmitter {
    * @returns {Array} Liste des instruments connectés
    */
   getConnectedDevices() {
-    return Array.from(this.connectedDevices.values()).map(({ session, ...device }) => device);
+    return Array.from(this.connectedDevices.values()).map(({ session: _session, ...device }) => device);
   }
 
   /**

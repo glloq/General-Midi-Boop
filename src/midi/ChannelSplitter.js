@@ -124,7 +124,6 @@ class ChannelSplitter {
 
     const channelMin = channelAnalysis.noteRange.min;
     const channelMax = channelAnalysis.noteRange.max;
-    const channelSpan = channelMax - channelMin;
 
     // Filtrer les instruments qui ont une plage définie
     const withRange = instruments.filter(inst =>
@@ -400,7 +399,7 @@ class ChannelSplitter {
       minimalOverlap: 15
     };
 
-    const { segments, overlapZones, gaps, channelAnalysis, type } = proposal;
+    const { segments, overlapZones, gaps, channelAnalysis } = proposal;
     let score = 0;
 
     // 1. Couverture des notes (40%)

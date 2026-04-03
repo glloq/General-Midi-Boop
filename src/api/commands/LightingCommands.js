@@ -459,7 +459,7 @@ function lightingSceneApply(app, data) {
 
 // ==================== MIDI LEARN ====================
 
-function lightingMidiLearnStart(app, data) {
+function lightingMidiLearnStart(app, _data) {
   if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
 
   // Set up a one-shot MIDI listener that captures the next MIDI event

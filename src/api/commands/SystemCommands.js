@@ -25,7 +25,7 @@ async function systemStatus(app) {
   };
 }
 
-async function systemInfo(app) {
+async function systemInfo(_app) {
   return {
     platform: process.platform,
     arch: process.arch,
@@ -208,17 +208,17 @@ async function systemBackup(app, data) {
   return { path: backupPath };
 }
 
-async function systemRestore(app, data) {
+async function systemRestore(_app, _data) {
   // Future implementation
   return { success: true };
 }
 
-async function systemLogs(app, data) {
+async function systemLogs(_app, _data) {
   // Future implementation - return recent logs
   return { logs: [] };
 }
 
-async function systemClearLogs(app) {
+async function systemClearLogs(_app) {
   // Future implementation
   return { success: true };
 }

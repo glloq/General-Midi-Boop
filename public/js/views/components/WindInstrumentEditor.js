@@ -586,7 +586,7 @@ class WindInstrumentEditor {
      * Sync external scroll bars when the renderer scroll changes (pan, wheel, etc.)
      * Called by the renderer's onScrollChange callback.
      */
-    _syncScrollBars(info) {
+    _syncScrollBars(_info) {
         if (!this.isVisible) return;
 
         const maxTick = this.modal.midiData?.maxTick || 0;

@@ -64,10 +64,8 @@ class MidiEditorChannelPanel {
      * Rendre les options du selecteur de canal
      */
     renderChannelOptions() {
-        const m = this.modal;
         let options = '';
         for (let i = 0; i < 16; i++) {
-            const instrumentName = i === 9 ? m.t('midiEditor.drumKit') : m.getInstrumentName(0);
             options += `<option value="${i}">Canal ${i + 1}${i === 9 ? ' (Drums)' : ''}</option>`;
         }
         return options;

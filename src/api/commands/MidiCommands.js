@@ -99,7 +99,7 @@ async function midiAllNotesOff(app, data) {
   return { success: true };
 }
 
-async function midiReset(app, data) {
+async function midiReset(_app, _data) {
   // Send System Reset
   return { success: true };
 }

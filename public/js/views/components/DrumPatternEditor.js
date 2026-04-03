@@ -641,7 +641,7 @@ class DrumPatternEditor {
         input.select();
     }
 
-    _handleGridSelection(e) {
+    _handleGridSelection(_e) {
         // Selection changed — could update status bar or preview
     }
 

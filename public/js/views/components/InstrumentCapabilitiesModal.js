@@ -341,7 +341,7 @@ class InstrumentCapabilitiesModal {
    * @param {Object} instrument
    * @returns {string}
    */
-  generateDefaultsButton(instrument) {
+  generateDefaultsButton(_instrument) {
     return `
       <div style="margin-top: 16px; padding: 12px; background: var(--bg-tertiary, #f9fafb); border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px;">
         <button class="btn"

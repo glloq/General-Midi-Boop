@@ -627,7 +627,7 @@
     * Update the TAB button active state on channel buttons
     * @param {boolean} active
     */
-    MidiEditorTablatureMixin._updateTabButtonState = function(active) {
+    MidiEditorTablatureMixin._updateTabButtonState = function(_active) {
         this._updateChannelTabButtons();
     }
 

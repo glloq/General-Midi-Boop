@@ -650,7 +650,7 @@ class BluetoothScanModal {
     /**
      * Gère l'activation du Bluetooth
      */
-    handleBluetoothPoweredOn(data) {
+    handleBluetoothPoweredOn(_data) {
         this.bluetoothEnabled = true;
         this.bluetoothState = 'poweredOn';
 
@@ -666,7 +666,7 @@ class BluetoothScanModal {
     /**
      * Gère la désactivation du Bluetooth
      */
-    handleBluetoothPoweredOff(data) {
+    handleBluetoothPoweredOff(_data) {
         this.bluetoothEnabled = false;
         this.bluetoothState = 'poweredOff';
         this.scanning = false;

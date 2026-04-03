@@ -472,7 +472,6 @@ class InstrumentManagementPage {
     const isVirtual = this.isVirtualInstrument(first);
     const connType = this.getConnectionTypeInfo(first);
     const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
-    const safeDeviceId = esc(deviceId);
 
     return `
       <div class="device-block" style="

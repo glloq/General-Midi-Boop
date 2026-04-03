@@ -127,7 +127,7 @@ class BluetoothManager extends EventEmitter {
       this.app.logger.info(`Scan complete: ${devicesArray.length} devices available`);
 
       // Retirer deviceObject pour éviter circular structure JSON
-      return devicesArray.map(({ deviceObject, ...device }) => device);
+      return devicesArray.map(({ deviceObject: _deviceObject, ...device }) => device);
 
     } catch (error) {
       this.scanning = false;

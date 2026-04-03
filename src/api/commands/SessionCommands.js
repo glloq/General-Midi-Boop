@@ -23,9 +23,7 @@ async function sessionLoad(app, data) {
     throw new NotFoundError('Session', data.sessionId);
   }
 
-  const sessionData = JSON.parse(session.data);
-  // Apply session data
-  // Future implementation
+  JSON.parse(session.data); // parsed for validation; apply in future implementation
 
   return { success: true, session: session };
 }

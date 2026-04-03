@@ -218,9 +218,7 @@
     const idx = container.children.length;
     if (idx >= 3) return; // Max 3 hardware channels
 
-    const channelGpioDefaults = { 0: 18, 1: 13, 2: 10 };
     const defaultChannel = idx;
-    const defaultGpio = channelGpioDefaults[defaultChannel] || 18;
 
     const entry = document.createElement('div');
     entry.className = 'strip-entry';

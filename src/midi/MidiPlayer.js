@@ -127,7 +127,7 @@ class MidiPlayer {
   extractChannels(midi) {
     const channelsSet = new Set();
 
-    midi.tracks.forEach((track, trackIndex) => {
+    midi.tracks.forEach((track, _trackIndex) => {
       track.forEach(event => {
         if (event.channel !== undefined &&
             (event.type === 'noteOn' || event.type === 'noteOff')) {

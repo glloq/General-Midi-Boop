@@ -45,7 +45,7 @@ class BackendAPIClient {
                     resolve();
                 };
 
-                this.ws.onclose = (event) => {
+                this.ws.onclose = (_event) => {
                     const wasConnected = this.connected;
                     this.connected = false;
                     this._connectionPromise = null;
@@ -95,7 +95,7 @@ class BackendAPIClient {
     _rejectPendingRequests(reason) {
         if (this.pendingRequests.size > 0) {
             console.warn(`Rejecting ${this.pendingRequests.size} pending requests: ${reason}`);
-            for (const [id, pending] of this.pendingRequests) {
+            for (const [, pending] of this.pendingRequests) {
                 pending.reject(new Error(reason));
             }
             this.pendingRequests.clear();

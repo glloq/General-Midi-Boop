@@ -266,7 +266,7 @@ class TablatureRenderer {
         if (this._clipboard.length === 0) return 0;
         this.saveSnapshot();
         this.selectedEvents.clear();
-        const baseIndex = this.tabEvents.length;
+        // baseIndex not needed; events are re-sorted after paste
         for (const evt of this._clipboard) {
             this.tabEvents.push({ ...evt, tick: evt.tick + atTick });
         }
@@ -382,7 +382,7 @@ class TablatureRenderer {
         }
     }
 
-    _drawStringLines(w, h) {
+    _drawStringLines(w, _h) {
         const ctx = this.ctx;
 
         for (let s = 0; s < this.numStrings; s++) {
@@ -407,7 +407,7 @@ class TablatureRenderer {
         ctx.textAlign = 'left'; // Reset
     }
 
-    _drawTabEvents(w, h) {
+    _drawTabEvents(w, _h) {
         const ctx = this.ctx;
         const startTick = this.scrollX;
         const endTick = startTick + (w - this.headerWidth) * this.ticksPerPixel;

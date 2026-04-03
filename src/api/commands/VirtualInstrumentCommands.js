@@ -1,5 +1,5 @@
 // src/api/commands/VirtualInstrumentCommands.js
-import { ValidationError, NotFoundError, ConfigurationError } from '../../core/errors/index.js';
+import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 const VIRTUAL_INSTRUMENT_PRESETS = {
   piano: {

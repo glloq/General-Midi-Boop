@@ -186,16 +186,12 @@ class AudioPreview {
     for (const track of midiData.tracks) {
       if (!track.events) continue;
 
-      let currentTime = 0;
       let currentTick = 0;
 
       for (const event of track.events) {
         // Update current time/tick
         if (event.deltaTime !== undefined) {
           currentTick += event.deltaTime;
-        }
-        if (event.time !== undefined) {
-          currentTime = event.time;
         }
 
         // Skip events outside preview range

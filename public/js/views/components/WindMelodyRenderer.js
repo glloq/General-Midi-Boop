@@ -319,7 +319,6 @@ class WindMelodyRenderer {
     }
 
     _renderRangeZones(ctx, w, h) {
-        const drawHeight = h - this.topMargin - this.bottomMargin;
         const pitchRange = this.displayNoteMax - this.displayNoteMin;
         if (pitchRange <= 0) return;
 
@@ -420,7 +419,7 @@ class WindMelodyRenderer {
         }
     }
 
-    _renderNotes(ctx, w, h) {
+    _renderNotes(ctx, w, _h) {
         const noteH = this._getNoteHeight();
 
         for (let i = 0; i < this.melodyEvents.length; i++) {
@@ -496,7 +495,7 @@ class WindMelodyRenderer {
         }
     }
 
-    _renderBreathMarks(ctx, w, h) {
+    _renderBreathMarks(ctx, w, _h) {
         for (const mark of this.breathMarks) {
             const x = this._tickToX(mark.tick);
             if (x < this.headerWidth || x > w) continue;
@@ -663,7 +662,7 @@ class WindMelodyRenderer {
         }
     }
 
-    _handleMouseUp(e) {
+    _handleMouseUp(_e) {
         if (this._isDragging && this._dragMode === 'pan') {
             this.canvas.style.cursor = 'grab';
         } else if (this._isDragging && this._dragMode === 'select') {
