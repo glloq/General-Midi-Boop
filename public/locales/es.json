@@ -37,8 +37,7 @@
             "title": "Tema",
             "dark": "Oscuro",
             "colored": "Colorido",
-            "darkDescription": "Activar el modo oscuro",
-            "light": "Claro"
+            "darkDescription": "Activar el modo oscuro"
         },
         "keyboard": {
             "title": "Teclado",
@@ -124,22 +123,7 @@
             "checking": "Comprobando actualizaciones...",
             "upToDate": "El sistema está actualizado",
             "updateAvailable": "Actualización disponible",
-            "checkFailed": "No se pudo comprobar actualizaciones",
-            "errorGeneric": "Error durante la actualización",
-            "errorFetch": "Error al comprobar actualizaciones",
-            "noUpdate": "Ya está en la última versión"
-        },
-        "serial": {
-            "title": "Puerto serie",
-            "description": "Configurar conexiones MIDI por puerto serie",
-            "port": "Puerto",
-            "baudRate": "Velocidad en baudios",
-            "autoConnect": "Conexión automática",
-            "noPortsFound": "Ningún puerto serie encontrado",
-            "refresh": "Actualizar puertos",
-            "status": "Estado",
-            "connected": "Conectado",
-            "disconnected": "Desconectado"
+            "checkFailed": "No se pudo comprobar actualizaciones"
         }
     },
     "bluetooth": {
@@ -1406,8 +1390,7 @@
         "pasteShort": "PST",
         "deleteShort": "DEL",
         "selectAllShort": "ALL",
-        "velocityLabel": "vel",
-        "title": "Tablatura"
+        "velocityLabel": "vel"
     },
     "stringInstrument": {
         "title": "Configuración de instrumento de cuerda",
