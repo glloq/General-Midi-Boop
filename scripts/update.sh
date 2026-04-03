@@ -89,19 +89,49 @@ _restart_server() {
 
     if [ "$PM2_MANAGED" = true ]; then
         print_info "Restarting with PM2..."
-        if pm2 restart midimind || pm2 start ecosystem.config.cjs; then
+        # After pm2 stop, process is "stopped". Try restart first, then start fresh.
+        if pm2 restart midimind 2>&1; then
             pm2 save 2>/dev/null || true
-            sleep 3
+            sleep 5
             if pm2 list | grep -q "online.*midimind"; then
                 RESTART_OK=true
                 print_success "PM2 restart successful"
             else
-                print_warning "PM2 restart may have failed, checking port..."
-                pm2 list || true
+                print_warning "PM2 restart returned OK but process not online, trying start..."
+                pm2 delete midimind 2>/dev/null || true
+                sleep 1
+                if pm2 start ecosystem.config.cjs 2>&1; then
+                    pm2 save 2>/dev/null || true
+                    sleep 5
+                    if pm2 list | grep -q "online.*midimind"; then
+                        RESTART_OK=true
+                        print_success "PM2 start successful after delete+start"
+                    else
+                        print_warning "PM2 process still not online after start"
+                        pm2 list || true
+                        pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
+                    fi
+                fi
             fi
         else
-            print_warning "PM2 restart failed"
-            pm2 list || true
+            print_warning "PM2 restart failed, trying delete + start..."
+            pm2 delete midimind 2>/dev/null || true
+            sleep 1
+            if pm2 start ecosystem.config.cjs 2>&1; then
+                pm2 save 2>/dev/null || true
+                sleep 5
+                if pm2 list | grep -q "online.*midimind"; then
+                    RESTART_OK=true
+                    print_success "PM2 start successful"
+                else
+                    print_warning "PM2 start may have failed"
+                    pm2 list || true
+                    pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
+                fi
+            else
+                print_warning "PM2 start also failed"
+                pm2 list || true
+            fi
         fi
     elif [ "$SYSTEMD_MANAGED" = true ]; then
         print_info "Restarting with systemd..."
@@ -118,15 +148,17 @@ _restart_server() {
         fi
     elif [ "$PM2_AVAILABLE" = true ]; then
         print_info "Starting with PM2..."
-        if pm2 start ecosystem.config.cjs; then
+        pm2 delete midimind 2>/dev/null || true
+        if pm2 start ecosystem.config.cjs 2>&1; then
             pm2 save 2>/dev/null || true
-            sleep 3
+            sleep 5
             if pm2 list | grep -q "online.*midimind"; then
                 RESTART_OK=true
                 print_success "PM2 start successful"
             else
                 print_warning "PM2 start may have failed, checking port..."
                 pm2 list || true
+                pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
             fi
         else
             print_warning "PM2 start failed"
@@ -143,32 +175,42 @@ _restart_server() {
 
         print_info "Starting server directly (fallback)..."
         cd "$PROJECT_DIR"
-        echo "=== Server start at $(date) ===" > /tmp/midimind-server.log
-        NODE_BIN="$(which node)"
+        local SERVER_LOG="$PROJECT_DIR/logs/server-start.log"
+        mkdir -p "$PROJECT_DIR/logs" 2>/dev/null || true
+        echo "=== Server start at $(date) ===" > "$SERVER_LOG" 2>/dev/null || SERVER_LOG="/tmp/midimind-server.log"
+        NODE_BIN="$(which node 2>/dev/null)"
+        if [ -z "$NODE_BIN" ]; then
+            # Try common paths
+            for p in /usr/bin/node /usr/local/bin/node "$HOME/.nvm/versions/node/*/bin/node"; do
+                if [ -x "$p" ]; then NODE_BIN="$p"; break; fi
+            done
+        fi
         if [ -z "$NODE_BIN" ]; then
             print_error "Node.js binary not found in PATH"
+            print_info "PATH=$PATH"
             return 1
         fi
         print_info "Using node: $NODE_BIN"
         print_info "Working directory: $(pwd)"
-        setsid nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+        print_info "Server log: $SERVER_LOG"
+        setsid nohup "$NODE_BIN" server.js >> "$SERVER_LOG" 2>&1 &
         local SERVER_PID=$!
-        sleep 3
+        sleep 5
         if kill -0 $SERVER_PID 2>/dev/null; then
             print_success "Server started (PID: $SERVER_PID)"
         else
-            print_error "Server failed to start, check /tmp/midimind-server.log"
-            cat /tmp/midimind-server.log 2>/dev/null || true
+            print_error "Server failed to start"
+            cat "$SERVER_LOG" 2>/dev/null || true
             # Retry
             print_info "Retrying server start..."
-            setsid nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+            setsid nohup "$NODE_BIN" server.js >> "$SERVER_LOG" 2>&1 &
             SERVER_PID=$!
-            sleep 5
+            sleep 8
             if kill -0 $SERVER_PID 2>/dev/null; then
                 print_success "Server started on retry (PID: $SERVER_PID)"
             else
                 print_error "Server failed to start after retry"
-                cat /tmp/midimind-server.log 2>/dev/null || true
+                cat "$SERVER_LOG" 2>/dev/null || true
                 return 1
             fi
         fi
