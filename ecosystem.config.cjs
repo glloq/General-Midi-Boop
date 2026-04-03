@@ -3,6 +3,7 @@ module.exports = {
   apps: [
     {
       name: 'midimind',
+      cwd: __dirname,
       script: './server.js',
       node_args: '--max-old-space-size=384',
       instances: 1,

@@ -28,6 +28,15 @@
 
         this._updateInProgress = true;
 
+        // Capture current server uptime before update (used to detect restart)
+        try {
+            const healthResp = await fetch(window.location.origin + '/api/health', { cache: 'no-store' });
+            if (healthResp.ok) {
+                const healthData = await healthResp.json();
+                this._serverUptime = healthData.uptime || Infinity;
+            }
+        } catch (e) { this._serverUptime = Infinity; }
+
         // Show progress
         btn.disabled = true;
         btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
@@ -119,17 +128,21 @@
      * Show update success and wait for server restart
      */
     SettingsUpdate._showUpdateSuccess = function(statusEl) {
-        statusEl.style.background = '#f0fdf4';
-        statusEl.style.color = '#16a34a';
-        statusEl.textContent = i18n.t('settings.update.success') || 'Mise à jour terminée ! Le serveur redémarre...';
+        statusEl.style.background = '#eef2ff';
+        statusEl.style.color = '#667eea';
+        statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
 
         // Mark update in progress for post-reload notification
         try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
 
+        // Capture current server uptime to detect a real restart (uptime resets to ~0)
+        const preUpdateUptime = this._serverUptime || Infinity;
+
         // Wait for server to come back online, then reload
         const waitForServer = async () => {
-            const maxAttempts = 90;
+            const maxAttempts = 120;
             let serverWasDown = false;
+            let downSinceIteration = -1;
 
             for (let i = 0; i < maxAttempts; i++) {
                 const elapsedSec = (i + 1) * 3;
@@ -150,8 +163,13 @@
                     clearTimeout(timeoutId);
 
                     if (resp.ok) {
-                        if (!serverWasDown) {
-                            // Server hasn't gone down yet, keep waiting
+                        const data = await resp.json().catch(() => null);
+                        const newUptime = data && data.uptime;
+
+                        // Detect restart: either server was seen down, or uptime reset
+                        const uptimeReset = typeof newUptime === 'number' && newUptime < preUpdateUptime;
+                        if (!serverWasDown && !uptimeReset) {
+                            // Server hasn't gone down yet and uptime hasn't reset, keep waiting
                             continue;
                         }
                         this._updateInProgress = false;
@@ -166,6 +184,7 @@
                     }
                 } catch (e) {
                     // Server is down - this is expected during update
+                    if (!serverWasDown) downSinceIteration = i;
                     serverWasDown = true;
                 }
             }
@@ -177,8 +196,9 @@
             this._updateInProgress = false;
         };
 
-        // Give the server time to shut down first (update script waits 3s before killing)
-        setTimeout(waitForServer, 6000);
+        // Start polling quickly — the update script waits 3s before killing,
+        // but we want to catch the server going down as early as possible
+        setTimeout(waitForServer, 2000);
     };
 
     if (typeof window !== 'undefined') window.SettingsUpdate = SettingsUpdate;

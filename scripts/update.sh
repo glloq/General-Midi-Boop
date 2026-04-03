@@ -13,9 +13,15 @@ fi
 
 # Log file for non-interactive debugging
 LOG_FILE="/tmp/midimind-update.log"
+STATUS_FILE="/tmp/midimind-update-status"
 if [ "$NON_INTERACTIVE" = "1" ]; then
     exec > "$LOG_FILE" 2>&1
 fi
+
+# Write status marker for external monitoring (frontend, diagnostics)
+_update_status() {
+    echo "$1" > "$STATUS_FILE" 2>/dev/null || true
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -49,6 +55,7 @@ print_info() {
 
 # Abort update and attempt to restart the server
 abort_and_restart() {
+    _update_status "failed: $1"
     print_error "Update aborted: $1"
     print_header "Restarting Server (recovery)"
     cd "$PROJECT_DIR"
@@ -62,17 +69,19 @@ _restart_server() {
 
     if [ "$PM2_MANAGED" = true ]; then
         print_info "Restarting with PM2..."
-        if pm2 restart midimind 2>/dev/null || pm2 start ecosystem.config.cjs 2>/dev/null; then
+        if pm2 restart midimind || pm2 start ecosystem.config.cjs; then
             pm2 save 2>/dev/null || true
             sleep 3
-            if pm2 list 2>/dev/null | grep -q "online.*midimind"; then
+            if pm2 list | grep -q "online.*midimind"; then
                 RESTART_OK=true
                 print_success "PM2 restart successful"
             else
                 print_warning "PM2 restart may have failed, checking port..."
+                pm2 list || true
             fi
         else
             print_warning "PM2 restart failed"
+            pm2 list || true
         fi
     elif [ "$SYSTEMD_MANAGED" = true ]; then
         print_info "Restarting with systemd..."
@@ -89,14 +98,15 @@ _restart_server() {
         fi
     elif [ "$PM2_AVAILABLE" = true ]; then
         print_info "Starting with PM2..."
-        if pm2 start ecosystem.config.cjs 2>/dev/null; then
+        if pm2 start ecosystem.config.cjs; then
             pm2 save 2>/dev/null || true
             sleep 3
-            if pm2 list 2>/dev/null | grep -q "online.*midimind"; then
+            if pm2 list | grep -q "online.*midimind"; then
                 RESTART_OK=true
                 print_success "PM2 start successful"
             else
                 print_warning "PM2 start may have failed, checking port..."
+                pm2 list || true
             fi
         else
             print_warning "PM2 start failed"
@@ -121,7 +131,7 @@ _restart_server() {
         fi
         print_info "Using node: $NODE_BIN"
         print_info "Working directory: $(pwd)"
-        nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+        setsid nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
         local SERVER_PID=$!
         sleep 3
         if kill -0 $SERVER_PID 2>/dev/null; then
@@ -131,7 +141,7 @@ _restart_server() {
             cat /tmp/midimind-server.log 2>/dev/null || true
             # Retry
             print_info "Retrying server start..."
-            nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
+            setsid nohup "$NODE_BIN" server.js >> /tmp/midimind-server.log 2>&1 &
             SERVER_PID=$!
             sleep 5
             if kill -0 $SERVER_PID 2>/dev/null; then
@@ -168,6 +178,7 @@ PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 cd "$PROJECT_DIR"
 
 print_info "Project directory: $PROJECT_DIR"
+_update_status "started"
 
 # Detect server port from env (passed by Node backend), config.json, or default
 if [ -z "$SERVER_PORT" ]; then
@@ -236,6 +247,7 @@ fi
 # ============================================================================
 
 print_header "2. Stopping Server"
+_update_status "stopping"
 
 # Stop the server - try managed methods first, then fallback to direct kill
 _stop_direct() {
@@ -270,7 +282,7 @@ STOP_OK=false
 
 if [ "$PM2_MANAGED" = true ]; then
     print_info "Stopping PM2 process..."
-    pm2 stop midimind 2>/dev/null && STOP_OK=true || true
+    pm2 stop midimind && STOP_OK=true || print_warning "pm2 stop midimind failed"
 elif [ "$SYSTEMD_MANAGED" = true ]; then
     print_info "Stopping systemd service..."
     if timeout 10 sudo -n systemctl stop midimind 2>/dev/null; then
@@ -300,6 +312,7 @@ fi
 # ============================================================================
 
 print_header "3. Pulling Latest Changes"
+_update_status "pulling"
 
 # Get current branch
 CURRENT_BRANCH=$(git branch --show-current)
@@ -339,6 +352,7 @@ git log -5 --oneline --decorate 2>/dev/null || true
 # ============================================================================
 
 print_header "4. Updating Dependencies"
+_update_status "installing"
 
 # Always run npm install to ensure node_modules are present and up to date
 print_info "Installing/updating npm dependencies..."
@@ -372,6 +386,7 @@ fi
 # ============================================================================
 
 print_header "6. Restarting Server"
+_update_status "restarting"
 
 cd "$PROJECT_DIR"
 if ! _restart_server; then
@@ -462,6 +477,7 @@ fi
 # ============================================================================
 
 print_header "Update Complete"
+_update_status "done"
 
 print_success "MidiMind has been updated successfully!"
 echo ""
