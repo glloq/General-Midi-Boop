@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "Kanaloj",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "Dosiero tro granda ({size}). Limo: {max}",
+        "duplicateFileWarning": "⚠️ Dosiero jam ekzistas - estos anstataŭigita",
+        "releaseToUpload": "Lasu por alŝuti",
+        "errorFileTooLarge": "Dosiero tro granda. Kontrolu la dosierograndon.",
+        "errorInvalidMidi": "Ĉi tiu dosiero ne ŝajnas esti valida MIDI-dosiero. Kontrolu la formaton.",
+        "errorUploadTimeout": "Alŝuto daŭris tro longe. Bonvolu reprovi.",
+        "fileCount": "{count} dosiero(j) — {size}"
     },
     "instrumentSettings": {
         "title": "Instrument-agordoj",
