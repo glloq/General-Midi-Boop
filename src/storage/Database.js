@@ -52,7 +52,7 @@ class DatabaseManager {
    */
   _migrateBase64ToBlob() {
     try {
-      // Check if data_blob column exists (migration 031 applied)
+      // Check if data_blob column exists (migration 034 applied)
       const columns = this.db.prepare("SELECT name FROM pragma_table_info('midi_files')").all();
       const hasDataBlob = columns.some(c => c.name === 'data_blob');
       if (!hasDataBlob) return;
