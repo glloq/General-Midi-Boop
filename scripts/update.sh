@@ -18,6 +18,17 @@ STATUS_FILE="/tmp/midimind-update-status"
 # Immediate startup marker - BEFORE any redirect, so we know bash started
 echo "$(date '+%Y-%m-%d %H:%M:%S') script_started pid=$$ non_interactive=$NON_INTERACTIVE" > "$STATUS_FILE" 2>/dev/null
 
+# Double-fork: escape the parent process tree so PM2 treekill cannot reach us.
+# PM2 kills all descendants by PPID when stopping a process.  Even with
+# detached:true (setsid) from Node.js, our PPID still points to the server
+# while it is alive.  Re-executing via setsid & exit makes the new instance
+# an orphan (PPID=1) that PM2 cannot find.
+if [ -z "$_MIDIMIND_UPDATE_DETACHED" ]; then
+    export _MIDIMIND_UPDATE_DETACHED=1
+    setsid "$0" "$@" &
+    exit 0
+fi
+
 if [ "$NON_INTERACTIVE" = "1" ]; then
     # Note: when spawned from Node.js, stdout/stderr already point to the log file
     # via stdio fd passthrough. This exec is a safety net for manual runs.
