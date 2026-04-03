@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "ช่อง",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "ไฟล์ใหญ่เกินไป ({size}) จำกัด: {max}",
+        "duplicateFileWarning": "⚠️ ไฟล์มีอยู่แล้ว - จะถูกเขียนทับ",
+        "releaseToUpload": "ปล่อยเพื่ออัปโหลด",
+        "errorFileTooLarge": "ไฟล์ใหญ่เกินไป ตรวจสอบขนาดไฟล์",
+        "errorInvalidMidi": "ไฟล์นี้ดูเหมือนจะไม่ใช่ไฟล์ MIDI ที่ถูกต้อง ตรวจสอบรูปแบบ",
+        "errorUploadTimeout": "การอัปโหลดใช้เวลานานเกินไป กรุณาลองอีกครั้ง",
+        "fileCount": "{count} ไฟล์ — {size}"
     },
     "instrumentSettings": {
         "title": "การตั้งค่าเครื่องดนตรี",
