@@ -956,20 +956,14 @@
         .display-mode-btn:hover { background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.12)); }
         .display-mode-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3); }
 
-        /* File grid view */
+        /* File grid view — no ::before background overrides, routing colors from global rules apply */
         .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid #d1d5db; backdrop-filter: blur(8px); }
-        .file-list.view-grid .file-item::before { background: rgba(102, 126, 234, 0.3); }
         .file-list.view-grid .file-item:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); background: #ffffff; }
-        .file-list.view-grid .file-item:hover::before { background: #667eea; }
         .file-list.view-grid .file-item.selected { border-color: #764ba2; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); box-shadow: 0 4px 14px rgba(118, 75, 162, 0.2); }
-        .file-list.view-grid .file-item.selected::before { background: #764ba2; }
 
-        /* Compact view */
+        /* Compact view — no ::before background overrides, routing colors from global rules apply */
         .file-list.view-compact .file-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); }
-        .file-list.view-compact .file-item:hover { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.06)); }
-        .file-list.view-compact .file-item:hover::before { background: #667eea; }
         .file-list.view-compact .file-item.selected { background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); }
-        .file-list.view-compact .file-item.selected::before { background: #764ba2; }
 
         /* Header info */
         .header-file-name { color: #1a1a2e; }
@@ -2240,17 +2234,13 @@
             display: none;
         }
 
-        .view-compact .file-state-dot {
-            display: inline-block;
-        }
+        /* State dots hidden in compact mode — left color strip is the indicator */
 
         .view-compact .file-compact-meta {
             display: inline-flex;
         }
 
-        .view-grid .file-grid-state {
-            display: flex;
-        }
+        /* Grid state badge hidden — left color strip is the indicator */
 
         .file-state-dot.state-routed {
             background: #10b981;
@@ -2549,10 +2539,17 @@
             box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
         }
 
+        .file-list.view-grid .file-item.batch-selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+        }
+
         .file-list.view-grid .file-checkbox {
             position: absolute;
             top: 8px;
-            left: 8px;
+            left: 6px;
+            z-index: 3;
         }
 
         .file-list.view-grid .file-name {
@@ -2590,45 +2587,7 @@
         }
 
         /* Grid state symbol */
-        .file-list.view-grid .file-grid-state {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 0;
-            background: transparent;
-            position: absolute;
-            top: 8px;
-            right: 8px;
-        }
-
-        .file-list.view-grid .file-grid-state.state-routed,
-        .file-list.view-grid .file-grid-state.state-playable {
-            background: transparent;
-            color: #10b981;
-        }
-
-        .file-list.view-grid .file-grid-state.state-unrouted {
-            background: transparent;
-            color: #9ca3af;
-        }
-
-        .file-list.view-grid .file-grid-state.state-partial {
-            background: transparent;
-            color: #f59e0b;
-        }
-
-        .file-list.view-grid .file-grid-state.state-routed-incomplete {
-            background: transparent;
-            color: #3b82f6;
-        }
-
-        .file-list.view-grid .file-grid-state.state-playing {
-            background: transparent;
-            color: #3b82f6;
-            animation: statePulse 1.5s infinite;
-        }
+        /* Grid state badge removed — left color strip is the sole routing indicator */
 
         body.theme-dark .file-list.view-grid .file-item {
             background: #2d2d2d;
@@ -2663,32 +2622,6 @@
 
         body.theme-dark .file-list.view-grid .file-actions {
             border-top-color: #404040;
-        }
-
-        body.theme-dark .file-list.view-grid .file-grid-state.state-routed,
-        body.theme-dark .file-list.view-grid .file-grid-state.state-playable {
-            background: transparent;
-            color: #34d399;
-        }
-
-        body.theme-dark .file-list.view-grid .file-grid-state.state-unrouted {
-            background: transparent;
-            color: #6b7280;
-        }
-
-        body.theme-dark .file-list.view-grid .file-grid-state.state-partial {
-            background: transparent;
-            color: #fbbf24;
-        }
-
-        body.theme-dark .file-list.view-grid .file-grid-state.state-routed-incomplete {
-            background: transparent;
-            color: #60a5fa;
-        }
-
-        body.theme-dark .file-list.view-grid .file-grid-state.state-playing {
-            background: transparent;
-            color: #60a5fa;
         }
 
         /* Dark theme: state dots with enhanced visibility */
