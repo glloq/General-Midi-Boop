@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "通道",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "文件太大 ({size})。限制: {max}",
+        "duplicateFileWarning": "⚠️ 文件已存在 - 将被覆盖",
+        "releaseToUpload": "释放以上传",
+        "errorFileTooLarge": "文件太大。请检查文件大小。",
+        "errorInvalidMidi": "此文件似乎不是有效的 MIDI 文件。请检查格式。",
+        "errorUploadTimeout": "上传时间过长。请重试。",
+        "fileCount": "{count} 个文件 — {size}"
     },
     "instrumentSettings": {
         "title": "乐器设置",
