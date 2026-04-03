@@ -487,6 +487,7 @@
         "sortDate": "Date",
         "sortSize": "Size",
         "sortDuration": "Duration",
+        "sortChannels": "Canais",
         "advancedFilters": "Advanced filters",
         "selectAll": "Select all",
         "deselect": "Deselect",
@@ -499,7 +500,14 @@
         "microphoneSettings": "Microphone settings",
         "dropFilesHere": "Drag and drop or",
         "clickToBrowse": "click to add MIDI files",
-        "noMidiFilesDropped": "No MIDI files found in the dropped files."
+        "noMidiFilesDropped": "No MIDI files found in the dropped files.",
+        "fileTooLarge": "Ficheiro demasiado grande ({size}). Limite: {max}",
+        "duplicateFileWarning": "⚠️ O ficheiro já existe - será substituído",
+        "releaseToUpload": "Solte para enviar",
+        "errorFileTooLarge": "Ficheiro demasiado grande. Verifique o tamanho do ficheiro.",
+        "errorInvalidMidi": "Este ficheiro não parece ser um ficheiro MIDI válido. Verifique o formato.",
+        "errorUploadTimeout": "O envio demorou demasiado. Por favor, tente novamente.",
+        "fileCount": "{count} ficheiro(s) — {size}"
     },
     "instrumentSettings": {
         "title": "Configurações do instrumento",
