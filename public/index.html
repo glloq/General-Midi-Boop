@@ -2343,7 +2343,7 @@
 
         .file-list.view-compact .file-item {
             padding: 3px 8px;
-            padding-left: 30px;
+            padding-left: 38px;
             margin-bottom: 0;
             border-radius: 3px;
             background: transparent;
@@ -2353,20 +2353,20 @@
         }
 
         .file-list.view-compact .file-item::before {
-            width: 22px;
-            border-radius: 3px 0 0 3px;
+            width: 30px;
+            border-radius: 6px 0 0 6px;
         }
 
-        /* Compact: routing background tints */
+        /* Compact: routing background tints (aligned with blocks mode) */
         .file-list.view-compact .file-item.routed,
         .file-list.view-compact .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 30%);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 40%), #f9fafb;
         }
         .file-list.view-compact .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 30%);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 40%), #f9fafb;
         }
         .file-list.view-compact .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 30%);
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 40%), #f9fafb;
         }
 
         .file-list.view-compact .file-item:hover {
@@ -2470,7 +2470,17 @@
             white-space: nowrap;
         }
 
-        /* Dark compact: strip colors handled by global dark ::before rules */
+        /* Dark compact: routing background tints (aligned with grid dark mode) */
+        body.theme-dark .file-list.view-compact .file-item.routed,
+        body.theme-dark .file-list.view-compact .file-item.routing-playable {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #2d2d2d;
+        }
+        body.theme-dark .file-list.view-compact .file-item.routing-partial {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #2d2d2d;
+        }
+        body.theme-dark .file-list.view-compact .file-item.routing-routed-incomplete {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #2d2d2d;
+        }
 
         body.theme-dark .file-list.view-compact .file-item:hover {
             background: #374151;
@@ -2499,7 +2509,7 @@
             flex-direction: column;
             align-items: stretch;
             padding: 12px;
-            padding-left: 26px;
+            padding-left: 38px;
             margin-bottom: 0;
             border-radius: 8px;
             background: #ffffff;
@@ -2512,8 +2522,8 @@
         }
 
         .file-list.view-grid .file-item::before {
-            width: 16px;
-            border-radius: 8px 0 0 8px;
+            width: 30px;
+            border-radius: 6px 0 0 6px;
         }
 
         .file-list.view-grid .file-item:hover {
@@ -2521,16 +2531,16 @@
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
 
-        /* Grid: routing background tints */
+        /* Grid: routing background tints (aligned with blocks mode) */
         .file-list.view-grid .file-item.routed,
         .file-list.view-grid .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 30%), #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 40%), #ffffff;
         }
         .file-list.view-grid .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 30%), #ffffff;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 40%), #ffffff;
         }
         .file-list.view-grid .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 30%), #ffffff;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 40%), #ffffff;
         }
 
         .file-list.view-grid .file-item.selected {
@@ -2635,16 +2645,16 @@
             border-color: #8b9bea;
         }
 
-        /* Grid dark: routing background tints */
+        /* Grid dark: routing background tints (aligned with blocks mode) */
         body.theme-dark .file-list.view-grid .file-item.routed,
         body.theme-dark .file-list.view-grid .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 30%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #2d2d2d;
         }
         body.theme-dark .file-list.view-grid .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 30%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #2d2d2d;
         }
         body.theme-dark .file-list.view-grid .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 30%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #2d2d2d;
         }
 
         body.theme-dark .file-list.view-grid .file-metadata {
@@ -2914,6 +2924,42 @@
             .file-list:not(.view-compact):not(.view-grid) {
                 grid-template-columns: repeat(4, 1fr);
                 gap: 8px 16px;
+            }
+        }
+
+        /* Compact mode: multi-column on wide screens (like blocks mode) */
+        @media (min-width: 1200px) {
+            .file-list.view-compact {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1px 12px;
+            }
+            .file-list.view-compact .folder-open-files {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0 12px;
+            }
+        }
+
+        @media (min-width: 1800px) {
+            .file-list.view-compact {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 1px 14px;
+            }
+            .file-list.view-compact .folder-open-files {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0 14px;
+            }
+        }
+
+        @media (min-width: 2400px) {
+            .file-list.view-compact {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1px 16px;
+            }
+            .file-list.view-compact .folder-open-files {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0 16px;
             }
         }
 
