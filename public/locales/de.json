@@ -37,8 +37,7 @@
             "title": "Thema",
             "dark": "Dunkel",
             "colored": "Farbig",
-            "darkDescription": "Dunkelmodus aktivieren",
-            "light": "Hell"
+            "darkDescription": "Dunkelmodus aktivieren"
         },
         "keyboard": {
             "title": "Tastatur",
@@ -1391,8 +1390,7 @@
         "pasteShort": "PST",
         "deleteShort": "DEL",
         "selectAllShort": "ALL",
-        "velocityLabel": "Vel",
-        "title": "Tabulatur"
+        "velocityLabel": "Vel"
     },
     "stringInstrument": {
         "title": "Saiteninstrument-Konfiguration",
