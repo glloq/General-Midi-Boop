@@ -1,6 +1,11 @@
 # Ma-est-tro
 
-> **MIDI Orchestration System for Raspberry Pi with Modern Web Interface**
+
+> [!WARNING]
+> I'm starting to be happy with this interface, but there are still a few minor bugs to fix.
+
+ 
+ **MIDI Orchestration System for Raspberry Pi with Modern Web Interface**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
