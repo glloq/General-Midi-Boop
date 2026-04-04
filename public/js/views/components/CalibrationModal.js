@@ -46,8 +46,9 @@ class CalibrationModal extends BaseModal {
         this._currentRMS = 0;
         this._peakRMS = 0;
 
-        // WebSocket listener reference
+        // WebSocket listener references
         this._onAudioLevel = null;
+        this._onDeviceListUpdate = null;
 
         this.logger.info('CalibrationModal', '✓ Modal initialized v1.0.0');
     }
@@ -191,6 +192,16 @@ class CalibrationModal extends BaseModal {
         this.state.instrumentStatuses = {};
     }
 
+    onUpdate() {
+        // BaseModal.update() replaces body HTML on locale change.
+        // Re-attach event handlers and reload dynamic data.
+        this._detachEventHandlers();
+        this._attachEventHandlers();
+        this._loadInstruments();
+        this._loadAlsaDevices();
+        this._updateThresholdIndicator();
+    }
+
     // ========================================================================
     // EVENT HANDLERS
     // ========================================================================
@@ -248,12 +259,27 @@ class CalibrationModal extends BaseModal {
         if (this.api && this.api.on) {
             this.api.on('calibration:audio_level', this._onAudioLevel);
         }
+
+        // Device list change listener - refresh instruments when devices connect/disconnect
+        this._onDeviceListUpdate = () => {
+            if (this.isOpen && !this.state.isRunning) {
+                this._loadInstruments();
+            }
+        };
+
+        if (this.api && this.api.on) {
+            this.api.on('device_list', this._onDeviceListUpdate);
+        }
     }
 
     _detachEventHandlers() {
         if (this.api && this.api.off && this._onAudioLevel) {
             this.api.off('calibration:audio_level', this._onAudioLevel);
             this._onAudioLevel = null;
+        }
+        if (this.api && this.api.off && this._onDeviceListUpdate) {
+            this.api.off('device_list', this._onDeviceListUpdate);
+            this._onDeviceListUpdate = null;
         }
     }
 
@@ -289,8 +315,12 @@ class CalibrationModal extends BaseModal {
         try {
             this.instruments = [];
 
-            // Use device_list (same as main app loadDevices) to get all devices with their instruments
-            const devices = await this.api.listDevices();
+            // Use device_list to get all devices with their instruments
+            const rawDevices = await this.api.listDevices();
+            const allDevices = Array.isArray(rawDevices) ? rawDevices : [];
+
+            // Filter: only output-capable and connected devices (calibration sends MIDI out)
+            const devices = allDevices.filter(d => d.output === true && (d.status === 2 || d.connected));
 
             for (const device of devices) {
                 // Device has a sub-array of configured instruments (multi-channel)
@@ -372,7 +402,7 @@ class CalibrationModal extends BaseModal {
             });
 
         } catch (error) {
-            this.logger.error('CalibrationModal', 'Failed to load instruments:', error);
+            this.logger.error('CalibrationModal', 'Failed to load instruments:', error?.message || error);
             listEl.innerHTML = `<div class="calibration-no-instruments">${this.t('calibration.noInstruments')}</div>`;
         }
     }
