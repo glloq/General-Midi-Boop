@@ -220,8 +220,8 @@ class NetworkManager extends EventEmitter {
       // Éviter de scanner notre propre IP
       if (ip === localIP) continue;
 
-      // Lancer le ping de manière asynchrone avec timeout réduit
-      const pingPromise = this.checkReachability(ip, 1000) // 1 second timeout
+      // Lancer le ping ICMP de manière asynchrone avec timeout réduit
+      const pingPromise = this.pingHost(ip, 1)
         .then(isReachable => {
           if (isReachable) {
             // Ne pas ajouter si déjà découvert via mDNS
@@ -463,6 +463,26 @@ class NetworkManager extends EventEmitter {
     } catch (error) {
       this.app.logger.error(`[NetworkManager] Failed to connect RTP-MIDI to ${ip}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Vérifie si un hôte est accessible via ICMP ping.
+   * Utilisé par scanSubnetIPs() pour découvrir tous les hôtes actifs du réseau.
+   * @param {string} ip - Adresse IP
+   * @param {number} timeoutSec - Timeout en secondes (défaut: 1)
+   * @returns {Promise<boolean>} True si accessible
+   */
+  async pingHost(ip, timeoutSec = 1) {
+    if (!/^[\d.]+$/.test(ip)) return false;
+    const safeTimeout = Math.max(1, Math.min(10, parseInt(timeoutSec, 10) || 1));
+    try {
+      await execFileAsync('ping', ['-c', '1', '-W', String(safeTimeout), ip], {
+        timeout: (safeTimeout + 1) * 1000
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 
