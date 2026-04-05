@@ -703,87 +703,101 @@
     const container = this.modal?.querySelector('.aa-minimap-container');
     if (!container || !this.midiData) return;
 
-    // Create or reuse canvas
-    let canvas = container.querySelector('.aa-minimap-canvas');
-    if (!canvas) {
+    // Reuse existing canvas or create once
+    let canvas = this._minimapCanvas;
+    if (!canvas || !canvas.parentNode) {
       canvas = document.createElement('canvas');
       canvas.className = 'aa-minimap-canvas';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
+      canvas.style.display = 'block';
       canvas.style.cursor = 'pointer';
-      container.innerHTML = '';
+      container.textContent = '';
       container.appendChild(canvas);
 
-      // Click to seek
-      canvas.addEventListener('click', (e) => {
+      // Single click handler, stored for cleanup
+      this._minimapClickHandler = (e) => {
         const rect = canvas.getBoundingClientRect();
         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         const totalSec = this.audioPreview?.totalDuration || 0;
         if (totalSec > 0 && typeof this.seekPreview === 'function') {
           this.seekPreview(pct * totalSec);
         }
-      });
+      };
+      canvas.addEventListener('click', this._minimapClickHandler);
+      this._minimapCanvas = canvas;
     }
 
-    this._minimapCanvas = canvas;
-
-    // Size canvas to container
+    // Size canvas to container (DPR-aware)
     const dpr = window.devicePixelRatio || 1;
     const w = container.clientWidth || 400;
-    const h = container.clientHeight || 30;
+    const h = container.clientHeight || 28;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
 
     // Determine which channels to display
     const mode = this._previewMode;
     const previewChannel = this._previewChannel;
     const isGlobal = mode === 'all';
 
-    // Extract all notes from MIDI data, bucketed by pixel column
+    // Extract notes and compute buckets
     const notes = this._extractNotesForMinimap(isGlobal ? null : previewChannel);
-    if (notes.length === 0) {
-      ctx.clearRect(0, 0, w, h);
-      return;
-    }
+    const totalTicks = this.audioPreview?.totalTicks || (notes.length > 0 ? notes[notes.length - 1].t + 1 : 1);
 
-    // Find total tick range
-    const totalTicks = this.audioPreview?.totalTicks || notes[notes.length - 1].t + 1;
+    // Store dimensions and data for playhead redraws
+    this._minimapWidth = w;
+    this._minimapHeight = h;
+    this._minimapTotalTicks = totalTicks;
 
-    // Bucket notes by column
-    const buckets = new Array(w).fill(0);
-    const bucketsOutOfRange = new Array(w).fill(0);
-    const maxBucketVal = { val: 0 };
+    // Pre-compute bucket data (cached for playhead redraws)
+    this._minimapBuckets = new Array(w).fill(0);
+    this._minimapBucketsOOR = new Array(w).fill(0);
+    this._minimapMaxVal = 0;
 
     // Get instrument range for single-channel coloring
     let instMin = null, instMax = null;
     if (!isGlobal && previewChannel != null) {
-      const assignment = this.selectedAssignments[String(previewChannel)];
+      const assignment = this.selectedAssignments?.[String(previewChannel)];
       if (assignment) {
         instMin = assignment.noteRangeMin;
         instMax = assignment.noteRangeMax;
       }
     }
+    this._minimapInstRange = (instMin != null && instMax != null) ? { min: instMin, max: instMax } : null;
 
     for (const note of notes) {
       const col = Math.floor((note.t / totalTicks) * w);
       if (col < 0 || col >= w) continue;
-      buckets[col]++;
-      if (maxBucketVal.val < buckets[col]) maxBucketVal.val = buckets[col];
-
-      // Track out-of-range notes
-      if (instMin != null && instMax != null) {
-        if (note.n < instMin || note.n > instMax) {
-          bucketsOutOfRange[col]++;
-        }
+      this._minimapBuckets[col]++;
+      if (this._minimapBuckets[col] > this._minimapMaxVal) {
+        this._minimapMaxVal = this._minimapBuckets[col];
+      }
+      if (this._minimapInstRange && (note.n < instMin || note.n > instMax)) {
+        this._minimapBucketsOOR[col]++;
       }
     }
 
-    // Draw
+    // Draw initial content (no playhead)
+    this._drawMinimapFrame(0);
+  }
+
+  /**
+   * Draw a full minimap frame: background, note density bars, and optional playhead.
+   * Uses cached bucket data from renderNoteMinimap().
+   * All drawing is in logical (CSS) coordinates; DPR scaling is handled via ctx.scale.
+   * @param {number} playheadPct - Playhead position as 0..1 fraction (0 = hidden)
+   */
+    AutoAssignVizMixin._drawMinimapFrame = function(playheadPct) {
+    const canvas = this._minimapCanvas;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = this._minimapWidth || 400;
+    const h = this._minimapHeight || 28;
+
+    // Reset transform and apply DPR scale
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
     // Background
@@ -791,16 +805,19 @@
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, w, h);
 
+    const buckets = this._minimapBuckets;
+    const bucketsOOR = this._minimapBucketsOOR;
+    if (!buckets) return;
+
+    const maxVal = this._minimapMaxVal || 1;
     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4a9eff';
     const outOfRangeColor = '#e05555';
-    const maxVal = maxBucketVal.val || 1;
 
     for (let i = 0; i < w; i++) {
       if (buckets[i] === 0) continue;
-      const barH = Math.max(1, (buckets[i] / maxVal) * (h - 2));
 
       // In-range portion
-      const inRange = buckets[i] - bucketsOutOfRange[i];
+      const inRange = buckets[i] - (bucketsOOR[i] || 0);
       if (inRange > 0) {
         const inH = Math.max(1, (inRange / maxVal) * (h - 2));
         ctx.fillStyle = accentColor;
@@ -808,20 +825,20 @@
       }
 
       // Out-of-range portion (stacked on top)
-      if (bucketsOutOfRange[i] > 0) {
-        const outH = Math.max(1, (bucketsOutOfRange[i] / maxVal) * (h - 2));
+      if (bucketsOOR[i] > 0) {
+        const outH = Math.max(1, (bucketsOOR[i] / maxVal) * (h - 2));
         const inH = inRange > 0 ? Math.max(1, (inRange / maxVal) * (h - 2)) : 0;
         ctx.fillStyle = outOfRangeColor;
         ctx.fillRect(i, h - 1 - inH - outH, 1, outH);
       }
     }
 
-    // Store for playhead overlay
-    this._minimapWidth = w;
-    this._minimapHeight = h;
-    this._minimapTotalTicks = totalTicks;
-    // Save the drawn image for playhead overlay redraws
-    this._minimapImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // Playhead line
+    if (playheadPct > 0 && playheadPct <= 1) {
+      const x = Math.floor(playheadPct * w);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(x, 0, 2, h);
+    }
   }
 
   /**
@@ -852,25 +869,12 @@
 
   /**
    * Update the minimap playhead position.
-   * Redraws the saved minimap image and overlays the playhead line.
+   * Redraws the full minimap frame with playhead at the given position.
    */
     AutoAssignVizMixin.updateMinimapPlayhead = function(currentTick, totalTicks) {
-    const canvas = this._minimapCanvas;
-    if (!canvas || !this._minimapImageData) return;
-
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    const w = this._minimapWidth || canvas.width / dpr;
-    const h = this._minimapHeight || canvas.height / dpr;
     const total = totalTicks || this._minimapTotalTicks || 1;
-
-    // Restore saved image
-    ctx.putImageData(this._minimapImageData, 0, 0);
-
-    // Draw playhead line
-    const x = Math.floor((currentTick / total) * w) * dpr;
-    ctx.fillStyle = '#ff4444';
-    ctx.fillRect(x, 0, 2 * dpr, h * dpr);
+    const pct = Math.max(0, Math.min(1, currentTick / total));
+    this._drawMinimapFrame(pct);
   }
 
     if (typeof window !== 'undefined') window.AutoAssignVizMixin = AutoAssignVizMixin;
