@@ -542,10 +542,13 @@ class PlaybackScheduler {
       }
     }
 
-    // Clamp to maximum allowed compensation
+    // Clamp to maximum allowed compensation (both positive and negative)
     if (syncDelay > MAX_COMPENSATION_MS) {
       this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
       syncDelay = MAX_COMPENSATION_MS;
+    } else if (syncDelay < -MAX_COMPENSATION_MS) {
+      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds min -${MAX_COMPENSATION_MS}ms, clamping`);
+      syncDelay = -MAX_COMPENSATION_MS;
     }
 
     if (syncDelay !== 0) {

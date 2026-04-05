@@ -10,6 +10,17 @@ import { performance } from 'perf_hooks';
  * le délai entre l'envoi d'une note MIDI et la détection du son.
  */
 class DelayCalibrator {
+  /**
+   * Validate ALSA device identifier format.
+   * Accepts: hw:X,Y  plughw:X,Y  default  sysdefault  sysdefault:X
+   * @param {string} device - ALSA device string
+   * @returns {boolean}
+   */
+  static isValidAlsaDevice(device) {
+    if (typeof device !== 'string' || device.length === 0) return false;
+    return /^(plug)?(hw|sysdefault|default)(:\d+,?\d*)?\s*$/.test(device.trim());
+  }
+
   constructor(midiController, logger) {
     this.midiController = midiController;
     this.logger = logger;
@@ -40,6 +51,9 @@ class DelayCalibrator {
    * @param {string} device - Ex: 'hw:1,0' ou 'plughw:1,0'
    */
   setAlsaDevice(device) {
+    if (!DelayCalibrator.isValidAlsaDevice(device)) {
+      throw new Error(`Invalid ALSA device format: ${device}`);
+    }
     this.config.alsaDevice = device;
     this.logger.info(`ALSA device set to: ${device}`);
   }
@@ -145,7 +159,7 @@ class DelayCalibrator {
       const detectionTime = await this.waitForSound(this.config.maxWaitTime);
 
       // Arrêter l'enregistrement
-      this.stopRecording();
+      await this.stopRecording();
 
       if (detectionTime === null) {
         this.logger.warn('No sound detected within timeout');
@@ -158,7 +172,7 @@ class DelayCalibrator {
 
       return delay;
     } catch (error) {
-      this.stopRecording();
+      await this.stopRecording();
       throw error;
     }
   }
@@ -207,12 +221,25 @@ class DelayCalibrator {
    * Arrête l'enregistrement audio
    */
   stopRecording() {
-    if (this.recording) {
-      this.recording.kill('SIGTERM');
-      this.recording = null;
-    }
-    this.isRecording = false;
-    this.logger.debug('Recording stopped');
+    return new Promise((resolve) => {
+      if (this.recording) {
+        const proc = this.recording;
+        this.recording = null;
+        this.isRecording = false;
+
+        proc.once('close', () => resolve());
+        proc.kill('SIGTERM');
+
+        // Fallback: force kill if process doesn't exit within 1s
+        setTimeout(() => {
+          try { proc.kill('SIGKILL'); } catch (_) { /* already exited */ }
+          resolve();
+        }, 1000);
+      } else {
+        this.isRecording = false;
+        resolve();
+      }
+    });
   }
 
   /**
@@ -251,6 +278,7 @@ class DelayCalibrator {
     return new Promise((resolve) => {
       const startTime = performance.now();
       const checkInterval = 10; // Vérifier toutes les 10ms
+      let lastCheckedIndex = 0;
 
       const interval = setInterval(() => {
         // Vérifier timeout
@@ -260,21 +288,17 @@ class DelayCalibrator {
           return;
         }
 
-        // Vérifier les derniers chunks du buffer
-        if (this.audioBuffer.length > 0) {
-          // Analyser les 5 derniers chunks (ou moins)
-          const chunksToCheck = Math.min(5, this.audioBuffer.length);
-          const recentChunks = this.audioBuffer.slice(-chunksToCheck);
+        // Vérifier uniquement les nouveaux chunks depuis la dernière vérification
+        while (lastCheckedIndex < this.audioBuffer.length) {
+          const chunk = this.audioBuffer[lastCheckedIndex];
+          const rms = this.calculateRMS(chunk);
 
-          for (const chunk of recentChunks) {
-            const rms = this.calculateRMS(chunk);
-
-            if (rms > this.config.threshold) {
-              clearInterval(interval);
-              resolve(performance.now());
-              return;
-            }
+          if (rms > this.config.threshold) {
+            clearInterval(interval);
+            resolve(performance.now());
+            return;
           }
+          lastCheckedIndex++;
         }
       }, checkInterval);
     });
@@ -372,6 +396,9 @@ class DelayCalibrator {
     }
 
     const device = options.alsaDevice || this.config.alsaDevice;
+    if (!DelayCalibrator.isValidAlsaDevice(device)) {
+      throw new Error(`Invalid ALSA device format: ${device}`);
+    }
     this.monitorCallback = callback;
     this.monitorPeakRMS = 0;
 
