@@ -30,7 +30,9 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') script_started pid=$$ non_interactive=$NON_IN
 # detached:true (setsid) from Node.js, our PPID still points to the server
 # while it is alive.  Re-executing via setsid & exit makes the new instance
 # an orphan (PPID=1) that PM2 cannot find.
-if [ -z "$_MIDIMIND_UPDATE_DETACHED" ]; then
+# Only detach in non-interactive mode (web UI) — in SSH, run directly so the
+# user can see output in the terminal.
+if [ "$NON_INTERACTIVE" = "1" ] && [ -z "$_MIDIMIND_UPDATE_DETACHED" ]; then
     export _MIDIMIND_UPDATE_DETACHED=1
     setsid "$0" "$@" &
     exit 0

@@ -37,7 +37,7 @@
   "author": "MidiMind Team",
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^11.10.0",
     "compression": "^1.8.1",
     "dotenv": "^16.3.1",
     "easymidi": "^2.0.1",
