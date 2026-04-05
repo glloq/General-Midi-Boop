@@ -1,7 +1,7 @@
 // src/api/apiRoutes.js
 // Extracted API route handlers — keeps HttpServer focused on server setup.
 import { Router } from 'express';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -77,6 +77,32 @@ export function createApiRouter(app) {
 
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(lines.join('\n'));
+  });
+
+  // Update status (public — no auth, used by frontend during update)
+  router.get('/update-status', (_req, res) => {
+    const projectRoot = join(__dirname, '../..');
+    const statusFile = join(projectRoot, 'logs', 'update-status');
+    const logFile = join(projectRoot, 'logs', 'update.log');
+
+    let status = null;
+    let logTail = null;
+
+    if (existsSync(statusFile)) {
+      try {
+        status = readFileSync(statusFile, 'utf8').trim();
+      } catch { /* ignore */ }
+    }
+
+    if (existsSync(logFile)) {
+      try {
+        const full = readFileSync(logFile, 'utf8');
+        const lines = full.split('\n');
+        logTail = lines.slice(-30).join('\n');
+      } catch { /* ignore */ }
+    }
+
+    res.json({ status, logTail });
   });
 
   return router;

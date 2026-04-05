@@ -296,6 +296,9 @@ class SettingsModal {
         }
         document.addEventListener('keydown', this._escHandler);
 
+        // Reset cancellation flag so update polling can resume if needed
+        this._updateCancelled = false;
+
         // Restaurer les valeurs actuelles
         const darkModeToggle = this.modal.querySelector('#darkModeToggle');
         if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
@@ -346,6 +349,13 @@ class SettingsModal {
         if (this._escHandler) {
             document.removeEventListener('keydown', this._escHandler);
         }
+
+        // Cancel any in-flight update polling (status + health)
+        if (typeof this._cleanupUpdatePolling === 'function') {
+            this._cleanupUpdatePolling();
+        }
+        this._updateCancelled = true;
+
         this.logger?.info('Settings modal closed');
     }
 
