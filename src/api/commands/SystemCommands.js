@@ -151,6 +151,10 @@ async function systemUpdate(app) {
   // Use the project logs/ directory to avoid /tmp permission conflicts.
   const logsDir = join(PROJECT_ROOT, 'logs');
   try { mkdirSync(logsDir, { recursive: true }); } catch { /* exists */ }
+
+  // Remove stale status file from previous update so frontend doesn't see old "done"
+  try { unlinkSync(join(logsDir, 'update-status')); } catch { /* doesn't exist */ }
+
   const logPath = join(logsDir, 'update.log');
   let logFd;
   try {

@@ -62,7 +62,7 @@ class HttpServer {
     if (apiToken) {
       const apiTokenBuf = Buffer.from(apiToken);
       this.expressApp.use('/api', (req, res, next) => {
-        if (req.path === '/health') return next(); // Health check always public
+        if (req.path === '/health' || req.path === '/update-status') return next(); // Public endpoints
         const token = req.headers.authorization?.replace('Bearer ', '') || '';
         try {
           const tokenBuf = Buffer.from(token);

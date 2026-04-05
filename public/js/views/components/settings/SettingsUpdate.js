@@ -2,6 +2,17 @@
     'use strict';
     const SettingsUpdate = {};
 
+    // Step labels, icons and progress percentages for update status tracking
+    const UPDATE_STEPS = {
+        script_started: { label: 'Initialisation...', icon: '🔧', progress: 10 },
+        started:        { label: 'Démarrage...', icon: '🔧', progress: 15 },
+        pulling:        { label: 'Téléchargement des sources...', icon: '📥', progress: 30 },
+        installing:     { label: 'Installation des dépendances...', icon: '📦', progress: 55 },
+        restarting:     { label: 'Redémarrage du serveur...', icon: '🔄', progress: 80 },
+        verifying:      { label: 'Vérification...', icon: '🔍', progress: 90 },
+        done:           { label: 'Mise à jour terminée !', icon: '✅', progress: 100 },
+    };
+
     /**
      * Trigger system update via backend
      */
@@ -27,6 +38,7 @@
         if (!confirmed) return;
 
         this._updateInProgress = true;
+        this._updateCancelled = false;
 
         // Capture current server uptime before update (used to detect restart)
         try {
@@ -46,6 +58,9 @@
         statusEl.style.background = '#eef2ff';
         statusEl.style.color = '#667eea';
         statusEl.textContent = i18n.t('settings.update.running') || 'Mise à jour en cours, veuillez patienter...';
+
+        // Start polling update status for real-time progress
+        this._pollUpdateStatus(statusEl);
 
         try {
             const api = window.api || window.apiClient;
@@ -68,6 +83,7 @@
                 this._showUpdateSuccess(statusEl);
             } else {
                 console.error('[SystemUpdate] Real error, showing failure UI');
+                this._cleanupUpdatePolling();
                 statusEl.style.background = '#fef2f2';
                 statusEl.style.color = '#dc2626';
                 statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
@@ -83,6 +99,17 @@
      * Check for available updates
      */
     SettingsUpdate.checkForUpdates = async function() {
+        // If an update is in progress, resume showing status instead of checking
+        if (this._updateInProgress) {
+            const statusEl = this.modal.querySelector('#updateStatus');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                this._updateCancelled = false;
+                this._pollUpdateStatus(statusEl);
+            }
+            return;
+        }
+
         const statusEl = this.modal.querySelector('#versionStatus');
         if (!statusEl) return;
 
@@ -131,10 +158,88 @@
     };
 
     /**
+     * Poll /api/update-status for real-time progress feedback
+     */
+    SettingsUpdate._pollUpdateStatus = function(statusEl) {
+        // Clean any previous polling
+        this._cleanupUpdatePolling();
+
+        this._updateAbortController = new AbortController();
+        const signal = this._updateAbortController.signal;
+
+        this._updateStatusInterval = setInterval(async () => {
+            if (signal.aborted) return;
+            try {
+                const resp = await fetch(window.location.origin + '/api/update-status', {
+                    cache: 'no-store',
+                    signal
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.status) return;
+
+                // Parse status: may be "pulling", "failed: some message", or "2024-... script_started pid=123"
+                const rawStatus = data.status;
+                let step = rawStatus.split(' ')[0].replace(':', '');
+
+                // Handle timestamp prefix in script_started line
+                if (rawStatus.includes('script_started')) {
+                    step = 'script_started';
+                }
+
+                if (step === 'failed') {
+                    const reason = rawStatus.replace(/^failed:\s*/, '');
+                    statusEl.style.background = '#fef2f2';
+                    statusEl.style.color = '#dc2626';
+                    statusEl.innerHTML = '❌ ' + (i18n.t('settings.update.failed') || 'Échec') + ': ' + reason;
+                    this._cleanupUpdatePolling();
+                    this._updateInProgress = false;
+                    const btn = this.modal.querySelector('#systemUpdateBtn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
+                        btn.style.opacity = '1';
+                    }
+                    return;
+                }
+
+                const stepInfo = UPDATE_STEPS[step];
+                if (stepInfo) {
+                    const label = i18n.t('settings.update.step.' + step) || stepInfo.label;
+                    statusEl.style.background = '#eef2ff';
+                    statusEl.style.color = '#667eea';
+                    statusEl.innerHTML = `${stepInfo.icon} ${label} <span style="opacity:0.5">(${stepInfo.progress}%)</span>`;
+                }
+            } catch (e) {
+                // Server down during update is expected — don't clear interval
+                if (e.name === 'AbortError') return;
+            }
+        }, 2000);
+    };
+
+    /**
+     * Stop all update-related polling (status + health)
+     */
+    SettingsUpdate._cleanupUpdatePolling = function() {
+        if (this._updateAbortController) {
+            this._updateAbortController.abort();
+            this._updateAbortController = null;
+        }
+        if (this._updateStatusInterval) {
+            clearInterval(this._updateStatusInterval);
+            this._updateStatusInterval = null;
+        }
+    };
+
+    /**
      * Show update success and wait for server restart
      */
     SettingsUpdate._showUpdateSuccess = function(statusEl) {
         console.log('[SystemUpdate] Waiting for server restart (preUpdateUptime:', this._serverUptime, ')');
+
+        // Stop status polling — we switch to health polling now
+        this._cleanupUpdatePolling();
+
         statusEl.style.background = '#eef2ff';
         statusEl.style.color = '#667eea';
         statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
@@ -152,6 +257,12 @@
             let downSinceIteration = -1;
 
             for (let i = 0; i < maxAttempts; i++) {
+                // Check if polling was cancelled (modal closed)
+                if (this._updateCancelled) {
+                    console.log('[SystemUpdate] Health polling cancelled');
+                    return;
+                }
+
                 const elapsedSec = (i + 1) * 3;
                 const mins = Math.floor(elapsedSec / 60);
                 const secs = elapsedSec % 60;
