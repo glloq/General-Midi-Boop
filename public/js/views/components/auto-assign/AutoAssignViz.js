@@ -690,5 +690,188 @@
     `;
   };
 
+  // ========================================================================
+  // NOTE MINIMAP - Timeline visualization of note density
+  // ========================================================================
+
+  /**
+   * Render or re-render the note minimap canvas.
+   * In single-channel mode, shows notes for the active channel with in/out-of-range coloring.
+   * In global (all) mode, shows combined density across all channels.
+   */
+    AutoAssignVizMixin.renderNoteMinimap = function() {
+    const container = this.modal?.querySelector('.aa-minimap-container');
+    if (!container || !this.midiData) return;
+
+    // Create or reuse canvas
+    let canvas = container.querySelector('.aa-minimap-canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.className = 'aa-minimap-canvas';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.cursor = 'pointer';
+      container.innerHTML = '';
+      container.appendChild(canvas);
+
+      // Click to seek
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const totalSec = this.audioPreview?.totalDuration || 0;
+        if (totalSec > 0 && typeof this.seekPreview === 'function') {
+          this.seekPreview(pct * totalSec);
+        }
+      });
+    }
+
+    this._minimapCanvas = canvas;
+
+    // Size canvas to container
+    const dpr = window.devicePixelRatio || 1;
+    const w = container.clientWidth || 400;
+    const h = container.clientHeight || 30;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // Determine which channels to display
+    const mode = this._previewMode;
+    const previewChannel = this._previewChannel;
+    const isGlobal = mode === 'all';
+
+    // Extract all notes from MIDI data, bucketed by pixel column
+    const notes = this._extractNotesForMinimap(isGlobal ? null : previewChannel);
+    if (notes.length === 0) {
+      ctx.clearRect(0, 0, w, h);
+      return;
+    }
+
+    // Find total tick range
+    const totalTicks = this.audioPreview?.totalTicks || notes[notes.length - 1].t + 1;
+
+    // Bucket notes by column
+    const buckets = new Array(w).fill(0);
+    const bucketsOutOfRange = new Array(w).fill(0);
+    const maxBucketVal = { val: 0 };
+
+    // Get instrument range for single-channel coloring
+    let instMin = null, instMax = null;
+    if (!isGlobal && previewChannel != null) {
+      const assignment = this.selectedAssignments[String(previewChannel)];
+      if (assignment) {
+        instMin = assignment.noteRangeMin;
+        instMax = assignment.noteRangeMax;
+      }
+    }
+
+    for (const note of notes) {
+      const col = Math.floor((note.t / totalTicks) * w);
+      if (col < 0 || col >= w) continue;
+      buckets[col]++;
+      if (maxBucketVal.val < buckets[col]) maxBucketVal.val = buckets[col];
+
+      // Track out-of-range notes
+      if (instMin != null && instMax != null) {
+        if (note.n < instMin || note.n > instMax) {
+          bucketsOutOfRange[col]++;
+        }
+      }
+    }
+
+    // Draw
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() || '#2a2a2a';
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, w, h);
+
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4a9eff';
+    const outOfRangeColor = '#e05555';
+    const maxVal = maxBucketVal.val || 1;
+
+    for (let i = 0; i < w; i++) {
+      if (buckets[i] === 0) continue;
+      const barH = Math.max(1, (buckets[i] / maxVal) * (h - 2));
+
+      // In-range portion
+      const inRange = buckets[i] - bucketsOutOfRange[i];
+      if (inRange > 0) {
+        const inH = Math.max(1, (inRange / maxVal) * (h - 2));
+        ctx.fillStyle = accentColor;
+        ctx.fillRect(i, h - 1 - inH, 1, inH);
+      }
+
+      // Out-of-range portion (stacked on top)
+      if (bucketsOutOfRange[i] > 0) {
+        const outH = Math.max(1, (bucketsOutOfRange[i] / maxVal) * (h - 2));
+        const inH = inRange > 0 ? Math.max(1, (inRange / maxVal) * (h - 2)) : 0;
+        ctx.fillStyle = outOfRangeColor;
+        ctx.fillRect(i, h - 1 - inH - outH, 1, outH);
+      }
+    }
+
+    // Store for playhead overlay
+    this._minimapWidth = w;
+    this._minimapHeight = h;
+    this._minimapTotalTicks = totalTicks;
+    // Save the drawn image for playhead overlay redraws
+    this._minimapImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  /**
+   * Extract note events from midiData for the minimap.
+   * @param {number|null} channelFilter - null for all channels, or specific channel number
+   * @returns {Array} - [{t: tick, n: noteNumber}, ...]
+   */
+    AutoAssignVizMixin._extractNotesForMinimap = function(channelFilter) {
+    const notes = [];
+    if (!this.midiData?.tracks) return notes;
+
+    for (const track of this.midiData.tracks) {
+      if (!track.events) continue;
+      let tick = 0;
+      for (const event of track.events) {
+        if (event.deltaTime !== undefined) tick += event.deltaTime;
+        if (event.type === 'noteOn' && event.velocity > 0) {
+          const ch = event.channel ?? 0;
+          if (channelFilter !== null && ch !== channelFilter) continue;
+          notes.push({ t: tick, n: event.note ?? event.noteNumber ?? 60 });
+        }
+      }
+    }
+
+    notes.sort((a, b) => a.t - b.t);
+    return notes;
+  }
+
+  /**
+   * Update the minimap playhead position.
+   * Redraws the saved minimap image and overlays the playhead line.
+   */
+    AutoAssignVizMixin.updateMinimapPlayhead = function(currentTick, totalTicks) {
+    const canvas = this._minimapCanvas;
+    if (!canvas || !this._minimapImageData) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = this._minimapWidth || canvas.width / dpr;
+    const h = this._minimapHeight || canvas.height / dpr;
+    const total = totalTicks || this._minimapTotalTicks || 1;
+
+    // Restore saved image
+    ctx.putImageData(this._minimapImageData, 0, 0);
+
+    // Draw playhead line
+    const x = Math.floor((currentTick / total) * w) * dpr;
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(x, 0, 2 * dpr, h * dpr);
+  }
+
     if (typeof window !== 'undefined') window.AutoAssignVizMixin = AutoAssignVizMixin;
 })();
