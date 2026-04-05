@@ -294,7 +294,15 @@ class DeviceManager {
         uniqueDevices.push(device);
         this.app.logger.debug(`[Deduplication] ✓ KEPT: "${device.name}" (${device.type}) [normalized: "${normalizedName}"]`);
       } else {
-        this.app.logger.debug(`[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [normalized: "${normalizedName}"] - duplicate`);
+        // Merge capabilities: if the duplicate has input/output the kept one lacks, merge them
+        const kept = uniqueDevices.find(d => normalizeName(d.name) === normalizedName);
+        if (kept) {
+          if (device.input && !kept.input) kept.input = true;
+          if (device.output && !kept.output) kept.output = true;
+          this.app.logger.debug(`[Deduplication] ↗ MERGED: "${device.name}" (${device.type}) into "${kept.name}" → input=${kept.input}, output=${kept.output}`);
+        } else {
+          this.app.logger.debug(`[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [normalized: "${normalizedName}"] - duplicate`);
+        }
       }
     }
 

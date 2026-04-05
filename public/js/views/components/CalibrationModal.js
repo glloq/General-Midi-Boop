@@ -319,8 +319,10 @@ class CalibrationModal extends BaseModal {
             const rawDevices = await this.api.listDevices();
             const allDevices = Array.isArray(rawDevices) ? rawDevices : [];
 
-            // Filter: only output-capable and connected devices (calibration sends MIDI out)
-            const devices = allDevices.filter(d => d.output === true && (d.status === 2 || d.connected));
+            // Filter: only connected devices that have output capability
+            // (calibration needs to send MIDI out). Accept output: true or output undefined
+            // (some device types like bluetooth/network always have output).
+            const devices = allDevices.filter(d => d.output !== false && (d.status === 2 || d.connected));
 
             for (const device of devices) {
                 // Device has a sub-array of configured instruments (multi-channel)
