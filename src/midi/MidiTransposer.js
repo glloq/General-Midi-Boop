@@ -229,6 +229,168 @@ class MidiTransposer {
   }
 
   /**
+   * Compress notes into instrument range using octave folding.
+   * Notes below range are folded up, notes above are folded down.
+   * @param {number} note - MIDI note number
+   * @param {number} min - Instrument range min
+   * @param {number} max - Instrument range max
+   * @returns {number}
+   */
+  compressNoteToRange(note, min, max) {
+    if (note >= min && note <= max) return note;
+    const range = max - min;
+    if (range <= 0) return min;
+
+    if (note < min) {
+      const diff = min - note;
+      return min + (diff % range);
+    } else {
+      const diff = note - max;
+      return max - (diff % range);
+    }
+  }
+
+  /**
+   * Apply note compression to a channel - folds out-of-range notes into range
+   * @param {Object} midiData - Parsed MIDI file
+   * @param {number} channel - Channel number
+   * @param {number} rangeMin - Instrument note range min
+   * @param {number} rangeMax - Instrument note range max
+   * @returns {Object} - { midiData, stats }
+   */
+  compressChannel(midiData, channel, rangeMin, rangeMax) {
+    const remapping = {};
+    // Build remapping for all 128 MIDI notes
+    for (let n = 0; n <= 127; n++) {
+      if (n < rangeMin || n > rangeMax) {
+        remapping[n] = this.compressNoteToRange(n, rangeMin, rangeMax);
+      }
+    }
+    return this.transposeChannels(midiData, {
+      [channel]: { noteRemapping: remapping }
+    });
+  }
+
+  /**
+   * Reduce polyphony on a channel by removing excess simultaneous notes.
+   * Keeps bass (lowest) and melody (highest) notes, removes inner voices.
+   * @param {Object} midiData - Parsed MIDI file
+   * @param {number} channel - Channel number
+   * @param {number} maxPolyphony - Maximum allowed simultaneous notes
+   * @returns {Object} - { midiData, stats }
+   */
+  reducePolyphony(midiData, channel, maxPolyphony) {
+    const modifiedData = {
+      ...midiData,
+      tracks: midiData.tracks.map(track => ({
+        ...track,
+        events: track.events ? [...track.events] : []
+      }))
+    };
+
+    let notesDropped = 0;
+
+    for (const track of modifiedData.tracks) {
+      if (!track.events) continue;
+
+      // Track active notes per timestamp
+      const activeNotes = new Map(); // note -> event index
+      const eventsToRemove = new Set();
+
+      for (let i = 0; i < track.events.length; i++) {
+        const event = track.events[i];
+        if (event.channel !== channel) continue;
+
+        if (event.type === 'noteOn' && event.velocity > 0) {
+          activeNotes.set(event.note ?? event.noteNumber, i);
+
+          // If we exceed polyphony, remove inner voices
+          if (activeNotes.size > maxPolyphony) {
+            const noteEntries = [...activeNotes.entries()]
+              .sort((a, b) => a[0] - b[0]); // sort by note number
+
+            // Keep lowest and highest, drop from middle
+            while (noteEntries.length > maxPolyphony) {
+              // Remove the note closest to the middle
+              const midIdx = Math.floor(noteEntries.length / 2);
+              const [droppedNote, droppedIdx] = noteEntries[midIdx];
+              eventsToRemove.add(droppedIdx);
+              activeNotes.delete(droppedNote);
+              noteEntries.splice(midIdx, 1);
+              notesDropped++;
+            }
+          }
+        } else if (event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0)) {
+          const noteNum = event.note ?? event.noteNumber;
+          const onIdx = activeNotes.get(noteNum);
+          if (onIdx !== undefined && eventsToRemove.has(onIdx)) {
+            // Also remove the noteOff for dropped notes
+            eventsToRemove.add(i);
+          }
+          activeNotes.delete(noteNum);
+        }
+      }
+
+      // Remove events in reverse order
+      const sortedRemove = [...eventsToRemove].sort((a, b) => b - a);
+      for (const idx of sortedRemove) {
+        track.events.splice(idx, 1);
+      }
+    }
+
+    return {
+      midiData: modifiedData,
+      stats: { notesDropped, totalNotes: this.countAllNotes(midiData) }
+    };
+  }
+
+  /**
+   * Remap CC controllers on a channel
+   * @param {Object} midiData - Parsed MIDI file
+   * @param {number} channel - Channel number
+   * @param {Object} ccMapping - { sourceCC: targetCC }
+   * @returns {Object} - { midiData, stats }
+   */
+  remapCCs(midiData, channel, ccMapping) {
+    const modifiedData = {
+      ...midiData,
+      tracks: midiData.tracks.map(track => ({
+        ...track,
+        events: track.events ? [...track.events] : []
+      }))
+    };
+
+    let ccsRemapped = 0;
+
+    for (const track of modifiedData.tracks) {
+      if (!track.events) continue;
+
+      for (let i = 0; i < track.events.length; i++) {
+        const event = track.events[i];
+        if (event.channel !== channel) continue;
+
+        if (event.type === 'controlChange' || event.type === 'cc') {
+          const cc = event.controllerNumber ?? event.controller ?? event.cc;
+          const targetCC = ccMapping[cc];
+          if (targetCC !== undefined) {
+            const newEvent = { ...event };
+            if (newEvent.controllerNumber !== undefined) newEvent.controllerNumber = targetCC;
+            if (newEvent.controller !== undefined) newEvent.controller = targetCC;
+            if (newEvent.cc !== undefined) newEvent.cc = targetCC;
+            track.events[i] = newEvent;
+            ccsRemapped++;
+          }
+        }
+      }
+    }
+
+    return {
+      midiData: modifiedData,
+      stats: { ccsRemapped }
+    };
+  }
+
+  /**
    * Génère les métadonnées d'adaptation pour un fichier dérivé
    * @param {Object} assignments - Assignations appliquées
    * @param {Object} stats - Statistiques de transposition

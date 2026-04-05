@@ -201,8 +201,8 @@
         const strategy = adaptation.strategy || 'ignore';
 
         // Apply strategy-specific settings
-        if (strategy === 'transpose') {
-          // Override transposition with user's value
+        if (strategy === 'transpose' || strategy === 'autoTranspose') {
+          // Override transposition with user's value (autoTranspose stores computed value in same field)
           preparedAssignments[channel].transposition = {
             ...(assignment.transposition || {}),
             semitones: adaptation.transpositionSemitones || 0
@@ -231,6 +231,42 @@
             preparedAssignments[channel].suppressOutOfRange = true;
             preparedAssignments[channel].noteRangeMin = assignment.noteRangeMin;
             preparedAssignments[channel].noteRangeMax = assignment.noteRangeMax;
+          }
+        } else if (strategy === 'noteCompression') {
+          // Compress out-of-range notes into instrument range via octave folding
+          if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
+            preparedAssignments[channel].noteCompression = true;
+            preparedAssignments[channel].noteRangeMin = assignment.noteRangeMin;
+            preparedAssignments[channel].noteRangeMax = assignment.noteRangeMax;
+          }
+        } else if (strategy === 'polyReduction') {
+          // Reduce polyphony to instrument capacity
+          const instPoly = assignment.polyphony || 16;
+          preparedAssignments[channel].polyReduction = true;
+          preparedAssignments[channel].maxPolyphony = instPoly;
+        } else if (strategy === 'ccRemap') {
+          // Build CC remapping from analysis
+          const analysis = this.channelAnalyses[parseInt(channel)] || assignment.channelAnalysis;
+          const usedCCs = analysis?.usedCCs || [];
+          let supportedCCs;
+          try {
+            supportedCCs = assignment.supportedCCs
+              ? (typeof assignment.supportedCCs === 'string' ? JSON.parse(assignment.supportedCCs) : assignment.supportedCCs)
+              : [];
+          } catch (e) { supportedCCs = []; }
+          const supportedSet = new Set(supportedCCs);
+          const CC_REMAP_TABLE = { 11: 7, 1: 74, 71: 74, 73: 72, 91: 93, 93: 91 };
+          const ccRemapping = {};
+          for (const cc of usedCCs) {
+            if (!supportedSet.has(cc)) {
+              const target = CC_REMAP_TABLE[cc];
+              if (target !== undefined && supportedSet.has(target)) {
+                ccRemapping[cc] = target;
+              }
+            }
+          }
+          if (Object.keys(ccRemapping).length > 0) {
+            preparedAssignments[channel].ccRemapping = ccRemapping;
           }
         }
         // 'ignore' strategy: no transposition modifications
@@ -457,7 +493,7 @@
         let noteRemapping = assignment.noteRemapping || {};
 
         // Mirror strategy logic from validateAndApply
-        if (strategy === 'transpose') {
+        if (strategy === 'transpose' || strategy === 'autoTranspose') {
           transposition.semitones = adaptation.transpositionSemitones || 0;
         } else if (strategy === 'octaveWrap') {
           transposition.semitones = adaptation.transpositionSemitones || 0;
@@ -469,7 +505,10 @@
           if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
             instrumentConstraints.suppressOutOfRange = true;
           }
+        } else if (strategy === 'noteCompression') {
+          instrumentConstraints.noteCompression = true;
         }
+        // polyReduction and ccRemap don't affect preview note playback significantly
         // 'ignore': no transposition, just base remapping
 
         // Apply drum strategy filtering (mirrors validateAndApply logic)

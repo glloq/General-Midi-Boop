@@ -10,7 +10,7 @@
    * Each key is colored by status: green=used+in-range, red=used+out-of-range,
    * light gray=instrument range but unused, white=outside both
    */
-    AutoAssignVizMixin.renderNoteRangeViz = function(channel, analysis, assignment, semitones) {
+    AutoAssignVizMixin.renderNoteRangeViz = function(channel, analysis, assignment, semitones, strategy) {
     if (!analysis || !analysis.noteRange || analysis.noteRange.min == null) return '';
 
     const ch = String(channel);
@@ -23,8 +23,11 @@
     const usedNotes = Object.keys(noteDistribution).map(Number);
     if (usedNotes.length === 0) return '';
 
+    // Only apply transposition visually when the strategy actually uses it
+    const effectiveSemitones = (strategy === 'transpose' || strategy === 'autoTranspose') ? semitones : 0;
+
     // Calculate transposed used notes
-    const transposedNotes = usedNotes.map(n => n + semitones);
+    const transposedNotes = usedNotes.map(n => n + effectiveSemitones);
     const transposedMin = Math.min(...transposedNotes);
     const transposedMax = Math.max(...transposedNotes);
 
@@ -39,7 +42,7 @@
     // Build note-level data
     const transposedDistribution = {};
     for (const [note, count] of Object.entries(noteDistribution)) {
-      transposedDistribution[Number(note) + semitones] = count;
+      transposedDistribution[Number(note) + effectiveSemitones] = count;
     }
     const maxCount = Math.max(...Object.values(transposedDistribution), 1);
 
@@ -237,10 +240,13 @@
     const semitones = adaptation.transpositionSemitones || 0;
     const strategy = adaptation.strategy || 'ignore';
 
+    // Only apply transposition visually when the strategy actually uses it
+    const effectiveSemitones = (strategy === 'transpose' || strategy === 'autoTranspose') ? semitones : 0;
+
     const instMin = inst.note_range_min ?? 0;
     const instMax = inst.note_range_max ?? 127;
-    const tChanMin = chanMin + semitones;
-    const tChanMax = chanMax + semitones;
+    const tChanMin = chanMin + effectiveSemitones;
+    const tChanMax = chanMax + effectiveSemitones;
 
     const instLeft = pct(instMin);
     const instWidth = (((instMax - instMin) / 127) * 100).toFixed(1);
@@ -252,7 +258,7 @@
     const shortInstName = instName.length > 20 ? instName.slice(0, 19) + '…' : instName;
 
     // Channel label with transposition
-    const transpoSuffix = semitones ? ` (${semitones > 0 ? '+' : ''}${semitones}st)` : '';
+    const transpoSuffix = effectiveSemitones ? ` (${effectiveSemitones > 0 ? '+' : ''}${effectiveSemitones}st)` : '';
 
     // Adaptation result
     const result = this.calculateAdaptationResult(channel, strategy);

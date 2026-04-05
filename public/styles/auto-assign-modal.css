@@ -1482,6 +1482,101 @@ body.dark-mode .aa-no-compatible {
 }
 
 /* ==========================================================================
+   New Adaptation Strategy UI
+   ========================================================================== */
+
+.aa-auto-transpose-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--aa-success-bg, rgba(0, 200, 150, 0.1));
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aa-poly-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 6px 10px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.aa-poly-warning {
+  color: var(--aa-warning-text, #e8365d);
+  font-weight: 600;
+}
+
+.aa-poly-ok {
+  color: var(--aa-success-text, #00c896);
+  font-weight: 600;
+}
+
+.aa-cc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.aa-cc-warning {
+  color: var(--aa-info-text, #d4a017);
+  font-weight: 600;
+}
+
+.aa-cc-ok {
+  color: var(--aa-success-text, #00c896);
+  font-weight: 600;
+}
+
+.aa-cc-unmappable {
+  color: var(--aa-warning-text, #e8365d);
+  font-size: 11px;
+}
+
+.aa-cc-remap-table {
+  margin-top: 4px;
+  padding: 4px 0;
+}
+
+.aa-cc-remap-header {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-bottom: 4px;
+}
+
+.aa-cc-remap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.aa-cc-arrow {
+  color: var(--text-muted, #888);
+}
+
+/* Dark mode support for new strategy elements */
+body.dark-mode .aa-auto-transpose-info {
+  background: rgba(0, 200, 150, 0.15);
+}
+
+body.dark-mode .aa-poly-info,
+body.dark-mode .aa-cc-info {
+  background: #2a2a2a;
+}
+
+/* ==========================================================================
    Drum Mapping - Categorized View
    ========================================================================== */
 

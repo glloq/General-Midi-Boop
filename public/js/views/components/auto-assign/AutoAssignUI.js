@@ -229,8 +229,8 @@
 
       // Strategy badge for assigned channels
       const adapt = this.adaptationSettings[ch] || {};
-      const strategyBadgeMap = { transpose: 'T', octaveWrap: 'W', suppress: 'S' };
-      const strategyTitleMap = { transpose: _t('autoAssign.strategyTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), suppress: _t('autoAssign.strategySuppress') };
+      const strategyBadgeMap = { transpose: 'T', autoTranspose: 'AT', octaveWrap: 'W', noteCompression: 'C', polyReduction: 'P', ccRemap: 'CC', suppress: 'S' };
+      const strategyTitleMap = { transpose: _t('autoAssign.strategyTranspose'), autoTranspose: _t('autoAssign.strategyAutoTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), noteCompression: _t('autoAssign.strategyNoteCompression'), polyReduction: _t('autoAssign.strategyPolyReduction'), ccRemap: _t('autoAssign.strategyCCRemap'), suppress: _t('autoAssign.strategySuppress') };
       const strategyBadge = (!isSkipped && !isSplit && adapt.strategy && strategyBadgeMap[adapt.strategy])
         ? `<span class="aa-ov-strategy-badge" title="${strategyTitleMap[adapt.strategy]}">${strategyBadgeMap[adapt.strategy]}</span>`
         : '';
@@ -336,7 +336,7 @@
     const isSplit = this.isSplitChannel(channel);
     const headerAdaptation = this.adaptationSettings[ch] || {};
     const headerStrategy = headerAdaptation.strategy || 'ignore';
-    const strategyLabels = { transpose: _t('autoAssign.strategyTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), suppress: _t('autoAssign.strategySuppress') };
+    const strategyLabels = { transpose: _t('autoAssign.strategyTranspose'), autoTranspose: _t('autoAssign.strategyAutoTranspose'), octaveWrap: _t('autoAssign.strategyOctaveWrap'), noteCompression: _t('autoAssign.strategyNoteCompression'), polyReduction: _t('autoAssign.strategyPolyReduction'), ccRemap: _t('autoAssign.strategyCCRemap'), suppress: _t('autoAssign.strategySuppress') };
     const strategyBadgeHTML = (!isSkipped && !isSplit && strategyLabels[headerStrategy])
       ? `<span class="aa-ov-strategy-badge">${strategyLabels[headerStrategy]}</span>`
       : (isSplit ? `<span class="aa-ov-strategy-badge">${_t('autoAssign.splitProposed')}</span>` : '');
@@ -400,7 +400,7 @@
 
     // Piano roll visualization (non-drum channels with instrument selected)
     const noteRangeVizHTML = (!isSkipped && !isDrumChannel && selectedInstrumentId && this.renderNoteRangeViz)
-      ? this.renderNoteRangeViz(channel, analysis, assignment, semitones)
+      ? this.renderNoteRangeViz(channel, analysis, assignment, semitones, adaptation.strategy || 'ignore')
       : '';
 
     // Drum mapping (drum channels with instrument selected)
@@ -582,8 +582,12 @@
 
     // Strategy selector (not for drum channels - they have their own drumStrategy)
     const strategies = [
+      { value: 'autoTranspose', label: _t('autoAssign.strategyAutoTranspose'), desc: _t('autoAssign.strategyAutoTransposeDesc') },
       { value: 'transpose', label: _t('autoAssign.strategyTranspose'), desc: _t('autoAssign.strategyTransposeDesc') },
+      { value: 'noteCompression', label: _t('autoAssign.strategyNoteCompression'), desc: _t('autoAssign.strategyNoteCompressionDesc') },
       { value: 'octaveWrap', label: _t('autoAssign.strategyOctaveWrap'), desc: _t('autoAssign.strategyOctaveWrapDesc') },
+      { value: 'polyReduction', label: _t('autoAssign.strategyPolyReduction'), desc: _t('autoAssign.strategyPolyReductionDesc') },
+      { value: 'ccRemap', label: _t('autoAssign.strategyCCRemap'), desc: _t('autoAssign.strategyCCRemapDesc') },
       { value: 'suppress', label: _t('autoAssign.strategySuppress'), desc: _t('autoAssign.strategySuppressDesc') },
       { value: 'ignore', label: _t('autoAssign.strategyIgnore'), desc: _t('autoAssign.strategyIgnoreDesc') }
     ];
@@ -623,6 +627,72 @@
         </div>
       </div>
     ` : '';
+
+    // Auto-transpose result (read-only display of computed optimal shift)
+    const autoTranspoResult = (strategy === 'autoTranspose') ? this.calculateAdaptationResult(channel, 'autoTranspose') : null;
+    const autoTranspoHTML = (!isDrumChannel && strategy === 'autoTranspose' && autoTranspoResult?.extra) ? `
+      <div class="aa-control-group">
+        <label>${_t('autoAssign.autoTransposeResult')}</label>
+        <div class="aa-auto-transpose-info">
+          <span class="aa-transposition-value">
+            ${autoTranspoResult.extra.autoTransposeSemitones > 0 ? '+' : ''}${autoTranspoResult.extra.autoTransposeSemitones} st
+            (${Math.abs(Math.round(autoTranspoResult.extra.autoTransposeSemitones / 12))} oct. ${autoTranspoResult.extra.autoTransposeSemitones >= 0 ? '↑' : '↓'})
+          </span>
+        </div>
+      </div>
+    ` : '';
+
+    // Polyphony reduction info
+    const polyResult = (strategy === 'polyReduction') ? this.calculateAdaptationResult(channel, 'polyReduction') : null;
+    const polyReductionHTML = (!isDrumChannel && strategy === 'polyReduction' && polyResult?.extra) ? `
+      <div class="aa-control-group">
+        <label>${_t('autoAssign.polyphonyInfo')}</label>
+        <div class="aa-poly-info">
+          <span>${_t('autoAssign.channelPolyphony')}: <strong>${polyResult.extra.channelPolyphony}</strong></span>
+          <span>${_t('autoAssign.instrumentPolyphony')}: <strong>${polyResult.extra.instPolyphony}</strong></span>
+          ${polyResult.extra.polyDropRate > 0
+            ? `<span class="aa-poly-warning">~${Math.round(polyResult.extra.polyDropRate * 100)}% ${_t('autoAssign.notesDropped')}</span>`
+            : `<span class="aa-poly-ok">${_t('autoAssign.polyphonySufficient')}</span>`
+          }
+        </div>
+      </div>
+    ` : '';
+
+    // CC Remapping info
+    const ccResult = (strategy === 'ccRemap') ? this.calculateAdaptationResult(channel, 'ccRemap') : null;
+    const ccRemapHTML = (!isDrumChannel && strategy === 'ccRemap' && ccResult?.extra) ? (() => {
+      const e = ccResult.extra;
+      const remapEntries = Object.entries(e.ccRemappingSuggestions || {});
+      const remapRows = remapEntries.map(([src, tgt]) =>
+        `<div class="aa-cc-remap-row">
+          <span>CC${src}</span>
+          <span class="aa-cc-arrow">→</span>
+          <span>CC${tgt}</span>
+        </div>`
+      ).join('');
+      const unmappable = (e.unsupportedCCs || []).filter(cc => !e.ccRemappingSuggestions[cc]);
+      return `
+        <div class="aa-control-group">
+          <label>${_t('autoAssign.ccRemapInfo')}</label>
+          <div class="aa-cc-info">
+            <span>${_t('autoAssign.ccCoverage')}: <strong>${e.ccCoverage}%</strong></span>
+            ${e.unsupportedCCs.length > 0
+              ? `<span class="aa-cc-warning">${e.unsupportedCCs.length} ${_t('autoAssign.unsupportedCCs')}: ${e.unsupportedCCs.map(cc => 'CC' + cc).join(', ')}</span>`
+              : `<span class="aa-cc-ok">${_t('autoAssign.allCCsSupported')}</span>`
+            }
+            ${remapEntries.length > 0 ? `
+              <div class="aa-cc-remap-table">
+                <div class="aa-cc-remap-header">${_t('autoAssign.suggestedRemapping')}:</div>
+                ${remapRows}
+              </div>
+            ` : ''}
+            ${unmappable.length > 0 ? `
+              <span class="aa-cc-unmappable">${_t('autoAssign.noRemapAvailable')}: ${unmappable.map(cc => 'CC' + cc).join(', ')}</span>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    })() : '';
 
     // Note offset for drums
     const drumOffsetHTML = isDrumChannel ? `
@@ -676,6 +746,9 @@
 
         <div class="aa-adaptation-controls">
           ${transpoHTML}
+          ${autoTranspoHTML}
+          ${polyReductionHTML}
+          ${ccRemapHTML}
           ${drumOffsetHTML}
         </div>
 

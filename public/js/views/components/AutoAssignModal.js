@@ -641,6 +641,23 @@ class AutoAssignModal {
       }
     }
 
+    // When switching to autoTranspose, compute and store optimal semitones
+    if (strategy === 'autoTranspose' && this.findOptimalTransposition) {
+      const analysis = this.channelAnalyses[channel] || this.selectedAssignments[ch]?.channelAnalysis;
+      const assignment = this.selectedAssignments[ch];
+      if (analysis?.noteDistribution && assignment) {
+        const allOptions = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+        const selectedOption = allOptions.find(opt => opt.instrument.id === assignment.instrumentId);
+        const inst = selectedOption?.instrument
+            || (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+        if (inst) {
+          const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+          const optimal = this.findOptimalTransposition(usedNotes, inst);
+          this.adaptationSettings[ch].transpositionSemitones = optimal.semitones;
+        }
+      }
+    }
+
     this.refreshCurrentTab();
   }
 
