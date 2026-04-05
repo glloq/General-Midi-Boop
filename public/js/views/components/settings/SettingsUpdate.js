@@ -34,8 +34,9 @@
             if (healthResp.ok) {
                 const healthData = await healthResp.json();
                 this._serverUptime = healthData.uptime || Infinity;
+                this._preUpdateGitHash = healthData.gitHash || null;
             }
-        } catch (e) { this._serverUptime = Infinity; }
+        } catch (e) { this._serverUptime = Infinity; this._preUpdateGitHash = null; }
 
         // Show progress
         btn.disabled = true;
@@ -172,10 +173,11 @@
                         const data = await resp.json().catch(() => null);
                         const newUptime = data && data.uptime;
 
-                        // Detect restart: either server was seen down, or uptime reset
+                        // Detect restart: server was seen down, uptime reset, or git hash changed
                         const uptimeReset = typeof newUptime === 'number' && newUptime < preUpdateUptime;
-                        if (!serverWasDown && !uptimeReset) {
-                            // Server hasn't gone down yet and uptime hasn't reset, keep waiting
+                        const hashChanged = this._preUpdateGitHash && data.gitHash && data.gitHash !== this._preUpdateGitHash;
+                        if (!serverWasDown && !uptimeReset && !hashChanged) {
+                            // Server hasn't gone down yet and no code change detected, keep waiting
                             continue;
                         }
                         this._updateInProgress = false;

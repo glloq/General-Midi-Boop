@@ -3,6 +3,10 @@
 # ============================================================================
 # MidiMind Update Script
 # Pulls latest changes from GitHub and updates the system
+#
+# Key design: the server stays RUNNING during git pull + npm install.
+# Only a single atomic restart happens at the end. This avoids the server
+# being down for minutes during npm install on slow devices (RPi).
 # ============================================================================
 
 # Non-interactive mode (called from web UI)
@@ -73,47 +77,29 @@ print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
 }
 
-# Abort update and attempt to restart the server
+# Abort update — server was never stopped, so it is still running
 abort_and_restart() {
     _update_status "failed: $1"
     print_error "Update aborted: $1"
-    print_header "Restarting Server (recovery)"
-    cd "$PROJECT_DIR"
-    _restart_server
+    print_info "Server was not stopped — still running with previous version."
     exit 1
 }
 
-# Restart server helper (used by both normal restart and abort_and_restart)
+# Restart server helper — simple version with one fallback per method
 _restart_server() {
     local RESTART_OK=false
 
     if [ "$PM2_MANAGED" = true ]; then
-        print_info "Restarting with PM2..."
-        # After pm2 stop, process is "stopped". Try restart first, then start fresh.
-        if pm2 restart midimind 2>&1; then
-            pm2 save 2>/dev/null || true
-            sleep 5
+        print_info "Restarting with PM2 (atomic restart)..."
+        if pm2 restart midimind --update-env 2>&1; then
+            sleep 3
             if pm2 list | grep -q "online.*midimind"; then
                 RESTART_OK=true
                 print_success "PM2 restart successful"
-            else
-                print_warning "PM2 restart returned OK but process not online, trying start..."
-                pm2 delete midimind 2>/dev/null || true
-                sleep 1
-                if pm2 start ecosystem.config.cjs 2>&1; then
-                    pm2 save 2>/dev/null || true
-                    sleep 5
-                    if pm2 list | grep -q "online.*midimind"; then
-                        RESTART_OK=true
-                        print_success "PM2 start successful after delete+start"
-                    else
-                        print_warning "PM2 process still not online after start"
-                        pm2 list || true
-                        pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
-                    fi
-                fi
             fi
-        else
+        fi
+        # Fallback: delete + start from ecosystem file
+        if [ "$RESTART_OK" = false ]; then
             print_warning "PM2 restart failed, trying delete + start..."
             pm2 delete midimind 2>/dev/null || true
             sleep 1
@@ -122,33 +108,31 @@ _restart_server() {
                 sleep 5
                 if pm2 list | grep -q "online.*midimind"; then
                     RESTART_OK=true
-                    print_success "PM2 start successful"
+                    print_success "PM2 delete+start successful"
                 else
-                    print_warning "PM2 start may have failed"
+                    print_warning "PM2 process not online after start"
                     pm2 list || true
                     pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
                 fi
-            else
-                print_warning "PM2 start also failed"
-                pm2 list || true
             fi
         fi
     elif [ "$SYSTEMD_MANAGED" = true ]; then
         print_info "Restarting with systemd..."
-        if timeout 10 sudo -n systemctl start midimind 2>/dev/null; then
+        if timeout 10 sudo -n systemctl restart midimind 2>/dev/null; then
             sleep 3
             if systemctl is-active --quiet midimind 2>/dev/null; then
                 RESTART_OK=true
                 print_success "Systemd restart successful"
             else
-                print_warning "Systemd restart may have failed, checking port..."
+                print_warning "Systemd restart may have failed"
             fi
         else
             print_warning "Systemd restart failed (sudo password required?)"
         fi
     elif [ "$PM2_AVAILABLE" = true ]; then
-        print_info "Starting with PM2..."
+        print_info "Starting fresh with PM2..."
         pm2 delete midimind 2>/dev/null || true
+        sleep 1
         if pm2 start ecosystem.config.cjs 2>&1; then
             pm2 save 2>/dev/null || true
             sleep 5
@@ -156,65 +140,64 @@ _restart_server() {
                 RESTART_OK=true
                 print_success "PM2 start successful"
             else
-                print_warning "PM2 start may have failed, checking port..."
+                print_warning "PM2 start may have failed"
                 pm2 list || true
                 pm2 logs midimind --lines 20 --nostream 2>/dev/null || true
             fi
-        else
-            print_warning "PM2 start failed"
         fi
     fi
 
-    # Fallback: if managed restart failed or no manager, start directly
+    # Fallback: kill by port + direct node start
     if [ "$RESTART_OK" = false ]; then
-        # Check if port is already in use (previous restart might have worked)
+        # Check if port is already in use (a previous restart method might have worked)
         if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
             print_success "Server already listening on port $SERVER_PORT"
             return 0
         fi
 
-        print_info "Starting server directly (fallback)..."
+        print_info "Fallback: stopping old process and starting directly..."
+        # Stop any old process on the port
+        if command -v pm2 &> /dev/null; then
+            pm2 stop midimind 2>/dev/null || true
+        fi
+        if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
+            lsof -ti:$SERVER_PORT | xargs -r kill 2>/dev/null || true
+            sleep 2
+            if lsof -ti:$SERVER_PORT &> /dev/null; then
+                lsof -ti:$SERVER_PORT | xargs -r kill -9 2>/dev/null || true
+                sleep 1
+            fi
+        fi
+
         cd "$PROJECT_DIR"
         local SERVER_LOG="$PROJECT_DIR/logs/server-start.log"
         mkdir -p "$PROJECT_DIR/logs" 2>/dev/null || true
         echo "=== Server start at $(date) ===" > "$SERVER_LOG" 2>/dev/null || SERVER_LOG="/tmp/midimind-server.log"
+
         NODE_BIN="$(which node 2>/dev/null)"
         if [ -z "$NODE_BIN" ]; then
-            # Try common paths
             for p in /usr/bin/node /usr/local/bin/node "$HOME/.nvm/versions/node/*/bin/node"; do
                 if [ -x "$p" ]; then NODE_BIN="$p"; break; fi
             done
         fi
         if [ -z "$NODE_BIN" ]; then
             print_error "Node.js binary not found in PATH"
-            print_info "PATH=$PATH"
             return 1
         fi
         print_info "Using node: $NODE_BIN"
-        print_info "Working directory: $(pwd)"
-        print_info "Server log: $SERVER_LOG"
         setsid nohup "$NODE_BIN" server.js >> "$SERVER_LOG" 2>&1 &
         local SERVER_PID=$!
         sleep 5
         if kill -0 $SERVER_PID 2>/dev/null; then
-            print_success "Server started (PID: $SERVER_PID)"
+            print_success "Server started directly (PID: $SERVER_PID)"
+            RESTART_OK=true
         else
-            print_error "Server failed to start"
+            print_error "Server failed to start directly"
             cat "$SERVER_LOG" 2>/dev/null || true
-            # Retry
-            print_info "Retrying server start..."
-            setsid nohup "$NODE_BIN" server.js >> "$SERVER_LOG" 2>&1 &
-            SERVER_PID=$!
-            sleep 8
-            if kill -0 $SERVER_PID 2>/dev/null; then
-                print_success "Server started on retry (PID: $SERVER_PID)"
-            else
-                print_error "Server failed to start after retry"
-                cat "$SERVER_LOG" 2>/dev/null || true
-                return 1
-            fi
         fi
     fi
+
+    [ "$RESTART_OK" = true ]
 }
 
 # ============================================================================
@@ -229,7 +212,7 @@ cat << "EOF"
  | |  | | | (_| | | |  | | | | | | (_| |
  |_|  |_|_|\__,_|_|_|  |_|_|_| |_|\__,_|
 
-         Update Script v1.1
+         Update Script v2.0
 EOF
 echo -e "${NC}"
 
@@ -250,7 +233,7 @@ if [ -z "$SERVER_PORT" ]; then
 fi
 SERVER_PORT="${SERVER_PORT:-8080}"
 
-# Detect how the server is managed (needed early for abort_and_restart)
+# Detect how the server is managed
 PM2_AVAILABLE=false
 PM2_MANAGED=false
 SYSTEMD_MANAGED=false
@@ -305,69 +288,12 @@ if [ "$NON_INTERACTIVE" = "1" ]; then
 fi
 
 # ============================================================================
-# 2. Stop Running Server
+# 2. Server stays running during update
 # ============================================================================
 
-print_header "2. Stopping Server"
-_update_status "stopping"
-
-# Stop the server - try managed methods first, then fallback to direct kill
-_stop_direct() {
-    # Defensive: try pm2 stop first to prevent autorestart race condition
-    # when the process is killed directly while PM2 is managing it
-    if command -v pm2 &> /dev/null; then
-        pm2 stop midimind 2>/dev/null || true
-        sleep 1
-    fi
-
-    if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
-        lsof -ti:$SERVER_PORT | xargs -r kill 2>/dev/null || true
-        sleep 2
-        # Force kill if still running
-        if lsof -ti:$SERVER_PORT &> /dev/null; then
-            lsof -ti:$SERVER_PORT | xargs -r kill -9 2>/dev/null || true
-            sleep 1
-        fi
-        print_success "Server stopped (direct kill)"
-    elif command -v fuser &> /dev/null && fuser $SERVER_PORT/tcp &> /dev/null; then
-        fuser -k $SERVER_PORT/tcp 2>/dev/null || true
-        sleep 2
-        print_success "Server stopped (fuser)"
-    else
-        pkill -f "node $PROJECT_DIR/server.js" 2>/dev/null || pkill -f "node.*server.js" 2>/dev/null || true
-        sleep 2
-        print_info "Attempted to stop server via pkill"
-    fi
-}
-
-STOP_OK=false
-
-if [ "$PM2_MANAGED" = true ]; then
-    print_info "Stopping PM2 process..."
-    pm2 stop midimind && STOP_OK=true || print_warning "pm2 stop midimind failed"
-elif [ "$SYSTEMD_MANAGED" = true ]; then
-    print_info "Stopping systemd service..."
-    if timeout 10 sudo -n systemctl stop midimind 2>/dev/null; then
-        STOP_OK=true
-    else
-        print_warning "Systemd stop failed (sudo password required?), trying direct kill..."
-    fi
-fi
-
-# If managed stop failed or port still occupied, kill directly
-if [ "$STOP_OK" = false ]; then
-    print_info "Stopping server process..."
-    _stop_direct
-else
-    # Even if managed stop succeeded, verify port is free
-    sleep 1
-    if command -v lsof &> /dev/null && lsof -ti:$SERVER_PORT &> /dev/null; then
-        print_warning "Port $SERVER_PORT still in use after managed stop, killing directly..."
-        _stop_direct
-    else
-        print_success "Server stopped"
-    fi
-fi
+print_header "2. Server Status"
+print_info "Server stays running while files update on disk (new approach v2.0)"
+print_info "This avoids the server being down during git pull + npm install"
 
 # ============================================================================
 # 3. Pull Latest Changes from GitHub
@@ -444,7 +370,7 @@ else
 fi
 
 # ============================================================================
-# 6. Restart Server (CRITICAL - must always execute)
+# 6. Restart Server (single atomic restart)
 # ============================================================================
 
 print_header "6. Restarting Server"
@@ -462,6 +388,7 @@ fi
 # ============================================================================
 
 print_header "7. Verification"
+_update_status "verifying"
 
 # Wait for server to fully start
 print_info "Waiting for server to start..."
