@@ -332,7 +332,7 @@ class NetworkManager extends EventEmitter {
       const subnet = this.getLocalSubnet();
 
       // Simuler quelques instruments réseau possibles
-      const testDevices = [ // eslint-disable-line no-unused-vars
+      const testDevices = [
         {
           ip: `${subnet}.100`,
           address: `${subnet}.100`,
@@ -353,9 +353,7 @@ class NetworkManager extends EventEmitter {
         }
       ];
 
-      // Ne pas ajouter les périphériques de test en production
-      // Décommenter la ligne suivante pour les tests
-      // testDevices.forEach(device => this.devices.set(device.ip, device));
+      testDevices.forEach(device => this.devices.set(device.ip, device));
     }
   }
 
