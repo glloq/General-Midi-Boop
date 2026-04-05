@@ -13,7 +13,7 @@
 
 Ma-est-tro is a MIDI management system that allows you to manage your MIDI devices, edit and play MIDI files with latency compensation, all from a modern web interface. It can automatically adapt MIDI files to the capabilities of your connected instruments.
 
-![Main Interface](docs/images/main-interface.png)
+![Main Interface](docs/images/accueil.png)
 
 ## Installation
 
@@ -42,6 +42,8 @@ Configure each device with custom name, latency compensation, instrument type, n
 
 ### Lighting Control
 
+![Lighting Control](docs/images/lumiere.png)
+
 Multiple driver support for stage and ambient lighting synchronized with MIDI playback:
 - **GPIO LED Strips** - Direct control of LED strips via Raspberry Pi GPIO
 - **ArtNet DMX** - Industry-standard DMX over Ethernet
@@ -54,6 +56,8 @@ Includes a lighting effects engine, DMX fixture profiles, and full synchronizati
 
 ### Auto-Adaptation of MIDI Files
 
+![Auto-Adaptation](docs/images/auto%20assign.png)
+
 Ma-est-tro can automatically analyze a MIDI file and assign each channel to the best-suited connected instrument:
 - **Channel analysis** - Detects instrument type (drums, melody, bass, harmony), note ranges, and polyphony per channel
 - **Instrument matching** - Evaluates connected instruments capabilities and generates compatibility scores (0-100)
@@ -62,6 +66,8 @@ Ma-est-tro can automatically analyze a MIDI file and assign each channel to the 
 - **Audio preview** - Listen to assignments before committing
 
 ### MIDI Files
+
+![MIDI Files](docs/images/playlist.png)
 
 - Upload and organize MIDI files in folders
 - Drag-and-drop support
@@ -74,7 +80,7 @@ Ma-est-tro can automatically analyze a MIDI file and assign each channel to the 
 
 ### MIDI Editor
 
-![MIDI Editor](docs/images/editor.png)
+![MIDI Editor](docs/images/editeur.png)
 
 Built-in multi-mode editor with four specialized views:
 - **Piano Roll** - Traditional note editor with add, move, delete notes, snap grid (1/1 to 1/16), 16 channels with distinct colors, CC & Pitchbend editing
@@ -91,6 +97,8 @@ Common features across all editors:
 
 ### String Instruments & Tablature
 
+![Tablature Editor](docs/images/edit%20tab.png)
+
 Control real acoustic string instruments via solenoids/servos through MIDI CC. Includes a tablature editor with bidirectional MIDI-Tab conversion. Supports guitar, bass, violin, ukulele, and more with 19 tuning presets. See [docs/TABLATURE_IMPLEMENTATION.md](./docs/TABLATURE_IMPLEMENTATION.md) for details.
 
 ### Drum Pattern Editor
@@ -99,11 +107,13 @@ Visual drum grid editor for creating and editing drum patterns. Provides an intu
 
 ### Wind Instrument Editor
 
+![Wind Instrument Editor](docs/images/edit%20wind.png)
+
 Specialized editor for wind instrument articulations, allowing precise control over breath dynamics, tonguing, and expression parameters.
 
 ### Virtual Keyboard
 
-![Virtual Keyboard](docs/images/virtual-keyboard.png)
+![Virtual Keyboard](docs/images/clavier.png)
 
 Test devices from your browser:
 - Mouse click and drag
@@ -123,6 +133,8 @@ Automatically measure the real latency of your instruments using a microphone:
 - Configurable threshold and measurement count
 
 ### Instrument Management
+
+![Instrument Management](docs/images/instruments.png)
 
 Dedicated instrument management page:
 - Define instrument capabilities (note range, polyphony, instrument type)
@@ -156,6 +168,8 @@ npm install
 ```
 
 ### Commands
+
+![Debug Console](docs/images/debug.png)
 
 - `npm run dev` - Development server with hot reload
 - `npm start` - Production server
