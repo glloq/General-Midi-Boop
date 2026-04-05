@@ -310,19 +310,25 @@ class CalibrationModal extends BaseModal {
 
     async _loadInstruments() {
         const listEl = this.$('#calibInstrumentsList');
-        if (!listEl) return;
+        if (!listEl) {
+            console.warn('[CalibrationModal] #calibInstrumentsList not found in DOM');
+            return;
+        }
 
         try {
             this.instruments = [];
 
-            // Use device_list to get all devices with their instruments
-            const rawDevices = await this.api.listDevices();
-            const allDevices = Array.isArray(rawDevices) ? rawDevices : [];
+            // Use sendCommand directly (same pattern as InstrumentManagementPage)
+            const response = await this.api.sendCommand('device_list', {});
+            const allDevices = (response && response.devices) ? response.devices : [];
+
+            console.log('[CalibrationModal] device_list returned', allDevices.length, 'devices:',
+                allDevices.map(d => `"${d.displayName || d.name}" (type=${d.type}, output=${d.output}, status=${d.status}, connected=${d.connected})`));
 
             // Filter: only connected devices that have output capability
-            // (calibration needs to send MIDI out). Accept output: true or output undefined
-            // (some device types like bluetooth/network always have output).
             const devices = allDevices.filter(d => d.output !== false && (d.status === 2 || d.connected));
+
+            console.log('[CalibrationModal] After filter:', devices.length, 'devices');
 
             for (const device of devices) {
                 // Device has a sub-array of configured instruments (multi-channel)
@@ -351,6 +357,9 @@ class CalibrationModal extends BaseModal {
                     });
                 }
             }
+
+            console.log('[CalibrationModal] Instruments built:', this.instruments.length,
+                this.instruments.map(i => `"${i.displayName}" (${i.key})`));
 
             if (this.instruments.length === 0) {
                 listEl.innerHTML = `<div class="calibration-no-instruments">${this.t('calibration.noConnected')}</div>`;
@@ -404,6 +413,7 @@ class CalibrationModal extends BaseModal {
             });
 
         } catch (error) {
+            console.error('[CalibrationModal] Failed to load instruments:', error);
             this.logger.error('CalibrationModal', 'Failed to load instruments:', error?.message || error);
             listEl.innerHTML = `<div class="calibration-no-instruments">${this.t('calibration.noInstruments')}</div>`;
         }
