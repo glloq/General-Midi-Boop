@@ -888,17 +888,6 @@ class AutoAssignModal {
     this.updatePreviewUI();
   }
 
-  showStopButton() {
-    // Legacy compat - now handled by updatePreviewUI
-    const btn = this.modal?.querySelector('#aaPreviewStopBtn');
-    if (btn) btn.style.display = 'inline-flex';
-  }
-
-  hideStopButton() {
-    const btn = this.modal?.querySelector('#aaPreviewStopBtn');
-    if (btn) btn.style.display = 'none';
-  }
-
   // formatInstrumentInfo, getScoreColor, getScoreClass, getScoreBgClass,
   // getScoreStars, getScoreLabel, getPolyphonyLabel, getTypeIcon
   // — Provided by AutoAssignUtilsMixin

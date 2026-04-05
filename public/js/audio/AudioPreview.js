@@ -334,27 +334,60 @@ class AudioPreview {
 
   /**
    * Estimate total file duration in seconds from MIDI data.
+   * Handles variable tempo by scanning setTempo events.
    */
   _getFileDuration(midiData) {
     if (midiData.duration) return midiData.duration;
 
     const ticksPerBeat = midiData.header?.ticksPerBeat || 480;
-    const tempo = midiData.tempo || 120;
-    const msPerTick = (60000 / tempo) / ticksPerBeat;
+    const initialTempo = midiData.tempo || 120;
 
+    if (!midiData.tracks) return 0;
+
+    // Collect tempo changes from all tracks (typically in track 0)
+    const tempoChanges = []; // [{tick, bpm}]
     let maxTick = 0;
-    if (midiData.tracks) {
-      for (const track of midiData.tracks) {
-        if (!track.events) continue;
-        let tick = 0;
-        for (const event of track.events) {
-          if (event.deltaTime !== undefined) tick += event.deltaTime;
+
+    for (const track of midiData.tracks) {
+      if (!track.events) continue;
+      let tick = 0;
+      for (const event of track.events) {
+        if (event.deltaTime !== undefined) tick += event.deltaTime;
+        if (event.type === 'setTempo' && event.microsecondsPerBeat) {
+          tempoChanges.push({ tick, bpm: 60000000 / event.microsecondsPerBeat });
         }
-        if (tick > maxTick) maxTick = tick;
       }
+      if (tick > maxTick) maxTick = tick;
     }
 
-    return (maxTick * msPerTick) / 1000;
+    // No tempo changes: simple calculation
+    if (tempoChanges.length === 0) {
+      const msPerTick = (60000 / initialTempo) / ticksPerBeat;
+      return (maxTick * msPerTick) / 1000;
+    }
+
+    // Sort tempo changes by tick and accumulate time
+    tempoChanges.sort((a, b) => a.tick - b.tick);
+    let totalMs = 0;
+    let prevTick = 0;
+    let currentBpm = initialTempo;
+
+    for (const tc of tempoChanges) {
+      const deltaTicks = tc.tick - prevTick;
+      if (deltaTicks > 0) {
+        totalMs += deltaTicks * (60000 / currentBpm) / ticksPerBeat;
+      }
+      currentBpm = tc.bpm;
+      prevTick = tc.tick;
+    }
+
+    // Remaining ticks after last tempo change
+    const remaining = maxTick - prevTick;
+    if (remaining > 0) {
+      totalMs += remaining * (60000 / currentBpm) / ticksPerBeat;
+    }
+
+    return totalMs / 1000;
   }
 
   /**
