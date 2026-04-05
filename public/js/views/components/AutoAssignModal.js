@@ -52,6 +52,12 @@ class AutoAssignModal {
     this.activeSplitType = {}; // { channel: 'range'|'polyphony'|'mixed' } — selected split type per channel
     this.showOverviewSummary = false; // Toggle for the inline overview summary table
 
+    // Preview state
+    this._previewState = 'stopped'; // 'stopped' | 'playing' | 'paused'
+    this._previewMode = null;       // 'all' | 'channel' | 'original'
+    this._previewChannel = null;    // Channel being previewed (if mode is 'channel' or 'original')
+    this._minimapCanvas = null;     // Canvas element for minimap
+
     // GM Drum categories (mirrored from DrumNoteMapper backend)
     this.DRUM_CATEGORIES = {
       kicks: { label: 'Kicks', notes: [35, 36] },
@@ -520,23 +526,24 @@ class AutoAssignModal {
   }
 
   /**
-   * Update preview button for current channel
+   * Update preview buttons for current channel.
+   * Updates the channel-specific preview button labels and onclick targets.
    */
   updatePreviewButton(channel) {
     if (!this.modal) return;
-    const footer = this.modal.querySelector('.aa-footer-center');
-    if (!footer || !this.midiData) return;
-    footer.innerHTML = `
-      <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${channel})" title="${_t('autoAssign.previewOriginalTip')}">
-        ${_t('autoAssign.previewOriginal')}
-      </button>
-      <button class="btn" onclick="autoAssignModalInstance.previewChannel(${channel})" title="${_t('autoAssign.previewChannelTip')}">
-        ${_t('autoAssign.previewChannel', {num: channel + 1})}
-      </button>
-      <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
-        ${_t('autoAssign.stop')}
-      </button>
-    `;
+
+    // Update "Preview Ch.N" button
+    const chBtn = this.modal.querySelector('#aaPreviewChBtn');
+    if (chBtn) {
+      chBtn.setAttribute('onclick', `autoAssignModalInstance.previewChannel(${channel})`);
+      chBtn.innerHTML = `<span class="aa-btn-icon">&#9654;</span> ${_t('autoAssign.previewChannel', {num: channel + 1})}`;
+    }
+
+    // Update "Preview Original" button
+    const origBtn = this.modal.querySelector('#aaPreviewOrigBtn');
+    if (origBtn) {
+      origBtn.setAttribute('onclick', `autoAssignModalInstance.previewOriginal(${channel})`);
+    }
   }
 
 
@@ -875,16 +882,20 @@ class AutoAssignModal {
 
   stopPreview() {
     if (this.audioPreview) this.audioPreview.stop();
-    this.hideStopButton();
+    this._previewState = 'stopped';
+    this._previewMode = null;
+    this._previewChannel = null;
+    this.updatePreviewUI();
   }
 
   showStopButton() {
-    const btn = document.getElementById('stopPreviewBtn');
-    if (btn) btn.style.display = 'inline-block';
+    // Legacy compat - now handled by updatePreviewUI
+    const btn = this.modal?.querySelector('#aaPreviewStopBtn');
+    if (btn) btn.style.display = 'inline-flex';
   }
 
   hideStopButton() {
-    const btn = document.getElementById('stopPreviewBtn');
+    const btn = this.modal?.querySelector('#aaPreviewStopBtn');
     if (btn) btn.style.display = 'none';
   }
 
@@ -911,6 +922,12 @@ class AutoAssignModal {
       if (!confirmed) return;
     }
     this.stopPreview();
+    // Cleanup preview callbacks
+    if (this.audioPreview) {
+      this.audioPreview.onProgress = null;
+      this.audioPreview.onPlaybackEnd = null;
+    }
+    this._minimapCanvas = null;
 
     if (this._escHandler) {
       document.removeEventListener('keydown', this._escHandler);

@@ -63,15 +63,42 @@
             </button>
             <div class="aa-footer-center">
               ${this.midiData ? `
-                <button class="btn aa-btn-preview-original" onclick="autoAssignModalInstance.previewOriginal(${activeChannel})" title="${_t('autoAssign.previewOriginalTip')}">
-                  ${_t('autoAssign.previewOriginal')}
-                </button>
-                <button class="btn" onclick="autoAssignModalInstance.previewChannel(${activeChannel})" title="${_t('autoAssign.previewChannelTip')}">
-                  ${_t('autoAssign.previewChannel', {num: activeChannel + 1})}
-                </button>
-                <button class="btn" id="stopPreviewBtn" onclick="autoAssignModalInstance.stopPreview()" style="display: none;">
-                  ${_t('autoAssign.stop')}
-                </button>
+                <div class="aa-preview-section">
+                  <div class="aa-preview-controls">
+                    <button class="btn btn-sm aa-btn-preview" id="aaPreviewAllBtn"
+                            onclick="autoAssignModalInstance.previewAll()"
+                            title="${_t('autoAssign.previewAllTip')}">
+                      <span class="aa-btn-icon">&#9654;</span> ${_t('autoAssign.previewAll')}
+                    </button>
+                    <button class="btn btn-sm aa-btn-preview" id="aaPreviewChBtn"
+                            onclick="autoAssignModalInstance.previewChannel(${activeChannel})"
+                            title="${_t('autoAssign.previewChannelTip')}">
+                      <span class="aa-btn-icon">&#9654;</span> ${_t('autoAssign.previewChannel', {num: (activeChannel != null ? activeChannel + 1 : '?')})}
+                    </button>
+                    <button class="btn btn-sm aa-btn-preview aa-btn-preview-original" id="aaPreviewOrigBtn"
+                            onclick="autoAssignModalInstance.previewOriginal(${activeChannel})"
+                            title="${_t('autoAssign.previewOriginalTip')}">
+                      ${_t('autoAssign.previewOriginal')}
+                    </button>
+                    <button class="btn btn-sm aa-btn-preview" id="aaPreviewPauseBtn"
+                            onclick="autoAssignModalInstance._previewState === 'paused' ? autoAssignModalInstance.resumePreview() : autoAssignModalInstance.pausePreview()"
+                            style="display: none;">
+                      <span class="aa-btn-icon">&#10074;&#10074;</span>
+                    </button>
+                    <button class="btn btn-sm aa-btn-preview" id="aaPreviewStopBtn"
+                            onclick="autoAssignModalInstance.stopPreview()"
+                            style="display: none;">
+                      <span class="aa-btn-icon">&#9632;</span>
+                    </button>
+                  </div>
+                  <div class="aa-preview-progress" style="display: none;">
+                    <div class="aa-progress-bar" onclick="autoAssignModalInstance._onProgressBarClick(event)">
+                      <div class="aa-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span class="aa-progress-time">0:00 / 0:00</span>
+                  </div>
+                  <div class="aa-minimap-container" style="display: none;"></div>
+                </div>
               ` : ''}
             </div>
             <div class="aa-footer-right">

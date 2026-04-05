@@ -394,8 +394,182 @@
   }
 
   // ========================================================================
-  // PREVIEW
+  // PREVIEW - STATE & HELPERS
   // ========================================================================
+
+  /**
+   * Build transposition + instrumentConstraints for a single channel,
+   * using the current selectedAssignments and adaptationSettings.
+   * Returns { transposition, instrumentConstraints }.
+   */
+    AutoAssignActionsMixin._buildChannelPreviewConfig = function(channel) {
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const adaptation = this.adaptationSettings[ch] || {};
+    const transposition = {};
+    const instrumentConstraints = {};
+
+    if (!assignment) return { transposition, instrumentConstraints };
+
+    const pitchShift = adaptation.pitchShift || 'none';
+    const oorHandling = adaptation.oorHandling || 'passThrough';
+    let noteRemapping = assignment.noteRemapping || {};
+
+    // Dimension 1: Pitch shift
+    if (pitchShift === 'auto' || pitchShift === 'manual') {
+      transposition.semitones = adaptation.transpositionSemitones || 0;
+    }
+
+    // Dimension 2: Out-of-range handling
+    if (oorHandling === 'octaveWrap') {
+      if (assignment.octaveWrapping) {
+        noteRemapping = { ...noteRemapping, ...assignment.octaveWrapping };
+      }
+    } else if (oorHandling === 'suppress') {
+      if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
+        instrumentConstraints.suppressOutOfRange = true;
+      }
+    } else if (oorHandling === 'compress') {
+      instrumentConstraints.noteCompression = true;
+    }
+
+    // Apply drum strategy filtering
+    const drumStrategy = adaptation.drumStrategy || 'intelligent';
+    if (drumStrategy === 'direct') {
+      const filtered = {};
+      for (const [src, tgt] of Object.entries(noteRemapping)) {
+        if (parseInt(src) === tgt) filtered[src] = tgt;
+      }
+      noteRemapping = filtered;
+    } else if (drumStrategy === 'manual') {
+      noteRemapping = {};
+    }
+
+    // Apply manual drum note overrides on top
+    const drumOverrides = this.drumMappingOverrides[ch] || {};
+    if (Object.keys(drumOverrides).length > 0) {
+      noteRemapping = { ...noteRemapping, ...drumOverrides };
+    }
+
+    transposition.noteRemapping = Object.keys(noteRemapping).length > 0 ? noteRemapping : null;
+
+    // Instrument sound
+    if (assignment.gmProgram != null) {
+      instrumentConstraints.gmProgram = assignment.gmProgram;
+    }
+
+    // Instrument playable note range
+    instrumentConstraints.noteRangeMin = assignment.noteRangeMin;
+    instrumentConstraints.noteRangeMax = assignment.noteRangeMax;
+    instrumentConstraints.noteSelectionMode = assignment.noteSelectionMode;
+    instrumentConstraints.selectedNotes = assignment.selectedNotes;
+
+    return { transposition, instrumentConstraints };
+  }
+
+  /**
+   * Connect progress callbacks from AudioPreview to the modal UI.
+   */
+    AutoAssignActionsMixin._connectPreviewCallbacks = function() {
+    if (!this.audioPreview) return;
+
+    this.audioPreview.onProgress = (currentTick, totalTicks, currentSec, totalSec) => {
+      this._onPreviewProgress(currentTick, totalTicks, currentSec, totalSec);
+    };
+
+    this.audioPreview.onPlaybackEnd = () => {
+      this._previewState = 'stopped';
+      this._previewMode = null;
+      this._previewChannel = null;
+      this.updatePreviewUI();
+    };
+  }
+
+  /**
+   * Called on each progress tick from AudioPreview.
+   * Updates the progress bar and minimap playhead via direct DOM manipulation.
+   */
+    AutoAssignActionsMixin._onPreviewProgress = function(currentTick, totalTicks, currentSec, totalSec) {
+    // Update progress bar fill
+    const fill = this.modal?.querySelector('.aa-progress-fill');
+    if (fill && totalSec > 0) {
+      const pct = Math.min(100, (currentSec / totalSec) * 100);
+      fill.style.width = pct + '%';
+    }
+
+    // Update time display
+    const timeEl = this.modal?.querySelector('.aa-progress-time');
+    if (timeEl) {
+      timeEl.textContent = this._formatTime(currentSec) + ' / ' + this._formatTime(totalSec);
+    }
+
+    // Update minimap playhead
+    if (this._minimapCanvas && totalTicks > 0) {
+      this.updateMinimapPlayhead(currentTick, totalTicks);
+    }
+  }
+
+  /**
+   * Format seconds as M:SS
+   */
+    AutoAssignActionsMixin._formatTime = function(sec) {
+    if (!sec || !isFinite(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  // ========================================================================
+  // PREVIEW - ACTIONS
+  // ========================================================================
+
+  /**
+   * Preview ALL channels with their assigned instruments (global preview).
+   */
+    AutoAssignActionsMixin.previewAll = async function() {
+    if (!this.audioPreview || !this.midiData) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(_t('autoAssign.previewNotAvailable'), 'warning');
+      }
+      return;
+    }
+
+    if (this._previewInProgress) return;
+    this._previewInProgress = true;
+
+    try {
+      this.stopPreview();
+
+      // Build channelConfigs for all non-skipped channels
+      const channelConfigs = {};
+      for (const chStr of this.channels) {
+        const ch = parseInt(chStr);
+        if (this.skippedChannels.has(ch)) continue;
+
+        const { transposition, instrumentConstraints } = this._buildChannelPreviewConfig(ch);
+        channelConfigs[ch] = {
+          transposition,
+          instrumentConstraints,
+          skipped: false
+        };
+      }
+
+      this._connectPreviewCallbacks();
+      await this.audioPreview.previewAllChannels(this.midiData, channelConfigs, 0);
+
+      this._previewState = 'playing';
+      this._previewMode = 'all';
+      this._previewChannel = null;
+      this.updatePreviewUI();
+    } catch (error) {
+      console.error('Preview all error:', error);
+      if (typeof window.showToast === 'function') {
+        window.showToast(_t('autoAssign.previewFailed') + ': ' + (error.message || ''), 'error');
+      }
+    } finally {
+      this._previewInProgress = false;
+    }
+  }
 
   /**
    * Preview a specific instrument for a channel (from inline play button)
@@ -425,10 +599,15 @@
         transposition.semitones = option.compatibility.transposition.semitones;
       }
 
+      this._connectPreviewCallbacks();
       await this.audioPreview.previewSingleChannel(
         this.midiData, channel, transposition, instrumentConstraints, 0, 10
       );
-      this.showStopButton();
+
+      this._previewState = 'playing';
+      this._previewMode = 'channel';
+      this._previewChannel = channel;
+      this.updatePreviewUI();
     } catch (error) {
       console.error('Preview error:', error);
       if (typeof window.showToast === 'function') {
@@ -449,7 +628,6 @@
       return;
     }
 
-    // Prevent concurrent previews
     if (this._previewInProgress) return;
     this._previewInProgress = true;
 
@@ -462,94 +640,40 @@
         const splitProposal = this.splitAssignments[channel];
         const segments = splitProposal.segments || [];
         if (segments.length > 0) {
-          // Use first segment's GM program for sound, combined range for constraints
           const instrumentConstraints = {};
-          // Use GM program from channel analysis for sound
           const splitAnalysis = this.channelAnalyses[channel];
           if (splitAnalysis?.primaryProgram != null) {
             instrumentConstraints.gmProgram = splitAnalysis.primaryProgram;
           }
-          // Find combined note range across all segments
           const allMins = segments.map(s => s.noteRange?.min).filter(v => v != null);
           const allMaxs = segments.map(s => s.noteRange?.max).filter(v => v != null);
           if (allMins.length > 0) instrumentConstraints.noteRangeMin = Math.min(...allMins);
           if (allMaxs.length > 0) instrumentConstraints.noteRangeMax = Math.max(...allMaxs);
 
+          this._connectPreviewCallbacks();
           await this.audioPreview.previewSingleChannel(
-            this.midiData, channel, {}, instrumentConstraints, 0, 15
+            this.midiData, channel, {}, instrumentConstraints, 0, 15, true
           );
-          this.showStopButton();
+
+          this._previewState = 'playing';
+          this._previewMode = 'channel';
+          this._previewChannel = channel;
+          this.updatePreviewUI();
         }
         return;
       }
 
-      const assignment = this.selectedAssignments[ch];
-      const adaptation = this.adaptationSettings[ch] || {};
+      const { transposition, instrumentConstraints } = this._buildChannelPreviewConfig(channel);
 
-      // Build transposition for this channel
-      const transposition = {};
-      const instrumentConstraints = {};
-
-      if (assignment) {
-        const pitchShift = adaptation.pitchShift || 'none';
-        const oorHandling = adaptation.oorHandling || 'passThrough';
-        let noteRemapping = assignment.noteRemapping || {};
-
-        // Dimension 1: Pitch shift
-        if (pitchShift === 'auto' || pitchShift === 'manual') {
-          transposition.semitones = adaptation.transpositionSemitones || 0;
-        }
-
-        // Dimension 2: Out-of-range handling
-        if (oorHandling === 'octaveWrap') {
-          if (assignment.octaveWrapping) {
-            noteRemapping = { ...noteRemapping, ...assignment.octaveWrapping };
-          }
-        } else if (oorHandling === 'suppress') {
-          if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
-            instrumentConstraints.suppressOutOfRange = true;
-          }
-        } else if (oorHandling === 'compress') {
-          instrumentConstraints.noteCompression = true;
-        }
-
-        // Apply drum strategy filtering (mirrors validateAndApply logic)
-        const drumStrategy = adaptation.drumStrategy || 'intelligent';
-        if (drumStrategy === 'direct') {
-          const filtered = {};
-          for (const [src, tgt] of Object.entries(noteRemapping)) {
-            if (parseInt(src) === tgt) filtered[src] = tgt;
-          }
-          noteRemapping = filtered;
-        } else if (drumStrategy === 'manual') {
-          noteRemapping = {};
-        }
-
-        // Apply manual drum note overrides on top
-        const drumOverrides = this.drumMappingOverrides[ch] || {};
-        if (Object.keys(drumOverrides).length > 0) {
-          noteRemapping = { ...noteRemapping, ...drumOverrides };
-        }
-
-        transposition.noteRemapping = Object.keys(noteRemapping).length > 0 ? noteRemapping : null;
-
-        // Instrument sound
-        if (assignment.gmProgram != null) {
-          instrumentConstraints.gmProgram = assignment.gmProgram;
-        }
-
-        // Instrument playable note range
-        instrumentConstraints.noteRangeMin = assignment.noteRangeMin;
-        instrumentConstraints.noteRangeMax = assignment.noteRangeMax;
-        instrumentConstraints.noteSelectionMode = assignment.noteSelectionMode;
-        instrumentConstraints.selectedNotes = assignment.selectedNotes;
-      }
-
-      // Preview only this channel with instrument constraints
+      this._connectPreviewCallbacks();
       await this.audioPreview.previewSingleChannel(
-        this.midiData, channel, transposition, instrumentConstraints, 0, 15
+        this.midiData, channel, transposition, instrumentConstraints, 0, 15, true
       );
-      this.showStopButton();
+
+      this._previewState = 'playing';
+      this._previewMode = 'channel';
+      this._previewChannel = channel;
+      this.updatePreviewUI();
     } catch (error) {
       console.error('Preview error:', error);
       if (typeof window.showToast === 'function') {
@@ -583,17 +707,20 @@
       const ch = String(channel);
       const analysis = this.channelAnalyses[channel] || this.selectedAssignments[ch]?.channelAnalysis;
 
-      // No transposition, no constraints — play raw channel
       const instrumentConstraints = {};
-      // Use GM program from the MIDI file analysis for sound
       if (analysis?.primaryProgram != null) {
         instrumentConstraints.gmProgram = analysis.primaryProgram;
       }
 
+      this._connectPreviewCallbacks();
       await this.audioPreview.previewSingleChannel(
-        this.midiData, channel, {}, instrumentConstraints, 0, 15
+        this.midiData, channel, {}, instrumentConstraints, 0, 15, true
       );
-      this.showStopButton();
+
+      this._previewState = 'playing';
+      this._previewMode = 'original';
+      this._previewChannel = channel;
+      this.updatePreviewUI();
     } catch (error) {
       console.error('Preview original error:', error);
       if (typeof window.showToast === 'function') {
@@ -601,6 +728,125 @@
       }
     } finally {
       this._previewInProgress = false;
+    }
+  }
+
+  // ========================================================================
+  // PREVIEW - PAUSE / RESUME / SEEK
+  // ========================================================================
+
+  /**
+   * Pause current preview
+   */
+    AutoAssignActionsMixin.pausePreview = function() {
+    if (!this.audioPreview || this._previewState !== 'playing') return;
+    this.audioPreview.pause();
+    this._previewState = 'paused';
+    this.updatePreviewUI();
+  }
+
+  /**
+   * Resume paused preview
+   */
+    AutoAssignActionsMixin.resumePreview = function() {
+    if (!this.audioPreview || this._previewState !== 'paused') return;
+    this.audioPreview.resume();
+    this._previewState = 'playing';
+    this.updatePreviewUI();
+  }
+
+  /**
+   * Seek preview to a position in seconds
+   */
+    AutoAssignActionsMixin.seekPreview = function(timeSec) {
+    if (!this.audioPreview) return;
+    this.audioPreview.seek(timeSec);
+  }
+
+  /**
+   * Handle click on the progress bar to seek.
+   */
+    AutoAssignActionsMixin._onProgressBarClick = function(e) {
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const totalSec = this.audioPreview?.totalDuration || 0;
+    if (totalSec > 0) {
+      this.seekPreview(pct * totalSec);
+    }
+  }
+
+  /**
+   * Update the preview controls UI to reflect current state.
+   * Called after play/pause/stop/end transitions.
+   */
+    AutoAssignActionsMixin.updatePreviewUI = function() {
+    if (!this.modal) return;
+
+    const state = this._previewState || 'stopped';
+    const mode = this._previewMode;
+
+    // Play All button
+    const playAllBtn = this.modal.querySelector('#aaPreviewAllBtn');
+    if (playAllBtn) {
+      playAllBtn.classList.toggle('active', state === 'playing' && mode === 'all');
+    }
+
+    // Play Channel button
+    const playChBtn = this.modal.querySelector('#aaPreviewChBtn');
+    if (playChBtn) {
+      playChBtn.classList.toggle('active', state === 'playing' && mode === 'channel');
+    }
+
+    // Play Original button
+    const playOrigBtn = this.modal.querySelector('#aaPreviewOrigBtn');
+    if (playOrigBtn) {
+      playOrigBtn.classList.toggle('active', state === 'playing' && mode === 'original');
+    }
+
+    // Pause / Resume button
+    const pauseBtn = this.modal.querySelector('#aaPreviewPauseBtn');
+    if (pauseBtn) {
+      if (state === 'stopped') {
+        pauseBtn.style.display = 'none';
+      } else {
+        pauseBtn.style.display = 'inline-flex';
+        pauseBtn.innerHTML = state === 'paused'
+          ? '<span class="aa-btn-icon">&#9654;</span>'   // play triangle = resume
+          : '<span class="aa-btn-icon">&#10074;&#10074;</span>'; // pause bars
+        pauseBtn.title = state === 'paused' ? _t('autoAssign.resume') : _t('autoAssign.pause');
+      }
+    }
+
+    // Stop button
+    const stopBtn = this.modal.querySelector('#aaPreviewStopBtn');
+    if (stopBtn) {
+      stopBtn.style.display = state === 'stopped' ? 'none' : 'inline-flex';
+    }
+
+    // Progress bar visibility
+    const progressSection = this.modal.querySelector('.aa-preview-progress');
+    if (progressSection) {
+      progressSection.style.display = state === 'stopped' ? 'none' : 'flex';
+    }
+
+    // Reset progress bar on stop
+    if (state === 'stopped') {
+      const fill = this.modal.querySelector('.aa-progress-fill');
+      if (fill) fill.style.width = '0%';
+      const timeEl = this.modal.querySelector('.aa-progress-time');
+      if (timeEl) timeEl.textContent = '0:00 / 0:00';
+    }
+
+    // Minimap: show when playing single channel, render/update
+    const minimapContainer = this.modal.querySelector('.aa-minimap-container');
+    if (minimapContainer) {
+      const showMinimap = state !== 'stopped';
+      minimapContainer.style.display = showMinimap ? 'block' : 'none';
+      if (showMinimap) {
+        // Render or re-render minimap for appropriate channel(s)
+        this.renderNoteMinimap();
+      }
     }
   }
 
