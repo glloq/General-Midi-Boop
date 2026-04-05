@@ -220,8 +220,8 @@ class NetworkManager extends EventEmitter {
       // Éviter de scanner notre propre IP
       if (ip === localIP) continue;
 
-      // Lancer le ping ICMP de manière asynchrone avec timeout réduit
-      const pingPromise = this.pingHost(ip, 1)
+      // Tester l'accessibilité via TCP multi-ports
+      const pingPromise = this.isHostReachable(ip, 1000)
         .then(isReachable => {
           if (isReachable) {
             // Ne pas ajouter si déjà découvert via mDNS
@@ -467,19 +467,29 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un hôte est accessible via ICMP ping.
-   * Utilisé par scanSubnetIPs() pour découvrir tous les hôtes actifs du réseau.
+   * Vérifie si un hôte est accessible en testant plusieurs ports TCP communs.
+   * Utilisé par scanSubnetIPs() pour découvrir les hôtes actifs du réseau.
+   * Teste les ports 80 (HTTP), 22 (SSH), 443 (HTTPS), 5004 (RTP-MIDI) en parallèle.
    * @param {string} ip - Adresse IP
-   * @param {number} timeoutSec - Timeout en secondes (défaut: 1)
-   * @returns {Promise<boolean>} True si accessible
+   * @param {number} timeoutMs - Timeout en millisecondes (défaut: 1000)
+   * @returns {Promise<boolean>} True si au moins un port répond
    */
-  async pingHost(ip, timeoutSec = 1) {
+  async isHostReachable(ip, timeoutMs = 1000) {
     if (!/^[\d.]+$/.test(ip)) return false;
-    const safeTimeout = Math.max(1, Math.min(10, parseInt(timeoutSec, 10) || 1));
+    const safeTimeout = Math.max(500, Math.min(5000, parseInt(timeoutMs, 10) || 1000));
+    const ports = [80, 22, 443, 5004];
+
     try {
-      await execFileAsync('ping', ['-c', '1', '-W', String(safeTimeout), ip], {
-        timeout: (safeTimeout + 1) * 1000
-      });
+      await Promise.any(
+        ports.map(port => new Promise((resolve, reject) => {
+          const socket = new net.Socket();
+          socket.setTimeout(safeTimeout);
+          socket.on('connect', () => { socket.destroy(); resolve(); });
+          socket.on('timeout', () => { socket.destroy(); reject(new Error('timeout')); });
+          socket.on('error', () => { socket.destroy(); reject(new Error('error')); });
+          socket.connect(port, ip);
+        }))
+      );
       return true;
     } catch {
       return false;
