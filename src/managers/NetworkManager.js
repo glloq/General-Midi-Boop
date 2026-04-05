@@ -467,33 +467,29 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un hôte est accessible en testant plusieurs ports TCP communs.
-   * Utilisé par scanSubnetIPs() pour découvrir les hôtes actifs du réseau.
-   * Teste les ports 80 (HTTP), 22 (SSH), 443 (HTTPS), 5004 (RTP-MIDI) en parallèle.
+   * Vérifie si un hôte est accessible via TCP connect.
+   * Un port ouvert (connect) OU fermé (ECONNREFUSED) prouve que l'hôte est là.
+   * Seul un timeout indique que l'hôte est absent ou filtré.
    * @param {string} ip - Adresse IP
    * @param {number} timeoutMs - Timeout en millisecondes (défaut: 1000)
-   * @returns {Promise<boolean>} True si au moins un port répond
+   * @returns {Promise<boolean>} True si l'hôte répond
    */
-  async isHostReachable(ip, timeoutMs = 1000) {
-    if (!/^[\d.]+$/.test(ip)) return false;
+  isHostReachable(ip, timeoutMs = 1000) {
+    if (!/^[\d.]+$/.test(ip)) return Promise.resolve(false);
     const safeTimeout = Math.max(500, Math.min(5000, parseInt(timeoutMs, 10) || 1000));
-    const ports = [80, 22, 443, 5004];
 
-    try {
-      await Promise.any(
-        ports.map(port => new Promise((resolve, reject) => {
-          const socket = new net.Socket();
-          socket.setTimeout(safeTimeout);
-          socket.on('connect', () => { socket.destroy(); resolve(); });
-          socket.on('timeout', () => { socket.destroy(); reject(new Error('timeout')); });
-          socket.on('error', () => { socket.destroy(); reject(new Error('error')); });
-          socket.connect(port, ip);
-        }))
-      );
-      return true;
-    } catch {
-      return false;
-    }
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      socket.setTimeout(safeTimeout);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+      socket.on('error', (err) => {
+        socket.destroy();
+        // ECONNREFUSED = port fermé mais hôte joignable
+        resolve(err.code === 'ECONNREFUSED');
+      });
+      socket.connect(80, ip);
+    });
   }
 
   /**
