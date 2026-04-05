@@ -23,7 +23,7 @@ class CalibrationModal extends BaseModal {
             customClass: 'calibration-modal'
         });
 
-        this.api = api;
+        this.api = api || null;
         this.eventBus = eventBus || window.eventBus || null;
         this.logger = window.logger || console;
 
@@ -51,6 +51,14 @@ class CalibrationModal extends BaseModal {
         this._onDeviceListUpdate = null;
 
         this.logger.info('CalibrationModal', '✓ Modal initialized v1.0.0');
+    }
+
+    /**
+     * Get the API client. Falls back to window.api if not set at construction time.
+     * This handles the case where CalibrationModal is instantiated before connectWebSocket().
+     */
+    _getApi() {
+        return this.api || window.api || window.apiClient;
     }
 
     // ========================================================================
@@ -256,8 +264,9 @@ class CalibrationModal extends BaseModal {
             if (data.peak !== undefined) this._peakRMS = data.peak;
         };
 
-        if (this.api && this.api.on) {
-            this.api.on('calibration:audio_level', this._onAudioLevel);
+        const api = this._getApi();
+        if (api && api.on) {
+            api.on('calibration:audio_level', this._onAudioLevel);
         }
 
         // Device list change listener - refresh instruments when devices connect/disconnect
@@ -267,18 +276,19 @@ class CalibrationModal extends BaseModal {
             }
         };
 
-        if (this.api && this.api.on) {
-            this.api.on('device_list', this._onDeviceListUpdate);
+        if (api && api.on) {
+            api.on('device_list', this._onDeviceListUpdate);
         }
     }
 
     _detachEventHandlers() {
-        if (this.api && this.api.off && this._onAudioLevel) {
-            this.api.off('calibration:audio_level', this._onAudioLevel);
+        const api = this._getApi();
+        if (api && api.off && this._onAudioLevel) {
+            api.off('calibration:audio_level', this._onAudioLevel);
             this._onAudioLevel = null;
         }
-        if (this.api && this.api.off && this._onDeviceListUpdate) {
-            this.api.off('device_list', this._onDeviceListUpdate);
+        if (api && api.off && this._onDeviceListUpdate) {
+            api.off('device_list', this._onDeviceListUpdate);
             this._onDeviceListUpdate = null;
         }
     }
@@ -319,7 +329,7 @@ class CalibrationModal extends BaseModal {
             this.instruments = [];
 
             // Use sendCommand directly (same pattern as InstrumentManagementPage)
-            const response = await this.api.sendCommand('device_list', {});
+            const response = await this._getApi().sendCommand('device_list', {});
             const allDevices = (response && response.devices) ? response.devices : [];
 
             console.log('[CalibrationModal] device_list returned', allDevices.length, 'devices:',
@@ -421,7 +431,7 @@ class CalibrationModal extends BaseModal {
 
     async _loadAlsaDevices() {
         try {
-            const response = await this.api.sendCommand('calibrate_list_alsa_devices', {});
+            const response = await this._getApi().sendCommand('calibrate_list_alsa_devices', {});
             if (response.success && response.devices && response.devices.length > 0) {
                 this.alsaDevices = response.devices;
                 const select = this.$('#calibAlsaDevice');
@@ -464,7 +474,7 @@ class CalibrationModal extends BaseModal {
         btnEl.textContent = `🔊 ${this.t('calibration.previewSending')}`;
 
         try {
-            await this.api.sendCommand('calibrate_preview_note', { deviceId, channel });
+            await this._getApi().sendCommand('calibrate_preview_note', { deviceId, channel });
         } catch (error) {
             this.logger.error('CalibrationModal', 'Preview note failed:', error);
         }
@@ -484,7 +494,7 @@ class CalibrationModal extends BaseModal {
         this.state.isMonitoring = true;
 
         try {
-            await this.api.sendCommand('calibrate_monitor_start', {
+            await this._getApi().sendCommand('calibrate_monitor_start', {
                 alsaDevice: this._getAlsaDevice()
             });
         } catch (error) {
@@ -504,7 +514,7 @@ class CalibrationModal extends BaseModal {
         }
 
         try {
-            await this.api.sendCommand('calibrate_monitor_stop', {});
+            await this._getApi().sendCommand('calibrate_monitor_stop', {});
         } catch (error) {
             this.logger.warn('CalibrationModal', 'Monitor stop failed:', error);
         }
@@ -582,7 +592,7 @@ class CalibrationModal extends BaseModal {
             this._updateProgress(completed, total, `${this.t('calibration.statusRunning')} ${instrument.key}...`);
 
             try {
-                const result = await this.api.sendCommand('calibrate_delay', {
+                const result = await this._getApi().sendCommand('calibrate_delay', {
                     deviceId: instrument.deviceId,
                     channel: instrument.channel,
                     threshold,
@@ -732,7 +742,7 @@ class CalibrationModal extends BaseModal {
             }
 
             try {
-                await this.api.sendCommand('instrument_update_settings', {
+                await this._getApi().sendCommand('instrument_update_settings', {
                     deviceId: result.instrument.deviceId,
                     channel: result.instrument.channel,
                     sync_delay: result.delay
