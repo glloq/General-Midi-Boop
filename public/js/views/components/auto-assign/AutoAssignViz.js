@@ -260,8 +260,8 @@
     // Channel label with transposition
     const transpoSuffix = effectiveSemitones ? ` (${effectiveSemitones > 0 ? '+' : ''}${effectiveSemitones}st)` : '';
 
-    // Adaptation result
-    const result = this.calculateAdaptationResult(channel, strategy);
+    // Adaptation result (combined dimensions)
+    const result = this.calculateAdaptationResult(channel);
     const allOk = result.outOfRange === 0;
     const chanClass = allOk ? 'in-range' : 'out-of-range';
 
