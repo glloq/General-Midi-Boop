@@ -211,6 +211,24 @@ async function systemUpdate(app) {
 
   child.unref();
 
+  // Safety net: poll the update status file.
+  // If the bash script wrote "restarting" or "done" but failed to restart us,
+  // we exit ourselves — PM2 autorestart will bring us back with new code.
+  const statusFilePath = join(PROJECT_ROOT, 'logs', 'update-status');
+  const safetyPoll = setInterval(() => {
+    try {
+      const status = readFileSync(statusFilePath, 'utf8').trim().split(' ')[0];
+      if (status === 'restarting' || status === 'done') {
+        clearInterval(safetyPoll);
+        app.logger.info(`Update safety net: status="${status}", triggering self-exit for restart`);
+        setTimeout(() => process.exit(0), 2000);
+      }
+    } catch { /* file doesn't exist yet, ignore */ }
+  }, 3000);
+
+  // Stop polling after 5 minutes (matches existing safety timeout)
+  setTimeout(() => clearInterval(safetyPoll), 5 * 60 * 1000);
+
   app.logger.info(`Update script launched (PID: ${child.pid}), server will restart`);
   return { success: true, message: 'Update started' };
 }

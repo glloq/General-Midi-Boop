@@ -2,6 +2,7 @@
 // Extracted API route handlers — keeps HttpServer focused on server setup.
 import { Router } from 'express';
 import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -9,6 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
 const APP_VERSION = pkg.version;
+
+let GIT_HASH = 'unknown';
+try {
+  GIT_HASH = execSync('git rev-parse --short HEAD', { cwd: join(__dirname, '../..'), encoding: 'utf8', timeout: 3000 }).trim();
+} catch { /* ignore */ }
 
 /**
  * Create an Express Router with all API endpoints.
@@ -23,6 +29,7 @@ export function createApiRouter(app) {
     res.json({
       status: 'ok',
       version: APP_VERSION,
+      gitHash: GIT_HASH,
       uptime: process.uptime(),
       timestamp: Date.now()
     });
