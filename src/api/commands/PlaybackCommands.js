@@ -263,10 +263,20 @@ function applyScoringOverrides(overrides) {
     if (p.maxTranspositionOctaves !== undefined) ScoringConfig.penalties.maxTranspositionOctaves = Math.max(1, Math.min(6, Number(p.maxTranspositionOctaves)));
   }
 
+  // Bonuses
+  if (overrides.bonuses) {
+    const b = overrides.bonuses;
+    if (b.sameCategoryMatch !== undefined) ScoringConfig.bonuses.sameCategoryMatch = Math.max(0, Math.min(30, Number(b.sameCategoryMatch)));
+    if (b.sameFamilyMatch !== undefined) ScoringConfig.bonuses.sameFamilyMatch = Math.max(0, Math.min(25, Number(b.sameFamilyMatch)));
+    if (b.exactTypeMatch !== undefined) ScoringConfig.bonuses.exactTypeMatch = Math.max(0, Math.min(30, Number(b.exactTypeMatch)));
+  }
+
   // Percussion
   if (overrides.percussion) {
     const perc = overrides.percussion;
     if (perc.drumChannelDrumBonus !== undefined) ScoringConfig.percussion.drumChannelDrumBonus = Math.max(0, Math.min(30, Number(perc.drumChannelDrumBonus)));
+    if (perc.drumChannelNonDrumPenalty !== undefined) ScoringConfig.percussion.drumChannelNonDrumPenalty = Math.max(-100, Math.min(0, Number(perc.drumChannelNonDrumPenalty)));
+    if (perc.nonDrumChannelDrumPenalty !== undefined) ScoringConfig.percussion.nonDrumChannelDrumPenalty = Math.max(-100, Math.min(0, Number(perc.nonDrumChannelDrumPenalty)));
     if (perc.drumChannelWeights) {
       const dw = perc.drumChannelWeights;
       for (const k of ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport']) {

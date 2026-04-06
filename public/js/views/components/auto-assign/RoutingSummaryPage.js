@@ -206,7 +206,6 @@ class RoutingSummaryPage {
     this.loading = true;
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.showLowScores = {}; // Per-channel toggle for low score instruments
-    this.settingsOpen = false; // Settings panel visibility
 
     // Scoring overrides (loaded from localStorage, sent to API)
     this.scoringOverrides = this._loadScoringOverrides();
@@ -428,8 +427,6 @@ class RoutingSummaryPage {
             <button class="modal-close" id="rsSummaryClose">&times;</button>
           </div>
         </div>
-
-        ${this.settingsOpen ? this._renderSettingsPanel() : ''}
 
         <div class="rs-layout">
           <div class="rs-summary-panel" id="rsSummaryPanel">
@@ -907,17 +904,22 @@ class RoutingSummaryPage {
       advBtn.addEventListener('click', () => this._openAdvancedModal());
     }
 
-    // Settings button
+    // Settings button — open dedicated modal
     const settingsBtn = modal.querySelector('#rsSettingsBtn');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', () => {
-        this.settingsOpen = !this.settingsOpen;
-        this._refreshUI(channelKeys);
+        if (!window.ScoringSettingsModal) {
+          console.error('ScoringSettingsModal not available');
+          return;
+        }
+        const settingsModal = new window.ScoringSettingsModal(this.scoringOverrides, (newOverrides) => {
+          this.scoringOverrides = newOverrides;
+          this._saveScoringOverrides();
+          this._recalculate();
+        });
+        settingsModal.open();
       });
     }
-
-    // Settings panel events
-    this._bindSettingsEvents(channelKeys);
 
     // Accept all splits
     const splitBtn = modal.querySelector('#rsAcceptAllSplits');
@@ -1190,197 +1192,6 @@ class RoutingSummaryPage {
   // ============================================================================
   // Close / cleanup
   // ============================================================================
-
-  // ============================================================================
-  // Settings panel
-  // ============================================================================
-
-  _renderSettingsPanel() {
-    const o = this.scoringOverrides;
-    const w = o.weights;
-    const weightSum = w.noteRange + w.programMatch + w.instrumentType + w.polyphony + w.ccSupport;
-
-    return `
-      <div class="rs-settings-panel" id="rsSettingsPanel">
-        <div class="rs-settings-header">
-          <h3>${_t('routingSummary.settingsTitle')}</h3>
-          <button class="btn btn-sm rs-settings-close" id="rsSettingsClose">&times;</button>
-        </div>
-        <div class="rs-settings-body">
-          <div class="rs-settings-group">
-            <h4>${_t('routingSummary.settingsWeights')}</h4>
-            ${this._renderLinkedSlider('noteRange', _t('routingSummary.weightNoteRange'), w.noteRange, 0, 80)}
-            ${this._renderLinkedSlider('programMatch', _t('routingSummary.weightProgramMatch'), w.programMatch, 0, 60)}
-            ${this._renderLinkedSlider('instrumentType', _t('routingSummary.weightInstrumentType'), w.instrumentType, 0, 60)}
-            ${this._renderLinkedSlider('polyphony', _t('routingSummary.weightPolyphony'), w.polyphony, 0, 40)}
-            ${this._renderLinkedSlider('ccSupport', _t('routingSummary.weightCCSupport'), w.ccSupport, 0, 30)}
-            <div class="rs-weight-total ${weightSum !== 100 ? 'rs-weight-error' : ''}">
-              ${_t('routingSummary.settingsTotal')}: <strong>${weightSum}</strong>/100
-            </div>
-          </div>
-
-          <div class="rs-settings-group">
-            <h4>${_t('routingSummary.settingsThresholds')}</h4>
-            ${this._renderSlider('acceptable', _t('routingSummary.thresholdAcceptable'), o.scoreThresholds.acceptable, 20, 95, 'scoreThresholds')}
-            ${this._renderSlider('minimum', _t('routingSummary.thresholdMinimum'), o.scoreThresholds.minimum, 0, 60, 'scoreThresholds')}
-            ${this._renderSlider('triggerBelowScore', _t('routingSummary.thresholdSplitTrigger'), o.splitting.triggerBelowScore, 20, 90, 'splitting')}
-          </div>
-
-          <div class="rs-settings-group">
-            <h4>${_t('routingSummary.settingsTransposition')}</h4>
-            ${this._renderSlider('maxTranspositionOctaves', _t('routingSummary.transpositionMaxOctaves'), o.penalties.maxTranspositionOctaves, 1, 6, 'penalties')}
-            ${this._renderSlider('transpositionPerOctave', _t('routingSummary.transpositionPenalty'), o.penalties.transpositionPerOctave, 0, 15, 'penalties')}
-          </div>
-
-          <div class="rs-settings-group">
-            <h4>${_t('routingSummary.settingsPercussion')}</h4>
-            ${this._renderSlider('drumChannelDrumBonus', _t('routingSummary.percussionBonus'), o.percussion.drumChannelDrumBonus, 0, 30, 'percussion')}
-          </div>
-
-          <div class="rs-settings-group">
-            <h4>${_t('routingSummary.settingsSplitting')}</h4>
-            ${this._renderSlider('minQuality', _t('routingSummary.splitMinQuality'), o.splitting.minQuality, 10, 90, 'splitting')}
-            ${this._renderSlider('maxInstruments', _t('routingSummary.splitMaxInstruments'), o.splitting.maxInstruments, 2, 8, 'splitting')}
-          </div>
-        </div>
-        <div class="rs-settings-footer">
-          <button class="btn" id="rsSettingsReset">${_t('routingSummary.settingsReset')}</button>
-          <button class="btn btn-primary" id="rsSettingsApply">${_t('routingSummary.settingsApply')}</button>
-        </div>
-      </div>
-    `;
-  }
-
-  _renderLinkedSlider(key, label, value, min, max) {
-    return `
-      <div class="rs-slider-row">
-        <span class="rs-slider-label">${label}</span>
-        <input type="range" class="rs-slider rs-linked-slider" data-key="${key}" min="${min}" max="${max}" value="${value}">
-        <span class="rs-slider-value" id="rsWt_${key}">${value}</span>
-      </div>
-    `;
-  }
-
-  _renderSlider(key, label, value, min, max, group) {
-    return `
-      <div class="rs-slider-row">
-        <span class="rs-slider-label">${label}</span>
-        <input type="range" class="rs-slider rs-simple-slider" data-key="${key}" data-group="${group}" min="${min}" max="${max}" value="${value}">
-        <span class="rs-slider-value">${value}</span>
-      </div>
-    `;
-  }
-
-  _bindSettingsEvents(channelKeys) {
-    const panel = this.modal?.querySelector('#rsSettingsPanel');
-    if (!panel) return;
-
-    // Close settings
-    const closeBtn = panel.querySelector('#rsSettingsClose');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        this.settingsOpen = false;
-        this._refreshUI(channelKeys);
-      });
-    }
-
-    // Linked weight sliders
-    panel.querySelectorAll('.rs-linked-slider').forEach(slider => {
-      slider.addEventListener('input', () => {
-        const key = slider.dataset.key;
-        const newValue = parseInt(slider.value);
-        this._adjustLinkedWeights(key, newValue);
-        // Update all slider displays
-        this._updateWeightSliderDisplays(panel);
-      });
-    });
-
-    // Simple sliders
-    panel.querySelectorAll('.rs-simple-slider').forEach(slider => {
-      slider.addEventListener('input', () => {
-        const key = slider.dataset.key;
-        const group = slider.dataset.group;
-        const value = parseInt(slider.value);
-        if (this.scoringOverrides[group]) {
-          this.scoringOverrides[group][key] = value;
-        }
-        const valueEl = slider.nextElementSibling;
-        if (valueEl) valueEl.textContent = value;
-      });
-    });
-
-    // Reset
-    const resetBtn = panel.querySelector('#rsSettingsReset');
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        this.scoringOverrides = this._getDefaultOverrides();
-        this._saveScoringOverrides();
-        this._refreshUI(channelKeys);
-      });
-    }
-
-    // Apply and recalculate
-    const applyBtn = panel.querySelector('#rsSettingsApply');
-    if (applyBtn) {
-      applyBtn.addEventListener('click', () => {
-        this._saveScoringOverrides();
-        this.settingsOpen = false;
-        this._recalculate();
-      });
-    }
-  }
-
-  _adjustLinkedWeights(changedKey, newValue) {
-    const keys = ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport'];
-    const w = this.scoringOverrides.weights;
-    const oldValue = w[changedKey];
-    const delta = newValue - oldValue;
-
-    if (delta === 0) return;
-
-    const otherKeys = keys.filter(k => k !== changedKey);
-    const otherTotal = otherKeys.reduce((s, k) => s + w[k], 0);
-
-    if (otherTotal === 0 && delta > 0) return; // Can't reduce others below 0
-
-    // Distribute delta proportionally across other keys
-    let remaining = -delta;
-    for (let i = 0; i < otherKeys.length; i++) {
-      const k = otherKeys[i];
-      if (i === otherKeys.length - 1) {
-        // Last key gets the remainder to force sum = 100
-        w[k] = Math.max(0, w[k] + remaining);
-      } else {
-        const share = otherTotal > 0 ? w[k] / otherTotal : 1 / otherKeys.length;
-        const adjustment = Math.round(remaining * share);
-        const newVal = Math.max(0, w[k] + adjustment);
-        remaining -= (newVal - w[k]);
-        w[k] = newVal;
-      }
-    }
-
-    w[changedKey] = newValue;
-  }
-
-  _updateWeightSliderDisplays(panel) {
-    const w = this.scoringOverrides.weights;
-    const keys = ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport'];
-
-    for (const key of keys) {
-      const slider = panel.querySelector(`.rs-linked-slider[data-key="${key}"]`);
-      const valueEl = panel.querySelector(`#rsWt_${key}`);
-      if (slider) slider.value = w[key];
-      if (valueEl) valueEl.textContent = w[key];
-    }
-
-    // Update total
-    const sum = keys.reduce((s, k) => s + w[k], 0);
-    const totalEl = panel.querySelector('.rs-weight-total');
-    if (totalEl) {
-      totalEl.innerHTML = `${_t('routingSummary.settingsTotal')}: <strong>${sum}</strong>/100`;
-      totalEl.classList.toggle('rs-weight-error', sum !== 100);
-    }
-  }
 
   async _recalculate() {
     this.loading = true;
