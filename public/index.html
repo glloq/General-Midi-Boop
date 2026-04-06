@@ -964,6 +964,8 @@
         .header-controls .btn { background: rgba(255, 255, 255, 0.5) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; color: #1a1a2e !important; }
         .header-controls .btn:hover { background: rgba(255, 255, 255, 0.7) !important; }
         .header-controls .btn-danger { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #dc2626 !important; }
+        .header-controls #headerPlayPauseBtn.btn-routed { background: #16a34a !important; border-color: #15803d !important; color: white !important; }
+        .header-controls #headerPlayPauseBtn.btn-routed:hover { background: #15803d !important; }
 
         /* Search bar et contrôles */
         .search-bar { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(118, 75, 162, 0.2); }
@@ -3734,13 +3736,35 @@
         .header-controls {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .header-controls-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-controls-right {
+            display: flex;
+            align-items: center;
             gap: 12px;
         }
 
         .header-controls .btn {
             padding: 8px 16px;
             font-size: 13px;
+        }
+
+        #headerPlayPauseBtn.btn-routed {
+            background: #16a34a !important;
+            border-color: #15803d !important;
+            color: white !important;
+        }
+
+        #headerPlayPauseBtn.btn-routed:hover {
+            background: #15803d !important;
         }
 
         .header-playlist-info {
@@ -4900,13 +4924,17 @@
 
                 <div class="header-playback" role="region" aria-label="Playback controls">
                     <div class="header-controls">
-                        <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
-                        <span class="header-playlist-info hidden" id="headerPlaylistInfo" style="font-size:0.8rem;opacity:0.7;"></span>
-                        <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
-                        <button class="btn" id="headerPrevBtn" style="display:none;" aria-label="Previous track" title="Previous">⏮</button>
-                        <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
-                        <button class="btn" id="headerNextBtn" style="display:none;" aria-label="Next track" title="Next">⏭</button>
-                        <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
+                        <div class="header-controls-left">
+                            <button class="btn" id="headerPrevBtn" style="display:none;" aria-label="Previous track" title="Previous">⏮</button>
+                            <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
+                            <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
+                            <button class="btn" id="headerNextBtn" style="display:none;" aria-label="Next track" title="Next">⏭</button>
+                        </div>
+                        <div class="header-controls-right">
+                            <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
+                            <span class="header-playlist-info hidden" id="headerPlaylistInfo" style="font-size:0.8rem;opacity:0.7;"></span>
+                            <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
+                        </div>
                     </div>
                 </div>
 
@@ -7045,6 +7073,7 @@
             if (!selectedFileId) {
                 headerFileName.textContent = i18n.t('ui.noFileSelected');
                 headerFileName.classList.remove('header-file-ready');
+                playPauseBtn.classList.remove('btn-routed');
                 // Désactiver Play si aucun fichier en cours de lecture
                 if (!currentFileId) {
                     playPauseBtn.disabled = true;
@@ -7056,6 +7085,7 @@
             if (!fileItem) {
                 headerFileName.textContent = i18n.t('ui.noFileSelected');
                 headerFileName.classList.remove('header-file-ready');
+                playPauseBtn.classList.remove('btn-routed');
                 if (!currentFileId) {
                     playPauseBtn.disabled = true;
                 }
@@ -7069,11 +7099,13 @@
             if (routed) {
                 headerFileName.textContent = '🎵 ' + filename;
                 headerFileName.classList.add('header-file-ready');
+                playPauseBtn.classList.add('btn-routed');
                 // Activer le bouton Play pour ce fichier routé
                 playPauseBtn.disabled = false;
             } else {
                 headerFileName.textContent = filename;
                 headerFileName.classList.remove('header-file-ready');
+                playPauseBtn.classList.remove('btn-routed');
                 if (!currentFileId) {
                     playPauseBtn.disabled = true;
                 }
