@@ -630,7 +630,7 @@
         }
 
         /* Bloc fichiers - fond coloré */
-        .file-list {
+        body.theme-colored .file-list {
             background: linear-gradient(180deg, rgba(232, 236, 254, 0.5) 0%, rgba(243, 238, 255, 0.55) 50%, rgba(252, 232, 240, 0.35) 100%);
             border-radius: 0;
         }
@@ -771,29 +771,18 @@
             background-clip: text;
         }
 
-        /* Fichiers */
-        .file-item {
+        /* Fichiers — thème coloré */
+        body.theme-colored .file-item {
             border: 1px solid #d1d5db;
-            transition: all 0.2s ease;
         }
 
-        .file-item:hover {
-            background: #f3f4f6;
-        }
-
-        .file-item.selected {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.12));
-            border-left: 3px solid #764ba2;
-            box-shadow: inset 0 0 0 1px rgba(118, 75, 162, 0.1);
-        }
-
-        .file-item .file-icon,
-        .file-item .icon {
+        body.theme-colored .file-item .file-icon,
+        body.theme-colored .file-item .icon {
             color: #764ba2;
         }
 
-        .file-item .file-size,
-        .file-item .file-date {
+        body.theme-colored .file-item .file-size,
+        body.theme-colored .file-item .file-date {
             color: #667eea;
         }
 
@@ -961,14 +950,12 @@
         .display-mode-btn:hover { background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.12)); }
         .display-mode-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3); }
 
-        /* File grid view — no ::before background overrides, routing colors from global rules apply */
-        .file-list.view-grid .file-item { background: rgba(255, 255, 255, 0.65); border: 1px solid #d1d5db; backdrop-filter: blur(8px); }
-        .file-list.view-grid .file-item:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); background: #ffffff; }
-        .file-list.view-grid .file-item.selected { border-color: #764ba2; background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); box-shadow: 0 4px 14px rgba(118, 75, 162, 0.2); }
+        /* File grid view — thème coloré */
+        body.theme-colored .file-list.view-grid .file-item { backdrop-filter: blur(8px); }
+        body.theme-colored .file-list.view-grid .file-item:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
 
-        /* Compact view — no ::before background overrides, routing colors from global rules apply */
-        .file-list.view-compact .file-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); }
-        .file-list.view-compact .file-item.selected { background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1)); }
+        /* Compact view — thème coloré */
+        body.theme-colored .file-list.view-compact .file-item { border-bottom: 1px solid rgba(118, 75, 162, 0.1); }
 
         /* Header info */
         .header-file-name { color: #1a1a2e; }
@@ -1607,6 +1594,7 @@
             padding: 4px;
             padding-left: 36px;
             background: #f9fafb;
+            border: none;
             border-radius: 6px;
             margin-bottom: 8px;
             display: flex;
