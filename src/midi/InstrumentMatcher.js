@@ -54,7 +54,7 @@ class InstrumentMatcher {
     const issues = [];
     const info = [];
 
-    // 1. Match du programme MIDI (+30 points max)
+    // 1. Match du programme MIDI (+22 points max)
     const programScore = this.scoreProgramMatch(
       channelAnalysis.primaryProgram,
       instrument.gm_program,
@@ -64,7 +64,7 @@ class InstrumentMatcher {
     score += programScore.score;
     if (programScore.info) info.push(programScore.info);
 
-    // 2. Compatibilité de notes (+25 points max)
+    // 2. Compatibilité de notes (+40 points max)
     let parsedSelectedNotes = null;
     if (instrument.selected_notes) {
       try {
@@ -99,7 +99,7 @@ class InstrumentMatcher {
       info.push(`Drum mapping: ${noteScore.drumMappingReport.summary.qualityScore}/100 quality`);
     }
 
-    // 3. Polyphonie (+15 points max)
+    // 3. Polyphonie (+13 points max)
     const instrumentPolyphony = instrument.polyphony || 16;
     const polyphonyIsDefault = !instrument.polyphony;
     const polyScore = this.scorePolyphony(
@@ -111,7 +111,7 @@ class InstrumentMatcher {
     if (polyScore.issue) issues.push(polyScore.issue);
     if (polyScore.info) info.push(polyScore.info);
 
-    // 4. Contrôleurs MIDI (+15 points max)
+    // 4. Contrôleurs MIDI (+5 points max)
     let parsedCCs = null;
     if (instrument.supported_ccs) {
       try {
@@ -248,7 +248,7 @@ class InstrumentMatcher {
    * @returns {Object} - { score, info }
    */
   scoreProgramMatch(channelProgram, instrumentProgram, bankInfo = {}) {
-    const maxScore = this.config.getWeight('programMatch'); // 30
+    const maxScore = this.config.getWeight('programMatch'); // 22
 
     // Gestion differenciee des cas ou l'un ou les deux programmes sont absents
     const channelHasProgram = channelProgram !== null && channelProgram !== undefined;
@@ -712,7 +712,7 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scorePolyphony(channelMaxPoly, instrumentPoly, isDefault = false) {
-    const maxScore = this.config.getWeight('polyphony'); // 10
+    const maxScore = this.config.getWeight('polyphony'); // 13
     const margin = instrumentPoly - channelMaxPoly;
 
     // Polyphonie non configuree : score max mais prudent

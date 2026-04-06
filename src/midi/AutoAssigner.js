@@ -246,31 +246,41 @@ class AutoAssigner {
       analysisMap[analysis.channel] = analysis;
     }
 
-    // Trier les canaux par score du meilleur instrument (priorité aux meilleurs matchs)
-    const channelsByBestScore = Object.entries(suggestions)
-      .map(([channel, options]) => ({
-        channel: parseInt(channel),
-        bestScore: options[0]?.compatibility.score || 0,
-        options,
-        analysis: analysisMap[parseInt(channel)]
-      }))
+    const acceptableScore = ScoringConfig.scoreThresholds?.acceptable || 60;
+
+    // Tri par RARETÉ de choix : les canaux avec moins d'options viables sont assignés en priorité.
+    // Cela évite qu'un canal avec beaucoup d'options "vole" l'unique bon instrument d'un autre canal.
+    const channelsByScarcity = Object.entries(suggestions)
+      .map(([channel, options]) => {
+        const ch = parseInt(channel);
+        const viableCount = options.filter(o => o.compatibility.score >= acceptableScore).length;
+        return {
+          channel: ch,
+          bestScore: options[0]?.compatibility.score || 0,
+          viableCount,
+          options,
+          analysis: analysisMap[ch]
+        };
+      })
       .sort((a, b) => {
-        // Priorité 1: Canal 9 (drums)
+        // Priorité 1: Canal 9 (drums) toujours en premier
         if (a.channel === 9 && b.channel !== 9) return -1;
         if (b.channel === 9 && a.channel !== 9) return 1;
-        // Priorité 2: Meilleur score
+        // Priorité 2: Moins d'options viables = plus prioritaire (rareté)
+        if (a.viableCount !== b.viableCount) return a.viableCount - b.viableCount;
+        // Priorité 3: En cas d'égalité, meilleur score en premier
         return b.bestScore - a.bestScore;
       });
 
-    const totalChannels = channelsByBestScore.length;
+    const totalChannels = channelsByScarcity.length;
     const totalInstruments = new Set(
       Object.values(suggestions).flatMap(opts => opts.map(o => o.instrument.id))
     ).size;
 
-    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available`);
+    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering)`);
 
-    // Assigner dans l'ordre de priorité — chaque instrument une seule fois
-    for (const { channel, options, analysis } of channelsByBestScore) {
+    // Assigner dans l'ordre de rareté — chaque instrument une seule fois
+    for (const { channel, options, analysis, viableCount } of channelsByScarcity) {
       let selected = null;
 
       for (const option of options) {
@@ -283,35 +293,32 @@ class AutoAssigner {
       }
 
       if (!selected) {
-        // Plus d'instruments disponibles → auto-skip ce canal
         autoSkipped.add(channel);
-        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned)`);
+        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`);
         continue;
       }
 
-      if (selected) {
-        assignments[channel] = {
-          deviceId: selected.instrument.device_id,
-          instrumentId: selected.instrument.id,
-          instrumentChannel: selected.instrument.channel,
-          instrumentName: selected.instrument.name,
-          customName: selected.instrument.custom_name,
-          score: selected.compatibility.score,
-          transposition: selected.compatibility.transposition,
-          noteRemapping: selected.compatibility.noteRemapping,
-          octaveWrapping: selected.compatibility.octaveWrapping || null,
-          octaveWrappingEnabled: selected.compatibility.octaveWrappingEnabled || false,
-          octaveWrappingInfo: selected.compatibility.octaveWrappingInfo || null,
-          issues: selected.compatibility.issues,
-          info: selected.compatibility.info,
-          channelAnalysis: {
-            noteRange: analysis.noteRange,
-            polyphony: analysis.polyphony,
-            estimatedType: analysis.estimatedType,
-            primaryProgram: analysis.primaryProgram
-          }
-        };
-      }
+      assignments[channel] = {
+        deviceId: selected.instrument.device_id,
+        instrumentId: selected.instrument.id,
+        instrumentChannel: selected.instrument.channel,
+        instrumentName: selected.instrument.name,
+        customName: selected.instrument.custom_name,
+        score: selected.compatibility.score,
+        transposition: selected.compatibility.transposition,
+        noteRemapping: selected.compatibility.noteRemapping,
+        octaveWrapping: selected.compatibility.octaveWrapping || null,
+        octaveWrappingEnabled: selected.compatibility.octaveWrappingEnabled || false,
+        octaveWrappingInfo: selected.compatibility.octaveWrappingInfo || null,
+        issues: selected.compatibility.issues,
+        info: selected.compatibility.info,
+        channelAnalysis: {
+          noteRange: analysis.noteRange,
+          polyphony: analysis.polyphony,
+          estimatedType: analysis.estimatedType,
+          primaryProgram: analysis.primaryProgram
+        }
+      };
     }
 
     if (autoSkipped.size > 0) {
@@ -376,7 +383,7 @@ class AutoAssigner {
       // Chercher les instruments du même type
       let sameType = instrumentsByType[channelCategory] || [];
 
-      // Fallback: élargir à la famille si pas assez d'instruments du type exact
+      // Tier 2: élargir à la famille si pas assez d'instruments du type exact
       if (sameType.length < 2) {
         const family = InstrumentTypeConfig.getFamily(channelCategory);
         if (family) {
@@ -390,6 +397,21 @@ class AutoAssigner {
           if (familyInstruments.length >= 2) {
             sameType = familyInstruments;
           }
+        }
+      }
+
+      // Tier 3: split cross-famille — tout instrument avec plage compatible
+      if (sameType.length < 2 && analysis.noteRange && analysis.noteRange.min !== null) {
+        const channelMin = analysis.noteRange.min;
+        const channelMax = analysis.noteRange.max;
+        const crossFamilyInstruments = availableInstruments.filter(inst =>
+          inst.note_range_min != null && inst.note_range_max != null &&
+          inst.note_range_min <= channelMax && inst.note_range_max >= channelMin &&
+          inst.instrument_type !== 'drums' // Exclure drums des splits cross-famille
+        );
+        if (crossFamilyInstruments.length >= 2) {
+          sameType = crossFamilyInstruments;
+          this.logger.debug(`Channel ${analysis.channel}: using cross-family split (${crossFamilyInstruments.length} instruments with compatible ranges)`);
         }
       }
 

@@ -5368,6 +5368,7 @@
     <script src="js/views/components/auto-assign/AutoAssignActions.js"></script>
     <script src="js/views/components/auto-assign/AutoAssignUtils.js"></script>
     <script src="js/views/components/AutoAssignModal.js"></script>
+    <script src="js/views/components/auto-assign/RoutingSummaryPage.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
     <script src="js/views/components/midi-editor/MidiEditorState.js"></script>
@@ -9133,135 +9134,41 @@
             }
         }
 
-        // 🆕 Afficher la modale de routage
+        // Afficher la page résumé du routage automatique
         async function showRoutingModal(fileId, filename, channels) {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-
-            // Build expanded instrument list (split multi-instrument devices)
-            const outputDevices = availableDevices.filter(d => d.type !== 'input');
-            const routingInstruments = [];
-            for (const device of outputDevices) {
-                if (device.instruments && device.instruments.length > 1) {
-                    for (const inst of device.instruments) {
-                        const ch = inst.channel !== undefined ? inst.channel : 0;
-                        routingInstruments.push({
-                            id: `${device.id}::${ch}`,
-                            name: inst.custom_name || inst.name || device.displayName || device.name,
-                            displayName: `${inst.custom_name || inst.name || device.displayName || device.name} [Ch${ch + 1}]`
-                        });
-                    }
-                } else {
-                    routingInstruments.push({
-                        id: device.id,
-                        name: device.name,
-                        displayName: device.displayName || device.name
-                    });
-                }
-            }
-
-            // Fetch current routing from DB (source of truth)
-            let currentConfig = { channels: {} };
-            try {
-                const result = await api.sendCommand('get_file_routings', { fileId });
-                if (result && result.routings && result.routings.length > 0) {
-                    const dbChannels = {};
-                    for (const r of result.routings) {
-                        if (r.channel != null && r.device_id) {
-                            dbChannels[r.channel] = r.target_channel != null
-                                ? `${r.device_id}::${r.target_channel}`
-                                : r.device_id;
-                        }
-                    }
-                    currentConfig = { channels: dbChannels, configured: true };
-                }
-            } catch (err) {
-                // Fallback to localStorage if DB fetch fails
-                console.warn('[Routing] DB fetch failed, using localStorage fallback:', err);
-                currentConfig = fileRoutingConfig[fileId] || { channels: {} };
-            }
-
-            let channelHTML = channels.map(ch => {
-                const trackNames = ch.tracks.map(t => t.name).join(', ');
-                const currentDevice = currentConfig.channels[ch.channel] || '';
-                // Afficher l'instrument si disponible
-                const instrumentDisplay = ch.instrumentName
-                    ? `<span class="routing-channel-instrument">🎹 ${ch.instrumentName}</span>`
-                    : '';
-
-                return `
-                    <div class="routing-channel-row">
-                        <div class="routing-channel-info">
-                            <span class="routing-channel-name">Canal ${ch.channelDisplay || (ch.channel + 1)}</span>
-                            ${instrumentDisplay}<br>
-                            <small class="routing-channel-tracks">${trackNames}</small>
-                        </div>
-                        <select id="channel_${ch.channel}" style="flex: 1; padding: 8px;">
-                            <option value="">-- Aucun --</option>
-                            ${routingInstruments.map(inst =>
-                                `<option value="${inst.id}" ${currentDevice === inst.id ? 'selected' : ''}>${inst.displayName}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                `;
-            }).join('');
-
-            modal.innerHTML = `
-                <div class="routing-modal-container">
-                    <div class="routing-modal-header">
-                        <h2 class="routing-modal-title">🔀 ${i18n.t('channelRouter.title')}</h2>
-                        <button class="btn btn-auto-assign" id="routing-auto-assign-btn" title="${i18n.t('autoAssign.title')}">⚡ ${i18n.t('midiEditor.autoAssign')}</button>
-                    </div>
-                    <p class="routing-modal-file"><strong>${i18n.t('channelRouter.file')}:</strong> ${filename}</p>
-                    <p class="routing-modal-file"><strong>${i18n.t('channelRouter.channelsFound')}:</strong> ${channels.length}</p>
-                    <div style="margin-bottom: 20px;">
-                        ${channelHTML}
-                    </div>
-                    <div class="routing-modal-buttons">
-                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">${i18n.t('common.cancel')}</button>
-                        <button class="btn" onclick="saveRouting(${fileId})">✓ ${i18n.t('channelRouter.saveRouting')}</button>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            // Stocker les canaux pour la sauvegarde
-            modal.dataset.channels = JSON.stringify(channels);
-
-            // Auto-assign button handler – open the full AutoAssignModal
-            const autoAssignBtn = modal.querySelector('#routing-auto-assign-btn');
-            if (autoAssignBtn) {
-                autoAssignBtn.addEventListener('click', async () => {
-                    if (!window.AutoAssignModal) {
-                        log('AutoAssignModal not available', 'error');
-                        return;
-                    }
-
+            if (!window.RoutingSummaryPage) {
+                log('RoutingSummaryPage not available, falling back to AutoAssignModal', 'warning');
+                // Fallback: ouvrir directement l'AutoAssignModal si la page résumé n'est pas chargée
+                if (window.AutoAssignModal) {
                     const autoModal = new window.AutoAssignModal(api, null);
                     autoModal.show(fileId, (result) => {
-                        // Close the routing modal
-                        modal.remove();
-
-                        // Refresh file list to reflect new routing state
-                        if (window.midiFileManager) {
-                            window.midiFileManager.refreshFileList();
-                        }
-
-                        // If an adapted file was created, open it in the editor
+                        if (window.midiFileManager) window.midiFileManager.refreshFileList();
                         if (result.adaptedFileId && window.MidiEditorModal) {
                             const editor = new window.MidiEditorModal(null, api);
                             editor.show(result.adaptedFileId, result.filename || null);
                         }
-
-                        // Notify other components that routing changed
-                        if (window.eventBus) {
-                            window.eventBus.emit('routing:changed', { fileId });
-                        }
+                        if (window.eventBus) window.eventBus.emit('routing:changed', { fileId });
                     });
-                });
+                }
+                return;
             }
+
+            const summaryPage = new window.RoutingSummaryPage(api);
+            summaryPage.show(fileId, filename, channels, (result) => {
+                // Refresh file list to reflect new routing state
+                if (window.midiFileManager) {
+                    window.midiFileManager.refreshFileList();
+                }
+
+                // Update metadata cache
+                metadataCache.delete(fileId);
+                loadFileMetadata(fileId);
+
+                // Notify other components
+                if (window.eventBus) {
+                    window.eventBus.emit('routing:changed', { fileId, channels: result.routing || {} });
+                }
+            });
         }
 
         // 🆕 Sauvegarder la configuration de routage
