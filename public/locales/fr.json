@@ -1737,5 +1737,17 @@
         "chart": "Graphique des mesures",
         "applied": "Calibration appliquée pour {count} instrument(s)",
         "refresh": "Actualiser"
+    },
+    "routingSummary": {
+        "title": "Routage automatique",
+        "selectChannelHint": "Cliquez sur un canal pour voir les details et modifier l'assignation",
+        "compatibleInstruments": "Instruments compatibles",
+        "noteRange": "Plage",
+        "quality": "qualite",
+        "accepted": "accepte",
+        "skip": "Ignorer",
+        "unskip": "Reactiver",
+        "openAdvanced": "Edition avancee",
+        "applyAll": "Appliquer le routage"
     }
 }

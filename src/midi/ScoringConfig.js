@@ -11,12 +11,14 @@ const ScoringConfig = {
    * Poids maximum pour chaque critère (total = 100)
    */
   weights: {
-    programMatch: 20,      // Match du programme MIDI GM
+    programMatch: 22,      // Match du programme MIDI GM
     noteRange: 40,         // Compatibilité de plage de notes (critère #1 : jouabilité)
-    polyphony: 10,         // Polyphonie suffisante
+    polyphony: 13,         // Polyphonie suffisante
     ccSupport: 5,          // Support des contrôleurs MIDI
-    instrumentType: 20,    // Type d'instrument hiérarchique
-    channelSpecial: 5      // Canal spécial (ex: canal 10 = drums)
+    instrumentType: 20     // Type d'instrument hiérarchique
+    // Note: channelSpecial supprimé (jamais implémenté comme sous-score).
+    // Le bonus percussion canal 9 est géré séparément via percussion.drumChannelDrumBonus.
+    // Les 5 points redistribués : +2 programMatch, +3 polyphony. Total = 100.
   },
 
   /**
@@ -57,9 +59,9 @@ const ScoringConfig = {
    * Bonus pour bons matchs
    */
   bonuses: {
-    perfectProgramMatch: 20,      // Programme MIDI exact
+    perfectProgramMatch: 22,      // Programme MIDI exact (= poids programMatch)
     sameCategoryMatch: 15,        // Même catégorie GM
-    perfectNoteRange: 38,         // Pas de transposition (note range = critère #1)
+    perfectNoteRange: 40,         // Pas de transposition (note range = critère #1)
     highPolyphonyMargin: 15,      // Marge de polyphonie > 8
     allCCsSupported: 7,           // Tous les CCs supportés
     typeMatch: 10,                // Type détecté correspond (legacy)
@@ -78,11 +80,11 @@ const ScoringConfig = {
     drumChannelDrumBonus: 15,          // Instrument drum assigne au canal 9
     drumChannelWeights: {
       programMatch: 5,        // Reduit (drums n'utilisent pas les programmes GM standard sur ch10)
-      noteRange: 45,          // Augmente (qualite du mapping drum = critique)
+      noteRange: 50,          // Augmente (qualite du mapping drum = critique)
       polyphony: 10,          // Reduit (drums = polyphonie limitee)
       ccSupport: 5,           // Faible impact pour drums
-      instrumentType: 20,     // Type match pour drums
-      channelSpecial: 15      // Bonus canal drums
+      instrumentType: 30      // Type match pour drums (inclut ex-channelSpecial)
+      // Note: Total = 100. channelSpecial supprimé, points redistribués.
     }
   },
 

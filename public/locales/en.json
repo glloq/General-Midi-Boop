@@ -1737,5 +1737,17 @@
         "chart": "Measurement chart",
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh"
+    },
+    "routingSummary": {
+        "title": "Automatic Routing",
+        "selectChannelHint": "Click a channel to view details and edit assignment",
+        "compatibleInstruments": "Compatible instruments",
+        "noteRange": "Range",
+        "quality": "quality",
+        "accepted": "accepted",
+        "skip": "Skip",
+        "unskip": "Re-enable",
+        "openAdvanced": "Advanced editing",
+        "applyAll": "Apply routing"
     }
 }

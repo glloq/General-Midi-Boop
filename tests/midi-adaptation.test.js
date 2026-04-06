@@ -261,9 +261,9 @@ describe('InstrumentMatcher', () => {
     expect(Array.isArray(result.info)).toBe(true);
   });
 
-  test('perfect program match gives 20 points', () => {
+  test('perfect program match gives 22 points', () => {
     const result = matcher.scoreProgramMatch(0, 0);
-    expect(result.score).toBe(20);
+    expect(result.score).toBe(22);
     expect(result.info).toContain('Perfect program match');
   });
 
@@ -291,14 +291,14 @@ describe('InstrumentMatcher', () => {
     expect(bothNull).toBeGreaterThanOrEqual(channelNull);
   });
 
-  test('perfect note range fit gives 38 points', () => {
+  test('perfect note range fit gives 40 points', () => {
     const result = matcher.scoreNoteCompatibility(
       { min: 48, max: 72 },
       { min: 21, max: 108, mode: 'continuous', selected: null }
     );
 
     expect(result.compatible).toBe(true);
-    expect(result.score).toBe(38);
+    expect(result.score).toBe(40);
     expect(result.transposition.semitones).toBe(0);
   });
 
@@ -325,12 +325,12 @@ describe('InstrumentMatcher', () => {
   });
 
   test('polyphony scoring tiers', () => {
-    // Excellent: margin >= 8
-    expect(matcher.scorePolyphony(4, 16).score).toBe(10);
-    // Good: margin >= 4
-    expect(matcher.scorePolyphony(4, 8).score).toBe(7);
-    // Sufficient: margin >= 0
-    expect(matcher.scorePolyphony(4, 4).score).toBe(5);
+    // Excellent: margin >= 8 → maxScore (13)
+    expect(matcher.scorePolyphony(4, 16).score).toBe(13);
+    // Good: margin >= 4 → 70% of maxScore
+    expect(matcher.scorePolyphony(4, 8).score).toBe(Math.round(13 * 0.7));
+    // Sufficient: margin >= 0 → 50% of maxScore
+    expect(matcher.scorePolyphony(4, 4).score).toBe(Math.round(13 * 0.5));
     // Insufficient: margin < 0
     expect(matcher.scorePolyphony(8, 4).score).toBe(0);
     expect(matcher.scorePolyphony(8, 4).issue).toBeDefined();
@@ -945,13 +945,14 @@ describe('ScoringConfig', () => {
   });
 
   test('getBonus returns correct values', () => {
-    expect(ScoringConfig.getBonus('perfectProgramMatch')).toBe(20);
+    expect(ScoringConfig.getBonus('perfectProgramMatch')).toBe(22);
     expect(ScoringConfig.getBonus('nonExistent')).toBe(0);
   });
 
   test('getWeight returns correct values', () => {
-    expect(ScoringConfig.getWeight('programMatch')).toBe(20);
+    expect(ScoringConfig.getWeight('programMatch')).toBe(22);
     expect(ScoringConfig.getWeight('noteRange')).toBe(40);
+    expect(ScoringConfig.getWeight('polyphony')).toBe(13);
     expect(ScoringConfig.getWeight('instrumentType')).toBe(20);
     expect(ScoringConfig.getWeight('nonExistent')).toBe(0);
   });

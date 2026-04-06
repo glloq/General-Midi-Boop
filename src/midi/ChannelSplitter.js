@@ -21,59 +21,88 @@ class ChannelSplitter {
   }
 
   /**
-   * Évalue si un canal peut être splitté entre plusieurs instruments du même type
+   * Sélectionne les meilleurs instruments par couverture de la plage du canal.
+   * Au lieu de prendre les N premiers dans l'ordre BDD, on choisit ceux qui
+   * maximisent la couverture combinée de la plage de notes du canal.
+   * @param {Array<Object>} instruments - Instruments candidats
+   * @param {Object} channelAnalysis - Analyse du canal
+   * @param {number} maxCount - Nombre max d'instruments à sélectionner
+   * @returns {Array<Object>} - Instruments sélectionnés par couverture optimale
+   */
+  selectBestInstrumentsForCoverage(instruments, channelAnalysis, maxCount) {
+    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) {
+      return instruments.slice(0, maxCount);
+    }
+
+    const channelMin = channelAnalysis.noteRange.min;
+    const channelMax = channelAnalysis.noteRange.max;
+
+    // Sélection gloutonne par complémentarité de couverture
+    const selected = [];
+    const remaining = [...instruments];
+    const coveredNotes = new Set();
+
+    while (selected.length < maxCount && remaining.length > 0) {
+      let bestIdx = -1;
+      let bestNewCoverage = -1;
+
+      for (let i = 0; i < remaining.length; i++) {
+        const inst = remaining[i];
+        const instMin = inst.note_range_min != null ? inst.note_range_min : 0;
+        const instMax = inst.note_range_max != null ? inst.note_range_max : 127;
+        const effectiveMin = Math.max(instMin, channelMin);
+        const effectiveMax = Math.min(instMax, channelMax);
+
+        if (effectiveMin > effectiveMax) continue;
+
+        // Compter les nouvelles notes couvertes (pas déjà couvertes)
+        let newCoverage = 0;
+        for (let n = effectiveMin; n <= effectiveMax; n++) {
+          if (!coveredNotes.has(n)) newCoverage++;
+        }
+
+        if (newCoverage > bestNewCoverage) {
+          bestNewCoverage = newCoverage;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx === -1) break;
+
+      const chosen = remaining.splice(bestIdx, 1)[0];
+      selected.push(chosen);
+
+      // Mettre à jour la couverture
+      const instMin = chosen.note_range_min != null ? chosen.note_range_min : 0;
+      const instMax = chosen.note_range_max != null ? chosen.note_range_max : 127;
+      const effectiveMin = Math.max(instMin, channelMin);
+      const effectiveMax = Math.min(instMax, channelMax);
+      for (let n = effectiveMin; n <= effectiveMax; n++) {
+        coveredNotes.add(n);
+      }
+    }
+
+    return selected;
+  }
+
+  /**
+   * Évalue si un canal peut être splitté entre plusieurs instruments du même type.
+   * Délègue à evaluateAllSplits et retourne uniquement le meilleur résultat.
    * @param {Object} channelAnalysis - Analyse du canal (noteRange, polyphony, etc.)
    * @param {Array<Object>} sameTypeInstruments - Instruments du même type avec capabilities
    * @returns {SplitProposal|null} - Proposition de split ou null si non applicable
    */
   evaluateSplit(channelAnalysis, sameTypeInstruments) {
-    const minInstruments = this.config.minInstruments || 2;
-    const maxInstruments = this.config.maxInstruments || 4;
-
-    if (!sameTypeInstruments || sameTypeInstruments.length < minInstruments) {
-      return null;
-    }
-
-    // Limiter au max d'instruments
-    const instruments = sameTypeInstruments.slice(0, maxInstruments);
-
-    // Pas de split si le canal n'a pas de notes
-    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) {
-      return null;
-    }
-
-    // Évaluer les différents modes de split
-    const rangeSplit = this.calculateRangeSplit(channelAnalysis, instruments);
-    const polyphonySplit = this.calculatePolyphonySplit(channelAnalysis, instruments);
-
-    // Choisir le meilleur split
-    const candidates = [rangeSplit, polyphonySplit].filter(s => s !== null);
-
-    if (candidates.length === 0) {
-      // Tenter un split mixte si ni range ni polyphonie seuls ne marchent
-      const mixedSplit = this.calculateMixedSplit(channelAnalysis, instruments);
-      if (mixedSplit) candidates.push(mixedSplit);
-    }
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    // Prendre le split de meilleure qualité
-    candidates.sort((a, b) => b.quality - a.quality);
-    const best = candidates[0];
-
-    const minQuality = this.config.minQuality || 50;
-    if (best.quality < minQuality) {
-      this.logger.debug(`Channel ${channelAnalysis.channel}: split quality ${best.quality} below threshold ${minQuality}`);
-      return null;
-    }
-
+    const result = this.evaluateAllSplits(channelAnalysis, sameTypeInstruments);
+    if (!result) return null;
+    // Retourner le meilleur sans les alternatives
+    const { alternatives, ...best } = result;
     return best;
   }
 
   /**
-   * Évalue TOUS les types de split possibles et retourne le meilleur + les alternatives
+   * Évalue TOUS les types de split possibles et retourne le meilleur + les alternatives.
+   * Utilise une sélection d'instruments par couverture optimale au lieu de .slice(0, max).
    * @param {Object} channelAnalysis
    * @param {Array<Object>} sameTypeInstruments
    * @returns {Object|null} - { ...bestProposal, alternatives: [SplitProposal...] } ou null
@@ -86,9 +115,16 @@ class ChannelSplitter {
       return null;
     }
 
-    const instruments = sameTypeInstruments.slice(0, maxInstruments);
-
     if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) {
+      return null;
+    }
+
+    // Sélection intelligente : choisir les instruments par couverture optimale
+    const instruments = this.selectBestInstrumentsForCoverage(
+      sameTypeInstruments, channelAnalysis, maxInstruments
+    );
+
+    if (instruments.length < minInstruments) {
       return null;
     }
 
