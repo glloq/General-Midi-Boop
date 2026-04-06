@@ -65,14 +65,29 @@ class MidiEditorPlayback {
         const m = this.modal;
         if (!m.synthesizer) return;
 
-        const sequence = m.fullSequence.length > 0 ? m.fullSequence : m.sequence;
+        let sequence = m.fullSequence.length > 0 ? m.fullSequence : m.sequence;
         const tempo = m.tempo || 120;
         const ticksPerBeat = m.ticksPerBeat || 480;
+
+        // Filter out non-playable notes when using routed instruments
+        if (m.previewSource === 'routed' && m.channelPlayableHighlights.size > 0) {
+            sequence = sequence.filter(note => {
+                const playable = m.channelPlayableHighlights.get(note.c);
+                if (playable === undefined) return true;
+                if (playable === null) return true;
+                return playable.has(note.n);
+            });
+        }
 
         m.synthesizer.loadSequence(sequence, tempo, ticksPerBeat);
 
         m.channels.forEach(ch => {
-            m.synthesizer.setChannelInstrument(ch.channel, ch.program || 0);
+            let program = ch.program || 0;
+            if (m.previewSource === 'routed') {
+                const routedGm = m._routedGmPrograms.get(ch.channel);
+                if (routedGm != null) program = routedGm;
+            }
+            m.synthesizer.setChannelInstrument(ch.channel, program);
         });
 
         this.syncMutedChannels();
@@ -481,6 +496,14 @@ class MidiEditorPlayback {
 
         if (!m.synthesizer || !m.synthesizer.isInitialized) {
             return;
+        }
+
+        // Skip notes outside the routed instrument's playable range
+        if (m.previewSource === 'routed' && m.channelPlayableHighlights.has(channel)) {
+            const playable = m.channelPlayableHighlights.get(channel);
+            if (playable !== null && !playable.has(noteNumber)) {
+                return;
+            }
         }
 
         const duration = 0.1;
