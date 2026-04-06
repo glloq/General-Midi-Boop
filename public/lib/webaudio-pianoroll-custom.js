@@ -645,6 +645,32 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             }
             this._notesDirty = true;
         };
+        this.selNotesByPitch=function(noteNum, mode){
+            const l=this.sequence.length;
+            if(mode==="replace")
+                this.clearSel();
+            for(let i=0;i<l;++i){
+                const ev=this.sequence[i];
+                if(ev.n===noteNum){
+                    if(mode==="toggle")
+                        ev.f=ev.f?0:1;
+                    else
+                        ev.f=1;
+                }
+            }
+            this._notesDirty=true;
+        };
+        this.selNotesByPitchRange=function(n1, n2){
+            const lo=Math.min(n1,n2);
+            const hi=Math.max(n1,n2);
+            const l=this.sequence.length;
+            for(let i=0;i<l;++i){
+                const ev=this.sequence[i];
+                if(ev.n>=lo && ev.n<=hi)
+                    ev.f=1;
+            }
+            this._notesDirty=true;
+        };
         this.delNote=function(idx){
             this.sequence.splice(idx,1);
             this._notesDirty = true;
@@ -929,6 +955,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             this.rcMenu={x:0, y:0, width:0, height:0};
             this.lastx=0;
             this.lasty=0;
+            this._lastClickedKey=null;
             this.canvas.addEventListener('mousemove',this.mousemove.bind(this),false);
             this.canvas.addEventListener('keydown',this.keydown.bind(this),false);
             this.canvas.addEventListener('DOMMouseScroll',this.wheel.bind(this),false);
@@ -1018,6 +1045,30 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             window.addEventListener("touchend",this.bindcancel);
             window.addEventListener("mouseup",this.bindcancel);
             window.addEventListener("contextmenu",this.bindcontextmenu);
+
+            // Sélection de ligne par clic sur les touches de piano
+            if(this.downht.m==="y"){
+                const clickedNote=this.downht.n|0;
+                if(e.shiftKey && this._lastClickedKey!==null){
+                    this.clearSel();
+                    this.selNotesByPitchRange(this._lastClickedKey, clickedNote);
+                }
+                else if(e.ctrlKey||e.metaKey){
+                    this.selNotesByPitch(clickedNote, "toggle");
+                    this._lastClickedKey=clickedNote;
+                }
+                else{
+                    this.selNotesByPitch(clickedNote, "replace");
+                    this._lastClickedKey=clickedNote;
+                }
+                this.redrawThrottled();
+                this.sendEvent('change');
+                this.dragging={o:null};
+                ev.preventDefault();
+                ev.stopPropagation();
+                this.canvas.focus();
+                return false;
+            }
 
             if(e.button==2||e.ctrlKey){
                 switch(this.downht.m){
@@ -1237,6 +1288,9 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                         }
                         break;
                     case "n":
+                        this.canvas.style.cursor="pointer";
+                        break;
+                    case "y":
                         this.canvas.style.cursor="pointer";
                         break;
                     case "s":
