@@ -133,6 +133,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
     background: repeat-y;
     background-size:100% calc(100%*12/16);
     background-position:left bottom;
+    pointer-events:none;
 }
 </style>
 <div class="wac-body" id="wac-body" touch-action="none">
@@ -1069,6 +1070,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 window.removeEventListener("mousemove",this.bindpointermove,false);
                 window.removeEventListener("touchend",this.bindcancel);
                 window.removeEventListener("mouseup",this.bindcancel);
+                window.removeEventListener("contextmenu",this.bindcontextmenu);
                 this.dragging={o:null};
                 ev.preventDefault();
                 ev.stopPropagation();
