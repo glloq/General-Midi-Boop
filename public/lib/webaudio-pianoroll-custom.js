@@ -591,8 +591,12 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 ht.m="x";
                 return ht;
             }
-            if(pos.x<this.yruler+this.kbwidth){
+            if(pos.x<this.yruler){
                 ht.m="y";
+                return ht;
+            }
+            if(pos.x<this.yruler+this.kbwidth){
+                ht.m="k";
                 return ht;
             }
             for(let i=0;i<l;++i){
@@ -1048,7 +1052,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
             window.addEventListener("contextmenu",this.bindcontextmenu);
 
             // Sélection de ligne par clic sur les touches de piano
-            if(this.downht.m==="y"){
+            if(this.downht.m==="k"){
                 const clickedNote=Math.max(0,Math.min(127,this.downht.n|0));
                 if(e.shiftKey && this._lastClickedKey!==null){
                     this.clearSel();
@@ -1298,7 +1302,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     case "n":
                         this.canvas.style.cursor="pointer";
                         break;
-                    case "y":
+                    case "k":
                         this.canvas.style.cursor="pointer";
                         break;
                     case "s":
@@ -1479,7 +1483,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     this.xrange*=1.2;
                 }
             }
-            if((this.wheelzoomy||this.wheelzoom) && ht.m=="y"){
+            if((this.wheelzoomy||this.wheelzoom) && (ht.m=="y"||ht.m=="k")){
                 if(delta>0){
                     this.yoffset=ht.n-(ht.n-this.yoffset)/1.2
                     this.yrange/=1.2;
