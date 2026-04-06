@@ -12490,6 +12490,8 @@
                     // No more filters — reload the normal folder view
                     filterRefreshInProgress = false; // release any stale lock
                     await loadFiles();
+                    // Clear the filter stats display since we're back to normal view
+                    updateSearchStats(0, false);
                     console.log('[removeFilter] loadFiles completed');
                 } else {
                     // Other filters still active — re-query the server
@@ -12497,6 +12499,7 @@
                     await displayFilteredFiles(filteredFiles);
                     log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
                     updateFileCountBadge(filteredFiles);
+                    updateSearchStats(filteredFiles.length, false);
                     console.log('[removeFilter] filtered refresh completed, files:', filteredFiles.length);
                 }
             } catch (error) {
