@@ -606,6 +606,9 @@
 
     // Écouter les changements avec debounce
         this.pianoRoll.addEventListener('change', handleChange);
+        this.pianoRoll.addEventListener('selectionchange', () => {
+            this.updateEditButtons();
+        });
 
         this.updateStats();
         this.updateEditButtons(); // État initial

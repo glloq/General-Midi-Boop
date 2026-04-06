@@ -1067,6 +1067,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     this._lastClickedKey=clickedNote;
                 }
                 this.redrawThrottled();
+                this.sendEvent('selectionchange');
                 // Retirer les listeners ajoutés plus haut, pas de drag en cours
                 if(this.longtaptimer)
                     clearInterval(this.longtaptimer);
@@ -1422,6 +1423,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 this.selAreaNote(this.dragging.t1,this.dragging.t2,this.dragging.n1,this.dragging.n2);
                 this.dragging={o:null};
                 this.redrawThrottled();
+                this.sendEvent('selectionchange');
             }
 //            if(this.dragging.o=="D"){
                 if(this.editmode=="dragmono"){
