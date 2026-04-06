@@ -2,6 +2,7 @@
 import MidiTransposer from '../../midi/MidiTransposer.js';
 import JsonMidiConverter from '../../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../../midi/InstrumentCapabilitiesValidator.js';
+import ScoringConfig from '../../midi/ScoringConfig.js';
 import { ValidationError, NotFoundError, ConfigurationError, MidiError } from '../../core/errors/index.js';
 
 // Lazily-created converter instance per app (keyed by app reference)
@@ -219,8 +220,90 @@ async function analyzeChannel(app, data) {
 }
 
 /**
+ * Apply scoring overrides temporarily to ScoringConfig.
+ * Validates and deep-merges user-provided overrides.
+ * @param {Object} overrides - Partial scoring config
+ * @returns {Object} - Snapshot of original config for restoration
+ */
+function applyScoringOverrides(overrides) {
+  const original = JSON.parse(JSON.stringify({
+    weights: ScoringConfig.weights,
+    scoreThresholds: ScoringConfig.scoreThresholds,
+    penalties: ScoringConfig.penalties,
+    bonuses: ScoringConfig.bonuses,
+    percussion: ScoringConfig.percussion,
+    splitting: ScoringConfig.splitting
+  }));
+
+  // Weights (must sum to 100)
+  if (overrides.weights) {
+    const w = overrides.weights;
+    const keys = ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport'];
+    for (const k of keys) {
+      if (w[k] !== undefined) {
+        ScoringConfig.weights[k] = Math.max(0, Math.min(100, Math.round(Number(w[k]))));
+      }
+    }
+    // Sync bonuses with weights
+    ScoringConfig.bonuses.perfectNoteRange = ScoringConfig.weights.noteRange;
+    ScoringConfig.bonuses.perfectProgramMatch = ScoringConfig.weights.programMatch;
+  }
+
+  // Score thresholds
+  if (overrides.scoreThresholds) {
+    const t = overrides.scoreThresholds;
+    if (t.acceptable !== undefined) ScoringConfig.scoreThresholds.acceptable = Math.max(0, Math.min(100, Number(t.acceptable)));
+    if (t.minimum !== undefined) ScoringConfig.scoreThresholds.minimum = Math.max(0, Math.min(100, Number(t.minimum)));
+  }
+
+  // Penalties
+  if (overrides.penalties) {
+    const p = overrides.penalties;
+    if (p.transpositionPerOctave !== undefined) ScoringConfig.penalties.transpositionPerOctave = Math.max(0, Math.min(20, Number(p.transpositionPerOctave)));
+    if (p.maxTranspositionOctaves !== undefined) ScoringConfig.penalties.maxTranspositionOctaves = Math.max(1, Math.min(6, Number(p.maxTranspositionOctaves)));
+  }
+
+  // Percussion
+  if (overrides.percussion) {
+    const perc = overrides.percussion;
+    if (perc.drumChannelDrumBonus !== undefined) ScoringConfig.percussion.drumChannelDrumBonus = Math.max(0, Math.min(30, Number(perc.drumChannelDrumBonus)));
+    if (perc.drumChannelWeights) {
+      const dw = perc.drumChannelWeights;
+      for (const k of ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport']) {
+        if (dw[k] !== undefined) ScoringConfig.percussion.drumChannelWeights[k] = Math.max(0, Math.min(100, Math.round(Number(dw[k]))));
+      }
+    }
+  }
+
+  // Splitting
+  if (overrides.splitting) {
+    const s = overrides.splitting;
+    if (s.minQuality !== undefined) ScoringConfig.splitting.minQuality = Math.max(0, Math.min(100, Number(s.minQuality)));
+    if (s.maxInstruments !== undefined) ScoringConfig.splitting.maxInstruments = Math.max(2, Math.min(8, Number(s.maxInstruments)));
+    if (s.triggerBelowScore !== undefined) ScoringConfig.splitting.triggerBelowScore = Math.max(0, Math.min(100, Number(s.triggerBelowScore)));
+  }
+
+  return original;
+}
+
+/**
+ * Restore ScoringConfig from a saved snapshot.
+ */
+function restoreScoringConfig(original) {
+  Object.assign(ScoringConfig.weights, original.weights);
+  Object.assign(ScoringConfig.scoreThresholds, original.scoreThresholds);
+  Object.assign(ScoringConfig.penalties, original.penalties);
+  Object.assign(ScoringConfig.bonuses, original.bonuses);
+  Object.assign(ScoringConfig.percussion, original.percussion);
+  if (ScoringConfig.percussion.drumChannelWeights && original.percussion.drumChannelWeights) {
+    Object.assign(ScoringConfig.percussion.drumChannelWeights, original.percussion.drumChannelWeights);
+  }
+  Object.assign(ScoringConfig.splitting, original.splitting);
+}
+
+/**
  * Generate auto-assignment suggestions for all channels
- * @param {Object} data - { fileId, topN, minScore }
+ * @param {Object} data - { fileId, topN, minScore, scoringOverrides }
  * @returns {Object} - Suggestions for all channels
  */
 async function generateAssignmentSuggestions(app, data) {
@@ -251,8 +334,23 @@ async function generateAssignmentSuggestions(app, data) {
     throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
   }
 
-  // Generate suggestions using singleton auto-assigner
-  const result = await app.autoAssigner.generateSuggestions(midiData, options);
+  // Apply temporary scoring overrides if provided
+  let originalConfig = null;
+  if (data.scoringOverrides) {
+    originalConfig = applyScoringOverrides(data.scoringOverrides);
+    app.logger.info('Scoring overrides applied for this request');
+  }
+
+  let result;
+  try {
+    // Generate suggestions using singleton auto-assigner
+    result = await app.autoAssigner.generateSuggestions(midiData, options);
+  } finally {
+    // Always restore original config
+    if (originalConfig) {
+      restoreScoringConfig(originalConfig);
+    }
+  }
 
   if (!result.success) {
     return {
