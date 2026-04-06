@@ -642,6 +642,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            flex-shrink: 0;
         }
 
         .midi-files-header {
@@ -1023,8 +1024,7 @@
             display: flex;
             flex-direction: column;
             height: 100%;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
             scrollbar-gutter: stable;
         }
 
@@ -1256,13 +1256,20 @@
         .main-grid {
             flex: 1;
             min-height: 0;
-            overflow-y: visible;
+            overflow: hidden;
             margin-bottom: 0;
             background: #f0f4f8;
+            display: flex;
+            flex-direction: column;
         }
 
         .main-grid > .card {
             border-radius: 0;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .card {
@@ -1349,6 +1356,9 @@
             list-style: none;
             margin-top: 8px;
             overflow-x: hidden;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
             width: 100%;
             box-sizing: border-box;
             padding: 0;
