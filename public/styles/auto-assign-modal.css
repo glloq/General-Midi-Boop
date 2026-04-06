@@ -3626,6 +3626,27 @@ body.dark-mode .aa-channel-card.skipped {
   color: var(--text-secondary, #666);
 }
 
+/* Close button */
+.rs-modal .modal-close {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--text-primary, #333);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 32px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.rs-modal .modal-close:hover {
+  background: rgba(0, 0, 0, 0.12);
+  transform: rotate(90deg);
+}
+
 /* Two-panel layout */
 .rs-layout {
   display: flex;
@@ -3890,17 +3911,7 @@ body.dark-mode .aa-channel-card.skipped {
   gap: 16px;
 }
 
-.rs-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.rs-detail-header h3 {
-  margin: 0;
-  font-size: 16px;
-  flex: 1;
-}
+/* .rs-detail-header moved to navigation section below */
 
 .rs-detail-gm {
   font-size: 13px;
@@ -4410,9 +4421,9 @@ body.dark-mode .aa-channel-card.skipped {
 
 /* Settings button */
 .rs-settings-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  color: white;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: var(--text-primary, #333);
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -4421,12 +4432,12 @@ body.dark-mode .aa-channel-card.skipped {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s, transform 0.15s;
+  transition: background 0.15s, transform 0.15s;
   padding: 0;
 }
 
 .rs-settings-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.12);
   transform: rotate(20deg);
 }
 
