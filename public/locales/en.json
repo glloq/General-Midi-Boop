@@ -1748,6 +1748,11 @@
         "skip": "Skip",
         "unskip": "Re-enable",
         "openAdvanced": "Advanced editing",
-        "applyAll": "Apply routing"
+        "applyAll": "Apply routing",
+        "prevChannel": "Previous channel",
+        "nextChannel": "Next channel",
+        "density": "Density",
+        "totalNotes": "Notes",
+        "tracks": "Tracks"
     }
 }

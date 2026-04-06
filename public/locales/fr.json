@@ -1748,6 +1748,11 @@
         "skip": "Ignorer",
         "unskip": "Reactiver",
         "openAdvanced": "Edition avancee",
-        "applyAll": "Appliquer le routage"
+        "applyAll": "Appliquer le routage",
+        "prevChannel": "Canal precedent",
+        "nextChannel": "Canal suivant",
+        "density": "Densite",
+        "totalNotes": "Notes",
+        "tracks": "Pistes"
     }
 }

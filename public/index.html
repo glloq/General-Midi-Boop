@@ -9171,77 +9171,7 @@
             });
         }
 
-        // 🆕 Sauvegarder la configuration de routage
-        async function saveRouting(fileId) {
-            const modal = document.querySelector('.modal-overlay');
-            const channels = JSON.parse(modal.dataset.channels);
-
-            const routing = {};
-            let hasRouting = false;
-
-            for (const ch of channels) {
-                const select = document.getElementById(`channel_${ch.channel}`);
-                if (select && select.value) {
-                    routing[ch.channel] = select.value;
-                    hasRouting = true;
-
-                    // Parse deviceId::targetChannel format for multi-instrument devices
-                    const parts = select.value.split('::');
-                    const deviceId = parts[0];
-                    const targetChannel = parts.length > 1 ? parseInt(parts[1]) : undefined;
-
-                    // Appliquer le routage au lecteur
-                    // Ne pas envoyer au backend si c'est le périphérique virtuel
-                    if (deviceId !== 'virtual-instrument') {
-                        try {
-                            const routingCmd = { channel: ch.channel, deviceId };
-                            if (targetChannel !== undefined) routingCmd.targetChannel = targetChannel;
-                            await api.sendCommand('playback_set_channel_routing', routingCmd);
-                        } catch (error) {
-                            log(`Erreur routage canal ${ch.channel}: ${error.message}`, 'error');
-                        }
-                    } else {
-                        // Périphérique virtuel : juste logger
-                        log(i18n.t('ui.channelToVirtual', { channel: ch.channel }), 'info');
-                    }
-                }
-            }
-
-            // Sauvegarder la config
-            if (hasRouting) {
-                fileRoutingConfig[fileId] = {
-                    channels: routing,
-                    configured: true,
-                    lastModified: Date.now()
-                };
-            } else {
-                delete fileRoutingConfig[fileId];
-            }
-
-            saveRoutingConfig();
-
-            // Sync routing to database (for server-side filters)
-            try {
-                await api.sendCommand('file_routing_sync', {
-                    fileId: fileId,
-                    channels: hasRouting ? routing : {}
-                });
-            } catch (syncError) {
-                console.warn('[Routing] DB sync failed:', syncError.message);
-            }
-
-            log(`✓ Routage configuré pour ${Object.keys(routing).length} canaux`, 'info');
-
-            // Notify MIDI editor (if open) that routing changed
-            if (window.eventBus) {
-                window.eventBus.emit('routing:changed', { fileId, channels: hasRouting ? routing : {} });
-            }
-
-            // Fermer la modale et rafraîchir l'état couleur du fichier
-            modal.remove();
-            metadataCache.delete(fileId);
-            loadFileMetadata(fileId);
-        }
+        // Note: saveRouting supprimé — le routage est maintenant géré par RoutingSummaryPage._applyRouting()
 
         // 🆕 Lire un fichier avec vérification du routage
         async function playFile(fileId, filename) {

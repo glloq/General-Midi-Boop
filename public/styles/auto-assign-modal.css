@@ -4071,4 +4071,341 @@ body.dark-mode .aa-channel-card.skipped {
   margin-bottom: 16px;
 }
 
+/* Detail header with navigation */
+.rs-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rs-detail-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rs-detail-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rs-nav-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 28px;
+  text-align: center;
+}
+
+.rs-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Stars */
+.rs-stars {
+  color: #f0ad4e;
+  font-size: 13px;
+  letter-spacing: -1px;
+}
+
+/* Score breakdown */
+.rs-score-breakdown {
+  background: var(--bg-tertiary, #f5f5f5);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rs-breakdown-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color-light, #eee);
+}
+
+.rs-score-main {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.rs-score-label {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.rs-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.rs-breakdown-label {
+  flex: 0 0 80px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-align: right;
+}
+
+.rs-breakdown-bar {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-quaternary, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rs-breakdown-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.rs-breakdown-value {
+  flex: 0 0 40px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-align: right;
+}
+
+/* Compatibility info/issues */
+.rs-compat-info {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-tertiary, #f8f8f8);
+  font-size: 12px;
+}
+
+.rs-compat-info-text {
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.rs-compat-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rs-issue-warning {
+  color: #f39c12;
+  font-weight: 500;
+}
+
+.rs-issue-error {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.rs-issue-info {
+  color: var(--text-secondary, #888);
+}
+
+/* Piano roll */
+.rs-piano-section {
+  border: 1px solid var(--border-color-light, #eee);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--bg-primary, #fff);
+}
+
+.rs-piano-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  margin-bottom: 6px;
+}
+
+.rs-piano-roll {
+  display: flex;
+  height: 28px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.rs-piano-key {
+  flex: 1;
+  min-width: 3px;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  transition: opacity 0.15s;
+}
+
+.rs-piano-key.white { background: #fff; }
+.rs-piano-key.black { background: #ddd; }
+.rs-piano-key.used-ok { background: #27ae60 !important; }
+.rs-piano-key.used-out { background: #e74c3c !important; }
+.rs-piano-key.in-range { background: #e8f5e9; }
+.rs-piano-key.black.in-range { background: #c8e6c9; }
+
+.rs-piano-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+}
+
+.rs-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rs-legend-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.rs-legend-key.used-ok { background: #27ae60; }
+.rs-legend-key.used-out { background: #e74c3c; }
+.rs-legend-key.in-range { background: #e8f5e9; border: 1px solid #c8e6c9; }
+
+.rs-piano-summary {
+  font-size: 11px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.rs-summary-ok { color: #27ae60; }
+.rs-summary-warning { color: #e74c3c; }
+
+/* Adaptation controls */
+.rs-adaptation {
+  border: 1px solid var(--border-color-light, #eee);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rs-adaptation h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+
+.rs-adapt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.rs-adapt-label {
+  flex: 0 0 100px;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+  text-align: right;
+}
+
+.rs-adapt-options {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rs-adapt-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border-color-light, #ddd);
+  transition: all 0.15s;
+}
+
+.rs-adapt-radio:hover {
+  background: var(--bg-hover, rgba(0,0,0,0.03));
+}
+
+.rs-adapt-radio.selected {
+  background: var(--bg-selected, rgba(66, 133, 244, 0.1));
+  border-color: var(--accent-color, #4285f4);
+  color: var(--accent-color, #4285f4);
+  font-weight: 500;
+}
+
+.rs-adapt-radio input[type="radio"] {
+  display: none;
+}
+
+/* Transposition controls */
+.rs-transpose-row {
+  margin-top: 4px;
+}
+
+.rs-transpose-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rs-transpose-btn {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.rs-transpose-value {
+  display: inline-block;
+  width: 50px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* Low score toggle */
+.rs-btn-low-toggle {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+/* Split visualization bar */
+.rs-split-viz {
+  position: relative;
+  height: 10px;
+  background: var(--bg-tertiary, #e8e8e8);
+  border-radius: 3px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+.rs-split-seg-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+/* Extended stats */
+.rs-detail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary, #f5f5f5);
+  border-radius: 8px;
+}
+
+.rs-stat-wide {
+  flex-basis: 100%;
+}
+
 /* END OF FILE */
