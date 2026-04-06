@@ -90,6 +90,11 @@
             "buttons": "Interface Buttons",
             "system": "Hardware & System"
         },
+        "midiClock": {
+            "title": "MIDI Clock",
+            "enable": "Enable MIDI Clock",
+            "description": "Send MIDI clock signal (24 PPQ) to connected instruments to synchronize arpeggiators, LFOs and sequencers"
+        },
         "serialMidi": {
             "title": "Serial MIDI (GPIO)",
             "enable": "Enable serial MIDI ports",

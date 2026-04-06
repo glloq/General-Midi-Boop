@@ -361,6 +361,15 @@ class MidiUtils {
       }
       case 'sysex':
         return Array.isArray(data) ? data : (data.bytes || []);
+      // System Realtime messages (no data bytes)
+      case 'clock':
+        return [0xF8];
+      case 'start':
+        return [0xFA];
+      case 'continue':
+        return [0xFB];
+      case 'stop':
+        return [0xFC];
       default:
         return null;
     }

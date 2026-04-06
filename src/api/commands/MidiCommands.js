@@ -104,6 +104,19 @@ async function midiReset(_app, _data) {
   return { success: true };
 }
 
+function midiClockToggle(app, data) {
+  if (data.enabled === undefined) {
+    throw new ValidationError('enabled is required', 'enabled');
+  }
+
+  if (!app.midiClockGenerator) {
+    return { success: false, message: 'MIDI Clock generator not available' };
+  }
+
+  app.midiClockGenerator.setEnabled(data.enabled);
+  return { success: true, enabled: data.enabled };
+}
+
 export function register(registry, app) {
   registry.register('midi_send', (data) => midiSend(app, data));
   registry.register('midi_send_note', (data) => midiSendNote(app, data));
@@ -112,4 +125,5 @@ export function register(registry, app) {
   registry.register('midi_panic', (data) => midiPanic(app, data));
   registry.register('midi_all_notes_off', (data) => midiAllNotesOff(app, data));
   registry.register('midi_reset', (data) => midiReset(app, data));
+  registry.register('midi_clock_toggle', (data) => midiClockToggle(app, data));
 }

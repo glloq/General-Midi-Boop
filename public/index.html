@@ -11803,6 +11803,15 @@
         }
 
         // ==================== Serial MIDI event bridge ====================
+        window.eventBus.on('settings:midi_clock_changed', async (data) => {
+            log(`MIDI Clock ${data.enabled ? 'enabled' : 'disabled'}`, 'info');
+            try {
+                await api.sendCommand('midi_clock_toggle', { enabled: data.enabled });
+            } catch (error) {
+                log(`MIDI Clock toggle error: ${error.message}`, 'error');
+            }
+        });
+
         window.eventBus.on('settings:serial_midi_changed', async (data) => {
             log(`Serial MIDI ${data.enabled ? 'enabled' : 'disabled'}`, 'info');
             try {

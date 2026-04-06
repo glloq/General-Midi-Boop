@@ -161,6 +161,19 @@ class PlaybackScheduler {
    * @param {Object} state - Player state (for playing check in sendEvent)
    */
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
+    // Handle tempo change events (for MIDI clock synchronization)
+    if (event.type === 'setTempo') {
+      const delay = Math.max(0, event.time - currentPosition);
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts.delete(timeoutId);
+        if (this.app.midiClockGenerator) {
+          this.app.midiClockGenerator.setTempo(event.tempo);
+        }
+      }, delay * 1000);
+      this.pendingTimeouts.add(timeoutId);
+      return;
+    }
+
     const eventTime = event.time;
     const delay = Math.max(0, eventTime - currentPosition);
 

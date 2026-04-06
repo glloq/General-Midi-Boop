@@ -90,6 +90,11 @@
             "buttons": "Boutons d'interface",
             "system": "Matériel & Système"
         },
+        "midiClock": {
+            "title": "Horloge MIDI",
+            "enable": "Activer l'horloge MIDI",
+            "description": "Envoyer le signal d'horloge MIDI (24 PPQ) aux instruments connectés pour synchroniser arpégiateurs, LFOs et séquenceurs"
+        },
         "serialMidi": {
             "title": "MIDI Série (GPIO)",
             "enable": "Activer les ports MIDI série",

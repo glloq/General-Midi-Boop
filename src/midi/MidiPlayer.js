@@ -52,6 +52,9 @@ class MidiPlayer {
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(deps);
 
+    // MIDI Clock generator (injected via deps or set later)
+    this.midiClockGenerator = deps.midiClockGenerator || null;
+
     this.logger.info('MidiPlayer initialized');
   }
 
@@ -213,6 +216,14 @@ class MidiPlayer {
             channel: event.channel !== undefined ? event.channel : 0,
             note: event.noteNumber,
             value: event.value
+          });
+        } else if (event.type === 'setTempo') {
+          // Inject tempo change events so the scheduler can update MIDI clock
+          const bpm = MICROSECONDS_PER_MINUTE / event.microsecondsPerBeat;
+          this.events.push({
+            time: timeInSeconds,
+            type: 'setTempo',
+            tempo: bpm
           });
         }
       });
@@ -443,6 +454,12 @@ class MidiPlayer {
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });
+
+    // Start MIDI clock if enabled
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.startPlayback(this.tempo);
+    }
+
     this.broadcastStatus();
 
     this.logger.info(`Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`);
@@ -494,6 +511,12 @@ class MidiPlayer {
     this.pauseTime = performance.now();
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
+
+    // Pause MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.pausePlayback();
+    }
+
     this.broadcastStatus();
 
     this.logger.info('Playback paused');
@@ -510,6 +533,12 @@ class MidiPlayer {
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });
+
+    // Resume MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.resumePlayback();
+    }
+
     this.broadcastStatus();
 
     this.logger.info('Playback resumed');
@@ -529,6 +558,12 @@ class MidiPlayer {
     this._lastBroadcastPosition = undefined;
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
+
+    // Stop MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.stopPlayback();
+    }
+
     this.broadcastStatus();
     this.logger.info('Playback stopped');
   }
@@ -536,6 +571,9 @@ class MidiPlayer {
   destroy() {
     this.stop();
     this.scheduler.destroy();
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.destroy();
+    }
     this.events = [];
     this.tracks = [];
     this.channelRouting.clear();
