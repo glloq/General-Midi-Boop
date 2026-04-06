@@ -156,6 +156,10 @@ async function fileFilter(app, data) {
 
   const rawFiles = app.database.filterFiles(filters);
 
+  // Batch-fetch routing status for all filtered files (same as FileManager.listFiles)
+  const fileIds = rawFiles.map(f => f.id);
+  const routingMap = app.fileManager._batchGetRoutingStatus(fileIds, rawFiles);
+
   // Normalize field names to match FileManager.listFiles() format (camelCase + formatted fields)
   const files = rawFiles.map(file => ({
     id: file.id,
@@ -170,6 +174,7 @@ async function fileFilter(app, data) {
     uploadedAt: file.uploaded_at,
     folder: file.folder,
     is_original: file.is_original,
+    routingStatus: routingMap.get(file.id) || 'unrouted',
     // Keep snake_case aliases for backward compatibility
     channel_count: file.channel_count || 0,
     uploaded_at: file.uploaded_at,

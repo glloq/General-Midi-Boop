@@ -155,7 +155,8 @@ class FilterManager {
   hasActiveFilters() {
     const defaults = this.getDefaultFilters();
     // These meta-fields control display, not filtering
-    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset']);
+    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset',
+      'instrumentMode', 'gmMode', 'playableMode']);
 
     for (const key in this.filters) {
       if (excludeKeys.has(key)) continue;

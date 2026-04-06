@@ -7498,23 +7498,24 @@
                 const fileItem = document.querySelector(`.file-item[data-file-id="${fileId}"]`);
                 if (fileItem) {
                     // Update left border class
+                    const statusCss = metadata.routingStatus.replace(/_/g, '-');
                     fileItem.classList.remove('routed', 'routing-partial', 'routing-routed-incomplete', 'routing-playable');
                     if (metadata.routingStatus !== 'unrouted') {
-                        fileItem.classList.add(`routing-${metadata.routingStatus}`);
+                        fileItem.classList.add(`routing-${statusCss}`);
                     }
 
                     // Update state dot
                     const stateDot = fileItem.querySelector('.file-state-dot');
                     if (stateDot && !stateDot.classList.contains('state-playing')) {
                         stateDot.classList.remove('state-routed', 'state-unrouted', 'state-partial', 'state-routed-incomplete', 'state-playable');
-                        stateDot.classList.add(`state-${metadata.routingStatus}`);
+                        stateDot.classList.add(`state-${statusCss}`);
                     }
 
                     // Update grid badge
                     const gridBadge = fileItem.querySelector('.file-grid-state');
                     if (gridBadge) {
                         gridBadge.classList.remove('state-routed', 'state-unrouted', 'state-partial', 'state-routed-incomplete', 'state-playable');
-                        gridBadge.classList.add(`state-${metadata.routingStatus}`);
+                        gridBadge.classList.add(`state-${statusCss}`);
                         const gridLabels = {
                             unrouted: '○ Non routé',
                             partial: '◐ Partiel',
@@ -7567,7 +7568,8 @@
             fileRoutingStatusCache.set(String(file.id), initialStatus);
 
             const li = document.createElement('li');
-            li.className = 'file-item' + (routed ? ` routing-${initialStatus} routed` : '');
+            const initialStatusCss = initialStatus.replace(/_/g, '-');
+            li.className = 'file-item' + (routed ? ` routing-${initialStatusCss} routed` : '');
             li.draggable = true;
             li.dataset.fileId = file.id;
             li.dataset.fileName = file.filename;
@@ -7630,7 +7632,7 @@
             });
 
             // State dot for compact/grid modes
-            const stateClass = initialStatus !== 'unrouted' ? `state-${initialStatus}` : 'state-unrouted';
+            const stateClass = initialStatus !== 'unrouted' ? `state-${initialStatusCss}` : 'state-unrouted';
             const stateDot = document.createElement('span');
             stateDot.className = `file-state-dot ${stateClass}`;
             stateDot.dataset.fileId = file.id;
@@ -12382,6 +12384,9 @@
             } else if (key === 'instrumentTypes') {
                 document.querySelectorAll('.filter-instrument').forEach(cb => cb.checked = false);
                 filterManager.setFilter('instrumentTypes', []);
+                filterManager.setFilter('instrumentMode', 'ANY');
+                const instrumentModeSelect = document.getElementById('filterInstrumentMode');
+                if (instrumentModeSelect) instrumentModeSelect.value = 'ANY';
                 // Also clear synced quick-filter keys
                 filterManager.setFilter('hasDrums', null);
                 filterManager.setFilter('hasMelody', null);
@@ -12404,6 +12409,7 @@
             } else if (key === 'playableOnInstruments') {
                 document.getElementById('filterPlayableInstruments').selectedIndex = -1;
                 filterManager.setFilter('playableOnInstruments', []);
+                filterManager.setFilter('playableMode', 'routed');
             } else if (key === 'uploadedAfter' || key === 'uploadedBefore') {
                 const afterInput = document.getElementById('filterUploadedAfter');
                 const beforeInput = document.getElementById('filterUploadedBefore');
@@ -12439,6 +12445,9 @@
                 filterManager.setFilter('hasBass', null);
                 const types3 = (filterManager.getFilter('instrumentTypes') || []).filter(t => t !== 'Bass');
                 filterManager.setFilter('instrumentTypes', types3);
+            } else if (key === 'folder') {
+                filterManager.resetFilter('folder');
+                filterManager.setFilter('includeSubfolders', false);
             } else {
                 filterManager.resetFilter(key);
             }
