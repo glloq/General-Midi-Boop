@@ -12362,6 +12362,15 @@
 
         // Remove a specific filter
         async function removeFilter(key) {
+            console.log('[removeFilter] called with key:', key);
+
+            // Suppress onFilterChange during bulk state updates to prevent
+            // repeated updateFilterBadges calls (which destroy/recreate badges
+            // while the click handler is still running).
+            const savedCallback = filterManager.onFilterChange;
+            filterManager.onFilterChange = null;
+
+            try {
             // Reset the corresponding input (use safe access — panel may not be open)
             if (key === 'durationMin' || key === 'durationMax') {
                 const durMinEl = document.getElementById('filterDurationMin');
@@ -12461,24 +12470,34 @@
                 filterManager.resetFilter(key);
             }
 
+            } finally {
+                // Restore callback
+                filterManager.onFilterChange = savedCallback;
+            }
+
+            // Single badge + section update after all state changes
             updateFilterBadges();
             updateSectionBadges();
 
             // Refresh the file list directly (bypasses filterRefreshInProgress
             // guard which could be held by a concurrent loadFiles/sort call).
+            console.log('[removeFilter] hasActiveFilters:', filterManager.hasActiveFilters());
             try {
                 if (!filterManager.hasActiveFilters()) {
                     // No more filters — reload the normal folder view
                     filterRefreshInProgress = false; // release any stale lock
                     await loadFiles();
+                    console.log('[removeFilter] loadFiles completed');
                 } else {
                     // Other filters still active — re-query the server
                     const filteredFiles = await filterManager.applyFilters(null);
                     await displayFilteredFiles(filteredFiles);
                     log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
                     updateFileCountBadge(filteredFiles);
+                    console.log('[removeFilter] filtered refresh completed, files:', filteredFiles.length);
                 }
             } catch (error) {
+                console.error('[removeFilter] refresh error:', error);
                 log(`❌ Erreur suppression filtre: ${error.message}`, 'error');
             }
         }
