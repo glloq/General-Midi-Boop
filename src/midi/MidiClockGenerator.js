@@ -23,8 +23,13 @@ class MidiClockGenerator {
     this._timer = null;
     this._expectedTime = 0;
 
-    // Devices that receive clock (deviceId -> true). If empty, all output devices receive clock.
+    // Devices that receive clock (deviceId -> true/false). Unset = default (true).
     this._deviceClockEnabled = new Map();
+
+    // Cached list of target devices (invalidated on device changes)
+    this._cachedTargetDevices = null;
+    this._cachedDeviceCompensations = null; // Map<deviceId, compensationMs>
+    this._maxCompensation = 0; // Max compensation across all clock targets
 
     // Pending compensation timeouts for cleanup
     this._pendingTimeouts = new Set();
@@ -34,8 +39,16 @@ class MidiClockGenerator {
 
     this._onSettingsChanged = () => {
       this._compensationCache.clear();
+      this._invalidateDeviceCache();
     };
     this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+
+    // Invalidate device cache when devices connect/disconnect
+    this._onDeviceChanged = () => {
+      this._invalidateDeviceCache();
+    };
+    this.app.eventBus?.on('device_connected', this._onDeviceChanged);
+    this.app.eventBus?.on('device_disconnected', this._onDeviceChanged);
   }
 
   // ─── Configuration ──────────────────────────────────────────
@@ -59,6 +72,7 @@ class MidiClockGenerator {
   /** Enable/disable clock for a specific device */
   setDeviceClockEnabled(deviceId, enabled) {
     this._deviceClockEnabled.set(deviceId, !!enabled);
+    this._invalidateDeviceCache();
   }
 
   isDeviceClockEnabled(deviceId) {
@@ -79,13 +93,22 @@ class MidiClockGenerator {
   startPlayback(tempo) {
     if (!this._enabled) return;
 
+    // Stop any existing clock to avoid timer leaks (e.g., during seek)
+    if (this._running) {
+      this._stopClockTimer();
+    }
+
     this._tempo = tempo;
     this._tickIntervalMs = this._calcTickInterval(tempo);
     this._paused = false;
+    this._running = true;
+
+    // Rebuild device/compensation caches
+    this._invalidateDeviceCache();
+    this._ensureDeviceCache();
 
     this._sendTransportToAll('start');
     this._startClockTimer();
-    this._running = true;
 
     this.app.logger.info(`MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
   }
@@ -207,37 +230,66 @@ class MidiClockGenerator {
     this._scheduleNextTick();
   }
 
-  // ─── Sending ────────────────────────────────────────────────
+  // ─── Sending with relative compensation ─────────────────────
 
   /**
-   * Send a clock tick (0xF8) to all enabled output devices with per-device compensation.
+   * Send a clock tick (0xF8) to all enabled output devices with per-device
+   * relative latency compensation.
+   *
+   * Strategy: The device with the HIGHEST latency receives the clock immediately.
+   * Devices with lower latency receive it LATER, so all instruments perceive
+   * the clock at the same musical time.
+   *
+   * relativeDelay(device) = maxCompensation - deviceCompensation
    */
   _sendClockToAll() {
-    const devices = this._getClockTargetDevices();
+    this._ensureDeviceCache();
+    const compensations = this._cachedDeviceCompensations;
+    if (!compensations || compensations.size === 0) return;
 
-    for (const deviceId of devices) {
-      const compensation = this._getDeviceCompensation(deviceId);
+    const maxComp = this._maxCompensation;
 
-      if (compensation <= 0) {
-        // No compensation or negative (shouldn't happen for clock) → send immediately
+    for (const [deviceId, compensation] of compensations) {
+      const relativeDelay = maxComp - compensation;
+
+      if (relativeDelay <= 1) {
+        // Send immediately (within 1ms tolerance)
         this._sendClockToDevice(deviceId);
       } else {
-        // Clock needs to arrive early → we're already late by compensation, send now
-        // (compensation is pre-applied by the scheduling lookahead in PlaybackScheduler)
-        this._sendClockToDevice(deviceId);
+        // Delay this device so it receives clock at the same musical time
+        const tid = setTimeout(() => {
+          this._pendingTimeouts.delete(tid);
+          this._sendClockToDevice(deviceId);
+        }, relativeDelay);
+        this._pendingTimeouts.add(tid);
       }
     }
   }
 
   /**
-   * Send a transport message (start/stop/continue) to all enabled devices.
+   * Send a transport message (start/stop/continue) to all enabled devices
+   * with per-device relative latency compensation.
    * @param {string} type - 'start', 'stop', or 'continue'
    */
   _sendTransportToAll(type) {
-    const devices = this._getClockTargetDevices();
+    this._ensureDeviceCache();
+    const compensations = this._cachedDeviceCompensations;
+    if (!compensations || compensations.size === 0) return;
 
-    for (const deviceId of devices) {
-      this._sendTransportToDevice(deviceId, type);
+    const maxComp = this._maxCompensation;
+
+    for (const [deviceId, compensation] of compensations) {
+      const relativeDelay = maxComp - compensation;
+
+      if (relativeDelay <= 1) {
+        this._sendTransportToDevice(deviceId, type);
+      } else {
+        const tid = setTimeout(() => {
+          this._pendingTimeouts.delete(tid);
+          this._sendTransportToDevice(deviceId, type);
+        }, relativeDelay);
+        this._pendingTimeouts.add(tid);
+      }
     }
   }
 
@@ -266,13 +318,45 @@ class MidiClockGenerator {
     }
   }
 
-  // ─── Device resolution ──────────────────────────────────────
+  // ─── Device resolution & caching ────────────────────────────
 
   /**
-   * Get the list of output device IDs that should receive clock.
+   * Invalidate cached device list and compensations.
+   * Called on device connect/disconnect or settings change.
+   */
+  _invalidateDeviceCache() {
+    this._cachedTargetDevices = null;
+    this._cachedDeviceCompensations = null;
+    this._maxCompensation = 0;
+    this._compensationCache.clear();
+  }
+
+  /**
+   * Build and cache the device list and compensation map if not already cached.
+   */
+  _ensureDeviceCache() {
+    if (this._cachedDeviceCompensations !== null) return;
+
+    const devices = this._resolveClockTargetDevices();
+    const compensations = new Map();
+    let maxComp = 0;
+
+    for (const deviceId of devices) {
+      const comp = this._getDeviceCompensation(deviceId);
+      compensations.set(deviceId, comp);
+      if (comp > maxComp) maxComp = comp;
+    }
+
+    this._cachedTargetDevices = devices;
+    this._cachedDeviceCompensations = compensations;
+    this._maxCompensation = maxComp;
+  }
+
+  /**
+   * Resolve the list of output device IDs that should receive clock.
    * @returns {string[]}
    */
-  _getClockTargetDevices() {
+  _resolveClockTargetDevices() {
     const deviceManager = this.app.deviceManager;
     if (!deviceManager) return [];
 
@@ -300,7 +384,8 @@ class MidiClockGenerator {
 
   /**
    * Get latency compensation for a device in milliseconds.
-   * Reuses the same sources as PlaybackScheduler._getSyncDelay().
+   * Uses the MAX sync_delay across all channels for the device,
+   * since clock is a device-level (channel-less) message.
    * @param {string} deviceId
    * @returns {number} compensation in ms
    */
@@ -311,14 +396,19 @@ class MidiClockGenerator {
 
     let compensation = 0;
 
-    // User-configured sync_delay (use channel 0 as reference for clock)
+    // Find the maximum sync_delay across all channels for this device
     if (this.app.database) {
       try {
-        const settings = this.app.database.getInstrumentSettings(deviceId, 0);
-        if (settings && settings.sync_delay != null) {
-          compensation = settings.sync_delay;
+        // Try channels 0-15 to find the max sync_delay configured for this device
+        for (let ch = 0; ch < 16; ch++) {
+          const settings = this.app.database.getInstrumentSettings(deviceId, ch);
+          if (settings && settings.sync_delay != null) {
+            if (settings.sync_delay > compensation) {
+              compensation = settings.sync_delay;
+            }
+          }
         }
-      } catch (_e) { /* ignore */ }
+      } catch (_e) { /* ignore - device may not have settings */ }
     }
 
     // Add measured hardware latency
@@ -329,7 +419,7 @@ class MidiClockGenerator {
       }
     }
 
-    // Clamp
+    // Clamp to valid range (clock compensation should always be >= 0)
     compensation = Math.min(Math.max(compensation, 0), TIMING.MAX_COMPENSATION_MS);
 
     this._compensationCache.set(deviceId, compensation);
@@ -342,8 +432,14 @@ class MidiClockGenerator {
     this.stopPlayback();
     this._compensationCache.clear();
     this._deviceClockEnabled.clear();
+    this._cachedTargetDevices = null;
+    this._cachedDeviceCompensations = null;
     if (this._onSettingsChanged) {
       this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+    }
+    if (this._onDeviceChanged) {
+      this.app.eventBus?.off('device_connected', this._onDeviceChanged);
+      this.app.eventBus?.off('device_disconnected', this._onDeviceChanged);
     }
   }
 }
