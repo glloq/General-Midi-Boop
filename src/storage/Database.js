@@ -8,6 +8,7 @@ import MidiDatabase from './MidiDatabase.js';
 import InstrumentDatabase from './InstrumentDatabase.js';
 import LightingDatabase from './LightingDatabase.js';
 import StringInstrumentDatabase from './StringInstrumentDatabase.js';
+import DeviceSettingsDB from './DeviceSettingsDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +24,7 @@ class DatabaseManager {
     this.instrumentDB = null;
     this.lightingDB = null;
     this.stringInstrumentDB = null;
+    this.deviceSettingsDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -36,6 +38,7 @@ class DatabaseManager {
     this.instrumentDB = new InstrumentDatabase(this.db, this.logger);
     this.lightingDB = new LightingDatabase(this.db, this.logger);
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.logger);
+    this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
 
     // Migrate base64 TEXT data to binary BLOB (one-time, after migration 031)
     this._migrateBase64ToBlob();
@@ -928,6 +931,17 @@ class DatabaseManager {
   }
   deleteTablaturesByFile(midiFileId) {
     return this.stringInstrumentDB.deleteTablaturesByFile(midiFileId);
+  }
+
+  // Device Settings
+  getDeviceSettings(deviceId) {
+    return this.deviceSettingsDB.getDeviceSettings(deviceId);
+  }
+  updateDeviceSettings(deviceId, settings) {
+    return this.deviceSettingsDB.updateDeviceSettings(deviceId, settings);
+  }
+  ensureDevice(deviceId, name, type) {
+    return this.deviceSettingsDB.ensureDevice(deviceId, name, type);
   }
 
   // ==================== UTILITIES ====================

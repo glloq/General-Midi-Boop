@@ -483,6 +483,7 @@ class InstrumentManagementPage {
   renderDeviceBlock(instruments) {
     const first = instruments[0];
     const esc = this._escapeHtml;
+    const escAttr = (s) => esc(s).replace(/'/g, '&#39;');
     const deviceId = first._deviceId || first.device_id || first.id;
     const rawDeviceName = first._deviceName || first.name || deviceId;
     const deviceName = first._deviceDisplayName || rawDeviceName;
@@ -513,7 +514,7 @@ class InstrumentManagementPage {
               </div>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${esc(deviceId)}', '${esc(rawDeviceName)}')"
+          <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${escAttr(deviceId)}', '${escAttr(rawDeviceName)}')"
             style="background:none; border:none; cursor:pointer; font-size:18px; padding:4px 8px; border-radius:6px; transition:background 0.2s; flex-shrink:0;"
             onmouseover="this.style.background='rgba(0,0,0,0.08)'" onmouseout="this.style.background='none'"
             title="${typeof i18n !== 'undefined' ? (i18n.t('instruments.deviceSettings') || 'Réglages du périphérique') : 'Réglages du périphérique'}">⚙️</button>
