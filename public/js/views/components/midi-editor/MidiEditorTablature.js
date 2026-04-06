@@ -573,7 +573,11 @@
         try {
     // Always sync with GM preset to ensure correct tuning/strings
             const channelInfo = this.channels.find(ch => ch.channel === activeChannel);
-            const gmMatch = channelInfo ? MidiEditorChannelPanel.getStringInstrumentCategory(channelInfo.program) : null;
+    // Use routed instrument's GM program when available (e.g. ukulele routed on a guitar channel)
+            const hasRouting = this.channelRouting.has(activeChannel);
+            const routedGm = this._routedGmPrograms.get(activeChannel);
+            const effectiveProgram = (hasRouting && routedGm != null) ? routedGm : (channelInfo?.program ?? null);
+            const gmMatch = effectiveProgram != null ? MidiEditorChannelPanel.getStringInstrumentCategory(effectiveProgram) : null;
 
             if (gmMatch) {
                 await this.api.sendCommand('string_instrument_create_from_preset', {
@@ -1164,6 +1168,25 @@
             });
             if (resp?.instrument) return resp.instrument;
         } catch { /* continue */ }
+
+    // 1b. If channel is routed, try the routed device's string instrument
+        if (this.channelRouting.has(channel)) {
+            const routedValue = this.channelRouting.get(channel);
+            let routedDeviceId = routedValue;
+            let routedChannel = channel;
+            if (routedValue.includes('::')) {
+                const parts = routedValue.split('::');
+                routedDeviceId = parts[0];
+                routedChannel = parseInt(parts[1]);
+            }
+            try {
+                const resp = await this.api.sendCommand('string_instrument_get', {
+                    device_id: routedDeviceId,
+                    channel: routedChannel
+                });
+                if (resp?.instrument) return resp.instrument;
+            } catch { /* continue */ }
+        }
 
     // 2. If effective was a real device, also try '_editor'
         if (primaryDeviceId !== '_editor') {
