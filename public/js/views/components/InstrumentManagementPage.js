@@ -236,6 +236,7 @@ class InstrumentManagementPage {
           device.status = 2;
           device._deviceId = device.id;
           device._deviceName = device.name;
+          device._deviceDisplayName = device.displayName || null;
           device._deviceType = device.type;
           device.channel = device.channel !== undefined ? device.channel : 0;
           this.instruments.push(device);
@@ -512,7 +513,7 @@ class InstrumentManagementPage {
               </div>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${esc(deviceId)}', '${esc(deviceName)}')"
+          <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${esc(deviceId)}', '${esc(rawDeviceName)}')"
             style="background:none; border:none; cursor:pointer; font-size:18px; padding:4px 8px; border-radius:6px; transition:background 0.2s; flex-shrink:0;"
             onmouseover="this.style.background='rgba(0,0,0,0.08)'" onmouseout="this.style.background='none'"
             title="${typeof i18n !== 'undefined' ? (i18n.t('instruments.deviceSettings') || 'Réglages du périphérique') : 'Réglages du périphérique'}">⚙️</button>
