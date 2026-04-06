@@ -1134,7 +1134,12 @@
             "validateSplit": "Validate split",
             "splitMode": "Split mode — select 2+ instruments"
         },
-        "instrument": "Instrument"
+        "instrument": "Instrument",
+        "showAllToggle": "모두 표시",
+        "showRoutedToggle": "라우팅된 항목만",
+        "unscored": "Not scored",
+        "splitAccepted": "Split applied",
+        "removeSplit": "Remove split"
     },
     "instrumentCapabilities": {
         "title": "악기 기능 완성",
@@ -1675,11 +1680,6 @@
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh"
     },
-    "autoAssign.showAllToggle": "전체",
-    "autoAssign.showRoutedToggle": "라우팅됨",
-    "autoAssign.unscored": "Not scored",
-    "autoAssign.splitAccepted": "Split applied",
-    "autoAssign.removeSplit": "Remove split",
     "autoAssign.strategyGroupOptions": "옵션",
     "autoAssign.pitchShiftTitle": "Pitch shift",
     "autoAssign.pitchNone": "None",

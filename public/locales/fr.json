@@ -1172,7 +1172,12 @@
             "validateSplit": "Valider le split",
             "splitMode": "Mode split — sélectionnez 2+ instruments"
         },
-        "instrument": "Instrument"
+        "instrument": "Instrument",
+        "showAllToggle": "Voir tout",
+        "showRoutedToggle": "Routés uniquement",
+        "unscored": "Non évalué",
+        "splitAccepted": "Découpe appliquée",
+        "removeSplit": "Retirer la découpe"
     },
     "instrumentCapabilities": {
         "title": "Compléter les capacités des instruments",
@@ -1712,10 +1717,5 @@
         "chart": "Graphique des mesures",
         "applied": "Calibration appliquée pour {count} instrument(s)",
         "refresh": "Actualiser"
-    },
-    "autoAssign.showAllToggle": "Tous",
-    "autoAssign.showRoutedToggle": "Routés",
-    "autoAssign.unscored": "Non évalué",
-    "autoAssign.splitAccepted": "Découpe appliquée",
-    "autoAssign.removeSplit": "Retirer la découpe"
+    }
 }

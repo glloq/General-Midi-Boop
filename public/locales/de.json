@@ -1138,8 +1138,8 @@
         "instrument": "Instrument",
         "removeSplit": "Split entfernen",
         "splitAccepted": "Split angewendet",
-        "showAllToggle": "Alle",
-        "showRoutedToggle": "Geroutet",
+        "showAllToggle": "Alle anzeigen",
+        "showRoutedToggle": "Nur geroutete",
         "unscored": "Nicht bewertet"
     },
     "instrumentCapabilities": {
@@ -1681,11 +1681,6 @@
         "applied": "Kalibrierung angewendet für {count} Instrument(e)",
         "refresh": "Aktualisieren"
     },
-    "autoAssign.showAllToggle": "Alle",
-    "autoAssign.showRoutedToggle": "Geroutet",
-    "autoAssign.unscored": "Nicht bewertet",
-    "autoAssign.splitAccepted": "Split angewendet",
-    "autoAssign.removeSplit": "Split entfernen",
     "autoAssign.pitchShiftTitle": "Pitch shift",
     "autoAssign.pitchNone": "None",
     "autoAssign.pitchAuto": "Auto",
