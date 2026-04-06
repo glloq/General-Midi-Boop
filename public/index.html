@@ -12459,10 +12459,17 @@
 
         // Apply filters and refresh file list
         let filterRefreshInProgress = false;
+        let filterRefreshPending = false;
         async function applyFiltersAndRefresh() {
-            if (filterRefreshInProgress) return;
+            if (filterRefreshInProgress) {
+                // A refresh is already running; mark that another is needed
+                // so the latest filter state is applied once the current one finishes.
+                filterRefreshPending = true;
+                return;
+            }
             try {
                 filterRefreshInProgress = true;
+                filterRefreshPending = false;
 
                 // If no filters active, reload normally (with folder structure)
                 if (!filterManager || !filterManager.hasActiveFilters()) {
@@ -12495,6 +12502,12 @@
                 }
             } finally {
                 filterRefreshInProgress = false;
+                // If another refresh was requested while we were busy, run it now
+                // so the display reflects the latest filter state.
+                if (filterRefreshPending) {
+                    filterRefreshPending = false;
+                    applyFiltersAndRefresh();
+                }
             }
         }
 
