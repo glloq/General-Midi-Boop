@@ -12362,20 +12362,26 @@
 
         // Remove a specific filter
         async function removeFilter(key) {
-            // Reset the corresponding input
+            // Reset the corresponding input (use safe access — panel may not be open)
             if (key === 'durationMin' || key === 'durationMax') {
-                document.getElementById('filterDurationMin').value = '';
-                document.getElementById('filterDurationMax').value = '';
+                const durMinEl = document.getElementById('filterDurationMin');
+                const durMaxEl = document.getElementById('filterDurationMax');
+                if (durMinEl) durMinEl.value = '';
+                if (durMaxEl) durMaxEl.value = '';
                 filterManager.setFilter('durationMin', null);
                 filterManager.setFilter('durationMax', null);
             } else if (key === 'tempoMin' || key === 'tempoMax') {
-                document.getElementById('filterTempoMin').value = '';
-                document.getElementById('filterTempoMax').value = '';
+                const tempoMinEl = document.getElementById('filterTempoMin');
+                const tempoMaxEl = document.getElementById('filterTempoMax');
+                if (tempoMinEl) tempoMinEl.value = '';
+                if (tempoMaxEl) tempoMaxEl.value = '';
                 filterManager.setFilter('tempoMin', null);
                 filterManager.setFilter('tempoMax', null);
             } else if (key === 'channelCountMin' || key === 'channelCountMax') {
-                document.getElementById('filterChannelCountMin').value = '';
-                document.getElementById('filterChannelCountMax').value = '';
+                const chMinEl = document.getElementById('filterChannelCountMin');
+                const chMaxEl = document.getElementById('filterChannelCountMax');
+                if (chMinEl) chMinEl.value = '';
+                if (chMaxEl) chMaxEl.value = '';
                 filterManager.setFilter('channelCountMin', null);
                 filterManager.setFilter('channelCountMax', null);
             } else if (key === 'tracksMin' || key === 'tracksMax') {
@@ -12398,7 +12404,8 @@
                 });
                 const clearLink = document.getElementById('gmClearAll');
                 if (clearLink) clearLink.style.display = 'none';
-                document.getElementById('filterGmMode').value = 'ANY';
+                const gmModeEl = document.getElementById('filterGmMode');
+                if (gmModeEl) gmModeEl.value = 'ANY';
                 filterManager.setFilter('gmCategories', []);
                 filterManager.setFilter('gmMode', 'ANY');
             } else if (key === 'hasRouting' || key === 'routingStatus' || key === 'routingStatuses') {
@@ -12407,7 +12414,8 @@
                 filterManager.setFilter('routingStatus', null);
                 filterManager.setFilter('hasRouting', null);
             } else if (key === 'playableOnInstruments') {
-                document.getElementById('filterPlayableInstruments').selectedIndex = -1;
+                const playableEl = document.getElementById('filterPlayableInstruments');
+                if (playableEl) playableEl.selectedIndex = -1;
                 filterManager.setFilter('playableOnInstruments', []);
                 filterManager.setFilter('playableMode', 'routed');
             } else if (key === 'uploadedAfter' || key === 'uploadedBefore') {
@@ -12424,7 +12432,8 @@
             } else if (key === 'minCompatibilityScore') {
                 filterManager.setFilter('minCompatibilityScore', null);
             } else if (key === 'isOriginal') {
-                document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
+                const originalRadio = document.querySelector('input[name="isOriginal"][value="all"]');
+                if (originalRadio) originalRadio.checked = true;
                 filterManager.setFilter('isOriginal', null);
             } else if (key === 'hasDrums') {
                 const drumsCheckbox = document.querySelector('.filter-instrument[value="Drums"]');
@@ -12523,7 +12532,7 @@
                 // so the display reflects the latest filter state.
                 if (filterRefreshPending) {
                     filterRefreshPending = false;
-                    applyFiltersAndRefresh();
+                    await applyFiltersAndRefresh();
                 }
             }
         }
