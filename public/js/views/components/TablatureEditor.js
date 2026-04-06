@@ -506,11 +506,21 @@ class TablatureEditor {
         if (!this.isVisible) return;
 
         if (this.renderer) {
-            // Sync scroll position with piano roll to maintain same speed
+            // Auto-scroll the tablature view to follow the playhead
+            const canvasWidth = this.tabCanvasEl?.width || 800;
+            const visibleTicks = (canvasWidth - this.renderer.headerWidth) * this.renderer.ticksPerPixel;
+            const scrollX = this.renderer.scrollX;
+
+            if (tick > scrollX + visibleTicks * 0.9) {
+                this.renderer.scrollX = tick - visibleTicks * 0.2;
+            } else if (tick < scrollX) {
+                this.renderer.scrollX = Math.max(0, tick - visibleTicks * 0.1);
+            }
+
+            // Keep piano roll scroll in sync with tablature
             const pr = this.modal.pianoRoll;
             if (pr) {
-                const xoffset = pr.xoffset || 0;
-                this.renderer.scrollX = xoffset;
+                pr.xoffset = this.renderer.scrollX;
             }
 
             this.renderer.setPlayhead(tick);
