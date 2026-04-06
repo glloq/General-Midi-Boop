@@ -1135,11 +1135,11 @@
             "splitMode": "Modo división — seleccione 2+ instrumentos"
         },
         "instrument": "Instrumento",
-        "removeSplit": "Eliminar división",
-        "splitAccepted": "División aplicada",
-        "showAllToggle": "Todos",
-        "showRoutedToggle": "Ruteados",
-        "unscored": "Sin puntuación"
+        "removeSplit": "Remove split",
+        "splitAccepted": "Split applied",
+        "showAllToggle": "Ver todos",
+        "showRoutedToggle": "Solo ruteados",
+        "unscored": "Not scored"
     },
     "instrumentCapabilities": {
         "title": "Completar capacidades del instrumento",
@@ -1680,11 +1680,6 @@
         "applied": "Calibración aplicada para {count} instrumento(s)",
         "refresh": "Actualizar"
     },
-    "autoAssign.showAllToggle": "Todos",
-    "autoAssign.showRoutedToggle": "Ruteados",
-    "autoAssign.unscored": "Not scored",
-    "autoAssign.splitAccepted": "Split applied",
-    "autoAssign.removeSplit": "Remove split",
     "autoAssign.strategyGroupOptions": "Opciones",
     "autoAssign.pitchShiftTitle": "Pitch shift",
     "autoAssign.pitchNone": "None",

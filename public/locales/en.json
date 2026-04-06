@@ -1172,7 +1172,12 @@
             "validateSplit": "Validate split",
             "splitMode": "Split mode — select 2+ instruments"
         },
-        "instrument": "Instrument"
+        "instrument": "Instrument",
+        "showAllToggle": "Show all",
+        "showRoutedToggle": "Routed only",
+        "unscored": "Not scored",
+        "splitAccepted": "Split applied",
+        "removeSplit": "Remove split"
     },
     "instrumentCapabilities": {
         "title": "Complete Instrument Capabilities",
@@ -1712,10 +1717,5 @@
         "chart": "Measurement chart",
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh"
-    },
-    "autoAssign.showAllToggle": "All",
-    "autoAssign.showRoutedToggle": "Routed",
-    "autoAssign.unscored": "Not scored",
-    "autoAssign.splitAccepted": "Split applied",
-    "autoAssign.removeSplit": "Remove split"
+    }
 }

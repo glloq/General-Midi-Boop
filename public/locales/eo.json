@@ -1134,7 +1134,12 @@
             "validateSplit": "Validate split",
             "splitMode": "Split mode — select 2+ instruments"
         },
-        "instrument": "Instrument"
+        "instrument": "Instrument",
+        "showAllToggle": "Montri ĉiujn",
+        "showRoutedToggle": "Nur direktitaj",
+        "unscored": "Not scored",
+        "splitAccepted": "Split applied",
+        "removeSplit": "Remove split"
     },
     "instrumentCapabilities": {
         "title": "Complete Instrument Capabilities",
@@ -1675,11 +1680,6 @@
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh"
     },
-    "autoAssign.showAllToggle": "Ĉiuj",
-    "autoAssign.showRoutedToggle": "Direktitaj",
-    "autoAssign.unscored": "Not scored",
-    "autoAssign.splitAccepted": "Split applied",
-    "autoAssign.removeSplit": "Remove split",
     "autoAssign.strategyGroupOptions": "Opcioj",
     "autoAssign.pitchShiftTitle": "Pitch shift",
     "autoAssign.pitchNone": "None",

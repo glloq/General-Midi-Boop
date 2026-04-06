@@ -1134,7 +1134,12 @@
             "validateSplit": "Validate split",
             "splitMode": "Split mode — select 2+ instruments"
         },
-        "instrument": "Instrument"
+        "instrument": "Instrument",
+        "showAllToggle": "显示全部",
+        "showRoutedToggle": "仅已路由",
+        "unscored": "Not scored",
+        "splitAccepted": "Split applied",
+        "removeSplit": "Remove split"
     },
     "instrumentCapabilities": {
         "title": "完善乐器功能",
@@ -1675,11 +1680,6 @@
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh"
     },
-    "autoAssign.showAllToggle": "全部",
-    "autoAssign.showRoutedToggle": "已路由",
-    "autoAssign.unscored": "Not scored",
-    "autoAssign.splitAccepted": "Split applied",
-    "autoAssign.removeSplit": "Remove split",
     "autoAssign.strategyGroupOptions": "选项",
     "autoAssign.pitchShiftTitle": "Pitch shift",
     "autoAssign.pitchNone": "None",
