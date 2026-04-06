@@ -52,6 +52,7 @@ class SettingsModal {
             showCalibrationButton: false,
             showLightingButton: false,
             showPlaylistButton: true,
+            midiClockEnabled: false,
             serialMidiEnabled: false
         };
 
@@ -257,6 +258,9 @@ class SettingsModal {
         const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
         if (playlistButtonToggle) playlistButtonToggle.checked = this.settings.showPlaylistButton;
 
+        const midiClockToggle = this.modal.querySelector('#midiClockToggle');
+        if (midiClockToggle) midiClockToggle.checked = this.settings.midiClockEnabled;
+
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         if (serialMidiToggle) serialMidiToggle.checked = this.settings.serialMidiEnabled;
         const serialPortsSection = this.modal.querySelector('#serialMidiPortsSection');
@@ -298,6 +302,7 @@ class SettingsModal {
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
         const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
+        const midiClockToggle = this.modal.querySelector('#midiClockToggle');
 
         const newSettings = {
             theme: darkModeToggle ? (darkModeToggle.checked ? 'dark' : 'colored') : this.settings.theme,
@@ -309,6 +314,7 @@ class SettingsModal {
             showCalibrationButton: calibrationButtonToggle ? calibrationButtonToggle.checked : this.settings.showCalibrationButton,
             showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
             showPlaylistButton: playlistButtonToggle ? playlistButtonToggle.checked : this.settings.showPlaylistButton,
+            midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled
         };
 
@@ -321,6 +327,7 @@ class SettingsModal {
         const calibrationButtonChanged = newSettings.showCalibrationButton !== this.settings.showCalibrationButton;
         const lightingButtonChanged = newSettings.showLightingButton !== this.settings.showLightingButton;
         const playlistButtonChanged = newSettings.showPlaylistButton !== this.settings.showPlaylistButton;
+        const midiClockChanged = newSettings.midiClockEnabled !== this.settings.midiClockEnabled;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
 
         this.settings = newSettings;
@@ -354,6 +361,7 @@ class SettingsModal {
             this.eventBus?.emit('settings:playlist_button_changed', { enabled: newSettings.showPlaylistButton });
             this.applyPlaylistButton(newSettings.showPlaylistButton);
         }
+        if (midiClockChanged) this.eventBus?.emit('settings:midi_clock_changed', { enabled: newSettings.midiClockEnabled });
         if (serialMidiChanged) this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
 
         this.close();

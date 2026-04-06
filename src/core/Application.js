@@ -19,6 +19,7 @@ import WebSocketServer from '../api/WebSocketServer.js';
 import HttpServer from '../api/HttpServer.js';
 import CommandHandler from '../api/CommandHandler.js';
 import AutoAssigner from '../midi/AutoAssigner.js';
+import MidiClockGenerator from '../midi/MidiClockGenerator.js';
 import BackupScheduler from '../storage/BackupScheduler.js';
 
 class Application {
@@ -46,6 +47,7 @@ class Application {
     this.networkManager = null;
     this.serialMidiManager = null;
     this.lightingManager = null;
+    this.midiClockGenerator = null;
     this.autoAssigner = null;
     this.wsServer = null;
     this.httpServer = null;
@@ -150,6 +152,7 @@ class Application {
       // Initialize MIDI components
       this._registerService('deviceManager', new DeviceManager(deps));
       this._registerService('midiRouter', new MidiRouter(deps));
+      this._registerService('midiClockGenerator', new MidiClockGenerator(deps));
       this._registerService('midiPlayer', new MidiPlayer(deps));
       this._registerService('latencyCompensator', new LatencyCompensator(deps));
       this._registerService(

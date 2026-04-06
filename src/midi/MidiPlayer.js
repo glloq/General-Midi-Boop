@@ -52,6 +52,9 @@ class MidiPlayer {
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(deps);
 
+    // MIDI Clock generator (injected via deps or set later)
+    this.midiClockGenerator = deps.midiClockGenerator || null;
+
     this.logger.info('MidiPlayer initialized');
   }
 
@@ -214,11 +217,27 @@ class MidiPlayer {
             note: event.noteNumber,
             value: event.value
           });
+        } else if (event.type === 'setTempo') {
+          // Inject tempo change events so the scheduler can update MIDI clock
+          const bpm = MICROSECONDS_PER_MINUTE / event.microsecondsPerBeat;
+          this.events.push({
+            time: timeInSeconds,
+            type: 'setTempo',
+            tempo: bpm
+          });
         }
       });
     });
 
     this.events.sort((a, b) => a.time - b.time);
+
+    // Deduplicate setTempo events at the same time (multiple tracks may contain identical tempo changes)
+    this.events = this.events.filter((event, idx, arr) => {
+      if (event.type !== 'setTempo') return true;
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(prev.type === 'setTempo' && prev.time === event.time && prev.tempo === event.tempo);
+    });
   }
 
   /**
@@ -443,6 +462,13 @@ class MidiPlayer {
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });
+
+    // Start MIDI clock if enabled, using the tempo at current position
+    if (this.midiClockGenerator) {
+      const tempoAtPosition = this._getTempoAtPosition(this.position);
+      this.midiClockGenerator.startPlayback(tempoAtPosition);
+    }
+
     this.broadcastStatus();
 
     this.logger.info(`Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`);
@@ -494,6 +520,12 @@ class MidiPlayer {
     this.pauseTime = performance.now();
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
+
+    // Pause MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.pausePlayback();
+    }
+
     this.broadcastStatus();
 
     this.logger.info('Playback paused');
@@ -510,6 +542,12 @@ class MidiPlayer {
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });
+
+    // Resume MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.resumePlayback();
+    }
+
     this.broadcastStatus();
 
     this.logger.info('Playback resumed');
@@ -529,6 +567,12 @@ class MidiPlayer {
     this._lastBroadcastPosition = undefined;
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
+
+    // Stop MIDI clock
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.stopPlayback();
+    }
+
     this.broadcastStatus();
     this.logger.info('Playback stopped');
   }
@@ -536,6 +580,9 @@ class MidiPlayer {
   destroy() {
     this.stop();
     this.scheduler.destroy();
+    if (this.midiClockGenerator) {
+      this.midiClockGenerator.destroy();
+    }
     this.events = [];
     this.tracks = [];
     this.channelRouting.clear();
@@ -550,6 +597,10 @@ class MidiPlayer {
     if (this.playing) {
       this.scheduler.stopScheduler();
       this.sendAllNotesOff();
+      // Stop clock before restarting to avoid timer leaks
+      if (this.midiClockGenerator) {
+        this.midiClockGenerator.stopPlayback();
+      }
       this.playing = false;
       this.paused = false;
     }
@@ -562,6 +613,23 @@ class MidiPlayer {
     } else {
       this.broadcastPosition();
     }
+  }
+
+  /**
+   * Get the active tempo (BPM) at a given position in seconds.
+   * Scans setTempo events in the event list to find the last tempo change before position.
+   * @param {number} position - Position in seconds
+   * @returns {number} BPM at the given position
+   */
+  _getTempoAtPosition(position) {
+    let activeTempo = this.tempo; // Initial file tempo
+    for (const event of this.events) {
+      if (event.time > position) break;
+      if (event.type === 'setTempo') {
+        activeTempo = event.tempo;
+      }
+    }
+    return activeTempo;
   }
 
   findEventIndexAtTime(time) {
@@ -995,6 +1063,10 @@ class MidiPlayer {
           this.paused = false;
           this.scheduler.stopScheduler();
           this.sendAllNotesOff();
+          // Stop MIDI clock during gap between queue items
+          if (this.midiClockGenerator) {
+            this.midiClockGenerator.stopPlayback();
+          }
           this.broadcastStatus();
           // Release pending flag before starting async timer
           this._fileEndPending = false;

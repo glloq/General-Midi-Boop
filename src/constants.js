@@ -135,6 +135,9 @@ const TIMING = {
   // Network RTP
   RTP_CONNECT_TIMEOUT_MS: 10000,
 
+  // MIDI Clock
+  MIDI_CLOCK_PPQ: 24,
+
   // Audio calibration
   CALIBRATION_CHECK_INTERVAL_MS: 10
 };
