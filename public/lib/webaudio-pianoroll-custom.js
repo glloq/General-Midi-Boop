@@ -1048,7 +1048,7 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
 
             // Sélection de ligne par clic sur les touches de piano
             if(this.downht.m==="y"){
-                const clickedNote=this.downht.n|0;
+                const clickedNote=Math.max(0,Math.min(127,this.downht.n|0));
                 if(e.shiftKey && this._lastClickedKey!==null){
                     this.clearSel();
                     this.selNotesByPitchRange(this._lastClickedKey, clickedNote);
@@ -1062,7 +1062,13 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     this._lastClickedKey=clickedNote;
                 }
                 this.redrawThrottled();
-                this.sendEvent('change');
+                // Retirer les listeners ajoutés plus haut, pas de drag en cours
+                if(this.longtaptimer)
+                    clearInterval(this.longtaptimer);
+                window.removeEventListener("touchmove",this.bindpointermove,false);
+                window.removeEventListener("mousemove",this.bindpointermove,false);
+                window.removeEventListener("touchend",this.bindcancel);
+                window.removeEventListener("mouseup",this.bindcancel);
                 this.dragging={o:null};
                 ev.preventDefault();
                 ev.stopPropagation();
