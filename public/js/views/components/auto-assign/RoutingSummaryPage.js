@@ -433,7 +433,9 @@ class RoutingSummaryPage {
         const fileResponse = await this.api.sendCommand('file_read', { fileId });
         if (fileResponse?.midiData) {
           const raw = fileResponse.midiData;
-          this.midiData = (raw.midi && raw.midi.tracks) ? { ...raw.midi, tempo: raw.tempo || raw.midi.tempo } : raw;
+          this.midiData = (raw.midi && raw.midi.tracks)
+            ? { ...raw.midi, tempo: raw.tempo || raw.midi.tempo, duration: raw.duration || undefined }
+            : raw;
         }
       } catch (e) { console.warn('[RoutingSummary] Could not load MIDI data for preview:', e.message); }
 
@@ -1349,8 +1351,8 @@ class RoutingSummaryPage {
       });
     }
 
-    // Render initial minimap (defer to ensure container has layout dimensions)
-    requestAnimationFrame(() => this._renderMinimap());
+    // Render minimap after layout paint (double-rAF to ensure container has dimensions)
+    requestAnimationFrame(() => requestAnimationFrame(() => this._renderMinimap()));
   }
 
   _renderMinimap() {
@@ -1488,8 +1490,11 @@ class RoutingSummaryPage {
   // ============================================================================
 
   async _previewAll() {
-    if (!this.audioPreview || !this.midiData) return;
-    this._stopPreview();
+    if (!this.audioPreview || !this.midiData) {
+      console.warn('[Preview] No audioPreview or midiData available');
+      return;
+    }
+    this._safeStopPreview();
     this._previewMode = 'all';
     this._previewChannel = null;
 
@@ -1536,16 +1541,30 @@ class RoutingSummaryPage {
       };
     }
 
-    this._connectPreviewCallbacks();
-    await this.audioPreview.previewAllChannels(this.midiData, channelConfigs, 0);
-    this._previewState = 'playing';
-    this._updatePreviewUI();
-    this._renderMinimap();
+    try {
+      this._connectPreviewCallbacks();
+      await this.audioPreview.previewAllChannels(this.midiData, channelConfigs, 0);
+      this._previewState = 'playing';
+      this._updatePreviewUI();
+      this._renderMinimap();
+    } catch (err) {
+      console.error('[Preview] previewAll failed:', err);
+      this._previewState = 'stopped';
+      this._updatePreviewUI();
+      this._showPreviewError(err.message);
+    }
   }
 
   async _previewChannel(channel) {
-    if (!this.audioPreview || !this.midiData || channel === null) return;
-    this._stopPreview();
+    if (!this.audioPreview || !this.midiData) {
+      console.warn('[Preview] No audioPreview or midiData available');
+      return;
+    }
+    if (channel === null || channel === undefined) {
+      console.warn('[Preview] No channel selected');
+      return;
+    }
+    this._safeStopPreview();
     this._previewMode = 'channel';
     this._previewChannel = channel;
 
@@ -1554,6 +1573,8 @@ class RoutingSummaryPage {
     const adapt = this.adaptationSettings[ch] || {};
     const transposition = { semitones: adapt.transpositionSemitones || 0 };
 
+    // Build instrument constraints — pass empty object (not null) so AudioPreview
+    // still initializes the synthesizer and creates a valid sequence
     const constraints = assignment ? {
       gmProgram: assignment.gmProgram,
       noteRangeMin: assignment.noteRangeMin,
@@ -1562,45 +1583,79 @@ class RoutingSummaryPage {
       selectedNotes: assignment.selectedNotes || undefined
     } : {};
 
-    this._connectPreviewCallbacks();
-    await this.audioPreview.previewSingleChannel(
-      this.midiData, channel, transposition, constraints, 0, 0, true
-    );
-    this._previewState = 'playing';
-    this._updatePreviewUI();
-    this._renderMinimap();
+    try {
+      this._connectPreviewCallbacks();
+      await this.audioPreview.previewSingleChannel(
+        this.midiData, channel, transposition, constraints, 0, 0, true
+      );
+      this._previewState = 'playing';
+      this._updatePreviewUI();
+      this._renderMinimap();
+    } catch (err) {
+      console.error('[Preview] previewChannel failed:', err);
+      this._previewState = 'stopped';
+      this._updatePreviewUI();
+      this._showPreviewError(err.message);
+    }
   }
 
   async _previewOriginal(channel) {
-    if (!this.audioPreview || !this.midiData || channel === null) return;
-    this._stopPreview();
+    if (!this.audioPreview || !this.midiData) {
+      console.warn('[Preview] No audioPreview or midiData available');
+      return;
+    }
+    this._safeStopPreview();
     this._previewMode = 'original';
     this._previewChannel = channel;
 
-    this._connectPreviewCallbacks();
-    await this.audioPreview.previewOriginal(this.midiData, 0, 0, true);
-    this._previewState = 'playing';
-    this._updatePreviewUI();
-    this._renderMinimap();
+    try {
+      this._connectPreviewCallbacks();
+      await this.audioPreview.previewOriginal(this.midiData, 0, 0, true);
+      this._previewState = 'playing';
+      this._updatePreviewUI();
+      this._renderMinimap();
+    } catch (err) {
+      console.error('[Preview] previewOriginal failed:', err);
+      this._previewState = 'stopped';
+      this._updatePreviewUI();
+      this._showPreviewError(err.message);
+    }
   }
 
   _pausePreview() {
-    if (this.audioPreview?.pause) this.audioPreview.pause();
+    if (!this.audioPreview) return;
+    try { this.audioPreview.pause(); } catch (e) { /* ignore */ }
     this._previewState = 'paused';
     this._updatePreviewUI();
   }
 
   _resumePreview() {
-    if (this.audioPreview?.resume) this.audioPreview.resume();
+    if (!this.audioPreview) return;
+    try { this.audioPreview.resume(); } catch (e) { /* ignore */ }
     this._previewState = 'playing';
     this._updatePreviewUI();
   }
 
-  _stopPreview() {
-    if (this.audioPreview?.stop) this.audioPreview.stop();
+  _safeStopPreview() {
+    if (this.audioPreview?.isPreviewing || this.audioPreview?.isPlaying) {
+      try { this.audioPreview.stop(); } catch (e) { /* ignore */ }
+    }
     this._previewState = 'stopped';
     this._previewMode = null;
+  }
+
+  _stopPreview() {
+    this._safeStopPreview();
     this._updatePreviewUI();
+  }
+
+  _showPreviewError(msg) {
+    const timeEl = this.modal?.querySelector('#rsPreviewTime');
+    if (timeEl) {
+      timeEl.textContent = msg || 'Preview error';
+      timeEl.style.color = '#e74c3c';
+      setTimeout(() => { if (timeEl) { timeEl.textContent = ''; timeEl.style.color = ''; } }, 4000);
+    }
   }
 
   _connectPreviewCallbacks() {

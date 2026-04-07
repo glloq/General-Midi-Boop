@@ -3663,7 +3663,8 @@ body.dark-mode .aa-channel-card.skipped {
 }
 
 .rs-with-detail .rs-summary-panel {
-  flex: 0 0 45%;
+  flex: 0 0 32%;
+  max-width: 380px;
   border-right: 1px solid var(--border-color, #e0e0e0);
 }
 
@@ -3675,7 +3676,7 @@ body.dark-mode .aa-channel-card.skipped {
 }
 
 .rs-with-detail .rs-detail-panel {
-  flex: 0 0 55%;
+  flex: 1 1 0;
   padding: 16px;
 }
 
@@ -3687,12 +3688,12 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .rs-table thead th {
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 8px;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
@@ -3725,7 +3726,7 @@ body.dark-mode .aa-channel-card.skipped {
 }
 
 .rs-row td {
-  padding: 10px;
+  padding: 7px 8px;
   border-bottom: 1px solid var(--border-color-light, #f0f0f0);
   vertical-align: middle;
 }
@@ -3733,14 +3734,19 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-col-ch {
   font-weight: 600;
   white-space: nowrap;
+  width: 80px;
 }
 
-.rs-col-score {
+.rs-col-original,
+.rs-col-assigned {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rs-col-actions {
-  width: 36px;
+  width: 30px;
   text-align: center;
 }
 
