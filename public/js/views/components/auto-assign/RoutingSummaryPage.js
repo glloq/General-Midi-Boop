@@ -42,6 +42,17 @@ function getTypeIcon(type) {
   return icons[type] || '\uD83C\uDFB5';
 }
 
+function getTypeColor(type) {
+  const colors = {
+    drums: '#E91E63', bass: '#9C27B0', melody: '#2196F3',
+    harmony: '#4CAF50', pad: '#00BCD4', strings: '#FF9800',
+    brass: '#F44336', piano: '#3F51B5', organ: '#795548',
+    guitar: '#FF5722', reed: '#009688', pipe: '#607D8B',
+    ensemble: '#8BC34A', synth_lead: '#673AB7', synth_pad: '#00BCD4'
+  };
+  return colors[type] || '#607D8B';
+}
+
 function getGmProgramName(program) {
   if (program == null || program < 0 || program > 127) return null;
   if (typeof getGMInstrumentName === 'function') return getGMInstrumentName(program);
@@ -522,8 +533,7 @@ class RoutingSummaryPage {
       <div class="rs-container ${this.selectedChannel !== null ? 'rs-with-detail' : ''}">
         <div class="rs-header">
           <div class="rs-header-left">
-            <h2>${_t('routingSummary.title')}</h2>
-            <span class="rs-filename">${escapeHtml(this.filename)}</span>
+            ${this.midiData ? this._renderHeaderPreview() : `<h2>${_t('routingSummary.title')}</h2>`}
           </div>
           <div class="rs-header-center">
             <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
@@ -538,8 +548,6 @@ class RoutingSummaryPage {
             <button class="modal-close" id="rsSummaryClose">&times;</button>
           </div>
         </div>
-
-        ${this.midiData ? this._renderPreviewBar() : ''}
 
         <div class="rs-layout">
           <div class="rs-summary-panel" id="rsSummaryPanel">
@@ -868,15 +876,12 @@ class RoutingSummaryPage {
       `;
     }
 
-    // Instrument list
-    const showLow = this.showLowScores[ch];
-    const instrumentRows = options.map(opt => this._renderInstrumentOption(opt, assignment, channel)).join('');
-    const lowInstrumentRows = showLow ? lowOptions.map(opt => this._renderInstrumentOption(opt, assignment, channel)).join('') : '';
-    const lowToggle = lowOptions.length > 0 ? `
-      <button class="btn btn-sm rs-btn-low-toggle" data-channel="${channel}">
-        ${showLow ? _t('autoAssign.hideDetails') : `${_t('autoAssign.lowScore')} (${lowOptions.length})`}
-      </button>
-    ` : '';
+    // Instrument chips (horizontal bar) + range bars
+    const instrumentChipsHTML = (!isSkipped && options.length > 0)
+      ? this._renderInstrumentChips(channel, options, lowOptions, assignment)
+      : (isSkipped ? '' : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`);
+    const rangeBarsHTML = (!isSkipped && !isDrumChannel)
+      ? this._renderRangeBars(channel, analysis, assignment) : '';
 
     // Split section
     let splitHTML = '';
@@ -953,19 +958,13 @@ class RoutingSummaryPage {
           ${trackNames.length > 0 ? `<div class="rs-stat rs-stat-wide"><span class="rs-stat-label">${_t('routingSummary.tracks')}</span><span class="rs-stat-value">${escapeHtml(trackNames.join(', '))}</span></div>` : ''}
         </div>
 
+        ${instrumentChipsHTML}
+        ${rangeBarsHTML}
+        ${adaptHTML}
         ${pianoHTML}
+        ${splitHTML}
         ${breakdownHTML}
         ${compatInfoHTML}
-        ${adaptHTML}
-
-        <div class="rs-detail-instruments">
-          <h4>${_t('routingSummary.compatibleInstruments')} (${options.length})</h4>
-          ${instrumentRows || `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`}
-          ${lowInstrumentRows}
-          ${lowToggle}
-        </div>
-
-        ${splitHTML}
       </div>
     `;
   }
@@ -985,6 +984,149 @@ class RoutingSummaryPage {
         </div>
         ${compat.transposition?.semitones ? `<span class="rs-inst-trans">${compat.transposition.semitones > 0 ? '+' : ''}${compat.transposition.semitones}st</span>` : ''}
         ${compat.issues?.length ? `<span class="rs-inst-issues" title="${compat.issues.map(i => i.message).join(', ')}">!</span>` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * Render instrument selection as horizontal scrollable chips
+   */
+  _renderInstrumentChips(channel, options, lowOptions, assignment) {
+    const ch = String(channel);
+    const isSplit = this.splitChannels.has(channel);
+    const showLow = this.showLowScores[ch];
+
+    // For split channels, show segment instruments
+    if (isSplit && this.splitAssignments[channel]) {
+      const segs = this.splitAssignments[channel].segments || [];
+      const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+      const segChips = segs.map((seg, i) => {
+        const name = seg.instrumentName || `Instrument ${i + 1}`;
+        const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+        const color = splitColors[i % splitColors.length];
+        const range = seg.noteRange ? `${midiNoteToName(seg.noteRange.min)}-${midiNoteToName(seg.noteRange.max)}` : '';
+        return `
+          <span class="aa-instbar-btn assigned" style="border-left: 3px solid ${color}">
+            <span class="aa-instbar-dot" style="background:${color}"></span>
+            <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
+            <span class="aa-instbar-score" style="font-size:9px;color:#888">${range}</span>
+            <span class="aa-instbar-check">\u2713</span>
+          </span>
+        `;
+      }).join('');
+      return `<div class="aa-instbar-content"><div class="aa-instbar-list">${segChips}</div></div>`;
+    }
+
+    // Normal: show top options as chips
+    const chips = options.map(opt => {
+      const inst = opt.instrument;
+      const score = opt.compatibility.score;
+      const isSelected = assignment?.instrumentId === inst.id;
+      const instType = inst.instrument_type || '';
+      const typeColor = getTypeColor(instType);
+      const name = inst.custom_name || inst.name || '?';
+      const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+
+      return `
+        <button class="aa-instbar-btn ${isSelected ? 'assigned' : ''}" style="border-left: 3px solid ${typeColor}"
+                data-instrument-id="${inst.id}" data-channel="${ch}"
+                title="${escapeHtml(name)} \u2014 ${score}/100">
+          <span class="aa-instbar-dot" style="background:${typeColor}"></span>
+          <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
+          <span class="aa-instbar-score ${getScoreClass(score)}">${score}</span>
+          ${isSelected ? '<span class="aa-instbar-check">\u2713</span>' : ''}
+        </button>
+      `;
+    }).join('');
+
+    // Low-score chips (hidden by default)
+    let lowChips = '';
+    if (showLow && lowOptions.length > 0) {
+      lowChips = lowOptions.map(opt => {
+        const inst = opt.instrument;
+        const score = opt.compatibility.score;
+        const isSelected = assignment?.instrumentId === inst.id;
+        const typeColor = getTypeColor(inst.instrument_type || '');
+        const name = inst.custom_name || inst.name || '?';
+        const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+        return `
+          <button class="aa-instbar-btn unrouted ${isSelected ? 'assigned' : ''}" style="border-left: 3px solid ${typeColor}"
+                  data-instrument-id="${inst.id}" data-channel="${ch}"
+                  title="${escapeHtml(name)} \u2014 ${score}/100">
+            <span class="aa-instbar-dot" style="background:${typeColor}"></span>
+            <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
+            <span class="aa-instbar-score ${getScoreClass(score)}">${score}</span>
+            ${isSelected ? '<span class="aa-instbar-check">\u2713</span>' : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    const showMoreBtn = lowOptions.length > 0 ? `
+      <button class="aa-instbar-btn aa-instbar-show-all ${showLow ? 'active' : ''}" data-channel="${ch}">
+        ${showLow ? '\u25C9' : '\u25CB'} ${showLow ? _t('autoAssign.hideDetails') : `+${lowOptions.length}`}
+      </button>
+    ` : '';
+
+    return `
+      <div class="aa-instbar-content">
+        <div class="aa-instbar-list">${chips}${lowChips}${showMoreBtn}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render wide dual range bars (channel notes vs instrument range)
+   */
+  _renderRangeBars(channel, analysis, assignment) {
+    if (!analysis?.noteRange || analysis.noteRange.min == null) return '';
+
+    const chMin = analysis.noteRange.min;
+    const chMax = analysis.noteRange.max;
+    const isSplit = this.splitChannels.has(channel);
+
+    // Compute global range for display
+    let globalMin = chMin, globalMax = chMax;
+    const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+
+    let instBars = '';
+    if (isSplit && this.splitAssignments[channel]) {
+      const segs = this.splitAssignments[channel].segments || [];
+      for (const seg of segs) {
+        if (seg.fullRange) { globalMin = Math.min(globalMin, seg.fullRange.min); globalMax = Math.max(globalMax, seg.fullRange.max); }
+        if (seg.noteRange) { globalMin = Math.min(globalMin, seg.noteRange.min); globalMax = Math.max(globalMax, seg.noteRange.max); }
+      }
+      instBars = segs.map((seg, i) => {
+        const sMin = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
+        const sMax = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
+        const left = Math.round(((sMin - globalMin) / (globalMax - globalMin || 1)) * 100);
+        const width = Math.max(2, Math.round(((sMax - sMin) / (globalMax - globalMin || 1)) * 100));
+        const color = splitColors[i % splitColors.length];
+        const name = seg.instrumentName || `Inst ${i + 1}`;
+        return `<div class="rs-range-bar rs-range-inst-bar" style="left:${left}%;width:${width}%;background:${color}33;border:1px solid ${color}" title="${escapeHtml(name)}: ${midiNoteToName(sMin)}-${midiNoteToName(sMax)}"></div>`;
+      }).join('');
+    } else if (assignment?.noteRangeMin != null) {
+      globalMin = Math.min(globalMin, assignment.noteRangeMin);
+      globalMax = Math.max(globalMax, assignment.noteRangeMax);
+      const iLeft = Math.round(((assignment.noteRangeMin - globalMin) / (globalMax - globalMin || 1)) * 100);
+      const iWidth = Math.max(2, Math.round(((assignment.noteRangeMax - assignment.noteRangeMin) / (globalMax - globalMin || 1)) * 100));
+      instBars = `<div class="rs-range-bar rs-range-inst-bar" style="left:${iLeft}%;width:${iWidth}%" title="${_t('autoAssign.instrumentRange')}: ${midiNoteToName(assignment.noteRangeMin)}-${midiNoteToName(assignment.noteRangeMax)}"></div>`;
+    }
+
+    const chLeft = Math.round(((chMin - globalMin) / (globalMax - globalMin || 1)) * 100);
+    const chWidth = Math.max(2, Math.round(((chMax - chMin) / (globalMax - globalMin || 1)) * 100));
+
+    return `
+      <div class="rs-range-wide">
+        <div class="rs-range-labels">
+          <span>${midiNoteToName(globalMin)}</span>
+          <span>${_t('autoAssign.channelNotes')}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}</span>
+          <span>${midiNoteToName(globalMax)}</span>
+        </div>
+        <div class="rs-range-track">
+          ${instBars}
+          <div class="rs-range-bar rs-range-ch-bar" style="left:${chLeft}%;width:${chWidth}%" title="${_t('autoAssign.channelNotes')}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}"></div>
+        </div>
       </div>
     `;
   }
@@ -1093,11 +1235,11 @@ class RoutingSummaryPage {
       nextBtn.addEventListener('click', () => this._selectChannel(parseInt(nextBtn.dataset.channel)));
     }
 
-    // Instrument selection
-    modal.querySelectorAll('.rs-instrument-option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        const instId = parseInt(opt.dataset.instrumentId);
-        const ch = opt.dataset.channel;
+    // Instrument chip selection
+    modal.querySelectorAll('.aa-instbar-btn[data-instrument-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const instId = parseInt(btn.dataset.instrumentId);
+        const ch = btn.dataset.channel;
         this._selectInstrument(ch, instId, channelKeys);
       });
     });
@@ -1129,8 +1271,8 @@ class RoutingSummaryPage {
       });
     });
 
-    // Low score toggle
-    modal.querySelectorAll('.rs-btn-low-toggle').forEach(btn => {
+    // Low score toggle (show more chips)
+    modal.querySelectorAll('.aa-instbar-show-all').forEach(btn => {
       btn.addEventListener('click', () => {
         const ch = btn.dataset.channel;
         this.showLowScores[ch] = !this.showLowScores[ch];
@@ -1301,26 +1443,20 @@ class RoutingSummaryPage {
   // Preview bar & minimap
   // ============================================================================
 
-  _renderPreviewBar() {
+  _renderHeaderPreview() {
     const ch = this.selectedChannel;
     const chLabel = ch !== null ? (ch + 1) : '?';
     return `
-      <div class="rs-preview-bar" id="rsPreviewBar">
-        <div class="rs-preview-controls">
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">
-            &#9654; ${_t('routingSummary.previewAll')}
-          </button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')}" ${ch === null ? 'disabled' : ''}>
-            &#9654; Ch ${chLabel}
-          </button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>
-            ${_t('routingSummary.previewOriginal')}
-          </button>
+      <div class="rs-header-preview">
+        <div class="rs-hdr-prev-btns">
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">&#9654;</button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>&#9654; Ch${chLabel}</button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>&#9835;</button>
           <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
           <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
-          <span class="rs-preview-time" id="rsPreviewTime"></span>
         </div>
-        <div class="rs-minimap-container" id="rsMinimapContainer"></div>
+        <div class="rs-hdr-prev-map" id="rsMinimapContainer" title="${escapeHtml(this.filename)}"></div>
+        <span class="rs-preview-time" id="rsPreviewTime"></span>
       </div>
     `;
   }
@@ -1373,7 +1509,7 @@ class RoutingSummaryPage {
 
     const dpr = window.devicePixelRatio || 1;
     const w = container.clientWidth || 400;
-    const h = 32;
+    const h = 24;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     canvas.style.height = h + 'px';
