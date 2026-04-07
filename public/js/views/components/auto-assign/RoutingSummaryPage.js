@@ -151,6 +151,79 @@ function renderPianoRoll(analysis, assignment) {
 }
 
 /**
+ * Render piano roll for split channels showing multiple instrument ranges
+ */
+function renderSplitPianoRoll(analysis, splitData) {
+  if (!analysis?.noteRange?.min || !splitData?.segments?.length) return '';
+
+  const noteDistribution = analysis.noteDistribution || {};
+  const usedNotes = Object.keys(noteDistribution).map(Number);
+  if (usedNotes.length === 0) return '';
+
+  const segments = splitData.segments;
+  const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+
+  // Global range
+  let allMins = usedNotes, allMaxs = usedNotes;
+  for (const seg of segments) {
+    if (seg.noteRange) { allMins = [...allMins, seg.noteRange.min]; allMaxs = [...allMaxs, seg.noteRange.max]; }
+    if (seg.fullRange) { allMins = [...allMins, seg.fullRange.min]; allMaxs = [...allMaxs, seg.fullRange.max]; }
+  }
+  const globalMin = Math.max(0, Math.min(...allMins) - 2);
+  const globalMax = Math.min(127, Math.max(...allMaxs) + 2);
+  const maxCount = Math.max(...Object.values(noteDistribution), 1);
+
+  // Build instrument range lookup: for each note, which segment(s) cover it
+  function noteInSegment(note, seg) {
+    const min = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
+    const max = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
+    return note >= min && note <= max;
+  }
+
+  let keysHTML = '';
+  for (let note = globalMin; note <= globalMax; note++) {
+    const black = isBlackKey(note);
+    const isUsed = noteDistribution[note] !== undefined;
+    const usage = isUsed ? noteDistribution[note] / maxCount : 0;
+
+    // Find which segment covers this note
+    const coveringIdx = segments.findIndex(seg => noteInSegment(note, seg));
+    const inRange = coveringIdx >= 0;
+
+    let statusClass = '';
+    let bgStyle = '';
+    if (isUsed && inRange) {
+      statusClass = 'used-ok';
+      bgStyle = `background: ${splitColors[coveringIdx % splitColors.length]} !important`;
+    } else if (isUsed && !inRange) {
+      statusClass = 'used-out';
+    } else if (inRange) {
+      const color = splitColors[coveringIdx % splitColors.length];
+      bgStyle = `background: ${color}22`;
+    }
+
+    const opacity = isUsed ? `opacity: ${Math.max(0.4, usage)}` : '';
+    keysHTML += `<div class="rs-piano-key ${black ? 'black' : 'white'} ${statusClass}" style="${bgStyle};${opacity}"></div>`;
+  }
+
+  // Legend with segment colors
+  const legendHTML = segments.map((seg, i) => {
+    const name = seg.instrumentName || `Instrument ${i + 1}`;
+    const color = splitColors[i % splitColors.length];
+    const range = seg.noteRange ? `${midiNoteToName(seg.noteRange.min)}-${midiNoteToName(seg.noteRange.max)}` : '';
+    return `<span class="rs-legend-item"><span class="rs-legend-key" style="background:${color}"></span> ${escapeHtml(name)} ${range}</span>`;
+  }).join('');
+
+  return `
+    <div class="rs-piano-section">
+      <div class="rs-piano-labels"><span>${_t('autoAssign.channelNotes')}</span><span>${segments.length} ${_t('routingSummary.instruments')}</span></div>
+      <div class="rs-piano-roll">${keysHTML}</div>
+      <div class="rs-piano-legend">${legendHTML}</div>
+    </div>
+  `;
+}
+
+/**
  * Render a split visualization bar showing how instruments divide the note range
  */
 function renderSplitBar(splitData, channelAnalysis) {
@@ -206,6 +279,21 @@ class RoutingSummaryPage {
     this.loading = true;
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.showLowScores = {}; // Per-channel toggle for low score instruments
+
+    // Preview state
+    this.midiData = null;
+    this.audioPreview = null;
+    this._previewState = 'stopped'; // 'stopped' | 'playing' | 'paused'
+    this._previewMode = null; // 'all' | 'channel' | 'original'
+    this._previewChannel = null;
+    this._minimapCanvas = null;
+    this._minimapBuckets = null;
+    this._minimapBucketsOOR = null;
+    this._minimapMaxVal = 0;
+    this._minimapWidth = 0;
+    this._minimapHeight = 0;
+    this._minimapTotalTicks = 0;
+    this._minimapInstRange = null;
 
     // Scoring overrides (loaded from localStorage, sent to API)
     this.scoringOverrides = this._loadScoringOverrides();
@@ -340,6 +428,20 @@ class RoutingSummaryPage {
         };
       }
 
+      // Load MIDI data for preview minimap
+      try {
+        const fileResponse = await this.api.sendCommand('file_read', { fileId });
+        if (fileResponse?.midiData) {
+          const raw = fileResponse.midiData;
+          this.midiData = (raw.midi && raw.midi.tracks) ? { ...raw.midi, tempo: raw.tempo || raw.midi.tempo } : raw;
+        }
+      } catch (e) { console.warn('[RoutingSummary] Could not load MIDI data for preview:', e.message); }
+
+      // Initialize audio preview
+      if (!this.audioPreview && window.AudioPreview) {
+        this.audioPreview = new window.AudioPreview(this.api);
+      }
+
       this.loading = false;
       this._renderContent();
 
@@ -435,6 +537,8 @@ class RoutingSummaryPage {
           </div>
         </div>
 
+        ${this.midiData ? this._renderPreviewBar() : ''}
+
         <div class="rs-layout">
           <div class="rs-summary-panel" id="rsSummaryPanel">
             ${this._renderSummaryTable(channelKeys)}
@@ -519,30 +623,19 @@ class RoutingSummaryPage {
       const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
       const isSelected = this.selectedChannel === channel;
 
-      // Note range mini-viz
-      const rangeViz = this._renderMiniRange(channel, analysis, assignment);
+      // Score dot indicator (compact visual feedback in table)
+      const scoreDotClass = isSkipped ? 'rs-dot-skip' : (score >= 70 ? 'rs-dot-ok' : score >= 40 ? 'rs-dot-warn' : 'rs-dot-poor');
 
       return `
         <tr class="rs-row ${isSkipped ? 'skipped' : ''} ${statusClass} ${isSelected ? 'selected' : ''}"
             tabindex="0" role="button" data-channel="${channel}"
             aria-label="${_t('autoAssign.channel')} ${channel + 1}">
           <td class="rs-col-ch">
+            <span class="rs-score-dot ${scoreDotClass}"></span>
             ${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''} ${splitBadge}
           </td>
           <td class="rs-col-original">${escapeHtml(gmName)}</td>
           <td class="rs-col-assigned">${isSkipped ? '<span class="rs-skipped">' + statusLabel + '</span>' : escapeHtml(assignedName)}${isSplit ? renderSplitBar(this.splitAssignments[channel], analysis) : ''}</td>
-          <td class="rs-col-range">${rangeViz}</td>
-          <td class="rs-col-score">
-            ${isSkipped ? '\u2014' : `
-              <div class="rs-score-bar">
-                <div class="rs-score-fill ${getScoreBgClass(score)}" style="width: ${score}%"></div>
-              </div>
-              <span class="${getScoreClass(score)}">${score}</span>
-            `}
-          </td>
-          <td class="rs-col-status">
-            <span class="rs-status-icon ${statusClass}">${statusIcon}</span>
-          </td>
           <td class="rs-col-actions">
             ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip" data-channel="${channel}" title="${_t('routingSummary.skip')}">&times;</button>` : `<button class="btn btn-sm rs-btn-unskip" data-channel="${channel}" title="${_t('routingSummary.unskip')}">+</button>`}
           </td>
@@ -558,9 +651,6 @@ class RoutingSummaryPage {
               <th>${_t('autoAssign.overviewChannel')}</th>
               <th>${_t('autoAssign.overviewOriginal')}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
-              <th>${_t('routingSummary.noteRange')}</th>
-              <th>${_t('autoAssign.overviewScore')}</th>
-              <th>${_t('autoAssign.overviewStatus')}</th>
               <th></th>
             </tr>
           </thead>
@@ -706,9 +796,15 @@ class RoutingSummaryPage {
       }
     }
 
-    // Piano roll visualization (non-drum channels with instrument selected)
-    const pianoHTML = (!isSkipped && !isDrumChannel && assignment?.instrumentId)
-      ? renderPianoRoll(analysis, assignment) : '';
+    // Piano roll visualization
+    let pianoHTML = '';
+    if (!isSkipped && !isDrumChannel) {
+      if (isSplit && this.splitAssignments[channel]) {
+        pianoHTML = renderSplitPianoRoll(analysis, this.splitAssignments[channel]);
+      } else if (assignment?.instrumentId) {
+        pianoHTML = renderPianoRoll(analysis, assignment);
+      }
+    }
 
     // Adaptation controls (pitch shift + OOR handling)
     let adaptHTML = '';
@@ -855,9 +951,9 @@ class RoutingSummaryPage {
           ${trackNames.length > 0 ? `<div class="rs-stat rs-stat-wide"><span class="rs-stat-label">${_t('routingSummary.tracks')}</span><span class="rs-stat-value">${escapeHtml(trackNames.join(', '))}</span></div>` : ''}
         </div>
 
+        ${pianoHTML}
         ${breakdownHTML}
         ${compatInfoHTML}
-        ${pianoHTML}
         ${adaptHTML}
 
         <div class="rs-detail-instruments">
@@ -968,6 +1064,9 @@ class RoutingSummaryPage {
 
     // Detail panel events
     this._bindDetailEvents(channelKeys);
+
+    // Preview events
+    this._bindPreviewEvents();
   }
 
   _bindDetailEvents(channelKeys) {
@@ -1197,7 +1296,322 @@ class RoutingSummaryPage {
   }
 
   // ============================================================================
-  // Close / cleanup
+  // Preview bar & minimap
+  // ============================================================================
+
+  _renderPreviewBar() {
+    const ch = this.selectedChannel;
+    const chLabel = ch !== null ? (ch + 1) : '?';
+    return `
+      <div class="rs-preview-bar" id="rsPreviewBar">
+        <div class="rs-preview-controls">
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">
+            &#9654; ${_t('routingSummary.previewAll')}
+          </button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')}" ${ch === null ? 'disabled' : ''}>
+            &#9654; Ch ${chLabel}
+          </button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>
+            ${_t('routingSummary.previewOriginal')}
+          </button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
+          <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
+          <span class="rs-preview-time" id="rsPreviewTime"></span>
+        </div>
+        <div class="rs-minimap-container" id="rsMinimapContainer"></div>
+      </div>
+    `;
+  }
+
+  _bindPreviewEvents() {
+    const modal = this.modal;
+    if (!modal) return;
+
+    modal.querySelector('#rsPreviewAllBtn')?.addEventListener('click', () => this._previewAll());
+    modal.querySelector('#rsPreviewChBtn')?.addEventListener('click', () => this._previewChannel(this.selectedChannel));
+    modal.querySelector('#rsPreviewOrigBtn')?.addEventListener('click', () => this._previewOriginal(this.selectedChannel));
+    modal.querySelector('#rsPreviewPauseBtn')?.addEventListener('click', () => {
+      if (this._previewState === 'paused') this._resumePreview();
+      else this._pausePreview();
+    });
+    modal.querySelector('#rsPreviewStopBtn')?.addEventListener('click', () => this._stopPreview());
+
+    // Minimap click → seek
+    const container = modal.querySelector('#rsMinimapContainer');
+    if (container) {
+      container.addEventListener('click', (e) => {
+        const rect = container.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const totalSec = this.audioPreview?.totalDuration || 0;
+        if (totalSec > 0 && this.audioPreview?.seek) {
+          this.audioPreview.seek(pct * totalSec);
+        }
+      });
+    }
+
+    // Render initial minimap
+    this._renderMinimap();
+  }
+
+  _renderMinimap() {
+    const container = this.modal?.querySelector('#rsMinimapContainer');
+    if (!container || !this.midiData) return;
+
+    let canvas = this._minimapCanvas;
+    if (!canvas || !canvas.parentNode) {
+      canvas = document.createElement('canvas');
+      canvas.className = 'rs-minimap-canvas';
+      canvas.style.display = 'block';
+      canvas.style.width = '100%';
+      canvas.style.cursor = 'pointer';
+      container.textContent = '';
+      container.appendChild(canvas);
+      this._minimapCanvas = canvas;
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = container.clientWidth || 400;
+    const h = 32;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.height = h + 'px';
+
+    // Determine channel filter
+    const channelFilter = (this.selectedChannel !== null) ? this.selectedChannel : null;
+    const notes = this._extractNotesForMinimap(channelFilter);
+    const totalTicks = notes.length > 0 ? notes[notes.length - 1].t + 1 : 1;
+
+    this._minimapWidth = w;
+    this._minimapHeight = h;
+    this._minimapTotalTicks = totalTicks;
+    this._minimapBuckets = new Array(w).fill(0);
+    this._minimapBucketsOOR = new Array(w).fill(0);
+    this._minimapMaxVal = 0;
+
+    // Get instrument range for coloring
+    let instMin = null, instMax = null;
+    if (this.selectedChannel !== null) {
+      const ch = String(this.selectedChannel);
+      const assignment = this.selectedAssignments[ch];
+      if (assignment) {
+        instMin = assignment.noteRangeMin;
+        instMax = assignment.noteRangeMax;
+      }
+      // For splits, use combined range
+      if (this.splitChannels.has(this.selectedChannel) && this.splitAssignments[this.selectedChannel]) {
+        const segs = this.splitAssignments[this.selectedChannel].segments || [];
+        if (segs.length > 0) {
+          instMin = Math.min(...segs.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0));
+          instMax = Math.max(...segs.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127));
+        }
+      }
+    }
+    this._minimapInstRange = (instMin != null && instMax != null) ? { min: instMin, max: instMax } : null;
+
+    for (const note of notes) {
+      const col = Math.floor((note.t / totalTicks) * w);
+      if (col < 0 || col >= w) continue;
+      this._minimapBuckets[col]++;
+      if (this._minimapBuckets[col] > this._minimapMaxVal) this._minimapMaxVal = this._minimapBuckets[col];
+      if (this._minimapInstRange && (note.n < instMin || note.n > instMax)) {
+        this._minimapBucketsOOR[col]++;
+      }
+    }
+
+    this._drawMinimapFrame(0);
+  }
+
+  _drawMinimapFrame(playheadPct) {
+    const canvas = this._minimapCanvas;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = this._minimapWidth || 400;
+    const h = this._minimapHeight || 32;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() || '#f0f0f0';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!this._minimapBuckets) return;
+    const maxVal = this._minimapMaxVal || 1;
+
+    for (let i = 0; i < w; i++) {
+      if (this._minimapBuckets[i] === 0) continue;
+      const inRange = this._minimapBuckets[i] - (this._minimapBucketsOOR[i] || 0);
+      if (inRange > 0) {
+        const barH = Math.max(1, (inRange / maxVal) * (h - 2));
+        ctx.fillStyle = '#4285f4';
+        ctx.fillRect(i, h - 1 - barH, 1, barH);
+      }
+      if (this._minimapBucketsOOR[i] > 0) {
+        const outH = Math.max(1, (this._minimapBucketsOOR[i] / maxVal) * (h - 2));
+        const inH = inRange > 0 ? Math.max(1, (inRange / maxVal) * (h - 2)) : 0;
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(i, h - 1 - inH - outH, 1, outH);
+      }
+    }
+
+    // Playhead
+    if (playheadPct > 0 && playheadPct <= 1) {
+      const x = Math.floor(playheadPct * w);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(x, 0, 2, h);
+    }
+  }
+
+  _extractNotesForMinimap(channelFilter) {
+    const notes = [];
+    if (!this.midiData?.tracks) return notes;
+    for (const track of this.midiData.tracks) {
+      if (!track.events) continue;
+      let tick = 0;
+      for (const event of track.events) {
+        if (event.deltaTime !== undefined) tick += event.deltaTime;
+        if (event.type === 'noteOn' && event.velocity > 0) {
+          const ch = event.channel ?? 0;
+          if (channelFilter !== null && ch !== channelFilter) continue;
+          notes.push({ t: tick, n: event.note ?? event.noteNumber ?? 60 });
+        }
+      }
+    }
+    notes.sort((a, b) => a.t - b.t);
+    return notes;
+  }
+
+  // ============================================================================
+  // Audio preview playback
+  // ============================================================================
+
+  async _previewAll() {
+    if (!this.audioPreview || !this.midiData) return;
+    this._stopPreview();
+    this._previewMode = 'all';
+    this._previewChannel = null;
+
+    const channelConfigs = {};
+    for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
+      if (this.skippedChannels.has(parseInt(ch))) { channelConfigs[ch] = { skipped: true }; continue; }
+      channelConfigs[ch] = {
+        transposition: this.adaptationSettings[ch]?.transpositionSemitones || 0,
+        instrumentConstraints: assignment ? {
+          gmProgram: assignment.gmProgram,
+          noteRangeMin: assignment.noteRangeMin,
+          noteRangeMax: assignment.noteRangeMax
+        } : null
+      };
+    }
+
+    this._connectPreviewCallbacks();
+    await this.audioPreview.previewAllChannels(this.midiData, channelConfigs, 0);
+    this._previewState = 'playing';
+    this._updatePreviewUI();
+    this._renderMinimap();
+  }
+
+  async _previewChannel(channel) {
+    if (!this.audioPreview || !this.midiData || channel === null) return;
+    this._stopPreview();
+    this._previewMode = 'channel';
+    this._previewChannel = channel;
+
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const adapt = this.adaptationSettings[ch] || {};
+    const constraints = assignment ? {
+      gmProgram: assignment.gmProgram,
+      noteRangeMin: assignment.noteRangeMin,
+      noteRangeMax: assignment.noteRangeMax,
+      noteSelectionMode: assignment.noteSelectionMode
+    } : null;
+
+    this._connectPreviewCallbacks();
+    await this.audioPreview.previewSingleChannel(
+      this.midiData, channel, adapt.transpositionSemitones || 0, constraints, 0, 0, true
+    );
+    this._previewState = 'playing';
+    this._updatePreviewUI();
+    this._renderMinimap();
+  }
+
+  async _previewOriginal(channel) {
+    if (!this.audioPreview || !this.midiData || channel === null) return;
+    this._stopPreview();
+    this._previewMode = 'original';
+    this._previewChannel = channel;
+
+    this._connectPreviewCallbacks();
+    await this.audioPreview.previewOriginal(this.midiData, 0, 0, true);
+    this._previewState = 'playing';
+    this._updatePreviewUI();
+    this._renderMinimap();
+  }
+
+  _pausePreview() {
+    if (this.audioPreview?.pause) this.audioPreview.pause();
+    this._previewState = 'paused';
+    this._updatePreviewUI();
+  }
+
+  _resumePreview() {
+    if (this.audioPreview?.resume) this.audioPreview.resume();
+    this._previewState = 'playing';
+    this._updatePreviewUI();
+  }
+
+  _stopPreview() {
+    if (this.audioPreview?.stop) this.audioPreview.stop();
+    this._previewState = 'stopped';
+    this._previewMode = null;
+    this._updatePreviewUI();
+  }
+
+  _connectPreviewCallbacks() {
+    if (!this.audioPreview) return;
+    this.audioPreview.onProgress = (currentTick, totalTicks, currentSec, totalSec) => {
+      // Update time display
+      const timeEl = this.modal?.querySelector('#rsPreviewTime');
+      if (timeEl) {
+        const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+        timeEl.textContent = `${fmt(currentSec)} / ${fmt(totalSec)}`;
+      }
+      // Update minimap playhead
+      const pct = totalTicks > 0 ? currentTick / totalTicks : 0;
+      this._drawMinimapFrame(pct);
+    };
+    this.audioPreview.onPlaybackEnd = () => {
+      this._previewState = 'stopped';
+      this._updatePreviewUI();
+      this._drawMinimapFrame(0);
+    };
+  }
+
+  _updatePreviewUI() {
+    const modal = this.modal;
+    if (!modal) return;
+    const playing = this._previewState === 'playing';
+    const paused = this._previewState === 'paused';
+    const active = playing || paused;
+
+    const allBtn = modal.querySelector('#rsPreviewAllBtn');
+    const chBtn = modal.querySelector('#rsPreviewChBtn');
+    const origBtn = modal.querySelector('#rsPreviewOrigBtn');
+    const pauseBtn = modal.querySelector('#rsPreviewPauseBtn');
+    const stopBtn = modal.querySelector('#rsPreviewStopBtn');
+
+    if (allBtn) allBtn.style.display = active ? 'none' : '';
+    if (chBtn) chBtn.style.display = active ? 'none' : '';
+    if (origBtn) origBtn.style.display = active ? 'none' : '';
+    if (pauseBtn) { pauseBtn.style.display = active ? '' : 'none'; pauseBtn.innerHTML = paused ? '&#9654;' : '&#10074;&#10074;'; }
+    if (stopBtn) stopBtn.style.display = active ? '' : 'none';
+  }
+
+  // ============================================================================
+  // Recalculate
   // ============================================================================
 
   async _recalculate() {
@@ -1286,6 +1700,7 @@ class RoutingSummaryPage {
   // ============================================================================
 
   close() {
+    this._stopPreview();
     if (this._escHandler) {
       document.removeEventListener('keydown', this._escHandler);
       this._escHandler = null;
@@ -1294,6 +1709,7 @@ class RoutingSummaryPage {
       this.modal.remove();
       this.modal = null;
     }
+    this._minimapCanvas = null;
     document.body.style.overflow = this._prevBodyOverflow || '';
   }
 }
