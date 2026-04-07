@@ -656,90 +656,115 @@ class RoutingSummaryPage {
     const rangeBarsHTML = (!isDrumChannel && assignment?.noteRangeMin != null)
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
-    // Split section — collapsible, with instrument selectors
+    // Split section — collapsible, with full manual controls
     let splitHTML = '';
     if (hasSplitProposal || isSplit) {
-      const expanded = this.splitExpanded[channel] ?? isSplit; // open if accepted
+      const expanded = this.splitExpanded[channel] ?? isSplit;
       const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+      const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
 
-      let splitBodyHTML = '';
-      if (hasSplitProposal && !isSplit) {
-        // === PROPOSAL (not yet accepted) ===
+      // Determine active data (proposal or accepted)
+      let activeData, segments, activeMode;
+      if (isSplit && this.splitAssignments[channel]) {
+        activeData = this.splitAssignments[channel];
+        segments = activeData.segments || [];
+        activeMode = activeData.type;
+      } else {
         const proposal = this.splitProposals[channel];
         const allModes = [proposal, ...(proposal.alternatives || [])];
-        const activeMode = this.activeSplitMode[channel] || proposal.type;
-        const activeProposal = allModes.find(m => m.type === activeMode) || proposal;
-        const segments = activeProposal.segments || [];
-        const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+        activeMode = this.activeSplitMode[channel] || proposal.type;
+        activeData = allModes.find(m => m.type === activeMode) || proposal;
+        segments = activeData.segments || [];
+      }
 
-        const modeTabs = allModes.length > 1 ? `<div class="rs-split-modes">${allModes.map(m => `
-          <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
-            ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
-          </button>
-        `).join('')}</div>` : '';
+      // Mode tabs (only for proposals with alternatives)
+      let modeTabs = '';
+      if (!isSplit && this.splitProposals[channel]) {
+        const proposal = this.splitProposals[channel];
+        const allModes = [proposal, ...(proposal.alternatives || [])];
+        if (allModes.length > 1) {
+          modeTabs = `<div class="rs-split-modes">${allModes.map(m => `
+            <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
+              ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
+            </button>
+          `).join('')}</div>`;
+        }
+      }
 
-        const segHTML = segments.map((seg, i) => {
-          const color = splitColors[i % splitColors.length];
-          const options = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
-          const selectOptions = options.map(inst => {
-            const selected = inst.id === seg.instrumentId ? 'selected' : '';
-            const name = inst.custom_name || inst.name || '?';
-            const label = name.length > 20 ? name.slice(0, 19) + '\u2026' : name;
-            return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
-          }).join('');
-          return `
-            <div class="rs-split-segment">
-              <span class="rs-seg-color" style="background:${color}"></span>
+      // Render segment cards with instrument select + range inputs + remove button
+      const segCardsHTML = segments.map((seg, i) => {
+        const color = splitColors[i % splitColors.length];
+        const compatInstruments = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
+        // Also include the currently assigned instrument even if not in compatible list
+        const seen = new Set(compatInstruments.map(inst => inst.id));
+        if (seg.instrumentId && !seen.has(seg.instrumentId)) {
+          const currentInst = (this.allInstruments || []).find(i => i.id === seg.instrumentId);
+          if (currentInst) compatInstruments.unshift({ ...currentInst, _score: -1 });
+        }
+        const selectOptions = compatInstruments.map(inst => {
+          const selected = inst.id === seg.instrumentId ? 'selected' : '';
+          const name = inst.custom_name || inst.name || '?';
+          const label = name.length > 18 ? name.slice(0, 17) + '\u2026' : name;
+          return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
+        }).join('');
+        const canRemove = segments.length > 2;
+        const rMin = seg.noteRange?.min ?? 0;
+        const rMax = seg.noteRange?.max ?? 127;
+        return `
+          <div class="rs-seg-card" style="border-left: 3px solid ${color}">
+            <div class="rs-seg-card-row">
               <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
                 ${selectOptions}
               </select>
-              <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
+              ${canRemove ? `<button class="btn btn-sm rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
             </div>
-          `;
-        }).join('');
-
-        splitBodyHTML = `
-          ${modeTabs}
-          ${renderSplitBar(activeProposal, analysis)}
-          <div class="rs-split-segments">${segHTML}</div>
-          <button class="btn btn-sm rs-btn-accept-split" data-channel="${channel}">${_t('autoAssign.acceptSplit')}</button>
+            <div class="rs-seg-range-controls">
+              <span class="rs-seg-range-label">${midiNoteToName(rMin)}</span>
+              <input type="number" class="rs-seg-range-input" data-channel="${channel}" data-seg="${i}" data-bound="min" value="${rMin}" min="0" max="127">
+              <span>\u2013</span>
+              <input type="number" class="rs-seg-range-input" data-channel="${channel}" data-seg="${i}" data-bound="max" value="${rMax}" min="0" max="127">
+              <span class="rs-seg-range-label">${midiNoteToName(rMax)}</span>
+            </div>
+          </div>
         `;
-      } else if (isSplit && this.splitAssignments[channel]) {
-        // === ACCEPTED SPLIT ===
-        const accepted = this.splitAssignments[channel];
-        const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+      }).join('');
 
-        const segHTML = (accepted.segments || []).map((seg, i) => {
-          const color = splitColors[i % splitColors.length];
-          const options = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
-          const selectOptions = options.map(inst => {
-            const selected = inst.id === seg.instrumentId ? 'selected' : '';
-            const name = inst.custom_name || inst.name || '?';
-            const label = name.length > 20 ? name.slice(0, 19) + '\u2026' : name;
-            return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
-          }).join('');
-          return `
-            <div class="rs-split-segment">
-              <span class="rs-seg-color" style="background:${color}"></span>
-              <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${accepted.type}">
-                ${selectOptions}
-              </select>
-              <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
+      // Detect overlaps between segments
+      const overlaps = this._detectOverlaps(segments);
+      const overlapsHTML = overlaps.map((ov, idx) => {
+        const nameA = segments[ov.segA]?.instrumentName || `Inst ${ov.segA + 1}`;
+        const nameB = segments[ov.segB]?.instrumentName || `Inst ${ov.segB + 1}`;
+        return `
+          <div class="rs-overlap-warning">
+            <span>\u26A0 ${midiNoteToName(ov.min)}-${midiNoteToName(ov.max)}: ${escapeHtml(nameA)} / ${escapeHtml(nameB)}</span>
+            <div class="rs-overlap-btns">
+              <button class="btn btn-sm rs-overlap-resolve-btn" data-channel="${channel}" data-overlap="${idx}" data-strategy="first">${escapeHtml(nameA)}</button>
+              <button class="btn btn-sm rs-overlap-resolve-btn" data-channel="${channel}" data-overlap="${idx}" data-strategy="second">${escapeHtml(nameB)}</button>
+              <button class="btn btn-sm rs-overlap-resolve-btn" data-channel="${channel}" data-overlap="${idx}" data-strategy="shared">${_t('autoAssign.splitMixed')}</button>
             </div>
-          `;
-        }).join('');
+          </div>
+        `;
+      }).join('');
 
-        splitBodyHTML = `
-          <div class="rs-split-accepted-label">${splitModeNames[accepted.type] || accepted.type} \u2014 ${_t('routingSummary.accepted')}</div>
-          ${renderSplitBar(accepted, analysis)}
-          <div class="rs-split-segments">${segHTML}</div>
-          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('autoAssign.removeSplit')}</button>
+      // Action buttons
+      let actionsHTML = '';
+      if (isSplit) {
+        actionsHTML = `
+          <div class="rs-split-actions">
+            <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument')}</button>
+            <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('autoAssign.removeSplit')}</button>
+          </div>
+        `;
+      } else {
+        actionsHTML = `
+          <div class="rs-split-actions">
+            <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument')}</button>
+            <button class="btn btn-sm rs-btn-accept-split" data-channel="${channel}">${_t('autoAssign.acceptSplit')}</button>
+          </div>
         `;
       }
 
-      // Collapsible wrapper
-      const activeData = isSplit ? this.splitAssignments[channel] : (hasSplitProposal ? this.splitProposals[channel] : null);
-      const segCount = activeData?.segments?.length || 0;
+      const segCount = segments.length;
       const quality = activeData?.quality || 0;
 
       splitHTML = `
@@ -750,7 +775,11 @@ class RoutingSummaryPage {
             ${isSplit ? '<span class="rs-split-badge">\u2713</span>' : ''}
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
-            ${splitBodyHTML}
+            ${modeTabs}
+            ${renderSplitBar(activeData, analysis)}
+            <div class="rs-split-segments">${segCardsHTML}</div>
+            ${overlapsHTML}
+            ${actionsHTML}
           </div>
         </div>
       `;
@@ -1208,6 +1237,43 @@ class RoutingSummaryPage {
         this._updateSegmentInstrument(ch, segIdx, sel.value, mode, channelKeys);
       });
     });
+
+    // Add segment
+    modal.querySelectorAll('.rs-btn-add-segment').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        this._addSplitSegment(ch, channelKeys);
+      });
+    });
+
+    // Remove segment
+    modal.querySelectorAll('.rs-btn-remove-segment').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        const segIdx = parseInt(btn.dataset.seg);
+        this._removeSplitSegment(ch, segIdx, channelKeys);
+      });
+    });
+
+    // Segment range inputs
+    modal.querySelectorAll('.rs-seg-range-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const ch = parseInt(input.dataset.channel);
+        const segIdx = parseInt(input.dataset.seg);
+        const bound = input.dataset.bound; // 'min' or 'max'
+        this._updateSegmentRange(ch, segIdx, bound, input.value, channelKeys);
+      });
+    });
+
+    // Overlap resolution
+    modal.querySelectorAll('.rs-overlap-resolve-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        const overlapIdx = parseInt(btn.dataset.overlap);
+        const strategy = btn.dataset.strategy;
+        this._resolveOverlap(ch, overlapIdx, strategy, channelKeys);
+      });
+    });
   }
 
   /**
@@ -1249,6 +1315,148 @@ class RoutingSummaryPage {
       instrumentName: inst.custom_name || inst.name,
       fullRange: { min: inst.note_range_min ?? 0, max: inst.note_range_max ?? 127 }
     };
+
+    this._refreshUI(channelKeys);
+  }
+
+  /**
+   * Detect overlapping note ranges between segments.
+   */
+  _detectOverlaps(segments) {
+    if (!segments || segments.length < 2) return [];
+    const overlaps = [];
+    for (let a = 0; a < segments.length; a++) {
+      for (let b = a + 1; b < segments.length; b++) {
+        const rA = segments[a].noteRange;
+        const rB = segments[b].noteRange;
+        if (!rA || !rB) continue;
+        const oMin = Math.max(rA.min, rB.min);
+        const oMax = Math.min(rA.max, rB.max);
+        if (oMin <= oMax) {
+          overlaps.push({ min: oMin, max: oMax, segA: a, segB: b });
+        }
+      }
+    }
+    return overlaps;
+  }
+
+  /**
+   * Get the active split data (proposal mode or accepted assignment).
+   */
+  _getActiveSplitData(channel) {
+    const isSplit = this.splitChannels.has(channel);
+    if (isSplit && this.splitAssignments[channel]) return this.splitAssignments[channel];
+    const proposal = this.splitProposals[channel];
+    if (!proposal) return null;
+    const activeMode = this.activeSplitMode[channel] || proposal.type;
+    const allModes = [proposal, ...(proposal.alternatives || [])];
+    return allModes.find(m => m.type === activeMode) || proposal;
+  }
+
+  /**
+   * Add a new segment to the split.
+   */
+  _addSplitSegment(channel, channelKeys) {
+    const data = this._getActiveSplitData(channel);
+    if (!data?.segments) return;
+    const ch = String(channel);
+    const analysis = this.channelAnalyses[channel];
+
+    // Find an instrument not already used in segments
+    const usedIds = new Set(data.segments.map(s => s.instrumentId));
+    const candidates = this._getCompatibleInstrumentsForSegment(ch, analysis?.noteRange || { min: 0, max: 127 });
+    const newInst = candidates.find(inst => !usedIds.has(inst.id));
+    if (!newInst) return; // no available instrument
+
+    // Compute default range: largest gap in current coverage, or instrument range
+    const chMin = analysis?.noteRange?.min ?? 0;
+    const chMax = analysis?.noteRange?.max ?? 127;
+    const sorted = [...data.segments].sort((a, b) => (a.noteRange?.min ?? 0) - (b.noteRange?.min ?? 0));
+    let bestGap = { min: chMin, max: chMax, size: 0 };
+    let prev = chMin;
+    for (const seg of sorted) {
+      const gapStart = prev;
+      const gapEnd = (seg.noteRange?.min ?? chMin) - 1;
+      if (gapEnd >= gapStart && (gapEnd - gapStart) > bestGap.size) {
+        bestGap = { min: gapStart, max: gapEnd, size: gapEnd - gapStart };
+      }
+      prev = Math.max(prev, (seg.noteRange?.max ?? 0) + 1);
+    }
+    // Check trailing gap
+    if (chMax >= prev && (chMax - prev) > bestGap.size) {
+      bestGap = { min: prev, max: chMax, size: chMax - prev };
+    }
+    // If no meaningful gap, use instrument range clipped to channel
+    const rangeMin = bestGap.size > 0 ? bestGap.min : Math.max(chMin, newInst.note_range_min ?? 0);
+    const rangeMax = bestGap.size > 0 ? bestGap.max : Math.min(chMax, newInst.note_range_max ?? 127);
+
+    data.segments.push({
+      instrumentId: newInst.id,
+      deviceId: newInst.device_id,
+      instrumentChannel: newInst.channel,
+      instrumentName: newInst.custom_name || newInst.name,
+      noteRange: { min: rangeMin, max: rangeMax },
+      fullRange: { min: newInst.note_range_min ?? 0, max: newInst.note_range_max ?? 127 },
+      polyphonyShare: newInst.polyphony || 16
+    });
+
+    this._refreshUI(channelKeys);
+  }
+
+  /**
+   * Remove a segment from the split (minimum 2 required).
+   */
+  _removeSplitSegment(channel, segIdx, channelKeys) {
+    const data = this._getActiveSplitData(channel);
+    if (!data?.segments || data.segments.length <= 2) return;
+    data.segments.splice(segIdx, 1);
+    this._refreshUI(channelKeys);
+  }
+
+  /**
+   * Update the note range of a segment.
+   */
+  _updateSegmentRange(channel, segIdx, bound, value, channelKeys) {
+    const data = this._getActiveSplitData(channel);
+    if (!data?.segments?.[segIdx]) return;
+    const clamped = Math.max(0, Math.min(127, parseInt(value) || 0));
+    if (bound === 'min') {
+      data.segments[segIdx].noteRange.min = clamped;
+      // Ensure min <= max
+      if (clamped > data.segments[segIdx].noteRange.max) {
+        data.segments[segIdx].noteRange.max = clamped;
+      }
+    } else {
+      data.segments[segIdx].noteRange.max = clamped;
+      if (clamped < data.segments[segIdx].noteRange.min) {
+        data.segments[segIdx].noteRange.min = clamped;
+      }
+    }
+    this._refreshUI(channelKeys);
+  }
+
+  /**
+   * Resolve an overlap between two segments.
+   */
+  _resolveOverlap(channel, overlapIdx, strategy, channelKeys) {
+    const data = this._getActiveSplitData(channel);
+    if (!data?.segments) return;
+    const overlaps = this._detectOverlaps(data.segments);
+    const ov = overlaps[overlapIdx];
+    if (!ov) return;
+
+    const segA = data.segments[ov.segA];
+    const segB = data.segments[ov.segB];
+    if (!segA?.noteRange || !segB?.noteRange) return;
+
+    if (strategy === 'first') {
+      // Give overlap zone to segment A: shrink B's min
+      segB.noteRange.min = ov.max + 1;
+    } else if (strategy === 'second') {
+      // Give overlap zone to segment B: shrink A's max
+      segA.noteRange.max = ov.min - 1;
+    }
+    // 'shared' = keep overlapping (round-robin at playback), no range change
 
     this._refreshUI(channelKeys);
   }

@@ -120,20 +120,25 @@ class ChannelSplitter {
     }
 
     // Sélection intelligente : choisir les instruments par couverture optimale
-    const instruments = this.selectBestInstrumentsForCoverage(
+    // For range/mixed splits, prefer 2 instruments (minimal cuts = highest score)
+    const instrumentsFor2 = this.selectBestInstrumentsForCoverage(
+      sameTypeInstruments, channelAnalysis, 2
+    );
+    // For polyphony splits, allow more instruments
+    const instrumentsForPoly = this.selectBestInstrumentsForCoverage(
       sameTypeInstruments, channelAnalysis, maxInstruments
     );
 
-    if (instruments.length < minInstruments) {
+    if (instrumentsFor2.length < minInstruments && instrumentsForPoly.length < minInstruments) {
       return null;
     }
 
     // Try full-coverage split first (2 instruments covering 100% of notes, with optional transposition)
     const fullCoverageSplit = this.calculateFullCoverageSplit(channelAnalysis, sameTypeInstruments);
 
-    const rangeSplit = this.calculateRangeSplit(channelAnalysis, instruments);
-    const polyphonySplit = this.calculatePolyphonySplit(channelAnalysis, instruments);
-    const mixedSplit = this.calculateMixedSplit(channelAnalysis, instruments);
+    const rangeSplit = instrumentsFor2.length >= 2 ? this.calculateRangeSplit(channelAnalysis, instrumentsFor2) : null;
+    const polyphonySplit = instrumentsForPoly.length >= 2 ? this.calculatePolyphonySplit(channelAnalysis, instrumentsForPoly) : null;
+    const mixedSplit = instrumentsFor2.length >= 2 ? this.calculateMixedSplit(channelAnalysis, instrumentsFor2) : null;
 
     const minQuality = this.config.minQuality || 50;
     const all = [fullCoverageSplit, rangeSplit, polyphonySplit, mixedSplit].filter(s => s !== null && s.quality >= minQuality);

@@ -4202,21 +4202,19 @@ body.dark-mode .aa-channel-card.skipped {
   margin-bottom: 8px;
 }
 
-.rs-split-segment {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--bg-tertiary, #f5f5f5);
-  border-radius: 4px;
-  font-size: 12px;
+/* Segment card */
+.rs-seg-card {
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--bg-primary, #fff);
 }
 
-.rs-seg-color {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.rs-seg-card-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .rs-seg-instrument-select {
@@ -4228,6 +4226,86 @@ body.dark-mode .aa-channel-card.skipped {
   background: var(--bg-primary, #fff);
   min-width: 0;
   cursor: pointer;
+}
+
+.rs-seg-instrument-select:focus {
+  border-color: var(--accent-color, #4285f4);
+  outline: none;
+}
+
+.rs-btn-remove-segment {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 22px;
+  flex-shrink: 0;
+  color: var(--text-secondary, #888);
+}
+
+/* Range inputs inline */
+.rs-seg-range-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--text-secondary, #888);
+}
+
+.rs-seg-range-input {
+  width: 38px;
+  font-size: 10px;
+  text-align: center;
+  padding: 1px 2px;
+  border: 1px solid var(--border-color-light, #eee);
+  border-radius: 3px;
+  background: var(--bg-tertiary, #f5f5f5);
+}
+
+.rs-seg-range-input:focus {
+  border-color: var(--accent-color, #4285f4);
+  outline: none;
+}
+
+.rs-seg-range-label {
+  font-family: monospace;
+  font-size: 10px;
+  min-width: 24px;
+}
+
+/* Overlap warning */
+.rs-overlap-warning {
+  background: rgba(243, 156, 18, 0.08);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  margin: 4px 0;
+}
+
+.rs-overlap-btns {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.rs-overlap-btns .btn {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+/* Split actions row */
+.rs-split-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rs-btn-add-segment {
+  flex: 1;
+  border-style: dashed;
+  font-size: 11px;
 }
 
 .rs-seg-instrument-select:focus {
