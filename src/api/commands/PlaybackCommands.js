@@ -464,9 +464,53 @@ async function applyAssignments(app, data) {
       }
     }
 
+    // Apply physical channel splitting for split assignments
+    // This duplicates the source channel into N separate channels in the MIDI data
+    let splitStats = { channelsSplit: 0, notesMoved: 0 };
+    for (const [channel, assignment] of Object.entries(data.assignments)) {
+      if (!assignment.split || !assignment.segments || assignment.segments.length < 2) continue;
+      const channelNum = parseInt(channel);
+
+      // Find free channels for the additional segments (first segment keeps source channel)
+      const freeChannels = transposer.findFreeChannels(adaptedMidiData);
+      const neededChannels = assignment.segments.length - 1;
+
+      if (freeChannels.length < neededChannels) {
+        app.logger.warn(
+          `[ApplyAssignments] Not enough free channels for split on ch ${channelNum}: ` +
+          `need ${neededChannels}, have ${freeChannels.length}. Using playback-time routing fallback.`
+        );
+        continue;
+      }
+
+      // Build segment mapping: first segment keeps source channel, others get free channels
+      const splitSegments = assignment.segments.map((seg, i) => ({
+        targetChannel: i === 0 ? channelNum : freeChannels[i - 1],
+        noteMin: seg.noteRange?.min ?? 0,
+        noteMax: seg.noteRange?.max ?? 127,
+        gmProgram: seg.gmProgram ?? null
+      }));
+
+      const splitResult = transposer.splitChannelInFile(adaptedMidiData, channelNum, splitSegments);
+      adaptedMidiData = splitResult.midiData;
+      splitStats.channelsSplit++;
+      splitStats.notesMoved += splitResult.stats.notesMoved;
+
+      // Update the assignment segments with the actual target channels for routing persistence
+      for (let i = 0; i < assignment.segments.length; i++) {
+        assignment.segments[i]._resolvedChannel = splitSegments[i].targetChannel;
+      }
+
+      app.logger.info(
+        `[ApplyAssignments] Physically split ch ${channelNum} → ` +
+        `[${splitSegments.map(s => `ch${s.targetChannel}(${s.noteMin}-${s.noteMax})`).join(', ')}]`
+      );
+    }
+
     // Only create an adapted file if actual modifications were made
     // Otherwise, routings will be saved against the original file
-    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0 || stats.notesSuppressed > 0);
+    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0 || stats.notesSuppressed > 0
+      || splitStats.channelsSplit > 0);
 
     if (hasModifications) {
       // Convert back to MIDI binary
@@ -513,44 +557,84 @@ async function applyAssignments(app, data) {
 
     // Handle split assignments (one channel → multiple instruments)
     if (assignment.split && assignment.segments) {
-      const segments = assignment.segments.map(seg => {
-        const segTargetChannel = seg.instrumentChannel !== undefined
-          ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
-          : channelNum;
+      // Check if physical splitting was done (segments have _resolvedChannel)
+      const physicalSplit = assignment.segments.some(s => s._resolvedChannel !== undefined);
 
-        return {
-          target_channel: segTargetChannel,
-          device_id: seg.deviceId,
-          instrument_name: seg.instrumentName,
-          compatibility_score: seg.score || null,
-          transposition_applied: 0,
-          auto_assigned: true,
-          assignment_reason: `Split ${assignment.splitMode || 'range'}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
-          note_remapping: null,
-          enabled: true,
-          created_at: Date.now(),
-          split_mode: assignment.splitMode || 'range',
-          split_note_min: seg.noteRange?.min ?? null,
-          split_note_max: seg.noteRange?.max ?? null,
-          split_polyphony_share: seg.polyphonyShare ?? null
-        };
-      });
+      if (physicalSplit) {
+        // Physical split: each segment is on its own MIDI channel → simple per-channel routing
+        for (const seg of assignment.segments) {
+          const resolvedCh = seg._resolvedChannel ?? channelNum;
+          const segTargetChannel = seg.instrumentChannel !== undefined
+            ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+            : resolvedCh;
+          const routing = {
+            midi_file_id: targetFileId,
+            channel: resolvedCh,
+            target_channel: segTargetChannel,
+            device_id: seg.deviceId,
+            instrument_name: seg.instrumentName,
+            compatibility_score: seg.score || null,
+            transposition_applied: 0,
+            auto_assigned: true,
+            assignment_reason: `Split ${assignment.splitMode || 'range'} from ch ${channelNum}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
+            note_remapping: null,
+            enabled: true,
+            created_at: Date.now()
+          };
+          try {
+            app.database.insertRouting(routing);
+          } catch (dbError) {
+            app.logger.warn(`Failed to persist routing for split segment ch ${resolvedCh}: ${dbError.message}`);
+          }
+          // Apply simple channel routing to MidiPlayer
+          if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+            app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
+          }
+          routings.push(routing);
+        }
+        app.logger.info(
+          `Physically split channel ${channelNum} → ${assignment.segments.map(s => `ch${s._resolvedChannel}`).join(', ')} (${assignment.splitMode})`
+        );
+      } else {
+        // No physical split (not enough free channels) → use playback-time split routing
+        const segments = assignment.segments.map(seg => {
+          const segTargetChannel = seg.instrumentChannel !== undefined
+            ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+            : channelNum;
 
-      try {
-        app.database.insertSplitRoutings(targetFileId, channelNum, segments);
-      } catch (dbError) {
-        app.logger.warn(`Failed to persist split routings for channel ${channelNum}: ${dbError.message}`);
+          return {
+            target_channel: segTargetChannel,
+            device_id: seg.deviceId,
+            instrument_name: seg.instrumentName,
+            compatibility_score: seg.score || null,
+            transposition_applied: 0,
+            auto_assigned: true,
+            assignment_reason: `Split ${assignment.splitMode || 'range'}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
+            note_remapping: null,
+            enabled: true,
+            created_at: Date.now(),
+            split_mode: assignment.splitMode || 'range',
+            split_note_min: seg.noteRange?.min ?? null,
+            split_note_max: seg.noteRange?.max ?? null,
+            split_polyphony_share: seg.polyphonyShare ?? null
+          };
+        });
+
+        try {
+          app.database.insertSplitRoutings(targetFileId, channelNum, segments);
+        } catch (dbError) {
+          app.logger.warn(`Failed to persist split routings for channel ${channelNum}: ${dbError.message}`);
+        }
+
+        if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+          app.midiPlayer.setChannelSplitRouting(channelNum, segments);
+        }
+
+        routings.push(...segments.map(s => ({ ...s, midi_file_id: targetFileId, channel: channelNum })));
+        app.logger.info(
+          `Split channel ${channelNum} across ${segments.length} instruments using playback routing (${assignment.splitMode})`
+        );
       }
-
-      // Apply split routing to MidiPlayer if currently loaded
-      if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
-        app.midiPlayer.setChannelSplitRouting(channelNum, segments);
-      }
-
-      routings.push(...segments.map(s => ({ ...s, midi_file_id: targetFileId, channel: channelNum })));
-      app.logger.info(
-        `Split channel ${channelNum} across ${segments.length} instruments (${assignment.splitMode})`
-      );
       continue;
     }
 

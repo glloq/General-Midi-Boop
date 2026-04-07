@@ -1124,45 +1124,86 @@ class RoutingSummaryPage {
    * Apply the current routing assignments
    */
   async _applyRouting() {
-    const routing = {};
-    let hasRouting = false;
+    const assignments = {};
+    let hasAssignment = false;
+    let hasSplit = false;
 
+    // Build assignments for non-split channels
     for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
-      if (this.skippedChannels.has(parseInt(ch))) continue;
+      const chNum = parseInt(ch);
+      if (this.skippedChannels.has(chNum)) continue;
+      if (this.splitChannels.has(chNum)) continue; // handled below
       if (!assignment || !assignment.deviceId) continue;
 
-      const targetChannel = assignment.instrumentChannel;
-      routing[ch] = targetChannel !== undefined && targetChannel !== null
-        ? `${assignment.deviceId}::${targetChannel}`
-        : assignment.deviceId;
-      hasRouting = true;
+      const adapt = this.adaptationSettings[ch] || {};
+      assignments[ch] = {
+        deviceId: assignment.deviceId,
+        instrumentId: assignment.instrumentId,
+        instrumentChannel: assignment.instrumentChannel,
+        instrumentName: assignment.customName || assignment.instrumentName,
+        transposition: { semitones: adapt.transpositionSemitones || 0 },
+        noteRemapping: assignment.noteRemapping || null,
+        suppressOutOfRange: adapt.oorHandling === 'suppress',
+        noteCompression: adapt.oorHandling === 'compress',
+        gmProgram: assignment.gmProgram,
+        noteRangeMin: assignment.noteRangeMin,
+        noteRangeMax: assignment.noteRangeMax,
+        noteSelectionMode: assignment.noteSelectionMode,
+        score: assignment.score
+      };
+      hasAssignment = true;
     }
 
-    // Also include split assignments
+    // Build assignments for split channels — send full segment data
     for (const [ch, splitData] of Object.entries(this.splitAssignments)) {
-      if (!this.splitChannels.has(parseInt(ch))) continue;
-      // For splits, route to the first segment's instrument (primary)
-      const firstSeg = splitData.segments?.[0];
-      if (firstSeg) {
-        routing[ch] = firstSeg.instrumentChannel !== undefined
-          ? `${firstSeg.deviceId}::${firstSeg.instrumentChannel}`
-          : firstSeg.deviceId;
-        hasRouting = true;
-      }
+      const chNum = parseInt(ch);
+      if (!this.splitChannels.has(chNum)) continue;
+      if (!splitData?.segments?.length) continue;
+
+      assignments[ch] = {
+        split: true,
+        splitMode: splitData.type || 'range',
+        segments: splitData.segments.map(seg => ({
+          deviceId: seg.deviceId,
+          instrumentId: seg.instrumentId,
+          instrumentChannel: seg.instrumentChannel,
+          instrumentName: seg.instrumentName,
+          noteRange: seg.noteRange,
+          fullRange: seg.fullRange,
+          polyphonyShare: seg.polyphonyShare,
+          score: seg.score
+        }))
+      };
+      hasAssignment = true;
+      hasSplit = true;
     }
 
-    if (!hasRouting) {
-      return;
-    }
+    if (!hasAssignment) return;
 
     try {
-      // Save routing to database
-      await this.api.sendCommand('file_routing_sync', {
-        fileId: this.fileId,
-        channels: routing
+      // Use apply_assignments which handles both normal and split routings
+      const result = await this.api.sendCommand('apply_assignments', {
+        originalFileId: this.fileId,
+        assignments,
+        createAdaptedFile: hasSplit // create adapted file when splits need physical channel separation
       });
 
-      // Also save to localStorage as backup
+      // Also build simple routing map for localStorage/eventBus compatibility
+      const routing = {};
+      for (const [ch, assignment] of Object.entries(assignments)) {
+        if (assignment.split) {
+          const firstSeg = assignment.segments[0];
+          routing[ch] = firstSeg.instrumentChannel !== undefined
+            ? `${firstSeg.deviceId}::${firstSeg.instrumentChannel}`
+            : firstSeg.deviceId;
+        } else {
+          routing[ch] = assignment.instrumentChannel !== undefined
+            ? `${assignment.deviceId}::${assignment.instrumentChannel}`
+            : assignment.deviceId;
+        }
+      }
+
+      // Save simple routing to localStorage as backup
       if (typeof fileRoutingConfig !== 'undefined') {
         fileRoutingConfig[this.fileId] = {
           channels: routing,
@@ -1174,16 +1215,23 @@ class RoutingSummaryPage {
 
       // Notify other components
       if (window.eventBus) {
-        window.eventBus.emit('routing:changed', { fileId: this.fileId, channels: routing });
+        window.eventBus.emit('routing:changed', {
+          fileId: result?.adaptedFileId || this.fileId,
+          channels: routing,
+          hasSplits: hasSplit
+        });
       }
 
-      // Refresh file list
       if (window.midiFileManager) {
         window.midiFileManager.refreshFileList();
       }
 
       if (this.onApplyCallback) {
-        this.onApplyCallback({ fileId: this.fileId, routing });
+        this.onApplyCallback({
+          fileId: result?.adaptedFileId || this.fileId,
+          routing,
+          hasSplits: hasSplit
+        });
       }
 
       this.close();

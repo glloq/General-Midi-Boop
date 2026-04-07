@@ -408,6 +408,164 @@ class MidiTransposer {
     };
   }
 
+  /**
+   * Physically split a MIDI channel into N separate channels in the file.
+   * Each segment gets a copy of the source channel's events, filtered to its note range.
+   * Control events (CC, pitch bend, program change) are broadcast to all target channels.
+   * The source channel's first segment keeps the original channel number.
+   *
+   * @param {Object} midiData - Parsed MIDI data with tracks/events
+   * @param {number} sourceChannel - Source MIDI channel (0-15) to split
+   * @param {Array} segments - [{ targetChannel: number, noteMin: number, noteMax: number, gmProgram?: number }]
+   *   targetChannel: MIDI channel (0-15) for this segment's output
+   *   noteMin/noteMax: note range this segment handles (inclusive)
+   * @returns {{ midiData: Object, stats: { notesMoved: number, controlsDuplicated: number, segmentCounts: number[] } }}
+   */
+  splitChannelInFile(midiData, sourceChannel, segments) {
+    if (!segments || segments.length < 2) {
+      return { midiData, stats: { notesMoved: 0, controlsDuplicated: 0, segmentCounts: [] } };
+    }
+
+    const modifiedData = {
+      ...midiData,
+      tracks: midiData.tracks.map(track => ({
+        ...track,
+        events: track.events ? [...track.events] : []
+      }))
+    };
+
+    let notesMoved = 0;
+    let controlsDuplicated = 0;
+    const segmentCounts = new Array(segments.length).fill(0);
+
+    for (const track of modifiedData.tracks) {
+      if (!track.events) continue;
+
+      // Check if this track has events on the source channel
+      const hasSourceChannel = track.events.some(e => e.channel === sourceChannel);
+      if (!hasSourceChannel) continue;
+
+      const newEvents = [];
+      // Track noteOn→segment mapping to route matching noteOff to the same segment
+      const activeNotes = new Map(); // note → segmentIndex
+
+      for (let i = 0; i < track.events.length; i++) {
+        const event = track.events[i];
+
+        // Keep all events not on the source channel as-is
+        if (event.channel !== sourceChannel) {
+          newEvents.push(event);
+          continue;
+        }
+
+        // Meta events (no channel) — keep as-is
+        if (event.channel === undefined) {
+          newEvents.push(event);
+          continue;
+        }
+
+        const isNoteOn = event.type === 'noteOn' && (event.velocity > 0);
+        const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0);
+        const note = event.note ?? event.noteNumber;
+
+        if (isNoteOn && note !== undefined) {
+          // Find which segment handles this note
+          const segIdx = segments.findIndex(s => note >= s.noteMin && note <= s.noteMax);
+          if (segIdx >= 0) {
+            activeNotes.set(note, segIdx);
+            newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
+            segmentCounts[segIdx]++;
+            if (segments[segIdx].targetChannel !== sourceChannel) notesMoved++;
+          } else {
+            // Note outside all segments — route to nearest segment
+            let closest = 0, minDist = Infinity;
+            for (let s = 0; s < segments.length; s++) {
+              const dist = Math.min(Math.abs(note - segments[s].noteMin), Math.abs(note - segments[s].noteMax));
+              if (dist < minDist) { minDist = dist; closest = s; }
+            }
+            activeNotes.set(note, closest);
+            newEvents.push({ ...event, channel: segments[closest].targetChannel });
+            segmentCounts[closest]++;
+            if (segments[closest].targetChannel !== sourceChannel) notesMoved++;
+          }
+        } else if (isNoteOff && note !== undefined) {
+          // Route noteOff to the same segment as its matching noteOn
+          const segIdx = activeNotes.get(note) ?? 0;
+          activeNotes.delete(note);
+          newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
+        } else {
+          // Control events (CC, pitch bend, program change, aftertouch, etc.)
+          // Broadcast to all target channels
+          const uniqueChannels = [...new Set(segments.map(s => s.targetChannel))];
+          for (let c = 0; c < uniqueChannels.length; c++) {
+            if (c === 0) {
+              // First copy: modify in place
+              newEvents.push({ ...event, channel: uniqueChannels[0] });
+            } else {
+              // Additional copies: insert with deltaTime 0
+              newEvents.push({ ...event, channel: uniqueChannels[c], deltaTime: 0 });
+              controlsDuplicated++;
+            }
+          }
+        }
+      }
+
+      track.events = newEvents;
+    }
+
+    // Insert program change events at the start for segments that need a specific GM program
+    for (const seg of segments) {
+      if (seg.gmProgram != null && seg.targetChannel !== sourceChannel) {
+        // Find the first track with events and prepend a program change
+        const firstTrack = modifiedData.tracks.find(t => t.events?.length > 0);
+        if (firstTrack) {
+          firstTrack.events.unshift({
+            deltaTime: 0,
+            type: 'programChange',
+            channel: seg.targetChannel,
+            programNumber: seg.gmProgram
+          });
+        }
+      }
+    }
+
+    this.logger?.info?.(
+      `[SplitChannel] Ch ${sourceChannel} → ${segments.length} segments: ` +
+      `${notesMoved} notes moved, ${controlsDuplicated} controls duplicated, ` +
+      `counts: [${segmentCounts.join(', ')}]`
+    );
+
+    return {
+      midiData: modifiedData,
+      stats: { notesMoved, controlsDuplicated, segmentCounts }
+    };
+  }
+
+  /**
+   * Find free MIDI channels in a parsed MIDI file.
+   * Returns channels not used by any noteOn/noteOff event.
+   * Channel 9 (drums) is excluded unless explicitly requested.
+   *
+   * @param {Object} midiData - Parsed MIDI data
+   * @param {boolean} includeDrumChannel - Whether to include channel 9 (default false)
+   * @returns {number[]} - Array of free channel numbers (0-15)
+   */
+  findFreeChannels(midiData, includeDrumChannel = false) {
+    const usedChannels = new Set();
+    for (const track of (midiData.tracks || [])) {
+      for (const event of (track.events || [])) {
+        if ((event.type === 'noteOn' || event.type === 'noteOff') && event.channel !== undefined) {
+          usedChannels.add(event.channel);
+        }
+      }
+    }
+    const free = [];
+    for (let ch = 0; ch < 16; ch++) {
+      if (ch === 9 && !includeDrumChannel) continue;
+      if (!usedChannels.has(ch)) free.push(ch);
+    }
+    return free;
+  }
 }
 
 export default MidiTransposer;
