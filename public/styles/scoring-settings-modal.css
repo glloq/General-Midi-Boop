@@ -9,6 +9,78 @@
   max-height: 80vh;
 }
 
+/* Preset bar */
+.ss-preset-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ss-preset-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.ss-preset-bar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.ss-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color, #ddd);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.ss-preset-chip:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--text-secondary, #999);
+}
+
+.ss-preset-chip.active {
+  background: var(--accent-color, #4285f4);
+  color: white;
+  border-color: var(--accent-color, #4285f4);
+  box-shadow: 0 2px 6px rgba(66, 133, 244, 0.3);
+}
+
+.ss-preset-chip.active.modified {
+  border-style: dashed;
+  box-shadow: 0 2px 6px rgba(66, 133, 244, 0.15);
+}
+
+.ss-preset-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ss-preset-name {
+  line-height: 1;
+}
+
+.ss-preset-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  padding: 0 16px 10px;
+  min-height: 16px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  transition: opacity 0.15s;
+}
+
 /* Tabs bar */
 .ss-tabs {
   display: flex;

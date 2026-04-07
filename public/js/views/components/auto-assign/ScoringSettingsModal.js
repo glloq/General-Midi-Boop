@@ -14,6 +14,8 @@ class ScoringSettingsModal extends BaseModal {
     this.overrides = JSON.parse(JSON.stringify(currentOverrides));
     this.onApplyCallback = onApply;
     this.activeTab = 'general';
+    this.activePreset = currentOverrides._preset || null;
+    this.presetSnapshot = null;
   }
 
   // ============================================================================
@@ -34,6 +36,77 @@ class ScoringSettingsModal extends BaseModal {
       },
       splitting: { triggerBelowScore: 60, minQuality: 50, maxInstruments: 4 }
     };
+  }
+
+  // ============================================================================
+  // Presets
+  // ============================================================================
+
+  static getPresets() {
+    return [
+      { key: 'balanced', icon: '\u2696\uFE0F', label: 'scoringSettings.presetBalanced', desc: 'scoringSettings.presetBalancedDesc',
+        weights: { noteRange: 40, programMatch: 22, instrumentType: 20, polyphony: 13, ccSupport: 5 },
+        scoreThresholds: { acceptable: 60, minimum: 30 },
+        penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
+        bonuses: { sameCategoryMatch: 15, sameFamilyMatch: 12, exactTypeMatch: 20 },
+        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 50, instrumentType: 30, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 60, minQuality: 50, maxInstruments: 4 } },
+
+      { key: 'orchestral', icon: '\uD83C\uDFBB', label: 'scoringSettings.presetOrchestral', desc: 'scoringSettings.presetOrchestralDesc',
+        weights: { noteRange: 35, programMatch: 25, instrumentType: 25, polyphony: 8, ccSupport: 7 },
+        scoreThresholds: { acceptable: 65, minimum: 35 },
+        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 2 },
+        bonuses: { sameCategoryMatch: 18, sameFamilyMatch: 15, exactTypeMatch: 25 },
+        percussion: { drumChannelDrumBonus: 10, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 45, instrumentType: 35, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 55, minQuality: 55, maxInstruments: 3 } },
+
+      { key: 'pop_rock', icon: '\uD83C\uDFB8', label: 'scoringSettings.presetPopRock', desc: 'scoringSettings.presetPopRockDesc',
+        weights: { noteRange: 45, programMatch: 18, instrumentType: 22, polyphony: 12, ccSupport: 3 },
+        scoreThresholds: { acceptable: 55, minimum: 25 },
+        penalties: { transpositionPerOctave: 4, maxTranspositionOctaves: 2 },
+        bonuses: { sameCategoryMatch: 12, sameFamilyMatch: 8, exactTypeMatch: 18 },
+        percussion: { drumChannelDrumBonus: 20, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 55, instrumentType: 25, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 65, minQuality: 45, maxInstruments: 3 } },
+
+      { key: 'electronic', icon: '\uD83C\uDFB9', label: 'scoringSettings.presetElectronic', desc: 'scoringSettings.presetElectronicDesc',
+        weights: { noteRange: 25, programMatch: 30, instrumentType: 22, polyphony: 15, ccSupport: 8 },
+        scoreThresholds: { acceptable: 55, minimum: 25 },
+        penalties: { transpositionPerOctave: 1, maxTranspositionOctaves: 5 },
+        bonuses: { sameCategoryMatch: 18, sameFamilyMatch: 14, exactTypeMatch: 22 },
+        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 40, instrumentType: 30, polyphony: 15, programMatch: 10, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 50, minQuality: 40, maxInstruments: 5 } },
+
+      { key: 'jazz', icon: '\uD83C\uDFB7', label: 'scoringSettings.presetJazz', desc: 'scoringSettings.presetJazzDesc',
+        weights: { noteRange: 38, programMatch: 20, instrumentType: 28, polyphony: 8, ccSupport: 6 },
+        scoreThresholds: { acceptable: 60, minimum: 30 },
+        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 3 },
+        bonuses: { sameCategoryMatch: 20, sameFamilyMatch: 16, exactTypeMatch: 22 },
+        percussion: { drumChannelDrumBonus: 18, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 45, instrumentType: 35, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 55, minQuality: 50, maxInstruments: 3 } },
+
+      { key: 'drums_focused', icon: '\uD83E\uDD41', label: 'scoringSettings.presetDrumsFocused', desc: 'scoringSettings.presetDrumsFocusedDesc',
+        weights: { noteRange: 35, programMatch: 20, instrumentType: 20, polyphony: 15, ccSupport: 10 },
+        scoreThresholds: { acceptable: 55, minimum: 25 },
+        penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
+        bonuses: { sameCategoryMatch: 15, sameFamilyMatch: 12, exactTypeMatch: 20 },
+        percussion: { drumChannelDrumBonus: 25, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 60, instrumentType: 20, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 70, minQuality: 55, maxInstruments: 5 } },
+
+      { key: 'minimal', icon: '\uD83C\uDFB5', label: 'scoringSettings.presetMinimal', desc: 'scoringSettings.presetMinimalDesc',
+        weights: { noteRange: 45, programMatch: 15, instrumentType: 18, polyphony: 15, ccSupport: 7 },
+        scoreThresholds: { acceptable: 45, minimum: 20 },
+        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 4 },
+        bonuses: { sameCategoryMatch: 12, sameFamilyMatch: 10, exactTypeMatch: 15 },
+        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 50, instrumentType: 30, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 40, minQuality: 35, maxInstruments: 2 } }
+    ];
   }
 
   // ============================================================================
@@ -61,7 +134,21 @@ class ScoringSettingsModal extends BaseModal {
 
   renderBody() {
     this._ensureDefaults();
+    this._detectActivePreset();
+    const presets = ScoringSettingsModal.getPresets();
+    const activeP = presets.find(p => p.key === this.activePreset);
+
     return `
+      <div class="ss-preset-bar">
+        ${presets.map(p => `
+          <button class="ss-preset-chip ${this.activePreset === p.key ? 'active' : ''}" data-preset="${p.key}" title="${this.t(p.desc)}">
+            <span class="ss-preset-icon">${p.icon}</span>
+            <span class="ss-preset-name">${this.t(p.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="ss-preset-desc" id="ssPresetDesc">${activeP ? this.t(activeP.desc) : ''}</div>
+
       <div class="ss-tabs" role="tablist">
         <button class="ss-tab ${this.activeTab === 'general' ? 'active' : ''}" data-tab="general" role="tab">
           ${this.t('scoringSettings.tabGeneral')}
@@ -242,10 +329,16 @@ class ScoringSettingsModal extends BaseModal {
       });
     });
 
+    // Preset chip clicks
+    dialog.querySelectorAll('.ss-preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => this._applyPreset(chip.dataset.preset));
+    });
+
     // Linked weight sliders (general)
     dialog.querySelectorAll('.ss-linked').forEach(slider => {
       slider.addEventListener('input', () => {
         this._onLinkedWeightChange(slider.dataset.key, parseInt(slider.value), 'weights', 'ssW_', 'ssWeightTotal');
+        this._updatePresetIndicator();
       });
     });
 
@@ -253,6 +346,7 @@ class ScoringSettingsModal extends BaseModal {
     dialog.querySelectorAll('.ss-drum-linked').forEach(slider => {
       slider.addEventListener('input', () => {
         this._onLinkedWeightChange(slider.dataset.key, parseInt(slider.value), 'drumWeights', 'ssDW_', 'ssDrumWeightTotal');
+        this._updatePresetIndicator();
       });
     });
 
@@ -266,6 +360,7 @@ class ScoringSettingsModal extends BaseModal {
           this.overrides[group][key] = val;
         }
         slider.nextElementSibling.textContent = val;
+        this._updatePresetIndicator();
       });
     });
 
@@ -334,9 +429,28 @@ class ScoringSettingsModal extends BaseModal {
   // Actions
   // ============================================================================
 
-  _reset() {
-    this.overrides = ScoringSettingsModal.getDefaults();
-    // Re-render body
+  // ============================================================================
+  // Preset management
+  // ============================================================================
+
+  _applyPreset(key) {
+    const preset = ScoringSettingsModal.getPresets().find(p => p.key === key);
+    if (!preset) return;
+
+    // Deep copy preset values into overrides
+    this.overrides.weights = { ...preset.weights };
+    this.overrides.scoreThresholds = { ...preset.scoreThresholds };
+    this.overrides.penalties = { ...preset.penalties };
+    this.overrides.bonuses = { ...preset.bonuses };
+    this.overrides.percussion = {
+      ...preset.percussion,
+      drumChannelWeights: { ...preset.percussion.drumChannelWeights }
+    };
+    this.overrides.splitting = { ...preset.splitting };
+    this.activePreset = key;
+    this.presetSnapshot = JSON.stringify(this.overrides);
+
+    // Re-render body and re-attach events
     const bodyEl = this.dialog?.querySelector('.modal-body');
     if (bodyEl) {
       bodyEl.innerHTML = this.renderBody();
@@ -344,7 +458,74 @@ class ScoringSettingsModal extends BaseModal {
     }
   }
 
+  _detectActivePreset() {
+    const presets = ScoringSettingsModal.getPresets();
+    const compareKeys = ['weights', 'scoreThresholds', 'penalties', 'bonuses', 'splitting'];
+
+    for (const preset of presets) {
+      let matches = true;
+      for (const group of compareKeys) {
+        if (!this.overrides[group]) { matches = false; break; }
+        for (const [k, v] of Object.entries(preset[group])) {
+          if (this.overrides[group][k] !== v) { matches = false; break; }
+        }
+        if (!matches) break;
+      }
+      // Also check percussion
+      if (matches && this.overrides.percussion) {
+        if (this.overrides.percussion.drumChannelDrumBonus !== preset.percussion.drumChannelDrumBonus) matches = false;
+        if (matches && this.overrides.percussion.drumChannelWeights) {
+          for (const [k, v] of Object.entries(preset.percussion.drumChannelWeights)) {
+            if (this.overrides.percussion.drumChannelWeights[k] !== v) { matches = false; break; }
+          }
+        }
+      }
+      if (matches) {
+        this.activePreset = preset.key;
+        this.presetSnapshot = JSON.stringify(this.overrides);
+        return;
+      }
+    }
+    this.activePreset = null;
+    this.presetSnapshot = null;
+  }
+
+  _updatePresetIndicator() {
+    const dialog = this.dialog;
+    if (!dialog) return;
+
+    // Check if current values still match the active preset
+    const isModified = this.presetSnapshot && JSON.stringify(this.overrides) !== this.presetSnapshot;
+
+    dialog.querySelectorAll('.ss-preset-chip').forEach(chip => {
+      const isActive = chip.dataset.preset === this.activePreset;
+      chip.classList.toggle('active', isActive);
+      chip.classList.toggle('modified', isActive && isModified);
+    });
+
+    // Update description
+    const descEl = dialog.querySelector('#ssPresetDesc');
+    if (descEl) {
+      if (this.activePreset) {
+        const preset = ScoringSettingsModal.getPresets().find(p => p.key === this.activePreset);
+        descEl.textContent = preset ? this.t(preset.desc) : '';
+      } else {
+        descEl.textContent = '';
+      }
+    }
+  }
+
+  // ============================================================================
+  // Actions
+  // ============================================================================
+
+  _reset() {
+    this._applyPreset('balanced');
+  }
+
   _apply() {
+    // Persist the active preset key in the overrides (ignored by backend)
+    this.overrides._preset = this.activePreset;
     if (typeof this.onApplyCallback === 'function') {
       this.onApplyCallback(this.overrides);
     }
