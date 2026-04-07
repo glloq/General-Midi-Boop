@@ -126,6 +126,7 @@ class RoutingSummaryPage {
     this.loading = true;
     this.adaptationSettings = {}; // Per-channel adaptation overrides
     this.showLowScores = {}; // Per-channel toggle for low score instruments
+    this.autoAdaptation = true; // Toggle for automatic MIDI channel adaptation
 
     // Preview state
     this.midiData = null;
@@ -376,12 +377,14 @@ class RoutingSummaryPage {
               <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
                 ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
               </span>
+              <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
+                ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
+              </button>
               <span class="rs-channel-count">
                 ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
               </span>
             </div>
             <div class="rs-header-right">
-              <span class="rs-filename" title="${escapeHtml(this.filename)}">${escapeHtml(this.filename)}</span>
               <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
               <button class="modal-close" id="rsSummaryClose">&times;</button>
             </div>
@@ -402,9 +405,6 @@ class RoutingSummaryPage {
           <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
           <div class="rs-footer-center"></div>
           <div class="rs-footer-right">
-            <button class="btn" id="rsSummaryAdvanced" title="${_t('routingSummary.openAdvanced')}">
-              ${_t('routingSummary.openAdvanced')}
-            </button>
             <button class="btn btn-primary" id="rsSummaryApply">
               ${_t('routingSummary.applyAll')}
             </button>
@@ -414,6 +414,59 @@ class RoutingSummaryPage {
     `;
 
     this._bindEvents(channelKeys);
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
+
+  /**
+   * Compute playable notes ratio for a channel's assignment.
+   * @returns {{ playable: number, total: number } | null}
+   */
+  _computePlayableNotes(ch) {
+    const assignment = this.selectedAssignments[String(ch)];
+    const analysis = this.channelAnalyses[parseInt(ch)] || assignment?.channelAnalysis;
+    if (!assignment || !analysis?.noteDistribution) return null;
+
+    const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+    const totalNotes = usedNotes.length;
+    if (totalNotes === 0) return null;
+
+    const instMin = assignment.noteRangeMin ?? 0;
+    const instMax = assignment.noteRangeMax ?? 127;
+    const adapt = this.adaptationSettings[String(ch)] || {};
+    const semi = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+    const playable = usedNotes.filter(n => {
+      const shifted = n + semi;
+      return shifted >= instMin && shifted <= instMax;
+    }).length;
+    return { playable, total: totalNotes };
+  }
+
+  /**
+   * Build <option> list for instrument dropdown in summary table.
+   */
+  _buildInstrumentOptions(ch, assignment, isSkipped) {
+    const options = this.suggestions[String(ch)] || [];
+    const lowOptions = this.lowScoreSuggestions[String(ch)] || [];
+    const allOptions = [...options, ...lowOptions];
+    const currentId = assignment?.instrumentId || '';
+
+    if (allOptions.length === 0) {
+      return `<option value="">\u2014</option>`;
+    }
+
+    let html = '';
+    for (const opt of allOptions) {
+      const inst = opt.instrument;
+      const score = opt.compatibility?.score || 0;
+      const name = inst.custom_name || inst.name || '?';
+      const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
+      const selected = inst.id === currentId ? 'selected' : '';
+      html += `<option value="${inst.id}" ${selected}>${escapeHtml(displayName)} (${score})</option>`;
+    }
+    return html;
   }
 
   // ============================================================================
@@ -434,45 +487,48 @@ class RoutingSummaryPage {
         ? _t('autoAssign.drums')
         : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
 
-      // Assigned instrument(s)
-      let assignedName;
-      if (isSplit && this.splitAssignments[channel]) {
-        const segments = this.splitAssignments[channel].segments || [];
-        assignedName = segments.map(seg => seg.instrumentName || 'Instrument').join(' + ');
-      } else {
-        assignedName = assignment?.customName || assignment?.instrumentName || '\u2014';
-      }
-
-      // Status
-      const hasSplitProposal = !!this.splitProposals[channel];
-      let statusIcon, statusClass, statusLabel;
+      // Status class
+      let statusClass;
       if (isSkipped) {
-        statusIcon = '\u2014';
         statusClass = 'skipped';
-        statusLabel = _t('autoAssign.overviewStatusSkipped');
-      } else if (isSplit) {
-        statusIcon = '&#8645;';
+      } else if (isSplit || score >= 70) {
         statusClass = 'ok';
-        statusLabel = _t('autoAssign.splitProposed');
-      } else if (score >= 70) {
-        statusIcon = '&#10003;';
-        statusClass = 'ok';
-        statusLabel = _t('autoAssign.overviewStatusOk');
       } else {
-        statusIcon = '!';
         statusClass = 'warning';
-        statusLabel = _t('autoAssign.overviewStatusWarning');
       }
-
-      const splitBadge = (hasSplitProposal && !isSplit && !isSkipped)
-        ? '<span class="rs-split-badge" title="' + _t('autoAssign.splitProposed') + '">SP</span>'
-        : (isSplit ? '<span class="rs-split-badge active">SP</span>' : '');
 
       const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
       const isSelected = this.selectedChannel === channel;
 
-      // Score dot indicator (compact visual feedback in table)
+      // Score dot indicator
       const scoreDotClass = isSkipped ? 'rs-dot-skip' : (score >= 70 ? 'rs-dot-ok' : score >= 40 ? 'rs-dot-warn' : 'rs-dot-poor');
+
+      // Assigned column: dropdown for single instrument, text for split
+      let assignedHTML;
+      if (isSkipped) {
+        assignedHTML = `<span class="rs-skipped">${_t('autoAssign.overviewStatusSkipped')}</span>`;
+      } else if (isSplit && this.splitAssignments[channel]) {
+        // Show split instrument names (no SP badge)
+        const segments = this.splitAssignments[channel].segments || [];
+        const splitNames = segments.map((seg, i) => {
+          const color = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'][i % 4];
+          const name = seg.instrumentName || 'Instrument';
+          const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
+          return `<span class="rs-split-inst-name" style="color:${color}" title="${escapeHtml(name)}">${escapeHtml(displayName)}</span>`;
+        }).join(' + ');
+        assignedHTML = `<div class="rs-split-instruments">${splitNames}</div>`;
+      } else {
+        // Dropdown for single instrument selection
+        assignedHTML = `<select class="rs-instrument-select" data-channel="${ch}">${this._buildInstrumentOptions(ch, assignment, isSkipped)}</select>`;
+      }
+
+      // Score + playable notes
+      let scoreHTML = '';
+      if (!isSkipped) {
+        const playableInfo = this._computePlayableNotes(ch);
+        const playableText = playableInfo ? `<span class="rs-playable-count">${playableInfo.playable}/${playableInfo.total}</span>` : '';
+        scoreHTML = `<span class="rs-score-value ${getScoreClass(score)}">${score}</span>${playableText}`;
+      }
 
       return `
         <tr class="rs-row ${isSkipped ? 'skipped' : ''} ${statusClass} ${isSelected ? 'selected' : ''}"
@@ -480,11 +536,13 @@ class RoutingSummaryPage {
             aria-label="${_t('autoAssign.channel')} ${channel + 1}">
           <td class="rs-col-ch">
             <span class="rs-score-dot ${scoreDotClass}"></span>
-            ${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''} ${splitBadge}
+            ${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
           </td>
           <td class="rs-col-original">${escapeHtml(gmName)}</td>
-          <td class="rs-col-assigned">${isSkipped ? '<span class="rs-skipped">' + statusLabel + '</span>' : escapeHtml(assignedName)}${isSplit ? renderSplitBar(this.splitAssignments[channel], analysis) : ''}</td>
+          <td class="rs-col-assigned">${assignedHTML}</td>
+          <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-actions">
+            <button class="btn btn-sm rs-btn-intelligent" data-channel="${channel}" title="${_t('routingSummary.openIntelligent') || 'Routage intelligent'}">&#9881;</button>
             ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip" data-channel="${channel}" title="${_t('routingSummary.skip')}">&times;</button>` : `<button class="btn btn-sm rs-btn-unskip" data-channel="${channel}" title="${_t('routingSummary.unskip')}">+</button>`}
           </td>
         </tr>
@@ -499,6 +557,7 @@ class RoutingSummaryPage {
               <th>${_t('autoAssign.overviewChannel')}</th>
               <th>${_t('autoAssign.overviewOriginal')}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
+              <th>${_t('routingSummary.score') || 'Score'}</th>
               <th></th>
             </tr>
           </thead>
@@ -568,22 +627,8 @@ class RoutingSummaryPage {
     const assignedName = assignment?.customName || assignment?.instrumentName || null;
 
     // Compute playable notes ratio
-    let playableInfo = '';
-    if (assignment && analysis?.noteDistribution) {
-      const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
-      const totalNotes = usedNotes.length;
-      if (totalNotes > 0) {
-        const instMin = assignment.noteRangeMin ?? 0;
-        const instMax = assignment.noteRangeMax ?? 127;
-        const adapt = this.adaptationSettings[ch] || {};
-        const semi = (adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
-        const playable = usedNotes.filter(n => {
-          const shifted = n + semi;
-          return shifted >= instMin && shifted <= instMax;
-        }).length;
-        playableInfo = `(${playable}/${totalNotes})`;
-      }
-    }
+    const playableData = this._computePlayableNotes(ch);
+    const playableInfo = playableData ? `(${playableData.playable}/${playableData.total})` : '';
 
     // Adaptation controls (pitch shift + OOR handling)
     let adaptHTML = '';
@@ -751,6 +796,32 @@ class RoutingSummaryPage {
         `;
       }).join('');
 
+      // Detect uncovered notes
+      let uncoveredHTML = '';
+      if (analysis?.noteDistribution && segments.length > 0) {
+        const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+        const adapt = this.adaptationSettings[ch] || {};
+        const semi = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+        const uncoveredNotes = usedNotes.filter(n => {
+          const shifted = n + semi;
+          return !segments.some(seg => {
+            const sMin = seg.noteRange?.min ?? 0;
+            const sMax = seg.noteRange?.max ?? 127;
+            return shifted >= sMin && shifted <= sMax;
+          });
+        });
+        if (uncoveredNotes.length > 0) {
+          const uncMin = Math.min(...uncoveredNotes);
+          const uncMax = Math.max(...uncoveredNotes);
+          uncoveredHTML = `
+            <div class="rs-uncovered-warning">
+              <span>\u26A0 ${uncoveredNotes.length} ${_t('routingSummary.uncoveredNotes') || 'notes non couvertes'} (${midiNoteToName(uncMin)}-${midiNoteToName(uncMax)})</span>
+              <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
+            </div>
+          `;
+        }
+      }
+
       // Action buttons
       let actionsHTML = '';
       if (isSplit) {
@@ -784,11 +855,34 @@ class RoutingSummaryPage {
             ${renderSplitBar(activeData, analysis)}
             <div class="rs-split-segments">${segCardsHTML}</div>
             ${overlapsHTML}
+            ${uncoveredHTML}
             ${actionsHTML}
           </div>
         </div>
       `;
     }
+
+    // Multi-instrument list (for split channels)
+    let multiInstHTML = '';
+    if (isSplit && this.splitAssignments[channel]) {
+      const segments = this.splitAssignments[channel].segments || [];
+      const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+      multiInstHTML = `<div class="rs-multi-inst-list">
+        ${segments.map((seg, i) => {
+          const color = splitColors[i % splitColors.length];
+          const name = seg.instrumentName || 'Instrument';
+          const rMin = seg.noteRange?.min ?? 0;
+          const rMax = seg.noteRange?.max ?? 127;
+          return `<div class="rs-multi-inst-item" style="border-left: 3px solid ${color}">
+            <span class="rs-multi-inst-name" style="color:${color}">${escapeHtml(name)}</span>
+            <span class="rs-multi-inst-range">${midiNoteToName(rMin)} - ${midiNoteToName(rMax)}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Mute button
+    const muteHTML = `<button class="btn btn-sm rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.muteChannel') || 'Mute'}">${isSkipped ? '&#128264;' : '&#128266;'}</button>`;
 
     return `
       <div class="rs-detail-content">
@@ -800,13 +894,22 @@ class RoutingSummaryPage {
             </span>
             ${score > 0 ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
             ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
+            ${muteHTML}
           </div>
           <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
         </div>
 
-        ${rangeBarsHTML}
-        ${instrumentChipsHTML}
-        ${adaptHTML}
+        <div class="rs-detail-body">
+          <div class="rs-detail-left">
+            ${multiInstHTML}
+            ${instrumentChipsHTML}
+            ${adaptHTML}
+          </div>
+          <div class="rs-detail-right">
+            ${rangeBarsHTML}
+          </div>
+        </div>
+
         ${splitHTML}
       </div>
     `;
@@ -882,7 +985,9 @@ class RoutingSummaryPage {
   }
 
   /**
-   * Render wide dual range bars (channel notes vs instrument range)
+   * Render full 0-127 MIDI range visualization with two-line display.
+   * Line 1: Channel notes (with transposition applied directly)
+   * Line 2: Instrument playable range(s) with name labels and vertical connectors
    */
   _renderRangeBars(channel, analysis, assignment) {
     if (!analysis?.noteRange || analysis.noteRange.min == null) return '';
@@ -890,97 +995,113 @@ class RoutingSummaryPage {
     const ch = String(channel);
     const chMin = analysis.noteRange.min;
     const chMax = analysis.noteRange.max;
-    const isSplit = this.splitChannels.has(channel);
+    const FULL_RANGE = 128; // 0-127
 
-    // Transposition from adaptation settings
+    // Transposition: directly shift channel notes position
     const adapt = this.adaptationSettings[ch] || {};
-    const semitones = (adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
-    const trMin = Math.max(0, Math.min(127, chMin + semitones));
-    const trMax = Math.max(0, Math.min(127, chMax + semitones));
+    const semitones = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+    const displayChMin = Math.max(0, Math.min(127, chMin + semitones));
+    const displayChMax = Math.max(0, Math.min(127, chMax + semitones));
 
-    // Compute global range for display (include all bars)
-    let globalMin = chMin, globalMax = chMax;
-    if (semitones !== 0) {
-      globalMin = Math.min(globalMin, trMin);
-      globalMax = Math.max(globalMax, trMax);
-    }
+    // Channel notes bar (line 1) - position on 0-127 scale
+    const chLeft = (displayChMin / FULL_RANGE) * 100;
+    const chWidth = Math.max(1, ((displayChMax - displayChMin) / FULL_RANGE) * 100);
 
+    const transLabel = semitones !== 0 ? ` (${semitones > 0 ? '+' : ''}${semitones}st)` : '';
+    const chBarTitle = `${_t('autoAssign.channelNotes')}: ${midiNoteToName(displayChMin)}-${midiNoteToName(displayChMax)}${transLabel}`;
+
+    // Instrument bars (line 2) - one or multiple depending on split
     const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
-    let instBars = '';
+    let instBarsHTML = '';
     let legendItems = '';
-    const instName = assignment?.customName || assignment?.instrumentName || _t('autoAssign.instrumentRange');
 
-    // Use active split data (accepted OR proposed) for range visualization
     const splitData = this._getActiveSplitData(channel);
     if (splitData?.segments?.length > 0) {
+      // Multi-instrument split
       const segs = splitData.segments;
-      for (const seg of segs) {
-        if (seg.fullRange) { globalMin = Math.min(globalMin, seg.fullRange.min); globalMax = Math.max(globalMax, seg.fullRange.max); }
-        if (seg.noteRange) { globalMin = Math.min(globalMin, seg.noteRange.min); globalMax = Math.max(globalMax, seg.noteRange.max); }
-      }
-      const span = globalMax - globalMin || 1;
-      instBars = segs.map((seg, i) => {
+      instBarsHTML = segs.map((seg, i) => {
         const sMin = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
         const sMax = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
-        const left = Math.round(((sMin - globalMin) / span) * 100);
-        const width = Math.max(2, Math.round(((sMax - sMin) / span) * 100));
+        const left = (sMin / FULL_RANGE) * 100;
+        const width = Math.max(1, ((sMax - sMin) / FULL_RANGE) * 100);
         const color = splitColors[i % splitColors.length];
         const name = seg.instrumentName || `Inst ${i + 1}`;
-        return `<div class="rs-range-bar rs-range-inst-bar" style="left:${left}%;width:${width}%;background:${color}33;border:1px solid ${color}" title="${escapeHtml(name)}: ${midiNoteToName(sMin)}-${midiNoteToName(sMax)}"></div>`;
+
+        // Detect non-played portions (dotted) based on channel note distribution
+        let dottedCSS = '';
+        if (analysis?.noteDistribution) {
+          const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+          const shiftedNotes = usedNotes.map(n => n + semitones);
+          const hasNotesInRange = shiftedNotes.some(n => n >= sMin && n <= sMax);
+          if (!hasNotesInRange) {
+            dottedCSS = 'rs-range-dotted';
+          }
+        }
+
+        // Vertical connectors at extremities
+        const connLeftPct = (sMin / FULL_RANGE) * 100;
+        const connRightPct = (sMax / FULL_RANGE) * 100;
+
+        return `
+          <div class="rs-range-inst-line">
+            <div class="rs-range-connector" style="left:${connLeftPct}%"></div>
+            <div class="rs-range-connector" style="left:${connRightPct}%"></div>
+            <div class="rs-range-bar rs-range-inst-bar ${dottedCSS}" style="left:${left}%;width:${width}%;background:${color}33;border:1px solid ${color}" title="${escapeHtml(name)}: ${midiNoteToName(sMin)}-${midiNoteToName(sMax)}"></div>
+            <span class="rs-range-inst-label" style="left:${left}%;color:${color}">${escapeHtml(name)}</span>
+          </div>
+        `;
       }).join('');
-      // Legend for split segments
       legendItems = segs.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
         const name = seg.instrumentName || `Inst ${i + 1}`;
         return `<span class="rs-range-legend-item"><span class="rs-range-legend-key" style="background:${color}80;border:1px solid ${color}"></span>${escapeHtml(name)}</span>`;
       }).join('');
     } else if (assignment?.noteRangeMin != null) {
-      globalMin = Math.min(globalMin, assignment.noteRangeMin);
-      globalMax = Math.max(globalMax, assignment.noteRangeMax);
-      const span = globalMax - globalMin || 1;
-      const iLeft = Math.round(((assignment.noteRangeMin - globalMin) / span) * 100);
-      const iWidth = Math.max(2, Math.round(((assignment.noteRangeMax - assignment.noteRangeMin) / span) * 100));
-      instBars = `<div class="rs-range-bar rs-range-inst-bar" style="left:${iLeft}%;width:${iWidth}%" title="${escapeHtml(instName)}: ${midiNoteToName(assignment.noteRangeMin)}-${midiNoteToName(assignment.noteRangeMax)}"></div>`;
+      // Single instrument
+      const iMin = assignment.noteRangeMin;
+      const iMax = assignment.noteRangeMax;
+      const left = (iMin / FULL_RANGE) * 100;
+      const width = Math.max(1, ((iMax - iMin) / FULL_RANGE) * 100);
+      const color = '#4A90D9';
+      const instName = assignment?.customName || assignment?.instrumentName || _t('autoAssign.instrumentRange');
+      const connLeftPct = (iMin / FULL_RANGE) * 100;
+      const connRightPct = (iMax / FULL_RANGE) * 100;
+
+      instBarsHTML = `
+        <div class="rs-range-inst-line">
+          <div class="rs-range-connector" style="left:${connLeftPct}%"></div>
+          <div class="rs-range-connector" style="left:${connRightPct}%"></div>
+          <div class="rs-range-bar rs-range-inst-bar" style="left:${left}%;width:${width}%;background:${color}33;border:1px solid ${color}" title="${escapeHtml(instName)}: ${midiNoteToName(iMin)}-${midiNoteToName(iMax)}"></div>
+          <span class="rs-range-inst-label" style="left:${left}%;color:${color}">${escapeHtml(instName)}</span>
+        </div>
+      `;
       legendItems = `<span class="rs-range-legend-item"><span class="rs-range-legend-key rs-range-legend-inst"></span>${escapeHtml(instName)}</span>`;
     }
 
-    const span = globalMax - globalMin || 1;
-    const chLeft = Math.round(((chMin - globalMin) / span) * 100);
-    const chWidth = Math.max(2, Math.round(((chMax - chMin) / span) * 100));
-
-    // Transposed bar (only if transposition active)
-    let transposedBar = '';
-    if (semitones !== 0) {
-      const trLeft = Math.round(((trMin - globalMin) / span) * 100);
-      const trWidth = Math.max(2, Math.round(((trMax - trMin) / span) * 100));
-      transposedBar = `<div class="rs-range-bar rs-range-transposed-bar" style="left:${trLeft}%;width:${trWidth}%" title="${_t('autoAssign.transposition')}: ${midiNoteToName(trMin)}-${midiNoteToName(trMax)} (${semitones > 0 ? '+' : ''}${semitones}st)"></div>`;
+    // Octave markers for full 0-127 range
+    const octaveMarkers = [];
+    for (let oct = 0; oct <= 10; oct++) {
+      const note = oct * 12;
+      if (note <= 127) {
+        const pct = (note / FULL_RANGE) * 100;
+        octaveMarkers.push(`<span class="rs-range-octave-mark" style="left:${pct}%">C${oct - 1}</span>`);
+      }
     }
 
-    // Labels
-    const centerLabel = semitones !== 0
-      ? `${midiNoteToName(chMin)}-${midiNoteToName(chMax)} \u2192 ${midiNoteToName(trMin)}-${midiNoteToName(trMax)}`
-      : `${midiNoteToName(chMin)}-${midiNoteToName(chMax)}`;
-
-    // Legend
-    const transposedLegend = semitones !== 0
-      ? `<span class="rs-range-legend-item"><span class="rs-range-legend-key rs-range-legend-transposed"></span>${_t('autoAssign.transposition')} (${semitones > 0 ? '+' : ''}${semitones}st)</span>`
-      : '';
-
     return `
-      <div class="rs-range-wide">
-        <div class="rs-range-labels">
-          <span>${midiNoteToName(globalMin)}</span>
-          <span>${centerLabel}</span>
-          <span>${midiNoteToName(globalMax)}</span>
+      <div class="rs-range-full">
+        <div class="rs-range-labels-full">
+          <span>0</span>
+          <span>${midiNoteToName(displayChMin)}-${midiNoteToName(displayChMax)}${transLabel}</span>
+          <span>127</span>
         </div>
-        <div class="rs-range-track">
-          ${instBars}
-          ${transposedBar}
-          <div class="rs-range-bar rs-range-ch-bar" style="left:${chLeft}%;width:${chWidth}%" title="${_t('autoAssign.channelNotes')}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}"></div>
+        <div class="rs-range-octaves">${octaveMarkers.join('')}</div>
+        <div class="rs-range-track-line" title="${chBarTitle}">
+          <div class="rs-range-bar rs-range-ch-bar" style="left:${chLeft}%;width:${chWidth}%"></div>
         </div>
+        ${instBarsHTML}
         <div class="rs-range-legend">
-          <span class="rs-range-legend-item"><span class="rs-range-legend-key rs-range-legend-ch"></span>${_t('autoAssign.channelNotes')}</span>
-          ${transposedLegend}
+          <span class="rs-range-legend-item"><span class="rs-range-legend-key rs-range-legend-ch"></span>${_t('autoAssign.channelNotes')}${transLabel}</span>
           ${legendItems}
         </div>
       </div>
@@ -1043,12 +1164,6 @@ class RoutingSummaryPage {
     // Apply button
     modal.querySelector('#rsSummaryApply').addEventListener('click', () => this._applyRouting());
 
-    // Advanced button — open full AutoAssignModal
-    const advBtn = modal.querySelector('#rsSummaryAdvanced');
-    if (advBtn) {
-      advBtn.addEventListener('click', () => this._openAdvancedModal());
-    }
-
     // Settings button — open dedicated modal
     const settingsBtn = modal.querySelector('#rsSettingsBtn');
     if (settingsBtn) {
@@ -1066,11 +1181,41 @@ class RoutingSummaryPage {
       });
     }
 
+    // Auto-adaptation toggle
+    const adaptToggle = modal.querySelector('#rsAutoAdaptToggle');
+    if (adaptToggle) {
+      adaptToggle.addEventListener('click', () => {
+        this.autoAdaptation = !this.autoAdaptation;
+        this._refreshUI(channelKeys);
+      });
+    }
+
+    // Instrument dropdown in summary table
+    modal.querySelectorAll('.rs-instrument-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation(); // Don't trigger row click
+        const ch = sel.dataset.channel;
+        const instId = sel.value;
+        if (instId) this._selectInstrument(ch, instId, channelKeys);
+      });
+      // Prevent row click when interacting with dropdown
+      sel.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    // Intelligent routing button per channel
+    modal.querySelectorAll('.rs-btn-intelligent').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ch = parseInt(btn.dataset.channel);
+        this._selectChannel(ch);
+      });
+    });
+
     // Row clicks — select channel for detail
     modal.querySelectorAll('.rs-row').forEach(row => {
       row.addEventListener('click', (e) => {
-        // Don't trigger on button clicks
-        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip')) return;
+        // Don't trigger on button/select clicks
+        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip, .rs-btn-intelligent, .rs-instrument-select')) return;
         const ch = parseInt(row.dataset.channel);
         this._selectChannel(ch);
       });
@@ -1116,6 +1261,19 @@ class RoutingSummaryPage {
         this._refreshUI(channelKeys);
       });
     }
+
+    // Mute button in detail panel
+    modal.querySelectorAll('.rs-btn-mute').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        if (this.skippedChannels.has(ch)) {
+          this.skippedChannels.delete(ch);
+        } else {
+          this.skippedChannels.add(ch);
+        }
+        this._refreshUI(channelKeys);
+      });
+    });
 
     // Instrument chip selection
     modal.querySelectorAll('.aa-instbar-btn[data-instrument-id]').forEach(btn => {
@@ -1513,21 +1671,8 @@ class RoutingSummaryPage {
   _refreshUI(channelKeys) {
     // Re-render the content area (preserving modal shell)
     this._renderContent();
-  }
-
-  /**
-   * Open the full AutoAssignModal for advanced per-channel editing
-   */
-  _openAdvancedModal() {
-    if (!window.AutoAssignModal) {
-      console.error('AutoAssignModal not available');
-      return;
-    }
-    const autoModal = new window.AutoAssignModal(this.api, null);
-    autoModal.show(this.fileId, (result) => {
-      this.close();
-      if (this.onApplyCallback) this.onApplyCallback(result);
-    });
+    // Ensure minimap updates after channel tab switch
+    requestAnimationFrame(() => requestAnimationFrame(() => this._renderMinimap()));
   }
 
   /**
@@ -1546,15 +1691,18 @@ class RoutingSummaryPage {
       if (!assignment || !assignment.deviceId) continue;
 
       const adapt = this.adaptationSettings[ch] || {};
+      const semitones = this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
+      const oorSuppress = this.autoAdaptation ? (adapt.oorHandling === 'suppress') : false;
+      const oorCompress = this.autoAdaptation ? (adapt.oorHandling === 'compress') : false;
       assignments[ch] = {
         deviceId: assignment.deviceId,
         instrumentId: assignment.instrumentId,
         instrumentChannel: assignment.instrumentChannel,
         instrumentName: assignment.customName || assignment.instrumentName,
-        transposition: { semitones: adapt.transpositionSemitones || 0 },
+        transposition: { semitones },
         noteRemapping: assignment.noteRemapping || null,
-        suppressOutOfRange: adapt.oorHandling === 'suppress',
-        noteCompression: adapt.oorHandling === 'compress',
+        suppressOutOfRange: oorSuppress,
+        noteCompression: oorCompress,
         gmProgram: assignment.gmProgram,
         noteRangeMin: assignment.noteRangeMin,
         noteRangeMax: assignment.noteRangeMax,
@@ -1571,12 +1719,13 @@ class RoutingSummaryPage {
       if (!splitData?.segments?.length) continue;
 
       const adapt = this.adaptationSettings[ch] || {};
+      const splitSemitones = this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
       assignments[ch] = {
         split: true,
         splitMode: splitData.type || 'range',
-        transposition: { semitones: adapt.transpositionSemitones || 0 },
-        suppressOutOfRange: adapt.oorHandling === 'suppress',
-        noteCompression: adapt.oorHandling === 'compress',
+        transposition: { semitones: splitSemitones },
+        suppressOutOfRange: this.autoAdaptation ? (adapt.oorHandling === 'suppress') : false,
+        noteCompression: this.autoAdaptation ? (adapt.oorHandling === 'compress') : false,
         segments: splitData.segments.map(seg => ({
           deviceId: seg.deviceId,
           instrumentId: seg.instrumentId,
@@ -1663,14 +1812,23 @@ class RoutingSummaryPage {
   _renderHeaderButtons() {
     const ch = this.selectedChannel;
     const chLabel = ch !== null ? (ch + 1) : '?';
+    const fnDisplay = this.filename || '';
+    const fnShort = fnDisplay.length > 30 ? fnDisplay.slice(0, 27) + '\u2026' : fnDisplay;
     return `
       <div class="rs-hdr-prev-btns">
-        <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">&#9654;</button>
-        <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>&#9654; Ch${chLabel}</button>
-        <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>&#9835;</button>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">
+          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewAll') || 'Tout'}
+        </button>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>
+          <span class="rs-prev-icon">&#9654;</span> Canal ${chLabel}
+        </button>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>
+          <span class="rs-prev-icon">&#9835;</span> ${_t('routingSummary.previewOriginal') || 'Original'}
+        </button>
         <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
         <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
         <span class="rs-preview-time" id="rsPreviewTime"></span>
+        <span class="rs-header-filename" title="${escapeHtml(fnDisplay)}">${escapeHtml(fnShort)}</span>
       </div>
     `;
   }
@@ -1819,6 +1977,28 @@ class RoutingSummaryPage {
   _extractNotesForMinimap(channelFilter) {
     const notes = [];
     if (!this.midiData?.tracks) return notes;
+
+    // Determine playable range for filtering (per-channel instrument ranges)
+    const getRange = (ch) => {
+      const chStr = String(ch);
+      const assignment = this.selectedAssignments[chStr];
+      if (!assignment) return null;
+      // For splits, use combined range
+      if (this.splitChannels.has(ch) && this.splitAssignments[ch]) {
+        const segs = this.splitAssignments[ch].segments || [];
+        if (segs.length > 0) {
+          return {
+            min: Math.min(...segs.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0)),
+            max: Math.max(...segs.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127))
+          };
+        }
+      }
+      if (assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
+        return { min: assignment.noteRangeMin, max: assignment.noteRangeMax };
+      }
+      return null;
+    };
+
     for (const track of this.midiData.tracks) {
       if (!track.events) continue;
       let tick = 0;
@@ -1827,7 +2007,13 @@ class RoutingSummaryPage {
         if (event.type === 'noteOn' && event.velocity > 0) {
           const ch = event.channel ?? 0;
           if (channelFilter !== null && ch !== channelFilter) continue;
-          notes.push({ t: tick, n: event.note ?? event.noteNumber ?? 60 });
+          const note = event.note ?? event.noteNumber ?? 60;
+
+          // Filter: only include notes playable on assigned instrument(s)
+          const range = getRange(ch);
+          if (range && (note < range.min || note > range.max)) continue;
+
+          notes.push({ t: tick, n: note });
         }
       }
     }

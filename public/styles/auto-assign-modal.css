@@ -3772,17 +3772,16 @@ body.dark-mode .aa-channel-card.skipped {
   width: 80px;
 }
 
-.rs-col-original,
-.rs-col-assigned {
+.rs-col-original {
   max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rs-col-actions {
-  width: 30px;
-  text-align: center;
+.rs-col-assigned {
+  min-width: 140px;
+  max-width: 180px;
 }
 
 .rs-drum-badge {
@@ -4954,6 +4953,418 @@ body.dark-mode .aa-channel-card.skipped {
   justify-content: space-between;
   padding: 8px 16px;
   border-top: 1px solid var(--border-color-light, #eee);
+}
+
+/* ============================================================================
+ * Phase 1: Simple Routing Panel additions
+ * ============================================================================ */
+
+/* Instrument dropdown in summary table */
+.rs-instrument-select {
+  width: 100%;
+  max-width: 160px;
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  appearance: auto;
+}
+
+.rs-instrument-select:focus {
+  outline: 2px solid var(--accent-color, #4285f4);
+  outline-offset: -1px;
+}
+
+.rs-row.skipped .rs-instrument-select {
+  display: none;
+}
+
+/* Score column */
+.rs-col-score {
+  width: 70px;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 11px;
+}
+
+.rs-score-value {
+  font-weight: 700;
+  font-size: 12px;
+  margin-right: 3px;
+}
+
+.rs-playable-count {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  font-weight: 400;
+}
+
+/* Split instrument names (replaces SP badge) */
+.rs-split-instruments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.rs-split-inst-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Intelligent routing button */
+.rs-btn-intelligent {
+  background: none;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+  transition: all 0.15s ease;
+}
+
+.rs-btn-intelligent:hover {
+  background: var(--accent-color, #4285f4);
+  color: #fff;
+  border-color: var(--accent-color, #4285f4);
+}
+
+/* Actions column wider for 2 buttons */
+.rs-col-actions {
+  width: 60px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.rs-col-actions .btn {
+  margin: 0 1px;
+}
+
+/* Auto-adaptation toggle */
+.rs-adapt-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-secondary, #888);
+  margin: 0 8px;
+}
+
+.rs-adapt-toggle.active {
+  background: var(--accent-color, #4285f4);
+  color: #fff;
+  border-color: var(--accent-color, #4285f4);
+}
+
+.rs-adapt-toggle:hover {
+  opacity: 0.85;
+}
+
+/* ============================================================================
+ * Phase 2: Intelligent Routing Panel (detail panel)
+ * ============================================================================ */
+
+/* Detail body two-column layout */
+.rs-detail-body {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  overflow: auto;
+}
+
+.rs-detail-left {
+  flex: 0 0 auto;
+  min-width: 180px;
+  max-width: 260px;
+}
+
+.rs-detail-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Multi-instrument list */
+.rs-multi-inst-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.rs-multi-inst-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--bg-tertiary, #f5f5f5);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.rs-multi-inst-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.rs-multi-inst-range {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+}
+
+/* Mute button */
+.rs-btn-mute {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.rs-btn-mute:hover {
+  opacity: 1;
+}
+
+/* Full 0-127 MIDI range visualization */
+.rs-range-full {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.rs-range-labels-full {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  margin-bottom: 2px;
+}
+
+.rs-range-octaves {
+  position: relative;
+  height: 14px;
+  font-size: 8px;
+  color: var(--text-muted, #bbb);
+}
+
+.rs-range-octave-mark {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Line 1: Channel notes track */
+.rs-range-track-line {
+  position: relative;
+  height: 10px;
+  background: var(--bg-tertiary, #e8e8e8);
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+/* Line 2: Instrument range line (below) */
+.rs-range-inst-line {
+  position: relative;
+  height: 20px;
+  margin: 2px 0;
+}
+
+/* Vertical connectors from instrument range to channel line */
+.rs-range-connector {
+  position: absolute;
+  top: -6px;
+  width: 1px;
+  height: 6px;
+  background: var(--text-muted, #bbb);
+}
+
+/* Range bars on full scale */
+.rs-range-full .rs-range-bar {
+  position: absolute;
+  height: 10px;
+  border-radius: 3px;
+  top: 0;
+}
+
+.rs-range-full .rs-range-ch-bar {
+  background: var(--accent-color, #4285f4);
+  opacity: 0.8;
+}
+
+.rs-range-full .rs-range-inst-bar {
+  height: 8px;
+  top: 0;
+  border-radius: 3px;
+}
+
+/* Dotted style for non-played instrument ranges */
+.rs-range-dotted {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 3px,
+    currentColor 3px,
+    currentColor 6px
+  ) !important;
+  opacity: 0.4;
+}
+
+/* Instrument name label below the range bar */
+.rs-range-inst-label {
+  position: absolute;
+  top: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* ============================================================================
+ * Phase 3: Preview/Minimap improvements
+ * ============================================================================ */
+
+/* Preview button with label text */
+.rs-prev-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.rs-prev-icon {
+  font-size: 10px;
+}
+
+/* Filename next to preview buttons */
+.rs-header-filename {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-weight: 500;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* ============================================================================
+ * Phase 4: Simplified Settings Modal
+ * ============================================================================ */
+
+/* Section groups (replacing tabs) */
+.ss-section-group {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg-tertiary, #f8f8f8);
+  border-radius: 6px;
+}
+
+.ss-section-group h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Routing toggle rows */
+.ss-toggle-row {
+  padding: 4px 0;
+}
+
+.ss-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ss-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Drum fallback rows */
+.ss-drum-fallback-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.ss-drum-cat-label {
+  font-weight: 500;
+  min-width: 140px;
+}
+
+.ss-drum-fallback-select {
+  padding: 2px 6px;
+  font-size: 11px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-primary, #fff);
+}
+
+/* Advanced section (collapsible) */
+.ss-advanced-section {
+  margin-top: 12px;
+  border: 1px solid var(--border-color-light, #eee);
+  border-radius: 6px;
+}
+
+.ss-advanced-section summary {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+}
+
+.ss-advanced-section summary:hover {
+  color: var(--text-primary, #333);
+}
+
+.ss-advanced-content {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color-light, #eee);
+}
+
+/* Uncovered notes warning */
+.rs-uncovered-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 6px 0;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #856404;
+}
+
+.rs-uncovered-warning .btn {
+  flex-shrink: 0;
 }
 
 /* END OF FILE */

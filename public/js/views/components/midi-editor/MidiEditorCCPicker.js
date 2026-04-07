@@ -1157,32 +1157,25 @@
     }
 
     /**
-    * Show auto-assignment modal
+    * Show routing modal (RoutingSummaryPage)
     */
     MidiEditorCCPickerMixin.showAutoAssignModal = async function() {
-    // Check if current file is loaded
         if (!this.currentFile) {
             this.showErrorModal(this.t('midiEditor.noFileLoaded'));
             return;
         }
 
-    // If AutoAssignModal not available, try to load it dynamically
-        if (!window.AutoAssignModal) {
-            this.log('warn', 'AutoAssignModal not found on window, attempting dynamic load...');
-            try {
-                await this.loadScript('js/views/components/AutoAssignModal.js');
-            } catch (e) {
-                this.log('error', 'Failed to dynamically load AutoAssignModal:', e);
-            }
-        }
-
-        if (!window.AutoAssignModal) {
+        if (!window.RoutingSummaryPage) {
             this.showErrorModal(this.t('autoAssign.componentNotLoaded'));
             return;
         }
 
-        const modal = new window.AutoAssignModal(this.api, this);
-        modal.show(this.currentFile);
+        const routingPage = new window.RoutingSummaryPage(this.api);
+        routingPage.show(this.currentFile, this.currentFilename || '', this.channels || [], (result) => {
+            if (result && window.eventBus) {
+                window.eventBus.emit('routing:changed', result);
+            }
+        });
     }
 
     /**

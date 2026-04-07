@@ -44,7 +44,18 @@ class ScoringSettingsModal extends BaseModal {
 
   static getPresets() {
     return [
+      { key: 'minimal', icon: '\uD83C\uDFB5', label: 'scoringSettings.presetMinimal', desc: 'scoringSettings.presetMinimalDesc',
+        summary: 'Assigne l\'instrument qui peut jouer les notes du canal',
+        weights: { noteRange: 55, programMatch: 10, instrumentType: 15, polyphony: 15, ccSupport: 5 },
+        scoreThresholds: { acceptable: 45, minimum: 20 },
+        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 4 },
+        bonuses: { sameCategoryMatch: 8, sameFamilyMatch: 6, exactTypeMatch: 10 },
+        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 55, instrumentType: 25, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 40, minQuality: 35, maxInstruments: 2 } },
+
       { key: 'balanced', icon: '\u2696\uFE0F', label: 'scoringSettings.presetBalanced', desc: 'scoringSettings.presetBalancedDesc',
+        summary: 'Equilibre entre jouabilite et type d\'instrument GM similaire',
         weights: { noteRange: 40, programMatch: 22, instrumentType: 20, polyphony: 13, ccSupport: 5 },
         scoreThresholds: { acceptable: 60, minimum: 30 },
         penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
@@ -54,58 +65,14 @@ class ScoringSettingsModal extends BaseModal {
         splitting: { triggerBelowScore: 60, minQuality: 50, maxInstruments: 4 } },
 
       { key: 'orchestral', icon: '\uD83C\uDFBB', label: 'scoringSettings.presetOrchestral', desc: 'scoringSettings.presetOrchestralDesc',
-        weights: { noteRange: 35, programMatch: 25, instrumentType: 25, polyphony: 8, ccSupport: 7 },
+        summary: 'Type d\'instrument GM extremement important pour le routage',
+        weights: { noteRange: 30, programMatch: 28, instrumentType: 28, polyphony: 8, ccSupport: 6 },
         scoreThresholds: { acceptable: 65, minimum: 35 },
         penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 2 },
-        bonuses: { sameCategoryMatch: 18, sameFamilyMatch: 15, exactTypeMatch: 25 },
+        bonuses: { sameCategoryMatch: 20, sameFamilyMatch: 16, exactTypeMatch: 28 },
         percussion: { drumChannelDrumBonus: 10, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 45, instrumentType: 35, polyphony: 10, programMatch: 5, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 55, minQuality: 55, maxInstruments: 3 } },
-
-      { key: 'pop_rock', icon: '\uD83C\uDFB8', label: 'scoringSettings.presetPopRock', desc: 'scoringSettings.presetPopRockDesc',
-        weights: { noteRange: 45, programMatch: 18, instrumentType: 22, polyphony: 12, ccSupport: 3 },
-        scoreThresholds: { acceptable: 55, minimum: 25 },
-        penalties: { transpositionPerOctave: 4, maxTranspositionOctaves: 2 },
-        bonuses: { sameCategoryMatch: 12, sameFamilyMatch: 8, exactTypeMatch: 18 },
-        percussion: { drumChannelDrumBonus: 20, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 55, instrumentType: 25, polyphony: 10, programMatch: 5, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 65, minQuality: 45, maxInstruments: 3 } },
-
-      { key: 'electronic', icon: '\uD83C\uDFB9', label: 'scoringSettings.presetElectronic', desc: 'scoringSettings.presetElectronicDesc',
-        weights: { noteRange: 25, programMatch: 30, instrumentType: 22, polyphony: 15, ccSupport: 8 },
-        scoreThresholds: { acceptable: 55, minimum: 25 },
-        penalties: { transpositionPerOctave: 1, maxTranspositionOctaves: 5 },
-        bonuses: { sameCategoryMatch: 18, sameFamilyMatch: 14, exactTypeMatch: 22 },
-        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 40, instrumentType: 30, polyphony: 15, programMatch: 10, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 50, minQuality: 40, maxInstruments: 5 } },
-
-      { key: 'jazz', icon: '\uD83C\uDFB7', label: 'scoringSettings.presetJazz', desc: 'scoringSettings.presetJazzDesc',
-        weights: { noteRange: 38, programMatch: 20, instrumentType: 28, polyphony: 8, ccSupport: 6 },
-        scoreThresholds: { acceptable: 60, minimum: 30 },
-        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 3 },
-        bonuses: { sameCategoryMatch: 20, sameFamilyMatch: 16, exactTypeMatch: 22 },
-        percussion: { drumChannelDrumBonus: 18, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 45, instrumentType: 35, polyphony: 10, programMatch: 5, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 55, minQuality: 50, maxInstruments: 3 } },
-
-      { key: 'drums_focused', icon: '\uD83E\uDD41', label: 'scoringSettings.presetDrumsFocused', desc: 'scoringSettings.presetDrumsFocusedDesc',
-        weights: { noteRange: 35, programMatch: 20, instrumentType: 20, polyphony: 15, ccSupport: 10 },
-        scoreThresholds: { acceptable: 55, minimum: 25 },
-        penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
-        bonuses: { sameCategoryMatch: 15, sameFamilyMatch: 12, exactTypeMatch: 20 },
-        percussion: { drumChannelDrumBonus: 25, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 60, instrumentType: 20, polyphony: 10, programMatch: 5, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 70, minQuality: 55, maxInstruments: 5 } },
-
-      { key: 'minimal', icon: '\uD83C\uDFB5', label: 'scoringSettings.presetMinimal', desc: 'scoringSettings.presetMinimalDesc',
-        weights: { noteRange: 45, programMatch: 15, instrumentType: 18, polyphony: 15, ccSupport: 7 },
-        scoreThresholds: { acceptable: 45, minimum: 20 },
-        penalties: { transpositionPerOctave: 2, maxTranspositionOctaves: 4 },
-        bonuses: { sameCategoryMatch: 12, sameFamilyMatch: 10, exactTypeMatch: 15 },
-        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
-          drumChannelWeights: { noteRange: 50, instrumentType: 30, polyphony: 10, programMatch: 5, ccSupport: 5 } },
-        splitting: { triggerBelowScore: 40, minQuality: 35, maxInstruments: 2 } }
+          drumChannelWeights: { noteRange: 40, instrumentType: 40, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { triggerBelowScore: 55, minQuality: 55, maxInstruments: 3 } }
     ];
   }
 
@@ -134,49 +101,82 @@ class ScoringSettingsModal extends BaseModal {
 
   renderBody() {
     this._ensureDefaults();
+    if (!this.overrides.routing) this.overrides.routing = {};
     this._detectActivePreset();
     const presets = ScoringSettingsModal.getPresets();
     const activeP = presets.find(p => p.key === this.activePreset);
+    const routing = this.overrides.routing;
+
+    // Drum fallback categories
+    const drumCategories = [
+      { key: 'kicks', label: 'Kicks (35-36)', notes: '35, 36' },
+      { key: 'snares', label: 'Snares (37-40)', notes: '37, 38, 40' },
+      { key: 'hiHats', label: 'Hi-Hats (42, 44, 46)', notes: '42, 44, 46' },
+      { key: 'toms', label: 'Toms (41-50)', notes: '41, 43, 45, 47, 48, 50' },
+      { key: 'crashes', label: 'Crashes (49, 55, 57)', notes: '49, 55, 57' },
+      { key: 'rides', label: 'Rides (51, 53, 59)', notes: '51, 53, 59' }
+    ];
+    const drumFallback = routing.drumFallback || {};
 
     return `
       <div class="ss-preset-bar">
         ${presets.map(p => `
-          <button class="ss-preset-chip ${this.activePreset === p.key ? 'active' : ''}" data-preset="${p.key}" title="${this.t(p.desc)}">
+          <button class="ss-preset-chip ${this.activePreset === p.key ? 'active' : ''}" data-preset="${p.key}" title="${p.summary || this.t(p.desc)}">
             <span class="ss-preset-icon">${p.icon}</span>
             <span class="ss-preset-name">${this.t(p.label)}</span>
           </button>
         `).join('')}
       </div>
-      <div class="ss-preset-desc" id="ssPresetDesc">${activeP ? this.t(activeP.desc) : ''}</div>
+      <div class="ss-preset-desc" id="ssPresetDesc">${activeP ? (activeP.summary || this.t(activeP.desc)) : ''}</div>
 
-      <div class="ss-tabs" role="tablist">
-        <button class="ss-tab ${this.activeTab === 'general' ? 'active' : ''}" data-tab="general" role="tab">
-          ${this.t('scoringSettings.tabGeneral')}
-        </button>
-        <button class="ss-tab ${this.activeTab === 'transposition' ? 'active' : ''}" data-tab="transposition" role="tab">
-          ${this.t('scoringSettings.tabTransposition')}
-        </button>
-        <button class="ss-tab ${this.activeTab === 'percussion' ? 'active' : ''}" data-tab="percussion" role="tab">
-          ${this.t('scoringSettings.tabPercussion')}
-        </button>
-        <button class="ss-tab ${this.activeTab === 'splitting' ? 'active' : ''}" data-tab="splitting" role="tab">
-          ${this.t('scoringSettings.tabSplitting')}
-        </button>
+      <div class="ss-section-group">
+        <h4>${this.t('scoringSettings.globalRouting') || 'Reglages routage'}</h4>
+        <div class="ss-toggle-row">
+          <label class="ss-toggle-label">
+            <input type="checkbox" class="ss-routing-toggle" data-key="autoSplitAvoidTransposition" ${routing.autoSplitAvoidTransposition ? 'checked' : ''}>
+            ${this.t('scoringSettings.autoSplitAvoidTransposition') || 'Decoupe automatique si evite une transposition'}
+          </label>
+        </div>
+        <div class="ss-toggle-row">
+          <label class="ss-toggle-label">
+            <input type="checkbox" class="ss-routing-toggle" data-key="preferSingleInstrument" ${routing.preferSingleInstrument !== false ? 'checked' : ''}>
+            ${this.t('scoringSettings.preferSingleInstrument') || 'Preferer jouer sur un seul instrument'}
+          </label>
+        </div>
+        <div class="ss-toggle-row">
+          <label class="ss-toggle-label">
+            <input type="checkbox" class="ss-routing-toggle" data-key="preferSimilarGMType" ${routing.preferSimilarGMType !== false ? 'checked' : ''}>
+            ${this.t('scoringSettings.preferSimilarGMType') || 'Privilegier type GM similaire au canal'}
+          </label>
+        </div>
       </div>
-      <div class="ss-content">
-        <div class="ss-section ${this.activeTab === 'general' ? 'active' : ''}" data-section="general">
+
+      <div class="ss-section-group">
+        <h4>${this.t('scoringSettings.drumSettings') || 'Reglages Drums'}</h4>
+        <p class="ss-group-desc">${this.t('scoringSettings.drumFallbackDesc') || 'Action si note manquante par categorie'}</p>
+        ${drumCategories.map(cat => {
+          const val = drumFallback[cat.key] || 'substitute';
+          return `
+            <div class="ss-drum-fallback-row">
+              <span class="ss-drum-cat-label">${cat.label}</span>
+              <select class="ss-drum-fallback-select" data-cat="${cat.key}">
+                <option value="substitute" ${val === 'substitute' ? 'selected' : ''}>${this.t('scoringSettings.drumSubstitute') || 'Substituer'}</option>
+                <option value="ignore" ${val === 'ignore' ? 'selected' : ''}>${this.t('scoringSettings.drumIgnore') || 'Ignorer'}</option>
+              </select>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <details class="ss-advanced-section">
+        <summary>${this.t('scoringSettings.advanced') || 'Reglages avances'}</summary>
+        <div class="ss-advanced-content">
           ${this._renderGeneralTab()}
-        </div>
-        <div class="ss-section ${this.activeTab === 'transposition' ? 'active' : ''}" data-section="transposition">
           ${this._renderTranspositionTab()}
-        </div>
-        <div class="ss-section ${this.activeTab === 'percussion' ? 'active' : ''}" data-section="percussion">
           ${this._renderPercussionTab()}
-        </div>
-        <div class="ss-section ${this.activeTab === 'splitting' ? 'active' : ''}" data-section="splitting">
           ${this._renderSplittingTab()}
         </div>
-      </div>
+      </details>
     `;
   }
 
@@ -320,18 +320,26 @@ class ScoringSettingsModal extends BaseModal {
     const dialog = this.dialog;
     if (!dialog) return;
 
-    // Tab switching
-    dialog.querySelectorAll('.ss-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        this.activeTab = tab.dataset.tab;
-        dialog.querySelectorAll('.ss-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === this.activeTab));
-        dialog.querySelectorAll('.ss-section').forEach(s => s.classList.toggle('active', s.dataset.section === this.activeTab));
-      });
-    });
-
     // Preset chip clicks
     dialog.querySelectorAll('.ss-preset-chip').forEach(chip => {
       chip.addEventListener('click', () => this._applyPreset(chip.dataset.preset));
+    });
+
+    // Global routing toggles
+    dialog.querySelectorAll('.ss-routing-toggle').forEach(toggle => {
+      toggle.addEventListener('change', () => {
+        if (!this.overrides.routing) this.overrides.routing = {};
+        this.overrides.routing[toggle.dataset.key] = toggle.checked;
+      });
+    });
+
+    // Drum fallback selects
+    dialog.querySelectorAll('.ss-drum-fallback-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (!this.overrides.routing) this.overrides.routing = {};
+        if (!this.overrides.routing.drumFallback) this.overrides.routing.drumFallback = {};
+        this.overrides.routing.drumFallback[sel.dataset.cat] = sel.value;
+      });
     });
 
     // Linked weight sliders (general)
@@ -437,6 +445,9 @@ class ScoringSettingsModal extends BaseModal {
     const preset = ScoringSettingsModal.getPresets().find(p => p.key === key);
     if (!preset) return;
 
+    // Preserve routing settings across preset changes
+    const savedRouting = this.overrides.routing;
+
     // Deep copy preset values into overrides
     this.overrides.weights = { ...preset.weights };
     this.overrides.scoreThresholds = { ...preset.scoreThresholds };
@@ -447,6 +458,7 @@ class ScoringSettingsModal extends BaseModal {
       drumChannelWeights: { ...preset.percussion.drumChannelWeights }
     };
     this.overrides.splitting = { ...preset.splitting };
+    if (savedRouting) this.overrides.routing = savedRouting;
     this.activePreset = key;
     this.presetSnapshot = JSON.stringify(this.overrides);
 
@@ -474,6 +486,8 @@ class ScoringSettingsModal extends BaseModal {
       // Also check percussion
       if (matches && this.overrides.percussion) {
         if (this.overrides.percussion.drumChannelDrumBonus !== preset.percussion.drumChannelDrumBonus) matches = false;
+        if (matches && this.overrides.percussion.drumChannelNonDrumPenalty !== preset.percussion.drumChannelNonDrumPenalty) matches = false;
+        if (matches && this.overrides.percussion.nonDrumChannelDrumPenalty !== preset.percussion.nonDrumChannelDrumPenalty) matches = false;
         if (matches && this.overrides.percussion.drumChannelWeights) {
           for (const [k, v] of Object.entries(preset.percussion.drumChannelWeights)) {
             if (this.overrides.percussion.drumChannelWeights[k] !== v) { matches = false; break; }

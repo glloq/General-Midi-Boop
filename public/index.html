@@ -5363,12 +5363,7 @@
     <script src="js/views/components/instrument-settings/ISMListeners.js"></script>
     <script src="js/views/components/InstrumentSettingsModal.js"></script>
 
-    <!-- Auto-Assign Modal Sub-Components -->
-    <script src="js/views/components/auto-assign/AutoAssignUI.js"></script>
-    <script src="js/views/components/auto-assign/AutoAssignViz.js"></script>
-    <script src="js/views/components/auto-assign/AutoAssignActions.js"></script>
-    <script src="js/views/components/auto-assign/AutoAssignUtils.js"></script>
-    <script src="js/views/components/AutoAssignModal.js"></script>
+    <!-- Routing Modal Components -->
     <script src="js/views/components/auto-assign/ScoringSettingsModal.js"></script>
     <script src="js/views/components/auto-assign/RoutingSummaryPage.js"></script>
 
@@ -5394,7 +5389,7 @@
     <script src="js/views/components/midi-editor/MidiEditorTablature.js"></script>
     <script src="js/views/components/midi-editor/MidiEditorLifecycle.js"></script>
 
-    <!-- MIDI Editor Modal Component (depends on AutoAssignModal + sub-components + mixins) -->
+    <!-- MIDI Editor Modal Component (depends on RoutingSummaryPage + sub-components + mixins) -->
     <script src="js/views/components/TablatureRenderer.js"></script>
     <script src="js/views/components/FretboardDiagram.js"></script>
     <script src="js/views/components/NeckDiagramConfig.js"></script>
@@ -9139,19 +9134,7 @@
         // Afficher la page résumé du routage automatique
         async function showRoutingModal(fileId, filename, channels) {
             if (!window.RoutingSummaryPage) {
-                log('RoutingSummaryPage not available, falling back to AutoAssignModal', 'warning');
-                // Fallback: ouvrir directement l'AutoAssignModal si la page résumé n'est pas chargée
-                if (window.AutoAssignModal) {
-                    const autoModal = new window.AutoAssignModal(api, null);
-                    autoModal.show(fileId, (result) => {
-                        if (window.midiFileManager) window.midiFileManager.refreshFileList();
-                        if (result.adaptedFileId && window.MidiEditorModal) {
-                            const editor = new window.MidiEditorModal(null, api);
-                            editor.show(result.adaptedFileId, result.filename || null);
-                        }
-                        if (window.eventBus) window.eventBus.emit('routing:changed', { fileId });
-                    });
-                }
+                log('RoutingSummaryPage not available', 'error');
                 return;
             }
 
