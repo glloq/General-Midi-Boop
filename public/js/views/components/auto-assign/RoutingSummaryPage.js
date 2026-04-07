@@ -398,9 +398,7 @@ class RoutingSummaryPage {
 
         <div class="rs-footer">
           <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
-          <div class="rs-footer-center">
-            ${this._renderSplitBanner(channelKeys)}
-          </div>
+          <div class="rs-footer-center"></div>
           <div class="rs-footer-right">
             <button class="btn" id="rsSummaryAdvanced" title="${_t('routingSummary.openAdvanced')}">
               ${_t('routingSummary.openAdvanced')}
@@ -534,27 +532,6 @@ class RoutingSummaryPage {
         ${instBar}
         <div class="rs-range-channel" style="left: ${left}%; width: ${width}%"></div>
       </div>
-    `;
-  }
-
-  // ============================================================================
-  // Split banner
-  // ============================================================================
-
-  _renderSplitBanner(channelKeys) {
-    const pendingSplits = Object.keys(this.splitProposals)
-      .map(Number)
-      .filter(ch => !this.splitChannels.has(ch));
-
-    if (pendingSplits.length === 0) return '';
-
-    return `
-      <span class="rs-split-info">
-        &#8645; ${_t('autoAssign.splitAvailableBanner', { count: pendingSplits.length })}
-      </span>
-      <button class="btn btn-sm" id="rsAcceptAllSplits">
-        ${_t('autoAssign.acceptAllSplits')}
-      </button>
     `;
   }
 
@@ -693,7 +670,7 @@ class RoutingSummaryPage {
         const activeMode = this.activeSplitMode[channel] || proposal.type;
         const activeProposal = allModes.find(m => m.type === activeMode) || proposal;
         const segments = activeProposal.segments || [];
-        const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+        const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
 
         const modeTabs = allModes.length > 1 ? `<div class="rs-split-modes">${allModes.map(m => `
           <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
@@ -730,7 +707,7 @@ class RoutingSummaryPage {
       } else if (isSplit && this.splitAssignments[channel]) {
         // === ACCEPTED SPLIT ===
         const accepted = this.splitAssignments[channel];
-        const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+        const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
 
         const segHTML = (accepted.segments || []).map((seg, i) => {
           const color = splitColors[i % splitColors.length];
@@ -1071,12 +1048,6 @@ class RoutingSummaryPage {
       });
     }
 
-    // Accept all splits
-    const splitBtn = modal.querySelector('#rsAcceptAllSplits');
-    if (splitBtn) {
-      splitBtn.addEventListener('click', () => this._acceptAllSplits(channelKeys));
-    }
-
     // Row clicks — select channel for detail
     modal.querySelectorAll('.rs-row').forEach(row => {
       row.addEventListener('click', (e) => {
@@ -1335,17 +1306,6 @@ class RoutingSummaryPage {
     const chosen = allModes.find(m => m.type === activeMode) || proposal;
     this.splitChannels.add(channel);
     this.splitAssignments[channel] = chosen;
-    this._refreshUI(channelKeys);
-  }
-
-  _acceptAllSplits(channelKeys) {
-    for (const [ch, proposal] of Object.entries(this.splitProposals)) {
-      const channel = parseInt(ch);
-      if (!this.splitChannels.has(channel)) {
-        this.splitChannels.add(channel);
-        this.splitAssignments[channel] = proposal;
-      }
-    }
     this._refreshUI(channelKeys);
   }
 

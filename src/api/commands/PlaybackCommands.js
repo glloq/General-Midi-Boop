@@ -613,7 +613,7 @@ async function applyAssignments(app, data) {
             note_remapping: null,
             enabled: true,
             created_at: Date.now(),
-            split_mode: assignment.splitMode || 'range',
+            split_mode: (assignment.splitMode === 'fullCoverage' ? 'range' : assignment.splitMode) || 'range',
             split_note_min: seg.noteRange?.min ?? null,
             split_note_max: seg.noteRange?.max ?? null,
             split_polyphony_share: seg.polyphonyShare ?? null
