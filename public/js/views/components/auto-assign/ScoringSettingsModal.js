@@ -233,7 +233,7 @@ class ScoringSettingsModal extends BaseModal {
         <h4>${this.t('scoringSettings.sectionBonuses')}</h4>
         ${this._slider('sameCategoryMatch', 'scoringSettings.bonusSameCategory', b.sameCategoryMatch, 0, 25, 'bonuses')}
         ${this._slider('sameFamilyMatch', 'scoringSettings.bonusSameFamily', b.sameFamilyMatch, 0, 20, 'bonuses')}
-        ${this._slider('exactTypeMatch', 'scoringSettings.bonusExactType', b.exactTypeMatch || 20, 0, 30, 'bonuses')}
+        ${this._slider('exactTypeMatch', 'scoringSettings.bonusExactType', b.exactTypeMatch !== undefined ? b.exactTypeMatch : 20, 0, 30, 'bonuses')}
       </div>
     `;
   }
