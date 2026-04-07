@@ -5349,6 +5349,27 @@ body.dark-mode .aa-channel-card.skipped {
   border-top: 1px solid var(--border-color-light, #eee);
 }
 
+/* Split separator in summary table */
+.rs-split-sep {
+  color: var(--text-muted, #bbb);
+  font-size: 10px;
+  margin: 0 2px;
+}
+
+/* Split toggle button in header */
+.rs-split-toggle-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.rs-split-section .rs-split-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Uncovered notes warning */
 .rs-uncovered-warning {
   display: flex;

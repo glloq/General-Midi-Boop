@@ -508,15 +508,15 @@ class RoutingSummaryPage {
       if (isSkipped) {
         assignedHTML = `<span class="rs-skipped">${_t('autoAssign.overviewStatusSkipped')}</span>`;
       } else if (isSplit && this.splitAssignments[channel]) {
-        // Show split instrument names (no SP badge)
+        // Show split instrument names with separator spans
         const segments = this.splitAssignments[channel].segments || [];
-        const splitNames = segments.map((seg, i) => {
+        const splitParts = segments.map((seg, i) => {
           const color = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'][i % 4];
           const name = seg.instrumentName || 'Instrument';
-          const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
+          const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
           return `<span class="rs-split-inst-name" style="color:${color}" title="${escapeHtml(name)}">${escapeHtml(displayName)}</span>`;
-        }).join(' + ');
-        assignedHTML = `<div class="rs-split-instruments">${splitNames}</div>`;
+        });
+        assignedHTML = `<div class="rs-split-instruments">${splitParts.join('<span class="rs-split-sep">+</span>')}</div>`;
       } else {
         // Dropdown for single instrument selection
         assignedHTML = `<select class="rs-instrument-select" data-channel="${ch}">${this._buildInstrumentOptions(ch, assignment, isSkipped)}</select>`;
@@ -757,7 +757,7 @@ class RoutingSummaryPage {
           const label = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
           return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
         }).join('');
-        const canRemove = segments.length > 2;
+        const canRemove = segments.length > 1;
         const rMin = seg.noteRange?.min ?? 0;
         const rMax = seg.noteRange?.max ?? 127;
         return `
@@ -843,12 +843,19 @@ class RoutingSummaryPage {
       const segCount = segments.length;
       const quality = activeData?.quality || 0;
 
+      const splitStatusLabel = isSplit
+        ? `${_t('routingSummary.splitActive') || 'Decoupe active'} (${segCount} instr.)`
+        : `${_t('routingSummary.splitAvailable') || 'Decoupe disponible'} (${segCount} instr., ${_t('routingSummary.quality')}: ${quality})`;
+
       splitHTML = `
         <div class="rs-split-section ${isSplit ? 'active' : ''}">
           <div class="rs-split-header" data-channel="${channel}">
             <span class="rs-split-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
-            <span>${_t('autoAssign.splitProposed')} (${segCount} instr., ${_t('routingSummary.quality')}: ${quality})</span>
-            ${isSplit ? '<span class="rs-split-badge">\u2713</span>' : ''}
+            <span>${splitStatusLabel}</span>
+            ${isSplit
+              ? `<button class="btn btn-sm rs-btn-remove-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('autoAssign.removeSplit') || 'Desactiver decoupe'}">\u2716</button>`
+              : `<button class="btn btn-sm rs-btn-accept-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('routingSummary.activateSplit') || 'Activer decoupe'}">\u2714</button>`
+            }
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
             ${modeTabs}
@@ -1553,13 +1560,29 @@ class RoutingSummaryPage {
   }
 
   /**
-   * Remove a segment from the split (minimum 2 required).
+   * Remove a segment from the split. If only 1 remains, revert to single instrument.
    */
   _removeSplitSegment(channel, segIdx, channelKeys) {
     const data = this._getActiveSplitData(channel);
-    if (!data?.segments || data.segments.length <= 2) return;
+    if (!data?.segments || data.segments.length <= 1) return;
     this.splitEdited[channel] = true;
     data.segments.splice(segIdx, 1);
+
+    // If only 1 segment left, revert to single instrument routing
+    if (data.segments.length === 1) {
+      const remaining = data.segments[0];
+      this.splitChannels.delete(channel);
+      delete this.splitAssignments[channel];
+      // Assign the remaining instrument as the channel's single assignment
+      const ch = String(channel);
+      const options = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
+      const matched = options.find(o => o.instrument.id === remaining.instrumentId);
+      if (matched) {
+        this._selectInstrument(ch, remaining.instrumentId, channelKeys);
+        return;
+      }
+    }
+
     this._refreshUI(channelKeys);
   }
 
