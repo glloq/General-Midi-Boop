@@ -700,14 +700,14 @@ class RoutingSummaryPage {
       ? this._renderInstrumentChips(channel, options, lowOptions, assignment, isSkipped)
       : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`;
     // Range bars (channel notes vs instrument capability)
-    // Range bars: show for assigned instrument OR for active split (proposed/accepted)
-    const hasSplitData = hasSplitProposal || isSplit;
+    // Range bars: show for assigned instrument OR for active split (accepted only)
+    const hasSplitData = isSplit;
     const rangeBarsHTML = (!isDrumChannel && (assignment?.noteRangeMin != null || hasSplitData))
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
-    // Split section — collapsible, with full manual controls
+    // Split section — only render if split is accepted by user
     let splitHTML = '';
-    if (hasSplitProposal || isSplit) {
+    if (isSplit) {
       const expanded = this.splitExpanded[channel] ?? isSplit;
       const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
       const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
@@ -888,8 +888,11 @@ class RoutingSummaryPage {
       </div>`;
     }
 
-    // Mute button
-    const muteHTML = `<button class="btn btn-sm rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.muteChannel') || 'Mute'}">${isSkipped ? '&#128264;' : '&#128266;'}</button>`;
+    // "Activate split" button — only if proposal exists and split not yet accepted
+    let splitActivateHTML = '';
+    if (!isSplit && hasSplitProposal) {
+      splitActivateHTML = `<button class="btn btn-sm rs-btn-accept-split rs-btn-activate-split" data-channel="${channel}">${_t('routingSummary.activateSplit') || 'Activer decoupe'}</button>`;
+    }
 
     return `
       <div class="rs-detail-content">
@@ -901,23 +904,16 @@ class RoutingSummaryPage {
             </span>
             ${score > 0 ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
             ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
-            ${muteHTML}
           </div>
           <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
         </div>
+        ${isSplit ? multiInstHTML : ''}
 
-        <div class="rs-detail-body">
-          <div class="rs-detail-left">
-            ${multiInstHTML}
-            ${instrumentChipsHTML}
-            ${adaptHTML}
-          </div>
-          <div class="rs-detail-right">
-            ${rangeBarsHTML}
-          </div>
-        </div>
-
+        ${rangeBarsHTML}
+        ${instrumentChipsHTML}
+        ${adaptHTML}
         ${splitHTML}
+        ${splitActivateHTML}
       </div>
     `;
   }
