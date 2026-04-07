@@ -1811,6 +1811,20 @@
         "splitMaxInstruments": "Instruments max",
         "total": "Total",
         "reset": "Reinitialiser",
-        "apply": "Appliquer"
+        "apply": "Appliquer",
+        "presetBalanced": "Equilibre",
+        "presetOrchestral": "Orchestral",
+        "presetPopRock": "Pop / Rock",
+        "presetElectronic": "Electronique",
+        "presetJazz": "Jazz",
+        "presetDrumsFocused": "Percussions",
+        "presetMinimal": "Minimal",
+        "presetBalancedDesc": "Profil general adapte a la plupart des configurations",
+        "presetOrchestralDesc": "Type d'instrument et programme GM en priorite pour ensembles classiques",
+        "presetPopRockDesc": "Plage de notes et jouabilite physique en priorite pour instruments de groupe",
+        "presetElectronicDesc": "Favorise les programmes GM synth et tolere les transpositions larges",
+        "presetJazzDesc": "Priorite au timbre et au type d'instrument pour les formations jazz",
+        "presetDrumsFocusedDesc": "Maximise la qualite du mapping percussions et le bonus canal 10",
+        "presetMinimalDesc": "Seuils permissifs et splits limites pour les petites configurations"
     }
 }

@@ -216,13 +216,18 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _getDefaultOverrides() {
-    return {
-      weights: { noteRange: 40, programMatch: 22, instrumentType: 20, polyphony: 13, ccSupport: 5 },
-      scoreThresholds: { acceptable: 60, minimum: 30 },
-      penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
-      percussion: { drumChannelDrumBonus: 15 },
-      splitting: { minQuality: 50, maxInstruments: 4, triggerBelowScore: 60 }
-    };
+    // Must match ScoringSettingsModal.getDefaults() structure
+    return ScoringSettingsModal
+      ? ScoringSettingsModal.getDefaults()
+      : {
+        weights: { noteRange: 40, programMatch: 22, instrumentType: 20, polyphony: 13, ccSupport: 5 },
+        scoreThresholds: { acceptable: 60, minimum: 30 },
+        penalties: { transpositionPerOctave: 3, maxTranspositionOctaves: 3 },
+        bonuses: { sameCategoryMatch: 15, sameFamilyMatch: 12, exactTypeMatch: 20 },
+        percussion: { drumChannelDrumBonus: 15, drumChannelNonDrumPenalty: -100, nonDrumChannelDrumPenalty: -100,
+          drumChannelWeights: { noteRange: 50, instrumentType: 30, polyphony: 10, programMatch: 5, ccSupport: 5 } },
+        splitting: { minQuality: 50, maxInstruments: 4, triggerBelowScore: 60 }
+      };
   }
 
   _loadScoringOverrides() {
@@ -243,7 +248,9 @@ class RoutingSummaryPage {
 
   _isOverrideModified() {
     const defaults = this._getDefaultOverrides();
-    return JSON.stringify(this.scoringOverrides) !== JSON.stringify(defaults);
+    // Ignore _preset key (UI-only, not a scoring parameter)
+    const clean = (obj) => { const c = { ...obj }; delete c._preset; return c; };
+    return JSON.stringify(clean(this.scoringOverrides)) !== JSON.stringify(clean(defaults));
   }
 
   /**
