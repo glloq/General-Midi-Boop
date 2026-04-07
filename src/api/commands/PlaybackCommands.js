@@ -1,4 +1,5 @@
 // src/api/commands/PlaybackCommands.js
+import { parseMidi } from 'midi-file';
 import MidiTransposer from '../../midi/MidiTransposer.js';
 import JsonMidiConverter from '../../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../../midi/InstrumentCapabilitiesValidator.js';
@@ -406,6 +407,8 @@ async function applyAssignments(app, data) {
   }
 
   const createAdaptedFile = data.createAdaptedFile !== false; // Default true
+  const overwriteOriginal = data.overwriteOriginal === true;
+  const warnings = [];
   const midiConverter = getMidiConverter(app);
 
   // Get original MIDI file
@@ -476,10 +479,10 @@ async function applyAssignments(app, data) {
       const neededChannels = assignment.segments.length - 1;
 
       if (freeChannels.length < neededChannels) {
-        app.logger.warn(
-          `[ApplyAssignments] Not enough free channels for split on ch ${channelNum}: ` +
-          `need ${neededChannels}, have ${freeChannels.length}. Using playback-time routing fallback.`
-        );
+        const msg = `Canal ${channelNum + 1} : pas assez de canaux MIDI libres pour le split physique ` +
+          `(${neededChannels} nécessaires, ${freeChannels.length} disponibles). Routage en temps réel utilisé.`;
+        app.logger.warn(`[ApplyAssignments] ${msg}`);
+        warnings.push(msg);
         continue;
       }
 
@@ -524,25 +527,87 @@ async function applyAssignments(app, data) {
       // Generate adaptation metadata
       const metadata = transposer.generateAdaptationMetadata(data.assignments, stats);
 
-      // Save adapted file to database
-      const adaptedFilename = originalFile.filename.replace(/\.mid$/i, '_adapted.mid');
-      const adaptedFile = {
-        filename: adaptedFilename,
-        data: adaptedBuffer.toString('base64'),
-        size: adaptedBuffer.length,
-        tracks: originalFile.tracks,
-        duration: originalFile.duration,
-        tempo: originalFile.tempo,
-        ppq: originalFile.ppq,
-        uploaded_at: new Date().toISOString(),
-        folder: originalFile.folder,
-        is_original: false,
-        parent_file_id: data.originalFileId,
-        adaptation_metadata: JSON.stringify(metadata)
-      };
+      // Recalculate metadata from the adapted binary (correct track/channel counts)
+      let adaptedMeta = { duration: originalFile.duration, tempo: originalFile.tempo };
+      let adaptedInstrumentMeta = {};
+      try {
+        const parsedAdapted = parseMidi(adaptedBuffer);
+        if (parsedAdapted && app.fileManager) {
+          adaptedMeta = app.fileManager.extractMetadata(parsedAdapted);
+          adaptedInstrumentMeta = app.fileManager.extractInstrumentMetadata(parsedAdapted);
+        }
+      } catch (e) {
+        app.logger.warn(`[ApplyAssignments] Could not recalculate adapted metadata: ${e.message}`);
+      }
 
-      adaptedFileId = app.database.insertFile(adaptedFile);
-      app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
+      if (overwriteOriginal) {
+        // Overwrite the original file with adapted data
+        try {
+          app.database.updateFile(data.originalFileId, {
+            data: adaptedBuffer.toString('base64'),
+            size: adaptedBuffer.length,
+            tracks: adaptedMeta.tracks || originalFile.tracks,
+            duration: adaptedMeta.duration || originalFile.duration,
+            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
+            ppq: originalFile.ppq,
+            adaptation_metadata: JSON.stringify(metadata),
+            ...(adaptedInstrumentMeta.fileMetadata || {})
+          });
+          // Use original file as target for routings
+          adaptedFileId = null;
+          app.logger.info(`Overwritten original file ${data.originalFileId} with adapted data`);
+        } catch (e) {
+          throw new MidiError(`Failed to overwrite original file: ${e.message}`);
+        }
+      } else {
+        // Create new adapted file (or update existing one if already adapted before)
+        const adaptedFilename = originalFile.filename.replace(/\.mid$/i, '_adapted.mid');
+
+        // Check for existing adapted file to avoid duplicates
+        let existingAdaptedId = null;
+        try {
+          const existingFiles = app.database.getFiles(originalFile.folder);
+          const existingAdapted = existingFiles.find(f =>
+            f.parent_file_id === data.originalFileId && f.is_original === 0
+          );
+          if (existingAdapted) existingAdaptedId = existingAdapted.id;
+        } catch (e) { /* ignore */ }
+
+        if (existingAdaptedId) {
+          // Update existing adapted file instead of creating a duplicate
+          app.database.updateFile(existingAdaptedId, {
+            data: adaptedBuffer.toString('base64'),
+            size: adaptedBuffer.length,
+            tracks: adaptedMeta.tracks || originalFile.tracks,
+            duration: adaptedMeta.duration || originalFile.duration,
+            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
+            ppq: originalFile.ppq,
+            adaptation_metadata: JSON.stringify(metadata),
+            ...(adaptedInstrumentMeta.fileMetadata || {})
+          });
+          adaptedFileId = existingAdaptedId;
+          app.logger.info(`Updated existing adapted file: ${adaptedFileId} (${adaptedFilename})`);
+        } else {
+          // Insert new adapted file
+          const adaptedFile = {
+            filename: adaptedFilename,
+            data: adaptedBuffer.toString('base64'),
+            size: adaptedBuffer.length,
+            tracks: adaptedMeta.tracks || originalFile.tracks,
+            duration: adaptedMeta.duration || originalFile.duration,
+            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
+            ppq: originalFile.ppq,
+            uploaded_at: new Date().toISOString(),
+            folder: originalFile.folder,
+            is_original: false,
+            parent_file_id: data.originalFileId,
+            adaptation_metadata: JSON.stringify(metadata),
+            ...(adaptedInstrumentMeta.fileMetadata || {})
+          };
+          adaptedFileId = app.database.insertFile(adaptedFile);
+          app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
+        }
+      }
     } else {
       app.logger.info(`No transposition needed, saving routings against original file ${data.originalFileId}`);
     }
@@ -681,8 +746,10 @@ async function applyAssignments(app, data) {
     success: true,
     adaptedFileId,
     filename: adaptedFileId ? originalFile.filename.replace(/\.mid$/i, '_adapted.mid') : null,
+    overwritten: overwriteOriginal && !adaptedFileId,
     stats,
-    routings
+    routings,
+    warnings: warnings.length > 0 ? warnings : undefined
   };
 }
 

@@ -1840,12 +1840,61 @@ class RoutingSummaryPage {
 
     if (!hasAssignment) return;
 
+    // Detect if physical file modifications are needed
+    let hasTransposition = false;
+    let hasOorSuppression = false;
+    for (const [ch, a] of Object.entries(assignments)) {
+      if (a.transposition?.semitones && a.transposition.semitones !== 0) hasTransposition = true;
+      if (a.suppressOutOfRange) hasOorSuppression = true;
+      if (a.noteCompression) hasOorSuppression = true;
+    }
+    const needsFileModification = hasSplit || hasTransposition || hasOorSuppression;
+
+    // Ask user how to save if file modification is needed
+    let overwriteOriginal = false;
+    if (needsFileModification && typeof showConfirm === 'function') {
+      const splitInfo = hasSplit ? (_t('routingSummary.splitChannelInfo') || 'Des canaux seront dupliqués pour le multi-instrument.') + ' ' : '';
+      const transposeInfo = hasTransposition ? (_t('routingSummary.transposeInfo') || 'Des transpositions seront appliquées.') + ' ' : '';
+
+      // Build custom 3-button dialog
+      const dialogResult = await new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay rs-save-dialog-overlay';
+        overlay.innerHTML = `
+          <div class="modal-content rs-save-dialog">
+            <div class="modal-header">
+              <h2>${_t('routingSummary.saveDialogTitle') || 'Enregistrer le routage'}</h2>
+            </div>
+            <div class="rs-save-dialog-body">
+              <p>${splitInfo}${transposeInfo}${_t('routingSummary.saveDialogMessage') || 'Le fichier MIDI doit être modifié. Comment souhaitez-vous enregistrer ?'}</p>
+            </div>
+            <div class="rs-save-dialog-buttons">
+              <button class="btn" data-action="cancel">${_t('common.cancel') || 'Annuler'}</button>
+              <button class="btn btn-primary" data-action="adapted">${_t('routingSummary.saveAsAdapted') || 'Version adaptée'}</button>
+              <button class="btn btn-danger" data-action="overwrite">${_t('routingSummary.overwriteOriginal') || 'Écraser l\'original'}</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(btn.dataset.action);
+          });
+        });
+      });
+
+      if (dialogResult === 'cancel') return;
+      overwriteOriginal = (dialogResult === 'overwrite');
+    }
+
     try {
       // Use apply_assignments which handles both normal and split routings
       const result = await this.api.sendCommand('apply_assignments', {
         originalFileId: this.fileId,
         assignments,
-        createAdaptedFile: hasSplit // create adapted file when splits need physical channel separation
+        createAdaptedFile: needsFileModification,
+        overwriteOriginal
       });
 
       // Also build simple routing map for localStorage/eventBus compatibility
@@ -1873,10 +1922,19 @@ class RoutingSummaryPage {
         if (typeof saveRoutingConfig === 'function') saveRoutingConfig();
       }
 
+      // Show warnings if any (e.g., insufficient free channels fallback)
+      if (result?.warnings?.length > 0 && typeof showAlert === 'function') {
+        await showAlert(result.warnings.join('\n'), {
+          title: _t('routingSummary.warningsTitle') || 'Avertissements',
+          icon: '⚠️'
+        });
+      }
+
       // Notify other components
+      const effectiveFileId = result?.adaptedFileId || this.fileId;
       if (window.eventBus) {
         window.eventBus.emit('routing:changed', {
-          fileId: result?.adaptedFileId || this.fileId,
+          fileId: effectiveFileId,
           channels: routing,
           hasSplits: hasSplit
         });
@@ -1888,7 +1946,7 @@ class RoutingSummaryPage {
 
       if (this.onApplyCallback) {
         this.onApplyCallback({
-          fileId: result?.adaptedFileId || this.fileId,
+          fileId: effectiveFileId,
           routing,
           hasSplits: hasSplit
         });

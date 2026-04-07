@@ -1,4 +1,37 @@
 /* ==========================================================================
+   Routing Save Dialog (above routing summary modal z-index)
+   ========================================================================== */
+
+.rs-save-dialog-overlay {
+  z-index: 10006 !important;
+}
+
+.rs-save-dialog {
+  max-width: 480px;
+  border-radius: 12px;
+}
+
+.rs-save-dialog-body {
+  padding: 16px 24px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary, #333);
+}
+
+.rs-save-dialog-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 20px;
+  justify-content: flex-end;
+}
+
+.rs-save-dialog-buttons .btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
    Auto-Assign Confirm Dialog (above auto-assign modal z-index)
    ========================================================================== */
 
