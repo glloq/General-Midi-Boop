@@ -594,6 +594,11 @@ class RoutingSummaryPage {
       const semitones = adaptation.transpositionSemitones || 0;
       const oorHandling = adaptation.oorHandling || 'passThrough';
 
+      // Show transposition info for auto mode
+      const autoInfo = (pitchShift === 'auto' && semitones !== 0)
+        ? ` <span class="rs-adapt-auto-info">(${semitones > 0 ? '+' : ''}${semitones}st)</span>`
+        : '';
+
       adaptHTML = `
         <div class="rs-adaptation">
           <h4>${_t('autoAssign.adaptationTitle')}</h4>
@@ -606,7 +611,7 @@ class RoutingSummaryPage {
               </label>
               <label class="rs-adapt-radio ${pitchShift === 'auto' ? 'selected' : ''}">
                 <input type="radio" name="rs_pitch_${channel}" value="auto" ${pitchShift === 'auto' ? 'checked' : ''} data-channel="${channel}" data-field="pitchShift">
-                ${_t('autoAssign.pitchAuto')}
+                ${_t('autoAssign.pitchAuto')}${autoInfo}
               </label>
               <label class="rs-adapt-radio ${pitchShift === 'manual' ? 'selected' : ''}">
                 <input type="radio" name="rs_pitch_${channel}" value="manual" ${pitchShift === 'manual' ? 'checked' : ''} data-channel="${channel}" data-field="pitchShift">
@@ -1070,6 +1075,25 @@ class RoutingSummaryPage {
         if (ch && field) {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           this.adaptationSettings[ch][field] = radio.value;
+
+          // When switching pitch mode, sync transposition value
+          if (field === 'pitchShift') {
+            const assignment = this.selectedAssignments[ch];
+            const autoSemitones = assignment?.transposition?.semitones || 0;
+            if (radio.value === 'manual') {
+              // Initialize manual value from auto suggestion (or keep current)
+              if (!this.adaptationSettings[ch].transpositionSemitones) {
+                this.adaptationSettings[ch].transpositionSemitones = autoSemitones;
+              }
+            } else if (radio.value === 'auto') {
+              // Restore auto value
+              this.adaptationSettings[ch].transpositionSemitones = autoSemitones;
+            } else {
+              // None: reset to 0
+              this.adaptationSettings[ch].transpositionSemitones = 0;
+            }
+          }
+
           this._refreshUI(channelKeys);
         }
       });
@@ -1221,6 +1245,12 @@ class RoutingSummaryPage {
       polyphony: selected.instrument.polyphony,
       channelAnalysis: this.channelAnalyses[parseInt(ch)] || null
     };
+
+    // Update adaptation settings for the new instrument's transposition
+    const autoSemitones = selected.compatibility.transposition?.semitones || 0;
+    if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
+    this.adaptationSettings[ch].pitchShift = autoSemitones ? 'auto' : 'none';
+    this.adaptationSettings[ch].transpositionSemitones = autoSemitones;
 
     this.skippedChannels.delete(parseInt(ch));
     this._refreshUI(channelKeys);

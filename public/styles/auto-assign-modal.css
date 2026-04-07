@@ -4565,6 +4565,12 @@ body.dark-mode .aa-channel-card.skipped {
   display: none;
 }
 
+.rs-adapt-auto-info {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
 /* Transposition controls */
 .rs-transpose-row {
   margin-top: 4px;
