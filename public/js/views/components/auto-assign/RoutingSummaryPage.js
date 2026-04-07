@@ -1,6 +1,7 @@
 // public/js/views/components/auto-assign/RoutingSummaryPage.js
 // RoutingSummaryPage — Page résumé du routage automatique avec layout deux panneaux
 (function() {
+const MAX_INST_NAME = 18;
 'use strict';
 
 const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -115,6 +116,7 @@ class RoutingSummaryPage {
     this.splitAssignments = {};
     this.activeSplitMode = {}; // { [channel]: 'range'|'polyphony'|'mixed' }
     this.splitExpanded = {}; // { [channel]: boolean } — collapsible split UI
+    this.splitEdited = {}; // { [channel]: boolean } — user edited proposal segments (locks mode tabs)
     this.allInstruments = [];
     this.confidenceScore = 0;
 
@@ -653,7 +655,9 @@ class RoutingSummaryPage {
       ? this._renderInstrumentChips(channel, options, lowOptions, assignment, isSkipped)
       : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`;
     // Range bars (channel notes vs instrument capability)
-    const rangeBarsHTML = (!isDrumChannel && assignment?.noteRangeMin != null)
+    // Range bars: show for assigned instrument OR for active split (proposed/accepted)
+    const hasSplitData = hasSplitProposal || isSplit;
+    const rangeBarsHTML = (!isDrumChannel && (assignment?.noteRangeMin != null || hasSplitData))
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
     // Split section — collapsible, with full manual controls
@@ -678,8 +682,9 @@ class RoutingSummaryPage {
       }
 
       // Mode tabs (only for proposals with alternatives)
+      // Mode tabs — hidden once user edits segments (to prevent losing changes)
       let modeTabs = '';
-      if (!isSplit && this.splitProposals[channel]) {
+      if (!isSplit && !this.splitEdited[channel] && this.splitProposals[channel]) {
         const proposal = this.splitProposals[channel];
         const allModes = [proposal, ...(proposal.alternatives || [])];
         if (allModes.length > 1) {
@@ -704,7 +709,7 @@ class RoutingSummaryPage {
         const selectOptions = compatInstruments.map(inst => {
           const selected = inst.id === seg.instrumentId ? 'selected' : '';
           const name = inst.custom_name || inst.name || '?';
-          const label = name.length > 18 ? name.slice(0, 17) + '\u2026' : name;
+          const label = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
           return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
         }).join('');
         const canRemove = segments.length > 2;
@@ -815,26 +820,8 @@ class RoutingSummaryPage {
     const isSplit = this.splitChannels.has(channel);
     const showLow = this.showLowScores[ch];
 
-    // For split channels, show segment instruments
-    if (isSplit && this.splitAssignments[channel]) {
-      const segs = this.splitAssignments[channel].segments || [];
-      const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
-      const segChips = segs.map((seg, i) => {
-        const name = seg.instrumentName || `Instrument ${i + 1}`;
-        const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
-        const color = splitColors[i % splitColors.length];
-        const range = seg.noteRange ? `${midiNoteToName(seg.noteRange.min)}-${midiNoteToName(seg.noteRange.max)}` : '';
-        return `
-          <span class="aa-instbar-btn assigned" style="border-left: 3px solid ${color}">
-            <span class="aa-instbar-dot" style="background:${color}"></span>
-            <span class="aa-instbar-name">${escapeHtml(displayName)}</span>
-            <span class="aa-instbar-score" style="font-size:9px;color:#888">${range}</span>
-            <span class="aa-instbar-check">\u2713</span>
-          </span>
-        `;
-      }).join('');
-      return `<div class="aa-instbar-content"><div class="aa-instbar-list">${segChips}</div></div>`;
-    }
+    // For split channels, don't show chips — the split section handles segment display
+    if (isSplit) return '';
 
     // Normal: show top options as chips
     const chips = options.map(opt => {
@@ -844,7 +831,7 @@ class RoutingSummaryPage {
       const instType = inst.instrument_type || '';
       const typeColor = getTypeColor(instType);
       const name = inst.custom_name || inst.name || '?';
-      const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+      const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
 
       return `
         <button class="aa-instbar-btn ${isSelected ? 'assigned' : ''}" style="border-left: 3px solid ${typeColor}"
@@ -867,7 +854,7 @@ class RoutingSummaryPage {
         const isSelected = assignment?.instrumentId === inst.id;
         const typeColor = getTypeColor(inst.instrument_type || '');
         const name = inst.custom_name || inst.name || '?';
-        const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+        const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
         return `
           <button class="aa-instbar-btn unrouted ${isSelected ? 'assigned' : ''}" style="border-left: 3px solid ${typeColor}"
                   data-instrument-id="${inst.id}" data-channel="${ch}"
@@ -923,8 +910,10 @@ class RoutingSummaryPage {
     let legendItems = '';
     const instName = assignment?.customName || assignment?.instrumentName || _t('autoAssign.instrumentRange');
 
-    if (isSplit && this.splitAssignments[channel]) {
-      const segs = this.splitAssignments[channel].segments || [];
+    // Use active split data (accepted OR proposed) for range visualization
+    const splitData = this._getActiveSplitData(channel);
+    if (splitData?.segments?.length > 0) {
+      const segs = splitData.segments;
       for (const seg of segs) {
         if (seg.fullRange) { globalMin = Math.min(globalMin, seg.fullRange.min); globalMax = Math.max(globalMax, seg.fullRange.max); }
         if (seg.noteRange) { globalMin = Math.min(globalMin, seg.noteRange.min); globalMax = Math.max(globalMax, seg.noteRange.max); }
@@ -1290,6 +1279,7 @@ class RoutingSummaryPage {
       inst = (this.allInstruments || []).find(i => i.id === instrumentId);
     }
     if (!inst) return;
+    this.splitEdited[channel] = true;
 
     // Determine which data to update (proposal or accepted assignment)
     const isSplit = this.splitChannels.has(channel);
@@ -1359,6 +1349,7 @@ class RoutingSummaryPage {
   _addSplitSegment(channel, channelKeys) {
     const data = this._getActiveSplitData(channel);
     if (!data?.segments) return;
+    this.splitEdited[channel] = true;
     const ch = String(channel);
     const analysis = this.channelAnalyses[channel];
 
@@ -1409,6 +1400,7 @@ class RoutingSummaryPage {
   _removeSplitSegment(channel, segIdx, channelKeys) {
     const data = this._getActiveSplitData(channel);
     if (!data?.segments || data.segments.length <= 2) return;
+    this.splitEdited[channel] = true;
     data.segments.splice(segIdx, 1);
     this._refreshUI(channelKeys);
   }
@@ -1419,6 +1411,7 @@ class RoutingSummaryPage {
   _updateSegmentRange(channel, segIdx, bound, value, channelKeys) {
     const data = this._getActiveSplitData(channel);
     if (!data?.segments?.[segIdx]) return;
+    this.splitEdited[channel] = true;
     const clamped = Math.max(0, Math.min(127, parseInt(value) || 0));
     if (bound === 'min') {
       data.segments[segIdx].noteRange.min = clamped;
@@ -1513,7 +1506,7 @@ class RoutingSummaryPage {
     const allModes = [proposal, ...(proposal.alternatives || [])];
     const chosen = allModes.find(m => m.type === activeMode) || proposal;
     this.splitChannels.add(channel);
-    this.splitAssignments[channel] = chosen;
+    this.splitAssignments[channel] = JSON.parse(JSON.stringify(chosen));
     this._refreshUI(channelKeys);
   }
 
@@ -1577,9 +1570,13 @@ class RoutingSummaryPage {
       if (!this.splitChannels.has(chNum)) continue;
       if (!splitData?.segments?.length) continue;
 
+      const adapt = this.adaptationSettings[ch] || {};
       assignments[ch] = {
         split: true,
         splitMode: splitData.type || 'range',
+        transposition: { semitones: adapt.transpositionSemitones || 0 },
+        suppressOutOfRange: adapt.oorHandling === 'suppress',
+        noteCompression: adapt.oorHandling === 'compress',
         segments: splitData.segments.map(seg => ({
           deviceId: seg.deviceId,
           instrumentId: seg.instrumentId,
@@ -1588,7 +1585,8 @@ class RoutingSummaryPage {
           noteRange: seg.noteRange,
           fullRange: seg.fullRange,
           polyphonyShare: seg.polyphonyShare,
-          score: seg.score
+          score: splitData.quality || null,
+          transposition: seg.transposition || undefined
         }))
       };
       hasAssignment = true;
