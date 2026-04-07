@@ -124,9 +124,9 @@ class ChannelSplitter {
     const instrumentsFor2 = this.selectBestInstrumentsForCoverage(
       sameTypeInstruments, channelAnalysis, 2
     );
-    // For polyphony splits, allow more instruments
+    // For polyphony splits, select up to maxInstruments but the split itself will minimize
     const instrumentsForPoly = this.selectBestInstrumentsForCoverage(
-      sameTypeInstruments, channelAnalysis, maxInstruments
+      sameTypeInstruments, channelAnalysis, Math.min(maxInstruments, 4)
     );
 
     if (instrumentsFor2.length < minInstruments && instrumentsForPoly.length < minInstruments) {
@@ -266,8 +266,10 @@ class ChannelSplitter {
     // Pas besoin de split si la polyphonie du canal est faible
     if (channelMaxPoly <= 1) return null;
 
-    // Garder tous les instruments jouables (polyphonie > 0)
-    const withPoly = instruments.filter(inst => (inst.polyphony || 16) > 0);
+    // Garder tous les instruments jouables (polyphonie > 0), trier par polyphonie decroissante
+    const withPoly = instruments
+      .filter(inst => (inst.polyphony || 16) > 0)
+      .sort((a, b) => (b.polyphony || 16) - (a.polyphony || 16));
 
     if (withPoly.length < 2) return null;
 
@@ -275,17 +277,27 @@ class ChannelSplitter {
     const anyCoversAll = withPoly.some(inst => (inst.polyphony || 16) >= channelMaxPoly);
     if (anyCoversAll) return null;
 
-    // Calculer la polyphonie combinée
-    const totalPolyphony = withPoly.reduce((sum, inst) => sum + (inst.polyphony || 16), 0);
-
-    // La polyphonie combinée doit être suffisante
-    if (totalPolyphony < channelMaxPoly) {
-      this.logger.debug(`Channel ${channelAnalysis.channel}: combined polyphony ${totalPolyphony} < channel max ${channelMaxPoly}`);
-      return null;
+    // Find minimum number of instruments to cover channel polyphony
+    let selected = [];
+    let totalPolyphony = 0;
+    for (const inst of withPoly) {
+      selected.push(inst);
+      totalPolyphony += (inst.polyphony || 16);
+      if (totalPolyphony >= channelMaxPoly) break;
     }
 
-    // Construire les segments en round-robin
-    const segments = withPoly.map(inst => ({
+    // If not enough polyphony even with all instruments, use them all
+    if (totalPolyphony < channelMaxPoly) {
+      selected = withPoly;
+      totalPolyphony = withPoly.reduce((sum, inst) => sum + (inst.polyphony || 16), 0);
+      if (totalPolyphony < channelMaxPoly) {
+        this.logger.debug(`Channel ${channelAnalysis.channel}: combined polyphony ${totalPolyphony} < channel max ${channelMaxPoly}`);
+        return null;
+      }
+    }
+
+    // Construire les segments en round-robin (only selected instruments)
+    const segments = selected.map(inst => ({
       instrumentId: inst.id,
       deviceId: inst.device_id,
       instrumentChannel: inst.channel,
