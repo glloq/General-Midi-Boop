@@ -214,13 +214,17 @@ class RoutingSummaryPage {
         if (saved && JSON.parse(saved).virtualInstrument) excludeVirtual = false;
       } catch (e) { /* ignore */ }
 
-      // Generate auto-assignment suggestions
+      // Generate auto-assignment suggestions (splits disabled — user adds instruments manually)
       const response = await this.api.sendCommand('generate_assignment_suggestions', {
         fileId: fileId,
         topN: 5,
         minScore: 30,
         excludeVirtual: excludeVirtual,
-        includeMatrix: false
+        includeMatrix: false,
+        scoringOverrides: {
+          ...this.scoringOverrides,
+          splitting: { ...(this.scoringOverrides?.splitting || {}), triggerBelowScore: 0 }
+        }
       });
 
       if (!response.success) {
@@ -228,12 +232,12 @@ class RoutingSummaryPage {
         return;
       }
 
-      // Store results
+      // Store results (splitProposals cleared — multi-instrument is user-driven)
       this.suggestions = response.suggestions || {};
       this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection || {};
       this.confidenceScore = response.confidenceScore || 0;
-      this.splitProposals = response.splitProposals || {};
+      this.splitProposals = {};
       this.allInstruments = response.allInstruments || [];
 
       if (response.channelAnalyses) {
@@ -262,6 +266,10 @@ class RoutingSummaryPage {
           assignment.noteRangeMax = matched.instrument.note_range_max;
           assignment.noteSelectionMode = matched.instrument.note_selection_mode;
           assignment.polyphony = matched.instrument.polyphony;
+          if (!assignment.customName) {
+            assignment.customName = matched.instrument.custom_name || null;
+          }
+          assignment.instrumentDisplayName = this._getInstrumentDisplayName(matched.instrument);
         }
       }
 
@@ -635,7 +643,7 @@ class RoutingSummaryPage {
     const gmName = channel === 9 ? _t('autoAssign.drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
     const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
     const score = assignment?.score || 0;
-    const assignedName = assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || null;
+    const assignedName = assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || null;
 
     // Compute playable notes ratio
     const playableData = this._computePlayableNotes(ch);
@@ -716,41 +724,14 @@ class RoutingSummaryPage {
     const rangeBarsHTML = (!isDrumChannel && (assignment?.noteRangeMin != null || hasSplitData))
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
-    // Split section — only render if split is accepted by user
+    // Split section — only render if multi-instrument is active (user-accepted)
     let splitHTML = '';
-    if (isSplit) {
-      const expanded = this.splitExpanded[channel] ?? isSplit;
+    if (isSplit && this.splitAssignments[channel]) {
+      const expanded = this.splitExpanded[channel] ?? true;
       const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
-      const splitModeNames = { fullCoverage: _t('autoAssign.splitFullCoverage'), range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
-
-      // Determine active data (proposal or accepted)
-      let activeData, segments, activeMode;
-      if (isSplit && this.splitAssignments[channel]) {
-        activeData = this.splitAssignments[channel];
-        segments = activeData.segments || [];
-        activeMode = activeData.type;
-      } else {
-        const proposal = this.splitProposals[channel];
-        const allModes = [proposal, ...(proposal.alternatives || [])];
-        activeMode = this.activeSplitMode[channel] || proposal.type;
-        activeData = allModes.find(m => m.type === activeMode) || proposal;
-        segments = activeData.segments || [];
-      }
-
-      // Mode tabs (only for proposals with alternatives)
-      // Mode tabs — hidden once user edits segments (to prevent losing changes)
-      let modeTabs = '';
-      if (!isSplit && !this.splitEdited[channel] && this.splitProposals[channel]) {
-        const proposal = this.splitProposals[channel];
-        const allModes = [proposal, ...(proposal.alternatives || [])];
-        if (allModes.length > 1) {
-          modeTabs = `<div class="rs-split-modes">${allModes.map(m => `
-            <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
-              ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
-            </button>
-          `).join('')}</div>`;
-        }
-      }
+      const activeData = this.splitAssignments[channel];
+      const segments = activeData.segments || [];
+      const activeMode = activeData.type;
 
       // Render segment cards with instrument select + range inputs + remove button
       const segCardsHTML = segments.map((seg, i) => {
@@ -833,43 +814,23 @@ class RoutingSummaryPage {
         }
       }
 
-      // Action buttons
-      let actionsHTML = '';
-      if (isSplit) {
-        actionsHTML = `
-          <div class="rs-split-actions">
-            <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument')}</button>
-            <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('autoAssign.removeSplit')}</button>
-          </div>
-        `;
-      } else {
-        actionsHTML = `
-          <div class="rs-split-actions">
-            <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument')}</button>
-            <button class="btn btn-sm rs-btn-accept-split" data-channel="${channel}">${_t('autoAssign.acceptSplit')}</button>
-          </div>
-        `;
-      }
+      const actionsHTML = `
+        <div class="rs-split-actions">
+          <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
+          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('routingSummary.removeMulti') || 'Retirer multi-instrument'}</button>
+        </div>
+      `;
 
       const segCount = segments.length;
-      const quality = activeData?.quality || 0;
-
-      const splitStatusLabel = isSplit
-        ? `${_t('routingSummary.splitActive') || 'Decoupe active'} (${segCount} instr.)`
-        : `${_t('routingSummary.splitAvailable') || 'Decoupe disponible'} (${segCount} instr., ${_t('routingSummary.quality')}: ${quality})`;
 
       splitHTML = `
-        <div class="rs-split-section ${isSplit ? 'active' : ''}">
+        <div class="rs-split-section active">
           <div class="rs-split-header" data-channel="${channel}">
             <span class="rs-split-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
-            <span>${splitStatusLabel}</span>
-            ${isSplit
-              ? `<button class="btn btn-sm rs-btn-remove-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('autoAssign.removeSplit') || 'Desactiver decoupe'}">\u2716</button>`
-              : `<button class="btn btn-sm rs-btn-accept-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('routingSummary.activateSplit') || 'Activer decoupe'}">\u2714</button>`
-            }
+            <span>${_t('routingSummary.multiInstrument') || 'Multi-instrument'} (${segCount})</span>
+            <button class="btn btn-sm rs-btn-remove-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('routingSummary.removeMulti') || 'Retirer multi-instrument'}">\u2716</button>
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
-            ${modeTabs}
             ${renderSplitBar(activeData, analysis)}
             <div class="rs-split-segments">${segCardsHTML}</div>
             ${overlapsHTML}
@@ -899,10 +860,10 @@ class RoutingSummaryPage {
       </div>`;
     }
 
-    // "Activate split" button — only if proposal exists and split not yet accepted
-    let splitActivateHTML = '';
-    if (!isSplit && hasSplitProposal) {
-      splitActivateHTML = `<button class="btn btn-sm rs-btn-accept-split rs-btn-activate-split" data-channel="${channel}">${_t('routingSummary.activateSplit') || 'Activer decoupe'}</button>`;
+    // "Add instrument" button — visible when single instrument assigned, no split active
+    let addInstrumentHTML = '';
+    if (!isSplit && !isSkipped && assignment?.instrumentId) {
+      addInstrumentHTML = `<button class="btn btn-sm rs-btn-add-multi" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>`;
     }
 
     return `
@@ -924,7 +885,7 @@ class RoutingSummaryPage {
         ${instrumentChipsHTML}
         ${adaptHTML}
         ${splitHTML}
-        ${splitActivateHTML}
+        ${addInstrumentHTML}
       </div>
     `;
   }
@@ -1077,7 +1038,7 @@ class RoutingSummaryPage {
       const left = (iMin / FULL_RANGE) * 100;
       const width = Math.max(1, ((iMax - iMin) / FULL_RANGE) * 100);
       const color = '#4A90D9';
-      const instName = assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || _t('autoAssign.instrumentRange');
+      const instName = assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || _t('autoAssign.instrumentRange');
       const connLeftPct = (iMin / FULL_RANGE) * 100;
       const connRightPct = (iMax / FULL_RANGE) * 100;
 
@@ -1276,16 +1237,11 @@ class RoutingSummaryPage {
       });
     }
 
-    // Mute button in detail panel
-    modal.querySelectorAll('.rs-btn-mute').forEach(btn => {
+    // Add instrument button (multi-instrument)
+    modal.querySelectorAll('.rs-btn-add-multi').forEach(btn => {
       btn.addEventListener('click', () => {
         const ch = parseInt(btn.dataset.channel);
-        if (this.skippedChannels.has(ch)) {
-          this.skippedChannels.delete(ch);
-        } else {
-          this.skippedChannels.add(ch);
-        }
-        this._refreshUI(channelKeys);
+        this._addInstrumentToChannel(ch, channelKeys);
       });
     });
 
@@ -1509,11 +1465,7 @@ class RoutingSummaryPage {
   _getActiveSplitData(channel) {
     const isSplit = this.splitChannels.has(channel);
     if (isSplit && this.splitAssignments[channel]) return this.splitAssignments[channel];
-    const proposal = this.splitProposals[channel];
-    if (!proposal) return null;
-    const activeMode = this.activeSplitMode[channel] || proposal.type;
-    const allModes = [proposal, ...(proposal.alternatives || [])];
-    return allModes.find(m => m.type === activeMode) || proposal;
+    return null;
   }
 
   /**
@@ -1663,8 +1615,9 @@ class RoutingSummaryPage {
       deviceId: selected.instrument.device_id,
       instrumentId: selected.instrument.id,
       instrumentChannel: selected.instrument.channel,
-      instrumentName: selected.instrument.custom_name || getGmProgramName(selected.instrument.gm_program) || selected.instrument.name,
+      instrumentName: selected.instrument.name,
       customName: selected.instrument.custom_name,
+      instrumentDisplayName: this._getInstrumentDisplayName(selected.instrument),
       score: selected.compatibility.score,
       transposition: selected.compatibility.transposition,
       noteRemapping: selected.compatibility.noteRemapping,
@@ -1689,14 +1642,58 @@ class RoutingSummaryPage {
   }
 
   _acceptSplit(channel, channelKeys) {
+    // Legacy: accept a backend proposal (kept for compatibility)
     const proposal = this.splitProposals[channel];
     if (!proposal) return;
-    // Use the active mode if user switched tabs
     const activeMode = this.activeSplitMode[channel] || proposal.type;
     const allModes = [proposal, ...(proposal.alternatives || [])];
     const chosen = allModes.find(m => m.type === activeMode) || proposal;
     this.splitChannels.add(channel);
     this.splitAssignments[channel] = JSON.parse(JSON.stringify(chosen));
+    this._refreshUI(channelKeys);
+  }
+
+  /**
+   * Add a second instrument to a channel (user-driven multi-instrument).
+   * Creates a split from the current single assignment + a new instrument.
+   */
+  _addInstrumentToChannel(channel, channelKeys) {
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const analysis = this.channelAnalyses[channel];
+    if (!assignment?.instrumentId) return;
+
+    // Segment for the currently assigned instrument
+    const currentSeg = {
+      instrumentId: assignment.instrumentId,
+      deviceId: assignment.deviceId,
+      instrumentChannel: assignment.instrumentChannel,
+      instrumentName: assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName,
+      gmProgram: assignment.gmProgram,
+      noteRange: { min: analysis?.noteRange?.min ?? 0, max: analysis?.noteRange?.max ?? 127 },
+      fullRange: { min: assignment.noteRangeMin ?? 0, max: assignment.noteRangeMax ?? 127 }
+    };
+
+    // Find a compatible second instrument
+    const candidates = this._getCompatibleInstrumentsForSegment(ch, analysis?.noteRange || { min: 0, max: 127 });
+    const secondInst = candidates.find(c => c.id !== assignment.instrumentId);
+    const secondSeg = secondInst ? {
+      instrumentId: secondInst.id,
+      deviceId: secondInst.device_id,
+      instrumentChannel: secondInst.channel,
+      instrumentName: this._getInstrumentDisplayName(secondInst),
+      gmProgram: secondInst.gm_program,
+      noteRange: { min: analysis?.noteRange?.min ?? 0, max: analysis?.noteRange?.max ?? 127 },
+      fullRange: { min: secondInst.note_range_min ?? 0, max: secondInst.note_range_max ?? 127 }
+    } : { ...currentSeg }; // Duplicate if nothing else available
+
+    this.splitChannels.add(channel);
+    this.splitAssignments[channel] = {
+      type: 'range',
+      quality: 0,
+      segments: [currentSeg, secondSeg]
+    };
+    this.splitExpanded[channel] = true;
     this._refreshUI(channelKeys);
   }
 
@@ -2287,7 +2284,10 @@ class RoutingSummaryPage {
         minScore: this.scoringOverrides.scoreThresholds?.minimum || 30,
         excludeVirtual: excludeVirtual,
         includeMatrix: false,
-        scoringOverrides: this.scoringOverrides
+        scoringOverrides: {
+          ...this.scoringOverrides,
+          splitting: { ...(this.scoringOverrides?.splitting || {}), triggerBelowScore: 0 }
+        }
       });
 
       if (!response.success) {
@@ -2295,12 +2295,12 @@ class RoutingSummaryPage {
         return;
       }
 
-      // Reset state with new results
+      // Reset state with new results (splitProposals cleared)
       this.suggestions = response.suggestions || {};
       this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection || {};
       this.confidenceScore = response.confidenceScore || 0;
-      this.splitProposals = response.splitProposals || {};
+      this.splitProposals = {};
       this.allInstruments = response.allInstruments || [];
       this.channelAnalyses = {};
       if (response.channelAnalyses) {
@@ -2330,6 +2330,10 @@ class RoutingSummaryPage {
           assignment.noteRangeMax = matched.instrument.note_range_max;
           assignment.noteSelectionMode = matched.instrument.note_selection_mode;
           assignment.polyphony = matched.instrument.polyphony;
+          if (!assignment.customName) {
+            assignment.customName = matched.instrument.custom_name || null;
+          }
+          assignment.instrumentDisplayName = this._getInstrumentDisplayName(matched.instrument);
         }
       }
 
