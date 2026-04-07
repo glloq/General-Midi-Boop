@@ -405,9 +405,6 @@ class RoutingSummaryPage {
           <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
           <div class="rs-footer-center"></div>
           <div class="rs-footer-right">
-            <button class="btn" id="rsSummaryAdvanced" title="${_t('routingSummary.openAdvanced')}">
-              ${_t('routingSummary.openAdvanced')}
-            </button>
             <button class="btn btn-primary" id="rsSummaryApply">
               ${_t('routingSummary.applyAll')}
             </button>
@@ -1167,12 +1164,6 @@ class RoutingSummaryPage {
     // Apply button
     modal.querySelector('#rsSummaryApply').addEventListener('click', () => this._applyRouting());
 
-    // Advanced button — open full AutoAssignModal
-    const advBtn = modal.querySelector('#rsSummaryAdvanced');
-    if (advBtn) {
-      advBtn.addEventListener('click', () => this._openAdvancedModal());
-    }
-
     // Settings button — open dedicated modal
     const settingsBtn = modal.querySelector('#rsSettingsBtn');
     if (settingsBtn) {
@@ -1682,21 +1673,6 @@ class RoutingSummaryPage {
     this._renderContent();
     // Ensure minimap updates after channel tab switch
     requestAnimationFrame(() => requestAnimationFrame(() => this._renderMinimap()));
-  }
-
-  /**
-   * Open the full AutoAssignModal for advanced per-channel editing
-   */
-  _openAdvancedModal() {
-    if (!window.AutoAssignModal) {
-      console.error('AutoAssignModal not available');
-      return;
-    }
-    const autoModal = new window.AutoAssignModal(this.api, null);
-    autoModal.show(this.fileId, (result) => {
-      this.close();
-      if (this.onApplyCallback) this.onApplyCallback(result);
-    });
   }
 
   /**

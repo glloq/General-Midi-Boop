@@ -743,7 +743,7 @@ class MidiEditorFileOps {
     // ========================================================================
 
     /**
-     * Show auto-assignment modal
+     * Show routing modal (RoutingSummaryPage)
      */
     async showAutoAssignModal() {
         const m = this.modal;
@@ -752,22 +752,17 @@ class MidiEditorFileOps {
             return;
         }
 
-        if (!window.AutoAssignModal) {
-            m.log('warn', 'AutoAssignModal not found on window, attempting dynamic load...');
-            try {
-                await this.loadScript('js/views/components/AutoAssignModal.js');
-            } catch (e) {
-                m.log('error', 'Failed to dynamically load AutoAssignModal:', e);
-            }
-        }
-
-        if (!window.AutoAssignModal) {
+        if (!window.RoutingSummaryPage) {
             m.showErrorModal(m.t('autoAssign.componentNotLoaded'));
             return;
         }
 
-        const modal = new window.AutoAssignModal(m.api, m);
-        modal.show(m.currentFile);
+        const routingPage = new window.RoutingSummaryPage(m.api);
+        routingPage.show(m.currentFile, m.currentFileName || '', m.channels || [], (result) => {
+            if (result && window.eventBus) {
+                window.eventBus.emit('routing:changed', result);
+            }
+        });
     }
 
     /**

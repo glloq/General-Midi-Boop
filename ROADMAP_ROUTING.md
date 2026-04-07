@@ -34,12 +34,12 @@ Interface intuitive, user-friendly, compatible avec le systeme de routage intell
 - [x] Reglages globaux (decoupe auto, instrument unique, type GM similaire)
 - [x] Reglages drums avec fallback par categorie
 
-## Phase 5 : Nettoyage Legacy
-- [ ] Remplacer AutoAssignModal par RoutingSummaryPage dans l'editeur
-- [ ] Retirer scripts legacy de index.html
-- [ ] Supprimer AutoAssignModal + 4 mixins
-- [ ] Nettoyer CSS inutile
+## Phase 5 : Nettoyage Legacy -- COMPLETE
+- [x] Remplacer AutoAssignModal par RoutingSummaryPage dans l'editeur
+- [x] Retirer scripts legacy de index.html
+- [x] Supprimer AutoAssignModal + 4 mixins
+- [x] Retirer bouton Advanced et _openAdvancedModal() de RoutingSummaryPage
 
 ---
 
-**Derniere mise a jour** : Phase 4 complete, Phase 5 en cours
+**Derniere mise a jour** : Toutes les phases completees
