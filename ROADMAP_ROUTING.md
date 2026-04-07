@@ -29,10 +29,10 @@ Interface intuitive, user-friendly, compatible avec le systeme de routage intell
 - [x] Boutons preview plus clairs/comprehensibles
 - [x] Titre fichier a droite des boutons preview
 
-## Phase 4 : Modal Reglages Simplifie
-- [ ] 3 presets : minimal, equilibre, orchestral
-- [ ] Reglages globaux (decoupe auto, instrument unique, type GM similaire)
-- [ ] Reglages drums avec fallback par categorie
+## Phase 4 : Modal Reglages Simplifie -- COMPLETE
+- [x] 3 presets : minimal, equilibre, orchestral
+- [x] Reglages globaux (decoupe auto, instrument unique, type GM similaire)
+- [x] Reglages drums avec fallback par categorie
 
 ## Phase 5 : Nettoyage Legacy
 - [ ] Remplacer AutoAssignModal par RoutingSummaryPage dans l'editeur
@@ -42,4 +42,4 @@ Interface intuitive, user-friendly, compatible avec le systeme de routage intell
 
 ---
 
-**Derniere mise a jour** : Phase 3 complete, Phase 4 en cours
+**Derniere mise a jour** : Phase 4 complete, Phase 5 en cours
