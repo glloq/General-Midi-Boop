@@ -493,6 +493,8 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _renderSummaryTable(channelKeys) {
+    const isCondensed = this.selectedChannel !== null;
+
     const rows = channelKeys.map(ch => {
       const channel = parseInt(ch);
       const isSkipped = this.skippedChannels.has(channel);
@@ -522,12 +524,44 @@ class RoutingSummaryPage {
       // Score dot indicator
       const scoreDotClass = isSkipped ? 'rs-dot-skip' : (score >= 70 ? 'rs-dot-ok' : score >= 40 ? 'rs-dot-warn' : 'rs-dot-poor');
 
-      // Assigned column: dropdown for single instrument, text for split
+      // Condensed mode: show only channel, GM, routed instrument name, mute button
+      if (isCondensed) {
+        // Get routed instrument name(s)
+        let routedName = '';
+        if (isSkipped) {
+          routedName = `<span class="rs-skipped-condensed">${_t('routingSummary.muted') || 'Muté'}</span>`;
+        } else if (isSplit && this.splitAssignments[channel]) {
+          const segments = this.splitAssignments[channel].segments || [];
+          routedName = segments.map(seg => seg.instrumentName || '?').join(' + ');
+        } else if (assignment?.instrumentName || assignment?.customName) {
+          routedName = assignment.customName || assignment.instrumentName;
+        } else {
+          routedName = `<span class="rs-unassigned">\u2014</span>`;
+        }
+
+        return `
+          <tr class="rs-row rs-row-condensed ${isSkipped ? 'skipped' : ''} ${isSelected ? 'selected' : ''}"
+              tabindex="0" role="button" data-channel="${channel}">
+            <td class="rs-col-ch-condensed">
+              <span class="rs-score-dot ${scoreDotClass}"></span>
+              ${typeIcon} <strong>${channel + 1}</strong>${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
+            </td>
+            <td class="rs-col-gm-condensed" title="${escapeHtml(gmName)}">${escapeHtml(gmName)}</td>
+            <td class="rs-col-routed-condensed" title="${typeof routedName === 'string' ? escapeHtml(routedName) : ''}">${routedName}</td>
+            <td class="rs-col-mute-condensed">
+              ${!isSkipped
+                ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip') || 'Muter'}">🔇</button>`
+                : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip') || 'Activer'}">🔊</button>`}
+            </td>
+          </tr>
+        `;
+      }
+
+      // Full mode: dropdown, score, actions
       let assignedHTML;
       if (isSkipped) {
         assignedHTML = `<span class="rs-skipped">${_t('autoAssign.overviewStatusSkipped')}</span>`;
       } else if (isSplit && this.splitAssignments[channel]) {
-        // Show split instrument names with separator spans
         const segments = this.splitAssignments[channel].segments || [];
         const splitParts = segments.map((seg, i) => {
           const color = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'][i % 4];
@@ -537,11 +571,9 @@ class RoutingSummaryPage {
         });
         assignedHTML = `<div class="rs-split-instruments">${splitParts.join('<span class="rs-split-sep">+</span>')}</div>`;
       } else {
-        // Dropdown for single instrument selection
         assignedHTML = `<select class="rs-instrument-select" data-channel="${ch}">${this._buildInstrumentOptions(ch, assignment, isSkipped)}</select>`;
       }
 
-      // Score + playable notes
       let scoreHTML = '';
       if (!isSkipped) {
         const playableInfo = this._computePlayableNotes(ch);
@@ -561,28 +593,28 @@ class RoutingSummaryPage {
           <td class="rs-col-assigned">${assignedHTML}</td>
           <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-actions">
-            <button class="btn btn-sm rs-btn-intelligent" data-channel="${channel}" title="${_t('routingSummary.openIntelligent') || 'Routage intelligent'}">&#9881;</button>
             ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip" data-channel="${channel}" title="${_t('routingSummary.skip')}">&times;</button>` : `<button class="btn btn-sm rs-btn-unskip" data-channel="${channel}" title="${_t('routingSummary.unskip')}">+</button>`}
           </td>
         </tr>
       `;
     }).join('');
 
-    return `
-      <div class="rs-table-wrapper">
-        <table class="rs-table">
-          <thead>
-            <tr>
-              <th>${_t('autoAssign.overviewChannel')}</th>
-              <th>${_t('autoAssign.overviewOriginal')}</th>
-              <th>${_t('autoAssign.overviewAssigned')}</th>
-              <th>${_t('routingSummary.score') || 'Score'}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
+    // Condensed header (when detail panel open)
+    if (isCondensed) {
+      return `
+        <div class="rs-table-wrapper rs-table-condensed">
+          <table class="rs-table">
+            <thead>
+              <tr>
+                <th>Ch</th>
+                <th>GM</th>
+                <th>${_t('autoAssign.overviewAssigned') || 'Routé'}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
         </table>
       </div>
     `;
@@ -1201,20 +1233,11 @@ class RoutingSummaryPage {
       sel.addEventListener('click', (e) => e.stopPropagation());
     });
 
-    // Intelligent routing button per channel
-    modal.querySelectorAll('.rs-btn-intelligent').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ch = parseInt(btn.dataset.channel);
-        this._selectChannel(ch);
-      });
-    });
-
-    // Row clicks — select channel for detail
+    // Row clicks — select channel for detail (replaces gear button)
     modal.querySelectorAll('.rs-row').forEach(row => {
       row.addEventListener('click', (e) => {
         // Don't trigger on button/select clicks
-        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip, .rs-btn-intelligent, .rs-instrument-select')) return;
+        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip, .rs-instrument-select')) return;
         const ch = parseInt(row.dataset.channel);
         this._selectChannel(ch);
       });

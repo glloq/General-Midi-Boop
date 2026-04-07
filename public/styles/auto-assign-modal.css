@@ -3772,6 +3772,69 @@ body.dark-mode .aa-channel-card.skipped {
   width: 80px;
 }
 
+/* Condensed table mode (when detail panel is open) */
+.rs-table-condensed .rs-table {
+  font-size: 12px;
+}
+
+.rs-row-condensed td {
+  padding: 5px 6px;
+}
+
+.rs-col-ch-condensed {
+  font-weight: 600;
+  white-space: nowrap;
+  width: 45px;
+  font-size: 12px;
+}
+
+.rs-col-gm-condensed {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-secondary, #666);
+}
+
+.rs-col-routed-condensed {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rs-col-mute-condensed {
+  width: 32px;
+  text-align: center;
+}
+
+.rs-btn-mute, .rs-btn-unmute {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.rs-btn-mute:hover, .rs-btn-unmute:hover {
+  opacity: 1;
+}
+
+.rs-skipped-condensed {
+  color: var(--text-muted, #999);
+  font-style: italic;
+  font-size: 10px;
+}
+
+.rs-unassigned {
+  color: var(--text-muted, #ccc);
+}
+
 .rs-col-original {
   max-width: 110px;
   overflow: hidden;
@@ -3780,8 +3843,8 @@ body.dark-mode .aa-channel-card.skipped {
 }
 
 .rs-col-assigned {
-  min-width: 140px;
-  max-width: 180px;
+  min-width: 180px;
+  max-width: 260px;
 }
 
 .rs-drum-badge {
@@ -5029,11 +5092,11 @@ body.dark-mode .aa-channel-card.skipped {
 /* Instrument dropdown in summary table */
 .rs-instrument-select {
   width: 100%;
-  max-width: 160px;
-  padding: 2px 4px;
-  font-size: 11px;
+  max-width: 240px;
+  padding: 6px 8px;
+  font-size: 13px;
   border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--bg-primary, #fff);
   color: var(--text-primary, #333);
   cursor: pointer;
@@ -5083,27 +5146,9 @@ body.dark-mode .aa-channel-card.skipped {
   white-space: nowrap;
 }
 
-/* Intelligent routing button */
-.rs-btn-intelligent {
-  background: none;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-size: 11px;
-  cursor: pointer;
-  color: var(--text-secondary, #888);
-  transition: all 0.15s ease;
-}
-
-.rs-btn-intelligent:hover {
-  background: var(--accent-color, #4285f4);
-  color: #fff;
-  border-color: var(--accent-color, #4285f4);
-}
-
-/* Actions column wider for 2 buttons */
+/* Actions column — single button */
 .rs-col-actions {
-  width: 60px;
+  width: 36px;
   text-align: center;
   white-space: nowrap;
 }
