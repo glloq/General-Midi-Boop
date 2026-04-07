@@ -4304,16 +4304,57 @@ body.dark-mode .aa-channel-card.skipped {
 /* Detail panel score badge */
 .rs-detail-score {
   font-weight: 700;
-  font-size: 13px;
-  margin-left: 8px;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-tertiary, #f0f0f0);
 }
 
-/* Detail header simplified */
+/* Detail header */
 .rs-detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   margin-bottom: 8px;
+  min-height: 28px;
+}
+
+.rs-detail-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.rs-detail-ch {
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rs-detail-route {
+  color: var(--text-secondary, #666);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.rs-detail-route strong {
+  color: var(--text-primary, #333);
+}
+
+.rs-detail-playable {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Loading/Error states */
@@ -4332,19 +4373,7 @@ body.dark-mode .aa-channel-card.skipped {
   margin-bottom: 16px;
 }
 
-/* Detail header with navigation */
-.rs-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rs-detail-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+/* (detail-header styles consolidated above) */
 
 .rs-detail-nav {
   display: flex;

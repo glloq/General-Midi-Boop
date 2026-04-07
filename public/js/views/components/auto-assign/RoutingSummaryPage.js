@@ -586,6 +586,25 @@ class RoutingSummaryPage {
     const gmName = channel === 9 ? _t('autoAssign.drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
     const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
     const score = assignment?.score || 0;
+    const assignedName = assignment?.customName || assignment?.instrumentName || null;
+
+    // Compute playable notes ratio
+    let playableInfo = '';
+    if (assignment && analysis?.noteDistribution) {
+      const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
+      const totalNotes = usedNotes.length;
+      if (totalNotes > 0) {
+        const instMin = assignment.noteRangeMin ?? 0;
+        const instMax = assignment.noteRangeMax ?? 127;
+        const adapt = this.adaptationSettings[ch] || {};
+        const semi = (adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+        const playable = usedNotes.filter(n => {
+          const shifted = n + semi;
+          return shifted >= instMin && shifted <= instMax;
+        }).length;
+        playableInfo = `(${playable}/${totalNotes})`;
+      }
+    }
 
     // Adaptation controls (pitch shift + OOR handling)
     let adaptHTML = '';
@@ -764,9 +783,12 @@ class RoutingSummaryPage {
       <div class="rs-detail-content">
         <div class="rs-detail-header">
           <div class="rs-detail-title">
-            <h3>${typeIcon} ${_t('autoAssign.channel')} ${channel + 1}${channel === 9 ? ' (Drums)' : ''}</h3>
-            <span class="rs-detail-gm">${escapeHtml(gmName)}</span>
+            <span class="rs-detail-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' DR' : ''}</span>
+            <span class="rs-detail-route">
+              ${escapeHtml(gmName)}${assignedName ? ` \u2192 <strong>${escapeHtml(assignedName)}</strong>` : ''}
+            </span>
             ${score > 0 ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
+            ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
           </div>
           <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
         </div>
