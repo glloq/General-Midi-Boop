@@ -3560,7 +3560,7 @@ body.dark-mode .aa-channel-card.skipped {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 10004 !important; /* Above MIDI editor modal (10002) and rename dialog (10003) */
 }
 
 .rs-container {
