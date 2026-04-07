@@ -421,6 +421,17 @@ class RoutingSummaryPage {
   // ============================================================================
 
   /**
+   * Get display name for an instrument. Prefers custom_name, then GM program name, then device name.
+   */
+  _getInstrumentDisplayName(inst) {
+    if (!inst) return '?';
+    if (inst.custom_name) return inst.custom_name;
+    const gmName = getGmProgramName(inst.gm_program ?? inst.gmProgram ?? null);
+    if (gmName) return gmName;
+    return inst.name || '?';
+  }
+
+  /**
    * Compute playable notes ratio for a channel's assignment.
    * @returns {{ playable: number, total: number } | null}
    */
@@ -461,7 +472,7 @@ class RoutingSummaryPage {
     for (const opt of allOptions) {
       const inst = opt.instrument;
       const score = opt.compatibility?.score || 0;
-      const name = inst.custom_name || inst.name || '?';
+      const name = this._getInstrumentDisplayName(inst);
       const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
       const selected = inst.id === currentId ? 'selected' : '';
       html += `<option value="${inst.id}" ${selected}>${escapeHtml(displayName)} (${score})</option>`;
@@ -512,7 +523,7 @@ class RoutingSummaryPage {
         const segments = this.splitAssignments[channel].segments || [];
         const splitParts = segments.map((seg, i) => {
           const color = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'][i % 4];
-          const name = seg.instrumentName || 'Instrument';
+          const name = seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument';
           const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
           return `<span class="rs-split-inst-name" style="color:${color}" title="${escapeHtml(name)}">${escapeHtml(displayName)}</span>`;
         });
@@ -624,7 +635,7 @@ class RoutingSummaryPage {
     const gmName = channel === 9 ? _t('autoAssign.drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
     const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
     const score = assignment?.score || 0;
-    const assignedName = assignment?.customName || assignment?.instrumentName || null;
+    const assignedName = assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || null;
 
     // Compute playable notes ratio
     const playableData = this._computePlayableNotes(ch);
@@ -753,7 +764,7 @@ class RoutingSummaryPage {
         }
         const selectOptions = compatInstruments.map(inst => {
           const selected = inst.id === seg.instrumentId ? 'selected' : '';
-          const name = inst.custom_name || inst.name || '?';
+          const name = this._getInstrumentDisplayName(inst);
           const label = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
           return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
         }).join('');
@@ -877,7 +888,7 @@ class RoutingSummaryPage {
       multiInstHTML = `<div class="rs-multi-inst-list">
         ${segments.map((seg, i) => {
           const color = splitColors[i % splitColors.length];
-          const name = seg.instrumentName || 'Instrument';
+          const name = seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument';
           const rMin = seg.noteRange?.min ?? 0;
           const rMax = seg.noteRange?.max ?? 127;
           return `<div class="rs-multi-inst-item" style="border-left: 3px solid ${color}">
@@ -936,7 +947,7 @@ class RoutingSummaryPage {
       const isSelected = assignment?.instrumentId === inst.id;
       const instType = inst.instrument_type || '';
       const typeColor = getTypeColor(instType);
-      const name = inst.custom_name || inst.name || '?';
+      const name = this._getInstrumentDisplayName(inst);
       const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
 
       return `
@@ -1066,7 +1077,7 @@ class RoutingSummaryPage {
       const left = (iMin / FULL_RANGE) * 100;
       const width = Math.max(1, ((iMax - iMin) / FULL_RANGE) * 100);
       const color = '#4A90D9';
-      const instName = assignment?.customName || assignment?.instrumentName || _t('autoAssign.instrumentRange');
+      const instName = assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || _t('autoAssign.instrumentRange');
       const connLeftPct = (iMin / FULL_RANGE) * 100;
       const connRightPct = (iMax / FULL_RANGE) * 100;
 
@@ -1463,7 +1474,8 @@ class RoutingSummaryPage {
       instrumentId: inst.id,
       deviceId: inst.device_id,
       instrumentChannel: inst.channel,
-      instrumentName: inst.custom_name || inst.name,
+      instrumentName: inst.custom_name || getGmProgramName(inst.gm_program) || inst.name,
+      gmProgram: inst.gm_program,
       fullRange: { min: inst.note_range_min ?? 0, max: inst.note_range_max ?? 127 }
     };
 
@@ -1546,7 +1558,8 @@ class RoutingSummaryPage {
       instrumentId: newInst.id,
       deviceId: newInst.device_id,
       instrumentChannel: newInst.channel,
-      instrumentName: newInst.custom_name || newInst.name,
+      instrumentName: newInst.custom_name || getGmProgramName(newInst.gm_program) || newInst.name,
+      gmProgram: newInst.gm_program,
       noteRange: { min: rangeMin, max: rangeMax },
       fullRange: { min: newInst.note_range_min ?? 0, max: newInst.note_range_max ?? 127 },
       polyphonyShare: newInst.polyphony || 16
@@ -1650,7 +1663,7 @@ class RoutingSummaryPage {
       deviceId: selected.instrument.device_id,
       instrumentId: selected.instrument.id,
       instrumentChannel: selected.instrument.channel,
-      instrumentName: selected.instrument.name,
+      instrumentName: selected.instrument.custom_name || getGmProgramName(selected.instrument.gm_program) || selected.instrument.name,
       customName: selected.instrument.custom_name,
       score: selected.compatibility.score,
       transposition: selected.compatibility.transposition,
