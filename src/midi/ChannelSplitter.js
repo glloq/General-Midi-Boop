@@ -128,12 +128,15 @@ class ChannelSplitter {
       return null;
     }
 
+    // Try full-coverage split first (2 instruments covering 100% of notes, with optional transposition)
+    const fullCoverageSplit = this.calculateFullCoverageSplit(channelAnalysis, sameTypeInstruments);
+
     const rangeSplit = this.calculateRangeSplit(channelAnalysis, instruments);
     const polyphonySplit = this.calculatePolyphonySplit(channelAnalysis, instruments);
     const mixedSplit = this.calculateMixedSplit(channelAnalysis, instruments);
 
     const minQuality = this.config.minQuality || 50;
-    const all = [rangeSplit, polyphonySplit, mixedSplit].filter(s => s !== null && s.quality >= minQuality);
+    const all = [fullCoverageSplit, rangeSplit, polyphonySplit, mixedSplit].filter(s => s !== null && s.quality >= minQuality);
 
     if (all.length === 0) return null;
 
@@ -427,6 +430,156 @@ class ChannelSplitter {
    * @param {Object} proposal
    * @returns {number}
    */
+  /**
+   * Calcule un split "full coverage" : trouver 2 instruments qui couvrent 100% des notes du canal.
+   * Essaie d'abord sans transposition, puis avec transpositions par octave (±12, ±24).
+   * Priorise les paires avec le moins de transposition necessaire.
+   *
+   * @param {Object} channelAnalysis
+   * @param {Array<Object>} allInstruments - Pool complet d'instruments (pas le subset selectionne)
+   * @returns {SplitProposal|null}
+   */
+  calculateFullCoverageSplit(channelAnalysis, allInstruments) {
+    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) return null;
+    if (!allInstruments || allInstruments.length < 2) return null;
+
+    const chMin = channelAnalysis.noteRange.min;
+    const chMax = channelAnalysis.noteRange.max;
+    const channelNotes = new Set();
+    // Use actual note distribution if available, otherwise use full range
+    if (channelAnalysis.noteDistribution) {
+      for (const n of Object.keys(channelAnalysis.noteDistribution)) channelNotes.add(Number(n));
+    } else {
+      for (let n = chMin; n <= chMax; n++) channelNotes.add(n);
+    }
+    if (channelNotes.size === 0) return null;
+
+    const totalNotes = channelNotes.size;
+    const transpositions = [0, -12, 12, -24, 24]; // Try no transposition first
+    const penaltyPerOctave = this.config?.penalties?.transpositionPerOctave || 3;
+    const maxOctaves = this.config?.penalties?.maxTranspositionOctaves || 3;
+
+    let bestPair = null;
+    let bestPenalty = Infinity;
+
+    // Filter instruments with defined ranges
+    const viable = allInstruments.filter(inst =>
+      inst.note_range_min != null && inst.note_range_max != null
+    );
+
+    for (let a = 0; a < viable.length; a++) {
+      for (let b = a + 1; b < viable.length; b++) {
+        const instA = viable[a];
+        const instB = viable[b];
+
+        // Try transposition combinations for each instrument
+        for (const trA of transpositions) {
+          if (Math.abs(trA) > maxOctaves * 12) continue;
+          for (const trB of transpositions) {
+            if (Math.abs(trB) > maxOctaves * 12) continue;
+
+            const aMin = instA.note_range_min + trA;
+            const aMax = instA.note_range_max + trA;
+            const bMin = instB.note_range_min + trB;
+            const bMax = instB.note_range_max + trB;
+
+            // Count how many channel notes are covered
+            let covered = 0;
+            for (const note of channelNotes) {
+              if ((note >= aMin && note <= aMax) || (note >= bMin && note <= bMax)) {
+                covered++;
+              }
+            }
+
+            if (covered === totalNotes) {
+              // Full coverage! Compute transposition penalty
+              const penalty = Math.abs(trA / 12) * penaltyPerOctave + Math.abs(trB / 12) * penaltyPerOctave;
+              if (penalty < bestPenalty) {
+                bestPenalty = penalty;
+                bestPair = { instA, instB, trA, trB, aMin, aMax, bMin, bMax };
+              }
+            }
+          }
+          // Optimisation: si on a deja une paire sans transposition, pas besoin de chercher plus loin pour cet instrument
+          if (bestPair && bestPenalty === 0) break;
+        }
+        if (bestPair && bestPenalty === 0) break;
+      }
+      if (bestPair && bestPenalty === 0) break;
+    }
+
+    if (!bestPair) return null;
+
+    const { instA, instB, trA, trB, aMin, aMax, bMin, bMax } = bestPair;
+
+    // Build segment note ranges: split at the boundary where one instrument ends and the other begins
+    // Each note goes to whichever instrument covers it; for overlapping notes, assign to instrument A
+    let splitPoint = chMin;
+    for (const note of [...channelNotes].sort((a, b) => a - b)) {
+      const inA = note >= aMin && note <= aMax;
+      const inB = note >= bMin && note <= bMax;
+      if (inA && !inB) continue; // clearly A
+      if (!inA && inB) { splitPoint = note; break; } // boundary
+      // Both cover it → let A handle low notes
+    }
+
+    // Determine effective ranges for each segment based on actual channel notes
+    const notesArr = [...channelNotes].sort((a, b) => a - b);
+    const segANotes = notesArr.filter(n => n >= aMin && n <= aMax);
+    const segBNotes = notesArr.filter(n => n >= bMin && n <= bMax && !(n >= aMin && n <= aMax && segANotes.length > 0));
+    // If some notes only in B, or assign notes to minimize overlap
+    const segAMin = segANotes.length > 0 ? Math.min(...segANotes) : chMin;
+    const segAMax = segANotes.length > 0 ? Math.max(...segANotes) : chMin;
+    const segBMin = segBNotes.length > 0 ? Math.min(...segBNotes) : segAMax + 1;
+    const segBMax = segBNotes.length > 0 ? Math.max(...segBNotes) : chMax;
+
+    const segments = [
+      {
+        instrumentId: instA.id,
+        deviceId: instA.device_id,
+        instrumentChannel: instA.channel,
+        instrumentName: instA.name || instA.custom_name,
+        noteRange: { min: Math.max(chMin, aMin), max: Math.min(chMax, aMax) },
+        fullRange: { min: instA.note_range_min, max: instA.note_range_max },
+        polyphonyShare: instA.polyphony || 16,
+        transposition: trA !== 0 ? { semitones: trA } : undefined
+      },
+      {
+        instrumentId: instB.id,
+        deviceId: instB.device_id,
+        instrumentChannel: instB.channel,
+        instrumentName: instB.name || instB.custom_name,
+        noteRange: { min: Math.max(chMin, bMin), max: Math.min(chMax, bMax) },
+        fullRange: { min: instB.note_range_min, max: instB.note_range_max },
+        polyphonyShare: instB.polyphony || 16,
+        transposition: trB !== 0 ? { semitones: trB } : undefined
+      }
+    ];
+
+    // Detect overlap
+    const overlapMin = Math.max(segments[0].noteRange.min, segments[1].noteRange.min);
+    const overlapMax = Math.min(segments[0].noteRange.max, segments[1].noteRange.max);
+    const overlapZones = overlapMin <= overlapMax ? [{
+      min: overlapMin, max: overlapMax,
+      strategy: 'least_loaded',
+      instruments: [instA.id, instB.id]
+    }] : [];
+
+    const proposal = {
+      type: 'fullCoverage',
+      channel: channelAnalysis.channel,
+      segments,
+      overlapZones,
+      gaps: [], // Full coverage = no gaps
+      channelAnalysis
+    };
+
+    // Score: full coverage + 2 instruments = high score, minus transposition penalty
+    proposal.quality = Math.max(50, Math.round(this.scoreSplitQuality(proposal) - bestPenalty));
+
+    return proposal;
+  }
+
   scoreSplitQuality(proposal) {
     const weights = this.config.weights || {
       noteCoverage: 40,

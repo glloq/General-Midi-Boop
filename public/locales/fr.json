@@ -1234,6 +1234,7 @@
         "defaultsFailed": "Échec du chargement des valeurs par défaut",
         "saveFailed": "Échec de la sauvegarde des capacités",
         "fullSettingsComingSoon": "Page de réglages complets bientôt disponible !",
+        "splitFullCoverage": "Couverture totale",
         "splitByRange": "Par plage",
         "splitByPolyphony": "Par polyphonie",
         "splitMixed": "Mixte",
