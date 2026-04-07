@@ -66,174 +66,6 @@ function midiNoteToName(note) {
   return NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
 }
 
-function isBlackKey(note) {
-  const n = note % 12;
-  return n === 1 || n === 3 || n === 6 || n === 8 || n === 10;
-}
-
-function getScoreStars(score) {
-  const filled = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 40 ? 2 : 1;
-  return '<span class="rs-stars">' + '&#9733;'.repeat(filled) + '&#9734;'.repeat(5 - filled) + '</span>';
-}
-
-/**
- * Render a score breakdown bar for a single criterion
- */
-function renderScoreBar(labelKey, data) {
-  if (!data || data.max === 0) return '';
-  const pct = data.max > 0 ? Math.round((data.score / data.max) * 100) : 0;
-  return `
-    <div class="rs-breakdown-row">
-      <span class="rs-breakdown-label">${_t(labelKey)}</span>
-      <div class="rs-breakdown-bar">
-        <div class="rs-breakdown-fill ${getScoreBgClass(pct)}" style="width: ${pct}%"></div>
-      </div>
-      <span class="rs-breakdown-value">${data.score}/${data.max}</span>
-    </div>
-  `;
-}
-
-/**
- * Render a mini piano roll showing channel notes vs instrument range
- */
-function renderPianoRoll(analysis, assignment) {
-  if (!analysis || !analysis.noteRange || analysis.noteRange.min == null) return '';
-  if (!assignment || assignment.noteRangeMin == null) return '';
-
-  const noteDistribution = analysis.noteDistribution || {};
-  const usedNotes = Object.keys(noteDistribution).map(Number);
-  if (usedNotes.length === 0) return '';
-
-  const instMin = assignment.noteRangeMin != null ? assignment.noteRangeMin : 0;
-  const instMax = assignment.noteRangeMax != null ? assignment.noteRangeMax : 127;
-  const chMin = Math.min(...usedNotes);
-  const chMax = Math.max(...usedNotes);
-
-  const globalMin = Math.max(0, Math.min(chMin, instMin) - 2);
-  const globalMax = Math.min(127, Math.max(chMax, instMax) + 2);
-  const maxCount = Math.max(...Object.values(noteDistribution), 1);
-
-  let inRangeCount = 0, outOfRangeCount = 0;
-  for (const note of usedNotes) {
-    if (note >= instMin && note <= instMax) inRangeCount++;
-    else outOfRangeCount++;
-  }
-
-  let keysHTML = '';
-  for (let note = globalMin; note <= globalMax; note++) {
-    const black = isBlackKey(note);
-    const isUsed = noteDistribution[note] !== undefined;
-    const inRange = note >= instMin && note <= instMax;
-    const usage = isUsed ? noteDistribution[note] / maxCount : 0;
-
-    let statusClass = '';
-    if (isUsed && inRange) statusClass = 'used-ok';
-    else if (isUsed && !inRange) statusClass = 'used-out';
-    else if (inRange) statusClass = 'in-range';
-
-    const opacity = isUsed ? `opacity: ${Math.max(0.4, usage)}` : '';
-    const title = isUsed
-      ? `${midiNoteToName(note)} (${note}) - ${noteDistribution[note]}x${inRange ? '' : ' [OUT]'}`
-      : `${midiNoteToName(note)} (${note})`;
-
-    keysHTML += `<div class="rs-piano-key ${black ? 'black' : 'white'} ${statusClass}" title="${title}" style="${opacity}"></div>`;
-  }
-
-  const summaryClass = outOfRangeCount > 0 ? 'rs-summary-warning' : 'rs-summary-ok';
-  const summaryText = outOfRangeCount > 0
-    ? `${usedNotes.length} ${_t('autoAssign.notesUsed')} — ${inRangeCount} ${_t('autoAssign.inRange')}, ${outOfRangeCount} ${_t('autoAssign.outOfRange')}`
-    : `${usedNotes.length} ${_t('autoAssign.notesUsed')} — ${_t('autoAssign.allInRange')}`;
-
-  return `
-    <div class="rs-piano-section">
-      <div class="rs-piano-labels">
-        <span>${_t('autoAssign.channelNotes')}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}</span>
-        <span>${_t('autoAssign.instrumentRange')}: ${midiNoteToName(instMin)}-${midiNoteToName(instMax)}</span>
-      </div>
-      <div class="rs-piano-roll">${keysHTML}</div>
-      <div class="rs-piano-legend">
-        <span class="rs-legend-item"><span class="rs-legend-key used-ok"></span> ${_t('autoAssign.legendInRange')}</span>
-        <span class="rs-legend-item"><span class="rs-legend-key used-out"></span> ${_t('autoAssign.legendOutOfRange')}</span>
-        <span class="rs-legend-item"><span class="rs-legend-key in-range"></span> ${_t('autoAssign.legendAvailable')}</span>
-      </div>
-      <div class="rs-piano-summary ${summaryClass}">${summaryText}</div>
-    </div>
-  `;
-}
-
-/**
- * Render piano roll for split channels showing multiple instrument ranges
- */
-function renderSplitPianoRoll(analysis, splitData) {
-  if (!analysis?.noteRange?.min || !splitData?.segments?.length) return '';
-
-  const noteDistribution = analysis.noteDistribution || {};
-  const usedNotes = Object.keys(noteDistribution).map(Number);
-  if (usedNotes.length === 0) return '';
-
-  const segments = splitData.segments;
-  const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
-
-  // Global range
-  let allMins = usedNotes, allMaxs = usedNotes;
-  for (const seg of segments) {
-    if (seg.noteRange) { allMins = [...allMins, seg.noteRange.min]; allMaxs = [...allMaxs, seg.noteRange.max]; }
-    if (seg.fullRange) { allMins = [...allMins, seg.fullRange.min]; allMaxs = [...allMaxs, seg.fullRange.max]; }
-  }
-  const globalMin = Math.max(0, Math.min(...allMins) - 2);
-  const globalMax = Math.min(127, Math.max(...allMaxs) + 2);
-  const maxCount = Math.max(...Object.values(noteDistribution), 1);
-
-  // Build instrument range lookup: for each note, which segment(s) cover it
-  function noteInSegment(note, seg) {
-    const min = seg.fullRange?.min ?? seg.noteRange?.min ?? 0;
-    const max = seg.fullRange?.max ?? seg.noteRange?.max ?? 127;
-    return note >= min && note <= max;
-  }
-
-  let keysHTML = '';
-  for (let note = globalMin; note <= globalMax; note++) {
-    const black = isBlackKey(note);
-    const isUsed = noteDistribution[note] !== undefined;
-    const usage = isUsed ? noteDistribution[note] / maxCount : 0;
-
-    // Find which segment covers this note
-    const coveringIdx = segments.findIndex(seg => noteInSegment(note, seg));
-    const inRange = coveringIdx >= 0;
-
-    let statusClass = '';
-    let bgStyle = '';
-    if (isUsed && inRange) {
-      statusClass = 'used-ok';
-      bgStyle = `background: ${splitColors[coveringIdx % splitColors.length]} !important`;
-    } else if (isUsed && !inRange) {
-      statusClass = 'used-out';
-    } else if (inRange) {
-      const color = splitColors[coveringIdx % splitColors.length];
-      bgStyle = `background: ${color}22`;
-    }
-
-    const opacity = isUsed ? `opacity: ${Math.max(0.4, usage)}` : '';
-    keysHTML += `<div class="rs-piano-key ${black ? 'black' : 'white'} ${statusClass}" style="${bgStyle};${opacity}"></div>`;
-  }
-
-  // Legend with segment colors
-  const legendHTML = segments.map((seg, i) => {
-    const name = seg.instrumentName || `Instrument ${i + 1}`;
-    const color = splitColors[i % splitColors.length];
-    const range = seg.noteRange ? `${midiNoteToName(seg.noteRange.min)}-${midiNoteToName(seg.noteRange.max)}` : '';
-    return `<span class="rs-legend-item"><span class="rs-legend-key" style="background:${color}"></span> ${escapeHtml(name)} ${range}</span>`;
-  }).join('');
-
-  return `
-    <div class="rs-piano-section">
-      <div class="rs-piano-labels"><span>${_t('autoAssign.channelNotes')}</span><span>${segments.length} ${_t('routingSummary.instruments')}</span></div>
-      <div class="rs-piano-roll">${keysHTML}</div>
-      <div class="rs-piano-legend">${legendHTML}</div>
-    </div>
-  `;
-}
-
 /**
  * Render a split visualization bar showing how instruments divide the note range
  */
@@ -281,6 +113,7 @@ class RoutingSummaryPage {
     this.splitProposals = {};
     this.splitChannels = new Set();
     this.splitAssignments = {};
+    this.activeSplitMode = {}; // { [channel]: 'range'|'polyphony'|'mixed' }
     this.allInstruments = [];
     this.confidenceScore = 0;
 
@@ -532,21 +365,25 @@ class RoutingSummaryPage {
     this.modal.innerHTML = `
       <div class="rs-container ${this.selectedChannel !== null ? 'rs-with-detail' : ''}">
         <div class="rs-header">
-          <div class="rs-header-left">
-            ${this.midiData ? this._renderHeaderPreview() : `<h2>${_t('routingSummary.title')}</h2>`}
+          <div class="rs-header-row">
+            <div class="rs-header-left">
+              ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
+            </div>
+            <div class="rs-header-center">
+              <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
+                ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
+              </span>
+              <span class="rs-channel-count">
+                ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
+              </span>
+            </div>
+            <div class="rs-header-right">
+              <span class="rs-filename" title="${escapeHtml(this.filename)}">${escapeHtml(this.filename)}</span>
+              <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
+              <button class="modal-close" id="rsSummaryClose">&times;</button>
+            </div>
           </div>
-          <div class="rs-header-center">
-            <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
-              ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
-            </span>
-            <span class="rs-channel-count">
-              ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
-            </span>
-          </div>
-          <div class="rs-header-right">
-            <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
-            <button class="modal-close" id="rsSummaryClose">&times;</button>
-          </div>
+          ${this.midiData ? '<div class="rs-header-minimap" id="rsMinimapContainer"></div>' : ''}
         </div>
 
         <div class="rs-layout">
@@ -747,74 +584,7 @@ class RoutingSummaryPage {
     // Channel info
     const gmName = channel === 9 ? _t('autoAssign.drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
     const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
-    const noteRangeStr = analysis?.noteRange?.min != null
-      ? `${midiNoteToName(analysis.noteRange.min)} - ${midiNoteToName(analysis.noteRange.max)}`
-      : 'N/A';
-    const polyStr = analysis?.polyphony?.max != null ? `${analysis.polyphony.max}` : 'N/A';
-    const density = analysis?.density != null ? (Math.round(analysis.density * 10) / 10) + ' n/s' : null;
-    const totalNotes = analysis?.totalNotes || null;
-    const usedCCs = analysis?.usedCCs || [];
-    const trackNames = analysis?.trackNames || [];
-
-    // Channel navigation
-    const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    const currentIdx = channelKeys.indexOf(ch);
-    const prevCh = currentIdx > 0 ? channelKeys[currentIdx - 1] : null;
-    const nextCh = currentIdx < channelKeys.length - 1 ? channelKeys[currentIdx + 1] : null;
-
-    // Selected instrument score details
-    const allOptions = [...options, ...lowOptions];
-    const selectedOption = assignment ? allOptions.find(o => o.instrument.id === assignment.instrumentId) : null;
-    const compat = selectedOption?.compatibility;
     const score = assignment?.score || 0;
-
-    // Score breakdown
-    const scoreBreakdown = compat?.scoreBreakdown;
-    let breakdownHTML = '';
-    if (scoreBreakdown && assignment && !isSkipped) {
-      breakdownHTML = `
-        <div class="rs-score-breakdown">
-          <div class="rs-breakdown-header">
-            <span class="rs-score-main ${getScoreClass(score)}">${score}</span>
-            ${getScoreStars(score)}
-            <span class="rs-score-label">${getScoreLabel(score)}</span>
-          </div>
-          ${renderScoreBar('autoAssign.scoreProgram', scoreBreakdown.program)}
-          ${renderScoreBar('autoAssign.scoreNoteRange', scoreBreakdown.noteRange)}
-          ${renderScoreBar('autoAssign.scorePolyphony', scoreBreakdown.polyphony)}
-          ${renderScoreBar('autoAssign.scoreCCSupport', scoreBreakdown.ccSupport)}
-          ${renderScoreBar('autoAssign.scoreType', scoreBreakdown.instrumentType)}
-          ${scoreBreakdown.percussion?.max ? renderScoreBar('autoAssign.scorePercussion', scoreBreakdown.percussion) : ''}
-        </div>
-      `;
-    }
-
-    // Compatibility info & issues
-    let compatInfoHTML = '';
-    if (compat && !isSkipped) {
-      const infoStr = compat.info ? (Array.isArray(compat.info) ? compat.info.join(' \u2022 ') : String(compat.info)) : '';
-      const issueStr = compat.issues?.length > 0
-        ? compat.issues.map(i => `<span class="rs-issue-${i.type || 'info'}">${escapeHtml(i.message || i)}</span>`).join(' ')
-        : '';
-      if (infoStr || issueStr) {
-        compatInfoHTML = `
-          <div class="rs-compat-info">
-            ${infoStr ? `<div class="rs-compat-info-text">${escapeHtml(infoStr)}</div>` : ''}
-            ${issueStr ? `<div class="rs-compat-issues">${issueStr}</div>` : ''}
-          </div>
-        `;
-      }
-    }
-
-    // Piano roll visualization
-    let pianoHTML = '';
-    if (!isSkipped && !isDrumChannel) {
-      if (isSplit && this.splitAssignments[channel]) {
-        pianoHTML = renderSplitPianoRoll(analysis, this.splitAssignments[channel]);
-      } else if (assignment?.instrumentId) {
-        pianoHTML = renderPianoRoll(analysis, assignment);
-      }
-    }
 
     // Adaptation controls (pitch shift + OOR handling)
     let adaptHTML = '';
@@ -876,22 +646,35 @@ class RoutingSummaryPage {
       `;
     }
 
-    // Instrument chips (horizontal bar) + range bars
-    const instrumentChipsHTML = (!isSkipped && options.length > 0)
-      ? this._renderInstrumentChips(channel, options, lowOptions, assignment)
-      : (isSkipped ? '' : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`);
-    const rangeBarsHTML = (!isSkipped && !isDrumChannel)
+    // Instrument chips (horizontal bar) — always show, even on skipped channels
+    const instrumentChipsHTML = (options.length > 0)
+      ? this._renderInstrumentChips(channel, options, lowOptions, assignment, isSkipped)
+      : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`;
+    // Range bars (channel notes vs instrument capability)
+    const rangeBarsHTML = (!isDrumChannel && assignment?.noteRangeMin != null)
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
-    // Split section
+    // Split section with mode tabs
     let splitHTML = '';
     if (hasSplitProposal && !isSplit) {
       const proposal = this.splitProposals[channel];
-      const segments = proposal.segments || [];
+      const allModes = [proposal, ...(proposal.alternatives || [])];
+      const activeMode = this.activeSplitMode[channel] || proposal.type;
+      const activeProposal = allModes.find(m => m.type === activeMode) || proposal;
+      const segments = activeProposal.segments || [];
+
+      const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+
+      const modeTabs = allModes.map(m => `
+        <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
+          ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
+        </button>
+      `).join('');
+
       splitHTML = `
         <div class="rs-split-section">
-          <h4>${_t('autoAssign.splitProposed')} (${proposal.type}, ${_t('routingSummary.quality')}: ${proposal.quality})</h4>
-          ${renderSplitBar(proposal, analysis)}
+          <div class="rs-split-modes">${modeTabs}</div>
+          ${renderSplitBar(activeProposal, analysis)}
           <div class="rs-split-segments">
             ${segments.map((seg, i) => `
               <div class="rs-split-segment">
@@ -907,9 +690,10 @@ class RoutingSummaryPage {
       `;
     } else if (isSplit && this.splitAssignments[channel]) {
       const accepted = this.splitAssignments[channel];
+      const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
       splitHTML = `
         <div class="rs-split-section active">
-          <h4>${_t('autoAssign.splitProposed')} (${_t('routingSummary.accepted')})</h4>
+          <div class="rs-split-accepted-label">${splitModeNames[accepted.type] || accepted.type} \u2014 ${_t('routingSummary.accepted')}</div>
           ${renderSplitBar(accepted, analysis)}
           <div class="rs-split-segments">
             ${(accepted.segments || []).map((seg, i) => `
@@ -919,6 +703,9 @@ class RoutingSummaryPage {
               </div>
             `).join('')}
           </div>
+          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">
+            ${_t('autoAssign.removeSplit')}
+          </button>
         </div>
       `;
     }
@@ -926,64 +713,18 @@ class RoutingSummaryPage {
     return `
       <div class="rs-detail-content">
         <div class="rs-detail-header">
-          <div class="rs-detail-nav">
-            <button class="btn btn-sm rs-nav-btn" id="rsNavPrev" ${!prevCh ? 'disabled' : ''} data-channel="${prevCh || ''}" title="${_t('routingSummary.prevChannel')}">&#9664;</button>
-          </div>
           <div class="rs-detail-title">
             <h3>${typeIcon} ${_t('autoAssign.channel')} ${channel + 1}${channel === 9 ? ' (Drums)' : ''}</h3>
             <span class="rs-detail-gm">${escapeHtml(gmName)}</span>
+            ${score > 0 ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
           </div>
-          <div class="rs-detail-nav">
-            <button class="btn btn-sm rs-nav-btn" id="rsNavNext" ${!nextCh ? 'disabled' : ''} data-channel="${nextCh || ''}" title="${_t('routingSummary.nextChannel')}">&#9654;</button>
-            <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
-          </div>
+          <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
         </div>
 
-        <div class="rs-detail-stats">
-          <div class="rs-stat">
-            <span class="rs-stat-label">${_t('autoAssign.noteRange')}</span>
-            <span class="rs-stat-value">${noteRangeStr}</span>
-          </div>
-          <div class="rs-stat">
-            <span class="rs-stat-label">${_t('autoAssign.polyphony')}</span>
-            <span class="rs-stat-value">${polyStr}</span>
-          </div>
-          <div class="rs-stat">
-            <span class="rs-stat-label">${_t('autoAssign.type')}</span>
-            <span class="rs-stat-value">${analysis?.estimatedType || 'N/A'}</span>
-          </div>
-          ${density ? `<div class="rs-stat"><span class="rs-stat-label">${_t('routingSummary.density')}</span><span class="rs-stat-value">${density}</span></div>` : ''}
-          ${totalNotes ? `<div class="rs-stat"><span class="rs-stat-label">${_t('routingSummary.totalNotes')}</span><span class="rs-stat-value">${totalNotes}</span></div>` : ''}
-          ${usedCCs.length > 0 ? `<div class="rs-stat"><span class="rs-stat-label">CCs</span><span class="rs-stat-value">${usedCCs.slice(0, 6).join(', ')}${usedCCs.length > 6 ? '\u2026' : ''}</span></div>` : ''}
-          ${trackNames.length > 0 ? `<div class="rs-stat rs-stat-wide"><span class="rs-stat-label">${_t('routingSummary.tracks')}</span><span class="rs-stat-value">${escapeHtml(trackNames.join(', '))}</span></div>` : ''}
-        </div>
-
-        ${instrumentChipsHTML}
         ${rangeBarsHTML}
+        ${instrumentChipsHTML}
         ${adaptHTML}
-        ${pianoHTML}
         ${splitHTML}
-        ${breakdownHTML}
-        ${compatInfoHTML}
-      </div>
-    `;
-  }
-
-  _renderInstrumentOption(opt, assignment, channel) {
-    const inst = opt.instrument;
-    const compat = opt.compatibility;
-    const isSelected = assignment?.instrumentId === inst.id;
-    return `
-      <div class="rs-instrument-option ${isSelected ? 'selected' : ''}" data-instrument-id="${inst.id}" data-channel="${channel}">
-        <div class="rs-inst-name">${escapeHtml(inst.custom_name || inst.name)}</div>
-        <div class="rs-inst-score">
-          <div class="rs-score-bar-sm">
-            <div class="rs-score-fill ${getScoreBgClass(compat.score)}" style="width: ${compat.score}%"></div>
-          </div>
-          <span class="${getScoreClass(compat.score)}">${compat.score}</span>
-        </div>
-        ${compat.transposition?.semitones ? `<span class="rs-inst-trans">${compat.transposition.semitones > 0 ? '+' : ''}${compat.transposition.semitones}st</span>` : ''}
-        ${compat.issues?.length ? `<span class="rs-inst-issues" title="${compat.issues.map(i => i.message).join(', ')}">!</span>` : ''}
       </div>
     `;
   }
@@ -991,7 +732,7 @@ class RoutingSummaryPage {
   /**
    * Render instrument selection as horizontal scrollable chips
    */
-  _renderInstrumentChips(channel, options, lowOptions, assignment) {
+  _renderInstrumentChips(channel, options, lowOptions, assignment, isSkipped = false) {
     const ch = String(channel);
     const isSplit = this.splitChannels.has(channel);
     const showLow = this.showLowScores[ch];
@@ -1069,7 +810,7 @@ class RoutingSummaryPage {
     ` : '';
 
     return `
-      <div class="aa-instbar-content">
+      <div class="aa-instbar-content ${isSkipped ? 'rs-chips-skipped' : ''}">
         <div class="aa-instbar-list">${chips}${lowChips}${showMoreBtn}</div>
       </div>
     `;
@@ -1225,16 +966,6 @@ class RoutingSummaryPage {
       });
     }
 
-    // Channel navigation (prev/next)
-    const prevBtn = modal.querySelector('#rsNavPrev');
-    const nextBtn = modal.querySelector('#rsNavNext');
-    if (prevBtn && prevBtn.dataset.channel) {
-      prevBtn.addEventListener('click', () => this._selectChannel(parseInt(prevBtn.dataset.channel)));
-    }
-    if (nextBtn && nextBtn.dataset.channel) {
-      nextBtn.addEventListener('click', () => this._selectChannel(parseInt(nextBtn.dataset.channel)));
-    }
-
     // Instrument chip selection
     modal.querySelectorAll('.aa-instbar-btn[data-instrument-id]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1287,6 +1018,25 @@ class RoutingSummaryPage {
         this._acceptSplit(ch, channelKeys);
       });
     });
+
+    // Split mode tabs
+    modal.querySelectorAll('.rs-split-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        this.activeSplitMode[ch] = btn.dataset.mode;
+        this._refreshUI(channelKeys);
+      });
+    });
+
+    // Remove split
+    modal.querySelectorAll('.rs-btn-remove-split').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = parseInt(btn.dataset.channel);
+        this.splitChannels.delete(ch);
+        delete this.splitAssignments[ch];
+        this._refreshUI(channelKeys);
+      });
+    });
   }
 
   // ============================================================================
@@ -1330,8 +1080,12 @@ class RoutingSummaryPage {
   _acceptSplit(channel, channelKeys) {
     const proposal = this.splitProposals[channel];
     if (!proposal) return;
+    // Use the active mode if user switched tabs
+    const activeMode = this.activeSplitMode[channel] || proposal.type;
+    const allModes = [proposal, ...(proposal.alternatives || [])];
+    const chosen = allModes.find(m => m.type === activeMode) || proposal;
     this.splitChannels.add(channel);
-    this.splitAssignments[channel] = proposal;
+    this.splitAssignments[channel] = chosen;
     this._refreshUI(channelKeys);
   }
 
@@ -1443,19 +1197,16 @@ class RoutingSummaryPage {
   // Preview bar & minimap
   // ============================================================================
 
-  _renderHeaderPreview() {
+  _renderHeaderButtons() {
     const ch = this.selectedChannel;
     const chLabel = ch !== null ? (ch + 1) : '?';
     return `
-      <div class="rs-header-preview">
-        <div class="rs-hdr-prev-btns">
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">&#9654;</button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>&#9654; Ch${chLabel}</button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>&#9835;</button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
-          <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
-        </div>
-        <div class="rs-hdr-prev-map" id="rsMinimapContainer" title="${escapeHtml(this.filename)}"></div>
+      <div class="rs-hdr-prev-btns">
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">&#9654;</button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>&#9654; Ch${chLabel}</button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>&#9835;</button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
         <span class="rs-preview-time" id="rsPreviewTime"></span>
       </div>
     `;
