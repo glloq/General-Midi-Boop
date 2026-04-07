@@ -445,6 +445,9 @@ class ScoringSettingsModal extends BaseModal {
     const preset = ScoringSettingsModal.getPresets().find(p => p.key === key);
     if (!preset) return;
 
+    // Preserve routing settings across preset changes
+    const savedRouting = this.overrides.routing;
+
     // Deep copy preset values into overrides
     this.overrides.weights = { ...preset.weights };
     this.overrides.scoreThresholds = { ...preset.scoreThresholds };
@@ -455,6 +458,7 @@ class ScoringSettingsModal extends BaseModal {
       drumChannelWeights: { ...preset.percussion.drumChannelWeights }
     };
     this.overrides.splitting = { ...preset.splitting };
+    if (savedRouting) this.overrides.routing = savedRouting;
     this.activePreset = key;
     this.presetSnapshot = JSON.stringify(this.overrides);
 
@@ -482,6 +486,8 @@ class ScoringSettingsModal extends BaseModal {
       // Also check percussion
       if (matches && this.overrides.percussion) {
         if (this.overrides.percussion.drumChannelDrumBonus !== preset.percussion.drumChannelDrumBonus) matches = false;
+        if (matches && this.overrides.percussion.drumChannelNonDrumPenalty !== preset.percussion.drumChannelNonDrumPenalty) matches = false;
+        if (matches && this.overrides.percussion.nonDrumChannelDrumPenalty !== preset.percussion.nonDrumChannelDrumPenalty) matches = false;
         if (matches && this.overrides.percussion.drumChannelWeights) {
           for (const [k, v] of Object.entries(preset.percussion.drumChannelWeights)) {
             if (this.overrides.percussion.drumChannelWeights[k] !== v) { matches = false; break; }
