@@ -285,7 +285,7 @@ class RoutingSummaryPage {
     this.audioPreview = null;
     this._previewState = 'stopped'; // 'stopped' | 'playing' | 'paused'
     this._previewMode = null; // 'all' | 'channel' | 'original'
-    this._previewChannel = null;
+    this._previewingChannel = null;
     this._minimapCanvas = null;
     this._minimapBuckets = null;
     this._minimapBucketsOOR = null;
@@ -1496,7 +1496,7 @@ class RoutingSummaryPage {
     }
     this._safeStopPreview();
     this._previewMode = 'all';
-    this._previewChannel = null;
+    this._previewingChannel = null;
 
     const channelConfigs = {};
     for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
@@ -1566,7 +1566,7 @@ class RoutingSummaryPage {
     }
     this._safeStopPreview();
     this._previewMode = 'channel';
-    this._previewChannel = channel;
+    this._previewingChannel = channel;
 
     const ch = String(channel);
     const assignment = this.selectedAssignments[ch];
@@ -1606,7 +1606,7 @@ class RoutingSummaryPage {
     }
     this._safeStopPreview();
     this._previewMode = 'original';
-    this._previewChannel = channel;
+    this._previewingChannel = channel;
 
     try {
       this._connectPreviewCallbacks();
