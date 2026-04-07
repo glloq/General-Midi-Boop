@@ -4104,10 +4104,47 @@ body.dark-mode .aa-channel-card.skipped {
 
 /* Split section */
 .rs-split-section {
-  padding: 12px;
+  padding: 0;
   border: 1px dashed var(--color-split, #f0ad4e);
   border-radius: 8px;
   background: rgba(240, 173, 78, 0.05);
+}
+
+/* Collapsible split header */
+.rs-split-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.rs-split-header:hover {
+  background: rgba(240, 173, 78, 0.08);
+  border-radius: 7px;
+}
+
+.rs-split-toggle {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  width: 12px;
+}
+
+.rs-split-badge {
+  color: var(--color-split-active, #5cb85c);
+  font-size: 14px;
+  margin-left: auto;
+}
+
+.rs-split-body {
+  padding: 0 12px 12px;
+}
+
+.rs-split-body.collapsed {
+  display: none;
 }
 
 .rs-split-section.active {
@@ -4132,11 +4169,34 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-split-segment {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 4px 8px;
   background: var(--bg-tertiary, #f5f5f5);
   border-radius: 4px;
   font-size: 12px;
+}
+
+.rs-seg-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rs-seg-instrument-select {
+  flex: 1;
+  font-size: 11px;
+  padding: 2px 4px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-primary, #fff);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.rs-seg-instrument-select:focus {
+  border-color: var(--accent-color, #4285f4);
+  outline: none;
 }
 
 .rs-seg-name {

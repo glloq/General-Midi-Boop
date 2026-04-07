@@ -114,6 +114,7 @@ class RoutingSummaryPage {
     this.splitChannels = new Set();
     this.splitAssignments = {};
     this.activeSplitMode = {}; // { [channel]: 'range'|'polyphony'|'mixed' }
+    this.splitExpanded = {}; // { [channel]: boolean } — collapsible split UI
     this.allInstruments = [];
     this.confidenceScore = 0;
 
@@ -654,58 +655,102 @@ class RoutingSummaryPage {
     const rangeBarsHTML = (!isDrumChannel && assignment?.noteRangeMin != null)
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
-    // Split section with mode tabs
+    // Split section — collapsible, with instrument selectors
     let splitHTML = '';
-    if (hasSplitProposal && !isSplit) {
-      const proposal = this.splitProposals[channel];
-      const allModes = [proposal, ...(proposal.alternatives || [])];
-      const activeMode = this.activeSplitMode[channel] || proposal.type;
-      const activeProposal = allModes.find(m => m.type === activeMode) || proposal;
-      const segments = activeProposal.segments || [];
+    if (hasSplitProposal || isSplit) {
+      const expanded = this.splitExpanded[channel] ?? isSplit; // open if accepted
+      const splitColors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
 
-      const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+      let splitBodyHTML = '';
+      if (hasSplitProposal && !isSplit) {
+        // === PROPOSAL (not yet accepted) ===
+        const proposal = this.splitProposals[channel];
+        const allModes = [proposal, ...(proposal.alternatives || [])];
+        const activeMode = this.activeSplitMode[channel] || proposal.type;
+        const activeProposal = allModes.find(m => m.type === activeMode) || proposal;
+        const segments = activeProposal.segments || [];
+        const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
 
-      const modeTabs = allModes.map(m => `
-        <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
-          ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
-        </button>
-      `).join('');
-
-      splitHTML = `
-        <div class="rs-split-section">
-          <div class="rs-split-modes">${modeTabs}</div>
-          ${renderSplitBar(activeProposal, analysis)}
-          <div class="rs-split-segments">
-            ${segments.map((seg, i) => `
-              <div class="rs-split-segment">
-                <span class="rs-seg-name">${escapeHtml(seg.instrumentName || 'Instrument ' + (i + 1))}</span>
-                <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
-              </div>
-            `).join('')}
-          </div>
-          <button class="btn btn-sm rs-btn-accept-split" data-channel="${channel}">
-            ${_t('autoAssign.acceptSplit')}
+        const modeTabs = allModes.length > 1 ? `<div class="rs-split-modes">${allModes.map(m => `
+          <button class="rs-split-mode-btn ${m.type === activeMode ? 'active' : ''}" data-channel="${channel}" data-mode="${m.type}">
+            ${splitModeNames[m.type] || m.type} <span class="rs-split-quality">${m.quality}</span>
           </button>
-        </div>
-      `;
-    } else if (isSplit && this.splitAssignments[channel]) {
-      const accepted = this.splitAssignments[channel];
-      const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
-      splitHTML = `
-        <div class="rs-split-section active">
+        `).join('')}</div>` : '';
+
+        const segHTML = segments.map((seg, i) => {
+          const color = splitColors[i % splitColors.length];
+          const options = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
+          const selectOptions = options.map(inst => {
+            const selected = inst.id === seg.instrumentId ? 'selected' : '';
+            const name = inst.custom_name || inst.name || '?';
+            const label = name.length > 20 ? name.slice(0, 19) + '\u2026' : name;
+            return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
+          }).join('');
+          return `
+            <div class="rs-split-segment">
+              <span class="rs-seg-color" style="background:${color}"></span>
+              <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
+                ${selectOptions}
+              </select>
+              <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
+            </div>
+          `;
+        }).join('');
+
+        splitBodyHTML = `
+          ${modeTabs}
+          ${renderSplitBar(activeProposal, analysis)}
+          <div class="rs-split-segments">${segHTML}</div>
+          <button class="btn btn-sm rs-btn-accept-split" data-channel="${channel}">${_t('autoAssign.acceptSplit')}</button>
+        `;
+      } else if (isSplit && this.splitAssignments[channel]) {
+        // === ACCEPTED SPLIT ===
+        const accepted = this.splitAssignments[channel];
+        const splitModeNames = { range: _t('autoAssign.splitByRange'), polyphony: _t('autoAssign.splitByPolyphony'), mixed: _t('autoAssign.splitMixed') };
+
+        const segHTML = (accepted.segments || []).map((seg, i) => {
+          const color = splitColors[i % splitColors.length];
+          const options = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
+          const selectOptions = options.map(inst => {
+            const selected = inst.id === seg.instrumentId ? 'selected' : '';
+            const name = inst.custom_name || inst.name || '?';
+            const label = name.length > 20 ? name.slice(0, 19) + '\u2026' : name;
+            return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
+          }).join('');
+          return `
+            <div class="rs-split-segment">
+              <span class="rs-seg-color" style="background:${color}"></span>
+              <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${accepted.type}">
+                ${selectOptions}
+              </select>
+              <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
+            </div>
+          `;
+        }).join('');
+
+        splitBodyHTML = `
           <div class="rs-split-accepted-label">${splitModeNames[accepted.type] || accepted.type} \u2014 ${_t('routingSummary.accepted')}</div>
           ${renderSplitBar(accepted, analysis)}
-          <div class="rs-split-segments">
-            ${(accepted.segments || []).map((seg, i) => `
-              <div class="rs-split-segment">
-                <span class="rs-seg-name">${escapeHtml(seg.instrumentName || 'Instrument ' + (i + 1))}</span>
-                <span class="rs-seg-range">${seg.noteRange ? midiNoteToName(seg.noteRange.min) + '-' + midiNoteToName(seg.noteRange.max) : ''}</span>
-              </div>
-            `).join('')}
+          <div class="rs-split-segments">${segHTML}</div>
+          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('autoAssign.removeSplit')}</button>
+        `;
+      }
+
+      // Collapsible wrapper
+      const activeData = isSplit ? this.splitAssignments[channel] : (hasSplitProposal ? this.splitProposals[channel] : null);
+      const segCount = activeData?.segments?.length || 0;
+      const quality = activeData?.quality || 0;
+
+      splitHTML = `
+        <div class="rs-split-section ${isSplit ? 'active' : ''}">
+          <div class="rs-split-header" data-channel="${channel}">
+            <span class="rs-split-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
+            <span>${_t('autoAssign.splitProposed')} (${segCount} instr., ${_t('routingSummary.quality')}: ${quality})</span>
+            ${isSplit ? '<span class="rs-split-badge">\u2713</span>' : ''}
           </div>
-          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">
-            ${_t('autoAssign.removeSplit')}
-          </button>
+          <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
+            ${splitBodyHTML}
+          </div>
         </div>
       `;
     }
@@ -870,6 +915,48 @@ class RoutingSummaryPage {
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Get instruments compatible with a split segment's note range.
+   * Returns instruments whose range intersects the segment range.
+   */
+  _getCompatibleInstrumentsForSegment(ch, segNoteRange) {
+    if (!segNoteRange) return [];
+    const segMin = segNoteRange.min ?? 0;
+    const segMax = segNoteRange.max ?? 127;
+
+    // Collect all available instruments from suggestions + allInstruments
+    const seen = new Set();
+    const candidates = [];
+
+    // Priority 1: instruments from suggestions (have compatibility scores)
+    for (const opt of [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])]) {
+      const inst = opt.instrument;
+      if (seen.has(inst.id)) continue;
+      seen.add(inst.id);
+      const iMin = inst.note_range_min ?? 0;
+      const iMax = inst.note_range_max ?? 127;
+      // Check intersection
+      if (iMin <= segMax && iMax >= segMin) {
+        candidates.push({ ...inst, _score: opt.compatibility?.score || 0 });
+      }
+    }
+
+    // Priority 2: all instruments (no score, lower priority)
+    for (const inst of (this.allInstruments || [])) {
+      if (seen.has(inst.id)) continue;
+      seen.add(inst.id);
+      const iMin = inst.note_range_min ?? 0;
+      const iMax = inst.note_range_max ?? 127;
+      if (iMin <= segMax && iMax >= segMin) {
+        candidates.push({ ...inst, _score: 0 });
+      }
+    }
+
+    // Sort by score descending
+    candidates.sort((a, b) => b._score - a._score);
+    return candidates;
   }
 
   // ============================================================================
@@ -1037,6 +1124,68 @@ class RoutingSummaryPage {
         this._refreshUI(channelKeys);
       });
     });
+
+    // Split section collapse/expand
+    modal.querySelectorAll('.rs-split-header').forEach(hdr => {
+      hdr.addEventListener('click', () => {
+        const ch = parseInt(hdr.dataset.channel);
+        this.splitExpanded[ch] = !this.splitExpanded[ch];
+        this._refreshUI(channelKeys);
+      });
+    });
+
+    // Split segment instrument selection
+    modal.querySelectorAll('.rs-seg-instrument-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const ch = parseInt(sel.dataset.channel);
+        const segIdx = parseInt(sel.dataset.seg);
+        const mode = sel.dataset.mode;
+        this._updateSegmentInstrument(ch, segIdx, sel.value, mode, channelKeys);
+      });
+    });
+  }
+
+  /**
+   * Update the instrument for a specific split segment.
+   */
+  _updateSegmentInstrument(channel, segIdx, instrumentId, mode, channelKeys) {
+    // Find the instrument in suggestions or allInstruments
+    const ch = String(channel);
+    let inst = null;
+    for (const opt of [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])]) {
+      if (opt.instrument.id === instrumentId) { inst = opt.instrument; break; }
+    }
+    if (!inst) {
+      inst = (this.allInstruments || []).find(i => i.id === instrumentId);
+    }
+    if (!inst) return;
+
+    // Determine which data to update (proposal or accepted assignment)
+    const isSplit = this.splitChannels.has(channel);
+    let target;
+    if (isSplit && this.splitAssignments[channel]) {
+      target = this.splitAssignments[channel];
+    } else {
+      // Update the proposal's active mode segments
+      const proposal = this.splitProposals[channel];
+      if (!proposal) return;
+      const allModes = [proposal, ...(proposal.alternatives || [])];
+      target = allModes.find(m => m.type === mode) || proposal;
+    }
+
+    if (!target?.segments?.[segIdx]) return;
+
+    // Update the segment with the new instrument
+    target.segments[segIdx] = {
+      ...target.segments[segIdx],
+      instrumentId: inst.id,
+      deviceId: inst.device_id,
+      instrumentChannel: inst.channel,
+      instrumentName: inst.custom_name || inst.name,
+      fullRange: { min: inst.note_range_min ?? 0, max: inst.note_range_max ?? 127 }
+    };
+
+    this._refreshUI(channelKeys);
   }
 
   // ============================================================================
