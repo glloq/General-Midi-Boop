@@ -372,57 +372,67 @@ class RoutingSummaryPage {
   }
 
   _renderContent() {
-    const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    const activeCount = channelKeys.length - this.skippedChannels.size;
+    // Guard against re-entrant calls: _bindEvents() can trigger synthetic change
+    // events on pre-checked radios / pre-selected selects, whose handlers call
+    // _refreshUI() → _renderContent() again → infinite loop → browser freeze.
+    // This guard protects ALL call sites (show(), _refreshUI(), etc.).
+    if (this._isRendering) return;
+    this._isRendering = true;
+    try {
+      const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+      const activeCount = channelKeys.length - this.skippedChannels.size;
 
-    this.modal.innerHTML = `
-      <div class="rs-container ${this.selectedChannel !== null ? 'rs-with-detail' : ''}">
-        <div class="rs-header">
-          <div class="rs-header-row">
-            <div class="rs-header-left">
-              ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
+      this.modal.innerHTML = `
+        <div class="rs-container ${this.selectedChannel !== null ? 'rs-with-detail' : ''}">
+          <div class="rs-header">
+            <div class="rs-header-row">
+              <div class="rs-header-left">
+                ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
+              </div>
+              <div class="rs-header-center">
+                <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
+                  ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
+                </span>
+                <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
+                  ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
+                </button>
+                <span class="rs-channel-count">
+                  ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
+                </span>
+              </div>
+              <div class="rs-header-right">
+                <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
+                <button class="modal-close" id="rsSummaryClose">&times;</button>
+              </div>
             </div>
-            <div class="rs-header-center">
-              <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
-                ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
-              </span>
-              <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
-                ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
+            ${this.midiData ? '<div class="rs-header-minimap" id="rsMinimapContainer"></div>' : ''}
+          </div>
+
+          <div class="rs-layout">
+            <div class="rs-summary-panel" id="rsSummaryPanel">
+              ${this._renderSummaryTable(channelKeys)}
+            </div>
+            <div class="rs-detail-panel" id="rsDetailPanel">
+              ${this.selectedChannel !== null ? this._renderDetailPanel(this.selectedChannel) : this._renderDetailPlaceholder()}
+            </div>
+          </div>
+
+          <div class="rs-footer">
+            <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
+            <div class="rs-footer-center"></div>
+            <div class="rs-footer-right">
+              <button class="btn btn-primary" id="rsSummaryApply">
+                ${_t('routingSummary.applyAll')}
               </button>
-              <span class="rs-channel-count">
-                ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
-              </span>
-            </div>
-            <div class="rs-header-right">
-              <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
-              <button class="modal-close" id="rsSummaryClose">&times;</button>
             </div>
           </div>
-          ${this.midiData ? '<div class="rs-header-minimap" id="rsMinimapContainer"></div>' : ''}
         </div>
+      `;
 
-        <div class="rs-layout">
-          <div class="rs-summary-panel" id="rsSummaryPanel">
-            ${this._renderSummaryTable(channelKeys)}
-          </div>
-          <div class="rs-detail-panel" id="rsDetailPanel">
-            ${this.selectedChannel !== null ? this._renderDetailPanel(this.selectedChannel) : this._renderDetailPlaceholder()}
-          </div>
-        </div>
-
-        <div class="rs-footer">
-          <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
-          <div class="rs-footer-center"></div>
-          <div class="rs-footer-right">
-            <button class="btn btn-primary" id="rsSummaryApply">
-              ${_t('routingSummary.applyAll')}
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    this._bindEvents(channelKeys);
+      this._bindEvents(channelKeys);
+    } finally {
+      this._isRendering = false;
+    }
   }
 
   // ============================================================================
@@ -1803,18 +1813,11 @@ class RoutingSummaryPage {
   }
 
   _refreshUI(channelKeys) {
-    // Guard against re-entrant calls: _renderContent() → _bindEvents() can trigger
-    // synthetic change events on pre-checked radios / pre-selected selects, which
-    // would call _refreshUI() again → infinite loop → browser freeze.
-    if (this._isRefreshing) return;
-    this._isRefreshing = true;
     // Invalidate canvas ref before re-render (prevents drawing to detached canvas)
     this._minimapCanvas = null;
     // Re-render the content area (preserving modal shell)
+    // _renderContent() has its own re-entrancy guard and schedules minimap via _bindPreviewEvents()
     this._renderContent();
-    // Ensure minimap updates after channel tab switch
-    requestAnimationFrame(() => requestAnimationFrame(() => this._renderMinimap()));
-    this._isRefreshing = false;
   }
 
   /**
