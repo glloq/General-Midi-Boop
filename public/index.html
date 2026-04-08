@@ -3819,6 +3819,12 @@
             border-radius: 50%;
             box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
             pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .header-progress-fill.playing::after {
+            opacity: 1;
         }
 
         @media (max-width: 768px) {
@@ -9388,6 +9394,12 @@
             } else {
                 playPauseBtn.textContent = '▶️ Lecture';
                 playPauseBtn.className = 'btn';
+            }
+
+            // Afficher/masquer le cercle curseur de la barre de progression
+            const progressFill = document.getElementById('headerProgressFill');
+            if (progressFill) {
+                progressFill.classList.toggle('playing', isPlaying);
             }
         }
 
