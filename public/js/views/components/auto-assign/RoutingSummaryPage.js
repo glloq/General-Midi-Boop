@@ -136,13 +136,12 @@ class RoutingSummaryPage {
     this._previewMode = null; // 'all' | 'channel' | 'original'
     this._previewingChannel = null;
     this._minimapCanvas = null;
-    this._minimapBuckets = null;
-    this._minimapBucketsOOR = null;
-    this._minimapMaxVal = 0;
+    this._minimapBuckets = null;       // Single: Array<bool>, Multi: Map<ch, Array<bool>>
+    this._minimapChannels = [];        // Sorted unique channel numbers
+    this._minimapMultiChannel = false;
     this._minimapWidth = 0;
     this._minimapHeight = 0;
     this._minimapTotalTicks = 0;
-    this._minimapInstRange = null;
 
     // Scoring overrides (loaded from localStorage, sent to API)
     this.scoringOverrides = this._loadScoringOverrides();
@@ -2173,7 +2172,7 @@ class RoutingSummaryPage {
         <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>
           <span class="rs-prev-icon">&#9654;</span> Canal ${chLabel}
         </button>
-        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}" ${ch === null ? 'disabled' : ''}>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}">
           <span class="rs-prev-icon">&#9835;</span> ${_t('routingSummary.previewOriginal') || 'Original'}
         </button>
         <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
@@ -2253,38 +2252,29 @@ class RoutingSummaryPage {
     this._minimapWidth = w;
     this._minimapHeight = h;
     this._minimapTotalTicks = totalTicks;
-    this._minimapBuckets = new Array(w).fill(0);
-    this._minimapBucketsOOR = new Array(w).fill(0);
-    this._minimapMaxVal = 0;
+    // Detect unique channels in notes
+    const channelSet = new Set();
+    for (const note of notes) channelSet.add(note.ch);
+    this._minimapChannels = Array.from(channelSet).sort((a, b) => a - b);
+    this._minimapMultiChannel = this._minimapChannels.length > 1;
 
-    // Get instrument range for coloring
-    let instMin = null, instMax = null;
-    if (this.selectedChannel !== null) {
-      const ch = String(this.selectedChannel);
-      const assignment = this.selectedAssignments[ch];
-      if (assignment) {
-        instMin = assignment.noteRangeMin;
-        instMax = assignment.noteRangeMax;
+    if (this._minimapMultiChannel) {
+      // Multi-channel: per-channel boolean buckets
+      const bucketMap = new Map();
+      for (const ch of this._minimapChannels) bucketMap.set(ch, new Array(w).fill(false));
+      for (const note of notes) {
+        const col = Math.floor((note.t / totalTicks) * w);
+        if (col >= 0 && col < w) bucketMap.get(note.ch)[col] = true;
       }
-      // For splits, use combined range
-      if (this.splitChannels.has(this.selectedChannel) && this.splitAssignments[this.selectedChannel]) {
-        const segs = this.splitAssignments[this.selectedChannel].segments || [];
-        if (segs.length > 0) {
-          instMin = Math.min(...segs.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0));
-          instMax = Math.max(...segs.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127));
-        }
+      this._minimapBuckets = bucketMap;
+    } else {
+      // Single channel: simple boolean buckets
+      const buckets = new Array(w).fill(false);
+      for (const note of notes) {
+        const col = Math.floor((note.t / totalTicks) * w);
+        if (col >= 0 && col < w) buckets[col] = true;
       }
-    }
-    this._minimapInstRange = (instMin != null && instMax != null) ? { min: instMin, max: instMax } : null;
-
-    for (const note of notes) {
-      const col = Math.floor((note.t / totalTicks) * w);
-      if (col < 0 || col >= w) continue;
-      this._minimapBuckets[col]++;
-      if (this._minimapBuckets[col] > this._minimapMaxVal) this._minimapMaxVal = this._minimapBuckets[col];
-      if (this._minimapInstRange && (note.n < instMin || note.n > instMax)) {
-        this._minimapBucketsOOR[col]++;
-      }
+      this._minimapBuckets = buckets;
     }
 
     this._drawMinimapFrame(0);
@@ -2308,21 +2298,31 @@ class RoutingSummaryPage {
     ctx.fillRect(0, 0, w, h);
 
     if (!this._minimapBuckets) return;
-    const maxVal = this._minimapMaxVal || 1;
 
-    for (let i = 0; i < w; i++) {
-      if (this._minimapBuckets[i] === 0) continue;
-      const inRange = this._minimapBuckets[i] - (this._minimapBucketsOOR[i] || 0);
-      if (inRange > 0) {
-        const barH = Math.max(1, (inRange / maxVal) * (h - 2));
-        ctx.fillStyle = '#4285f4';
-        ctx.fillRect(i, h - 1 - barH, 1, barH);
+    const CHANNEL_COLORS = [
+      '#3b82f6','#ef4444','#10b981','#f59e0b',
+      '#8b5cf6','#ec4899','#06b6d4','#84cc16',
+      '#f97316','#6366f1','#14b8a6','#e11d48',
+      '#a855f7','#0ea5e9','#22c55e','#eab308'
+    ];
+
+    if (this._minimapMultiChannel) {
+      const numCh = this._minimapChannels.length;
+      const rowH = h / numCh;
+      for (let ci = 0; ci < numCh; ci++) {
+        const ch = this._minimapChannels[ci];
+        const buckets = this._minimapBuckets.get(ch);
+        if (!buckets) continue;
+        ctx.fillStyle = CHANNEL_COLORS[ch % CHANNEL_COLORS.length];
+        const rowTop = ci * rowH;
+        for (let i = 0; i < w; i++) {
+          if (buckets[i]) ctx.fillRect(i, rowTop, 1, rowH);
+        }
       }
-      if (this._minimapBucketsOOR[i] > 0) {
-        const outH = Math.max(1, (this._minimapBucketsOOR[i] / maxVal) * (h - 2));
-        const inH = inRange > 0 ? Math.max(1, (inRange / maxVal) * (h - 2)) : 0;
-        ctx.fillStyle = '#e74c3c';
-        ctx.fillRect(i, h - 1 - inH - outH, 1, outH);
+    } else {
+      ctx.fillStyle = '#4285f4';
+      for (let i = 0; i < w; i++) {
+        if (this._minimapBuckets[i]) ctx.fillRect(i, 0, 1, h);
       }
     }
 
@@ -2374,7 +2374,7 @@ class RoutingSummaryPage {
           const range = getRange(ch);
           if (range && (note < range.min || note > range.max)) continue;
 
-          notes.push({ t: tick, n: note });
+          notes.push({ t: tick, n: note, ch: ch });
         }
       }
     }
@@ -2503,7 +2503,7 @@ class RoutingSummaryPage {
     }
     this._safeStopPreview();
     this._previewMode = 'original';
-    this._previewingChannel = channel;
+    this._previewingChannel = null;
 
     try {
       this._connectPreviewCallbacks();
