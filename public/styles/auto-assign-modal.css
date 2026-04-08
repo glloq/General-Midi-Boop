@@ -5414,22 +5414,21 @@ body.dark-mode .rs-cc-table td {
 
 /* Instrument select click zone — opens dropdown, not detail panel */
 .rs-select-zone {
-  background: rgba(66, 133, 244, 0.06);
-  border: 1px solid rgba(66, 133, 244, 0.2);
+  display: inline-block;
+  background: rgba(30, 80, 180, 0.08);
+  border: 1px solid rgba(30, 80, 180, 0.25);
   border-radius: 4px;
-  padding: 6px 8px;
-  margin: -6px 0;
+  padding: 4px 6px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .rs-select-zone:hover {
-  background: rgba(66, 133, 244, 0.12);
-  border-color: rgba(66, 133, 244, 0.4);
+  background: rgba(30, 80, 180, 0.15);
+  border-color: rgba(30, 80, 180, 0.45);
 }
 
 .rs-select-zone .rs-instrument-select {
-  width: 100%;
   border: none;
   background: transparent;
   cursor: pointer;
