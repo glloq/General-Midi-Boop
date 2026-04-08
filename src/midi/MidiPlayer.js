@@ -834,6 +834,8 @@ class MidiPlayer {
                   this._overlapNoteAssign.delete(noteKey);
                   return { device: seg.device, targetChannel: seg.targetChannel };
                 }
+                // Untracked noteOff — route to first matching without modifying counters
+                return { device: matching[0].device, targetChannel: matching[0].targetChannel };
               }
               // On noteOn: pick least loaded and track assignment
               let bestSeg = matching[0];

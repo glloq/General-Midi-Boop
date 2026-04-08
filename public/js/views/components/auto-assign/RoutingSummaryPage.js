@@ -2115,7 +2115,7 @@ class RoutingSummaryPage {
 
     return `
       <div class="rs-cc-section">
-        <h4 class="rs-cc-title">\uD83C\uDFDB ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'}</h4>
+        <h4 class="rs-cc-title">\uD83C\uDF9B ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'}</h4>
         ${summaryHTML}
         <div class="rs-cc-list">
           ${rows}

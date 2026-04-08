@@ -540,12 +540,13 @@ async function applyAssignments(app, data) {
       const metadata = transposer.generateAdaptationMetadata(data.assignments, stats);
 
       // Recalculate metadata from the adapted binary (correct track/channel counts)
-      let adaptedMeta = { duration: originalFile.duration, tempo: originalFile.tempo };
+      let adaptedMeta = { duration: originalFile.duration, tempo: originalFile.tempo, tracks: originalFile.tracks };
       let adaptedInstrumentMeta = {};
       try {
         const parsedAdapted = parseMidi(adaptedBuffer);
         if (parsedAdapted && app.fileManager) {
           adaptedMeta = app.fileManager.extractMetadata(parsedAdapted);
+          adaptedMeta.tracks = parsedAdapted.tracks?.length || originalFile.tracks;
           adaptedInstrumentMeta = app.fileManager.extractInstrumentMetadata(parsedAdapted);
         }
       } catch (e) {
