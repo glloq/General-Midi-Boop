@@ -1411,7 +1411,8 @@ class RoutingSummaryPage {
 
     // Remove split
     modal.querySelectorAll('.rs-btn-remove-split').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent bubble to .rs-split-header toggle handler
         const ch = parseInt(btn.dataset.channel);
         this.splitChannels.delete(ch);
         delete this.splitAssignments[ch];
@@ -1802,12 +1803,18 @@ class RoutingSummaryPage {
   }
 
   _refreshUI(channelKeys) {
+    // Guard against re-entrant calls: _renderContent() → _bindEvents() can trigger
+    // synthetic change events on pre-checked radios / pre-selected selects, which
+    // would call _refreshUI() again → infinite loop → browser freeze.
+    if (this._isRefreshing) return;
+    this._isRefreshing = true;
     // Invalidate canvas ref before re-render (prevents drawing to detached canvas)
     this._minimapCanvas = null;
     // Re-render the content area (preserving modal shell)
     this._renderContent();
     // Ensure minimap updates after channel tab switch
     requestAnimationFrame(() => requestAnimationFrame(() => this._renderMinimap()));
+    this._isRefreshing = false;
   }
 
   /**
