@@ -1119,17 +1119,18 @@ class RoutingSummaryPage {
           </div>
         `;
       }).join('');
-      // Add overlap zone visualization
+      // Add overlap zone visualization inside a positioned wrapper
       const overlaps = this._detectOverlaps(segs);
-      if (overlaps.length > 0) {
-        instBarsHTML += overlaps.map(ov => {
-          const oLeft = (ov.min / FULL_RANGE) * 100;
-          const oWidth = Math.max(0.5, ((ov.max - ov.min) / FULL_RANGE) * 100);
-          const nameA = segs[ov.segA]?.instrumentName || `Inst ${ov.segA + 1}`;
-          const nameB = segs[ov.segB]?.instrumentName || `Inst ${ov.segB + 1}`;
-          return `<div class="rs-range-overlap-zone" style="left:${oLeft}%;width:${oWidth}%" title="\u26A0 ${_t('routingSummary.overlap') || 'Superposition'}: ${midiNoteToName(ov.min)}-${midiNoteToName(ov.max)} (${escapeHtml(nameA)} / ${escapeHtml(nameB)})"></div>`;
-        }).join('');
-      }
+      const overlapZonesHTML = overlaps.length > 0 ? overlaps.map(ov => {
+        const oLeft = (ov.min / FULL_RANGE) * 100;
+        const oWidth = Math.max(0.5, ((ov.max - ov.min) / FULL_RANGE) * 100);
+        const nameA = segs[ov.segA]?.instrumentName || `Inst ${ov.segA + 1}`;
+        const nameB = segs[ov.segB]?.instrumentName || `Inst ${ov.segB + 1}`;
+        return `<div class="rs-range-overlap-zone" style="left:${oLeft}%;width:${oWidth}%" title="\u26A0 ${_t('routingSummary.overlap') || 'Superposition'}: ${midiNoteToName(ov.min)}-${midiNoteToName(ov.max)} (${escapeHtml(nameA)} / ${escapeHtml(nameB)})"></div>`;
+      }).join('') : '';
+
+      // Wrap inst bars + overlap zones in positioned container
+      instBarsHTML = `<div class="rs-range-inst-area">${instBarsHTML}${overlapZonesHTML}</div>`;
 
       legendItems = segs.map((seg, i) => {
         const color = splitColors[i % splitColors.length];

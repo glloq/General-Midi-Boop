@@ -4568,6 +4568,11 @@ body.dark-mode .aa-channel-card.skipped {
   background: rgba(217, 119, 6, 0.04);
 }
 
+/* Wrapper for instrument bars + overlap zones */
+.rs-range-inst-area {
+  position: relative;
+}
+
 /* Overlap zone on range bars */
 .rs-range-overlap-zone {
   position: absolute;
