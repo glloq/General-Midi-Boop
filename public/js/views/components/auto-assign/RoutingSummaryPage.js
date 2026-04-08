@@ -383,6 +383,12 @@ class RoutingSummaryPage {
     if (this._isRendering) return;
     this._isRendering = true;
     try {
+      // Save scroll positions before re-render
+      const summaryPanel = this.modal.querySelector('#rsSummaryPanel');
+      const detailPanel = this.modal.querySelector('#rsDetailPanel');
+      const savedSummaryScroll = summaryPanel?.scrollTop || 0;
+      const savedDetailScroll = detailPanel?.scrollTop || 0;
+
       const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
       const activeCount = channelKeys.length - this.skippedChannels.size;
 
@@ -434,6 +440,12 @@ class RoutingSummaryPage {
       `;
 
       this._bindEvents(channelKeys);
+
+      // Restore scroll positions after re-render
+      const newSummary = this.modal.querySelector('#rsSummaryPanel');
+      const newDetail = this.modal.querySelector('#rsDetailPanel');
+      if (newSummary) newSummary.scrollTop = savedSummaryScroll;
+      if (newDetail) newDetail.scrollTop = savedDetailScroll;
     } finally {
       this._isRendering = false;
     }
@@ -1307,20 +1319,31 @@ class RoutingSummaryPage {
     // Instrument dropdown in summary table
     modal.querySelectorAll('.rs-instrument-select').forEach(sel => {
       sel.addEventListener('change', (e) => {
-        e.stopPropagation(); // Don't trigger row click
+        e.stopPropagation();
         const ch = sel.dataset.channel;
         const instId = sel.value;
         if (instId) this._selectInstrument(ch, instId, channelKeys);
       });
-      // Prevent row click when interacting with dropdown
       sel.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    // Select zone: click anywhere in the zone opens the dropdown (not the detail panel)
+    modal.querySelectorAll('.rs-select-zone').forEach(zone => {
+      zone.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sel = zone.querySelector('.rs-instrument-select');
+        if (sel && e.target !== sel) {
+          sel.focus();
+          sel.showPicker?.();
+        }
+      });
     });
 
     // Row clicks — select channel for detail (replaces gear button)
     modal.querySelectorAll('.rs-row').forEach(row => {
       row.addEventListener('click', (e) => {
-        // Don't trigger on button/select clicks
-        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip, .rs-instrument-select')) return;
+        // Don't trigger on button/select/zone clicks
+        if (e.target.closest('.rs-btn-skip, .rs-btn-unskip, .rs-instrument-select, .rs-select-zone')) return;
         const ch = parseInt(row.dataset.channel);
         this._selectChannel(ch);
       });
