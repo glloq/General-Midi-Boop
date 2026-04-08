@@ -676,24 +676,7 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     font-weight: 600;
 }
 
-.close-btn {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-primary);
-    cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
-    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.close-btn:hover {
-    background: var(--accent-danger);
-    border-color: var(--accent-danger);
-}
+/* .close-btn — styled by universal close button rule in components.css */
 
 .velocity-canvas-container,
 .modulation-canvas-container {

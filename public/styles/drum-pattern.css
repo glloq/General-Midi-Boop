@@ -129,7 +129,7 @@
     transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
 }
 
-.drum-tool-btn:hover {
+.drum-tool-btn:not(.drum-close-btn):hover {
     background: #ef476f;
     color: #fff;
     border-color: #ef476f;
@@ -141,11 +141,7 @@
     border-color: #ef476f;
 }
 
-.drum-close-btn {
-    font-size: 16px;
-    padding: 2px 6px;
-    margin-left: 8px;
-}
+/* .drum-close-btn — styled by universal close button rule in components.css */
 
 /* ---- Body (canvas + tools sidebar) ---- */
 .drum-pattern-body {
@@ -356,7 +352,7 @@ body.dark-mode .drum-mode-btn.active {
     border-color: #ef476f;
 }
 
-body.dark-mode .drum-tool-btn:hover {
+body.dark-mode .drum-tool-btn:not(.drum-close-btn):hover {
     background: #ef476f;
     color: #fff;
 }

@@ -35,10 +35,7 @@
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
             }
 
-            .settings-close-btn:hover {
-                background: #f3f4f6 !important;
-                color: #667eea !important;
-            }
+            /* .settings-close-btn:hover — styled by universal close button rule in components.css */
 
             .btn-secondary:hover {
                 background: #f3f4f6 !important;

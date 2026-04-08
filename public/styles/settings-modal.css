@@ -47,28 +47,7 @@
   font-size: 20px;
 }
 
-/* ========== Close button ========== */
-.settings-close-btn {
-  background: transparent;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-  line-height: 1;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.settings-close-btn:hover {
-  background: var(--bg-tertiary, #f3f4f6);
-  color: var(--text-primary, #333);
-}
+/* .settings-close-btn — styled by universal close button rule in components.css */
 
 /* ========== Content area - 2-column grid ========== */
 .settings-modal-content {

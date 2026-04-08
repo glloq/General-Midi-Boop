@@ -165,8 +165,7 @@ class PlaylistPage {
         .plpage-container { width:900px;height:600px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg-secondary, #f8f9fa);color:var(--text-primary, #2c3e50);box-shadow:0 8px 32px rgba(0,0,0,0.3); }
         .plpage-header { background:var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2));padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
         .plpage-header h2 { margin:0;font-size:1.4rem;display:flex;align-items:center;gap:10px;color:#fff; }
-        .plpage-close { background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;font-size:1.1rem;padding:4px 10px;color:#fff;transition:all 0.2s; }
-        .plpage-close:hover { background:rgba(255,255,255,0.35); }
+        /* .plpage-close — styled by universal close button rule in components.css */
         .plpage-layout { flex:1;display:grid;grid-template-columns:260px 1fr;overflow:hidden;min-height:0; }
         .plpage-sidebar { overflow-y:auto;padding:15px; }
         .plpage-sidebar.left { border-right:1px solid var(--border-color, #dee2e6);background:var(--bg-tertiary, #f0f0f0); }

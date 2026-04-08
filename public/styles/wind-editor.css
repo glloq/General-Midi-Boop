@@ -113,7 +113,7 @@
     transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
 }
 
-.wind-tool-btn:hover {
+.wind-tool-btn:not(.wind-close-btn):hover {
     background: #4a90d9;
     color: #fff;
     border-color: #4a90d9;
@@ -125,11 +125,7 @@
     border-color: #4a90d9;
 }
 
-.wind-close-btn {
-    font-size: 16px;
-    padding: 2px 6px;
-    margin-left: 8px;
-}
+/* .wind-close-btn — styled by universal close button rule in components.css */
 
 /* ---- Body (canvas + tools sidebar) ---- */
 .wind-editor-body {
@@ -316,7 +312,7 @@ body.dark-mode .wind-tool-btn {
     border-color: #4a5568;
 }
 
-body.dark-mode .wind-tool-btn:hover {
+body.dark-mode .wind-tool-btn:not(.wind-close-btn):hover {
     background: #4a90d9;
     color: #fff;
 }

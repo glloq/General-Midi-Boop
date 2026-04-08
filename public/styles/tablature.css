@@ -130,17 +130,13 @@
     transition: background var(--transition-fast, 0.15s), border-color var(--transition-fast, 0.15s);
 }
 
-.tab-tool-btn:hover {
+.tab-tool-btn:not(.tab-close-btn):hover {
     background: var(--accent-primary, #667eea);
     color: #fff;
     border-color: var(--accent-primary, #667eea);
 }
 
-.tab-close-btn {
-    font-size: 16px;
-    padding: 2px 6px;
-    margin-left: 8px;
-}
+/* .tab-close-btn — styled by universal close button rule in components.css */
 
 /* ---- Body (canvas area) ---- */
 .tablature-body {
@@ -258,7 +254,7 @@ body.dark-mode .tab-tool-btn {
     border-color: #4a5568;
 }
 
-body.dark-mode .tab-tool-btn:hover {
+body.dark-mode .tab-tool-btn:not(.tab-close-btn):hover {
     background: #667eea;
     color: #fff;
 }

@@ -71,7 +71,7 @@ class InstrumentManagementPage {
                 </select>
               </div>
             </div>
-            <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; z-index: 1;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+            <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 10px; right: 10px; z-index: 1;">
                 ×
             </button>
           </div>
@@ -865,7 +865,7 @@ class InstrumentManagementPage {
       <div class="inst-virt-dialog" style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px 16px 0 0;color:white;">
           <h3 style="margin:0;font-size:18px;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
-          <button onclick="this.closest('div[style*=fixed]').remove()" style="background:rgba(255,255,255,0.2);border:none;font-size:20px;cursor:pointer;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+          <button class="modal-close" onclick="this.closest('div[style*=fixed]').remove()">×</button>
         </div>
         <div class="inst-virt-name-section" style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
           <label class="inst-virt-label" style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:#374151;">

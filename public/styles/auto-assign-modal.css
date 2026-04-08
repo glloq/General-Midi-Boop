@@ -239,27 +239,7 @@ body.dark-mode .aa-confirm-cancel:hover {
   letter-spacing: 2px;
 }
 
-.auto-assign-modal .modal-close {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.auto-assign-modal .modal-close:hover {
-  background: rgba(255, 255, 255, 0.35);
-  transform: rotate(90deg);
-}
+/* .auto-assign-modal .modal-close — styled by universal close button rule in components.css */
 
 /* Range bar inside header */
 .aa-header-range {
@@ -976,10 +956,7 @@ body.dark-mode .aa-footer {
   color: #e0e0e0;
 }
 
-/* Close button */
-body.dark-mode .auto-assign-modal .modal-close {
-  color: white;
-}
+/* .modal-close dark mode — styled by universal close button rule in components.css */
 
 /* Spinner */
 body.dark-mode .auto-assign-modal .spinner {
@@ -3703,26 +3680,7 @@ body.dark-mode .aa-channel-card.skipped {
   color: var(--text-secondary, #666);
 }
 
-/* Close button */
-.rs-modal .modal-close {
-  background: rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: var(--text-primary, #333);
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: 18px;
-  line-height: 32px;
-  text-align: center;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.rs-modal .modal-close:hover {
-  background: rgba(0, 0, 0, 0.12);
-  transform: rotate(90deg);
-}
+/* .rs-modal .modal-close — styled by universal close button rule in components.css */
 
 /* Two-panel layout */
 .rs-layout {

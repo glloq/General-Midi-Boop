@@ -61,7 +61,7 @@ class InstrumentCapabilitiesModal {
             <p style="margin: 0; opacity: 0.9; font-size: 13px;">
               ${_t('instrumentCapabilities.subtitle')}
             </p>
-            <button class="modal-close" onclick="instrumentCapabilitiesModalInstance.close()" style="position: absolute; top: 12px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+            <button class="modal-close" onclick="instrumentCapabilitiesModalInstance.close()" style="position: absolute; top: 12px; right: 16px;">
               ×
             </button>
           </div>

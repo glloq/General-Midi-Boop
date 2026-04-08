@@ -775,29 +775,77 @@
     flex-shrink: 0;
 }
 
-/* Bouton de fermeture (croix) */
-.midi-editor-modal .modal-close {
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    font-size: 24px;
-    line-height: 1;
+/* ===== BOUTONS DE FERMETURE (CROIX) - STYLE ROUGE UNIFORME ===== */
+.modal-close,
+.close-btn,
+.settings-close-btn,
+.lighting-header-close,
+.folder-modal-close,
+.drum-close-btn,
+.tab-close-btn,
+.wind-close-btn,
+.plpage-close,
+#dsm-close {
+    background: var(--close-btn-bg) !important;
+    color: var(--close-btn-color) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    padding: 0;
-    font-weight: 300;
+    padding: 0 !important;
+    line-height: 1;
+    transition: background-color 0.2s ease, color 0.2s ease !important;
+    transform: none !important;
+    flex-shrink: 0;
 }
 
-.midi-editor-modal .modal-close:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.5);
-    transform: rotate(90deg);
+.modal-close:hover,
+.close-btn:hover,
+.settings-close-btn:hover,
+.lighting-header-close:hover,
+.folder-modal-close:hover,
+.drum-close-btn:hover,
+.tab-close-btn:hover,
+.wind-close-btn:hover,
+.plpage-close:hover,
+#dsm-close:hover {
+    background: var(--close-btn-bg-hover) !important;
+    color: var(--close-btn-color-hover) !important;
+    transform: none !important;
+}
+
+/* Tailles spécifiques par contexte */
+.drum-close-btn,
+.tab-close-btn,
+.wind-close-btn {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 14px !important;
+    margin-left: 8px;
+}
+
+.close-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 18px !important;
+}
+
+.lighting-header-close {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 22px !important;
+}
+
+.bluetooth-scan-modal .modal-close,
+.network-scan-modal .modal-close {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 24px !important;
 }
 
 /* Tempo control - design intégré au header */
@@ -1731,9 +1779,9 @@
     }
 
     .midi-editor-modal .modal-close {
-        width: 36px;
-        height: 36px;
-        font-size: 24px;
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 24px !important;
     }
 
     .midi-editor-modal .editor-toolbar {

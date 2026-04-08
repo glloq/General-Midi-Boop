@@ -253,7 +253,4 @@ body.dark-mode .instrument-capabilities-modal p[style*="color: #666"] {
   color: var(--text-secondary) !important;
 }
 
-/* Close button hover */
-body.dark-mode .instrument-capabilities-modal .modal-close:hover {
-  background: rgba(255, 255, 255, 0.35) !important;
-}
+/* .modal-close dark mode — styled by universal close button rule in components.css */

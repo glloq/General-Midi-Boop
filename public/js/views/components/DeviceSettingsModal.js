@@ -59,7 +59,7 @@
                 <!-- Header -->
                 <div style="padding:16px 20px;border-bottom:1px solid var(--border-color,#e5e7eb);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(0,0,0,0.02),rgba(0,0,0,0.04));">
                     <h2 style="margin:0;font-size:18px;color:var(--text-primary,#1f2937);">⚙️ ${t('deviceSettings.title', 'Réglages du périphérique')}</h2>
-                    <button id="dsm-close" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-secondary,#6b7280);padding:0 4px;">&times;</button>
+                    <button id="dsm-close">&times;</button>
                 </div>
 
                 <!-- Content -->

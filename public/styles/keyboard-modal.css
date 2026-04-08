@@ -185,27 +185,7 @@
     min-width: 70px;
 }
 
-.keyboard-modal .modal-close {
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    font-size: 24px;
-    color: white;
-    cursor: pointer;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: background-color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, border-color 0.2s;
-    flex-shrink: 0;
-}
-
-.keyboard-modal .modal-close:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: rotate(90deg);
-}
+/* .keyboard-modal .modal-close — styled by universal close button rule in components.css */
 
 /* ============================================================================
    MODAL BODY

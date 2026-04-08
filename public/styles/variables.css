@@ -57,6 +57,12 @@
     --danger-color: #e8365d;
     --info-color: #0d8ecf;
 
+    /* Close / X button */
+    --close-btn-bg: #dc2626;
+    --close-btn-bg-hover: #b91c1c;
+    --close-btn-color: #ffffff;
+    --close-btn-color-hover: #000000;
+
     /* Shadows */
     --shadow-light: 0 2px 8px rgba(118, 75, 162, 0.14);
     --shadow-medium: 0 4px 20px rgba(118, 75, 162, 0.18);
