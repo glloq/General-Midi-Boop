@@ -382,6 +382,13 @@
             const previousActiveChannels = new Set(this.activeChannels);
             this.activeChannels.clear();
             this.activeChannels.add(channel);
+            this.channels.forEach(ch => {
+                if (ch.channel === channel) {
+                    this.channelDisabled.delete(ch.channel);
+                } else {
+                    this.channelDisabled.add(ch.channel);
+                }
+            });
             this.updateSequenceFromActiveChannels(previousActiveChannels);
             this.updateChannelButtons();
             this.updateInstrumentSelector();
@@ -392,7 +399,10 @@
         const showAllBtn = popover.querySelector('.channel-show-all-btn');
         showAllBtn.addEventListener('click', () => {
             const previousActiveChannels = new Set(this.activeChannels);
-            this.channels.forEach(ch => this.activeChannels.add(ch.channel));
+            this.channels.forEach(ch => {
+                this.activeChannels.add(ch.channel);
+                this.channelDisabled.delete(ch.channel);
+            });
             this.updateSequenceFromActiveChannels(previousActiveChannels);
             this.updateChannelButtons();
             this.updateInstrumentSelector();

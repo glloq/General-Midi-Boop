@@ -420,8 +420,8 @@
         "playableNotesTitle": "Playable notes",
         "playableNotesHint": "Show notes that the routed instrument can play",
         "applyBtn": "Apply",
-        "routedSource": "🎸 Routed",
-        "gmSource": "🎵 GM",
+        "routedSource": "🔊 Routed",
+        "gmSource": "🔊 GM",
         "playableOn": "ON",
         "playableOff": "OFF"
     },
