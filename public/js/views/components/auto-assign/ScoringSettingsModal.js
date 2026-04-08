@@ -164,7 +164,11 @@ class ScoringSettingsModal extends BaseModal {
 
   _ensureDefaults() {
     const d = ScoringSettingsModal.getDefaults();
+    if (!this.overrides.weights) this.overrides.weights = { ...d.weights };
+    if (!this.overrides.scoreThresholds) this.overrides.scoreThresholds = { ...d.scoreThresholds };
+    if (!this.overrides.penalties) this.overrides.penalties = { ...d.penalties };
     if (!this.overrides.bonuses) this.overrides.bonuses = { ...d.bonuses };
+    if (!this.overrides.splitting) this.overrides.splitting = { ...d.splitting };
     if (!this.overrides.percussion) this.overrides.percussion = { ...d.percussion };
     if (!this.overrides.percussion.drumChannelWeights) {
       this.overrides.percussion.drumChannelWeights = { ...d.percussion.drumChannelWeights };
@@ -175,6 +179,7 @@ class ScoringSettingsModal extends BaseModal {
     if (this.overrides.percussion.nonDrumChannelDrumPenalty === undefined) {
       this.overrides.percussion.nonDrumChannelDrumPenalty = d.percussion.nonDrumChannelDrumPenalty;
     }
+    if (!this.overrides.routing) this.overrides.routing = { ...d.routing };
   }
 
   // ============================================================================
@@ -620,9 +625,10 @@ class ScoringSettingsModal extends BaseModal {
       node.classList.toggle('ss-chain-disabled', !isAllowed && !isIgnore);
     });
 
-    // Update arrows
+    // Update arrows (cache node list to avoid re-querying)
+    const chainNodes = row.querySelectorAll('.ss-chain-node');
     row.querySelectorAll('.ss-chain-arrow').forEach((arrow, i) => {
-      const nextNode = row.querySelectorAll('.ss-chain-node')[i + 1];
+      const nextNode = chainNodes[i + 1];
       if (!nextNode) {
         // Last arrow (before ignore)
         arrow.classList.toggle('ss-chain-allowed', depth === -1);
@@ -650,7 +656,8 @@ class ScoringSettingsModal extends BaseModal {
         badge.textContent = this.t('scoringSettings.depthExact') || 'Exact';
         badge.className = 'ss-drum-depth-badge ss-badge-exact';
       } else {
-        const nodeName = cat.chain[depth]?.name.split(' ').slice(0, 2).join(' ') || '';
+        const chainEntry = (depth >= 0 && depth < cat.chain.length) ? cat.chain[depth] : null;
+        const nodeName = chainEntry ? chainEntry.name.split(' ').slice(0, 2).join(' ') : '';
         badge.textContent = (this.t('scoringSettings.depthUpTo') || 'Jusqu\'à') + ' ' + nodeName;
         badge.className = 'ss-drum-depth-badge ss-badge-sub';
       }
@@ -697,6 +704,7 @@ class ScoringSettingsModal extends BaseModal {
 
     // Update all displays
     const dialog = this.dialog;
+    if (!dialog) return;
     for (const k of keys) {
       const sl = dialog.querySelector(`.ss-slider[data-key="${k}"]${weightGroup === 'drumWeights' ? '.ss-drum-linked' : '.ss-linked'}`);
       const ve = dialog.querySelector(`#${idPrefix}${k}`);
