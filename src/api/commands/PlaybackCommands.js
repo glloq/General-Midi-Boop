@@ -233,7 +233,8 @@ function applyScoringOverrides(overrides) {
     penalties: ScoringConfig.penalties,
     bonuses: ScoringConfig.bonuses,
     percussion: ScoringConfig.percussion,
-    splitting: ScoringConfig.splitting
+    splitting: ScoringConfig.splitting,
+    routing: ScoringConfig.routing
   }));
 
   // Weights (must sum to 100)
@@ -292,6 +293,17 @@ function applyScoringOverrides(overrides) {
     if (s.minQuality !== undefined) ScoringConfig.splitting.minQuality = Math.max(0, Math.min(100, Number(s.minQuality)));
     if (s.maxInstruments !== undefined) ScoringConfig.splitting.maxInstruments = Math.max(2, Math.min(8, Number(s.maxInstruments)));
     if (s.triggerBelowScore !== undefined) ScoringConfig.splitting.triggerBelowScore = Math.max(0, Math.min(100, Number(s.triggerBelowScore)));
+  }
+
+  // Routing settings (drum fallback depth, routing flags)
+  if (overrides.routing) {
+    const r = overrides.routing;
+    if (r.autoSplitAvoidTransposition !== undefined) ScoringConfig.routing.autoSplitAvoidTransposition = !!r.autoSplitAvoidTransposition;
+    if (r.preferSingleInstrument !== undefined) ScoringConfig.routing.preferSingleInstrument = !!r.preferSingleInstrument;
+    if (r.preferSimilarGMType !== undefined) ScoringConfig.routing.preferSimilarGMType = !!r.preferSimilarGMType;
+    if (r.drumFallback && typeof r.drumFallback === 'object') {
+      ScoringConfig.routing.drumFallback = { ...r.drumFallback };
+    }
   }
 
   return original;

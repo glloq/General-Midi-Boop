@@ -106,6 +106,16 @@ const ScoringConfig = {
   },
 
   /**
+   * Routing settings (from ScoringSettingsModal)
+   */
+  routing: {
+    autoSplitAvoidTransposition: false,
+    preferSingleInstrument: true,
+    preferSimilarGMType: true,
+    drumFallback: {} // per-category depth: { kicks: 3, snares: -1, ... }
+  },
+
+  /**
    * Configuration du cache
    */
   cache: {

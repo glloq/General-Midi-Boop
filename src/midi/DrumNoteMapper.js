@@ -226,12 +226,38 @@ class DrumNoteMapper {
    * @param {Object} options - Mapping options
    * @returns {Object} Mapping result with quality score
    */
+  /**
+   * Get the category key for a MIDI drum note.
+   * @param {number} note - MIDI note number
+   * @returns {string|null} Category key (kicks, snares, etc.) or null
+   */
+  getCategoryForNote(note) {
+    for (const [catKey, notes] of Object.entries(this.DRUM_CATEGORIES)) {
+      if (notes.includes(note)) return catKey;
+    }
+    return null;
+  }
+
+  /**
+   * Get the maximum substitution table depth allowed for a note based on category depth limits.
+   * @param {number} note - MIDI note number
+   * @param {Object} categoryDepthLimits - { kicks: 2, snares: -1, ... }
+   * @returns {number} Max substitution depth (-1 = ignore/omit, 0 = exact only, N = max N substitutes)
+   */
+  getMaxDepthForNote(note, categoryDepthLimits) {
+    if (!categoryDepthLimits) return Infinity;
+    const cat = this.getCategoryForNote(note);
+    if (!cat || categoryDepthLimits[cat] === undefined) return Infinity;
+    return categoryDepthLimits[cat];
+  }
+
   generateMapping(midiNotes, instrumentNotes, options = {}) {
     const opts = {
       allowSubstitution: true,
       allowSharing: true,
       allowOmission: true,
       preserveEssentials: true,
+      categoryDepthLimits: null, // { kicks: 2, snares: -1, hiHats: 3, ... }
       ...options
     };
 
@@ -241,6 +267,21 @@ class DrumNoteMapper {
     const omissions = [];
 
     const instrCaps = this.analyzeInstrumentCapabilities(instrumentNotes);
+
+    // If categoryDepthLimits set, omit notes from categories with depth -1 (ignore)
+    if (opts.categoryDepthLimits) {
+      for (const [catKey, depth] of Object.entries(opts.categoryDepthLimits)) {
+        if (depth === -1) {
+          const catNotes = this.DRUM_CATEGORIES[catKey] || [];
+          for (const { note, count } of midiNotes.usedNotes) {
+            if (catNotes.includes(note)) {
+              omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'category ignored' });
+              mapping[note] = null; // mark as handled (ignored)
+            }
+          }
+        }
+      }
+    }
 
     // Priority 1: Essential notes
     this.assignEssentialNotes(midiNotes, instrumentNotes, instrCaps, mapping, used, substitutions, opts);
@@ -253,6 +294,11 @@ class DrumNoteMapper {
 
     // Priority 4: Remaining notes
     this.assignRemainingNotes(midiNotes, instrumentNotes, mapping, used, substitutions, omissions, opts);
+
+    // Clean up null mappings (ignored notes)
+    for (const key of Object.keys(mapping)) {
+      if (mapping[key] === null) delete mapping[key];
+    }
 
     // Calculate quality score
     const quality = this.calculateMappingQuality(mapping, midiNotes, instrumentNotes, substitutions, omissions);
@@ -537,40 +583,64 @@ class DrumNoteMapper {
    */
   assignRemainingNotes(midiNotes, instrNotes, mapping, used, substitutions, omissions, opts) {
     midiNotes.usedNotes.forEach(({ note, count }) => {
-      if (!mapping[note]) {
-        if (opts.allowSubstitution) {
-          // Try substitution table first
-          const substitutes = this.SUBSTITUTION_TABLES[note] || [];
-          let found = false;
+      if (mapping[note] !== undefined) return; // already mapped or ignored (null)
 
-          for (const substitute of substitutes) {
-            if (instrNotes.includes(substitute) && !used.has(substitute)) {
-              mapping[note] = substitute;
-              substitutions.push({ from: note, to: substitute, type: 'table substitution' });
-              found = true;
-              break;
-            }
-          }
+      // Check category depth limit
+      const maxDepth = this.getMaxDepthForNote(note, opts.categoryDepthLimits);
+      if (maxDepth === -1) {
+        // Category is set to ignore
+        omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'category ignored' });
+        return;
+      }
 
-          // If still not found, try closest available note
-          if (!found) {
-            const availableNotes = instrNotes.filter(n => !used.has(n));
-            if (availableNotes.length > 0) {
-              const closest = this.findClosestNote(note, availableNotes);
-              mapping[note] = closest;
-              substitutions.push({ from: note, to: closest, type: 'closest match' });
-            } else if (opts.allowSharing && instrNotes.length > 0) {
-              // Last resort: reuse already mapped note
-              const reusable = instrNotes[0];
-              mapping[note] = reusable;
-              substitutions.push({ from: note, to: reusable, type: 'note sharing' });
-            } else if (opts.allowOmission) {
-              omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
-            }
-          }
+      if (maxDepth === 0) {
+        // Exact only: no substitution allowed for this category
+        if (instrNotes.includes(note)) {
+          mapping[note] = note;
+          used.add(note);
         } else if (opts.allowOmission) {
-          omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
+          omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'exact only, not available' });
         }
+        return;
+      }
+
+      if (opts.allowSubstitution) {
+        // Try substitution table first, respecting depth limit
+        const substitutes = this.SUBSTITUTION_TABLES[note] || [];
+        // Limit the number of substitutes tried based on category depth
+        const maxSubs = maxDepth < Infinity ? maxDepth : substitutes.length;
+        let found = false;
+
+        for (let i = 0; i < Math.min(substitutes.length, maxSubs); i++) {
+          const substitute = substitutes[i];
+          if (instrNotes.includes(substitute) && !used.has(substitute)) {
+            mapping[note] = substitute;
+            substitutions.push({ from: note, to: substitute, type: 'table substitution' });
+            found = true;
+            break;
+          }
+        }
+
+        // If still not found, try closest available note (only if depth allows extended search)
+        if (!found && maxDepth >= substitutes.length) {
+          const availableNotes = instrNotes.filter(n => !used.has(n));
+          if (availableNotes.length > 0) {
+            const closest = this.findClosestNote(note, availableNotes);
+            mapping[note] = closest;
+            substitutions.push({ from: note, to: closest, type: 'closest match' });
+          } else if (opts.allowSharing && instrNotes.length > 0) {
+            // Last resort: reuse already mapped note
+            const reusable = instrNotes[0];
+            mapping[note] = reusable;
+            substitutions.push({ from: note, to: reusable, type: 'note sharing' });
+          } else if (opts.allowOmission) {
+            omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
+          }
+        } else if (!found && opts.allowOmission) {
+          omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'depth limit reached' });
+        }
+      } else if (opts.allowOmission) {
+        omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
       }
     });
   }

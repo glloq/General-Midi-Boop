@@ -554,7 +554,9 @@ class InstrumentMatcher {
 
     // Use intelligent DrumNoteMapper for drums (channel 9)
     if (channelAnalysis && channelAnalysis.channel === 9 && channelAnalysis.noteEvents) {
-      return this.scoreDiscreteDrumsIntelligent(channelAnalysis, selectedNotes);
+      const drumFallback = this.config.routing?.drumFallback || null;
+      const hasDepthLimits = drumFallback && Object.keys(drumFallback).length > 0;
+      return this.scoreDiscreteDrumsIntelligent(channelAnalysis, selectedNotes, hasDepthLimits ? drumFallback : null);
     }
 
     // Fallback: simple closest-note mapping for non-drums discrete instruments
@@ -611,17 +613,18 @@ class InstrumentMatcher {
    * @param {Array<number>} selectedNotes
    * @returns {Object}
    */
-  scoreDiscreteDrumsIntelligent(channelAnalysis, selectedNotes) {
+  scoreDiscreteDrumsIntelligent(channelAnalysis, selectedNotes, categoryDepthLimits) {
     try {
       // Classify MIDI drum notes
       const midiNotes = this.drumMapper.classifyDrumNotes(channelAnalysis.noteEvents || []);
 
-      // Generate intelligent mapping
+      // Generate intelligent mapping with optional per-category depth limits
       const mappingResult = this.drumMapper.generateMapping(midiNotes, selectedNotes, {
         allowSubstitution: true,
         allowSharing: true,
         allowOmission: true,
-        preserveEssentials: true
+        preserveEssentials: true,
+        categoryDepthLimits: categoryDepthLimits || null
       });
 
       const { mapping, quality, substitutions, omissions } = mappingResult;
