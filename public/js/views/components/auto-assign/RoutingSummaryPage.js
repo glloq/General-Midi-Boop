@@ -260,17 +260,20 @@ class RoutingSummaryPage {
         const lowOptions = this.lowScoreSuggestions[ch] || [];
         const matched = options.find(o => o.instrument.id === assignment.instrumentId)
           || lowOptions.find(o => o.instrument.id === assignment.instrumentId);
-        if (matched) {
-          assignment.gmProgram = matched.instrument.gm_program;
-          assignment.noteRangeMin = matched.instrument.note_range_min;
-          assignment.noteRangeMax = matched.instrument.note_range_max;
-          assignment.noteSelectionMode = matched.instrument.note_selection_mode;
-          assignment.polyphony = matched.instrument.polyphony;
-          assignment.supportedCcs = matched.instrument.supported_ccs || null;
+        // Fallback: look up in allInstruments if not found in suggestions
+        const inst = matched?.instrument
+          || (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+        if (inst) {
+          assignment.gmProgram = inst.gm_program;
+          assignment.noteRangeMin = inst.note_range_min;
+          assignment.noteRangeMax = inst.note_range_max;
+          assignment.noteSelectionMode = inst.note_selection_mode;
+          assignment.polyphony = inst.polyphony;
+          assignment.supportedCcs = inst.supported_ccs || null;
           if (!assignment.customName) {
-            assignment.customName = matched.instrument.custom_name || null;
+            assignment.customName = inst.custom_name || null;
           }
-          assignment.instrumentDisplayName = this._getInstrumentDisplayName(matched.instrument);
+          assignment.instrumentDisplayName = this._getInstrumentDisplayName(inst);
         }
       }
 
@@ -2072,6 +2075,13 @@ class RoutingSummaryPage {
       instrumentCCs = assignment.supportedCcs;
       if (instrumentCCs && typeof instrumentCCs === 'string') {
         try { instrumentCCs = JSON.parse(instrumentCCs); } catch { instrumentCCs = null; }
+      }
+      // Fallback: look up supported_ccs from allInstruments if not in assignment
+      if (instrumentCCs == null && assignment.instrumentId) {
+        const inst = this._findInstrumentById(assignment.instrumentId);
+        if (inst?.supported_ccs) {
+          instrumentCCs = Array.isArray(inst.supported_ccs) ? inst.supported_ccs : JSON.parse(inst.supported_ccs || '[]');
+        }
       }
       instrumentName = assignment.customName || assignment.instrumentName || '';
     }
