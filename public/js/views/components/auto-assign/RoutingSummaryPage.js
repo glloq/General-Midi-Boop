@@ -383,6 +383,12 @@ class RoutingSummaryPage {
     if (this._isRendering) return;
     this._isRendering = true;
     try {
+      // Save scroll positions before re-render
+      const summaryPanel = this.modal.querySelector('#rsSummaryPanel');
+      const detailPanel = this.modal.querySelector('#rsDetailPanel');
+      const savedSummaryScroll = summaryPanel?.scrollTop || 0;
+      const savedDetailScroll = detailPanel?.scrollTop || 0;
+
       const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
       const activeCount = channelKeys.length - this.skippedChannels.size;
 
@@ -434,6 +440,12 @@ class RoutingSummaryPage {
       `;
 
       this._bindEvents(channelKeys);
+
+      // Restore scroll positions after re-render
+      const newSummary = this.modal.querySelector('#rsSummaryPanel');
+      const newDetail = this.modal.querySelector('#rsDetailPanel');
+      if (newSummary) newSummary.scrollTop = savedSummaryScroll;
+      if (newDetail) newDetail.scrollTop = savedDetailScroll;
     } finally {
       this._isRendering = false;
     }
