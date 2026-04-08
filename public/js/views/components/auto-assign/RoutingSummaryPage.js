@@ -2468,6 +2468,7 @@ class RoutingSummaryPage {
     this._previewingChannel = null;
 
     const channelConfigs = {};
+    const splitChannelMappings = [];
     for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
       const chNum = parseInt(ch);
       if (this.skippedChannels.has(chNum)) { channelConfigs[ch] = { skipped: true }; continue; }
@@ -2486,22 +2487,23 @@ class RoutingSummaryPage {
         noteCompression: adapt.oorHandling === 'compress'
       } : null;
 
-      // For split channels, build combined constraints
+      // For split channels, route each segment to a different synth channel
       if (this.splitChannels.has(chNum) && this.splitAssignments[chNum]) {
         const segs = this.splitAssignments[chNum].segments || [];
-        if (segs.length > 0) {
-          const combinedMin = Math.min(...segs.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0));
-          const combinedMax = Math.max(...segs.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127));
+        if (segs.length > 1) {
+          // Segment 0 keeps the source channel; segments 1..N get free channels
+          splitChannelMappings.push({ sourceChannel: chNum, segments: segs, semitones });
+        } else if (segs.length === 1) {
           channelConfigs[ch] = {
             transposition: { semitones },
             instrumentConstraints: {
               gmProgram: segs[0].gmProgram ?? (constraints?.gmProgram),
-              noteRangeMin: combinedMin,
-              noteRangeMax: combinedMax
+              noteRangeMin: segs[0].noteRange?.min ?? 0,
+              noteRangeMax: segs[0].noteRange?.max ?? 127
             }
           };
-          continue;
         }
+        continue;
       }
 
       channelConfigs[ch] = {
@@ -2510,9 +2512,61 @@ class RoutingSummaryPage {
       };
     }
 
+    // Pre-process split channels: redistribute notes to virtual channels
+    let previewMidi = this.midiData;
+    if (splitChannelMappings.length > 0) {
+      previewMidi = JSON.parse(JSON.stringify(this.midiData));
+      // Find all used channels
+      const usedCh = new Set();
+      for (const [c] of Object.entries(channelConfigs)) usedCh.add(Number(c));
+      for (const m of splitChannelMappings) usedCh.add(m.sourceChannel);
+
+      for (const mapping of splitChannelMappings) {
+        const { sourceChannel, segments, semitones } = mapping;
+        // Allocate free channels for segments 1..N
+        const segChannels = [sourceChannel];
+        for (let si = 1; si < segments.length; si++) {
+          for (let c = 0; c < 16; c++) {
+            if (c === 9 || usedCh.has(c)) continue;
+            segChannels.push(c);
+            usedCh.add(c);
+            break;
+          }
+        }
+        // Redistribute notes by range
+        for (const track of (previewMidi.tracks || [])) {
+          for (const evt of (track.events || [])) {
+            if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === sourceChannel) {
+              const note = evt.note ?? evt.noteNumber ?? 60;
+              for (let si = 0; si < segments.length; si++) {
+                const rMin = segments[si].noteRange?.min ?? 0;
+                const rMax = segments[si].noteRange?.max ?? 127;
+                if (note >= rMin && note <= rMax && si < segChannels.length) {
+                  evt.channel = segChannels[si];
+                  break;
+                }
+              }
+            }
+          }
+        }
+        // Config for each segment channel
+        segments.forEach((seg, i) => {
+          if (i >= segChannels.length) return;
+          channelConfigs[segChannels[i]] = {
+            transposition: { semitones },
+            instrumentConstraints: {
+              gmProgram: seg.gmProgram,
+              noteRangeMin: seg.noteRange?.min ?? 0,
+              noteRangeMax: seg.noteRange?.max ?? 127
+            }
+          };
+        });
+      }
+    }
+
     try {
       this._connectPreviewCallbacks();
-      await this.audioPreview.previewAllChannels(this.midiData, channelConfigs, 0);
+      await this.audioPreview.previewAllChannels(previewMidi, channelConfigs, 0);
       this._previewState = 'playing';
       this._updatePreviewUI();
       this._renderMinimap();
@@ -2542,28 +2596,86 @@ class RoutingSummaryPage {
     const adapt = this.adaptationSettings[ch] || {};
     const transposition = { semitones: adapt.transpositionSemitones || 0 };
 
-    // Build instrument constraints — handle split channels with combined range
-    let constraints;
+    // Split channels: route notes to different synth voices per segment
     if (this.splitChannels.has(channel) && this.splitAssignments[channel]) {
       const segs = this.splitAssignments[channel].segments || [];
-      if (segs.length > 0) {
-        constraints = {
-          gmProgram: segs[0].gmProgram ?? assignment?.gmProgram,
-          noteRangeMin: Math.min(...segs.map(s => s.fullRange?.min ?? s.noteRange?.min ?? 0)),
-          noteRangeMax: Math.max(...segs.map(s => s.fullRange?.max ?? s.noteRange?.max ?? 127))
-        };
-      } else {
-        constraints = {};
+      if (segs.length > 1) {
+        // Find free channels for segments 1..N (segment 0 keeps source channel)
+        const usedChannels = new Set();
+        if (this.midiData?.tracks) {
+          for (const track of this.midiData.tracks) {
+            for (const evt of (track.events || [])) {
+              if (evt.type === 'noteOn' && evt.channel != null) usedChannels.add(evt.channel);
+            }
+          }
+        }
+        const freeChannels = [];
+        for (let c = 0; c < 16; c++) {
+          if (c === 9) continue; // skip drums
+          if (c === channel) continue;
+          if (!usedChannels.has(c)) freeChannels.push(c);
+          if (freeChannels.length >= segs.length - 1) break;
+        }
+
+        // Map segments to target channels
+        const segChannels = [channel, ...freeChannels.slice(0, segs.length - 1)];
+
+        // Build modified MIDI data: redistribute notes by range
+        const splitMidi = JSON.parse(JSON.stringify(this.midiData));
+        for (const track of (splitMidi.tracks || [])) {
+          for (const evt of (track.events || [])) {
+            if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === channel) {
+              const note = evt.note ?? evt.noteNumber ?? 60;
+              for (let si = 0; si < segs.length; si++) {
+                const rMin = segs[si].noteRange?.min ?? 0;
+                const rMax = segs[si].noteRange?.max ?? 127;
+                if (note >= rMin && note <= rMax && si < segChannels.length) {
+                  evt.channel = segChannels[si];
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // Build configs: one per segment with its own gmProgram and range
+        const channelConfigs = {};
+        segs.forEach((seg, i) => {
+          if (i >= segChannels.length) return;
+          channelConfigs[segChannels[i]] = {
+            transposition: { semitones: transposition.semitones },
+            instrumentConstraints: {
+              gmProgram: seg.gmProgram ?? assignment?.gmProgram,
+              noteRangeMin: seg.noteRange?.min ?? 0,
+              noteRangeMax: seg.noteRange?.max ?? 127
+            }
+          };
+        });
+
+        try {
+          this._connectPreviewCallbacks();
+          await this.audioPreview.previewAllChannels(splitMidi, channelConfigs, 0);
+          this._previewState = 'playing';
+          this._updatePreviewUI();
+          this._renderMinimap();
+        } catch (err) {
+          console.error('[Preview] split preview failed:', err);
+          this._previewState = 'stopped';
+          this._updatePreviewUI();
+          this._showPreviewError(err.message);
+        }
+        return;
       }
-    } else {
-      constraints = assignment ? {
-        gmProgram: assignment.gmProgram,
-        noteRangeMin: assignment.noteRangeMin,
-        noteRangeMax: assignment.noteRangeMax,
-        noteSelectionMode: assignment.noteSelectionMode || undefined,
-        selectedNotes: assignment.selectedNotes || undefined
-      } : {};
     }
+
+    // Single instrument: standard preview
+    const constraints = assignment ? {
+      gmProgram: assignment.gmProgram,
+      noteRangeMin: assignment.noteRangeMin,
+      noteRangeMax: assignment.noteRangeMax,
+      noteSelectionMode: assignment.noteSelectionMode || undefined,
+      selectedNotes: assignment.selectedNotes || undefined
+    } : {};
 
     try {
       this._connectPreviewCallbacks();
