@@ -3848,7 +3848,11 @@ body.dark-mode .aa-channel-card.skipped {
   background: none;
   border: none;
   padding: 2px 4px;
-  font-size: 14px;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+  text-align: center;
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.15s;
@@ -5392,20 +5396,7 @@ body.dark-mode .rs-cc-remap {
   white-space: nowrap;
 }
 
-/* Mute button */
-.rs-btn-mute {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-
-.rs-btn-mute:hover {
-  opacity: 1;
-}
+/* Mute button — shared styles defined in .rs-btn-mute, .rs-btn-unmute above */
 
 /* Full 0-127 MIDI range visualization */
 .rs-range-full {

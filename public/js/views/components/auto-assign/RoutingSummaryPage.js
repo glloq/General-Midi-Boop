@@ -604,7 +604,7 @@ class RoutingSummaryPage {
           <td class="rs-col-assigned">${assignedHTML}</td>
           <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-actions">
-            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip" data-channel="${channel}" title="${_t('routingSummary.skip')}">&times;</button>` : `<button class="btn btn-sm rs-btn-unskip" data-channel="${channel}" title="${_t('routingSummary.unskip')}">+</button>`}
+            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔇</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔊</button>`}
           </td>
         </tr>
       `;
