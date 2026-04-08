@@ -28,15 +28,73 @@ class ScoringSettingsModal extends BaseModal {
     { id: 'scoring', icon: '⚖️', labelKey: 'scoringSettings.tabScoring', fallback: 'Scoring' }
   ];
 
+  // Drum categories with representative substitution chains from DrumNoteMapper.
+  // Each chain shows the primary note and its ordered fallbacks (by musical proximity).
+  // chain entries: { note, name } — first is the primary, rest are fallbacks by preference.
   static DRUM_CATEGORIES = [
-    { key: 'kicks',   icon: '🥁', labelKey: 'scoringSettings.catKicks',   fallback: 'Kicks',   notes: '35, 36' },
-    { key: 'snares',  icon: '🪘', labelKey: 'scoringSettings.catSnares',  fallback: 'Snares',  notes: '37, 38, 40' },
-    { key: 'hiHats',  icon: '🎩', labelKey: 'scoringSettings.catHiHats',  fallback: 'Hi-Hats', notes: '42, 44, 46' },
-    { key: 'toms',    icon: '🥁', labelKey: 'scoringSettings.catToms',    fallback: 'Toms',    notes: '41, 43, 45, 47, 48, 50' },
-    { key: 'crashes', icon: '💥', labelKey: 'scoringSettings.catCrashes', fallback: 'Crashes', notes: '49, 55, 57' },
-    { key: 'rides',   icon: '🔔', labelKey: 'scoringSettings.catRides',   fallback: 'Rides',   notes: '51, 53, 59' },
-    { key: 'latin',   icon: '🪇', labelKey: 'scoringSettings.catLatin',   fallback: 'Latin',   notes: '60-68' },
-    { key: 'misc',    icon: '🎵', labelKey: 'scoringSettings.catMisc',    fallback: 'Divers',  notes: '69-81' }
+    { key: 'kicks', icon: '🥁', labelKey: 'scoringSettings.catKicks', fallback: 'Kicks',
+      chain: [
+        { note: 36, name: 'Bass Drum 1' },
+        { note: 35, name: 'Acoustic Kick' },
+        { note: 41, name: 'Low Floor Tom' },
+        { note: 43, name: 'High Floor Tom' },
+        { note: 64, name: 'Low Conga' }
+      ]},
+    { key: 'snares', icon: '🪘', labelKey: 'scoringSettings.catSnares', fallback: 'Snares',
+      chain: [
+        { note: 38, name: 'Acoustic Snare' },
+        { note: 40, name: 'Electric Snare' },
+        { note: 37, name: 'Side Stick' },
+        { note: 39, name: 'Hand Clap' },
+        { note: 54, name: 'Tambourine' }
+      ]},
+    { key: 'hiHats', icon: '🎩', labelKey: 'scoringSettings.catHiHats', fallback: 'Hi-Hats',
+      chain: [
+        { note: 42, name: 'Closed Hi-Hat' },
+        { note: 44, name: 'Pedal Hi-Hat' },
+        { note: 46, name: 'Open Hi-Hat' },
+        { note: 54, name: 'Tambourine' },
+        { note: 70, name: 'Maracas' }
+      ]},
+    { key: 'toms', icon: '🥁', labelKey: 'scoringSettings.catToms', fallback: 'Toms',
+      chain: [
+        { note: 50, name: 'High Tom' },
+        { note: 48, name: 'Hi-Mid Tom' },
+        { note: 45, name: 'Low Tom' },
+        { note: 41, name: 'Low Floor Tom' },
+        { note: 60, name: 'Hi Bongo' }
+      ]},
+    { key: 'crashes', icon: '💥', labelKey: 'scoringSettings.catCrashes', fallback: 'Crashes',
+      chain: [
+        { note: 49, name: 'Crash Cymbal 1' },
+        { note: 57, name: 'Crash Cymbal 2' },
+        { note: 55, name: 'Splash Cymbal' },
+        { note: 52, name: 'Chinese Cymbal' },
+        { note: 51, name: 'Ride Cymbal' }
+      ]},
+    { key: 'rides', icon: '🔔', labelKey: 'scoringSettings.catRides', fallback: 'Rides',
+      chain: [
+        { note: 51, name: 'Ride Cymbal 1' },
+        { note: 59, name: 'Ride Cymbal 2' },
+        { note: 53, name: 'Ride Bell' },
+        { note: 42, name: 'Closed Hi-Hat' }
+      ]},
+    { key: 'latin', icon: '🪇', labelKey: 'scoringSettings.catLatin', fallback: 'Latin',
+      chain: [
+        { note: 60, name: 'Hi Bongo' },
+        { note: 62, name: 'Mute Hi Conga' },
+        { note: 65, name: 'High Timbale' },
+        { note: 67, name: 'High Agogo' },
+        { note: 76, name: 'Hi Wood Block' }
+      ]},
+    { key: 'misc', icon: '🎵', labelKey: 'scoringSettings.catMisc', fallback: 'Divers',
+      chain: [
+        { note: 39, name: 'Hand Clap' },
+        { note: 54, name: 'Tambourine' },
+        { note: 56, name: 'Cowbell' },
+        { note: 75, name: 'Claves' },
+        { note: 70, name: 'Maracas' }
+      ]}
   ];
 
   // ============================================================================
@@ -235,64 +293,78 @@ class ScoringSettingsModal extends BaseModal {
   _renderDrumsSection() {
     const routing = this.overrides.routing || {};
     const drumFallback = routing.drumFallback || {};
-    const drumManualMap = routing.drumManualMap || {};
     const categories = ScoringSettingsModal.DRUM_CATEGORIES;
 
-    // Summary counts
-    let countSub = 0, countIgn = 0, countMan = 0;
-    for (const cat of categories) {
-      const val = drumFallback[cat.key] || 'substitute';
-      if (val === 'substitute') countSub++;
-      else if (val === 'ignore') countIgn++;
-      else if (val === 'manual') countMan++;
-    }
+    // Depth labels: 0 = exact only, 1-N = substitution depth, -1 = ignore
+    const depthLabels = [
+      { value: 0, icon: '🎯', labelKey: 'scoringSettings.depthExact',  fallback: 'Exact' },
+      { value: 1, icon: '🟢', labelKey: 'scoringSettings.depthClose',  fallback: 'Proche' },
+      { value: 2, icon: '🟡', labelKey: 'scoringSettings.depthSimilar', fallback: 'Similaire' },
+      { value: 3, icon: '🟠', labelKey: 'scoringSettings.depthDistant', fallback: 'Éloigné' },
+      { value: -1, icon: '⛔', labelKey: 'scoringSettings.depthIgnore', fallback: 'Ignorer' }
+    ];
 
     let catsHtml = '';
     for (const cat of categories) {
-      const val = drumFallback[cat.key] || 'substitute';
-      const manualNote = drumManualMap[cat.key] != null ? drumManualMap[cat.key] : '';
+      // Current depth value: default to full chain length (all substitutions allowed)
+      const savedDepth = drumFallback[cat.key];
+      const maxDepth = cat.chain.length - 1; // chain[0] is primary, rest are subs
+      const currentDepth = savedDepth !== undefined ? savedDepth : maxDepth;
+
+      // Build the visual substitution chain
+      let chainHtml = '';
+      for (let i = 0; i < cat.chain.length; i++) {
+        const node = cat.chain[i];
+        const isPrimary = i === 0;
+        const isAllowed = currentDepth >= 0 && i <= currentDepth;
+        const levelClass = isPrimary ? 'ss-chain-primary' :
+                           i === 1 ? 'ss-chain-close' :
+                           i === 2 ? 'ss-chain-similar' : 'ss-chain-distant';
+        const stateClass = isAllowed ? 'ss-chain-allowed' : 'ss-chain-disabled';
+
+        chainHtml += `${i > 0 ? '<span class="ss-chain-arrow ' + stateClass + '">→</span>' : ''}`;
+        chainHtml += `<span class="ss-chain-node ${levelClass} ${stateClass}" data-cat="${cat.key}" data-depth="${i}" title="${node.name} (MIDI ${node.note})">
+          <span class="ss-chain-note-name">${node.name.split(' ').slice(0, 2).join(' ')}</span>
+        </span>`;
+      }
+
+      // Ignore indicator at the end
+      const isIgnored = currentDepth === -1;
+      chainHtml += `<span class="ss-chain-arrow ${isIgnored ? 'ss-chain-allowed' : 'ss-chain-disabled'}">|</span>`;
+      chainHtml += `<span class="ss-chain-node ss-chain-ignore ${isIgnored ? 'ss-chain-allowed' : 'ss-chain-disabled'}" data-cat="${cat.key}" data-depth="-1" title="${this.t('scoringSettings.depthIgnoreDesc') || 'Ne pas jouer si indisponible'}">⛔</span>`;
+
+      // Depth indicator text
+      const depthLabel = currentDepth === -1
+        ? (this.t('scoringSettings.depthIgnore') || 'Ignorer')
+        : currentDepth === 0
+          ? (this.t('scoringSettings.depthExact') || 'Exact uniquement')
+          : (this.t('scoringSettings.depthUpTo') || 'Jusqu\'à') + ' ' + (cat.chain[currentDepth]?.name.split(' ').slice(0, 2).join(' ') || '');
+
       catsHtml += `
-        <div class="ss-drum-cat-row">
-          <div class="ss-drum-cat-info">
+        <div class="ss-drum-cat-row" data-cat="${cat.key}">
+          <div class="ss-drum-cat-header">
             <span class="ss-drum-cat-icon">${cat.icon}</span>
-            <div class="ss-drum-cat-text">
-              <span class="ss-drum-cat-name">${this.t(cat.labelKey) || cat.fallback}</span>
-              <span class="ss-drum-cat-notes">${cat.notes}</span>
-            </div>
+            <span class="ss-drum-cat-name">${this.t(cat.labelKey) || cat.fallback}</span>
+            <span class="ss-drum-depth-badge" data-cat="${cat.key}">${depthLabel}</span>
           </div>
-          <div class="ss-drum-options">
-            <label class="ss-drum-option ${val === 'substitute' ? 'selected' : ''}" title="${this.t('scoringSettings.drumSubstituteDesc') || 'Remplacer par la note disponible la plus proche'}">
-              <input type="radio" name="drumFallback_${cat.key}" value="substitute" ${val === 'substitute' ? 'checked' : ''} data-cat="${cat.key}">
-              <span class="ss-drum-option-icon">🔄</span>
-              <span class="ss-drum-option-label">${this.t('scoringSettings.drumSubstitute') || 'Substituer'}</span>
-            </label>
-            <label class="ss-drum-option ${val === 'ignore' ? 'selected' : ''}" title="${this.t('scoringSettings.drumIgnoreDesc') || 'Ne pas jouer cette note'}">
-              <input type="radio" name="drumFallback_${cat.key}" value="ignore" ${val === 'ignore' ? 'checked' : ''} data-cat="${cat.key}">
-              <span class="ss-drum-option-icon">⏭️</span>
-              <span class="ss-drum-option-label">${this.t('scoringSettings.drumIgnore') || 'Ignorer'}</span>
-            </label>
-            <label class="ss-drum-option ${val === 'manual' ? 'selected' : ''}" title="${this.t('scoringSettings.drumManualDesc') || 'Mapper vers une note spécifique'}">
-              <input type="radio" name="drumFallback_${cat.key}" value="manual" ${val === 'manual' ? 'checked' : ''} data-cat="${cat.key}">
-              <span class="ss-drum-option-icon">✏️</span>
-              <span class="ss-drum-option-label">${this.t('scoringSettings.drumManual') || 'Manuel'}</span>
-            </label>
+          <div class="ss-chain-container">
+            ${chainHtml}
           </div>
-          <div class="ss-drum-manual-input" data-cat="${cat.key}" style="${val === 'manual' ? '' : 'display:none'}">
-            <label class="ss-drum-manual-label">${this.t('scoringSettings.drumMapTo') || 'Note cible'}</label>
-            <input type="number" class="ss-drum-manual-note" data-cat="${cat.key}" value="${manualNote}" min="0" max="127" placeholder="0-127">
-          </div>
+          <input type="hidden" class="ss-drum-depth-input" data-cat="${cat.key}" value="${currentDepth}">
         </div>
       `;
     }
 
     return `
       <h4 class="ss-section-title">🥁 ${this.t('scoringSettings.drumSettings') || 'Réglages Drums'}</h4>
-      <p class="ss-section-desc">${this.t('scoringSettings.drumFallbackDesc') || 'Action quand une note est manquante par catégorie de percussion.'}</p>
+      <p class="ss-section-desc">${this.t('scoringSettings.drumChainDesc') || 'Cliquez sur la chaîne de substitution pour définir la profondeur de remplacement autorisée. Les notes à gauche sont prioritaires.'}</p>
 
-      <div class="ss-drum-summary" id="ssDrumSummary">
-        <span class="ss-drum-summary-item ss-sub">🔄 ${countSub}</span>
-        <span class="ss-drum-summary-item ss-ign">⏭️ ${countIgn}</span>
-        <span class="ss-drum-summary-item ss-man">✏️ ${countMan}</span>
+      <div class="ss-drum-legend">
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-primary ss-chain-allowed"></span> ${this.t('scoringSettings.legendPrimary') || 'Note principale'}</span>
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-close ss-chain-allowed"></span> ${this.t('scoringSettings.legendClose') || 'Proche'}</span>
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-similar ss-chain-allowed"></span> ${this.t('scoringSettings.legendSimilar') || 'Similaire'}</span>
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-distant ss-chain-allowed"></span> ${this.t('scoringSettings.legendDistant') || 'Éloigné'}</span>
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-disabled"></span> ${this.t('scoringSettings.legendDisabled') || 'Désactivé'}</span>
       </div>
 
       <div class="ss-drum-categories">
@@ -465,40 +537,12 @@ class ScoringSettingsModal extends BaseModal {
       });
     });
 
-    // Drum fallback radios
-    dialog.querySelectorAll('.ss-drum-options input[type="radio"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const cat = radio.dataset.cat;
-        const val = radio.value;
-        if (!this.overrides.routing) this.overrides.routing = {};
-        if (!this.overrides.routing.drumFallback) this.overrides.routing.drumFallback = {};
-        this.overrides.routing.drumFallback[cat] = val;
-
-        // Update visual selection
-        const row = radio.closest('.ss-drum-cat-row');
-        if (row) {
-          row.querySelectorAll('.ss-drum-option').forEach(opt => {
-            opt.classList.toggle('selected', opt.querySelector('input').checked);
-          });
-          // Show/hide manual input
-          const manualInput = row.querySelector('.ss-drum-manual-input');
-          if (manualInput) {
-            manualInput.style.display = val === 'manual' ? '' : 'none';
-          }
-        }
-
-        this._updateDrumSummary();
-      });
-    });
-
-    // Drum manual note inputs
-    dialog.querySelectorAll('.ss-drum-manual-note').forEach(input => {
-      input.addEventListener('change', () => {
-        const cat = input.dataset.cat;
-        const val = parseInt(input.value);
-        if (!this.overrides.routing) this.overrides.routing = {};
-        if (!this.overrides.routing.drumManualMap) this.overrides.routing.drumManualMap = {};
-        this.overrides.routing.drumManualMap[cat] = isNaN(val) ? null : Math.max(0, Math.min(127, val));
+    // Drum substitution chain node clicks
+    dialog.querySelectorAll('.ss-chain-node').forEach(node => {
+      node.addEventListener('click', () => {
+        const cat = node.dataset.cat;
+        const depth = parseInt(node.dataset.depth);
+        this._setDrumDepth(cat, depth);
       });
     });
 
@@ -539,27 +583,68 @@ class ScoringSettingsModal extends BaseModal {
   }
 
   // ============================================================================
-  // Drum summary update
+  // Drum depth control
   // ============================================================================
 
-  _updateDrumSummary() {
-    const summary = this.dialog?.querySelector('#ssDrumSummary');
-    if (!summary) return;
-    const routing = this.overrides.routing || {};
-    const drumFallback = routing.drumFallback || {};
-    const categories = ScoringSettingsModal.DRUM_CATEGORIES;
-    let countSub = 0, countIgn = 0, countMan = 0;
-    for (const cat of categories) {
-      const val = drumFallback[cat.key] || 'substitute';
-      if (val === 'substitute') countSub++;
-      else if (val === 'ignore') countIgn++;
-      else if (val === 'manual') countMan++;
+  /**
+   * Set substitution depth for a drum category.
+   * depth: 0 = exact only, 1+ = substitution chain depth, -1 = ignore (don't play)
+   */
+  _setDrumDepth(catKey, depth) {
+    if (!this.overrides.routing) this.overrides.routing = {};
+    if (!this.overrides.routing.drumFallback) this.overrides.routing.drumFallback = {};
+    this.overrides.routing.drumFallback[catKey] = depth;
+
+    const dialog = this.dialog;
+    if (!dialog) return;
+
+    const row = dialog.querySelector(`.ss-drum-cat-row[data-cat="${catKey}"]`);
+    if (!row) return;
+
+    // Update chain node visual states
+    row.querySelectorAll('.ss-chain-node').forEach(node => {
+      const nodeDepth = parseInt(node.dataset.depth);
+      const isAllowed = depth >= 0 && nodeDepth >= 0 && nodeDepth <= depth;
+      const isIgnore = nodeDepth === -1 && depth === -1;
+      node.classList.toggle('ss-chain-allowed', isAllowed || isIgnore);
+      node.classList.toggle('ss-chain-disabled', !isAllowed && !isIgnore);
+    });
+
+    // Update arrows
+    row.querySelectorAll('.ss-chain-arrow').forEach((arrow, i) => {
+      const nextNode = row.querySelectorAll('.ss-chain-node')[i + 1];
+      if (!nextNode) {
+        // Last arrow (before ignore)
+        arrow.classList.toggle('ss-chain-allowed', depth === -1);
+        arrow.classList.toggle('ss-chain-disabled', depth !== -1);
+      } else {
+        const nextDepth = parseInt(nextNode.dataset.depth);
+        const isAllowed = depth >= 0 && nextDepth >= 0 && nextDepth <= depth;
+        arrow.classList.toggle('ss-chain-allowed', isAllowed);
+        arrow.classList.toggle('ss-chain-disabled', !isAllowed);
+      }
+    });
+
+    // Update hidden input
+    const input = row.querySelector('.ss-drum-depth-input');
+    if (input) input.value = depth;
+
+    // Update depth badge
+    const cat = ScoringSettingsModal.DRUM_CATEGORIES.find(c => c.key === catKey);
+    const badge = row.querySelector('.ss-drum-depth-badge');
+    if (badge && cat) {
+      if (depth === -1) {
+        badge.textContent = this.t('scoringSettings.depthIgnore') || 'Ignorer';
+        badge.className = 'ss-drum-depth-badge ss-badge-ignore';
+      } else if (depth === 0) {
+        badge.textContent = this.t('scoringSettings.depthExact') || 'Exact';
+        badge.className = 'ss-drum-depth-badge ss-badge-exact';
+      } else {
+        const nodeName = cat.chain[depth]?.name.split(' ').slice(0, 2).join(' ') || '';
+        badge.textContent = (this.t('scoringSettings.depthUpTo') || 'Jusqu\'à') + ' ' + nodeName;
+        badge.className = 'ss-drum-depth-badge ss-badge-sub';
+      }
     }
-    summary.innerHTML = `
-      <span class="ss-drum-summary-item ss-sub">🔄 ${countSub}</span>
-      <span class="ss-drum-summary-item ss-ign">⏭️ ${countIgn}</span>
-      <span class="ss-drum-summary-item ss-man">✏️ ${countMan}</span>
-    `;
   }
 
   // ============================================================================

@@ -1770,6 +1770,19 @@
         "presetElectronicDesc": "Favors GM synth programs and tolerates wide transpositions",
         "presetJazzDesc": "Prioritizes timbre and instrument type for jazz formations",
         "presetDrumsFocusedDesc": "Maximizes percussion mapping quality and channel 10 bonus",
-        "presetMinimalDesc": "Permissive thresholds and limited splits for small setups"
+        "presetMinimalDesc": "Permissive thresholds and limited splits for small setups",
+        "drumChainDesc": "Click on the substitution chain to set the allowed replacement depth. Notes on the left have priority.",
+        "depthExact": "Exact only",
+        "depthClose": "Close",
+        "depthSimilar": "Similar",
+        "depthDistant": "Distant",
+        "depthIgnore": "Ignore",
+        "depthIgnoreDesc": "Do not play if unavailable",
+        "depthUpTo": "Up to",
+        "legendPrimary": "Primary",
+        "legendClose": "Close",
+        "legendSimilar": "Similar",
+        "legendDistant": "Distant",
+        "legendDisabled": "Disabled"
     }
 }
