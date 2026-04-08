@@ -2533,21 +2533,40 @@ class RoutingSummaryPage {
             break;
           }
         }
-        // Redistribute notes by range
+        // Redistribute notes by range; duplicate for 'shared' overlap
+        const overlapStrat = this.splitAssignments[sourceChannel]?.overlapStrategy;
         for (const track of (previewMidi.tracks || [])) {
-          for (const evt of (track.events || [])) {
+          const dupes = [];
+          let tick = 0;
+          for (const evt of track.events) {
+            if (evt.deltaTime !== undefined) tick += evt.deltaTime;
+            evt._absTick = tick;
             if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === sourceChannel) {
               const note = evt.note ?? evt.noteNumber ?? 60;
+              const matches = [];
               for (let si = 0; si < segments.length; si++) {
                 const rMin = segments[si].noteRange?.min ?? 0;
                 const rMax = segments[si].noteRange?.max ?? 127;
-                if (note >= rMin && note <= rMax && si < segChannels.length) {
-                  evt.channel = segChannels[si];
-                  break;
+                if (note >= rMin && note <= rMax && si < segChannels.length) matches.push(si);
+              }
+              if (matches.length > 0) {
+                evt.channel = segChannels[matches[0]];
+                if (overlapStrat === 'shared' && matches.length > 1) {
+                  for (let mi = 1; mi < matches.length; mi++) {
+                    dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                  }
                 }
               }
             }
           }
+          if (dupes.length > 0) {
+            const allEvts = [...track.events, ...dupes];
+            allEvts.sort((a, b) => a._absTick - b._absTick);
+            let prev = 0;
+            for (const e of allEvts) { e.deltaTime = e._absTick - prev; prev = e._absTick; }
+            track.events = allEvts;
+          }
+          for (const evt of track.events) delete evt._absTick;
         }
         // Config for each segment channel
         segments.forEach((seg, i) => {
@@ -2621,21 +2640,49 @@ class RoutingSummaryPage {
         const segChannels = [channel, ...freeChannels.slice(0, segs.length - 1)];
 
         // Build modified MIDI data: redistribute notes by range
+        // In 'shared' mode, duplicate notes to all matching segments
+        const overlapStrategy = this.splitAssignments[channel]?.overlapStrategy;
         const splitMidi = JSON.parse(JSON.stringify(this.midiData));
         for (const track of (splitMidi.tracks || [])) {
-          for (const evt of (track.events || [])) {
+          // First pass: compute absolute ticks and redistribute
+          const dupes = [];
+          let tick = 0;
+          for (const evt of track.events) {
+            if (evt.deltaTime !== undefined) tick += evt.deltaTime;
+            evt._absTick = tick;
+
             if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === channel) {
               const note = evt.note ?? evt.noteNumber ?? 60;
+              const matches = [];
               for (let si = 0; si < segs.length; si++) {
                 const rMin = segs[si].noteRange?.min ?? 0;
                 const rMax = segs[si].noteRange?.max ?? 127;
-                if (note >= rMin && note <= rMax && si < segChannels.length) {
-                  evt.channel = segChannels[si];
-                  break;
+                if (note >= rMin && note <= rMax && si < segChannels.length) matches.push(si);
+              }
+              if (matches.length > 0) {
+                evt.channel = segChannels[matches[0]];
+                // Shared overlap: duplicate to additional segments
+                if (overlapStrategy === 'shared' && matches.length > 1) {
+                  for (let mi = 1; mi < matches.length; mi++) {
+                    dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                  }
                 }
               }
             }
           }
+          // Second pass: merge duplicates back, re-sort by absolute tick, recompute deltas
+          if (dupes.length > 0) {
+            const allEvents = [...track.events, ...dupes];
+            allEvents.sort((a, b) => a._absTick - b._absTick);
+            let prevTick = 0;
+            for (const evt of allEvents) {
+              evt.deltaTime = evt._absTick - prevTick;
+              prevTick = evt._absTick;
+            }
+            track.events = allEvents;
+          }
+          // Clean up temp field
+          for (const evt of track.events) delete evt._absTick;
         }
 
         // Build configs: one per segment with its own gmProgram and range
