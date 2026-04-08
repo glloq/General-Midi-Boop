@@ -4072,14 +4072,15 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-range-legend-transposed { background: #f39c12; opacity: 0.7; }
 .rs-range-legend-inst { background: rgba(39, 174, 96, 0.5); }
 
-/* Skip/Unskip buttons */
+/* Skip/Unskip buttons — sizes match .rs-btn-mute/.rs-btn-unmute */
 .rs-btn-skip, .rs-btn-unskip {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  font-size: 14px;
-  line-height: 24px;
-  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border: none;
 }
 
 /* Footer */

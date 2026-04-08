@@ -132,7 +132,9 @@ class AutoAssigner {
               note_range_max: instrument.note_range_max,
               note_selection_mode: instrument.note_selection_mode,
               polyphony: instrument.polyphony || 16,
-              sync_delay: instrument.sync_delay || 0
+              sync_delay: instrument.sync_delay || 0,
+              supported_ccs: instrument.supported_ccs,
+              instrument_type: instrument.instrument_type
             },
             compatibility
           };

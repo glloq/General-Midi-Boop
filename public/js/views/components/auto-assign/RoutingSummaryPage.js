@@ -561,8 +561,8 @@ class RoutingSummaryPage {
             <td class="rs-col-routed-condensed" title="${typeof routedName === 'string' ? escapeHtml(routedName) : ''}">${routedName}</td>
             <td class="rs-col-mute-condensed">
               ${!isSkipped
-                ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip') || 'Muter'}">🔇</button>`
-                : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip') || 'Activer'}">🔊</button>`}
+                ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip') || 'Muter'}">🔊</button>`
+                : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip') || 'Activer'}">🔇</button>`}
             </td>
           </tr>
         `;
@@ -604,7 +604,7 @@ class RoutingSummaryPage {
           <td class="rs-col-assigned">${assignedHTML}</td>
           <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-actions">
-            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔇</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔊</button>`}
+            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔊</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔇</button>`}
           </td>
         </tr>
       `;
@@ -2162,7 +2162,8 @@ class RoutingSummaryPage {
       const found = options.find(o => o.instrument.id === instrumentId);
       if (found) return found.instrument;
     }
-    return null;
+    // Fallback: search in allInstruments (has full data including supported_ccs)
+    return (this.allInstruments || []).find(i => i.id === instrumentId) || null;
   }
 
   // ============================================================================
