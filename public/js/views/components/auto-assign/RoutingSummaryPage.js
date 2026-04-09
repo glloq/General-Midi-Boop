@@ -2502,7 +2502,7 @@ class RoutingSummaryPage {
     } else {
       channelFilter = (this.selectedChannel !== null) ? this.selectedChannel : null;
     }
-    const skipRangeFilter = this._previewMode === 'original';
+    const skipRangeFilter = true; // Minimap shows all MIDI notes regardless of instrument range
     const notes = this._extractNotesForMinimap(channelFilter, skipRangeFilter);
     const totalTicks = notes.length > 0 ? notes[notes.length - 1].t + 1 : 1;
 
