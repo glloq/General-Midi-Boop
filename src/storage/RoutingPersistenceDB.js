@@ -55,8 +55,8 @@ class RoutingPersistenceDB {
           routing.channel,
           routing.device_id,
           routing.instrument_name,
-          routing.compatibility_score || null,
-          routing.transposition_applied || 0,
+          routing.compatibility_score ?? null,
+          routing.transposition_applied ?? 0,
           routing.auto_assigned ? 1 : 0,
           routing.assignment_reason || null,
           routing.note_remapping || null,
@@ -100,8 +100,8 @@ class RoutingPersistenceDB {
         routing.channel,
         routing.device_id,
         routing.instrument_name,
-        routing.compatibility_score || null,
-        routing.transposition_applied || 0,
+        routing.compatibility_score ?? null,
+        routing.transposition_applied ?? 0,
         routing.auto_assigned ? 1 : 0,
         routing.assignment_reason || null,
         routing.note_remapping || null,
@@ -123,7 +123,7 @@ class RoutingPersistenceDB {
    * @param {Array<Object>} segments - Array of routing objects with split fields
    */
   insertSplitRoutings(fileId, channel, segments) {
-    try {
+    const run = this.db.transaction(() => {
       // Remove all existing routings for this channel (both split and non-split)
       this.db.prepare(
         'DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND channel = ?'
@@ -137,6 +137,10 @@ class RoutingPersistenceDB {
           channel: channel
         });
       }
+    });
+
+    try {
+      run();
     } catch (error) {
       this.logger.error(`Failed to insert split routings: ${error.message}`);
       throw error;
