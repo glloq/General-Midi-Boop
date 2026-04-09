@@ -796,9 +796,10 @@ class RoutingSummaryPage {
             aria-label="${_t('autoAssign.channel')} ${channel + 1}">
           <td class="rs-col-ch">
             <span class="rs-score-dot ${scoreDotClass}"></span>
-            ${typeIcon} Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
+            Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
           </td>
           <td class="rs-col-original">${escapeHtml(gmName)}</td>
+          <td class="rs-col-type"><span class="rs-type-badge" style="color:${getTypeColor(analysis?.estimatedType)}" title="${analysis?.estimatedType ? (_t('autoAssign.type_' + analysis.estimatedType) || analysis.estimatedType) : ''}">${typeIcon} ${analysis?.estimatedType ? (_t('autoAssign.type_' + analysis.estimatedType) || analysis.estimatedType) : ''}</span></td>
           <td class="rs-col-assigned">${assignedHTML}</td>
           <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-poly">${polyHTML}</td>
@@ -839,6 +840,7 @@ class RoutingSummaryPage {
             <tr>
               <th>${_t('autoAssign.overviewChannel')}</th>
               <th>${_t('autoAssign.overviewOriginal')}</th>
+              <th>${_t('autoAssign.type') || 'Type'}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
               <th>${_t('routingSummary.score') || 'Score'}</th>
               <th>${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-hint">${_t('autoAssign.polyphonyHint') || 'canal / instrument'}</span></th>

@@ -4055,6 +4055,14 @@ body.dark-mode .aa-channel-card.skipped {
   white-space: nowrap;
 }
 
+.rs-col-type {
+  white-space: nowrap;
+  font-size: 11px;
+}
+.rs-type-badge {
+  font-weight: 500;
+}
+
 .rs-col-assigned {
   min-width: 180px;
   max-width: 260px;
