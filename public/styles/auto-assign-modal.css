@@ -3934,6 +3934,16 @@ body.dark-mode .aa-channel-card.skipped {
   letter-spacing: 0;
   color: var(--text-muted, #aaa);
 }
+.rs-th-sub {
+  font-weight: 400;
+  font-size: 9px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted, #aaa);
+}
+.rs-th-compact {
+  white-space: nowrap;
+}
 
 .rs-table thead th {
   text-align: left;

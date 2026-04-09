@@ -987,7 +987,7 @@
         "previewFailed": "Preview failed",
         "noteRange": "Note range",
         "polyphony": "Polyphony",
-        "polyphonyHint": "channel / instrument",
+        "polyphonyHint": "ch. / instru.",
         "channelNotesHint": "total / playable",
         "type": "Type",
         "range": "Range",
