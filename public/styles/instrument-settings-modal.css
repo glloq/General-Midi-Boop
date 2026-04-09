@@ -1218,8 +1218,8 @@ body.dark-mode .ism-drum-kit-desc {
   margin-left: 2px;
   border: none;
   border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted, #9ca3af);
+  background: var(--close-btn-bg, #dc2626);
+  color: #fff;
   font-size: 10px;
   line-height: 1;
   cursor: pointer;
@@ -1228,7 +1228,7 @@ body.dark-mode .ism-drum-kit-desc {
 }
 
 .ism-cc-tag-remove:hover {
-  background: var(--close-btn-bg, #dc2626);
+  background: #b91c1c;
   color: #fff;
 }
 

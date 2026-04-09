@@ -110,7 +110,7 @@
                     </div>
 
                     <!-- Message rate limit -->
-                    <div style="margin-bottom:8px;">
+                    <div style="margin-bottom:20px;">
                         <label style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:var(--text-primary,#333);">
                             ${t('deviceSettings.messageRateLimit', 'Limite de messages')}
                         </label>
@@ -121,6 +121,20 @@
                         </div>
                         <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary,#999);">
                             ${t('deviceSettings.messageRateLimitDescription', 'Nombre maximum de messages MIDI par seconde (0 = illimité)')}
+                        </p>
+                    </div>
+
+                    <!-- SysEx Identity Request -->
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:var(--text-primary,#333);">
+                            SysEx Identity
+                        </label>
+                        <div id="dsm-sysexResult" style="display:none;margin-bottom:8px;padding:10px 14px;background:var(--bg-tertiary,#f3f4f6);border-radius:8px;font-size:13px;color:var(--text-secondary,#6b7280);"></div>
+                        <button type="button" id="dsm-sysexRequestBtn" style="padding:8px 16px;border:1px solid var(--border-color,#d1d5db);border-radius:8px;background:var(--bg-secondary,white);color:var(--text-primary,#374151);cursor:pointer;font-size:13px;">
+                            ${t('instrumentSettings.requestIdentity', "Demander l'identit\u00e9 via SysEx")}
+                        </button>
+                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary,#999);">
+                            ${t('deviceSettings.sysexHelp', 'Interroge le p\u00e9riph\u00e9rique pour obtenir son identit\u00e9 SysEx')}
                         </p>
                     </div>
                 </div>
@@ -160,6 +174,18 @@
             // Save
             this.modal.querySelector('#dsm-save').addEventListener('click', () => this._save());
 
+            // SysEx Identity Request
+            const sysexBtn = this.modal.querySelector('#dsm-sysexRequestBtn');
+            if (sysexBtn) {
+                sysexBtn.addEventListener('click', () => this._requestSysExIdentity());
+            }
+
+            // Listen for SysEx identity response
+            this._sysexHandler = (data) => this._handleSysExIdentity(data);
+            if (this.api && typeof this.api.on === 'function') {
+                this.api.on('device_identity', this._sysexHandler);
+            }
+
             // Escape key
             this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
             document.addEventListener('keydown', this._escHandler);
@@ -186,7 +212,55 @@
             }
         }
 
+        _requestSysExIdentity() {
+            if (!this.api || !this.deviceId) return;
+            const btn = this.modal.querySelector('#dsm-sysexRequestBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ En attente...';
+            }
+            try {
+                this.api.sendCommand('sysex_identity_request', { deviceId: this.deviceId });
+            } catch (e) {
+                console.error('SysEx identity request failed:', e);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "Demander l'identité via SysEx";
+                }
+            }
+            setTimeout(() => {
+                if (btn && btn.disabled) {
+                    btn.disabled = false;
+                    btn.textContent = "Demander l'identité via SysEx";
+                }
+            }, 5000);
+        }
+
+        _handleSysExIdentity(data) {
+            if (!data) return;
+            const btn = this.modal?.querySelector('#dsm-sysexRequestBtn');
+            const resultDiv = this.modal?.querySelector('#dsm-sysexResult');
+            if (resultDiv) {
+                const name = this._escapeHtml(data.name || 'Inconnu');
+                const firmware = this._escapeHtml(data.firmware || data.version || '-');
+                const protocol = this._escapeHtml(data.protocol || '-');
+                resultDiv.innerHTML = `<strong>${name}</strong> — Firmware: ${firmware} — Protocole: ${protocol}`;
+                resultDiv.style.display = 'block';
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '✅ Identité reçue';
+                setTimeout(() => {
+                    if (btn) btn.textContent = "Demander l'identité via SysEx";
+                }, 3000);
+            }
+        }
+
         close() {
+            if (this._sysexHandler && this.api && typeof this.api.off === 'function') {
+                this.api.off('device_identity', this._sysexHandler);
+                this._sysexHandler = null;
+            }
             if (this.overlay) {
                 this.overlay.style.display = 'none';
                 this.overlay.remove();

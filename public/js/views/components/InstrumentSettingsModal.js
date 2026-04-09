@@ -326,11 +326,6 @@ class InstrumentSettingsModal extends BaseModal {
             // Piano will be initialized when user switches to Notes section
             // (viewport needs to be visible for correct size calculation)
 
-            // Wire SysEx identity event listener
-            this._sysexHandler = (data) => this.handleSysExIdentity(data);
-            if (this.api && typeof this.api.on === 'function') {
-                this.api.on('device_identity', this._sysexHandler);
-            }
 
         } catch (error) {
             console.error('Error opening instrument settings:', error);
@@ -421,10 +416,6 @@ class InstrumentSettingsModal extends BaseModal {
         if (this._neckDiagram) {
             this._neckDiagram.destroy();
             this._neckDiagram = null;
-        }
-        if (this._sysexHandler && this.api && typeof this.api.off === 'function') {
-            this.api.off('device_identity', this._sysexHandler);
-            this._sysexHandler = null;
         }
     }
 

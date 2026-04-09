@@ -381,14 +381,6 @@
         }.bind(this));
     };
 
-    ISMListeners._wireSysExButton = function() {
-        const sysexBtn = this.$('#sysexRequestBtn');
-        if (sysexBtn) {
-            sysexBtn.addEventListener('click', function() {
-                this._requestSysExIdentity();
-            }.bind(this));
-        }
-    };
 
     ISMListeners._wireGmProgramChange = function() {
         const gmSelect = this.$('#gmProgramSelect');
@@ -465,7 +457,6 @@
 
     ISMListeners._attachIdentitySectionListeners = function() {
         this._wireChannelGridListeners();
-        this._wireSysExButton();
         this._wireGmProgramChange();
     };
 
@@ -493,70 +484,6 @@
             const checkedCount = groupEl.querySelectorAll('.ism-cc-checkbox:checked').length;
             const badge = groupEl.querySelector('.ism-cc-group-badge');
             if (badge) badge.textContent = `${checkedCount}/${cbs.length}`;
-        }
-    };
-
-    ISMListeners._requestSysExIdentity = function() {
-        if (!this.api || !this.device) return;
-        const btn = this.$('#sysexRequestBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = this.t('instrumentSettings.sysexWaiting') || '⏳ En attente...';
-        }
-        try {
-            this.api.sendCommand('sysex_identity_request', { deviceId: this.device.id });
-        } catch (e) {
-            console.error('SysEx identity request failed:', e);
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
-            }
-        }
-        // Timeout to re-enable button
-        setTimeout(function() {
-            if (btn && btn.disabled) {
-                btn.disabled = false;
-                btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
-            }
-        }, 5000);
-    };
-
-    ISMListeners.handleSysExIdentity = function(data) {
-        if (!data || !this.device) return;
-        // Cache identity
-        if (!this._sysexIdentityCache) this._sysexIdentityCache = {};
-        this._sysexIdentityCache[this.device.id] = data;
-
-        // Update settings on active tab
-        const tab = this._getActiveTab();
-        if (tab) {
-            tab.settings.sysex_identity = data;
-        }
-
-        // Show identity section
-        const section = this.$('#sysexIdentitySection');
-        if (section) {
-            section.style.display = '';
-            const card = this.$('#sysexCard');
-            if (card) {
-                card.outerHTML = this._renderSysexIdentityCard(data);
-            }
-        }
-
-        // Propose name if empty
-        const nameInput = this.$('#customName');
-        if (nameInput && !nameInput.value && data.name) {
-            nameInput.value = data.name;
-        }
-
-        // Re-enable button
-        const btn = this.$('#sysexRequestBtn');
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = this.t('instrumentSettings.sysexIdentityReceived') || '✅ Identité reçue';
-            setTimeout(() => {
-                if (btn) btn.textContent = this.t('instrumentSettings.sysexRequestIdentity') || '🔍 Demander l\'identité';
-            }, 3000);
         }
     };
 

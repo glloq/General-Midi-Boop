@@ -121,11 +121,6 @@
                 ${sysexCardHtml}
             </div>
 
-            <div class="ism-form-group">
-                <button type="button" class="btn btn-small ism-sysex-request-btn" id="sysexRequestBtn">
-                    🔍 ${this.t('instrumentSettings.requestIdentity') || 'Demander l\'identité'}
-                </button>
-            </div>
         `;
     };
 
@@ -283,7 +278,7 @@
             const ccsObj = group.ccs; // now an object { ccNum: { name, desc, range } }
             const ccNums = Object.keys(ccsObj).map(Number);
             const checkedCount = ccNums.filter(function(cc) { return currentCCs.includes(cc); }).length;
-            const isExpanded = checkedCount > 0;
+            const isExpanded = false;
 
             let ccsHtml = '';
             for (const ccNum of ccNums) {
