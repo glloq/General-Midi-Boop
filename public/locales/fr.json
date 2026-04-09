@@ -987,6 +987,8 @@
         "previewFailed": "Échec de l'aperçu",
         "noteRange": "Plage de notes",
         "polyphony": "Polyphonie",
+        "polyphonyHint": "canal / instrument",
+        "channelNotesHint": "total / jouables",
         "type": "Type",
         "range": "Plage",
         "noActiveChannels": "Aucun canal actif dans ce fichier MIDI",

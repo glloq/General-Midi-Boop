@@ -769,24 +769,24 @@ class RoutingSummaryPage {
       // Score column
       const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}</span>` : '';
 
-      // Polyphony column: instrument capacity / channel polyphony
+      // Polyphony column: channel max / instrument capacity
       let polyHTML = '';
       if (!isSkipped) {
         const chPoly = this._getChannelPolyphony(channel);
         const instPoly = this._getInstrumentPolyphony(channel);
         if (chPoly && instPoly) {
           const ok = instPoly >= chPoly;
-          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${instPoly}/${chPoly}</span>`;
+          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${chPoly}/${instPoly}</span>`;
         }
       }
 
-      // Playable notes column
+      // Playable notes column: total notes / playable by instrument
       let playableHTML = '';
       if (!isSkipped) {
         const playableInfo = this._computePlayableNotes(ch);
         if (playableInfo) {
           const ok = playableInfo.playable === playableInfo.total;
-          playableHTML = `<span class="rs-playable-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${playableInfo.playable}/${playableInfo.total}</span>`;
+          playableHTML = `<span class="rs-playable-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${playableInfo.total}/${playableInfo.playable}</span>`;
         }
       }
 
@@ -841,8 +841,8 @@ class RoutingSummaryPage {
               <th>${_t('autoAssign.overviewOriginal')}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
               <th>${_t('routingSummary.score') || 'Score'}</th>
-              <th>${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-hint">${_t('autoAssign.polyphonyHint') || 'instrument / canal'}</span></th>
-              <th>${_t('autoAssign.channelNotes') || 'Notes jouables'}<br><span class="rs-th-hint">${_t('autoAssign.channelNotesHint') || 'jouables / total'}</span></th>
+              <th>${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-hint">${_t('autoAssign.polyphonyHint') || 'canal / instrument'}</span></th>
+              <th>${_t('autoAssign.channelNotes') || 'Notes'}<br><span class="rs-th-hint">${_t('autoAssign.channelNotesHint') || 'total / jouables'}</span></th>
               <th></th>
             </tr>
           </thead>
@@ -1156,7 +1156,7 @@ class RoutingSummaryPage {
     const instPoly = this._getInstrumentPolyphony(channel);
     if (channelPoly && instPoly) {
       const polyOk = instPoly >= channelPoly;
-      polyHTML = `<span class="rs-detail-poly ${polyOk ? 'rs-poly-ok' : 'rs-poly-warn'}" title="${_t('autoAssign.polyphony') || 'Polyphonie'}">\u266B ${instPoly}/${channelPoly}</span>`;
+      polyHTML = `<span class="rs-detail-poly ${polyOk ? 'rs-poly-ok' : 'rs-poly-warn'}" title="${_t('autoAssign.polyphony') || 'Polyphonie'} (${_t('autoAssign.polyphonyHint') || 'canal / instrument'})">\u266B ${channelPoly}/${instPoly}</span>`;
     }
 
     return `
