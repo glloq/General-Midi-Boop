@@ -451,8 +451,9 @@ class MidiTransposer {
       if (!hasSourceChannel) continue;
 
       const newEvents = [];
-      // Track noteOn→segment mapping to route matching noteOff to the same segment
-      const activeNotes = new Map(); // note → segmentIndex
+      // Track noteOn→segment mapping to route matching noteOff to the same segment.
+      // Uses a stack (array) per note to handle overlapping NoteOn events on the same pitch.
+      const activeNotes = new Map(); // note → segmentIndex[]
 
       for (let i = 0; i < track.events.length; i++) {
         const event = track.events[i];
@@ -476,11 +477,9 @@ class MidiTransposer {
         if (isNoteOn && note !== undefined) {
           // Find which segment handles this note
           const segIdx = segments.findIndex(s => note >= s.noteMin && note <= s.noteMax);
+          let resolvedIdx;
           if (segIdx >= 0) {
-            activeNotes.set(note, segIdx);
-            newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
-            segmentCounts[segIdx]++;
-            if (segments[segIdx].targetChannel !== sourceChannel) notesMoved++;
+            resolvedIdx = segIdx;
           } else {
             // Note outside all segments — route to nearest segment
             let closest = 0, minDist = Infinity;
@@ -488,15 +487,19 @@ class MidiTransposer {
               const dist = Math.min(Math.abs(note - segments[s].noteMin), Math.abs(note - segments[s].noteMax));
               if (dist < minDist) { minDist = dist; closest = s; }
             }
-            activeNotes.set(note, closest);
-            newEvents.push({ ...event, channel: segments[closest].targetChannel });
-            segmentCounts[closest]++;
-            if (segments[closest].targetChannel !== sourceChannel) notesMoved++;
+            resolvedIdx = closest;
           }
+          // Push onto stack for this note (handles overlapping NoteOn)
+          const stack = activeNotes.get(note);
+          if (stack) { stack.push(resolvedIdx); } else { activeNotes.set(note, [resolvedIdx]); }
+          newEvents.push({ ...event, channel: segments[resolvedIdx].targetChannel });
+          segmentCounts[resolvedIdx]++;
+          if (segments[resolvedIdx].targetChannel !== sourceChannel) notesMoved++;
         } else if (isNoteOff && note !== undefined) {
-          // Route noteOff to the same segment as its matching noteOn
-          const segIdx = activeNotes.get(note) ?? 0;
-          activeNotes.delete(note);
+          // Route noteOff to the same segment as its matching noteOn (LIFO)
+          const stack = activeNotes.get(note);
+          const segIdx = (stack && stack.length > 0) ? stack.pop() : 0;
+          if (stack && stack.length === 0) activeNotes.delete(note);
           newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
         } else {
           // Control events (CC, pitch bend, program change, aftertouch, etc.)

@@ -141,12 +141,22 @@ async function fileRoutingSync(app, data) {
     throw new ValidationError('fileId is required', 'fileId');
   }
 
-  // Delete existing manual routings for this file
-  app.database.deleteRoutingsByFile(data.fileId);
-
   if (!data.channels || Object.keys(data.channels).length === 0) {
+    app.database.deleteRoutingsByFile(data.fileId);
     return { success: true, synced: 0, invalidDevices: [] };
   }
+
+  // Read existing routings to preserve auto-assign metadata when device hasn't changed
+  const existingRoutings = app.database.getRoutingsByFile(data.fileId, true);
+  const existingByChannel = new Map();
+  for (const r of existingRoutings) {
+    if (r.channel != null && !r.split_mode) {
+      existingByChannel.set(r.channel, r);
+    }
+  }
+
+  // Delete existing non-split routings for this file (preserve splits managed by auto-assign)
+  app.database.deleteRoutingsByFile(data.fileId);
 
   // Build set of known device IDs for validation
   const knownDevices = new Set();
@@ -175,18 +185,22 @@ async function fileRoutingSync(app, data) {
       continue;
     }
 
+    // Preserve metadata from existing routing if the device hasn't changed
+    const existing = existingByChannel.get(channel);
+    const sameDevice = existing && existing.device_id === deviceId;
+
     try {
       app.database.insertRouting({
         midi_file_id: data.fileId,
         channel: channel,
         target_channel: isNaN(targetChannel) ? channel : targetChannel,
         device_id: deviceId,
-        instrument_name: null,
-        compatibility_score: null,
-        transposition_applied: 0,
-        auto_assigned: false,
-        assignment_reason: 'manual',
-        note_remapping: null,
+        instrument_name: sameDevice ? existing.instrument_name : null,
+        compatibility_score: sameDevice ? existing.compatibility_score : null,
+        transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
+        auto_assigned: sameDevice ? existing.auto_assigned : false,
+        assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
+        note_remapping: sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
         enabled: true,
         created_at: Date.now()
       });
@@ -231,8 +245,19 @@ async function fileRoutingBulkSync(app, data) {
   for (const [fileId, config] of Object.entries(data.routings)) {
     if (!config.channels || Object.keys(config.channels).length === 0) continue;
 
+    const parsedFileId = parseInt(fileId, 10);
+
+    // Read existing routings to preserve auto-assign metadata
+    const existingRoutings = app.database.getRoutingsByFile(parsedFileId, true);
+    const existingByChannel = new Map();
+    for (const r of existingRoutings) {
+      if (r.channel != null && !r.split_mode) {
+        existingByChannel.set(r.channel, r);
+      }
+    }
+
     // Delete existing routings for this file
-    app.database.deleteRoutingsByFile(parseInt(fileId, 10));
+    app.database.deleteRoutingsByFile(parsedFileId);
 
     let hasValidRouting = false;
     for (const [channelStr, routingValue] of Object.entries(config.channels)) {
@@ -248,21 +273,25 @@ async function fileRoutingBulkSync(app, data) {
         continue;
       }
 
+      // Preserve metadata from existing routing if the device hasn't changed
+      const existing = existingByChannel.get(channel);
+      const sameDevice = existing && existing.device_id === deviceId;
+
       try {
         const parts = routingValue.split('::');
         const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
 
         app.database.insertRouting({
-          midi_file_id: parseInt(fileId, 10),
+          midi_file_id: parsedFileId,
           channel: channel,
           target_channel: isNaN(targetChannel) ? channel : targetChannel,
           device_id: deviceId,
-          instrument_name: null,
-          compatibility_score: null,
-          transposition_applied: 0,
-          auto_assigned: false,
-          assignment_reason: 'manual',
-          note_remapping: null,
+          instrument_name: sameDevice ? existing.instrument_name : null,
+          compatibility_score: sameDevice ? existing.compatibility_score : null,
+          transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
+          auto_assigned: sameDevice ? existing.auto_assigned : false,
+          assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
+          note_remapping: sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
           enabled: true,
           created_at: config.lastModified || Date.now()
         });
