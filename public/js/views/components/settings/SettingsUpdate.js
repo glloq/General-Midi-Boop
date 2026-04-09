@@ -199,6 +199,17 @@
                         </div>
                         <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">${stepInfo.progress}%</div>
                     `;
+
+                    // 'done' means the update script finished and verified the server is running
+                    // → trigger cache clear + reload immediately
+                    if (step === 'done') {
+                        console.log('[SystemUpdate] Status polling detected "done" — reloading');
+                        this._cleanupUpdatePolling();
+                        this._updateInProgress = false;
+                        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
+                        this._doCacheClearAndReload();
+                        return;
+                    }
                 }
             } catch (e) {
                 if (e.name === 'AbortError') return;
@@ -229,13 +240,12 @@
             `;
         }
 
-        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
-
         const preUpdateUptime = this._serverUptime || Infinity;
 
         const waitForServer = async () => {
             const maxAttempts = 120;
             let serverWasDown = false;
+            const startTime = Date.now();
 
             for (let i = 0; i < maxAttempts; i++) {
                 if (this._updateCancelled) {
@@ -275,44 +285,27 @@
 
                     if (resp.ok) {
                         const data = await resp.json().catch(() => null);
-                        const newUptime = data && data.uptime;
+                        if (!data) continue;
 
+                        const newUptime = data.uptime;
                         const uptimeReset = typeof newUptime === 'number' && newUptime < preUpdateUptime;
                         const hashChanged = this._preUpdateGitHash && data.gitHash && data.gitHash !== this._preUpdateGitHash;
-                        if (!serverWasDown && !uptimeReset && !hashChanged) {
+
+                        // Fallback: if server has been responding for 30s+, just reload
+                        // (handles case where restart was too fast to detect going down)
+                        const waitedLongEnough = (Date.now() - startTime) > 30000;
+
+                        if (!serverWasDown && !uptimeReset && !hashChanged && !waitedLongEnough) {
                             continue;
                         }
 
+                        console.log('[SystemUpdate] Restart detected — serverWasDown:', serverWasDown,
+                            'uptimeReset:', uptimeReset, 'hashChanged:', hashChanged,
+                            'waitedLongEnough:', waitedLongEnough);
+
                         // Server restarted successfully!
                         this._updateInProgress = false;
-
-                        if (this._updateModalRefs) {
-                            const { icon, title, messageEl } = this._updateModalRefs;
-                            icon.textContent = '✅';
-                            title.textContent = i18n.t('settings.update.complete') || 'Mise à jour terminée !';
-                            messageEl.innerHTML = `
-                                <div style="margin-bottom: 16px; font-size: 14px; text-align: center; color: #16a34a;">
-                                    ✅ ${i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...'}
-                                </div>
-                                <div class="update-progress-bar-container">
-                                    <div class="update-progress-bar" style="width: 100%"></div>
-                                </div>
-                                <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">100%</div>
-                            `;
-                        }
-
-                        // Clear caches and reload
-                        setTimeout(async () => {
-                            try {
-                                if ('caches' in window) {
-                                    const keys = await caches.keys();
-                                    await Promise.all(keys.map(k => caches.delete(k)));
-                                }
-                            } catch (e) {
-                                console.warn('[SystemUpdate] Cache clear failed:', e);
-                            }
-                            window.location.href = window.location.pathname + '?_updated=' + Date.now();
-                        }, 1000);
+                        this._doCacheClearAndReload();
                         return;
                     }
                 } catch (e) {
@@ -346,6 +339,40 @@
         };
 
         setTimeout(waitForServer, 2000);
+    };
+
+    /**
+     * Show success in modal, clear caches, and reload the page
+     */
+    SettingsUpdate._doCacheClearAndReload = function() {
+        if (this._updateModalRefs) {
+            const { icon, title, messageEl } = this._updateModalRefs;
+            icon.textContent = '✅';
+            title.textContent = i18n.t('settings.update.complete') || 'Mise à jour terminée !';
+            messageEl.innerHTML = `
+                <div style="margin-bottom: 16px; font-size: 14px; text-align: center; color: #16a34a;">
+                    ✅ ${i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...'}
+                </div>
+                <div class="update-progress-bar-container">
+                    <div class="update-progress-bar" style="width: 100%"></div>
+                </div>
+                <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">100%</div>
+            `;
+        }
+
+        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
+
+        setTimeout(async () => {
+            try {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+            } catch (e) {
+                console.warn('[SystemUpdate] Cache clear failed:', e);
+            }
+            window.location.href = window.location.pathname + '?_updated=' + Date.now();
+        }, 1000);
     };
 
     /**
