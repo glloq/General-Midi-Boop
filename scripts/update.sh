@@ -354,7 +354,7 @@ else
         npm rebuild better-sqlite3 2>/dev/null || true
         print_success "Dependencies updated (fallback)"
     else
-        abort_and_restart "npm install failed completely"
+        print_warning "npm install failed — continuing with existing dependencies"
     fi
 fi
 
