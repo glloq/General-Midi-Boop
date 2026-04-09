@@ -50,7 +50,13 @@
             }
         } catch (e) { this._serverUptime = Infinity; this._preUpdateGitHash = null; }
 
-        // Show progress
+        // Close the settings modal — update status will show in the confirm modal
+        this.close();
+
+        // Take over the confirm modal to show update progress
+        this._showUpdateInModal();
+
+        // Also update the settings modal button (for when it's reopened)
         btn.disabled = true;
         btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
         btn.style.opacity = '0.7';
@@ -58,9 +64,6 @@
         statusEl.style.background = '#eef2ff';
         statusEl.style.color = '#667eea';
         statusEl.textContent = i18n.t('settings.update.running') || 'Mise à jour en cours, veuillez patienter...';
-
-        // Start polling update status for real-time progress
-        this._pollUpdateStatus(statusEl);
 
         try {
             const api = window.api || window.apiClient;
@@ -73,20 +76,18 @@
             if (result && result.success === false) {
                 throw new Error(result.error || 'Update failed to start');
             }
-            this._showUpdateSuccess(statusEl);
+            this._showUpdateSuccessInModal();
         } catch (error) {
             console.error('[SystemUpdate] Error:', error.message);
             // WebSocket disconnect or timeout during update means the server is restarting = success
             const msg = (error.message || '').toLowerCase();
             if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected') || msg.includes('timeout')) {
                 console.log('[SystemUpdate] Connection lost during update — treating as server restart');
-                this._showUpdateSuccess(statusEl);
+                this._showUpdateSuccessInModal();
             } else {
                 console.error('[SystemUpdate] Real error, showing failure UI');
                 this._cleanupUpdatePolling();
-                statusEl.style.background = '#fef2f2';
-                statusEl.style.color = '#dc2626';
-                statusEl.textContent = (i18n.t('settings.update.failed') || 'Échec de la mise à jour') + ': ' + error.message;
+                this._showUpdateErrorInModal(error.message);
                 btn.disabled = false;
                 btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
                 btn.style.opacity = '1';
@@ -96,19 +97,315 @@
     };
 
     /**
+     * Take over the confirm modal to display update progress
+     */
+    SettingsUpdate._showUpdateInModal = function() {
+        const modal = document.getElementById('confirmModal');
+        const icon = document.getElementById('confirmIcon');
+        const title = document.getElementById('confirmTitle');
+        const messageEl = document.getElementById('confirmMessage');
+        const buttons = document.getElementById('confirmButtons');
+
+        if (!modal || !icon || !title || !messageEl || !buttons) return;
+
+        // Show the modal
+        modal.classList.add('visible');
+
+        // Block ESC key during update
+        this._updateModalEscHandler = (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
+        };
+        document.addEventListener('keydown', this._updateModalEscHandler, true);
+
+        // Block overlay click during update
+        this._updateModalClickHandler = (e) => {
+            if (e.target === modal) { e.preventDefault(); e.stopPropagation(); }
+        };
+        modal.addEventListener('click', this._updateModalClickHandler, true);
+
+        // Set initial content
+        icon.textContent = '🔄';
+        title.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
+        messageEl.innerHTML = `
+            <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
+                🔄 ${i18n.t('settings.update.running') || 'Démarrage de la mise à jour...'}
+            </div>
+            <div class="update-progress-bar-container">
+                <div class="update-progress-bar" style="width: 5%"></div>
+            </div>
+            <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">5%</div>
+        `;
+        buttons.innerHTML = ''; // No buttons during update
+
+        // Store refs for status updates
+        this._updateModalRefs = { modal, icon, title, messageEl, buttons };
+
+        // Start polling update status
+        this._pollUpdateStatusInModal();
+    };
+
+    /**
+     * Poll /api/update-status and update the confirm modal in real-time
+     */
+    SettingsUpdate._pollUpdateStatusInModal = function() {
+        this._cleanupUpdatePolling();
+
+        this._updateAbortController = new AbortController();
+        const signal = this._updateAbortController.signal;
+
+        this._updateStatusInterval = setInterval(async () => {
+            if (signal.aborted || !this._updateModalRefs) return;
+            try {
+                const resp = await fetch(window.location.origin + '/api/update-status', {
+                    cache: 'no-store',
+                    signal
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.status) return;
+
+                const rawStatus = data.status;
+                let step = rawStatus.split(' ')[0].replace(':', '');
+
+                if (rawStatus.includes('script_started')) {
+                    step = 'script_started';
+                }
+
+                if (step === 'failed') {
+                    const reason = rawStatus.replace(/^failed:\s*/, '');
+                    this._cleanupUpdatePolling();
+                    this._showUpdateErrorInModal(reason);
+                    this._updateInProgress = false;
+                    const btn = this.modal?.querySelector('#systemUpdateBtn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
+                        btn.style.opacity = '1';
+                    }
+                    return;
+                }
+
+                const stepInfo = UPDATE_STEPS[step];
+                if (stepInfo && this._updateModalRefs) {
+                    const { icon, messageEl } = this._updateModalRefs;
+                    const label = i18n.t('settings.update.step.' + step) || stepInfo.label;
+                    icon.textContent = stepInfo.icon;
+                    messageEl.innerHTML = `
+                        <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
+                            ${stepInfo.icon} ${label}
+                        </div>
+                        <div class="update-progress-bar-container">
+                            <div class="update-progress-bar" style="width: ${stepInfo.progress}%"></div>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">${stepInfo.progress}%</div>
+                    `;
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+            }
+        }, 2000);
+    };
+
+    /**
+     * Show update success in the confirm modal and wait for server restart
+     */
+    SettingsUpdate._showUpdateSuccessInModal = function() {
+        console.log('[SystemUpdate] Waiting for server restart (preUpdateUptime:', this._serverUptime, ')');
+
+        this._cleanupUpdatePolling();
+
+        if (this._updateModalRefs) {
+            const { icon, title, messageEl } = this._updateModalRefs;
+            icon.textContent = '⏳';
+            title.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage...';
+            messageEl.innerHTML = `
+                <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
+                    ⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...'}
+                </div>
+                <div class="update-progress-bar-container">
+                    <div class="update-progress-bar" style="width: 85%"></div>
+                </div>
+                <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">85%</div>
+            `;
+        }
+
+        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
+
+        const preUpdateUptime = this._serverUptime || Infinity;
+
+        const waitForServer = async () => {
+            const maxAttempts = 120;
+            let serverWasDown = false;
+
+            for (let i = 0; i < maxAttempts; i++) {
+                if (this._updateCancelled) {
+                    console.log('[SystemUpdate] Health polling cancelled');
+                    return;
+                }
+
+                const elapsedSec = (i + 1) * 3;
+                const mins = Math.floor(elapsedSec / 60);
+                const secs = elapsedSec % 60;
+                const timeStr = mins > 0 ? `${mins}m${secs.toString().padStart(2, '0')}s` : `${elapsedSec}s`;
+
+                if (this._updateModalRefs) {
+                    const { messageEl } = this._updateModalRefs;
+                    messageEl.innerHTML = `
+                        <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
+                            ⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}...
+                            <span style="opacity: 0.6;">(${timeStr})</span>
+                        </div>
+                        <div class="update-progress-bar-container">
+                            <div class="update-progress-bar update-progress-bar-pulse" style="width: 85%"></div>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">85%</div>
+                    `;
+                }
+
+                await new Promise(r => setTimeout(r, 3000));
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const resp = await fetch(window.location.origin + '/api/health', {
+                        method: 'GET',
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (resp.ok) {
+                        const data = await resp.json().catch(() => null);
+                        const newUptime = data && data.uptime;
+
+                        const uptimeReset = typeof newUptime === 'number' && newUptime < preUpdateUptime;
+                        const hashChanged = this._preUpdateGitHash && data.gitHash && data.gitHash !== this._preUpdateGitHash;
+                        if (!serverWasDown && !uptimeReset && !hashChanged) {
+                            continue;
+                        }
+
+                        // Server restarted successfully!
+                        this._updateInProgress = false;
+
+                        if (this._updateModalRefs) {
+                            const { icon, title, messageEl } = this._updateModalRefs;
+                            icon.textContent = '✅';
+                            title.textContent = i18n.t('settings.update.complete') || 'Mise à jour terminée !';
+                            messageEl.innerHTML = `
+                                <div style="margin-bottom: 16px; font-size: 14px; text-align: center; color: #16a34a;">
+                                    ✅ ${i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...'}
+                                </div>
+                                <div class="update-progress-bar-container">
+                                    <div class="update-progress-bar" style="width: 100%"></div>
+                                </div>
+                                <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">100%</div>
+                            `;
+                        }
+
+                        // Clear caches and reload
+                        setTimeout(async () => {
+                            try {
+                                if ('caches' in window) {
+                                    const keys = await caches.keys();
+                                    await Promise.all(keys.map(k => caches.delete(k)));
+                                }
+                            } catch (e) {
+                                console.warn('[SystemUpdate] Cache clear failed:', e);
+                            }
+                            window.location.href = window.location.pathname + '?_updated=' + Date.now();
+                        }, 1000);
+                        return;
+                    }
+                } catch (e) {
+                    serverWasDown = true;
+                }
+            }
+
+            // Timeout — server not responding
+            this._updateInProgress = false;
+            if (this._updateModalRefs) {
+                const { icon, title, messageEl, buttons } = this._updateModalRefs;
+                icon.textContent = '⚠️';
+                title.textContent = i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas';
+                messageEl.innerHTML = `
+                    <div style="font-size: 14px; text-align: center; color: #a16207;">
+                        ${i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas.'}
+                    </div>
+                `;
+                buttons.innerHTML = `
+                    <button class="btn" id="updateManualReloadBtn" style="flex:1;">🔄 ${i18n.t('settings.update.manualReload') || 'Recharger manuellement'}</button>
+                `;
+                const reloadBtn = document.getElementById('updateManualReloadBtn');
+                if (reloadBtn) {
+                    reloadBtn.addEventListener('click', () => {
+                        window.location.reload();
+                    });
+                }
+                // Allow closing modal now
+                this._removeUpdateModalBlockers();
+            }
+        };
+
+        setTimeout(waitForServer, 2000);
+    };
+
+    /**
+     * Show error state in the confirm modal
+     */
+    SettingsUpdate._showUpdateErrorInModal = function(errorMessage) {
+        if (!this._updateModalRefs) return;
+
+        const { icon, title, messageEl, buttons } = this._updateModalRefs;
+        icon.textContent = '❌';
+        title.textContent = i18n.t('settings.update.failed') || 'Échec de la mise à jour';
+        messageEl.innerHTML = `
+            <div style="font-size: 14px; text-align: center; color: #dc2626;">
+                ${(i18n.t('settings.update.failed') || 'Échec de la mise à jour')}: ${errorMessage}
+            </div>
+        `;
+        buttons.innerHTML = `
+            <button class="btn" id="updateErrorCloseBtn" style="flex:1;">${i18n.t('common.close') || 'Fermer'}</button>
+        `;
+        const closeBtn = document.getElementById('updateErrorCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this._cleanupUpdateModal();
+            });
+        }
+        // Allow closing modal now
+        this._removeUpdateModalBlockers();
+    };
+
+    /**
+     * Remove ESC and overlay click blockers from the confirm modal
+     */
+    SettingsUpdate._removeUpdateModalBlockers = function() {
+        if (this._updateModalEscHandler) {
+            document.removeEventListener('keydown', this._updateModalEscHandler, true);
+            this._updateModalEscHandler = null;
+        }
+        if (this._updateModalClickHandler && this._updateModalRefs) {
+            this._updateModalRefs.modal.removeEventListener('click', this._updateModalClickHandler, true);
+            this._updateModalClickHandler = null;
+        }
+    };
+
+    /**
+     * Clean up the confirm modal and restore it to its default state
+     */
+    SettingsUpdate._cleanupUpdateModal = function() {
+        this._removeUpdateModalBlockers();
+        if (this._updateModalRefs) {
+            this._updateModalRefs.modal.classList.remove('visible');
+            this._updateModalRefs = null;
+        }
+    };
+
+    /**
      * Check for available updates
      */
     SettingsUpdate.checkForUpdates = async function() {
-        // If an update is in progress, resume showing status instead of checking
-        if (this._updateInProgress) {
-            const statusEl = this.modal.querySelector('#updateStatus');
-            if (statusEl) {
-                statusEl.style.display = 'block';
-                this._updateCancelled = false;
-                this._pollUpdateStatus(statusEl);
-            }
-            return;
-        }
+        // If an update is in progress, don't check — the confirm modal is handling status
+        if (this._updateInProgress) return;
 
         const statusEl = this.modal.querySelector('#versionStatus');
         if (!statusEl) return;
@@ -158,66 +455,6 @@
     };
 
     /**
-     * Poll /api/update-status for real-time progress feedback
-     */
-    SettingsUpdate._pollUpdateStatus = function(statusEl) {
-        // Clean any previous polling
-        this._cleanupUpdatePolling();
-
-        this._updateAbortController = new AbortController();
-        const signal = this._updateAbortController.signal;
-
-        this._updateStatusInterval = setInterval(async () => {
-            if (signal.aborted) return;
-            try {
-                const resp = await fetch(window.location.origin + '/api/update-status', {
-                    cache: 'no-store',
-                    signal
-                });
-                if (!resp.ok) return;
-                const data = await resp.json();
-                if (!data.status) return;
-
-                // Parse status: may be "pulling", "failed: some message", or "2024-... script_started pid=123"
-                const rawStatus = data.status;
-                let step = rawStatus.split(' ')[0].replace(':', '');
-
-                // Handle timestamp prefix in script_started line
-                if (rawStatus.includes('script_started')) {
-                    step = 'script_started';
-                }
-
-                if (step === 'failed') {
-                    const reason = rawStatus.replace(/^failed:\s*/, '');
-                    statusEl.style.background = '#fef2f2';
-                    statusEl.style.color = '#dc2626';
-                    statusEl.innerHTML = '❌ ' + (i18n.t('settings.update.failed') || 'Échec') + ': ' + reason;
-                    this._cleanupUpdatePolling();
-                    this._updateInProgress = false;
-                    const btn = this.modal.querySelector('#systemUpdateBtn');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
-                        btn.style.opacity = '1';
-                    }
-                    return;
-                }
-
-                const stepInfo = UPDATE_STEPS[step];
-                if (stepInfo) {
-                    const label = i18n.t('settings.update.step.' + step) || stepInfo.label;
-                    statusEl.style.background = '#eef2ff';
-                    statusEl.style.color = '#667eea';
-                    statusEl.innerHTML = `${stepInfo.icon} ${label} <span style="opacity:0.5">(${stepInfo.progress}%)</span>`;
-                }
-            } catch (e) {
-                // Server down during update is expected — don't clear interval
-                if (e.name === 'AbortError') return;
-            }
-        }, 2000);
-    };
-
-    /**
      * Stop all update-related polling (status + health)
      */
     SettingsUpdate._cleanupUpdatePolling = function() {
@@ -229,95 +466,6 @@
             clearInterval(this._updateStatusInterval);
             this._updateStatusInterval = null;
         }
-    };
-
-    /**
-     * Show update success and wait for server restart
-     */
-    SettingsUpdate._showUpdateSuccess = function(statusEl) {
-        console.log('[SystemUpdate] Waiting for server restart (preUpdateUptime:', this._serverUptime, ')');
-
-        // Stop status polling — we switch to health polling now
-        this._cleanupUpdatePolling();
-
-        statusEl.style.background = '#eef2ff';
-        statusEl.style.color = '#667eea';
-        statusEl.textContent = i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur...';
-
-        // Mark update in progress for post-reload notification
-        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
-
-        // Capture current server uptime to detect a real restart (uptime resets to ~0)
-        const preUpdateUptime = this._serverUptime || Infinity;
-
-        // Wait for server to come back online, then reload
-        const waitForServer = async () => {
-            const maxAttempts = 120;
-            let serverWasDown = false;
-            let downSinceIteration = -1;
-
-            for (let i = 0; i < maxAttempts; i++) {
-                // Check if polling was cancelled (modal closed)
-                if (this._updateCancelled) {
-                    console.log('[SystemUpdate] Health polling cancelled');
-                    return;
-                }
-
-                const elapsedSec = (i + 1) * 3;
-                const mins = Math.floor(elapsedSec / 60);
-                const secs = elapsedSec % 60;
-                const timeStr = mins > 0 ? `${mins}m${secs.toString().padStart(2, '0')}s` : `${elapsedSec}s`;
-                statusEl.innerHTML = `⏳ ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}... <span style="opacity:0.7">(${timeStr})</span>`;
-
-                await new Promise(r => setTimeout(r, 3000));
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    const resp = await fetch(window.location.origin + '/api/health', {
-                        method: 'GET',
-                        cache: 'no-store',
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-
-                    if (resp.ok) {
-                        const data = await resp.json().catch(() => null);
-                        const newUptime = data && data.uptime;
-
-                        // Detect restart: server was seen down, uptime reset, or git hash changed
-                        const uptimeReset = typeof newUptime === 'number' && newUptime < preUpdateUptime;
-                        const hashChanged = this._preUpdateGitHash && data.gitHash && data.gitHash !== this._preUpdateGitHash;
-                        if (!serverWasDown && !uptimeReset && !hashChanged) {
-                            // Server hasn't gone down yet and no code change detected, keep waiting
-                            continue;
-                        }
-                        this._updateInProgress = false;
-                        statusEl.style.background = '#f0fdf4';
-                        statusEl.style.color = '#16a34a';
-                        statusEl.innerHTML = '✅ ' + (i18n.t('settings.update.reloading') || 'Serveur redémarré ! Rechargement...');
-                        // Force cache-busting reload
-                        setTimeout(() => {
-                            window.location.href = window.location.pathname + '?_updated=' + Date.now();
-                        }, 1000);
-                        return;
-                    }
-                } catch (e) {
-                    // Server is down - this is expected during update
-                    if (!serverWasDown) downSinceIteration = i;
-                    serverWasDown = true;
-                }
-            }
-
-            statusEl.style.background = '#fefce8';
-            statusEl.style.color = '#a16207';
-            statusEl.innerHTML = (i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas.') +
-                ' <a href="#" onclick="window.location.reload();return false;" style="color:#667eea;text-decoration:underline;font-weight:600;">Recharger manuellement</a>';
-            this._updateInProgress = false;
-        };
-
-        // Start polling quickly — the update script waits 3s before killing,
-        // but we want to catch the server going down as early as possible
-        setTimeout(waitForServer, 2000);
     };
 
     if (typeof window !== 'undefined') window.SettingsUpdate = SettingsUpdate;

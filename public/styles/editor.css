@@ -1385,6 +1385,34 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
 }
 
+/* ============================================================================
+   UPDATE PROGRESS BAR
+   ============================================================================ */
+
+.update-progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color, #e5e7eb);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.update-progress-bar {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.update-progress-bar-pulse {
+    animation: updateProgressPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes updateProgressPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 /* ===== DARK MODE ===== */
 
 /* Toolbar & tool buttons (supplements existing body.dark-mode .tool-btn rules) */

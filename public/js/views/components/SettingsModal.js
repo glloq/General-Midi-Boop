@@ -279,11 +279,14 @@ class SettingsModal {
             document.removeEventListener('keydown', this._escHandler);
         }
 
-        // Cancel any in-flight update polling (status + health)
-        if (typeof this._cleanupUpdatePolling === 'function') {
-            this._cleanupUpdatePolling();
+        // Only cancel update polling if no update is in progress
+        // (when an update is running, the confirm modal handles status display)
+        if (!this._updateInProgress) {
+            if (typeof this._cleanupUpdatePolling === 'function') {
+                this._cleanupUpdatePolling();
+            }
+            this._updateCancelled = true;
         }
-        this._updateCancelled = true;
 
         this.logger?.info('Settings modal closed');
     }
