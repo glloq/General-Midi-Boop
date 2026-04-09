@@ -162,13 +162,13 @@
 
         /* Styles spécifiques pour les éléments en mode dark */
         body.theme-dark .file-item {
-            background: #3d3d3d;
+            background: #4a5568;
             color: #ffffff;
-            border-color: #404040;
+            border-color: #6b7280;
         }
 
         body.theme-dark .file-item:hover {
-            background: #4d4d4d;
+            background: #566880;
         }
 
         /* Dark theme: routing status strip + gradient */
@@ -182,26 +182,26 @@
         }
         body.theme-dark .file-item.routed,
         body.theme-dark .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #3d3d3d;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-item.routing-partial::before {
             background: #f59e0b;
             box-shadow: 2px 0 8px rgba(245, 158, 11, 0.4);
         }
         body.theme-dark .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #3d3d3d;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-item.routing-routed-incomplete::before {
             background: #3b82f6;
             box-shadow: 2px 0 8px rgba(59, 130, 246, 0.4);
         }
         body.theme-dark .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #3d3d3d;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #4a5568;
         }
 
         body.theme-dark .folder-item {
             background: #b45309;
-            border: none;
+            border: 1px solid #6b7280;
             color: #fef3c7;
             box-shadow: 4px 4px 0px #78350f;
         }
@@ -1593,7 +1593,7 @@
             padding: 4px;
             padding-left: 36px;
             background: #f9fafb;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #9ca3af;
             border-radius: 6px;
             margin-bottom: 8px;
             display: flex;
@@ -1628,7 +1628,7 @@
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            border: 1px solid #d1d5db;
+            border: 1px solid #9ca3af;
             color: #451a03;
             box-shadow: none;
             transition: all 0.15s ease;
@@ -1672,7 +1672,7 @@
             border-radius: 10px;
             overflow: hidden;
             margin-bottom: 8px;
-            background: rgba(254, 243, 199, 0.15);
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         }
 
         .folder-open-header {
@@ -1706,6 +1706,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         }
 
         .folder-open-files > .file-item {
@@ -1745,7 +1746,7 @@
 
         body.theme-dark .folder-open-wrapper {
             border-color: #d97706;
-            background: rgba(120, 53, 15, 0.12);
+            background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
         }
 
         body.theme-dark .folder-open-header {
@@ -1758,6 +1759,10 @@
             background: rgba(0, 0, 0, 0.2);
             border-color: rgba(251, 191, 36, 0.3);
             color: #fde68a;
+        }
+
+        body.theme-dark .folder-open-files {
+            background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
         }
 
         .btn-group {
@@ -1821,14 +1826,14 @@
         }
 
         .file-item.selected {
-            background: #dbeafe;
-            border: 1px solid #93c5fd;
+            background: #a8c8f0;
+            border: 1px solid #6ea4dc;
             box-shadow: none;
         }
 
         body.theme-dark .file-item.selected {
-            background: rgba(59, 130, 246, 0.18);
-            border-color: rgba(96, 165, 250, 0.5);
+            background: rgba(59, 130, 246, 0.30);
+            border-color: rgba(96, 165, 250, 0.6);
         }
 
         .file-checkbox {
@@ -2363,8 +2368,8 @@
         }
 
         .file-list.view-compact .file-item.selected {
-            background: #dbeafe;
-            border-color: #93c5fd;
+            background: #a8c8f0;
+            border-color: #6ea4dc;
             box-shadow: none;
         }
 
@@ -2406,7 +2411,7 @@
             border-left: 3px solid #f59e0b;
             border-radius: 0;
             margin-bottom: 0;
-            background: transparent;
+            background: #fef9e7;
             overflow: visible;
         }
 
@@ -2434,6 +2439,7 @@
 
         body.theme-dark .file-list.view-compact .folder-open-wrapper {
             border-left-color: #d97706;
+            background: #451a03;
         }
 
         body.theme-dark .file-list.view-compact .folder-open-header {
@@ -2459,22 +2465,22 @@
         /* Dark compact: routing background tints (aligned with grid dark mode) */
         body.theme-dark .file-list.view-compact .file-item.routed,
         body.theme-dark .file-list.view-compact .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-list.view-compact .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-list.view-compact .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #4a5568;
         }
 
         body.theme-dark .file-list.view-compact .file-item:hover {
-            background: #374151;
+            background: #566880;
         }
 
         body.theme-dark .file-list.view-compact .file-item.selected {
-            background: rgba(59, 130, 246, 0.18);
-            border-color: rgba(96, 165, 250, 0.5);
+            background: rgba(59, 130, 246, 0.30);
+            border-color: rgba(96, 165, 250, 0.6);
         }
 
         /* ========================================================================
@@ -2496,7 +2502,7 @@
             margin-bottom: 0;
             border-radius: 8px;
             background: #ffffff;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #9ca3af;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
             transition: all 0.2s;
             cursor: grab;
@@ -2527,8 +2533,8 @@
         }
 
         .file-list.view-grid .file-item.selected {
-            background: #dbeafe;
-            border-color: #93c5fd;
+            background: #a8c8f0;
+            border-color: #6ea4dc;
             box-shadow: none;
         }
 
@@ -2584,30 +2590,30 @@
         /* Grid state badge removed — left color strip is the sole routing indicator */
 
         body.theme-dark .file-list.view-grid .file-item {
-            background: #2d2d2d;
-            border-color: #404040;
+            background: #4a5568;
+            border-color: #6b7280;
         }
 
         body.theme-dark .file-list.view-grid .file-item:hover {
             border-color: #667eea;
-            background: #353535;
+            background: #566880;
         }
 
         body.theme-dark .file-list.view-grid .file-item.selected {
-            background: rgba(59, 130, 246, 0.18);
-            border-color: rgba(96, 165, 250, 0.5);
+            background: rgba(59, 130, 246, 0.30);
+            border-color: rgba(96, 165, 250, 0.6);
         }
 
         /* Grid dark: routing background tints (aligned with blocks mode) */
         body.theme-dark .file-list.view-grid .file-item.routed,
         body.theme-dark .file-list.view-grid .file-item.routing-playable {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-list.view-grid .file-item.routing-partial {
-            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, transparent 40%), #4a5568;
         }
         body.theme-dark .file-list.view-grid .file-item.routing-routed-incomplete {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #2d2d2d;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 40%), #4a5568;
         }
 
         body.theme-dark .file-list.view-grid .file-metadata {
@@ -3733,6 +3739,12 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        @media (min-width: 768px) {
+            .header-controls-left {
+                margin-left: 16px;
+            }
         }
 
         .header-controls-right {
@@ -4945,7 +4957,7 @@
                                 </div>
                                 <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi. Taille max : 10 MB. Raccourci : Ctrl+O</span>
                             </div>
-                            <span class="file-count-badge" id="fileCountBadge" aria-live="polite"></span>
+                            <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
                             <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
                         </div>
 
@@ -7645,9 +7657,10 @@
                    <span title="Canaux MIDI">🎹 ${file.channelCount || file.channel_count || 0} ${(file.channelCount || file.channel_count || 0) > 1 ? 'canaux' : 'canal'}</span>
                    <span title="Tempo">♩ ${file.tempo || 120} BPM</span>`
                 : `<span>⏳ Chargement...</span>`;
+            const displayName = file.filename.replace(/\.(midi|mid)$/i, '');
             fileNameSpan.innerHTML = `
                 <div class="file-name-text" style="cursor: pointer;" title="Double-cliquer pour renommer (ou F2)">
-                    ${file.filename}${routedBadge}
+                    ${displayName}${routedBadge}
                 </div>
                 <div class="file-metadata" id="metadata-${file.id}">
                     ${metadataHtml}
