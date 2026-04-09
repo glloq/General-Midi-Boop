@@ -152,14 +152,12 @@
 
         const startTime = Date.now();
         let serverDownSince = null;
-        let lastKnownStep = null;
 
-        this._updateStatusInterval = setInterval(async () => {
+        const poll = async () => {
             if (!this._updateModalRefs || this._reloadTriggered) return;
 
             // Global timeout
             if (Date.now() - startTime > UPDATE_TIMEOUT_MS) {
-                this._cleanupUpdatePolling();
                 this._updateInProgress = false;
                 this._showUpdateTimeoutInModal();
                 return;
@@ -167,72 +165,69 @@
 
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const resp = await fetch(window.location.origin + '/api/update-status', {
                     cache: 'no-store',
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
 
-                if (!resp.ok) return;
-                const data = await resp.json();
+                if (resp.ok) {
+                    const data = await resp.json();
 
-                // Server is responding again
-                serverDownSince = null;
+                    // Server is responding
+                    serverDownSince = null;
 
-                if (!data.status) return;
+                    if (data.status) {
+                        const rawStatus = data.status;
+                        let step = rawStatus.split(' ')[0].replace(':', '');
 
-                const rawStatus = data.status;
-                let step = rawStatus.split(' ')[0].replace(':', '');
+                        if (rawStatus.includes('script_started')) {
+                            step = 'script_started';
+                        }
 
-                if (rawStatus.includes('script_started')) {
-                    step = 'script_started';
-                }
+                        // Handle failure
+                        if (step === 'failed') {
+                            const reason = rawStatus.replace(/^failed:\s*/, '');
+                            this._showUpdateErrorInModal(reason);
+                            this._updateInProgress = false;
+                            const btn = this.modal?.querySelector('#systemUpdateBtn');
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
+                                btn.style.opacity = '1';
+                            }
+                            return; // Stop polling
+                        }
 
-                // Handle failure
-                if (step === 'failed') {
-                    const reason = rawStatus.replace(/^failed:\s*/, '');
-                    this._cleanupUpdatePolling();
-                    this._showUpdateErrorInModal(reason);
-                    this._updateInProgress = false;
-                    const btn = this.modal?.querySelector('#systemUpdateBtn');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
-                        btn.style.opacity = '1';
+                        // Handle done — trigger reload
+                        if (step === 'done') {
+                            console.log('[SystemUpdate] Status polling detected "done" — reloading');
+                            this._updateInProgress = false;
+                            this._doCacheClearAndReload();
+                            return; // Stop polling
+                        }
+
+                        // Show step progress
+                        const stepInfo = UPDATE_STEPS[step];
+                        if (stepInfo && this._updateModalRefs) {
+                            const { icon, messageEl } = this._updateModalRefs;
+                            const label = i18n.t('settings.update.step.' + step) || stepInfo.label;
+                            icon.textContent = stepInfo.icon;
+                            messageEl.innerHTML = `
+                                <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
+                                    ${stepInfo.icon} ${label}
+                                </div>
+                                <div class="update-progress-bar-container">
+                                    <div class="update-progress-bar" style="width: ${stepInfo.progress}%"></div>
+                                </div>
+                                <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">${stepInfo.progress}%</div>
+                            `;
+                        }
                     }
-                    return;
-                }
-
-                // Handle done — trigger reload
-                if (step === 'done') {
-                    console.log('[SystemUpdate] Status polling detected "done" — reloading');
-                    this._updateInProgress = false;
-                    this._doCacheClearAndReload();
-                    return;
-                }
-
-                // Show step progress
-                lastKnownStep = step;
-                const stepInfo = UPDATE_STEPS[step];
-                if (stepInfo && this._updateModalRefs) {
-                    const { icon, messageEl } = this._updateModalRefs;
-                    const label = i18n.t('settings.update.step.' + step) || stepInfo.label;
-                    icon.textContent = stepInfo.icon;
-                    messageEl.innerHTML = `
-                        <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
-                            ${stepInfo.icon} ${label}
-                        </div>
-                        <div class="update-progress-bar-container">
-                            <div class="update-progress-bar" style="width: ${stepInfo.progress}%"></div>
-                        </div>
-                        <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">${stepInfo.progress}%</div>
-                    `;
                 }
             } catch (e) {
-                if (e.name === 'AbortError') return;
-
-                // Server is down — expected during restart
+                // Any fetch error = server is down (network error, timeout, abort)
                 if (!serverDownSince) {
                     serverDownSince = Date.now();
                     console.log('[SystemUpdate] Server unreachable — waiting for restart');
@@ -259,7 +254,13 @@
                     `;
                 }
             }
-        }, 2000);
+
+            // Schedule next poll (recursive setTimeout = no overlap)
+            this._updatePollTimer = setTimeout(poll, 2000);
+        };
+
+        // Start first poll
+        this._updatePollTimer = setTimeout(poll, 1000);
     };
 
     /**
@@ -430,9 +431,9 @@
      * Stop update polling
      */
     SettingsUpdate._cleanupUpdatePolling = function() {
-        if (this._updateStatusInterval) {
-            clearInterval(this._updateStatusInterval);
-            this._updateStatusInterval = null;
+        if (this._updatePollTimer) {
+            clearTimeout(this._updatePollTimer);
+            this._updatePollTimer = null;
         }
     };
 
