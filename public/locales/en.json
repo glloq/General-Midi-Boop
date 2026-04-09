@@ -1129,6 +1129,9 @@
         "splitByRange": "By range",
         "splitByPolyphony": "By polyphony",
         "splitMixed": "Mixed",
+        "splitSuggestion": "Low score — try multi-instrument mode",
+        "estimatedScore": "estimated score",
+        "trySplit": "Try",
         "roundRobin": "Round-robin",
         "overlapZone": "Overlap zone",
         "splitProposed": "Split proposed",
@@ -1803,6 +1806,10 @@
         "ccSupported": "CCs supported",
         "ccUnsupported": "unsupported",
         "ccIgnore": "— ignore —",
+        "ccDisable": "Disable this CC",
+        "ccEnable": "Enable this CC",
+        "clickForDetails": "Click to view score details",
+        "noChannels": "No channels",
         "overlap": "Overlap"
     },
     "scoringSettings": {

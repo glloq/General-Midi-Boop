@@ -485,8 +485,8 @@ class RoutingSummaryPage {
         program: _t('autoAssign.scoreProgram') || 'Programme',
         noteRange: _t('autoAssign.scoreNoteRange') || 'Tessiture',
         polyphony: _t('autoAssign.scorePolyphony') || 'Polyphonie',
-        ccSupport: _t('autoAssign.scoreCcSupport') || 'CC Support',
-        instrumentType: _t('autoAssign.scoreInstrumentType') || 'Type',
+        ccSupport: _t('autoAssign.scoreCCSupport') || 'CC Support',
+        instrumentType: _t('autoAssign.scoreType') || 'Type',
         percussion: _t('autoAssign.scorePercussion') || 'Percussion'
       };
       const ch = channelKeys[0];
@@ -2401,7 +2401,7 @@ class RoutingSummaryPage {
           cells = segCCs.map((ccs, i) => {
             const isSegMuted = segMutes?.has(i);
             const segToggleClass = isSegMuted ? ' rs-cc-seg-muted' : '';
-            const segToggleBtn = `<button class="rs-cc-seg-toggle${segToggleClass}" data-channel="${channel}" data-cc="${ccNum}" data-seg="${i}" title="${isSegMuted ? 'Activer' : 'Désactiver'}">${isSegMuted ? '\u{1F507}' : '\u{1F509}'}</button>`;
+            const segToggleBtn = `<button class="rs-cc-seg-toggle${segToggleClass}" data-channel="${channel}" data-cc="${ccNum}" data-seg="${i}" title="${isSegMuted ? _t('routingSummary.ccEnable') || 'Enable this CC' : _t('routingSummary.ccDisable') || 'Disable this CC'}">${isSegMuted ? '\u{1F507}' : '\u{1F509}'}</button>`;
 
             if (isSegMuted) {
               return `<td class="rs-cc-cell rs-cc-cell-seg-muted">${segToggleBtn}</td>`;
@@ -2562,7 +2562,7 @@ class RoutingSummaryPage {
           <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewAll') || 'Tout'}
         </button>
         <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>
-          <span class="rs-prev-icon">&#9654;</span> Canal ${chLabel}
+          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewChannel') || 'Channel'} ${chLabel}
         </button>
         <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}">
           <span class="rs-prev-icon">&#9835;</span> ${_t('routingSummary.previewOriginal') || 'Original'}
