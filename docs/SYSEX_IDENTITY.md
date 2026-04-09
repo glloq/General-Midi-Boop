@@ -1090,3 +1090,190 @@ Decoded: 4-string bass, 24 frets, standard tuning, CC control on CC20/CC21.
 - [ ] Total size = 15 + num_strings bytes
 - [ ] End with `F7`
 - [ ] Feature flag bit 5 (`STRING_CONFIG`) set in Block 1 response
+
+---
+
+# Auto-Configuration Flow
+
+## 26. Overview
+
+Ma-est-tro supports three levels of auto-configuration depending on which blocks the device implements. The protocol is designed so that simpler devices need less code.
+
+### Level 1 — Identity only (Block 1)
+
+Simplest implementation. The device identifies itself but Ma-est-tro cannot auto-configure instruments.
+
+```
+Ma-est-tro ──► Block 1 Request (F0 7D 00 01 00 F7)
+           ◄── Block 1 Response (52 bytes, features = 0x00)
+           → Registers device
+           → Assumes 1 instrument on channel 0
+           → User configures capabilities manually via InstrumentSettings modal
+```
+
+### Level 2 — Single instrument auto-config (Block 1 + Block 6)
+
+The device declares its capabilities. Ma-est-tro auto-configures without user intervention.
+
+```
+Ma-est-tro ──► Block 1 Request
+           ◄── Block 1 Response (features bit 4 = INSTRUMENT_CAPABILITIES)
+           ──► Block 6 Request (channel = 0, default)
+           ◄── Block 6 Response (capabilities for channel 0)
+           → Auto-configures the instrument on channel 0
+           → capabilities_source = 'sysex'
+```
+
+### Level 3 — Multi-instrument full auto-config (Block 1 + 5 + 6 + 7)
+
+Full discovery and configuration of all instruments on the device.
+
+```
+Ma-est-tro ──► Block 1 Request
+           ◄── Block 1 Response (features bits 3,4,5)
+           ──► Block 5 Request
+           ◄── Block 5 Response (N instruments with channels, types)
+           ──► Block 6 Request (channel 0) ──► Block 6 Request (channel 1) ──► ...
+           ◄── Block 6 Responses (capabilities per instrument)
+           ──► Block 7 Request (channel 1)   // Only for string instruments
+           ◄── Block 7 Response (string config)
+           → Auto-configures all instruments
+           → capabilities_source = 'sysex'
+```
+
+## 27. Ma-est-tro Decision Logic
+
+```
+1. Send Block 1 Identity Request
+2. Wait for response (timeout = comm_timeout, default 5000ms)
+3. If no response → device is not MidiMind-compatible, STOP
+
+4. Parse Block 1 response, read feature flags
+
+5. DISCOVER INSTRUMENTS:
+   If feature flag bit 3 (INSTRUMENT_DESCRIPTOR) is set:
+     → Send Block 5 Request
+     → Parse response → get list of (channel, gm_program, type_id)
+   Else:
+     → Assume single instrument: [(channel=0, gm_program=unknown, type=unknown)]
+
+6. For each instrument in the list:
+
+   a. AUTO-CONFIGURE CAPABILITIES:
+      If feature flag bit 4 (INSTRUMENT_CAPABILITIES) is set:
+        → Send Block 6 Request for this channel
+        → Parse response → save to instruments_latency table:
+            gm_program, instrument_type, instrument_subtype,
+            note_range_min, note_range_max, note_selection_mode,
+            selected_notes, supported_ccs, polyphony, custom_name
+        → Set capabilities_source = 'sysex'
+      Else:
+        → Use gm_program from Block 5 to detect type via InstrumentTypeConfig
+        → Leave detailed capabilities for manual configuration
+
+   b. AUTO-CONFIGURE STRING INSTRUMENT:
+      If feature flag bit 5 (STRING_CONFIG) is set
+      AND instrument type ∈ {guitar, bass, strings, ethnic}:
+        → Send Block 7 Request for this channel
+        → Parse response → save to string_instruments table:
+            num_strings, num_frets, tuning, is_fretless,
+            capo_fret, cc_enabled, cc_string_number, cc_fret_number
+
+7. Broadcast 'instruments_configured' event via WebSocket
+```
+
+## 28. Backward Compatibility
+
+| Device supports | Ma-est-tro behavior |
+|-----------------|---------------------|
+| Block 1 only | Identity only, manual config. No change from current behavior. |
+| Block 1 + Block 6 | Single instrument auto-configured on channel 0 |
+| Block 1 + Block 5 | Multi-instrument discovery, but manual capability config |
+| Block 1 + Block 5 + Block 6 | Full multi-instrument auto-config |
+| Block 1 + Block 5 + Block 6 + Block 7 | Full auto-config including string instruments |
+
+Feature flags in Block 1 guarantee that Ma-est-tro **never requests a block the device doesn't support**.
+
+## 29. Fields NOT transmitted via SysEx
+
+These fields are Ma-est-tro-side settings, configured by the user or measured by the system:
+
+| Field | Reason |
+|-------|--------|
+| `sync_delay` | Measured/set by Ma-est-tro latency compensation system |
+| `comm_timeout` | Ma-est-tro internal communication setting |
+| `octave_mode` | User preference (chromatic/diatonic/pentatonic display) |
+| `mac_address` | Discovered by system Bluetooth stack |
+| `usb_serial_number` | Discovered by system USB enumeration |
+| `tab_algorithm` | Ma-est-tro tablature processing preference |
+| `capabilities_source` | Set automatically to 'sysex' when received via SysEx |
+
+## 30. Complete Example — Multi-Instrument SysEx Dispatch
+
+### Arduino/Teensy: handling all block requests
+
+```c
+#define FEATURES 0x00000038  // INSTRUMENT_DESCRIPTOR + CAPABILITIES + STRING_CONFIG
+
+void checkSysExRequest() {
+    if (!usbMIDI.read() || usbMIDI.getType() != usbMIDI.SystemExclusive) return;
+
+    uint8_t* data = usbMIDI.getSysExArray();
+    int length = usbMIDI.getSysExArrayLength();
+
+    // Validate MidiMind header: F0 7D 00 <block> <request=00>
+    if (length < 6 || data[0] != 0xF0 || data[1] != 0x7D || data[2] != 0x00) return;
+
+    uint8_t blockId = data[3];
+    uint8_t direction = data[4];
+
+    if (direction != 0x00) return;  // Not a request
+
+    switch (blockId) {
+        case 0x01:  // Block 1 - Identity
+            handleIdentityRequest();
+            break;
+
+        case 0x05:  // Block 5 - Instrument Descriptor
+            handleDescriptorRequest();
+            break;
+
+        case 0x06:  // Block 6 - Instrument Capabilities
+            if (length >= 7) {
+                handleCapabilitiesRequest(data[5]);  // data[5] = channel
+            }
+            break;
+
+        case 0x07:  // Block 7 - String Config
+            if (length >= 7) {
+                handleStringConfigRequest(data[5]);  // data[5] = channel
+            }
+            break;
+    }
+}
+```
+
+---
+
+## 31. Global Implementation Checklist
+
+### Device firmware
+
+- [ ] **Block 1**: Identity request/response (52 bytes, required)
+- [ ] **Feature flags**: Set bits 3-5 according to supported blocks
+- [ ] **Block 5**: Instrument descriptor (if multi-instrument)
+- [ ] **Block 6**: Instrument capabilities per channel (if auto-config)
+- [ ] **Block 7**: String config per channel (if string instrument)
+- [ ] **SysEx dispatch**: Route requests to correct handler based on block ID
+- [ ] **All data bytes**: 0-127 (7-bit safe for SysEx)
+
+### Ma-est-tro side
+
+- [ ] Parse Block 1 and read feature flags
+- [ ] If bit 3: send Block 5 request, parse instrument list
+- [ ] If bit 4: send Block 6 request per channel, save capabilities
+- [ ] If bit 5 + string type: send Block 7 request, save string config
+- [ ] Default to channel 0 if Block 5 not supported
+- [ ] Set `capabilities_source = 'sysex'` for auto-configured instruments
+- [ ] Broadcast `instruments_configured` event after completion
+- [ ] Respect `comm_timeout` for each SysEx round-trip
