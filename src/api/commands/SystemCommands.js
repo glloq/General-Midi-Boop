@@ -120,7 +120,24 @@ async function systemUpdate(app) {
 
   // Prevent concurrent updates
   if (_updateInProgress) {
-    return { success: false, error: 'Update already in progress' };
+    // Check if a previous update actually finished (stale flag)
+    const statusFilePath = join(PROJECT_ROOT, 'logs', 'update-status');
+    let stale = false;
+    try {
+      const lastStatus = readFileSync(statusFilePath, 'utf8').trim().split(' ')[0].replace(':', '');
+      if (lastStatus === 'done' || lastStatus === 'failed') {
+        stale = true;
+      }
+    } catch { /* file doesn't exist */ }
+
+    if (!stale) {
+      return { success: false, error: 'Update already in progress' };
+    }
+
+    // Previous update finished but flag wasn't cleared (server didn't restart)
+    app.logger.warn('Stale _updateInProgress flag detected (status: done/failed) — resetting');
+    _updateInProgress = false;
+    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
   }
 
   const scriptPath = join(PROJECT_ROOT, 'scripts/update.sh');
