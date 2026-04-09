@@ -78,6 +78,18 @@ function renderSplitBar(splitData, channelAnalysis) {
   const chMax = channelAnalysis.noteRange.max;
   const span = chMax - chMin || 1;
   const colors = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
+  const mode = splitData.behaviorMode;
+
+  // For overflow/alternate, both segments cover the full range — show stacked half-height bars
+  if (mode === 'overflow' || mode === 'alternate') {
+    const segBars = splitData.segments.map((seg, i) => {
+      const color = colors[i % colors.length];
+      const name = seg.instrumentName || '';
+      const topOffset = i * 50; // Stack bars vertically (0%, 50%)
+      return `<div class="rs-split-seg-bar rs-split-seg-stacked" style="left:0%;width:100%;background:${color};top:${topOffset}%;height:50%;opacity:0.7" title="${name}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}"></div>`;
+    }).join('');
+    return `<div class="rs-split-viz">${segBars}</div>`;
+  }
 
   const segBars = splitData.segments.map((seg, i) => {
     if (!seg.noteRange) return '';
@@ -1389,8 +1401,10 @@ class RoutingSummaryPage {
           </div>
         `;
       }).join('');
-      // Add overlap zone visualization inside a positioned wrapper
-      const overlaps = this._detectOverlaps(segs);
+      // Add overlap zone visualization (skip for overflow/alternate where full overlap is intentional)
+      const behaviorMode = splitData.behaviorMode;
+      const skipOverlapViz = (behaviorMode === 'overflow' || behaviorMode === 'alternate');
+      const overlaps = skipOverlapViz ? [] : this._detectOverlaps(segs);
       const overlapZonesHTML = overlaps.length > 0 ? overlaps.map(ov => {
         const oLeft = (ov.min / FULL_RANGE) * 100;
         const oWidth = Math.max(0.5, ((ov.max - ov.min) / FULL_RANGE) * 100);

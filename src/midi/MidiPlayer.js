@@ -83,6 +83,11 @@ class MidiPlayer {
       this.buildEventList();
       this.loadedFileId = fileId;
       this._injectTablatureCCEvents();
+      // Reset split routing counters for the new file
+      this._overlapCounters = null;
+      this._segmentNoteCounts = null;
+      this._alternateCounters = null;
+      this._overlapNoteAssign = null;
       this.calculateDuration();
 
       this.logger.info(`File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`);
@@ -611,6 +616,11 @@ class MidiPlayer {
 
     this.position = seekPosition;
     this.currentEventIndex = this.findEventIndexAtTime(seekPosition);
+    // Reset split routing counters on seek (stale note assignments)
+    this._overlapCounters = null;
+    this._segmentNoteCounts = null;
+    this._alternateCounters = null;
+    this._overlapNoteAssign = null;
 
     if (wasPlaying) {
       this.start(savedOutputDevice, seekPosition);

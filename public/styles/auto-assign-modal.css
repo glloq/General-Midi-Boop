@@ -5528,6 +5528,10 @@ body.dark-mode .rs-cc-table td {
   opacity: 0.8;
 }
 
+.rs-split-seg-bar.rs-split-seg-stacked {
+  border-radius: 2px;
+}
+
 /* Extended stats */
 .rs-detail-stats {
   display: flex;
