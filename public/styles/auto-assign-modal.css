@@ -3677,7 +3677,12 @@ body.dark-mode .aa-channel-card.skipped {
   font-weight: 600;
 }
 
-/* Score button */
+/* Score button + popup wrapper */
+.rs-score-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
 .rs-score-btn {
   display: inline-flex;
   align-items: center;
@@ -3696,10 +3701,10 @@ body.dark-mode .aa-channel-card.skipped {
   opacity: 0.85;
 }
 
-/* Score detail popup */
+/* Score detail popup — positioned below the score button via .rs-score-wrapper */
 .rs-score-popup {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

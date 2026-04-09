@@ -409,13 +409,15 @@ class RoutingSummaryPage {
                   const scoreLabel = this.selectedChannel !== null
                     ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
                     : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
-                  return `<button class="rs-score-btn ${getScoreBgClass(displayScore)}" id="rsScoreBtn" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
-                    ${scoreLabel}
-                  </button>`;
+                  return `<div class="rs-score-wrapper">
+                    <button class="rs-score-btn ${getScoreBgClass(displayScore)}" id="rsScoreBtn" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
+                      ${scoreLabel}
+                    </button>
+                    <div class="rs-score-popup" id="rsScorePopup" style="display:none">
+                      ${this._renderScoreDetail()}
+                    </div>
+                  </div>`;
                 })()}
-                <div class="rs-score-popup" id="rsScorePopup" style="display:none">
-                  ${this._renderScoreDetail()}
-                </div>
                 <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
                   ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
                 </button>
@@ -469,7 +471,11 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _renderScoreDetail() {
-    const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+    const allKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+    // In detail mode, show only the selected channel
+    const channelKeys = this.selectedChannel !== null
+      ? allKeys.filter(ch => parseInt(ch) === this.selectedChannel)
+      : allKeys;
     if (channelKeys.length === 0) return `<div class="rs-score-empty">${_t('routingSummary.noChannels') || 'Aucun canal'}</div>`;
 
     const breakdownLabels = {
