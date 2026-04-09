@@ -1,11 +1,35 @@
-# MidiMind SysEx Block 1 - Instrument Developer Guide
+# MidiMind SysEx Protocol - Instrument Developer Guide
 
 ## Overview
-Block 1 enables custom identification of DIY instruments via the SysEx 0x7D protocol.
+
+The MidiMind SysEx protocol enables custom identification and automatic configuration of DIY instruments via the SysEx 0x7D protocol. It supports both single-instrument devices and multi-instrument controllers.
 
 **Protocol**: Custom SysEx (Educational/Development use)
 **Manufacturer ID**: 0x00 (MidiMind)
-**Block ID**: 0x01 (Identification)
+
+### Block Summary
+
+| Block | ID | Name | Purpose | Status |
+|-------|----|------|---------|--------|
+| 1 | `0x01` | Device Identity | Device identification (ID, name, firmware, features) | Implemented |
+| 2 | `0x02` | Note Mapping | Note map configuration | Reserved |
+| 3 | `0x03` | Velocity Curves | Velocity curve configuration | Reserved |
+| 4 | `0x04` | CC Mapping | CC mapping configuration | Reserved |
+| 5 | `0x05` | Instrument Descriptor | Multi-instrument discovery (channels, types) | New |
+| 6 | `0x06` | Instrument Capabilities | Per-instrument detailed capabilities | New |
+| 7 | `0x07` | String Instrument Config | String instrument physical config | New |
+
+### Common Header Format
+
+All MidiMind SysEx messages share this header structure:
+```
+F0 7D 00 <block_id> <direction> [<data>...] F7
+```
+- `F0` : SysEx start
+- `7D` : Custom SysEx (Educational/Development)
+- `00` : MidiMind Manufacturer ID
+- `<block_id>` : Block number (01-07)
+- `<direction>` : 00=request, 01=response
 
 ---
 
@@ -90,24 +114,38 @@ value |= (data[4] & 0x07) << 28;  // Only 3 useful bits
 ## 4. Feature Flags (32-bit Bitmask)
 
 ### Defined bits
-| Bit | Name | Description |
-|-----|------|-------------|
-| 0 | `NOTE_MAP` | Supports Block 2 (Note Mapping) |
-| 1 | `VELOCITY_CURVES` | Supports Block 3 (future) |
-| 2 | `CC_MAPPING` | Supports Block 4 (future) |
-| 3-31 | *Reserved* | Future use |
+| Bit | Name | Hex | Description |
+|-----|------|-----|-------------|
+| 0 | `NOTE_MAP` | `0x01` | Supports Block 2 (Note Mapping) |
+| 1 | `VELOCITY_CURVES` | `0x02` | Supports Block 3 (Velocity Curves) |
+| 2 | `CC_MAPPING` | `0x04` | Supports Block 4 (CC Mapping) |
+| 3 | `INSTRUMENT_DESCRIPTOR` | `0x08` | Supports Block 5 (Instrument Descriptor) |
+| 4 | `INSTRUMENT_CAPABILITIES` | `0x10` | Supports Block 6 (Instrument Capabilities) |
+| 5 | `STRING_CONFIG` | `0x20` | Supports Block 7 (String Instrument Config) |
+| 6-31 | *Reserved* | — | Future use |
 
 ### Examples
 ```c
-// Instrument supporting only Note Map
-uint32_t features = 0x00000001;
-
-// Instrument supporting Note Map + Velocity Curves
-uint32_t features = 0x00000003;
-
-// No advanced features
+// No advanced features (Block 1 identity only)
 uint32_t features = 0x00000000;
+
+// Single instrument with auto-capabilities (Block 6 only)
+uint32_t features = 0x00000010;
+
+// Multi-instrument with auto-capabilities (Block 5 + Block 6)
+uint32_t features = 0x00000018;
+
+// Multi-instrument, full auto-config including strings (Block 5 + 6 + 7)
+uint32_t features = 0x00000038;
+
+// Everything supported (Block 2-7)
+uint32_t features = 0x0000003F;
 ```
+
+### Feature flag dependencies
+- Block 5 (`INSTRUMENT_DESCRIPTOR`) : standalone, declares instrument list
+- Block 6 (`INSTRUMENT_CAPABILITIES`) : standalone, works with or without Block 5
+- Block 7 (`STRING_CONFIG`) : requires Block 6 (needs type info to know which instruments are strings)
 
 ---
 
