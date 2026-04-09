@@ -472,35 +472,33 @@ class RoutingSummaryPage {
 
   _renderScoreDetail() {
     const allKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    // In detail mode, show only the selected channel
-    const channelKeys = this.selectedChannel !== null
+    const isDetailMode = this.selectedChannel !== null;
+    const channelKeys = isDetailMode
       ? allKeys.filter(ch => parseInt(ch) === this.selectedChannel)
       : allKeys;
     if (channelKeys.length === 0) return `<div class="rs-score-empty">${_t('routingSummary.noChannels') || 'Aucun canal'}</div>`;
 
-    const breakdownLabels = {
-      program: _t('autoAssign.scoreProgram') || 'Programme',
-      noteRange: _t('autoAssign.scoreNoteRange') || 'Tessiture',
-      polyphony: _t('autoAssign.scorePolyphony') || 'Polyphonie',
-      ccSupport: _t('autoAssign.scoreCcSupport') || 'CC Support',
-      instrumentType: _t('autoAssign.scoreInstrumentType') || 'Type',
-      percussion: _t('autoAssign.scorePercussion') || 'Percussion'
-    };
-
-    const rows = channelKeys.map(ch => {
+    // Detail mode: full breakdown for one channel
+    if (isDetailMode) {
+      const breakdownLabels = {
+        program: _t('autoAssign.scoreProgram') || 'Programme',
+        noteRange: _t('autoAssign.scoreNoteRange') || 'Tessiture',
+        polyphony: _t('autoAssign.scorePolyphony') || 'Polyphonie',
+        ccSupport: _t('autoAssign.scoreCcSupport') || 'CC Support',
+        instrumentType: _t('autoAssign.scoreInstrumentType') || 'Type',
+        percussion: _t('autoAssign.scorePercussion') || 'Percussion'
+      };
+      const ch = channelKeys[0];
       const channel = parseInt(ch);
       const isSkipped = this.skippedChannels.has(channel);
       const assignment = this.selectedAssignments[ch];
       const analysis = this.channelAnalyses[channel];
       const score = assignment?.score || 0;
-      const gmName = channel === 9
-        ? (_t('autoAssign.drums') || 'Drums')
-        : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
+      const gmName = channel === 9 ? (_t('autoAssign.drums') || 'Drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
       const instName = isSkipped
         ? `<span class="rs-score-muted">${_t('routingSummary.muted') || 'Muté'}</span>`
         : escapeHtml(assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName || '\u2014');
 
-      // Score breakdown bars
       const breakdown = assignment?.scoreBreakdown;
       let breakdownHtml = '';
       if (breakdown && !isSkipped) {
@@ -515,30 +513,45 @@ class RoutingSummaryPage {
               </div>
               <span class="rs-score-bar-value">${val.score}/${val.max}</span>
             </div>`;
-          }).join('') +
-          `</div>`;
+          }).join('') + `</div>`;
       }
-
-      // Issues
       const issues = (!isSkipped && assignment?.issues?.length)
         ? `<div class="rs-score-issues">${assignment.issues.map(i =>
             `<span class="rs-score-issue rs-score-issue-${i.type || 'warning'}">${escapeHtml(i.message)}</span>`
-          ).join('')}</div>`
-        : '';
+          ).join('')}</div>` : '';
 
-      return `<div class="rs-score-row ${isSkipped ? 'rs-score-row-skipped' : ''}">
-        <div class="rs-score-row-header">
-          <span class="rs-score-row-ch">CH ${channel + 1}</span>
-          <span class="rs-score-row-gm">${escapeHtml(gmName)}</span>
-          <span class="rs-score-row-arrow">\u2192</span>
-          <span class="rs-score-row-inst">${instName}</span>
-          <span class="rs-score-row-score ${getScoreClass(score)}">${isSkipped ? '\u2014' : score}</span>
+      return `<div class="rs-score-detail-content">
+        <div class="rs-score-row">
+          <div class="rs-score-row-header">
+            <span class="rs-score-row-ch">CH ${channel + 1}</span>
+            <span class="rs-score-row-gm">${escapeHtml(gmName)}</span>
+            <span class="rs-score-row-arrow">\u2192</span>
+            <span class="rs-score-row-inst">${instName}</span>
+            <span class="rs-score-row-score ${getScoreClass(score)}">${isSkipped ? '\u2014' : score}</span>
+          </div>
+          ${breakdownHtml}${issues}
         </div>
-        ${breakdownHtml}${issues}
+      </div>`;
+    }
+
+    // Summary mode: compact grid with all channels
+    const cells = channelKeys.map(ch => {
+      const channel = parseInt(ch);
+      const isSkipped = this.skippedChannels.has(channel);
+      const assignment = this.selectedAssignments[ch];
+      const score = assignment?.score || 0;
+      const instName = isSkipped
+        ? (_t('routingSummary.muted') || 'Muté')
+        : (assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName || '\u2014');
+      const displayName = instName.length > 12 ? instName.slice(0, 11) + '\u2026' : instName;
+      return `<div class="rs-score-cell ${isSkipped ? 'rs-score-cell-skipped' : ''}" title="${escapeHtml(instName)}">
+        <span class="rs-score-cell-ch">CH ${channel + 1}</span>
+        <span class="rs-score-cell-score ${getScoreBgClass(score)}">${isSkipped ? '\u2014' : score}</span>
+        <span class="rs-score-cell-inst">${escapeHtml(displayName)}</span>
       </div>`;
     }).join('');
 
-    return `<div class="rs-score-detail-content">${rows}</div>`;
+    return `<div class="rs-score-grid">${cells}</div>`;
   }
 
   // ============================================================================
