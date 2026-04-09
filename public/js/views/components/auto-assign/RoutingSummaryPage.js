@@ -1911,6 +1911,8 @@ class RoutingSummaryPage {
   }
 
   _refreshUI(channelKeys) {
+    // Stop any active preview since the view is changing
+    this._safeStopPreview();
     // Invalidate canvas ref before re-render (prevents drawing to detached canvas)
     this._minimapCanvas = null;
     // Re-render the content area (preserving modal shell)
