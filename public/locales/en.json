@@ -1819,7 +1819,22 @@
         "ccEnable": "Enable this CC",
         "clickForDetails": "Click to view score details",
         "noChannels": "No channels",
-        "overlap": "Overlap"
+        "overlap": "Overlap",
+        "behaviorMode": "Behavior mode",
+        "behaviorOverflow": "Overflow",
+        "behaviorCombineNoOverlap": "Split",
+        "behaviorCombineWithOverlap": "Layer",
+        "behaviorAlternate": "Alternate",
+        "behaviorOverflowDesc": "Excess notes overflow to instrument B when A reaches its polyphony limit",
+        "behaviorCombineNoOverlapDesc": "Each instrument handles a distinct note range with no overlap",
+        "behaviorCombineWithOverlapDesc": "Both instruments share common notes in an overlap zone",
+        "behaviorAlternateDesc": "Rapidly alternating notes are distributed between instruments",
+        "behaviorPairQuality": "Pair quality",
+        "polyphonyThreshold": "Polyphony threshold",
+        "primaryInstrument": "Primary",
+        "overflowInstrument": "Overflow",
+        "alternatePattern": "Round-robin",
+        "notesPerSec": "notes/sec"
     },
     "scoringSettings": {
         "title": "Auto-assignment settings",

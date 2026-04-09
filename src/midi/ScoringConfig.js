@@ -103,6 +103,13 @@ const ScoringConfig = {
     },
     // Score minimum du canal pour déclencher l'évaluation de split
     triggerBelowScore: 60,
+    // Poids pour le scoring de qualité de paire par mode de comportement
+    behaviorWeights: {
+      overflow: { polyphonyCoverage: 50, rangeCoverage: 30, avgPolyFit: 20 },
+      combineNoOverlap: { rangeCoverage: 40, gapMinimization: 30, naturalSplit: 20, polyphonyCoverage: 10 },
+      combineWithOverlap: { rangeCoverage: 35, overlapSize: 25, polyphonyCoverage: 20, naturalFit: 20 },
+      alternate: { rangeCoverage: 40, densityJustification: 30, polyphonyCoverage: 20, symmetry: 10 }
+    }
   },
 
   /**

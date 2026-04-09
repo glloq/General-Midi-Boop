@@ -45,8 +45,8 @@ class RoutingPersistenceDB {
              compatibility_score, transposition_applied, auto_assigned,
              assignment_reason, note_remapping, enabled, created_at,
              split_mode, split_note_min, split_note_max, split_polyphony_share,
-             overlap_strategy)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             overlap_strategy, behavior_mode)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = stmt.run(
@@ -66,7 +66,8 @@ class RoutingPersistenceDB {
           routing.split_note_min ?? null,
           routing.split_note_max ?? null,
           routing.split_polyphony_share ?? null,
-          routing.overlap_strategy || null
+          routing.overlap_strategy || null,
+          routing.behavior_mode || null
         );
 
         return result.lastInsertRowid;
@@ -167,7 +168,8 @@ class RoutingPersistenceDB {
       split_note_min: row.split_note_min ?? null,
       split_note_max: row.split_note_max ?? null,
       split_polyphony_share: row.split_polyphony_share ?? null,
-      overlap_strategy: row.overlap_strategy || null
+      overlap_strategy: row.overlap_strategy || null,
+      behavior_mode: row.behavior_mode || null
     }));
   }
 

@@ -4994,6 +4994,111 @@ body.dark-mode .rs-cc-table td {
   font-weight: 600;
 }
 
+/* Behavior mode selector */
+.rs-behavior-mode-selector {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.rs-behavior-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 12px;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  color: var(--text-secondary, #666);
+}
+
+.rs-behavior-mode-btn:hover {
+  border-color: var(--accent-color, #4285f4);
+  color: var(--text-primary, #333);
+}
+
+.rs-behavior-mode-btn.rs-behavior-mode-active {
+  background: var(--bg-selected, rgba(66, 133, 244, 0.1));
+  border-color: var(--accent-color, #4285f4);
+  color: var(--accent-color, #4285f4);
+  font-weight: 600;
+}
+
+.rs-behavior-icon {
+  font-size: 13px;
+}
+
+.rs-behavior-label {
+  font-size: 11px;
+}
+
+/* Mode-specific visualization */
+.rs-behavior-viz {
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-color, #eee);
+}
+
+.rs-behavior-viz-overflow .rs-overflow-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rs-overflow-primary {
+  color: #4A90D9;
+  font-weight: 600;
+}
+
+.rs-overflow-arrow {
+  color: var(--text-secondary, #888);
+  font-size: 14px;
+}
+
+.rs-overflow-secondary {
+  color: #E67E22;
+  font-weight: 600;
+}
+
+.rs-behavior-viz-alternate .rs-alternate-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rs-alternate-pattern {
+  font-family: monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--accent-color, #4285f4);
+  font-weight: 600;
+}
+
+.rs-alternate-density {
+  color: var(--text-secondary, #888);
+  font-size: 11px;
+}
+
+/* Segment role label */
+.rs-seg-role {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-secondary, #666);
+  flex-shrink: 0;
+}
+
 .rs-split-quality {
   font-weight: 700;
   font-size: 10px;
