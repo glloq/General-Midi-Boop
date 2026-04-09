@@ -3942,6 +3942,7 @@ body.dark-mode .aa-channel-card.skipped {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
   color: var(--text-secondary, #888);
   border-bottom: 2px solid var(--border-color, #e0e0e0);
   position: sticky;

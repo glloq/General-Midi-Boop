@@ -843,8 +843,8 @@ class RoutingSummaryPage {
               <th>${_t('autoAssign.type') || 'Type'}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
               <th>${_t('routingSummary.score') || 'Score'}</th>
-              <th>${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-hint">${_t('autoAssign.polyphonyHint') || 'canal / instrument'}</span></th>
-              <th>${_t('autoAssign.channelNotes') || 'Notes'}<br><span class="rs-th-hint">${_t('autoAssign.channelNotesHint') || 'total / jouables'}</span></th>
+              <th title="${_t('autoAssign.polyphonyHint') || 'canal / instrument'}">${_t('autoAssign.polyphony') || 'Polyphonie'}</th>
+              <th title="${_t('autoAssign.channelNotesHint') || 'total / jouables'}">Notes</th>
               <th></th>
             </tr>
           </thead>
