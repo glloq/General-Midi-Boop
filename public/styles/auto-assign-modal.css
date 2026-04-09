@@ -3942,7 +3942,8 @@ body.dark-mode .aa-channel-card.skipped {
   color: var(--text-muted, #aaa);
 }
 .rs-th-compact {
-  white-space: nowrap;
+  white-space: normal !important;
+  line-height: 1.2;
 }
 
 .rs-table thead th {
