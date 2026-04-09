@@ -3670,10 +3670,150 @@ body.dark-mode .aa-channel-card.skipped {
   align-items: center;
   gap: 16px;
   font-size: 13px;
+  position: relative;
 }
 
 .rs-confidence {
   font-weight: 600;
+}
+
+.rs-confidence-clickable {
+  cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+}
+.rs-confidence-clickable:hover {
+  opacity: 0.8;
+}
+
+/* Score detail popup */
+.rs-score-popup {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  max-height: 400px;
+  overflow-y: auto;
+  min-width: 360px;
+  max-width: 480px;
+  padding: 8px 0;
+}
+.rs-score-detail-content {
+  display: flex;
+  flex-direction: column;
+}
+.rs-score-row {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+.rs-score-row:last-child { border-bottom: none; }
+.rs-score-row-skipped { opacity: 0.5; }
+.rs-score-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.rs-score-row-ch {
+  font-weight: 600;
+  min-width: 36px;
+  color: var(--text-secondary, #666);
+}
+.rs-score-row-gm {
+  color: var(--text-secondary, #888);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-score-row-arrow {
+  color: var(--text-secondary, #aaa);
+  flex-shrink: 0;
+}
+.rs-score-row-inst {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.rs-score-row-score {
+  font-weight: 700;
+  min-width: 24px;
+  text-align: right;
+}
+.rs-score-muted {
+  color: var(--text-secondary, #999);
+  font-style: italic;
+}
+
+/* Score breakdown bars */
+.rs-score-breakdown {
+  margin-top: 4px;
+  padding-left: 42px;
+}
+.rs-score-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+  font-size: 10px;
+}
+.rs-score-bar-label {
+  min-width: 68px;
+  color: var(--text-secondary, #888);
+}
+.rs-score-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-secondary, #eee);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rs-score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.2s;
+}
+.rs-score-bar-value {
+  min-width: 32px;
+  text-align: right;
+  color: var(--text-secondary, #888);
+  font-variant-numeric: tabular-nums;
+}
+.rs-bg-excellent { background: #27ae60; }
+.rs-bg-good { background: #2ecc71; }
+.rs-bg-fair { background: #f39c12; }
+.rs-bg-poor { background: #e74c3c; }
+
+/* Score issues */
+.rs-score-issues {
+  margin-top: 3px;
+  padding-left: 42px;
+}
+.rs-score-issue {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+.rs-score-issue-warning {
+  background: #fef3cd;
+  color: #856404;
+}
+.rs-score-issue-error {
+  background: #f8d7da;
+  color: #721c24;
+}
+.rs-score-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-secondary, #999);
 }
 
 .rs-channel-count {

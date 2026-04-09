@@ -276,6 +276,10 @@ class RoutingSummaryPage {
           }
           assignment.instrumentDisplayName = this._getInstrumentDisplayName(inst);
         }
+        // Store scoreBreakdown from compatibility data
+        if (matched?.compatibility?.scoreBreakdown) {
+          assignment.scoreBreakdown = matched.compatibility.scoreBreakdown;
+        }
       }
 
       // Initialize adaptation settings per channel
@@ -400,9 +404,12 @@ class RoutingSummaryPage {
                 ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
               </div>
               <div class="rs-header-center">
-                <span class="rs-confidence ${getScoreClass(this.confidenceScore)}">
+                <span class="rs-confidence rs-confidence-clickable ${getScoreClass(this.confidenceScore)}" id="rsConfidenceScore" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
                   ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
                 </span>
+                <div class="rs-score-popup" id="rsScorePopup" style="display:none">
+                  ${this._renderScoreDetail()}
+                </div>
                 <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
                   ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
                 </button>
@@ -449,6 +456,77 @@ class RoutingSummaryPage {
     } finally {
       this._isRendering = false;
     }
+  }
+
+  // ============================================================================
+  // Score detail popup
+  // ============================================================================
+
+  _renderScoreDetail() {
+    const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+    if (channelKeys.length === 0) return `<div class="rs-score-empty">${_t('routingSummary.noChannels') || 'Aucun canal'}</div>`;
+
+    const breakdownLabels = {
+      program: _t('autoAssign.scoreProgram') || 'Programme',
+      noteRange: _t('autoAssign.scoreNoteRange') || 'Tessiture',
+      polyphony: _t('autoAssign.scorePolyphony') || 'Polyphonie',
+      ccSupport: _t('autoAssign.scoreCcSupport') || 'CC Support',
+      instrumentType: _t('autoAssign.scoreInstrumentType') || 'Type',
+      percussion: _t('autoAssign.scorePercussion') || 'Percussion'
+    };
+
+    const rows = channelKeys.map(ch => {
+      const channel = parseInt(ch);
+      const isSkipped = this.skippedChannels.has(channel);
+      const assignment = this.selectedAssignments[ch];
+      const analysis = this.channelAnalyses[channel];
+      const score = assignment?.score || 0;
+      const gmName = channel === 9
+        ? (_t('autoAssign.drums') || 'Drums')
+        : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
+      const instName = isSkipped
+        ? `<span class="rs-score-muted">${_t('routingSummary.muted') || 'Muté'}</span>`
+        : escapeHtml(assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName || '\u2014');
+
+      // Score breakdown bars
+      const breakdown = assignment?.scoreBreakdown;
+      let breakdownHtml = '';
+      if (breakdown && !isSkipped) {
+        const entries = Object.entries(breakdown).filter(([, v]) => v && v.max > 0);
+        breakdownHtml = `<div class="rs-score-breakdown">` +
+          entries.map(([key, val]) => {
+            const pct = val.max > 0 ? Math.round((val.score / val.max) * 100) : 0;
+            return `<div class="rs-score-bar-row">
+              <span class="rs-score-bar-label">${breakdownLabels[key] || key}</span>
+              <div class="rs-score-bar-track">
+                <div class="rs-score-bar-fill ${getScoreBgClass(pct)}" style="width:${pct}%"></div>
+              </div>
+              <span class="rs-score-bar-value">${val.score}/${val.max}</span>
+            </div>`;
+          }).join('') +
+          `</div>`;
+      }
+
+      // Issues
+      const issues = (!isSkipped && assignment?.issues?.length)
+        ? `<div class="rs-score-issues">${assignment.issues.map(i =>
+            `<span class="rs-score-issue rs-score-issue-${i.type || 'warning'}">${escapeHtml(i.message)}</span>`
+          ).join('')}</div>`
+        : '';
+
+      return `<div class="rs-score-row ${isSkipped ? 'rs-score-row-skipped' : ''}">
+        <div class="rs-score-row-header">
+          <span class="rs-score-row-ch">CH ${channel + 1}</span>
+          <span class="rs-score-row-gm">${escapeHtml(gmName)}</span>
+          <span class="rs-score-row-arrow">\u2192</span>
+          <span class="rs-score-row-inst">${instName}</span>
+          <span class="rs-score-row-score ${getScoreClass(score)}">${isSkipped ? '\u2014' : score}</span>
+        </div>
+        ${breakdownHtml}${issues}
+      </div>`;
+    }).join('');
+
+    return `<div class="rs-score-detail-content">${rows}</div>`;
   }
 
   // ============================================================================
@@ -1326,6 +1404,21 @@ class RoutingSummaryPage {
       });
     }
 
+    // Score detail popup toggle
+    const scoreEl = modal.querySelector('#rsConfidenceScore');
+    const popupEl = modal.querySelector('#rsScorePopup');
+    if (scoreEl && popupEl) {
+      scoreEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popupEl.style.display = popupEl.style.display === 'none' ? '' : 'none';
+      });
+      popupEl.addEventListener('click', (e) => e.stopPropagation());
+      // Close popup when clicking anywhere else in modal
+      modal.addEventListener('click', () => {
+        if (popupEl.style.display !== 'none') popupEl.style.display = 'none';
+      });
+    }
+
     // Auto-adaptation toggle
     const adaptToggle = modal.querySelector('#rsAutoAdaptToggle');
     if (adaptToggle) {
@@ -1833,6 +1926,7 @@ class RoutingSummaryPage {
       noteRemapping: selected.compatibility.noteRemapping,
       issues: selected.compatibility.issues,
       info: selected.compatibility.info,
+      scoreBreakdown: selected.compatibility.scoreBreakdown || null,
       gmProgram: selected.instrument.gm_program,
       noteRangeMin: selected.instrument.note_range_min,
       noteRangeMax: selected.instrument.note_range_max,
