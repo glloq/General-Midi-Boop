@@ -128,7 +128,7 @@
         if (!tipBanner && modalInner) {
             tipBanner = document.createElement('div');
             tipBanner.id = 'updateCacheTip';
-            tipBanner.style.cssText = 'padding: 14px 20px; background: #fef3c7; color: #92400e; border-radius: 12px 12px 0 0; font-size: 13px; text-align: center; line-height: 1.5;';
+            tipBanner.style.cssText = 'margin: -20px -20px 16px -20px; padding: 14px 20px; background: #fef3c7; color: #92400e; border-radius: 12px 12px 0 0; font-size: 13px; text-align: center; line-height: 1.5;';
             tipBanner.innerHTML = '<span style="font-size: 22px; display: block; margin-bottom: 4px;">⚠️</span>Pensez à vider le cache du navigateur après la mise à jour<br><span style="font-size: 12px; opacity: 0.8;">(Ctrl+Shift+R ou paramètres du navigateur)</span>';
             modalInner.insertBefore(tipBanner, modalInner.firstChild);
         }
