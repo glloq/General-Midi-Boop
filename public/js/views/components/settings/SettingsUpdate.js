@@ -122,6 +122,9 @@
         icon.textContent = '🔄';
         title.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
         messageEl.innerHTML = `
+            <div style="margin-bottom: 6px; padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); font-size: 11px; color: var(--text-muted, #999); text-align: center;">
+                💡 Ctrl+Shift+R après la mise à jour pour vider le cache navigateur
+            </div>
             <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
                 🔄 ${i18n.t('settings.update.running') || 'Démarrage de la mise à jour...'}
             </div>
