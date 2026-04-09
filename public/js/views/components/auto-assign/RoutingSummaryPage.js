@@ -840,8 +840,8 @@ class RoutingSummaryPage {
               <th>${_t('autoAssign.overviewOriginal')}</th>
               <th>${_t('autoAssign.overviewAssigned')}</th>
               <th>${_t('routingSummary.score') || 'Score'}</th>
-              <th title="${_t('autoAssign.polyphony') || 'Polyphonie'}">\u266B</th>
-              <th title="${_t('autoAssign.channelNotes') || 'Notes jouables'}">\u266A</th>
+              <th>${_t('autoAssign.polyphony') || 'Polyphonie'}</th>
+              <th>${_t('autoAssign.channelNotes') || 'Notes jouables'}</th>
               <th></th>
             </tr>
           </thead>
