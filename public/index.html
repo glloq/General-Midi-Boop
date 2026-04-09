@@ -7217,15 +7217,10 @@
 
             if (!confirmed) return;
 
-            // Déplacer les fichiers
-            for (const fileId of selectedFileIds) {
-                moveFileToFolder(fileId, targetFolder);
-            }
-
-            log(`✓ ${selectedFileIds.size} fichier${selectedFileIds.size > 1 ? 's' : ''} déplacé${selectedFileIds.size > 1 ? 's' : ''}`, 'info');
+            // Déplacer les fichiers (un seul reload)
+            moveMultipleFiles([...selectedFileIds].map(String), targetFolder);
             selectedFileIds.clear();
             updateBatchActionsBar();
-            loadFiles();
         }
 
         // Initialiser les actions par lots
@@ -8283,15 +8278,42 @@
         // Variables pour le drag and drop
         let draggedElement = null;
         let draggedFileId = null;
+        let draggedFileIds = []; // All file IDs being dragged (supports multi-selection)
 
         // Gérer le début du drag
         function handleDragStart(e) {
             draggedElement = e.currentTarget;
             draggedFileId = e.currentTarget.dataset.fileId;
-            console.log('Drag start - fileId:', draggedFileId, 'Type:', typeof draggedFileId);
+
+            // Determine the full set of files to drag
+            const draggedIdNum = Number(draggedFileId);
+            if (selectedFileIds.size > 0 && selectedFileIds.has(draggedIdNum)) {
+                // Dragged file is part of multi-selection: drag all selected files
+                draggedFileIds = [...selectedFileIds].map(String);
+            } else {
+                // Dragged file is NOT part of multi-selection: drag only this file
+                draggedFileIds = [draggedFileId];
+            }
+
+            console.log('Drag start - fileIds:', draggedFileIds);
             e.currentTarget.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+
+            // Visual feedback: apply dragging class to all batch-selected items if multi-drag
+            if (draggedFileIds.length > 1) {
+                document.querySelectorAll('.file-item.batch-selected').forEach(el => {
+                    el.classList.add('dragging');
+                });
+
+                // Custom drag image with count badge
+                const badge = document.createElement('div');
+                badge.textContent = draggedFileIds.length + ' fichiers';
+                badge.style.cssText = 'position:absolute;top:-1000px;padding:6px 12px;background:#3b82f6;color:#fff;border-radius:8px;font-size:13px;font-weight:600;pointer-events:none;';
+                document.body.appendChild(badge);
+                e.dataTransfer.setDragImage(badge, 0, 0);
+                requestAnimationFrame(() => document.body.removeChild(badge));
+            }
 
             // Afficher la zone de drop racine
             const dropZone = document.getElementById('dropZoneRoot');
@@ -8302,7 +8324,10 @@
 
         // Gérer la fin du drag
         function handleDragEnd(e) {
-            e.currentTarget.classList.remove('dragging');
+            // Remove dragging class from all items (covers multi-drag case)
+            document.querySelectorAll('.file-item.dragging').forEach(el => {
+                el.classList.remove('dragging');
+            });
 
             // Retirer toutes les classes drag-over
             document.querySelectorAll('.drag-over').forEach(el => {
@@ -8318,6 +8343,7 @@
 
             draggedElement = null;
             draggedFileId = null;
+            draggedFileIds = [];
         }
 
         // Gérer le drag over
@@ -8357,17 +8383,21 @@
                 el.classList.remove('drag-over');
             });
 
-            if (!draggedFileId) {
+            if (!draggedFileIds || draggedFileIds.length === 0) {
                 console.log('Aucun fichier en cours de drag');
                 return false;
             }
 
             const targetFolder = e.currentTarget.dataset.folderPath;
-            console.log('Drop sur:', targetFolder, 'Fichier:', draggedFileId);
+            console.log('Drop sur:', targetFolder, 'Fichiers:', draggedFileIds);
 
             if (targetFolder) {
-                // Déplacer le fichier vers le dossier
-                moveFileToFolder(draggedFileId, targetFolder);
+                // Déplacer les fichiers vers le dossier
+                moveMultipleFiles(draggedFileIds, targetFolder);
+                if (draggedFileIds.length > 1) {
+                    selectedFileIds.clear();
+                    syncBatchSelectionUI();
+                }
             } else {
                 console.log('Pas de dossier cible détecté');
             }
@@ -8375,8 +8405,28 @@
             return false;
         }
 
+        // Déplacer plusieurs fichiers vers un dossier (un seul reload)
+        function moveMultipleFiles(fileIds, targetFolder) {
+            if (!fileIds || fileIds.length === 0) return;
+
+            if (fileIds.length === 1) {
+                moveFileToFolder(fileIds[0], targetFolder);
+                return;
+            }
+
+            // Multiple files: move each with skipReload, then reload once
+            for (const fid of fileIds) {
+                moveFileToFolder(fid, targetFolder, true);
+            }
+
+            saveFolderStructure();
+            const dest = targetFolder || i18n.t('fileOperations.root', 'racine');
+            log(`📦 ${fileIds.length} fichiers déplacés vers ${dest}`, 'info');
+            loadFiles();
+        }
+
         // Déplacer un fichier vers un dossier
-        function moveFileToFolder(fileId, targetFolder) {
+        function moveFileToFolder(fileId, targetFolder, skipReload = false) {
             // Normaliser fileId en string pour cohérence
             const fileIdStr = String(fileId);
 
@@ -8399,8 +8449,10 @@
             if (!targetFolder) {
                 console.log(`Fichier ${fileIdStr} déplacé vers la racine`);
                 saveFolderStructure();
-                log(`📦 ${i18n.t('fileOperations.movedToRoot')}`);
-                loadFiles();
+                if (!skipReload) {
+                    log(`📦 ${i18n.t('fileOperations.movedToRoot')}`);
+                    loadFiles();
+                }
                 return;
             }
 
@@ -8425,8 +8477,10 @@
             console.log('Nouvelle structure:', JSON.stringify(folderStructure, null, 2));
 
             saveFolderStructure();
-            log(`📦 ${i18n.t('fileOperations.movedToFolder', { folder: targetFolder })}`);
-            loadFiles();
+            if (!skipReload) {
+                log(`📦 ${i18n.t('fileOperations.movedToFolder', { folder: targetFolder })}`);
+                loadFiles();
+            }
         }
 
         // Charger les périphériques
@@ -11706,9 +11760,13 @@
 
             dropZoneRoot.classList.remove('drag-over');
 
-            if (draggedFileId) {
-                console.log('Drop sur la zone racine dédiée, fichier:', draggedFileId);
-                moveFileToFolder(draggedFileId, null); // null = racine
+            if (draggedFileIds && draggedFileIds.length > 0) {
+                console.log('Drop sur la zone racine dédiée, fichiers:', draggedFileIds);
+                moveMultipleFiles(draggedFileIds, null);
+                if (draggedFileIds.length > 1) {
+                    selectedFileIds.clear();
+                    syncBatchSelectionUI();
+                }
             }
         });
 
@@ -11738,9 +11796,13 @@
 
                 fileListElement.classList.remove('drag-over-root');
 
-                if (draggedFileId) {
-                    console.log('Drop sur la racine (zone vide), fichier:', draggedFileId);
-                    moveFileToFolder(draggedFileId, null); // null = racine
+                if (draggedFileIds && draggedFileIds.length > 0) {
+                    console.log('Drop sur la racine (zone vide), fichiers:', draggedFileIds);
+                    moveMultipleFiles(draggedFileIds, null);
+                    if (draggedFileIds.length > 1) {
+                        selectedFileIds.clear();
+                        syncBatchSelectionUI();
+                    }
                 }
             }
         });
