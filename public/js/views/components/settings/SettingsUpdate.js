@@ -204,9 +204,7 @@
                     // → trigger cache clear + reload immediately
                     if (step === 'done') {
                         console.log('[SystemUpdate] Status polling detected "done" — reloading');
-                        this._cleanupUpdatePolling();
                         this._updateInProgress = false;
-                        try { localStorage.setItem('midimind_update_completed', Date.now()); } catch(e) {}
                         this._doCacheClearAndReload();
                         return;
                     }
@@ -223,7 +221,10 @@
     SettingsUpdate._showUpdateSuccessInModal = function() {
         console.log('[SystemUpdate] Waiting for server restart (preUpdateUptime:', this._serverUptime, ')');
 
-        this._cleanupUpdatePolling();
+        // NOTE: Do NOT call _cleanupUpdatePolling() here!
+        // The status polling must keep running — it detects "done" (written by update.sh
+        // after verifying the new server is up) and triggers the reload immediately.
+        // Health polling below is a fallback if status polling fails.
 
         if (this._updateModalRefs) {
             const { icon, title, messageEl } = this._updateModalRefs;
@@ -345,6 +346,12 @@
      * Show success in modal, clear caches, and reload the page
      */
     SettingsUpdate._doCacheClearAndReload = function() {
+        // Guard against double-reload (status polling + health polling can both trigger this)
+        if (this._reloadTriggered) return;
+        this._reloadTriggered = true;
+
+        this._cleanupUpdatePolling();
+
         if (this._updateModalRefs) {
             const { icon, title, messageEl } = this._updateModalRefs;
             icon.textContent = '✅';
