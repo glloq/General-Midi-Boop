@@ -2935,6 +2935,7 @@ class RoutingSummaryPage {
 
   async _recalculate() {
     this.loading = true;
+    this._safeStopPreview();
     this._showLoading();
 
     try {
