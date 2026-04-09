@@ -3935,15 +3935,22 @@ body.dark-mode .aa-channel-card.skipped {
   color: var(--text-muted, #aaa);
 }
 .rs-th-sub {
+  display: block;
   font-weight: 400;
   font-size: 9px;
   text-transform: none;
   letter-spacing: 0;
+  white-space: nowrap;
   color: var(--text-muted, #aaa);
 }
 .rs-th-compact {
-  white-space: normal !important;
+  white-space: nowrap !important;
   line-height: 1.2;
+}
+.rs-th-compact br {
+  display: block;
+  content: "";
+  margin: 1px 0;
 }
 
 .rs-table thead th {
@@ -5646,7 +5653,7 @@ body.dark-mode .rs-cc-table td {
 
 /* Polyphony & playable columns */
 .rs-col-poly, .rs-col-playable {
-  width: 42px;
+  min-width: 70px;
   text-align: center;
   font-size: 10px;
   white-space: nowrap;
