@@ -2671,6 +2671,14 @@ class RoutingSummaryPage {
       return null;
     };
 
+    // Get transposition semitones for a channel (matches preview behaviour)
+    const getTransposition = (ch) => {
+      if (skipRangeFilter) return 0;
+      const chStr = String(ch);
+      const adapt = this.adaptationSettings[chStr] || {};
+      return this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
+    };
+
     for (const track of this.midiData.tracks) {
       if (!track.events) continue;
       let tick = 0;
@@ -2681,9 +2689,12 @@ class RoutingSummaryPage {
           if (channelFilter !== null && ch !== channelFilter) continue;
           const note = event.note ?? event.noteNumber ?? 60;
 
-          // Filter: only include notes playable on assigned instrument(s)
+          // Filter: apply transposition then check instrument range (same as preview)
           const range = getRange(ch);
-          if (range && (note < range.min || note > range.max)) continue;
+          if (range) {
+            const transposed = Math.max(0, Math.min(127, note + getTransposition(ch)));
+            if (transposed < range.min || transposed > range.max) continue;
+          }
 
           notes.push({ t: tick, n: note, ch: ch });
         }
