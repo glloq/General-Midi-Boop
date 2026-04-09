@@ -404,9 +404,15 @@ class RoutingSummaryPage {
                 ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
               </div>
               <div class="rs-header-center">
-                <span class="rs-confidence rs-confidence-clickable ${getScoreClass(this.confidenceScore)}" id="rsConfidenceScore" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
-                  ${this.confidenceScore}/100 — ${getScoreLabel(this.confidenceScore)}
-                </span>
+                ${(() => {
+                  const displayScore = this._getDisplayScore();
+                  const scoreLabel = this.selectedChannel !== null
+                    ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
+                    : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
+                  return `<button class="rs-score-btn ${getScoreBgClass(displayScore)}" id="rsScoreBtn" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
+                    ${scoreLabel}
+                  </button>`;
+                })()}
                 <div class="rs-score-popup" id="rsScorePopup" style="display:none">
                   ${this._renderScoreDetail()}
                 </div>
@@ -532,6 +538,35 @@ class RoutingSummaryPage {
   // ============================================================================
   // Helpers
   // ============================================================================
+
+  /**
+   * Get the score to display in the header button.
+   * - Summary mode (no channel selected): average of all non-skipped channel scores
+   * - Detail mode (channel selected): score of the selected channel
+   */
+  _getDisplayScore() {
+    if (this.selectedChannel !== null) {
+      const ch = String(this.selectedChannel);
+      const isSplit = this.splitChannels.has(this.selectedChannel);
+      return isSplit
+        ? (this.splitAssignments[this.selectedChannel]?.quality || 0)
+        : (this.selectedAssignments[ch]?.score || 0);
+    }
+    // Average of all non-skipped channel scores
+    const channelKeys = Object.keys(this.suggestions);
+    let total = 0, count = 0;
+    for (const ch of channelKeys) {
+      const channel = parseInt(ch);
+      if (this.skippedChannels.has(channel)) continue;
+      const isSplit = this.splitChannels.has(channel);
+      const score = isSplit
+        ? (this.splitAssignments[channel]?.quality || 0)
+        : (this.selectedAssignments[ch]?.score || 0);
+      total += score;
+      count++;
+    }
+    return count > 0 ? Math.round(total / count) : 0;
+  }
 
   /**
    * Get display name for an instrument. Prefers custom_name, then GM program name, then device name.
@@ -1405,7 +1440,7 @@ class RoutingSummaryPage {
     }
 
     // Score detail popup toggle
-    const scoreEl = modal.querySelector('#rsConfidenceScore');
+    const scoreEl = modal.querySelector('#rsScoreBtn');
     const popupEl = modal.querySelector('#rsScorePopup');
     if (scoreEl && popupEl) {
       scoreEl.addEventListener('click', (e) => {
