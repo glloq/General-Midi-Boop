@@ -35,11 +35,22 @@ class MidiFileParser {
    * @returns {{ tempo: number, duration: number, totalTicks: number }}
    */
   extractMetadata(midi) {
-    const ppq = midi.header.ticksPerBeat || 480;
-    if (ppq <= 0 || !isFinite(ppq)) {
+    // Detect SMPTE timing (negative ticksPerBeat indicates SMPTE format)
+    const rawTicksPerBeat = midi.header.ticksPerBeat;
+    if (rawTicksPerBeat != null && rawTicksPerBeat < 0) {
+      this.logger.warn(`SMPTE timing detected (ticksPerBeat=${rawTicksPerBeat}), using heuristic PPQ=480`);
+    }
+    const ppq = (rawTicksPerBeat > 0) ? rawTicksPerBeat : 480;
+    if (!isFinite(ppq)) {
       this.logger.warn(`Invalid PPQ value ${ppq}, using default 480`);
       return { tempo: 120, duration: 0, totalTicks: 0 };
     }
+
+    // Log Format 2 warning (independent tracks merged by channel)
+    if (midi.header.format === 2) {
+      this.logger.warn('MIDI Format 2 detected: independent tracks will be merged by channel');
+    }
+
     let firstTempo = 120; // Default BPM
     let totalTicks = 0;
 
@@ -62,6 +73,15 @@ class MidiFileParser {
     }
     tempoEvents.sort((a, b) => a.tick - b.tick);
 
+    // Deduplicate tempo events at same tick (common in multi-track DAW exports)
+    const dedupedTempoEvents = [];
+    for (const te of tempoEvents) {
+      const last = dedupedTempoEvents[dedupedTempoEvents.length - 1];
+      if (!last || last.tick !== te.tick || last.microsecondsPerBeat !== te.microsecondsPerBeat) {
+        dedupedTempoEvents.push(te);
+      }
+    }
+
     // Calculate total ticks across all tracks
     midi.tracks.forEach(track => {
       let trackTicks = 0;
@@ -73,9 +93,9 @@ class MidiFileParser {
 
     // Calculate duration using tempo map (handles multi-tempo files)
     let duration;
-    if (tempoEvents.length <= 1) {
-      const tempo = tempoEvents.length === 1
-        ? 60000000 / tempoEvents[0].microsecondsPerBeat
+    if (dedupedTempoEvents.length <= 1) {
+      const tempo = dedupedTempoEvents.length === 1
+        ? 60000000 / dedupedTempoEvents[0].microsecondsPerBeat
         : 120;
       const beatsPerSecond = tempo / 60;
       const ticksPerSecond = beatsPerSecond * ppq;
@@ -83,13 +103,13 @@ class MidiFileParser {
     } else {
       let cumulativeSeconds = 0;
       let lastTick = 0;
-      let currentMicrosPerBeat = tempoEvents[0].microsecondsPerBeat;
+      let currentMicrosPerBeat = dedupedTempoEvents[0].microsecondsPerBeat;
 
-      for (let i = 1; i < tempoEvents.length; i++) {
-        const deltaTicks = tempoEvents[i].tick - lastTick;
+      for (let i = 1; i < dedupedTempoEvents.length; i++) {
+        const deltaTicks = dedupedTempoEvents[i].tick - lastTick;
         cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
-        lastTick = tempoEvents[i].tick;
-        currentMicrosPerBeat = tempoEvents[i].microsecondsPerBeat;
+        lastTick = dedupedTempoEvents[i].tick;
+        currentMicrosPerBeat = dedupedTempoEvents[i].microsecondsPerBeat;
       }
       const remainingTicks = totalTicks - lastTick;
       cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);

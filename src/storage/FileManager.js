@@ -1,15 +1,16 @@
 // src/storage/FileManager.js
 import { parseMidi } from 'midi-file';
 import { writeMidi } from 'midi-file';
-import ChannelAnalyzer from '../midi/ChannelAnalyzer.js';
-import MidiUtils from '../utils/MidiUtils.js';
+import MidiFileParser from './MidiFileParser.js';
+import MidiFileValidator from './MidiFileValidator.js';
 import { LIMITS } from '../constants.js';
 
 class FileManager {
   constructor(app) {
     this.app = app;
     this.uploadDir = './uploads';
-    this.channelAnalyzer = new ChannelAnalyzer(app.logger);
+    this.midiFileParser = new MidiFileParser(app.logger);
+    this.midiFileValidator = new MidiFileValidator(app.logger);
 
     this.app.logger.info('FileManager initialized');
   }
@@ -37,6 +38,9 @@ class FileManager {
         throw new Error(`Invalid MIDI file: ${error.message}`);
       }
       const parseTimeMs = Date.now() - parseStartTime;
+
+      // Validate MIDI structure (non-blocking, logs warnings)
+      const validationReport = this.midiFileValidator.validate(midi);
 
       // Extract metadata
       const metadataStartTime = Date.now();
@@ -113,6 +117,11 @@ class FileManager {
           analysisMs: analysisTimeMs,
           dbMs: dbTimeMs
         },
+        // Validation report (warnings/anomalies detected)
+        validation: {
+          warnings: validationReport.warnings,
+          stats: validationReport.stats
+        },
         midi: this.convertMidiToJSON(midi)
       };
     } catch (error) {
@@ -122,255 +131,19 @@ class FileManager {
   }
 
   extractMetadata(midi) {
-    const ppq = midi.header.ticksPerBeat || 480;
-    if (ppq <= 0 || !isFinite(ppq)) {
-      this.app.logger.warn(`Invalid PPQ value ${ppq}, using default 480`);
-      return { tempo: 120, duration: 0, totalTicks: 0 };
-    }
-    let firstTempo = 120; // Default BPM
-    let totalTicks = 0;
-
-    // Collect all tempo events with absolute tick positions
-    const tempoEvents = [];
-    for (const track of midi.tracks) {
-      let trackTicks = 0;
-      for (const event of track) {
-        trackTicks += event.deltaTime;
-        if (event.type === 'setTempo') {
-          if (firstTempo === 120 && tempoEvents.length === 0) {
-            firstTempo = 60000000 / event.microsecondsPerBeat;
-          }
-          tempoEvents.push({
-            tick: trackTicks,
-            microsecondsPerBeat: event.microsecondsPerBeat
-          });
-        }
-      }
-    }
-    tempoEvents.sort((a, b) => a.tick - b.tick);
-
-    // Calculate total ticks across all tracks
-    midi.tracks.forEach(track => {
-      let trackTicks = 0;
-      track.forEach(event => {
-        trackTicks += event.deltaTime;
-      });
-      totalTicks = Math.max(totalTicks, trackTicks);
-    });
-
-    // Calculate duration using tempo map (handles multi-tempo files)
-    let duration;
-    if (tempoEvents.length <= 1) {
-      // Single tempo: simple calculation
-      const tempo = tempoEvents.length === 1
-        ? 60000000 / tempoEvents[0].microsecondsPerBeat
-        : 120;
-      const beatsPerSecond = tempo / 60;
-      const ticksPerSecond = beatsPerSecond * ppq;
-      duration = totalTicks / ticksPerSecond;
-    } else {
-      // Multi-tempo: walk through tempo changes
-      let cumulativeSeconds = 0;
-      let lastTick = 0;
-      let currentMicrosPerBeat = tempoEvents[0].microsecondsPerBeat;
-
-      for (let i = 1; i < tempoEvents.length; i++) {
-        const deltaTicks = tempoEvents[i].tick - lastTick;
-        cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
-        lastTick = tempoEvents[i].tick;
-        currentMicrosPerBeat = tempoEvents[i].microsecondsPerBeat;
-      }
-      // Add remaining ticks after last tempo change
-      const remainingTicks = totalTicks - lastTick;
-      cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);
-      duration = cumulativeSeconds;
-    }
-
-    return {
-      tempo: isFinite(firstTempo) ? firstTempo : 120,
-      duration: isFinite(duration) ? duration : 0,
-      totalTicks: totalTicks
-    };
+    return this.midiFileParser.extractMetadata(midi);
   }
 
-  /**
-   * Extract instrument metadata for filtering
-   * Analyzes MIDI channels to determine instrument types, note ranges, etc.
-   * @param {Object} midi - Parsed MIDI file
-   * @returns {Object} - { fileMetadata, channelDetails }
-   */
   extractInstrumentMetadata(midi) {
-    try {
-      // Convert to format expected by ChannelAnalyzer
-      const midiData = this.convertMidiToJSON(midi);
-
-      // Analyze all channels
-      const channelAnalyses = this.channelAnalyzer.analyzeAllChannels(midiData);
-
-      // Extract instrument types (both broad categories and GM categories)
-      const instrumentTypes = new Set();
-      const channelDetails = [];
-      let hasDrums = false;
-      let hasMelody = false;
-      let hasBass = false;
-      let noteMin = 127;
-      let noteMax = 0;
-
-      for (const analysis of channelAnalyses) {
-        // Add estimated type to set
-        if (analysis.estimatedType) {
-          const typeMapping = {
-            'drums': 'Drums',
-            'percussive': 'Percussion',
-            'bass': 'Bass',
-            'melody': 'Melody',
-            'harmony': 'Harmony'
-          };
-
-          const friendlyType = typeMapping[analysis.estimatedType] || analysis.estimatedType;
-          instrumentTypes.add(friendlyType);
-
-          if (analysis.estimatedType === 'drums') hasDrums = true;
-          if (analysis.estimatedType === 'melody') hasMelody = true;
-          if (analysis.estimatedType === 'bass') hasBass = true;
-        }
-
-        // Resolve GM instrument name and category from primary program
-        let gmInstrumentName = null;
-        let gmCategory = null;
-
-        if (analysis.channel === 9) {
-          // Channel 10 (0-indexed 9) is always drums in GM
-          gmInstrumentName = 'Drums';
-          gmCategory = 'Percussive';
-          instrumentTypes.add('Drums');
-          instrumentTypes.add('Percussive');
-        } else {
-          // Use primary program if available, otherwise default to 0 (Acoustic Grand Piano)
-          // per GM standard: channels without explicit program change default to program 0
-          const program = (analysis.primaryProgram !== null && analysis.primaryProgram !== undefined)
-            ? analysis.primaryProgram
-            : 0;
-          gmInstrumentName = MidiUtils.getGMInstrumentName(program);
-          gmCategory = MidiUtils.getGMCategory(program);
-          if (gmCategory) {
-            instrumentTypes.add(gmCategory);
-          }
-        }
-
-        // Build channel detail record
-        // Use resolved program (defaulting to 0 for non-drum channels without program change)
-        const resolvedProgram = (analysis.channel === 9)
-          ? analysis.primaryProgram
-          : (analysis.primaryProgram !== null && analysis.primaryProgram !== undefined)
-            ? analysis.primaryProgram
-            : 0;
-
-        channelDetails.push({
-          channel: analysis.channel,
-          primaryProgram: resolvedProgram,
-          gmInstrumentName,
-          gmCategory,
-          estimatedType: analysis.estimatedType,
-          typeConfidence: analysis.typeConfidence || 0,
-          noteRangeMin: analysis.noteRange ? analysis.noteRange.min : null,
-          noteRangeMax: analysis.noteRange ? analysis.noteRange.max : null,
-          totalNotes: analysis.totalNotes || 0,
-          polyphonyMax: analysis.polyphony ? analysis.polyphony.max : 0,
-          polyphonyAvg: analysis.polyphony ? analysis.polyphony.avg : 0,
-          density: analysis.density || 0,
-          trackNames: analysis.trackNames || []
-        });
-
-        // Update note range (guard against null values from empty channels)
-        if (analysis.noteRange && analysis.noteRange.min !== null && analysis.noteRange.max !== null) {
-          noteMin = Math.min(noteMin, analysis.noteRange.min);
-          noteMax = Math.max(noteMax, analysis.noteRange.max);
-        }
-      }
-
-      return {
-        fileMetadata: {
-          instrument_types: JSON.stringify(Array.from(instrumentTypes)),
-          channel_count: channelAnalyses.length,
-          note_range_min: noteMin < 127 ? noteMin : null,
-          note_range_max: noteMax > 0 ? noteMax : null,
-          has_drums: hasDrums ? 1 : 0,
-          has_melody: hasMelody ? 1 : 0,
-          has_bass: hasBass ? 1 : 0
-        },
-        channelDetails
-      };
-    } catch (error) {
-      this.app.logger.error(`Failed to extract instrument metadata: ${error.message}`, error.stack);
-
-      return {
-        fileMetadata: {
-          instrument_types: '[]',
-          channel_count: 0,
-          note_range_min: null,
-          note_range_max: null,
-          has_drums: 0,
-          has_melody: 0,
-          has_bass: 0
-        },
-        channelDetails: []
-      };
-    }
+    return this.midiFileParser.extractInstrumentMetadata(midi);
   }
 
   convertMidiToJSON(midi) {
-    // Log channel statistics for debugging
-    const channelCounts = new Map();
-    midi.tracks.forEach((track, _trackIdx) => {
-      track.forEach(event => {
-        if (event.channel !== undefined) {
-          channelCounts.set(event.channel, (channelCounts.get(event.channel) || 0) + 1);
-        }
-      });
-    });
-
-    if (channelCounts.size > 0) {
-      this.app.logger.info(`MIDI channels detected during parsing: [${Array.from(channelCounts.keys()).sort((a,b) => a-b).join(', ')}]`);
-    } else {
-      this.app.logger.warn('No MIDI channels detected during parsing! This may indicate a problem.');
-    }
-
-    return {
-      header: {
-        format: midi.header.format,
-        numTracks: midi.header.numTracks,
-        ticksPerBeat: midi.header.ticksPerBeat
-      },
-      tracks: midi.tracks.map((track, index) => {
-        return {
-          index: index,
-          name: this.extractTrackName(track),
-          events: track.map(event => {
-            // Simple approach: copy ALL event properties
-            // This ensures we don't accidentally miss anything
-            const cleanEvent = {
-              deltaTime: event.deltaTime || 0,
-              type: event.type
-            };
-
-            // Copy all other properties from the original event
-            for (const key in event) {
-              if (key !== 'deltaTime' && key !== 'type') {
-                cleanEvent[key] = event[key];
-              }
-            }
-
-            return cleanEvent;
-          })
-        };
-      })
-    };
+    return this.midiFileParser.convertMidiToJSON(midi);
   }
 
   extractTrackName(track) {
-    const nameEvent = track.find(e => e.type === 'trackName');
-    return nameEvent ? nameEvent.text : 'Unnamed Track';
+    return this.midiFileParser.extractTrackName(track);
   }
 
   async exportFile(fileId) {

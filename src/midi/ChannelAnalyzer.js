@@ -134,15 +134,18 @@ class ChannelAnalyzer {
     for (const track of midiData.tracks) {
       if (!track.events) continue;
 
+      // Accumulate deltaTime into absolute ticks per track
+      let absoluteTick = 0;
       for (const event of track.events) {
+        absoluteTick += event.deltaTime || 0;
         if (event.channel === channel) {
-          events.push(event);
+          events.push({ ...event, absoluteTick });
         }
       }
     }
 
-    // Trier par temps
-    events.sort((a, b) => (a.time || 0) - (b.time || 0));
+    // Sort by absolute tick position (correct ordering across multiple tracks)
+    events.sort((a, b) => a.absoluteTick - b.absoluteTick);
 
     return events;
   }
