@@ -100,6 +100,10 @@
             color: var(--text-primary);
         }
 
+        body.theme-dark .file-list {
+            background: #4a5568;
+        }
+
         body.theme-dark .btn-keyboard-toggle,
         body.theme-dark .btn-settings-toggle,
         body.theme-dark .btn-debug-toggle,
@@ -203,17 +207,17 @@
             background: #b45309;
             border: 1px solid #6b7280;
             color: #fef3c7;
-            box-shadow: 4px 4px 0px #78350f;
+            box-shadow: none;
         }
 
         body.theme-dark .folder-item:hover {
             background: #d97706;
-            box-shadow: 3px 3px 0px #78350f;
+            box-shadow: none;
         }
 
         body.theme-dark .folder-item.open {
             background: #d97706;
-            box-shadow: 4px 4px 0px #78350f;
+            box-shadow: none;
         }
 
         body.theme-dark .device-item {
@@ -788,9 +792,9 @@
             color: #667eea;
         }
 
-        .folder-item { background: #fbbf24; border: 1px solid #d1d5db; color: #451a03; box-shadow: none; transition: all 0.15s ease; }
-        .folder-item:hover { background: #fcd34d; }
-        .folder-item.open { background: #f59e0b; }
+        .folder-item { background: #fbbf24; border: 1px solid #9ca3af; color: #451a03; box-shadow: none; transition: all 0.15s ease; }
+        .folder-item:hover { background: #fcd34d; box-shadow: none; }
+        .folder-item.open { background: #f59e0b; box-shadow: none; }
 
         .folder-item .folder-icon,
         .folder-item .icon {
@@ -1636,13 +1640,13 @@
 
         .folder-item:hover {
             background: #fcd34d;
-            box-shadow: 3px 3px 0px #b45309;
+            box-shadow: none;
         }
 
         .folder-item.drag-over {
             border: 2px dashed #78350f;
             background: #f59e0b;
-            box-shadow: 4px 4px 0px #92400e;
+            box-shadow: none;
         }
 
         .folder-item.open {
@@ -2645,8 +2649,8 @@
             padding: 12px;
             margin-bottom: 0;
             border-radius: 8px;
-            background: #fffbeb;
-            border: 1px solid #d1d5db;
+            background: #fbbf24;
+            border: 1px solid #9ca3af;
             box-shadow: none;
             transition: all 0.2s;
             cursor: pointer;
@@ -2654,11 +2658,11 @@
         }
 
         .file-list.view-grid .folder-item:hover {
-            background: #fef3c7;
+            background: #fcd34d;
         }
 
         .file-list.view-grid .folder-item.open {
-            background: #fef3c7;
+            background: #f59e0b;
             border-color: #d97706;
         }
 
@@ -2742,15 +2746,14 @@
 
         /* Dark mode grid folders */
         body.theme-dark .file-list.view-grid .folder-item {
-            background: #2d2418;
-            border-color: #d97706;
-            border-left-color: #d97706;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            background: #b45309;
+            border-color: #6b7280;
+            box-shadow: none;
         }
 
         body.theme-dark .file-list.view-grid .folder-item:hover {
-            border-color: #f59e0b;
-            background: #3a2e1a;
+            border-color: #6b7280;
+            background: #d97706;
         }
 
         body.theme-dark .file-list.view-grid .folder-item .folder-title {
@@ -2783,12 +2786,12 @@
             margin-bottom: 0;
             border-radius: 3px;
             min-height: 28px;
-            background: #fef9e7;
+            background: #fbbf24;
             border-left: 3px solid #f59e0b;
         }
 
         .file-list.view-compact .folder-item:hover {
-            background: #fef3c7;
+            background: #fcd34d;
         }
 
         .file-list.view-compact .folder-item .file-name {
