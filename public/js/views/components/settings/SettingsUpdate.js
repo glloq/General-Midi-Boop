@@ -118,13 +118,11 @@
         };
         modal.addEventListener('click', this._updateModalClickHandler, true);
 
-        // Set initial content
-        icon.textContent = '🔄';
-        title.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
+        // Set initial content — icon+title become the permanent cache tip
+        icon.textContent = '⚠️';
+        title.textContent = 'Ctrl+Shift+R après la mise à jour pour vider le cache';
+        title.style.fontSize = '13px';
         messageEl.innerHTML = `
-            <div style="margin-bottom: 6px; padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); font-size: 11px; color: var(--text-muted, #999); text-align: center;">
-                💡 Ctrl+Shift+R après la mise à jour pour vider le cache navigateur
-            </div>
             <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
                 🔄 ${i18n.t('settings.update.running') || 'Démarrage de la mise à jour...'}
             </div>
@@ -238,12 +236,9 @@
                         // Show step progress
                         const stepInfo = UPDATE_STEPS[step];
                         if (stepInfo && this._updateModalRefs) {
-                            const { icon, messageEl } = this._updateModalRefs;
-                            // i18n.t() returns the key itself when translation is missing (truthy string),
-                            // so check if the returned value looks like a key path
+                            const { messageEl } = this._updateModalRefs;
                             const i18nLabel = i18n.t('settings.update.step.' + step);
                             const label = (i18nLabel && !i18nLabel.includes('.')) ? i18nLabel : stepInfo.label;
-                            icon.textContent = stepInfo.icon;
                             messageEl.innerHTML = `
                                 <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
                                     ${stepInfo.icon} ${label}
@@ -270,8 +265,7 @@
                     const secs = elapsedSec % 60;
                     const timeStr = mins > 0 ? `${mins}m${secs.toString().padStart(2, '0')}s` : `${elapsedSec}s`;
 
-                    const { icon, messageEl } = this._updateModalRefs;
-                    icon.textContent = '🔄';
+                    const { messageEl } = this._updateModalRefs;
                     messageEl.innerHTML = `
                         <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
                             🔄 ${i18n.t('settings.update.waitingRestart') || 'En attente du redémarrage du serveur'}...
