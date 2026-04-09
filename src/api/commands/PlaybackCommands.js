@@ -456,6 +456,7 @@ async function applyAssignments(app, data) {
         noteRangeMax: assignment.noteRangeMax,
         // CC remapping and polyphony reduction run in the same pass
         maxPolyphony: (assignment.polyReduction && assignment.maxPolyphony) ? assignment.maxPolyphony : null,
+        polyStrategy: assignment.polyStrategy || 'drop',
         ccMapping: (assignment.ccRemapping && Object.keys(assignment.ccRemapping).length > 0) ? assignment.ccRemapping : null
       };
       // Note compression still needs a separate pre-computed remapping pass

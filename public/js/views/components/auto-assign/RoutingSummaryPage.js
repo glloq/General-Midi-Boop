@@ -61,6 +61,34 @@ function getGmProgramName(program) {
   return `Program ${program}`;
 }
 
+/**
+ * GM default polyphony by program (0-127).
+ * Typical polyphony of the real acoustic instrument.
+ */
+const GM_DEFAULT_POLYPHONY = {
+  0:16,1:16,2:16,3:16,4:16,5:16,6:8,7:8, // Piano
+  8:8,9:4,10:4,11:6,12:4,13:4,14:8,15:4, // Chromatic Percussion
+  16:16,17:16,18:16,19:16,20:16,21:8,22:1,23:8, // Organ
+  24:6,25:6,26:6,27:6,28:6,29:6,30:6,31:6, // Guitar
+  32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1, // Bass
+  40:4,41:4,42:4,43:4,44:8,45:8,46:8,47:2, // Strings
+  48:16,49:16,50:16,51:16,52:16,53:16,54:16,55:1, // Ensemble
+  56:1,57:1,58:1,59:1,60:1,61:8,62:8,63:8, // Brass
+  64:1,65:1,66:1,67:1,68:1,69:1,70:1,71:1, // Reed
+  72:1,73:1,74:1,75:1,76:1,77:1,78:1,79:1, // Pipe/Flute
+  80:1,81:1,82:1,83:1,84:1,85:1,86:2,87:2, // Synth Lead
+  88:8,89:8,90:8,91:8,92:8,93:8,94:8,95:8, // Synth Pad
+  96:4,97:4,98:4,99:4,100:4,101:4,102:4,103:4, // Synth FX
+  104:4,105:6,106:4,107:4,108:4,109:1,110:4,111:1, // Ethnic
+  112:4,113:4,114:2,115:2,116:4,117:4,118:4,119:4, // Percussive
+  120:1,121:1,122:1,123:1,124:1,125:1,126:1,127:1  // Sound FX
+};
+
+function getGmDefaultPolyphony(gmProgram) {
+  if (gmProgram == null || gmProgram < 0 || gmProgram > 127) return 16;
+  return GM_DEFAULT_POLYPHONY[gmProgram] ?? 16;
+}
+
 const NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 function midiNoteToName(note) {
@@ -302,7 +330,10 @@ class RoutingSummaryPage {
         this.adaptationSettings[ch] = {
           pitchShift: assignment?.transposition?.semitones ? 'auto' : 'none',
           transpositionSemitones: assignment?.transposition?.semitones || 0,
-          oorHandling: 'passThrough'
+          oorHandling: 'passThrough',
+          polyReduction: 'none',
+          polyStrategy: 'shorten',
+          polyTarget: null
         };
       }
 
@@ -995,6 +1026,7 @@ class RoutingSummaryPage {
               </label>
             </div>
           </div>
+          ${this._renderPolyReductionSection(channel, adaptation, analysis, assignment)}
         </div>
       `;
     }
@@ -1331,6 +1363,81 @@ class RoutingSummaryPage {
       <div class="aa-instbar-content ${isSkipped ? 'rs-chips-skipped' : ''}">
         <div class="aa-instbar-list">${chips}${lowChips}${showMoreBtn}</div>
       </div>
+    `;
+  }
+
+  /**
+   * Render the polyphony reduction section for channel adaptation.
+   * Shows controls only when channel polyphony exceeds instrument capacity.
+   */
+  _renderPolyReductionSection(channel, adaptation, analysis, assignment) {
+    const channelPoly = this._getChannelPolyphony(channel);
+    const instPoly = this._getInstrumentPolyphony(channel);
+    const gmPoly = getGmDefaultPolyphony(assignment?.gmProgram);
+
+    // Determine effective instrument polyphony (routed instrument first, then GM default)
+    const effectivePoly = instPoly || gmPoly;
+
+    // Don't show if polyphony is sufficient or no data
+    if (!channelPoly || !effectivePoly || channelPoly <= effectivePoly) {
+      return '';
+    }
+
+    const polyReduction = adaptation.polyReduction || 'none';
+    const polyStrategy = adaptation.polyStrategy || 'shorten';
+    const polyTarget = polyReduction === 'manual' && adaptation.polyTarget != null
+      ? adaptation.polyTarget
+      : effectivePoly;
+
+    // Info line: channel poly vs instrument poly
+    const polyExcess = channelPoly - polyTarget;
+    const impactKey = polyStrategy === 'shorten' ? 'autoAssign.polyImpactShorten' : 'autoAssign.polyImpactDrop';
+
+    return `
+      <div class="rs-adapt-row rs-poly-section">
+        <span class="rs-adapt-label">${_t('autoAssign.polyReductionTitle')}</span>
+        <div class="rs-adapt-options">
+          <label class="rs-adapt-radio ${polyReduction === 'none' ? 'selected' : ''}">
+            <input type="radio" name="rs_poly_${channel}" value="none" ${polyReduction === 'none' ? 'checked' : ''} data-channel="${channel}" data-field="polyReduction">
+            ${_t('autoAssign.polyNone')}
+          </label>
+          <label class="rs-adapt-radio ${polyReduction === 'auto' ? 'selected' : ''}">
+            <input type="radio" name="rs_poly_${channel}" value="auto" ${polyReduction === 'auto' ? 'checked' : ''} data-channel="${channel}" data-field="polyReduction">
+            ${_t('autoAssign.polyAuto')} <span class="rs-adapt-auto-info">(${effectivePoly})</span>
+          </label>
+          <label class="rs-adapt-radio ${polyReduction === 'manual' ? 'selected' : ''}">
+            <input type="radio" name="rs_poly_${channel}" value="manual" ${polyReduction === 'manual' ? 'checked' : ''} data-channel="${channel}" data-field="polyReduction">
+            ${_t('autoAssign.polyManual')}
+          </label>
+        </div>
+      </div>
+      ${polyReduction === 'manual' ? `
+      <div class="rs-adapt-row rs-poly-target-row">
+        <span class="rs-adapt-label">${_t('autoAssign.polyTargetLabel')}</span>
+        <div class="rs-transpose-controls">
+          <button class="btn btn-sm rs-poly-target-btn" data-channel="${channel}" data-delta="-1">-1</button>
+          <input type="number" class="rs-poly-target-input" data-channel="${channel}" value="${polyTarget}" min="1" max="${channelPoly}">
+          <button class="btn btn-sm rs-poly-target-btn" data-channel="${channel}" data-delta="1">+1</button>
+        </div>
+      </div>` : ''}
+      ${polyReduction !== 'none' ? `
+      <div class="rs-adapt-row rs-poly-strategy-row">
+        <span class="rs-adapt-label">${_t('autoAssign.polyStrategyTitle')}</span>
+        <div class="rs-adapt-options">
+          <label class="rs-adapt-radio ${polyStrategy === 'shorten' ? 'selected' : ''}" title="${_t('autoAssign.polyStrategyShortenDesc')}">
+            <input type="radio" name="rs_polystrat_${channel}" value="shorten" ${polyStrategy === 'shorten' ? 'checked' : ''} data-channel="${channel}" data-field="polyStrategy">
+            ${_t('autoAssign.polyStrategyShorten')}
+          </label>
+          <label class="rs-adapt-radio ${polyStrategy === 'drop' ? 'selected' : ''}" title="${_t('autoAssign.polyStrategyDropDesc')}">
+            <input type="radio" name="rs_polystrat_${channel}" value="drop" ${polyStrategy === 'drop' ? 'checked' : ''} data-channel="${channel}" data-field="polyStrategy">
+            ${_t('autoAssign.polyStrategyDrop')}
+          </label>
+        </div>
+      </div>
+      <div class="rs-poly-info">
+        <span class="rs-poly-info-detail">\u266B ${_t('autoAssign.channelPolyphony')}: ${channelPoly} | ${_t('autoAssign.instrumentPolyphony')}: ${effectivePoly}${polyReduction === 'manual' ? ` | ${_t('autoAssign.polyTargetLabel')}: ${polyTarget}` : ''}</span>
+        ${polyExcess > 0 ? `<span class="rs-poly-info-impact">\u2248 ${polyExcess} ${_t(impactKey)}</span>` : ''}
+      </div>` : ''}
     `;
   }
 
@@ -1716,6 +1823,33 @@ class RoutingSummaryPage {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           const current = this.adaptationSettings[ch].transpositionSemitones || 0;
           this.adaptationSettings[ch].transpositionSemitones = Math.max(-36, Math.min(36, current + delta));
+          this._refreshUI(channelKeys);
+        }
+      });
+    });
+
+    // Polyphony target buttons (+/-)
+    modal.querySelectorAll('.rs-poly-target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ch = btn.dataset.channel;
+        const delta = parseInt(btn.dataset.delta);
+        if (ch && !isNaN(delta)) {
+          if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
+          const current = this.adaptationSettings[ch].polyTarget || this._getInstrumentPolyphony(ch) || getGmDefaultPolyphony(this.selectedAssignments[ch]?.gmProgram) || 8;
+          this.adaptationSettings[ch].polyTarget = Math.max(1, Math.min(128, current + delta));
+          this._refreshUI(channelKeys);
+        }
+      });
+    });
+
+    // Polyphony target input (direct value)
+    modal.querySelectorAll('.rs-poly-target-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const ch = input.dataset.channel;
+        const val = parseInt(input.value);
+        if (ch && !isNaN(val) && val >= 1) {
+          if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
+          this.adaptationSettings[ch].polyTarget = Math.max(1, Math.min(128, val));
           this._refreshUI(channelKeys);
         }
       });
@@ -2308,6 +2442,15 @@ class RoutingSummaryPage {
       const semitones = this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
       const oorSuppress = this.autoAdaptation ? (adapt.oorHandling === 'suppress') : false;
       const oorCompress = this.autoAdaptation ? (adapt.oorHandling === 'compress') : false;
+
+      // Polyphony reduction settings
+      const polyEnabled = this.autoAdaptation && adapt.polyReduction && adapt.polyReduction !== 'none';
+      const polyTarget = polyEnabled
+        ? (adapt.polyReduction === 'manual' && adapt.polyTarget != null
+          ? adapt.polyTarget
+          : (this._getInstrumentPolyphony(ch) || getGmDefaultPolyphony(assignment.gmProgram)))
+        : null;
+
       assignments[ch] = {
         deviceId: assignment.deviceId,
         instrumentId: assignment.instrumentId,
@@ -2322,7 +2465,10 @@ class RoutingSummaryPage {
         noteRangeMax: assignment.noteRangeMax,
         noteSelectionMode: assignment.noteSelectionMode,
         score: assignment.score,
-        ccRemapping: this.ccRemapping[ch] || null
+        ccRemapping: this.ccRemapping[ch] || null,
+        polyReduction: polyEnabled,
+        maxPolyphony: polyTarget,
+        polyStrategy: polyEnabled ? (adapt.polyStrategy || 'shorten') : null
       };
       hasAssignment = true;
     }
@@ -3480,7 +3626,10 @@ class RoutingSummaryPage {
         this.adaptationSettings[ch] = {
           pitchShift: assignment?.transposition?.semitones ? 'auto' : 'none',
           transpositionSemitones: assignment?.transposition?.semitones || 0,
-          oorHandling: 'passThrough'
+          oorHandling: 'passThrough',
+          polyReduction: 'none',
+          polyStrategy: 'shorten',
+          polyTarget: null
         };
       }
 

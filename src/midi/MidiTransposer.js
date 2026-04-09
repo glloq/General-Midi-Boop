@@ -21,7 +21,8 @@ class MidiTransposer {
    * Handles transposition, note remapping, out-of-range suppression,
    * CC remapping, and polyphony reduction in one pass per track.
    * @param {Object} midiData - Fichier MIDI parsé
-   * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax, ccMapping, maxPolyphony } }
+   * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax, ccMapping, maxPolyphony, polyStrategy } }
+   *   polyStrategy: 'drop' (default, remove inner voices) or 'shorten' (shorten NoteOff to reduce overlap)
    * @returns {Object} - { midiData, stats }
    */
   transposeChannels(midiData, transpositions) {
@@ -109,8 +110,8 @@ class MidiTransposer {
             }
           }
 
-          // Step 4: Polyphony reduction (after note transforms, before commit)
-          if (transposition.maxPolyphony && transposition.maxPolyphony > 0) {
+          // Step 4: Polyphony reduction — drop strategy only (shorten is post-processed)
+          if (transposition.maxPolyphony && transposition.maxPolyphony > 0 && transposition.polyStrategy !== 'shorten') {
             const finalNote = eventModified ? currentNote : (event.note ?? event.noteNumber);
             const isNoteOn = event.type === 'noteOn' && (event.velocity ?? (eventModified ? newEvent.velocity : event.velocity)) > 0;
             const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
@@ -226,13 +227,26 @@ class MidiTransposer {
       }
     }
 
+    // Post-processing: apply gentle polyphony reduction (shorten strategy)
+    let notesShortened = 0;
+    let finalMidiData = modifiedData;
+    for (const [channelStr, transposition] of Object.entries(transpositions)) {
+      if (transposition.polyStrategy === 'shorten' && transposition.maxPolyphony && transposition.maxPolyphony > 0) {
+        const ch = parseInt(channelStr);
+        const result = this.reducePolyphonyGentle(finalMidiData, ch, transposition.maxPolyphony);
+        finalMidiData = result.midiData;
+        notesShortened += result.stats.notesShortened;
+      }
+    }
+
     return {
-      midiData: modifiedData,
+      midiData: finalMidiData,
       stats: {
         notesChanged,
         notesRemapped,
         notesSuppressed,
         notesDropped,
+        notesShortened,
         ccsRemapped,
         totalNotes,
         transpositions
@@ -359,6 +373,175 @@ class MidiTransposer {
     return {
       midiData: result.midiData,
       stats: { notesDropped: result.stats.notesDropped, totalNotes: result.stats.totalNotes }
+    };
+  }
+
+  /**
+   * Reduce polyphony by shortening overlapping notes (gentle strategy).
+   * Instead of dropping notes entirely, moves NoteOff earlier to reduce overlap.
+   * Preserves all notes — only their duration is affected.
+   *
+   * Algorithm:
+   * 1. Build note intervals (noteOn → noteOff pairs) with absolute ticks
+   * 2. At each NoteOn that causes polyphony > maxPolyphony, find the active note
+   *    ending soonest and shorten it to end just before this NoteOn
+   * 3. Rewrite deltaTime values to reflect the moved NoteOff events
+   *
+   * @param {Object} midiData - Parsed MIDI file
+   * @param {number} channel - Channel number (0-15)
+   * @param {number} maxPolyphony - Maximum allowed simultaneous notes
+   * @returns {Object} - { midiData, stats: { notesShortened } }
+   */
+  reducePolyphonyGentle(midiData, channel, maxPolyphony) {
+    if (!maxPolyphony || maxPolyphony <= 0) {
+      return { midiData, stats: { notesShortened: 0 } };
+    }
+
+    const modifiedData = {
+      ...midiData,
+      tracks: midiData.tracks.map(track => ({
+        ...track,
+        events: track.events ? track.events.map(e => ({ ...e })) : []
+      }))
+    };
+
+    let notesShortened = 0;
+
+    for (const track of modifiedData.tracks) {
+      if (!track.events || track.events.length === 0) continue;
+
+      // Step 1: Compute absolute ticks and find noteOn/noteOff pairs for this channel
+      const absTicks = [];
+      let tick = 0;
+      for (let i = 0; i < track.events.length; i++) {
+        tick += (track.events[i].deltaTime || 0);
+        absTicks.push(tick);
+      }
+
+      // Build note intervals: { noteOnIdx, noteOffIdx, note, startTick, endTick }
+      // Track active noteOns waiting for their noteOff
+      const pendingNotes = new Map(); // note -> [{ noteOnIdx, startTick }]
+      const intervals = [];
+
+      for (let i = 0; i < track.events.length; i++) {
+        const event = track.events[i];
+        if (event.channel !== channel) continue;
+
+        const note = event.note ?? event.noteNumber;
+        if (note === undefined) continue;
+
+        const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
+        const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
+
+        if (isNoteOn) {
+          if (!pendingNotes.has(note)) pendingNotes.set(note, []);
+          pendingNotes.get(note).push({ noteOnIdx: i, startTick: absTicks[i] });
+        } else if (isNoteOff) {
+          const pending = pendingNotes.get(note);
+          if (pending && pending.length > 0) {
+            const match = pending.shift();
+            if (pending.length === 0) pendingNotes.delete(note);
+            intervals.push({
+              noteOnIdx: match.noteOnIdx,
+              noteOffIdx: i,
+              note,
+              startTick: match.startTick,
+              endTick: absTicks[i]
+            });
+          }
+        }
+      }
+
+      if (intervals.length === 0) continue;
+
+      // Step 2: Walk through NoteOn events in tick order and shorten overlapping notes
+      // Sort intervals by startTick for processing
+      intervals.sort((a, b) => a.startTick - b.startTick);
+
+      // Track which intervals are active at any point, using a set of interval indices
+      // We'll process each interval's start and check polyphony
+      const activeIntervals = []; // { intervalIdx, endTick, note }
+
+      for (let ii = 0; ii < intervals.length; ii++) {
+        const interval = intervals[ii];
+
+        // Remove expired intervals (endTick <= current startTick)
+        for (let a = activeIntervals.length - 1; a >= 0; a--) {
+          if (activeIntervals[a].endTick <= interval.startTick) {
+            activeIntervals.splice(a, 1);
+          }
+        }
+
+        // Add current interval
+        activeIntervals.push({ intervalIdx: ii, endTick: interval.endTick, note: interval.note });
+
+        // While polyphony exceeds limit, shorten the note ending soonest
+        while (activeIntervals.length > maxPolyphony) {
+          // Find the active note that ends soonest (shortest remaining time)
+          let shortest = 0;
+          for (let a = 1; a < activeIntervals.length; a++) {
+            if (activeIntervals[a].endTick < activeIntervals[shortest].endTick) {
+              shortest = a;
+            }
+          }
+
+          const toShorten = activeIntervals[shortest];
+          const targetInterval = intervals[toShorten.intervalIdx];
+
+          // Move its NoteOff to just before the current NoteOn (1 tick gap)
+          const newEndTick = Math.max(targetInterval.startTick + 1, interval.startTick - 1);
+          if (newEndTick < targetInterval.endTick) {
+            targetInterval.endTick = newEndTick;
+            toShorten.endTick = newEndTick;
+            notesShortened++;
+          }
+
+          // Remove from active (it now ends before current note starts)
+          activeIntervals.splice(shortest, 1);
+        }
+      }
+
+      if (notesShortened === 0) continue;
+
+      // Step 3: Rebuild absolute ticks for modified noteOff positions
+      // Create a map of noteOffIdx -> newAbsTick
+      const noteOffMoves = new Map();
+      for (const interval of intervals) {
+        const originalEndTick = absTicks[interval.noteOffIdx];
+        if (interval.endTick !== originalEndTick) {
+          noteOffMoves.set(interval.noteOffIdx, interval.endTick);
+        }
+      }
+
+      if (noteOffMoves.size === 0) continue;
+
+      // Rebuild deltaTime values from modified absolute ticks
+      // First, build the new absolute tick array
+      const newAbsTicks = [...absTicks];
+      for (const [idx, newTick] of noteOffMoves) {
+        newAbsTicks[idx] = newTick;
+      }
+
+      // We need to re-sort events by absolute tick and recompute deltaTime.
+      // Build index array sorted by new absolute tick (stable sort preserves order for same tick).
+      const indices = track.events.map((_, i) => i);
+      indices.sort((a, b) => newAbsTicks[a] - newAbsTicks[b] || a - b);
+
+      const reorderedEvents = indices.map(i => track.events[i]);
+      const reorderedAbsTicks = indices.map(i => newAbsTicks[i]);
+
+      // Recompute deltaTime
+      for (let i = 0; i < reorderedEvents.length; i++) {
+        const prevTick = i > 0 ? reorderedAbsTicks[i - 1] : 0;
+        reorderedEvents[i].deltaTime = Math.max(0, reorderedAbsTicks[i] - prevTick);
+      }
+
+      track.events = reorderedEvents;
+    }
+
+    return {
+      midiData: modifiedData,
+      stats: { notesShortened }
     };
   }
 
