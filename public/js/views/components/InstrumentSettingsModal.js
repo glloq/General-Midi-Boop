@@ -423,7 +423,7 @@ class InstrumentSettingsModal extends BaseModal {
         if (!headerEl) return;
         const tab = this._getActiveTab();
         const instrumentName = tab ? (tab.settings.custom_name || tab.settings.name || `Ch ${tab.channel + 1}`) : '';
-        headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.title')} — ${this.escape(this.device.displayName || this.device.name)} — ${this.escape(instrumentName)}`;
+        headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.title')} — ${this.escape(instrumentName)}`;
     }
 
     // ========== TABS BAR ==========
