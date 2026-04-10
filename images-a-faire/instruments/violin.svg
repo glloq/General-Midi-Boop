@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Violon - GM 40 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Manche (sans frettes) -->
+    <rect x="61" y="18" width="6" height="32" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1"/>
+
+    <!-- Chevillier (pegbox, plus large que le manche) -->
+    <rect x="59" y="8" width="10" height="14" rx="1" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+
+    <!-- Volute (petite spirale au sommet) -->
+    <circle cx="64" cy="6" r="4" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+    <circle cx="64" cy="6" r="1.5" fill="#3D300A"/>
+
+    <!-- Chevilles (4, depassent du chevillier) -->
+    <line x1="59" y1="11" x2="54" y2="10" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="59" y1="16" x2="54" y2="17" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="69" y1="11" x2="74" y2="10" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="69" y1="16" x2="74" y2="17" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Corps du violon (coins en C avec lignes droites) -->
+    <path d="
+      M 64 48
+      C 76 48, 82 52, 82 58
+      L 82 68
+      L 74 74
+      L 84 80
+      C 86 84, 86 96, 84 104
+      C 80 112, 72 114, 64 114
+      C 56 114, 48 112, 44 104
+      C 42 96, 42 84, 44 80
+      L 54 74
+      L 46 68
+      L 46 58
+      C 46 52, 52 48, 64 48 Z
+    " fill="#C17D2F" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Ouie F gauche -->
+    <path d="M 52 74 C 50 78, 50 82, 52 86" fill="none" stroke="#3D300A" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Ouie F droite -->
+    <path d="M 76 74 C 78 78, 78 82, 76 86" fill="none" stroke="#3D300A" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Chevalet -->
+    <rect x="58" y="84" width="12" height="2" rx="0.5" fill="#5C4A0E"/>
+
+    <!-- Cordier -->
+    <path d="M 60 96 L 58 110 L 70 110 L 68 96 Z" fill="#1A1A1A" opacity="0.5"/>
+
+    <!-- Mentonniere -->
+    <ellipse cx="52" cy="108" rx="6" ry="4" fill="#1A1A1A" opacity="0.25"/>
+
+    <!-- Cordes (4) -->
+    <line x1="61" y1="18" x2="61" y2="96" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="63" y1="18" x2="63" y2="96" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="65" y1="18" x2="65" y2="96" stroke="#E8D5A3" stroke-width="0.6" opacity="0.7"/>
+    <line x1="67" y1="18" x2="67" y2="96" stroke="#E8D5A3" stroke-width="0.7" opacity="0.7"/>
+
+  </g>
+</svg>

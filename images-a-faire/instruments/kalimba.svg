@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Kalimba (piano a pouces) - GM 108 -->
+
+    <!-- Corps (planchette en bois, rectangulaire arrondi) -->
+    <rect x="28" y="16" width="72" height="100" rx="12" fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Rosace (trou de resonance) -->
+    <circle cx="64" cy="96" r="10" fill="#5C4A0E" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Barre de fixation (en haut des lames) -->
+    <rect x="34" y="34" width="60" height="6" rx="2" fill="#8B6914" stroke="#5C4A0E" stroke-width="1"/>
+
+    <!-- Chevalet -->
+    <rect x="38" y="40" width="52" height="3" rx="1" fill="#D4A843"/>
+
+    <!-- Lames (tines) - du centre (long) vers les bords (court) -->
+    <rect x="62" y="28" width="4" height="50" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="55" y="28" width="4" height="46" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="69" y="28" width="4" height="46" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="48" y="28" width="4" height="42" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="76" y="28" width="4" height="42" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="41" y="28" width="4" height="38" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <rect x="83" y="28" width="4" height="38" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+
+  </g>
+</svg>

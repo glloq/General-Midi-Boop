@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Sifflet (tin whistle / penny whistle) - GM 78 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Corps (tube fin metallique) -->
+    <rect x="61" y="12" width="6" height="100" rx="3" fill="#C0C0C0" stroke="#999" stroke-width="1.5"/>
+
+    <!-- Bec (embouchure type fipple) -->
+    <rect x="60" y="4" width="8" height="12" rx="2" fill="#228B22" stroke="#1A6B1A" stroke-width="1.5"/>
+    <!-- Fenetre du bec -->
+    <rect x="63" y="8" width="3" height="4" rx="0.5" fill="#1A6B1A"/>
+
+    <!-- Trous de doigts (6) -->
+    <circle cx="64" cy="36" r="2.5" fill="#777"/>
+    <circle cx="64" cy="46" r="2.5" fill="#777"/>
+    <circle cx="64" cy="56" r="2.5" fill="#777"/>
+    <circle cx="64" cy="66" r="2.5" fill="#777"/>
+    <circle cx="64" cy="76" r="2.5" fill="#777"/>
+    <circle cx="64" cy="86" r="2.5" fill="#777"/>
+
+  </g>
+</svg>

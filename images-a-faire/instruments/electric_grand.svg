@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Piano electrique grand (CP80 style) - GM 2 -->
+
+    <!-- Corps (forme de petit piano a queue) -->
+    <path d="
+      M 14 28
+      L 14 96
+      L 24 100
+      C 44 104, 68 102, 84 94
+      C 96 86, 102 74, 104 60
+      C 106 46, 102 34, 96 28
+      L 14 28 Z
+    " fill="#333" stroke="#222" stroke-width="2"/>
+
+    <!-- Contour interieur -->
+    <path d="
+      M 16 30
+      L 16 94
+      L 24 98
+      C 44 102, 66 100, 82 92
+      C 94 84, 100 72, 102 60
+      C 104 46, 100 36, 94 30
+      L 16 30 Z
+    " fill="#444" stroke="#333" stroke-width="1"/>
+
+    <!-- Clavier -->
+    <rect x="14" y="28" width="8" height="68" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="1"/>
+    <!-- Touches noires -->
+    <rect x="14" y="34" width="5" height="4" fill="#111"/>
+    <rect x="14" y="42" width="5" height="4" fill="#111"/>
+    <rect x="14" y="52" width="5" height="4" fill="#111"/>
+    <rect x="14" y="60" width="5" height="4" fill="#111"/>
+    <rect x="14" y="68" width="5" height="4" fill="#111"/>
+    <rect x="14" y="78" width="5" height="4" fill="#111"/>
+    <rect x="14" y="86" width="5" height="4" fill="#111"/>
+
+    <!-- Panneau de controle -->
+    <rect x="30" y="32" width="40" height="6" rx="2" fill="#555"/>
+    <circle cx="38" cy="35" r="1.5" fill="#E87D1E"/>
+    <circle cx="46" cy="35" r="1.5" fill="#E87D1E"/>
+    <circle cx="54" cy="35" r="1.5" fill="#E87D1E"/>
+    <circle cx="62" cy="35" r="1.5" fill="#F5F5F5"/>
+
+    <!-- Sortie cable -->
+    <circle cx="96" cy="58" r="3" fill="#222" stroke="#444" stroke-width="1"/>
+
+    <!-- Pieds -->
+    <line x1="18" y1="100" x2="14" y2="118" stroke="#444" stroke-width="3" stroke-linecap="round"/>
+    <line x1="50" y1="102" x2="50" y2="120" stroke="#444" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="88" x2="96" y2="106" stroke="#444" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Pedale -->
+    <rect x="44" y="116" width="20" height="4" rx="2" fill="#666"/>
+
+</svg>

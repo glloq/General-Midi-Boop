@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Piano electrique Wurlitzer - GM 5 -->
+
+    <!-- Corps (boitier compact, arrondi) -->
+    <path d="
+      M 12 38
+      C 12 34, 16 30, 20 30
+      L 108 30
+      C 112 30, 116 34, 116 38
+      L 116 72
+      C 116 76, 112 80, 108 80
+      L 20 80
+      C 16 80, 12 76, 12 72
+      Z
+    " fill="#333" stroke="#222" stroke-width="2"/>
+
+    <!-- Panneau superieur (couvercle ouvert) -->
+    <path d="M 14 38 L 20 18 L 108 18 L 114 38" fill="#444" stroke="#333" stroke-width="1.5"/>
+
+    <!-- Grille haut-parleur (dans le couvercle) -->
+    <line x1="30" y1="22" x2="30" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="38" y1="22" x2="38" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="46" y1="22" x2="46" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="54" y1="22" x2="54" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="62" y1="22" x2="62" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="70" y1="22" x2="70" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="78" y1="22" x2="78" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="86" y1="22" x2="86" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="94" y1="22" x2="94" y2="36" stroke="#555" stroke-width="0.8"/>
+    <line x1="102" y1="22" x2="102" y2="36" stroke="#555" stroke-width="0.8"/>
+
+    <!-- Boutons volume/vibrato -->
+    <circle cx="24" cy="44" r="3" fill="#555" stroke="#666" stroke-width="1"/>
+    <circle cx="104" cy="44" r="3" fill="#555" stroke="#666" stroke-width="1"/>
+
+    <!-- Clavier -->
+    <rect x="18" y="56" width="92" height="20" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="1"/>
+    <!-- Touches noires -->
+    <rect x="26" y="56" width="3" height="12" fill="#111"/>
+    <rect x="34" y="56" width="3" height="12" fill="#111"/>
+    <rect x="46" y="56" width="3" height="12" fill="#111"/>
+    <rect x="54" y="56" width="3" height="12" fill="#111"/>
+    <rect x="62" y="56" width="3" height="12" fill="#111"/>
+    <rect x="74" y="56" width="3" height="12" fill="#111"/>
+    <rect x="82" y="56" width="3" height="12" fill="#111"/>
+    <rect x="94" y="56" width="3" height="12" fill="#111"/>
+    <rect x="102" y="56" width="3" height="12" fill="#111"/>
+
+    <!-- Pieds -->
+    <rect x="18" y="80" width="4" height="28" rx="1" fill="#444"/>
+    <rect x="106" y="80" width="4" height="28" rx="1" fill="#444"/>
+    <line x1="20" y1="98" x2="108" y2="98" stroke="#444" stroke-width="1.5"/>
+
+    <!-- Pedale sustain -->
+    <rect x="52" y="104" width="24" height="5" rx="2" fill="#666"/>
+
+</svg>

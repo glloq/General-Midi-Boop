@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Shanai (shehnai) - GM 111 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Anche double / bec -->
+    <path d="M 63 2 L 62 10 L 66 10 L 65 2 Z" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
+
+    <!-- Pirouette (disque support levres) -->
+    <ellipse cx="64" cy="12" rx="5" ry="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Corps (conique, bois sombre, s'elargit) -->
+    <path d="
+      M 62 12 L 58 60 L 54 90 L 52 100
+      L 76 100 L 74 90 L 70 60 L 66 12 Z
+    " fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+
+    <!-- Bagues decoratives -->
+    <rect x="60" y="24" width="8" height="2" rx="0.5" fill="#D4A843"/>
+    <rect x="58" y="48" width="12" height="2" rx="0.5" fill="#D4A843"/>
+    <rect x="56" y="72" width="16" height="2" rx="0.5" fill="#D4A843"/>
+
+    <!-- Trous de doigts -->
+    <circle cx="64" cy="32" r="2" fill="#3D300A"/>
+    <circle cx="64" cy="40" r="2" fill="#3D300A"/>
+    <circle cx="64" cy="56" r="2" fill="#3D300A"/>
+    <circle cx="64" cy="64" r="2" fill="#3D300A"/>
+    <circle cx="64" cy="80" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="88" r="2.5" fill="#3D300A"/>
+
+    <!-- Pavillon (large, metallique) -->
+    <path d="
+      M 52 100
+      C 44 108, 36 118, 36 122
+      C 36 126, 48 128, 64 128
+      C 80 128, 92 126, 92 122
+      C 92 118, 84 108, 76 100
+    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+  </g>
+</svg>

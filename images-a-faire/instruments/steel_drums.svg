@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Steel drums (steelpan) - GM 114 -->
+
+    <!-- Fut (cylindre vu de 3/4) -->
+    <ellipse cx="64" cy="44" rx="40" ry="16" fill="#888" stroke="#666" stroke-width="2"/>
+    <rect x="24" y="44" width="80" height="50" fill="#888" stroke="#666" stroke-width="2"/>
+    <ellipse cx="64" cy="94" rx="40" ry="16" fill="#777" stroke="#666" stroke-width="2"/>
+
+    <!-- Surface concave (zones de notes) -->
+    <ellipse cx="64" cy="44" rx="38" ry="14" fill="#999" stroke="#777" stroke-width="1"/>
+
+    <!-- Zones de notes (cercles sur la surface) -->
+    <ellipse cx="50" cy="38" rx="8" ry="4" fill="none" stroke="#555" stroke-width="1.5"/>
+    <ellipse cx="78" cy="38" rx="8" ry="4" fill="none" stroke="#555" stroke-width="1.5"/>
+    <ellipse cx="64" cy="34" rx="8" ry="3.5" fill="none" stroke="#555" stroke-width="1.5"/>
+    <ellipse cx="44" cy="48" rx="7" ry="3" fill="none" stroke="#555" stroke-width="1.5"/>
+    <ellipse cx="64" cy="50" rx="7" ry="3" fill="none" stroke="#555" stroke-width="1.5"/>
+    <ellipse cx="84" cy="48" rx="7" ry="3" fill="none" stroke="#555" stroke-width="1.5"/>
+
+    <!-- Support -->
+    <line x1="32" y1="94" x2="28" y2="118" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+    <line x1="96" y1="94" x2="100" y2="118" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+    <line x1="28" y1="118" x2="100" y2="118" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Baguettes -->
+    <line x1="42" y1="14" x2="54" y2="38" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="54" cy="38" r="3" fill="#333"/>
+    <line x1="86" y1="14" x2="74" y2="38" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="74" cy="38" r="3" fill="#333"/>
+
+</svg>

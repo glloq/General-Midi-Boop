@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Shakuhachi - GM 77 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Corps (bambou, legerement conique, avec noeuds) -->
+    <path d="
+      M 62 4 L 61 40 L 60 80 L 59 110
+      L 69 110 L 68 80 L 67 40 L 66 4 Z
+    " fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Noeuds du bambou -->
+    <rect x="59" y="28" width="10" height="3" rx="1" fill="#8B6914"/>
+    <rect x="59" y="56" width="10" height="3" rx="1" fill="#8B6914"/>
+    <rect x="58" y="82" width="12" height="3" rx="1" fill="#8B6914"/>
+
+    <!-- Embouchure (biseautee, en haut) -->
+    <path d="M 62 4 L 63 0 L 65 0 L 66 4" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Trous de doigts (4 devant + 1 pouce) -->
+    <circle cx="64" cy="40" r="2.5" fill="#5C4A0E"/>
+    <circle cx="64" cy="52" r="2.5" fill="#5C4A0E"/>
+    <circle cx="64" cy="64" r="2.5" fill="#5C4A0E"/>
+    <circle cx="64" cy="76" r="2.5" fill="#5C4A0E"/>
+
+    <!-- Evasure naturelle du bas (utaguchi inversee) -->
+    <path d="M 59 110 C 57 116, 58 120, 64 120 C 70 120, 71 116, 69 110" fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
+
+  </g>
+</svg>

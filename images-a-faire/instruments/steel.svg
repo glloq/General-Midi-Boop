@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Guitare folk (acier) dreadnought - GM 25 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Manche -->
+    <rect x="58" y="8" width="12" height="54" rx="2" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+
+    <!-- Frettes -->
+    <line x1="58" y1="17" x2="70" y2="17" stroke="#D4A843" stroke-width="1"/>
+    <line x1="58" y1="25" x2="70" y2="25" stroke="#D4A843" stroke-width="1"/>
+    <line x1="58" y1="32" x2="70" y2="32" stroke="#D4A843" stroke-width="1"/>
+    <line x1="58" y1="38" x2="70" y2="38" stroke="#D4A843" stroke-width="1"/>
+    <line x1="58" y1="44" x2="70" y2="44" stroke="#D4A843" stroke-width="1"/>
+    <line x1="58" y1="49" x2="70" y2="49" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Dots -->
+    <circle cx="64" cy="21" r="1" fill="#F5F5F5" opacity="0.5"/>
+    <circle cx="64" cy="35" r="1" fill="#F5F5F5" opacity="0.5"/>
+
+    <!-- Tete -->
+    <rect x="56" y="2" width="16" height="10" rx="3" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+    <circle cx="58" cy="5" r="2" fill="#D4A843"/>
+    <circle cx="58" cy="9" r="2" fill="#D4A843"/>
+    <circle cx="70" cy="5" r="2" fill="#D4A843"/>
+    <circle cx="70" cy="9" r="2" fill="#D4A843"/>
+
+    <!-- Corps dreadnought (moins de taille que la classique, plus carre) -->
+    <path d="
+      M 64 56
+      C 80 56, 88 62, 88 70
+      C 88 80, 84 86, 84 90
+      C 84 94, 92 100, 92 108
+      C 92 116, 80 122, 64 122
+      C 48 122, 36 116, 36 108
+      C 36 100, 44 94, 44 90
+      C 44 86, 40 80, 40 70
+      C 40 62, 48 56, 64 56 Z
+    " fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Rosace -->
+    <circle cx="64" cy="78" r="8" fill="#3D300A" stroke="#5C4A0E" stroke-width="1.5"/>
+    <circle cx="64" cy="78" r="6.5" fill="none" stroke="#D4A843" stroke-width="0.8"/>
+
+    <!-- Pickguard (goutte sous la rosace, cote droit) -->
+    <path d="M 66 86 C 72 88, 76 94, 76 100 C 76 106, 72 108, 68 106 C 64 104, 64 94, 66 86 Z" fill="#1A1A1A" opacity="0.25"/>
+
+    <!-- Chevalet -->
+    <rect x="54" y="104" width="20" height="3" rx="1" fill="#5C4A0E"/>
+    <!-- Sillet de chevalet -->
+    <rect x="56" y="104" width="16" height="1" rx="0.5" fill="#F5E6C8"/>
+
+    <!-- Cordes (6 acier) -->
+    <line x1="59" y1="10" x2="59" y2="104" stroke="#D4A843" stroke-width="0.4" opacity="0.7"/>
+    <line x1="61" y1="10" x2="61" y2="104" stroke="#D4A843" stroke-width="0.4" opacity="0.7"/>
+    <line x1="63" y1="10" x2="63" y2="104" stroke="#D4A843" stroke-width="0.5" opacity="0.7"/>
+    <line x1="65" y1="10" x2="65" y2="104" stroke="#D4A843" stroke-width="0.6" opacity="0.7"/>
+    <line x1="67" y1="10" x2="67" y2="104" stroke="#D4A843" stroke-width="0.7" opacity="0.7"/>
+    <line x1="69" y1="10" x2="69" y2="104" stroke="#D4A843" stroke-width="0.8" opacity="0.7"/>
+
+  </g>
+</svg>

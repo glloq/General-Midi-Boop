@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Ensemble cordes (section d'orchestre) - GM 48 -->
+
+    <!-- Violon 1 (gauche, devant) -->
+    <g transform="translate(-18, 10) scale(0.45) rotate(45, 64, 64)">
+      <rect x="61" y="18" width="6" height="32" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+      <circle cx="64" cy="16" r="4" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+      <path d="M 64 48 C 76 48, 82 52, 82 58 L 82 68 L 74 74 L 84 80 C 86 84, 86 96, 84 104 C 80 112, 72 114, 64 114 C 56 114, 48 112, 44 104 C 42 96, 42 84, 44 80 L 54 74 L 46 68 L 46 58 C 46 52, 52 48, 64 48 Z" fill="#C17D2F" stroke="#8B6914" stroke-width="2"/>
+    </g>
+
+    <!-- Violon 2 (centre) -->
+    <g transform="translate(10, 0) scale(0.45) rotate(45, 64, 64)">
+      <rect x="61" y="18" width="6" height="32" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+      <circle cx="64" cy="16" r="4" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+      <path d="M 64 48 C 76 48, 82 52, 82 58 L 82 68 L 74 74 L 84 80 C 86 84, 86 96, 84 104 C 80 112, 72 114, 64 114 C 56 114, 48 112, 44 104 C 42 96, 42 84, 44 80 L 54 74 L 46 68 L 46 58 C 46 52, 52 48, 64 48 Z" fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+    </g>
+
+    <!-- Violoncelle (droite, plus grand) -->
+    <g transform="translate(36, 14) scale(0.5) rotate(45, 64, 64)">
+      <rect x="60" y="16" width="8" height="34" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+      <circle cx="64" cy="14" r="5" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+      <path d="M 64 46 C 78 46, 84 50, 84 58 L 84 66 L 74 72 L 86 78 C 90 84, 90 96, 88 106 C 84 114, 76 118, 64 118 C 52 118, 44 114, 40 106 C 38 96, 38 84, 42 78 L 54 72 L 44 66 L 44 58 C 44 50, 50 46, 64 46 Z" fill="#A0652F" stroke="#7A4E24" stroke-width="2"/>
+      <line x1="64" y1="118" x2="64" y2="126" stroke="#5C4A0E" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+
+</svg>

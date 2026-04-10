@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Trompette - GM 56 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Embouchure -->
+    <rect x="62" y="4" width="4" height="8" rx="1" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
+    <ellipse cx="64" cy="3" rx="5" ry="2.5" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Tube principal -->
+    <rect x="58" y="12" width="12" height="72" rx="5" fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Coulisse de 1er piston (tube gauche) -->
+    <rect x="50" y="28" width="4" height="36" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <!-- Coulisse de 3e piston (tube droit) -->
+    <rect x="74" y="28" width="4" height="36" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- 3 pistons -->
+    <circle cx="54" cy="34" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+    <circle cx="54" cy="46" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+    <circle cx="54" cy="58" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Pavillon (bell) -->
+    <path d="
+      M 58 84
+      C 52 92, 42 104, 40 112
+      C 38 120, 50 124, 64 124
+      C 78 124, 90 120, 88 112
+      C 86 104, 76 92, 70 84
+    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+  </g>
+</svg>

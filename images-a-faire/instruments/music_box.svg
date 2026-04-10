@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Boite a musique - GM 10 -->
+
+    <!-- Boite (coffret en bois, couvercle ouvert) -->
+    <rect x="20" y="54" width="88" height="54" rx="4" fill="#8B6914" stroke="#5C4A0E" stroke-width="2"/>
+
+    <!-- Couvercle ouvert (incline vers l'arriere) -->
+    <path d="M 20 54 L 28 16 L 116 16 L 108 54" fill="#A0652F" stroke="#5C4A0E" stroke-width="2"/>
+    <path d="M 22 52 L 30 18 L 114 18 L 106 52" fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Charniere -->
+    <rect x="44" y="52" width="8" height="4" rx="1" fill="#D4A843"/>
+    <rect x="76" y="52" width="8" height="4" rx="1" fill="#D4A843"/>
+
+    <!-- Cylindre a picots (inside the box) -->
+    <ellipse cx="64" cy="78" rx="30" ry="8" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <!-- Picots -->
+    <line x1="40" y1="74" x2="40" y2="70" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="48" y1="72" x2="48" y2="68" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="56" y1="71" x2="56" y2="67" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="64" y1="70" x2="64" y2="66" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="72" y1="71" x2="72" y2="67" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="80" y1="72" x2="80" y2="68" stroke="#B8960F" stroke-width="0.8"/>
+    <line x1="88" y1="74" x2="88" y2="70" stroke="#B8960F" stroke-width="0.8"/>
+
+    <!-- Peigne (lames metalliques) -->
+    <rect x="30" y="88" width="68" height="6" rx="1" fill="#C0C0C0" stroke="#999" stroke-width="1"/>
+
+    <!-- Cle de remontage (sur le cote) -->
+    <circle cx="110" cy="78" r="4" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <line x1="114" y1="78" x2="120" y2="78" stroke="#D4A843" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Notes (decoration sur couvercle) -->
+    <text x="60" y="38" font-size="14" fill="#D4A843" font-family="serif" opacity="0.5">&#9835;</text>
+
+</svg>

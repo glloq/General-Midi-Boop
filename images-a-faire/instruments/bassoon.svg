@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Basson - GM 70 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Bocal (tube metal courbe en haut) -->
+    <path d="M 58 18 C 54 14, 50 8, 54 4 C 58 0, 62 4, 60 10 L 58 18" fill="none" stroke="#C0C0C0" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Tube montant (tenor joint, gauche) -->
+    <rect x="54" y="18" width="8" height="78" rx="3" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+
+    <!-- Tube descendant (bass joint, droit) -->
+    <rect x="66" y="8" width="10" height="88" rx="4" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+
+    <!-- Culasse (U-bend en bas reliant les 2 tubes) -->
+    <path d="M 58 96 C 58 108, 62 112, 68 112 C 74 112, 76 108, 76 96" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+
+    <!-- Bagues metal -->
+    <rect x="53" y="16" width="10" height="3" rx="1" fill="#C0C0C0"/>
+    <rect x="65" y="6" width="12" height="3" rx="1" fill="#C0C0C0"/>
+
+    <!-- Pavillon (haut du tube droit, legere evasure) -->
+    <path d="M 66 8 C 64 4, 66 0, 72 0 C 78 0, 80 4, 78 8" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+
+    <!-- Clefs argent (sur le tube gauche) -->
+    <circle cx="50" cy="30" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="50" cy="42" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="50" cy="54" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="50" cy="66" r="3" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="50" cy="78" r="3" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Tiges -->
+    <line x1="50" y1="30" x2="54" y2="30" stroke="#999" stroke-width="0.8"/>
+    <line x1="50" y1="42" x2="54" y2="42" stroke="#999" stroke-width="0.8"/>
+    <line x1="50" y1="54" x2="54" y2="54" stroke="#999" stroke-width="0.8"/>
+    <line x1="50" y1="66" x2="54" y2="66" stroke="#999" stroke-width="0.8"/>
+    <line x1="50" y1="78" x2="54" y2="78" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Clefs sur le tube droit -->
+    <circle cx="80" cy="24" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="80" cy="40" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="80" cy="56" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+
+  </g>
+</svg>

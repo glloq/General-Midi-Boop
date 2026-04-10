@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Xylophone - GM 13 -->
+  <g transform="rotate(20, 64, 64)">
+
+    <!-- Cadre -->
+    <rect x="14" y="30" width="100" height="68" rx="4" fill="none" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Barres du cadre -->
+    <line x1="14" y1="36" x2="114" y2="36" stroke="#8B6914" stroke-width="2"/>
+    <line x1="14" y1="92" x2="114" y2="92" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Lames (de la plus longue a la plus courte) -->
+    <rect x="18" y="38" width="10" height="52" rx="2" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+    <rect x="30" y="40" width="10" height="48" rx="2" fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+    <rect x="42" y="42" width="10" height="44" rx="2" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+    <rect x="54" y="44" width="10" height="40" rx="2" fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+    <rect x="66" y="46" width="10" height="36" rx="2" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+    <rect x="78" y="48" width="10" height="32" rx="2" fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+    <rect x="90" y="50" width="10" height="28" rx="2" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+    <rect x="102" y="52" width="10" height="24" rx="2" fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Pieds -->
+    <line x1="24" y1="92" x2="20" y2="104" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+    <line x1="104" y1="92" x2="108" y2="104" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Mailloches -->
+    <line x1="36" y1="16" x2="48" y2="38" stroke="#8B6914" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="48" cy="38" r="3.5" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+    <line x1="86" y1="16" x2="74" y2="42" stroke="#8B6914" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="74" cy="42" r="3.5" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+  </g>
+</svg>

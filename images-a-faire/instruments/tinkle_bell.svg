@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Clochette - GM 112 -->
+
+    <!-- Anneau en haut -->
+    <circle cx="64" cy="20" r="6" fill="none" stroke="#D4A843" stroke-width="3"/>
+
+    <!-- Corps de la cloche -->
+    <path d="
+      M 48 36 C 44 36, 40 40, 40 48
+      L 36 84
+      C 34 94, 44 102, 64 102
+      C 84 102, 94 94, 92 84
+      L 88 48
+      C 88 40, 84 36, 80 36
+      Z
+    " fill="#D4A843" stroke="#B8960F" stroke-width="2"/>
+
+    <!-- Reflet -->
+    <path d="M 52 42 C 50 42, 48 46, 46 56 L 44 76" fill="none" stroke="#E8C84A" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+
+    <!-- Battant -->
+    <line x1="64" y1="72" x2="64" y2="96" stroke="#8B6914" stroke-width="2.5"/>
+    <circle cx="64" cy="98" r="5" fill="#B8960F" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Lien vers l'anneau -->
+    <line x1="64" y1="26" x2="64" y2="36" stroke="#D4A843" stroke-width="2"/>
+
+</svg>

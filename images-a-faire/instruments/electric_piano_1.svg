@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Piano electrique Rhodes - GM 4 -->
+
+    <!-- Corps (boitier rectangulaire) -->
+    <rect x="10" y="40" width="108" height="42" rx="4" fill="#333" stroke="#222" stroke-width="2"/>
+
+    <!-- Panneau superieur -->
+    <rect x="12" y="42" width="104" height="16" rx="2" fill="#444"/>
+
+    <!-- Logo / marque (trait decoratif) -->
+    <line x1="20" y1="50" x2="50" y2="50" stroke="#888" stroke-width="1"/>
+
+    <!-- Clavier (touches blanches) -->
+    <rect x="12" y="60" width="104" height="20" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+
+    <!-- Touches noires -->
+    <rect x="20" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="28" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="40" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="48" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="56" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="68" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="76" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="88" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="96" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+    <rect x="104" y="60" width="4" height="12" rx="0.5" fill="#111"/>
+
+    <!-- Pieds -->
+    <rect x="16" y="82" width="4" height="30" rx="1" fill="#444" stroke="#333" stroke-width="1"/>
+    <rect x="108" y="82" width="4" height="30" rx="1" fill="#444" stroke="#333" stroke-width="1"/>
+    <!-- Barre de renfort -->
+    <line x1="18" y1="102" x2="110" y2="102" stroke="#444" stroke-width="2"/>
+
+    <!-- Pedale -->
+    <rect x="56" y="108" width="16" height="6" rx="2" fill="#666" stroke="#444" stroke-width="1"/>
+
+</svg>

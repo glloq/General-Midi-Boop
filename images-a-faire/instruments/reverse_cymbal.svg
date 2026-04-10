@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Cymbale - GM 119 -->
+
+    <!-- Cymbale (vue de 3/4) -->
+    <ellipse cx="64" cy="52" rx="46" ry="18" fill="#D4A843" stroke="#B8960F" stroke-width="2"/>
+
+    <!-- Dome central (bell) -->
+    <ellipse cx="64" cy="50" rx="12" ry="5" fill="#E8C84A" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Reflets -->
+    <path d="M 30 46 C 40 40, 60 38, 80 42" fill="none" stroke="#E8C84A" stroke-width="1" opacity="0.4"/>
+    <path d="M 36 56 C 48 52, 72 50, 92 54" fill="none" stroke="#E8C84A" stroke-width="1" opacity="0.3"/>
+
+    <!-- Bord -->
+    <ellipse cx="64" cy="52" rx="46" ry="18" fill="none" stroke="#8B6914" stroke-width="1" opacity="0.5"/>
+
+    <!-- Tige / stand -->
+    <line x1="64" y1="58" x2="64" y2="116" stroke="#888" stroke-width="3"/>
+
+    <!-- Ecrou papillon -->
+    <path d="M 60 56 L 64 52 L 68 56 L 64 60 Z" fill="#888" stroke="#666" stroke-width="1"/>
+
+    <!-- Trepied (base) -->
+    <line x1="64" y1="116" x2="44" y2="124" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="116" x2="84" y2="124" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="116" x2="64" y2="126" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+
+</svg>

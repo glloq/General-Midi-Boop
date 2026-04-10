@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Shamisen - GM 106 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Manche (tres long et fin) -->
+    <rect x="62" y="4" width="5" height="68" rx="1" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+
+    <!-- Tete (avec chevilles) -->
+    <rect x="60" y="0" width="9" height="8" rx="1" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+    <line x1="58" y1="2" x2="54" y2="1" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="58" y1="5" x2="54" y2="6" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="71" y1="3" x2="75" y2="2" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Corps (carre avec coins arrondis, couvert de peau) -->
+    <rect x="44" y="72" width="40" height="40" rx="4" fill="#F5E6C8" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Bord du corps -->
+    <rect x="46" y="74" width="36" height="36" rx="2" fill="none" stroke="#D4A843" stroke-width="0.8"/>
+
+    <!-- Chevalet -->
+    <rect x="60" y="86" width="8" height="3" rx="1" fill="#5C4A0E"/>
+
+    <!-- Cordes (3) -->
+    <line x1="63" y1="4" x2="62" y2="86" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="64.5" y1="4" x2="64" y2="86" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="66" y1="4" x2="66" y2="86" stroke="#E8D5A3" stroke-width="0.6" opacity="0.7"/>
+
+  </g>
+</svg>

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Bandoneon - GM 23 -->
+  <g transform="rotate(20, 64, 64)">
+
+    <!-- Caisse droite (hexagonale/carree) -->
+    <rect x="72" y="22" width="30" height="84" rx="3" fill="#1A1A1A" stroke="#333" stroke-width="2"/>
+
+    <!-- Boutons cote droit (5 colonnes) -->
+    <circle cx="78" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="44" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="44" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="44" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="44" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="54" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="54" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="54" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="54" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="64" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="64" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="64" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="64" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="74" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="74" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="74" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="74" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="84" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="84" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="84" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="84" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="78" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="84" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="90" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="96" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+
+    <!-- Soufflet (plisse) -->
+    <rect x="42" y="22" width="30" height="84" rx="1" fill="none" stroke="#333" stroke-width="1.5"/>
+    <line x1="42" y1="28" x2="72" y2="28" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="34" x2="72" y2="34" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="40" x2="72" y2="40" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="46" x2="72" y2="46" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="52" x2="72" y2="52" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="58" x2="72" y2="58" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="64" x2="72" y2="64" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="70" x2="72" y2="70" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="76" x2="72" y2="76" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="82" x2="72" y2="82" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="88" x2="72" y2="88" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="94" x2="72" y2="94" stroke="#444" stroke-width="0.8"/>
+    <line x1="42" y1="100" x2="72" y2="100" stroke="#444" stroke-width="0.8"/>
+
+    <!-- Caisse gauche (miroir) -->
+    <rect x="12" y="22" width="30" height="84" rx="3" fill="#1A1A1A" stroke="#333" stroke-width="2"/>
+
+    <!-- Boutons cote gauche -->
+    <circle cx="18" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="34" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="18" cy="46" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="46" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="46" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="46" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="18" cy="58" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="58" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="58" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="58" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="18" cy="70" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="70" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="70" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="70" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="18" cy="82" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="82" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="82" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="82" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="18" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="24" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="30" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+    <circle cx="36" cy="94" r="2" fill="#F5F5F5" stroke="#CCC" stroke-width="0.5"/>
+
+  </g>
+</svg>

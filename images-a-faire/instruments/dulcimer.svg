@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Dulcimer (hammered dulcimer) - GM 15 -->
+  <g transform="rotate(15, 64, 64)">
+
+    <!-- Corps (trapeze) -->
+    <path d="
+      M 20 40 L 108 28 L 114 90 L 14 98 Z
+    " fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Bord interieur -->
+    <path d="
+      M 24 44 L 104 32 L 110 86 L 18 94 Z
+    " fill="#C17D2F" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Chevalets (2 barres traversantes) -->
+    <line x1="44" y1="38" x2="38" y2="94" stroke="#F5E6C8" stroke-width="3"/>
+    <line x1="80" y1="32" x2="76" y2="90" stroke="#F5E6C8" stroke-width="3"/>
+
+    <!-- Cordes (groupes de cordes) -->
+    <line x1="26" y1="48" x2="108" y2="36" stroke="#E8D5A3" stroke-width="0.4" opacity="0.5"/>
+    <line x1="26" y1="54" x2="108" y2="42" stroke="#E8D5A3" stroke-width="0.4" opacity="0.5"/>
+    <line x1="24" y1="60" x2="110" y2="48" stroke="#E8D5A3" stroke-width="0.4" opacity="0.5"/>
+    <line x1="22" y1="66" x2="110" y2="54" stroke="#E8D5A3" stroke-width="0.5" opacity="0.5"/>
+    <line x1="22" y1="72" x2="112" y2="60" stroke="#E8D5A3" stroke-width="0.5" opacity="0.5"/>
+    <line x1="20" y1="78" x2="112" y2="66" stroke="#E8D5A3" stroke-width="0.5" opacity="0.5"/>
+    <line x1="18" y1="84" x2="112" y2="72" stroke="#E8D5A3" stroke-width="0.5" opacity="0.5"/>
+    <line x1="16" y1="90" x2="114" y2="78" stroke="#E8D5A3" stroke-width="0.5" opacity="0.5"/>
+
+    <!-- Rosaces (trous de resonance) -->
+    <circle cx="34" cy="70" r="4" fill="#5C4A0E"/>
+    <circle cx="90" cy="58" r="4" fill="#5C4A0E"/>
+
+    <!-- Mailloches -->
+    <line x1="50" y1="16" x2="58" y2="42" stroke="#8B6914" stroke-width="2" stroke-linecap="round"/>
+    <rect x="56" y="40" width="6" height="3" rx="1" fill="#8B6914"/>
+    <line x1="82" y1="16" x2="74" y2="44" stroke="#8B6914" stroke-width="2" stroke-linecap="round"/>
+    <rect x="72" y="42" width="6" height="3" rx="1" fill="#8B6914"/>
+
+  </g>
+</svg>

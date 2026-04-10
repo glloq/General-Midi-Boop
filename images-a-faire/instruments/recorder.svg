@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Flute a bec (recorder) - GM 74 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Corps (bois clair, droit, 3 sections) -->
+    <rect x="60" y="6" width="8" height="38" rx="3" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+    <rect x="60" y="44" width="8" height="38" rx="3" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+    <rect x="59" y="82" width="10" height="28" rx="4" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Bagues de jonction -->
+    <rect x="59" y="42" width="10" height="4" rx="1" fill="#8B6914"/>
+    <rect x="58" y="80" width="12" height="4" rx="1" fill="#8B6914"/>
+
+    <!-- Bec (biseau en haut) -->
+    <path d="M 60 6 L 60 2 C 60 0, 68 0, 68 2 L 68 6" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+    <!-- Lumiere (fente du bec) -->
+    <rect x="62" y="4" width="4" height="6" rx="1" fill="#3D300A"/>
+
+    <!-- Pavillon (legere evasure) -->
+    <path d="M 59 110 L 57 116 C 56 120, 60 122, 64 122 C 68 122, 72 120, 71 116 L 69 110" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Trous de doigts (7 + 1 pouce) -->
+    <circle cx="64" cy="22" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="32" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="40" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="52" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="60" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="68" r="2.5" fill="#3D300A"/>
+    <circle cx="64" cy="76" r="2.5" fill="#3D300A"/>
+    <!-- Double trou en bas -->
+    <circle cx="62" cy="90" r="1.5" fill="#3D300A"/>
+    <circle cx="66" cy="90" r="1.5" fill="#3D300A"/>
+
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Tom melodique - GM 117 -->
+
+    <!-- Fut -->
+    <rect x="28" y="44" width="72" height="48" rx="2" fill="#CC3333" stroke="#A52828" stroke-width="2"/>
+
+    <!-- Cercle de tension superieur -->
+    <ellipse cx="64" cy="44" rx="38" ry="14" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau superieure -->
+    <ellipse cx="64" cy="44" rx="36" ry="12" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Cercle de tension inferieur -->
+    <ellipse cx="64" cy="92" rx="38" ry="14" fill="none" stroke="#D4A843" stroke-width="2"/>
+
+    <!-- Tirants (tension rods) -->
+    <line x1="30" y1="48" x2="30" y2="88" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="46" y1="54" x2="46" y2="90" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="82" y1="54" x2="82" y2="90" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="98" y1="48" x2="98" y2="88" stroke="#D4A843" stroke-width="1.5"/>
+
+    <!-- Support -->
+    <line x1="64" y1="92" x2="64" y2="122" stroke="#888" stroke-width="3" stroke-linecap="round"/>
+    <line x1="48" y1="122" x2="80" y2="122" stroke="#888" stroke-width="3" stroke-linecap="round"/>
+
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Woodblock - GM 115 -->
+
+    <!-- Corps (bloc de bois rectangulaire avec fente) -->
+    <rect x="24" y="44" width="80" height="44" rx="6" fill="#A0652F" stroke="#7A4E24" stroke-width="2.5"/>
+
+    <!-- Fente (ouverture sur le dessus) -->
+    <rect x="38" y="52" width="52" height="6" rx="2" fill="#3D300A"/>
+
+    <!-- Grain du bois -->
+    <line x1="30" y1="64" x2="98" y2="64" stroke="#8B6914" stroke-width="0.5" opacity="0.3"/>
+    <line x1="30" y1="72" x2="98" y2="72" stroke="#8B6914" stroke-width="0.5" opacity="0.3"/>
+    <line x1="30" y1="80" x2="98" y2="80" stroke="#8B6914" stroke-width="0.5" opacity="0.3"/>
+
+    <!-- Baguette -->
+    <line x1="40" y1="12" x2="58" y2="44" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="58" cy="44" r="4" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+
+</svg>

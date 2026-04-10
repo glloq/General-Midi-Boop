@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Cornemuse - GM 109 -->
+  <g transform="rotate(20, 64, 64)">
+
+    <!-- Poche (bag) -->
+    <ellipse cx="60" cy="64" rx="30" ry="24" fill="#8B6914" stroke="#5C4A0E" stroke-width="2"/>
+
+    <!-- Chalumeau melodique (chanter, descend vers le bas) -->
+    <rect x="72" y="60" width="5" height="54" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <!-- Trous du chanter -->
+    <circle cx="74.5" cy="72" r="1.5" fill="#333"/>
+    <circle cx="74.5" cy="78" r="1.5" fill="#333"/>
+    <circle cx="74.5" cy="84" r="1.5" fill="#333"/>
+    <circle cx="74.5" cy="90" r="1.5" fill="#333"/>
+    <circle cx="74.5" cy="96" r="1.5" fill="#333"/>
+    <circle cx="74.5" cy="102" r="1.5" fill="#333"/>
+    <!-- Pavillon du chanter -->
+    <path d="M 72 114 L 70 120 C 70 124, 79 124, 79 120 L 77 114" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+
+    <!-- Bourdons (drones, 3 tubes montant vers le haut) -->
+    <rect x="44" y="8" width="5" height="48" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <rect x="52" y="4" width="5" height="52" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <rect x="60" y="8" width="5" height="48" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+
+    <!-- Decorations (bagues ivoire sur les bourdons) -->
+    <rect x="43" y="14" width="7" height="3" rx="1" fill="#F5E6C8"/>
+    <rect x="43" y="28" width="7" height="3" rx="1" fill="#F5E6C8"/>
+    <rect x="51" y="10" width="7" height="3" rx="1" fill="#F5E6C8"/>
+    <rect x="51" y="24" width="7" height="3" rx="1" fill="#F5E6C8"/>
+    <rect x="59" y="14" width="7" height="3" rx="1" fill="#F5E6C8"/>
+    <rect x="59" y="28" width="7" height="3" rx="1" fill="#F5E6C8"/>
+
+    <!-- Tuyau d'insufflation (blowpipe) -->
+    <rect x="32" y="40" width="4" height="20" rx="1" fill="#1A1A1A" stroke="#333" stroke-width="1" transform="rotate(-30, 34, 50)"/>
+
+  </g>
+</svg>

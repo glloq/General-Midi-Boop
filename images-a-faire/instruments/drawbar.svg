@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Orgue Hammond (drawbar) - GM 16 -->
+
+    <!-- Corps (meuble en bois) -->
+    <rect x="10" y="24" width="108" height="72" rx="4" fill="#5C4A0E" stroke="#3D300A" stroke-width="2"/>
+
+    <!-- Panneau des tirettes (drawbars) en haut -->
+    <rect x="16" y="28" width="96" height="20" rx="2" fill="#333"/>
+    <!-- Tirettes (9 drawbars) -->
+    <rect x="22" y="30" width="4" height="12" rx="1" fill="#F5F5F5"/>
+    <rect x="30" y="32" width="4" height="10" rx="1" fill="#F5F5F5"/>
+    <rect x="38" y="30" width="4" height="14" rx="1" fill="#F5F5F5"/>
+    <rect x="46" y="34" width="4" height="8" rx="1" fill="#F5F5F5"/>
+    <rect x="54" y="30" width="4" height="16" rx="1" fill="#F5F5F5"/>
+    <rect x="62" y="32" width="4" height="10" rx="1" fill="#F5F5F5"/>
+    <rect x="70" y="30" width="4" height="14" rx="1" fill="#F5F5F5"/>
+    <rect x="78" y="34" width="4" height="8" rx="1" fill="#F5F5F5"/>
+    <rect x="86" y="30" width="4" height="12" rx="1" fill="#F5F5F5"/>
+
+    <!-- 2e jeu de tirettes -->
+    <rect x="22" y="48" width="68" height="4" rx="1" fill="#333"/>
+
+    <!-- Clavier superieur -->
+    <rect x="16" y="56" width="96" height="14" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <!-- Touches noires -->
+    <rect x="24" y="56" width="3" height="8" fill="#111"/>
+    <rect x="32" y="56" width="3" height="8" fill="#111"/>
+    <rect x="44" y="56" width="3" height="8" fill="#111"/>
+    <rect x="52" y="56" width="3" height="8" fill="#111"/>
+    <rect x="60" y="56" width="3" height="8" fill="#111"/>
+    <rect x="72" y="56" width="3" height="8" fill="#111"/>
+    <rect x="80" y="56" width="3" height="8" fill="#111"/>
+    <rect x="92" y="56" width="3" height="8" fill="#111"/>
+    <rect x="100" y="56" width="3" height="8" fill="#111"/>
+
+    <!-- Clavier inferieur -->
+    <rect x="16" y="72" width="96" height="14" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <rect x="24" y="72" width="3" height="8" fill="#111"/>
+    <rect x="32" y="72" width="3" height="8" fill="#111"/>
+    <rect x="44" y="72" width="3" height="8" fill="#111"/>
+    <rect x="52" y="72" width="3" height="8" fill="#111"/>
+    <rect x="60" y="72" width="3" height="8" fill="#111"/>
+    <rect x="72" y="72" width="3" height="8" fill="#111"/>
+    <rect x="80" y="72" width="3" height="8" fill="#111"/>
+    <rect x="92" y="72" width="3" height="8" fill="#111"/>
+    <rect x="100" y="72" width="3" height="8" fill="#111"/>
+
+    <!-- Pieds -->
+    <rect x="14" y="96" width="6" height="20" rx="2" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+    <rect x="108" y="96" width="6" height="20" rx="2" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+
+    <!-- Pedalier -->
+    <rect x="30" y="112" width="68" height="6" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1"/>
+
+</svg>

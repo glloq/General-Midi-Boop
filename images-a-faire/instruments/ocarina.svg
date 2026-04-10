@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Ocarina - GM 79 -->
+
+    <!-- Corps (forme ovale/patate allongee) -->
+    <path d="
+      M 28 64
+      C 28 40, 48 28, 72 28
+      C 96 28, 108 44, 108 64
+      C 108 84, 96 100, 72 100
+      C 48 100, 28 88, 28 64 Z
+    " fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Embouchure (bec pointu a gauche) -->
+    <path d="M 28 60 L 14 58 L 14 70 L 28 68" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Trous de doigts (4 en haut, 4 en bas, 2 pouces) -->
+    <circle cx="56" cy="52" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="68" cy="48" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="80" cy="48" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="92" cy="52" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="56" cy="76" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="68" cy="80" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="80" cy="80" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+    <circle cx="92" cy="76" r="4" fill="#5C4A0E" stroke="#8B6914" stroke-width="0.8"/>
+
+    <!-- Trou de voix (en haut au centre) -->
+    <ellipse cx="72" cy="38" rx="3" ry="2" fill="#5C4A0E"/>
+
+</svg>

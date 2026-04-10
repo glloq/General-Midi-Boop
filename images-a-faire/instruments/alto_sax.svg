@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Saxophone alto - GM 65 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Bec + anche -->
+    <rect x="50" y="2" width="5" height="12" rx="1" fill="#1A1A1A" stroke="#111" stroke-width="1"/>
+    <rect x="48" y="0" width="4" height="6" rx="1" fill="#5C4A0E"/>
+
+    <!-- Bocal (tube courbe reliant bec au corps) -->
+    <path d="M 52 14 C 52 20, 56 24, 60 24" fill="none" stroke="#D4A843" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Corps principal (tube droit qui descend) -->
+    <rect x="58" y="24" width="10" height="60" rx="4" fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Coude du bas (la courbe en U) -->
+    <path d="M 63 84 C 63 98, 68 104, 78 104 C 86 104, 88 98, 88 90" fill="none" stroke="#D4A843" stroke-width="11"/>
+    <path d="M 63 84 C 63 98, 68 104, 78 104 C 86 104, 88 98, 88 90" fill="none" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Pavillon (bell, evasee, pointe vers le haut) -->
+    <path d="
+      M 84 90
+      C 80 82, 74 74, 74 68
+      C 74 62, 80 58, 88 58
+      C 96 58, 100 62, 100 68
+      C 100 74, 96 82, 92 90
+    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Clefs (cles sur le corps) -->
+    <circle cx="56" cy="32" r="3" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="56" cy="42" r="3" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="56" cy="52" r="3" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="56" cy="62" r="3" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="56" cy="72" r="3" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="70" cy="36" r="2.5" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+    <circle cx="70" cy="48" r="2.5" fill="#E8C84A" stroke="#B8960F" stroke-width="0.8"/>
+
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Cloches tubulaires - GM 14 -->
+  <g transform="rotate(15, 64, 64)">
+
+    <!-- Cadre superieur -->
+    <rect x="18" y="10" width="92" height="6" rx="2" fill="#888" stroke="#666" stroke-width="1.5"/>
+
+    <!-- Montants -->
+    <rect x="18" y="10" width="4" height="100" rx="1" fill="#888" stroke="#666" stroke-width="1"/>
+    <rect x="106" y="10" width="4" height="100" rx="1" fill="#888" stroke="#666" stroke-width="1"/>
+
+    <!-- Tubes (du plus long au plus court) -->
+    <rect x="26" y="18" width="6" height="82" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="36" y="18" width="6" height="76" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="46" y="18" width="6" height="70" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="56" y="18" width="6" height="64" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="66" y="18" width="6" height="58" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="76" y="18" width="6" height="52" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="86" y="18" width="6" height="46" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="96" y="18" width="6" height="40" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Pedale de sustain -->
+    <rect x="50" y="106" width="28" height="6" rx="2" fill="#666" stroke="#444" stroke-width="1"/>
+
+    <!-- Maillet -->
+    <line x1="48" y1="0" x2="54" y2="18" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="54" cy="18" r="4" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+
+  </g>
+</svg>

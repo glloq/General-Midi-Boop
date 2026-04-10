@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Banjo - GM 105 - rotation 45° -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Manche (long, rejoint le corps) -->
+    <rect x="60" y="6" width="9" height="78" rx="2" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+
+    <!-- Frettes -->
+    <line x1="60" y1="16" x2="69" y2="16" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="25" x2="69" y2="25" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="33" x2="69" y2="33" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="40" x2="69" y2="40" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="46" x2="69" y2="46" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="52" x2="69" y2="52" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="57" x2="69" y2="57" stroke="#D4A843" stroke-width="1"/>
+    <line x1="60" y1="62" x2="69" y2="62" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Tete -->
+    <rect x="58" y="0" width="13" height="10" rx="2" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+    <circle cx="60" cy="3" r="1.8" fill="#D4A843"/>
+    <circle cx="60" cy="7" r="1.8" fill="#D4A843"/>
+    <circle cx="69" cy="3" r="1.8" fill="#D4A843"/>
+    <circle cx="69" cy="7" r="1.8" fill="#D4A843"/>
+    <!-- 5e corde (cheville laterale) -->
+    <circle cx="57" cy="30" r="1.5" fill="#D4A843"/>
+
+    <!-- Corps - cerceau (rim) -->
+    <circle cx="64" cy="100" r="20" fill="#8B6914" stroke="#5C4A0E" stroke-width="2.5"/>
+
+    <!-- Membrane (drum head) -->
+    <circle cx="64" cy="100" r="18" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Chevalet -->
+    <rect x="60" y="94" width="9" height="3" rx="1" fill="#5C4A0E"/>
+
+    <!-- Cordier -->
+    <rect x="58" y="116" width="13" height="4" rx="2" fill="#D4A843" stroke="#8B6914" stroke-width="0.8"/>
+
+    <!-- Cordes (5 cordes) -->
+    <line x1="61" y1="10" x2="61" y2="116" stroke="#E8D5A3" stroke-width="0.4" opacity="0.8"/>
+    <line x1="63" y1="10" x2="63" y2="116" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
+    <line x1="65" y1="10" x2="65" y2="116" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
+    <line x1="67" y1="10" x2="67" y2="116" stroke="#E8D5A3" stroke-width="0.6" opacity="0.8"/>
+    <line x1="59" y1="30" x2="59" y2="116" stroke="#E8D5A3" stroke-width="0.4" opacity="0.8"/>
+
+    <!-- Armrest -->
+    <path d="M 47 88 C 45 94, 45 106, 47 112" fill="none" stroke="#5C4A0E" stroke-width="1.5"/>
+
+  </g>
+</svg>

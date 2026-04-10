@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Taiko - GM 116 -->
+
+    <!-- Fut (tonneau horizontal) -->
+    <ellipse cx="64" cy="72" rx="44" ry="32" fill="#8B6914" stroke="#5C4A0E" stroke-width="2"/>
+
+    <!-- Cerclages (cordes/cerceaux) -->
+    <ellipse cx="64" cy="72" rx="44" ry="32" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <ellipse cx="64" cy="72" rx="38" ry="28" fill="none" stroke="#D4A843" stroke-width="1" opacity="0.5"/>
+
+    <!-- Peau (face visible) -->
+    <ellipse cx="64" cy="72" rx="30" ry="22" fill="#F5E6C8" stroke="#D4A843" stroke-width="2"/>
+
+    <!-- Clous / tacks decoratifs autour de la peau -->
+    <circle cx="36" cy="64" r="1.5" fill="#D4A843"/>
+    <circle cx="40" cy="54" r="1.5" fill="#D4A843"/>
+    <circle cx="50" cy="48" r="1.5" fill="#D4A843"/>
+    <circle cx="64" cy="46" r="1.5" fill="#D4A843"/>
+    <circle cx="78" cy="48" r="1.5" fill="#D4A843"/>
+    <circle cx="88" cy="54" r="1.5" fill="#D4A843"/>
+    <circle cx="92" cy="64" r="1.5" fill="#D4A843"/>
+    <circle cx="92" cy="76" r="1.5" fill="#D4A843"/>
+    <circle cx="88" cy="86" r="1.5" fill="#D4A843"/>
+    <circle cx="78" cy="92" r="1.5" fill="#D4A843"/>
+    <circle cx="64" cy="94" r="1.5" fill="#D4A843"/>
+    <circle cx="50" cy="92" r="1.5" fill="#D4A843"/>
+    <circle cx="40" cy="86" r="1.5" fill="#D4A843"/>
+    <circle cx="36" cy="76" r="1.5" fill="#D4A843"/>
+
+    <!-- Support -->
+    <line x1="30" y1="100" x2="22" y2="118" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="98" y1="100" x2="106" y2="118" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="22" y1="118" x2="106" y2="118" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Bachi (baguettes) -->
+    <line x1="40" y1="12" x2="56" y2="58" stroke="#D4934A" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="12" x2="72" y2="58" stroke="#D4934A" stroke-width="3" stroke-linecap="round"/>
+
+</svg>

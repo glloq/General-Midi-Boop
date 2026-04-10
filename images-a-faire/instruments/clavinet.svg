@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Clavinet - GM 7 -->
+
+    <!-- Corps (boitier plat rectangulaire, style annees 70) -->
+    <rect x="8" y="40" width="112" height="36" rx="3" fill="#444" stroke="#333" stroke-width="2"/>
+
+    <!-- Panneau superieur (couvercle) -->
+    <rect x="10" y="42" width="108" height="12" rx="2" fill="#555"/>
+
+    <!-- Selecteurs de son (boutons bascule) -->
+    <rect x="16" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+    <rect x="26" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+    <rect x="36" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+    <rect x="46" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+    <rect x="56" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+    <rect x="66" y="44" width="6" height="3" rx="1" fill="#F5F5F5"/>
+
+    <!-- Bande orange (signature visuelle Clavinet) -->
+    <rect x="10" y="53" width="108" height="3" rx="0.5" fill="#E87D1E"/>
+
+    <!-- Clavier -->
+    <rect x="10" y="58" width="108" height="16" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <!-- Touches noires -->
+    <rect x="18" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="26" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="38" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="46" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="54" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="66" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="74" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="86" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="94" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+    <rect x="102" y="58" width="3" height="10" rx="0.5" fill="#111"/>
+
+    <!-- Pieds (4, style chrome) -->
+    <rect x="14" y="76" width="3" height="32" rx="1" fill="#888" stroke="#666" stroke-width="0.8"/>
+    <rect x="111" y="76" width="3" height="32" rx="1" fill="#888" stroke="#666" stroke-width="0.8"/>
+    <!-- Barre transversale -->
+    <line x1="15" y1="96" x2="112" y2="96" stroke="#888" stroke-width="1.5"/>
+
+    <!-- Pedale -->
+    <rect x="52" y="104" width="24" height="5" rx="2" fill="#666"/>
+
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Contrebasse - GM 32 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Pique -->
+    <line x1="64" y1="120" x2="64" y2="126" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Manche (long et epais) -->
+    <rect x="60" y="14" width="8" height="40" rx="1" fill="#8B6914" stroke="#5C4A0E" stroke-width="1"/>
+
+    <!-- Chevillier (plus gros) -->
+    <rect x="57" y="4" width="14" height="14" rx="1" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+
+    <!-- Volute (grosse) -->
+    <circle cx="64" cy="2" r="6" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
+    <circle cx="64" cy="2" r="2.5" fill="#3D300A"/>
+
+    <!-- Chevilles (grosses) -->
+    <line x1="57" y1="8" x2="50" y2="6" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="57" y1="14" x2="50" y2="16" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="71" y1="8" x2="78" y2="6" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+    <line x1="71" y1="14" x2="78" y2="16" stroke="#5C4A0E" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Corps (epaules tombantes, tres large) -->
+    <path d="
+      M 64 50
+      C 74 50, 80 54, 82 62
+      L 82 70
+      L 74 76
+      L 88 82
+      C 92 88, 92 100, 90 108
+      C 86 116, 76 120, 64 120
+      C 52 120, 42 116, 38 108
+      C 36 100, 36 88, 40 82
+      L 54 76
+      L 46 70
+      L 46 62
+      C 48 54, 54 50, 64 50 Z
+    " fill="#A0652F" stroke="#7A4E24" stroke-width="2"/>
+
+    <!-- Ouie F gauche -->
+    <path d="M 50 76 C 48 82, 48 88, 50 92" fill="none" stroke="#3D300A" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Ouie F droite -->
+    <path d="M 78 76 C 80 82, 80 88, 78 92" fill="none" stroke="#3D300A" stroke-width="1.5" stroke-linecap="round"/>
+
+    <!-- Chevalet -->
+    <rect x="54" y="92" width="20" height="3" rx="0.5" fill="#5C4A0E"/>
+
+    <!-- Cordier -->
+    <path d="M 58 104 L 56 116 L 72 116 L 70 104 Z" fill="#1A1A1A" opacity="0.5"/>
+
+    <!-- Cordes (4 epaisses) -->
+    <line x1="61" y1="14" x2="61" y2="104" stroke="#E8D5A3" stroke-width="0.7" opacity="0.7"/>
+    <line x1="63" y1="14" x2="63" y2="104" stroke="#E8D5A3" stroke-width="0.8" opacity="0.7"/>
+    <line x1="65" y1="14" x2="65" y2="104" stroke="#E8D5A3" stroke-width="1.0" opacity="0.7"/>
+    <line x1="67" y1="14" x2="67" y2="104" stroke="#E8D5A3" stroke-width="1.1" opacity="0.7"/>
+
+  </g>
+</svg>

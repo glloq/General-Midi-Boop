@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Bouteille soufflee - GM 76 -->
+  <g transform="rotate(20, 64, 64)">
+
+    <!-- Goulot -->
+    <rect x="58" y="10" width="12" height="28" rx="5" fill="#7CB9E8" stroke="#4A90C4" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- Epaule -->
+    <path d="M 58 38 C 58 42, 46 48, 42 56" fill="none" stroke="#4A90C4" stroke-width="1.5" opacity="0.7"/>
+    <path d="M 70 38 C 70 42, 82 48, 86 56" fill="none" stroke="#4A90C4" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- Corps de la bouteille -->
+    <rect x="40" y="48" width="48" height="60" rx="6" fill="#7CB9E8" stroke="#4A90C4" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- Fond arrondi -->
+    <path d="M 40 108 C 40 116, 52 120, 64 120 C 76 120, 88 116, 88 108" fill="#7CB9E8" stroke="#4A90C4" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- Reflet (ligne brillante) -->
+    <line x1="50" y1="54" x2="50" y2="100" stroke="#B8DCF0" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+
+    <!-- Ouverture -->
+    <ellipse cx="64" cy="10" rx="5" ry="2" fill="#4A90C4" opacity="0.5"/>
+
+  </g>
+</svg>

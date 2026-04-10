@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Choeur - GM 52 -->
+
+    <!-- Rangee arriere (3 silhouettes) -->
+    <circle cx="32" cy="24" r="8" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+    <rect x="22" y="32" width="20" height="30" rx="6" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+
+    <circle cx="64" cy="20" r="8" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+    <rect x="54" y="28" width="20" height="30" rx="6" fill="#A0652F" stroke="#7A4E24" stroke-width="1.5"/>
+
+    <circle cx="96" cy="24" r="8" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+    <rect x="86" y="32" width="20" height="30" rx="6" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+
+    <!-- Rangee avant (2 silhouettes) -->
+    <circle cx="44" cy="50" r="9" fill="#C17D2F" stroke="#8B6914" stroke-width="1.5"/>
+    <rect x="32" y="59" width="24" height="36" rx="8" fill="#C17D2F" stroke="#8B6914" stroke-width="1.5"/>
+
+    <circle cx="84" cy="50" r="9" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+    <rect x="72" y="59" width="24" height="36" rx="8" fill="#D4934A" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Partitions (livres ouverts devant) -->
+    <rect x="30" y="86" width="16" height="12" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <line x1="38" y1="86" x2="38" y2="98" stroke="#CCC" stroke-width="0.5"/>
+    <rect x="70" y="86" width="16" height="12" rx="1" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <line x1="78" y1="86" x2="78" y2="98" stroke="#CCC" stroke-width="0.5"/>
+
+    <!-- Lignes de musique sur les partitions -->
+    <line x1="31" y1="89" x2="37" y2="89" stroke="#999" stroke-width="0.3"/>
+    <line x1="31" y1="91" x2="37" y2="91" stroke="#999" stroke-width="0.3"/>
+    <line x1="31" y1="93" x2="37" y2="93" stroke="#999" stroke-width="0.3"/>
+
+    <!-- Pupitre (support) -->
+    <line x1="38" y1="98" x2="38" y2="118" stroke="#666" stroke-width="2"/>
+    <line x1="78" y1="98" x2="78" y2="118" stroke="#666" stroke-width="2"/>
+
+</svg>

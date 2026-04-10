@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Hautbois - GM 68 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Anche double (bec fin) -->
+    <path d="M 63 0 L 62 8 L 66 8 L 65 0 Z" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
+
+    <!-- Corps superieur (noir, s'elargit progressivement) -->
+    <path d="
+      M 61 8 L 60 48 L 68 48 L 67 8 Z
+    " fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+
+    <!-- Corps inferieur -->
+    <path d="
+      M 60 48 L 58 92 L 70 92 L 68 48 Z
+    " fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+
+    <!-- Bagues argent -->
+    <rect x="59" y="8" width="10" height="2" rx="1" fill="#C0C0C0"/>
+    <rect x="59" y="46" width="10" height="3" rx="1" fill="#C0C0C0"/>
+
+    <!-- Pavillon (evasure conique) -->
+    <path d="
+      M 58 92
+      L 54 104
+      C 52 112, 56 118, 64 118
+      C 72 118, 76 112, 74 104
+      L 70 92
+    " fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <ellipse cx="64" cy="116" rx="8" ry="3" fill="#333"/>
+
+    <!-- Clefs argent -->
+    <circle cx="56" cy="20" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="32" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="44" r="2.5" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="58" r="3" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="70" r="3" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="82" r="3" fill="#C0C0C0" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Tiges -->
+    <line x1="56" y1="20" x2="61" y2="20" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="32" x2="61" y2="32" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="58" x2="60" y2="58" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="70" x2="60" y2="70" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="82" x2="60" y2="82" stroke="#999" stroke-width="0.8"/>
+
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Agogo - GM 113 -->
+
+    <!-- Tige de liaison (metal) -->
+    <path d="M 44 30 C 44 50, 64 50, 64 30 C 64 50, 84 50, 84 60" fill="none" stroke="#888" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Cloche haute (petite) -->
+    <path d="
+      M 36 30 L 34 58 C 34 66, 42 70, 52 70 C 62 70, 66 66, 64 58 L 52 30 Z
+    " fill="#888" stroke="#666" stroke-width="2"/>
+    <ellipse cx="48" cy="68" rx="10" ry="4" fill="#777" stroke="#666" stroke-width="1"/>
+
+    <!-- Cloche basse (grande) -->
+    <path d="
+      M 72 52 L 68 88 C 68 98, 78 104, 92 104 C 106 104, 112 98, 110 88 L 96 52 Z
+    " fill="#888" stroke="#666" stroke-width="2"/>
+    <ellipse cx="90" cy="102" rx="14" ry="5" fill="#777" stroke="#666" stroke-width="1"/>
+
+    <!-- Baguette -->
+    <line x1="20" y1="10" x2="44" y2="44" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="44" cy="44" r="3" fill="#8B6914"/>
+
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Koto - GM 107 -->
+  <g transform="rotate(35, 64, 64)">
+
+    <!-- Corps (long, plat, legerement bombe) -->
+    <path d="
+      M 10 56 C 10 50, 20 46, 64 46 C 108 46, 118 50, 118 56
+      L 118 72
+      C 118 78, 108 82, 64 82 C 20 82, 10 78, 10 72 Z
+    " fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Surface superieure -->
+    <path d="
+      M 10 56 C 10 50, 20 46, 64 46 C 108 46, 118 50, 118 56
+      C 118 62, 108 66, 64 66 C 20 66, 10 62, 10 56 Z
+    " fill="#E8C84A" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Chevalets mobiles (ji, triangulaires) -->
+    <path d="M 24 52 L 22 56 L 26 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 36 50 L 34 56 L 38 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 48 49 L 46 56 L 50 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 58 48 L 56 56 L 60 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 68 48 L 66 56 L 70 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 78 49 L 76 56 L 80 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 88 50 L 86 56 L 90 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+    <path d="M 100 52 L 98 56 L 102 56 Z" fill="#F5E6C8" stroke="#8B6914" stroke-width="0.8"/>
+
+    <!-- Cordes (13 simplifiees en 8) -->
+    <line x1="14" y1="54" x2="114" y2="54" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
+    <line x1="14" y1="55.5" x2="114" y2="55.5" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
+    <line x1="14" y1="57" x2="114" y2="57" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
+    <line x1="14" y1="58.5" x2="114" y2="58.5" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
+    <line x1="14" y1="60" x2="114" y2="60" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
+
+  </g>
+</svg>
