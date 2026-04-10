@@ -2,93 +2,85 @@
   <!-- Guitare electrique Stratocaster rouge/blanc - GM 27 -->
   <g transform="rotate(45, 64, 64)">
 
-    <!-- Manche (erable) -->
-    <rect x="59" y="4" width="10" height="48" rx="2" fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
+    <!-- Manche erable -->
+    <rect x="59" y="6" width="10" height="42" rx="2" fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
 
     <!-- Frettes -->
     <line x1="59" y1="12" x2="69" y2="12" stroke="#D4A843" stroke-width="1"/>
-    <line x1="59" y1="19" x2="69" y2="19" stroke="#D4A843" stroke-width="1"/>
-    <line x1="59" y1="25" x2="69" y2="25" stroke="#D4A843" stroke-width="1"/>
-    <line x1="59" y1="30" x2="69" y2="30" stroke="#D4A843" stroke-width="1"/>
-    <line x1="59" y1="35" x2="69" y2="35" stroke="#D4A843" stroke-width="1"/>
+    <line x1="59" y1="18" x2="69" y2="18" stroke="#D4A843" stroke-width="1"/>
+    <line x1="59" y1="24" x2="69" y2="24" stroke="#D4A843" stroke-width="1"/>
+    <line x1="59" y1="29" x2="69" y2="29" stroke="#D4A843" stroke-width="1"/>
+    <line x1="59" y1="34" x2="69" y2="34" stroke="#D4A843" stroke-width="1"/>
     <line x1="59" y1="39" x2="69" y2="39" stroke="#D4A843" stroke-width="1"/>
     <line x1="59" y1="43" x2="69" y2="43" stroke="#D4A843" stroke-width="1"/>
 
-    <!-- Reperes de manche -->
-    <circle cx="64" cy="22" r="1" fill="#F5F5F5" opacity="0.6"/>
-    <circle cx="64" cy="33" r="1" fill="#F5F5F5" opacity="0.6"/>
+    <!-- Dots -->
+    <circle cx="64" cy="21" r="1" fill="#F5F5F5" opacity="0.5"/>
+    <circle cx="64" cy="32" r="1" fill="#F5F5F5" opacity="0.5"/>
 
-    <!-- Tete Strat (forme allongee) -->
-    <path d="
-      M 59 4 L 57 4
-      C 55 4, 54 2, 54 -2
-      C 54 -6, 56 -8, 60 -8
-      L 68 -8
-      C 72 -8, 74 -6, 74 -2
-      C 74 2, 73 4, 71 4
-      L 69 4
-    " fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
-    <!-- Mecaniques -->
-    <circle cx="56" cy="-2" r="1.8" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
-    <circle cx="56" cy="-6" r="1.8" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
-    <circle cx="72" cy="-2" r="1.8" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
-    <circle cx="72" cy="-6" r="1.8" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
+    <!-- Tete -->
+    <rect x="56" y="0" width="16" height="10" rx="3" fill="#C19A49" stroke="#8B6914" stroke-width="1.5"/>
+    <circle cx="58" cy="3" r="1.8" fill="#D4A843"/>
+    <circle cx="58" cy="7" r="1.8" fill="#D4A843"/>
+    <circle cx="70" cy="3" r="1.8" fill="#D4A843"/>
+    <circle cx="70" cy="7" r="1.8" fill="#D4A843"/>
 
-    <!-- Corps Stratocaster (rouge) -->
+    <!-- ===================== -->
+    <!-- CORPS STRATOCASTER    -->
+    <!-- Lignes droites pour   -->
+    <!-- les cornes + arcs     -->
+    <!-- pour le corps arrondi -->
+    <!-- ===================== -->
     <path d="
-      M 64 48
-      C 54 46, 42 42, 40 48
-      C 38 54, 46 56, 52 54
-      C 46 62, 36 76, 36 92
-      C 36 110, 50 122, 64 122
-      C 78 122, 92 110, 92 92
-      C 92 76, 82 62, 76 54
-      C 82 56, 90 54, 88 48
-      C 86 42, 74 46, 64 48 Z
+      M 59 48
+      L 44 38
+      C 40 36, 36 40, 38 46
+      L 48 56
+      C 42 64, 36 80, 36 98
+      C 36 114, 50 124, 64 124
+      C 78 124, 92 114, 92 98
+      C 92 80, 86 64, 80 56
+      L 90 46
+      C 92 40, 88 36, 84 38
+      L 69 48
+      Z
     " fill="#CC3333" stroke="#A52828" stroke-width="2"/>
 
-    <!-- Pickguard blanc (couvre la moitie gauche + micros) -->
+    <!-- Pickguard blanc -->
     <path d="
-      M 52 54
-      C 46 62, 38 74, 38 88
-      C 38 98, 42 108, 52 112
-      L 72 112 L 72 108
-      C 78 104, 80 98, 80 92
-      C 80 80, 74 66, 68 56
-      C 64 52, 56 52, 52 54 Z
-    " fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+      M 48 56
+      C 42 64, 38 78, 38 92
+      C 38 100, 44 108, 54 110
+      L 72 110
+      L 72 82
+      C 72 70, 62 58, 48 56 Z
+    " fill="#F5F5F5" stroke="#E8E8E8" stroke-width="0.8"/>
 
     <!-- Micros single coil (3) -->
-    <rect x="46" y="74" width="22" height="3" rx="1.5" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="0.8"/>
-    <rect x="46" y="84" width="22" height="3" rx="1.5" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="0.8"/>
-    <rect x="46" y="94" width="22" height="3" rx="1.5" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="0.8"/>
+    <rect x="46" y="74" width="22" height="3" rx="1.5" fill="#FFF" stroke="#CCC" stroke-width="0.8"/>
+    <rect x="46" y="84" width="22" height="3" rx="1.5" fill="#FFF" stroke="#CCC" stroke-width="0.8"/>
+    <rect x="46" y="94" width="22" height="3" rx="1.5" fill="#FFF" stroke="#CCC" stroke-width="0.8"/>
 
-    <!-- Selecteur micro (sur le pickguard) -->
-    <rect x="44" y="102" width="6" height="2" rx="1" fill="#D4A843"/>
+    <!-- Selecteur -->
+    <rect x="42" y="102" width="6" height="2" rx="1" fill="#D4A843"/>
 
-    <!-- Boutons volume/tone (sur la droite du pickguard) -->
-    <circle cx="74" cy="96" r="2.5" fill="#F5F5F5" stroke="#CCCCCC" stroke-width="0.8"/>
-    <circle cx="76" cy="104" r="2.5" fill="#F5F5F5" stroke="#CCCCCC" stroke-width="0.8"/>
+    <!-- Boutons volume/tone -->
+    <circle cx="80" cy="92" r="2.5" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
+    <circle cx="82" cy="102" r="2.5" fill="#F5F5F5" stroke="#CCC" stroke-width="0.8"/>
 
     <!-- Chevalet / tremolo -->
-    <rect x="50" y="108" width="18" height="6" rx="1" fill="#D4A843" stroke="#8B6914" stroke-width="0.8"/>
-    <!-- Pontets du chevalet -->
-    <line x1="53" y1="108" x2="53" y2="114" stroke="#8B6914" stroke-width="0.5"/>
-    <line x1="56" y1="108" x2="56" y2="114" stroke="#8B6914" stroke-width="0.5"/>
-    <line x1="59" y1="108" x2="59" y2="114" stroke="#8B6914" stroke-width="0.5"/>
-    <line x1="62" y1="108" x2="62" y2="114" stroke="#8B6914" stroke-width="0.5"/>
-    <line x1="65" y1="108" x2="65" y2="114" stroke="#8B6914" stroke-width="0.5"/>
+    <rect x="50" y="110" width="18" height="6" rx="1" fill="#D4A843" stroke="#8B6914" stroke-width="0.8"/>
 
-    <!-- Jack (cote droit) -->
-    <circle cx="88" cy="100" r="2" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
+    <!-- Jack -->
+    <circle cx="88" cy="104" r="2" fill="#D4A843" stroke="#8B6914" stroke-width="0.5"/>
 
     <!-- Cordes -->
-    <line x1="60" y1="-6" x2="53" y2="108" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
-    <line x1="62" y1="-6" x2="55" y2="108" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
-    <line x1="63" y1="-6" x2="57" y2="108" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
-    <line x1="65" y1="-6" x2="60" y2="108" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
-    <line x1="66" y1="-6" x2="62" y2="108" stroke="#E8D5A3" stroke-width="0.6" opacity="0.6"/>
-    <line x1="68" y1="-6" x2="65" y2="108" stroke="#E8D5A3" stroke-width="0.7" opacity="0.6"/>
+    <line x1="60" y1="2" x2="54" y2="110" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
+    <line x1="62" y1="2" x2="56" y2="110" stroke="#E8D5A3" stroke-width="0.4" opacity="0.6"/>
+    <line x1="63" y1="2" x2="58" y2="110" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
+    <line x1="65" y1="2" x2="60" y2="110" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
+    <line x1="67" y1="2" x2="62" y2="110" stroke="#E8D5A3" stroke-width="0.6" opacity="0.6"/>
+    <line x1="68" y1="2" x2="64" y2="110" stroke="#E8D5A3" stroke-width="0.7" opacity="0.6"/>
 
   </g>
 </svg>
