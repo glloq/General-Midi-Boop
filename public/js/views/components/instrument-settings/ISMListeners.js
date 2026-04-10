@@ -161,7 +161,7 @@
             const wrapper = canvas.parentElement;
             const w = wrapper?.clientWidth || 400;
             canvas.width = w;
-            canvas.height = Math.max(120, numStrings * 22 + 36);
+            canvas.height = Math.max(300, numFrets * 14 + 64);
 
             const initFrets = config?.frets_per_string
                 || new Array(numStrings).fill(config?.num_frets ?? 24);

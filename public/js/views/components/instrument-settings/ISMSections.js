@@ -383,21 +383,21 @@
         const isFretless = config?.is_fretless || false;
         const numFrets = config?.num_frets ?? 24;
 
-        // Build string rows
-        let stringRows = '';
-        for (let i = numStrings - 1; i >= 0; i--) {
+        // Build horizontal header rows (string numbers, note badges, MIDI inputs)
+        let stringNumCells = '';
+        let noteBadgeCells = '';
+        let midiInputCells = '';
+        let hiddenFretInputs = '';
+        for (let i = 0; i < numStrings; i++) {
             const note = tuning[i] || 40;
             const noteName = NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
-            stringRows += `
-                <div class="si-neck-string-row">
-                    <span class="si-string-num">${i + 1}</span>
-                    <span class="si-string-note-badge" id="ismBadge${i}">${noteName}</span>
-                    <input type="number" class="si-input si-input-xs si-tuning-val" id="siTuning${i}"
+            stringNumCells += `<span class="si-string-num">${i + 1}</span>`;
+            noteBadgeCells += `<span class="si-string-note-badge" id="ismBadge${i}">${noteName}</span>`;
+            midiInputCells += `<input type="number" class="si-input si-input-xs si-tuning-val" id="siTuning${i}"
                            data-string="${i}" value="${note}" min="0" max="127"
-                           title="MIDI">
-                    <input type="hidden" class="si-frets-val" id="siFrets${i}"
-                           value="${fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets}">
-                </div>`;
+                           title="MIDI">`;
+            hiddenFretInputs += `<input type="hidden" class="si-frets-val" id="siFrets${i}"
+                           value="${fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets}">`;
         }
 
         return `
@@ -413,20 +413,27 @@
                     </div>
                 </div>
 
-                <div class="si-neck-combined">
-                    <div class="si-neck-strings-panel">
-                        <div class="si-neck-strings-header">
-                            <span class="si-neck-col-hdr">#</span>
-                            <span class="si-neck-col-hdr">Note</span>
-                            <span class="si-neck-col-hdr">MIDI</span>
+                <div class="si-neck-combined si-neck-vertical">
+                    <div class="si-neck-header-grid">
+                        <div class="si-neck-header-row">
+                            <span class="si-neck-row-label">#</span>
+                            ${stringNumCells}
                         </div>
-                        ${stringRows}
+                        <div class="si-neck-header-row">
+                            <span class="si-neck-row-label">Note</span>
+                            ${noteBadgeCells}
+                        </div>
+                        <div class="si-neck-header-row">
+                            <span class="si-neck-row-label">MIDI</span>
+                            ${midiInputCells}
+                        </div>
                     </div>
                     ${!isFretless ? `
                     <div class="si-neck-canvas-panel">
-                        <canvas id="ism-neck-canvas" width="400" height="${Math.max(120, numStrings * 22 + 36)}"></canvas>
+                        <canvas id="ism-neck-canvas" width="400" height="350"></canvas>
                     </div>
                     ` : ''}
+                    <div style="display:none">${hiddenFretInputs}</div>
                 </div>
 
                 <div class="si-cc-toggle-row" style="margin-top:8px">

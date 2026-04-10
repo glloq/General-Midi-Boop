@@ -1,8 +1,9 @@
 // ============================================================================
 // Fichier: public/js/views/components/NeckDiagramConfig.js
 // Description: Interactive canvas-based neck diagram for configuring
-//   per-string fret counts. Draws a horizontal guitar neck with draggable
+//   per-string fret counts. Draws a vertical guitar neck with draggable
 //   markers on each string to set the number of playable frets.
+//   Strings run along X-axis (left=string 1), frets along Y-axis (top=nut).
 // ============================================================================
 
 class NeckDiagramConfig {
@@ -31,12 +32,12 @@ class NeckDiagramConfig {
             ? [...options.fretsPerString]
             : new Array(this.numStrings).fill(this.numFrets);
 
-        // Layout constants
-        this.headWidth = 40;     // Guitar head area
-        this.bodyWidth = 30;     // Simplified body
-        this.topMargin = 18;
-        this.bottomMargin = 18;
-        this.leftMargin = 10;
+        // Layout constants (vertical orientation)
+        this.headHeight = 30;    // Guitar head area (top)
+        this.bodyHeight = 20;    // Simplified body (bottom)
+        this.topMargin = 4;      // Small top margin (labels are in HTML above)
+        this.bottomMargin = 10;
+        this.leftMargin = 30;    // Space for fret numbers
         this.rightMargin = 10;
 
         // Fret markers
@@ -161,46 +162,46 @@ class NeckDiagramConfig {
     }
 
     // ========================================================================
-    // LAYOUT HELPERS
+    // LAYOUT HELPERS (vertical orientation)
     // ========================================================================
 
     _getNeckBounds() {
         const w = this.canvas.width;
         const h = this.canvas.height;
         return {
-            x: this.leftMargin + this.headWidth,
-            y: this.topMargin,
-            width: w - this.leftMargin - this.headWidth - this.bodyWidth - this.rightMargin,
-            height: h - this.topMargin - this.bottomMargin
+            x: this.leftMargin,
+            y: this.topMargin + this.headHeight,
+            width: w - this.leftMargin - this.rightMargin,
+            height: h - this.topMargin - this.headHeight - this.bodyHeight - this.bottomMargin
         };
     }
 
-    _getStringY(stringIndex) {
+    _getStringX(stringIndex) {
         const neck = this._getNeckBounds();
-        const spacing = neck.height / (this.numStrings + 1);
-        // String 0 = lowest pitch = bottom, last = highest = top
-        return neck.y + neck.height - (stringIndex + 1) * spacing;
+        const spacing = neck.width / (this.numStrings + 1);
+        // String 0 = lowest pitch = leftmost
+        return neck.x + (stringIndex + 1) * spacing;
     }
 
-    _getFretX(fretNum) {
+    _getFretY(fretNum) {
         const neck = this._getNeckBounds();
-        if (this.numFrets === 0) return neck.x;
-        return neck.x + (fretNum / this.numFrets) * neck.width;
+        if (this.numFrets === 0) return neck.y;
+        return neck.y + (fretNum / this.numFrets) * neck.height;
     }
 
-    _xToFret(x) {
+    _yToFret(y) {
         const neck = this._getNeckBounds();
         if (this.numFrets === 0) return 0;
-        const fret = Math.round(((x - neck.x) / neck.width) * this.numFrets);
+        const fret = Math.round(((y - neck.y) / neck.height) * this.numFrets);
         return Math.max(0, Math.min(this.numFrets, fret));
     }
 
-    _getStringAtY(y) {
+    _getStringAtX(x) {
         const neck = this._getNeckBounds();
-        const spacing = neck.height / (this.numStrings + 1);
+        const spacing = neck.width / (this.numStrings + 1);
         for (let i = 0; i < this.numStrings; i++) {
-            const sy = this._getStringY(i);
-            if (Math.abs(y - sy) < spacing * 0.45) return i;
+            const sx = this._getStringX(i);
+            if (Math.abs(x - sx) < spacing * 0.45) return i;
         }
         return -1;
     }
@@ -219,75 +220,72 @@ class NeckDiagramConfig {
         ctx.fillStyle = this.colors.background;
         ctx.fillRect(0, 0, w, h);
 
-        // Draw simplified guitar head (left)
-        this._drawHead(neck, h);
+        // Draw simplified guitar head (top)
+        this._drawHead(neck, w);
 
         // Draw neck background
         ctx.fillStyle = this.colors.neck;
         ctx.fillRect(neck.x, neck.y, neck.width, neck.height);
 
-        // Draw simplified body (right)
-        this._drawBody(neck, h);
+        // Draw simplified body (bottom)
+        this._drawBody(neck, w);
 
         // Draw fret markers
         this._drawFretMarkers(neck);
 
-        // Draw frets
+        // Draw frets (horizontal lines)
         this._drawFrets(neck);
 
-        // Draw nut
+        // Draw nut (horizontal bar at top)
         this._drawNut(neck);
 
         // Draw inactive zones per string
         this._drawInactiveZones(neck);
 
-        // Draw strings
+        // Draw strings (vertical lines)
         this._drawStrings(neck);
 
-        // Draw string labels (left side)
-        this._drawStringLabels(neck);
-
-        // Draw fret numbers (bottom)
+        // Draw fret numbers (left margin)
         this._drawFretNumbers(neck);
 
         // Draw draggable handles
         this._drawHandles(neck);
     }
 
-    _drawHead(neck, _h) {
+    _drawHead(neck, _w) {
         const ctx = this.ctx;
-        const headX = this.leftMargin;
+        const headY = this.topMargin;
 
-        // Simplified head shape
+        // Simplified head shape (horizontal, at top)
         ctx.fillStyle = this.colors.bodyFill;
         ctx.strokeStyle = this.colors.bodyStroke;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(neck.x, neck.y - 2);
-        ctx.lineTo(headX + 8, neck.y + 5);
-        ctx.lineTo(headX, neck.y + 12);
-        ctx.lineTo(headX, neck.y + neck.height - 12);
-        ctx.lineTo(headX + 8, neck.y + neck.height - 5);
-        ctx.lineTo(neck.x, neck.y + neck.height + 2);
+        ctx.moveTo(neck.x - 2, neck.y);
+        ctx.lineTo(neck.x + 5, headY + 8);
+        ctx.lineTo(neck.x + 12, headY);
+        ctx.lineTo(neck.x + neck.width - 12, headY);
+        ctx.lineTo(neck.x + neck.width - 5, headY + 8);
+        ctx.lineTo(neck.x + neck.width + 2, neck.y);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
     }
 
-    _drawBody(neck, _h) {
+    _drawBody(neck, _w) {
         const ctx = this.ctx;
-        const bodyX = neck.x + neck.width;
-        const bw = this.bodyWidth;
-        const centerY = neck.y + neck.height / 2;
+        const bodyY = neck.y + neck.height;
+        const bh = this.bodyHeight;
+        const centerX = neck.x + neck.width / 2;
 
         ctx.fillStyle = this.colors.bodyFill;
         ctx.strokeStyle = this.colors.bodyStroke;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(bodyX, neck.y - 2);
-        ctx.quadraticCurveTo(bodyX + bw * 0.8, neck.y + neck.height * 0.15, bodyX + bw, centerY - neck.height * 0.05);
-        ctx.quadraticCurveTo(bodyX + bw * 0.7, centerY, bodyX + bw, centerY + neck.height * 0.05);
-        ctx.quadraticCurveTo(bodyX + bw * 0.8, neck.y + neck.height * 0.85, bodyX, neck.y + neck.height + 2);
+        ctx.moveTo(neck.x - 2, bodyY);
+        ctx.quadraticCurveTo(neck.x + neck.width * 0.15, bodyY + bh * 0.8, centerX - neck.width * 0.05, bodyY + bh);
+        ctx.quadraticCurveTo(centerX, bodyY + bh * 0.7, centerX + neck.width * 0.05, bodyY + bh);
+        ctx.quadraticCurveTo(neck.x + neck.width * 0.85, bodyY + bh * 0.8, neck.x + neck.width + 2, bodyY);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -295,7 +293,7 @@ class NeckDiagramConfig {
         // Sound hole
         ctx.fillStyle = this.colors.background;
         ctx.beginPath();
-        ctx.arc(bodyX + bw * 0.4, centerY, Math.min(bw * 0.25, neck.height * 0.12), 0, Math.PI * 2);
+        ctx.arc(centerX, bodyY + bh * 0.4, Math.min(bh * 0.25, neck.width * 0.12), 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -304,47 +302,47 @@ class NeckDiagramConfig {
         ctx.strokeStyle = this.colors.fretWire;
 
         for (let f = 0; f <= this.numFrets; f++) {
-            const x = this._getFretX(f);
+            const y = this._getFretY(f);
             ctx.lineWidth = (f === 0) ? 3 : 1;
             ctx.beginPath();
-            ctx.moveTo(x, neck.y);
-            ctx.lineTo(x, neck.y + neck.height);
+            ctx.moveTo(neck.x, y);
+            ctx.lineTo(neck.x + neck.width, y);
             ctx.stroke();
         }
     }
 
     _drawNut(neck) {
         const ctx = this.ctx;
-        const x = this._getFretX(0);
+        const y = this._getFretY(0);
         ctx.fillStyle = this.colors.nut;
-        ctx.fillRect(x - 2, neck.y, 5, neck.height);
+        ctx.fillRect(neck.x, y - 2, neck.width, 5);
     }
 
     _drawFretMarkers(neck) {
         const ctx = this.ctx;
-        const centerY = neck.y + neck.height / 2;
+        const centerX = neck.x + neck.width / 2;
 
         for (const fretNum of this.markerFrets) {
             if (fretNum > this.numFrets) continue;
 
-            const x1 = this._getFretX(fretNum - 1);
-            const x2 = this._getFretX(fretNum);
-            const midX = (x1 + x2) / 2;
+            const y1 = this._getFretY(fretNum - 1);
+            const y2 = this._getFretY(fretNum);
+            const midY = (y1 + y2) / 2;
             const radius = 3;
 
             ctx.fillStyle = this.colors.markerDot;
 
             if (this.doubleMarkerFrets.includes(fretNum)) {
-                const offset = neck.height * 0.2;
+                const offset = neck.width * 0.2;
                 ctx.beginPath();
-                ctx.arc(midX, centerY - offset, radius, 0, Math.PI * 2);
+                ctx.arc(centerX - offset, midY, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.arc(midX, centerY + offset, radius, 0, Math.PI * 2);
+                ctx.arc(centerX + offset, midY, radius, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 ctx.beginPath();
-                ctx.arc(midX, centerY, radius, 0, Math.PI * 2);
+                ctx.arc(centerX, midY, radius, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
@@ -352,29 +350,28 @@ class NeckDiagramConfig {
 
     _drawInactiveZones(neck) {
         const ctx = this.ctx;
-        ctx.fillStyle = this.colors.inactiveZone;
 
-        const spacing = neck.height / (this.numStrings + 1);
+        const spacing = neck.width / (this.numStrings + 1);
 
         for (let i = 0; i < this.numStrings; i++) {
             const fretCount = this.fretsPerString[i];
             if (fretCount >= this.numFrets) continue;
 
-            const stringY = this._getStringY(i);
-            const startX = this._getFretX(fretCount);
-            const endX = neck.x + neck.width;
+            const stringX = this._getStringX(i);
+            const startY = this._getFretY(fretCount);
+            const endY = neck.y + neck.height;
 
             // Draw semi-transparent overlay on inactive zone
             ctx.fillStyle = this.colors.inactiveZone;
-            ctx.fillRect(startX, stringY - spacing * 0.4, endX - startX, spacing * 0.8);
+            ctx.fillRect(stringX - spacing * 0.4, startY, spacing * 0.8, endY - startY);
 
             // Dashed border at the boundary
             ctx.strokeStyle = this.colors.handle;
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
-            ctx.moveTo(startX, stringY - spacing * 0.4);
-            ctx.lineTo(startX, stringY + spacing * 0.4);
+            ctx.moveTo(stringX - spacing * 0.4, startY);
+            ctx.lineTo(stringX + spacing * 0.4, startY);
             ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -384,16 +381,16 @@ class NeckDiagramConfig {
         const ctx = this.ctx;
 
         for (let i = 0; i < this.numStrings; i++) {
-            const y = this._getStringY(i);
+            const x = this._getStringX(i);
             const fretCount = this.fretsPerString[i];
-            const endX = this._getFretX(fretCount);
+            const endY = this._getFretY(fretCount);
 
-            // Active portion of string
+            // Active portion of string (from head through nut to fretCount)
             ctx.strokeStyle = this.colors.string;
             ctx.lineWidth = 1 + (this.numStrings - 1 - i) * 0.4;
             ctx.beginPath();
-            ctx.moveTo(neck.x - this.headWidth + 10, y);
-            ctx.lineTo(endX, y);
+            ctx.moveTo(x, neck.y - this.headHeight + 10);
+            ctx.lineTo(x, endY);
             ctx.stroke();
 
             // Inactive portion (dimmed)
@@ -401,33 +398,16 @@ class NeckDiagramConfig {
                 ctx.strokeStyle = this.colors.string;
                 ctx.globalAlpha = 0.2;
                 ctx.beginPath();
-                ctx.moveTo(endX, y);
-                ctx.lineTo(neck.x + neck.width + this.bodyWidth * 0.3, y);
+                ctx.moveTo(x, endY);
+                ctx.lineTo(x, neck.y + neck.height + this.bodyHeight * 0.3);
                 ctx.stroke();
                 ctx.globalAlpha = 1.0;
             } else {
                 ctx.beginPath();
-                ctx.moveTo(endX, y);
-                ctx.lineTo(neck.x + neck.width + this.bodyWidth * 0.3, y);
+                ctx.moveTo(x, endY);
+                ctx.lineTo(x, neck.y + neck.height + this.bodyHeight * 0.3);
                 ctx.stroke();
             }
-        }
-    }
-
-    _drawStringLabels(_neck) {
-        const ctx = this.ctx;
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        for (let i = 0; i < this.numStrings; i++) {
-            const y = this._getStringY(i);
-            const label = this.tuning[i] !== undefined
-                ? this.NOTE_NAMES[this.tuning[i] % 12]
-                : `${i + 1}`;
-
-            ctx.fillStyle = this.colors.stringLabel;
-            ctx.fillText(label, this.leftMargin + 4, y);
         }
     }
 
@@ -435,16 +415,16 @@ class NeckDiagramConfig {
         const ctx = this.ctx;
         ctx.fillStyle = this.colors.fretNumber;
         ctx.font = '8px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
 
         // Show fret numbers at certain intervals
         const step = this.numFrets <= 12 ? 1 : (this.numFrets <= 24 ? 2 : 3);
         for (let f = step; f <= this.numFrets; f += step) {
-            const x1 = this._getFretX(f - 1);
-            const x2 = this._getFretX(f);
-            const midX = (x1 + x2) / 2;
-            ctx.fillText(f.toString(), midX, neck.y + neck.height + 4);
+            const y1 = this._getFretY(f - 1);
+            const y2 = this._getFretY(f);
+            const midY = (y1 + y2) / 2;
+            ctx.fillText(f.toString(), neck.x - 6, midY);
         }
     }
 
@@ -455,9 +435,9 @@ class NeckDiagramConfig {
         const handleRadius = 7;
 
         for (let i = 0; i < this.numStrings; i++) {
-            const y = this._getStringY(i);
+            const x = this._getStringX(i);
             const fretCount = this.fretsPerString[i];
-            const x = this._getFretX(fretCount);
+            const y = this._getFretY(fretCount);
 
             const isHovered = this.hoveredString === i;
             const isDragging = this.dragging && this.dragging.stringIndex === i;
@@ -495,12 +475,12 @@ class NeckDiagramConfig {
 
     _onMouseDown(e) {
         const pos = this._getCanvasPos(e);
-        const stringIdx = this._getStringAtY(pos.y);
+        const stringIdx = this._getStringAtX(pos.x);
         if (stringIdx < 0 || this.isFretless) return;
 
         // Check if near the handle
-        const handleX = this._getFretX(this.fretsPerString[stringIdx]);
-        const handleY = this._getStringY(stringIdx);
+        const handleX = this._getStringX(stringIdx);
+        const handleY = this._getFretY(this.fretsPerString[stringIdx]);
         const dist = Math.sqrt((pos.x - handleX) ** 2 + (pos.y - handleY) ** 2);
 
         if (dist < 14) {
@@ -514,7 +494,7 @@ class NeckDiagramConfig {
         const pos = this._getCanvasPos(e);
 
         if (this.dragging) {
-            const newFret = this._xToFret(pos.x);
+            const newFret = this._yToFret(pos.y);
             const idx = this.dragging.stringIndex;
             if (newFret !== this.fretsPerString[idx]) {
                 this.fretsPerString[idx] = newFret;
@@ -525,11 +505,11 @@ class NeckDiagramConfig {
         }
 
         // Hover detection
-        const stringIdx = this._getStringAtY(pos.y);
+        const stringIdx = this._getStringAtX(pos.x);
         let newHover = -1;
         if (stringIdx >= 0 && !this.isFretless) {
-            const handleX = this._getFretX(this.fretsPerString[stringIdx]);
-            const handleY = this._getStringY(stringIdx);
+            const handleX = this._getStringX(stringIdx);
+            const handleY = this._getFretY(this.fretsPerString[stringIdx]);
             const dist = Math.sqrt((pos.x - handleX) ** 2 + (pos.y - handleY) ** 2);
             if (dist < 14) {
                 newHover = stringIdx;
