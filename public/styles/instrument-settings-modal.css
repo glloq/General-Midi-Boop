@@ -122,26 +122,6 @@
   margin-left: 2px;
 }
 
-/* Overlap warning dot on tab */
-.ism-tab-overlap-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f59e0b;
-  margin-left: 4px;
-  flex-shrink: 0;
-  animation: ism-overlap-pulse 2s ease-in-out infinite;
-}
-
-.ism-tab.has-overlap {
-  position: relative;
-}
-
-@keyframes ism-overlap-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
 
 /* ========== Main Layout: Sidebar + Content ========== */
 .ism-layout {
@@ -1206,6 +1186,14 @@ body.dark-mode .ism-drum-kit-desc {
 .ism-active-cc-num {
   font-weight: 700;
   color: var(--accent-color, #667eea);
+}
+
+.ism-cc-tag-string {
+  background: var(--string-cc-bg, #fef3c7);
+  border-color: var(--string-cc-border, #f59e0b);
+}
+.ism-cc-tag-string .ism-active-cc-num {
+  color: #b45309;
 }
 
 .ism-cc-tag-remove {

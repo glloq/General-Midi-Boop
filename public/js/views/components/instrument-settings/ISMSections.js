@@ -310,8 +310,22 @@
         return html;
     };
 
+    ISMSections._getStringCCNumbers = function() {
+        const tab = this._getActiveTab();
+        const config = tab?.stringInstrumentConfig;
+        if (!config || config.cc_enabled === false) return [];
+        return [config.cc_string_number ?? 20, config.cc_fret_number ?? 21];
+    };
+
     ISMSections._renderActiveCCsSummary = function(activeCCs) {
-        if (!activeCCs || activeCCs.length === 0) {
+        const stringCCs = this._getStringCCNumbers();
+        // Merge string CCs into active list (without duplicates)
+        const allCCs = [...(activeCCs || [])];
+        for (const scc of stringCCs) {
+            if (!allCCs.includes(scc)) allCCs.push(scc);
+        }
+
+        if (allCCs.length === 0) {
             return '<span class="ism-active-ccs-empty">Aucun CC actif</span>';
         }
         const groups = InstrumentSettingsModal.CC_GROUPS;
@@ -323,9 +337,16 @@
                 ccNames[Number(ccNum)] = ccsObj[ccNum].name;
             }
         }
-        const sorted = [...activeCCs].sort((a, b) => a - b);
+        const stringCCSet = new Set(stringCCs);
+        const sorted = [...allCCs].sort((a, b) => a - b);
         return sorted.map(function(cc) {
-            const name = ccNames[cc] || ('CC ' + cc);
+            const isStringCC = stringCCSet.has(cc);
+            const name = isStringCC
+                ? (cc === (this._getActiveTab()?.stringInstrumentConfig?.cc_string_number ?? 20) ? 'String Select' : 'Fret Select')
+                : (ccNames[cc] || ('CC ' + cc));
+            if (isStringCC) {
+                return `<span class="ism-active-cc-tag ism-cc-tag-string" title="${this.escape(name)} (Cordes)"><span class="ism-active-cc-num">${cc}</span> ${this.escape(name)}</span>`;
+            }
             return `<span class="ism-active-cc-tag" title="${this.escape(name)}"><span class="ism-active-cc-num">${cc}</span> ${this.escape(name)}<button type="button" class="ism-cc-tag-remove" data-cc="${cc}" aria-label="Supprimer CC ${cc}">\u00d7</button></span>`;
         }.bind(this)).join('');
     };

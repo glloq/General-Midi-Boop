@@ -318,10 +318,7 @@ class InstrumentSettingsModal extends BaseModal {
             this.options.title = '';
             this.open();
 
-            const headerEl = this.$('.modal-header h2');
-            if (headerEl) {
-                headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.title')} — ${this.escape(device.displayName || device.name)}`;
-            }
+            this._updateHeader();
 
             // Piano will be initialized when user switches to Notes section
             // (viewport needs to be visible for correct size calculation)
@@ -419,41 +416,24 @@ class InstrumentSettingsModal extends BaseModal {
         }
     }
 
+    // ========== HEADER ==========
+
+    _updateHeader() {
+        const headerEl = this.$('.modal-header h2');
+        if (!headerEl) return;
+        const tab = this._getActiveTab();
+        const instrumentName = tab ? (tab.settings.custom_name || tab.settings.name || `Ch ${tab.channel + 1}`) : '';
+        headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.title')} — ${this.escape(this.device.displayName || this.device.name)} — ${this.escape(instrumentName)}`;
+    }
+
     // ========== TABS BAR ==========
 
     _renderTabsBar() {
-        // Count instruments per channel and detect note range overlaps
+        // Count instruments per channel
         const channelCounts = {};
-        const channelRanges = {};
         for (const tab of this.instrumentTabs) {
             const ch = tab.channel;
             channelCounts[ch] = (channelCounts[ch] || 0) + 1;
-            if (tab.settings && tab.settings.note_range_min != null && tab.settings.note_range_max != null) {
-                if (!channelRanges[ch]) channelRanges[ch] = [];
-                channelRanges[ch].push({
-                    min: tab.settings.note_range_min,
-                    max: tab.settings.note_range_max
-                });
-            }
-        }
-        // Check for overlaps between tabs of the same device (different channels)
-        const channelHasOverlap = {};
-        const channels = Object.keys(channelRanges).map(Number);
-        for (let i = 0; i < channels.length; i++) {
-            for (let j = i + 1; j < channels.length; j++) {
-                const rangesA = channelRanges[channels[i]];
-                const rangesB = channelRanges[channels[j]];
-                if (rangesA && rangesB) {
-                    for (const rA of rangesA) {
-                        for (const rB of rangesB) {
-                            if (rA.min <= rB.max && rB.min <= rA.max) {
-                                channelHasOverlap[channels[i]] = true;
-                                channelHasOverlap[channels[j]] = true;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         let html = '<div class="ism-tabs-bar">';
@@ -464,12 +444,10 @@ class InstrumentSettingsModal extends BaseModal {
             const name = tab.settings.custom_name || tab.settings.name || `Ch ${ch + 1}`;
             const isDrum = (ch === 9);
             const count = channelCounts[ch] || 1;
-            const hasOverlap = channelHasOverlap[ch] || false;
-            html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''} ${hasOverlap ? 'has-overlap' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color}; background: ${color}1a;` : ''}">
+            html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color}; background: ${color}1a;` : ''}">
                 <span class="ism-tab-ch" style="background: ${color};">Ch ${ch + 1}${isDrum ? ' DR' : ''}</span>
                 <span class="ism-tab-name">${this.escape(name)}</span>
                 ${count > 1 ? `<span class="ism-tab-badge" title="${count} instruments sur ce canal">\u00d7${count}</span>` : ''}
-                ${hasOverlap ? '<span class="ism-tab-overlap-dot" title="Chevauchement de notes avec un autre canal"></span>' : ''}
             </button>`;
         }
         html += `<button type="button" class="ism-tab ism-tab-add" title="${this.t('instrumentManagement.addInstrument') || 'Ajouter un instrument'}">

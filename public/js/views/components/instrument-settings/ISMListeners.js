@@ -46,8 +46,14 @@
         const ismCcEnabled = this.$('#ism-cc-enabled');
         if (ismCcEnabled) {
             ismCcEnabled.addEventListener('change', function(e) {
+                const tab = this._getActiveTab();
+                if (tab && tab.stringInstrumentConfig) {
+                    tab.stringInstrumentConfig.cc_enabled = e.target.checked;
+                }
                 const ccSection = this.dialog?.querySelector('#ism-cc-config-section');
                 if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
+                // Update CC summary to reflect string CC changes
+                this._updateActiveCCsSummary();
             }.bind(this));
         }
 

@@ -23,6 +23,7 @@
         this.activeSection = 'identity';
         this._syncGlobalState();
         this._refreshContent();
+        this._updateHeader();
         // Piano will init when user navigates to Notes section
     };
 
