@@ -80,6 +80,32 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- Animation de chargement -->
+                <div class="settings-section" style="margin-top: 24px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🎬 ${i18n.t('settings.loadingAnimation.title') || 'Animation de chargement'}</h3>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div style="flex: 1;">
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.loadingAnimation.enable') || "Afficher l'animation au démarrage"}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.loadingAnimation.description') || "Affiche une animation avec barre de progression au lancement. Si désactivé, l'animation ne s'affiche qu'au premier chargement (cache vidé)."}</p>
+                        </div>
+                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                            <input type="checkbox" id="showLoadingAnimationToggle" ${this.settings.showLoadingAnimation ? 'checked' : ''}
+                                   style="opacity: 0; width: 0; height: 0;">
+                            <span class="toggle-slider" style="
+                                position: absolute;
+                                cursor: pointer;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background-color: #ccc;
+                                transition: 0.4s;
+                                border-radius: 30px;
+                            "></span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <!-- ═══════════════════════════════════════ -->
