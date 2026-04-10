@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Sitar - GM 104 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Manche (tres long, avec frettes courbes) -->
+    <rect x="60" y="4" width="8" height="72" rx="2" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+
+    <!-- Frettes (courbes, sureleves) -->
+    <path d="M 58 14 C 62 12, 66 12, 70 14" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <path d="M 58 24 C 62 22, 66 22, 70 24" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <path d="M 58 33 C 62 31, 66 31, 70 33" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <path d="M 58 41 C 62 39, 66 39, 70 41" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <path d="M 58 48 C 62 46, 66 46, 70 48" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+    <path d="M 58 55 C 62 53, 66 53, 70 55" fill="none" stroke="#D4A843" stroke-width="1.5"/>
+
+    <!-- Tete avec chevilles -->
+    <rect x="58" y="0" width="12" height="8" rx="2" fill="#5C4A0E" stroke="#3D300A" stroke-width="1"/>
+    <line x1="56" y1="2" x2="52" y2="0" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="56" y1="6" x2="52" y2="8" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="72" y1="2" x2="76" y2="0" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+    <line x1="72" y1="6" x2="76" y2="8" stroke="#5C4A0E" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Tumba / gourde (caisse de resonance, grande forme ronde) -->
+    <ellipse cx="64" cy="98" rx="26" ry="22" fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+
+    <!-- Decoration sur la gourde -->
+    <ellipse cx="64" cy="98" rx="18" ry="14" fill="none" stroke="#8B6914" stroke-width="0.8" opacity="0.5"/>
+
+    <!-- Chevalet -->
+    <rect x="58" y="88" width="12" height="3" rx="1" fill="#F5E6C8" stroke="#D4A843" stroke-width="0.8"/>
+
+    <!-- Cordes (7 - melodiques + sympathiques) -->
+    <line x1="61" y1="4" x2="61" y2="88" stroke="#E8D5A3" stroke-width="0.4" opacity="0.7"/>
+    <line x1="63" y1="4" x2="63" y2="88" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="65" y1="4" x2="65" y2="88" stroke="#E8D5A3" stroke-width="0.5" opacity="0.7"/>
+    <line x1="67" y1="4" x2="67" y2="88" stroke="#E8D5A3" stroke-width="0.4" opacity="0.7"/>
+
+  </g>
+</svg>

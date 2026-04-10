@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Tuba - GM 58 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Embouchure -->
+    <rect x="44" y="6" width="4" height="10" rx="1" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
+    <ellipse cx="46" cy="5" rx="5" ry="2.5" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Tube principal (large) -->
+    <rect x="42" y="16" width="10" height="50" rx="4" fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Corps / enroulement central -->
+    <rect x="52" y="30" width="8" height="36" rx="3" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="60" y="34" width="8" height="32" rx="3" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- 4 pistons -->
+    <circle cx="38" cy="28" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+    <circle cx="38" cy="38" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+    <circle cx="38" cy="48" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+    <circle cx="38" cy="58" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Grand pavillon (pointe vers le haut) -->
+    <path d="
+      M 42 66
+      C 36 70, 28 78, 24 88
+      C 18 102, 26 118, 48 122
+      C 64 124, 80 122, 92 118
+      C 104 114, 108 102, 102 88
+      C 96 78, 86 70, 80 66
+    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Interieur du pavillon (sombre) -->
+    <ellipse cx="62" cy="100" rx="22" ry="14" fill="#B8960F" opacity="0.3"/>
+
+  </g>
+</svg>

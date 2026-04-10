@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Flute traversiere - GM 73 -->
+  <g transform="rotate(45, 64, 64)">
+
+    <!-- Corps principal (long tube argente) -->
+    <rect x="60" y="4" width="8" height="116" rx="4" fill="#C0C0C0" stroke="#999" stroke-width="1.5"/>
+
+    <!-- Embouchure (trou ovale pres du haut) -->
+    <ellipse cx="64" cy="16" rx="3" ry="2" fill="#777" stroke="#666" stroke-width="1"/>
+
+    <!-- Bouchon de tete -->
+    <rect x="60" y="2" width="8" height="6" rx="4" fill="#B0B0B0" stroke="#999" stroke-width="1"/>
+
+    <!-- Clefs (cles le long du corps) -->
+    <circle cx="56" cy="28" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="38" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="48" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="58" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="68" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="56" cy="78" r="3.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Petites clefs cote droit -->
+    <circle cx="72" cy="34" r="2.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="72" cy="52" r="2.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+    <circle cx="72" cy="70" r="2.5" fill="#E8E8E8" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Tiges de clefs -->
+    <line x1="56" y1="28" x2="60" y2="28" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="38" x2="60" y2="38" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="48" x2="60" y2="48" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="58" x2="60" y2="58" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="68" x2="60" y2="68" stroke="#999" stroke-width="0.8"/>
+    <line x1="56" y1="78" x2="60" y2="78" stroke="#999" stroke-width="0.8"/>
+    <line x1="72" y1="34" x2="68" y2="34" stroke="#999" stroke-width="0.8"/>
+    <line x1="72" y1="52" x2="68" y2="52" stroke="#999" stroke-width="0.8"/>
+    <line x1="72" y1="70" x2="68" y2="70" stroke="#999" stroke-width="0.8"/>
+
+    <!-- Jonctions (anneaux entre les sections) -->
+    <rect x="59" y="86" width="10" height="2" rx="1" fill="#999"/>
+    <rect x="59" y="96" width="10" height="2" rx="1" fill="#999"/>
+
+  </g>
+</svg>
