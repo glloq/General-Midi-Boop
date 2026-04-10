@@ -482,7 +482,7 @@ class RoutingSummaryPage {
               ${this._renderSummaryTable(channelKeys)}
             </div>
             <div class="rs-detail-panel" id="rsDetailPanel">
-              ${this.selectedChannel !== null ? this._renderDetailPanel(this.selectedChannel) : this._renderDetailPlaceholder()}
+              ${this.selectedChannel !== null ? this._safeRenderDetailPanel(this.selectedChannel) : this._renderDetailPlaceholder()}
             </div>
           </div>
 
@@ -505,6 +505,8 @@ class RoutingSummaryPage {
       const newDetail = this.modal.querySelector('#rsDetailPanel');
       if (newSummary) newSummary.scrollTop = savedSummaryScroll;
       if (newDetail) newDetail.scrollTop = savedDetailScroll;
+    } catch (error) {
+      console.error('[RoutingSummary] Render failed:', error);
     } finally {
       this._isRendering = false;
     }
@@ -938,6 +940,18 @@ class RoutingSummaryPage {
     `;
   }
 
+  _safeRenderDetailPanel(channel) {
+    try {
+      return this._renderDetailPanel(channel);
+    } catch (error) {
+      console.error('[RoutingSummary] Detail panel render failed for channel', channel, ':', error);
+      return `<div class="rs-detail-content rs-detail-error">
+        <p>${_t('autoAssign.error') || 'Error'}: ${escapeHtml(error.message || String(error))}</p>
+        <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
+      </div>`;
+    }
+  }
+
   _renderDetailPanel(channel) {
     const ch = String(channel);
     const isSkipped = this.skippedChannels.has(channel);
@@ -993,7 +1007,7 @@ class RoutingSummaryPage {
             </div>
           </div>
           ${pitchShift === 'manual' ? (() => {
-            const playableWithTranspose = this._computePlayableNotes(channel);
+            const playableWithTranspose = this._computePlayableNotes(ch);
             const playableLabel = playableWithTranspose
               ? `<span class="rs-transpose-playable">${playableWithTranspose.playable}/${playableWithTranspose.total}</span>`
               : '';
@@ -2665,12 +2679,14 @@ class RoutingSummaryPage {
     // Priority 1: allInstruments (always has full DB data)
     const fullInst = (this.allInstruments || []).find(i => i.id === instrumentId);
     if (fullInst?.supported_ccs) {
-      return Array.isArray(fullInst.supported_ccs) ? fullInst.supported_ccs : JSON.parse(fullInst.supported_ccs || '[]');
+      if (Array.isArray(fullInst.supported_ccs)) return fullInst.supported_ccs;
+      try { return JSON.parse(fullInst.supported_ccs || '[]'); } catch { return null; }
     }
     // Priority 2: suggestions
     const found = this._findInstrumentById(instrumentId);
     if (found?.supported_ccs) {
-      return Array.isArray(found.supported_ccs) ? found.supported_ccs : JSON.parse(found.supported_ccs || '[]');
+      if (Array.isArray(found.supported_ccs)) return found.supported_ccs;
+      try { return JSON.parse(found.supported_ccs || '[]'); } catch { return null; }
     }
     return null;
   }
