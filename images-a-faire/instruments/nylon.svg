@@ -19,23 +19,31 @@
   <circle cx="71" cy="5" r="2" fill="#D4A843"/>
   <circle cx="71" cy="9" r="2" fill="#D4A843"/>
 
-  <!-- Corps - partie superieure -->
-  <ellipse cx="64" cy="78" rx="22" ry="16" fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
-
-  <!-- Corps - partie inferieure -->
-  <ellipse cx="64" cy="104" rx="28" ry="20" fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
+  <!-- Corps complet (forme de 8 avec taille arrondie) -->
+  <path d="
+    M 64 62
+    C 86 62, 86 78, 86 82
+    C 86 86, 80 90, 76 92
+    C 80 94, 92 100, 92 108
+    C 92 118, 78 124, 64 124
+    C 50 124, 36 118, 36 108
+    C 36 100, 48 94, 52 92
+    C 48 90, 42 86, 42 82
+    C 42 78, 42 62, 64 62 Z
+  " fill="#D4934A" stroke="#8B6914" stroke-width="2"/>
 
   <!-- Rosace -->
-  <circle cx="64" cy="82" r="9" fill="#3D300A" stroke="#5C4A0E" stroke-width="1.5"/>
-  <circle cx="64" cy="82" r="7" fill="none" stroke="#D4A843" stroke-width="0.8"/>
+  <circle cx="64" cy="80" r="9" fill="#3D300A" stroke="#5C4A0E" stroke-width="1.5"/>
+  <circle cx="64" cy="80" r="7" fill="none" stroke="#D4A843" stroke-width="0.8"/>
 
   <!-- Chevalet -->
-  <rect x="56" y="100" width="16" height="3" rx="1" fill="#5C4A0E"/>
+  <rect x="56" y="106" width="16" height="3" rx="1" fill="#5C4A0E"/>
 
-  <!-- Cordes -->
-  <line x1="60" y1="12" x2="60" y2="100" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
-  <line x1="62" y1="12" x2="62" y2="100" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
-  <line x1="64" y1="12" x2="64" y2="100" stroke="#E8D5A3" stroke-width="0.7" opacity="0.8"/>
-  <line x1="66" y1="12" x2="66" y2="100" stroke="#E8D5A3" stroke-width="0.7" opacity="0.8"/>
-  <line x1="68" y1="12" x2="68" y2="100" stroke="#E8D5A3" stroke-width="0.9" opacity="0.8"/>
+  <!-- Cordes (6 cordes nylon) -->
+  <line x1="59" y1="12" x2="59" y2="106" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
+  <line x1="61" y1="12" x2="61" y2="106" stroke="#E8D5A3" stroke-width="0.5" opacity="0.8"/>
+  <line x1="63" y1="12" x2="63" y2="106" stroke="#E8D5A3" stroke-width="0.6" opacity="0.8"/>
+  <line x1="65" y1="12" x2="65" y2="106" stroke="#E8D5A3" stroke-width="0.6" opacity="0.8"/>
+  <line x1="67" y1="12" x2="67" y2="106" stroke="#E8D5A3" stroke-width="0.8" opacity="0.8"/>
+  <line x1="69" y1="12" x2="69" y2="106" stroke="#E8D5A3" stroke-width="0.9" opacity="0.8"/>
 </svg>
