@@ -27,11 +27,11 @@ src/
   constants.js             # Constantes centralisees
 public/
   js/                      # Frontend SPA vanilla JS (~85 fichiers)
-    core/                  # BaseCanvasEditor, BaseController, BaseView, BaseModal, EventBus
+    core/                  # BaseController, BaseView, BaseModal, EventBus
     api/                   # BackendAPIClient (WebSocket)
     audio/                 # Synthetiseur MIDI
     i18n/                  # Internationalisation (28 langues)
-    utils/                 # FilterManager, MidiConstants, escapeHtml, a11y
+    utils/                 # FilterManager, MidiConstants, escapeHtml
     views/components/      # ~30 composants UI (editeurs MIDI, modales, pages)
   locales/                 # 28 fichiers de traduction JSON
   styles/                  # CSS

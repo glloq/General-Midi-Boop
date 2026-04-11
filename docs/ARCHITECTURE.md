@@ -7,7 +7,7 @@ Ma-est-tro is a real-time MIDI orchestration system for Raspberry Pi. It manages
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Browser (SPA)                           │
-│  BaseView / BaseModal / BaseCanvasEditor / AppRegistry      │
+│  BaseView / BaseModal / AppRegistry                         │
 │  BackendAPIClient (WebSocket)                               │
 └──────────────────────────┬──────────────────────────────────┘
                            │ WebSocket (JSON)
