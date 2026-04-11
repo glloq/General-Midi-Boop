@@ -1413,7 +1413,9 @@ class RoutingSummaryPage {
       const splitColors = SPLIT_COLORS;
       routeHTML = escapeHtml(gmName) + ' \u2192 ' + segments.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
-        const name = seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument';
+        // Resolve display name: look up instrument for proper naming
+        const inst = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
+        const name = inst ? this._getInstrumentDisplayName(inst) : (seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument');
         return `<strong style="color:${color}">${escapeHtml(name)}</strong>`;
       }).join(' + ');
     } else {
@@ -1643,7 +1645,9 @@ class RoutingSummaryPage {
         const left = (sMin / FULL_RANGE) * 100;
         const width = Math.max(1, ((sMax - sMin) / FULL_RANGE) * 100);
         const color = splitColors[i % splitColors.length];
-        const name = seg.instrumentName || `Inst ${i + 1}`;
+        // Resolve display name via allInstruments lookup
+        const instLookup = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
+        const name = instLookup ? this._getInstrumentDisplayName(instLookup) : (seg.instrumentName || `Inst ${i + 1}`);
 
         // Detect non-played portions (dotted) based on channel note distribution
         let dottedCSS = '';
@@ -1686,7 +1690,8 @@ class RoutingSummaryPage {
 
       legendItems = segs.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
-        const name = seg.instrumentName || `Inst ${i + 1}`;
+        const instL = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
+        const name = instL ? this._getInstrumentDisplayName(instL) : (seg.instrumentName || `Inst ${i + 1}`);
         return `<span class="rs-range-legend-item"><span class="rs-range-legend-key" style="background:${color}80;border:1px solid ${color}"></span>${escapeHtml(name)}</span>`;
       }).join('');
       if (overlaps.length > 0) {
@@ -2347,7 +2352,7 @@ class RoutingSummaryPage {
       instrumentId: inst.id,
       deviceId: inst.device_id,
       instrumentChannel: inst.channel,
-      instrumentName: inst.custom_name || getGmProgramName(inst.gm_program) || inst.name,
+      instrumentName: this._getInstrumentDisplayName(inst),
       gmProgram: inst.gm_program,
       fullRange: { min: instMin, max: instMax },
       noteRange: newNoteRange
@@ -2591,15 +2596,23 @@ class RoutingSummaryPage {
     const analysis = this.channelAnalyses[channel];
     if (!assignment?.instrumentId) return;
 
-    // Segment for the currently assigned instrument
+    // Compute transposed channel range for clamping
+    const adaptSettings = this.adaptationSettings[ch] || {};
+    const semi = (this.autoAdaptation && adaptSettings.pitchShift !== 'none') ? (adaptSettings.transpositionSemitones || 0) : 0;
+    const tChMin = Math.max(0, (analysis?.noteRange?.min ?? 0) + semi);
+    const tChMax = Math.min(127, (analysis?.noteRange?.max ?? 127) + semi);
+
+    // Segment for the currently assigned instrument (clamped to its physical range)
+    const curInstMin = assignment.noteRangeMin ?? 0;
+    const curInstMax = assignment.noteRangeMax ?? 127;
     const currentSeg = {
       instrumentId: assignment.instrumentId,
       deviceId: assignment.deviceId,
       instrumentChannel: assignment.instrumentChannel,
-      instrumentName: assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName,
+      instrumentName: assignment.instrumentDisplayName || assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName,
       gmProgram: assignment.gmProgram,
-      noteRange: { min: analysis?.noteRange?.min ?? 0, max: analysis?.noteRange?.max ?? 127 },
-      fullRange: { min: assignment.noteRangeMin ?? 0, max: assignment.noteRangeMax ?? 127 }
+      noteRange: { min: Math.max(curInstMin, tChMin), max: Math.min(curInstMax, tChMax) },
+      fullRange: { min: curInstMin, max: curInstMax }
     };
 
     // Find a compatible second instrument
@@ -2611,7 +2624,7 @@ class RoutingSummaryPage {
       instrumentChannel: secondInst.channel,
       instrumentName: this._getInstrumentDisplayName(secondInst),
       gmProgram: secondInst.gm_program,
-      noteRange: { min: analysis?.noteRange?.min ?? 0, max: analysis?.noteRange?.max ?? 127 },
+      noteRange: { min: Math.max(secondInst.note_range_min ?? 0, tChMin), max: Math.min(secondInst.note_range_max ?? 127, tChMax) },
       fullRange: { min: secondInst.note_range_min ?? 0, max: secondInst.note_range_max ?? 127 }
     } : { ...currentSeg }; // Duplicate if nothing else available
 
