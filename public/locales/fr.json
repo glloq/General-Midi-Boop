@@ -1851,6 +1851,7 @@
         "overflowInstrument": "Débordement",
         "alternatePattern": "Round-robin",
         "notesPerSec": "notes/sec",
+        "noteCoverage": "Couverture notes",
         "overlapPlay": "Jouer",
         "overlapAlternate": "Alterner",
         "overlapOverflow": "Débordement"
