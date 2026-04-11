@@ -5606,14 +5606,24 @@ body.dark-mode .rs-cc-table td {
   margin-bottom: 2px;
 }
 
-/* Channel notes reference track (top line) */
+/* Channel notes reference track with distribution histogram */
 .rs-split-viz-ch-track {
   position: relative;
-  height: 8px;
-  background: var(--accent-color, #4285f4);
-  opacity: 0.5;
+  height: 24px;
+  background: var(--bg-tertiary, #e8e8e8);
   border-radius: 3px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+/* Individual histogram bar (one per note) */
+.rs-split-viz-histo-bar {
+  position: absolute;
+  bottom: 0;
+  background: var(--accent-color, #4285f4);
+  opacity: 0.55;
+  min-width: 1px;
+  border-radius: 1px 1px 0 0;
 }
 
 .rs-split-viz-inst-area {

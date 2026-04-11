@@ -125,8 +125,26 @@ function renderSplitBar(splitData, channelAnalysis, channel) {
     <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
   </div>`;
 
-  // Channel notes reference track (top line)
-  const chTrackHTML = `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}"></div>`;
+  // Channel notes reference track with note distribution histogram
+  const dist = channelAnalysis.noteDistribution;
+  let histoBarsHTML = '';
+  if (dist && typeof dist === 'object') {
+    // Build histogram: one thin bar per note, height proportional to usage count
+    const entries = Object.entries(dist);
+    if (entries.length > 0) {
+      const maxCount = Math.max(...entries.map(([, c]) => c));
+      histoBarsHTML = entries.map(([note, count]) => {
+        const n = parseInt(note);
+        if (n < chMin || n > chMax) return '';
+        const leftPct = ((n - chMin) / span) * 100;
+        // Width: at least 1px visible, scale based on range span
+        const barW = Math.max(0.8, 100 / span);
+        const heightPct = Math.max(8, (count / maxCount) * 100);
+        return `<div class="rs-split-viz-histo-bar" style="left:${leftPct.toFixed(1)}%;width:${barW.toFixed(1)}%;height:${heightPct.toFixed(0)}%"></div>`;
+      }).join('');
+    }
+  }
+  const chTrackHTML = `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}">${histoBarsHTML}</div>`;
 
   // One row per instrument with draggable range slider
   const instRowsHTML = splitData.segments.map((seg, i) => {
