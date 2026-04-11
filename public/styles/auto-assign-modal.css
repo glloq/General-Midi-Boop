@@ -5760,40 +5760,83 @@ body.dark-mode .rs-overlap-zone-card {
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* Instrument name label (left, below row) */
-.rs-split-viz-inst-name {
-  position: absolute;
-  left: 2px;
-  bottom: -13px;
-  font-size: 9px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100px;
-  pointer-events: none;
-  line-height: 1;
+/* ---- Split table layout: select | slider | info | actions ---- */
+.rs-split-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Range label (right, below row) */
-.rs-split-viz-range-label {
-  position: absolute;
-  right: 2px;
-  bottom: -13px;
-  font-size: 8px;
+.rs-split-table-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+}
+
+.rs-split-table-select {
+  flex: 0 0 auto;
+  width: 140px;
+  padding-left: 4px;
+}
+
+.rs-split-table-select select {
+  width: 100%;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--bg-primary, #fff);
+}
+
+.rs-split-table-bar {
+  flex: 1 1 0;
+  min-width: 80px;
+}
+
+.rs-split-table-info {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 70px;
+  gap: 1px;
+}
+
+.rs-split-table-range {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+}
+
+.rs-split-table-notes {
+  font-size: 9px;
   color: var(--text-secondary, #888);
   white-space: nowrap;
-  pointer-events: none;
+}
+
+.rs-split-table-actions {
+  flex: 0 0 auto;
+  width: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.rs-split-table-actions .btn {
+  padding: 1px 4px;
+  font-size: 12px;
   line-height: 1;
 }
 
-/* Extra bottom margin on rows to make room for labels */
-.rs-split-viz-inst-row {
-  margin-bottom: 16px;
+/* Add instrument row (last row of the table) */
+.rs-split-table-add {
+  justify-content: center;
+  padding: 4px 0;
 }
 
-.rs-split-viz-inst-row:last-child {
-  margin-bottom: 8px;
+.rs-split-table-add .btn {
+  font-size: 11px;
 }
 
 /* Dark mode support for split viz v2 */
@@ -5803,6 +5846,12 @@ body.dark-mode .rs-split-viz-inst-row {
 
 body.dark-mode .rs-split-viz-labels {
   color: var(--text-muted, #666);
+}
+
+body.dark-mode .rs-split-table-select select {
+  background: var(--bg-secondary, #2a2a2a);
+  border-color: var(--border-color, #444);
+  color: var(--text-primary, #ddd);
 }
 
 body.dark-mode .rs-split-viz-handle:hover,

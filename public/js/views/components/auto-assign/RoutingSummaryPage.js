@@ -99,37 +99,17 @@ function midiNoteToName(note) {
 const SPLIT_COLORS = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
 
 /**
- * Render split visualization with channel range on top and one line per instrument below.
- *
- * Each instrument gets its own row with a draggable range slider showing its assigned
- * note range within the channel's range. The slider is constrained to the instrument's
- * physical playable range (fullRange). Drag handles on left/right edges allow adjusting.
- *
- * The channel range bar on top serves as the reference scale.
- *
- * @param {Object} splitData - Active split data with segments, behaviorMode, etc.
- * @param {Object} channelAnalysis - Channel analysis with noteRange
- * @param {number} channel - MIDI channel number (for data attributes)
+ * Render the channel note distribution histogram bar.
+ * Used as reference scale at top of the split table.
  */
-function renderSplitBar(splitData, channelAnalysis, channel) {
-  if (!splitData || !splitData.segments || splitData.segments.length === 0) return '';
+function renderChannelHistogram(channelAnalysis) {
   if (!channelAnalysis?.noteRange || channelAnalysis.noteRange.min == null) return '';
-
   const chMin = channelAnalysis.noteRange.min;
   const chMax = channelAnalysis.noteRange.max;
   const span = chMax - chMin || 1;
-  const colors = SPLIT_COLORS;
-
-  // Range labels (note names at edges of channel range)
-  const labelsHTML = `<div class="rs-split-viz-labels">
-    <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
-  </div>`;
-
-  // Channel notes reference track with note distribution histogram
   const dist = channelAnalysis.noteDistribution;
   let histoBarsHTML = '';
   if (dist && typeof dist === 'object') {
-    // Build histogram: one thin bar per note, height proportional to usage count
     const entries = Object.entries(dist);
     if (entries.length > 0) {
       const maxCount = Math.max(...entries.map(([, c]) => c));
@@ -137,56 +117,35 @@ function renderSplitBar(splitData, channelAnalysis, channel) {
         const n = parseInt(note);
         if (n < chMin || n > chMax) return '';
         const leftPct = ((n - chMin) / span) * 100;
-        // Width: at least 1px visible, scale based on range span
         const barW = Math.max(0.8, 100 / span);
         const heightPct = Math.max(8, (count / maxCount) * 100);
         return `<div class="rs-split-viz-histo-bar" style="left:${leftPct.toFixed(1)}%;width:${barW.toFixed(1)}%;height:${heightPct.toFixed(0)}%"></div>`;
       }).join('');
     }
   }
-  const chTrackHTML = `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}">${histoBarsHTML}</div>`;
+  return `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}">${histoBarsHTML}</div>`;
+}
 
-  // One row per instrument with draggable range slider
-  const instRowsHTML = splitData.segments.map((seg, i) => {
-    const color = colors[i % colors.length];
-    const name = seg.instrumentName || `Inst ${i + 1}`;
-
-    // Physical limits of the instrument (clamped to channel range for display)
-    const physMin = seg.fullRange?.min ?? 0;
-    const physMax = seg.fullRange?.max ?? 127;
-    const displayPhysMin = Math.max(physMin, chMin);
-    const displayPhysMax = Math.min(physMax, chMax);
-    const physLeft = Math.round(((displayPhysMin - chMin) / span) * 100);
-    const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin) / span) * 100));
-
-    // Current assigned range (within the physical limits)
-    const rMin = seg.noteRange?.min ?? physMin;
-    const rMax = seg.noteRange?.max ?? physMax;
-    const segLeft = Math.round(((rMin - chMin) / span) * 100);
-    const segWidth = Math.max(2, Math.round(((rMax - rMin) / span) * 100));
-
-    // Tooltip
-    const title = `${escapeHtml(name)}: ${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
-    const physTitle = `${midiNoteToName(physMin)}\u2013${midiNoteToName(physMax)}`;
-
-    return `<div class="rs-split-viz-inst-row" data-channel="${channel}" data-seg="${i}">
-      <div class="rs-split-viz-phys" style="left:${physLeft}%;width:${physWidth}%" title="${physTitle}"></div>
-      <div class="rs-split-viz-slider" style="left:${segLeft}%;width:${segWidth}%;background:${color}"
-           title="${title}" data-channel="${channel}" data-seg="${i}"
-           data-phys-min="${physMin}" data-phys-max="${physMax}">
-        <div class="rs-split-viz-handle rs-split-viz-handle-l" data-bound="min"></div>
-        <div class="rs-split-viz-handle rs-split-viz-handle-r" data-bound="max"></div>
-      </div>
-      <span class="rs-split-viz-inst-name" style="color:${color}">${escapeHtml(name)}</span>
-      <span class="rs-split-viz-range-label">${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}</span>
-    </div>`;
-  }).join('');
-
-  return `<div class="rs-split-viz-v2" data-channel="${channel}" data-ch-min="${chMin}" data-ch-max="${chMax}">
-    ${labelsHTML}
-    ${chTrackHTML}
-    <div class="rs-split-viz-inst-area">${instRowsHTML}</div>
-  </div>`;
+/**
+ * Compute note distribution description for a segment's range within the channel.
+ * Returns a short text like "42 notes (68%)" indicating how many channel notes
+ * fall within this segment's assigned range.
+ */
+function describeSegmentNotes(seg, channelAnalysis) {
+  const dist = channelAnalysis?.noteDistribution;
+  if (!dist || !seg.noteRange) return '';
+  const rMin = seg.noteRange.min ?? 0;
+  const rMax = seg.noteRange.max ?? 127;
+  let segCount = 0;
+  let totalCount = 0;
+  for (const [note, count] of Object.entries(dist)) {
+    const n = parseInt(note);
+    totalCount += count;
+    if (n >= rMin && n <= rMax) segCount += count;
+  }
+  if (totalCount === 0) return '';
+  const pct = Math.round((segCount / totalCount) * 100);
+  return `${segCount} notes (${pct}%)`;
 }
 
 // ============================================================================
@@ -1272,10 +1231,15 @@ class RoutingSummaryPage {
       const activeData = this.splitAssignments[channel];
       const segments = activeData.segments || [];
       const activeMode = activeData.type;
+      const chMin = analysis?.noteRange?.min ?? 0;
+      const chMax = analysis?.noteRange?.max ?? 127;
+      const chSpan = chMax - chMin || 1;
 
-      // Compact instrument list: color chip + instrument select + remove button
-      const segCardsHTML = segments.map((seg, i) => {
+      // Build table rows: one per instrument (select | slider | notes desc | remove)
+      const instRowsHTML = segments.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
+
+        // Instrument select
         const compatInstruments = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
         const seen = new Set(compatInstruments.map(inst => inst.id));
         if (seg.instrumentId && !seen.has(seg.instrumentId)) {
@@ -1290,19 +1254,50 @@ class RoutingSummaryPage {
         }).join('');
         const canRemove = segments.length > 1;
 
-        return `
-          <div class="rs-seg-card" style="border-left: 3px solid ${color}">
-            <div class="rs-seg-card-row">
-              <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
-                ${selectOptions}
-              </select>
-              ${canRemove ? `<button class="btn btn-sm rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
+        // Slider bar computation
+        const physMin = seg.fullRange?.min ?? 0;
+        const physMax = seg.fullRange?.max ?? 127;
+        const displayPhysMin = Math.max(physMin, chMin);
+        const displayPhysMax = Math.min(physMax, chMax);
+        const physLeft = Math.round(((displayPhysMin - chMin) / chSpan) * 100);
+        const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin) / chSpan) * 100));
+        const rMin = seg.noteRange?.min ?? physMin;
+        const rMax = seg.noteRange?.max ?? physMax;
+        const segLeft = Math.round(((rMin - chMin) / chSpan) * 100);
+        const segWidth = Math.max(2, Math.round(((rMax - rMin) / chSpan) * 100));
+        const sliderTitle = `${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
+
+        // Note distribution description
+        const noteDesc = describeSegmentNotes(seg, analysis);
+
+        return `<div class="rs-split-table-row" data-channel="${channel}" data-seg="${i}">
+          <div class="rs-split-table-select" style="border-left:3px solid ${color}">
+            <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
+              ${selectOptions}
+            </select>
+          </div>
+          <div class="rs-split-table-bar">
+            <div class="rs-split-viz-inst-row" data-channel="${channel}" data-seg="${i}">
+              <div class="rs-split-viz-phys" style="left:${physLeft}%;width:${physWidth}%" title="${midiNoteToName(physMin)}\u2013${midiNoteToName(physMax)}"></div>
+              <div class="rs-split-viz-slider" style="left:${segLeft}%;width:${segWidth}%;background:${color}"
+                   title="${sliderTitle}" data-channel="${channel}" data-seg="${i}"
+                   data-phys-min="${physMin}" data-phys-max="${physMax}">
+                <div class="rs-split-viz-handle rs-split-viz-handle-l" data-bound="min"></div>
+                <div class="rs-split-viz-handle rs-split-viz-handle-r" data-bound="max"></div>
+              </div>
             </div>
           </div>
-        `;
+          <div class="rs-split-table-info">
+            <span class="rs-split-table-range">${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}</span>
+            ${noteDesc ? `<span class="rs-split-table-notes">${noteDesc}</span>` : ''}
+          </div>
+          <div class="rs-split-table-actions">
+            ${canRemove ? `<button class="btn btn-sm rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
+          </div>
+        </div>`;
       }).join('');
 
-      // Detect overlaps between any segments (regardless of mode)
+      // Detect overlaps between any segments
       let overlapsHTML = '';
       const overlaps = this._detectOverlaps(segments);
       if (overlaps.length > 0) {
@@ -1310,8 +1305,6 @@ class RoutingSummaryPage {
         overlapsHTML = overlaps.map((ov, idx) => {
           const colorA = splitColors[ov.segA % splitColors.length];
           const colorB = splitColors[ov.segB % splitColors.length];
-          const nameA = segments[ov.segA]?.instrumentName || `Inst ${ov.segA + 1}`;
-          const nameB = segments[ov.segB]?.instrumentName || `Inst ${ov.segB + 1}`;
           return `
             <div class="rs-overlap-zone-card">
               <div class="rs-overlap-zone-colors">
@@ -1349,18 +1342,10 @@ class RoutingSummaryPage {
           uncoveredHTML = `
             <div class="rs-uncovered-warning">
               <span>\u26A0 ${uncoveredNotes.length} ${_t('routingSummary.uncoveredNotes') || 'notes non couvertes'} (${midiNoteToName(uncMin)}-${midiNoteToName(uncMax)})</span>
-              <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
             </div>
           `;
         }
       }
-
-      const actionsHTML = `
-        <div class="rs-split-actions">
-          <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
-          <button class="btn btn-sm rs-btn-remove-split" data-channel="${channel}">${_t('routingSummary.removeMulti') || 'Retirer multi-instrument'}</button>
-        </div>
-      `;
 
       const segCount = segments.length;
 
@@ -1372,11 +1357,20 @@ class RoutingSummaryPage {
             <button class="btn btn-sm rs-btn-remove-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('routingSummary.removeMulti') || 'Retirer multi-instrument'}">\u2716</button>
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
-            <div class="rs-split-segments">${segCardsHTML}</div>
-            ${renderSplitBar(activeData, analysis, channel)}
+            <div class="rs-split-viz-v2" data-channel="${channel}" data-ch-min="${chMin}" data-ch-max="${chMax}">
+              <div class="rs-split-viz-labels">
+                <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
+              </div>
+              ${renderChannelHistogram(analysis)}
+              <div class="rs-split-table">
+                ${instRowsHTML}
+                <div class="rs-split-table-row rs-split-table-add">
+                  <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
+                </div>
+              </div>
+            </div>
             ${overlapsHTML}
             ${uncoveredHTML}
-            ${actionsHTML}
           </div>
         </div>
       `;
@@ -2262,7 +2256,9 @@ class RoutingSummaryPage {
       let curMin = data.segments[segIdx].noteRange?.min ?? physMin;
       let curMax = data.segments[segIdx].noteRange?.max ?? physMax;
 
-      const rangeLabel = row.querySelector('.rs-split-viz-range-label');
+      // Range label is in the table row wrapper (parent of the bar cell)
+      const tableRow = row.closest('.rs-split-table-row');
+      const rangeLabel = tableRow?.querySelector('.rs-split-table-range');
 
       const onMove = (moveE) => {
         const rect = row.getBoundingClientRect();
