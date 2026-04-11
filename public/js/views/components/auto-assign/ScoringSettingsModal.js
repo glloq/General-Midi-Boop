@@ -31,124 +31,88 @@ class ScoringSettingsModal extends BaseModal {
   // Drum categories with representative substitution chains from DrumNoteMapper.
   // Each chain shows the primary note and its ordered fallbacks (by musical proximity).
   // chain entries: { note, name } — first is the primary, rest are fallbacks by preference.
-  static DRUM_CATEGORIES = [
-    { key: 'kicks', icon: '🥁', labelKey: 'scoringSettings.catKicks', fallback: 'Kicks',
-      chain: [
-        { note: 36, name: 'Bass Drum 1' },
-        { note: 35, name: 'Acoustic Kick' },
-        { note: 41, name: 'Low Floor Tom' },
-        { note: 43, name: 'High Floor Tom' },
-        { note: 45, name: 'Low Tom' },
-        { note: 64, name: 'Low Conga' },
-        { note: 66, name: 'Low Timbale' }
-      ]},
-    { key: 'snares', icon: '🪘', labelKey: 'scoringSettings.catSnares', fallback: 'Snares',
-      chain: [
-        { note: 38, name: 'Acoustic Snare' },
-        { note: 40, name: 'Electric Snare' },
-        { note: 37, name: 'Side Stick' },
-        { note: 39, name: 'Hand Clap' },
-        { note: 54, name: 'Tambourine' },
-        { note: 70, name: 'Maracas' },
-        { note: 75, name: 'Claves' }
-      ]},
-    { key: 'hiHats', icon: '🎩', labelKey: 'scoringSettings.catHiHats', fallback: 'Hi-Hats',
-      chain: [
-        { note: 42, name: 'Closed Hi-Hat' },
-        { note: 44, name: 'Pedal Hi-Hat' },
-        { note: 46, name: 'Open Hi-Hat' },
-        { note: 54, name: 'Tambourine' },
-        { note: 70, name: 'Maracas' },
-        { note: 69, name: 'Cabasa' },
-        { note: 53, name: 'Ride Bell' }
-      ]},
-    { key: 'toms', icon: '🥁', labelKey: 'scoringSettings.catToms', fallback: 'Toms',
-      chain: [
-        { note: 50, name: 'High Tom' },
-        { note: 48, name: 'Hi-Mid Tom' },
-        { note: 47, name: 'Low-Mid Tom' },
-        { note: 45, name: 'Low Tom' },
-        { note: 43, name: 'High Floor Tom' },
-        { note: 41, name: 'Low Floor Tom' },
-        { note: 60, name: 'Hi Bongo' }
-      ]},
-    { key: 'crashes', icon: '💥', labelKey: 'scoringSettings.catCrashes', fallback: 'Crashes',
-      chain: [
-        { note: 49, name: 'Crash Cymbal 1' },
-        { note: 57, name: 'Crash Cymbal 2' },
-        { note: 55, name: 'Splash Cymbal' },
-        { note: 52, name: 'Chinese Cymbal' },
-        { note: 46, name: 'Open Hi-Hat' },
-        { note: 51, name: 'Ride Cymbal' },
-        { note: 81, name: 'Open Triangle' }
-      ]},
-    { key: 'rides', icon: '🔔', labelKey: 'scoringSettings.catRides', fallback: 'Rides',
-      chain: [
-        { note: 51, name: 'Ride Cymbal 1' },
-        { note: 59, name: 'Ride Cymbal 2' },
-        { note: 53, name: 'Ride Bell' },
-        { note: 42, name: 'Closed Hi-Hat' },
-        { note: 49, name: 'Crash Cymbal 1' },
-        { note: 55, name: 'Splash Cymbal' }
-      ]},
-    { key: 'latin', icon: '🪇', labelKey: 'scoringSettings.catLatin', fallback: 'Latin',
-      chain: [
-        { note: 60, name: 'Hi Bongo' },
-        { note: 61, name: 'Low Bongo' },
-        { note: 62, name: 'Mute Hi Conga' },
-        { note: 63, name: 'Open Hi Conga' },
-        { note: 64, name: 'Low Conga' },
-        { note: 65, name: 'High Timbale' },
-        { note: 66, name: 'Low Timbale' },
-        { note: 67, name: 'High Agogo' },
-        { note: 68, name: 'Low Agogo' },
-        { note: 48, name: 'Hi-Mid Tom' },
-        { note: 76, name: 'Hi Wood Block' }
-      ]},
-    { key: 'shakers', icon: '🫧', labelKey: 'scoringSettings.catShakers', fallback: 'Shakers',
-      chain: [
-        { note: 39, name: 'Hand Clap' },
-        { note: 54, name: 'Tambourine' },
-        { note: 70, name: 'Maracas' },
-        { note: 69, name: 'Cabasa' },
-        { note: 58, name: 'Vibraslap' },
-        { note: 42, name: 'Closed Hi-Hat' }
-      ]},
-    { key: 'woodsMetal', icon: '🪵', labelKey: 'scoringSettings.catWoodsMetal', fallback: 'Bois & Métal',
-      chain: [
-        { note: 56, name: 'Cowbell' },
-        { note: 75, name: 'Claves' },
-        { note: 76, name: 'Hi Wood Block' },
-        { note: 77, name: 'Low Wood Block' },
-        { note: 67, name: 'High Agogo' },
-        { note: 68, name: 'Low Agogo' }
-      ]},
-    { key: 'pitched', icon: '🎶', labelKey: 'scoringSettings.catPitched', fallback: 'Effets mélodiques',
-      chain: [
-        { note: 71, name: 'Short Whistle' },
-        { note: 72, name: 'Long Whistle' },
-        { note: 73, name: 'Short Guiro' },
-        { note: 74, name: 'Long Guiro' },
-        { note: 75, name: 'Claves' },
-        { note: 76, name: 'Hi Wood Block' }
-      ]},
-    { key: 'cuicas', icon: '🪘', labelKey: 'scoringSettings.catCuicas', fallback: 'Cuicas',
-      chain: [
-        { note: 78, name: 'Mute Cuica' },
-        { note: 79, name: 'Open Cuica' },
-        { note: 73, name: 'Short Guiro' },
-        { note: 74, name: 'Long Guiro' },
-        { note: 71, name: 'Short Whistle' }
-      ]},
-    { key: 'triangles', icon: '🔺', labelKey: 'scoringSettings.catTriangles', fallback: 'Triangles',
-      chain: [
-        { note: 80, name: 'Mute Triangle' },
-        { note: 81, name: 'Open Triangle' },
-        { note: 53, name: 'Ride Bell' },
-        { note: 42, name: 'Closed Hi-Hat' },
-        { note: 76, name: 'Hi Wood Block' }
-      ]}
+  // Category metadata: icon, label, notes belonging to this category.
+  static DRUM_CAT_INFO = [
+    { key: 'kicks',      icon: '🥁', labelKey: 'scoringSettings.catKicks',      fallback: 'Kicks',              notes: [35, 36] },
+    { key: 'snares',     icon: '🪘', labelKey: 'scoringSettings.catSnares',     fallback: 'Snares',             notes: [37, 38, 40] },
+    { key: 'hiHats',     icon: '🎩', labelKey: 'scoringSettings.catHiHats',     fallback: 'Hi-Hats',            notes: [42, 44, 46] },
+    { key: 'toms',       icon: '🥁', labelKey: 'scoringSettings.catToms',       fallback: 'Toms',               notes: [41, 43, 45, 47, 48, 50] },
+    { key: 'crashes',    icon: '💥', labelKey: 'scoringSettings.catCrashes',    fallback: 'Crashes',            notes: [49, 52, 55, 57] },
+    { key: 'rides',      icon: '🔔', labelKey: 'scoringSettings.catRides',      fallback: 'Rides',              notes: [51, 53, 59] },
+    { key: 'latin',      icon: '🪇', labelKey: 'scoringSettings.catLatin',      fallback: 'Latin',              notes: [60, 61, 62, 63, 64, 65, 66, 67, 68] },
+    { key: 'shakers',    icon: '🫧', labelKey: 'scoringSettings.catShakers',    fallback: 'Shakers',            notes: [39, 54, 58, 69, 70] },
+    { key: 'woodsMetal', icon: '🪵', labelKey: 'scoringSettings.catWoodsMetal', fallback: 'Bois & Métal',       notes: [56, 75, 76, 77] },
+    { key: 'pitched',    icon: '🎶', labelKey: 'scoringSettings.catPitched',    fallback: 'Effets mélodiques',  notes: [71, 72, 73, 74] },
+    { key: 'cuicas',     icon: '🪘', labelKey: 'scoringSettings.catCuicas',     fallback: 'Cuicas',             notes: [78, 79] },
+    { key: 'triangles',  icon: '🔺', labelKey: 'scoringSettings.catTriangles',  fallback: 'Triangles',          notes: [80, 81] }
   ];
+
+  // Short names for all GM drum notes (35-81)
+  static NOTE_NAMES = {
+    35: 'Ac. Bass Drum', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Ac. Snare',
+    39: 'Hand Clap', 40: 'Elec. Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat',
+    43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
+    47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash 1', 50: 'High Tom',
+    51: 'Ride 1', 52: 'Chinese Cym.', 53: 'Ride Bell', 54: 'Tambourine',
+    55: 'Splash Cym.', 56: 'Cowbell', 57: 'Crash 2', 58: 'Vibraslap',
+    59: 'Ride 2', 60: 'Hi Bongo', 61: 'Low Bongo', 62: 'Mute Hi Conga',
+    63: 'Open Hi Conga', 64: 'Low Conga', 65: 'High Timbale', 66: 'Low Timbale',
+    67: 'High Agogo', 68: 'Low Agogo', 69: 'Cabasa', 70: 'Maracas',
+    71: 'Short Whistle', 72: 'Long Whistle', 73: 'Short Guiro', 74: 'Long Guiro',
+    75: 'Claves', 76: 'Hi Wood Block', 77: 'Low Wood Block', 78: 'Mute Cuica',
+    79: 'Open Cuica', 80: 'Mute Triangle', 81: 'Open Triangle'
+  };
+
+  // Substitution tables (mirrors DrumNoteMapper.js backend)
+  static SUBSTITUTION_TABLES = {
+    35: [36, 41, 43, 45, 64, 66],
+    36: [35, 41, 43, 45, 64, 66],
+    37: [38, 40, 39, 54, 75, 76],
+    38: [40, 37, 39, 54, 70, 56, 75],
+    39: [37, 38, 40, 54, 70, 69],
+    40: [38, 37, 39, 54, 70, 56, 75],
+    41: [43, 45, 47, 64, 66, 62],
+    42: [44, 46, 54, 70, 69, 53, 75],
+    43: [41, 45, 47, 64, 66, 61],
+    44: [42, 46, 54, 70, 69, 75, 81],
+    45: [43, 47, 41, 48, 62, 64],
+    46: [42, 44, 54, 70, 49, 55, 69],
+    47: [45, 48, 43, 50, 62, 65],
+    48: [47, 50, 45, 43, 60, 65],
+    49: [57, 55, 52, 46, 51, 59, 81],
+    50: [48, 47, 45, 43, 60, 65],
+    51: [59, 53, 42, 49, 55, 81],
+    52: [49, 57, 55, 46, 51, 56],
+    53: [51, 59, 42, 56, 76],
+    54: [70, 69, 42, 46, 39, 81],
+    55: [49, 57, 52, 46, 51, 81],
+    56: [53, 75, 76, 77, 67, 68],
+    57: [49, 55, 52, 46, 51, 59, 81],
+    58: [69, 70, 54, 39, 56, 75],
+    59: [51, 53, 42, 49, 55, 81],
+    60: [61, 48, 50, 62, 65, 76],
+    61: [60, 47, 48, 62, 66, 77],
+    62: [63, 64, 60, 61, 45, 76],
+    63: [62, 64, 60, 61, 47, 77],
+    64: [62, 63, 41, 43, 66, 77],
+    65: [66, 48, 50, 62, 60, 76],
+    66: [65, 47, 48, 64, 61, 77],
+    67: [68, 76, 77, 56, 75, 80],
+    68: [67, 76, 77, 56, 75, 81],
+    69: [70, 54, 42, 39, 58, 75],
+    70: [54, 69, 42, 46, 39, 75],
+    71: [72, 73, 74, 80, 81],
+    72: [71, 74, 73, 81, 80],
+    73: [74, 71, 72, 75, 76],
+    74: [73, 72, 71, 77, 75],
+    75: [76, 77, 56, 67, 68, 70],
+    76: [77, 75, 56, 67, 80],
+    77: [76, 75, 56, 68, 81],
+    78: [79, 73, 74, 71, 72],
+    79: [78, 74, 73, 72, 71],
+    80: [81, 53, 42, 76, 75],
+    81: [80, 53, 55, 77, 42]
+  };
 
   // ============================================================================
   // Defaults
@@ -400,55 +364,62 @@ class ScoringSettingsModal extends BaseModal {
   _renderDrumsSection() {
     const routing = this.overrides.routing || {};
     const drumFallback = routing.drumFallback || {};
-    const categories = ScoringSettingsModal.DRUM_CATEGORIES;
+    const cats = ScoringSettingsModal.DRUM_CAT_INFO;
+    const names = ScoringSettingsModal.NOTE_NAMES;
+    const subs = ScoringSettingsModal.SUBSTITUTION_TABLES;
 
-    let catsHtml = '';
-    for (const cat of categories) {
-      // Current depth value: default to full chain length (all substitutions allowed)
-      const maxDepth = cat.chain.length - 1; // chain[0] is primary, rest are subs
+    let html = '';
+    for (const cat of cats) {
+      // Category depth: default to max chain length (all subs allowed)
+      const maxCatSubs = Math.max(...cat.notes.map(n => (subs[n] || []).length));
       const rawValue = drumFallback[cat.key];
-      const migratedValue = ScoringSettingsModal._migrateDrumFallbackValue(rawValue, maxDepth);
-      const currentDepth = migratedValue !== undefined ? migratedValue : maxDepth;
+      const migratedValue = ScoringSettingsModal._migrateDrumFallbackValue(rawValue, maxCatSubs);
+      const currentDepth = migratedValue !== undefined ? migratedValue : maxCatSubs;
 
-      // Build the visual substitution chain (compact: abbreviated names)
-      let chainHtml = '';
-      for (let i = 0; i < cat.chain.length; i++) {
-        const node = cat.chain[i];
-        const isPrimary = i === 0;
-        const isAllowed = currentDepth >= 0 && i <= currentDepth;
-        const levelClass = isPrimary ? 'ss-chain-primary' :
-                           i === 1 ? 'ss-chain-close' :
-                           i === 2 ? 'ss-chain-similar' : 'ss-chain-distant';
-        const stateClass = isAllowed ? 'ss-chain-allowed' : 'ss-chain-disabled';
-        // Short display name: first word only, or first 2 words if first is very short
-        const words = node.name.split(' ');
-        const shortName = words[0].length <= 3 && words.length > 1 ? words.slice(0, 2).join(' ') : words[0];
+      // Category header
+      html += `<div class="ss-drum-cat-header" data-cat="${cat.key}">
+        <span class="ss-drum-cat-icon">${cat.icon}</span>
+        <span class="ss-drum-cat-label">${this.t(cat.labelKey) || cat.fallback}</span>
+        <span class="ss-chain-node ss-chain-ignore ${currentDepth === -1 ? 'ss-chain-allowed' : 'ss-chain-disabled'}" data-cat="${cat.key}" data-depth="-1" title="${this.t('scoringSettings.depthIgnoreDesc') || 'Ignorer toute la catégorie'}">⛔</span>
+      </div>`;
 
-        chainHtml += `${i > 0 ? '<span class="ss-chain-arrow ' + stateClass + '">→</span>' : ''}`;
-        chainHtml += `<span class="ss-chain-node ${levelClass} ${stateClass}" data-cat="${cat.key}" data-depth="${i}" title="${node.name} (MIDI ${node.note})">${shortName}</span>`;
+      // One row per note
+      for (const noteNum of cat.notes) {
+        const noteSubs = subs[noteNum] || [];
+        const noteName = names[noteNum] || `Note ${noteNum}`;
+
+        // Build substitution chain nodes
+        let chainHtml = '';
+        for (let i = 0; i < noteSubs.length; i++) {
+          const subNote = noteSubs[i];
+          const subName = names[subNote] || `${subNote}`;
+          const isAllowed = currentDepth >= 0 && (i + 1) <= currentDepth;
+          const levelClass = i === 0 ? 'ss-chain-close' :
+                             i === 1 ? 'ss-chain-similar' : 'ss-chain-distant';
+          const stateClass = isAllowed ? 'ss-chain-allowed' : 'ss-chain-disabled';
+
+          chainHtml += `<span class="ss-chain-arrow ${stateClass}">→</span>`;
+          chainHtml += `<span class="ss-chain-node ${levelClass} ${stateClass}" data-cat="${cat.key}" data-depth="${i + 1}" title="${subName} (MIDI ${subNote})">${subName}</span>`;
+        }
+
+        const primaryAllowed = currentDepth >= 0;
+        html += `
+          <div class="ss-drum-note-row" data-cat="${cat.key}" data-note="${noteNum}">
+            <span class="ss-drum-note-id">${noteNum}</span>
+            <span class="ss-chain-node ss-chain-primary ${primaryAllowed ? 'ss-chain-allowed' : 'ss-chain-disabled'}" data-cat="${cat.key}" data-depth="0" title="${noteName} (MIDI ${noteNum})">${noteName}</span>
+            <div class="ss-chain-container">${chainHtml}</div>
+          </div>`;
       }
 
-      // Ignore indicator at the end
-      const isIgnored = currentDepth === -1;
-      chainHtml += `<span class="ss-chain-arrow ${isIgnored ? 'ss-chain-allowed' : 'ss-chain-disabled'}">|</span>`;
-      chainHtml += `<span class="ss-chain-node ss-chain-ignore ${isIgnored ? 'ss-chain-allowed' : 'ss-chain-disabled'}" data-cat="${cat.key}" data-depth="-1" title="${this.t('scoringSettings.depthIgnoreDesc') || 'Ne pas jouer si indisponible'}">⛔</span>`;
-
-      catsHtml += `
-        <div class="ss-drum-cat-row" data-cat="${cat.key}">
-          <span class="ss-drum-cat-icon">${cat.icon}</span>
-          <span class="ss-drum-cat-name">${this.t(cat.labelKey) || cat.fallback}</span>
-          <div class="ss-chain-container">${chainHtml}</div>
-          <input type="hidden" class="ss-drum-depth-input" data-cat="${cat.key}" value="${currentDepth}">
-        </div>
-      `;
+      html += `<input type="hidden" class="ss-drum-depth-input" data-cat="${cat.key}" value="${currentDepth}">`;
     }
 
     return `
       <h4 class="ss-section-title">🥁 ${this.t('scoringSettings.drumSettings') || 'Réglages Drums'}</h4>
-      <p class="ss-section-desc">${this.t('scoringSettings.drumChainDesc') || 'Cliquez sur la chaîne de substitution pour définir la profondeur de remplacement autorisée. Les notes à gauche sont prioritaires.'}</p>
+      <p class="ss-section-desc">${this.t('scoringSettings.drumChainDesc') || 'Cliquez sur la chaîne pour définir la profondeur de substitution autorisée par catégorie. Chaque ligne = 1 note GM.'}</p>
 
       <div class="ss-drum-legend">
-        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-primary ss-chain-allowed"></span> ${this.t('scoringSettings.legendPrimary') || 'Principale'}</span>
+        <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-primary ss-chain-allowed"></span> ${this.t('scoringSettings.legendPrimary') || 'Originale'}</span>
         <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-close ss-chain-allowed"></span> ${this.t('scoringSettings.legendClose') || 'Proche'}</span>
         <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-similar ss-chain-allowed"></span> ${this.t('scoringSettings.legendSimilar') || 'Similaire'}</span>
         <span class="ss-legend-item"><span class="ss-legend-dot ss-chain-distant ss-chain-allowed"></span> ${this.t('scoringSettings.legendDistant') || 'Éloigné'}</span>
@@ -456,7 +427,7 @@ class ScoringSettingsModal extends BaseModal {
       </div>
 
       <div class="ss-drum-categories">
-        ${catsHtml}
+        ${html}
       </div>
     `;
   }
@@ -691,11 +662,8 @@ class ScoringSettingsModal extends BaseModal {
     const dialog = this.dialog;
     if (!dialog) return;
 
-    const row = dialog.querySelector(`.ss-drum-cat-row[data-cat="${catKey}"]`);
-    if (!row) return;
-
-    // Update chain node visual states
-    row.querySelectorAll('.ss-chain-node').forEach(node => {
+    // Update ALL elements with this category (note rows + cat header)
+    dialog.querySelectorAll(`[data-cat="${catKey}"] .ss-chain-node, .ss-drum-cat-header[data-cat="${catKey}"] .ss-chain-node`).forEach(node => {
       const nodeDepth = parseInt(node.dataset.depth);
       const isAllowed = depth >= 0 && nodeDepth >= 0 && nodeDepth <= depth;
       const isIgnore = nodeDepth === -1 && depth === -1;
@@ -703,24 +671,20 @@ class ScoringSettingsModal extends BaseModal {
       node.classList.toggle('ss-chain-disabled', !isAllowed && !isIgnore);
     });
 
-    // Update arrows (cache node list to avoid re-querying)
-    const chainNodes = row.querySelectorAll('.ss-chain-node');
-    row.querySelectorAll('.ss-chain-arrow').forEach((arrow, i) => {
-      const nextNode = chainNodes[i + 1];
-      if (!nextNode) {
-        // Last arrow (before ignore)
-        arrow.classList.toggle('ss-chain-allowed', depth === -1);
-        arrow.classList.toggle('ss-chain-disabled', depth !== -1);
-      } else {
+    // Update arrows in all note rows for this category
+    dialog.querySelectorAll(`.ss-drum-note-row[data-cat="${catKey}"]`).forEach(row => {
+      row.querySelectorAll('.ss-chain-arrow').forEach(arrow => {
+        const nextNode = arrow.nextElementSibling;
+        if (!nextNode || !nextNode.dataset.depth) return;
         const nextDepth = parseInt(nextNode.dataset.depth);
-        const isAllowed = depth >= 0 && nextDepth >= 0 && nextDepth <= depth;
+        const isAllowed = depth >= 0 && nextDepth <= depth;
         arrow.classList.toggle('ss-chain-allowed', isAllowed);
         arrow.classList.toggle('ss-chain-disabled', !isAllowed);
-      }
+      });
     });
 
     // Update hidden input
-    const input = row.querySelector('.ss-drum-depth-input');
+    const input = dialog.querySelector(`.ss-drum-depth-input[data-cat="${catKey}"]`);
     if (input) input.value = depth;
   }
 

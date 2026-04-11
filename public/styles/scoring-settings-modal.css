@@ -260,7 +260,7 @@
   line-height: 1.4;
 }
 
-/* ========== Drums Section: Compact Substitution Chain Visualization ========== */
+/* ========== Drums Section: Per-Note Substitution Chain (47 lines) ========== */
 
 /* ---- Legend ---- */
 .ss-drum-legend {
@@ -290,49 +290,66 @@
   flex-shrink: 0;
 }
 
-/* ---- Categories list (compact) ---- */
+/* ---- Categories list ---- */
 .ss-drum-categories {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
 }
 
-/* Each category row: single-line flex layout */
-.ss-drum-cat-row {
+/* ---- Category header (group separator) ---- */
+.ss-drum-cat-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 6px;
-  padding: 4px 8px;
-  transition: border-color 0.15s;
-  min-height: 28px;
+  padding: 5px 6px 3px;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
-.ss-drum-cat-row:hover {
-  border-color: #cbd5e1;
+.ss-drum-cat-header:first-child {
+  margin-top: 0;
 }
 
-/* Icon and name inline */
 .ss-drum-cat-icon {
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
   line-height: 1;
 }
 
-.ss-drum-cat-name {
+.ss-drum-cat-label {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-primary, #1f2937);
-  flex-shrink: 0;
-  min-width: 80px;
-  max-width: 100px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 700;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex: 1;
 }
 
-/* ---- Substitution chain visualization (compact inline) ---- */
+/* ---- Per-note row ---- */
+.ss-drum-note-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 16px;
+  min-height: 24px;
+  transition: background-color 0.1s;
+}
+
+.ss-drum-note-row:hover {
+  background: rgba(102, 126, 234, 0.04);
+}
+
+.ss-drum-note-id {
+  font-size: 9px;
+  font-family: monospace;
+  color: var(--text-muted, #9ca3af);
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ---- Substitution chain (inline, scrollable) ---- */
 .ss-chain-container {
   display: flex;
   align-items: center;
@@ -348,11 +365,12 @@
   display: none;
 }
 
+/* ---- Chain nodes ---- */
 .ss-chain-node {
   display: inline-flex;
   align-items: center;
-  padding: 2px 5px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
   font-size: 10px;
   font-weight: 500;
   cursor: pointer;
@@ -365,7 +383,7 @@
 
 .ss-chain-node:hover {
   transform: scale(1.05);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Chain node level colors */
@@ -605,19 +623,13 @@
     font-size: 12px;
   }
 
-  .ss-chain-container {
-    gap: 1px;
-  }
-
   .ss-chain-node {
-    padding: 2px 4px;
+    padding: 1px 3px;
     font-size: 9px;
   }
 
-  .ss-drum-cat-name {
-    min-width: 60px;
-    max-width: 70px;
-    font-size: 10px;
+  .ss-drum-note-row {
+    padding-left: 10px;
   }
 
   .ss-drum-legend {
