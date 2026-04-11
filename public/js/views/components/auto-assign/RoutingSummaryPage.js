@@ -2736,7 +2736,7 @@ class RoutingSummaryPage {
     this.splitAssignments[channel] = {
       type: 'range',
       quality: 0,
-      overlapStrategy: 'first',
+      overlapStrategy: 'shared',
       behaviorMode: defaultMode,
       segments: [currentSeg, secondSeg]
     };
@@ -2790,7 +2790,7 @@ class RoutingSummaryPage {
         segA.noteRange = { min: chMin, max: splitPoint };
         segB.noteRange = { min: splitPoint + 1, max: chMax };
         splitData.type = 'range';
-        splitData.overlapStrategy = 'first';
+        splitData.overlapStrategy = 'shared';
         break;
       }
 
@@ -3724,11 +3724,16 @@ class RoutingSummaryPage {
             break;
           }
         }
-        // Redistribute notes by range; duplicate for 'shared' overlap
+        // Redistribute notes by range, with overlap strategy handling
         // Also duplicate CC events to each segment channel, respecting per-segment mutes
         const overlapStrat = this.splitAssignments[sourceChannel]?.overlapStrategy;
         const chRemap = this.ccRemapping[String(sourceChannel)] || {};
         const chSegMute = this.ccSegmentMute[sourceChannel] || {};
+        let alternateCounter = 0; // for 'alternate' round-robin
+        const activeNotes = new Map(); // for 'overflow': segChannel -> count of active notes
+        for (const sCh of segChannels) activeNotes.set(sCh, 0);
+        const segPolyphony = segments.map(seg => seg.polyphonyShare || seg.fullRange?.polyphony || 16);
+
         for (const track of (previewMidi.tracks || [])) {
           const dupes = [];
           const evtsToRemove = [];
@@ -3739,6 +3744,7 @@ class RoutingSummaryPage {
             evt._absTick = tick;
             if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === sourceChannel) {
               const note = evt.note ?? evt.noteNumber ?? 60;
+              const isNoteOn = evt.type === 'noteOn' && (evt.velocity ?? 0) > 0;
               const matches = [];
               for (let si = 0; si < segments.length; si++) {
                 const rMin = segments[si].noteRange?.min ?? 0;
@@ -3746,11 +3752,55 @@ class RoutingSummaryPage {
                 if (note >= rMin && note <= rMax && si < segChannels.length) matches.push(si);
               }
               if (matches.length > 0) {
-                evt.channel = segChannels[matches[0]];
-                if ((overlapStrat === 'shared' || overlapStrat === 'overflow' || overlapStrat === 'alternate') && matches.length > 1) {
-                  for (let mi = 1; mi < matches.length; mi++) {
-                    dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                if (matches.length === 1 || overlapStrat === 'shared') {
+                  // No overlap or shared: send to first match + duplicate to others
+                  evt.channel = segChannels[matches[0]];
+                  if (overlapStrat === 'shared' && matches.length > 1) {
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
                   }
+                } else if (overlapStrat === 'alternate') {
+                  // Round-robin: assign each note-on to next segment in rotation
+                  if (isNoteOn) {
+                    const target = matches[alternateCounter % matches.length];
+                    evt.channel = segChannels[target];
+                    alternateCounter++;
+                  } else {
+                    // noteOff: send to all matching segments (don't know which got the noteOn)
+                    evt.channel = segChannels[matches[0]];
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
+                  }
+                } else if (overlapStrat === 'overflow') {
+                  // Primary plays until polyphony full, then overflow to secondary
+                  if (isNoteOn) {
+                    let assigned = false;
+                    for (const si of matches) {
+                      const sCh = segChannels[si];
+                      if ((activeNotes.get(sCh) || 0) < segPolyphony[si]) {
+                        evt.channel = sCh;
+                        activeNotes.set(sCh, (activeNotes.get(sCh) || 0) + 1);
+                        assigned = true;
+                        break;
+                      }
+                    }
+                    if (!assigned) evt.channel = segChannels[matches[0]]; // fallback
+                  } else {
+                    // noteOff: decrement on the segment that has it, send to all
+                    evt.channel = segChannels[matches[0]];
+                    for (const si of matches) {
+                      const sCh = segChannels[si];
+                      if ((activeNotes.get(sCh) || 0) > 0) activeNotes.set(sCh, activeNotes.get(sCh) - 1);
+                    }
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
+                  }
+                } else {
+                  // Default: first match only
+                  evt.channel = segChannels[matches[0]];
                 }
               }
             } else if ((evt.type === 'controlChange' || evt.type === 'cc') && (evt.channel ?? 0) === sourceChannel) {
@@ -3857,15 +3907,18 @@ class RoutingSummaryPage {
         // Map segments to target channels
         const segChannels = [channel, ...freeChannels.slice(0, segs.length - 1)];
 
-        // Build modified MIDI data: redistribute notes by range
-        // In 'shared' mode, duplicate notes to all matching segments
+        // Build modified MIDI data: redistribute notes by range with overlap strategy
         // Also duplicate CC events to segment channels, respecting per-segment mutes
         const overlapStrategy = this.splitAssignments[channel]?.overlapStrategy;
         const chRemap = this.ccRemapping[ch] || {};
         const chSegMute = this.ccSegmentMute[channel] || {};
+        let chAlternateCounter = 0;
+        const chActiveNotes = new Map();
+        for (const sCh of segChannels) chActiveNotes.set(sCh, 0);
+        const chSegPoly = segs.map(seg => seg.polyphonyShare || seg.fullRange?.polyphony || 16);
+
         const splitMidi = JSON.parse(JSON.stringify(this.midiData));
         for (const track of (splitMidi.tracks || [])) {
-          // First pass: compute absolute ticks and redistribute
           const dupes = [];
           const evtsToRemove = [];
           let tick = 0;
@@ -3876,6 +3929,7 @@ class RoutingSummaryPage {
 
             if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === channel) {
               const note = evt.note ?? evt.noteNumber ?? 60;
+              const isNoteOn = evt.type === 'noteOn' && (evt.velocity ?? 0) > 0;
               const matches = [];
               for (let si = 0; si < segs.length; si++) {
                 const rMin = segs[si].noteRange?.min ?? 0;
@@ -3883,12 +3937,49 @@ class RoutingSummaryPage {
                 if (note >= rMin && note <= rMax && si < segChannels.length) matches.push(si);
               }
               if (matches.length > 0) {
-                evt.channel = segChannels[matches[0]];
-                // Shared/alternate/overflow overlap: duplicate to additional segments
-                if ((overlapStrategy === 'shared' || overlapStrategy === 'alternate' || overlapStrategy === 'overflow') && matches.length > 1) {
-                  for (let mi = 1; mi < matches.length; mi++) {
-                    dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                if (matches.length === 1 || overlapStrategy === 'shared') {
+                  evt.channel = segChannels[matches[0]];
+                  if (overlapStrategy === 'shared' && matches.length > 1) {
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
                   }
+                } else if (overlapStrategy === 'alternate') {
+                  if (isNoteOn) {
+                    const target = matches[chAlternateCounter % matches.length];
+                    evt.channel = segChannels[target];
+                    chAlternateCounter++;
+                  } else {
+                    evt.channel = segChannels[matches[0]];
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
+                  }
+                } else if (overlapStrategy === 'overflow') {
+                  if (isNoteOn) {
+                    let assigned = false;
+                    for (const si of matches) {
+                      const sCh = segChannels[si];
+                      if ((chActiveNotes.get(sCh) || 0) < chSegPoly[si]) {
+                        evt.channel = sCh;
+                        chActiveNotes.set(sCh, (chActiveNotes.get(sCh) || 0) + 1);
+                        assigned = true;
+                        break;
+                      }
+                    }
+                    if (!assigned) evt.channel = segChannels[matches[0]];
+                  } else {
+                    evt.channel = segChannels[matches[0]];
+                    for (const si of matches) {
+                      const sCh = segChannels[si];
+                      if ((chActiveNotes.get(sCh) || 0) > 0) chActiveNotes.set(sCh, chActiveNotes.get(sCh) - 1);
+                    }
+                    for (let mi = 1; mi < matches.length; mi++) {
+                      dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
+                    }
+                  }
+                } else {
+                  evt.channel = segChannels[matches[0]];
                 }
               }
             } else if ((evt.type === 'controlChange' || evt.type === 'cc') && (evt.channel ?? 0) === channel) {
