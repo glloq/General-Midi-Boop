@@ -5760,7 +5760,7 @@ body.dark-mode .rs-overlap-zone-card {
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* ---- Split table layout: select | slider | info | actions ---- */
+/* ---- Split table layout: chip | select | slider (aligned) ---- */
 .rs-split-table {
   display: flex;
   flex-direction: column;
@@ -5770,14 +5770,52 @@ body.dark-mode .rs-overlap-zone-card {
 .rs-split-table-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
+  gap: 4px;
+  min-height: 26px;
 }
 
+/* Color chip with optional remove button inside */
+.rs-split-table-chip {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  position: relative;
+  cursor: default;
+}
+
+.rs-split-chip-remove {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rs-split-table-chip:hover .rs-split-chip-remove {
+  opacity: 1;
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+}
+
+/* Spacer to match chip width in header/add rows */
+.rs-split-table-chip-spacer {
+  flex: 0 0 16px;
+  width: 16px;
+}
+
+/* Instrument select */
 .rs-split-table-select {
   flex: 0 0 auto;
-  width: 140px;
-  padding-left: 4px;
+  width: 130px;
 }
 
 .rs-split-table-select select {
@@ -5789,50 +5827,28 @@ body.dark-mode .rs-overlap-zone-card {
   background: var(--bg-primary, #fff);
 }
 
+/* Spacer to match select width in header/add rows */
+.rs-split-table-select-spacer {
+  flex: 0 0 130px;
+  width: 130px;
+}
+
+/* Slider bar column — takes all remaining space */
 .rs-split-table-bar {
   flex: 1 1 0;
   min-width: 80px;
 }
 
-.rs-split-table-info {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
+/* Header row (labels + histogram) — no extra height */
+.rs-split-table-header {
+  min-height: auto;
   align-items: flex-end;
-  min-width: 70px;
-  gap: 1px;
 }
 
-.rs-split-table-range {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-primary, #333);
-  white-space: nowrap;
-}
-
-.rs-split-table-notes {
-  font-size: 9px;
-  color: var(--text-secondary, #888);
-  white-space: nowrap;
-}
-
-.rs-split-table-actions {
-  flex: 0 0 auto;
-  width: 24px;
-  display: flex;
-  justify-content: center;
-}
-
-.rs-split-table-actions .btn {
-  padding: 1px 4px;
-  font-size: 12px;
-  line-height: 1;
-}
-
-/* Add instrument row (last row of the table) */
+/* Add instrument row */
 .rs-split-table-add {
-  justify-content: center;
-  padding: 4px 0;
+  min-height: auto;
+  padding: 4px 0 0;
 }
 
 .rs-split-table-add .btn {

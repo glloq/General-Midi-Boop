@@ -126,28 +126,6 @@ function renderChannelHistogram(channelAnalysis) {
   return `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}">${histoBarsHTML}</div>`;
 }
 
-/**
- * Compute note distribution description for a segment's range within the channel.
- * Returns a short text like "42 notes (68%)" indicating how many channel notes
- * fall within this segment's assigned range.
- */
-function describeSegmentNotes(seg, channelAnalysis) {
-  const dist = channelAnalysis?.noteDistribution;
-  if (!dist || !seg.noteRange) return '';
-  const rMin = seg.noteRange.min ?? 0;
-  const rMax = seg.noteRange.max ?? 127;
-  let segCount = 0;
-  let totalCount = 0;
-  for (const [note, count] of Object.entries(dist)) {
-    const n = parseInt(note);
-    totalCount += count;
-    if (n >= rMin && n <= rMax) segCount += count;
-  }
-  if (totalCount === 0) return '';
-  const pct = Math.round((segCount / totalCount) * 100);
-  return `${segCount} notes (${pct}%)`;
-}
-
 // ============================================================================
 // RoutingSummaryPage class
 // ============================================================================
@@ -1235,7 +1213,7 @@ class RoutingSummaryPage {
       const chMax = analysis?.noteRange?.max ?? 127;
       const chSpan = chMax - chMin || 1;
 
-      // Build table rows: one per instrument (select | slider | notes desc | remove)
+      // Build table rows: one per instrument (color+remove | select | slider)
       const instRowsHTML = segments.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
 
@@ -1267,11 +1245,11 @@ class RoutingSummaryPage {
         const segWidth = Math.max(2, Math.round(((rMax - rMin) / chSpan) * 100));
         const sliderTitle = `${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
 
-        // Note distribution description
-        const noteDesc = describeSegmentNotes(seg, analysis);
-
         return `<div class="rs-split-table-row" data-channel="${channel}" data-seg="${i}">
-          <div class="rs-split-table-select" style="border-left:3px solid ${color}">
+          <div class="rs-split-table-chip" style="background:${color}">
+            ${canRemove ? `<button class="rs-split-chip-remove rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
+          </div>
+          <div class="rs-split-table-select">
             <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
               ${selectOptions}
             </select>
@@ -1286,13 +1264,6 @@ class RoutingSummaryPage {
                 <div class="rs-split-viz-handle rs-split-viz-handle-r" data-bound="max"></div>
               </div>
             </div>
-          </div>
-          <div class="rs-split-table-info">
-            <span class="rs-split-table-range">${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}</span>
-            ${noteDesc ? `<span class="rs-split-table-notes">${noteDesc}</span>` : ''}
-          </div>
-          <div class="rs-split-table-actions">
-            ${canRemove ? `<button class="btn btn-sm rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -1358,14 +1329,24 @@ class RoutingSummaryPage {
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
             <div class="rs-split-viz-v2" data-channel="${channel}" data-ch-min="${chMin}" data-ch-max="${chMax}">
-              <div class="rs-split-viz-labels">
-                <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
-              </div>
-              ${renderChannelHistogram(analysis)}
               <div class="rs-split-table">
+                <div class="rs-split-table-row rs-split-table-header">
+                  <div class="rs-split-table-chip-spacer"></div>
+                  <div class="rs-split-table-select-spacer"></div>
+                  <div class="rs-split-table-bar">
+                    <div class="rs-split-viz-labels">
+                      <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
+                    </div>
+                    ${renderChannelHistogram(analysis)}
+                  </div>
+                </div>
                 ${instRowsHTML}
                 <div class="rs-split-table-row rs-split-table-add">
-                  <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
+                  <div class="rs-split-table-chip-spacer"></div>
+                  <div class="rs-split-table-select-spacer"></div>
+                  <div class="rs-split-table-bar" style="text-align:center">
+                    <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2256,36 +2237,25 @@ class RoutingSummaryPage {
       let curMin = data.segments[segIdx].noteRange?.min ?? physMin;
       let curMax = data.segments[segIdx].noteRange?.max ?? physMax;
 
-      // Range label is in the table row wrapper (parent of the bar cell)
-      const tableRow = row.closest('.rs-split-table-row');
-      const rangeLabel = tableRow?.querySelector('.rs-split-table-range');
-
       const onMove = (moveE) => {
         const rect = row.getBoundingClientRect();
         const relX = Math.max(0, Math.min(rect.width, moveE.clientX - rect.left));
         const pct = relX / rect.width;
         let noteValue = Math.round(chMin + pct * chSpan);
-        // Clamp to instrument physical range and 0-127
         noteValue = Math.max(physMin, Math.min(physMax, noteValue));
         noteValue = Math.max(0, Math.min(127, noteValue));
 
-        // Update live values
         if (bound === 'min') {
           curMin = Math.min(noteValue, curMax);
         } else {
           curMax = Math.max(noteValue, curMin);
         }
 
-        // Visual update (no re-render) — reposition slider
+        // Visual update (no re-render) — reposition slider + update tooltip
         const leftPct = ((curMin - chMin) / chSpan) * 100;
         const widthPct = Math.max(2, ((curMax - curMin) / chSpan) * 100);
         slider.style.left = leftPct + '%';
         slider.style.width = widthPct + '%';
-
-        // Update range label text
-        if (rangeLabel) {
-          rangeLabel.textContent = midiNoteToName(curMin) + '\u2013' + midiNoteToName(curMax);
-        }
         slider.title = `${midiNoteToName(curMin)}\u2013${midiNoteToName(curMax)}`;
       };
 
