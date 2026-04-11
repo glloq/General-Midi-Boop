@@ -712,10 +712,65 @@ class RoutingSummaryPage {
       const ch = channelKeys[0];
       const channel = parseInt(ch);
       const isSkipped = this.skippedChannels.has(channel);
+      const isSplit = this.splitChannels.has(channel);
       const assignment = this.selectedAssignments[ch];
       const analysis = this.channelAnalyses[channel];
-      const score = assignment?.score || 0;
       const gmName = channel === 9 ? (_t('autoAssign.drums') || 'Drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
+
+      // Multi-instrument mode: show per-segment info
+      if (isSplit && this.splitAssignments[channel]) {
+        const segments = this.splitAssignments[channel].segments || [];
+        const splitColors = SPLIT_COLORS;
+        const totalNotes = analysis?.noteDistribution ? Object.values(analysis.noteDistribution).reduce((s, c) => s + c, 0) : 0;
+
+        const segRows = segments.map((seg, i) => {
+          const color = splitColors[i % splitColors.length];
+          const inst = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
+          const name = inst ? this._getInstrumentDisplayName(inst) : (seg.instrumentName || `Inst ${i + 1}`);
+          const rMin = seg.noteRange?.min ?? 0;
+          const rMax = seg.noteRange?.max ?? 127;
+          // Count notes in this segment's range
+          let segNotes = 0;
+          if (analysis?.noteDistribution) {
+            const adapt = this.adaptationSettings[ch] || {};
+            const semi = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+            for (const [note, count] of Object.entries(analysis.noteDistribution)) {
+              const shifted = parseInt(note) + semi;
+              if (shifted >= rMin && shifted <= rMax) segNotes += count;
+            }
+          }
+          const coveragePct = totalNotes > 0 ? Math.round((segNotes / totalNotes) * 100) : 0;
+
+          return `<div class="rs-score-bar-row">
+            <span class="rs-score-bar-label" style="color:${color}">${escapeHtml(name)}</span>
+            <div class="rs-score-bar-track">
+              <div class="rs-score-bar-fill" style="width:${coveragePct}%;background:${color}"></div>
+            </div>
+            <span class="rs-score-bar-value">${coveragePct}% (${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)})</span>
+          </div>`;
+        }).join('');
+
+        return `<div class="rs-score-detail-content">
+          <div class="rs-score-row">
+            <div class="rs-score-row-header">
+              <span class="rs-score-row-ch">CH ${channel + 1}</span>
+              <span class="rs-score-row-gm">${escapeHtml(gmName)}</span>
+              <span class="rs-score-row-arrow">\u2192</span>
+              <span class="rs-score-row-inst">${segments.length} instruments</span>
+            </div>
+            <div class="rs-score-breakdown">
+              <div class="rs-score-bar-row">
+                <span class="rs-score-bar-label" style="font-weight:600">${_t('routingSummary.noteCoverage') || 'Couverture notes'}</span>
+                <span class="rs-score-bar-value"></span>
+              </div>
+              ${segRows}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Single instrument mode
+      const score = assignment?.score || 0;
       const instName = isSkipped
         ? `<span class="rs-score-muted">${_t('routingSummary.muted') || 'Muté'}</span>`
         : escapeHtml(assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || '\u2014');
@@ -1460,7 +1515,7 @@ class RoutingSummaryPage {
           <div class="rs-detail-title">
             <span class="rs-detail-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' DR' : ''}</span>
             <span class="rs-detail-route">${routeHTML}</span>
-            ${score > 0 ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
+            ${(!isSplit && score > 0) ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
             ${polyHTML}
             ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
           </div>
