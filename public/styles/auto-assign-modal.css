@@ -4341,7 +4341,7 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-detail-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 /* .rs-detail-header moved to navigation section below */
@@ -6250,8 +6250,6 @@ body.dark-mode .rs-split-viz-handle:active {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  overflow: auto;
-  flex: 1;
 }
 
 /* Add instrument button (multi-instrument) */
