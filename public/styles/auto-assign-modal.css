@@ -5592,6 +5592,88 @@ body.dark-mode .rs-cc-table td {
   border-radius: 2px;
 }
 
+/* Split visualization v2 — enriched layout with channel range + instruments */
+.rs-split-viz-v2 {
+  margin: 8px 0;
+}
+
+.rs-split-viz-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted, #bbb);
+  margin-bottom: 2px;
+}
+
+.rs-split-viz-ch-track {
+  position: relative;
+  height: 8px;
+  background: var(--accent-color, #4285f4);
+  opacity: 0.5;
+  border-radius: 3px;
+  margin-bottom: 4px;
+}
+
+.rs-split-viz-inst-area {
+  position: relative;
+}
+
+.rs-split-viz-inst-row {
+  position: relative;
+  height: 14px;
+  background: var(--bg-tertiary, #e8e8e8);
+  border-radius: 3px;
+  margin: 2px 0;
+}
+
+.rs-split-viz-seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+.rs-split-viz-seg-label {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  pointer-events: none;
+}
+
+.rs-split-viz-overlap {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(245, 158, 11, 0.2),
+    rgba(245, 158, 11, 0.2) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  border-left: 1px dashed #f59e0b;
+  border-right: 1px dashed #f59e0b;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Dark mode support for split viz v2 */
+body.dark-mode .rs-split-viz-inst-row {
+  background: var(--bg-tertiary, #333);
+}
+
+body.dark-mode .rs-split-viz-labels {
+  color: var(--text-muted, #666);
+}
+
 /* Extended stats */
 .rs-detail-stats {
   display: flex;

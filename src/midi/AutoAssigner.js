@@ -361,6 +361,17 @@ class AutoAssigner {
       // Canal assigné avec score faible → candidat
       if (assignment && assignment.score < triggerThreshold) {
         candidateChannels.push(analysis);
+        continue;
+      }
+
+      // Canal assigné AVEC transposition quand autoSplitAvoidTransposition est activé → candidat
+      // Même si le score est acceptable, un split pourrait éviter la transposition
+      if (ScoringConfig.routing.autoSplitAvoidTransposition &&
+          assignment && assignment.transposition &&
+          assignment.transposition.semitones !== 0 &&
+          !autoSkipped.includes(ch)) {
+        candidateChannels.push(analysis);
+        this.logger.debug(`Channel ${ch}: candidate for split (autoSplitAvoidTransposition, transposition=${assignment.transposition.semitones}st)`);
       }
     }
 
@@ -421,6 +432,30 @@ class AutoAssigner {
 
       const proposal = this.splitter.evaluateAllSplits(analysis, sameType);
       if (proposal) {
+        // Si ce canal a été ajouté spécifiquement pour autoSplitAvoidTransposition,
+        // ne garder la proposition que si elle réduit/élimine la transposition
+        const assignment = autoSelection[analysis.channel];
+        const wasAddedForTransposition = ScoringConfig.routing.autoSplitAvoidTransposition &&
+          assignment && assignment.transposition &&
+          assignment.transposition.semitones !== 0 &&
+          assignment.score >= triggerThreshold &&
+          !autoSkipped.includes(analysis.channel);
+
+        if (wasAddedForTransposition) {
+          const hasSegTransposition = proposal.segments.some(
+            seg => seg.transposition && seg.transposition.semitones !== 0
+          );
+          if (hasSegTransposition) {
+            this.logger.debug(
+              `Channel ${analysis.channel}: split rejected (still requires transposition in segments)`
+            );
+            continue; // Le split n'aide pas à éviter la transposition
+          }
+          this.logger.info(
+            `Channel ${analysis.channel}: split avoids transposition! (was ${assignment.transposition.semitones}st)`
+          );
+        }
+
         splitProposals[analysis.channel] = proposal;
         this.logger.info(
           `Channel ${analysis.channel}: split proposed (${proposal.type}, quality=${proposal.quality}, ${proposal.segments.length} segments, ${(proposal.alternatives || []).length} alternatives)`
