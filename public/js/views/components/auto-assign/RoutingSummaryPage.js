@@ -596,8 +596,11 @@ class RoutingSummaryPage {
             this._bindDetailEvents(channelKeys);
           }
         }
-        // Update header score display on any partial update
-        this._updateHeaderScore();
+        // Sync container layout class (detail visible or not)
+        const container = this.modal.querySelector('.rs-container');
+        if (container) container.classList.toggle('rs-with-detail', this.selectedChannel !== null);
+        // Update header (score, channel count, preview buttons)
+        this._updateHeaderState();
       }
     } catch (error) {
       console.error('[RoutingSummary] Render failed:', error);
@@ -607,24 +610,42 @@ class RoutingSummaryPage {
   }
 
   /**
-   * Lightweight header score update without full re-render.
+   * Lightweight header state sync without full re-render.
+   * Updates score display, channel count, and preview button states.
    */
-  _updateHeaderScore() {
-    const scoreBtn = this.modal.querySelector('#rsScoreBtn');
-    if (!scoreBtn) return;
-    const displayScore = this._getDisplayScore();
-    const scoreLabel = this.selectedChannel !== null
-      ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
-      : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
-    scoreBtn.textContent = scoreLabel;
-    scoreBtn.className = `rs-score-btn ${getScoreBgClass(displayScore)}`;
+  _updateHeaderState() {
+    const modal = this.modal;
+    if (!modal) return;
 
-    // Update channel count
+    // Score button
+    const scoreBtn = modal.querySelector('#rsScoreBtn');
+    if (scoreBtn) {
+      const displayScore = this._getDisplayScore();
+      const scoreLabel = this.selectedChannel !== null
+        ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
+        : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
+      scoreBtn.textContent = scoreLabel;
+      scoreBtn.className = `rs-score-btn ${getScoreBgClass(displayScore)}`;
+    }
+
+    // Channel count
     const channelKeys = Object.keys(this.suggestions);
     const activeCount = channelKeys.length - this.skippedChannels.size;
-    const countEl = this.modal.querySelector('.rs-channel-count');
+    const countEl = modal.querySelector('.rs-channel-count');
     if (countEl) {
       countEl.textContent = _t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length });
+    }
+
+    // Preview channel button: update disabled state and label
+    const chBtn = modal.querySelector('#rsPreviewChBtn');
+    if (chBtn) {
+      const ch = this.selectedChannel;
+      chBtn.disabled = ch === null;
+      const chLabel = ch !== null ? (ch + 1) : '?';
+      // Update label text (preserve icon span)
+      const iconSpan = chBtn.querySelector('.rs-prev-icon');
+      const iconHTML = iconSpan ? iconSpan.outerHTML : '<span class="rs-prev-icon">&#9654;</span>';
+      chBtn.innerHTML = `${iconHTML} ${_t('routingSummary.previewChannel') || 'Channel'} ${chLabel}`;
     }
   }
 
@@ -1950,8 +1971,7 @@ class RoutingSummaryPage {
 
       // Close detail
       if (target.closest('#rsDetailClose')) {
-        this.selectedChannel = null;
-        this._refreshUI(channelKeys, 'both-panels');
+        this._selectChannel(null);
         return;
       }
 
@@ -2423,9 +2443,6 @@ class RoutingSummaryPage {
 
   _selectChannel(channel) {
     this.selectedChannel = channel;
-    // Toggle layout class directly to avoid full rebuild
-    const container = this.modal.querySelector('.rs-container');
-    if (container) container.classList.toggle('rs-with-detail', channel !== null);
     const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
     this._refreshUI(channelKeys, 'both-panels');
   }
@@ -2616,10 +2633,11 @@ class RoutingSummaryPage {
   }
 
   _refreshUI(channelKeys, hint = 'all') {
-    // Stop any active preview since the view is changing
-    this._safeStopPreview();
-    // Invalidate canvas ref before re-render (prevents drawing to detached canvas)
-    this._minimapCanvas = null;
+    // Only stop preview on full rebuild or panel-level navigation changes
+    if (hint === 'all') {
+      this._safeStopPreview();
+      this._minimapCanvas = null;
+    }
 
     // Merge hints: coalesce multiple rapid calls into one render per frame
     this._pendingHint = this._mergeHints(this._pendingHint, hint);
