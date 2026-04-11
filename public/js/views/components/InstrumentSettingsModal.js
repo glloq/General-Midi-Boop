@@ -20,14 +20,18 @@ class InstrumentSettingsModal extends BaseModal {
     ];
 
     static DRUM_CATEGORIES = {
-        kicks:   { notes: [35, 36], icon: '🥁', name: 'Kicks' },
-        snares:  { notes: [37, 38, 40], icon: '🪘', name: 'Snares' },
-        hiHats:  { notes: [42, 44, 46], icon: '🎩', name: 'Hi-Hats' },
-        toms:    { notes: [41, 43, 45, 47, 48, 50], icon: '🥁', name: 'Toms' },
-        crashes: { notes: [49, 55, 57], icon: '💥', name: 'Crashes' },
-        rides:   { notes: [51, 53, 59], icon: '🔔', name: 'Rides' },
-        latin:   { notes: [60,61,62,63,64,65,66,67,68], icon: '🪇', name: 'Latin' },
-        misc:    { notes: [39,52,54,56,58,69,70,71,72,73,74,75,76,77,78,79,80,81], icon: '🎵', name: 'Divers' }
+        kicks:      { notes: [35, 36], icon: '🥁', name: 'Kicks' },
+        snares:     { notes: [37, 38, 40], icon: '🪘', name: 'Snares' },
+        hiHats:     { notes: [42, 44, 46], icon: '🎩', name: 'Hi-Hats' },
+        toms:       { notes: [41, 43, 45, 47, 48, 50], icon: '🥁', name: 'Toms' },
+        crashes:    { notes: [49, 52, 55, 57], icon: '💥', name: 'Crashes' },
+        rides:      { notes: [51, 53, 59], icon: '🔔', name: 'Rides' },
+        latin:      { notes: [60, 61, 62, 63, 64, 65, 66, 67, 68], icon: '🪇', name: 'Latin' },
+        shakers:    { notes: [39, 54, 58, 69, 70], icon: '🫧', name: 'Shakers' },
+        woodsMetal: { notes: [56, 75, 76, 77], icon: '🪵', name: 'Bois & Métal' },
+        pitched:    { notes: [71, 72, 73, 74], icon: '🎶', name: 'Effets mélodiques' },
+        cuicas:     { notes: [78, 79], icon: '🪘', name: 'Cuicas' },
+        triangles:  { notes: [80, 81], icon: '🔺', name: 'Triangles' }
     };
 
     static DRUM_NOTE_NAMES = {

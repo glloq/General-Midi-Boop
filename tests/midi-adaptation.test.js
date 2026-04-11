@@ -712,6 +712,96 @@ describe('DrumNoteMapper', () => {
     expect(mapper.findClosestNote(37, [36, 42])).toBe(36);
     expect(mapper.findClosestNote(50, [])).toBe(null);
   });
+
+  // --- Expanded drum routing tests ---
+
+  test('getCategoryForNote returns correct category for redistributed notes', () => {
+    // Note 52 (Chinese Cymbal) moved from misc to crashes
+    expect(mapper.getCategoryForNote(52)).toBe('crashes');
+    // New shakers category
+    expect(mapper.getCategoryForNote(39)).toBe('shakers');
+    expect(mapper.getCategoryForNote(54)).toBe('shakers');
+    expect(mapper.getCategoryForNote(58)).toBe('shakers');
+    expect(mapper.getCategoryForNote(69)).toBe('shakers');
+    expect(mapper.getCategoryForNote(70)).toBe('shakers');
+    // New woodsMetal category
+    expect(mapper.getCategoryForNote(56)).toBe('woodsMetal');
+    expect(mapper.getCategoryForNote(75)).toBe('woodsMetal');
+    expect(mapper.getCategoryForNote(76)).toBe('woodsMetal');
+    expect(mapper.getCategoryForNote(77)).toBe('woodsMetal');
+    // New pitched category
+    expect(mapper.getCategoryForNote(71)).toBe('pitched');
+    expect(mapper.getCategoryForNote(74)).toBe('pitched');
+    // New cuicas category
+    expect(mapper.getCategoryForNote(78)).toBe('cuicas');
+    expect(mapper.getCategoryForNote(79)).toBe('cuicas');
+    // New triangles category
+    expect(mapper.getCategoryForNote(80)).toBe('triangles');
+    expect(mapper.getCategoryForNote(81)).toBe('triangles');
+    // Unchanged categories
+    expect(mapper.getCategoryForNote(36)).toBe('kicks');
+    expect(mapper.getCategoryForNote(38)).toBe('snares');
+    expect(mapper.getCategoryForNote(42)).toBe('hiHats');
+    expect(mapper.getCategoryForNote(48)).toBe('toms');
+    expect(mapper.getCategoryForNote(51)).toBe('rides');
+    expect(mapper.getCategoryForNote(60)).toBe('latin');
+  });
+
+  test('SUBSTITUTION_TABLES covers all GM drum notes 35-81', () => {
+    for (let note = 35; note <= 81; note++) {
+      expect(mapper.SUBSTITUTION_TABLES[note]).toBeDefined();
+      expect(mapper.SUBSTITUTION_TABLES[note].length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('classifyDrumNotes categorizes new categories correctly', () => {
+    const events = [
+      noteOn(9, 69, 80),  // Cabasa → shakers
+      noteOn(9, 76, 70),  // Hi Wood Block → woodsMetal
+      noteOn(9, 71, 60),  // Short Whistle → pitched
+      noteOn(9, 78, 50),  // Mute Cuica → cuicas
+      noteOn(9, 80, 40),  // Mute Triangle → triangles
+      noteOn(9, 52, 90)   // Chinese Cymbal → crashes
+    ];
+
+    const result = mapper.classifyDrumNotes(events);
+
+    expect(result.categories.shakers).toContain(69);
+    expect(result.categories.woodsMetal).toContain(76);
+    expect(result.categories.pitched).toContain(71);
+    expect(result.categories.cuicas).toContain(78);
+    expect(result.categories.triangles).toContain(80);
+    expect(result.categories.crashes).toContain(52);
+  });
+
+  test('generateMapping uses substitution chains for previously unmapped notes', () => {
+    const midiNotes = mapper.classifyDrumNotes([
+      noteOn(9, 71, 80),  // Short Whistle
+      noteOn(9, 76, 70),  // Hi Wood Block
+      noteOn(9, 78, 60),  // Mute Cuica
+      noteOn(9, 80, 50)   // Mute Triangle
+    ]);
+
+    // Instrument has only the substitution targets
+    const result = mapper.generateMapping(midiNotes, [72, 77, 79, 81]);
+
+    // Should find substitutions from the tables
+    expect(result.mapping[71]).toBe(72); // Short Whistle → Long Whistle
+    expect(result.mapping[76]).toBe(77); // Hi Wood Block → Low Wood Block
+    expect(result.mapping[78]).toBe(79); // Mute Cuica → Open Cuica
+    expect(result.mapping[80]).toBe(81); // Mute Triangle → Open Triangle
+  });
+
+  test('analyzeInstrumentCapabilities detects new categories', () => {
+    const caps = mapper.analyzeInstrumentCapabilities([36, 38, 42, 69, 70, 56, 75, 71, 78, 80]);
+
+    expect(caps.shakers).toEqual(expect.arrayContaining([69, 70]));
+    expect(caps.woodsMetal).toEqual(expect.arrayContaining([56, 75]));
+    expect(caps.pitched).toContain(71);
+    expect(caps.cuicas).toContain(78);
+    expect(caps.triangles).toContain(80);
+    expect(caps.auxPercCount).toBe(7); // 2 shakers + 2 woodsMetal + 1 pitched + 1 cuica + 1 triangle
+  });
 });
 
 // ============================================================

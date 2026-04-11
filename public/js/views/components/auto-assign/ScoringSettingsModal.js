@@ -38,7 +38,9 @@ class ScoringSettingsModal extends BaseModal {
         { note: 35, name: 'Acoustic Kick' },
         { note: 41, name: 'Low Floor Tom' },
         { note: 43, name: 'High Floor Tom' },
-        { note: 64, name: 'Low Conga' }
+        { note: 45, name: 'Low Tom' },
+        { note: 64, name: 'Low Conga' },
+        { note: 66, name: 'Low Timbale' }
       ]},
     { key: 'snares', icon: '🪘', labelKey: 'scoringSettings.catSnares', fallback: 'Snares',
       chain: [
@@ -46,7 +48,9 @@ class ScoringSettingsModal extends BaseModal {
         { note: 40, name: 'Electric Snare' },
         { note: 37, name: 'Side Stick' },
         { note: 39, name: 'Hand Clap' },
-        { note: 54, name: 'Tambourine' }
+        { note: 54, name: 'Tambourine' },
+        { note: 70, name: 'Maracas' },
+        { note: 75, name: 'Claves' }
       ]},
     { key: 'hiHats', icon: '🎩', labelKey: 'scoringSettings.catHiHats', fallback: 'Hi-Hats',
       chain: [
@@ -54,13 +58,17 @@ class ScoringSettingsModal extends BaseModal {
         { note: 44, name: 'Pedal Hi-Hat' },
         { note: 46, name: 'Open Hi-Hat' },
         { note: 54, name: 'Tambourine' },
-        { note: 70, name: 'Maracas' }
+        { note: 70, name: 'Maracas' },
+        { note: 69, name: 'Cabasa' },
+        { note: 53, name: 'Ride Bell' }
       ]},
     { key: 'toms', icon: '🥁', labelKey: 'scoringSettings.catToms', fallback: 'Toms',
       chain: [
         { note: 50, name: 'High Tom' },
         { note: 48, name: 'Hi-Mid Tom' },
+        { note: 47, name: 'Low-Mid Tom' },
         { note: 45, name: 'Low Tom' },
+        { note: 43, name: 'High Floor Tom' },
         { note: 41, name: 'Low Floor Tom' },
         { note: 60, name: 'Hi Bongo' }
       ]},
@@ -70,14 +78,18 @@ class ScoringSettingsModal extends BaseModal {
         { note: 57, name: 'Crash Cymbal 2' },
         { note: 55, name: 'Splash Cymbal' },
         { note: 52, name: 'Chinese Cymbal' },
-        { note: 51, name: 'Ride Cymbal' }
+        { note: 46, name: 'Open Hi-Hat' },
+        { note: 51, name: 'Ride Cymbal' },
+        { note: 81, name: 'Open Triangle' }
       ]},
     { key: 'rides', icon: '🔔', labelKey: 'scoringSettings.catRides', fallback: 'Rides',
       chain: [
         { note: 51, name: 'Ride Cymbal 1' },
         { note: 59, name: 'Ride Cymbal 2' },
         { note: 53, name: 'Ride Bell' },
-        { note: 42, name: 'Closed Hi-Hat' }
+        { note: 42, name: 'Closed Hi-Hat' },
+        { note: 49, name: 'Crash Cymbal 1' },
+        { note: 55, name: 'Splash Cymbal' }
       ]},
     { key: 'latin', icon: '🪇', labelKey: 'scoringSettings.catLatin', fallback: 'Latin',
       chain: [
@@ -85,15 +97,51 @@ class ScoringSettingsModal extends BaseModal {
         { note: 62, name: 'Mute Hi Conga' },
         { note: 65, name: 'High Timbale' },
         { note: 67, name: 'High Agogo' },
-        { note: 76, name: 'Hi Wood Block' }
+        { note: 76, name: 'Hi Wood Block' },
+        { note: 48, name: 'Hi-Mid Tom' }
       ]},
-    { key: 'misc', icon: '🎵', labelKey: 'scoringSettings.catMisc', fallback: 'Divers',
+    { key: 'shakers', icon: '🫧', labelKey: 'scoringSettings.catShakers', fallback: 'Shakers',
       chain: [
         { note: 39, name: 'Hand Clap' },
         { note: 54, name: 'Tambourine' },
+        { note: 70, name: 'Maracas' },
+        { note: 69, name: 'Cabasa' },
+        { note: 58, name: 'Vibraslap' },
+        { note: 42, name: 'Closed Hi-Hat' }
+      ]},
+    { key: 'woodsMetal', icon: '🪵', labelKey: 'scoringSettings.catWoodsMetal', fallback: 'Bois & Métal',
+      chain: [
         { note: 56, name: 'Cowbell' },
         { note: 75, name: 'Claves' },
-        { note: 70, name: 'Maracas' }
+        { note: 76, name: 'Hi Wood Block' },
+        { note: 77, name: 'Low Wood Block' },
+        { note: 67, name: 'High Agogo' },
+        { note: 68, name: 'Low Agogo' }
+      ]},
+    { key: 'pitched', icon: '🎶', labelKey: 'scoringSettings.catPitched', fallback: 'Effets mélodiques',
+      chain: [
+        { note: 71, name: 'Short Whistle' },
+        { note: 72, name: 'Long Whistle' },
+        { note: 73, name: 'Short Guiro' },
+        { note: 74, name: 'Long Guiro' },
+        { note: 75, name: 'Claves' },
+        { note: 76, name: 'Hi Wood Block' }
+      ]},
+    { key: 'cuicas', icon: '🪘', labelKey: 'scoringSettings.catCuicas', fallback: 'Cuicas',
+      chain: [
+        { note: 78, name: 'Mute Cuica' },
+        { note: 79, name: 'Open Cuica' },
+        { note: 73, name: 'Short Guiro' },
+        { note: 74, name: 'Long Guiro' },
+        { note: 71, name: 'Short Whistle' }
+      ]},
+    { key: 'triangles', icon: '🔺', labelKey: 'scoringSettings.catTriangles', fallback: 'Triangles',
+      chain: [
+        { note: 80, name: 'Mute Triangle' },
+        { note: 81, name: 'Open Triangle' },
+        { note: 53, name: 'Ride Bell' },
+        { note: 42, name: 'Closed Hi-Hat' },
+        { note: 76, name: 'Hi Wood Block' }
       ]}
   ];
 
@@ -187,6 +235,16 @@ class ScoringSettingsModal extends BaseModal {
     }
     if (this.overrides.routing.sharedInstrumentPenalty === undefined) {
       this.overrides.routing.sharedInstrumentPenalty = d.routing.sharedInstrumentPenalty;
+    }
+
+    // Migrate legacy drumFallback.misc to new category keys
+    const df = this.overrides.routing.drumFallback;
+    if (df && df.misc !== undefined) {
+      const newKeys = ['shakers', 'woodsMetal', 'pitched', 'cuicas', 'triangles'];
+      for (const key of newKeys) {
+        if (df[key] === undefined) df[key] = df.misc;
+      }
+      delete df.misc;
     }
   }
 
