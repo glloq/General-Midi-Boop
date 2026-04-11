@@ -1850,7 +1850,10 @@
         "primaryInstrument": "Primaire",
         "overflowInstrument": "Débordement",
         "alternatePattern": "Round-robin",
-        "notesPerSec": "notes/sec"
+        "notesPerSec": "notes/sec",
+        "overlapPlay": "Jouer",
+        "overlapAlternate": "Alterner",
+        "overlapOverflow": "Débordement"
     },
     "scoringSettings": {
         "title": "Réglages d'auto-assignation",

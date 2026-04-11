@@ -5815,63 +5815,63 @@ body.dark-mode .rs-kb-black {
   min-height: 26px;
 }
 
-/* Color chip with optional remove button inside */
-.rs-split-table-chip {
+/* Badge: color background wrapping dot + select + remove button */
+.rs-split-table-badge {
+  flex: 0 0 auto;
+  width: 155px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  border: 1px solid;
+  position: relative;
+}
+
+.rs-split-badge-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.rs-split-table-badge select {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 11px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rs-split-badge-remove {
   flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  border-radius: 3px;
-  position: relative;
-  cursor: default;
-}
-
-.rs-split-chip-remove {
-  position: absolute;
-  inset: 0;
   border: none;
   background: none;
-  color: rgba(255,255,255,0.7);
-  font-size: 11px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
   line-height: 16px;
   text-align: center;
   cursor: pointer;
   padding: 0;
   border-radius: 3px;
-  opacity: 0;
-  transition: opacity 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
-.rs-split-table-chip:hover .rs-split-chip-remove {
-  opacity: 1;
-  background: rgba(0,0,0,0.35);
-  color: #fff;
+.rs-split-badge-remove:hover {
+  color: var(--color-error, #e74c3c);
+  background: rgba(231, 76, 60, 0.1);
 }
 
-/* Spacer to match chip width in header/add rows */
-.rs-split-table-chip-spacer {
-  flex: 0 0 16px;
-  width: 16px;
-}
-
-/* Instrument select */
-.rs-split-table-select {
-  flex: 0 0 auto;
-  width: 130px;
-}
-
-.rs-split-table-select select {
-  width: 100%;
-  font-size: 11px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  border: 1px solid var(--border-color, #ccc);
-  background: var(--bg-primary, #fff);
-}
-
-/* Spacer to match select width in header/add rows */
-.rs-split-table-select-spacer {
-  flex: 0 0 130px;
-  width: 130px;
+/* Spacer to match badge width in header/add rows */
+.rs-split-table-badge-spacer {
+  flex: 0 0 155px;
+  width: 155px;
 }
 
 /* Slider bar column — takes all remaining space */
@@ -5905,9 +5905,7 @@ body.dark-mode .rs-split-viz-labels {
   color: var(--text-muted, #666);
 }
 
-body.dark-mode .rs-split-table-select select {
-  background: var(--bg-secondary, #2a2a2a);
-  border-color: var(--border-color, #444);
+body.dark-mode .rs-split-table-badge select {
   color: var(--text-primary, #ddd);
 }
 

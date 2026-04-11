@@ -107,18 +107,17 @@ const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
  * C notes get a small label below.
  */
 function renderMiniKeyboard(chMin, chMax) {
-  const span = chMax - chMin || 1;
-  const keyW = 100 / (span + 1); // width per note in %
+  const noteCount = chMax - chMin + 1; // inclusive count
+  const keyW = 100 / noteCount;
   let keysHTML = '';
 
   for (let n = chMin; n <= chMax; n++) {
     const semitone = n % 12;
     const isBlack = BLACK_KEYS.has(semitone);
-    const leftPct = ((n - chMin) / (span + 1)) * 100;
+    const leftPct = ((n - chMin) / noteCount) * 100;
     const cls = isBlack ? 'rs-kb-key rs-kb-black' : 'rs-kb-key rs-kb-white';
     keysHTML += `<div class="${cls}" style="left:${leftPct.toFixed(2)}%;width:${keyW.toFixed(2)}%"></div>`;
 
-    // Label on C notes (white key)
     if (semitone === 0) {
       const octave = Math.floor(n / 12);
       keysHTML += `<span class="rs-kb-label" style="left:${leftPct.toFixed(2)}%">C${octave}</span>`;
@@ -136,7 +135,7 @@ function renderChannelHistogram(channelAnalysis) {
   if (!channelAnalysis?.noteRange || channelAnalysis.noteRange.min == null) return '';
   const chMin = channelAnalysis.noteRange.min;
   const chMax = channelAnalysis.noteRange.max;
-  const span = chMax - chMin || 1;
+  const noteCount = chMax - chMin + 1; // inclusive
   const dist = channelAnalysis.noteDistribution;
   let histoBarsHTML = '';
   if (dist && typeof dist === 'object') {
@@ -146,8 +145,8 @@ function renderChannelHistogram(channelAnalysis) {
       histoBarsHTML = entries.map(([note, count]) => {
         const n = parseInt(note);
         if (n < chMin || n > chMax) return '';
-        const leftPct = ((n - chMin) / span) * 100;
-        const barW = Math.max(0.8, 100 / span);
+        const leftPct = ((n - chMin) / noteCount) * 100;
+        const barW = Math.max(0.8, 100 / noteCount);
         const heightPct = Math.max(8, (count / maxCount) * 100);
         return `<div class="rs-split-viz-histo-bar" style="left:${leftPct.toFixed(1)}%;width:${barW.toFixed(1)}%;height:${heightPct.toFixed(0)}%"></div>`;
       }).join('');
@@ -1241,7 +1240,7 @@ class RoutingSummaryPage {
       const activeMode = activeData.type;
       const chMin = analysis?.noteRange?.min ?? 0;
       const chMax = analysis?.noteRange?.max ?? 127;
-      const chSpan = chMax - chMin || 1;
+      const noteCount = chMax - chMin + 1; // inclusive, same base as keyboard/histogram
 
       // Build table rows: one per instrument (color+remove | select | slider)
       const instRowsHTML = segments.map((seg, i) => {
@@ -1267,22 +1266,21 @@ class RoutingSummaryPage {
         const physMax = seg.fullRange?.max ?? 127;
         const displayPhysMin = Math.max(physMin, chMin);
         const displayPhysMax = Math.min(physMax, chMax);
-        const physLeft = Math.round(((displayPhysMin - chMin) / chSpan) * 100);
-        const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin) / chSpan) * 100));
+        const physLeft = Math.round(((displayPhysMin - chMin) / noteCount) * 100);
+        const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin + 1) / noteCount) * 100));
         const rMin = seg.noteRange?.min ?? physMin;
         const rMax = seg.noteRange?.max ?? physMax;
-        const segLeft = Math.round(((rMin - chMin) / chSpan) * 100);
-        const segWidth = Math.max(2, Math.round(((rMax - rMin) / chSpan) * 100));
+        const segLeft = Math.round(((rMin - chMin) / noteCount) * 100);
+        const segWidth = Math.max(2, Math.round(((rMax - rMin + 1) / noteCount) * 100));
         const sliderTitle = `${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
 
         return `<div class="rs-split-table-row" data-channel="${channel}" data-seg="${i}">
-          <div class="rs-split-table-chip" style="background:${color}">
-            ${canRemove ? `<button class="rs-split-chip-remove rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
-          </div>
-          <div class="rs-split-table-select">
+          <div class="rs-split-table-badge" style="background:${color}20;border-color:${color}">
+            <span class="rs-split-badge-dot" style="background:${color}"></span>
             <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
               ${selectOptions}
             </select>
+            ${canRemove ? `<button class="rs-split-badge-remove rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
           </div>
           <div class="rs-split-table-bar">
             <div class="rs-split-viz-inst-row" data-channel="${channel}" data-seg="${i}">
@@ -1361,8 +1359,7 @@ class RoutingSummaryPage {
             <div class="rs-split-viz-v2" data-channel="${channel}" data-ch-min="${chMin}" data-ch-max="${chMax}">
               <div class="rs-split-table">
                 <div class="rs-split-table-row rs-split-table-header">
-                  <div class="rs-split-table-chip-spacer"></div>
-                  <div class="rs-split-table-select-spacer"></div>
+                  <div class="rs-split-table-badge-spacer"></div>
                   <div class="rs-split-table-bar">
                     ${renderMiniKeyboard(chMin, chMax)}
                     ${renderChannelHistogram(analysis)}
@@ -1370,8 +1367,7 @@ class RoutingSummaryPage {
                 </div>
                 ${instRowsHTML}
                 <div class="rs-split-table-row rs-split-table-add">
-                  <div class="rs-split-table-chip-spacer"></div>
-                  <div class="rs-split-table-select-spacer"></div>
+                  <div class="rs-split-table-badge-spacer"></div>
                   <div class="rs-split-table-bar" style="text-align:center">
                     <button class="btn btn-sm rs-btn-add-segment" data-channel="${channel}">+ ${_t('routingSummary.addInstrument') || 'Ajouter instrument'}</button>
                   </div>
@@ -2049,14 +2045,6 @@ class RoutingSummaryPage {
         return;
       }
 
-      // Behavior mode buttons
-      const behaviorBtn = target.closest('.rs-behavior-mode-btn');
-      if (behaviorBtn) {
-        const mode = behaviorBtn.dataset.behavior;
-        if (mode) this._updateBehaviorMode(parseInt(behaviorBtn.dataset.channel), mode, channelKeys);
-        return;
-      }
-
       // Split mode tabs
       const splitModeBtn = target.closest('.rs-split-mode-btn');
       if (splitModeBtn) {
@@ -2253,7 +2241,7 @@ class RoutingSummaryPage {
       const physMax = parseInt(slider.dataset.physMax);
       const chMin = parseInt(vizContainer.dataset.chMin);
       const chMax = parseInt(vizContainer.dataset.chMax);
-      const chSpan = chMax - chMin || 1;
+      const noteCount = chMax - chMin + 1; // inclusive, aligned with keyboard/histogram
 
       // Get the inst-row track for coordinate mapping
       const row = slider.closest('.rs-split-viz-inst-row');
@@ -2269,7 +2257,7 @@ class RoutingSummaryPage {
         const rect = row.getBoundingClientRect();
         const relX = Math.max(0, Math.min(rect.width, moveE.clientX - rect.left));
         const pct = relX / rect.width;
-        let noteValue = Math.round(chMin + pct * chSpan);
+        let noteValue = Math.round(chMin + pct * (noteCount - 1));
         noteValue = Math.max(physMin, Math.min(physMax, noteValue));
         noteValue = Math.max(0, Math.min(127, noteValue));
 
@@ -2280,8 +2268,8 @@ class RoutingSummaryPage {
         }
 
         // Visual update (no re-render) — reposition slider + update tooltip
-        const leftPct = ((curMin - chMin) / chSpan) * 100;
-        const widthPct = Math.max(2, ((curMax - curMin) / chSpan) * 100);
+        const leftPct = ((curMin - chMin) / noteCount) * 100;
+        const widthPct = Math.max(2, ((curMax - curMin + 1) / noteCount) * 100);
         slider.style.left = leftPct + '%';
         slider.style.width = widthPct + '%';
         slider.title = `${midiNoteToName(curMin)}\u2013${midiNoteToName(curMax)}`;
@@ -2701,12 +2689,6 @@ class RoutingSummaryPage {
    * Update the behavior mode for a channel's multi-instrument split.
    * Called when user clicks a behavior mode button.
    */
-  _updateBehaviorMode(channel, mode, channelKeys) {
-    this._applyBehaviorMode(channel, mode);
-    this.splitEdited[channel] = false; // Reset edited flag when changing mode
-    this._refreshUI(channelKeys, 'both-panels');
-  }
-
   _refreshUI(channelKeys, hint = 'all') {
     // Only stop preview on full rebuild or panel-level navigation changes
     if (hint === 'all') {
