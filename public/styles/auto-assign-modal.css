@@ -3745,6 +3745,17 @@ body.dark-mode .aa-channel-card.skipped {
 .rs-score-cell-skipped {
   opacity: 0.45;
 }
+.rs-score-cell-shared {
+  border-style: dashed;
+  border-color: var(--accent-color, #4A90D9);
+}
+.rs-shared-badge {
+  font-size: 10px;
+  margin-left: 2px;
+  vertical-align: super;
+  cursor: help;
+  opacity: 0.8;
+}
 .rs-score-cell-ch {
   font-size: 10px;
   font-weight: 600;

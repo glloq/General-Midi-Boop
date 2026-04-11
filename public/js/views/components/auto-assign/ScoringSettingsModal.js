@@ -115,6 +115,8 @@ class ScoringSettingsModal extends BaseModal {
       },
       splitting: { triggerBelowScore: 60, minQuality: 50, maxInstruments: 4 },
       routing: {
+        allowInstrumentReuse: true,
+        sharedInstrumentPenalty: 10,
         autoSplitAvoidTransposition: false,
         preferSingleInstrument: true,
         preferSimilarGMType: true,
@@ -180,6 +182,12 @@ class ScoringSettingsModal extends BaseModal {
       this.overrides.percussion.nonDrumChannelDrumPenalty = d.percussion.nonDrumChannelDrumPenalty;
     }
     if (!this.overrides.routing) this.overrides.routing = { ...d.routing };
+    if (this.overrides.routing.allowInstrumentReuse === undefined) {
+      this.overrides.routing.allowInstrumentReuse = d.routing.allowInstrumentReuse;
+    }
+    if (this.overrides.routing.sharedInstrumentPenalty === undefined) {
+      this.overrides.routing.sharedInstrumentPenalty = d.routing.sharedInstrumentPenalty;
+    }
   }
 
   // ============================================================================
@@ -265,11 +273,24 @@ class ScoringSettingsModal extends BaseModal {
 
   _renderRoutingSection() {
     const routing = this.overrides.routing;
+    const sharedPenalty = routing.sharedInstrumentPenalty !== undefined ? routing.sharedInstrumentPenalty : 10;
     return `
       <h4 class="ss-section-title">🔀 ${this.t('scoringSettings.globalRouting') || 'Réglages routage'}</h4>
       <p class="ss-section-desc">${this.t('scoringSettings.globalRoutingDesc') || 'Options globales pour le routage automatique des canaux MIDI.'}</p>
 
       <div class="ss-toggle-group">
+        <label class="ss-toggle-card">
+          <input type="checkbox" class="ss-routing-toggle" data-key="allowInstrumentReuse" ${routing.allowInstrumentReuse !== false ? 'checked' : ''}>
+          <div class="ss-toggle-content">
+            <span class="ss-toggle-title">${this.t('scoringSettings.allowInstrumentReuse') || 'Autoriser le partage d\'instruments'}</span>
+            <span class="ss-toggle-desc">${this.t('scoringSettings.allowInstrumentReuseDesc') || 'Permet d\'assigner un même instrument à plusieurs canaux MIDI quand il n\'y a pas assez d\'instruments disponibles. Évite le mute automatique des canaux excédentaires.'}</span>
+          </div>
+        </label>
+
+        <div class="ss-conditional-group" id="ssSharedPenaltyGroup" style="${routing.allowInstrumentReuse !== false ? '' : 'display:none'}">
+          ${this._slider('sharedInstrumentPenalty', 'scoringSettings.sharedPenalty', sharedPenalty, 0, 30, 'routing')}
+        </div>
+
         <label class="ss-toggle-card">
           <input type="checkbox" class="ss-routing-toggle" data-key="autoSplitAvoidTransposition" ${routing.autoSplitAvoidTransposition ? 'checked' : ''}>
           <div class="ss-toggle-content">
@@ -549,6 +570,11 @@ class ScoringSettingsModal extends BaseModal {
       toggle.addEventListener('change', () => {
         if (!this.overrides.routing) this.overrides.routing = {};
         this.overrides.routing[toggle.dataset.key] = toggle.checked;
+        // Show/hide shared penalty slider when allowInstrumentReuse changes
+        if (toggle.dataset.key === 'allowInstrumentReuse') {
+          const penaltyGroup = dialog.querySelector('#ssSharedPenaltyGroup');
+          if (penaltyGroup) penaltyGroup.style.display = toggle.checked ? '' : 'none';
+        }
       });
     });
 

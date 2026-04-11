@@ -295,9 +295,11 @@ function applyScoringOverrides(overrides) {
     if (s.triggerBelowScore !== undefined) ScoringConfig.splitting.triggerBelowScore = Math.max(0, Math.min(100, Number(s.triggerBelowScore)));
   }
 
-  // Routing settings (drum fallback depth, routing flags)
+  // Routing settings (drum fallback depth, routing flags, instrument reuse)
   if (overrides.routing) {
     const r = overrides.routing;
+    if (r.allowInstrumentReuse !== undefined) ScoringConfig.routing.allowInstrumentReuse = !!r.allowInstrumentReuse;
+    if (r.sharedInstrumentPenalty !== undefined) ScoringConfig.routing.sharedInstrumentPenalty = Math.max(0, Math.min(30, Math.round(Number(r.sharedInstrumentPenalty))));
     if (r.autoSplitAvoidTransposition !== undefined) ScoringConfig.routing.autoSplitAvoidTransposition = !!r.autoSplitAvoidTransposition;
     if (r.preferSingleInstrument !== undefined) ScoringConfig.routing.preferSingleInstrument = !!r.preferSingleInstrument;
     if (r.preferSimilarGMType !== undefined) ScoringConfig.routing.preferSimilarGMType = !!r.preferSimilarGMType;

@@ -249,6 +249,8 @@ class AutoAssigner {
     }
 
     const acceptableScore = ScoringConfig.scoreThresholds?.acceptable || 60;
+    const allowReuse = ScoringConfig.routing?.allowInstrumentReuse !== false;
+    const sharedPenalty = ScoringConfig.routing?.sharedInstrumentPenalty || 10;
 
     // Tri par RARETÉ de choix : les canaux avec moins d'options viables sont assignés en priorité.
     // Cela évite qu'un canal avec beaucoup d'options "vole" l'unique bon instrument d'un autre canal.
@@ -279,10 +281,12 @@ class AutoAssigner {
       Object.values(suggestions).flatMap(opts => opts.map(o => o.instrument.id))
     ).size;
 
-    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering)`);
+    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering, reuse=${allowReuse})`);
 
-    // Assigner dans l'ordre de rareté — chaque instrument une seule fois
-    for (const { channel, options, analysis, viableCount } of channelsByScarcity) {
+    // ── Passe 1 : assignation unique — chaque instrument une seule fois ──
+    const pendingChannels = []; // canaux sans instrument unique
+    for (const entry of channelsByScarcity) {
+      const { channel, options, analysis, viableCount } = entry;
       let selected = null;
 
       for (const option of options) {
@@ -295,42 +299,113 @@ class AutoAssigner {
       }
 
       if (!selected) {
-        autoSkipped.add(channel);
-        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`);
+        pendingChannels.push(entry);
         continue;
       }
 
-      assignments[channel] = {
-        deviceId: selected.instrument.device_id,
-        instrumentId: selected.instrument.id,
-        instrumentChannel: selected.instrument.channel,
-        instrumentName: selected.instrument.name,
-        customName: selected.instrument.custom_name,
-        score: selected.compatibility.score,
-        transposition: selected.compatibility.transposition,
-        noteRemapping: selected.compatibility.noteRemapping,
-        octaveWrapping: selected.compatibility.octaveWrapping || null,
-        octaveWrappingEnabled: selected.compatibility.octaveWrappingEnabled || false,
-        octaveWrappingInfo: selected.compatibility.octaveWrappingInfo || null,
-        issues: selected.compatibility.issues,
-        info: selected.compatibility.info,
-        channelAnalysis: {
-          noteRange: analysis.noteRange,
-          polyphony: analysis.polyphony,
-          estimatedType: analysis.estimatedType,
-          primaryProgram: analysis.primaryProgram
+      assignments[channel] = this._buildAssignment(selected, analysis, false);
+    }
+
+    // ── Passe 2 : partage d'instruments pour les canaux restants ──
+    const sharedChannels = new Set();
+    if (allowReuse && pendingChannels.length > 0) {
+      // Map instrument → liste des canaux qui l'utilisent (pour sharedWith)
+      const instrumentUsage = {};
+      for (const [ch, a] of Object.entries(assignments)) {
+        if (!a || typeof a !== 'object') continue;
+        if (!instrumentUsage[a.instrumentId]) instrumentUsage[a.instrumentId] = [];
+        instrumentUsage[a.instrumentId].push(parseInt(ch));
+      }
+
+      for (const { channel, options, analysis, viableCount } of pendingChannels) {
+        // Chercher le meilleur instrument même déjà utilisé
+        let selected = null;
+        for (const option of options) {
+          selected = option;
+          break; // premier = meilleur score (déjà trié)
         }
-      };
+
+        if (!selected) {
+          autoSkipped.add(channel);
+          this.logger.info(`Channel ${channel}: auto-skipped (no compatible instrument at all, had ${viableCount} viable options)`);
+          continue;
+        }
+
+        // Construire l'assignation avec le flag shared
+        const assignment = this._buildAssignment(selected, analysis, true);
+        // Appliquer la pénalité de partage au score affiché
+        assignment.score = Math.max(0, assignment.score - sharedPenalty);
+        assignment.scoreBeforePenalty = selected.compatibility.score;
+
+        // Tracker quels canaux partagent cet instrument
+        if (!instrumentUsage[selected.instrument.id]) instrumentUsage[selected.instrument.id] = [];
+        instrumentUsage[selected.instrument.id].push(channel);
+        assignment.sharedWith = instrumentUsage[selected.instrument.id].filter(ch => ch !== channel);
+
+        assignments[channel] = assignment;
+        sharedChannels.add(channel);
+        this.logger.info(`Channel ${channel}: shared assignment → ${selected.instrument.name} (score ${selected.compatibility.score} → ${assignment.score} after penalty, shared with ch ${assignment.sharedWith.join(',')})`);
+      }
+
+      // Mettre à jour sharedWith sur les canaux de passe 1 qui partagent maintenant
+      for (const [ch, a] of Object.entries(assignments)) {
+        if (!a || typeof a !== 'object' || a.shared) continue;
+        const usage = instrumentUsage[a.instrumentId];
+        if (usage && usage.length > 1) {
+          a.sharedWith = usage.filter(c => c !== parseInt(ch));
+        }
+      }
+    } else {
+      // Pas de partage — marquer tous les pending comme auto-skipped
+      for (const { channel, viableCount } of pendingChannels) {
+        autoSkipped.add(channel);
+        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`);
+      }
     }
 
     if (autoSkipped.size > 0) {
-      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned, ${autoSkipped.size} auto-skipped (not enough instruments)`);
+      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), ${autoSkipped.size} auto-skipped`);
+    } else if (sharedChannels.size > 0) {
+      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), 0 auto-skipped`);
     }
 
     // Attach autoSkipped info so the frontend can use it
     assignments._autoSkipped = Array.from(autoSkipped);
 
     return assignments;
+  }
+
+  /**
+   * Construit un objet d'assignation à partir d'une option sélectionnée
+   * @param {Object} selected - Option instrument + compatibility
+   * @param {Object} analysis - Analyse du canal
+   * @param {boolean} shared - Si l'instrument est partagé avec d'autres canaux
+   * @returns {Object}
+   */
+  _buildAssignment(selected, analysis, shared) {
+    return {
+      deviceId: selected.instrument.device_id,
+      instrumentId: selected.instrument.id,
+      instrumentChannel: selected.instrument.channel,
+      instrumentName: selected.instrument.name,
+      customName: selected.instrument.custom_name,
+      score: selected.compatibility.score,
+      transposition: selected.compatibility.transposition,
+      noteRemapping: selected.compatibility.noteRemapping,
+      octaveWrapping: selected.compatibility.octaveWrapping || null,
+      octaveWrappingEnabled: selected.compatibility.octaveWrappingEnabled || false,
+      octaveWrappingInfo: selected.compatibility.octaveWrappingInfo || null,
+      issues: selected.compatibility.issues,
+      info: selected.compatibility.info,
+      shared: shared,
+      sharedWith: [],
+      channelAnalysis: {
+        noteRange: analysis.noteRange,
+        polyphony: analysis.polyphony,
+        estimatedType: analysis.estimatedType,
+        primaryProgram: analysis.primaryProgram
+      }
+    };
   }
 
   /**
@@ -474,19 +549,21 @@ class AutoAssigner {
    * @returns {number}
    */
   calculateConfidence(autoSelection, totalChannels) {
-    const scores = Object.values(autoSelection)
-      .filter(a => typeof a === 'object' && a !== null && typeof a.score === 'number')
-      .map(a => a.score);
+    const entries = Object.values(autoSelection)
+      .filter(a => typeof a === 'object' && a !== null && typeof a.score === 'number');
 
-    if (scores.length === 0 || totalChannels === 0) {
+    if (entries.length === 0 || totalChannels === 0) {
       return 0;
     }
+
+    // Pour les canaux partagés, utiliser le score avant pénalité s'il existe
+    const scores = entries.map(a => a.shared && a.scoreBeforePenalty != null ? a.scoreBeforePenalty : a.score);
 
     // Moyenne des scores des canaux assignés
     const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
 
     // Taux de réussite (combien de canaux ont été assignés)
-    const successRate = scores.length / totalChannels;
+    const successRate = entries.length / totalChannels;
 
     // Score final = qualité moyenne × taux de réussite
     const confidenceScore = avgScore * successRate;

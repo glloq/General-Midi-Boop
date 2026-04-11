@@ -211,6 +211,11 @@
   gap: 8px;
 }
 
+.ss-conditional-group {
+  padding: 0 14px 4px 44px;
+  margin-top: -4px;
+}
+
 .ss-toggle-card {
   display: flex;
   align-items: flex-start;

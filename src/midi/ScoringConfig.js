@@ -116,6 +116,8 @@ const ScoringConfig = {
    * Routing settings (from ScoringSettingsModal)
    */
   routing: {
+    allowInstrumentReuse: true,        // Autoriser un instrument sur plusieurs canaux quand pas assez d'instruments
+    sharedInstrumentPenalty: 10,        // Penalite de score affichee pour les assignations partagees
     autoSplitAvoidTransposition: false,
     preferSingleInstrument: true,
     preferSimilarGMType: true,

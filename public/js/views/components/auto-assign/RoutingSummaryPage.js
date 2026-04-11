@@ -822,13 +822,18 @@ class RoutingSummaryPage {
       const isSkipped = this.skippedChannels.has(channel);
       const assignment = this.selectedAssignments[ch];
       const score = assignment?.score || 0;
+      const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
       const instName = isSkipped
         ? (_t('routingSummary.muted') || 'Muté')
         : (assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || '\u2014');
       const displayName = instName.length > 12 ? instName.slice(0, 11) + '\u2026' : instName;
-      return `<div class="rs-score-cell ${isSkipped ? 'rs-score-cell-skipped' : ''}" title="${escapeHtml(instName)}">
+      const sharedClass = isShared ? ' rs-score-cell-shared' : '';
+      const sharedTitle = isShared && assignment.sharedWith?.length
+        ? ` (${_t('routingSummary.sharedWith', { channels: assignment.sharedWith.map(c => c + 1).join(', ') }) || 'Partagé avec Ch ' + assignment.sharedWith.map(c => c + 1).join(', ')})`
+        : '';
+      return `<div class="rs-score-cell ${isSkipped ? 'rs-score-cell-skipped' : ''}${sharedClass}" title="${escapeHtml(instName + sharedTitle)}">
         <span class="rs-score-cell-ch">CH ${channel + 1}</span>
-        <span class="rs-score-cell-score ${getScoreBgClass(score)}">${isSkipped ? '\u2014' : score}</span>
+        <span class="rs-score-cell-score ${getScoreBgClass(score)}">${isSkipped ? '\u2014' : score}${isShared ? '<span class="rs-shared-badge" title="' + escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>' : ''}</span>
         <span class="rs-score-cell-inst">${escapeHtml(displayName)}</span>
       </div>`;
     }).join('');
@@ -1042,6 +1047,9 @@ class RoutingSummaryPage {
           }).join(' + ');
         } else if (assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName) {
           routedName = assignment.instrumentDisplayName || assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName;
+          if (assignment.shared || (assignment.sharedWith && assignment.sharedWith.length > 0)) {
+            routedName += ' <span class="rs-shared-badge" title="' + escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>';
+          }
         } else {
           routedName = `<span class="rs-unassigned">\u2014</span>`;
         }
@@ -1082,8 +1090,12 @@ class RoutingSummaryPage {
         assignedHTML = `<div class="rs-select-zone"><select class="rs-instrument-select" data-channel="${ch}">${this._buildInstrumentOptions(ch, assignment, isSkipped)}</select></div>`;
       }
 
-      // Score column
-      const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}</span>` : '';
+      // Score column (with shared badge if applicable)
+      const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
+      const sharedBadge = (!isSkipped && isShared)
+        ? `<span class="rs-shared-badge" title="${escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé'))}">\u{1F517}</span>`
+        : '';
+      const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}${sharedBadge}</span>` : '';
 
       // Polyphony column: channel max / instrument capacity (+ auto-adapt indicator)
       let polyHTML = '';
@@ -1552,7 +1564,7 @@ class RoutingSummaryPage {
           <div class="rs-detail-title">
             <span class="rs-detail-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' DR' : ''}</span>
             <span class="rs-detail-route">${routeHTML}</span>
-            ${(!isSplit && score > 0) ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}</span>` : ''}
+            ${(!isSplit && score > 0) ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}${(assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0)) ? '<span class="rs-shared-badge" title="' + escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>' : ''}</span>` : ''}
             ${polyHTML}
             ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
           </div>
