@@ -666,6 +666,12 @@ class RoutingSummaryPage {
       scoreBtn.className = `rs-score-btn ${getScoreBgClass(displayScore)}`;
     }
 
+    // Score popup content: re-render to match current channel selection
+    const scorePopup = modal.querySelector('#rsScorePopup');
+    if (scorePopup) {
+      scorePopup.innerHTML = this._renderScoreDetail();
+    }
+
     // Channel count
     const channelKeys = Object.keys(this.suggestions);
     const activeCount = channelKeys.length - this.skippedChannels.size;
@@ -843,9 +849,11 @@ class RoutingSummaryPage {
     if (this.selectedChannel !== null) {
       const ch = String(this.selectedChannel);
       const isSplit = this.splitChannels.has(this.selectedChannel);
-      return isSplit
-        ? (this.splitAssignments[this.selectedChannel]?.quality || 0)
-        : (this.selectedAssignments[ch]?.score || 0);
+      if (isSplit) {
+        // Compute coverage-based score for multi-instrument
+        return this._computeSplitCoverageScore(this.selectedChannel);
+      }
+      return this.selectedAssignments[ch]?.score || 0;
     }
     // Average of all non-skipped channel scores
     const channelKeys = Object.keys(this.suggestions);
@@ -855,12 +863,41 @@ class RoutingSummaryPage {
       if (this.skippedChannels.has(channel)) continue;
       const isSplit = this.splitChannels.has(channel);
       const score = isSplit
-        ? (this.splitAssignments[channel]?.quality || 0)
+        ? this._computeSplitCoverageScore(channel)
         : (this.selectedAssignments[ch]?.score || 0);
       total += score;
       count++;
     }
     return count > 0 ? Math.round(total / count) : 0;
+  }
+
+  /**
+   * Compute a coverage-based score (0-100) for a multi-instrument split channel.
+   * Based on what percentage of channel notes are covered by at least one segment.
+   */
+  _computeSplitCoverageScore(channel) {
+    const ch = String(channel);
+    const splitData = this.splitAssignments[channel];
+    if (!splitData?.segments?.length) return 0;
+    const analysis = this.channelAnalyses[channel];
+    const dist = analysis?.noteDistribution;
+    if (!dist) return splitData.quality || 0;
+
+    const adapt = this.adaptationSettings[ch] || {};
+    const semi = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+    let covered = 0;
+    let total = 0;
+    for (const [note, count] of Object.entries(dist)) {
+      const shifted = parseInt(note) + semi;
+      total += count;
+      const inRange = splitData.segments.some(seg => {
+        const rMin = seg.noteRange?.min ?? 0;
+        const rMax = seg.noteRange?.max ?? 127;
+        return shifted >= rMin && shifted <= rMax;
+      });
+      if (inRange) covered += count;
+    }
+    return total > 0 ? Math.round((covered / total) * 100) : 0;
   }
 
   /**
