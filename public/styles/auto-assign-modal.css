@@ -5592,9 +5592,10 @@ body.dark-mode .rs-cc-table td {
   border-radius: 2px;
 }
 
-/* Split visualization v2 — enriched layout with channel range + instruments */
+/* Split visualization v2 — one line per instrument with draggable range sliders */
 .rs-split-viz-v2 {
   margin: 8px 0;
+  user-select: none;
 }
 
 .rs-split-viz-labels {
@@ -5605,6 +5606,7 @@ body.dark-mode .rs-cc-table td {
   margin-bottom: 2px;
 }
 
+/* Channel notes reference track (top line) */
 .rs-split-viz-ch-track {
   position: relative;
   height: 8px;
@@ -5618,51 +5620,118 @@ body.dark-mode .rs-cc-table td {
   position: relative;
 }
 
+/* One row per instrument */
 .rs-split-viz-inst-row {
   position: relative;
-  height: 14px;
+  height: 22px;
   background: var(--bg-tertiary, #e8e8e8);
   border-radius: 3px;
-  margin: 2px 0;
+  margin: 3px 0;
 }
 
-.rs-split-viz-seg {
+/* Physical playable range of the instrument (ghost zone) */
+.rs-split-viz-phys {
   position: absolute;
   top: 0;
   height: 100%;
-  border-radius: 2px;
-  opacity: 0.8;
+  background: currentColor;
+  opacity: 0.08;
+  border-radius: 3px;
+  pointer-events: none;
 }
 
-.rs-split-viz-seg-label {
+/* Draggable assigned range slider */
+.rs-split-viz-slider {
   position: absolute;
-  right: 4px;
+  top: 2px;
+  height: calc(100% - 4px);
+  border-radius: 3px;
+  opacity: 0.85;
+  cursor: default;
+  z-index: 2;
+  transition: opacity 0.1s;
+}
+
+.rs-split-viz-slider:hover {
+  opacity: 1;
+}
+
+/* Drag handles on left/right edges */
+.rs-split-viz-handle {
+  position: absolute;
   top: 0;
-  font-size: 8px;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 3;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+
+.rs-split-viz-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 1px;
+}
+
+.rs-split-viz-handle:hover::after,
+.rs-split-viz-handle:active::after {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.rs-split-viz-handle-l {
+  left: -2px;
+}
+
+.rs-split-viz-handle-r {
+  right: -2px;
+}
+
+.rs-split-viz-handle:hover,
+.rs-split-viz-handle:active {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* Instrument name label (left, below row) */
+.rs-split-viz-inst-name {
+  position: absolute;
+  left: 2px;
+  bottom: -13px;
+  font-size: 9px;
   font-weight: 600;
-  line-height: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
+  max-width: 100px;
   pointer-events: none;
+  line-height: 1;
 }
 
-.rs-split-viz-overlap {
+/* Range label (right, below row) */
+.rs-split-viz-range-label {
   position: absolute;
-  top: 0;
-  height: 100%;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(245, 158, 11, 0.2),
-    rgba(245, 158, 11, 0.2) 2px,
-    transparent 2px,
-    transparent 4px
-  );
-  border-left: 1px dashed #f59e0b;
-  border-right: 1px dashed #f59e0b;
+  right: 2px;
+  bottom: -13px;
+  font-size: 8px;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
   pointer-events: none;
-  z-index: 1;
+  line-height: 1;
+}
+
+/* Extra bottom margin on rows to make room for labels */
+.rs-split-viz-inst-row {
+  margin-bottom: 16px;
+}
+
+.rs-split-viz-inst-row:last-child {
+  margin-bottom: 8px;
 }
 
 /* Dark mode support for split viz v2 */
@@ -5672,6 +5741,11 @@ body.dark-mode .rs-split-viz-inst-row {
 
 body.dark-mode .rs-split-viz-labels {
   color: var(--text-muted, #666);
+}
+
+body.dark-mode .rs-split-viz-handle:hover,
+body.dark-mode .rs-split-viz-handle:active {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Extended stats */

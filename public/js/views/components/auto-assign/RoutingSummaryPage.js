@@ -99,17 +99,19 @@ function midiNoteToName(note) {
 const SPLIT_COLORS = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
 
 /**
- * Render an enriched split visualization with channel range on top and instruments below.
+ * Render split visualization with channel range on top and one line per instrument below.
  *
- * Division modes (combineNoOverlap/combineWithOverlap/range/mixed/fullCoverage):
- *   - Single row with instrument segments positioned within channel range
- *   - Overlap zones shown with diagonal hatching
+ * Each instrument gets its own row with a draggable range slider showing its assigned
+ * note range within the channel's range. The slider is constrained to the instrument's
+ * physical playable range (fullRange). Drag handles on left/right edges allow adjusting.
  *
- * Superposition modes (overflow/alternate):
- *   - Separate rows per instrument (stacked), each full-width
- *   - Instrument name label on each row
+ * The channel range bar on top serves as the reference scale.
+ *
+ * @param {Object} splitData - Active split data with segments, behaviorMode, etc.
+ * @param {Object} channelAnalysis - Channel analysis with noteRange
+ * @param {number} channel - MIDI channel number (for data attributes)
  */
-function renderSplitBar(splitData, channelAnalysis) {
+function renderSplitBar(splitData, channelAnalysis, channel) {
   if (!splitData || !splitData.segments || splitData.segments.length === 0) return '';
   if (!channelAnalysis?.noteRange || channelAnalysis.noteRange.min == null) return '';
 
@@ -117,10 +119,8 @@ function renderSplitBar(splitData, channelAnalysis) {
   const chMax = channelAnalysis.noteRange.max;
   const span = chMax - chMin || 1;
   const colors = SPLIT_COLORS;
-  const mode = splitData.behaviorMode || 'combineNoOverlap';
-  const isStacked = (mode === 'overflow' || mode === 'alternate');
 
-  // Range labels (note names at edges)
+  // Range labels (note names at edges of channel range)
   const labelsHTML = `<div class="rs-split-viz-labels">
     <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
   </div>`;
@@ -128,46 +128,46 @@ function renderSplitBar(splitData, channelAnalysis) {
   // Channel notes reference track (top line)
   const chTrackHTML = `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}"></div>`;
 
-  let instHTML;
-  if (isStacked) {
-    // Superposition: each instrument on a separate row, full-width
-    instHTML = splitData.segments.map((seg, i) => {
-      const color = colors[i % colors.length];
-      const name = seg.instrumentName || '';
-      return `<div class="rs-split-viz-inst-row">
-        <div class="rs-split-viz-seg" style="left:0%;width:100%;background:${color}"
-             title="${escapeHtml(name)}: ${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}"></div>
-        <span class="rs-split-viz-seg-label" style="color:${color}">${escapeHtml(name)}</span>
-      </div>`;
-    }).join('');
-  } else {
-    // Division: all instruments on the same row, positioned by note range
-    const segs = splitData.segments.map((seg, i) => {
-      if (!seg.noteRange) return '';
-      const left = Math.round(((seg.noteRange.min - chMin) / span) * 100);
-      const width = Math.max(3, Math.round(((seg.noteRange.max - seg.noteRange.min) / span) * 100));
-      const color = colors[i % colors.length];
-      const name = seg.instrumentName || '';
-      return `<div class="rs-split-viz-seg" style="left:${left}%;width:${width}%;background:${color}"
-               title="${escapeHtml(name)}: ${midiNoteToName(seg.noteRange.min)}\u2013${midiNoteToName(seg.noteRange.max)}"></div>`;
-    }).join('');
+  // One row per instrument with draggable range slider
+  const instRowsHTML = splitData.segments.map((seg, i) => {
+    const color = colors[i % colors.length];
+    const name = seg.instrumentName || `Inst ${i + 1}`;
 
-    // Overlap zones (diagonal hatching)
-    const overlaps = splitData.overlapZones || [];
-    const overlapHTML = overlaps.map(ov => {
-      const left = Math.round(((ov.min - chMin) / span) * 100);
-      const width = Math.max(1, Math.round(((ov.max - ov.min) / span) * 100));
-      return `<div class="rs-split-viz-overlap" style="left:${left}%;width:${width}%"
-               title="\u26A0 ${midiNoteToName(ov.min)}\u2013${midiNoteToName(ov.max)}"></div>`;
-    }).join('');
+    // Physical limits of the instrument (clamped to channel range for display)
+    const physMin = seg.fullRange?.min ?? 0;
+    const physMax = seg.fullRange?.max ?? 127;
+    const displayPhysMin = Math.max(physMin, chMin);
+    const displayPhysMax = Math.min(physMax, chMax);
+    const physLeft = Math.round(((displayPhysMin - chMin) / span) * 100);
+    const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin) / span) * 100));
 
-    instHTML = `<div class="rs-split-viz-inst-row">${segs}${overlapHTML}</div>`;
-  }
+    // Current assigned range (within the physical limits)
+    const rMin = seg.noteRange?.min ?? physMin;
+    const rMax = seg.noteRange?.max ?? physMax;
+    const segLeft = Math.round(((rMin - chMin) / span) * 100);
+    const segWidth = Math.max(2, Math.round(((rMax - rMin) / span) * 100));
 
-  return `<div class="rs-split-viz-v2">
+    // Tooltip
+    const title = `${escapeHtml(name)}: ${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
+    const physTitle = `${midiNoteToName(physMin)}\u2013${midiNoteToName(physMax)}`;
+
+    return `<div class="rs-split-viz-inst-row" data-channel="${channel}" data-seg="${i}">
+      <div class="rs-split-viz-phys" style="left:${physLeft}%;width:${physWidth}%" title="${physTitle}"></div>
+      <div class="rs-split-viz-slider" style="left:${segLeft}%;width:${segWidth}%;background:${color}"
+           title="${title}" data-channel="${channel}" data-seg="${i}"
+           data-phys-min="${physMin}" data-phys-max="${physMax}">
+        <div class="rs-split-viz-handle rs-split-viz-handle-l" data-bound="min"></div>
+        <div class="rs-split-viz-handle rs-split-viz-handle-r" data-bound="max"></div>
+      </div>
+      <span class="rs-split-viz-inst-name" style="color:${color}">${escapeHtml(name)}</span>
+      <span class="rs-split-viz-range-label">${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="rs-split-viz-v2" data-channel="${channel}" data-ch-min="${chMin}" data-ch-max="${chMax}">
     ${labelsHTML}
     ${chTrackHTML}
-    <div class="rs-split-viz-inst-area">${instHTML}</div>
+    <div class="rs-split-viz-inst-area">${instRowsHTML}</div>
   </div>`;
 }
 
@@ -1424,7 +1424,7 @@ class RoutingSummaryPage {
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
             ${behaviorSelectorHTML}
             ${modeVizHTML}
-            ${renderSplitBar(activeData, analysis)}
+            ${renderSplitBar(activeData, analysis, channel)}
             <div class="rs-split-segments">${segCardsHTML}</div>
             ${overlapsHTML}
             ${uncoveredHTML}
@@ -2279,6 +2279,87 @@ class RoutingSummaryPage {
           if (Object.keys(this.ccRemapping[ch]).length === 0) delete this.ccRemapping[ch];
         }
       }
+    }, opts);
+
+    // --- Split viz slider drag handling ---
+    // During drag: update slider visually in real-time (no re-render).
+    // On pointerup: commit data + full refresh to sync inputs and other UI.
+    panel.addEventListener('pointerdown', (e) => {
+      const handle = e.target.closest('.rs-split-viz-handle');
+      if (!handle) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const slider = handle.closest('.rs-split-viz-slider');
+      if (!slider) return;
+      const vizContainer = slider.closest('.rs-split-viz-v2');
+      if (!vizContainer) return;
+
+      const ch = parseInt(slider.dataset.channel);
+      const segIdx = parseInt(slider.dataset.seg);
+      const bound = handle.dataset.bound; // 'min' or 'max'
+      const physMin = parseInt(slider.dataset.physMin);
+      const physMax = parseInt(slider.dataset.physMax);
+      const chMin = parseInt(vizContainer.dataset.chMin);
+      const chMax = parseInt(vizContainer.dataset.chMax);
+      const chSpan = chMax - chMin || 1;
+
+      // Get the inst-row track for coordinate mapping
+      const row = slider.closest('.rs-split-viz-inst-row');
+      if (!row) return;
+
+      // Read current range from split data
+      const data = this._getActiveSplitData(ch);
+      if (!data?.segments?.[segIdx]) return;
+      let curMin = data.segments[segIdx].noteRange?.min ?? physMin;
+      let curMax = data.segments[segIdx].noteRange?.max ?? physMax;
+
+      const rangeLabel = row.querySelector('.rs-split-viz-range-label');
+
+      const onMove = (moveE) => {
+        const rect = row.getBoundingClientRect();
+        const relX = Math.max(0, Math.min(rect.width, moveE.clientX - rect.left));
+        const pct = relX / rect.width;
+        let noteValue = Math.round(chMin + pct * chSpan);
+        // Clamp to instrument physical range and 0-127
+        noteValue = Math.max(physMin, Math.min(physMax, noteValue));
+        noteValue = Math.max(0, Math.min(127, noteValue));
+
+        // Update live values
+        if (bound === 'min') {
+          curMin = Math.min(noteValue, curMax);
+        } else {
+          curMax = Math.max(noteValue, curMin);
+        }
+
+        // Visual update (no re-render) — reposition slider
+        const leftPct = ((curMin - chMin) / chSpan) * 100;
+        const widthPct = Math.max(2, ((curMax - curMin) / chSpan) * 100);
+        slider.style.left = leftPct + '%';
+        slider.style.width = widthPct + '%';
+
+        // Update range label text
+        if (rangeLabel) {
+          rangeLabel.textContent = midiNoteToName(curMin) + '\u2013' + midiNoteToName(curMax);
+        }
+        slider.title = `${midiNoteToName(curMin)}\u2013${midiNoteToName(curMax)}`;
+      };
+
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        slider.releasePointerCapture?.(e.pointerId);
+
+        // Commit final values to data model + full refresh
+        this.splitEdited[ch] = true;
+        data.segments[segIdx].noteRange.min = curMin;
+        data.segments[segIdx].noteRange.max = curMax;
+        this._refreshUI(channelKeys, 'both-panels');
+      };
+
+      slider.setPointerCapture?.(e.pointerId);
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
     }, opts);
   }
 
