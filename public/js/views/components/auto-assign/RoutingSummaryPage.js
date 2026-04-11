@@ -1199,7 +1199,7 @@ class RoutingSummaryPage {
     }
 
     // Instrument chips (horizontal bar) — always show, even on skipped channels
-    const instrumentChipsHTML = (options.length > 0)
+    const instrumentChipsHTML = (options.length > 0 || lowOptions.length > 0)
       ? this._renderInstrumentChips(channel, options, lowOptions, assignment, isSkipped)
       : `<p class="rs-no-instruments">${_t('autoAssign.noCompatible')}</p>`;
     // Range bars (channel notes vs instrument capability)
@@ -1500,9 +1500,10 @@ class RoutingSummaryPage {
       `;
     }).join('');
 
-    // Low-score chips (hidden by default)
+    // Low-score chips: always visible when no high-score options exist, otherwise toggle
+    const showLowChips = showLow || options.length === 0;
     let lowChips = '';
-    if (showLow && lowOptions.length > 0) {
+    if (showLowChips && lowOptions.length > 0) {
       lowChips = lowOptions.map(opt => {
         const inst = opt.instrument;
         const score = opt.compatibility.score;
@@ -1523,7 +1524,8 @@ class RoutingSummaryPage {
       }).join('');
     }
 
-    const showMoreBtn = lowOptions.length > 0 ? `
+    // Show "more" toggle only when there are high-score options (low chips are behind toggle)
+    const showMoreBtn = (lowOptions.length > 0 && options.length > 0) ? `
       <button class="aa-instbar-btn aa-instbar-show-all ${showLow ? 'active' : ''}" data-channel="${ch}">
         ${showLow ? '\u25C9' : '\u25CB'} ${showLow ? _t('autoAssign.hideDetails') : `+${lowOptions.length}`}
       </button>
