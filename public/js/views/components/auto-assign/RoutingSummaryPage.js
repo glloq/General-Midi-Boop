@@ -99,38 +99,76 @@ function midiNoteToName(note) {
 const SPLIT_COLORS = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
 
 /**
- * Render a split visualization bar showing how instruments divide the note range
+ * Render an enriched split visualization with channel range on top and instruments below.
+ *
+ * Division modes (combineNoOverlap/combineWithOverlap/range/mixed/fullCoverage):
+ *   - Single row with instrument segments positioned within channel range
+ *   - Overlap zones shown with diagonal hatching
+ *
+ * Superposition modes (overflow/alternate):
+ *   - Separate rows per instrument (stacked), each full-width
+ *   - Instrument name label on each row
  */
 function renderSplitBar(splitData, channelAnalysis) {
   if (!splitData || !splitData.segments || splitData.segments.length === 0) return '';
-  if (!channelAnalysis?.noteRange?.min) return '';
+  if (!channelAnalysis?.noteRange || channelAnalysis.noteRange.min == null) return '';
 
   const chMin = channelAnalysis.noteRange.min;
   const chMax = channelAnalysis.noteRange.max;
   const span = chMax - chMin || 1;
   const colors = SPLIT_COLORS;
-  const mode = splitData.behaviorMode;
+  const mode = splitData.behaviorMode || 'combineNoOverlap';
+  const isStacked = (mode === 'overflow' || mode === 'alternate');
 
-  // For overflow/alternate, both segments cover the full range — show stacked half-height bars
-  if (mode === 'overflow' || mode === 'alternate') {
-    const segBars = splitData.segments.map((seg, i) => {
+  // Range labels (note names at edges)
+  const labelsHTML = `<div class="rs-split-viz-labels">
+    <span>${midiNoteToName(chMin)}</span><span>${midiNoteToName(chMax)}</span>
+  </div>`;
+
+  // Channel notes reference track (top line)
+  const chTrackHTML = `<div class="rs-split-viz-ch-track" title="${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}"></div>`;
+
+  let instHTML;
+  if (isStacked) {
+    // Superposition: each instrument on a separate row, full-width
+    instHTML = splitData.segments.map((seg, i) => {
       const color = colors[i % colors.length];
       const name = seg.instrumentName || '';
-      const topOffset = i * 50; // Stack bars vertically (0%, 50%)
-      return `<div class="rs-split-seg-bar rs-split-seg-stacked" style="left:0%;width:100%;background:${color};top:${topOffset}%;height:50%;opacity:0.7" title="${name}: ${midiNoteToName(chMin)}-${midiNoteToName(chMax)}"></div>`;
+      return `<div class="rs-split-viz-inst-row">
+        <div class="rs-split-viz-seg" style="left:0%;width:100%;background:${color}"
+             title="${escapeHtml(name)}: ${midiNoteToName(chMin)}\u2013${midiNoteToName(chMax)}"></div>
+        <span class="rs-split-viz-seg-label" style="color:${color}">${escapeHtml(name)}</span>
+      </div>`;
     }).join('');
-    return `<div class="rs-split-viz">${segBars}</div>`;
+  } else {
+    // Division: all instruments on the same row, positioned by note range
+    const segs = splitData.segments.map((seg, i) => {
+      if (!seg.noteRange) return '';
+      const left = Math.round(((seg.noteRange.min - chMin) / span) * 100);
+      const width = Math.max(3, Math.round(((seg.noteRange.max - seg.noteRange.min) / span) * 100));
+      const color = colors[i % colors.length];
+      const name = seg.instrumentName || '';
+      return `<div class="rs-split-viz-seg" style="left:${left}%;width:${width}%;background:${color}"
+               title="${escapeHtml(name)}: ${midiNoteToName(seg.noteRange.min)}\u2013${midiNoteToName(seg.noteRange.max)}"></div>`;
+    }).join('');
+
+    // Overlap zones (diagonal hatching)
+    const overlaps = splitData.overlapZones || [];
+    const overlapHTML = overlaps.map(ov => {
+      const left = Math.round(((ov.min - chMin) / span) * 100);
+      const width = Math.max(1, Math.round(((ov.max - ov.min) / span) * 100));
+      return `<div class="rs-split-viz-overlap" style="left:${left}%;width:${width}%"
+               title="\u26A0 ${midiNoteToName(ov.min)}\u2013${midiNoteToName(ov.max)}"></div>`;
+    }).join('');
+
+    instHTML = `<div class="rs-split-viz-inst-row">${segs}${overlapHTML}</div>`;
   }
 
-  const segBars = splitData.segments.map((seg, i) => {
-    if (!seg.noteRange) return '';
-    const left = Math.round(((seg.noteRange.min - chMin) / span) * 100);
-    const width = Math.max(3, Math.round(((seg.noteRange.max - seg.noteRange.min) / span) * 100));
-    const color = colors[i % colors.length];
-    return `<div class="rs-split-seg-bar" style="left:${left}%;width:${width}%;background:${color}" title="${seg.instrumentName || ''}: ${midiNoteToName(seg.noteRange.min)}-${midiNoteToName(seg.noteRange.max)}"></div>`;
-  }).join('');
-
-  return `<div class="rs-split-viz">${segBars}</div>`;
+  return `<div class="rs-split-viz-v2">
+    ${labelsHTML}
+    ${chTrackHTML}
+    <div class="rs-split-viz-inst-area">${instHTML}</div>
+  </div>`;
 }
 
 // ============================================================================
@@ -282,12 +320,12 @@ class RoutingSummaryPage {
         return;
       }
 
-      // Store results (splitProposals cleared — multi-instrument is user-driven)
+      // Store results — load backend split proposals (auto-split avoid transposition, etc.)
       this.suggestions = response.suggestions || {};
       this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection || {};
       this.confidenceScore = response.confidenceScore || 0;
-      this.splitProposals = {};
+      this.splitProposals = response.splitProposals || {};
       this.allInstruments = response.allInstruments || [];
 
       if (response.channelAnalyses) {
@@ -3940,12 +3978,12 @@ class RoutingSummaryPage {
         return;
       }
 
-      // Reset state with new results (splitProposals cleared)
+      // Reset state with new results — load backend split proposals
       this.suggestions = response.suggestions || {};
       this.lowScoreSuggestions = response.lowScoreSuggestions || {};
       this.autoSelection = response.autoSelection || {};
       this.confidenceScore = response.confidenceScore || 0;
-      this.splitProposals = {};
+      this.splitProposals = response.splitProposals || {};
       this.allInstruments = response.allInstruments || [];
       this.channelAnalyses = {};
       if (response.channelAnalyses) {
