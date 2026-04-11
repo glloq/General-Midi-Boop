@@ -296,12 +296,53 @@ class RoutingSummaryPage {
         }
       }
 
+      // Check for existing saved routings before using auto-selection
+      let savedRoutings = [];
+      try {
+        const savedResp = await this.api.sendCommand('get_file_routings', { fileId });
+        if (savedResp?.success && savedResp.routings?.length > 0) {
+          savedRoutings = savedResp.routings;
+        }
+      } catch (e) { /* ignore — fall back to auto-selection */ }
+
       // Initialize assignments from auto-selection
       const autoSkippedChannels = this.autoSelection._autoSkipped || [];
       delete this.autoSelection._autoSkipped;
-      this.selectedAssignments = JSON.parse(JSON.stringify(this.autoSelection));
-      this.skippedChannels = new Set(autoSkippedChannels);
-      this.autoSkippedChannels = new Set(autoSkippedChannels);
+
+      if (savedRoutings.length > 0) {
+        // Use saved routings as default assignments (preserve user's previous choices)
+        this.selectedAssignments = {};
+        const usedChannels = new Set();
+        for (const r of savedRoutings) {
+          const ch = String(r.channel);
+          // Find the instrument in allInstruments by device_id + instrument_name
+          const inst = (this.allInstruments || []).find(i =>
+            i.device_id === r.device_id && (i.custom_name === r.instrument_name || i.name === r.instrument_name)
+          );
+          if (inst) {
+            this.selectedAssignments[ch] = {
+              instrumentId: inst.id,
+              deviceId: r.device_id,
+              instrumentName: r.instrument_name,
+              score: r.compatibility_score || 0,
+              transposition: r.transposition_applied ? { semitones: r.transposition_applied } : null,
+            };
+            usedChannels.add(r.channel);
+          }
+        }
+        // For channels not in saved routings, fall back to auto-selection
+        for (const [ch, assignment] of Object.entries(this.autoSelection)) {
+          if (!this.selectedAssignments[ch]) {
+            this.selectedAssignments[ch] = JSON.parse(JSON.stringify(assignment));
+          }
+        }
+        this.skippedChannels = new Set(autoSkippedChannels);
+        this.autoSkippedChannels = new Set(autoSkippedChannels);
+      } else {
+        this.selectedAssignments = JSON.parse(JSON.stringify(this.autoSelection));
+        this.skippedChannels = new Set(autoSkippedChannels);
+        this.autoSkippedChannels = new Set(autoSkippedChannels);
+      }
 
       // Enrich assignments with instrument capabilities
       for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
@@ -336,7 +377,7 @@ class RoutingSummaryPage {
       const channelKeys = Object.keys(this.suggestions);
       for (const ch of channelKeys) {
         const assignment = this.selectedAssignments[ch];
-        this.adaptationSettings[ch] = {
+        const adapt = {
           pitchShift: assignment?.transposition?.semitones ? 'auto' : 'none',
           transpositionSemitones: assignment?.transposition?.semitones || 0,
           oorHandling: 'passThrough',
@@ -344,6 +385,21 @@ class RoutingSummaryPage {
           polyStrategy: 'shorten',
           polyTarget: null
         };
+
+        // Auto-adaptation: enable polyphony reduction when instrument capacity is lower
+        if (this.autoAdaptation) {
+          const chPoly = this._getChannelPolyphony(parseInt(ch));
+          const instPoly = this._getInstrumentPolyphony(parseInt(ch))
+            || getGmDefaultPolyphony(assignment?.gmProgram);
+          if (chPoly && instPoly && chPoly > instPoly) {
+            adapt.polyReduction = 'auto';
+            adapt.polyTarget = instPoly;
+            // Large gap (>2x): drop excess notes; close: shorten durations
+            adapt.polyStrategy = chPoly > instPoly * 2 ? 'drop' : 'shorten';
+          }
+        }
+
+        this.adaptationSettings[ch] = adapt;
       }
 
       // Load MIDI data for preview minimap
@@ -874,14 +930,17 @@ class RoutingSummaryPage {
       // Score column
       const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}</span>` : '';
 
-      // Polyphony column: channel max / instrument capacity
+      // Polyphony column: channel max / instrument capacity (+ auto-adapt indicator)
       let polyHTML = '';
       if (!isSkipped) {
         const chPoly = this._getChannelPolyphony(channel);
         const instPoly = this._getInstrumentPolyphony(channel);
         if (chPoly && instPoly) {
-          const ok = instPoly >= chPoly;
-          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${chPoly}/${instPoly}</span>`;
+          const adapt = this.adaptationSettings[ch];
+          const polyActive = this.autoAdaptation && adapt?.polyReduction && adapt.polyReduction !== 'none';
+          const ok = polyActive || instPoly >= chPoly;
+          const polyLabel = polyActive ? `${chPoly}\u2192${adapt.polyTarget || instPoly}` : `${chPoly}/${instPoly}`;
+          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${polyLabel}</span>`;
         }
       }
 
@@ -1351,13 +1410,16 @@ class RoutingSummaryPage {
       routeHTML = `${escapeHtml(gmName)}${assignedName ? ` \u2192 <strong>${escapeHtml(assignedName)}</strong>` : ''}`;
     }
 
-    // Polyphony info: instrument(s) capacity vs channel usage
+    // Polyphony info: instrument(s) capacity vs channel usage (+ auto-adapt indicator)
     let polyHTML = '';
     const channelPoly = this._getChannelPolyphony(channel);
     const instPoly = this._getInstrumentPolyphony(channel);
     if (channelPoly && instPoly) {
-      const polyOk = instPoly >= channelPoly;
-      polyHTML = `<span class="rs-detail-poly ${polyOk ? 'rs-poly-ok' : 'rs-poly-warn'}" title="${_t('autoAssign.polyphony') || 'Polyphonie'} (${_t('autoAssign.polyphonyHint') || 'canal / instrument'})">\u266B ${channelPoly}/${instPoly}</span>`;
+      const adapt = this.adaptationSettings[ch] || {};
+      const polyActive = this.autoAdaptation && adapt.polyReduction && adapt.polyReduction !== 'none';
+      const polyOk = polyActive || instPoly >= channelPoly;
+      const polyLabel = polyActive ? `${channelPoly}\u2192${adapt.polyTarget || instPoly}` : `${channelPoly}/${instPoly}`;
+      polyHTML = `<span class="rs-detail-poly ${polyOk ? 'rs-poly-ok' : 'rs-poly-warn'}" title="${_t('autoAssign.polyphony') || 'Polyphonie'} (${_t('autoAssign.polyphonyHint') || 'canal / instrument'})">\u266B ${polyLabel}</span>`;
     }
 
     return `
@@ -3049,7 +3111,7 @@ class RoutingSummaryPage {
         </div>`;
     }
 
-    // ── Single instrument mode ──
+    // ── Single instrument mode (table layout matching split mode) ──
     let instrumentCCs = assignment?.supportedCcs ?? null;
     if (instrumentCCs && typeof instrumentCCs === 'string') {
       try { instrumentCCs = JSON.parse(instrumentCCs); } catch { instrumentCCs = null; }
@@ -3058,68 +3120,59 @@ class RoutingSummaryPage {
       instrumentCCs = this._getInstrumentCCs(assignment.instrumentId);
     }
 
-    const rows = visibleCCs.map(ccNum => {
+    const instName = assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName || _t('autoAssign.instrument');
+    const instShort = instName.length > 10 ? instName.slice(0, 9) + '\u2026' : instName;
+
+    const bodyRows = visibleCCs.map(ccNum => {
       const name = this._getCCName(ccNum);
       const isDisabled = currentRemap[ccNum] === -1;
-      let statusIcon, statusClass;
 
-      if (isDisabled) {
-        statusIcon = '\u2717'; statusClass = 'rs-cc-disabled';
-      } else if (instrumentCCs === null) {
-        statusIcon = '?'; statusClass = 'rs-cc-unknown';
-      } else if (instrumentCCs.includes(ccNum)) {
-        statusIcon = '\u2713'; statusClass = 'rs-cc-supported';
-      } else {
-        statusIcon = '\u2717'; statusClass = 'rs-cc-unsupported';
-      }
-
-      // Disable toggle for all CCs
       const muteActive = isDisabled ? ' rs-cc-mute-active' : '';
       const muteTitle = isDisabled
         ? (_t('routingSummary.ccEnable') || 'Activer ce CC')
         : (_t('routingSummary.ccDisable') || 'Désactiver ce CC');
-      const muteBtn = `<button class="rs-cc-mute-btn${muteActive}" data-channel="${ch}" data-cc="${ccNum}" title="${muteTitle}">${isDisabled ? '\u{1F507}' : '\u{1F509}'}</button>`;
+      const muteBtn = `<td class="rs-cc-mute-cell"><button class="rs-cc-mute-btn${muteActive}" data-channel="${ch}" data-cc="${ccNum}" title="${muteTitle}">${isDisabled ? '\u{1F507}' : '\u{1F509}'}</button></td>`;
 
-      let remapHTML = '';
-      if (!isDisabled && statusClass === 'rs-cc-unsupported' && instrumentCCs) {
+      let statusCell;
+      if (isDisabled) {
+        statusCell = `<td class="rs-cc-cell rs-cc-cell-disabled">\u2014</td>`;
+      } else if (instrumentCCs === null) {
+        statusCell = `<td class="rs-cc-cell rs-cc-cell-unknown">?</td>`;
+      } else if (instrumentCCs.includes(ccNum)) {
+        statusCell = `<td class="rs-cc-cell rs-cc-cell-ok">\u2713</td>`;
+      } else {
+        // Unsupported: show remap dropdown
         const currentTarget = currentRemap[ccNum];
-        const options = instrumentCCs
+        const remapOpts = instrumentCCs
           .filter(targetCC => !channelCCSet.has(targetCC) || targetCC === ccNum)
           .map(targetCC => {
             const selected = currentTarget === targetCC ? 'selected' : '';
             return `<option value="${targetCC}" ${selected}>${this._getCCName(targetCC)}</option>`;
-          });
-        remapHTML = `
+          }).join('');
+        statusCell = `<td class="rs-cc-cell rs-cc-cell-no">
           <select class="rs-cc-remap" data-channel="${ch}" data-source="${ccNum}">
-            <option value="">${_t('routingSummary.ccIgnore') || '\u2014 ignorer \u2014'}</option>
-            ${options.join('')}
-          </select>`;
-      } else if (!isDisabled && currentRemap[ccNum] !== undefined) {
-        remapHTML = `<span class="rs-cc-remap-info">\u2192 ${this._getCCName(currentRemap[ccNum])}</span>`;
+            <option value="">\u2717</option>
+            ${remapOpts}
+          </select>
+        </td>`;
       }
 
-      return `
-        <div class="rs-cc-row ${statusClass}">
-          ${muteBtn}
-          <span class="rs-cc-num">CC${ccNum}</span>
-          <span class="rs-cc-name">${escapeHtml(name)}</span>
-          <span class="rs-cc-status">${statusIcon}</span>
-          ${remapHTML}
-        </div>`;
+      const rowClass = isDisabled ? 'rs-cc-row-disabled' : (instrumentCCs !== null && !instrumentCCs.includes(ccNum) && !isDisabled ? 'rs-cc-row-warn' : '');
+      return `<tr class="${rowClass}">${muteBtn}<td class="rs-cc-num">CC${ccNum}</td><td class="rs-cc-name">${escapeHtml(name)}</td>${statusCell}</tr>`;
     }).join('');
 
-    const showMoreHTML = hasMore
-      ? `<div class="rs-cc-show-more" data-channel="${channel}" style="cursor:pointer;text-align:center;padding:6px">${_t('routingSummary.showAllCCs') || 'Voir tout'} (${channelCCs.length - CC_PAGE_SIZE} ${_t('routingSummary.more') || 'de plus'})</div>`
+    const showMoreRow = hasMore
+      ? `<tr><td colspan="4" class="rs-cc-show-more" data-channel="${channel}" style="cursor:pointer;text-align:center;padding:6px">${_t('routingSummary.showAllCCs') || 'Voir tout'} (${channelCCs.length - CC_PAGE_SIZE} ${_t('routingSummary.more') || 'de plus'})</td></tr>`
       : '';
 
     return `
       <div class="rs-cc-section">
         <h4 class="rs-cc-title rs-cc-toggle" data-channel="${channel}" style="cursor:pointer">\uD83C\uDF9B ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'} ${toggleIcon} <small>(${channelCCs.length})</small></h4>
         ${summaryHTML}
-        <div class="rs-cc-list">
-          ${rows}
-          ${showMoreHTML}
-        </div>
+        <table class="rs-cc-table">
+          <thead><tr><th></th><th>CC</th><th>${_t('common.name') || 'Nom'}</th><th class="rs-cc-inst-col" title="${escapeHtml(instName)}">${escapeHtml(instShort)}</th></tr></thead>
+          <tbody>${bodyRows}${showMoreRow}</tbody>
+        </table>
       </div>`;
   }
 
@@ -3901,7 +3954,7 @@ class RoutingSummaryPage {
       const channelKeys = Object.keys(this.suggestions);
       for (const ch of channelKeys) {
         const assignment = this.selectedAssignments[ch];
-        this.adaptationSettings[ch] = {
+        const adapt = {
           pitchShift: assignment?.transposition?.semitones ? 'auto' : 'none',
           transpositionSemitones: assignment?.transposition?.semitones || 0,
           oorHandling: 'passThrough',
@@ -3909,6 +3962,20 @@ class RoutingSummaryPage {
           polyStrategy: 'shorten',
           polyTarget: null
         };
+
+        // Auto-adaptation: enable polyphony reduction when instrument capacity is lower
+        if (this.autoAdaptation) {
+          const chPoly = this._getChannelPolyphony(parseInt(ch));
+          const instPoly = this._getInstrumentPolyphony(parseInt(ch))
+            || getGmDefaultPolyphony(assignment?.gmProgram);
+          if (chPoly && instPoly && chPoly > instPoly) {
+            adapt.polyReduction = 'auto';
+            adapt.polyTarget = instPoly;
+            adapt.polyStrategy = chPoly > instPoly * 2 ? 'drop' : 'shorten';
+          }
+        }
+
+        this.adaptationSettings[ch] = adapt;
       }
 
       // Invalidate memoization caches after data reload
