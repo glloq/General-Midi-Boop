@@ -2050,7 +2050,8 @@ class RoutingSummaryPage {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           const current = this.adaptationSettings[ch].transpositionSemitones || 0;
           this.adaptationSettings[ch].transpositionSemitones = Math.max(-36, Math.min(36, current + delta));
-          this._refreshUI(channelKeys, 'detail');
+          this._reclampSplitRanges(parseInt(ch));
+          this._refreshUI(channelKeys, 'both-panels');
         }
         return;
       }
@@ -2206,8 +2207,9 @@ class RoutingSummaryPage {
             } else {
               this.adaptationSettings[ch].transpositionSemitones = 0;
             }
+            this._reclampSplitRanges(parseInt(ch));
           }
-          this._refreshUI(channelKeys, 'detail');
+          this._refreshUI(channelKeys, 'both-panels');
         }
         return;
       }
@@ -2489,6 +2491,29 @@ class RoutingSummaryPage {
     }
 
     this._refreshUI(channelKeys, 'both-panels');
+  }
+
+  /**
+   * Reclamp all split segment noteRanges to the current transposed channel range.
+   * Called when transposition changes to keep segments within visible bounds.
+   */
+  _reclampSplitRanges(channel) {
+    const ch = String(channel);
+    const data = this._getActiveSplitData(channel);
+    if (!data?.segments?.length) return;
+
+    const analysis = this.channelAnalyses[channel];
+    const adaptSettings = this.adaptationSettings[ch] || {};
+    const semi = (this.autoAdaptation && adaptSettings.pitchShift !== 'none') ? (adaptSettings.transpositionSemitones || 0) : 0;
+    const tCh = safeNoteRange((analysis?.noteRange?.min ?? 0) + semi, (analysis?.noteRange?.max ?? 127) + semi);
+
+    for (const seg of data.segments) {
+      const physMin = seg.fullRange?.min ?? 0;
+      const physMax = seg.fullRange?.max ?? 127;
+      // Reclamp: intersection of instrument physical range and transposed channel range
+      const clamped = safeNoteRange(Math.max(physMin, tCh.min), Math.min(physMax, tCh.max));
+      seg.noteRange = clamped;
+    }
   }
 
   /**
