@@ -1272,63 +1272,14 @@ class RoutingSummaryPage {
       const activeData = this.splitAssignments[channel];
       const segments = activeData.segments || [];
       const activeMode = activeData.type;
-      const behaviorMode = activeData.behaviorMode || 'combineNoOverlap';
-      const hideRangeInputs = (behaviorMode === 'overflow' || behaviorMode === 'alternate');
 
-      // ---- Behavior mode selector ----
-      const behaviorModes = [
-        { key: 'overflow', icon: '\u2B06', label: _t('routingSummary.behaviorOverflow') || 'Overflow', desc: _t('routingSummary.behaviorOverflowDesc') || '' },
-        { key: 'combineNoOverlap', icon: '\u2702', label: _t('routingSummary.behaviorCombineNoOverlap') || 'Split', desc: _t('routingSummary.behaviorCombineNoOverlapDesc') || '' },
-        { key: 'combineWithOverlap', icon: '\u2261', label: _t('routingSummary.behaviorCombineWithOverlap') || 'Layer', desc: _t('routingSummary.behaviorCombineWithOverlapDesc') || '' },
-        { key: 'alternate', icon: '\u21C4', label: _t('routingSummary.behaviorAlternate') || 'Alternate', desc: _t('routingSummary.behaviorAlternateDesc') || '' }
-      ];
-      const behaviorSelectorHTML = `
-        <div class="rs-behavior-mode-selector">
-          ${behaviorModes.map(m => {
-            const active = m.key === behaviorMode ? ' rs-behavior-mode-active' : '';
-            return `<button class="rs-behavior-mode-btn${active}" data-channel="${channel}" data-behavior="${m.key}" title="${escapeHtml(m.desc)}">
-              <span class="rs-behavior-icon">${m.icon}</span>
-              <span class="rs-behavior-label">${escapeHtml(m.label)}</span>
-            </button>`;
-          }).join('')}
-        </div>
-      `;
-
-      // ---- Mode-specific visualization ----
-      let modeVizHTML = '';
-      if (behaviorMode === 'overflow' && segments.length >= 2) {
-        const polyA = segments[0].polyphonyShare || segments[0].fullRange?.polyphony || 16;
-        const nameA = segments[0].instrumentName || 'A';
-        const nameB = segments[1].instrumentName || 'B';
-        modeVizHTML = `
-          <div class="rs-behavior-viz rs-behavior-viz-overflow">
-            <div class="rs-overflow-info">
-              <span class="rs-overflow-primary">\u266B ${escapeHtml(nameA)} (${_t('routingSummary.primaryInstrument') || 'Primary'}): \u2264 ${polyA} ${_t('autoAssign.polyphony') || 'voices'}</span>
-              <span class="rs-overflow-arrow">\u2192</span>
-              <span class="rs-overflow-secondary">${escapeHtml(nameB)} (${_t('routingSummary.overflowInstrument') || 'Overflow'})</span>
-            </div>
-          </div>
-        `;
-      } else if (behaviorMode === 'alternate') {
-        const density = analysis?.density ? analysis.density.toFixed(1) : '?';
-        modeVizHTML = `
-          <div class="rs-behavior-viz rs-behavior-viz-alternate">
-            <div class="rs-alternate-info">
-              <span class="rs-alternate-pattern">A \u2192 B \u2192 A \u2192 B \u2026</span>
-              <span class="rs-alternate-density">${density} ${_t('routingSummary.notesPerSec') || 'notes/sec'}</span>
-            </div>
-          </div>
-        `;
-      }
-
-      // Render segment cards with instrument select + range inputs + remove button
+      // Compact instrument list: color chip + instrument select + remove button
       const segCardsHTML = segments.map((seg, i) => {
         const color = splitColors[i % splitColors.length];
         const compatInstruments = this._getCompatibleInstrumentsForSegment(ch, seg.noteRange);
-        // Also include the currently assigned instrument even if not in compatible list
         const seen = new Set(compatInstruments.map(inst => inst.id));
         if (seg.instrumentId && !seen.has(seg.instrumentId)) {
-          const currentInst = (this.allInstruments || []).find(i => i.id === seg.instrumentId);
+          const currentInst = (this.allInstruments || []).find(ii => ii.id === seg.instrumentId);
           if (currentInst) compatInstruments.unshift({ ...currentInst, _score: -1 });
         }
         const selectOptions = compatInstruments.map(inst => {
@@ -1338,68 +1289,49 @@ class RoutingSummaryPage {
           return `<option value="${inst.id}" ${selected}>${escapeHtml(label)}</option>`;
         }).join('');
         const canRemove = segments.length > 1;
-        const rMin = seg.noteRange?.min ?? 0;
-        const rMax = seg.noteRange?.max ?? 127;
-
-        // Role label for overflow/alternate modes
-        let roleLabel = '';
-        if (behaviorMode === 'overflow') {
-          roleLabel = `<span class="rs-seg-role">${i === 0 ? (_t('routingSummary.primaryInstrument') || 'Primary') : (_t('routingSummary.overflowInstrument') || 'Overflow')}</span>`;
-        } else if (behaviorMode === 'alternate') {
-          roleLabel = `<span class="rs-seg-role">${String.fromCharCode(65 + i)}</span>`;
-        }
-
-        // Range controls: hidden for overflow/alternate (both cover full range)
-        const rangeControlsHTML = hideRangeInputs ? '' : `
-            <div class="rs-seg-range-controls">
-              <span class="rs-seg-range-label">${midiNoteToName(rMin)}</span>
-              <input type="number" class="rs-seg-range-input" data-channel="${channel}" data-seg="${i}" data-bound="min" value="${rMin}" min="0" max="127">
-              <span>\u2013</span>
-              <input type="number" class="rs-seg-range-input" data-channel="${channel}" data-seg="${i}" data-bound="max" value="${rMax}" min="0" max="127">
-              <span class="rs-seg-range-label">${midiNoteToName(rMax)}</span>
-            </div>
-        `;
 
         return `
           <div class="rs-seg-card" style="border-left: 3px solid ${color}">
             <div class="rs-seg-card-row">
-              ${roleLabel}
               <select class="rs-seg-instrument-select" data-channel="${channel}" data-seg="${i}" data-mode="${activeMode}">
                 ${selectOptions}
               </select>
               ${canRemove ? `<button class="btn btn-sm rs-btn-remove-segment" data-channel="${channel}" data-seg="${i}" title="${_t('common.delete')}">&times;</button>` : ''}
             </div>
-            ${rangeControlsHTML}
           </div>
         `;
       }).join('');
 
-      // Detect overlaps between segments (only for combine modes)
+      // Detect overlaps between any segments (regardless of mode)
       let overlapsHTML = '';
-      if (behaviorMode === 'combineWithOverlap' || behaviorMode === 'combineNoOverlap') {
-        const overlaps = this._detectOverlaps(segments);
-        const currentStrategy = activeData?.overlapStrategy || null;
+      const overlaps = this._detectOverlaps(segments);
+      if (overlaps.length > 0) {
+        const currentStrategy = activeData?.overlapStrategy || 'shared';
         overlapsHTML = overlaps.map((ov, idx) => {
+          const colorA = splitColors[ov.segA % splitColors.length];
+          const colorB = splitColors[ov.segB % splitColors.length];
           const nameA = segments[ov.segA]?.instrumentName || `Inst ${ov.segA + 1}`;
           const nameB = segments[ov.segB]?.instrumentName || `Inst ${ov.segB + 1}`;
-          const sharedLabel = _t('autoAssign.splitMixed') || 'Les deux';
-          const sharedActive = currentStrategy === 'shared' ? ' rs-overlap-btn-active' : '';
           return `
-            <div class="rs-overlap-warning ${currentStrategy === 'shared' ? 'rs-overlap-shared' : ''}">
-              <span>${currentStrategy === 'shared' ? '\uD83D\uDD00' : '\u26A0'} ${midiNoteToName(ov.min)}-${midiNoteToName(ov.max)}: ${escapeHtml(nameA)} / ${escapeHtml(nameB)}${currentStrategy === 'shared' ? ' <em class="rs-overlap-shared-label">(' + sharedLabel + ')</em>' : ''}</span>
-              <div class="rs-overlap-btns">
-                <button class="btn btn-sm rs-overlap-resolve-btn" data-channel="${channel}" data-overlap="${idx}" data-strategy="first">${escapeHtml(nameA)}</button>
-                <button class="btn btn-sm rs-overlap-resolve-btn" data-channel="${channel}" data-overlap="${idx}" data-strategy="second">${escapeHtml(nameB)}</button>
-                <button class="btn btn-sm rs-overlap-resolve-btn${sharedActive}" data-channel="${channel}" data-overlap="${idx}" data-strategy="shared">${sharedLabel}</button>
+            <div class="rs-overlap-zone-card">
+              <div class="rs-overlap-zone-colors">
+                <span class="rs-overlap-zone-chip" style="background:${colorA}"></span>
+                <span class="rs-overlap-zone-chip" style="background:${colorB}"></span>
+                <span class="rs-overlap-zone-range">${midiNoteToName(ov.min)}\u2013${midiNoteToName(ov.max)}</span>
+              </div>
+              <div class="rs-overlap-zone-btns">
+                <button class="btn btn-sm rs-overlap-resolve-btn${currentStrategy === 'shared' ? ' rs-overlap-btn-active' : ''}" data-channel="${channel}" data-overlap="${idx}" data-strategy="shared">${_t('routingSummary.overlapPlay') || 'Jouer'}</button>
+                <button class="btn btn-sm rs-overlap-resolve-btn${currentStrategy === 'alternate' ? ' rs-overlap-btn-active' : ''}" data-channel="${channel}" data-overlap="${idx}" data-strategy="alternate">${_t('routingSummary.overlapAlternate') || 'Alterner'}</button>
+                <button class="btn btn-sm rs-overlap-resolve-btn${currentStrategy === 'overflow' ? ' rs-overlap-btn-active' : ''}" data-channel="${channel}" data-overlap="${idx}" data-strategy="overflow">${_t('routingSummary.overlapOverflow') || 'D\u00e9bordement'}</button>
               </div>
             </div>
           `;
         }).join('');
       }
 
-      // Detect uncovered notes (only relevant for combine modes)
+      // Detect uncovered notes
       let uncoveredHTML = '';
-      if (!hideRangeInputs && analysis?.noteDistribution && segments.length > 0) {
+      if (analysis?.noteDistribution && segments.length > 0) {
         const usedNotes = Object.keys(analysis.noteDistribution).map(Number);
         const adapt = this.adaptationSettings[ch] || {};
         const semi = (this.autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
@@ -1440,10 +1372,8 @@ class RoutingSummaryPage {
             <button class="btn btn-sm rs-btn-remove-split rs-split-toggle-btn" data-channel="${channel}" title="${_t('routingSummary.removeMulti') || 'Retirer multi-instrument'}">\u2716</button>
           </div>
           <div class="rs-split-body ${expanded ? '' : 'collapsed'}">
-            ${behaviorSelectorHTML}
-            ${modeVizHTML}
-            ${renderSplitBar(activeData, analysis, channel)}
             <div class="rs-split-segments">${segCardsHTML}</div>
+            ${renderSplitBar(activeData, analysis, channel)}
             ${overlapsHTML}
             ${uncoveredHTML}
             ${actionsHTML}

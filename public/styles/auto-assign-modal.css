@@ -4925,6 +4925,58 @@ body.dark-mode .rs-cc-table td {
   border-color: var(--accent-primary, #667eea) !important;
 }
 
+/* Overlap zone card — shown when instrument ranges cross */
+.rs-overlap-zone-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin: 4px 0;
+  font-size: 11px;
+}
+
+.rs-overlap-zone-colors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.rs-overlap-zone-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.rs-overlap-zone-range {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+  margin-left: 2px;
+}
+
+.rs-overlap-zone-btns {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.rs-overlap-zone-btns .btn {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+body.dark-mode .rs-overlap-zone-card {
+  background: var(--bg-secondary, #2a2a2a);
+  border-color: var(--border-color, #444);
+}
+
 /* Shared overlap state — visual feedback */
 .rs-overlap-shared {
   background: rgba(102, 126, 234, 0.08);
