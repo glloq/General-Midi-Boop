@@ -94,11 +94,16 @@ class ScoringSettingsModal extends BaseModal {
     { key: 'latin', icon: '🪇', labelKey: 'scoringSettings.catLatin', fallback: 'Latin',
       chain: [
         { note: 60, name: 'Hi Bongo' },
+        { note: 61, name: 'Low Bongo' },
         { note: 62, name: 'Mute Hi Conga' },
+        { note: 63, name: 'Open Hi Conga' },
+        { note: 64, name: 'Low Conga' },
         { note: 65, name: 'High Timbale' },
+        { note: 66, name: 'Low Timbale' },
         { note: 67, name: 'High Agogo' },
-        { note: 76, name: 'Hi Wood Block' },
-        { note: 48, name: 'Hi-Mid Tom' }
+        { note: 68, name: 'Low Agogo' },
+        { note: 48, name: 'Hi-Mid Tom' },
+        { note: 76, name: 'Hi Wood Block' }
       ]},
     { key: 'shakers', icon: '🫧', labelKey: 'scoringSettings.catShakers', fallback: 'Shakers',
       chain: [
