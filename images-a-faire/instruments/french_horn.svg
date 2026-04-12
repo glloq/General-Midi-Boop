@@ -1,36 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <!-- Cor d'harmonie - GM 60 -->
-  <g transform="rotate(45, 64, 64)">
+  <!-- Cor d'harmonie -->
+  <g transform="rotate(45,64,64)">
+    <circle cx="62" cy="64" r="27" fill="none" stroke="#D2AB3A" stroke-width="7"/>
+    <circle cx="62" cy="64" r="17" fill="none" stroke="#D2AB3A" stroke-width="5"/>
 
-    <!-- Embouchure -->
-    <rect x="30" y="26" width="10" height="4" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-    <ellipse cx="29" cy="28" rx="3" ry="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <path d="M35 38 C43 38,48 43,48 48" fill="none" stroke="#D2AB3A" stroke-width="5" stroke-linecap="round"/>
+    <rect x="26" y="36" width="9" height="4" rx="2" fill="#D2AB3A" stroke="#8A6A10"/>
+    <ellipse cx="25" cy="38" rx="3" ry="1.8" fill="#D2AB3A" stroke="#8A6A10"/>
 
-    <!-- Tube d'entree (va vers l'enroulement) -->
-    <path d="M 40 28 C 44 28, 46 32, 46 36" fill="none" stroke="#D4A843" stroke-width="4"/>
-    <path d="M 40 28 C 44 28, 46 32, 46 36" fill="none" stroke="#B8960F" stroke-width="1"/>
+    <rect x="50" y="44" width="4" height="9" rx="1" fill="#E8CC6A" stroke="#8A6A10"/>
+    <rect x="58" y="40" width="4" height="9" rx="1" fill="#E8CC6A" stroke="#8A6A10"/>
+    <rect x="66" y="44" width="4" height="9" rx="1" fill="#E8CC6A" stroke="#8A6A10"/>
 
-    <!-- Enroulement principal (cercle) -->
-    <circle cx="64" cy="64" r="28" fill="none" stroke="#D4A843" stroke-width="6"/>
-    <circle cx="64" cy="64" r="28" fill="none" stroke="#B8960F" stroke-width="1.5"/>
-
-    <!-- Enroulement interieur -->
-    <circle cx="64" cy="64" r="18" fill="none" stroke="#D4A843" stroke-width="4"/>
-    <circle cx="64" cy="64" r="18" fill="none" stroke="#B8960F" stroke-width="1"/>
-
-    <!-- 3 palettes (rotors) en haut -->
-    <circle cx="52" cy="42" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
-    <circle cx="64" cy="38" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
-    <circle cx="76" cy="42" r="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
-
-    <!-- Pavillon (grand, pointe vers le bas-droite) -->
-    <path d="
-      M 86 78
-      C 92 86, 98 96, 102 106
-      C 106 116, 96 122, 86 118
-      C 76 114, 72 104, 76 94
-      C 80 86, 84 80, 86 78
-    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
-
+    <path d="M84 76 C91 84,99 94,102 103 C105 113,96 119,86 116 C76 113,72 104,76 95 C79 88,83 79,84 76 Z" fill="#D2AB3A" stroke="#8A6A10" stroke-width="1.6"/>
   </g>
 </svg>

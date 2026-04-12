@@ -1,63 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <!-- Basse electrique - GM 33 -->
-  <g transform="rotate(45, 64, 64)">
+  <!-- Basse électrique (finger) -->
+  <g transform="rotate(45,64,64)">
+    <rect x="60" y="7" width="8" height="52" rx="2" fill="#8A6330" stroke="#5D411D" stroke-width="1.4"/>
+    <rect x="57" y="0" width="14" height="10" rx="3" fill="#6B4A24" stroke="#4A3219" stroke-width="1.2"/>
+    <circle cx="59" cy="2.5" r="1.5" fill="#D5B24F"/><circle cx="59" cy="7" r="1.5" fill="#D5B24F"/>
+    <circle cx="69" cy="2.5" r="1.5" fill="#D5B24F"/><circle cx="69" cy="7" r="1.5" fill="#D5B24F"/>
 
-    <!-- Manche (long, 4 cordes) -->
-    <rect x="60" y="4" width="8" height="52" rx="2" fill="#8B6914" stroke="#5C4A0E" stroke-width="1.5"/>
+    <path d="M64 56 C53 56,42 60,41 68 C40 74,46 77,52 75 C47 82,40 91,40 102 C40 114,50 122,61 122 C74 122,85 115,87 103 C89 92,84 82,78 75 C84 76,89 73,88 67 C86 59,74 56,64 56 Z" fill="#2F6A84" stroke="#1E4D61" stroke-width="2"/>
+    <path d="M50 75 C46 81,43 87,43 95 C43 103,49 108,56 108 L67 108 L67 89 C67 81,60 76,50 75 Z" fill="#111" opacity="0.22"/>
 
-    <!-- Frettes -->
-    <line x1="60" y1="12" x2="68" y2="12" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="19" x2="68" y2="19" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="25" x2="68" y2="25" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="30" x2="68" y2="30" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="35" x2="68" y2="35" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="40" x2="68" y2="40" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="44" x2="68" y2="44" stroke="#D4A843" stroke-width="1"/>
-    <line x1="60" y1="48" x2="68" y2="48" stroke="#D4A843" stroke-width="1"/>
+    <rect x="47" y="86" width="18" height="5" rx="2" fill="#2C2C2C"/>
+    <rect x="47" y="97" width="18" height="5" rx="2" fill="#2C2C2C"/>
+    <rect x="49" y="109" width="15" height="4" rx="1" fill="#D5B24F" stroke="#8A6A10"/>
 
-    <!-- Dots -->
-    <circle cx="64" cy="22" r="1" fill="#F5F5F5" opacity="0.5"/>
-    <circle cx="64" cy="33" r="1" fill="#F5F5F5" opacity="0.5"/>
+    <circle cx="78" cy="95" r="2.3" fill="#D5B24F" stroke="#8A6A10"/>
+    <circle cx="78" cy="104" r="2.3" fill="#D5B24F" stroke="#8A6A10"/>
 
-    <!-- Tete (plus allongee qu'une guitare) -->
-    <rect x="57" y="-2" width="14" height="10" rx="3" fill="#5C4A0E" stroke="#3D300A" stroke-width="1.5"/>
-    <circle cx="59" cy="1" r="2" fill="#D4A843"/>
-    <circle cx="59" cy="5" r="2" fill="#D4A843"/>
-    <circle cx="69" cy="1" r="2" fill="#D4A843"/>
-    <circle cx="69" cy="5" r="2" fill="#D4A843"/>
-
-    <!-- Corps (forme offset, plus petit qu'une guitare) -->
-    <path d="
-      M 64 52
-      C 54 52, 44 54, 42 62
-      C 40 68, 48 70, 52 68
-      C 48 76, 38 86, 38 98
-      C 38 110, 48 120, 60 120
-      C 72 120, 84 114, 86 102
-      C 88 90, 82 78, 76 72
-      C 80 70, 86 68, 84 62
-      C 82 54, 72 52, 64 52 Z
-    " fill="#2C5F7C" stroke="#1A4A5E" stroke-width="2"/>
-
-    <!-- Pickguard -->
-    <path d="M 52 68 C 48 76, 42 84, 42 92 C 42 100, 48 104, 56 104 L 66 104 L 66 84 C 66 76, 60 70, 52 68 Z" fill="#1A1A1A" opacity="0.2"/>
-
-    <!-- Micros (2 humbuckers) -->
-    <rect x="46" y="82" width="18" height="5" rx="2" fill="#333" stroke="#222" stroke-width="0.8"/>
-    <rect x="46" y="94" width="18" height="5" rx="2" fill="#333" stroke="#222" stroke-width="0.8"/>
-
-    <!-- Boutons -->
-    <circle cx="78" cy="92" r="2.5" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-    <circle cx="78" cy="102" r="2.5" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-
-    <!-- Chevalet -->
-    <rect x="48" y="106" width="16" height="4" rx="1" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-
-    <!-- Cordes (4) -->
-    <line x1="61" y1="0" x2="52" y2="106" stroke="#E8D5A3" stroke-width="0.5" opacity="0.6"/>
-    <line x1="63" y1="0" x2="55" y2="106" stroke="#E8D5A3" stroke-width="0.6" opacity="0.6"/>
-    <line x1="65" y1="0" x2="58" y2="106" stroke="#E8D5A3" stroke-width="0.8" opacity="0.6"/>
-    <line x1="67" y1="0" x2="61" y2="106" stroke="#E8D5A3" stroke-width="1.0" opacity="0.6"/>
-
+    <line x1="61" y1="1" x2="53" y2="109" stroke="#EBDCB0" stroke-width="0.55"/>
+    <line x1="63" y1="1" x2="56" y2="109" stroke="#EBDCB0" stroke-width="0.65"/>
+    <line x1="65" y1="1" x2="59" y2="109" stroke="#EBDCB0" stroke-width="0.8"/>
+    <line x1="67" y1="1" x2="62" y2="109" stroke="#EBDCB0" stroke-width="1"/>
   </g>
 </svg>

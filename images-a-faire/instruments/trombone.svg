@@ -1,42 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <!-- Trombone - GM 57 -->
-  <g transform="rotate(45, 64, 64)">
+  <!-- Trombone -->
+  <g transform="rotate(45,64,64)">
+    <rect x="58" y="12" width="4" height="78" rx="2" fill="#D8B34A" stroke="#8A6B10"/>
+    <rect x="69" y="12" width="4" height="84" rx="2" fill="#D8B34A" stroke="#8A6B10"/>
+    <rect x="58" y="22" width="15" height="3" rx="1.5" fill="#D8B34A" stroke="#8A6B10"/>
 
-    <!-- Embouchure -->
-    <rect x="56" y="2" width="4" height="8" rx="1" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-    <ellipse cx="58" cy="1" rx="5" ry="2.5" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <path d="M58 90 C58 101,64 105,71 105 C77 105,73 101,73 95" fill="none" stroke="#D8B34A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M73 12 v50" fill="none" stroke="#D8B34A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M75 12 C75 7,79 6,83 8" fill="none" stroke="#D8B34A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M83 8 v56" fill="none" stroke="#D8B34A" stroke-width="5" stroke-linecap="round"/>
 
-    <!-- Tube interieur (manche, gauche) -->
-    <rect x="56" y="10" width="4" height="80" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
+    <rect x="58" y="5" width="3" height="7" rx="1" fill="#D8B34A" stroke="#8A6B10"/>
+    <ellipse cx="59.5" cy="4" rx="3.8" ry="1.8" fill="#D8B34A" stroke="#8A6B10"/>
 
-    <!-- Coulisse exterieure (tube droit) -->
-    <rect x="68" y="10" width="4" height="86" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
-
-    <!-- Barres de liaison de la coulisse -->
-    <rect x="56" y="20" width="16" height="3" rx="1" fill="#D4A843" stroke="#B8960F" stroke-width="0.8"/>
-
-    <!-- U-bend de la coulisse (bas) -->
-    <path d="M 56 90 C 56 100, 62 104, 72 104 C 78 104, 72 100, 72 96" fill="none" stroke="#D4A843" stroke-width="5"/>
-    <path d="M 56 90 C 56 100, 62 104, 72 104 C 78 104, 72 100, 72 96" fill="none" stroke="#B8960F" stroke-width="1.5"/>
-
-    <!-- Tube retour (du U vers le pavillon) -->
-    <rect x="76" y="10" width="4" height="50" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
-
-    <!-- Coude vers le pavillon -->
-    <path d="M 78 10 C 78 4, 82 2, 86 4 L 86 8" fill="none" stroke="#D4A843" stroke-width="5"/>
-    <path d="M 78 10 C 78 4, 82 2, 86 4 L 86 8" fill="none" stroke="#B8960F" stroke-width="1.5"/>
-
-    <!-- Tube du pavillon -->
-    <rect x="84" y="8" width="4" height="60" rx="2" fill="#D4A843" stroke="#B8960F" stroke-width="1"/>
-
-    <!-- Pavillon -->
-    <path d="
-      M 84 68
-      C 78 76, 72 88, 70 98
-      C 68 108, 78 114, 88 114
-      C 98 114, 108 108, 106 98
-      C 104 88, 98 76, 92 68
-    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
-
+    <path d="M83 64 C77 72,71 84,69 94 C67 104,77 110,87 110 C97 110,107 104,105 94 C103 84,97 72,91 64 Z" fill="#D8B34A" stroke="#8A6B10" stroke-width="1.6"/>
   </g>
 </svg>

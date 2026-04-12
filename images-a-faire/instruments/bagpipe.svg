@@ -1,37 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <!-- Cornemuse - GM 109 -->
-  <g transform="rotate(20, 64, 64)">
+  <!-- Cornemuse -->
+  <g transform="rotate(20,64,64)">
+    <path d="M34 64 C34 49,47 38,62 38 C78 38,90 49,90 64 C90 79,78 90,62 90 C47 90,34 79,34 64 Z" fill="#8B6A2F" stroke="#5A431D" stroke-width="2"/>
 
-    <!-- Poche (bag) -->
-    <ellipse cx="60" cy="64" rx="30" ry="24" fill="#8B6914" stroke="#5C4A0E" stroke-width="2"/>
+    <rect x="72" y="58" width="6" height="54" rx="2" fill="#191919" stroke="#333"/>
+    <circle cx="75" cy="70" r="1.3" fill="#555"/><circle cx="75" cy="77" r="1.3" fill="#555"/>
+    <circle cx="75" cy="84" r="1.3" fill="#555"/><circle cx="75" cy="91" r="1.3" fill="#555"/>
+    <circle cx="75" cy="98" r="1.3" fill="#555"/><circle cx="75" cy="105" r="1.3" fill="#555"/>
+    <path d="M72 112 L70 119 C70 123,80 123,80 119 L78 112" fill="#1A1A1A" stroke="#333"/>
 
-    <!-- Chalumeau melodique (chanter, descend vers le bas) -->
-    <rect x="72" y="60" width="5" height="54" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
-    <!-- Trous du chanter -->
-    <circle cx="74.5" cy="72" r="1.5" fill="#333"/>
-    <circle cx="74.5" cy="78" r="1.5" fill="#333"/>
-    <circle cx="74.5" cy="84" r="1.5" fill="#333"/>
-    <circle cx="74.5" cy="90" r="1.5" fill="#333"/>
-    <circle cx="74.5" cy="96" r="1.5" fill="#333"/>
-    <circle cx="74.5" cy="102" r="1.5" fill="#333"/>
-    <!-- Pavillon du chanter -->
-    <path d="M 72 114 L 70 120 C 70 124, 79 124, 79 120 L 77 114" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <rect x="45" y="8" width="5" height="49" rx="2" fill="#1A1A1A" stroke="#333"/>
+    <rect x="53" y="4" width="5" height="53" rx="2" fill="#1A1A1A" stroke="#333"/>
+    <rect x="61" y="8" width="5" height="49" rx="2" fill="#1A1A1A" stroke="#333"/>
 
-    <!-- Bourdons (drones, 3 tubes montant vers le haut) -->
-    <rect x="44" y="8" width="5" height="48" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
-    <rect x="52" y="4" width="5" height="52" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
-    <rect x="60" y="8" width="5" height="48" rx="2" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+    <g fill="#EEE0C2">
+      <rect x="44" y="16" width="7" height="3" rx="1"/>
+      <rect x="44" y="30" width="7" height="3" rx="1"/>
+      <rect x="52" y="12" width="7" height="3" rx="1"/>
+      <rect x="52" y="26" width="7" height="3" rx="1"/>
+      <rect x="60" y="16" width="7" height="3" rx="1"/>
+      <rect x="60" y="30" width="7" height="3" rx="1"/>
+    </g>
 
-    <!-- Decorations (bagues ivoire sur les bourdons) -->
-    <rect x="43" y="14" width="7" height="3" rx="1" fill="#F5E6C8"/>
-    <rect x="43" y="28" width="7" height="3" rx="1" fill="#F5E6C8"/>
-    <rect x="51" y="10" width="7" height="3" rx="1" fill="#F5E6C8"/>
-    <rect x="51" y="24" width="7" height="3" rx="1" fill="#F5E6C8"/>
-    <rect x="59" y="14" width="7" height="3" rx="1" fill="#F5E6C8"/>
-    <rect x="59" y="28" width="7" height="3" rx="1" fill="#F5E6C8"/>
-
-    <!-- Tuyau d'insufflation (blowpipe) -->
-    <rect x="32" y="40" width="4" height="20" rx="1" fill="#1A1A1A" stroke="#333" stroke-width="1" transform="rotate(-30, 34, 50)"/>
-
+    <rect x="31" y="42" width="4" height="20" rx="1" fill="#1A1A1A" stroke="#333" transform="rotate(-30,33,52)"/>
   </g>
 </svg>
