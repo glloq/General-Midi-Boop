@@ -315,7 +315,8 @@ class InstrumentCapabilitiesDB {
           capabilities_source, capabilities_updated_at,
           mac_address, usb_serial_number,
           sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
-          instrument_type, instrument_subtype
+          instrument_type, instrument_subtype,
+          min_note_interval, min_note_duration
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -360,6 +361,9 @@ class InstrumentCapabilitiesDB {
           // Type hierarchy
           instrument_type: result.instrument_type || 'unknown',
           instrument_subtype: result.instrument_subtype || null,
+          // Timing constraints
+          min_note_interval: result.min_note_interval || null,
+          min_note_duration: result.min_note_duration || null,
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

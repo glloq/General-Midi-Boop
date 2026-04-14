@@ -6529,4 +6529,142 @@ body.dark-mode .rs-split-viz-handle:active {
   pointer-events: none;
 }
 
+/* ==========================================================================
+   Drum Note Mapping Section
+   ========================================================================== */
+
+.rs-drum-mapping {
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: 6px;
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.rs-drum-mapping h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.rs-drum-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.rs-drum-mapping-table th {
+  text-align: left;
+  padding: 3px 4px;
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--text-secondary, #6c757d);
+  border-bottom: 1px solid var(--border-color, #dee2e6);
+}
+
+.rs-drum-mapping-table td {
+  padding: 3px 4px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color-light, #eee);
+}
+
+.rs-drum-src {
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rs-drum-count {
+  color: var(--text-muted, #999);
+  text-align: center;
+  min-width: 24px;
+}
+
+.rs-drum-arrow {
+  text-align: center;
+  color: var(--text-muted, #999);
+  padding: 0 2px;
+}
+
+.rs-drum-dest-select {
+  width: 100%;
+  max-width: 180px;
+  font-size: 11px;
+  padding: 2px 4px;
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: 4px;
+  background: var(--bg-primary, #fff);
+}
+
+.rs-drum-type {
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.rs-drum-type-exact { color: #27ae60; background: #27ae6015; }
+.rs-drum-type-subst { color: #f39c12; background: #f39c1215; }
+.rs-drum-type-custom { color: #3498db; background: #3498db15; }
+.rs-drum-type-muted { color: #e74c3c; background: #e74c3c15; }
+.rs-drum-type-na { color: #999; }
+
+.rs-drum-toggle { text-align: center; }
+
+.rs-drum-toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.rs-drum-toggle-label input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.rs-drum-toggle-slider {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #ccc;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.rs-drum-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.rs-drum-toggle-label input:checked + .rs-drum-toggle-slider {
+  background: #27ae60;
+}
+
+.rs-drum-toggle-label input:checked + .rs-drum-toggle-slider::before {
+  transform: translateX(12px);
+}
+
+.rs-drum-row-muted {
+  opacity: 0.5;
+}
+
+.rs-drum-row-muted .rs-drum-dest-select {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 /* END OF FILE */

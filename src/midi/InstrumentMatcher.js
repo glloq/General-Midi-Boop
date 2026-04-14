@@ -82,7 +82,8 @@ class InstrumentMatcher {
         mode: instrument.note_selection_mode || 'range',
         selected: parsedSelectedNotes
       },
-      channelAnalysis // Pass full analysis for intelligent drum mapping
+      channelAnalysis, // Pass full analysis for intelligent drum mapping
+      instrument.instrument_subtype || null // Pass subtype for transposing instruments
     );
     score += noteScore.score;
     // noteScore may return issue (singular object) or issues (array) depending on path
@@ -191,6 +192,15 @@ class InstrumentMatcher {
       // Ensure score is finite (NaN guard)
       if (!isFinite(score)) score = 0;
     }
+
+    // 8. Pénalité timing / vitesse de jeu
+    const timingResult = this.scoreTimingCompatibility(
+      channelAnalysis.timingAnalysis,
+      instrument.min_note_interval
+    );
+    score += timingResult.penalty;
+    if (timingResult.issue) issues.push(timingResult.issue);
+    if (timingResult.info) info.push(timingResult.info);
 
     // Appliquer penalite/bonus percussion
     score += percussionPenalty;
@@ -339,13 +349,14 @@ class InstrumentMatcher {
   }
 
   /**
-   * Score de compatibilité de notes avec transposition par octaves
+   * Score de compatibilité de notes avec transposition par octaves et non-octaves
    * @param {Object} channelRange - { min, max }
    * @param {Object} instrumentCaps - { min, max, mode, selected }
    * @param {Object} channelAnalysis - Optional full channel analysis for intelligent drum mapping
+   * @param {string|null} instrumentSubtype - Optional subtype for transposing instrument offsets
    * @returns {Object}
    */
-  scoreNoteCompatibility(channelRange, instrumentCaps, channelAnalysis = null) {
+  scoreNoteCompatibility(channelRange, instrumentCaps, channelAnalysis = null, instrumentSubtype = null) {
     // Canal sans notes (plage null) = score neutre, compatible par defaut
     if (channelRange.min === null || channelRange.max === null) {
       return {
@@ -386,7 +397,15 @@ class InstrumentMatcher {
     }
 
     // Calculer transposition optimale par octaves
-    const transposition = this.calculateOctaveShift(channelRange, instrumentCaps);
+    let transposition = this.calculateOctaveShift(channelRange, instrumentCaps);
+
+    // Si octave shift échoue, essayer les offsets de transposition pour instruments transpositeurs
+    if (!transposition.compatible && instrumentSubtype) {
+      const offsets = InstrumentTypeConfig.getTransposingOffsets(instrumentSubtype);
+      if (offsets) {
+        transposition = this.calculateTransposingShift(channelRange, instrumentCaps, offsets);
+      }
+    }
 
     if (!transposition.compatible) {
       return {
@@ -405,9 +424,16 @@ class InstrumentMatcher {
     let score = perfectNoteScore;
     let info = null;
 
-    if (transposition.octaves === 0) {
+    if (transposition.semitones === 0) {
       score = perfectNoteScore;
       info = 'Perfect note range fit (no transposition)';
+    } else if (transposition.transposingOffset != null) {
+      // Non-octave transposition (transposing instrument like Bb trumpet, Eb sax...)
+      // Slightly higher penalty than pure octave: +1 extra point penalty
+      const approxOctaves = Math.abs(Math.round(transposition.semitones / 12));
+      score = Math.max(0, (perfectNoteScore - 6) - approxOctaves * transpositionPenalty);
+      const direction = transposition.semitones > 0 ? 'up' : 'down';
+      info = `Transposing instrument: ${Math.abs(transposition.semitones)} semitone(s) ${direction}`;
     } else {
       score = Math.max(0, (perfectNoteScore - 5) - Math.abs(transposition.octaves) * transpositionPenalty);
       const direction = transposition.octaves > 0 ? 'up' : 'down';
@@ -416,6 +442,30 @@ class InstrumentMatcher {
 
     // Calculer l'octave wrapping pour les notes qui dépassent
     const wrapping = this.calculateOctaveWrapping(channelRange, instrumentCaps, transposition.semitones);
+
+    // Facteur de jouabilité : quel % des notes du canal sont réellement jouables après transposition ?
+    const issues = [];
+    if (channelAnalysis?.noteDistribution && Object.keys(channelAnalysis.noteDistribution).length > 0) {
+      const usedNotes = Object.keys(channelAnalysis.noteDistribution).map(Number);
+      const playableCount = usedNotes.filter(n => {
+        const shifted = n + transposition.semitones;
+        // Note jouable si dans la plage, ou si wrapping disponible
+        if (shifted >= instrumentCaps.min && shifted <= instrumentCaps.max) return true;
+        if (wrapping.mapping && wrapping.mapping[shifted] !== undefined) return true;
+        return false;
+      }).length;
+      const playableRatio = usedNotes.length > 0 ? playableCount / usedNotes.length : 1;
+      if (playableRatio < 1.0) {
+        score = Math.round(score * playableRatio);
+        info += ` (${Math.round(playableRatio * 100)}% playable)`;
+        if (playableRatio < 0.5) {
+          issues.push({
+            type: 'warning',
+            message: `Only ${Math.round(playableRatio * 100)}% of notes playable (${playableCount}/${usedNotes.length})`
+          });
+        }
+      }
+    }
 
     return {
       compatible: true,
@@ -427,7 +477,8 @@ class InstrumentMatcher {
       octaveWrapping: wrapping.mapping,
       octaveWrappingEnabled: wrapping.hasWrapping,
       octaveWrappingInfo: wrapping.info,
-      info
+      info,
+      issues: issues.length > 0 ? issues : undefined
     };
   }
 
@@ -480,6 +531,39 @@ class InstrumentMatcher {
     return {
       compatible: false,
       reason: 'No octave shift fits all notes in instrument range'
+    };
+  }
+
+  /**
+   * Calcule un shift de transposition non-octave pour instruments transpositeurs.
+   * Teste chaque offset candidat combiné avec des shifts d'octave (0, ±12).
+   * @param {Object} channelRange - { min, max }
+   * @param {Object} instrumentCaps - { min, max }
+   * @param {number[]} offsets - Transpositions candidates en demi-tons
+   * @returns {Object} - { compatible, semitones, octaves, transposingOffset }
+   */
+  calculateTransposingShift(channelRange, instrumentCaps, offsets) {
+    for (const offset of offsets) {
+      // Try the offset combined with octave adjustments: 0, -12, +12, -24, +24
+      for (const octaveShift of [0, -12, 12, -24, 24]) {
+        const testSemitones = offset + octaveShift;
+        const newMin = channelRange.min + testSemitones;
+        const newMax = channelRange.max + testSemitones;
+
+        if (newMin >= instrumentCaps.min && newMax <= instrumentCaps.max) {
+          return {
+            compatible: true,
+            semitones: testSemitones,
+            octaves: Math.round(testSemitones / 12), // approximate octave equivalent
+            transposingOffset: offset // track that this is a non-octave transposition
+          };
+        }
+      }
+    }
+
+    return {
+      compatible: false,
+      reason: 'No transposing shift fits all notes in instrument range'
     };
   }
 
@@ -596,7 +680,7 @@ class InstrumentMatcher {
       }
     }
 
-    const score = Math.round(25 * supportRatio);
+    const score = Math.round(this.config.getWeight('noteRange') * supportRatio);
     const info = `${Math.round(supportRatio * 100)}% of notes supported`;
 
     return {
@@ -629,9 +713,9 @@ class InstrumentMatcher {
 
       const { mapping, quality, substitutions, omissions } = mappingResult;
 
-      // Convert quality score (0-100) to compatibility score (0-25)
-      // Quality 100 → score 25, Quality 50 → score 12.5
-      const score = Math.round((quality.score / 100) * 25);
+      // Convert quality score (0-100) to compatibility score using full noteRange weight
+      // Quality 100 → score 40, Quality 50 → score 20
+      const score = Math.round((quality.score / 100) * this.config.getWeight('noteRange'));
 
       // Build info messages
       const info = [];
@@ -662,7 +746,7 @@ class InstrumentMatcher {
         });
       }
 
-      this.logger.info(`[DrumMapping] Quality: ${quality.score}/100, Score: ${score}/25, Mapped: ${quality.mappedCount}/${quality.totalCount}`);
+      this.logger.info(`[DrumMapping] Quality: ${quality.score}/100, Score: ${score}/${this.config.getWeight('noteRange')}, Mapped: ${quality.mappedCount}/${quality.totalCount}`);
 
       return {
         compatible: quality.score >= 30, // Minimum 30% quality to be compatible
@@ -878,6 +962,51 @@ class InstrumentMatcher {
     }
 
     return { score: 0 };
+  }
+
+  /**
+   * Score de compatibilité timing / vitesse de jeu.
+   * Compare les intervalles inter-notes du canal avec le min_note_interval de l'instrument.
+   * Retourne une pénalité (valeur négative) si les notes sont trop rapides.
+   * @param {Object|null} timingAnalysis - { minInterval, p5Interval, p10Interval, avgInterval } in ms
+   * @param {number|null} instrumentMinInterval - Minimum interval in ms the instrument can handle
+   * @returns {Object} - { penalty, issue, info }
+   */
+  scoreTimingCompatibility(timingAnalysis, instrumentMinInterval) {
+    // No timing data or no instrument constraint: no penalty
+    if (!timingAnalysis || !instrumentMinInterval) {
+      return { penalty: 0, issue: null, info: null };
+    }
+
+    const timingConfig = this.config.timing || {};
+    const p5 = timingAnalysis.p5Interval;
+    const p10 = timingAnalysis.p10Interval;
+
+    if (p5 !== undefined && p5 < instrumentMinInterval) {
+      // 5% of notes are faster than instrument can handle = severe
+      return {
+        penalty: timingConfig.tooFastPenalty || -10,
+        issue: {
+          type: 'warning',
+          message: `Notes too fast for instrument (${p5}ms vs min ${instrumentMinInterval}ms)`
+        },
+        info: `Speed: p5=${p5}ms < min ${instrumentMinInterval}ms`
+      };
+    }
+
+    if (p10 !== undefined && p10 < instrumentMinInterval) {
+      // 10% of notes are moderately fast
+      return {
+        penalty: timingConfig.moderatelyFastPenalty || -5,
+        issue: {
+          type: 'info',
+          message: `Some notes may be too fast (${p10}ms vs min ${instrumentMinInterval}ms)`
+        },
+        info: `Speed: p10=${p10}ms < min ${instrumentMinInterval}ms`
+      };
+    }
+
+    return { penalty: 0, issue: null, info: null };
   }
 
   /**

@@ -94,6 +94,9 @@ class ChannelAnalyzer {
       ? InstrumentTypeConfig.detectTypeFromProgram(primaryProgram)
       : { type: 'unknown', subtype: null };
 
+    // Timing analysis: inter-note intervals for speed capability scoring
+    const timingAnalysis = this.calculateTimingAnalysis(noteEvents, midiData);
+
     return {
       channel,
       noteRange,
@@ -114,7 +117,8 @@ class ChannelAnalyzer {
       // Catégorie hiérarchique détectée depuis le programme GM
       estimatedCategory: hierarchicalCategory.type,
       estimatedSubtype: hierarchicalCategory.subtype,
-      noteEvents // Include note events for intelligent drum mapping
+      noteEvents, // Include note events for intelligent drum mapping
+      timingAnalysis // Inter-note timing statistics for speed capability scoring
     };
   }
 
@@ -241,6 +245,58 @@ class ChannelAnalyzer {
     return {
       max: maxPoly,
       avg: measurements > 0 ? totalPoly / measurements : 0
+    };
+  }
+
+  /**
+   * Analyse les intervalles de temps entre notes consécutives.
+   * Retourne des statistiques de timing pour évaluer les capacités de vitesse.
+   * @param {Array<Object>} noteEvents - Note events (with absoluteTick)
+   * @param {Object} midiData - MIDI data for tempo/tick conversion
+   * @returns {Object} - { minInterval, p5Interval, p10Interval, avgInterval } in ms
+   */
+  calculateTimingAnalysis(noteEvents, midiData) {
+    const ticksPerBeat = midiData?.header?.ticksPerBeat || 480;
+    const tempo = midiData?.tempo || 120;
+    const msPerTick = (60000 / tempo) / ticksPerBeat;
+
+    // Collect noteOn events with absolute ticks
+    const noteOns = noteEvents
+      .filter(e => e.type === 'noteOn' && (e.velocity ?? 0) > 0 && e.absoluteTick != null)
+      .sort((a, b) => a.absoluteTick - b.absoluteTick);
+
+    if (noteOns.length < 2) {
+      return { minInterval: Infinity, p5Interval: Infinity, p10Interval: Infinity, avgInterval: Infinity };
+    }
+
+    // Calculate intervals between consecutive noteOn events (in ms)
+    const intervals = [];
+    for (let i = 1; i < noteOns.length; i++) {
+      const deltaTicks = noteOns[i].absoluteTick - noteOns[i - 1].absoluteTick;
+      if (deltaTicks > 0) {
+        intervals.push(deltaTicks * msPerTick);
+      }
+    }
+
+    if (intervals.length === 0) {
+      return { minInterval: Infinity, p5Interval: Infinity, p10Interval: Infinity, avgInterval: Infinity };
+    }
+
+    // Sort for percentile calculations
+    intervals.sort((a, b) => a - b);
+
+    const minInterval = intervals[0];
+    const p5Index = Math.max(0, Math.floor(intervals.length * 0.05));
+    const p10Index = Math.max(0, Math.floor(intervals.length * 0.10));
+    const p5Interval = intervals[p5Index];
+    const p10Interval = intervals[p10Index];
+    const avgInterval = intervals.reduce((s, v) => s + v, 0) / intervals.length;
+
+    return {
+      minInterval: Math.round(minInterval),
+      p5Interval: Math.round(p5Interval),
+      p10Interval: Math.round(p10Interval),
+      avgInterval: Math.round(avgInterval)
     };
   }
 

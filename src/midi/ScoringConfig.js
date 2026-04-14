@@ -125,6 +125,17 @@ const ScoringConfig = {
   },
 
   /**
+   * Configuration timing / vitesse de jeu
+   * Pénalités appliquées quand les notes du canal sont trop rapides pour l'instrument.
+   * Fonctionne comme un penalty (soustrait du score), pas un poids pondéré.
+   */
+  timing: {
+    tooFastPenalty: -10,          // Quand le p5 interval < min_note_interval de l'instrument
+    moderatelyFastPenalty: -5,    // Quand le p10 interval < min_note_interval
+    suggestSpeedSplit: true       // Suggérer un split quand > 20% des notes sont trop rapides
+  },
+
+  /**
    * Configuration du cache
    */
   cache: {

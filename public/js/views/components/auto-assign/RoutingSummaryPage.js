@@ -209,6 +209,8 @@ class RoutingSummaryPage {
     this.ccRemapping = {}; // Per-channel CC remapping { [channel]: { sourceCC: targetCC, ... } }
     this.ccSegmentMute = {}; // Per-segment CC mute { [channel]: { [ccNum]: Set<segIndex> } }
     this.ccExpanded = {}; // Per-channel CC section collapse state
+    this.customDrumMappings = {}; // Per-channel custom drum note mappings { [channel]: { sourceNote: destNote } }
+    this.mutedDrumNotes = {}; // Per-channel muted drum notes { [channel]: Set<midiNote> }
     this.ccShowAll = {}; // Per-channel CC pagination (show all rows)
     this._rafPending = false; // RAF debounce for _refreshUI
     this._pendingHint = null; // Pending render hint for RAF coalescence
@@ -846,6 +848,19 @@ class RoutingSummaryPage {
   // ============================================================================
 
   /**
+   * Resolve the GM program for a split segment.
+   * Falls back to looking up the instrument in allInstruments if seg.gmProgram is missing.
+   */
+  _resolveSegmentGmProgram(seg) {
+    if (seg.gmProgram != null) return seg.gmProgram;
+    if (seg.instrumentId) {
+      const inst = (this.allInstruments || []).find(i => i.id === seg.instrumentId);
+      if (inst) return inst.gm_program;
+    }
+    return null;
+  }
+
+  /**
    * Get the score to display in the header button.
    * - Summary mode (no channel selected): average of all non-skipped channel scores
    * - Detail mode (channel selected): score of the selected channel
@@ -1354,6 +1369,10 @@ class RoutingSummaryPage {
     const rangeBarsHTML = (!isDrumChannel && (assignment?.noteRangeMin != null || hasSplitData))
       ? this._renderRangeBars(channel, analysis, assignment) : '';
 
+    // Drum note mapping section (for drum channels with assigned instruments)
+    const drumMappingHTML = (isDrumChannel && assignment?.instrumentId)
+      ? this._renderDrumMappingSection(channel) : '';
+
     // Split section — only render if multi-instrument is active (user-accepted)
     let splitHTML = '';
     if (isSplit && this.splitAssignments[channel]) {
@@ -1572,6 +1591,7 @@ class RoutingSummaryPage {
         </div>
 
         ${rangeBarsHTML}
+        ${drumMappingHTML}
         ${instrumentChipsHTML}
         ${adaptHTML}
         ${splitSuggestionHTML}
@@ -1733,6 +1753,154 @@ class RoutingSummaryPage {
    * Line 1: Channel notes (with transposition applied directly)
    * Line 2: Instrument playable range(s) with name labels and vertical connectors
    */
+  // ============================================================================
+  // Drum Note Mapping Section
+  // ============================================================================
+
+  /**
+   * Render drum note mapping table showing source→destination with substitution info.
+   * Allows changing destination notes and disabling individual notes.
+   */
+  _renderDrumMappingSection(channel) {
+    const ch = String(channel);
+    const assignment = this.selectedAssignments[ch];
+    const analysis = this.channelAnalyses[channel];
+    if (!assignment || !analysis?.noteEvents) return '';
+
+    // Get instrument's available notes
+    let instrumentNotes = null;
+    if (assignment.selectedNotes) {
+      try {
+        instrumentNotes = typeof assignment.selectedNotes === 'string'
+          ? JSON.parse(assignment.selectedNotes) : assignment.selectedNotes;
+      } catch (e) { instrumentNotes = null; }
+    }
+    if (!instrumentNotes) {
+      // Lookup from allInstruments
+      const inst = (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+      if (inst?.selected_notes) {
+        try {
+          instrumentNotes = typeof inst.selected_notes === 'string'
+            ? JSON.parse(inst.selected_notes) : inst.selected_notes;
+        } catch (e) { instrumentNotes = null; }
+      }
+    }
+    if (!instrumentNotes || instrumentNotes.length === 0) return '';
+
+    // Get the base note remapping from scoring (auto-generated mapping)
+    const baseMapping = assignment.noteRemapping || {};
+
+    // Get custom overrides
+    const customMap = this.customDrumMappings[channel] || {};
+    const mutedNotes = this.mutedDrumNotes[channel] || new Set();
+
+    // Get unique channel drum notes (sorted, with usage counts)
+    const noteDistribution = analysis.noteDistribution || {};
+    const channelNotes = Object.keys(noteDistribution)
+      .map(Number)
+      .filter(n => n >= 35 && n <= 81) // GM drum range
+      .sort((a, b) => a - b);
+
+    if (channelNotes.length === 0) return '';
+
+    // GM drum note names
+    const DRUM_NAMES = {
+      35:'Acoustic Bass Drum',36:'Bass Drum 1',37:'Side Stick',38:'Acoustic Snare',
+      39:'Hand Clap',40:'Electric Snare',41:'Low Floor Tom',42:'Closed Hi-Hat',
+      43:'High Floor Tom',44:'Pedal Hi-Hat',45:'Low Tom',46:'Open Hi-Hat',
+      47:'Low-Mid Tom',48:'Hi-Mid Tom',49:'Crash Cymbal 1',50:'High Tom',
+      51:'Ride Cymbal 1',52:'Chinese Cymbal',53:'Ride Bell',54:'Tambourine',
+      55:'Splash Cymbal',56:'Cowbell',57:'Crash Cymbal 2',58:'Vibraslap',
+      59:'Ride Cymbal 2',60:'Hi Bongo',61:'Low Bongo',62:'Mute Hi Conga',
+      63:'Open Hi Conga',64:'Low Conga',65:'High Timbale',66:'Low Timbale',
+      67:'High Agogo',68:'Low Agogo',69:'Cabasa',70:'Maracas',
+      71:'Short Whistle',72:'Long Whistle',73:'Short Guiro',74:'Long Guiro',
+      75:'Claves',76:'Hi Wood Block',77:'Low Wood Block',78:'Mute Cuica',
+      79:'Open Cuica',80:'Mute Triangle',81:'Open Triangle'
+    };
+
+    const rows = channelNotes.map(srcNote => {
+      const count = noteDistribution[srcNote] || 0;
+      const srcName = DRUM_NAMES[srcNote] || `Note ${srcNote}`;
+
+      // Effective destination: custom override > base mapping > same note
+      let destNote;
+      if (customMap[srcNote] !== undefined) {
+        destNote = customMap[srcNote];
+      } else if (baseMapping[srcNote] !== undefined) {
+        destNote = baseMapping[srcNote];
+      } else {
+        destNote = srcNote;
+      }
+
+      const isExact = destNote === srcNote && !customMap[srcNote] && !baseMapping[srcNote];
+      const isSubstitution = !isExact && destNote !== srcNote;
+      const isCustom = customMap[srcNote] !== undefined;
+      const isMuted = mutedNotes.has(srcNote);
+      const isAvailable = instrumentNotes.includes(srcNote);
+
+      // Type label
+      let typeLabel, typeClass;
+      if (isMuted) {
+        typeLabel = 'Muté'; typeClass = 'rs-drum-type-muted';
+      } else if (isCustom) {
+        typeLabel = 'Manuel'; typeClass = 'rs-drum-type-custom';
+      } else if (isExact && isAvailable) {
+        typeLabel = 'Exact'; typeClass = 'rs-drum-type-exact';
+      } else if (isSubstitution) {
+        typeLabel = 'Subst.'; typeClass = 'rs-drum-type-subst';
+      } else {
+        typeLabel = 'N/A'; typeClass = 'rs-drum-type-na';
+      }
+
+      const destName = DRUM_NAMES[destNote] || `Note ${destNote}`;
+
+      // Build destination dropdown options
+      const destOptions = instrumentNotes.sort((a, b) => a - b).map(n => {
+        const name = DRUM_NAMES[n] || `Note ${n}`;
+        const sel = n === destNote ? 'selected' : '';
+        return `<option value="${n}" ${sel}>${n}: ${escapeHtml(name)}</option>`;
+      }).join('');
+
+      return `<tr class="rs-drum-row${isMuted ? ' rs-drum-row-muted' : ''}">
+        <td class="rs-drum-src" title="${escapeHtml(srcName)}">${srcNote}: ${escapeHtml(srcName.length > 14 ? srcName.slice(0, 13) + '\u2026' : srcName)}</td>
+        <td class="rs-drum-count">${count}</td>
+        <td class="rs-drum-arrow">\u2192</td>
+        <td class="rs-drum-dest">
+          <select class="rs-drum-dest-select" data-channel="${channel}" data-src="${srcNote}" ${isMuted ? 'disabled' : ''}>
+            ${destOptions}
+          </select>
+        </td>
+        <td class="rs-drum-type ${typeClass}">${typeLabel}</td>
+        <td class="rs-drum-toggle">
+          <label class="rs-drum-toggle-label">
+            <input type="checkbox" class="rs-drum-note-toggle" data-channel="${channel}" data-note="${srcNote}" ${isMuted ? '' : 'checked'}>
+            <span class="rs-drum-toggle-slider"></span>
+          </label>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="rs-drum-mapping">
+        <h4>${_t('autoAssign.drumMapping') || 'Drum Mapping'}</h4>
+        <table class="rs-drum-mapping-table">
+          <thead>
+            <tr>
+              <th>${_t('autoAssign.drumSource') || 'Source'}</th>
+              <th>#</th>
+              <th></th>
+              <th>${_t('autoAssign.drumDest') || 'Destination'}</th>
+              <th>${_t('autoAssign.drumType') || 'Type'}</th>
+              <th>${_t('autoAssign.drumEnabled') || 'On'}</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
   _renderRangeBars(channel, analysis, assignment) {
     if (!analysis?.noteRange || analysis.noteRange.min == null) return '';
 
@@ -2357,6 +2525,31 @@ class RoutingSummaryPage {
           delete this.ccRemapping[ch][sourceCC];
           if (Object.keys(this.ccRemapping[ch]).length === 0) delete this.ccRemapping[ch];
         }
+      }
+
+      // Drum destination note change
+      if (target.matches('.rs-drum-dest-select')) {
+        const chNum = parseInt(target.dataset.channel);
+        const srcNote = parseInt(target.dataset.src);
+        const destNote = parseInt(target.value);
+        if (!this.customDrumMappings[chNum]) this.customDrumMappings[chNum] = {};
+        this.customDrumMappings[chNum][srcNote] = destNote;
+        this._refreshUI(channelKeys, 'detail');
+        return;
+      }
+
+      // Drum note enable/disable toggle
+      if (target.matches('.rs-drum-note-toggle')) {
+        const chNum = parseInt(target.dataset.channel);
+        const note = parseInt(target.dataset.note);
+        if (!this.mutedDrumNotes[chNum]) this.mutedDrumNotes[chNum] = new Set();
+        if (target.checked) {
+          this.mutedDrumNotes[chNum].delete(note);
+        } else {
+          this.mutedDrumNotes[chNum].add(note);
+        }
+        this._refreshUI(channelKeys, 'detail');
+        return;
       }
     }, opts);
 
@@ -3550,29 +3743,59 @@ class RoutingSummaryPage {
     this._minimapWidth = w;
     this._minimapHeight = h;
     this._minimapTotalTicks = totalTicks;
-    // Detect unique channels in notes
-    const channelSet = new Set();
-    for (const note of notes) channelSet.add(note.ch);
-    this._minimapChannels = Array.from(channelSet).sort((a, b) => a - b);
-    this._minimapMultiChannel = this._minimapChannels.length > 1;
 
-    if (this._minimapMultiChannel) {
-      // Multi-channel: per-channel boolean buckets
+    // Detect split mode: single channel with multiple instrument segments
+    const isSplitView = channelFilter != null
+      && this.splitChannels.has(channelFilter)
+      && this.splitAssignments[channelFilter]?.segments?.length > 1;
+
+    if (isSplitView) {
+      // Split mode: per-segment boolean buckets (colored by instrument)
+      const segSet = new Set();
+      for (const note of notes) if (note.seg >= 0) segSet.add(note.seg);
+      this._minimapSegments = Array.from(segSet).sort((a, b) => a - b);
+      // Ensure at least segment 0 if no segments matched
+      if (this._minimapSegments.length === 0) this._minimapSegments = [0];
+      this._minimapSplitMode = true;
+      this._minimapMultiChannel = false;
+
       const bucketMap = new Map();
-      for (const ch of this._minimapChannels) bucketMap.set(ch, new Array(w).fill(false));
+      for (const seg of this._minimapSegments) bucketMap.set(seg, new Array(w).fill(false));
       for (const note of notes) {
         const col = Math.floor((note.t / totalTicks) * w);
-        if (col >= 0 && col < w) bucketMap.get(note.ch)[col] = true;
+        if (col >= 0 && col < w && note.seg >= 0 && bucketMap.has(note.seg)) {
+          bucketMap.get(note.seg)[col] = true;
+        }
       }
       this._minimapBuckets = bucketMap;
     } else {
-      // Single channel: simple boolean buckets
-      const buckets = new Array(w).fill(false);
-      for (const note of notes) {
-        const col = Math.floor((note.t / totalTicks) * w);
-        if (col >= 0 && col < w) buckets[col] = true;
+      this._minimapSplitMode = false;
+      this._minimapSegments = null;
+
+      // Detect unique channels in notes
+      const channelSet = new Set();
+      for (const note of notes) channelSet.add(note.ch);
+      this._minimapChannels = Array.from(channelSet).sort((a, b) => a - b);
+      this._minimapMultiChannel = this._minimapChannels.length > 1;
+
+      if (this._minimapMultiChannel) {
+        // Multi-channel: per-channel boolean buckets
+        const bucketMap = new Map();
+        for (const ch of this._minimapChannels) bucketMap.set(ch, new Array(w).fill(false));
+        for (const note of notes) {
+          const col = Math.floor((note.t / totalTicks) * w);
+          if (col >= 0 && col < w) bucketMap.get(note.ch)[col] = true;
+        }
+        this._minimapBuckets = bucketMap;
+      } else {
+        // Single channel: simple boolean buckets
+        const buckets = new Array(w).fill(false);
+        for (const note of notes) {
+          const col = Math.floor((note.t / totalTicks) * w);
+          if (col >= 0 && col < w) buckets[col] = true;
+        }
+        this._minimapBuckets = buckets;
       }
-      this._minimapBuckets = buckets;
     }
 
     this._drawMinimapFrame(0);
@@ -3604,7 +3827,21 @@ class RoutingSummaryPage {
       '#a855f7','#0ea5e9','#22c55e','#eab308'
     ];
 
-    if (this._minimapMultiChannel) {
+    // Split mode: draw per-segment rows with instrument colors (SPLIT_COLORS)
+    if (this._minimapSplitMode && this._minimapSegments) {
+      const numSeg = this._minimapSegments.length;
+      const rowH = h / numSeg;
+      for (let si = 0; si < numSeg; si++) {
+        const seg = this._minimapSegments[si];
+        const buckets = this._minimapBuckets.get(seg);
+        if (!buckets) continue;
+        ctx.fillStyle = SPLIT_COLORS[seg % SPLIT_COLORS.length];
+        const rowTop = si * rowH;
+        for (let i = 0; i < w; i++) {
+          if (buckets[i]) ctx.fillRect(i, rowTop, 1, rowH);
+        }
+      }
+    } else if (this._minimapMultiChannel) {
       const numCh = this._minimapChannels.length;
       const rowH = h / numCh;
       for (let ci = 0; ci < numCh; ci++) {
@@ -3666,6 +3903,15 @@ class RoutingSummaryPage {
       return adapt.transpositionSemitones || 0;
     };
 
+    // Build segment ranges for split channels (for per-segment coloring)
+    const getSplitSegments = (ch) => {
+      if (this.splitChannels.has(ch) && this.splitAssignments[ch]) {
+        const segs = this.splitAssignments[ch].segments || [];
+        if (segs.length > 1) return segs;
+      }
+      return null;
+    };
+
     for (const track of this.midiData.tracks) {
       if (!track.events) continue;
       let tick = 0;
@@ -3683,7 +3929,18 @@ class RoutingSummaryPage {
             if (transposed < range.min || transposed > range.max) continue;
           }
 
-          notes.push({ t: tick, n: note, ch: ch });
+          // Determine segment index for split channels (for per-instrument coloring)
+          let seg = -1;
+          const splitSegs = getSplitSegments(ch);
+          if (splitSegs) {
+            for (let si = 0; si < splitSegs.length; si++) {
+              const rMin = splitSegs[si].noteRange?.min ?? 0;
+              const rMax = splitSegs[si].noteRange?.max ?? 127;
+              if (note >= rMin && note <= rMax) { seg = si; break; }
+            }
+          }
+
+          notes.push({ t: tick, n: note, ch: ch, seg });
         }
       }
     }
@@ -3753,8 +4010,21 @@ class RoutingSummaryPage {
         continue;
       }
 
+      // Apply custom drum mappings for channel 9
+      const chTransposition = { semitones };
+      if (chNum === 9) {
+        const baseRemap = assignment?.noteRemapping || {};
+        const customMap = this.customDrumMappings[chNum] || {};
+        const mutedNotes = this.mutedDrumNotes[chNum] || new Set();
+        const mergedRemap = { ...baseRemap, ...customMap };
+        for (const note of mutedNotes) mergedRemap[note] = -1;
+        if (Object.keys(mergedRemap).length > 0) {
+          chTransposition.noteRemapping = mergedRemap;
+        }
+      }
+
       channelConfigs[ch] = {
-        transposition: { semitones },
+        transposition: chTransposition,
         instrumentConstraints: constraints
       };
     }
@@ -3896,7 +4166,7 @@ class RoutingSummaryPage {
           channelConfigs[segChannels[i]] = {
             transposition: { semitones },
             instrumentConstraints: {
-              gmProgram: seg.gmProgram,
+              gmProgram: this._resolveSegmentGmProgram(seg),
               noteRangeMin: seg.noteRange?.min ?? 0,
               noteRangeMax: seg.noteRange?.max ?? 127
             }
@@ -4081,7 +4351,7 @@ class RoutingSummaryPage {
           channelConfigs[segChannels[i]] = {
             transposition: { semitones: transposition.semitones },
             instrumentConstraints: {
-              gmProgram: seg.gmProgram ?? assignment?.gmProgram,
+              gmProgram: this._resolveSegmentGmProgram(seg) ?? assignment?.gmProgram,
               noteRangeMin: seg.noteRange?.min ?? 0,
               noteRangeMax: seg.noteRange?.max ?? 127
             }
@@ -4114,6 +4384,20 @@ class RoutingSummaryPage {
       noteSelectionMode: assignment.noteSelectionMode || undefined,
       selectedNotes: assignment.selectedNotes || undefined
     } : {};
+
+    // Apply custom drum mappings and muted notes to the transposition's noteRemapping
+    const isDrumChannel = channel === 9;
+    if (isDrumChannel) {
+      const baseRemap = assignment?.noteRemapping || {};
+      const customMap = this.customDrumMappings[channel] || {};
+      const mutedNotes = this.mutedDrumNotes[channel] || new Set();
+      const mergedRemap = { ...baseRemap, ...customMap };
+      // Muted notes: map to -1 (will be filtered out by note filter)
+      for (const note of mutedNotes) mergedRemap[note] = -1;
+      if (Object.keys(mergedRemap).length > 0) {
+        transposition.noteRemapping = mergedRemap;
+      }
+    }
 
     try {
       this._connectPreviewCallbacks();

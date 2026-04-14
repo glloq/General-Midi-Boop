@@ -209,6 +209,7 @@ class ChannelSplitter {
         deviceId: inst.device_id,
         instrumentChannel: inst.channel,
         instrumentName: inst.name || inst.custom_name,
+        gmProgram: inst.gm_program,
         noteRange: { min: effectiveMin, max: effectiveMax },
         fullRange: { min: inst.note_range_min, max: inst.note_range_max },
         polyphonyShare: inst.polyphony || 16
@@ -302,6 +303,7 @@ class ChannelSplitter {
       deviceId: inst.device_id,
       instrumentChannel: inst.channel,
       instrumentName: inst.name || inst.custom_name,
+      gmProgram: inst.gm_program,
       noteRange: {
         min: inst.note_range_min !== null ? inst.note_range_min : 0,
         max: inst.note_range_max !== null ? inst.note_range_max : 127
@@ -370,6 +372,7 @@ class ChannelSplitter {
         deviceId: inst.device_id,
         instrumentChannel: inst.channel,
         instrumentName: inst.name || inst.custom_name,
+        gmProgram: inst.gm_program,
         noteRange: { min: effectiveMin, max: effectiveMax },
         fullRange: { min: inst.note_range_min, max: inst.note_range_max },
         polyphonyShare: inst.polyphony || 16,
@@ -567,6 +570,7 @@ class ChannelSplitter {
         deviceId: instA.device_id,
         instrumentChannel: instA.channel,
         instrumentName: instA.name || instA.custom_name,
+        gmProgram: instA.gm_program,
         noteRange: { min: Math.max(chMin, aMin), max: Math.min(chMax, aMax) },
         fullRange: { min: instA.note_range_min, max: instA.note_range_max },
         polyphonyShare: instA.polyphony || 16,
@@ -577,6 +581,7 @@ class ChannelSplitter {
         deviceId: instB.device_id,
         instrumentChannel: instB.channel,
         instrumentName: instB.name || instB.custom_name,
+        gmProgram: instB.gm_program,
         noteRange: { min: Math.max(chMin, bMin), max: Math.min(chMax, bMax) },
         fullRange: { min: instB.note_range_min, max: instB.note_range_max },
         polyphonyShare: instB.polyphony || 16,
@@ -790,6 +795,7 @@ class ChannelSplitter {
         deviceId: instA.device_id,
         instrumentChannel: instA.channel,
         instrumentName: instA.name || instA.custom_name,
+        gmProgram: instA.gm_program,
         noteRange: { min: chMin, max: chMax },
         fullRange: { min: instA.note_range_min ?? 0, max: instA.note_range_max ?? 127 },
         polyphonyShare: instA.polyphony || 16
@@ -799,6 +805,7 @@ class ChannelSplitter {
         deviceId: instB.device_id,
         instrumentChannel: instB.channel,
         instrumentName: instB.name || instB.custom_name,
+        gmProgram: instB.gm_program,
         noteRange: { min: chMin, max: chMax },
         fullRange: { min: instB.note_range_min ?? 0, max: instB.note_range_max ?? 127 },
         polyphonyShare: instB.polyphony || 16
@@ -841,6 +848,7 @@ class ChannelSplitter {
         deviceId: instA.device_id,
         instrumentChannel: instA.channel,
         instrumentName: instA.name || instA.custom_name,
+        gmProgram: instA.gm_program,
         noteRange: { min: chMin, max: chMax },
         fullRange: { min: instA.note_range_min ?? 0, max: instA.note_range_max ?? 127 },
         polyphonyShare: instA.polyphony || 16
@@ -850,6 +858,7 @@ class ChannelSplitter {
         deviceId: instB.device_id,
         instrumentChannel: instB.channel,
         instrumentName: instB.name || instB.custom_name,
+        gmProgram: instB.gm_program,
         noteRange: { min: chMin, max: chMax },
         fullRange: { min: instB.note_range_min ?? 0, max: instB.note_range_max ?? 127 },
         polyphonyShare: instB.polyphony || 16

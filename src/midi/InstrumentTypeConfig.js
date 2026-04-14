@@ -319,6 +319,31 @@ function _buildProgramCache() {
   return _programToTypeCache;
 }
 
+/**
+ * Offsets de transposition pour instruments transpositeurs.
+ * Clé = sous-type d'instrument, valeur = tableau de transpositions candidates en demi-tons.
+ * Par exemple, une trompette en Sib transpose de -2 demi-tons (C écrit sonne Bb).
+ */
+const TRANSPOSING_OFFSETS = {
+  // Instruments en Sib (-2 demi-tons)
+  trumpet: [-2],
+  muted_trumpet: [-2],
+  clarinet: [-2],
+  soprano_sax: [-2],
+  tenor_sax: [-2],
+  // Instruments en Mib (+3 ou -9 demi-tons)
+  alto_sax: [3, -9],
+  baritone_sax: [3, -9],
+  // Instruments en Fa (+5 ou -7 demi-tons)
+  french_horn: [5, -7],
+  english_horn: [5, -7],
+  // Guitare/basse : souvent octave (-12) mais aussi quinte (-7)
+  bass: [-12, -7],
+  // Piccolo (+12), contrebasse (-12)
+  piccolo: [12],
+  contrabass: [-12],
+};
+
 const InstrumentTypeConfig = {
   /**
    * Hiérarchie complète des types
@@ -462,6 +487,16 @@ const InstrumentTypeConfig = {
       return 16;
     }
     return GM_DEFAULT_POLYPHONY[gmProgram] ?? 16;
+  },
+
+  /**
+   * Retourne les offsets de transposition pour un instrument transpositeur.
+   * @param {string|null} subtype - Sous-type d'instrument (ex: 'trumpet', 'alto_sax')
+   * @returns {number[]|null} - Tableau de transpositions candidates en demi-tons, ou null
+   */
+  getTransposingOffsets(subtype) {
+    if (!subtype) return null;
+    return TRANSPOSING_OFFSETS[subtype] || null;
   }
 };
 
