@@ -3722,10 +3722,6 @@ class RoutingSummaryPage {
 
     const dpr = window.devicePixelRatio || 1;
     const w = container.clientWidth || 400;
-    const h = 24;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.height = h + 'px';
 
     // Determine channel filter based on active preview mode
     let channelFilter = null;
@@ -3736,6 +3732,19 @@ class RoutingSummaryPage {
     } else {
       channelFilter = (this.selectedChannel !== null) ? this.selectedChannel : null;
     }
+
+    // Detect split mode: single channel with multiple instrument segments
+    const isSplitView = channelFilter != null
+      && this.splitChannels.has(channelFilter)
+      && this.splitAssignments[channelFilter]?.segments?.length > 1;
+
+    // Adapt height: taller when showing multiple instrument rows in split mode
+    const splitSegCount = isSplitView ? (this.splitAssignments[channelFilter].segments.length) : 0;
+    const h = splitSegCount > 1 ? Math.max(24, splitSegCount * 12) : 24;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.height = h + 'px';
+
     const skipRangeFilter = this._previewMode === 'original';
     const notes = this._extractNotesForMinimap(channelFilter, skipRangeFilter);
     const totalTicks = notes.length > 0 ? notes[notes.length - 1].t + 1 : 1;
@@ -3744,18 +3753,11 @@ class RoutingSummaryPage {
     this._minimapHeight = h;
     this._minimapTotalTicks = totalTicks;
 
-    // Detect split mode: single channel with multiple instrument segments
-    const isSplitView = channelFilter != null
-      && this.splitChannels.has(channelFilter)
-      && this.splitAssignments[channelFilter]?.segments?.length > 1;
-
     if (isSplitView) {
-      // Split mode: per-segment boolean buckets (colored by instrument)
-      const segSet = new Set();
-      for (const note of notes) if (note.seg >= 0) segSet.add(note.seg);
-      this._minimapSegments = Array.from(segSet).sort((a, b) => a - b);
-      // Ensure at least segment 0 if no segments matched
-      if (this._minimapSegments.length === 0) this._minimapSegments = [0];
+      // Split mode: one row per instrument segment, colored by SPLIT_COLORS
+      // Use declared segments so every instrument gets a row even if it has no notes yet
+      const numSegs = this.splitAssignments[channelFilter].segments.length;
+      this._minimapSegments = Array.from({ length: numSegs }, (_, i) => i);
       this._minimapSplitMode = true;
       this._minimapMultiChannel = false;
 
@@ -3828,15 +3830,18 @@ class RoutingSummaryPage {
     ];
 
     // Split mode: draw per-segment rows with instrument colors (SPLIT_COLORS)
+    // Each instrument gets its own horizontal row, same layout as multi-channel view
     if (this._minimapSplitMode && this._minimapSegments) {
       const numSeg = this._minimapSegments.length;
-      const rowH = h / numSeg;
+      const gap = numSeg > 1 ? 1 : 0; // 1px gap between rows for visual separation
+      const totalGap = gap * (numSeg - 1);
+      const rowH = (h - totalGap) / numSeg;
       for (let si = 0; si < numSeg; si++) {
         const seg = this._minimapSegments[si];
         const buckets = this._minimapBuckets.get(seg);
         if (!buckets) continue;
         ctx.fillStyle = SPLIT_COLORS[seg % SPLIT_COLORS.length];
-        const rowTop = si * rowH;
+        const rowTop = si * (rowH + gap);
         for (let i = 0; i < w; i++) {
           if (buckets[i]) ctx.fillRect(i, rowTop, 1, rowH);
         }
@@ -3929,18 +3934,34 @@ class RoutingSummaryPage {
             if (transposed < range.min || transposed > range.max) continue;
           }
 
-          // Determine segment index for split channels (for per-instrument coloring)
-          let seg = -1;
+          // Determine segment index(es) for split channels (for per-instrument coloring)
+          // A note can belong to multiple segments in overlap zones
           const splitSegs = getSplitSegments(ch);
           if (splitSegs) {
+            let matched = false;
             for (let si = 0; si < splitSegs.length; si++) {
               const rMin = splitSegs[si].noteRange?.min ?? 0;
               const rMax = splitSegs[si].noteRange?.max ?? 127;
-              if (note >= rMin && note <= rMax) { seg = si; break; }
+              if (note >= rMin && note <= rMax) {
+                notes.push({ t: tick, n: note, ch: ch, seg: si });
+                matched = true;
+              }
             }
+            // Notes outside all segment ranges: assign to closest segment
+            if (!matched && splitSegs.length > 0) {
+              let bestSeg = 0;
+              let bestDist = Infinity;
+              for (let si = 0; si < splitSegs.length; si++) {
+                const rMin = splitSegs[si].noteRange?.min ?? 0;
+                const rMax = splitSegs[si].noteRange?.max ?? 127;
+                const dist = note < rMin ? rMin - note : note - rMax;
+                if (dist < bestDist) { bestDist = dist; bestSeg = si; }
+              }
+              notes.push({ t: tick, n: note, ch: ch, seg: bestSeg });
+            }
+          } else {
+            notes.push({ t: tick, n: note, ch: ch, seg: -1 });
           }
-
-          notes.push({ t: tick, n: note, ch: ch, seg });
         }
       }
     }
