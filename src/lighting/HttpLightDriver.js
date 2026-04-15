@@ -43,18 +43,14 @@ class HttpLightDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     this.allOff();
     if (this._batchTimer) clearTimeout(this._batchTimer);
     this._pendingUpdates.clear();
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     this._pendingUpdates.set(ledIndex, { r: adjR, g: adjG, b: adjB, brightness });
     this._scheduleBatch();
@@ -62,9 +58,7 @@ class HttpLightDriver extends BaseLightingDriver {
 
   setRange(startLed, endLed, r, g, b, brightness = 255) {
     const end = endLed === -1 ? this.device.led_count - 1 : endLed;
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     for (let i = startLed; i <= end; i++) {
       this._pendingUpdates.set(i, { r: adjR, g: adjG, b: adjB, brightness });

@@ -36,29 +36,25 @@ class SerialLedDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     if (this.port && this.port.isOpen) {
       await new Promise((resolve) => {
         this.port.close(() => resolve());
       });
     }
     this.port = null;
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {
     if (!this.port || !this.port.isOpen) return;
 
-    const actualR = this._applyBrightness(r, brightness);
-    const actualG = this._applyBrightness(g, brightness);
-    const actualB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     // Protocol: [0xAA, ledIndex (2 bytes LE), R, G, B, 0x55]
     const buf = Buffer.from([
       0xAA,
       ledIndex & 0xFF, (ledIndex >> 8) & 0xFF,
-      actualR, actualG, actualB,
+      adjR, adjG, adjB,
       0x55
     ]);
 

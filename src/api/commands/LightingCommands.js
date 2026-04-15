@@ -1,6 +1,13 @@
 // src/api/commands/LightingCommands.js
 
 import { ValidationError, NotFoundError, ConfigurationError } from '../../core/errors/index.js';
+import { hexToRgb } from '../../utils/ColorUtils.js';
+import { requireField, validateMidiRange } from '../../utils/ValidationUtils.js';
+
+function requireLightingManager(app) {
+  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  return app.lightingManager;
+}
 
 function lightingDeviceList(app) {
   const devices = app.database.getLightingDevices();
@@ -17,7 +24,7 @@ function lightingDeviceList(app) {
 }
 
 async function lightingDeviceAdd(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
+  requireField(data, 'name');
 
   const id = app.database.insertLightingDevice({
     name: data.name,
@@ -34,14 +41,14 @@ async function lightingDeviceAdd(app, data) {
 }
 
 async function lightingDeviceUpdate(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
   app.database.updateLightingDevice(data.id, data);
   await app.lightingManager?.reloadDevices();
   return { success: true };
 }
 
 async function lightingDeviceDelete(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
   app.database.deleteLightingDevice(data.id);
   await app.lightingManager?.disconnectDevice(data.id);
   app.lightingManager?.reloadRules();
@@ -49,9 +56,9 @@ async function lightingDeviceDelete(app, data) {
 }
 
 async function lightingDeviceTest(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return await app.lightingManager.testDevice(data.id);
+  requireField(data, 'id');
+  const lm = requireLightingManager(app);
+  return await lm.testDevice(data.id);
 }
 
 function lightingRuleList(app, data) {
@@ -65,16 +72,13 @@ function lightingRuleList(app, data) {
 }
 
 function lightingRuleAdd(app, data) {
-  if (!data.device_id) throw new ValidationError('device_id is required', 'device_id');
+  requireField(data, 'device_id');
 
   // Validate condition ranges
   const cond = data.condition_config || {};
-  if (cond.velocity_min !== undefined && (cond.velocity_min < 0 || cond.velocity_min > 127)) throw new ValidationError('velocity_min must be 0-127', 'velocity_min');
-  if (cond.velocity_max !== undefined && (cond.velocity_max < 0 || cond.velocity_max > 127)) throw new ValidationError('velocity_max must be 0-127', 'velocity_max');
-  if (cond.note_min !== undefined && (cond.note_min < 0 || cond.note_min > 127)) throw new ValidationError('note_min must be 0-127', 'note_min');
-  if (cond.note_max !== undefined && (cond.note_max < 0 || cond.note_max > 127)) throw new ValidationError('note_max must be 0-127', 'note_max');
-  if (cond.cc_value_min !== undefined && (cond.cc_value_min < 0 || cond.cc_value_min > 127)) throw new ValidationError('cc_value_min must be 0-127', 'cc_value_min');
-  if (cond.cc_value_max !== undefined && (cond.cc_value_max < 0 || cond.cc_value_max > 127)) throw new ValidationError('cc_value_max must be 0-127', 'cc_value_max');
+  for (const field of ['velocity_min', 'velocity_max', 'note_min', 'note_max', 'cc_value_min', 'cc_value_max']) {
+    validateMidiRange(cond[field], field);
+  }
 
   // Validate device exists
   const device = app.database.getLightingDevice(data.device_id);
@@ -95,23 +99,23 @@ function lightingRuleAdd(app, data) {
 }
 
 function lightingRuleUpdate(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
   app.database.updateLightingRule(data.id, data);
   app.lightingManager?.reloadRules();
   return { success: true };
 }
 
 function lightingRuleDelete(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
   app.database.deleteLightingRule(data.id);
   app.lightingManager?.reloadRules();
   return { success: true };
 }
 
 function lightingRuleTest(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.testRule(data.id);
+  requireField(data, 'id');
+  const lm = requireLightingManager(app);
+  return lm.testRule(data.id);
 }
 
 function lightingPresetList(app) {
@@ -120,7 +124,7 @@ function lightingPresetList(app) {
 }
 
 function lightingPresetSave(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
+  requireField(data, 'name');
 
   // Snapshot current rules
   const rules = app.database.getAllLightingRules();
@@ -133,7 +137,7 @@ function lightingPresetSave(app, data) {
 }
 
 function lightingPresetLoad(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
 
   const presets = app.database.getLightingPresets();
   const preset = presets.find(p => p.id === data.id);
@@ -159,7 +163,7 @@ function lightingPresetLoad(app, data) {
 }
 
 function lightingPresetDelete(app, data) {
-  if (!data.id) throw new ValidationError('id is required', 'id');
+  requireField(data, 'id');
   app.database.deleteLightingPreset(data.id);
   return { success: true };
 }
@@ -174,11 +178,11 @@ function lightingAllOff(app) {
 // ==================== EFFECTS API ====================
 
 function lightingEffectStart(app, data) {
-  if (!data.device_id) throw new ValidationError('device_id is required', 'device_id');
-  if (!data.effect_type) throw new ValidationError('effect_type is required', 'effect_type');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  requireField(data, 'device_id');
+  requireField(data, 'effect_type');
+  const lm = requireLightingManager(app);
 
-  return app.lightingManager.startEffect(data.device_id, data.effect_type, {
+  return lm.startEffect(data.device_id, data.effect_type, {
     led_start: data.led_start || 0,
     led_end: data.led_end !== undefined ? data.led_end : -1,
     speed: data.speed || 500,
@@ -190,9 +194,9 @@ function lightingEffectStart(app, data) {
 }
 
 function lightingEffectStop(app, data) {
-  if (!data.effect_key) throw new ValidationError('effect_key is required', 'effect_key');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.stopEffect(data.effect_key);
+  requireField(data, 'effect_key');
+  const lm = requireLightingManager(app);
+  return lm.stopEffect(data.effect_key);
 }
 
 function lightingEffectList(app) {
@@ -203,31 +207,31 @@ function lightingEffectList(app) {
 // ==================== MASTER DIMMER API ====================
 
 function lightingMasterDimmer(app, data) {
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  const lm = requireLightingManager(app);
   if (data?.value !== undefined) {
-    return app.lightingManager.setMasterDimmer(data.value);
+    return lm.setMasterDimmer(data.value);
   }
-  return { success: true, masterDimmer: app.lightingManager.getMasterDimmer() };
+  return { success: true, masterDimmer: lm.getMasterDimmer() };
 }
 
 function lightingBlackout(app) {
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.blackout();
+  const lm = requireLightingManager(app);
+  return lm.blackout();
 }
 
 // ==================== DEVICE GROUPS API ====================
 
 function lightingGroupCreate(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
+  requireField(data, 'name');
   if (!data.device_ids || !Array.isArray(data.device_ids)) throw new ValidationError('device_ids array is required', 'device_ids');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.createGroup(data.name, data.device_ids);
+  const lm = requireLightingManager(app);
+  return lm.createGroup(data.name, data.device_ids);
 }
 
 function lightingGroupDelete(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.deleteGroup(data.name);
+  requireField(data, 'name');
+  const lm = requireLightingManager(app);
+  return lm.deleteGroup(data.name);
 }
 
 function lightingGroupList(app) {
@@ -236,16 +240,16 @@ function lightingGroupList(app) {
 }
 
 function lightingGroupColor(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  requireField(data, 'name');
+  const lm = requireLightingManager(app);
   const color = data.color ? hexToRgb(data.color) : { r: data.r || 0, g: data.g || 0, b: data.b || 0 };
-  return app.lightingManager.setGroupColor(data.name, color.r, color.g, color.b, data.brightness || 255);
+  return lm.setGroupColor(data.name, color.r, color.g, color.b, data.brightness || 255);
 }
 
 function lightingGroupOff(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-  return app.lightingManager.groupAllOff(data.name);
+  requireField(data, 'name');
+  const lm = requireLightingManager(app);
+  return lm.groupAllOff(data.name);
 }
 
 // ==================== RULE IMPORT/EXPORT API ====================
@@ -279,7 +283,7 @@ function lightingRulesExport(app, data) {
 }
 
 function lightingRulesImport(app, data) {
-  if (!data.import_data) throw new ValidationError('import_data is required', 'import_data');
+  requireField(data, 'import_data');
   const importData = typeof data.import_data === 'string' ? JSON.parse(data.import_data) : data.import_data;
 
   if (!importData.rules || !Array.isArray(importData.rules)) throw new ValidationError('Invalid import data: missing rules array', 'import_data');
@@ -383,21 +387,21 @@ async function lightingDeviceScan(app, data) {
 // ==================== SCENES API ====================
 
 function lightingSceneSave(app, data) {
-  if (!data.name) throw new ValidationError('name is required', 'name');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  requireField(data, 'name');
+  const lm = requireLightingManager(app);
 
   // Capture current state of all devices
   const scene = {
     name: data.name,
-    masterDimmer: app.lightingManager.getMasterDimmer(),
+    masterDimmer: lm.getMasterDimmer(),
     devices: [],
-    effects: app.lightingManager.getActiveEffects()
+    effects: lm.getActiveEffects()
   };
 
   // Store device state (what rules are active, what effects are running)
   const devices = app.database.getLightingDevices();
   for (const device of devices) {
-    const driver = app.lightingManager.drivers.get(device.id);
+    const driver = lm.drivers.get(device.id);
     scene.devices.push({
       id: device.id,
       name: device.name,
@@ -416,21 +420,21 @@ function lightingSceneSave(app, data) {
 }
 
 function lightingSceneApply(app, data) {
-  if (!data.scene) throw new ValidationError('scene data is required', 'scene');
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  requireField(data, 'scene', 'scene data is required');
+  const lm = requireLightingManager(app);
 
   const scene = data.scene;
 
   // Restore master dimmer
   if (scene.masterDimmer !== undefined) {
-    app.lightingManager.setMasterDimmer(scene.masterDimmer);
+    lm.setMasterDimmer(scene.masterDimmer);
   }
 
   // Apply device colors
   if (scene.devices) {
     for (const devState of scene.devices) {
       if (devState.color) {
-        const driver = app.lightingManager.drivers.get(devState.id);
+        const driver = lm.drivers.get(devState.id);
         if (driver && driver.isConnected()) {
           const c = hexToRgb(devState.color);
           driver.setRange(0, -1, c.r, c.g, c.b, 255);
@@ -447,9 +451,9 @@ function lightingSceneApply(app, data) {
       if (!deviceIdStr) continue;
       const deviceId = parseInt(deviceIdStr);
       if (isNaN(deviceId)) continue;
-      const driver = app.lightingManager.drivers.get(deviceId);
+      const driver = lm.drivers.get(deviceId);
       if (driver && driver.isConnected()) {
-        app.lightingManager.effectsEngine.startEffect(effect.key, effect.effectType, driver, effect.config || {});
+        lm.effectsEngine.startEffect(effect.key, effect.effectType, driver, effect.config || {});
       }
     }
   }
@@ -460,7 +464,7 @@ function lightingSceneApply(app, data) {
 // ==================== MIDI LEARN ====================
 
 function lightingMidiLearnStart(app, _data) {
-  if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
+  requireLightingManager(app);
 
   // Set up a one-shot MIDI listener that captures the next MIDI event
   return new Promise((resolve) => {
@@ -489,15 +493,6 @@ function lightingMidiLearnStart(app, _data) {
 
     app.eventBus.on('midi_message', handler);
   });
-}
-
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 255, g: 255, b: 255 };
 }
 
 export function register(registry, app) {
@@ -533,18 +528,18 @@ export function register(registry, app) {
   registry.register('lighting_scene_apply', (data) => lightingSceneApply(app, data));
   registry.register('lighting_midi_learn', (data) => lightingMidiLearnStart(app, data));
   registry.register('lighting_bpm_set', (data) => {
-    if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-    app.lightingManager.effectsEngine.setBpm(data.bpm);
-    return { success: true, bpm: app.lightingManager.effectsEngine.getBpm() };
+    const lm = requireLightingManager(app);
+    lm.effectsEngine.setBpm(data.bpm);
+    return { success: true, bpm: lm.effectsEngine.getBpm() };
   });
   registry.register('lighting_bpm_tap', () => {
-    if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-    const bpm = app.lightingManager.effectsEngine.tapTempo();
+    const lm = requireLightingManager(app);
+    const bpm = lm.effectsEngine.tapTempo();
     return { success: true, bpm };
   });
   registry.register('lighting_led_broadcast', (data) => {
-    if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
-    return app.lightingManager.enableLedBroadcast(data?.enabled !== false);
+    const lm = requireLightingManager(app);
+    return lm.enableLedBroadcast(data?.enabled !== false);
   });
   registry.register('lighting_dmx_profiles', async () => {
     const { listProfiles } = await import('../../lighting/DmxFixtureProfiles.js');

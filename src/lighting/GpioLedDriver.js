@@ -49,7 +49,7 @@ class GpioLedDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     for (const led of this.gpioInstances) {
       if (led) {
         try {
@@ -62,8 +62,6 @@ class GpioLedDriver extends BaseLightingDriver {
       }
     }
     this.gpioInstances = [];
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {

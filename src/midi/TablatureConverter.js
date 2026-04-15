@@ -163,57 +163,27 @@ class TablatureConverter {
   }
 
   // ==========================================================================
-  // Algorithm: lowest_fret
-  // Always picks the lowest fret available (open strings preferred)
+  // Algorithm: lowest_fret / highest_fret (picker-based)
   // ==========================================================================
 
   /** @private */
   _convertLowestFret(notes) {
-    const chordGroups = this._groupByTick(notes);
-    const tabEvents = [];
-
-    for (const group of chordGroups) {
-      const tick = group.tick;
-      const chordNotes = group.notes;
-      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
-
-      if (chordNotes.length === 1) {
-        const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n)
-          .filter(pos => !occupiedStrings.has(pos.string));
-        if (positions.length === 0) continue;
-
-        // Pick the position with the lowest fret
-        const best = positions.reduce((a, b) => a.fret <= b.fret ? a : b);
-        tabEvents.push({
-          tick, string: best.string, fret: best.fret,
-          velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
-        });
-      } else {
-        // Chord: assign with lowest-fret preference
-        const assignment = this._assignChordWithPicker(chordNotes,
-          (positions) => positions.reduce((a, b) => a.fret <= b.fret ? a : b),
-          occupiedStrings);
-        for (const entry of assignment) {
-          tabEvents.push({
-            tick, string: entry.string, fret: entry.fret,
-            velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel
-          });
-        }
-      }
-    }
-
-    return tabEvents;
+    const picker = (positions) => positions.reduce((a, b) => a.fret <= b.fret ? a : b);
+    return this._convertWithPicker(notes, picker, picker);
   }
-
-  // ==========================================================================
-  // Algorithm: highest_fret
-  // Prefers the highest fret / highest string position
-  // ==========================================================================
 
   /** @private */
   _convertHighestFret(notes) {
+    const picker = (positions) => positions.reduce((a, b) => a.fret >= b.fret ? a : b);
+    return this._convertWithPicker(notes, picker, picker);
+  }
+
+  /**
+   * Generic conversion loop using a picker function to select the best position.
+   * Shared by lowest_fret and highest_fret algorithms.
+   * @private
+   */
+  _convertWithPicker(notes, singlePicker, chordPicker) {
     const chordGroups = this._groupByTick(notes);
     const tabEvents = [];
 
@@ -228,16 +198,13 @@ class TablatureConverter {
           .filter(pos => !occupiedStrings.has(pos.string));
         if (positions.length === 0) continue;
 
-        // Pick the position with the highest fret
-        const best = positions.reduce((a, b) => a.fret >= b.fret ? a : b);
+        const best = singlePicker(positions);
         tabEvents.push({
           tick, string: best.string, fret: best.fret,
           velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
         });
       } else {
-        const assignment = this._assignChordWithPicker(chordNotes,
-          (positions) => positions.reduce((a, b) => a.fret >= b.fret ? a : b),
-          occupiedStrings);
+        const assignment = this._assignChordWithPicker(chordNotes, chordPicker, occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,

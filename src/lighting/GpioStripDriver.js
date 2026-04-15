@@ -19,7 +19,6 @@ class GpioStripDriver extends BaseLightingDriver {
     this.segments = [];        // Named logical zones
     this.pixelBuffers = [];    // Uint32Array per strip
     this.indexLookup = [];     // Virtual index -> { stripIndex, offset }
-    this._renderScheduled = false;
     this._totalLeds = 0;
   }
 
@@ -95,7 +94,7 @@ class GpioStripDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     try {
       this.allOff();
       if (this.ws281x) {
@@ -107,17 +106,13 @@ class GpioStripDriver extends BaseLightingDriver {
     }
     this.pixelBuffers = [];
     this.indexLookup = [];
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {
     const lookup = this.indexLookup[ledIndex];
     if (!lookup) return;
 
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     // Pack as 0x00RRGGBB (rpi-ws281x-native handles color order via strip_type)
     this.pixelBuffers[lookup.stripIndex][lookup.offset] =
@@ -129,9 +124,7 @@ class GpioStripDriver extends BaseLightingDriver {
   setRange(startLed, endLed, r, g, b, brightness = 255) {
     const end = endLed === -1 ? this._totalLeds - 1 : endLed;
 
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
     const packed = (adjR << 16) | (adjG << 8) | adjB;
 
     for (let i = startLed; i <= end; i++) {
@@ -166,14 +159,8 @@ class GpioStripDriver extends BaseLightingDriver {
 
   // ==================== RENDER BATCHING ====================
 
-  _scheduleRender() {
-    if (!this._renderScheduled) {
-      this._renderScheduled = true;
-      queueMicrotask(() => {
-        this._renderScheduled = false;
-        this._renderNow();
-      });
-    }
+  _doRender() {
+    this._renderNow();
   }
 
   _renderNow() {

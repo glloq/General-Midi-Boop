@@ -196,33 +196,20 @@ class ChannelSplitter {
 
     for (let i = 0; i < withRange.length; i++) {
       const inst = withRange[i];
+      const seg = this._buildSegment(inst, channelMin, channelMax);
 
-      // Determine the effective bounds of this segment
-      // (clip to channel range)
-      const effectiveMin = Math.max(inst.note_range_min, channelMin);
-      const effectiveMax = Math.min(inst.note_range_max, channelMax);
+      if (seg.noteRange.min > seg.noteRange.max) continue; // no overlap with channel
 
-      if (effectiveMin > effectiveMax) continue; // no overlap with channel
-
-      segments.push({
-        instrumentId: inst.id,
-        deviceId: inst.device_id,
-        instrumentChannel: inst.channel,
-        instrumentName: inst.name || inst.custom_name,
-        gmProgram: inst.gm_program,
-        noteRange: { min: effectiveMin, max: effectiveMax },
-        fullRange: { min: inst.note_range_min, max: inst.note_range_max },
-        polyphonyShare: inst.polyphony || 16
-      });
+      segments.push(seg);
 
       // Detect overlap zones with the next segment
       if (i < withRange.length - 1) {
         const next = withRange[i + 1];
         const nextEffectiveMin = Math.max(next.note_range_min, channelMin);
-        if (effectiveMax >= nextEffectiveMin) {
+        if (seg.noteRange.max >= nextEffectiveMin) {
           overlapZones.push({
             min: nextEffectiveMin,
-            max: effectiveMax,
+            max: seg.noteRange.max,
             strategy: 'least_loaded',
             instruments: [inst.id, next.id]
           });
@@ -298,20 +285,9 @@ class ChannelSplitter {
     }
 
     // Build round-robin segments (only selected instruments)
-    const segments = selected.map(inst => ({
-      instrumentId: inst.id,
-      deviceId: inst.device_id,
-      instrumentChannel: inst.channel,
-      instrumentName: inst.name || inst.custom_name,
-      gmProgram: inst.gm_program,
-      noteRange: {
-        min: inst.note_range_min !== null ? inst.note_range_min : 0,
-        max: inst.note_range_max !== null ? inst.note_range_max : 127
-      },
-      fullRange: { min: inst.note_range_min, max: inst.note_range_max },
-      polyphonyShare: inst.polyphony || 16,
-      strategy: 'round_robin'
-    }));
+    const segments = selected.map(inst =>
+      this._buildSegment(inst, 0, 127, { strategy: 'round_robin' })
+    );
 
     const quality = this.scoreSplitQuality({
       type: 'polyphony',
@@ -362,31 +338,20 @@ class ChannelSplitter {
 
     for (let i = 0; i < withRange.length; i++) {
       const inst = withRange[i];
-      const effectiveMin = Math.max(inst.note_range_min, channelMin);
-      const effectiveMax = Math.min(inst.note_range_max, channelMax);
+      const seg = this._buildSegment(inst, channelMin, channelMax, { strategy: 'range_with_polyphony' });
 
-      if (effectiveMin > effectiveMax) continue;
+      if (seg.noteRange.min > seg.noteRange.max) continue;
 
-      segments.push({
-        instrumentId: inst.id,
-        deviceId: inst.device_id,
-        instrumentChannel: inst.channel,
-        instrumentName: inst.name || inst.custom_name,
-        gmProgram: inst.gm_program,
-        noteRange: { min: effectiveMin, max: effectiveMax },
-        fullRange: { min: inst.note_range_min, max: inst.note_range_max },
-        polyphonyShare: inst.polyphony || 16,
-        strategy: 'range_with_polyphony'
-      });
+      segments.push(seg);
 
       // Overlap zones -> round-robin within the zone
       if (i < withRange.length - 1) {
         const next = withRange[i + 1];
         const nextEffectiveMin = Math.max(next.note_range_min, channelMin);
-        if (effectiveMax >= nextEffectiveMin) {
+        if (seg.noteRange.max >= nextEffectiveMin) {
           overlapZones.push({
             min: nextEffectiveMin,
-            max: effectiveMax,
+            max: seg.noteRange.max,
             strategy: 'round_robin',
             instruments: [inst.id, next.id]
           });
@@ -413,6 +378,30 @@ class ChannelSplitter {
       segments,
       overlapZones,
       gaps
+    };
+  }
+
+  /**
+   * Build a segment object for a split proposal.
+   * @param {Object} inst - Instrument
+   * @param {number} channelMin - Channel note range min
+   * @param {number} channelMax - Channel note range max
+   * @param {Object} [extraProps] - Additional properties to merge
+   * @returns {Object} Segment object
+   */
+  _buildSegment(inst, channelMin, channelMax, extraProps = {}) {
+    const instMin = inst.note_range_min ?? 0;
+    const instMax = inst.note_range_max ?? 127;
+    return {
+      instrumentId: inst.id,
+      deviceId: inst.device_id,
+      instrumentChannel: inst.channel,
+      instrumentName: inst.name || inst.custom_name,
+      gmProgram: inst.gm_program,
+      noteRange: { min: Math.max(instMin, channelMin), max: Math.min(instMax, channelMax) },
+      fullRange: { min: inst.note_range_min, max: inst.note_range_max },
+      polyphonyShare: inst.polyphony || 16,
+      ...extraProps
     };
   }
 

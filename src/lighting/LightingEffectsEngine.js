@@ -2,6 +2,8 @@
 // Effects engine for animated lighting patterns
 // Supports: strobe, rainbow, chase, fire, breathe, sparkle, color_cycle, wave
 
+import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
+
 class LightingEffectsEngine {
   constructor(logger) {
     this.logger = logger;
@@ -74,60 +76,41 @@ class LightingEffectsEngine {
       : config.led_end;
     const speed = config.speed || 500; // ms per cycle
     const brightness = config.brightness !== undefined ? config.brightness : 255;
-    const color = config.color ? this._hexToRgb(config.color) : { r: 255, g: 0, b: 0 };
-    const color2 = config.color2 ? this._hexToRgb(config.color2) : null;
+    const color = config.color ? hexToRgb(config.color) : { r: 255, g: 0, b: 0 };
+    const color2 = config.color2 ? hexToRgb(config.color2) : null;
 
-    let state = { tick: 0, phase: 0 };
-    let intervalMs;
-    let fn;
+    const state = { tick: 0, phase: 0 };
+    const ledCount = endLed - startLed + 1;
 
-    switch (effectType) {
-      case 'strobe':
-        intervalMs = Math.max(20, speed / 2);
-        fn = () => this._strobe(driver, startLed, endLed, color, brightness, state);
-        break;
+    const intervalMap = {
+      strobe:      Math.max(20, speed / 2),
+      rainbow:     Math.max(16, speed / 60),
+      chase:       Math.max(16, speed / ledCount),
+      fire:        Math.max(16, speed / 30),
+      breathe:     Math.max(16, speed / 60),
+      sparkle:     Math.max(16, speed / 20),
+      color_cycle: Math.max(16, speed / 60),
+      wave:        Math.max(16, speed / 60)
+    };
 
-      case 'rainbow':
-        intervalMs = Math.max(16, speed / 60);
-        fn = () => this._rainbow(driver, startLed, endLed, brightness, state, speed);
-        break;
+    const fnMap = {
+      strobe:      () => this._strobe(driver, startLed, endLed, color, brightness, state),
+      rainbow:     () => this._rainbow(driver, startLed, endLed, brightness, state, speed),
+      chase:       () => this._chase(driver, startLed, endLed, color, color2, brightness, state),
+      fire:        () => this._fire(driver, startLed, endLed, brightness, state),
+      breathe:     () => this._breathe(driver, startLed, endLed, color, brightness, state, speed),
+      sparkle:     () => this._sparkle(driver, startLed, endLed, color, brightness, config.density || 0.1),
+      color_cycle: () => this._colorCycle(driver, startLed, endLed, brightness, state, speed),
+      wave:        () => this._wave(driver, startLed, endLed, color, color2, brightness, state, speed)
+    };
 
-      case 'chase':
-        intervalMs = Math.max(16, speed / (endLed - startLed + 1));
-        fn = () => this._chase(driver, startLed, endLed, color, color2, brightness, state);
-        break;
-
-      case 'fire':
-        intervalMs = Math.max(16, speed / 30);
-        fn = () => this._fire(driver, startLed, endLed, brightness, state);
-        break;
-
-      case 'breathe':
-        intervalMs = Math.max(16, speed / 60);
-        fn = () => this._breathe(driver, startLed, endLed, color, brightness, state, speed);
-        break;
-
-      case 'sparkle':
-        intervalMs = Math.max(16, speed / 20);
-        fn = () => this._sparkle(driver, startLed, endLed, color, brightness, config.density || 0.1);
-        break;
-
-      case 'color_cycle':
-        intervalMs = Math.max(16, speed / 60);
-        fn = () => this._colorCycle(driver, startLed, endLed, brightness, state, speed);
-        break;
-
-      case 'wave':
-        intervalMs = Math.max(16, speed / 60);
-        fn = () => this._wave(driver, startLed, endLed, color, color2, brightness, state, speed);
-        break;
-
-      default:
-        this.logger.warn(`Unknown effect type: ${effectType}`);
-        return;
+    const fn = fnMap[effectType];
+    if (!fn) {
+      this.logger.warn(`Unknown effect type: ${effectType}`);
+      return;
     }
 
-    const interval = setInterval(fn, intervalMs);
+    const interval = setInterval(fn, intervalMap[effectType]);
     this.activeEffects.set(effectKey, { interval, driver, config: { effectType, ...config } });
   }
 
@@ -183,7 +166,7 @@ class LightingEffectsEngine {
     const ledCount = endLed - startLed + 1;
     for (let i = 0; i <= endLed - startLed; i++) {
       const hue = (state.phase + (i * 360 / ledCount)) % 360;
-      const { r, g, b } = this._hsvToRgb(hue, 1.0, 1.0);
+      const { r, g, b } = hsvToRgb(hue, 1.0, 1.0);
       driver.setColor(startLed + i, r, g, b, brightness);
     }
   }
@@ -242,7 +225,7 @@ class LightingEffectsEngine {
     state.phase += 360 / (speed / 16);
     if (state.phase >= 360) state.phase -= 360;
 
-    const { r, g, b } = this._hsvToRgb(state.phase, 1.0, 1.0);
+    const { r, g, b } = hsvToRgb(state.phase, 1.0, 1.0);
     driver.setRange(startLed, endLed, r, g, b, brightness);
   }
 
@@ -260,38 +243,6 @@ class LightingEffectsEngine {
       const b = Math.round(bg.b + (color.b - bg.b) * factor);
       driver.setColor(startLed + i, r, g, b, brightness);
     }
-  }
-
-  // ==================== COLOR HELPERS ====================
-
-  _hsvToRgb(h, s, v) {
-    h = h % 360;
-    const c = v * s;
-    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    const m = v - c;
-    let r, g, b;
-
-    if (h < 60) { r = c; g = x; b = 0; }
-    else if (h < 120) { r = x; g = c; b = 0; }
-    else if (h < 180) { r = 0; g = c; b = x; }
-    else if (h < 240) { r = 0; g = x; b = c; }
-    else if (h < 300) { r = x; g = 0; b = c; }
-    else { r = c; g = 0; b = x; }
-
-    return {
-      r: Math.round((r + m) * 255),
-      g: Math.round((g + m) * 255),
-      b: Math.round((b + m) * 255)
-    };
-  }
-
-  _hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 255, g: 255, b: 255 };
   }
 
   shutdown() {

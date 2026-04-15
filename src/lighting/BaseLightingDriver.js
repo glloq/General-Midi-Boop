@@ -31,6 +31,7 @@ class BaseLightingDriver extends EventEmitter {
     this.device = device;
     this.logger = logger;
     this.connected = false;
+    this._renderScheduled = false;
   }
 
   /**
@@ -66,11 +67,24 @@ class BaseLightingDriver extends EventEmitter {
 
   /**
    * Close connection to the lighting device.
-   * Subclasses SHOULD call super.disconnect() to reset this.connected.
+   * Template method: calls _doDisconnect() for subclass cleanup,
+   * then resets connected state and emits 'disconnected'.
+   * Subclasses should override _doDisconnect() instead of disconnect().
    * @returns {Promise<void>}
    */
   async disconnect() {
+    await this._doDisconnect();
     this.connected = false;
+    this.emit('disconnected');
+  }
+
+  /**
+   * Subclass-specific disconnection cleanup.
+   * Override this to close sockets, release hardware, etc.
+   * @returns {Promise<void>}
+   */
+  async _doDisconnect() {
+    // Override in subclasses
   }
 
   /**
@@ -121,6 +135,29 @@ class BaseLightingDriver extends EventEmitter {
   }
 
   /**
+   * Schedule a render on the next microtask. Multiple calls within the same
+   * microtask are coalesced into a single _doRender() call.
+   * Drivers that use queueMicrotask-based batching inherit this.
+   * (HttpLightDriver uses setTimeout instead and does not use this.)
+   */
+  _scheduleRender() {
+    if (!this._renderScheduled) {
+      this._renderScheduled = true;
+      queueMicrotask(() => {
+        this._renderScheduled = false;
+        this._doRender();
+      });
+    }
+  }
+
+  /**
+   * Perform the actual render. Override in subclasses that use _scheduleRender().
+   */
+  _doRender() {
+    // Subclasses override this
+  }
+
+  /**
    * Apply brightness to a color component.
    * @param {number} colorValue - Color value 0-255
    * @param {number} brightness - Brightness 0-255
@@ -128,6 +165,22 @@ class BaseLightingDriver extends EventEmitter {
    */
   _applyBrightness(colorValue, brightness) {
     return Math.round((colorValue * brightness) / 255);
+  }
+
+  /**
+   * Apply brightness to all three color components at once.
+   * @param {number} r - Red 0-255
+   * @param {number} g - Green 0-255
+   * @param {number} b - Blue 0-255
+   * @param {number} brightness - Brightness 0-255
+   * @returns {{ r: number, g: number, b: number }} Adjusted color
+   */
+  _adjustColor(r, g, b, brightness) {
+    return {
+      r: this._applyBrightness(r, brightness),
+      g: this._applyBrightness(g, brightness),
+      b: this._applyBrightness(b, brightness)
+    };
   }
 }
 

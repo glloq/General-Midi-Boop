@@ -46,7 +46,7 @@ class MqttLightDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     if (this.client) {
       this.allOff();
       await new Promise(resolve => {
@@ -54,15 +54,11 @@ class MqttLightDriver extends BaseLightingDriver {
       });
       this.client = null;
     }
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {
     if (!this.client) return;
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     if (ledIndex >= 0 && ledIndex < this._currentColors.length) {
       this._currentColors[ledIndex] = { r: adjR, g: adjG, b: adjB };
@@ -74,9 +70,7 @@ class MqttLightDriver extends BaseLightingDriver {
   setRange(startLed, endLed, r, g, b, brightness = 255) {
     if (!this.client) return;
     const end = endLed === -1 ? this.device.led_count - 1 : endLed;
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     // For WLED, use the API endpoint for range
     if (this.firmware === 'wled') {

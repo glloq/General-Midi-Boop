@@ -15,7 +15,6 @@ class ArtNetDriver extends BaseLightingDriver {
     this.socket = null;
     this.dmxData = null;
     this.sequence = 0;
-    this._renderScheduled = false;
   }
 
   async connect() {
@@ -53,7 +52,7 @@ class ArtNetDriver extends BaseLightingDriver {
     }
   }
 
-  async disconnect() {
+  async _doDisconnect() {
     if (this.dmxData) {
       this.dmxData.fill(0);
       this._sendDmxPacket();
@@ -62,8 +61,6 @@ class ArtNetDriver extends BaseLightingDriver {
       this.socket.close();
       this.socket = null;
     }
-    this.connected = false;
-    this.emit('disconnected');
   }
 
   setColor(ledIndex, r, g, b, brightness = 255) {
@@ -86,9 +83,7 @@ class ArtNetDriver extends BaseLightingDriver {
   setRange(startLed, endLed, r, g, b, brightness = 255) {
     if (!this.dmxData) return;
     const end = endLed === -1 ? this.device.led_count - 1 : endLed;
-    const adjR = this._applyBrightness(r, brightness);
-    const adjG = this._applyBrightness(g, brightness);
-    const adjB = this._applyBrightness(b, brightness);
+    const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     for (let i = startLed; i <= end; i++) {
       const base = i * this.channelsPerLed;
@@ -141,14 +136,8 @@ class ArtNetDriver extends BaseLightingDriver {
     }
   }
 
-  _scheduleRender() {
-    if (!this._renderScheduled) {
-      this._renderScheduled = true;
-      queueMicrotask(() => {
-        this._renderScheduled = false;
-        this._sendDmxPacket();
-      });
-    }
+  _doRender() {
+    this._sendDmxPacket();
   }
 
   _sendDmxPacket() {

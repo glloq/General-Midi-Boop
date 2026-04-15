@@ -9,6 +9,42 @@ const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
 // MIDI CC constants
 const MIDI_CC_ALL_NOTES_OFF = 123;
 
+// Event builders for buildEventList() — maps MIDI event types to output event constructors
+const EVENT_BUILDERS = {
+  noteOn: (e, time) => ({
+    time, type: 'noteOn', channel: e.channel ?? 0,
+    note: e.noteNumber, velocity: e.velocity
+  }),
+  noteOff: (e, time) => ({
+    time, type: 'noteOff', channel: e.channel ?? 0,
+    note: e.noteNumber, velocity: e.velocity
+  }),
+  controller: (e, time) => ({
+    time, type: 'controller', channel: e.channel ?? 0,
+    controller: e.controllerType, value: e.value
+  }),
+  pitchBend: (e, time) => ({
+    time, type: 'pitchBend', channel: e.channel ?? 0,
+    value: e.value
+  }),
+  programChange: (e, time) => ({
+    time, type: 'programChange', channel: e.channel ?? 0,
+    program: e.programNumber !== undefined ? e.programNumber : e.value
+  }),
+  channelAftertouch: (e, time) => ({
+    time, type: 'channelAftertouch', channel: e.channel ?? 0,
+    value: e.value
+  }),
+  noteAftertouch: (e, time) => ({
+    time, type: 'noteAftertouch', channel: e.channel ?? 0,
+    note: e.noteNumber, value: e.value
+  }),
+  setTempo: (e, time) => ({
+    time, type: 'setTempo',
+    tempo: MICROSECONDS_PER_MINUTE / e.microsecondsPerBeat
+  })
+};
+
 class MidiPlayer {
   constructor(deps) {
     this.logger = deps.logger;
@@ -177,59 +213,9 @@ class MidiPlayer {
         trackTicks += event.deltaTime;
         const timeInSeconds = this._ticksToSecondsWithTempoMap(trackTicks, tempoMap);
 
-        if (event.type === 'noteOn' || event.type === 'noteOff') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            note: event.noteNumber,
-            velocity: event.velocity
-          });
-        } else if (event.type === 'controller') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            controller: event.controllerType,
-            value: event.value
-          });
-        } else if (event.type === 'pitchBend') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            value: event.value
-          });
-        } else if (event.type === 'programChange') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            program: event.programNumber !== undefined ? event.programNumber : event.value
-          });
-        } else if (event.type === 'channelAftertouch') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            value: event.value
-          });
-        } else if (event.type === 'noteAftertouch') {
-          this.events.push({
-            time: timeInSeconds,
-            type: event.type,
-            channel: event.channel !== undefined ? event.channel : 0,
-            note: event.noteNumber,
-            value: event.value
-          });
-        } else if (event.type === 'setTempo') {
-          // Inject tempo change events so the scheduler can update MIDI clock
-          const bpm = MICROSECONDS_PER_MINUTE / event.microsecondsPerBeat;
-          this.events.push({
-            time: timeInSeconds,
-            type: 'setTempo',
-            tempo: bpm
-          });
+        const builder = EVENT_BUILDERS[event.type];
+        if (builder) {
+          this.events.push(builder(event, timeInSeconds));
         }
       });
     });

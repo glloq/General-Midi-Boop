@@ -2,6 +2,7 @@
 import EventEmitter from 'events';
 import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
 import BaseLightingDriver from '../lighting/BaseLightingDriver.js';
+import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
 
 // Driver type to module path mapping
 const DRIVER_MAP = {
@@ -356,7 +357,7 @@ class LightingManager extends EventEmitter {
         const led = startLed + i;
         if (i < activeLeds) {
           if (action.color) {
-            const c = this._hexToRgb(action.color);
+            const c = hexToRgb(action.color);
             driver.setColor(led, c.r, c.g, c.b, brightness);
           } else {
             // Default VU: green→yellow→red
@@ -384,7 +385,7 @@ class LightingManager extends EventEmitter {
       const clampedLed = Math.max(startLed, Math.min(endLed === -1 ? ledCount - 1 : endLed, ledIndex));
 
       // Use note_color if no explicit color
-      const noteColor = action.color ? this._hexToRgb(action.color) : this._noteToColor(midiData.note);
+      const noteColor = action.color ? hexToRgb(action.color) : this._noteToColor(midiData.note);
       driver.setColor(clampedLed, noteColor.r, noteColor.g, noteColor.b, brightness);
       return;
     }
@@ -446,7 +447,7 @@ class LightingManager extends EventEmitter {
 
     // Static color from hex
     const color = action.color || '#FFFFFF';
-    return this._hexToRgb(color);
+    return hexToRgb(color);
   }
 
   _resolveBrightness(action, midiData) {
@@ -463,11 +464,11 @@ class LightingManager extends EventEmitter {
   _interpolateColorMap(colorMap, value) {
     const stops = Object.keys(colorMap).map(Number).sort((a, b) => a - b);
     if (stops.length === 0) return { r: 255, g: 255, b: 255 };
-    if (stops.length === 1) return this._hexToRgb(colorMap[stops[0]]);
+    if (stops.length === 1) return hexToRgb(colorMap[stops[0]]);
 
     // Find surrounding stops
-    if (value <= stops[0]) return this._hexToRgb(colorMap[stops[0]]);
-    if (value >= stops[stops.length - 1]) return this._hexToRgb(colorMap[stops[stops.length - 1]]);
+    if (value <= stops[0]) return hexToRgb(colorMap[stops[0]]);
+    if (value >= stops[stops.length - 1]) return hexToRgb(colorMap[stops[stops.length - 1]]);
 
     let lower = stops[0], upper = stops[1];
     for (let i = 0; i < stops.length - 1; i++) {
@@ -480,8 +481,8 @@ class LightingManager extends EventEmitter {
 
     const range = upper - lower;
     const ratio = range > 0 ? (value - lower) / range : 0;
-    const c1 = this._hexToRgb(colorMap[lower]);
-    const c2 = this._hexToRgb(colorMap[upper]);
+    const c1 = hexToRgb(colorMap[lower]);
+    const c2 = hexToRgb(colorMap[upper]);
 
     return {
       r: Math.round(c1.r + (c2.r - c1.r) * ratio),
@@ -490,21 +491,12 @@ class LightingManager extends EventEmitter {
     };
   }
 
-  _hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 255, g: 255, b: 255 };
-  }
-
   /**
    * Map MIDI note to chromatic color (C=red, C#=orange, D=yellow, etc.)
    */
   _noteToColor(note) {
     const hue = (note % 12) * 30; // 12 semitones * 30° = 360°
-    return this._hsvToRgb(hue, 1.0, 1.0);
+    return hsvToRgb(hue, 1.0, 1.0);
   }
 
   /**
@@ -545,28 +537,7 @@ class LightingManager extends EventEmitter {
 
   _randomVibrantColor() {
     const hue = Math.random() * 360;
-    return this._hsvToRgb(hue, 0.8 + Math.random() * 0.2, 0.8 + Math.random() * 0.2);
-  }
-
-  _hsvToRgb(h, s, v) {
-    h = h % 360;
-    const c = v * s;
-    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    const m = v - c;
-    let r, g, b;
-
-    if (h < 60) { r = c; g = x; b = 0; }
-    else if (h < 120) { r = x; g = c; b = 0; }
-    else if (h < 180) { r = 0; g = c; b = x; }
-    else if (h < 240) { r = 0; g = x; b = c; }
-    else if (h < 300) { r = x; g = 0; b = c; }
-    else { r = c; g = 0; b = x; }
-
-    return {
-      r: Math.round((r + m) * 255),
-      g: Math.round((g + m) * 255),
-      b: Math.round((b + m) * 255)
-    };
+    return hsvToRgb(hue, 0.8 + Math.random() * 0.2, 0.8 + Math.random() * 0.2);
   }
 
   // ==================== NOTE TRACKING ====================
