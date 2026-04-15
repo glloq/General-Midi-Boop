@@ -99,6 +99,8 @@ class MidiSynthesizer {
         this.tempo = 120; // BPM
         this.ticksPerBeat = 480; // PPQ standard
         this.tempoMap = []; // [{ticks, tempo, timeSeconds}] - tempo map triée par ticks
+        this._ticksPerSecond = (120 / 60) * 480; // Cached conversion factor
+        this._secondsPerTick = 1 / this._ticksPerSecond;
 
         // Canaux et instruments
         this.channelInstruments = new Array(16).fill(0);
@@ -114,6 +116,7 @@ class MidiSynthesizer {
         this.animationFrame = null;
         this.scheduleAheadTime = 0.2; // 200ms de lookahead
         this.lastScheduledTick = 0;
+        this.schedulePointer = 0; // Index into sorted sequence for O(1) scheduling
 
         // Notes actives pour pouvoir les arrêter
         this.activeEnvelopes = [];
@@ -513,6 +516,37 @@ class MidiSynthesizer {
     }
 
     /**
+     * Non-blocking preload: kick off loads for missing instruments but don't await.
+     * Returns true if all instruments are already cached (instant start).
+     */
+    _preloadNonBlocking() {
+        const usedPrograms = new Set();
+        let hasDrums = false;
+        for (const note of this.sequence) {
+            if (note.c === 9) hasDrums = true;
+            else usedPrograms.add(this.channelInstruments[note.c] || 0);
+        }
+        if (usedPrograms.size === 0) usedPrograms.add(0);
+
+        let allLoaded = true;
+        for (const program of usedPrograms) {
+            if (!this.loadedInstruments.has(program)) {
+                allLoaded = false;
+                this.loadInstrument(program).catch(e =>
+                    this.log('warn', `Background load failed for ${program}:`, e.message)
+                );
+            }
+        }
+        if (hasDrums && this.drumPresets.size === 0) {
+            allLoaded = false;
+            this.loadDrumKit().catch(e =>
+                this.log('warn', 'Background drum load failed:', e.message)
+            );
+        }
+        return allLoaded;
+    }
+
+    /**
      * Définir l'instrument pour un canal
      */
     setChannelInstrument(channel, program) {
@@ -535,9 +569,7 @@ class MidiSynthesizer {
      */
     ticksToSeconds(ticks) {
         if (this.tempoMap.length === 0) {
-            const beatsPerSecond = this.tempo / 60;
-            const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
-            return ticks / ticksPerSecond;
+            return ticks * this._secondsPerTick;
         }
 
         let seconds = 0;
@@ -569,9 +601,7 @@ class MidiSynthesizer {
      */
     secondsToTicks(seconds) {
         if (this.tempoMap.length === 0) {
-            const beatsPerSecond = this.tempo / 60;
-            const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
-            return Math.round(seconds * ticksPerSecond);
+            return Math.round(seconds * this._ticksPerSecond);
         }
 
         let accumulatedSeconds = 0;
@@ -604,16 +634,20 @@ class MidiSynthesizer {
      * Charger une séquence
      */
     loadSequence(sequence, tempo = 120, ticksPerBeat = 480, tempoEvents = null) {
-        this.sequence = sequence.map(note => ({
-            t: note.t,
-            g: note.g,
-            n: note.n,
-            c: note.c || 0,
-            v: note.v || 100
-        }));
+        // Normalize defaults in-place (callers pass disposable arrays)
+        for (let i = 0; i < sequence.length; i++) {
+            const note = sequence[i];
+            if (!note.c) note.c = 0;
+            if (!note.v) note.v = 100;
+        }
+        this.sequence = sequence;
 
         this.tempo = tempo;
         this.ticksPerBeat = ticksPerBeat;
+
+        // Cache conversion factors for the fast path (no tempo map)
+        this._ticksPerSecond = (tempo / 60) * ticksPerBeat;
+        this._secondsPerTick = 1 / this._ticksPerSecond;
 
         // Construire le tempo map à partir des événements de tempo
         if (tempoEvents && tempoEvents.length > 0) {
@@ -635,6 +669,7 @@ class MidiSynthesizer {
         this.endTick = maxEndTick;
         this.startTick = 0;
         this.currentTick = 0;
+        this.schedulePointer = 0;
 
         this.log('info', `Sequence loaded: ${this.sequence.length} notes, ${this.ticksToSeconds(maxEndTick).toFixed(2)}s at ${tempo} BPM${this.tempoMap.length > 0 ? `, ${this.tempoMap.length} tempo changes` : ''}`);
     }
@@ -801,8 +836,13 @@ class MidiSynthesizer {
             await this.audioContext.resume();
         }
 
-        // Précharger les instruments
-        await this.preloadInstruments();
+        // Preload instruments: start immediately if cached, load missing ones in background.
+        // Cold start (nothing cached at all): must wait for at least the initial instruments.
+        if (this.loadedInstruments.size === 0 && this.drumPresets.size === 0) {
+            await this.preloadInstruments();
+        } else {
+            this._preloadNonBlocking();
+        }
 
         if (this.isPaused) {
             this.isPaused = false;
@@ -811,18 +851,11 @@ class MidiSynthesizer {
             this.currentTick = this.startTick;
             this.startTime = this.audioContext.currentTime;
             this.lastScheduledTick = this.startTick;
+            this.schedulePointer = 0;
         }
 
         this.isPlaying = true;
         this.startScheduler();
-
-        // DEBUG: Log timing info at start
-        console.log(`[Synth DEBUG] Play started: startTime=${this.startTime.toFixed(3)}, audioCtx.currentTime=${this.audioContext.currentTime.toFixed(3)}, tempo=${this.tempo}, ticksPerBeat=${this.ticksPerBeat}`);
-        if (this.sequence.length > 0) {
-            const firstNote = this.sequence[0];
-            const firstNoteTime = this.ticksToSeconds(firstNote.t - this.startTick);
-            console.log(`[Synth DEBUG] First note: tick=${firstNote.t}, time=${firstNoteTime.toFixed(3)}s, scheduledAt=${(this.startTime + firstNoteTime).toFixed(3)}`);
-        }
 
         this.log('info', `Playback started at tick ${this.currentTick}`);
     }
@@ -851,6 +884,7 @@ class MidiSynthesizer {
         this.cancelAllNotes();
         this.currentTick = this.startTick;
         this.lastScheduledTick = this.startTick;
+        this.schedulePointer = 0;
 
         // Appliquer un changement de banque en attente
         if (this._pendingBankSwitch) {
@@ -927,6 +961,7 @@ class MidiSynthesizer {
 
         this.currentTick = Math.max(this.startTick, Math.min(tick, this.endTick));
         this.lastScheduledTick = this.currentTick;
+        this.schedulePointer = this._findNoteIndex(this.currentTick);
 
         if (this.onTickUpdate) {
             this.onTickUpdate(this.currentTick);
@@ -980,6 +1015,20 @@ class MidiSynthesizer {
     }
 
     /**
+     * Binary search: find the index of the first note with t > tick.
+     */
+    _findNoteIndex(tick) {
+        const seq = this.sequence;
+        let lo = 0, hi = seq.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >>> 1;
+            if (seq[mid].t <= tick) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    /**
      * Planifier les notes
      */
     scheduleNotes() {
@@ -998,28 +1047,34 @@ class MidiSynthesizer {
         const scheduleEndTime = currentTime + this.scheduleAheadTime;
         const scheduleEndTick = this.startTick + this.secondsToTicks(scheduleEndTime - this.startTime);
 
-        for (const note of this.sequence) {
-            if (note.t < this.startTick) continue;
+        // Pointer-based scheduling: only scan notes from schedulePointer forward (O(k) per tick)
+        const seq = this.sequence;
+        const len = seq.length;
+        let i = this.schedulePointer;
+        while (i < len) {
+            const note = seq[i];
+            if (note.t > scheduleEndTick) break;
             if (note.t > this.endTick) break;
-
-            // Ignorer les canaux mutés
+            i++;
             if (this.mutedChannels.has(note.c)) continue;
-
-            if (note.t > this.lastScheduledTick && note.t <= scheduleEndTick) {
-                const noteStartTime = this.startTime + this.ticksToSeconds(note.t - this.startTick);
-                const noteDuration = this.ticksToSeconds(note.g);
-                this.playNote(note.n, note.v, note.c, noteDuration, noteStartTime);
-            }
+            const noteStartTime = this.startTime + this.ticksToSeconds(note.t - this.startTick);
+            const noteDuration = this.ticksToSeconds(note.g);
+            this.playNote(note.n, note.v, note.c, noteDuration, noteStartTime);
         }
+        this.schedulePointer = i;
 
-        this.lastScheduledTick = Math.max(this.lastScheduledTick, scheduleEndTick);
-
-        // Periodic cleanup: remove finished envelopes based on audio time
+        // In-place cleanup: remove finished envelopes without allocating a new array
         if (this.activeEnvelopes.length > 100) {
             const now = this.audioContext.currentTime;
-            this.activeEnvelopes = this.activeEnvelopes.filter(
-                env => env.when !== undefined && (env.when + (env.duration || 0)) > now
-            );
+            const envelopes = this.activeEnvelopes;
+            let writeIdx = 0;
+            for (let j = 0; j < envelopes.length; j++) {
+                const env = envelopes[j];
+                if (env.when !== undefined && (env.when + (env.duration || 0)) > now) {
+                    envelopes[writeIdx++] = env;
+                }
+            }
+            envelopes.length = writeIdx;
         }
     }
 
