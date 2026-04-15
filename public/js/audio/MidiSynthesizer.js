@@ -23,7 +23,8 @@ const SOUND_BANKS = [
         suffix: 'FluidR3_GM_sf2_file',
         quality: 'high',
         sizeMB: 141,
-        descKey: 'settings.soundBank.banks.FluidR3_GM'
+        descKey: 'settings.soundBank.banks.FluidR3_GM',
+        reverbMix: 0.08  // Samples already have significant reverb
     },
     {
         id: 'GeneralUserGS',
@@ -31,7 +32,8 @@ const SOUND_BANKS = [
         suffix: 'GeneralUserGS_sf2_file',
         quality: 'high',
         sizeMB: 30,
-        descKey: 'settings.soundBank.banks.GeneralUserGS'
+        descKey: 'settings.soundBank.banks.GeneralUserGS',
+        reverbMix: 0.12
     },
     {
         id: 'JCLive',
@@ -39,7 +41,8 @@ const SOUND_BANKS = [
         suffix: 'JCLive_sf2_file',
         quality: 'medium',
         sizeMB: 26,
-        descKey: 'settings.soundBank.banks.JCLive'
+        descKey: 'settings.soundBank.banks.JCLive',
+        reverbMix: 0.10
     },
     {
         id: 'Aspirin',
@@ -47,7 +50,8 @@ const SOUND_BANKS = [
         suffix: 'Aspirin_sf2_file',
         quality: 'medium',
         sizeMB: 17,
-        descKey: 'settings.soundBank.banks.Aspirin'
+        descKey: 'settings.soundBank.banks.Aspirin',
+        reverbMix: 0.14
     },
     {
         id: 'SBLive',
@@ -55,7 +59,8 @@ const SOUND_BANKS = [
         suffix: 'SBLive_sf2',
         quality: 'medium',
         sizeMB: 12,
-        descKey: 'settings.soundBank.banks.SBLive'
+        descKey: 'settings.soundBank.banks.SBLive',
+        reverbMix: 0.14
     },
     {
         id: 'Chaos',
@@ -63,7 +68,8 @@ const SOUND_BANKS = [
         suffix: 'Chaos_sf2_file',
         quality: 'low',
         sizeMB: 8,
-        descKey: 'settings.soundBank.banks.Chaos'
+        descKey: 'settings.soundBank.banks.Chaos',
+        reverbMix: 0.16
     },
     {
         id: 'SoundBlasterOld',
@@ -71,7 +77,8 @@ const SOUND_BANKS = [
         suffix: 'SoundBlasterOld_sf2',
         quality: 'low',
         sizeMB: 5,
-        descKey: 'settings.soundBank.banks.SoundBlasterOld'
+        descKey: 'settings.soundBank.banks.SoundBlasterOld',
+        reverbMix: 0.18  // Very dry samples, more reverb needed
     },
 ];
 const DEFAULT_BANK_ID = 'FluidR3_GM';
@@ -253,7 +260,14 @@ class MidiSynthesizer {
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
         this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
-        this.log('info', `Sound bank switched to ${bank.id}`);
+
+        // Update melody reverb level for the new bank
+        const reverbMix = bank.reverbMix ?? 0.12;
+        if (this.melodyReverbGain) {
+            this.melodyReverbGain.gain.value = reverbMix;
+        }
+
+        this.log('info', `Sound bank switched to ${bank.id} (reverbMix=${reverbMix})`);
     }
 
     /**
@@ -684,47 +698,76 @@ class MidiSynthesizer {
     }
 
     /**
-     * Setup drum audio bus with lightweight reverb for cymbals
-     * Creates: drums → dryGain → destination
-     *          drums → reverbNode → wetGain → destination
+     * Setup audio buses with reverb for drums and melodic instruments.
+     * Drums: dedicated convolver for cymbals (fixed gain).
+     * Melody: separate convolver with per-bank reverbMix to normalize
+     * perceived reverb across sound banks (some have reverb baked in samples).
      */
     _setupDrumBus() {
         const ctx = this.audioContext;
 
-        // Dry path (all drums)
-        this.drumDryGain = ctx.createGain();
-        this.drumDryGain.gain.value = 1.0;
-        this.drumDryGain.connect(ctx.destination);
-
-        // Wet path (cymbals only — lightweight algorithmic reverb)
-        this.drumReverbGain = ctx.createGain();
-        this.drumReverbGain.gain.value = 0.18; // Subtle reverb
-
+        // Generate a shared impulse response (1.2s exponential decay)
+        let impulseBuffer = null;
         try {
-            // Generate a short impulse response algorithmically (no external file)
             const sampleRate = ctx.sampleRate;
-            const length = sampleRate * 1.2; // 1.2s reverb tail
-            const impulse = ctx.createBuffer(2, length, sampleRate);
-
+            const length = sampleRate * 1.2;
+            impulseBuffer = ctx.createBuffer(2, length, sampleRate);
             for (let ch = 0; ch < 2; ch++) {
-                const data = impulse.getChannelData(ch);
+                const data = impulseBuffer.getChannelData(ch);
                 for (let i = 0; i < length; i++) {
-                    // Exponential decay with random noise
                     const decay = Math.exp(-3.5 * i / length);
                     data[i] = (Math.random() * 2 - 1) * decay;
                 }
             }
-
-            this.drumReverbNode = ctx.createConvolver();
-            this.drumReverbNode.buffer = impulse;
-            this.drumReverbNode.connect(this.drumReverbGain);
-            this.drumReverbGain.connect(ctx.destination);
-
-            this.log('info', 'Drum reverb bus initialized');
         } catch (error) {
-            this.log('warn', 'Failed to create drum reverb, using dry only:', error.message);
-            this.drumReverbNode = null;
+            this.log('warn', 'Failed to generate reverb impulse:', error.message);
         }
+
+        // --- Drum bus (unchanged behavior) ---
+        this.drumDryGain = ctx.createGain();
+        this.drumDryGain.gain.value = 1.0;
+        this.drumDryGain.connect(ctx.destination);
+
+        this.drumReverbGain = ctx.createGain();
+        this.drumReverbGain.gain.value = 0.18;
+
+        if (impulseBuffer) {
+            try {
+                this.drumReverbNode = ctx.createConvolver();
+                this.drumReverbNode.buffer = impulseBuffer;
+                this.drumReverbNode.connect(this.drumReverbGain);
+                this.drumReverbGain.connect(ctx.destination);
+            } catch (error) {
+                this.log('warn', 'Failed to create drum reverb:', error.message);
+                this.drumReverbNode = null;
+            }
+        }
+
+        // --- Melody bus (per-bank reverb normalization) ---
+        const bankInfo = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        const reverbMix = bankInfo?.reverbMix ?? 0.12;
+
+        this.melodyDryGain = ctx.createGain();
+        this.melodyDryGain.gain.value = 1.0;
+        this.melodyDryGain.connect(ctx.destination);
+
+        this.melodyReverbGain = ctx.createGain();
+        this.melodyReverbGain.gain.value = reverbMix;
+        this.melodyReverbNode = null;
+
+        if (impulseBuffer) {
+            try {
+                this.melodyReverbNode = ctx.createConvolver();
+                this.melodyReverbNode.buffer = impulseBuffer;
+                this.melodyReverbNode.connect(this.melodyReverbGain);
+                this.melodyReverbGain.connect(ctx.destination);
+            } catch (error) {
+                this.log('warn', 'Failed to create melody reverb:', error.message);
+                this.melodyReverbNode = null;
+            }
+        }
+
+        this.log('info', `Audio bus initialized (melody reverbMix=${reverbMix} for bank ${this.currentBankId})`);
     }
 
     /**
@@ -797,6 +840,25 @@ class MidiSynthesizer {
                     }
                 } else if (this.drumDryGain) {
                     outputNode = this.drumDryGain;
+                }
+            } else {
+                // Melodic instruments: route through melody bus (dry + per-bank reverb)
+                outputNode = this.melodyDryGain || this.audioContext.destination;
+
+                // Send to melody reverb (wet signal, per-bank level)
+                if (this.melodyReverbNode) {
+                    const reverbEnvelope = this.player.queueWaveTable(
+                        this.audioContext,
+                        this.melodyReverbNode,
+                        instrument,
+                        startTime,
+                        note,
+                        effectiveDuration,
+                        volume // Reverb level controlled by melodyReverbGain node
+                    );
+                    if (reverbEnvelope) {
+                        this.activeEnvelopes.push(reverbEnvelope);
+                    }
                 }
             }
 
@@ -1085,13 +1147,19 @@ class MidiSynthesizer {
         this.stop();
         this.cancelAllNotes();
 
-        // Disconnect drum bus nodes
+        // Disconnect audio bus nodes
         if (this.drumDryGain) { try { this.drumDryGain.disconnect(); } catch(e) {} }
         if (this.drumReverbGain) { try { this.drumReverbGain.disconnect(); } catch(e) {} }
         if (this.drumReverbNode) { try { this.drumReverbNode.disconnect(); } catch(e) {} }
+        if (this.melodyDryGain) { try { this.melodyDryGain.disconnect(); } catch(e) {} }
+        if (this.melodyReverbGain) { try { this.melodyReverbGain.disconnect(); } catch(e) {} }
+        if (this.melodyReverbNode) { try { this.melodyReverbNode.disconnect(); } catch(e) {} }
         this.drumDryGain = null;
         this.drumReverbGain = null;
         this.drumReverbNode = null;
+        this.melodyDryGain = null;
+        this.melodyReverbGain = null;
+        this.melodyReverbNode = null;
         this.drumActiveNotes.clear();
 
         if (this.audioContext && this.audioContext.state !== 'closed') {
