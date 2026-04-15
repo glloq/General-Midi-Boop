@@ -11798,6 +11798,14 @@
                     log(`🎹 ${i18n.t('settings.pianoRoll.disabled')}`, 'info');
                 }
             });
+
+            // Gérer le changement de banque son
+            window.eventBus.on('settings:sound_bank_changed', (data) => {
+                log(`Settings event: settings:sound_bank_changed → ${data.bankId}`, 'info', data);
+                if (window.virtualPlayer && window.virtualPlayer.synthesizer) {
+                    window.virtualPlayer.synthesizer.setSoundBank(data.bankId);
+                }
+            });
         }
 
         // ==================== Serial MIDI event bridge ====================

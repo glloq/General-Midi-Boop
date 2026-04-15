@@ -54,7 +54,8 @@ class SettingsModal {
             showPlaylistButton: true,
             midiClockEnabled: false,
             serialMidiEnabled: false,
-            showLoadingAnimation: true
+            showLoadingAnimation: true,
+            soundBank: 'FluidR3_GM'
         };
 
         try {
@@ -270,6 +271,9 @@ class SettingsModal {
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
         if (loadingAnimationToggle) loadingAnimationToggle.checked = this.settings.showLoadingAnimation;
 
+        const soundBankSelect = this.modal.querySelector('#soundBankSelect');
+        if (soundBankSelect) soundBankSelect.value = this.settings.soundBank;
+
         this.logger?.info('Settings modal opened');
         this.checkForUpdates();
     }
@@ -311,6 +315,7 @@ class SettingsModal {
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
+        const soundBankSelect = this.modal.querySelector('#soundBankSelect');
 
         const newSettings = {
             theme: darkModeToggle ? (darkModeToggle.checked ? 'dark' : 'colored') : this.settings.theme,
@@ -324,7 +329,8 @@ class SettingsModal {
             showPlaylistButton: playlistButtonToggle ? playlistButtonToggle.checked : this.settings.showPlaylistButton,
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,
-            showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation
+            showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation,
+            soundBank: soundBankSelect ? soundBankSelect.value : this.settings.soundBank
         };
 
         const themeChanged = newSettings.theme !== this.settings.theme;
@@ -338,6 +344,7 @@ class SettingsModal {
         const playlistButtonChanged = newSettings.showPlaylistButton !== this.settings.showPlaylistButton;
         const midiClockChanged = newSettings.midiClockEnabled !== this.settings.midiClockEnabled;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
+        const soundBankChanged = newSettings.soundBank !== this.settings.soundBank;
 
         this.settings = newSettings;
         this.saveSettings();
@@ -372,6 +379,10 @@ class SettingsModal {
         }
         if (midiClockChanged) this.eventBus?.emit('settings:midi_clock_changed', { enabled: newSettings.midiClockEnabled });
         if (serialMidiChanged) this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
+        if (soundBankChanged) {
+            this.eventBus?.emit('settings:sound_bank_changed', { bankId: newSettings.soundBank });
+            this.logger?.info(`🔊 ${i18n.t('settings.soundBank.changed') || 'Sound bank changed'}: ${newSettings.soundBank}`);
+        }
 
         this.close();
         this.logger?.info('Settings saved and applied', newSettings);

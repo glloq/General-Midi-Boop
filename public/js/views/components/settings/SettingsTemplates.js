@@ -202,6 +202,57 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- Banque son -->
+                <div class="settings-section" style="margin-top: 24px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🔊 ${i18n.t('settings.soundBank.title') || 'Banque de sons'}</h3>
+                    <div class="language-selector-container" style="position: relative;">
+                        <select id="soundBankSelect" class="language-select" style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            padding-right: 40px;
+                            border: 2px solid var(--border-color, #e5e7eb);
+                            border-radius: 8px;
+                            background: var(--bg-secondary, white);
+                            cursor: pointer;
+                            font-size: 15px;
+                            color: var(--text-primary, #333);
+                            appearance: none;
+                            -webkit-appearance: none;
+                            -moz-appearance: none;
+                            transition: all 0.2s;
+                        ">
+                            ${(typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
+                                ? MidiSynthesizer.getAvailableBanks()
+                                : [
+                                    { id: 'FluidR3_GM', label: 'FluidR3 GM' },
+                                    { id: 'Aspirin', label: 'Aspirin' },
+                                    { id: 'GeneralUserGS', label: 'GeneralUser GS' },
+                                    { id: 'JCLive', label: 'JCLive' },
+                                    { id: 'SBLive', label: 'Sound Blaster Live' },
+                                    { id: 'SoundBlasterOld', label: 'Sound Blaster Old' },
+                                    { id: 'Chaos', label: 'Chaos' },
+                                ]
+                            ).map(bank => `
+                                <option value="${bank.id}" ${bank.id === this.settings.soundBank ? 'selected' : ''}>
+                                    ${bank.label}
+                                </option>
+                            `).join('')}
+                        </select>
+                        <span style="
+                            position: absolute;
+                            right: 16px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            pointer-events: none;
+                            color: var(--text-secondary, #666);
+                            font-size: 12px;
+                        ">&#x25BC;</span>
+                    </div>
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-secondary, #666);">
+                        ${i18n.t('settings.soundBank.description') || 'Bibliothèque de samples pour la synthèse audio. Les banques légères réduisent l\'usage mémoire.'}
+                    </p>
+                </div>
             </div>
 
             <!-- ═══════════════════════════════════════ -->

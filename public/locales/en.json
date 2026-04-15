@@ -111,6 +111,11 @@
             "noPorts": "No serial ports detected. Check /boot/config.txt UART overlays",
             "notAvailable": "serialport package not installed. Run: npm install serialport"
         },
+        "soundBank": {
+            "title": "Sound Bank",
+            "description": "Sample library for audio synthesis. Lighter banks reduce memory usage.",
+            "changed": "Sound bank changed"
+        },
         "language": {
             "title": "Language",
             "select": "Select language"

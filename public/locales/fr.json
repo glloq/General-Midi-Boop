@@ -111,6 +111,11 @@
             "noPorts": "Aucun port série détecté. Vérifiez les overlays UART dans /boot/config.txt",
             "notAvailable": "Package serialport non installé. Exécutez : npm install serialport"
         },
+        "soundBank": {
+            "title": "Banque de sons",
+            "description": "Bibliothèque de samples pour la synthèse audio du lecteur virtuel. Les banques légères réduisent l'usage mémoire.",
+            "changed": "Banque de sons modifiée"
+        },
         "language": {
             "title": "Langue",
             "select": "Sélectionner la langue"

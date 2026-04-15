@@ -5,6 +5,22 @@
 // ============================================================================
 
 /**
+ * Banques son disponibles sur le CDN WebAudioFont (surikov.github.io)
+ * Chaque banque offre un rendu sonore différent et une empreinte mémoire variable.
+ */
+const SOUND_BANKS = [
+    { id: 'FluidR3_GM',      label: 'FluidR3 GM',          suffix: 'FluidR3_GM_sf2_file' },
+    { id: 'Aspirin',         label: 'Aspirin',             suffix: 'Aspirin_sf2_file' },
+    { id: 'GeneralUserGS',   label: 'GeneralUser GS',     suffix: 'GeneralUserGS_sf2_file' },
+    { id: 'JCLive',          label: 'JCLive',              suffix: 'JCLive_sf2_file' },
+    { id: 'SBLive',          label: 'Sound Blaster Live',  suffix: 'SBLive_sf2' },
+    { id: 'SoundBlasterOld', label: 'Sound Blaster Old',   suffix: 'SoundBlasterOld_sf2' },
+    { id: 'Chaos',           label: 'Chaos',               suffix: 'Chaos_sf2_file' },
+];
+const DEFAULT_BANK_ID = 'FluidR3_GM';
+const DEFAULT_BANK_SUFFIX = 'FluidR3_GM_sf2_file';
+
+/**
  * MidiSynthesizer - Synthétiseur MIDI utilisant WebAudioFont
  * Utilise des samples réels pour un rendu de qualité professionnelle
  */
@@ -55,9 +71,16 @@ class MidiSynthesizer {
         // Logger
         this.logger = window.logger || console;
 
+        // Banque son courante (lue depuis localStorage)
+        const savedBank = MidiSynthesizer.getSavedBank();
+        const bankInfo = SOUND_BANKS.find(b => b.id === savedBank);
+        this.currentBankId = bankInfo ? bankInfo.id : DEFAULT_BANK_ID;
+        this.currentBankSuffix = bankInfo ? bankInfo.suffix : DEFAULT_BANK_SUFFIX;
+        this._pendingBankSwitch = null;
+
         // Mapping General MIDI vers WebAudioFont
         // Format: [fichier, variable] pour chaque programme GM (0-127)
-        this.gmInstrumentMap = this.createGMInstrumentMap();
+        this.gmInstrumentMap = this.createGMInstrumentMap(this.currentBankSuffix);
 
         // Drums (canal 9) — per-note presets from JCLive (better cymbals)
         // Fallback to SBLive for notes not in JCLive
@@ -122,165 +145,94 @@ class MidiSynthesizer {
 
     /**
      * Créer le mapping des 128 instruments GM vers les fichiers WebAudioFont
-     * Utilise les sons de FluidR3_GM qui sont de bonne qualité
+     * @param {string} bankSuffix - Suffixe de la banque son (ex: 'FluidR3_GM_sf2_file')
      */
-    createGMInstrumentMap() {
-        // Base URL pour les instruments
+    createGMInstrumentMap(bankSuffix = DEFAULT_BANK_SUFFIX) {
         const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const instruments = [];
+        for (let program = 0; program < 128; program++) {
+            const num = String(program * 10).padStart(4, '0');
+            const file = `${num}_${bankSuffix}`;
+            instruments.push({
+                url: `${base}${file}.js`,
+                variable: `_tone_${file}`
+            });
+        }
+        return instruments;
+    }
 
-        // Mapping simplifié - utilise FluidR3_GM pour tous les instruments
-        // Format: [url_sans_extension, nom_variable]
-        const instruments = [
-            // Piano (0-7)
-            ['0000_FluidR3_GM_sf2_file', '_tone_0000_FluidR3_GM_sf2_file'],
-            ['0010_FluidR3_GM_sf2_file', '_tone_0010_FluidR3_GM_sf2_file'],
-            ['0020_FluidR3_GM_sf2_file', '_tone_0020_FluidR3_GM_sf2_file'],
-            ['0030_FluidR3_GM_sf2_file', '_tone_0030_FluidR3_GM_sf2_file'],
-            ['0040_FluidR3_GM_sf2_file', '_tone_0040_FluidR3_GM_sf2_file'],
-            ['0050_FluidR3_GM_sf2_file', '_tone_0050_FluidR3_GM_sf2_file'],
-            ['0060_FluidR3_GM_sf2_file', '_tone_0060_FluidR3_GM_sf2_file'],
-            ['0070_FluidR3_GM_sf2_file', '_tone_0070_FluidR3_GM_sf2_file'],
-            // Chromatic Percussion (8-15)
-            ['0080_FluidR3_GM_sf2_file', '_tone_0080_FluidR3_GM_sf2_file'],
-            ['0090_FluidR3_GM_sf2_file', '_tone_0090_FluidR3_GM_sf2_file'],
-            ['0100_FluidR3_GM_sf2_file', '_tone_0100_FluidR3_GM_sf2_file'],
-            ['0110_FluidR3_GM_sf2_file', '_tone_0110_FluidR3_GM_sf2_file'],
-            ['0120_FluidR3_GM_sf2_file', '_tone_0120_FluidR3_GM_sf2_file'],
-            ['0130_FluidR3_GM_sf2_file', '_tone_0130_FluidR3_GM_sf2_file'],
-            ['0140_FluidR3_GM_sf2_file', '_tone_0140_FluidR3_GM_sf2_file'],
-            ['0150_FluidR3_GM_sf2_file', '_tone_0150_FluidR3_GM_sf2_file'],
-            // Organ (16-23)
-            ['0160_FluidR3_GM_sf2_file', '_tone_0160_FluidR3_GM_sf2_file'],
-            ['0170_FluidR3_GM_sf2_file', '_tone_0170_FluidR3_GM_sf2_file'],
-            ['0180_FluidR3_GM_sf2_file', '_tone_0180_FluidR3_GM_sf2_file'],
-            ['0190_FluidR3_GM_sf2_file', '_tone_0190_FluidR3_GM_sf2_file'],
-            ['0200_FluidR3_GM_sf2_file', '_tone_0200_FluidR3_GM_sf2_file'],
-            ['0210_FluidR3_GM_sf2_file', '_tone_0210_FluidR3_GM_sf2_file'],
-            ['0220_FluidR3_GM_sf2_file', '_tone_0220_FluidR3_GM_sf2_file'],
-            ['0230_FluidR3_GM_sf2_file', '_tone_0230_FluidR3_GM_sf2_file'],
-            // Guitar (24-31)
-            ['0240_FluidR3_GM_sf2_file', '_tone_0240_FluidR3_GM_sf2_file'],
-            ['0250_FluidR3_GM_sf2_file', '_tone_0250_FluidR3_GM_sf2_file'],
-            ['0260_FluidR3_GM_sf2_file', '_tone_0260_FluidR3_GM_sf2_file'],
-            ['0270_FluidR3_GM_sf2_file', '_tone_0270_FluidR3_GM_sf2_file'],
-            ['0280_FluidR3_GM_sf2_file', '_tone_0280_FluidR3_GM_sf2_file'],
-            ['0290_FluidR3_GM_sf2_file', '_tone_0290_FluidR3_GM_sf2_file'],
-            ['0300_FluidR3_GM_sf2_file', '_tone_0300_FluidR3_GM_sf2_file'],
-            ['0310_FluidR3_GM_sf2_file', '_tone_0310_FluidR3_GM_sf2_file'],
-            // Bass (32-39)
-            ['0320_FluidR3_GM_sf2_file', '_tone_0320_FluidR3_GM_sf2_file'],
-            ['0330_FluidR3_GM_sf2_file', '_tone_0330_FluidR3_GM_sf2_file'],
-            ['0340_FluidR3_GM_sf2_file', '_tone_0340_FluidR3_GM_sf2_file'],
-            ['0350_FluidR3_GM_sf2_file', '_tone_0350_FluidR3_GM_sf2_file'],
-            ['0360_FluidR3_GM_sf2_file', '_tone_0360_FluidR3_GM_sf2_file'],
-            ['0370_FluidR3_GM_sf2_file', '_tone_0370_FluidR3_GM_sf2_file'],
-            ['0380_FluidR3_GM_sf2_file', '_tone_0380_FluidR3_GM_sf2_file'],
-            ['0390_FluidR3_GM_sf2_file', '_tone_0390_FluidR3_GM_sf2_file'],
-            // Strings (40-47)
-            ['0400_FluidR3_GM_sf2_file', '_tone_0400_FluidR3_GM_sf2_file'],
-            ['0410_FluidR3_GM_sf2_file', '_tone_0410_FluidR3_GM_sf2_file'],
-            ['0420_FluidR3_GM_sf2_file', '_tone_0420_FluidR3_GM_sf2_file'],
-            ['0430_FluidR3_GM_sf2_file', '_tone_0430_FluidR3_GM_sf2_file'],
-            ['0440_FluidR3_GM_sf2_file', '_tone_0440_FluidR3_GM_sf2_file'],
-            ['0450_FluidR3_GM_sf2_file', '_tone_0450_FluidR3_GM_sf2_file'],
-            ['0460_FluidR3_GM_sf2_file', '_tone_0460_FluidR3_GM_sf2_file'],
-            ['0470_FluidR3_GM_sf2_file', '_tone_0470_FluidR3_GM_sf2_file'],
-            // Ensemble (48-55)
-            ['0480_FluidR3_GM_sf2_file', '_tone_0480_FluidR3_GM_sf2_file'],
-            ['0490_FluidR3_GM_sf2_file', '_tone_0490_FluidR3_GM_sf2_file'],
-            ['0500_FluidR3_GM_sf2_file', '_tone_0500_FluidR3_GM_sf2_file'],
-            ['0510_FluidR3_GM_sf2_file', '_tone_0510_FluidR3_GM_sf2_file'],
-            ['0520_FluidR3_GM_sf2_file', '_tone_0520_FluidR3_GM_sf2_file'],
-            ['0530_FluidR3_GM_sf2_file', '_tone_0530_FluidR3_GM_sf2_file'],
-            ['0540_FluidR3_GM_sf2_file', '_tone_0540_FluidR3_GM_sf2_file'],
-            ['0550_FluidR3_GM_sf2_file', '_tone_0550_FluidR3_GM_sf2_file'],
-            // Brass (56-63)
-            ['0560_FluidR3_GM_sf2_file', '_tone_0560_FluidR3_GM_sf2_file'],
-            ['0570_FluidR3_GM_sf2_file', '_tone_0570_FluidR3_GM_sf2_file'],
-            ['0580_FluidR3_GM_sf2_file', '_tone_0580_FluidR3_GM_sf2_file'],
-            ['0590_FluidR3_GM_sf2_file', '_tone_0590_FluidR3_GM_sf2_file'],
-            ['0600_FluidR3_GM_sf2_file', '_tone_0600_FluidR3_GM_sf2_file'],
-            ['0610_FluidR3_GM_sf2_file', '_tone_0610_FluidR3_GM_sf2_file'],
-            ['0620_FluidR3_GM_sf2_file', '_tone_0620_FluidR3_GM_sf2_file'],
-            ['0630_FluidR3_GM_sf2_file', '_tone_0630_FluidR3_GM_sf2_file'],
-            // Reed (64-71)
-            ['0640_FluidR3_GM_sf2_file', '_tone_0640_FluidR3_GM_sf2_file'],
-            ['0650_FluidR3_GM_sf2_file', '_tone_0650_FluidR3_GM_sf2_file'],
-            ['0660_FluidR3_GM_sf2_file', '_tone_0660_FluidR3_GM_sf2_file'],
-            ['0670_FluidR3_GM_sf2_file', '_tone_0670_FluidR3_GM_sf2_file'],
-            ['0680_FluidR3_GM_sf2_file', '_tone_0680_FluidR3_GM_sf2_file'],
-            ['0690_FluidR3_GM_sf2_file', '_tone_0690_FluidR3_GM_sf2_file'],
-            ['0700_FluidR3_GM_sf2_file', '_tone_0700_FluidR3_GM_sf2_file'],
-            ['0710_FluidR3_GM_sf2_file', '_tone_0710_FluidR3_GM_sf2_file'],
-            // Pipe (72-79)
-            ['0720_FluidR3_GM_sf2_file', '_tone_0720_FluidR3_GM_sf2_file'],
-            ['0730_FluidR3_GM_sf2_file', '_tone_0730_FluidR3_GM_sf2_file'],
-            ['0740_FluidR3_GM_sf2_file', '_tone_0740_FluidR3_GM_sf2_file'],
-            ['0750_FluidR3_GM_sf2_file', '_tone_0750_FluidR3_GM_sf2_file'],
-            ['0760_FluidR3_GM_sf2_file', '_tone_0760_FluidR3_GM_sf2_file'],
-            ['0770_FluidR3_GM_sf2_file', '_tone_0770_FluidR3_GM_sf2_file'],
-            ['0780_FluidR3_GM_sf2_file', '_tone_0780_FluidR3_GM_sf2_file'],
-            ['0790_FluidR3_GM_sf2_file', '_tone_0790_FluidR3_GM_sf2_file'],
-            // Synth Lead (80-87)
-            ['0800_FluidR3_GM_sf2_file', '_tone_0800_FluidR3_GM_sf2_file'],
-            ['0810_FluidR3_GM_sf2_file', '_tone_0810_FluidR3_GM_sf2_file'],
-            ['0820_FluidR3_GM_sf2_file', '_tone_0820_FluidR3_GM_sf2_file'],
-            ['0830_FluidR3_GM_sf2_file', '_tone_0830_FluidR3_GM_sf2_file'],
-            ['0840_FluidR3_GM_sf2_file', '_tone_0840_FluidR3_GM_sf2_file'],
-            ['0850_FluidR3_GM_sf2_file', '_tone_0850_FluidR3_GM_sf2_file'],
-            ['0860_FluidR3_GM_sf2_file', '_tone_0860_FluidR3_GM_sf2_file'],
-            ['0870_FluidR3_GM_sf2_file', '_tone_0870_FluidR3_GM_sf2_file'],
-            // Synth Pad (88-95)
-            ['0880_FluidR3_GM_sf2_file', '_tone_0880_FluidR3_GM_sf2_file'],
-            ['0890_FluidR3_GM_sf2_file', '_tone_0890_FluidR3_GM_sf2_file'],
-            ['0900_FluidR3_GM_sf2_file', '_tone_0900_FluidR3_GM_sf2_file'],
-            ['0910_FluidR3_GM_sf2_file', '_tone_0910_FluidR3_GM_sf2_file'],
-            ['0920_FluidR3_GM_sf2_file', '_tone_0920_FluidR3_GM_sf2_file'],
-            ['0930_FluidR3_GM_sf2_file', '_tone_0930_FluidR3_GM_sf2_file'],
-            ['0940_FluidR3_GM_sf2_file', '_tone_0940_FluidR3_GM_sf2_file'],
-            ['0950_FluidR3_GM_sf2_file', '_tone_0950_FluidR3_GM_sf2_file'],
-            // Synth Effects (96-103)
-            ['0960_FluidR3_GM_sf2_file', '_tone_0960_FluidR3_GM_sf2_file'],
-            ['0970_FluidR3_GM_sf2_file', '_tone_0970_FluidR3_GM_sf2_file'],
-            ['0980_FluidR3_GM_sf2_file', '_tone_0980_FluidR3_GM_sf2_file'],
-            ['0990_FluidR3_GM_sf2_file', '_tone_0990_FluidR3_GM_sf2_file'],
-            ['1000_FluidR3_GM_sf2_file', '_tone_1000_FluidR3_GM_sf2_file'],
-            ['1010_FluidR3_GM_sf2_file', '_tone_1010_FluidR3_GM_sf2_file'],
-            ['1020_FluidR3_GM_sf2_file', '_tone_1020_FluidR3_GM_sf2_file'],
-            ['1030_FluidR3_GM_sf2_file', '_tone_1030_FluidR3_GM_sf2_file'],
-            // Ethnic (104-111)
-            ['1040_FluidR3_GM_sf2_file', '_tone_1040_FluidR3_GM_sf2_file'],
-            ['1050_FluidR3_GM_sf2_file', '_tone_1050_FluidR3_GM_sf2_file'],
-            ['1060_FluidR3_GM_sf2_file', '_tone_1060_FluidR3_GM_sf2_file'],
-            ['1070_FluidR3_GM_sf2_file', '_tone_1070_FluidR3_GM_sf2_file'],
-            ['1080_FluidR3_GM_sf2_file', '_tone_1080_FluidR3_GM_sf2_file'],
-            ['1090_FluidR3_GM_sf2_file', '_tone_1090_FluidR3_GM_sf2_file'],
-            ['1100_FluidR3_GM_sf2_file', '_tone_1100_FluidR3_GM_sf2_file'],
-            ['1110_FluidR3_GM_sf2_file', '_tone_1110_FluidR3_GM_sf2_file'],
-            // Percussive (112-119)
-            ['1120_FluidR3_GM_sf2_file', '_tone_1120_FluidR3_GM_sf2_file'],
-            ['1130_FluidR3_GM_sf2_file', '_tone_1130_FluidR3_GM_sf2_file'],
-            ['1140_FluidR3_GM_sf2_file', '_tone_1140_FluidR3_GM_sf2_file'],
-            ['1150_FluidR3_GM_sf2_file', '_tone_1150_FluidR3_GM_sf2_file'],
-            ['1160_FluidR3_GM_sf2_file', '_tone_1160_FluidR3_GM_sf2_file'],
-            ['1170_FluidR3_GM_sf2_file', '_tone_1170_FluidR3_GM_sf2_file'],
-            ['1180_FluidR3_GM_sf2_file', '_tone_1180_FluidR3_GM_sf2_file'],
-            ['1190_FluidR3_GM_sf2_file', '_tone_1190_FluidR3_GM_sf2_file'],
-            // Sound Effects (120-127)
-            ['1200_FluidR3_GM_sf2_file', '_tone_1200_FluidR3_GM_sf2_file'],
-            ['1210_FluidR3_GM_sf2_file', '_tone_1210_FluidR3_GM_sf2_file'],
-            ['1220_FluidR3_GM_sf2_file', '_tone_1220_FluidR3_GM_sf2_file'],
-            ['1230_FluidR3_GM_sf2_file', '_tone_1230_FluidR3_GM_sf2_file'],
-            ['1240_FluidR3_GM_sf2_file', '_tone_1240_FluidR3_GM_sf2_file'],
-            ['1250_FluidR3_GM_sf2_file', '_tone_1250_FluidR3_GM_sf2_file'],
-            ['1260_FluidR3_GM_sf2_file', '_tone_1260_FluidR3_GM_sf2_file'],
-            ['1270_FluidR3_GM_sf2_file', '_tone_1270_FluidR3_GM_sf2_file'],
-        ];
+    /**
+     * Changer la banque son
+     * @param {string} bankId - Identifiant de la banque (ex: 'FluidR3_GM', 'Aspirin')
+     * @returns {boolean} true si le changement est accepté
+     */
+    setSoundBank(bankId) {
+        const bank = SOUND_BANKS.find(b => b.id === bankId);
+        if (!bank) {
+            this.log('warn', `Unknown sound bank: ${bankId}`);
+            return false;
+        }
+        if (bank.id === this.currentBankId) return true;
 
-        return instruments.map(([file, varName]) => ({
-            url: base + file + '.js',
-            variable: varName
-        }));
+        if (this.isPlaying) {
+            this._pendingBankSwitch = bank;
+            this.log('info', `Bank switch to ${bank.id} deferred until playback stops`);
+            return true;
+        }
+
+        this._applyBankSwitch(bank);
+        return true;
+    }
+
+    /**
+     * Appliquer le changement de banque son (interne)
+     */
+    _applyBankSwitch(bank) {
+        this.log('info', `Switching sound bank to ${bank.id}`);
+        this._clearInstrumentCache();
+        this.currentBankId = bank.id;
+        this.currentBankSuffix = bank.suffix;
+        this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
+        this.log('info', `Sound bank switched to ${bank.id}`);
+    }
+
+    /**
+     * Vider le cache d'instruments mélodiques chargés
+     */
+    _clearInstrumentCache() {
+        this.loadedInstruments.clear();
+        this.loadingInstruments.clear();
+        // Supprimer les anciens <script> mélodiques pour libérer la mémoire
+        const scripts = document.querySelectorAll('script[src*="surikov.github.io/webaudiofontdata/sound/"]');
+        scripts.forEach(s => {
+            // Ne supprimer que les scripts mélodiques (pas les drums qui commencent par /128)
+            if (!s.src.includes('/128')) {
+                s.remove();
+            }
+        });
+    }
+
+    /**
+     * Lire la banque son sauvegardée dans localStorage
+     * @returns {string} L'identifiant de la banque sauvegardée
+     */
+    static getSavedBank() {
+        try {
+            const saved = localStorage.getItem('maestro_settings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed.soundBank || DEFAULT_BANK_ID;
+            }
+        } catch (e) { /* ignore */ }
+        return DEFAULT_BANK_ID;
+    }
+
+    /**
+     * Obtenir la liste des banques son disponibles
+     * @returns {Array} Liste des banques {id, label, suffix}
+     */
+    static getAvailableBanks() {
+        return SOUND_BANKS;
     }
 
     /**
@@ -354,7 +306,28 @@ class MidiSynthesizer {
             };
             script.onerror = () => {
                 this.loadingInstruments.delete(program);
-                reject(new Error(`Failed to load ${instrumentInfo.url}`));
+                // Fallback vers FluidR3_GM si la banque courante n'a pas cet instrument
+                if (this.currentBankId !== DEFAULT_BANK_ID) {
+                    this.log('warn', `Bank ${this.currentBankId} missing program ${program}, falling back to ${DEFAULT_BANK_ID}`);
+                    const num = String(program * 10).padStart(4, '0');
+                    const fallbackFile = `${num}_${DEFAULT_BANK_SUFFIX}`;
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = `https://surikov.github.io/webaudiofontdata/sound/${fallbackFile}.js`;
+                    fallbackScript.onload = () => {
+                        const fallbackInstrument = window[`_tone_${fallbackFile}`];
+                        if (fallbackInstrument) {
+                            this.player.adjustPreset(this.audioContext, fallbackInstrument);
+                            this.loadedInstruments.set(program, fallbackInstrument);
+                            resolve(fallbackInstrument);
+                        } else {
+                            reject(new Error(`Fallback instrument variable _tone_${fallbackFile} not found`));
+                        }
+                    };
+                    fallbackScript.onerror = () => reject(new Error(`Failed to load fallback for program ${program}`));
+                    document.head.appendChild(fallbackScript);
+                } else {
+                    reject(new Error(`Failed to load ${instrumentInfo.url}`));
+                }
             };
             document.head.appendChild(script);
         });
@@ -821,6 +794,12 @@ class MidiSynthesizer {
         this.cancelAllNotes();
         this.currentTick = this.startTick;
         this.lastScheduledTick = this.startTick;
+
+        // Appliquer un changement de banque en attente
+        if (this._pendingBankSwitch) {
+            this._applyBankSwitch(this._pendingBankSwitch);
+            this._pendingBankSwitch = null;
+        }
 
         if (this.onTickUpdate) {
             this.onTickUpdate(this.currentTick);
