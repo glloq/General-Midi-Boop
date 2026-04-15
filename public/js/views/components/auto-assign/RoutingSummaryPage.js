@@ -209,6 +209,7 @@ class RoutingSummaryPage {
     this.ccRemapping = {}; // Per-channel CC remapping { [channel]: { sourceCC: targetCC, ... } }
     this.ccSegmentMute = {}; // Per-segment CC mute { [channel]: { [ccNum]: Set<segIndex> } }
     this.ccExpanded = {}; // Per-channel CC section collapse state
+    this.drumMappingExpanded = {}; // Per-channel drum mapping collapse state
     this.customDrumMappings = {}; // Per-channel custom drum note mappings { [channel]: { sourceNote: destNote } }
     this.mutedDrumNotes = {}; // Per-channel muted drum notes { [channel]: Set<midiNote> }
     this.ccShowAll = {}; // Per-channel CC pagination (show all rows)
@@ -1776,6 +1777,20 @@ class RoutingSummaryPage {
     const analysis = this.channelAnalyses[channel];
     if (!assignment || !analysis?.noteEvents) return '';
 
+    const isExpanded = this.drumMappingExpanded[channel] ?? false;
+
+    // Collapsed: show only title with note count (no heavy DOM generation)
+    if (!isExpanded) {
+      const noteCount = Object.keys(analysis.noteDistribution || {}).filter(n => +n >= 35 && +n <= 81).length;
+      if (noteCount === 0) return '';
+      return `
+        <div class="rs-drum-mapping">
+          <h4 class="rs-drum-mapping-toggle" data-channel="${channel}" style="cursor:pointer">
+            ${_t('autoAssign.drumMapping') || 'Drum Mapping'} \u25B8 <small>(${noteCount} notes)</small>
+          </h4>
+        </div>`;
+    }
+
     // Get instrument's available notes
     let instrumentNotes = null;
     if (assignment.selectedNotes) {
@@ -1892,7 +1907,7 @@ class RoutingSummaryPage {
 
     return `
       <div class="rs-drum-mapping">
-        <h4>${_t('autoAssign.drumMapping') || 'Drum Mapping'}</h4>
+        <h4 class="rs-drum-mapping-toggle" data-channel="${channel}" style="cursor:pointer">${_t('autoAssign.drumMapping') || 'Drum Mapping'} \u25BE <small>(${channelNotes.length} notes)</small></h4>
         <table class="rs-drum-mapping-table">
           <thead>
             <tr>
@@ -2457,6 +2472,15 @@ class RoutingSummaryPage {
         return;
       }
 
+      // Drum mapping collapse/expand
+      const drumToggle = target.closest('.rs-drum-mapping-toggle');
+      if (drumToggle) {
+        const ch = parseInt(drumToggle.dataset.channel);
+        this.drumMappingExpanded[ch] = !this.drumMappingExpanded[ch];
+        this._refreshUI(channelKeys, 'detail');
+        return;
+      }
+
       // CC section collapse/expand
       const ccToggle = target.closest('.rs-cc-toggle');
       if (ccToggle) {
@@ -2488,6 +2512,7 @@ class RoutingSummaryPage {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           this.adaptationSettings[ch][field] = target.value;
 
+          let transpositionChanged = false;
           if (field === 'pitchShift') {
             const assignment = this.selectedAssignments[ch];
             const autoSemitones = assignment?.transposition?.semitones || 0;
@@ -2502,9 +2527,11 @@ class RoutingSummaryPage {
               this.adaptationSettings[ch].transpositionSemitones = 0;
             }
             const newSemi = this.adaptationSettings[ch].transpositionSemitones || 0;
+            transpositionChanged = oldSemi !== newSemi;
             this._reclampSplitRanges(parseInt(ch), oldSemi, newSemi);
           }
-          this._refreshUI(channelKeys, 'both-panels');
+          // Only rebuild summary when transposition value actually changed (affects scores/ranges)
+          this._refreshUI(channelKeys, transpositionChanged ? 'both-panels' : 'detail');
         }
         return;
       }
@@ -2909,9 +2936,23 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _selectChannel(channel) {
+    const prevChannel = this.selectedChannel;
     this.selectedChannel = channel;
     const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    this._refreshUI(channelKeys, 'both-panels');
+    // Optimize: when opening/switching detail, render detail first, then defer summary update.
+    // This avoids a long synchronous block rebuilding both panels at once.
+    const layoutChanged = (prevChannel === null) !== (channel === null);
+    if (layoutChanged) {
+      // Layout structure changes (full↔condensed): render detail immediately, defer summary
+      this._refreshUI(channelKeys, 'detail');
+      // Toggle layout class immediately for CSS transition
+      const container = this.modal?.querySelector('.rs-container');
+      if (container) container.classList.toggle('rs-with-detail', channel !== null);
+      // Defer summary rebuild to next frame so detail appears first
+      requestAnimationFrame(() => this._refreshUI(channelKeys, 'summary'));
+    } else {
+      this._refreshUI(channelKeys, 'both-panels');
+    }
   }
 
   _selectInstrument(ch, instrumentId, channelKeys) {
