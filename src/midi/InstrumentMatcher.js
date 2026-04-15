@@ -491,6 +491,11 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   calculateOctaveShift(channelRange, instrumentCaps) {
+    // If channel range already fits within instrument range, no transposition needed
+    if (channelRange.min >= instrumentCaps.min && channelRange.max <= instrumentCaps.max) {
+      return { compatible: true, semitones: 0, octaves: 0 };
+    }
+
     // Calculate centers
     const channelCenter = (channelRange.min + channelRange.max) / 2;
     const instCenter = (instrumentCaps.min + instrumentCaps.max) / 2;

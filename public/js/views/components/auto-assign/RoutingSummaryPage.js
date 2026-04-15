@@ -996,17 +996,20 @@ class RoutingSummaryPage {
     const allOptions = [...options, ...lowOptions];
     const currentId = assignment?.instrumentId || '';
 
+    // "Ignore" option always first — selected when channel is skipped
+    const ignoreLabel = _t('autoAssign.overviewStatusSkipped') || 'Ignore';
+    let html = `<option value="ignore" ${isSkipped ? 'selected' : ''}>${escapeHtml(ignoreLabel)}</option>`;
+
     if (allOptions.length === 0) {
-      return `<option value="">\u2014</option>`;
+      return html;
     }
 
-    let html = '';
     for (const opt of allOptions) {
       const inst = opt.instrument;
       const score = opt.compatibility?.score || 0;
       const name = this._getInstrumentDisplayName(inst);
       const displayName = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
-      const selected = inst.id === currentId ? 'selected' : '';
+      const selected = (!isSkipped && inst.id === currentId) ? 'selected' : '';
       html += `<option value="${inst.id}" ${selected}>${escapeHtml(displayName)} (${score})</option>`;
     }
     return html;
@@ -1042,7 +1045,11 @@ class RoutingSummaryPage {
         statusClass = 'warning';
       }
 
-      const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
+      // Prefer estimatedCategory (from GM program) over estimatedType (heuristic) for display
+      const displayType = (analysis?.estimatedCategory && analysis.estimatedCategory !== 'unknown')
+        ? analysis.estimatedCategory
+        : (analysis?.estimatedType || '');
+      const typeIcon = displayType ? getTypeIcon(displayType) : '';
       const isSelected = this.selectedChannel === channel;
 
       // Score dot indicator
@@ -1087,11 +1094,9 @@ class RoutingSummaryPage {
         `;
       }
 
-      // Full mode: dropdown, score, polyphony, playable, actions
+      // Full mode: dropdown (always visible, with "Ignore" option), score, polyphony, playable, actions
       let assignedHTML;
-      if (isSkipped) {
-        assignedHTML = `<span class="rs-skipped">${_t('autoAssign.overviewStatusSkipped')}</span>`;
-      } else if (isSplit && this.splitAssignments[channel]) {
+      if (isSplit && !isSkipped && this.splitAssignments[channel]) {
         const segments = this.splitAssignments[channel].segments || [];
         const splitParts = segments.map((seg, i) => {
           const color = SPLIT_COLORS[i % SPLIT_COLORS.length];
@@ -1145,7 +1150,7 @@ class RoutingSummaryPage {
             Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
           </td>
           <td class="rs-col-original">${escapeHtml(gmName)}</td>
-          <td class="rs-col-type"><span class="rs-type-badge" style="color:${getTypeColor(analysis?.estimatedType)}" title="${analysis?.estimatedType ? (_t('autoAssign.type_' + analysis.estimatedType) || analysis.estimatedType) : ''}">${typeIcon} ${analysis?.estimatedType ? (_t('autoAssign.type_' + analysis.estimatedType) || analysis.estimatedType) : ''}</span></td>
+          <td class="rs-col-type"><span class="rs-type-badge" style="color:${getTypeColor(displayType)}" title="${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}">${typeIcon} ${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}</span></td>
           <td class="rs-col-assigned">${assignedHTML}</td>
           <td class="rs-col-volume">${this._renderVolumeSlider(channel)}</td>
           <td class="rs-col-score">${scoreHTML}</td>
@@ -1280,7 +1285,11 @@ class RoutingSummaryPage {
 
     // Channel info
     const gmName = channel === 9 ? _t('autoAssign.drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
-    const typeIcon = analysis?.estimatedType ? getTypeIcon(analysis.estimatedType) : '';
+    // Prefer estimatedCategory (from GM program) over estimatedType (heuristic) for display
+    const detailDisplayType = (analysis?.estimatedCategory && analysis.estimatedCategory !== 'unknown')
+      ? analysis.estimatedCategory
+      : (analysis?.estimatedType || '');
+    const typeIcon = detailDisplayType ? getTypeIcon(detailDisplayType) : '';
     const score = assignment?.score || 0;
     const assignedName = assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || null;
 
@@ -1415,8 +1424,8 @@ class RoutingSummaryPage {
         const displayPhysMax = Math.min(physMax, chMax);
         const physLeft = Math.round(((displayPhysMin - chMin) / noteCount) * 100);
         const physWidth = Math.max(1, Math.round(((displayPhysMax - displayPhysMin + 1) / noteCount) * 100));
-        const rMin = seg.noteRange?.min ?? physMin;
-        const rMax = seg.noteRange?.max ?? physMax;
+        const rMin = Math.max(chMin, seg.noteRange?.min ?? physMin);
+        const rMax = Math.min(chMax, seg.noteRange?.max ?? physMax);
         const segLeft = Math.round(((rMin - chMin) / noteCount) * 100);
         const segWidth = Math.max(2, Math.round(((rMax - rMin + 1) / noteCount) * 100));
         const sliderTitle = `${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)}`;
@@ -2220,7 +2229,18 @@ class RoutingSummaryPage {
       if (target.matches('.rs-instrument-select')) {
         e.stopPropagation();
         const ch = target.dataset.channel;
-        if (target.value) this._selectInstrument(ch, target.value, channelKeys);
+        const chNum = parseInt(ch);
+        if (target.value === 'ignore') {
+          // Select "Ignore" → skip/mute this channel
+          this.skippedChannels.add(chNum);
+          this._refreshUI(channelKeys, 'both-panels');
+        } else if (target.value) {
+          // Instrument selected → unskip if needed, then select
+          if (this.skippedChannels.has(chNum)) {
+            this.skippedChannels.delete(chNum);
+          }
+          this._selectInstrument(ch, target.value, channelKeys);
+        }
       }
     }, opts);
 
@@ -2592,7 +2612,7 @@ class RoutingSummaryPage {
         const relX = Math.max(0, Math.min(rect.width, moveE.clientX - rect.left));
         const pct = relX / rect.width;
         let noteValue = Math.round(chMin + pct * (noteCount - 1));
-        noteValue = Math.max(physMin, Math.min(physMax, noteValue));
+        noteValue = Math.max(Math.max(physMin, chMin), Math.min(Math.min(physMax, chMax), noteValue));
         noteValue = Math.max(0, Math.min(127, noteValue));
 
         if (bound === 'min') {
@@ -2808,6 +2828,13 @@ class RoutingSummaryPage {
     const delta = (newSemitones || 0) - (oldSemitones || 0);
     if (delta === 0) return;
 
+    // Compute transposed channel range for secondary clamping
+    const analysis = this.channelAnalyses[channel];
+    const tCh = safeNoteRange(
+      (analysis?.noteRange?.min ?? 0) + (newSemitones || 0),
+      (analysis?.noteRange?.max ?? 127) + (newSemitones || 0)
+    );
+
     for (const seg of data.segments) {
       const physMin = seg.fullRange?.min ?? 0;
       const physMax = seg.fullRange?.max ?? 127;
@@ -2816,7 +2843,11 @@ class RoutingSummaryPage {
         Math.max(physMin, (seg.noteRange?.min ?? physMin) + delta),
         Math.min(physMax, (seg.noteRange?.max ?? physMax) + delta)
       );
-      seg.noteRange = shifted;
+      // Second clamp: ensure segment stays within the transposed channel range
+      seg.noteRange = safeNoteRange(
+        Math.max(shifted.min, tCh.min),
+        Math.min(shifted.max, tCh.max)
+      );
     }
   }
 

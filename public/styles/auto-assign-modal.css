@@ -6136,8 +6136,11 @@ body.dark-mode .rs-split-viz-handle:active {
   outline-offset: -1px;
 }
 
-.rs-row.skipped .rs-instrument-select {
-  display: none;
+.rs-row.skipped .rs-select-zone {
+  opacity: 2; /* counteract parent row opacity: 0.5 to keep dropdown readable */
+}
+.rs-row.skipped .rs-col-actions {
+  opacity: 2; /* keep mute button readable on skipped rows */
 }
 
 /* Score column */

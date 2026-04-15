@@ -481,6 +481,18 @@ class ChannelAnalyzer {
       } else if (primaryProgram >= 0 && primaryProgram <= 7) {
         scores.harmony += weights.programWeight * 0.875;
         scores.melody += weights.programWeight * 0.375;
+      } else if (primaryProgram >= 8 && primaryProgram <= 15) {
+        // Chromatic percussion (celesta, glockenspiel, vibraphone, xylophone…)
+        scores.melody += weights.programWeight * 0.5;
+        scores.harmony += weights.programWeight * 0.5;
+      } else if (primaryProgram >= 16 && primaryProgram <= 23) {
+        // Organ
+        scores.harmony += weights.programWeight * 0.875;
+        scores.melody += weights.programWeight * 0.375;
+      } else if (primaryProgram >= 24 && primaryProgram <= 31) {
+        // Guitar (nylon, steel, jazz, clean, overdrive, distortion, harmonics)
+        scores.melody += weights.programWeight * 0.75;
+        scores.harmony += weights.programWeight * 0.5;
       } else if (primaryProgram >= 40 && primaryProgram <= 55) {
         scores.harmony += weights.programWeight;
       } else if (primaryProgram >= 56 && primaryProgram <= 79) {
@@ -488,6 +500,10 @@ class ChannelAnalyzer {
         scores.harmony += weights.programWeight * 0.5;
       } else if (primaryProgram >= 80 && primaryProgram <= 103) {
         scores.melody += weights.programWeight * 0.875;
+        scores.harmony += weights.programWeight * 0.375;
+      } else if (primaryProgram >= 104 && primaryProgram <= 111) {
+        // Ethnic instruments (sitar, banjo, shamisen, koto, kalimba…)
+        scores.melody += weights.programWeight * 0.75;
         scores.harmony += weights.programWeight * 0.375;
       }
     }
