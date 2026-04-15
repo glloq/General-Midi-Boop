@@ -93,13 +93,15 @@ class AutoAssigner {
 
         for (const instrument of availableInstruments) {
           // Hard filter: drums only to drums, non-drums never to drums
-          // Use instrument_type='drums' OR discrete mode with null/percussive GM program.
-          // Discrete mode alone is too broad (would catch pad controllers with explicit
-          // non-drum GM programs), but discrete + no GM program is a reliable drum indicator.
+          // Multiple indicators for drum instruments:
+          // 1. Explicit instrument_type='drums' (user-configured)
+          // 2. Discrete note mode (pad-based instruments can't play melodic content)
+          // 3. MIDI channel 9 (standard GM drum channel)
+          // 4. GM percussive programs (112-119)
           const isDrumInstrument = instrument.instrument_type === 'drums'
-            || (instrument.note_selection_mode === 'discrete'
-                && (instrument.gm_program == null
-                    || (instrument.gm_program >= 112 && instrument.gm_program <= 119)));
+            || instrument.note_selection_mode === 'discrete'
+            || instrument.channel === 9
+            || (instrument.gm_program >= 112 && instrument.gm_program <= 119);
 
           if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
             // Mark as incompatible in the matrix
