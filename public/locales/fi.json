@@ -101,6 +101,25 @@
             "noPorts": "Sarjaportteja ei löytynyt. Tarkista UART-overlays tiedostossa /boot/config.txt",
             "notAvailable": "serialport-pakettia ei ole asennettu. Suorita: npm install serialport"
         },
+        "soundBank": {
+            "title": "Äänipankki",
+            "description": "Näytekirjasto äänisynteesiin. Kevyemmät pankit vähentävät muistin käyttöä.",
+            "changed": "Äänipankki vaihdettu",
+            "quality": {
+                "high": "Korkea laatu",
+                "medium": "Keskitaso",
+                "low": "Kevyt"
+            },
+            "banks": {
+                "FluidR3_GM": "Viite-GM-pankki. Rikkaat, yksityiskohtaiset näytteet kaikille 128 soittimelle. Paras kokonaislaatu, mutta raskain lataus.",
+                "GeneralUserGS": "Korkean tarkkuuden GM/GS-pankki. Erinomainen tasapaino laadun ja koon välillä. Lämpimät, luonnollisen kuuloiset soittimet.",
+                "JCLive": "Live-äänityksiin perustuva pankki. Tehokkaat rummut, kirkkaat vasket. Loistava rockiin, jazziin ja live-tyyleihin.",
+                "Aspirin": "Puhdas, hyvin tasapainoinen pankki. Pehmeät pianot, kirkkaat jouset. Hyvä klassiseen ja pop-musiikkiin.",
+                "SBLive": "Creative Labs Sound Blaster Live -pankki. Vankka yleispankki nostalgisella luonteella.",
+                "Chaos": "Kevyt luova pankki. Nopea lataus, perus- mutta toimivat äänet nopeaan esikatseluun.",
+                "SoundBlasterOld": "Klassinen Sound Blaster -pankki. Pienin jalanjälki, retroluonne. Ihanteellinen matalalle kaistanleveydelle."
+            }
+        },
         "language": {
             "title": "Kieli",
             "select": "Valitse kieli"

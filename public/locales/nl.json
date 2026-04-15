@@ -101,6 +101,25 @@
             "noPorts": "Geen seriële poorten gedetecteerd. Controleer de UART-overlays in /boot/config.txt",
             "notAvailable": "serialport-pakket niet geïnstalleerd. Voer uit: npm install serialport"
         },
+        "soundBank": {
+            "title": "Geluidsbank",
+            "description": "Samplebibliotheek voor audiosynthese. Lichtere banken verminderen het geheugengebruik.",
+            "changed": "Geluidsbank gewijzigd",
+            "quality": {
+                "high": "Hoge kwaliteit",
+                "medium": "Gemiddeld",
+                "low": "Licht"
+            },
+            "banks": {
+                "FluidR3_GM": "Referentie GM-bank. Rijke, gedetailleerde samples voor alle 128 instrumenten. Beste algehele kwaliteit maar zwaarste download.",
+                "GeneralUserGS": "High-fidelity GM/GS-bank. Uitstekende balans tussen kwaliteit en grootte. Warme, natuurlijk klinkende instrumenten.",
+                "JCLive": "Bank gebaseerd op live-opnames. Krachtige drums, heldere koperblazers. Geweldig voor rock, jazz en live-stijlen.",
+                "Aspirin": "Schone, evenwichtige bank. Zachte piano's, heldere strijkers. Goed voor klassiek en pop.",
+                "SBLive": "Creative Labs Sound Blaster Live bank. Solide allrounder met nostalgisch karakter.",
+                "Chaos": "Lichtgewicht creatieve bank. Snel laden, eenvoudige maar functionele geluiden voor snelle voorvertoning.",
+                "SoundBlasterOld": "Klassieke Sound Blaster bank. Kleinste footprint, retrokarakter. Ideaal voor gebruik met lage bandbreedte."
+            }
+        },
         "language": {
             "title": "Taal",
             "select": "Taal selecteren"

@@ -1,21 +1,78 @@
 // ============================================================================
-// Fichier: public/js/audio/MidiSynthesizer.js
-// Version: v2.0.0 - Synthétiseur MIDI avec WebAudioFont (samples réels)
-// Description: Lecteur MIDI intégré au navigateur avec sons de qualité
+// File: public/js/audio/MidiSynthesizer.js
+// Version: v2.0.0 - MIDI Synthesizer with WebAudioFont (real samples)
+// Description: Browser-based MIDI player with high-quality sounds
 // ============================================================================
 
 /**
- * Banques son disponibles sur le CDN WebAudioFont (surikov.github.io)
- * Chaque banque offre un rendu sonore différent et une empreinte mémoire variable.
+ * Available sound banks from the WebAudioFont CDN (surikov.github.io).
+ * Each bank offers a different sonic rendering and variable memory footprint.
+ *
+ * Quality tiers:
+ *   high   — Professional-grade, large samples, rich harmonics
+ *   medium — Good quality, balanced size, suitable for most use cases
+ *   low    — Lightweight, fast loading, basic sound quality
+ *
+ * sizeMB is the approximate total download size when all 128 GM instruments
+ * are loaded (individual instruments are loaded on demand).
  */
 const SOUND_BANKS = [
-    { id: 'FluidR3_GM',      label: 'FluidR3 GM',          suffix: 'FluidR3_GM_sf2_file' },
-    { id: 'Aspirin',         label: 'Aspirin',             suffix: 'Aspirin_sf2_file' },
-    { id: 'GeneralUserGS',   label: 'GeneralUser GS',     suffix: 'GeneralUserGS_sf2_file' },
-    { id: 'JCLive',          label: 'JCLive',              suffix: 'JCLive_sf2_file' },
-    { id: 'SBLive',          label: 'Sound Blaster Live',  suffix: 'SBLive_sf2' },
-    { id: 'SoundBlasterOld', label: 'Sound Blaster Old',   suffix: 'SoundBlasterOld_sf2' },
-    { id: 'Chaos',           label: 'Chaos',               suffix: 'Chaos_sf2_file' },
+    {
+        id: 'FluidR3_GM',
+        label: 'FluidR3 GM',
+        suffix: 'FluidR3_GM_sf2_file',
+        quality: 'high',
+        sizeMB: 141,
+        descKey: 'settings.soundBank.banks.FluidR3_GM'
+    },
+    {
+        id: 'GeneralUserGS',
+        label: 'GeneralUser GS',
+        suffix: 'GeneralUserGS_sf2_file',
+        quality: 'high',
+        sizeMB: 30,
+        descKey: 'settings.soundBank.banks.GeneralUserGS'
+    },
+    {
+        id: 'JCLive',
+        label: 'JCLive',
+        suffix: 'JCLive_sf2_file',
+        quality: 'medium',
+        sizeMB: 26,
+        descKey: 'settings.soundBank.banks.JCLive'
+    },
+    {
+        id: 'Aspirin',
+        label: 'Aspirin',
+        suffix: 'Aspirin_sf2_file',
+        quality: 'medium',
+        sizeMB: 17,
+        descKey: 'settings.soundBank.banks.Aspirin'
+    },
+    {
+        id: 'SBLive',
+        label: 'Sound Blaster Live',
+        suffix: 'SBLive_sf2',
+        quality: 'medium',
+        sizeMB: 12,
+        descKey: 'settings.soundBank.banks.SBLive'
+    },
+    {
+        id: 'Chaos',
+        label: 'Chaos',
+        suffix: 'Chaos_sf2_file',
+        quality: 'low',
+        sizeMB: 8,
+        descKey: 'settings.soundBank.banks.Chaos'
+    },
+    {
+        id: 'SoundBlasterOld',
+        label: 'Sound Blaster Old',
+        suffix: 'SoundBlasterOld_sf2',
+        quality: 'low',
+        sizeMB: 5,
+        descKey: 'settings.soundBank.banks.SoundBlasterOld'
+    },
 ];
 const DEFAULT_BANK_ID = 'FluidR3_GM';
 const DEFAULT_BANK_SUFFIX = 'FluidR3_GM_sf2_file';

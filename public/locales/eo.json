@@ -101,6 +101,25 @@
             "noPorts": "Neniuj seriaj pordoj detektitaj. Kontrolu la UART-surmetaĵojn en /boot/config.txt",
             "notAvailable": "serialport-pakaĵo ne instalita. Rulu: npm install serialport"
         },
+        "soundBank": {
+            "title": "Sonbanko",
+            "description": "Specimena biblioteko por aŭdia sintezo. Pli malpezaj bankoj reduktas memoran uzadon.",
+            "changed": "Sonbanko ŝanĝita",
+            "quality": {
+                "high": "Alta kvalito",
+                "medium": "Meza",
+                "low": "Malpeza"
+            },
+            "banks": {
+                "FluidR3_GM": "Referenca GM-banko. Riĉaj, detalaj speciminoj por ĉiuj 128 instrumentoj. Plej bona ĝenerala kvalito sed plej peza elŝuto.",
+                "GeneralUserGS": "Altfidela GM/GS-banko. Bonega ekvilibro inter kvalito kaj grandeco. Varmaj, nature sonantaj instrumentoj.",
+                "JCLive": "Banko bazita sur vivaj registradoj. Fortaj tamburoj, brilaj kupraj. Bonega por roko, ĵazo kaj vivaj stiloj.",
+                "Aspirin": "Pura, bone ekvilibrita banko. Glataj pianoj, klaraj kordinstrumentoj. Bona por klasika kaj pop-muziko.",
+                "SBLive": "Creative Labs Sound Blaster Live banko. Fidinda ĉiuflanka banko kun nostalgia karaktero.",
+                "Chaos": "Malpeza kreiva banko. Rapida ŝargado, bazaj sed funkciaj sonoj por rapida antaŭvido.",
+                "SoundBlasterOld": "Klasika Sound Blaster banko. Plej malgranda spurpreso, retro karaktero. Ideala por mallarĝa bendolarĝo."
+            }
+        },
         "language": {
             "title": "Lingvo",
             "select": "Elekti lingvon"

@@ -101,6 +101,25 @@
             "noPorts": "Seri bağlantı noktası bulunamadı. /boot/config.txt'deki UART overlay'lerini kontrol edin",
             "notAvailable": "serialport paketi yüklü değil. Çalıştırın: npm install serialport"
         },
+        "soundBank": {
+            "title": "Ses Bankası",
+            "description": "Ses sentezi için örnek kütüphanesi. Daha hafif bankalar bellek kullanımını azaltır.",
+            "changed": "Ses bankası değiştirildi",
+            "quality": {
+                "high": "Yüksek kalite",
+                "medium": "Orta",
+                "low": "Hafif"
+            },
+            "banks": {
+                "FluidR3_GM": "Referans GM bankası. Tüm 128 enstrüman için zengin, ayrıntılı örnekler. En iyi genel kalite ancak en ağır indirme.",
+                "GeneralUserGS": "Yüksek kaliteli GM/GS bankası. Kalite ve boyut arasında mükemmel denge. Sıcak, doğal ses veren enstrümanlar.",
+                "JCLive": "Canlı kayıt tabanlı banka. Güçlü davullar, parlak bakır üflemeliler. Rock, caz ve canlı tarzlar için harika.",
+                "Aspirin": "Temiz, iyi dengeli banka. Yumuşak piyanolar, net yaylılar. Klasik ve pop için iyi.",
+                "SBLive": "Creative Labs Sound Blaster Live bankası. Nostaljik karaktere sahip sağlam çok yönlü banka.",
+                "Chaos": "Hafif yaratıcı banka. Hızlı yükleme, hızlı önizleme için temel ama işlevsel sesler.",
+                "SoundBlasterOld": "Klasik Sound Blaster bankası. En küçük boyut, retro karakter. Düşük bant genişliği için ideal."
+            }
+        },
         "language": {
             "title": "Dil",
             "select": "Dil seçin"

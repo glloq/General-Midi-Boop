@@ -101,6 +101,25 @@
             "noPorts": "Tidak ada port serial yang terdeteksi. Periksa overlay UART di /boot/config.txt",
             "notAvailable": "Paket serialport tidak terpasang. Jalankan: npm install serialport"
         },
+        "soundBank": {
+            "title": "Bank Suara",
+            "description": "Pustaka sampel untuk sintesis audio. Bank yang lebih ringan mengurangi penggunaan memori.",
+            "changed": "Bank suara diubah",
+            "quality": {
+                "high": "Kualitas tinggi",
+                "medium": "Sedang",
+                "low": "Ringan"
+            },
+            "banks": {
+                "FluidR3_GM": "Bank GM referensi. Sampel yang kaya dan detail untuk semua 128 instrumen. Kualitas keseluruhan terbaik tetapi unduhan terberat.",
+                "GeneralUserGS": "Bank GM/GS fidelitas tinggi. Keseimbangan kualitas dan ukuran yang sangat baik. Instrumen yang hangat dan terdengar alami.",
+                "JCLive": "Bank berbasis rekaman langsung. Drum yang kuat, brass yang cerah. Bagus untuk rock, jazz, dan gaya live.",
+                "Aspirin": "Bank yang bersih dan seimbang. Piano yang halus, string yang jernih. Baik untuk klasik dan pop.",
+                "SBLive": "Bank Creative Labs Sound Blaster Live. Serba bisa yang solid dengan karakter nostalgia.",
+                "Chaos": "Bank kreatif ringan. Pemuatan cepat, suara dasar tetapi fungsional untuk pratinjau cepat.",
+                "SoundBlasterOld": "Bank Sound Blaster klasik. Jejak terkecil, karakter retro. Ideal untuk penggunaan bandwidth rendah."
+            }
+        },
         "language": {
             "title": "Bahasa",
             "select": "Pilih bahasa"

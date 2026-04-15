@@ -114,7 +114,21 @@
         "soundBank": {
             "title": "Banque de sons",
             "description": "Bibliothèque de samples pour la synthèse audio du lecteur virtuel. Les banques légères réduisent l'usage mémoire.",
-            "changed": "Banque de sons modifiée"
+            "changed": "Banque de sons modifiée",
+            "quality": {
+                "high": "Haute qualité",
+                "medium": "Moyenne",
+                "low": "Légère"
+            },
+            "banks": {
+                "FluidR3_GM": "Banque GM de référence. Samples riches et détaillés pour les 128 instruments. Meilleure qualité mais téléchargement le plus lourd.",
+                "GeneralUserGS": "Banque GM/GS haute fidélité. Excellent équilibre qualité/taille. Instruments naturels et chaleureux.",
+                "JCLive": "Banque basée sur des enregistrements live. Batterie percutante, cuivres brillants. Idéale pour le rock, jazz et styles live.",
+                "Aspirin": "Banque propre et équilibrée. Pianos doux, cordes claires. Adaptée au classique et à la pop.",
+                "SBLive": "Banque Creative Labs Sound Blaster Live. Polyvalente avec un caractère nostalgique.",
+                "Chaos": "Banque créative légère. Chargement rapide, sons basiques mais fonctionnels pour un aperçu rapide.",
+                "SoundBlasterOld": "Banque Sound Blaster classique. Empreinte minimale, caractère rétro. Idéale pour les connexions lentes."
+            }
         },
         "language": {
             "title": "Langue",

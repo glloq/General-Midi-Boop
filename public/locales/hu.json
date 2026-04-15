@@ -101,6 +101,25 @@
             "noPorts": "Nem található soros port. Ellenőrizze az UART overlay-eket a /boot/config.txt fájlban",
             "notAvailable": "A serialport csomag nincs telepítve. Futtatás: npm install serialport"
         },
+        "soundBank": {
+            "title": "Hangbank",
+            "description": "Mintakönyvtár a hangszintézishez. A könnyebb bankok csökkentik a memóriahasználatot.",
+            "changed": "Hangbank megváltozott",
+            "quality": {
+                "high": "Magas minőség",
+                "medium": "Közepes",
+                "low": "Könnyű"
+            },
+            "banks": {
+                "FluidR3_GM": "Referencia GM bank. Gazdag, részletes minták mind a 128 hangszerhez. Legjobb összminőség, de legnagyobb letöltés.",
+                "GeneralUserGS": "Nagy hűségű GM/GS bank. Kiváló egyensúly a minőség és a méret között. Meleg, természetesen szóló hangszerek.",
+                "JCLive": "Élő felvételen alapuló bank. Erőteljes dobok, fényes rézfúvósok. Kiváló rockhoz, jazzhez és élő stílusokhoz.",
+                "Aspirin": "Tiszta, jól kiegyensúlyozott bank. Lágy zongorák, tiszta vonósok. Jó klasszikus zenéhez és pophoz.",
+                "SBLive": "Creative Labs Sound Blaster Live bank. Megbízható mindenre alkalmas, nosztalgikus jelleggel.",
+                "Chaos": "Könnyű kreatív bank. Gyors betöltés, alapvető de funkcionális hangok gyors előnézethez.",
+                "SoundBlasterOld": "Klasszikus Sound Blaster bank. Legkisebb lábnyom, retro jelleg. Ideális alacsony sávszélességhez."
+            }
+        },
         "language": {
             "title": "Nyelv",
             "select": "Nyelv kiválasztása"

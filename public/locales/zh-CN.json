@@ -101,6 +101,25 @@
             "noPorts": "未检测到串口。请检查 /boot/config.txt 中的UART overlay配置",
             "notAvailable": "serialport 包未安装。请运行：npm install serialport"
         },
+        "soundBank": {
+            "title": "音色库",
+            "description": "用于音频合成的采样库。较轻的音色库可减少内存使用。",
+            "changed": "音色库已更改",
+            "quality": {
+                "high": "高品质",
+                "medium": "中等",
+                "low": "轻量"
+            },
+            "banks": {
+                "FluidR3_GM": "参考级GM音色库。覆盖全部128种乐器的丰富细腻采样。整体质量最佳，但下载量最大。",
+                "GeneralUserGS": "高保真GM/GS音色库。音质与体积的出色平衡。温暖自然的乐器音色。",
+                "JCLive": "基于现场录音的音色库。有力的鼓声，明亮的铜管。非常适合摇滚、爵士和现场风格。",
+                "Aspirin": "干净、均衡的音色库。柔和的钢琴，清晰的弦乐。适合古典和流行音乐。",
+                "SBLive": "Creative Labs Sound Blaster Live音色库。可靠的全能型，带有怀旧特色。",
+                "Chaos": "轻量级创意音色库。加载快速，基础但实用的声音，适合快速预览。",
+                "SoundBlasterOld": "经典Sound Blaster音色库。占用最小，复古风格。适合低带宽使用。"
+            }
+        },
         "language": {
             "title": "语言",
             "select": "选择语言"

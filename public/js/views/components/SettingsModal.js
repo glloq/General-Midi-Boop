@@ -208,6 +208,21 @@ class SettingsModal {
             serialScanBtn.addEventListener('click', () => this.scanSerialPorts());
         }
 
+        const soundBankSelect = this.modal.querySelector('#soundBankSelect');
+        const soundBankDesc = this.modal.querySelector('#soundBankDescription');
+        if (soundBankSelect && soundBankDesc) {
+            soundBankSelect.addEventListener('change', (e) => {
+                const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
+                    ? MidiSynthesizer.getAvailableBanks() : [];
+                const selected = banks.find(b => b.id === e.target.value);
+                if (selected && selected.descKey) {
+                    soundBankDesc.textContent = i18n.t(selected.descKey) || i18n.t('settings.soundBank.description') || '';
+                } else {
+                    soundBankDesc.textContent = i18n.t('settings.soundBank.description') || '';
+                }
+            });
+        }
+
         const updateBtn = this.modal.querySelector('#systemUpdateBtn');
         if (updateBtn) {
             updateBtn.addEventListener('click', () => this.triggerSystemUpdate());

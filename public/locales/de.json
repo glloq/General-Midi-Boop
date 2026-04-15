@@ -101,6 +101,25 @@
             "noPorts": "Keine seriellen Ports gefunden. Überprüfen Sie die UART-Overlays in /boot/config.txt",
             "notAvailable": "serialport-Paket nicht installiert. Ausführen: npm install serialport"
         },
+        "soundBank": {
+            "title": "Klangbank",
+            "description": "Sample-Bibliothek für die Audio-Synthese. Leichtere Bänke reduzieren den Speicherverbrauch.",
+            "changed": "Klangbank geändert",
+            "quality": {
+                "high": "Hohe Qualität",
+                "medium": "Mittel",
+                "low": "Leicht"
+            },
+            "banks": {
+                "FluidR3_GM": "Referenz-GM-Bank. Reiche, detaillierte Samples für alle 128 Instrumente. Beste Gesamtqualität, aber größter Download.",
+                "GeneralUserGS": "High-Fidelity GM/GS-Bank. Ausgezeichnetes Gleichgewicht zwischen Qualität und Größe. Warme, natürlich klingende Instrumente.",
+                "JCLive": "Auf Live-Aufnahmen basierende Bank. Druckvolle Drums, helle Blechbläser. Ideal für Rock, Jazz und Live-Stile.",
+                "Aspirin": "Saubere, ausgewogene Bank. Sanfte Klaviere, klare Streicher. Gut für Klassik und Pop.",
+                "SBLive": "Creative Labs Sound Blaster Live Bank. Solider Allrounder mit nostalgischem Charakter.",
+                "Chaos": "Leichtgewichtige kreative Bank. Schnelles Laden, einfache aber funktionale Klänge für schnelle Vorschau.",
+                "SoundBlasterOld": "Klassische Sound Blaster Bank. Kleinster Speicherbedarf, Retro-Charakter. Ideal für geringe Bandbreite."
+            }
+        },
         "language": {
             "title": "Sprache",
             "select": "Sprache auswählen"

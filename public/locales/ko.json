@@ -101,6 +101,25 @@
             "noPorts": "시리얼 포트가 감지되지 않았습니다. /boot/config.txt의 UART 오버레이를 확인하세요",
             "notAvailable": "serialport 패키지가 설치되지 않았습니다. 실행: npm install serialport"
         },
+        "soundBank": {
+            "title": "사운드 뱅크",
+            "description": "오디오 합성을 위한 샘플 라이브러리. 가벼운 뱅크는 메모리 사용량을 줄입니다.",
+            "changed": "사운드 뱅크가 변경되었습니다",
+            "quality": {
+                "high": "고품질",
+                "medium": "보통",
+                "low": "가벼움"
+            },
+            "banks": {
+                "FluidR3_GM": "레퍼런스 GM 뱅크. 128개 악기 모두를 위한 풍부하고 세밀한 샘플. 최고의 종합 품질이지만 다운로드 용량이 가장 큼.",
+                "GeneralUserGS": "고충실도 GM/GS 뱅크. 품질과 크기의 훌륭한 균형. 따뜻하고 자연스러운 악기 소리.",
+                "JCLive": "라이브 녹음 기반 뱅크. 펀치 있는 드럼, 밝은 금관악기. 록, 재즈, 라이브 스타일에 적합.",
+                "Aspirin": "깨끗하고 균형 잡힌 뱅크. 부드러운 피아노, 맑은 현악기. 클래식과 팝에 적합.",
+                "SBLive": "Creative Labs Sound Blaster Live 뱅크. 향수를 불러일으키는 안정적인 올라운더.",
+                "Chaos": "경량 크리에이티브 뱅크. 빠른 로딩, 기본적이지만 기능적인 사운드로 빠른 미리듣기 가능.",
+                "SoundBlasterOld": "클래식 Sound Blaster 뱅크. 최소 용량, 레트로 느낌. 저대역폭 사용에 이상적."
+            }
+        },
         "language": {
             "title": "언어",
             "select": "언어 선택"

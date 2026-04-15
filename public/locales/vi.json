@@ -101,6 +101,25 @@
             "noPorts": "Không phát hiện cổng nối tiếp nào. Kiểm tra UART overlays trong /boot/config.txt",
             "notAvailable": "Gói serialport chưa được cài đặt. Chạy: npm install serialport"
         },
+        "soundBank": {
+            "title": "Ngân hàng âm thanh",
+            "description": "Thư viện mẫu âm thanh cho tổng hợp âm thanh. Ngân hàng nhẹ hơn giảm sử dụng bộ nhớ.",
+            "changed": "Ngân hàng âm thanh đã thay đổi",
+            "quality": {
+                "high": "Chất lượng cao",
+                "medium": "Trung bình",
+                "low": "Nhẹ"
+            },
+            "banks": {
+                "FluidR3_GM": "Ngân hàng GM tham chiếu. Mẫu phong phú, chi tiết cho tất cả 128 nhạc cụ. Chất lượng tổng thể tốt nhất nhưng tải nặng nhất.",
+                "GeneralUserGS": "Ngân hàng GM/GS độ trung thực cao. Cân bằng tuyệt vời giữa chất lượng và kích thước. Nhạc cụ ấm áp, tự nhiên.",
+                "JCLive": "Ngân hàng dựa trên thu âm trực tiếp. Trống mạnh mẽ, kèn đồng sáng. Tuyệt vời cho rock, jazz và phong cách trực tiếp.",
+                "Aspirin": "Ngân hàng sạch, cân bằng tốt. Piano mượt mà, dây trong trẻo. Tốt cho nhạc cổ điển và pop.",
+                "SBLive": "Ngân hàng Creative Labs Sound Blaster Live. Đa năng đáng tin cậy với phong cách hoài cổ.",
+                "Chaos": "Ngân hàng sáng tạo nhẹ. Tải nhanh, âm thanh cơ bản nhưng hữu dụng cho xem trước nhanh.",
+                "SoundBlasterOld": "Ngân hàng Sound Blaster cổ điển. Dung lượng nhỏ nhất, phong cách retro. Lý tưởng cho băng thông thấp."
+            }
+        },
         "language": {
             "title": "Ngôn ngữ",
             "select": "Chọn ngôn ngữ"

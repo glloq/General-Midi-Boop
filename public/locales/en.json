@@ -114,7 +114,21 @@
         "soundBank": {
             "title": "Sound Bank",
             "description": "Sample library for audio synthesis. Lighter banks reduce memory usage.",
-            "changed": "Sound bank changed"
+            "changed": "Sound bank changed",
+            "quality": {
+                "high": "High quality",
+                "medium": "Medium",
+                "low": "Light"
+            },
+            "banks": {
+                "FluidR3_GM": "Reference GM bank. Rich, detailed samples across all 128 instruments. Best overall quality but heaviest download.",
+                "GeneralUserGS": "High-fidelity GM/GS bank. Excellent balance of quality and size. Warm, natural-sounding instruments.",
+                "JCLive": "Live recording-based bank. Punchy drums, bright brass. Great for rock, jazz and live styles.",
+                "Aspirin": "Clean, well-balanced bank. Smooth pianos, clear strings. Good for classical and pop.",
+                "SBLive": "Creative Labs Sound Blaster Live bank. Solid all-rounder with nostalgic character.",
+                "Chaos": "Lightweight creative bank. Fast loading, basic but functional sounds for quick preview.",
+                "SoundBlasterOld": "Classic Sound Blaster bank. Smallest footprint, retro character. Ideal for low-bandwidth use."
+            }
         },
         "language": {
             "title": "Language",

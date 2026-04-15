@@ -101,6 +101,25 @@
             "noPorts": "Walang serial ports na na-detect. Suriin ang UART overlays sa /boot/config.txt",
             "notAvailable": "Hindi naka-install ang serialport package. Patakbuhin: npm install serialport"
         },
+        "soundBank": {
+            "title": "Sound Bank",
+            "description": "Library ng mga sample para sa audio synthesis. Ang mas magaan na bank ay nagbabawas ng paggamit ng memory.",
+            "changed": "Nabago ang sound bank",
+            "quality": {
+                "high": "Mataas na kalidad",
+                "medium": "Katamtaman",
+                "low": "Magaan"
+            },
+            "banks": {
+                "FluidR3_GM": "Reference na GM bank. Mayaman at detalyadong mga sample para sa lahat ng 128 instrumento. Pinakamahusay na kalidad ngunit pinakamalaking download.",
+                "GeneralUserGS": "High-fidelity na GM/GS bank. Mahusay na balanse ng kalidad at laki. Mainit at natural na tunog ng mga instrumento.",
+                "JCLive": "Bank na batay sa live recording. Malakas na drums, maliwanag na brass. Maganda para sa rock, jazz at live na estilo.",
+                "Aspirin": "Malinis at balansyadong bank. Malambot na piano, malinaw na strings. Maganda para sa classical at pop.",
+                "SBLive": "Creative Labs Sound Blaster Live bank. Solidong all-rounder na may nostalgic na karakter.",
+                "Chaos": "Magaan na creative bank. Mabilis mag-load, basic ngunit functional na mga tunog para sa mabilis na preview.",
+                "SoundBlasterOld": "Klasikong Sound Blaster bank. Pinakamaliit na footprint, retro na karakter. Ideal para sa mababang bandwidth."
+            }
+        },
         "language": {
             "title": "Wika",
             "select": "Pumili ng wika"

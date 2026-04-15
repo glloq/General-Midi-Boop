@@ -101,6 +101,25 @@
             "noPorts": "Nebyly nalezeny žádné sériové porty. Zkontrolujte UART overlay v /boot/config.txt",
             "notAvailable": "Balíček serialport není nainstalován. Spusťte: npm install serialport"
         },
+        "soundBank": {
+            "title": "Zvuková banka",
+            "description": "Knihovna vzorků pro zvukovou syntézu. Lehčí banky snižují využití paměti.",
+            "changed": "Zvuková banka změněna",
+            "quality": {
+                "high": "Vysoká kvalita",
+                "medium": "Střední",
+                "low": "Lehká"
+            },
+            "banks": {
+                "FluidR3_GM": "Referenční GM banka. Bohaté, detailní vzorky pro všech 128 nástrojů. Nejlepší celková kvalita, ale nejtěžší stahování.",
+                "GeneralUserGS": "Vysoce věrná GM/GS banka. Vynikající rovnováha kvality a velikosti. Teplé, přirozeně znějící nástroje.",
+                "JCLive": "Banka založená na živých nahrávkách. Razantní bicí, jasné žestě. Skvělá pro rock, jazz a živé styly.",
+                "Aspirin": "Čistá, dobře vyvážená banka. Jemné klavíry, čisté smyčce. Dobrá pro klasiku a pop.",
+                "SBLive": "Banka Creative Labs Sound Blaster Live. Solidní univerzál s nostalgickým charakterem.",
+                "Chaos": "Lehká kreativní banka. Rychlé načítání, základní ale funkční zvuky pro rychlý náhled.",
+                "SoundBlasterOld": "Klasická banka Sound Blaster. Nejmenší stopa, retro charakter. Ideální pro nízkou šířku pásma."
+            }
+        },
         "language": {
             "title": "Jazyk",
             "select": "Vybrat jazyk"

@@ -101,6 +101,25 @@
             "noPorts": "Ingen serielle porter funnet. Sjekk UART-overlays i /boot/config.txt",
             "notAvailable": "serialport-pakken er ikke installert. Kjør: npm install serialport"
         },
+        "soundBank": {
+            "title": "Lydbank",
+            "description": "Samplingsbibliotek for lydsyntese. Lettere banker reduserer minnebruken.",
+            "changed": "Lydbank endret",
+            "quality": {
+                "high": "Høy kvalitet",
+                "medium": "Middels",
+                "low": "Lett"
+            },
+            "banks": {
+                "FluidR3_GM": "Referanse-GM-bank. Rike, detaljerte samplinger for alle 128 instrumenter. Best overordnet kvalitet, men tyngste nedlasting.",
+                "GeneralUserGS": "GM/GS-bank med høy troskap. Utmerket balanse mellom kvalitet og størrelse. Varme, naturlig klingende instrumenter.",
+                "JCLive": "Bank basert på liveopptak. Kraftige trommer, lyse messinginstrumenter. Flott for rock, jazz og livestiler.",
+                "Aspirin": "Ren, velbalansert bank. Myke pianoer, klare strykere. Bra for klassisk og pop.",
+                "SBLive": "Creative Labs Sound Blaster Live-bank. Solid allrounder med nostalgisk karakter.",
+                "Chaos": "Lettvekts kreativ bank. Rask lasting, grunnleggende men funksjonelle lyder for rask forhåndsvisning.",
+                "SoundBlasterOld": "Klassisk Sound Blaster-bank. Minste fotavtrykk, retrokarakter. Ideell for lav båndbredde."
+            }
+        },
         "language": {
             "title": "Språk",
             "select": "Velg språk"

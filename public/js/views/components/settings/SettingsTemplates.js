@@ -203,9 +203,9 @@
                     </div>
                 </div>
 
-                <!-- Banque son -->
+                <!-- Sound bank -->
                 <div class="settings-section" style="margin-top: 24px;">
-                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🔊 ${i18n.t('settings.soundBank.title') || 'Banque de sons'}</h3>
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🔊 ${i18n.t('settings.soundBank.title') || 'Sound Bank'}</h3>
                     <div class="language-selector-container" style="position: relative;">
                         <select id="soundBankSelect" class="language-select" style="
                             width: 100%;
@@ -225,19 +225,20 @@
                             ${(typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
                                 ? MidiSynthesizer.getAvailableBanks()
                                 : [
-                                    { id: 'FluidR3_GM', label: 'FluidR3 GM' },
-                                    { id: 'Aspirin', label: 'Aspirin' },
-                                    { id: 'GeneralUserGS', label: 'GeneralUser GS' },
-                                    { id: 'JCLive', label: 'JCLive' },
-                                    { id: 'SBLive', label: 'Sound Blaster Live' },
-                                    { id: 'SoundBlasterOld', label: 'Sound Blaster Old' },
-                                    { id: 'Chaos', label: 'Chaos' },
+                                    { id: 'FluidR3_GM', label: 'FluidR3 GM', quality: 'high', sizeMB: 141 },
+                                    { id: 'GeneralUserGS', label: 'GeneralUser GS', quality: 'high', sizeMB: 30 },
+                                    { id: 'JCLive', label: 'JCLive', quality: 'medium', sizeMB: 26 },
+                                    { id: 'Aspirin', label: 'Aspirin', quality: 'medium', sizeMB: 17 },
+                                    { id: 'SBLive', label: 'Sound Blaster Live', quality: 'medium', sizeMB: 12 },
+                                    { id: 'Chaos', label: 'Chaos', quality: 'low', sizeMB: 8 },
+                                    { id: 'SoundBlasterOld', label: 'Sound Blaster Old', quality: 'low', sizeMB: 5 },
                                 ]
-                            ).map(bank => `
-                                <option value="${bank.id}" ${bank.id === this.settings.soundBank ? 'selected' : ''}>
-                                    ${bank.label}
-                                </option>
-                            `).join('')}
+                            ).map(bank => {
+                                const qualityLabel = i18n.t('settings.soundBank.quality.' + (bank.quality || 'medium')) || bank.quality || '';
+                                const sizeLabel = bank.sizeMB ? `~${bank.sizeMB} MB` : '';
+                                const suffix = (qualityLabel || sizeLabel) ? ` (${[qualityLabel, sizeLabel].filter(Boolean).join(' · ')})` : '';
+                                return `<option value="${bank.id}" ${bank.id === this.settings.soundBank ? 'selected' : ''}>${bank.label}${suffix}</option>`;
+                            }).join('')}
                         </select>
                         <span style="
                             position: absolute;
@@ -249,8 +250,15 @@
                             font-size: 12px;
                         ">&#x25BC;</span>
                     </div>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-secondary, #666);">
-                        ${i18n.t('settings.soundBank.description') || 'Bibliothèque de samples pour la synthèse audio. Les banques légères réduisent l\'usage mémoire.'}
+                    <p id="soundBankDescription" style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-secondary, #666);">
+                        ${(() => {
+                            const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks ? MidiSynthesizer.getAvailableBanks() : [];
+                            const selected = banks.find(b => b.id === this.settings.soundBank);
+                            if (selected && selected.descKey) {
+                                return i18n.t(selected.descKey) || i18n.t('settings.soundBank.description') || '';
+                            }
+                            return i18n.t('settings.soundBank.description') || 'Sample library for audio synthesis. Lighter banks reduce memory usage.';
+                        })()}
                     </p>
                 </div>
             </div>

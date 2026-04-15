@@ -101,6 +101,25 @@
             "noPorts": "Nie wykryto portów szeregowych. Sprawdź nakładki UART w /boot/config.txt",
             "notAvailable": "Pakiet serialport nie jest zainstalowany. Uruchom: npm install serialport"
         },
+        "soundBank": {
+            "title": "Bank dźwięków",
+            "description": "Biblioteka sampli do syntezy dźwięku. Lżejsze banki zmniejszają zużycie pamięci.",
+            "changed": "Bank dźwięków zmieniony",
+            "quality": {
+                "high": "Wysoka jakość",
+                "medium": "Średnia",
+                "low": "Lekka"
+            },
+            "banks": {
+                "FluidR3_GM": "Referencyjna baza GM. Bogate, szczegółowe sample dla wszystkich 128 instrumentów. Najlepsza jakość, ale najcięższy plik do pobrania.",
+                "GeneralUserGS": "Wysokiej jakości bank GM/GS. Doskonała równowaga między jakością a rozmiarem. Ciepłe, naturalnie brzmiące instrumenty.",
+                "JCLive": "Bank oparty na nagraniach na żywo. Dynamiczne perkusje, jasne instrumenty dęte. Świetny do rocka, jazzu i stylów na żywo.",
+                "Aspirin": "Czysty, dobrze zbalansowany bank. Łagodne fortepiany, czyste smyczki. Dobry do muzyki klasycznej i pop.",
+                "SBLive": "Bank Creative Labs Sound Blaster Live. Solidny uniwersalny bank z nostalgicznym charakterem.",
+                "Chaos": "Lekki kreatywny bank. Szybkie ładowanie, podstawowe ale funkcjonalne dźwięki do szybkiego podglądu.",
+                "SoundBlasterOld": "Klasyczny bank Sound Blaster. Najmniejszy rozmiar, retro charakter. Idealny przy niskiej przepustowości."
+            }
+        },
         "language": {
             "title": "Język",
             "select": "Wybierz język"

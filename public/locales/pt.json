@@ -101,6 +101,25 @@
             "noPorts": "Nenhuma porta serial detectada. Verifique os overlays UART em /boot/config.txt",
             "notAvailable": "Pacote serialport não instalado. Execute: npm install serialport"
         },
+        "soundBank": {
+            "title": "Banco de sons",
+            "description": "Biblioteca de amostras para síntese de áudio. Bancos mais leves reduzem o uso de memória.",
+            "changed": "Banco de sons alterado",
+            "quality": {
+                "high": "Alta qualidade",
+                "medium": "Média",
+                "low": "Leve"
+            },
+            "banks": {
+                "FluidR3_GM": "Banco GM de referência. Amostras ricas e detalhadas para todos os 128 instrumentos. Melhor qualidade geral, mas download mais pesado.",
+                "GeneralUserGS": "Banco GM/GS de alta fidelidade. Excelente equilíbrio entre qualidade e tamanho. Instrumentos quentes e com som natural.",
+                "JCLive": "Banco baseado em gravações ao vivo. Bateria potente, metais brilhantes. Ótimo para rock, jazz e estilos ao vivo.",
+                "Aspirin": "Banco limpo e equilibrado. Pianos suaves, cordas claras. Bom para clássico e pop.",
+                "SBLive": "Banco Creative Labs Sound Blaster Live. Versátil com caráter nostálgico.",
+                "Chaos": "Banco criativo leve. Carregamento rápido, sons básicos mas funcionais para pré-visualização rápida.",
+                "SoundBlasterOld": "Banco Sound Blaster clássico. Menor pegada, caráter retrô. Ideal para uso com baixa largura de banda."
+            }
+        },
         "language": {
             "title": "Idioma",
             "select": "Selecionar idioma"
