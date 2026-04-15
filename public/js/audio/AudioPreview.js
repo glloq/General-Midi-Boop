@@ -34,6 +34,10 @@ class AudioPreview {
       }
       this.synthesizer = new window.MidiSynthesizer();
       await this.synthesizer.initialize();
+    } else if (this.synthesizer.setSoundBank) {
+      // Synchroniser la banque son avec le réglage courant
+      const savedBank = window.MidiSynthesizer.getSavedBank();
+      this.synthesizer.setSoundBank(savedBank);
     }
     return this.synthesizer;
   }

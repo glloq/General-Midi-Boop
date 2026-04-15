@@ -26,6 +26,11 @@ class MidiEditorPlayback {
     async initSynthesizer() {
         const m = this.modal;
         if (m.synthesizer) {
+            // Synchroniser la banque son avec le réglage courant
+            if (m.synthesizer.setSoundBank) {
+                const savedBank = MidiSynthesizer.getSavedBank();
+                m.synthesizer.setSoundBank(savedBank);
+            }
             return true;
         }
 
