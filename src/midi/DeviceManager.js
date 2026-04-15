@@ -10,6 +10,7 @@ try {
 } catch (e) {
   // Native MIDI library not available (missing ALSA headers or build tools)
   // Server will still start but without hardware MIDI support
+  // eslint-disable-next-line no-console
   console.warn(`[DeviceManager] MIDI library not available: ${e.message}`);
   easymidi = {
     getInputs: () => [],
@@ -212,7 +213,7 @@ class DeviceManager {
     const usbDevices = Array.from(this.devices.values());
     const allDevices = [...usbDevices];
 
-    // Ajouter les peripheriques Bluetooth apaires et connectes
+    // Add paired and connected Bluetooth devices
     if (this.app.bluetoothManager) {
       const pairedDevices = this.app.bluetoothManager.getPairedDevices() || [];
 
@@ -234,7 +235,7 @@ class DeviceManager {
       allDevices.push(...connectedBluetoothDevices);
     }
 
-    // Ajouter les peripheriques reseau connectes
+    // Add connected network devices
     if (this.app.networkManager) {
       const networkDevices = (this.app.networkManager.getConnectedDevices() || [])
         .map(device => ({
@@ -254,7 +255,7 @@ class DeviceManager {
       allDevices.push(...networkDevices);
     }
 
-    // Ajouter les peripheriques serie MIDI (GPIO UART)
+    // Add serial MIDI devices (GPIO UART)
     if (this.app.serialMidiManager) {
       const serialPorts = (this.app.serialMidiManager.getConnectedPorts() || [])
         .map(port => ({
@@ -273,7 +274,7 @@ class DeviceManager {
       allDevices.push(...serialPorts);
     }
 
-    // Dedupliquer par nom
+    // Deduplicate by name
     const typePriority = { network: 0, bluetooth: 1, serial: 2, usb: 3, virtual: 4 };
     allDevices.sort((a, b) => (typePriority[a.type] ?? 99) - (typePriority[b.type] ?? 99));
     const uniqueDevices = [];
@@ -328,7 +329,7 @@ class DeviceManager {
         try {
           const settings = this.app.database.getInstrumentSettings(deviceName, data.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
-        } catch (e) { /* ignore */ }
+        } catch (e) { /* instrument name lookup is optional for monitor events */ }
       }
       this.app.wsServer.broadcast('monitor_event', {
         device: deviceName,
@@ -783,7 +784,7 @@ class DeviceManager {
       try {
         const settings = this.app.database.getDeviceSettings(deviceId);
         if (settings) limit = settings.message_rate_limit || 0;
-      } catch (_e) { /* ignore */ }
+      } catch (_e) { /* device settings may not exist yet */ }
     }
     this._rateLimitCache.set(deviceId, limit);
     return limit;

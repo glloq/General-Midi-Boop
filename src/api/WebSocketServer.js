@@ -222,7 +222,7 @@ class WebSocketServer {
         stale.push(client);
       }
     });
-    // Prune stale clients
+    // Remove stale clients
     for (const client of stale) {
       this.clients.delete(client);
     }

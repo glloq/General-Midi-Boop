@@ -1,6 +1,6 @@
 # Audit de la Structure du Code — Ma-est-tro
 
-> Derniere mise a jour : 3 avril 2026
+> Derniere mise a jour : 15 avril 2026
 
 ## 1. Vue d'ensemble
 
@@ -302,6 +302,65 @@ const originalNote = event.note ?? event.noteNumber;
 
 ---
 
+### 3.18. CORRIGE — `no-console` ESLint desactive
+
+**Probleme** : La regle ESLint `no-console` etait sur `"off"`, autorisant les `console.log/warn/error` partout au lieu d'utiliser le Logger.
+
+**Correction** :
+- Regle changee en `"warn"` dans `.eslintrc.json`
+- 12 instances corrigees : `EventBus.js` (logger optionnel injecte), `RtpMidiSession.js` (remplace par `this.emit('log',...)`), `InstrumentSettingsCommands.js` (utilise `app.logger`)
+- `Config.js`, `Logger.js`, `DeviceManager.js` : gardes avec `eslint-disable-next-line` (pre-init ou logger lui-meme)
+
+---
+
+### 3.19. CORRIGE — Catch blocks vides sans logging
+
+**Probleme** : 15 `catch` blocks avec `/* ignore */` sans aucun contexte, rendant le debugging impossible.
+
+**Correction** : Ajout de logging `debug` ou commentaires explicatifs dans tous les catch blocks :
+- `BluetoothManager.js`, `PlaybackCommands.js`, `LightingCommands.js` : ajout `logger.debug()`
+- `MidiClockGenerator.js`, `MidiRouter.js`, `DeviceManager.js` : commentaires explicatifs
+- `DeviceCommands.js`, `FileCommands.js`, `RoutingCommands.js`, `DelayCalibrator.js` : deja acceptables (commentaires existants)
+
+---
+
+### 3.20. CORRIGE — Commentaires en francais dans le backend
+
+**Probleme** : 106 commentaires en francais repartis dans 25 fichiers backend, alors que le code est en anglais.
+
+**Correction** : Traduction de tous les commentaires FR -> EN dans les 25 fichiers concernes.
+
+---
+
+### 3.21. CORRIGE — Nommage de fichier incoherent `KeyboardModal_NEW.js`
+
+**Probleme** : `KeyboardModal_NEW.js` utilise un underscore, violant la convention PascalCase utilisee partout.
+
+**Correction** : Renomme en `KeyboardModal.js`, references mises a jour dans `index.html` et les 3 fichiers `keyboard/*.js`.
+
+---
+
+### 3.22. CORRIGE — Constantes dupliquees dans PlaybackScheduler.js
+
+**Probleme** : `PlaybackScheduler.js` redefinissait localement `SCHEDULER_TICK_MS`, `LOOKAHEAD_SECONDS`, `MAX_COMPENSATION_MS` et 3 constantes MIDI CC qui existaient deja dans `constants.js`.
+
+**Correction** : Remplacement par `import { TIMING, MIDI_CC } from '../constants.js'` avec destructuring.
+
+---
+
+### 3.23. MOYEN — innerHTML sans echappement (risque XSS)
+
+**Probleme** : 167 usages de `innerHTML =` dans 48 fichiers frontend. `escapeHtml()` n'est utilise que dans 18 fichiers (104 usages). Les 30 fichiers restants inserent du HTML sans echappement systematique.
+
+**Etat** : La plupart des cas inserent du HTML statique ou des valeurs i18n (faible risque). Les cas a risque sont ceux qui inserent des donnees utilisateur (noms d'appareils, noms de fichiers).
+
+**Recommandation** :
+1. Audit detaille des 30 fichiers sans `escapeHtml` pour identifier les vecteurs XSS reels
+2. Ajouter `escapeHtml()` autour de toute donnee utilisateur inseree via innerHTML
+3. Envisager une migration vers `textContent` pour les cas sans HTML structure
+
+---
+
 ## 4. Plan d'Action Recommande
 
 ### Phase 1 — Corrections immediates (fait)
@@ -309,24 +368,29 @@ const originalNote = event.note ?? event.noteNumber;
 2. ~~Dedupliquer constantes MIDI (MidiUtils.js importe depuis constants.js)~~
 3. ~~Centraliser magic numbers (WebSocketServer, MidiRouter)~~
 4. ~~Ajouter methode manquante dans Database facade~~
+5. ~~Activer `no-console` ESLint et corriger les 12 instances~~
+6. ~~Ajouter logging/commentaires dans les 15 catch blocks vides~~
+7. ~~Traduire les 106 commentaires francais en anglais~~
+8. ~~Renommer `KeyboardModal_NEW.js` en `KeyboardModal.js`~~
+9. ~~Dedupliquer constantes dans `PlaybackScheduler.js`~~
 
 ### Phase 2 — Qualite (court terme)
-5. Reduire le seuil ESLint progressivement (150 -> 100 -> 50 -> 0)
-6. Ajouter des tests pour MidiPlayer, MidiRouter, FileManager
-7. Ajouter un seuil de couverture dans le CI
-8. Corriger les vulnerabilites npm quand les fixes sont disponibles
+10. Auditer les 30 fichiers frontend avec innerHTML sans escapeHtml
+11. Ajouter des tests pour MidiPlayer, MidiRouter, FileManager
+12. Ajouter un seuil de couverture dans le CI
+13. Corriger les vulnerabilites npm quand les fixes sont disponibles
 
 ### Phase 3 — Architecture (moyen terme)
-9. Migrer les services restants vers l'injection explicite par `deps`
-10. Enregistrer les sous-modules DB directement dans le ServiceContainer
-11. Decouper les fichiers >700 lignes (voir tableau 3.8)
-12. Structurer le frontend avec Vite + ES modules
+14. Migrer les services restants vers l'injection explicite par `deps`
+15. Enregistrer les sous-modules DB directement dans le ServiceContainer
+16. Decouper les fichiers >700 lignes (voir tableau 3.8)
+17. Structurer le frontend avec Vite + ES modules
 
 ### Phase 4 — Long terme
-13. Atteindre 50%+ de couverture de tests
-14. Evaluer la migration TypeScript
-15. Reduire les `!important` CSS et corriger l'accessibilite WCAG
-16. Envisager un framework frontend leger pour les composants complexes
+18. Atteindre 50%+ de couverture de tests
+19. Evaluer la migration TypeScript
+20. Reduire les `!important` CSS et corriger l'accessibilite WCAG
+21. Envisager un framework frontend leger pour les composants complexes
 
 ---
 
@@ -335,9 +399,11 @@ const originalNote = event.note ?? event.noteNumber;
 | Metrique | Actuel | Cible Phase 2 | Cible Phase 4 |
 |---|---|---|---|
 | Couverture tests backend | ~8% | 30% | 60% |
-| ESLint warnings max | 1 | 1 | 0 |
+| ESLint no-console | warn | warn | error |
 | Fichiers >700 lignes (backend) | 11 | 8 | 3 |
 | Services avec DI explicite (`deps`) | ~5/15 | 10/15 | 15/15 |
 | Fichiers test / fichiers source | 13/165 | 30/165 | 60/165 |
-| Vulnerabilites npm (HIGH) | 2 | 0 | 0 |
+| Vulnerabilites npm (HIGH) | 3 | 0 | 0 |
+| innerHTML sans escapeHtml | 30 fichiers | 10 fichiers | 0 fichiers |
+| Commentaires FR dans le backend | 0 | 0 | 0 |
 | CSS `!important` | 362 | 200 | 50 |

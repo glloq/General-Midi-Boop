@@ -1,5 +1,5 @@
 // ============================================================================
-// Fichier: KeyboardModal_NEW.js - VERSION DIVs (Pas de Canvas!)
+// KeyboardModal.js - DIV-based keyboard (no Canvas)
 // Version: 1.1.0 - Support i18n
 // ============================================================================
 

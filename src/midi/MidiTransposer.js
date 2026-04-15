@@ -4,12 +4,12 @@
 const MIDI_NOTE_MIN = 0;
 const MIDI_NOTE_MAX = 127;
 /**
- * MidiTransposer - Applique des transpositions à des fichiers MIDI
+ * MidiTransposer - Applies transpositions to MIDI files
  *
- * Permet de :
- * - Transposer des canaux par octaves (multiples de 12 semitones)
- * - Remapper des notes (pour drums/pads discrets)
- * - Créer des fichiers dérivés avec métadonnées de transformation
+ * Allows:
+ * - Transposing channels by octaves (multiples of 12 semitones)
+ * - Remapping notes (for drums/discrete pads)
+ * - Creating derived files with transformation metadata
  */
 class MidiTransposer {
   constructor(logger) {
@@ -17,16 +17,16 @@ class MidiTransposer {
   }
 
   /**
-   * Applique des transpositions à plusieurs canaux (single-pass pipeline).
+   * Apply transpositions to multiple channels (single-pass pipeline).
    * Handles transposition, note remapping, out-of-range suppression,
    * CC remapping, and polyphony reduction in one pass per track.
-   * @param {Object} midiData - Fichier MIDI parsé
+   * @param {Object} midiData - Parsed MIDI file
    * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax, ccMapping, maxPolyphony, polyStrategy } }
    *   polyStrategy: 'drop' (default, remove inner voices) or 'shorten' (shorten NoteOff to reduce overlap)
    * @returns {Object} - { midiData, stats }
    */
   transposeChannels(midiData, transpositions) {
-    // Shallow clone + deep clone des tracks seulement (plus performant)
+    // Shallow clone + deep clone tracks only (more performant)
     const modifiedData = {
       ...midiData,
       tracks: midiData.tracks.map(track => ({
@@ -59,7 +59,7 @@ class MidiTransposer {
         if (!transposition) continue;
 
         let eventModified = false;
-        let newEvent = event; // Par défaut, garder la référence
+        let newEvent = event; // By default, keep the reference
 
         // Process note events (noteOn, noteOff)
         if (event.type === 'noteOn' || event.type === 'noteOff') {
@@ -220,7 +220,7 @@ class MidiTransposer {
           }
         }
 
-        // Remplacer l'événement si modifié
+        // Replace the event if modified
         if (eventModified) {
           track.events[i] = newEvent;
         }
@@ -264,7 +264,7 @@ class MidiTransposer {
   }
 
   /**
-   * Applique une transposition à un seul canal
+   * Apply a transposition to a single channel
    * @param {Object} midiData
    * @param {number} channel
    * @param {number} semitones
@@ -277,7 +277,7 @@ class MidiTransposer {
   }
 
   /**
-   * Applique un remapping de notes (pour drums)
+   * Apply a note remapping (for drums)
    * @param {Object} midiData
    * @param {number} channel
    * @param {Object} mapping - { oldNote: newNote }
@@ -290,7 +290,7 @@ class MidiTransposer {
   }
 
   /**
-   * Clamp une note à la plage MIDI valide (0-127)
+   * Clamp a note to the valid MIDI range (0-127)
    * @param {number} note
    * @returns {number}
    */
@@ -299,7 +299,7 @@ class MidiTransposer {
   }
 
   /**
-   * Compte le nombre total de notes dans un fichier MIDI
+   * Count the total number of notes in a MIDI file
    * @param {Object} midiData
    * @returns {number}
    */
@@ -573,9 +573,9 @@ class MidiTransposer {
   }
 
   /**
-   * Génère les métadonnées d'adaptation pour un fichier dérivé
-   * @param {Object} assignments - Assignations appliquées
-   * @param {Object} stats - Statistiques de transposition
+   * Generate adaptation metadata for a derived file
+   * @param {Object} assignments - Applied assignments
+   * @param {Object} stats - Transposition statistics
    * @returns {Object}
    */
   generateAdaptationMetadata(assignments, stats) {

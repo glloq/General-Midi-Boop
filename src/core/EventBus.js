@@ -3,9 +3,10 @@
 const MAX_LISTENERS_PER_EVENT = 50;
 
 class EventBus {
-  constructor() {
+  constructor(logger = null) {
     this.listeners = new Map();
     this.maxListenersPerEvent = MAX_LISTENERS_PER_EVENT;
+    this._logger = logger;
   }
 
   on(event, callback) {
@@ -15,7 +16,13 @@ class EventBus {
     const list = this.listeners.get(event);
     list.push(callback);
     if (list.length > this.maxListenersPerEvent) {
-      console.warn(`EventBus: possible memory leak — ${list.length} listeners for "${event}" (max ${this.maxListenersPerEvent})`);
+      const msg = `EventBus: possible memory leak — ${list.length} listeners for "${event}" (max ${this.maxListenersPerEvent})`;
+      if (this._logger) {
+        this._logger.warn(msg);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(msg);
+      }
     }
   }
 
@@ -56,7 +63,12 @@ class EventBus {
       try {
         callbacks[i](data);
       } catch (error) {
-        console.error(`EventBus error in ${event} handler:`, error);
+        if (this._logger) {
+          this._logger.error(`EventBus error in ${event} handler:`, error);
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(`EventBus error in ${event} handler:`, error);
+        }
       }
     }
   }

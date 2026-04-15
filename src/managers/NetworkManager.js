@@ -2,10 +2,10 @@
 // src/managers/NetworkManager.js
 // ============================================================================
 // Description:
-//   Gère les instruments MIDI via réseau/WiFi
-//   - Scan du réseau local pour trouver des instruments
-//   - Connexion/déconnexion aux instruments réseau
-//   - Gestion des instruments connectés via réseau
+//   Manages MIDI instruments over network/WiFi
+//   - Scan the local network to discover instruments
+//   - Connect/disconnect network instruments
+//   - Manage instruments connected via network
 // ============================================================================
 
 import EventEmitter from 'events';
@@ -27,44 +27,44 @@ class NetworkManager extends EventEmitter {
     this.connectedDevices = new Map(); // Map of IP -> connection info
     this.rtpSessions = new Map(); // Map of IP -> RtpMidiSession
 
-    // Ports MIDI over network couramment utilisés
+    // Commonly used MIDI over network ports
     this.MIDI_NETWORK_PORTS = [
       5004, // RTP-MIDI (Apple Network MIDI)
       5353, // mDNS
       21928, // RTP-MIDI session
-      7000, 7001, 7002 // Ports personnalisés souvent utilisés
+      7000, 7001, 7002 // Custom ports commonly used
     ];
 
     this.app.logger.info('NetworkManager initialized with RTP-MIDI support');
   }
 
   /**
-   * Obtient le sous-réseau local à scanner
-   * @returns {string} Sous-réseau local (ex: "192.168.1")
+   * Get the local subnet to scan
+   * @returns {string} Local subnet (e.g. "192.168.1")
    */
   getLocalSubnet() {
     const interfaces = os.networkInterfaces();
 
     for (const name in interfaces) {
       for (const iface of interfaces[name]) {
-        // Ignorer les interfaces loopback et non IPv4
+        // Skip loopback and non-IPv4 interfaces
         if (iface.family === 'IPv4' && !iface.internal) {
           const parts = iface.address.split('.');
-          // Retourner le sous-réseau de classe C
+          // Return the class C subnet
           return `${parts[0]}.${parts[1]}.${parts[2]}`;
         }
       }
     }
 
-    // Fallback au sous-réseau par défaut
+    // Fallback to default subnet
     return '192.168.1';
   }
 
   /**
-   * Scan du réseau local pour trouver des instruments
-   * @param {number} timeout - Timeout en secondes
-   * @param {boolean} fullScan - Si true, scan toutes les IPs du subnet (pas seulement RTP-MIDI)
-   * @returns {Promise<Array>} Liste des instruments trouvés
+   * Scan the local network to discover instruments
+   * @param {number} timeout - Timeout in seconds
+   * @param {boolean} fullScan - If true, scan all subnet IPs (not just RTP-MIDI)
+   * @returns {Promise<Array>} List of discovered instruments
    */
   async startScan(timeout = 5, fullScan = true) {
     if (this.scanning) {
@@ -82,10 +82,10 @@ class NetworkManager extends EventEmitter {
       const subnet = this.getLocalSubnet();
       this.app.logger.info(`Scanning subnet: ${subnet}.0/24`);
 
-      // Méthode 1: Scan mDNS pour services MIDI
+      // Method 1: mDNS scan for MIDI services
       await this.scanMDNS(timeout);
 
-      // Méthode 2: Scan complet du subnet (toutes les IPs)
+      // Method 2: Full subnet scan (all IPs)
       if (fullScan) {
         await this.scanSubnetIPs(subnet, timeout);
       }
@@ -104,16 +104,16 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Scan mDNS pour découvrir les services MIDI sur le réseau
-   * @param {number} timeout - Timeout en secondes
+   * mDNS scan to discover MIDI services on the network
+   * @param {number} timeout - Timeout in seconds
    */
   async scanMDNS(timeout) {
     try {
-      // Utiliser avahi-browse sur Linux pour découvrir les services
+      // Use avahi-browse on Linux to discover services
       if (process.platform === 'linux') {
         this.app.logger.debug('Using avahi-browse for mDNS discovery...');
 
-        // Scanner les services RTP-MIDI et Apple MIDI spécifiquement
+        // Scan specifically for RTP-MIDI and Apple MIDI services
         const serviceTypes = [
           '_apple-midi._udp',
           '_rtpmidi._udp',
@@ -136,7 +136,7 @@ class NetworkManager extends EventEmitter {
           }
         }
 
-        // Fallback: scanner tous les services si aucun résultat spécifique
+        // Fallback: scan all services if no specific results found
         if (this.devices.size === 0) {
           try {
             const { stdout } = await execFileAsync(
@@ -153,7 +153,7 @@ class NetworkManager extends EventEmitter {
         }
       }
 
-      // Ajouter des périphériques de test pour le développement
+      // Add test devices for development
       this.addTestDevices();
 
     } catch (error) {
@@ -162,8 +162,8 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Parse la sortie de avahi-browse
-   * @param {string} output - Sortie de avahi-browse
+   * Parse the avahi-browse output
+   * @param {string} output - avahi-browse output
    */
   parseMDNSOutput(output) {
     const lines = output.split('\n');
@@ -183,7 +183,7 @@ class NetworkManager extends EventEmitter {
           ip: ip,
           address: ip,
           port: port,
-          name: name || `Instrument réseau (${ip})`,
+          name: name || `Network instrument (${ip})`,
           type: 'network',
           manufacturer: 'Unknown',
           protocol: 'RTP-MIDI'
@@ -196,9 +196,9 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Scan complet du subnet pour trouver toutes les IPs accessibles
-   * @param {string} subnet - Sous-réseau à scanner (ex: "192.168.1")
-   * @param {number} timeout - Timeout en secondes
+   * Full subnet scan to find all reachable IPs
+   * @param {string} subnet - Subnet to scan (e.g. "192.168.1")
+   * @param {number} timeout - Timeout in seconds
    */
   async scanSubnetIPs(subnet, _timeout) {
     this.app.logger.info(`[NetworkManager] Scanning full subnet ${subnet}.0/24...`);
@@ -207,7 +207,7 @@ class NetworkManager extends EventEmitter {
     const localIP = this.getLocalIP();
     let ipFoundCount = 0;
 
-    // Scanner les IPs de .1 à .254 (exclure .0 et .255)
+    // Scan IPs from .1 to .254 (exclude .0 and .255)
     for (let i = 1; i <= 254; i++) {
       // Check cancellation between batches
       if (!this.scanning) {
@@ -217,14 +217,14 @@ class NetworkManager extends EventEmitter {
 
       const ip = `${subnet}.${i}`;
 
-      // Éviter de scanner notre propre IP
+      // Skip our own IP
       if (ip === localIP) continue;
 
-      // Tester l'accessibilité via TCP multi-ports
+      // Test reachability via multi-port TCP
       const pingPromise = this.isHostReachable(ip, 1000)
         .then(isReachable => {
           if (isReachable) {
-            // Ne pas ajouter si déjà découvert via mDNS
+            // Don't add if already discovered via mDNS
             if (!this.devices.has(ip)) {
               const deviceInfo = {
                 ip: ip,
@@ -243,33 +243,33 @@ class NetworkManager extends EventEmitter {
           }
         })
         .catch(() => {
-          // Ignorer les erreurs de ping
+          // Ignore ping errors
         });
 
       pingPromises.push(pingPromise);
 
-      // Traiter par batch de 15 (limit concurrent connections on RPi)
+      // Process in batches of 15 (limit concurrent connections on RPi)
       if (pingPromises.length >= 15) {
         await Promise.all(pingPromises);
-        pingPromises.length = 0; // Vider le tableau
+        pingPromises.length = 0; // Clear the array
       }
     }
 
-    // Attendre les derniers pings
+    // Wait for the remaining pings
     if (pingPromises.length > 0) {
       await Promise.all(pingPromises);
     }
 
     this.app.logger.info(`[NetworkManager] TCP scan done - ${ipFoundCount} IPs found, reading ARP table...`);
 
-    // Les TCP connects ont déclenché des requêtes ARP pour chaque IP.
-    // Lire la table ARP pour trouver les hôtes qui ont répondu à l'ARP
-    // mais pas au TCP (firewall DROP). L'ARP est Layer 2, obligatoire.
+    // The TCP connects triggered ARP requests for each IP.
+    // Read the ARP table to find hosts that responded to ARP
+    // but not to TCP (firewall DROP). ARP is Layer 2, mandatory.
     const arpCount = await this.readARPTable(subnet, localIP);
 
     this.app.logger.info(`[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`);
 
-    // Si aucune IP trouvée, ajouter des devices de test (environnement dev uniquement)
+    // If no IPs found, add test devices (dev environment only)
     if (this.devices.size === 0 && process.env.NODE_ENV !== 'production') {
       this.app.logger.warn('[NetworkManager] No IPs found - adding test devices for development');
       this.addTestDevicesIP(subnet);
@@ -277,12 +277,12 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Lit la table ARP du système pour trouver les hôtes actifs.
-   * Après un scan TCP, la table ARP contient les entrées de tous les hôtes
-   * qui ont répondu aux requêtes ARP (Layer 2), même ceux avec firewall DROP.
-   * @param {string} subnet - Sous-réseau à filtrer
-   * @param {string} localIP - IP locale à exclure
-   * @returns {Promise<number>} Nombre de devices ajoutés via ARP
+   * Read the system ARP table to find active hosts.
+   * After a TCP scan, the ARP table contains entries for all hosts
+   * that responded to ARP requests (Layer 2), even those with firewall DROP.
+   * @param {string} subnet - Subnet to filter
+   * @param {string} localIP - Local IP to exclude
+   * @returns {Promise<number>} Number of devices added via ARP
    */
   async readARPTable(subnet, localIP) {
     let count = 0;
@@ -300,7 +300,7 @@ class NetworkManager extends EventEmitter {
         const ip = match[1];
         const state = match[3]; // REACHABLE, STALE, DELAY, PROBE
 
-        // Filtrer: bon subnet, pas notre IP, pas FAILED, pas déjà trouvé
+        // Filter: correct subnet, not our IP, not FAILED, not already found
         if (!ip.startsWith(subnet + '.')) continue;
         if (ip === localIP) continue;
         if (state === 'FAILED') continue;
@@ -326,8 +326,8 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Ajoute des IPs de test pour l'environnement de développement
-   * @param {string} subnet - Sous-réseau
+   * Add test IPs for the development environment
+   * @param {string} subnet - Subnet
    */
   addTestDevicesIP(subnet) {
     if (process.env.NODE_ENV === 'production') return;
@@ -359,8 +359,8 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Obtient l'adresse IP locale
-   * @returns {string} Adresse IP locale
+   * Get the local IP address
+   * @returns {string} Local IP address
    */
   getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -377,17 +377,17 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Ajoute des périphériques de test (pour le développement)
+   * Add test devices (for development)
    */
   addTestDevices() {
     if (process.env.NODE_ENV === 'production') return;
-    // Ajouter quelques périphériques de test si aucun trouvé
+    // Add some test devices if none were found
     if (this.devices.size === 0) {
       this.app.logger.debug('Adding test network devices...');
 
       const subnet = this.getLocalSubnet();
 
-      // Simuler quelques instruments réseau possibles
+      // Simulate some possible network instruments
       const testDevices = [
         {
           ip: `${subnet}.100`,
@@ -414,7 +414,7 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Arrête le scan réseau
+   * Stop the network scan
    */
   stopScan() {
     if (this.scanning) {
@@ -424,31 +424,31 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Connecte un instrument réseau via RTP-MIDI
-   * @param {string} ip - Adresse IP de l'instrument
-   * @param {string} port - Port (optionnel)
-   * @returns {Promise<Object>} Info de connexion
+   * Connect a network instrument via RTP-MIDI
+   * @param {string} ip - Instrument IP address
+   * @param {string} port - Port (optional)
+   * @returns {Promise<Object>} Connection info
    */
   async connect(ip, port = '5004') {
     this.app.logger.info(`[NetworkManager] Connecting to network instrument: ${ip}:${port}`);
 
-    // Vérifier si l'instrument est accessible
+    // Check if the instrument is reachable
     const isReachable = await this.checkReachability(ip);
 
     if (!isReachable) {
       throw new Error(`Instrument not reachable at ${ip}`);
     }
 
-    // Récupérer les infos du périphérique depuis le cache
+    // Get device info from cache
     let deviceInfo = this.devices.get(ip);
 
     if (!deviceInfo) {
-      // Créer une entrée si pas encore découvert
+      // Create an entry if not yet discovered
       deviceInfo = {
         ip: ip,
         address: ip,
         port: port,
-        name: `Instrument réseau (${ip})`,
+        name: `Network instrument (${ip})`,
         type: 'network',
         manufacturer: 'Unknown',
         protocol: 'RTP-MIDI'
@@ -457,43 +457,43 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Créer session RTP-MIDI
+      // Create RTP-MIDI session
       const session = new RtpMidiSession({
         localName: 'MidiMind',
         localPort: 5004
       });
 
-      // Écouter les messages MIDI entrants
+      // Listen for incoming MIDI messages
       session.on('message', (deltaTime, midiBytes) => {
         this.handleMidiData(ip, midiBytes);
       });
 
-      // Écouter les erreurs
+      // Listen for errors
       session.on('error', (error) => {
         this.app.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`);
       });
 
-      // Écouter la déconnexion
+      // Listen for disconnection
       session.on('disconnected', () => {
         this.app.logger.info(`[NetworkManager] RTP-MIDI session disconnected: ${ip}`);
         this.rtpSessions.delete(ip);
         this.connectedDevices.delete(ip);
 
-        // Émettre événement
+        // Emit event
         this.emit('network:disconnected', { ip });
       });
 
-      // Connecter with timeout to prevent indefinite hang
+      // Connect with timeout to prevent indefinite hang
       const RTP_CONNECT_TIMEOUT = 10000; // 10 seconds
       const connectTimeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`RTP-MIDI connection timeout after ${RTP_CONNECT_TIMEOUT}ms`)), RTP_CONNECT_TIMEOUT)
       );
       await Promise.race([session.connect(ip, parseInt(port)), connectTimeout]);
 
-      // Stocker la session
+      // Store the session
       this.rtpSessions.set(ip, session);
 
-      // Info de connexion
+      // Connection info
       const connectionInfo = {
         ip: ip,
         address: ip,
@@ -507,7 +507,7 @@ class NetworkManager extends EventEmitter {
       this.connectedDevices.set(ip, connectionInfo);
       this.app.logger.info(`[NetworkManager] ✅ Connected to ${deviceInfo.name} (${ip}:${port}) via RTP-MIDI`);
 
-      // Émettre événement
+      // Emit event
       this.emit('network:connected', {
         ip: ip,
         device_id: ip,
@@ -523,12 +523,12 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un hôte est accessible via TCP connect.
-   * Un port ouvert (connect) OU fermé (ECONNREFUSED) prouve que l'hôte est là.
-   * Seul un timeout indique que l'hôte est absent ou filtré.
-   * @param {string} ip - Adresse IP
-   * @param {number} timeoutMs - Timeout en millisecondes (défaut: 1000)
-   * @returns {Promise<boolean>} True si l'hôte répond
+   * Check if a host is reachable via TCP connect.
+   * An open port (connect) OR closed port (ECONNREFUSED) proves the host is there.
+   * Only a timeout indicates the host is absent or filtered.
+   * @param {string} ip - IP address
+   * @param {number} timeoutMs - Timeout in milliseconds (default: 1000)
+   * @returns {Promise<boolean>} True if the host responds
    */
   isHostReachable(ip, timeoutMs = 1000) {
     if (!/^[\d.]+$/.test(ip)) return Promise.resolve(false);
@@ -541,7 +541,7 @@ class NetworkManager extends EventEmitter {
       socket.on('timeout', () => { socket.destroy(); resolve(false); });
       socket.on('error', (err) => {
         socket.destroy();
-        // ECONNREFUSED = port fermé mais hôte joignable
+        // ECONNREFUSED = port closed but host reachable
         resolve(err.code === 'ECONNREFUSED');
       });
       socket.connect(80, ip);
@@ -549,12 +549,12 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un hôte est accessible via TCP connect sur le port RTP-MIDI.
-   * Utilise net.Socket au lieu de ping pour éviter le spawn de processus
-   * et vérifier directement le port MIDI.
-   * @param {string} ip - Adresse IP
-   * @param {number} timeoutMs - Timeout en millisecondes (défaut: 2000)
-   * @returns {Promise<boolean>} True si accessible
+   * Check if a host is reachable via TCP connect on the RTP-MIDI port.
+   * Uses net.Socket instead of ping to avoid spawning processes
+   * and to check the MIDI port directly.
+   * @param {string} ip - IP address
+   * @param {number} timeoutMs - Timeout in milliseconds (default: 2000)
+   * @returns {Promise<boolean>} True if reachable
    */
   async checkReachability(ip, timeoutMs = 2000) {
     // Validate IP format
@@ -574,9 +574,9 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Déconnecte un instrument réseau
-   * @param {string} ip - Adresse IP de l'instrument
-   * @returns {Promise<Object>} Résultat de la déconnexion
+   * Disconnect a network instrument
+   * @param {string} ip - Instrument IP address
+   * @returns {Promise<Object>} Disconnection result
    */
   async disconnect(ip) {
     this.app.logger.info(`[NetworkManager] Disconnecting network instrument: ${ip}`);
@@ -588,7 +588,7 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Fermer la session RTP-MIDI
+      // Close the RTP-MIDI session
       const session = this.rtpSessions.get(ip);
       if (session) {
         await session.disconnect();
@@ -598,7 +598,7 @@ class NetworkManager extends EventEmitter {
       this.connectedDevices.delete(ip);
       this.app.logger.info(`[NetworkManager] ✅ Disconnected from ${ip}`);
 
-      // Émettre événement
+      // Emit event
       this.emit('network:disconnected', {
         ip: ip,
         device_id: ip
@@ -617,10 +617,10 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Envoie un message MIDI à un instrument réseau
-   * @param {string} ip - Adresse IP de l'instrument
-   * @param {string} type - Type de message ('noteon', 'noteoff', 'cc', etc.)
-   * @param {object} data - Données du message
+   * Send a MIDI message to a network instrument
+   * @param {string} ip - Instrument IP address
+   * @param {string} type - Message type ('noteon', 'noteoff', 'cc', etc.)
+   * @param {object} data - Message data
    */
   async sendMidiMessage(ip, type, data) {
     const session = this.rtpSessions.get(ip);
@@ -630,7 +630,7 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Convertir format easymidi en bytes MIDI bruts
+      // Convert easymidi format to raw MIDI bytes
       const midiBytes = this.convertToMidiBytes(type, data);
 
       if (midiBytes) {
@@ -647,19 +647,19 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Gère les données MIDI reçues d'un instrument réseau
-   * @param {string} ip - Adresse IP de l'instrument
-   * @param {Array<number>} midiBytes - Bytes MIDI reçus
+   * Handle MIDI data received from a network instrument
+   * @param {string} ip - Instrument IP address
+   * @param {Array<number>} midiBytes - Received MIDI bytes
    */
   handleMidiData(ip, midiBytes) {
     try {
-      // Parser les bytes MIDI
+      // Parse the MIDI bytes
       const parsedMessage = this.parseMidiBytes(midiBytes);
 
       if (parsedMessage) {
         this.app.logger.debug(`[NetworkManager] MIDI from ${ip}:`, parsedMessage.type, parsedMessage.data);
 
-        // Émettre événement MIDI
+        // Emit MIDI event
         this.emit('midi:data', {
           ip: ip,
           address: ip,
@@ -674,19 +674,19 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Convertit un message easymidi en bytes MIDI
-   * @param {string} type - Type de message
-   * @param {object} data - Données du message
-   * @returns {Array<number>} Bytes MIDI
+   * Convert an easymidi message to MIDI bytes
+   * @param {string} type - Message type
+   * @param {object} data - Message data
+   * @returns {Array<number>} MIDI bytes
    */
   convertToMidiBytes(type, data) {
     return MidiUtils.convertToMidiBytes(type, data);
   }
 
   /**
-   * Parse des bytes MIDI en format easymidi
-   * @param {Array<number>} bytes - Bytes MIDI
-   * @returns {Object|null} Message parsé {type, data}
+   * Parse MIDI bytes into easymidi format
+   * @param {Array<number>} bytes - MIDI bytes
+   * @returns {Object|null} Parsed message {type, data}
    */
   parseMidiBytes(bytes) {
     if (!bytes || bytes.length === 0) {
@@ -767,16 +767,16 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Retourne la liste des instruments connectés
-   * @returns {Array} Liste des instruments connectés
+   * Return the list of connected instruments
+   * @returns {Array} List of connected instruments
    */
   getConnectedDevices() {
     return Array.from(this.connectedDevices.values()).map(({ session: _session, ...device }) => device);
   }
 
   /**
-   * Vérifie l'état du NetworkManager
-   * @returns {Object} État du NetworkManager
+   * Check the NetworkManager status
+   * @returns {Object} NetworkManager status
    */
   getStatus() {
     return {
@@ -787,15 +787,15 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Arrête tous les scans et déconnecte tous les instruments
+   * Stop all scans and disconnect all instruments
    */
   async shutdown() {
     this.app.logger.info('Shutting down NetworkManager...');
 
-    // Arrêter le scan
+    // Stop the scan
     this.stopScan();
 
-    // Déconnecter tous les instruments
+    // Disconnect all instruments
     const disconnectPromises = [];
     for (const ip of this.connectedDevices.keys()) {
       disconnectPromises.push(

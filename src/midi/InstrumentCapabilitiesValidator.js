@@ -1,26 +1,26 @@
 /**
  * InstrumentCapabilitiesValidator
  *
- * Valide que les instruments ont toutes les capacités nécessaires
- * pour l'auto-assignation et identifie les informations manquantes.
+ * Validates that instruments have all the required capabilities
+ * for auto-assignment and identifies missing information.
  */
 
 class InstrumentCapabilitiesValidator {
   constructor() {
-    // Capacités toujours requises
+    // Always required capabilities
     this.requiredCapabilities = [
       'gm_program',
       'polyphony',
       'note_selection_mode'
     ];
 
-    // Capacités optionnelles mais recommandées
+    // Optional but recommended capabilities
     this.recommendedCapabilities = [
       'supported_ccs',
       'type'
     ];
 
-    // Capacités conditionnelles selon le mode
+    // Conditional capabilities depending on the mode
     this.conditionalCapabilities = {
       'selected_notes': (instrument) => instrument.note_selection_mode === 'discrete',
       'note_range_min': (instrument) => instrument.note_selection_mode !== 'discrete',
@@ -29,7 +29,7 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Valide un instrument et retourne les capacités manquantes
+   * Validates an instrument and returns missing capabilities
    * @param {Object} instrument
    * @returns {Object} { isValid, isComplete, missing, recommended }
    */
@@ -37,7 +37,7 @@ class InstrumentCapabilitiesValidator {
     const missing = [];
     const recommended = [];
 
-    // Vérifier les capacités requises
+    // Check required capabilities
     for (const capability of this.requiredCapabilities) {
       const value = instrument[capability];
 
@@ -51,7 +51,7 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
-    // Valider que note_selection_mode a une valeur reconnue
+    // Validate that note_selection_mode has a recognized value
     const mode = instrument.note_selection_mode;
     if (mode !== null && mode !== undefined && mode !== '' &&
         mode !== 'range' && mode !== 'discrete') {
@@ -64,7 +64,7 @@ class InstrumentCapabilitiesValidator {
       });
     }
 
-    // Vérifier les capacités conditionnelles
+    // Check conditional capabilities
     for (const [capability, condition] of Object.entries(this.conditionalCapabilities)) {
       if (condition(instrument)) {
         const value = instrument[capability];
@@ -80,7 +80,7 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
-    // Vérifier les capacités recommandées
+    // Check recommended capabilities
     for (const capability of this.recommendedCapabilities) {
       const value = instrument[capability];
 
@@ -108,7 +108,7 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Valide une liste d'instruments
+   * Validates a list of instruments
    * @param {Array} instruments
    * @returns {Object} { valid, incomplete, allValid }
    */
@@ -129,7 +129,7 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Obtient le label lisible d'une capacité
+   * Gets the human-readable label for a capability
    * @param {string} capability
    * @returns {string}
    */
@@ -149,7 +149,7 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Obtient le type d'input pour une capacité
+   * Gets the input type for a capability
    * @param {string} capability
    * @returns {string}
    */
@@ -169,14 +169,14 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Obtient des valeurs par défaut suggérées pour un instrument
+   * Gets suggested default values for an instrument
    * @param {Object} instrument
    * @returns {Object}
    */
   getSuggestedDefaults(instrument) {
     const defaults = {};
 
-    // Valeurs par défaut selon le type d'instrument
+    // Default values based on instrument type
     if (instrument.type === 'keyboard' || instrument.type === 'piano') {
       defaults.gm_program = 0; // Acoustic Grand Piano
       defaults.note_range_min = 21; // A0
@@ -211,7 +211,7 @@ class InstrumentCapabilitiesValidator {
       defaults.supported_ccs = [1, 7, 10, 11, 71, 72, 73, 74];
     }
     else {
-      // Valeurs par défaut génériques
+      // Generic default values
       defaults.gm_program = 0;
       defaults.note_range_min = 48; // C3
       defaults.note_range_max = 84; // C6

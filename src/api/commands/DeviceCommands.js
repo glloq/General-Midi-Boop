@@ -4,18 +4,18 @@ import { NotFoundError, ConfigurationError } from '../../core/errors/index.js';
 async function deviceList(app) {
   const devices = app.deviceManager.getDeviceList();
 
-  // Enrichir les appareils avec les données depuis la base de données
+  // Enrich devices with data from the database
   if (app.database) {
     for (const device of devices) {
       try {
         let settings = app.database.getInstrumentSettings(device.id);
 
-        // Fallback: si pas de settings par device_id, chercher par USB serial number
+        // Fallback: if no settings by device_id, look up by USB serial number
         if (!settings && device.usbSerialNumber) {
           const bySerial = app.database.findInstrumentByUsbSerial(device.usbSerialNumber);
           if (bySerial && bySerial.device_id !== device.id) {
             app.logger.info(`[deviceList] USB device "${device.id}" matched by serial number "${device.usbSerialNumber}" to DB entry "${bySerial.device_id}" - reconciling`);
-            // Mettre à jour le device_id en DB pour correspondre au nouveau nom ALSA
+            // Update the device_id in DB to match the new ALSA name
             try {
               app.database.reconcileDeviceId(bySerial.device_id, device.id);
             } catch (e) {
@@ -25,7 +25,7 @@ async function deviceList(app) {
           }
         }
 
-        // Fallback: chercher par MAC address pour les devices Bluetooth
+        // Fallback: look up by MAC address for Bluetooth devices
         if (!settings && device.address && device.type === 'bluetooth') {
           const byMac = app.database.findInstrumentByMac(device.address);
           if (byMac && byMac.device_id !== device.id) {
@@ -39,8 +39,8 @@ async function deviceList(app) {
           }
         }
 
-        // Fallback: chercher par nom normalisé (sans les numéros de port ALSA)
-        // Couvre le cas courant où le numéro de port ALSA change entre reboots
+        // Fallback: look up by normalized name (without ALSA port numbers)
+        // Covers the common case where the ALSA port number changes between reboots
         if (!settings && device.type === 'usb') {
           const byName = app.database.findInstrumentByNormalizedName(device.id);
           if (byName && byName.device_id !== device.id) {
@@ -58,7 +58,7 @@ async function deviceList(app) {
           if (settings.custom_name) {
             device.displayName = settings.custom_name;
           }
-          // Inclure les champs de configuration instrument (rétro-compatibilité: premier canal)
+          // Include instrument configuration fields (backward compatibility: first channel)
           if (settings.gm_program !== null && settings.gm_program !== undefined) {
             device.gm_program = settings.gm_program;
           }
@@ -74,13 +74,13 @@ async function deviceList(app) {
           if (settings.note_selection_mode) {
             device.note_selection_mode = settings.note_selection_mode;
           }
-          // Inclure le usb_serial_number dans la réponse
+          // Include the usb_serial_number in the response
           if (settings.usb_serial_number) {
             device.usb_serial_number = settings.usb_serial_number;
           }
         }
 
-        // Enrichir avec le custom_name device-level (prioritaire sur instrument-level)
+        // Enrich with device-level custom_name (takes priority over instrument-level)
         try {
           const deviceSettings = app.database.getDeviceSettings(device.id);
           if (deviceSettings && deviceSettings.custom_name) {
@@ -89,7 +89,7 @@ async function deviceList(app) {
           }
         } catch (_e) { /* ignore */ }
 
-        // Charger tous les instruments/canaux configurés sur ce device
+        // Load all instruments/channels configured on this device
         try {
           const allInstruments = app.database.getInstrumentsByDevice(device.id);
           if (allInstruments && allInstruments.length > 0) {
@@ -111,15 +111,15 @@ async function deviceList(app) {
             });
           }
         } catch (e) {
-          // Pas d'instruments multi-canal, pas grave
+          // No multi-channel instruments, not a problem
         }
 
-        // Toujours inclure le USB serial number du device s'il en a un
+        // Always include the device's USB serial number if it has one
         if (device.usbSerialNumber && !device.usb_serial_number) {
           device.usb_serial_number = device.usbSerialNumber;
         }
       } catch (error) {
-        // Ignorer les erreurs - l'appareil n'a peut-être pas de settings
+        // Ignore errors - the device may not have any settings
       }
     }
   }
@@ -132,7 +132,7 @@ async function deviceList(app) {
 async function deviceRefresh(app) {
   const devices = await app.deviceManager.scanDevices();
 
-  // Après un scan, reconcilier les device_ids par USB serial number
+  // After a scan, reconcile device_ids by USB serial number
   if (app.database) {
     try {
       const removed = app.database.deduplicateByUsbSerial();

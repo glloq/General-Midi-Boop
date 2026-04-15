@@ -277,7 +277,7 @@
                 name = device.displayName || device.name || device.id;
             }
             const selected = currentRouting === value ? 'selected' : '';
-            deviceOptions += `<option value="${value}" ${selected}>${name}</option>`;
+            deviceOptions += `<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(name)}</option>`;
         });
 
         const hasRouting = !!currentRouting;

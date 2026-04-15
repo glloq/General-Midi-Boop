@@ -193,7 +193,7 @@ async function instrumentListConnected(app) {
   const connectedDevices = app.deviceManager.getDeviceList();
   const connectedDeviceIds = new Set(connectedDevices.map(d => d.id));
 
-  // Construire un index par nom normalisé, serial, et MAC pour fallback matching
+  // Build an index by normalized name, serial, and MAC for fallback matching
   const connectedNormalizedNames = new Set();
   const connectedSerials = new Set();
   const connectedMacs = new Set();
@@ -204,32 +204,32 @@ async function instrumentListConnected(app) {
     if (d.address && d.type === 'bluetooth') connectedMacs.add(d.address);
   }
 
-  // Trouver les instruments enregistrés qui sont connectés
+  // Find registered instruments that are connected
   const matchedDeviceIds = new Set();
   const connectedInstruments = allInstruments.filter(inst => {
-    // Match exact par device_id
+    // Exact match by device_id
     if (connectedDeviceIds.has(inst.device_id)) {
       matchedDeviceIds.add(inst.device_id);
       return true;
     }
-    // Fallback par USB serial number
+    // Fallback by USB serial number
     if (inst.usb_serial_number && connectedSerials.has(inst.usb_serial_number)) {
-      // Trouver le device_id correspondant
+      // Find the corresponding device_id
       const matchedDev = connectedDevices.find(d => d.usbSerialNumber === inst.usb_serial_number);
       if (matchedDev) matchedDeviceIds.add(matchedDev.id);
       return true;
     }
-    // Fallback par MAC address
+    // Fallback by MAC address
     if (inst.mac_address && connectedMacs.has(inst.mac_address)) {
       const matchedDev = connectedDevices.find(d => d.address === inst.mac_address);
       if (matchedDev) matchedDeviceIds.add(matchedDev.id);
       return true;
     }
-    // Fallback par nom normalisé
+    // Fallback by normalized name
     if (!inst.device_id.startsWith('virtual_')) {
       const normalized = InstrumentDatabase.normalizeDeviceName(inst.device_id);
       if (normalized && connectedNormalizedNames.has(normalized)) {
-        // Trouver le device_id correspondant
+        // Find the corresponding device_id
         const matchedDev = connectedDevices.find(d => {
           const dn = InstrumentDatabase.normalizeDeviceName(d.id);
           return dn === normalized;
@@ -241,7 +241,7 @@ async function instrumentListConnected(app) {
     return false;
   });
 
-  // Ajouter les périphériques connectés qui ne sont pas enregistrés dans instruments_latency
+  // Add connected devices that are not registered in instruments_latency
   for (const device of connectedDevices) {
     if (!matchedDeviceIds.has(device.id) && device.type !== 'virtual') {
       connectedInstruments.push({
@@ -334,7 +334,7 @@ async function instrumentDelete(app, data) {
   }
 
   if (errors.length > 0) {
-    console.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
+    app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
   }
 
   return {

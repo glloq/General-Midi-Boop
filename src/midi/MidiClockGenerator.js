@@ -95,7 +95,7 @@ class MidiClockGenerator {
     try {
       const settings = this.app.database.getDeviceSettings(deviceId);
       return settings && !!settings.midi_clock_enabled;
-    } catch (_e) { /* ignore */ }
+    } catch (_e) { /* device settings may not exist yet */ }
     return false;
   }
 
@@ -424,7 +424,7 @@ class MidiClockGenerator {
             }
           }
         }
-      } catch (_e) { /* ignore - device may not have settings */ }
+      } catch (_e) { /* device may not have instrument settings configured */ }
     }
 
     // Add measured hardware latency

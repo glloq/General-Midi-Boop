@@ -2,8 +2,8 @@
 // src/managers/RtpMidiSession.js
 // ============================================================================
 // Description:
-//   Implémentation simplifiée du protocole RTP-MIDI (RFC 6295)
-//   Gère une session RTP-MIDI pour envoyer/recevoir des messages MIDI via UDP
+//   Simplified implementation of the RTP-MIDI protocol (RFC 6295)
+//   Manages an RTP-MIDI session for sending/receiving MIDI messages over UDP
 // ============================================================================
 
 import dgram from 'dgram';
@@ -32,9 +32,9 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Connecte à un peer distant
-   * @param {string} host - Adresse IP du peer
-   * @param {number} port - Port du peer
+   * Connect to a remote peer
+   * @param {string} host - Peer IP address
+   * @param {number} port - Peer port
    */
   async connect(host, port = 5004) {
     return new Promise((resolve, reject) => {
@@ -42,31 +42,31 @@ class RtpMidiSession extends EventEmitter {
         this.remoteHost = host;
         this.remotePort = port;
 
-        // Créer socket UDP
+        // Create UDP socket
         this.socket = dgram.createSocket('udp4');
 
-        // Écouter les messages entrants
+        // Listen for incoming messages
         this.socket.on('message', (msg, rinfo) => {
           this.handleIncomingMessage(msg, rinfo);
         });
 
-        // Écouter les erreurs
+        // Listen for errors
         this.socket.on('error', (err) => {
           this.emit('error', err);
           reject(err);
         });
 
-        // Écouter la fermeture
+        // Listen for socket close
         this.socket.on('close', () => {
           this.connected = false;
           this.emit('disconnected');
         });
 
-        // Bind sur le port local
+        // Bind to the local port
         this.socket.bind(this.localPort, () => {
-          console.log(`[RtpMidiSession] Listening on port ${this.localPort}`);
+          this.emit('log', `Listening on port ${this.localPort}`);
 
-          // Envoyer invitation (simplified handshake)
+          // Send invitation (simplified handshake)
           this.sendInvitation();
 
           this.connected = true;
@@ -81,28 +81,28 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Envoie une invitation au peer (simplified RTP-MIDI handshake)
+   * Send an invitation to the peer (simplified RTP-MIDI handshake)
    */
   sendInvitation() {
-    // Simplified: Dans une vraie implémentation RTP-MIDI, on enverrait
-    // un paquet de control avec la commande INVITATION
-    // Pour cette version simplifiée, on marque juste la session comme initialisée
+    // Simplified: In a full RTP-MIDI implementation, we would send
+    // a control packet with the INVITATION command
+    // For this simplified version, we just mark the session as initialized
     this.sessionInitialized = true;
     this.emit('session:initialized');
   }
 
   /**
-   * Gère les messages entrants
-   * @param {Buffer} msg - Message reçu
-   * @param {Object} rinfo - Informations sur l'émetteur
+   * Handle incoming messages
+   * @param {Buffer} msg - Received message
+   * @param {Object} rinfo - Sender information
    */
   handleIncomingMessage(msg, _rinfo) {
     try {
-      // Parser le paquet RTP
+      // Parse the RTP packet
       const rtpPacket = this.parseRtpPacket(msg);
 
       if (rtpPacket && rtpPacket.midiCommands.length > 0) {
-        // Émettre chaque commande MIDI
+        // Emit each MIDI command
         for (const midiCommand of rtpPacket.midiCommands) {
           this.emit('message', 0, midiCommand);
         }
@@ -113,14 +113,14 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Parse un paquet RTP-MIDI
-   * Format simplifié (pour une vraie implémentation, voir RFC 6295)
-   * @param {Buffer} buffer - Paquet RTP brut
-   * @returns {Object} Paquet parsé
+   * Parse an RTP-MIDI packet
+   * Simplified format (for full implementation, see RFC 6295)
+   * @param {Buffer} buffer - Raw RTP packet
+   * @returns {Object} Parsed packet
    */
   parseRtpPacket(buffer) {
     if (buffer.length < 12) {
-      return null; // Paquet trop court
+      return null; // Packet too short
     }
 
     // Header RTP (12 bytes minimum)
@@ -149,7 +149,7 @@ class RtpMidiSession extends EventEmitter {
     // Payload = MIDI commands
     const payload = buffer.slice(offset);
 
-    // Parser les commandes MIDI du payload (simplified)
+    // Parse MIDI commands from the payload (simplified)
     const midiCommands = this.parseMidiPayload(payload);
 
     return {
@@ -163,11 +163,11 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Parse le payload MIDI (RFC 6295 MIDI command section)
+   * Parse the MIDI payload (RFC 6295 MIDI command section)
    * The first byte is a header byte indicating the length and structure
    * of the MIDI command section, followed by raw MIDI data.
-   * @param {Buffer} payload - Payload MIDI
-   * @returns {Array<Array<number>>} Liste de commandes MIDI
+   * @param {Buffer} payload - MIDI payload
+   * @returns {Array<Array<number>>} List of MIDI commands
    */
   parseMidiPayload(payload) {
     const commands = [];
@@ -256,9 +256,9 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Détermine la longueur d'une commande MIDI basée sur le status byte
+   * Determine the length of a MIDI command based on the status byte
    * @param {number} status - Status byte
-   * @returns {number} Longueur en bytes
+   * @returns {number} Length in bytes
    */
   getMidiCommandLength(status) {
     const command = status & 0xF0;
@@ -286,33 +286,33 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Envoie un message MIDI
-   * @param {Array<number>} midiBytes - Bytes MIDI à envoyer
+   * Send a MIDI message
+   * @param {Array<number>} midiBytes - MIDI bytes to send
    */
   sendMessage(midiBytes) {
     if (!this.connected || !this.socket) {
       throw new Error('Session not connected');
     }
 
-    // Créer paquet RTP
+    // Create RTP packet
     const rtpPacket = this.createRtpPacket(midiBytes);
 
-    // Envoyer via UDP
+    // Send via UDP
     this.socket.send(rtpPacket, this.remotePort, this.remoteHost, (err) => {
       if (err) {
         this.emit('error', err);
       }
     });
 
-    // Incrémenter numéro de séquence (timestamp is now calculated from real time in createRtpPacket)
+    // Increment sequence number (timestamp is now calculated from real time in createRtpPacket)
     this.sequenceNumber = (this.sequenceNumber + 1) & 0xFFFF;
   }
 
   /**
-   * Crée un paquet RTP contenant des commandes MIDI
+   * Create an RTP packet containing MIDI commands
    * RFC 6295 compliant: RTP header + MIDI command section header + MIDI data
-   * @param {Array<number>} midiBytes - Commandes MIDI
-   * @returns {Buffer} Paquet RTP
+   * @param {Array<number>} midiBytes - MIDI commands
+   * @returns {Buffer} RTP packet
    */
   createRtpPacket(midiBytes) {
     // Calculate real-time based RTP timestamp (10 kHz clock rate per RFC 6295)
@@ -325,7 +325,7 @@ class RtpMidiSession extends EventEmitter {
     // Byte 0: Version (2), Padding (0), Extension (0), CSRC count (0)
     header[0] = 0x80; // Version 2
 
-    // Byte 1: Marker (0), Payload type (97 pour MIDI)
+    // Byte 1: Marker (0), Payload type (97 for MIDI)
     header[1] = 97;
 
     // Bytes 2-3: Sequence number
@@ -358,12 +358,12 @@ class RtpMidiSession extends EventEmitter {
     // Payload: MIDI command section header + MIDI data
     const payload = Buffer.from(midiBytes);
 
-    // Combiner header + MIDI command section header + payload
+    // Combine header + MIDI command section header + payload
     return Buffer.concat([header, midiHeader, payload]);
   }
 
   /**
-   * Déconnecte la session
+   * Disconnect the session
    */
   async disconnect() {
     return new Promise((resolve) => {
@@ -381,7 +381,7 @@ class RtpMidiSession extends EventEmitter {
   }
 
   /**
-   * Vérifie si la session est connectée
+   * Check if the session is connected
    * @returns {boolean}
    */
   isConnected() {

@@ -1,20 +1,20 @@
 // src/midi/AnalysisCache.js
 
 /**
- * AnalysisCache - Cache LRU pour les analyses de canaux MIDI
+ * AnalysisCache - LRU cache for MIDI channel analyses
  *
- * Évite de refaire les analyses coûteuses sur les mêmes fichiers/canaux
+ * Avoids re-running expensive analyses on the same files/channels
  */
 class AnalysisCache {
-  constructor(maxSize = 100, ttl = 600000) { // 10 minutes par défaut
+  constructor(maxSize = 100, ttl = 600000) { // 10 minutes by default
     this.maxSize = maxSize;
-    this.ttl = ttl; // Time to live en millisecondes
+    this.ttl = ttl; // Time to live in milliseconds
     this.cache = new Map();
-    this.accessOrder = []; // Pour LRU
+    this.accessOrder = []; // For LRU
   }
 
   /**
-   * Génère une clé de cache pour un fichier + canal
+   * Generates a cache key for a file + channel
    * @param {number} fileId
    * @param {number} channel
    * @returns {string}
@@ -24,7 +24,7 @@ class AnalysisCache {
   }
 
   /**
-   * Récupère une analyse du cache
+   * Retrieves an analysis from the cache
    * @param {number} fileId
    * @param {number} channel
    * @returns {Object|null}
@@ -37,7 +37,7 @@ class AnalysisCache {
       return null;
     }
 
-    // Vérifier l'expiration
+    // Check expiration
     const now = Date.now();
     if (now - entry.timestamp > this.ttl) {
       this.cache.delete(key);
@@ -45,14 +45,14 @@ class AnalysisCache {
       return null;
     }
 
-    // Mettre à jour l'ordre d'accès (LRU)
+    // Update access order (LRU)
     this._touch(key);
 
     return entry.data;
   }
 
   /**
-   * Stocke une analyse dans le cache
+   * Stores an analysis in the cache
    * @param {number} fileId
    * @param {number} channel
    * @param {Object} data
@@ -60,28 +60,28 @@ class AnalysisCache {
   set(fileId, channel, data) {
     const key = this._generateKey(fileId, channel);
 
-    // Si déjà présent, le retirer de l'ordre d'accès
+    // If already present, remove from access order
     if (this.cache.has(key)) {
       this._removeFromAccessOrder(key);
     }
 
-    // Vérifier la taille max et supprimer le plus ancien si nécessaire
+    // Check max size and evict oldest if needed
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       this._evictOldest();
     }
 
-    // Ajouter au cache
+    // Add to cache
     this.cache.set(key, {
       data,
       timestamp: Date.now()
     });
 
-    // Ajouter à l'ordre d'accès
+    // Add to access order
     this.accessOrder.push(key);
   }
 
   /**
-   * Supprime une entrée du cache
+   * Deletes a cache entry
    * @param {number} fileId
    * @param {number} channel
    */
@@ -92,7 +92,7 @@ class AnalysisCache {
   }
 
   /**
-   * Invalide toutes les analyses d'un fichier
+   * Invalidates all analyses for a file
    * @param {number} fileId
    */
   invalidateFile(fileId) {
@@ -112,7 +112,7 @@ class AnalysisCache {
   }
 
   /**
-   * Vide complètement le cache
+   * Completely clears the cache
    */
   clear() {
     this.cache.clear();
@@ -120,7 +120,7 @@ class AnalysisCache {
   }
 
   /**
-   * Met à jour l'ordre d'accès (LRU)
+   * Updates the access order (LRU)
    * @param {string} key
    * @private
    */
@@ -130,7 +130,7 @@ class AnalysisCache {
   }
 
   /**
-   * Retire une clé de l'ordre d'accès
+   * Removes a key from the access order
    * @param {string} key
    * @private
    */
@@ -142,7 +142,7 @@ class AnalysisCache {
   }
 
   /**
-   * Supprime l'entrée la plus ancienne (LRU)
+   * Evicts the oldest entry (LRU)
    * @private
    */
   _evictOldest() {
@@ -156,7 +156,7 @@ class AnalysisCache {
   }
 
   /**
-   * Nettoie les entrées expirées
+   * Cleans up expired entries
    */
   cleanup() {
     const now = Date.now();
@@ -175,7 +175,7 @@ class AnalysisCache {
   }
 
   /**
-   * Obtient les statistiques du cache
+   * Gets cache statistics
    * @returns {Object}
    */
   getStats() {

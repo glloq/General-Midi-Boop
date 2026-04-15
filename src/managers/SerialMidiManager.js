@@ -2,12 +2,12 @@
 // src/managers/SerialMidiManager.js
 // ============================================================================
 // Description:
-//   Gère les ports série MIDI via GPIO UART sur Raspberry Pi
-//   - Scan des ports série disponibles (/dev/ttyAMA*, /dev/serial*)
-//   - Ouverture/fermeture des ports à 31250 baud (MIDI standard)
-//   - Parseur MIDI complet avec Running Status et SysEx
+//   Manages MIDI serial ports via GPIO UART on Raspberry Pi
+//   - Scanning available serial ports (/dev/ttyAMA*, /dev/serial*)
+//   - Opening/closing ports at 31250 baud (MIDI standard)
+//   - Full MIDI parser with Running Status and SysEx
 //   - Hot-plug monitoring
-//   - Support multi-UART (Pi 4: jusqu'à 6 UARTs via device tree overlays)
+//   - Multi-UART support (Pi 4: up to 6 UARTs via device tree overlays)
 // ============================================================================
 
 import EventEmitter from 'events';

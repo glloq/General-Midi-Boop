@@ -374,7 +374,7 @@ async function lightingDeviceScan(app, data) {
           });
         }
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { app.logger.debug('Hue bridge discovery skipped', e); }
   }
 
   return { success: true, discovered };

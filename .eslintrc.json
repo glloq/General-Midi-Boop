@@ -9,7 +9,7 @@
   "extends": ["eslint:recommended"],
   "rules": {
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "no-console": "off",
+    "no-console": "warn",
     "no-constant-condition": "warn",
     "no-empty": ["error", { "allowEmptyCatch": true }],
     "no-case-declarations": "warn",

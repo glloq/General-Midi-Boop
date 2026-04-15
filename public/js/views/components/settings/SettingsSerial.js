@@ -63,11 +63,11 @@
                                 background: ${port.isOpen ? '#38a169' : '#a0aec0'};
                                 margin-right: 8px;
                             "></span>
-                            ${port.name}
+                            ${escapeHtml(port.name)}
                         </div>
-                        <div style="font-size: 12px; color: #999; margin-top: 2px;">${port.path}</div>
+                        <div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(port.path)}</div>
                     </div>
-                    <button class="serial-port-toggle-btn" data-path="${port.path}" data-name="${port.name}" data-open="${port.isOpen}" style="
+                    <button class="serial-port-toggle-btn" data-path="${escapeHtml(port.path)}" data-name="${escapeHtml(port.name)}" data-open="${port.isOpen}" style="
                         padding: 6px 14px;
                         border: 1px solid ${port.isOpen ? '#e53e3e' : '#38a169'};
                         border-radius: 6px;
@@ -114,7 +114,7 @@
 
         } catch (error) {
             listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
-                ${error.message}
+                ${escapeHtml(error.message)}
             </div>`;
         } finally {
             if (scanBtn) scanBtn.disabled = false;

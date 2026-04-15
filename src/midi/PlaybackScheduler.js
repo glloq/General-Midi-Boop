@@ -3,16 +3,12 @@
 // sync delay management, and event dispatching.
 
 import { performance } from 'perf_hooks';
+import { TIMING, MIDI_CC } from '../constants.js';
 
-// Playback timing constants
-const SCHEDULER_TICK_MS = 10; // Scheduler resolution in milliseconds
-const LOOKAHEAD_SECONDS = 0.1; // Base look-ahead window for event scheduling (100ms)
-const MAX_COMPENSATION_MS = 5000; // Maximum allowed compensation in milliseconds (5s)
-
-// MIDI CC constants
-const MIDI_CC_ALL_NOTES_OFF = 123;
-const MIDI_CC_STRING_SELECT = 20;
-const MIDI_CC_FRET_SELECT = 21;
+const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, MAX_COMPENSATION_MS } = TIMING;
+const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
+const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
+const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
 
 class PlaybackScheduler {
   /**

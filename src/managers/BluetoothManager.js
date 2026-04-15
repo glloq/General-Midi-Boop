@@ -2,11 +2,11 @@
 // src/managers/BluetoothManager.js
 // ============================================================================
 // Description:
-//   Gère les périphériques Bluetooth BLE MIDI
-//   - Scan des périphériques BLE disponibles
-//   - Connexion/déconnexion aux périphériques BLE MIDI
-//   - Gestion des périphériques appairés
-//   - NOUVELLE VERSION: Utilise node-ble (Bluez/DBus) pour connexions RAPIDES
+//   Manages Bluetooth BLE MIDI devices
+//   - Scan for available BLE devices
+//   - Connect/disconnect BLE MIDI devices
+//   - Manage paired devices
+//   - NEW VERSION: Uses node-ble (Bluez/DBus) for FAST connections
 // ============================================================================
 
 import { createBluetooth } from 'node-ble';
@@ -20,12 +20,12 @@ class BluetoothManager extends EventEmitter {
     this.scanning = false;
     this.devices = new Map(); // Map of device address -> device info
     this.connectedDevices = new Map(); // Map of address -> {device, gattServer, characteristic}
-    this.pairedDevices = []; // Liste des périphériques appairés
+    this.pairedDevices = []; // List of paired devices
 
-    this.BLE_MIDI_SERVICE_UUID = '03b80e5a-ede8-4b33-a751-6ce34ec4c700'; // UUID du service MIDI BLE
-    this.BLE_MIDI_CHARACTERISTIC_UUID = '7772e5db-3868-4112-a1a9-f2669d106bf3'; // UUID de la caractéristique MIDI I/O
+    this.BLE_MIDI_SERVICE_UUID = '03b80e5a-ede8-4b33-a751-6ce34ec4c700'; // BLE MIDI service UUID
+    this.BLE_MIDI_CHARACTERISTIC_UUID = '7772e5db-3868-4112-a1a9-f2669d106bf3'; // MIDI I/O characteristic UUID
 
-    // Initialiser node-ble
+    // Initialize node-ble
     this.bluetooth = null;
     this.adapter = null;
     this.destroy = null;
@@ -55,7 +55,7 @@ class BluetoothManager extends EventEmitter {
       const adapterName = await this.adapter.getName();
       this.app.logger.info(`Bluetooth adapter ready: ${adapterName}`);
 
-      // Émettre événement powered on
+      // Emit powered on event
       this.emit('bluetooth:powered_on');
 
     } catch (error) {
@@ -65,10 +65,10 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Démarre le scan BLE
-   * @param {number} duration - Durée du scan en secondes (0 = scan continu)
-   * @param {string} filter - Filtre optionnel sur le nom
-   * @returns {Promise<Array>} Liste des périphériques trouvés
+   * Start BLE scan
+   * @param {number} duration - Scan duration in seconds (0 = continuous scan)
+   * @param {string} filter - Optional name filter
+   * @returns {Promise<Array>} List of discovered devices
    */
   async startScan(duration = 5, filter = '') {
     if (this.scanning) {
@@ -89,20 +89,20 @@ class BluetoothManager extends EventEmitter {
       const startTime = Date.now();
       this.app.logger.info(`[TIMING] Starting BLE scan for ${duration}s...`);
 
-      // Démarrer le scan
+      // Start the scan
       const isDiscovering = await this.adapter.isDiscovering();
       if (!isDiscovering) {
         await this.adapter.startDiscovery();
       }
 
-      // Attendre la durée du scan
+      // Wait for the scan duration
       await new Promise(resolve => setTimeout(resolve, duration * 1000));
 
-      // Récupérer les appareils découverts
+      // Get discovered devices
       const deviceAddresses = await this.adapter.devices();
       this.app.logger.info(`[TIMING] Scan found ${deviceAddresses.length} devices in ${Date.now() - startTime}ms`);
 
-      // Charger les infos de chaque appareil
+      // Load info for each device
       for (const address of deviceAddresses) {
         try {
           const device = await this.adapter.getDevice(address);
@@ -112,11 +112,11 @@ class BluetoothManager extends EventEmitter {
         }
       }
 
-      // Arrêter le scan
+      // Stop the scan
       await this.adapter.stopDiscovery();
       this.scanning = false;
 
-      // Appliquer le filtre si nécessaire
+      // Apply the filter if needed
       let devicesArray = Array.from(this.devices.values());
       if (filter) {
         devicesArray = devicesArray.filter(d =>
@@ -126,7 +126,7 @@ class BluetoothManager extends EventEmitter {
 
       this.app.logger.info(`Scan complete: ${devicesArray.length} devices available`);
 
-      // Retirer deviceObject pour éviter circular structure JSON
+      // Remove deviceObject to avoid circular structure in JSON
       return devicesArray.map(({ deviceObject: _deviceObject, ...device }) => device);
 
     } catch (error) {
@@ -138,7 +138,7 @@ class BluetoothManager extends EventEmitter {
 
   async handleDeviceDiscovered(device, address) {
     try {
-      // Obtenir les infos avec gestion d'erreurs individuelles
+      // Get device info with individual error handling
       let name = 'Unknown Device';
       let rssi = -100;
       let uuids = [];
@@ -165,7 +165,7 @@ class BluetoothManager extends EventEmitter {
         this.app.logger.debug(`Cannot get UUIDs for ${address}: ${e.message}`);
       }
 
-      // Vérifier si c'est un périphérique MIDI BLE
+      // Check if this is a BLE MIDI device
       const isMidiDevice = uuids && uuids.length > 0 && uuids.some(uuid =>
         uuid.toLowerCase().includes('03b80e5a') ||
         uuid.toLowerCase() === this.BLE_MIDI_SERVICE_UUID.toLowerCase()
@@ -190,7 +190,7 @@ class BluetoothManager extends EventEmitter {
     } catch (error) {
       this.app.logger.error(`Error processing device ${address}: ${error.message}`);
 
-      // TOUJOURS ajouter le device même en cas d'erreur pour qu'il soit visible
+      // ALWAYS add the device even on error so it remains visible
       this.devices.set(address, {
         id: address,
         address: address,
@@ -206,8 +206,8 @@ class BluetoothManager extends EventEmitter {
   }
 
   rssiToSignalStrength(rssi) {
-    // Convertir RSSI en pourcentage de signal (approximatif)
-    // RSSI typique: -100 dBm (très faible) à -30 dBm (très fort)
+    // Convert RSSI to approximate signal percentage
+    // Typical RSSI: -100 dBm (very weak) to -30 dBm (very strong)
     const minRssi = -100;
     const maxRssi = -30;
     const clampedRssi = Math.max(minRssi, Math.min(maxRssi, rssi));
@@ -216,7 +216,7 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Arrête le scan BLE
+   * Stop BLE scan
    */
   async stopScan() {
     if (!this.scanning) {
@@ -239,9 +239,9 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Connecte un périphérique BLE
-   * @param {string} address - Adresse du périphérique
-   * @returns {Promise<Object>} Info de connexion
+   * Connect a BLE device
+   * @param {string} address - Device address
+   * @returns {Promise<Object>} Connection info
    */
   async connect(address) {
     const startTime = Date.now();
@@ -256,7 +256,7 @@ class BluetoothManager extends EventEmitter {
 
     let device = null;
     try {
-      // Récupérer le périphérique
+      // Get the device
       const deviceInfo = this.devices.get(address);
       device = deviceInfo ? deviceInfo.deviceObject : null;
 
@@ -276,17 +276,17 @@ class BluetoothManager extends EventEmitter {
 
         this.app.logger.info(`[TIMING] ✅ device.connect() completed in ${Date.now() - connectStart}ms`);
 
-        // Obtenir le serveur GATT
+        // Get the GATT server
         const gattStart = Date.now();
         const gattServer = await device.gatt();
         this.app.logger.info(`[TIMING] GATT server obtained in ${Date.now() - gattStart}ms`);
 
-        // Obtenir le service MIDI
+        // Get the MIDI service
         const serviceStart = Date.now();
         const service = await gattServer.getPrimaryService(this.BLE_MIDI_SERVICE_UUID);
         this.app.logger.info(`[TIMING] MIDI service found in ${Date.now() - serviceStart}ms`);
 
-        // Obtenir la caractéristique MIDI I/O
+        // Get the MIDI I/O characteristic
         const charStart = Date.now();
         const characteristic = await service.getCharacteristic(this.BLE_MIDI_CHARACTERISTIC_UUID);
         this.app.logger.info(`[TIMING] MIDI characteristic found in ${Date.now() - charStart}ms`);
@@ -300,7 +300,7 @@ class BluetoothManager extends EventEmitter {
 
       const { gattServer, characteristic } = await Promise.race([connectWithTimeout(), timeoutPromise]);
 
-      // S'abonner aux notifications - store handler reference for cleanup
+      // Subscribe to notifications - store handler reference for cleanup
       const midiHandler = buffer => {
         this.handleMidiData(address, buffer);
       };
@@ -309,7 +309,7 @@ class BluetoothManager extends EventEmitter {
 
       const name = await device.getName();
 
-      // Marquer comme connecté
+      // Mark as connected
       const existingDevice = this.pairedDevices.find(d => d.address === address);
       if (existingDevice) {
         existingDevice.connected = true;
@@ -323,7 +323,7 @@ class BluetoothManager extends EventEmitter {
         });
       }
 
-      // Stocker la connexion (include handler reference for cleanup)
+      // Store the connection (include handler reference for cleanup)
       this.connectedDevices.set(address, {
         device: device,
         gattServer: gattServer,
@@ -335,7 +335,7 @@ class BluetoothManager extends EventEmitter {
       this.app.logger.info(`[TIMING] 🚀 TOTAL CONNECTION TIME: ${totalTime}ms`);
       this.app.logger.info(`Connected to ${name} (${address}) via node-ble`);
 
-      // Émettre événement de connexion
+      // Emit connection event
       this.emit('bluetooth:connected', {
         address: address,
         device_id: address,
@@ -353,14 +353,14 @@ class BluetoothManager extends EventEmitter {
       // Clean up partial connection on failure
       try {
         if (device) await device.disconnect().catch(() => {});
-      } catch (_) { /* ignore cleanup errors */ }
+      } catch (_) { /* cleanup errors are non-critical during disconnect fallback */ }
       throw error;
     }
   }
 
   /**
-   * Déconnecte un périphérique
-   * @param {string} address - Adresse du périphérique
+   * Disconnect a device
+   * @param {string} address - Device address
    */
   async disconnect(address) {
     const deviceConnection = this.connectedDevices.get(address);
@@ -380,12 +380,12 @@ class BluetoothManager extends EventEmitter {
         await characteristic.stopNotifications();
       }
 
-      // Déconnecter
+      // Disconnect
       await device.disconnect();
 
       this.connectedDevices.delete(address);
 
-      // Mettre à jour le statut
+      // Update the status
       const pairedDevice = this.pairedDevices.find(d => d.address === address);
       if (pairedDevice) {
         pairedDevice.connected = false;
@@ -393,7 +393,7 @@ class BluetoothManager extends EventEmitter {
 
       this.app.logger.info(`Disconnected from ${address}`);
 
-      // Émettre événement
+      // Emit event
       this.emit('bluetooth:disconnected', {
         address: address,
         device_id: address
@@ -406,35 +406,35 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Oublie un périphérique (dépairage)
-   * @param {string} address - Adresse du périphérique
+   * Forget a device (unpair)
+   * @param {string} address - Device address
    */
   async unpair(address) {
-    // Déconnecter d'abord si connecté
+    // Disconnect first if connected
     if (this.connectedDevices.has(address)) {
       await this.disconnect(address);
     }
 
-    // Retirer de la liste appairée
+    // Remove from the paired list
     this.pairedDevices = this.pairedDevices.filter(d => d.address !== address);
 
     this.app.logger.info(`Unpaired device ${address}`);
 
-    // Émettre événement
+    // Emit event
     this.emit('bluetooth:unpaired', {
       address: address
     });
   }
 
   /**
-   * Alias pour unpair() - pour compatibilité avec CommandHandler
+   * Alias for unpair() - for compatibility with CommandHandler
    */
   async forget(address) {
     return await this.unpair(address);
   }
 
   /**
-   * Gère les données MIDI reçues via BLE MIDI
+   * Handle MIDI data received via BLE MIDI
    * BLE MIDI packet format (Apple BLE MIDI spec):
    *   Byte 0: Header byte (bit 7 = 1, bits 5-0 = timestamp high)
    *   Then one or more MIDI messages, each preceded by:
@@ -522,7 +522,7 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Envoie des données MIDI à un périphérique
+   * Send MIDI data to a device
    * Apple BLE MIDI packet format:
    *   Byte 0: Header byte (bit 7 = 1, bits 5-0 = timestamp high 6 bits)
    *   For each MIDI message:
@@ -561,13 +561,13 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Envoie un message MIDI (format easymidi) à un périphérique Bluetooth
-   * @param {string} address - Adresse BLE du périphérique
-   * @param {string} type - Type de message ('noteon', 'noteoff', 'cc', etc.)
-   * @param {object} data - Données du message ({channel, note, velocity} ou {channel, controller, value})
+   * Send a MIDI message (easymidi format) to a Bluetooth device
+   * @param {string} address - BLE address of the device
+   * @param {string} type - Message type ('noteon', 'noteoff', 'cc', etc.)
+   * @param {object} data - Message data ({channel, note, velocity} or {channel, controller, value})
    */
   async sendMidiMessage(address, type, data) {
-    // Convertir format easymidi en bytes MIDI bruts
+    // Convert easymidi format to raw MIDI bytes
     const midiBytes = this.convertToMidiBytes(type, data);
 
     if (midiBytes) {
@@ -578,17 +578,17 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Convertit un message easymidi en bytes MIDI
-   * @param {string} type - Type de message
-   * @param {object} data - Données du message
-   * @returns {Array<number>} Bytes MIDI
+   * Convert an easymidi message to MIDI bytes
+   * @param {string} type - Message type
+   * @param {object} data - Message data
+   * @returns {Array<number>} MIDI bytes
    */
   convertToMidiBytes(type, data) {
     return MidiUtils.convertToMidiBytes(type, data);
   }
 
   /**
-   * Obtient la liste des périphériques appairés
+   * Get the list of paired devices
    */
   getPairedDevices() {
     return this.pairedDevices.map(device => ({
@@ -598,14 +598,14 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Vérifie si un périphérique est connecté
+   * Check if a device is connected
    */
   isConnected(address) {
     return this.connectedDevices.has(address);
   }
 
   /**
-   * Obtient le statut du Bluetooth
+   * Get the Bluetooth status
    */
   getStatus() {
     return {
@@ -619,19 +619,19 @@ class BluetoothManager extends EventEmitter {
   }
 
   /**
-   * Nettoie et libère les ressources
+   * Clean up and release resources
    */
   async cleanup() {
     try {
-      // Déconnecter tous les périphériques
+      // Disconnect all devices
       for (const address of this.connectedDevices.keys()) {
         await this.disconnect(address).catch(() => {});
       }
 
-      // Arrêter le scan si actif
+      // Stop scan if active
       await this.stopScan();
 
-      // Libérer node-ble
+      // Release node-ble
       if (this.destroy) {
         this.destroy();
       }

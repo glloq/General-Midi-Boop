@@ -372,7 +372,7 @@
         title.textContent = i18n.t('settings.update.failed') || 'Échec de la mise à jour';
         messageEl.innerHTML = `
             <div style="font-size: 14px; text-align: center; color: #dc2626;">
-                ${(i18n.t('settings.update.failed') || 'Échec de la mise à jour')}: ${errorMessage}
+                ${(i18n.t('settings.update.failed') || 'Échec de la mise à jour')}: ${escapeHtml(errorMessage)}
             </div>
         `;
         buttons.innerHTML = `
@@ -442,26 +442,26 @@
                 this.logger?.error('checkForUpdates: backend error', result.error);
                 statusEl.style.background = '#fefce8';
                 statusEl.style.color = '#a16207';
-                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${result.error})</span>`;
+                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${escapeHtml(result.error)})</span>`;
                 return;
             }
 
             if (result.upToDate) {
                 statusEl.style.background = '#f0fdf4';
                 statusEl.style.color = '#16a34a';
-                statusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'Le système est à jour'}</strong> — v${result.version} (${result.localHash})</span>`;
+                statusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'Le système est à jour'}</strong> — v${escapeHtml(result.version)} (${escapeHtml(result.localHash)})</span>`;
             } else {
                 const count = result.behindCount || 0;
                 const plural = count > 1 ? 's' : '';
                 statusEl.style.background = '#fef3c7';
                 statusEl.style.color = '#92400e';
-                statusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} en retard (${result.localHash} → ${result.remoteHash})</span>`;
+                statusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} en retard (${escapeHtml(result.localHash)} → ${escapeHtml(result.remoteHash)})</span>`;
             }
         } catch (error) {
             this.logger?.error('checkForUpdates: exception', error.message);
             statusEl.style.background = '#fefce8';
             statusEl.style.color = '#a16207';
-            statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${error.message})</span>`;
+            statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${escapeHtml(error.message)})</span>`;
         }
     };
 

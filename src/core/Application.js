@@ -27,7 +27,7 @@ class Application {
     // Core services (always available)
     this.config = new Config(configPath);
     this.logger = new Logger(this.config.logging);
-    this.eventBus = new EventBus();
+    this.eventBus = new EventBus(this.logger);
 
     // DI Container — new code should use container.resolve() instead of this.xxx
     this.container = new ServiceContainer();

@@ -4,10 +4,10 @@ import { spawn } from 'child_process';
 import { performance } from 'perf_hooks';
 
 /**
- * DelayCalibrator - Mesure les délais de latence des instruments via microphone
+ * DelayCalibrator - Measures instrument latency delays via microphone
  *
- * Utilise ALSA (arecord) sur Raspberry Pi pour capturer l'audio et mesurer
- * le délai entre l'envoi d'une note MIDI et la détection du son.
+ * Uses ALSA (arecord) on Raspberry Pi to capture audio and measure
+ * the delay between sending a MIDI note and detecting the sound.
  */
 class DelayCalibrator {
   /**
@@ -25,30 +25,30 @@ class DelayCalibrator {
     this.midiController = midiController;
     this.logger = logger;
 
-    // État de l'enregistrement
+    // Recording state
     this.recording = null;
     this.audioBuffer = [];
     this.isRecording = false;
 
-    // Configuration par défaut
+    // Default configuration
     this.config = {
-      alsaDevice: 'hw:1,0', // Device ALSA (configurable)
+      alsaDevice: 'hw:1,0', // ALSA device (configurable)
       sampleRate: 16000,     // 16 kHz
       format: 'S16_LE',      // 16-bit signed little-endian
       channels: 1,           // Mono
-      threshold: 0.02,       // Seuil RMS de détection
-      noteVelocity: 100,     // Vélocité de la note test
-      noteDuration: 500,     // Durée de la note (ms)
-      testNote: 60,          // C4 (Do central)
-      preRecordTime: 100,    // Temps d'enregistrement avant note (ms)
-      maxWaitTime: 2000,     // Timeout de détection (ms)
-      measurements: 5        // Nombre de mesures par instrument
+      threshold: 0.02,       // RMS detection threshold
+      noteVelocity: 100,     // Test note velocity
+      noteDuration: 500,     // Note duration (ms)
+      testNote: 60,          // C4 (Middle C)
+      preRecordTime: 100,    // Pre-note recording time (ms)
+      maxWaitTime: 2000,     // Detection timeout (ms)
+      measurements: 5        // Number of measurements per instrument
     };
   }
 
   /**
-   * Configure le device ALSA
-   * @param {string} device - Ex: 'hw:1,0' ou 'plughw:1,0'
+   * Configure the ALSA device
+   * @param {string} device - E.g.: 'hw:1,0' or 'plughw:1,0'
    */
   setAlsaDevice(device) {
     if (!DelayCalibrator.isValidAlsaDevice(device)) {
@@ -59,8 +59,8 @@ class DelayCalibrator {
   }
 
   /**
-   * Configure le seuil de détection
-   * @param {number} threshold - Seuil RMS (0.01 - 0.10)
+   * Configure the detection threshold
+   * @param {number} threshold - RMS threshold (0.01 - 0.10)
    */
   setThreshold(threshold) {
     this.config.threshold = Math.max(0.01, Math.min(0.10, threshold));
@@ -68,10 +68,10 @@ class DelayCalibrator {
   }
 
   /**
-   * Calibre le délai d'un instrument
-   * @param {number} deviceId - ID du device MIDI
-   * @param {number} channel - Canal MIDI de l'instrument
-   * @param {Object} options - Options de calibration
+   * Calibrate the delay of an instrument
+   * @param {number} deviceId - MIDI device ID
+   * @param {number} channel - MIDI channel of the instrument
+   * @param {Object} options - Calibration options
    * @returns {Promise<Object>} - { delay, measurements, confidence }
    */
   async calibrateInstrument(deviceId, channel, options = {}) {
@@ -82,7 +82,7 @@ class DelayCalibrator {
 
       const delays = [];
 
-      // Effectuer plusieurs mesures
+      // Perform multiple measurements
       for (let i = 0; i < measurements; i++) {
         this.logger.debug(`Measurement ${i + 1}/${measurements}`);
 
@@ -92,13 +92,13 @@ class DelayCalibrator {
           delays.push(delay);
         }
 
-        // Pause entre les mesures
+        // Pause between measurements
         if (i < measurements - 1) {
           await this.sleep(1000);
         }
       }
 
-      // Calculer le délai médian (plus robuste que la moyenne)
+      // Calculate the median delay (more robust than the mean)
       if (delays.length === 0) {
         throw new Error('No valid measurements detected');
       }
@@ -109,12 +109,12 @@ class DelayCalibrator {
         ? delays[mid]
         : (delays[mid - 1] + delays[mid]) / 2;
 
-      // Calculer la confiance (basée sur l'écart-type)
+      // Calculate confidence (based on standard deviation)
       const mean = delays.reduce((sum, d) => sum + d, 0) / delays.length;
       const variance = delays.reduce((sum, d) => sum + Math.pow(d - mean, 2), 0) / delays.length;
       const stdDev = Math.sqrt(variance);
 
-      // Confiance: 100% si stdDev < 5ms, décroissant jusqu'à 0% à 50ms
+      // Confidence: 100% if stdDev < 5ms, decreasing to 0% at 50ms
       const confidence = Math.max(0, Math.min(100, 100 - (stdDev / 50) * 100));
 
       return {
@@ -135,30 +135,30 @@ class DelayCalibrator {
   }
 
   /**
-   * Effectue une seule mesure de délai
+   * Perform a single delay measurement
    * @param {number} deviceId
    * @param {number} channel
-   * @returns {Promise<number|null>} - Délai en ms ou null si échec
+   * @returns {Promise<number|null>} - Delay in ms or null if failed
    */
   async singleMeasurement(deviceId, channel) {
     try {
-      // Réinitialiser le buffer
+      // Reset the buffer
       this.audioBuffer = [];
 
-      // Démarrer l'enregistrement
+      // Start recording
       this.startRecording();
 
-      // Attendre que l'enregistrement démarre
+      // Wait for recording to start
       await this.sleep(this.config.preRecordTime);
 
-      // Envoyer la note MIDI et capturer le timestamp
+      // Send the MIDI note and capture the timestamp
       const sendTime = performance.now();
       await this.sendTestNote(deviceId, channel);
 
-      // Attendre la détection du son
+      // Wait for sound detection
       const detectionTime = await this.waitForSound(this.config.maxWaitTime);
 
-      // Arrêter l'enregistrement
+      // Stop recording
       await this.stopRecording();
 
       if (detectionTime === null) {
@@ -166,7 +166,7 @@ class DelayCalibrator {
         return null;
       }
 
-      // Calculer le délai
+      // Calculate the delay
       const delay = detectionTime - sendTime;
       this.logger.debug(`Delay measured: ${delay.toFixed(2)} ms`);
 
@@ -178,7 +178,7 @@ class DelayCalibrator {
   }
 
   /**
-   * Démarre l'enregistrement audio via arecord
+   * Start audio recording via arecord
    */
   startRecording() {
     if (this.isRecording) {
@@ -197,14 +197,14 @@ class DelayCalibrator {
       '-t', 'raw'
     ]);
 
-    // Capturer les données audio
+    // Capture audio data
     this.recording.stdout.on('data', (chunk) => {
       if (this.isRecording) {
         this.audioBuffer.push(chunk);
       }
     });
 
-    // Gérer les erreurs
+    // Handle errors
     this.recording.stderr.on('data', (data) => {
       this.logger.warn(`arecord stderr: ${data}`);
     });
@@ -218,7 +218,7 @@ class DelayCalibrator {
   }
 
   /**
-   * Arrête l'enregistrement audio
+   * Stop audio recording
    */
   stopRecording() {
     return new Promise((resolve) => {
@@ -243,7 +243,7 @@ class DelayCalibrator {
   }
 
   /**
-   * Envoie une note MIDI de test
+   * Send a test MIDI note
    * @param {number} deviceId
    * @param {number} channel
    */
@@ -258,7 +258,7 @@ class DelayCalibrator {
       velocity: velocity
     });
 
-    // Attendre la durée de la note
+    // Wait for the note duration
     await this.sleep(this.config.noteDuration);
 
     // Note OFF
@@ -270,25 +270,25 @@ class DelayCalibrator {
   }
 
   /**
-   * Attend la détection d'un son dans le buffer audio
-   * @param {number} timeoutMs - Timeout en millisecondes
-   * @returns {Promise<number|null>} - Timestamp de détection ou null
+   * Wait for sound detection in the audio buffer
+   * @param {number} timeoutMs - Timeout in milliseconds
+   * @returns {Promise<number|null>} - Detection timestamp or null
    */
   waitForSound(timeoutMs) {
     return new Promise((resolve) => {
       const startTime = performance.now();
-      const checkInterval = 10; // Vérifier toutes les 10ms
+      const checkInterval = 10; // Check every 10ms
       let lastCheckedIndex = 0;
 
       const interval = setInterval(() => {
-        // Vérifier timeout
+        // Check timeout
         if (performance.now() - startTime > timeoutMs) {
           clearInterval(interval);
           resolve(null);
           return;
         }
 
-        // Vérifier uniquement les nouveaux chunks depuis la dernière vérification
+        // Only check new chunks since the last check
         while (lastCheckedIndex < this.audioBuffer.length) {
           const chunk = this.audioBuffer[lastCheckedIndex];
           const rms = this.calculateRMS(chunk);
@@ -305,9 +305,9 @@ class DelayCalibrator {
   }
 
   /**
-   * Calcule le RMS (Root Mean Square) d'un buffer audio
-   * @param {Buffer} buffer - Buffer audio en format S16_LE
-   * @returns {number} - Valeur RMS (0.0 - 1.0)
+   * Calculate the RMS (Root Mean Square) of an audio buffer
+   * @param {Buffer} buffer - Audio buffer in S16_LE format
+   * @returns {number} - RMS value (0.0 - 1.0)
    */
   calculateRMS(buffer) {
     if (!buffer || buffer.length < 2) {
@@ -317,26 +317,26 @@ class DelayCalibrator {
     // Ensure even byte count for 16-bit samples
     const byteLength = buffer.length - (buffer.length % 2);
     let sum = 0;
-    const sampleCount = byteLength / 2; // 2 bytes par sample (16-bit)
+    const sampleCount = byteLength / 2; // 2 bytes per sample (16-bit)
 
     for (let i = 0; i < byteLength; i += 2) {
-      // Lire sample 16-bit signed little-endian
+      // Read 16-bit signed little-endian sample
       const sample = buffer.readInt16LE(i);
 
-      // Normaliser à -1.0 - 1.0
+      // Normalize to -1.0 - 1.0
       const normalized = sample / 32768.0;
 
-      // Accumuler le carré
+      // Accumulate the square
       sum += normalized * normalized;
     }
 
-    // Calculer la racine carrée de la moyenne
+    // Calculate the square root of the mean
     return Math.sqrt(sum / sampleCount);
   }
 
   /**
-   * Liste les devices ALSA disponibles
-   * @returns {Promise<Array>} - Liste des devices
+   * List available ALSA devices
+   * @returns {Promise<Array>} - List of devices
    */
   async listAlsaDevices() {
     return new Promise((resolve, reject) => {
@@ -353,13 +353,13 @@ class DelayCalibrator {
           return;
         }
 
-        // Parser la sortie
+        // Parse the output
         const devices = [];
         const lines = output.split('\n');
 
         for (const line of lines) {
-          // Format FR: "carte 1: ... périphérique 0: ..."
-          // Format EN: "card 1: ... device 0: ..."
+          // French format: "carte 1: ... périphérique 0: ..."
+          // English format: "card 1: ... device 0: ..."
           const match = line.match(/(?:card|carte) (\d+):.*(?:device|périphérique) (\d+):/i);
           if (match) {
             const card = match[1];
@@ -381,13 +381,13 @@ class DelayCalibrator {
   }
 
   // =========================================================================
-  // MONITORING (VU-meter temps réel)
+  // MONITORING (real-time VU-meter)
   // =========================================================================
 
   /**
-   * Démarre le monitoring audio continu pour VU-mètre
-   * Envoie le niveau RMS via le callback toutes les ~100ms
-   * @param {Function} callback - Appelé avec { rms, peak }
+   * Start continuous audio monitoring for VU-meter
+   * Sends the RMS level via the callback approximately every ~100ms
+   * @param {Function} callback - Called with { rms, peak }
    * @param {Object} [options] - Options (alsaDevice)
    */
   startMonitoring(callback, options = {}) {
@@ -445,7 +445,7 @@ class DelayCalibrator {
   }
 
   /**
-   * Arrête le monitoring audio
+   * Stop audio monitoring
    */
   stopMonitoring() {
     if (this.monitorProcess) {
@@ -464,14 +464,14 @@ class DelayCalibrator {
   }
 
   /**
-   * Utilitaire: sleep
+   * Utility: sleep
    */
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
-   * Nettoie les ressources
+   * Clean up resources
    */
   destroy() {
     this.stopRecording();

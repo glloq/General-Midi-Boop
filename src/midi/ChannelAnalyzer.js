@@ -4,15 +4,15 @@ import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
- * ChannelAnalyzer - Analyse les caractéristiques d'un canal MIDI
+ * ChannelAnalyzer - Analyzes MIDI channel characteristics
  *
- * Extrait les informations importantes d'un canal :
- * - Plage de notes (min/max)
- * - Distribution des notes
- * - Polyphonie (max/moyenne)
- * - Contrôleurs MIDI utilisés
- * - Programme MIDI principal
- * - Type d'instrument estimé
+ * Extracts important channel information:
+ * - Note range (min/max)
+ * - Note distribution
+ * - Polyphony (max/average)
+ * - Used MIDI controllers
+ * - Primary MIDI program
+ * - Estimated instrument type
  */
 class ChannelAnalyzer {
   constructor(logger, config = null) {
@@ -21,8 +21,8 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Analyse tous les canaux actifs dans un fichier MIDI
-   * @param {Object} midiData - Fichier MIDI parsé
+   * Analyzes all active channels in a MIDI file
+   * @param {Object} midiData - Parsed MIDI file
    * @returns {Array<ChannelAnalysis>}
    */
   analyzeAllChannels(midiData) {
@@ -31,9 +31,9 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Extrait les numéros de canaux actifs (qui contiennent des notes)
-   * @param {Object} midiData - Fichier MIDI parsé
-   * @returns {Array<number>} - Canaux actifs (0-15)
+   * Extracts active channel numbers (those containing notes)
+   * @param {Object} midiData - Parsed MIDI file
+   * @returns {Array<number>} - Active channels (0-15)
    */
   extractActiveChannels(midiData) {
     const channels = new Set();
@@ -57,9 +57,9 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Analyse un canal MIDI spécifique
-   * @param {Object} midiData - Fichier MIDI parsé
-   * @param {number} channel - Canal à analyser (0-15)
+   * Analyzes a specific MIDI channel
+   * @param {Object} midiData - Parsed MIDI file
+   * @param {number} channel - Channel to analyze (0-15)
    * @returns {ChannelAnalysis}
    */
   analyzeChannel(midiData, channel) {
@@ -89,7 +89,7 @@ class ChannelAnalyzer {
       trackNames
     });
 
-    // Enrichir avec la catégorie hiérarchique depuis le programme GM
+    // Enrich with hierarchical category from GM program
     const hierarchicalCategory = primaryProgram !== null
       ? InstrumentTypeConfig.detectTypeFromProgram(primaryProgram)
       : { type: 'unknown', subtype: null };
@@ -114,7 +114,7 @@ class ChannelAnalyzer {
       estimatedType: typeEstimation.type,
       typeConfidence: typeEstimation.confidence,
       typeScores: typeEstimation.scores,
-      // Catégorie hiérarchique détectée depuis le programme GM
+      // Hierarchical category detected from GM program
       estimatedCategory: hierarchicalCategory.type,
       estimatedSubtype: hierarchicalCategory.subtype,
       noteEvents, // Include note events for intelligent drum mapping
@@ -123,7 +123,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Récupère tous les événements d'un canal spécifique
+   * Retrieves all events for a specific channel
    * @param {Object} midiData
    * @param {number} channel
    * @returns {Array<Object>}
@@ -155,7 +155,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Extrait la plage de notes utilisées
+   * Extracts the used note range
    * @param {Array<Object>} noteEvents
    * @returns {Object} - { min, max }
    */
@@ -171,7 +171,7 @@ class ChannelAnalyzer {
       }
     }
 
-    // Si aucune note trouvée, retourner null pour signaler un canal vide
+    // If no notes found, return null to indicate an empty channel
     if (min > max) {
       return { min: null, max: null };
     }
@@ -180,7 +180,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Construit un histogram des notes utilisées
+   * Builds a histogram of used notes
    * @param {Array<Object>} noteEvents
    * @returns {Object} - { note: count }
    */
@@ -198,7 +198,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Compte le nombre total de notes
+   * Counts the total number of notes
    * @param {Array<Object>} noteEvents
    * @returns {number}
    */
@@ -207,7 +207,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Calcule la polyphonie maximale et moyenne
+   * Calculates maximum and average polyphony
    * @param {Array<Object>} noteEvents
    * @returns {Object} - { max, avg }
    */
@@ -249,8 +249,8 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Analyse les intervalles de temps entre notes consécutives.
-   * Retourne des statistiques de timing pour évaluer les capacités de vitesse.
+   * Analyzes time intervals between consecutive notes.
+   * Returns timing statistics for evaluating speed capabilities.
    * @param {Array<Object>} noteEvents - Note events (with absoluteTick)
    * @param {Object} midiData - MIDI data for tempo/tick conversion
    * @returns {Object} - { minInterval, p5Interval, p10Interval, avgInterval } in ms
@@ -301,9 +301,9 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Extrait la liste des contrôleurs MIDI utilisés
+   * Extracts the list of used MIDI controllers
    * @param {Array<Object>} events
-   * @returns {Array<number>} - Numéros de CC utilisés
+   * @returns {Array<number>} - Used CC numbers
    */
   extractUsedCCs(events) {
     const ccs = new Set();
@@ -319,7 +319,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Vérifie si le pitch bend est utilisé
+   * Checks if pitch bend is used
    * @param {Array<Object>} events
    * @returns {boolean}
    */
@@ -328,7 +328,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Extrait tous les changements de programme
+   * Extracts all program changes
    * @param {Array<Object>} events
    * @returns {Array<number>}
    */
@@ -346,7 +346,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Extrait les valeurs Bank Select MSB (CC0) et LSB (CC32)
+   * Extracts Bank Select MSB (CC0) and LSB (CC32) values
    * @param {Array<Object>} events
    * @returns {Object} - { msb, lsb }
    */
@@ -370,7 +370,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Détermine le programme MIDI principal (le plus utilisé ou le premier)
+   * Determines the primary MIDI program (most used or first)
    * @param {Array<number>} programs
    * @returns {number|null}
    */
@@ -379,13 +379,13 @@ class ChannelAnalyzer {
       return null;
     }
 
-    // Compter les occurrences
+    // Count occurrences
     const counts = {};
     for (const prog of programs) {
       counts[prog] = (counts[prog] || 0) + 1;
     }
 
-    // Trouver le plus fréquent
+    // Find the most frequent
     let maxCount = 0;
     let primaryProgram = programs[0];
 
@@ -400,7 +400,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Récupère les noms des tracks associés à ce canal
+   * Retrieves the track names associated with this channel
    * @param {Object} midiData
    * @param {number} channel
    * @returns {Array<string>}
@@ -415,7 +415,7 @@ class ChannelAnalyzer {
     for (const track of midiData.tracks) {
       if (!track.events) continue;
 
-      // Vérifier si ce track contient des événements de ce canal
+      // Check if this track contains events for this channel
       const hasChannel = track.events.some(e => e.channel === channel);
 
       if (hasChannel && track.name) {
@@ -427,9 +427,9 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Calcule la densité de notes (notes/seconde)
+   * Calculates note density (notes/second)
    * @param {Array<Object>} noteEvents
-   * @param {number} duration - Durée en secondes
+   * @param {number} duration - Duration in seconds
    * @returns {number}
    */
   calculateNoteDensity(noteEvents, duration) {
@@ -442,7 +442,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Estime le type d'instrument basé sur les caractéristiques (version améliorée)
+   * Estimates the instrument type based on characteristics (improved version)
    * @param {Object} analysis
    * @returns {Object} - { type: string, confidence: number, scores: Object }
    */
@@ -453,7 +453,7 @@ class ChannelAnalyzer {
     const thresholds = this.config.typeThresholds;
     const weights = this.config.typeDetection;
 
-    // Scores pour chaque type (0-100)
+    // Scores for each type (0-100)
     const scores = {
       drums: 0,
       percussive: 0,
@@ -462,7 +462,7 @@ class ChannelAnalyzer {
       harmony: 0
     };
 
-    // Canal 9 (MIDI 10) = toujours drums avec 100% confiance
+    // Channel 9 (MIDI 10) = always drums with 100% confidence
     if (channel === 9) {
       return {
         type: 'drums',
@@ -471,7 +471,7 @@ class ChannelAnalyzer {
       };
     }
 
-    // 1. Analyse du programme MIDI (fort indicateur, weight: programWeight)
+    // 1. MIDI program analysis (strong indicator, weight: programWeight)
     if (primaryProgram !== null) {
       if (primaryProgram >= 112 && primaryProgram <= 119) {
         scores.percussive += weights.programWeight;
@@ -492,11 +492,11 @@ class ChannelAnalyzer {
       }
     }
 
-    // 2. Analyse de la plage de notes (weight: rangeWeight)
+    // 2. Note range analysis (weight: rangeWeight)
     const avgNote = this.getAverageNote(noteDistribution);
     const span = noteRange.max - noteRange.min;
 
-    // Notes très basses = bass
+    // Very low notes = bass
     if (avgNote < thresholds.lowNote) {
       scores.bass += weights.rangeWeight;
     } else if (avgNote >= thresholds.lowNote && avgNote < 72) {
@@ -506,14 +506,14 @@ class ChannelAnalyzer {
       scores.melody += weights.rangeWeight * 0.8;
     }
 
-    // Plage restreinte en notes basses = drums
+    // Narrow range in low notes = drums
     const drumRange = thresholds.drumNoteRange;
     if (noteRange.min >= drumRange.min && noteRange.max <= drumRange.max && span < drumRange.span) {
       scores.drums += weights.rangeWeight * 0.8;
       scores.percussive += weights.rangeWeight * 0.6;
     }
 
-    // Large plage = harmony/piano
+    // Wide range = harmony/piano
     if (span >= thresholds.wideSpan) {
       scores.harmony += weights.rangeWeight * 0.8;
     } else if (span <= thresholds.narrowSpan) {
@@ -521,7 +521,7 @@ class ChannelAnalyzer {
       scores.percussive += weights.rangeWeight * 0.4;
     }
 
-    // 3. Analyse de la polyphonie (weight: polyphonyWeight)
+    // 3. Polyphony analysis (weight: polyphonyWeight)
     if (polyphony.max === 1) {
       scores.melody += weights.polyphonyWeight * 1.25;
       scores.bass += weights.polyphonyWeight;
@@ -535,13 +535,13 @@ class ChannelAnalyzer {
       scores.melody -= weights.polyphonyWeight * 0.5;
     }
 
-    // Polyphonie moyenne basse avec max haute = drums (notes qui se chevauchent)
+    // Low average polyphony with high max = drums (overlapping notes)
     if (polyphony.max >= 3 && polyphony.avg < 1.5) {
       scores.drums += weights.polyphonyWeight * 0.75;
       scores.percussive += weights.polyphonyWeight * 0.5;
     }
 
-    // 4. Analyse de la densité rythmique (weight: densityWeight)
+    // 4. Rhythmic density analysis (weight: densityWeight)
     if (density > thresholds.highDensity) {
       scores.drums += weights.densityWeight * 1.33;
       scores.percussive += weights.densityWeight;
@@ -553,7 +553,7 @@ class ChannelAnalyzer {
       scores.melody += weights.densityWeight * 0.33;
     }
 
-    // 5. Analyse des noms de tracks (weight: trackNameWeight)
+    // 5. Track name analysis (weight: trackNameWeight)
     const trackNameLower = trackNames.join(' ').toLowerCase();
 
     if (trackNameLower.includes('drum') || trackNameLower.includes('kick') ||
@@ -584,12 +584,12 @@ class ChannelAnalyzer {
       scores.drums += weights.trackNameWeight * 0.5;
     }
 
-    // 6. Normaliser les scores négatifs
+    // 6. Normalize negative scores
     for (const key in scores) {
       scores[key] = Math.max(0, scores[key]);
     }
 
-    // Trouver le type avec le meilleur score
+    // Find the type with the best score
     let bestType = 'melody';
     let bestScore = 0;
 
@@ -600,7 +600,7 @@ class ChannelAnalyzer {
       }
     }
 
-    // Calculer la confiance (0-100)
+    // Calculate confidence (0-100)
     const totalScore = Object.values(scores).reduce((a, b) => a + b, 0);
     const confidence = totalScore > 0 ? Math.round((bestScore / totalScore) * 100) : 50;
 
@@ -612,7 +612,7 @@ class ChannelAnalyzer {
   }
 
   /**
-   * Calcule la note moyenne pondérée
+   * Calculates the weighted average note
    * @param {Object} noteDistribution - { note: count }
    * @returns {number}
    */

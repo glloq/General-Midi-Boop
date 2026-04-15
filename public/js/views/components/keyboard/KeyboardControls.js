@@ -1,4 +1,4 @@
-// Auto-extracted from KeyboardModal_NEW.js
+// Auto-extracted from KeyboardModal.js
 (function() {
     'use strict';
     const KeyboardControlsMixin = {};

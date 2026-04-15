@@ -325,7 +325,7 @@ class MidiRouter {
         try {
           const settings = this.database.getInstrumentSettings(deviceId, msg.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
-        } catch (e) { /* ignore */ }
+        } catch (e) { /* instrument name lookup is optional for monitor events */ }
       }
       this._deps.wsServer.broadcast('monitor_event', {
         device: deviceId,

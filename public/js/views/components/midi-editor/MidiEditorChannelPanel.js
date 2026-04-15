@@ -273,7 +273,7 @@ class MidiEditorChannelPanel {
         const banner = document.createElement('div');
         banner.className = 'tab-suggest-banner';
         banner.innerHTML = `
-            <span>${m.t('tablature.gmDetected', { instrument: channelInfo.instrument })}</span>
+            <span>${m.t('tablature.gmDetected', { instrument: escapeHtml(channelInfo.instrument) })}</span>
             <button class="tab-suggest-btn" data-action="tab-auto-config">${m.t('tablature.autoConfig')}</button>
             <button class="tab-suggest-dismiss">&times;</button>
         `;

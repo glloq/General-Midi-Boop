@@ -68,7 +68,7 @@ class MidiDatabase {
       return result.lastInsertRowid;
     } catch (error) {
       if (error.message && error.message.includes('UNIQUE constraint failed: midi_files.filename')) {
-        throw new Error(`Un fichier avec le nom "${file.filename}" existe déjà. Veuillez renommer le fichier avant de l'ajouter.`);
+        throw new Error(`A file with the name "${file.filename}" already exists. Please rename the file before adding it.`);
       }
       this.logger.error(`Failed to insert file: ${error.message}`);
       throw error;

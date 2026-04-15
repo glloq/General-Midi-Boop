@@ -1,13 +1,13 @@
 // src/midi/InstrumentTypeConfig.js
 
 /**
- * InstrumentTypeConfig - Hiérarchie des types d'instruments
+ * InstrumentTypeConfig - Instrument type hierarchy
  *
- * Définit les catégories générales et sous-types alignés sur le standard General MIDI.
- * Utilisé pour :
- * - Sélection obligatoire du type lors de la configuration d'un instrument
- * - Scoring amélioré dans l'auto-assignation MIDI
- * - Détection automatique du type depuis le programme GM
+ * Defines general categories and subtypes aligned with the General MIDI standard.
+ * Used for:
+ * - Mandatory type selection when configuring an instrument
+ * - Improved scoring in MIDI auto-assignment
+ * - Automatic type detection from the GM program
  */
 
 const INSTRUMENT_TYPE_HIERARCHY = {
@@ -219,7 +219,7 @@ const INSTRUMENT_TYPE_HIERARCHY = {
       melodic_tom: { label: 'Tom mélodique', gmPrograms: [117] },
       synth_drum: { label: 'Synth drum', gmPrograms: [118] },
       reverse_cymbal: { label: 'Cymbale inversée', gmPrograms: [119] },
-      // Sous-types spéciaux pour kits de batterie (canal 10)
+      // Special subtypes for drum kits (channel 10)
       standard_kit: { label: 'Kit standard', gmPrograms: [] },
       jazz_kit: { label: 'Kit jazz', gmPrograms: [] },
       electronic_kit: { label: 'Kit électronique', gmPrograms: [] },
@@ -244,7 +244,7 @@ const INSTRUMENT_TYPE_HIERARCHY = {
 };
 
 /**
- * Familles de types apparentés (pour le scoring cross-type)
+ * Related type families (for cross-type scoring)
  */
 const TYPE_FAMILIES = {
   keyboards: ['piano', 'organ', 'chromatic_percussion'],
@@ -255,50 +255,50 @@ const TYPE_FAMILIES = {
 };
 
 /**
- * Polyphonie par défaut des instruments GM (0-127).
- * Représente la polyphonie typique de l'instrument acoustique réel.
- * Utilisé comme fallback quand l'instrument routé n'a pas de valeur définie.
+ * Default polyphony for GM instruments (0-127).
+ * Represents the typical polyphony of the real acoustic instrument.
+ * Used as a fallback when the routed instrument has no defined value.
  */
 const GM_DEFAULT_POLYPHONY = {
-  // Piano (0-7) — polyphonique, sustain long
+  // Piano (0-7) — polyphonic, long sustain
   0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 5: 16, 6: 8, 7: 8,
-  // Chromatic Percussion (8-15) — variable
+  // Chromatic Percussion (8-15) — varies
   8: 8, 9: 4, 10: 4, 11: 6, 12: 4, 13: 4, 14: 8, 15: 4,
-  // Organ (16-23) — polyphonique
+  // Organ (16-23) — polyphonic
   16: 16, 17: 16, 18: 16, 19: 16, 20: 16, 21: 8, 22: 1, 23: 8,
-  // Guitar (24-31) — 6 cordes
+  // Guitar (24-31) — 6 strings
   24: 6, 25: 6, 26: 6, 27: 6, 28: 6, 29: 6, 30: 6, 31: 6,
-  // Bass (32-39) — monophonique / 4 cordes
+  // Bass (32-39) — monophonic / 4 strings
   32: 1, 33: 1, 34: 1, 35: 1, 36: 1, 37: 1, 38: 1, 39: 1,
-  // Strings solo (40-43) — polyphonie limitée par cordes
+  // Strings solo (40-43) — polyphony limited by strings
   40: 4, 41: 4, 42: 4, 43: 4,
-  // Strings orchestral (44-47) — variable
+  // Strings orchestral (44-47) — varies
   44: 8, 45: 8, 46: 8, 47: 2,
-  // Ensemble (48-55) — polyphonique
+  // Ensemble (48-55) — polyphonic
   48: 16, 49: 16, 50: 16, 51: 16, 52: 16, 53: 16, 54: 16, 55: 1,
-  // Brass solo (56-60) — monophonique
+  // Brass solo (56-60) — monophonic
   56: 1, 57: 1, 58: 1, 59: 1, 60: 1,
   // Brass section + synth brass (61-63)
   61: 8, 62: 8, 63: 8,
-  // Reed / Sax solo (64-71) — monophonique
+  // Reed / Sax solo (64-71) — monophonic
   64: 1, 65: 1, 66: 1, 67: 1, 68: 1, 69: 1, 70: 1, 71: 1,
-  // Pipe / Flûtes (72-79) — monophonique
+  // Pipe / Flutes (72-79) — monophonic
   72: 1, 73: 1, 74: 1, 75: 1, 76: 1, 77: 1, 78: 1, 79: 1,
-  // Synth Lead (80-87) — monophonique typiquement
+  // Synth Lead (80-87) — typically monophonic
   80: 1, 81: 1, 82: 1, 83: 1, 84: 1, 85: 1, 86: 2, 87: 2,
-  // Synth Pad (88-95) — polyphonique
+  // Synth Pad (88-95) — polyphonic
   88: 8, 89: 8, 90: 8, 91: 8, 92: 8, 93: 8, 94: 8, 95: 8,
-  // Synth Effects (96-103) — variable
+  // Synth Effects (96-103) — varies
   96: 4, 97: 4, 98: 4, 99: 4, 100: 4, 101: 4, 102: 4, 103: 4,
-  // Ethnic (104-111) — variable
+  // Ethnic (104-111) — varies
   104: 4, 105: 6, 106: 4, 107: 4, 108: 4, 109: 1, 110: 4, 111: 1,
-  // Percussive (112-119) — variable
+  // Percussive (112-119) — varies
   112: 4, 113: 4, 114: 2, 115: 2, 116: 4, 117: 4, 118: 4, 119: 4,
-  // Sound Effects (120-127) — monophonique
+  // Sound Effects (120-127) — monophonic
   120: 1, 121: 1, 122: 1, 123: 1, 124: 1, 125: 1, 126: 1, 127: 1
 };
 
-// Cache interne pour lookups rapides programme → type
+// Internal cache for fast program → type lookups
 let _programToTypeCache = null;
 
 function _buildProgramCache() {
@@ -320,44 +320,44 @@ function _buildProgramCache() {
 }
 
 /**
- * Offsets de transposition pour instruments transpositeurs.
- * Clé = sous-type d'instrument, valeur = tableau de transpositions candidates en demi-tons.
- * Par exemple, une trompette en Sib transpose de -2 demi-tons (C écrit sonne Bb).
+ * Transposition offsets for transposing instruments.
+ * Key = instrument subtype, value = array of candidate transpositions in semitones.
+ * For example, a Bb trumpet transposes by -2 semitones (written C sounds Bb).
  */
 const TRANSPOSING_OFFSETS = {
-  // Instruments en Sib (-2 demi-tons)
+  // Bb instruments (-2 semitones)
   trumpet: [-2],
   muted_trumpet: [-2],
   clarinet: [-2],
   soprano_sax: [-2],
   tenor_sax: [-2],
-  // Instruments en Mib (+3 ou -9 demi-tons)
+  // Eb instruments (+3 or -9 semitones)
   alto_sax: [3, -9],
   baritone_sax: [3, -9],
-  // Instruments en Fa (+5 ou -7 demi-tons)
+  // F instruments (+5 or -7 semitones)
   french_horn: [5, -7],
   english_horn: [5, -7],
-  // Guitare/basse : souvent octave (-12) mais aussi quinte (-7)
+  // Guitar/bass: often octave (-12) but also fifth (-7)
   bass: [-12, -7],
-  // Piccolo (+12), contrebasse (-12)
+  // Piccolo (+12), double bass (-12)
   piccolo: [12],
   contrabass: [-12],
 };
 
 const InstrumentTypeConfig = {
   /**
-   * Hiérarchie complète des types
+   * Complete type hierarchy
    */
   hierarchy: INSTRUMENT_TYPE_HIERARCHY,
 
   /**
-   * Familles de types apparentés
+   * Related type families
    */
   families: TYPE_FAMILIES,
 
   /**
-   * Détecte le type et sous-type depuis un programme GM
-   * @param {number|null} gmProgram - Programme GM (0-127)
+   * Detect type and subtype from a GM program
+   * @param {number|null} gmProgram - GM program (0-127)
    * @returns {{ type: string, subtype: string|null }}
    */
   detectTypeFromProgram(gmProgram) {
@@ -369,7 +369,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Retourne la liste des catégories pour l'UI
+   * Return the list of categories for the UI
    * @returns {Array<{ key: string, label: string }>}
    */
   getCategories() {
@@ -380,7 +380,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Retourne les sous-types d'une catégorie pour l'UI
+   * Return the subtypes of a category for the UI
    * @param {string} categoryKey
    * @returns {Array<{ key: string, label: string }>}
    */
@@ -394,7 +394,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Vérifie si un type est valide
+   * Check if a type is valid
    * @param {string} type
    * @returns {boolean}
    */
@@ -403,7 +403,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Vérifie si un sous-type est valide pour un type donné
+   * Check if a subtype is valid for a given type
    * @param {string} type
    * @param {string} subtype
    * @returns {boolean}
@@ -415,7 +415,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Obtenir le label d'un type
+   * Get the label of a type
    * @param {string} type
    * @returns {string}
    */
@@ -425,7 +425,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Obtenir le label d'un sous-type
+   * Get the label of a subtype
    * @param {string} type
    * @param {string} subtype
    * @returns {string}
@@ -437,7 +437,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Vérifie si deux types appartiennent à la même famille
+   * Check if two types belong to the same family
    * @param {string} type1
    * @param {string} type2
    * @returns {boolean}
@@ -453,9 +453,9 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Obtenir la famille d'un type
+   * Get the family of a type
    * @param {string} type
-   * @returns {string|null} - Nom de la famille ou null
+   * @returns {string|null} - Family name or null
    */
   getFamily(type) {
     for (const [family, members] of Object.entries(TYPE_FAMILIES)) {
@@ -467,7 +467,7 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Retourne les programmes GM associés à un type
+   * Return the GM programs associated with a type
    * @param {string} type
    * @returns {number[]}
    */
@@ -477,10 +477,10 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Retourne la polyphonie par défaut d'un instrument GM.
-   * Représente la polyphonie typique de l'instrument acoustique réel.
-   * @param {number|null} gmProgram - Programme GM (0-127)
-   * @returns {number} - Polyphonie par défaut (fallback: 16)
+   * Return the default polyphony of a GM instrument.
+   * Represents the typical polyphony of the real acoustic instrument.
+   * @param {number|null} gmProgram - GM program (0-127)
+   * @returns {number} - Default polyphony (fallback: 16)
    */
   getGmDefaultPolyphony(gmProgram) {
     if (gmProgram === null || gmProgram === undefined || gmProgram < 0 || gmProgram > 127) {
@@ -490,9 +490,9 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Retourne les offsets de transposition pour un instrument transpositeur.
-   * @param {string|null} subtype - Sous-type d'instrument (ex: 'trumpet', 'alto_sax')
-   * @returns {number[]|null} - Tableau de transpositions candidates en demi-tons, ou null
+   * Return the transposition offsets for a transposing instrument.
+   * @param {string|null} subtype - Instrument subtype (e.g., 'trumpet', 'alto_sax')
+   * @returns {number[]|null} - Array of candidate transpositions in semitones, or null
    */
   getTransposingOffsets(subtype) {
     if (!subtype) return null;

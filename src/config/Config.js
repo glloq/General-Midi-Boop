@@ -28,6 +28,7 @@ class Config {
         return this.getDefaultConfig();
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(`Failed to load config: ${error.message}`);
       return this.getDefaultConfig();
     }
@@ -107,6 +108,7 @@ class Config {
       if (typeof currentValue === 'number') {
         typedValue = Number(envValue);
         if (isNaN(typedValue)) {
+          // eslint-disable-next-line no-console
           console.warn(`Config: ignoring invalid numeric env var ${envKey}=${envValue}`);
           continue;
         }
@@ -119,6 +121,7 @@ class Config {
       try {
         this.set(configKey, typedValue);
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.warn(`Config: env var ${envKey} rejected: ${e.message}`);
       }
     }
@@ -190,6 +193,7 @@ class Config {
       fs.writeFileSync(this.configPath, data, 'utf8');
       return true;
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(`Failed to save config: ${error.message}`);
       return false;
     }

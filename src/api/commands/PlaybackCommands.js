@@ -425,7 +425,7 @@ async function generateAssignmentSuggestions(app, data) {
     stats: result.stats
   };
 
-  // Inclure les données de matrice si demandé
+  // Include matrix data if requested
   if (result.matrixScores) {
     response.matrixScores = result.matrixScores;
     response.instrumentList = result.instrumentList;
@@ -524,8 +524,8 @@ async function applyAssignments(app, data) {
       const neededChannels = assignment.segments.length - 1;
 
       if (freeChannels.length < neededChannels) {
-        const msg = `Canal ${channelNum + 1} : pas assez de canaux MIDI libres pour le split physique ` +
-          `(${neededChannels} nécessaires, ${freeChannels.length} disponibles). Routage en temps réel utilisé.`;
+        const msg = `Channel ${channelNum + 1}: not enough free MIDI channels for physical split ` +
+          `(${neededChannels} needed, ${freeChannels.length} available). Using real-time routing instead.`;
         app.logger.warn(`[ApplyAssignments] ${msg}`);
         warnings.push(msg);
         continue;
@@ -655,7 +655,7 @@ async function applyAssignments(app, data) {
             f.parent_file_id === data.originalFileId && f.is_original === 0
           );
           if (existingAdapted) existingAdaptedId = existingAdapted.id;
-        } catch (e) { /* ignore */ }
+        } catch (e) { app.logger.debug('Could not check for existing adapted file', e); }
 
         if (existingAdaptedId) {
           // Update existing adapted file instead of creating a duplicate
@@ -843,16 +843,16 @@ async function applyAssignments(app, data) {
 }
 
 /**
- * Valide les capacités des instruments
+ * Validate instrument capabilities
  * @returns {Object}
  */
 async function validateInstrumentCapabilities(app) {
   const validator = new InstrumentCapabilitiesValidator();
 
-  // Récupérer tous les instruments
+  // Retrieve all instruments
   const instruments = app.database.getInstrumentsWithCapabilities();
 
-  // Valider
+  // Validate
   const validation = validator.validateInstruments(instruments);
 
   return {
@@ -866,24 +866,24 @@ async function validateInstrumentCapabilities(app) {
 }
 
 /**
- * Obtient les valeurs par défaut suggérées pour un instrument
+ * Get suggested default values for an instrument
  * @param {Object} data - { instrumentId, type }
  * @returns {Object}
  */
 async function getInstrumentDefaults(app, data) {
   const validator = new InstrumentCapabilitiesValidator();
 
-  // Récupérer l'instrument (table instruments)
+  // Retrieve the instrument (instruments table)
   const instrument = app.database.getInstrument(data.instrumentId);
 
   if (!instrument) {
     throw new NotFoundError('Instrument', data.instrumentId);
   }
 
-  // Obtenir les suggestions basées sur le type
+  // Get suggestions based on the type
   const defaults = validator.getSuggestedDefaults(instrument);
 
-  // Enrichir avec les capabilities actuelles depuis instruments_latency
+  // Enrich with current capabilities from instruments_latency
   let currentCapabilities = null;
   if (instrument.device_id) {
     try {
@@ -903,7 +903,7 @@ async function getInstrumentDefaults(app, data) {
 }
 
 /**
- * Met à jour les capacités des instruments
+ * Update instrument capabilities
  * @param {Object} data - { updates: { instrumentId: { field: value, ... }, ... } }
  * @returns {Object}
  */
@@ -917,10 +917,10 @@ async function updateInstrumentCapabilities(app, data) {
 
   for (const [instrumentId, fields] of Object.entries(data.updates)) {
     try {
-      // Convertir instrumentId en nombre
+      // Convert instrumentId to number
       const id = parseInt(instrumentId);
 
-      // Récupérer l'instrument
+      // Retrieve the instrument
       const instrument = app.database.getInstrument(id);
 
       if (!instrument) {
@@ -931,7 +931,7 @@ async function updateInstrumentCapabilities(app, data) {
         continue;
       }
 
-      // Séparer les champs selon leur type
+      // Separate fields by their type
       const basicFields = {};
       const capabilityFields = {};
 
@@ -946,12 +946,12 @@ async function updateInstrumentCapabilities(app, data) {
         }
       }
 
-      // Mettre à jour les champs basiques (type, gm_program, etc.)
+      // Update basic fields (type, gm_program, etc.)
       if (Object.keys(basicFields).length > 0) {
         app.database.updateInstrument(id, basicFields);
       }
 
-      // Mettre à jour les capacités
+      // Update capabilities
       if (Object.keys(capabilityFields).length > 0) {
         // Use channel from fields, instrument, or default to 0
         const channel = fields.channel !== undefined ? fields.channel : (instrument.channel || 0);

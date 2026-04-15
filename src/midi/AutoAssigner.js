@@ -8,10 +8,10 @@ import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
- * AutoAssigner - Génère des suggestions d'assignation automatique
+ * AutoAssigner - Generates automatic assignment suggestions
  *
- * Pour chaque canal MIDI actif, propose les N meilleurs instruments
- * disponibles avec leurs scores de compatibilité.
+ * For each active MIDI channel, proposes the N best available
+ * instruments with their compatibility scores.
  */
 class AutoAssigner {
   constructor(instrumentDatabase, logger) {
@@ -22,7 +22,7 @@ class AutoAssigner {
     this.splitter = new ChannelSplitter(logger);
     this.cache = new AnalysisCache(ScoringConfig.cache.maxSize, ScoringConfig.cache.ttl);
 
-    // Cleanup périodique du cache (toutes les 5 minutes)
+    // Periodic cache cleanup (every 5 minutes)
     this.cleanupInterval = setInterval(() => {
       this.cache.cleanup();
       const stats = this.cache.getStats();
@@ -31,8 +31,8 @@ class AutoAssigner {
   }
 
   /**
-   * Génère des suggestions d'assignation pour tous les canaux
-   * @param {Object} midiData - Fichier MIDI parsé
+   * Generates assignment suggestions for all channels
+   * @param {Object} midiData - Parsed MIDI file
    * @param {Object} options - { topN: 3, minScore: 30 }
    * @returns {Promise<AssignmentSuggestions>}
    */
@@ -40,10 +40,10 @@ class AutoAssigner {
     const { topN = 5, minScore = 30, excludeVirtual = false, includeMatrix = false } = options;
 
     try {
-      // 1. Récupérer tous les instruments disponibles avec leurs capabilities
+      // 1. Retrieve all available instruments with their capabilities
       let availableInstruments = await this.instrumentDatabase.getInstrumentsWithCapabilities();
 
-      // Exclure les instruments virtuels si désactivés dans les réglages
+      // Exclude virtual instruments if disabled in settings
       if (excludeVirtual) {
         availableInstruments = availableInstruments.filter(inst =>
           !inst.device_id || !inst.device_id.startsWith('virtual_')
@@ -62,7 +62,7 @@ class AutoAssigner {
         };
       }
 
-      // 2. Analyser tous les canaux actifs
+      // 2. Analyze all active channels
       const channelAnalyses = this.analyzer.analyzeAllChannels(midiData);
 
       if (channelAnalyses.length === 0) {
@@ -78,10 +78,10 @@ class AutoAssigner {
 
       this.logger.info(`Analyzing ${channelAnalyses.length} active channels against ${availableInstruments.length} instruments`);
 
-      // 3. Pour chaque canal, scorer tous les instruments
+      // 3. For each channel, score all instruments
       const suggestions = {};
       const lowScoreSuggestions = {};
-      // Collecter tous les scores bruts pour la matrice (si demandé)
+      // Collect all raw scores for the matrix (if requested)
       const allScoresRaw = includeMatrix ? {} : null;
 
       for (const analysis of channelAnalyses) {
@@ -98,7 +98,7 @@ class AutoAssigner {
           const isDrumInstrument = instrument.instrument_type === 'drums';
 
           if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
-            // Marquer incompatible dans la matrice
+            // Mark as incompatible in the matrix
             if (includeMatrix) {
               allScoresRaw[analysis.channel][instrument.id] = {
                 score: 0,
@@ -111,7 +111,7 @@ class AutoAssigner {
 
           const compatibility = this.matcher.calculateCompatibility(analysis, instrument);
 
-          // Stocker dans la matrice brute
+          // Store in raw matrix
           if (includeMatrix) {
             allScoresRaw[analysis.channel][instrument.id] = {
               score: compatibility.score,
@@ -147,27 +147,27 @@ class AutoAssigner {
           }
         }
 
-        // Trier par score décroissant et garder top N
+        // Sort by descending score and keep top N
         scores.sort((a, b) => b.compatibility.score - a.compatibility.score);
         suggestions[analysis.channel] = scores.slice(0, topN);
 
-        // Garder aussi les instruments à bas score (triés)
+        // Also keep low-score instruments (sorted)
         lowScores.sort((a, b) => b.compatibility.score - a.compatibility.score);
         lowScoreSuggestions[analysis.channel] = lowScores;
       }
 
-      // 4. Sélection automatique (meilleur score par canal)
+      // 4. Automatic selection (best score per channel)
       const autoSelection = this.selectBestAssignments(suggestions, channelAnalyses);
 
-      // 5. Évaluer les splits pour les canaux skippés ou mal scorés
+      // 5. Evaluate splits for skipped or poorly scored channels
       const splitProposals = this.evaluateChannelSplits(
         channelAnalyses, autoSelection, availableInstruments
       );
 
-      // 6. Calculer score de confiance global
+      // 6. Calculate overall confidence score
       const confidenceScore = this.calculateConfidence(autoSelection, channelAnalyses.length);
 
-      // 7. Construire la matrice et la liste d'instruments (si demandé)
+      // 7. Build the matrix and instrument list (if requested)
       let matrixScores = null;
       let instrumentList = null;
       if (includeMatrix) {
@@ -175,7 +175,7 @@ class AutoAssigner {
         instrumentList = this._buildInstrumentList(availableInstruments);
       }
 
-      // 8. Liste brute de tous les instruments (pour affichage "tous les instruments")
+      // 8. Raw list of all instruments (for "all instruments" display)
       const allInstruments = this._buildInstrumentList(availableInstruments);
 
       return {
@@ -203,8 +203,8 @@ class AutoAssigner {
   }
 
   /**
-   * Construit la liste d'instruments avec infos résumées pour le frontend
-   * @param {Array} availableInstruments - Tous les instruments disponibles
+   * Builds the instrument list with summarized info for the frontend
+   * @param {Array} availableInstruments - All available instruments
    * @returns {Array}
    */
   _buildInstrumentList(availableInstruments) {
@@ -231,9 +231,9 @@ class AutoAssigner {
   }
 
   /**
-   * Sélectionne le meilleur instrument pour chaque canal
-   * en évitant les doublons : chaque instrument n'est assigné qu'une seule fois.
-   * Les canaux sans instrument unique disponible sont auto-skippés.
+   * Selects the best instrument for each channel
+   * while avoiding duplicates: each instrument is assigned only once.
+   * Channels without a unique available instrument are auto-skipped.
    * @param {Object} suggestions
    * @param {Array} channelAnalyses
    * @returns {Object}
@@ -243,7 +243,7 @@ class AutoAssigner {
     const usedInstruments = new Set();
     const autoSkipped = new Set();
 
-    // Créer une map des analyses par canal
+    // Create a map of analyses by channel
     const analysisMap = {};
     for (const analysis of channelAnalyses) {
       analysisMap[analysis.channel] = analysis;
@@ -253,8 +253,8 @@ class AutoAssigner {
     const allowReuse = ScoringConfig.routing?.allowInstrumentReuse !== false;
     const sharedPenalty = ScoringConfig.routing?.sharedInstrumentPenalty || 10;
 
-    // Tri par RARETÉ de choix : les canaux avec moins d'options viables sont assignés en priorité.
-    // Cela évite qu'un canal avec beaucoup d'options "vole" l'unique bon instrument d'un autre canal.
+    // Sort by SCARCITY of choices: channels with fewer viable options are assigned first.
+    // This prevents a channel with many options from "stealing" the only good instrument from another channel.
     const channelsByScarcity = Object.entries(suggestions)
       .map(([channel, options]) => {
         const ch = parseInt(channel);
@@ -268,12 +268,12 @@ class AutoAssigner {
         };
       })
       .sort((a, b) => {
-        // Priorité 1: Canal 9 (drums) toujours en premier
+        // Priority 1: Channel 9 (drums) always first
         if (a.channel === 9 && b.channel !== 9) return -1;
         if (b.channel === 9 && a.channel !== 9) return 1;
-        // Priorité 2: Moins d'options viables = plus prioritaire (rareté)
+        // Priority 2: Fewer viable options = higher priority (scarcity)
         if (a.viableCount !== b.viableCount) return a.viableCount - b.viableCount;
-        // Priorité 3: En cas d'égalité, meilleur score en premier
+        // Priority 3: In case of tie, best score first
         return b.bestScore - a.bestScore;
       });
 
@@ -284,8 +284,8 @@ class AutoAssigner {
 
     this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering, reuse=${allowReuse})`);
 
-    // ── Passe 1 : assignation unique — chaque instrument une seule fois ──
-    const pendingChannels = []; // canaux sans instrument unique
+    // -- Pass 1: unique assignment -- each instrument only once --
+    const pendingChannels = []; // channels without a unique instrument
     for (const entry of channelsByScarcity) {
       const { channel, options, analysis, viableCount } = entry;
       let selected = null;
@@ -307,10 +307,10 @@ class AutoAssigner {
       assignments[channel] = this._buildAssignment(selected, analysis, false);
     }
 
-    // ── Passe 2 : partage d'instruments pour les canaux restants ──
+    // -- Pass 2: instrument sharing for remaining channels --
     const sharedChannels = new Set();
     if (allowReuse && pendingChannels.length > 0) {
-      // Map instrument → liste des canaux qui l'utilisent (pour sharedWith)
+      // Map instrument -> list of channels using it (for sharedWith)
       const instrumentUsage = {};
       for (const [ch, a] of Object.entries(assignments)) {
         if (!a || typeof a !== 'object') continue;
@@ -319,11 +319,11 @@ class AutoAssigner {
       }
 
       for (const { channel, options, analysis, viableCount } of pendingChannels) {
-        // Chercher le meilleur instrument même déjà utilisé
+        // Find the best instrument even if already used
         let selected = null;
         for (const option of options) {
           selected = option;
-          break; // premier = meilleur score (déjà trié)
+          break; // first = best score (already sorted)
         }
 
         if (!selected) {
@@ -332,13 +332,13 @@ class AutoAssigner {
           continue;
         }
 
-        // Construire l'assignation avec le flag shared
+        // Build the assignment with the shared flag
         const assignment = this._buildAssignment(selected, analysis, true);
-        // Appliquer la pénalité de partage au score affiché
+        // Apply sharing penalty to the displayed score
         assignment.score = Math.max(0, assignment.score - sharedPenalty);
         assignment.scoreBeforePenalty = selected.compatibility.score;
 
-        // Tracker quels canaux partagent cet instrument
+        // Track which channels share this instrument
         if (!instrumentUsage[selected.instrument.id]) instrumentUsage[selected.instrument.id] = [];
         instrumentUsage[selected.instrument.id].push(channel);
         assignment.sharedWith = instrumentUsage[selected.instrument.id].filter(ch => ch !== channel);
@@ -348,7 +348,7 @@ class AutoAssigner {
         this.logger.info(`Channel ${channel}: shared assignment → ${selected.instrument.name} (score ${selected.compatibility.score} → ${assignment.score} after penalty, shared with ch ${assignment.sharedWith.join(',')})`);
       }
 
-      // Mettre à jour sharedWith sur les canaux de passe 1 qui partagent maintenant
+      // Update sharedWith on pass 1 channels that now share
       for (const [ch, a] of Object.entries(assignments)) {
         if (!a || typeof a !== 'object' || a.shared) continue;
         const usage = instrumentUsage[a.instrumentId];
@@ -357,7 +357,7 @@ class AutoAssigner {
         }
       }
     } else {
-      // Pas de partage — marquer tous les pending comme auto-skipped
+      // No sharing -- mark all pending as auto-skipped
       for (const { channel, viableCount } of pendingChannels) {
         autoSkipped.add(channel);
         this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`);
@@ -378,10 +378,10 @@ class AutoAssigner {
   }
 
   /**
-   * Construit un objet d'assignation à partir d'une option sélectionnée
-   * @param {Object} selected - Option instrument + compatibility
-   * @param {Object} analysis - Analyse du canal
-   * @param {boolean} shared - Si l'instrument est partagé avec d'autres canaux
+   * Builds an assignment object from a selected option
+   * @param {Object} selected - Instrument option + compatibility
+   * @param {Object} analysis - Channel analysis
+   * @param {boolean} shared - Whether the instrument is shared with other channels
    * @returns {Object}
    */
   _buildAssignment(selected, analysis, shared) {
@@ -411,7 +411,7 @@ class AutoAssigner {
   }
 
   /**
-   * Évalue les splits possibles pour les canaux non-assignés ou mal scorés
+   * Evaluates possible splits for unassigned or poorly scored channels
    * @param {Array} channelAnalyses
    * @param {Object} autoSelection
    * @param {Array} availableInstruments
@@ -422,27 +422,27 @@ class AutoAssigner {
     const autoSkipped = autoSelection._autoSkipped || [];
     const triggerThreshold = ScoringConfig.splitting?.triggerBelowScore || 60;
 
-    // Identifier les canaux candidats au split
+    // Identify channels that are split candidates
     const candidateChannels = [];
 
     for (const analysis of channelAnalyses) {
       const ch = analysis.channel;
       const assignment = autoSelection[ch];
 
-      // Canal skippé → candidat
+      // Skipped channel -> candidate
       if (autoSkipped.includes(ch)) {
         candidateChannels.push(analysis);
         continue;
       }
 
-      // Canal assigné avec score faible → candidat
+      // Channel assigned with low score -> candidate
       if (assignment && assignment.score < triggerThreshold) {
         candidateChannels.push(analysis);
         continue;
       }
 
-      // Canal assigné AVEC transposition quand autoSplitAvoidTransposition est activé → candidat
-      // Même si le score est acceptable, un split pourrait éviter la transposition
+      // Channel assigned WITH transposition when autoSplitAvoidTransposition is enabled -> candidate
+      // Even if the score is acceptable, a split could avoid transposition
       if (ScoringConfig.routing.autoSplitAvoidTransposition &&
           assignment && assignment.transposition &&
           assignment.transposition.semitones !== 0 &&
@@ -456,7 +456,7 @@ class AutoAssigner {
       return splitProposals;
     }
 
-    // Grouper les instruments disponibles par type (catégorie hiérarchique)
+    // Group available instruments by type (hierarchical category)
     const instrumentsByType = {};
     for (const inst of availableInstruments) {
       const type = inst.instrument_type || 'unknown';
@@ -465,7 +465,7 @@ class AutoAssigner {
       instrumentsByType[type].push(inst);
     }
 
-    // Pour chaque canal candidat, chercher un split possible
+    // For each candidate channel, look for a possible split
     for (const analysis of candidateChannels) {
       // Force drums category for channel 9 (drums often have no program change, leading to 'unknown')
       let channelCategory = analysis.estimatedCategory;
@@ -474,10 +474,10 @@ class AutoAssigner {
       }
       if (!channelCategory || channelCategory === 'unknown') continue;
 
-      // Chercher les instruments du même type
+      // Find instruments of the same type
       let sameType = instrumentsByType[channelCategory] || [];
 
-      // Tier 2: élargir à la famille si pas assez d'instruments du type exact
+      // Tier 2: expand to family if not enough instruments of the exact type
       if (sameType.length < 2) {
         const family = InstrumentTypeConfig.getFamily(channelCategory);
         if (family) {
@@ -494,14 +494,14 @@ class AutoAssigner {
         }
       }
 
-      // Tier 3: split cross-famille — tout instrument avec plage compatible
+      // Tier 3: cross-family split -- any instrument with a compatible range
       if (sameType.length < 2 && analysis.noteRange && analysis.noteRange.min !== null) {
         const channelMin = analysis.noteRange.min;
         const channelMax = analysis.noteRange.max;
         const crossFamilyInstruments = availableInstruments.filter(inst =>
           inst.note_range_min != null && inst.note_range_max != null &&
           inst.note_range_min <= channelMax && inst.note_range_max >= channelMin &&
-          inst.instrument_type !== 'drums' // Exclure drums des splits cross-famille
+          inst.instrument_type !== 'drums' // Exclude drums from cross-family splits
         );
         if (crossFamilyInstruments.length >= 2) {
           sameType = crossFamilyInstruments;
@@ -513,8 +513,8 @@ class AutoAssigner {
 
       const proposal = this.splitter.evaluateAllSplits(analysis, sameType);
       if (proposal) {
-        // Si ce canal a été ajouté spécifiquement pour autoSplitAvoidTransposition,
-        // ne garder la proposition que si elle réduit/élimine la transposition
+        // If this channel was added specifically for autoSplitAvoidTransposition,
+        // only keep the proposal if it reduces/eliminates transposition
         const assignment = autoSelection[analysis.channel];
         const wasAddedForTransposition = ScoringConfig.routing.autoSplitAvoidTransposition &&
           assignment && assignment.transposition &&
@@ -530,7 +530,7 @@ class AutoAssigner {
             this.logger.debug(
               `Channel ${analysis.channel}: split rejected (still requires transposition in segments)`
             );
-            continue; // Le split n'aide pas à éviter la transposition
+            continue; // The split doesn't help avoid transposition
           }
           this.logger.info(
             `Channel ${analysis.channel}: split avoids transposition! (was ${assignment.transposition.semitones}st)`
@@ -548,10 +548,10 @@ class AutoAssigner {
   }
 
   /**
-   * Calcule un score de confiance global (0-100)
-   * Prend en compte la qualité moyenne ET le taux de réussite
-   * @param {Object} autoSelection - Canaux assignés avec leurs scores
-   * @param {number} totalChannels - Nombre total de canaux actifs
+   * Calculates an overall confidence score (0-100)
+   * Takes into account both average quality AND success rate
+   * @param {Object} autoSelection - Assigned channels with their scores
+   * @param {number} totalChannels - Total number of active channels
    * @returns {number}
    */
   calculateConfidence(autoSelection, totalChannels) {
@@ -562,31 +562,31 @@ class AutoAssigner {
       return 0;
     }
 
-    // Pour les canaux partagés, utiliser le score avant pénalité s'il existe
+    // For shared channels, use the pre-penalty score if available
     const scores = entries.map(a => a.shared && a.scoreBeforePenalty != null ? a.scoreBeforePenalty : a.score);
 
-    // Moyenne des scores des canaux assignés
+    // Average score of assigned channels
     const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
 
-    // Taux de réussite (combien de canaux ont été assignés)
+    // Success rate (how many channels were assigned)
     const successRate = entries.length / totalChannels;
 
-    // Score final = qualité moyenne × taux de réussite
+    // Final score = average quality x success rate
     const confidenceScore = avgScore * successRate;
 
     return Math.round(confidenceScore);
   }
 
   /**
-   * Analyse un seul canal (utile pour l'API analyze_channel)
-   * Utilise le cache si fileId est fourni
+   * Analyzes a single channel (useful for the analyze_channel API)
+   * Uses cache if fileId is provided
    * @param {Object} midiData
    * @param {number} channel
-   * @param {number} [fileId] - Optionnel pour le cache
+   * @param {number} [fileId] - Optional, for caching
    * @returns {Object}
    */
   analyzeChannel(midiData, channel, fileId = null) {
-    // Vérifier le cache si fileId fourni
+    // Check cache if fileId is provided
     if (fileId !== null) {
       const cached = this.cache.get(fileId, channel);
       if (cached) {
@@ -595,10 +595,10 @@ class AutoAssigner {
       }
     }
 
-    // Analyser le canal
+    // Analyze the channel
     const analysis = this.analyzer.analyzeChannel(midiData, channel);
 
-    // Stocker dans le cache si fileId fourni
+    // Store in cache if fileId is provided
     if (fileId !== null) {
       this.cache.set(fileId, channel, analysis);
       this.logger.debug(`Cache stored for file ${fileId}, channel ${channel}`);
@@ -608,11 +608,11 @@ class AutoAssigner {
   }
 
   /**
-   * Calcule la compatibilité pour un couple canal/instrument spécifique
+   * Calculates compatibility for a specific channel/instrument pair
    * @param {Object} midiData
    * @param {number} channel
    * @param {Object} instrument
-   * @param {number} [fileId] - Optionnel pour le cache
+   * @param {number} [fileId] - Optional, for caching
    * @returns {Object}
    */
   async calculateCompatibility(midiData, channel, instrument, fileId = null) {
@@ -621,8 +621,8 @@ class AutoAssigner {
   }
 
   /**
-   * Invalide le cache pour un fichier
-   * À appeler quand un fichier est modifié
+   * Invalidates the cache for a file
+   * Call when a file is modified
    * @param {number} fileId
    */
   invalidateCache(fileId) {
@@ -631,7 +631,7 @@ class AutoAssigner {
   }
 
   /**
-   * Nettoie les ressources (intervals, cache)
+   * Cleans up resources (intervals, cache)
    */
   destroy() {
     if (this.cleanupInterval) {

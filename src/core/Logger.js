@@ -42,6 +42,7 @@ class Logger {
     }
     this._stream = fs.createWriteStream(this.logFile, { flags: 'a' });
     this._stream.on('error', (err) => {
+      // eslint-disable-next-line no-console
       console.error('Log stream error:', err.message);
     });
   }
@@ -100,6 +101,7 @@ class Logger {
       error: '\x1b[31m' // Red
     };
     const reset = '\x1b[0m';
+    // eslint-disable-next-line no-console
     console.log(`${colors[level]}${logMessage}${reset}`);
 
     // File output via non-blocking WriteStream
@@ -180,6 +182,7 @@ class Logger {
       // Reopen stream for the new log file
       this._openStream();
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Log rotation failed:', error.message);
     } finally {
       this._rotating = false;
