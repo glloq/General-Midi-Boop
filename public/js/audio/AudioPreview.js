@@ -91,6 +91,9 @@ class AudioPreview {
 
       await this.initSynthesizer();
 
+      // Reset all channels to original programs before applying routed programs
+      this._resetChannelInstruments(midiData);
+
       // Apply instrument programs for selected instruments
       if (instrumentPrograms && this.synthesizer.setChannelInstrument) {
         for (const [channel, program] of Object.entries(instrumentPrograms)) {
@@ -136,6 +139,10 @@ class AudioPreview {
 
       await this.initSynthesizer();
 
+      // Reset channel instruments to the original MIDI programs
+      // (clears any programs set by a previous routed preview)
+      this._resetChannelInstruments(midiData);
+
       const effectiveDuration = fullFile ? this._getFileDuration(midiData) : duration;
 
       // Create sequence without transpositions
@@ -176,6 +183,9 @@ class AudioPreview {
       this.isPreviewing = true;
 
       await this.initSynthesizer();
+
+      // Reset all channels to original programs before overriding this channel
+      this._resetChannelInstruments(midiData);
 
       // Set the instrument sound for this channel
       if (instrumentConstraints.gmProgram != null && this.synthesizer.setChannelInstrument) {
@@ -227,6 +237,9 @@ class AudioPreview {
       this.isPreviewing = true;
 
       await this.initSynthesizer();
+
+      // Reset all channels to original programs before applying routed programs
+      this._resetChannelInstruments(midiData);
 
       // Set instrument programs for each channel
       for (const [channel, config] of Object.entries(channelConfigs)) {
@@ -408,6 +421,37 @@ class AudioPreview {
       ? this.synthesizer.secondsToTicks(timeSec)
       : (timeSec * 1000) / ((60000 / tempo) / ticksPerBeat);
     this.synthesizer.seek(tick);
+  }
+
+  /**
+   * Reset synthesizer channel instruments to the original programs from the MIDI file.
+   * Clears any routed instrument programs set by a previous preview mode.
+   * @param {Object} midiData - MIDI data containing tracks with programChange events
+   */
+  _resetChannelInstruments(midiData) {
+    if (!this.synthesizer?.setChannelInstrument) return;
+
+    // Reset all channels to GM defaults
+    for (let ch = 0; ch < 16; ch++) {
+      this.synthesizer.setChannelInstrument(ch, 0); // Acoustic Grand Piano
+      if (this.synthesizer.setChannelVolume) {
+        this.synthesizer.setChannelVolume(ch, 100); // Default volume
+      }
+    }
+
+    // Apply original program changes from the MIDI file
+    if (midiData?.tracks) {
+      for (const track of midiData.tracks) {
+        if (!track.events) continue;
+        for (const event of track.events) {
+          if (event.type === 'programChange' || event.type === 'program') {
+            const ch = event.channel ?? 0;
+            const program = event.program ?? event.programNumber ?? 0;
+            this.synthesizer.setChannelInstrument(ch, program);
+          }
+        }
+      }
+    }
   }
 
   /**
