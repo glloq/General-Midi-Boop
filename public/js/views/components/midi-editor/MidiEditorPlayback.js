@@ -288,16 +288,36 @@ class MidiEditorPlayback {
         m.isPlaying = false;
         m.isPaused = false;
 
+        const resetTick = m.playbackStartTick || 0;
+
         if (m.pianoRoll) {
-            m.pianoRoll.cursor = m.playbackStartTick;
+            m.pianoRoll.cursor = resetTick;
+        }
+
+        // Reset PlaybackTimelineBar playhead so the red triangle returns to start
+        if (m.timelineBar) {
+            m.timelineBar.setPlayhead(resetTick);
+            if (m.pianoRoll) {
+                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
+            }
         }
 
         // Reset tablature playhead and clear fretboard positions
         if (m.tablatureEditor && m.tablatureEditor.isVisible) {
-            m.tablatureEditor.updatePlayhead(m.playbackStartTick || 0);
+            m.tablatureEditor.updatePlayhead(resetTick);
             if (m.tablatureEditor.fretboard) {
                 m.tablatureEditor.fretboard.clearActivePositions();
             }
+        }
+
+        // Reset drum pattern playhead
+        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) {
+            m.drumPatternEditor.updatePlayhead(resetTick);
+        }
+
+        // Reset wind instrument editor playhead
+        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) {
+            m.windInstrumentEditor.updatePlayhead(resetTick);
         }
 
         this.updatePlaybackButtons();

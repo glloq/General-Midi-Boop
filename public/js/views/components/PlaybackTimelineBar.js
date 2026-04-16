@@ -8,6 +8,7 @@
 //   Interaction model:
 //   - Drag playhead marker → seek
 //   - Double-click on empty area → seek to that position
+//   - Triple-click on empty area → move the range-start marker there
 //   - Drag on empty area → pan the view horizontally
 //   - Mouse wheel → horizontal scroll
 //   - Touch support for all interactions
@@ -64,9 +65,10 @@ class PlaybackTimelineBar {
         this._panStartX = 0;
         this._panStartScrollX = 0;
 
-        // Double-click detection
+        // Double-click / triple-click detection (shared by mouse touch path)
         this._lastClickTime = 0;
         this._lastClickX = 0;
+        this._lastClickCount = 0;
         this._DOUBLE_CLICK_MS = 350;
         this._DOUBLE_CLICK_PX = 8;
 
@@ -83,6 +85,7 @@ class PlaybackTimelineBar {
         this._onMouseUp = this._handleMouseUp.bind(this);
         this._onWheel = this._handleWheel.bind(this);
         this._onDblClick = this._handleDblClick.bind(this);
+        this._onClick = this._handleClick.bind(this);
         this._onTouchStart = this._handleTouchStart.bind(this);
         this._onTouchMove = this._handleTouchMove.bind(this);
         this._onTouchEnd = this._handleTouchEnd.bind(this);
@@ -93,8 +96,9 @@ class PlaybackTimelineBar {
         window.addEventListener('mousemove', this._onMouseMove);
         window.addEventListener('mouseup', this._onMouseUp);
 
-        // Double-click for seek
+        // Double-click for seek; triple-click detected via click event.detail
         this.canvas.addEventListener('dblclick', this._onDblClick);
+        this.canvas.addEventListener('click', this._onClick);
 
         // Wheel for horizontal scroll
         this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
@@ -386,6 +390,32 @@ class PlaybackTimelineBar {
         e.preventDefault();
     }
 
+    // Triple-click (mouse) → move the range-start marker to clicked position
+    _handleClick(e) {
+        if (e.detail !== 3) return;
+        const pos = this._getCanvasPos(e);
+        if (pos.x < this.leftOffset) return;
+
+        const target = this._hitTest(pos.x, pos.y);
+        if (target) return;
+
+        this._moveRangeStartTo(pos.x);
+        e.preventDefault();
+    }
+
+    // Shared helper: compute a tick from canvas x and assign it to rangeStart
+    _moveRangeStartTo(canvasX) {
+        let snapped = this._snapToBeat(Math.max(0, this._xToTick(canvasX)));
+        if (this.totalTicks > 0) snapped = Math.min(snapped, this.totalTicks);
+        snapped = Math.min(snapped, this.rangeEnd);
+        snapped = Math.max(0, snapped);
+
+        if (snapped === this.rangeStart) return;
+        this.rangeStart = snapped;
+        this._dirty = true; this._scheduleRender();
+        if (this.onRangeChange) this.onRangeChange(this.rangeStart, this.rangeEnd);
+    }
+
     // ========================================================================
     // WHEEL (horizontal scroll)
     // ========================================================================
@@ -427,10 +457,15 @@ class PlaybackTimelineBar {
         const pos = this._getTouchPos(e.touches[0]);
         const target = this._hitTest(pos.x, pos.y);
 
-        // Double-tap detection → seek
+        // Multi-tap detection → seek (2 taps) / move rangeStart (3 taps)
         const now = Date.now();
-        if (now - this._lastClickTime < this._DOUBLE_CLICK_MS &&
-            Math.abs(pos.x - this._lastClickX) < this._DOUBLE_CLICK_PX) {
+        const withinWindow = (now - this._lastClickTime < this._DOUBLE_CLICK_MS) &&
+            (Math.abs(pos.x - this._lastClickX) < this._DOUBLE_CLICK_PX);
+        this._lastClickCount = withinWindow ? this._lastClickCount + 1 : 1;
+        this._lastClickTime = now;
+        this._lastClickX = pos.x;
+
+        if (this._lastClickCount === 2) {
             // Double-tap: seek playhead
             if (pos.x >= this.leftOffset && !target) {
                 const tick = Math.max(0, this._xToTick(pos.x));
@@ -438,11 +473,18 @@ class PlaybackTimelineBar {
                 this._dirty = true; this._scheduleRender();
                 if (this.onSeek) this.onSeek(this.playheadTick);
             }
+            return;
+        }
+
+        if (this._lastClickCount >= 3) {
+            // Triple-tap: move range-start marker
+            if (pos.x >= this.leftOffset && !target) {
+                this._moveRangeStartTo(pos.x);
+            }
+            this._lastClickCount = 0;
             this._lastClickTime = 0;
             return;
         }
-        this._lastClickTime = now;
-        this._lastClickX = pos.x;
 
         if (target) {
             // Drag a marker
@@ -724,6 +766,7 @@ class PlaybackTimelineBar {
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mouseup', this._onMouseUp);
         this.canvas.removeEventListener('dblclick', this._onDblClick);
+        this.canvas.removeEventListener('click', this._onClick);
         this.canvas.removeEventListener('wheel', this._onWheel);
         this.canvas.removeEventListener('touchstart', this._onTouchStart);
         this.canvas.removeEventListener('touchmove', this._onTouchMove);
