@@ -495,36 +495,52 @@ class MidiEditorPlayback {
      */
     async playNoteFeedback(noteNumber, velocity = 100, channel = 0) {
         const m = this.modal;
-        if (!m.synthesizer) {
-            await this.initSynthesizer();
-        }
+        try {
+            if (!m.synthesizer) {
+                await this.initSynthesizer();
+            }
 
-        if (!m.synthesizer || !m.synthesizer.isInitialized) {
-            return;
-        }
-
-        // Resume audio context if suspended (browser autoplay policy)
-        if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
-            await m.synthesizer.audioContext.resume();
-        }
-
-        // Ensure instruments are loaded for playback feedback
-        if (!this._feedbackInstrumentsLoaded) {
-            this.loadSequenceForPlayback();
-            await m.synthesizer.preloadInstruments();
-            this._feedbackInstrumentsLoaded = true;
-        }
-
-        // Skip notes outside the routed instrument's playable range
-        if (m.previewSource === 'routed' && m._routedPlayableNotes.has(channel)) {
-            const playable = m._routedPlayableNotes.get(channel);
-            if (playable !== null && !playable.has(noteNumber)) {
+            if (!m.synthesizer || !m.synthesizer.isInitialized) {
                 return;
             }
-        }
 
-        const duration = 0.3;
-        m.synthesizer.playNote(noteNumber, velocity, channel, duration);
+            // Resume audio context if suspended (browser autoplay policy)
+            if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
+                await m.synthesizer.audioContext.resume();
+            }
+
+            // Ensure instruments are loaded for playback feedback
+            if (!this._feedbackInstrumentsLoaded) {
+                this.loadSequenceForPlayback();
+                await m.synthesizer.preloadInstruments();
+                this._feedbackInstrumentsLoaded = true;
+            }
+
+            // Ensure the specific channel instrument is loaded
+            if (channel === 9) {
+                if (m.synthesizer.drumPresets.size === 0) {
+                    await m.synthesizer.loadDrumKit();
+                }
+            } else {
+                const program = m.synthesizer.channelInstruments[channel] || 0;
+                if (!m.synthesizer.loadedInstruments.has(program)) {
+                    await m.synthesizer.loadInstrument(program);
+                }
+            }
+
+            // Skip notes outside the routed instrument's playable range
+            if (m.previewSource === 'routed' && m._routedPlayableNotes.has(channel)) {
+                const playable = m._routedPlayableNotes.get(channel);
+                if (playable !== null && !playable.has(noteNumber)) {
+                    return;
+                }
+            }
+
+            const duration = 0.3;
+            m.synthesizer.playNote(noteNumber, velocity, channel, duration);
+        } catch (err) {
+            m.log('warn', 'playNoteFeedback error:', err.message);
+        }
     }
 
     // ========================================================================
