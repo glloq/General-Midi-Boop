@@ -680,12 +680,22 @@ class DrumGridRenderer {
                 ctx.fill();
             }
 
-            // Category color indicator (shifted right to make room for mute icon)
+            // Play button (small triangle)
+            const playX = 15;
+            ctx.beginPath();
+            ctx.moveTo(playX, cy - 4);
+            ctx.lineTo(playX + 7, cy);
+            ctx.lineTo(playX, cy + 4);
+            ctx.closePath();
+            ctx.fillStyle = isMuted ? '#555' : '#6699ee';
+            ctx.fill();
+
+            // Category color indicator (shifted right for play button)
             const category = this.CATEGORY_MAP[note] || 'misc';
             const color = this.categoryColors[category] || this.categoryColors.misc;
 
             ctx.fillStyle = color;
-            ctx.fillRect(14, y + 2, 4, this.rowHeight - 4);
+            ctx.fillRect(26, y + 2, 4, this.rowHeight - 4);
 
             // Label text
             if (isMuted) {
@@ -780,11 +790,17 @@ class DrumGridRenderer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Click on row label area: toggle mute state
+        // Click on row label area
         if (x < this.headerWidth && y > this.topMargin) {
             const rowIndex = this._yToRow(y);
             if (rowIndex >= 0 && rowIndex < this.visibleNotes.length) {
                 const note = this.visibleNotes[rowIndex];
+                if (x >= 12 && x <= 25) {
+                    // Play button area (triangle icon)
+                    this._emitEvent('playrow', { note });
+                    return;
+                }
+                // Mute toggle (indicator circle or label area)
                 if (this.mutedNotes.has(note)) {
                     this.mutedNotes.delete(note);
                 } else {

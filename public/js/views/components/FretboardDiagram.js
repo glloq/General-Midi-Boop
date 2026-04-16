@@ -37,6 +37,54 @@ class FretboardDiagram {
         // Fret markers (dots) on standard positions
         this.markerFrets = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
         this.doubleMarkerFrets = [12, 24];
+
+        // Click handler for playing notes
+        this.canvas.addEventListener('mousedown', this._onMouseDown.bind(this));
+    }
+
+    _onMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // Find closest string
+        let closestString = 1;
+        let minDist = Infinity;
+        for (let s = 1; s <= this.numStrings; s++) {
+            const sx = this._getStringX(s);
+            const dist = Math.abs(mx - sx);
+            if (dist < minDist) {
+                minDist = dist;
+                closestString = s;
+            }
+        }
+
+        // Find closest fret
+        let closestFret = 0;
+        if (my < this.topMargin) {
+            closestFret = 0; // Open string
+        } else {
+            let minFretDist = Infinity;
+            for (let f = this.fretOffset; f <= this.fretOffset + this.visibleFrets; f++) {
+                const fy = this._getFretY(f);
+                const dist = Math.abs(my - fy);
+                if (dist < minFretDist) {
+                    minFretDist = dist;
+                    closestFret = f;
+                }
+            }
+        }
+
+        // Calculate MIDI note
+        const openNote = this.tuning[closestString - 1] + this.capoFret;
+        const midiNote = openNote + closestFret;
+
+        if (midiNote >= 0 && midiNote <= 127) {
+            this.canvas.dispatchEvent(new CustomEvent('fretboard:click', {
+                detail: { string: closestString, fret: closestFret, midiNote },
+                bubbles: false
+            }));
+        }
     }
 
     // ========================================================================

@@ -372,6 +372,9 @@ class WindMelodyRenderer {
         const pitchRange = this.displayNoteMax - this.displayNoteMin;
         if (pitchRange <= 0) return;
 
+        // Draw mini piano keyboard in header
+        this._renderKeyboard(ctx, h);
+
         // Horizontal lines at each semitone, thicker at C (octave boundary)
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
@@ -390,11 +393,6 @@ class WindMelodyRenderer {
             ctx.lineTo(w, y);
             ctx.stroke();
 
-            // Label C notes and range boundaries
-            if (isC || n === this.noteMin || n === this.noteMax) {
-                ctx.fillStyle = this.colors.headerText;
-                ctx.fillText(WindInstrumentDatabase.noteName(n), this.headerWidth - 4, y);
-            }
         }
 
         // Vertical lines for beats and measures
@@ -424,6 +422,45 @@ class WindMelodyRenderer {
                 ctx.fillStyle = this.colors.beatNumber;
                 ctx.font = '10px monospace';
                 ctx.fillText(String(measureNum), x, 3);
+            }
+        }
+    }
+
+    _renderKeyboard(ctx, h) {
+        const blackNotes = new Set([1, 3, 6, 8, 10]); // C#, D#, F#, G#, A#
+        const noteH = this._getNoteHeight();
+        if (noteH <= 0) return;
+
+        for (let n = this.displayNoteMin; n <= this.displayNoteMax; n++) {
+            const y = this._noteToY(n);
+            if (y < this.topMargin || y > h) continue;
+
+            const isBlack = blackNotes.has(n % 12);
+            const isC = (n % 12 === 0);
+
+            // Draw key background
+            if (isBlack) {
+                ctx.fillStyle = this.colors.headerBg === '#2d3748' ? '#1a1e2e' : '#8888a0';
+            } else {
+                ctx.fillStyle = this.colors.headerBg === '#2d3748' ? '#3a4058' : '#d8d4ee';
+            }
+            ctx.fillRect(0, y - noteH / 2, this.headerWidth - 1, noteH);
+
+            // Border between keys
+            ctx.strokeStyle = this.colors.headerBg === '#2d3748' ? '#555' : '#b0aac8';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, y + noteH / 2);
+            ctx.lineTo(this.headerWidth - 1, y + noteH / 2);
+            ctx.stroke();
+
+            // Label for C notes
+            if (isC) {
+                ctx.fillStyle = this.colors.headerText;
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(WindInstrumentDatabase.noteName(n), this.headerWidth - 4, y);
             }
         }
     }
@@ -557,7 +594,15 @@ class WindMelodyRenderer {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
-        if (mx < this.headerWidth) return;
+        if (mx < this.headerWidth) {
+            const note = this._yToNote(my);
+            if (note >= 0 && note <= 127) {
+                this.canvas.dispatchEvent(new CustomEvent('wind:pianokey', {
+                    detail: { note }, bubbles: false
+                }));
+            }
+            return;
+        }
 
         const hitIdx = this._hitTestNote(mx, my);
 
@@ -650,7 +695,19 @@ class WindMelodyRenderer {
         } else if (this._isDragging && this._dragMode === 'move') {
             const tickDelta = (mx - this._dragStart.x) * this.ticksPerPixel;
             const noteDelta = -Math.round((my - this._dragStart.y) / (this._getNoteHeight() || 10));
+            const prevNoteDelta = this._moveOffset ? this._moveOffset.note : 0;
             this._moveOffset = { tick: tickDelta, note: noteDelta };
+            // Emit drag move event when pitch changes
+            if (noteDelta !== prevNoteDelta) {
+                const movedNotes = [];
+                for (const idx of this.selectedEvents) {
+                    const evt = this.melodyEvents[idx];
+                    if (evt) movedNotes.push({ n: evt.note + noteDelta, v: evt.velocity || 100, c: evt.channel || 0 });
+                }
+                this.canvas.dispatchEvent(new CustomEvent('wind:notedragmove', {
+                    detail: { notes: movedNotes }, bubbles: false
+                }));
+            }
             this.requestRedraw();
         } else {
             // Hover

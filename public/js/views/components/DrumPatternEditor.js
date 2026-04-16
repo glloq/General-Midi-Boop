@@ -38,6 +38,7 @@ class DrumPatternEditor {
         this._onGridEditVelocity = this._handleGridEditVelocity.bind(this);
         this._onGridSelection = this._handleGridSelection.bind(this);
         this._onGridLabelClick = this._handleGridLabelClick.bind(this);
+        this._onGridPlayRow = this._handleGridPlayRow.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
     }
 
@@ -535,6 +536,7 @@ class DrumPatternEditor {
             this.gridCanvasEl.addEventListener('drum:editvelocity', this._onGridEditVelocity);
             this.gridCanvasEl.addEventListener('drum:selectionchange', this._onGridSelection);
             this.gridCanvasEl.addEventListener('drum:labelclick', this._onGridLabelClick);
+            this.gridCanvasEl.addEventListener('drum:playrow', this._onGridPlayRow);
         }
         document.addEventListener('keydown', this._onKeyDown);
     }
@@ -545,6 +547,7 @@ class DrumPatternEditor {
             this.gridCanvasEl.removeEventListener('drum:editvelocity', this._onGridEditVelocity);
             this.gridCanvasEl.removeEventListener('drum:selectionchange', this._onGridSelection);
             this.gridCanvasEl.removeEventListener('drum:labelclick', this._onGridLabelClick);
+            this.gridCanvasEl.removeEventListener('drum:playrow', this._onGridPlayRow);
         }
         document.removeEventListener('keydown', this._onKeyDown);
     }
@@ -658,6 +661,12 @@ class DrumPatternEditor {
         if (!muted) {
             this.modal.playNoteFeedback(note, 100, this.channel);
         }
+    }
+
+    _handleGridPlayRow(e) {
+        if (!this.modal.keyboardPlaybackEnabled) return;
+        const { note } = e.detail;
+        this.modal.playNoteFeedback(note, 100, this.channel);
     }
 
     _handleKeyDown(e) {

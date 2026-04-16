@@ -39,6 +39,7 @@ class TablatureEditor {
         this._onTabMove = this._handleTabMove.bind(this);
         this._onTabChangeString = this._handleTabChangeString.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
+        this._onFretboardClick = this._handleFretboardClick.bind(this);
     }
 
     // ========================================================================
@@ -562,6 +563,9 @@ class TablatureEditor {
         this.tabCanvasEl.addEventListener('tab:selectionchange', this._onTabSelection);
         this.tabCanvasEl.addEventListener('tab:moveevents', this._onTabMove);
         this.tabCanvasEl.addEventListener('tab:changestring', this._onTabChangeString);
+        if (this.fretboardCanvasEl) {
+            this.fretboardCanvasEl.addEventListener('fretboard:click', this._onFretboardClick);
+        }
         document.addEventListener('keydown', this._onKeyDown);
     }
 
@@ -572,6 +576,9 @@ class TablatureEditor {
         this.tabCanvasEl.removeEventListener('tab:selectionchange', this._onTabSelection);
         this.tabCanvasEl.removeEventListener('tab:moveevents', this._onTabMove);
         this.tabCanvasEl.removeEventListener('tab:changestring', this._onTabChangeString);
+        if (this.fretboardCanvasEl) {
+            this.fretboardCanvasEl.removeEventListener('fretboard:click', this._onFretboardClick);
+        }
         document.removeEventListener('keydown', this._onKeyDown);
     }
 
@@ -598,6 +605,12 @@ class TablatureEditor {
         // Notes were moved by drag — sync back to MIDI
         this.tabEvents = this.renderer.tabEvents;
         this.syncToMidi();
+    }
+
+    _handleFretboardClick(e) {
+        if (!this.modal.keyboardPlaybackEnabled) return;
+        const midiNote = e.detail.midiNote;
+        this.modal.playNoteFeedback(midiNote, 100, this.channel);
     }
 
     _handleTabChangeString(e) {

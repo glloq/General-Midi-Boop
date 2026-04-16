@@ -37,6 +37,8 @@ class WindInstrumentEditor {
         this._onEditArticulation = this._handleEditArticulation.bind(this);
         this._onSelectionChange = this._handleSelectionChange.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
+        this._onPianoKey = this._handlePianoKey.bind(this);
+        this._onNoteDragMove = this._handleNoteDragMove.bind(this);
     }
 
     // ========================================================================
@@ -577,6 +579,8 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.addEventListener('wind:notesmoved', this._onNotesMoved);
             this.melodyCanvasEl.addEventListener('wind:editarticulation', this._onEditArticulation);
             this.melodyCanvasEl.addEventListener('wind:selectionchange', this._onSelectionChange);
+            this.melodyCanvasEl.addEventListener('wind:pianokey', this._onPianoKey);
+            this.melodyCanvasEl.addEventListener('wind:notedragmove', this._onNoteDragMove);
         }
         document.addEventListener('keydown', this._onKeyDown);
     }
@@ -587,6 +591,8 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.removeEventListener('wind:notesmoved', this._onNotesMoved);
             this.melodyCanvasEl.removeEventListener('wind:editarticulation', this._onEditArticulation);
             this.melodyCanvasEl.removeEventListener('wind:selectionchange', this._onSelectionChange);
+            this.melodyCanvasEl.removeEventListener('wind:pianokey', this._onPianoKey);
+            this.melodyCanvasEl.removeEventListener('wind:notedragmove', this._onNoteDragMove);
         }
         document.removeEventListener('keydown', this._onKeyDown);
     }
@@ -648,6 +654,22 @@ class WindInstrumentEditor {
 
     _handleSelectionChange() {
         this._updateInfo();
+    }
+
+    _handlePianoKey(e) {
+        if (!this.modal.keyboardPlaybackEnabled) return;
+        const note = e.detail.note;
+        this.modal.playNoteFeedback(note, 100, this.channel);
+    }
+
+    _handleNoteDragMove(e) {
+        if (!this.modal.dragPlaybackEnabled) return;
+        const notes = e.detail.notes;
+        if (notes.length > 0 && notes.length <= 6) {
+            notes.forEach(note => {
+                this.modal.playNoteFeedback(note.n, note.v || 100, note.c || this.channel);
+            });
+        }
     }
 
     _handleKeyDown(e) {
