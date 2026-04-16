@@ -56,23 +56,20 @@
         let channelsToShow = [];
         let activeChannel = 0;
 
-        // When editing a single channel, only show that channel
+        // Toujours afficher tous les canaux du fichier (velocity ou CC/Pitchbend)
+        channelsToShow = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
+
+        // Si un seul canal est en cours d'edition, le selectionner automatiquement
         if (this.activeChannels && this.activeChannels.size === 1) {
-            const editingChannel = Array.from(this.activeChannels)[0];
-            channelsToShow = [editingChannel];
-            activeChannel = editingChannel;
+            activeChannel = Array.from(this.activeChannels)[0];
             if (this.currentCCType === 'velocity' && this.velocityEditor) {
-                this.velocityEditor.setChannel(editingChannel);
+                this.velocityEditor.setChannel(activeChannel);
             } else if (this.ccEditor) {
-                this.ccEditor.setChannel(editingChannel);
+                this.ccEditor.setChannel(activeChannel);
             }
         } else if (this.currentCCType === 'velocity') {
-            // Pour la vélocité, afficher tous les canaux ayant des notes
-            channelsToShow = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
             activeChannel = this.velocityEditor ? this.velocityEditor.currentChannel : -1;
         } else {
-            // Pour CC/Pitchbend, afficher tous les canaux du fichier (pas seulement ceux ayant des CC)
-            channelsToShow = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
             activeChannel = this.ccEditor ? this.ccEditor.currentChannel : -1;
         }
 
