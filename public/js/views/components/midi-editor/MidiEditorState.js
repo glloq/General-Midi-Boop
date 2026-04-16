@@ -340,6 +340,16 @@ class MidiEditorState {
                 m.log('debug', `Piano roll redrawn after channel toggle: ${m.pianoRoll.sequence.length} notes visible`);
             }
         }
+
+        // Sync CC/Velocity editor channel when editing a single channel
+        if (m.activeChannels.size === 1 && m.ccSectionExpanded) {
+            const ch = Array.from(m.activeChannels)[0];
+            if (m.ccEditor) m.ccEditor.setChannel(ch);
+            if (m.velocityEditor) m.velocityEditor.setChannel(ch);
+            if (typeof this.updateEditorChannelSelector === 'function') {
+                this.updateEditorChannelSelector();
+            }
+        }
     }
 
     /**
