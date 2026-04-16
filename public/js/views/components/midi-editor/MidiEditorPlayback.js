@@ -512,19 +512,34 @@ class MidiEditorPlayback {
             // Ensure instruments are loaded for playback feedback
             if (!this._feedbackInstrumentsLoaded) {
                 this.loadSequenceForPlayback();
-                await m.synthesizer.preloadInstruments();
+                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                try {
+                    await m.synthesizer.preloadInstruments();
+                } finally {
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                }
                 this._feedbackInstrumentsLoaded = true;
             }
 
             // Ensure the specific channel instrument is loaded
             if (channel === 9) {
                 if (m.synthesizer.drumPresets.size === 0) {
-                    await m.synthesizer.loadDrumKit();
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                    try {
+                        await m.synthesizer.loadDrumKit();
+                    } finally {
+                        if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                    }
                 }
             } else {
                 const program = m.synthesizer.channelInstruments[channel] || 0;
                 if (!m.synthesizer.loadedInstruments.has(program)) {
-                    await m.synthesizer.loadInstrument(program);
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                    try {
+                        await m.synthesizer.loadInstrument(program);
+                    } finally {
+                        if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                    }
                 }
             }
 

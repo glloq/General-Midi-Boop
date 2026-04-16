@@ -2090,3 +2090,53 @@ body.dark-mode .midi-editor-modal .channel-edit-btn.active {
     background: #667eea;
     color: #fff;
 }
+
+/* ==================== SOUND BANK LOADING TOAST ==================== */
+/* Popup non intrusif affiché en haut de la page pendant le chargement
+   d'une banque de son WebAudioFont (CDN). Géré par SoundBankLoadingIndicator. */
+.sound-loading-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translate(-50%, -10px);
+    z-index: 10025;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.92);
+    color: #f8fafc;
+    font-size: 13px;
+    line-height: 1.2;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100vw - 32px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sound-loading-toast--visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.sound-loading-toast__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: sound-loading-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+.sound-loading-toast__label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes sound-loading-spin {
+    to { transform: rotate(360deg); }
+}
