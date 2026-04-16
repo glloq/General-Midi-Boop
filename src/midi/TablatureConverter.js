@@ -44,6 +44,16 @@ class TablatureConverter {
     zone: 'zone'
   };
 
+  // Viterbi algorithm configuration for min_movement
+  static VITERBI_CONFIG = {
+    BEAM_WIDTH: 32,            // Max states kept per time step
+    MAX_CHORD_STATES: 200,     // Max enumerated assignments per chord group
+    MAX_FRET_SPAN: 5,          // Max fret span in a chord (hand stretch)
+    COMFORTABLE_SPAN: 3,       // Span below which no penalty
+    MOVE_THRESHOLD_STRETCH: 2, // Frets reachable by finger stretching
+    MOVE_THRESHOLD_SHIFT: 5,   // Frets reachable by hand shift
+  };
+
   constructor(instrumentConfig) {
     this.tuning = instrumentConfig.tuning;
     // Use tuning array length as authoritative string count if they disagree
@@ -111,55 +121,235 @@ class TablatureConverter {
   }
 
   // ==========================================================================
-  // Algorithm: min_movement (default — original algorithm)
-  // Minimizes hand movement between consecutive notes/chords
+  // Algorithm: min_movement (Viterbi with beam pruning)
+  // Finds globally optimal string/fret assignments minimizing total hand movement.
+  // Uses a Hidden Markov Model framework: states are valid assignments per chord
+  // group, transitions model hand movement cost, emissions model intrinsic
+  // position quality. Beam pruning keeps computation bounded.
   // ==========================================================================
 
   /** @private */
   _convertMinMovement(notes) {
     const chordGroups = this._groupByTick(notes);
-    const tabEvents = [];
-    let lastHandPosition = this._getDefaultHandPosition();
+    if (chordGroups.length === 0) return [];
 
-    for (const group of chordGroups) {
+    const { BEAM_WIDTH, MAX_CHORD_STATES } = TablatureConverter.VITERBI_CONFIG;
+    const defaultHandPos = this._getDefaultHandPosition();
+
+    // We need to track occupied strings per group using the final output,
+    // but Viterbi needs all states upfront. For occupied strings from
+    // sustaining notes, we build them incrementally using a forward-only
+    // approach: occupied strings at group i depend on assignments chosen
+    // at groups < i. Since the Viterbi path isn't known until traceback,
+    // we compute occupied strings based on the best-so-far state's
+    // assignment history stored in each state's backpointer chain.
+    //
+    // However, to avoid re-traversing the backpointer chain at each step,
+    // each state carries a compact list of recently assigned events
+    // (within the 7680-tick lookback window) for occupied string checking.
+
+    // --- Phase 1: Build lattice with Viterbi forward pass ---
+    let prevStates = null;
+
+    // Store the lattice for traceback (only back-pointers needed)
+    const lattice = [];
+
+    for (let gi = 0; gi < chordGroups.length; gi++) {
+      const group = chordGroups[gi];
       const tick = group.tick;
       const chordNotes = group.notes;
-      const occupiedStrings = this._getOccupiedStrings(tabEvents, tick);
 
-      if (chordNotes.length === 1) {
-        const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n)
-          .filter(pos => !occupiedStrings.has(pos.string));
-        if (positions.length === 0) continue;
+      // Build current step states
+      const currStates = [];
 
-        const best = this._pickClosest(positions, lastHandPosition);
-        tabEvents.push({
-          tick, string: best.string, fret: best.fret,
-          velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
-        });
+      if (prevStates === null) {
+        // First group — no predecessor, use default hand position
+        const occupiedStrings = new Set(); // Nothing occupied yet
+        const assignments = this._enumerateStatesForGroup(chordNotes, occupiedStrings, MAX_CHORD_STATES);
 
-        if (best.fret > 0) {
-          lastHandPosition = Math.round(lastHandPosition * 0.3 + best.fret * 0.7);
-        }
-      } else {
-        const assignment = this._assignChord(chordNotes, lastHandPosition, occupiedStrings);
-        for (const entry of assignment) {
-          tabEvents.push({
-            tick, string: entry.string, fret: entry.fret,
-            velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel
+        for (const assignment of assignments) {
+          const handPos = this._handPositionFromAssignment(assignment, defaultHandPos);
+          const emission = this._emissionCost(assignment);
+          const transition = this._transitionCost(defaultHandPos, handPos);
+          const totalCost = emission + transition;
+
+          currStates.push({
+            assignment,
+            handPosition: handPos,
+            totalCost,
+            backPointer: null,
+            // Track recent events for occupied string calculation
+            recentEvents: assignment.map(a => ({
+              tick, string: a.string, duration: a.note.g
+            }))
           });
         }
-        const frettedPositions = assignment.filter(e => e.fret > 0);
-        if (frettedPositions.length > 0) {
-          lastHandPosition = Math.round(
-            frettedPositions.reduce((sum, e) => sum + e.fret, 0) / frettedPositions.length
-          );
+
+        // Handle case where no valid assignment exists for first group
+        if (currStates.length === 0) {
+          currStates.push({
+            assignment: [],
+            handPosition: defaultHandPos,
+            totalCost: 0,
+            backPointer: null,
+            recentEvents: []
+          });
         }
+      } else {
+        // Subsequent groups — evaluate transitions from all prev states
+        // Collect unique state candidates keyed by assignment signature
+        const stateMap = new Map();
+
+        for (const prevState of prevStates) {
+          // Compute occupied strings from this predecessor's recent events
+          const occupiedStrings = this._getOccupiedStringsFromRecent(prevState.recentEvents, tick);
+
+          // Enumerate valid assignments for this group given occupied strings
+          const assignments = this._enumerateStatesForGroup(chordNotes, occupiedStrings, MAX_CHORD_STATES);
+
+          if (assignments.length === 0) {
+            // No valid assignment — propagate previous state with skip
+            const key = 'skip';
+            const totalCost = prevState.totalCost;
+            if (!stateMap.has(key) || totalCost < stateMap.get(key).totalCost) {
+              stateMap.set(key, {
+                assignment: [],
+                handPosition: prevState.handPosition,
+                totalCost,
+                backPointer: prevState,
+                recentEvents: this._pruneRecentEvents(prevState.recentEvents, tick)
+              });
+            }
+            continue;
+          }
+
+          for (const assignment of assignments) {
+            const handPos = this._handPositionFromAssignment(assignment, prevState.handPosition);
+            const emission = this._emissionCost(assignment);
+            const transition = this._transitionCost(prevState.handPosition, handPos);
+            const totalCost = prevState.totalCost + emission + transition;
+
+            // Use a signature to deduplicate states with same assignment
+            const key = assignment.map(a => `${a.string}:${a.fret}`).sort().join(',');
+
+            if (!stateMap.has(key) || totalCost < stateMap.get(key).totalCost) {
+              const newRecent = this._pruneRecentEvents(prevState.recentEvents, tick);
+              for (const a of assignment) {
+                newRecent.push({ tick, string: a.string, duration: a.note.g });
+              }
+
+              stateMap.set(key, {
+                assignment,
+                handPosition: handPos,
+                totalCost,
+                backPointer: prevState,
+                recentEvents: newRecent
+              });
+            }
+          }
+        }
+
+        // Collect all candidate states
+        for (const state of stateMap.values()) {
+          currStates.push(state);
+        }
+
+        // Handle edge case: no states at all
+        if (currStates.length === 0) {
+          const bestPrev = prevStates[0]; // Already sorted by cost
+          currStates.push({
+            assignment: [],
+            handPosition: bestPrev.handPosition,
+            totalCost: bestPrev.totalCost,
+            backPointer: bestPrev,
+            recentEvents: this._pruneRecentEvents(bestPrev.recentEvents, tick)
+          });
+        }
+      }
+
+      // --- Beam pruning: keep only top BEAM_WIDTH states ---
+      currStates.sort((a, b) => a.totalCost - b.totalCost);
+      const prunedStates = currStates.slice(0, BEAM_WIDTH);
+
+      lattice.push(prunedStates);
+      prevStates = prunedStates;
+    }
+
+    // --- Phase 2: Traceback ---
+    // Find the best final state
+    const lastStates = lattice[lattice.length - 1];
+    let bestState = lastStates[0];
+    for (let i = 1; i < lastStates.length; i++) {
+      if (lastStates[i].totalCost < bestState.totalCost) {
+        bestState = lastStates[i];
+      }
+    }
+
+    // Trace back through backPointers to reconstruct the path
+    const path = [];
+    let state = bestState;
+    while (state !== null) {
+      path.unshift(state.assignment);
+      state = state.backPointer;
+    }
+
+    // --- Phase 3: Build output ---
+    const tabEvents = [];
+    for (let i = 0; i < path.length; i++) {
+      const tick = chordGroups[i].tick;
+      for (const entry of path[i]) {
+        tabEvents.push({
+          tick,
+          string: entry.string,
+          fret: entry.fret,
+          velocity: entry.note.v,
+          duration: entry.note.g,
+          midiNote: entry.note.n,
+          channel: entry.note.c
+        });
       }
     }
 
     return tabEvents;
+  }
+
+  /**
+   * Enumerate all valid states (assignments) for a chord group.
+   * For single notes, returns one state per possible position.
+   * For chords, delegates to _enumerateAssignments.
+   * @private
+   */
+  _enumerateStatesForGroup(chordNotes, occupiedStrings, maxResults) {
+    if (chordNotes.length === 1) {
+      const note = chordNotes[0];
+      const positions = this._getPossiblePositions(note.n)
+        .filter(pos => !occupiedStrings.has(pos.string));
+      return positions.map(pos => [{ noteIndex: 0, string: pos.string, fret: pos.fret, note }]);
+    }
+    return this._enumerateAssignments(chordNotes, occupiedStrings, maxResults);
+  }
+
+  /**
+   * Compute occupied strings from a state's recent events list.
+   * @private
+   */
+  _getOccupiedStringsFromRecent(recentEvents, tick) {
+    const occupied = new Set();
+    for (const ev of recentEvents) {
+      if (ev.tick < tick && ev.tick + ev.duration > tick) {
+        occupied.add(ev.string);
+      }
+    }
+    return occupied;
+  }
+
+  /**
+   * Prune recent events that are too old to matter (> 7680 ticks before current tick).
+   * Returns a new array.
+   * @private
+   */
+  _pruneRecentEvents(recentEvents, tick) {
+    return recentEvents.filter(ev => tick - ev.tick <= 7680);
   }
 
   // ==========================================================================
@@ -641,6 +831,167 @@ class TablatureConverter {
    */
   _getDefaultHandPosition() {
     return 3; // Around 3rd fret — comfortable starting position
+  }
+
+  // ==========================================================================
+  // Internal — Viterbi algorithm helpers (min_movement optimization)
+  // ==========================================================================
+
+  /**
+   * Enumerate all valid (string, fret) assignments for a chord group.
+   * Respects: one note per string, max fret span, occupied strings.
+   * Returns an array of assignment arrays, each assignment being
+   * [{noteIndex, string, fret, note}, ...].
+   * @private
+   * @param {Array} chordNotes - Notes in the chord group
+   * @param {Set<number>} occupiedStrings - Strings already in use
+   * @param {number} maxResults - Cap on number of results
+   * @returns {Array<Array>} Valid assignments
+   */
+  _enumerateAssignments(chordNotes, occupiedStrings, maxResults) {
+    const { MAX_FRET_SPAN } = TablatureConverter.VITERBI_CONFIG;
+
+    const notePositions = chordNotes.map((note, idx) => ({
+      noteIndex: idx,
+      note,
+      positions: this._getPossiblePositions(note.n)
+        .filter(pos => !occupiedStrings || !occupiedStrings.has(pos.string))
+    }));
+
+    const playable = notePositions.filter(np => np.positions.length > 0);
+    if (playable.length === 0) return [];
+
+    // Sort most-constrained-first for better pruning
+    playable.sort((a, b) => a.positions.length - b.positions.length);
+
+    const results = [];
+    this._enumerateRecursive(playable, 0, {}, [], results, maxResults, MAX_FRET_SPAN);
+    return results;
+  }
+
+  /**
+   * Recursive backtracking to enumerate all valid assignments.
+   * @private
+   */
+  _enumerateRecursive(playable, index, usedStrings, current, results, maxResults, maxFretSpan) {
+    if (results.length >= maxResults) return;
+
+    if (index >= playable.length) {
+      results.push([...current]);
+      return;
+    }
+
+    const { noteIndex, note, positions } = playable[index];
+
+    // Collect currently assigned fretted positions for span check
+    const assignedFrets = current
+      .filter(a => a.fret > 0)
+      .map(a => a.fret);
+
+    for (const pos of positions) {
+      if (usedStrings[pos.string]) continue;
+
+      // Enforce max fret span
+      if (pos.fret > 0 && assignedFrets.length > 0) {
+        const allFrets = [...assignedFrets, pos.fret];
+        const span = Math.max(...allFrets) - Math.min(...allFrets);
+        if (span > maxFretSpan) continue;
+      }
+
+      usedStrings[pos.string] = true;
+      current.push({ noteIndex, string: pos.string, fret: pos.fret, note });
+
+      this._enumerateRecursive(playable, index + 1, usedStrings, current, results, maxResults, maxFretSpan);
+
+      current.pop();
+      delete usedStrings[pos.string];
+
+      if (results.length >= maxResults) return;
+    }
+  }
+
+  /**
+   * Emission cost — intrinsic cost of a particular assignment.
+   * Evaluates fret span, position height, and open/fretted mixing.
+   * @private
+   * @param {Array} assignment - [{string, fret, ...}, ...]
+   * @returns {number} Cost (lower is better)
+   */
+  _emissionCost(assignment) {
+    if (assignment.length === 0) return 0;
+
+    const { COMFORTABLE_SPAN } = TablatureConverter.VITERBI_CONFIG;
+    const frettedNotes = assignment.filter(a => a.fret > 0);
+
+    // All open strings — very cheap
+    if (frettedNotes.length === 0) return 0.5;
+
+    let cost = 0;
+
+    // 1. Fret span penalty (quadratic beyond comfortable span)
+    const minFret = Math.min(...frettedNotes.map(a => a.fret));
+    const maxFret = Math.max(...frettedNotes.map(a => a.fret));
+    const span = maxFret - minFret;
+    if (span > COMFORTABLE_SPAN) {
+      cost += (span - COMFORTABLE_SPAN) * (span - COMFORTABLE_SPAN) * 0.5;
+    }
+
+    // 2. High position penalty (smooth logarithmic)
+    const avgFret = frettedNotes.reduce((s, a) => s + a.fret, 0) / frettedNotes.length;
+    cost += Math.log1p(Math.max(0, avgFret - 7)) * 0.3;
+
+    // 3. Open string within fretted chord penalty
+    const hasOpen = assignment.some(a => a.fret === 0);
+    if (hasOpen && frettedNotes.length > 0 && minFret > 4) {
+      cost += 1.5;
+    }
+
+    return cost;
+  }
+
+  /**
+   * Transition cost — smooth movement cost between hand positions.
+   * No discontinuities, models realistic hand movement ergonomics.
+   * @private
+   * @param {number} prevHandPos - Previous hand position (fret number)
+   * @param {number} currHandPos - Current hand position (fret number)
+   * @returns {number} Cost (lower is better)
+   */
+  _transitionCost(prevHandPos, currHandPos) {
+    const { MOVE_THRESHOLD_STRETCH, MOVE_THRESHOLD_SHIFT } = TablatureConverter.VITERBI_CONFIG;
+    const distance = Math.abs(currHandPos - prevHandPos);
+
+    // Smooth movement cost: small moves nearly free, medium proportional, large bounded
+    let moveCost;
+    if (distance <= MOVE_THRESHOLD_STRETCH) {
+      moveCost = distance * 0.3;  // Finger stretching — nearly free
+    } else if (distance <= MOVE_THRESHOLD_SHIFT) {
+      moveCost = MOVE_THRESHOLD_STRETCH * 0.3 + (distance - MOVE_THRESHOLD_STRETCH) * 0.8;
+    } else {
+      moveCost = MOVE_THRESHOLD_STRETCH * 0.3 + (MOVE_THRESHOLD_SHIFT - MOVE_THRESHOLD_STRETCH) * 0.8
+        + (distance - MOVE_THRESHOLD_SHIFT) * 1.2;
+    }
+
+    // Transition to open strings near the nut is easier
+    if (currHandPos === 0 && prevHandPos <= 5) {
+      moveCost *= 0.5;
+    }
+
+    return moveCost;
+  }
+
+  /**
+   * Compute hand position from an assignment.
+   * Uses centroid of fretted notes; falls back to provided default if all open.
+   * @private
+   * @param {Array} assignment - [{string, fret, ...}, ...]
+   * @param {number} fallback - Fallback position if all open strings
+   * @returns {number} Hand position (fret number)
+   */
+  _handPositionFromAssignment(assignment, fallback) {
+    const fretted = assignment.filter(a => a.fret > 0);
+    if (fretted.length === 0) return fallback;
+    return Math.round(fretted.reduce((sum, a) => sum + a.fret, 0) / fretted.length);
   }
 
   // ==========================================================================
