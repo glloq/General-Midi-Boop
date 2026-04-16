@@ -244,6 +244,7 @@
     },
     "midiEditor": {
         "title": "Éditeur MIDI",
+        "loadingSoundBank": "Chargement de la banque de son…",
         "instrument": "Instrument:",
         "selectInstrument": "Sélectionnez un instrument",
         "noInstrument": "Aucun instrument sélectionné",
