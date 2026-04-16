@@ -753,6 +753,7 @@
             if (btn) { btn.dataset.source = 'gm'; btn.textContent = this.t('midiEditor.gmSource') || '🔊 GM'; }
             this._routedPlayableNotes.clear();
         }
+        if (this._playback) this._playback._feedbackInstrumentsLoaded = false;
         if (this.synthesizer) this.loadSequenceForPlayback();
         this.log('info', `Preview source switched to: ${this.previewSource}`);
     }

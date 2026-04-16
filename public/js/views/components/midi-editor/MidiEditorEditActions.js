@@ -631,6 +631,9 @@
         this.log('info', `Applied instrument ${instrumentName} to channel ${channel + 1}`);
         this.showNotification(this.t('midiEditor.instrumentApplied', { channel: channel + 1, instrument: instrumentName }), 'success');
 
+        // Reset feedback instruments so they get reloaded with the new program
+        if (this._playback) this._playback._feedbackInstrumentsLoaded = false;
+
         this.refreshChannelButtons();
         this.isDirty = true;
         this.updateSaveButton();

@@ -503,6 +503,18 @@ class MidiEditorPlayback {
             return;
         }
 
+        // Resume audio context if suspended (browser autoplay policy)
+        if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
+            await m.synthesizer.audioContext.resume();
+        }
+
+        // Ensure instruments are loaded for playback feedback
+        if (!this._feedbackInstrumentsLoaded) {
+            this.loadSequenceForPlayback();
+            await m.synthesizer.preloadInstruments();
+            this._feedbackInstrumentsLoaded = true;
+        }
+
         // Skip notes outside the routed instrument's playable range
         if (m.previewSource === 'routed' && m._routedPlayableNotes.has(channel)) {
             const playable = m._routedPlayableNotes.get(channel);
@@ -511,7 +523,7 @@ class MidiEditorPlayback {
             }
         }
 
-        const duration = 0.1;
+        const duration = 0.3;
         m.synthesizer.playNote(noteNumber, velocity, channel, duration);
     }
 
