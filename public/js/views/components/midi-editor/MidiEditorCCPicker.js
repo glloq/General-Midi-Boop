@@ -234,10 +234,15 @@
     // Mettre à jour le sélecteur de canal pour afficher uniquement les canaux utilisés
         this.updateCCChannelSelector();
 
-    // Obtenir le canal actif (premier canal du fichier, ou premier canal avec CC, ou 0)
-        const fileChannels = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
-        const usedChannels = this.getCCChannelsUsed();
-        const activeChannel = fileChannels.length > 0 ? fileChannels[0] : (usedChannels.length > 0 ? usedChannels[0] : 0);
+    // When editing a single channel, use that channel; otherwise fall back to first channel
+        let activeChannel;
+        if (this.activeChannels && this.activeChannels.size === 1) {
+            activeChannel = Array.from(this.activeChannels)[0];
+        } else {
+            const fileChannels = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
+            const usedChannels = this.getCCChannelsUsed();
+            activeChannel = fileChannels.length > 0 ? fileChannels[0] : (usedChannels.length > 0 ? usedChannels[0] : 0);
+        }
         this.ccEditor.setChannel(activeChannel);
 
     // Auto-sélectionner un CC type qui a des données sur ce canal
@@ -455,8 +460,10 @@
     // Charger la séquence complète (non filtrée) pour la vélocité
         this.velocityEditor.setSequence(this.fullSequence);
 
-    // Définir le premier canal utilisé comme canal actif par défaut
-        const firstChannel = this.channels.length > 0 ? this.channels[0].channel : 0;
+    // When editing a single channel, use that channel; otherwise first channel
+        const firstChannel = (this.activeChannels && this.activeChannels.size === 1)
+            ? Array.from(this.activeChannels)[0]
+            : (this.channels.length > 0 ? this.channels[0].channel : 0);
         this.velocityEditor.setChannel(firstChannel);
 
         this.highlightUsedCCButtons();

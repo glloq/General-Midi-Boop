@@ -346,8 +346,8 @@ class MidiEditorState {
             const ch = Array.from(m.activeChannels)[0];
             if (m.ccEditor) m.ccEditor.setChannel(ch);
             if (m.velocityEditor) m.velocityEditor.setChannel(ch);
-            if (typeof this.updateEditorChannelSelector === 'function') {
-                this.updateEditorChannelSelector();
+            if (typeof m.updateEditorChannelSelector === 'function') {
+                m.updateEditorChannelSelector();
             }
         }
     }

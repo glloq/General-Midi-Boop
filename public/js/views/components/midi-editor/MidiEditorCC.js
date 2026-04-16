@@ -56,7 +56,17 @@
         let channelsToShow = [];
         let activeChannel = 0;
 
-        if (this.currentCCType === 'velocity') {
+        // When editing a single channel, only show that channel
+        if (this.activeChannels && this.activeChannels.size === 1) {
+            const editingChannel = Array.from(this.activeChannels)[0];
+            channelsToShow = [editingChannel];
+            activeChannel = editingChannel;
+            if (this.currentCCType === 'velocity' && this.velocityEditor) {
+                this.velocityEditor.setChannel(editingChannel);
+            } else if (this.ccEditor) {
+                this.ccEditor.setChannel(editingChannel);
+            }
+        } else if (this.currentCCType === 'velocity') {
             // Pour la vélocité, afficher tous les canaux ayant des notes
             channelsToShow = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
             activeChannel = this.velocityEditor ? this.velocityEditor.currentChannel : -1;
