@@ -659,45 +659,46 @@ class DrumGridRenderer {
                 ctx.fillRect(0, y, this.headerWidth, this.rowHeight);
             }
 
-            // Mute toggle indicator (circle at left)
-            const indicatorX = 6;
-            const indicatorR = 4;
-            ctx.beginPath();
-            ctx.arc(indicatorX, cy, indicatorR, 0, Math.PI * 2);
+            // Mute toggle indicator (wider zone at left)
+            const muteW = 16;
             if (isMuted) {
-                // Empty circle with strikethrough
+                ctx.fillStyle = 'rgba(255, 60, 60, 0.3)';
+                ctx.fillRect(0, y, muteW, this.rowHeight);
+                // Cross icon
                 ctx.strokeStyle = '#ff4444';
                 ctx.lineWidth = 1.5;
-                ctx.stroke();
-                // Small cross
                 ctx.beginPath();
-                ctx.moveTo(indicatorX - 2.5, cy - 2.5);
-                ctx.lineTo(indicatorX + 2.5, cy + 2.5);
+                ctx.moveTo(4, cy - 4);
+                ctx.lineTo(12, cy + 4);
+                ctx.moveTo(12, cy - 4);
+                ctx.lineTo(4, cy + 4);
                 ctx.stroke();
             } else {
-                // Filled green circle
+                ctx.fillStyle = 'rgba(0, 200, 80, 0.15)';
+                ctx.fillRect(0, y, muteW, this.rowHeight);
+                // Small filled circle
+                ctx.beginPath();
+                ctx.arc(8, cy, 3, 0, Math.PI * 2);
                 ctx.fillStyle = '#00c850';
                 ctx.fill();
             }
 
-            // Play button (small triangle)
-            const playX = 15;
+            // Separator line after mute zone
+            ctx.strokeStyle = this.colors.measureLine;
+            ctx.lineWidth = 0.5;
             ctx.beginPath();
-            ctx.moveTo(playX, cy - 4);
-            ctx.lineTo(playX + 7, cy);
-            ctx.lineTo(playX, cy + 4);
-            ctx.closePath();
-            ctx.fillStyle = isMuted ? '#555' : '#6699ee';
-            ctx.fill();
+            ctx.moveTo(muteW, y);
+            ctx.lineTo(muteW, y + this.rowHeight);
+            ctx.stroke();
 
-            // Category color indicator (shifted right for play button)
+            // Category color indicator
             const category = this.CATEGORY_MAP[note] || 'misc';
             const color = this.categoryColors[category] || this.categoryColors.misc;
 
             ctx.fillStyle = color;
-            ctx.fillRect(26, y + 2, 4, this.rowHeight - 4);
+            ctx.fillRect(18, y + 2, 4, this.rowHeight - 4);
 
-            // Label text
+            // Label text (clickable for play)
             if (isMuted) {
                 ctx.fillStyle = '#555';
             } else if (hasPlayableInfo && (this.playableNotes === null || this.playableNotes.has(note))) {
@@ -795,19 +796,19 @@ class DrumGridRenderer {
             const rowIndex = this._yToRow(y);
             if (rowIndex >= 0 && rowIndex < this.visibleNotes.length) {
                 const note = this.visibleNotes[rowIndex];
-                if (x >= 12 && x <= 25) {
-                    // Play button area (triangle icon)
-                    this._emitEvent('playrow', { note });
-                    return;
-                }
-                // Mute toggle (indicator circle or label area)
-                if (this.mutedNotes.has(note)) {
-                    this.mutedNotes.delete(note);
+                if (x <= 16) {
+                    // Mute toggle zone (left side)
+                    if (this.mutedNotes.has(note)) {
+                        this.mutedNotes.delete(note);
+                    } else {
+                        this.mutedNotes.add(note);
+                    }
+                    this.requestRedraw();
+                    this._emitEvent('labelclick', { note, muted: this.mutedNotes.has(note) });
                 } else {
-                    this.mutedNotes.add(note);
+                    // Label area: play the drum sound
+                    this._emitEvent('playrow', { note });
                 }
-                this.requestRedraw();
-                this._emitEvent('labelclick', { note, muted: this.mutedNotes.has(note) });
                 return;
             }
         }
