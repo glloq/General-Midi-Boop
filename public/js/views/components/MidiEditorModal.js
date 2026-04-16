@@ -161,8 +161,6 @@ class MidiEditorModal {
         this.channelDisabled.clear();
         this.channelPlayableHighlights.clear();
 
-        // CommandHistory n'est plus utilisé - le piano roll gère undo/redo nativement
-
         try {
             // Charger le fichier MIDI
             await this.loadMidiFile(fileId);
@@ -271,11 +269,6 @@ class MidiEditorModal {
     async playNoteFeedback(n, v, c) { if (this._playback) await this._playback.playNoteFeedback(n, v, c); }
     disposeSynthesizer() { if (this._playback) this._playback.disposeSynthesizer(); }
 
-    copySequence(sequence) {
-        if (!sequence || sequence.length === 0) return [];
-        return sequence.map(note => ({ t: note.t, g: note.g, n: note.n, c: note.c, v: note.v }));
-    }
-
 } // end class MidiEditorModal
 
 // ============================================================================
@@ -292,68 +285,48 @@ if (typeof window !== 'undefined') {
 }
 
 // ============================================================================
-// Touch Mode Preference (localStorage via maestro_settings)
+// Preferences (localStorage via maestro_settings)
 // ============================================================================
+
+MidiEditorModal.prototype._getPreference = function(key, defaultValue) {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        if (!saved) return defaultValue;
+        const value = JSON.parse(saved)[key];
+        return value === undefined ? defaultValue : value;
+    } catch (e) {
+        return defaultValue;
+    }
+};
+
+MidiEditorModal.prototype._setPreference = function(key, value) {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        const settings = saved ? JSON.parse(saved) : {};
+        settings[key] = value;
+        localStorage.setItem('maestro_settings', JSON.stringify(settings));
+    } catch (e) {}
+};
 
 MidiEditorModal.prototype._loadTouchModePref = function() {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        if (saved) { return JSON.parse(saved).midiEditorTouchMode === true; }
-    } catch (e) {}
-    return false;
+    return this._getPreference('midiEditorTouchMode', false) === true;
 };
-
 MidiEditorModal.prototype._saveTouchModePref = function(value) {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.midiEditorTouchMode = value;
-        localStorage.setItem('maestro_settings', JSON.stringify(settings));
-    } catch (e) {}
+    this._setPreference('midiEditorTouchMode', value);
 };
-
-// ============================================================================
-// Keyboard & Drag Playback Preferences (localStorage via maestro_settings)
-// ============================================================================
 
 MidiEditorModal.prototype._loadKeyboardPlaybackPref = function() {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        if (saved) {
-            const v = JSON.parse(saved).midiEditorKeyboardPlayback;
-            return v === undefined ? true : v === true;
-        }
-    } catch (e) {}
-    return true; // enabled by default
+    return this._getPreference('midiEditorKeyboardPlayback', true) === true;
 };
-
 MidiEditorModal.prototype._saveKeyboardPlaybackPref = function(value) {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.midiEditorKeyboardPlayback = value;
-        localStorage.setItem('maestro_settings', JSON.stringify(settings));
-    } catch (e) {}
+    this._setPreference('midiEditorKeyboardPlayback', value);
 };
 
 MidiEditorModal.prototype._loadDragPlaybackPref = function() {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        if (saved) {
-            const v = JSON.parse(saved).midiEditorDragPlayback;
-            return v === undefined ? true : v === true;
-        }
-    } catch (e) {}
-    return true; // enabled by default
+    return this._getPreference('midiEditorDragPlayback', true) === true;
 };
-
 MidiEditorModal.prototype._saveDragPlaybackPref = function(value) {
-    try {
-        const saved = localStorage.getItem('maestro_settings');
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.midiEditorDragPlayback = value;
-        localStorage.setItem('maestro_settings', JSON.stringify(settings));
-    } catch (e) {}
+    this._setPreference('midiEditorDragPlayback', value);
 };
 
 // ============================================================================
@@ -371,6 +344,7 @@ const _mixins = [
     typeof MidiEditorCCMixin !== 'undefined' ? MidiEditorCCMixin : null,
     typeof MidiEditorDrawSettingsMixin !== 'undefined' ? MidiEditorDrawSettingsMixin : null,
     typeof MidiEditorCCPickerMixin !== 'undefined' ? MidiEditorCCPickerMixin : null,
+    typeof MidiEditorFileOpsMixin !== 'undefined' ? MidiEditorFileOpsMixin : null,
     typeof MidiEditorRendererMixin !== 'undefined' ? MidiEditorRendererMixin : null,
     typeof MidiEditorRoutingMixin !== 'undefined' ? MidiEditorRoutingMixin : null,
     typeof MidiEditorEditActionsMixin !== 'undefined' ? MidiEditorEditActionsMixin : null,

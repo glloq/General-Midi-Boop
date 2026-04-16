@@ -229,37 +229,6 @@ class MidiEditorPlayback {
     }
 
     /**
-     * Auto-activate tablature if a string instrument is configured for the active channel
-     * and tablature is not already visible.
-     */
-    async _autoActivateTablature() {
-        const m = this.modal;
-
-        // Skip if tablature is already visible
-        if (m.tablatureEditor && m.tablatureEditor.isVisible) return;
-
-        // Skip if another specialized editor is already open
-        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) return;
-        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) return;
-
-        // Only auto-activate for a single active channel
-        if (m.activeChannels.size !== 1) return;
-
-        const activeChannel = Array.from(m.activeChannels)[0];
-
-        // Check if a string instrument is configured for this channel
-        try {
-            const stringInstrument = await m.findStringInstrument(activeChannel);
-            if (stringInstrument) {
-                m.log('info', `Auto-activating tablature for channel ${activeChannel + 1}`);
-                await m.toggleTablature();
-            }
-        } catch {
-            // Ignore errors — tablature auto-activation is best-effort
-        }
-    }
-
-    /**
      * Mettre en pause la lecture
      */
     playbackPause() {
