@@ -139,7 +139,17 @@ class MidiEditorCCPanel {
         let channelsToShow = [];
         let activeChannel = -1;
 
-        if (m.currentCCType === 'velocity') {
+        // When editing a single channel, only show that channel
+        if (m.activeChannels.size === 1) {
+            const editingChannel = Array.from(m.activeChannels)[0];
+            channelsToShow = [editingChannel];
+            activeChannel = editingChannel;
+            if (m.currentCCType === 'velocity' && m.velocityEditor) {
+                m.velocityEditor.setChannel(editingChannel);
+            } else if (m.ccEditor) {
+                m.ccEditor.setChannel(editingChannel);
+            }
+        } else if (m.currentCCType === 'velocity') {
             channelsToShow = m.channels.map(ch => ch.channel).sort((a, b) => a - b);
             activeChannel = m.velocityEditor ? m.velocityEditor.currentChannel : -1;
         } else {
@@ -524,9 +534,15 @@ class MidiEditorCCPanel {
 
         this.updateCCChannelSelector();
 
-        const usedChannels = this.getCCChannelsUsed();
-        const allChannels = this.getAllCCChannels();
-        const activeChannel = usedChannels.length > 0 ? usedChannels[0] : (allChannels.length > 0 ? allChannels[0] : 0);
+        // When editing a single channel, use that channel; otherwise pick first available
+        let activeChannel;
+        if (m.activeChannels.size === 1) {
+            activeChannel = Array.from(m.activeChannels)[0];
+        } else {
+            const usedChannels = this.getCCChannelsUsed();
+            const allChannels = this.getAllCCChannels();
+            activeChannel = usedChannels.length > 0 ? usedChannels[0] : (allChannels.length > 0 ? allChannels[0] : 0);
+        }
         m.ccEditor.setChannel(activeChannel);
 
         this.highlightUsedCCButtons();
@@ -853,7 +869,10 @@ class MidiEditorCCPanel {
         m.velocityEditor = new VelocityEditor(container, options);
         m.velocityEditor.setSequence(m.fullSequence);
 
-        const firstChannel = m.channels.length > 0 ? m.channels[0].channel : 0;
+        // When editing a single channel, use that channel
+        const firstChannel = m.activeChannels.size === 1
+            ? Array.from(m.activeChannels)[0]
+            : (m.channels.length > 0 ? m.channels[0].channel : 0);
         m.velocityEditor.setChannel(firstChannel);
 
         this.highlightUsedCCButtons();
