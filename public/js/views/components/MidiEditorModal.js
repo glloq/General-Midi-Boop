@@ -38,6 +38,10 @@ class MidiEditorModal {
         // Mode tactile : affiche les boutons séparés (déplacer, ajouter, agrandir) au lieu du bouton crayon unifié
         this.touchMode = this._loadTouchModePref();
 
+        // Playback feedback preferences
+        this.keyboardPlaybackEnabled = this._loadKeyboardPlaybackPref();
+        this.dragPlaybackEnabled = this._loadDragPlaybackPref();
+
         // Instrument sélectionné pour les nouveaux canaux (program MIDI GM)
         this.selectedInstrument = 0; // Piano par défaut
 
@@ -304,6 +308,50 @@ MidiEditorModal.prototype._saveTouchModePref = function(value) {
         const saved = localStorage.getItem('maestro_settings');
         const settings = saved ? JSON.parse(saved) : {};
         settings.midiEditorTouchMode = value;
+        localStorage.setItem('maestro_settings', JSON.stringify(settings));
+    } catch (e) {}
+};
+
+// ============================================================================
+// Keyboard & Drag Playback Preferences (localStorage via maestro_settings)
+// ============================================================================
+
+MidiEditorModal.prototype._loadKeyboardPlaybackPref = function() {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        if (saved) {
+            const v = JSON.parse(saved).midiEditorKeyboardPlayback;
+            return v === undefined ? true : v === true;
+        }
+    } catch (e) {}
+    return true; // enabled by default
+};
+
+MidiEditorModal.prototype._saveKeyboardPlaybackPref = function(value) {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        const settings = saved ? JSON.parse(saved) : {};
+        settings.midiEditorKeyboardPlayback = value;
+        localStorage.setItem('maestro_settings', JSON.stringify(settings));
+    } catch (e) {}
+};
+
+MidiEditorModal.prototype._loadDragPlaybackPref = function() {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        if (saved) {
+            const v = JSON.parse(saved).midiEditorDragPlayback;
+            return v === undefined ? true : v === true;
+        }
+    } catch (e) {}
+    return true; // enabled by default
+};
+
+MidiEditorModal.prototype._saveDragPlaybackPref = function(value) {
+    try {
+        const saved = localStorage.getItem('maestro_settings');
+        const settings = saved ? JSON.parse(saved) : {};
+        settings.midiEditorDragPlayback = value;
         localStorage.setItem('maestro_settings', JSON.stringify(settings));
     } catch (e) {}
 };

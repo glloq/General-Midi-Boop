@@ -898,7 +898,17 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                     break;
                 case "N":
                     ev=this.sequence[this.dragging.i];
+                    var prevDragN=ev.n;
                     this.moveSelectedNote((ht.t-this.dragging.t)|0, (ht.n|0)-this.dragging.n);
+                    if(ev.n !== prevDragN){
+                        var dragSelNotes=[];
+                        for(var di=0,dl=this.sequence.length;di<dl;++di){
+                            if(this.sequence[di].f) dragSelNotes.push({n:this.sequence[di].n, v:this.sequence[di].v, c:this.sequence[di].c});
+                        }
+                        this.dispatchEvent(new CustomEvent('notedragmove', {
+                            detail: { notes: dragSelNotes }, bubbles: false
+                        }));
+                    }
                     this.redrawThrottled();
                     break;
                 }
@@ -1060,17 +1070,22 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                 if(e.shiftKey && this._lastClickedKey!==null){
                     this.clearSel();
                     this.selNotesByPitchRange(this._lastClickedKey, clickedNote);
+                    this.redrawThrottled();
+                    this.sendEvent('selectionchange');
                 }
                 else if(e.ctrlKey||e.metaKey){
                     this.selNotesByPitch(clickedNote, "toggle");
                     this._lastClickedKey=clickedNote;
+                    this.redrawThrottled();
+                    this.sendEvent('selectionchange');
                 }
                 else{
-                    this.selNotesByPitch(clickedNote, "replace");
-                    this._lastClickedKey=clickedNote;
+                    // Clic simple : jouer la note (pas de sélection)
+                    this.dispatchEvent(new CustomEvent('pianokey', {
+                        detail: { note: clickedNote },
+                        bubbles: false
+                    }));
                 }
-                this.redrawThrottled();
-                this.sendEvent('selectionchange');
                 // Retirer les listeners ajoutés plus haut, pas de drag en cours
                 if(this.longtaptimer)
                     clearInterval(this.longtaptimer);

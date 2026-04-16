@@ -248,6 +248,18 @@
             touchModeToggle.addEventListener('click', () => this.toggleTouchMode());
         }
 
+    // Toggle keyboard playback
+        const kbPlaybackToggle = document.getElementById('keyboard-playback-toggle');
+        if (kbPlaybackToggle) {
+            kbPlaybackToggle.addEventListener('click', () => this.toggleKeyboardPlayback());
+        }
+
+    // Toggle drag playback
+        const dragPlaybackToggle = document.getElementById('drag-playback-toggle');
+        if (dragPlaybackToggle) {
+            dragPlaybackToggle.addEventListener('click', () => this.toggleDragPlayback());
+        }
+
     // Input de tempo
         const tempoInput = document.getElementById('tempo-input');
         if (tempoInput) {

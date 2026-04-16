@@ -303,6 +303,24 @@
                                     ${this.touchMode ? 'ON' : 'OFF'}
                                 </button>
                             </div>
+                            <div class="settings-popover-section">
+                                <label class="settings-label">🎹 ${this.t('midiEditor.keyboardPlaybackTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.keyboardPlaybackHint')}</span>
+                                <button class="tool-btn-compact" id="keyboard-playback-toggle"
+                                    data-active="${this.keyboardPlaybackEnabled ? 'true' : 'false'}"
+                                    title="${this.t('midiEditor.keyboardPlaybackHint')}">
+                                    ${this.keyboardPlaybackEnabled ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
+                            <div class="settings-popover-section">
+                                <label class="settings-label">🔊 ${this.t('midiEditor.dragPlaybackTitle')}</label>
+                                <span class="settings-popover-hint">${this.t('midiEditor.dragPlaybackHint')}</span>
+                                <button class="tool-btn-compact" id="drag-playback-toggle"
+                                    data-active="${this.dragPlaybackEnabled ? 'true' : 'false'}"
+                                    title="${this.t('midiEditor.dragPlaybackHint')}">
+                                    ${this.dragPlaybackEnabled ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -637,6 +655,25 @@
         this.pianoRoll.addEventListener('change', handleChange);
         this.pianoRoll.addEventListener('selectionchange', () => {
             this.updateEditButtons();
+        });
+
+    // Jouer la note au clic sur le clavier piano
+        this.pianoRoll.addEventListener('pianokey', (e) => {
+            if (!this.keyboardPlaybackEnabled) return;
+            const note = e.detail.note;
+            const channel = this.pianoRoll.defaultChannel || 0;
+            this.playNoteFeedback(note, 100, channel);
+        });
+
+    // Jouer les notes pendant le deplacement par drag
+        this.pianoRoll.addEventListener('notedragmove', (e) => {
+            if (!this.dragPlaybackEnabled) return;
+            const notes = e.detail.notes;
+            if (notes.length > 0 && notes.length <= 6) {
+                notes.forEach(note => {
+                    this.playNoteFeedback(note.n, note.v || 100, note.c || 0);
+                });
+            }
         });
 
         this.updateStats();

@@ -1063,6 +1063,34 @@
         return { xoffset: 0, xrange: 1920, ticksPerPixel: 2 };
     }
 
+    /**
+    * Basculer le son au clic sur le clavier piano
+    */
+    MidiEditorEditActionsMixin.toggleKeyboardPlayback = function() {
+        this.keyboardPlaybackEnabled = !this.keyboardPlaybackEnabled;
+        this._saveKeyboardPlaybackPref(this.keyboardPlaybackEnabled);
+        const btn = document.getElementById('keyboard-playback-toggle');
+        if (btn) {
+            btn.dataset.active = String(this.keyboardPlaybackEnabled);
+            btn.textContent = this.keyboardPlaybackEnabled ? 'ON' : 'OFF';
+        }
+        this.log('info', `Keyboard playback: ${this.keyboardPlaybackEnabled ? 'ON' : 'OFF'}`);
+    }
+
+    /**
+    * Basculer le son au deplacement de notes
+    */
+    MidiEditorEditActionsMixin.toggleDragPlayback = function() {
+        this.dragPlaybackEnabled = !this.dragPlaybackEnabled;
+        this._saveDragPlaybackPref(this.dragPlaybackEnabled);
+        const btn = document.getElementById('drag-playback-toggle');
+        if (btn) {
+            btn.dataset.active = String(this.dragPlaybackEnabled);
+            btn.textContent = this.dragPlaybackEnabled ? 'ON' : 'OFF';
+        }
+        this.log('info', `Drag playback: ${this.dragPlaybackEnabled ? 'ON' : 'OFF'}`);
+    }
+
     if (typeof window !== 'undefined') {
         window.MidiEditorEditActionsMixin = MidiEditorEditActionsMixin;
     }
