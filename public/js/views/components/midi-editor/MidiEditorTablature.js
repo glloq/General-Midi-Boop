@@ -288,6 +288,7 @@
         popover.innerHTML = `
             <div class="channel-settings-header">
                 <span>⚙ ${this.t('midiEditor.channelSettingsTitle', { channel: channel + 1 })}</span>
+                <button class="channel-settings-delete-btn" title="${this.t('midiEditor.deleteChannel')}" aria-label="${this.t('midiEditor.deleteChannel')}">🗑</button>
             </div>
             <div class="channel-settings-section">
                 <label class="channel-settings-toggle">
@@ -341,6 +342,15 @@
         if (toolbar) {
             this._popoverScrollHandler = () => this._closeChannelSettingsPopover();
             toolbar.addEventListener('scroll', this._popoverScrollHandler);
+        }
+
+    // Event: delete channel button
+        const deleteBtn = popover.querySelector('.channel-settings-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._deleteChannel(channel);
+            });
         }
 
     // Event: enabled checkbox
@@ -409,6 +419,40 @@
             this.syncMutedChannels();
         });
 
+    }
+
+    /**
+    * Supprimer entierement un canal : ses notes, son routage et ses configs associees.
+    */
+    MidiEditorTablatureMixin._deleteChannel = function(channel) {
+        if (Array.isArray(this.fullSequence)) {
+            this.fullSequence = this.fullSequence.filter(n => n.c !== channel);
+        }
+        if (Array.isArray(this.sequence)) {
+            this.sequence = this.sequence.filter(n => n.c !== channel);
+        }
+
+        this.channels = (this.channels || []).filter(ch => ch.channel !== channel);
+        this.activeChannels?.delete(channel);
+        this.channelDisabled?.delete(channel);
+        this.channelRouting?.delete(channel);
+        this.channelPlayableHighlights?.delete(channel);
+        this._routedGmPrograms?.delete(channel);
+        this._splitChannelNames?.delete(channel);
+        this._stringInstrumentChannels?.delete(channel);
+        this._stringInstrumentCCEnabled?.delete(channel);
+
+        this._closeChannelSettingsPopover();
+
+        if (typeof this.updateSequenceFromActiveChannels === 'function') {
+            this.updateSequenceFromActiveChannels(null, true);
+        }
+        if (typeof this.refreshChannelButtons === 'function') this.refreshChannelButtons();
+        if (typeof this.updateInstrumentSelector === 'function') this.updateInstrumentSelector();
+        if (typeof this.syncMutedChannels === 'function') this.syncMutedChannels();
+
+        this.isDirty = true;
+        if (typeof this.updateSaveButton === 'function') this.updateSaveButton();
     }
 
     /**
