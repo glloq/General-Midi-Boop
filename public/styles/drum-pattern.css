@@ -285,22 +285,6 @@
     white-space: nowrap;
 }
 
-.drum-pattern-info {
-    font-size: 10px;
-    font-family: monospace;
-    color: var(--text-secondary, #999);
-    padding: 3px 6px;
-    background: var(--bg-secondary, #fff);
-    border-radius: 3px;
-    text-align: center;
-    min-height: 18px;
-}
-
-.drum-pattern-info.drum-pattern-found {
-    color: #28a745;
-    font-weight: 700;
-    background: rgba(40, 167, 69, 0.08);
-}
 
 /* ---- Channel Panel: DRUM Button ---- */
 .channel-drum-btn {
@@ -384,11 +368,6 @@ body.dark-mode .drum-tools-btn:hover {
 
 body.dark-mode .drum-tools-value {
     color: #a0aec0;
-}
-
-body.dark-mode .drum-pattern-info {
-    background: #1a1a2e;
-    color: #718096;
 }
 
 body.dark-mode .drum-quantize-select {

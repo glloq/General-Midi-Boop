@@ -1,7 +1,6 @@
 // ============================================================================
 // Fichier: public/js/views/components/DrumToolsPanel.js
-// Description: Percussion tools panel — velocity transforms, swing, pattern ops
-//   Replaces the DrumKitDiagram sidebar with genuinely useful tools
+// Description: Percussion tools panel — velocity transforms
 //   Operates on DrumGridRenderer.gridEvents via the orchestrator callback
 // ============================================================================
 
@@ -10,9 +9,6 @@ class DrumToolsPanel {
         this.containerEl = containerEl;
         this.gridRenderer = null; // Set by DrumPatternEditor after grid init
         this.onChanged = options.onChanged || null; // Callback after any transform
-
-        // State
-        this.detectedPattern = null; // { length (ticks), events (relativized) }
 
         this._createDOM();
         this._attachEvents();
@@ -64,31 +60,6 @@ class DrumToolsPanel {
                         </button>
                     </div>
                 </div>
-
-                <div class="drum-tools-section">
-                    <div class="drum-tools-section-title">${this.t('drumPattern.swingSection')}</div>
-                    <div class="drum-tools-row">
-                        <input type="range" class="drum-tools-slider drum-tools-slider-wide" id="drum-swing"
-                            min="0" max="100" value="0">
-                        <span class="drum-tools-value" id="drum-swing-val">0%</span>
-                        <button class="drum-tools-btn drum-tools-btn-sm" data-action="apply-swing" title="${this.t('drumPattern.applySwing')}">&#10003;</button>
-                    </div>
-                </div>
-
-                <div class="drum-tools-section">
-                    <div class="drum-tools-section-title">${this.t('drumPattern.patternSection')}</div>
-                    <div class="drum-tools-row">
-                        <button class="drum-tools-btn" data-action="detect-pattern" title="${this.t('drumPattern.detectPattern')}">
-                            ${this.t('drumPattern.detectShort')}
-                        </button>
-                    </div>
-                    <div class="drum-pattern-info" id="drum-pattern-info">--</div>
-                    <div class="drum-tools-row">
-                        <button class="drum-tools-btn" data-action="fill-pattern" id="drum-fill-btn" disabled title="${this.t('drumPattern.fillPattern')}">
-                            ${this.t('drumPattern.fillShort')} &rarr;
-                        </button>
-                    </div>
-                </div>
             </div>
         `;
     }
@@ -120,14 +91,6 @@ class DrumToolsPanel {
                 this.containerEl.querySelector('#drum-vel-scale-val').textContent = `${val}%`;
             });
         }
-
-        const swingSlider = this.containerEl.querySelector('#drum-swing');
-        if (swingSlider) {
-            swingSlider.addEventListener('input', () => {
-                const val = swingSlider.value;
-                this.containerEl.querySelector('#drum-swing-val').textContent = `${val}%`;
-            });
-        }
     }
 
     _handleAction(action) {
@@ -156,17 +119,6 @@ class DrumToolsPanel {
                 break;
             case 'decrescendo':
                 this.applyCrescendo(120, 40);
-                break;
-            case 'apply-swing': {
-                const percent = parseInt(this.containerEl.querySelector('#drum-swing')?.value || '0', 10);
-                this.applySwing(percent);
-                break;
-            }
-            case 'detect-pattern':
-                this.detectPattern();
-                break;
-            case 'fill-pattern':
-                this.fillWithPattern();
                 break;
         }
     }
@@ -296,205 +248,6 @@ class DrumToolsPanel {
     }
 
     // ========================================================================
-    // SWING
-    // ========================================================================
-
-    /**
-     * Apply swing: shift every other 16th note forward
-     */
-    applySwing(percent) {
-        if (percent === 0) return;
-
-        const events = this._getTargetEvents();
-        if (events.length === 0) return;
-
-        this.gridRenderer.saveSnapshot();
-
-        const tpb = this.gridRenderer.ticksPerBeat || 480;
-        const ticksPer16th = tpb / 4;
-        const maxShift = Math.round(ticksPer16th * 0.67);
-        const shift = Math.round(maxShift * (percent / 100));
-
-        for (const evt of events) {
-            // Position within an 8th note (two 16th notes)
-            const posIn8th = evt.tick % (ticksPer16th * 2);
-
-            // Only shift the "and" 16ths (the second 16th in each 8th note pair)
-            // Allow a small tolerance for quantization imprecision
-            if (Math.abs(posIn8th - ticksPer16th) < 10) {
-                evt.tick = evt.tick - posIn8th + ticksPer16th + shift;
-            }
-        }
-
-        // Re-sort events after tick changes
-        this.gridRenderer.gridEvents.sort((a, b) => a.tick - b.tick);
-
-        this._emitChanged();
-    }
-
-    // ========================================================================
-    // PATTERN DETECTION & FILL
-    // ========================================================================
-
-    /**
-     * Detect repeating pattern (1, 2, or 4 bars)
-     */
-    detectPattern() {
-        const gr = this.gridRenderer;
-        const events = gr.gridEvents;
-        if (events.length === 0) {
-            this._updatePatternInfo(null);
-            return;
-        }
-
-        const tpb = gr.ticksPerBeat || 480;
-        const bpm = gr.beatsPerMeasure || 4;
-        const ticksPerMeasure = tpb * bpm;
-
-        // Try pattern lengths: 1 bar, 2 bars, 4 bars
-        for (const bars of [1, 2, 4]) {
-            const patternLength = ticksPerMeasure * bars;
-            const pattern = this._extractPattern(events, patternLength);
-
-            if (pattern.length === 0) continue;
-
-            // Check if this pattern repeats
-            const repeats = this._countRepeats(events, pattern, patternLength);
-
-            if (repeats >= 2) {
-                this.detectedPattern = {
-                    length: patternLength,
-                    bars: bars,
-                    events: pattern,
-                    repeats: repeats
-                };
-                this._updatePatternInfo(this.detectedPattern);
-                return;
-            }
-        }
-
-        // No pattern found
-        this.detectedPattern = null;
-        this._updatePatternInfo(null);
-    }
-
-    /**
-     * Extract events within the first N ticks, relativized to tick 0
-     */
-    _extractPattern(events, length) {
-        return events
-            .filter(e => e.tick < length)
-            .map(e => ({
-                note: e.note,
-                tick: e.tick,
-                velocity: e.velocity,
-                duration: e.duration || 120
-            }));
-    }
-
-    /**
-     * Count how many times the pattern repeats in the full event list
-     */
-    _countRepeats(allEvents, pattern, patternLength) {
-        if (pattern.length === 0) return 0;
-
-        const maxTick = Math.max(...allEvents.map(e => e.tick));
-        const totalSlots = Math.floor(maxTick / patternLength) + 1;
-        let matchCount = 0;
-
-        for (let slot = 0; slot < totalSlots; slot++) {
-            const offset = slot * patternLength;
-            const slotEvents = allEvents.filter(e =>
-                e.tick >= offset && e.tick < offset + patternLength
-            );
-
-            if (this._patternsMatch(pattern, slotEvents, offset)) {
-                matchCount++;
-            }
-        }
-
-        return matchCount;
-    }
-
-    /**
-     * Check if a set of events matches the pattern (with tolerance)
-     */
-    _patternsMatch(pattern, slotEvents, offset) {
-        if (Math.abs(pattern.length - slotEvents.length) > pattern.length * 0.2) {
-            return false; // Too different in note count
-        }
-
-        let matched = 0;
-        for (const p of pattern) {
-            const found = slotEvents.some(e =>
-                e.note === p.note &&
-                Math.abs((e.tick - offset) - p.tick) < 20 // Tick tolerance
-            );
-            if (found) matched++;
-        }
-
-        // At least 80% of pattern notes must match
-        return matched >= pattern.length * 0.8;
-    }
-
-    /**
-     * Fill remaining measures with detected pattern
-     */
-    fillWithPattern() {
-        if (!this.detectedPattern || !this.gridRenderer) return;
-
-        const gr = this.gridRenderer;
-        gr.saveSnapshot();
-
-        const { length: patternLength, events: pattern } = this.detectedPattern;
-        const maxTick = gr.getMaxTick();
-
-        // Find the end of existing pattern repeats
-        const lastEventTick = Math.max(...gr.gridEvents.map(e => e.tick));
-        const startSlot = Math.ceil((lastEventTick + 1) / patternLength);
-
-        // Fill up to a reasonable limit (double the current length, or 8 bars minimum)
-        const tpb = gr.ticksPerBeat || 480;
-        const bpm = gr.beatsPerMeasure || 4;
-        const minFill = tpb * bpm * 8;
-        const endTick = Math.max(maxTick + patternLength * 2, minFill);
-        const endSlot = Math.ceil(endTick / patternLength);
-
-        for (let slot = startSlot; slot < endSlot; slot++) {
-            const offset = slot * patternLength;
-            for (const p of pattern) {
-                gr.gridEvents.push({
-                    tick: p.tick + offset,
-                    note: p.note,
-                    velocity: p.velocity,
-                    duration: p.duration || 120,
-                    channel: gr.gridEvents[0]?.channel || 9
-                });
-            }
-        }
-
-        gr.gridEvents.sort((a, b) => a.tick - b.tick);
-        gr._updateVisibleNotes();
-        this._emitChanged();
-    }
-
-    _updatePatternInfo(pattern) {
-        const infoEl = this.containerEl.querySelector('#drum-pattern-info');
-        const fillBtn = this.containerEl.querySelector('#drum-fill-btn');
-
-        if (pattern) {
-            const barLabel = pattern.bars === 1 ? '1 ' + this.t('drumPattern.bar') : `${pattern.bars} ${this.t('drumPattern.bars')}`;
-            infoEl.textContent = `${this.t('drumPattern.patternDetected')}: ${barLabel} (×${pattern.repeats})`;
-            infoEl.classList.add('drum-pattern-found');
-            if (fillBtn) fillBtn.disabled = false;
-        } else {
-            infoEl.textContent = this.t('drumPattern.noPattern');
-            infoEl.classList.remove('drum-pattern-found');
-            if (fillBtn) fillBtn.disabled = true;
-        }
-    }
-
-    // ========================================================================
     // LIFECYCLE
     // ========================================================================
 
@@ -508,7 +261,6 @@ class DrumToolsPanel {
 
     destroy() {
         this.gridRenderer = null;
-        this.detectedPattern = null;
         this.containerEl.innerHTML = '';
     }
 }
