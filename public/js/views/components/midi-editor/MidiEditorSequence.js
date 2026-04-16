@@ -274,6 +274,16 @@
                     this.log('debug', `Piano roll redrawn after channel toggle: ${this.pianoRoll.sequence.length} notes visible`);
                 }
             }
+
+            // Sync CC/Velocity editor to the edited channel
+            if (this.activeChannels.size === 1 && this.ccSectionExpanded) {
+                const ch = Array.from(this.activeChannels)[0];
+                if (this.ccEditor) this.ccEditor.setChannel(ch);
+                if (this.velocityEditor) this.velocityEditor.setChannel(ch);
+                if (typeof this.updateEditorChannelSelector === 'function') {
+                    this.updateEditorChannelSelector();
+                }
+            }
         },
 
         /**
