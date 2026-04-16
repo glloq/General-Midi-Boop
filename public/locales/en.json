@@ -442,6 +442,7 @@
         "ccChannelFilter": "CC Ch:",
         "channelSettings": "Channel settings",
         "channelSettingsTitle": "Channel {channel}",
+        "deleteChannel": "Delete channel",
         "channelEnabled": "Enable playback",
         "channelRoutingLabel": "MIDI routing",
         "channelRoutingHint": "Send this channel to:",
