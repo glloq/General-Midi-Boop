@@ -1,0 +1,46 @@
+{
+  "command": "playback_set_loop",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Enable or disable loop playback. Handler forwards `data.enabled` to `midiPlayer.setLoop()`.",
+  "cases": [
+    {
+      "name": "nominal — enable loop",
+      "type": "success",
+      "input": {
+        "enabled": true
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "nominal — disable loop",
+      "type": "success",
+      "input": {
+        "enabled": false
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    }
+  ]
+}

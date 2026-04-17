@@ -1,0 +1,74 @@
+{
+  "command": "playback_status",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Return the current playback status from midiPlayer.getStatus(). The handler returns that object directly as `data`.",
+  "cases": [
+    {
+      "name": "nominal — status idle (no file loaded)",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "playing": "boolean",
+          "paused": "boolean",
+          "position": "number",
+          "duration": "number",
+          "percentage": "number",
+          "outputDevice": "string|null",
+          "loop": "boolean",
+          "tempo": "number",
+          "events": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "playing": false,
+          "paused": false,
+          "position": 0,
+          "duration": 0,
+          "percentage": 0,
+          "outputDevice": null,
+          "loop": false,
+          "tempo": 120,
+          "events": 0
+        }
+      }
+    },
+    {
+      "name": "nominal — status while playing",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "playing": "boolean",
+          "paused": "boolean",
+          "position": "number",
+          "duration": "number",
+          "percentage": "number",
+          "outputDevice": "string|null",
+          "loop": "boolean",
+          "tempo": "number",
+          "events": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "playing": true,
+          "paused": false,
+          "position": 30,
+          "duration": 120,
+          "percentage": 25,
+          "outputDevice": "out-1",
+          "loop": false,
+          "tempo": 120,
+          "events": 42
+        }
+      }
+    }
+  ]
+}

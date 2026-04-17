@@ -1,0 +1,108 @@
+{
+  "command": "playback_start",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Load a MIDI file, auto-load saved channel routings, pick output device, start playback.",
+  "cases": [
+    {
+      "name": "nominal — start with fileId and explicit outputDevice",
+      "type": "success",
+      "input": {
+        "fileId": "file-001",
+        "outputDevice": "out-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "fileInfo": "object",
+          "outputDevice": "string",
+          "loadedRoutings": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "fileInfo": {
+            "filename": "test.mid",
+            "duration": 120,
+            "tracks": 3,
+            "events": 42,
+            "tempo": 120,
+            "channels": []
+          },
+          "outputDevice": "out-1",
+          "loadedRoutings": 0
+        }
+      }
+    },
+    {
+      "name": "nominal — start without outputDevice (falls back to first enabled output)",
+      "type": "success",
+      "input": {
+        "fileId": "file-001"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "fileInfo": "object",
+          "outputDevice": "string",
+          "loadedRoutings": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "fileInfo": {
+            "filename": "test.mid",
+            "duration": 120,
+            "tracks": 3,
+            "events": 42,
+            "tempo": 120,
+            "channels": []
+          },
+          "outputDevice": "out-default",
+          "loadedRoutings": 0
+        }
+      }
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": {},
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "fileId is required"
+      }
+    },
+    {
+      "name": "error — no output devices available",
+      "type": "error",
+      "input": {
+        "fileId": "file-001"
+      },
+      "preconditions": {
+        "deviceManager.getDeviceList": "returns empty list (no enabled outputs)"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_CONFIGURATION",
+        "error": "No output devices available"
+      }
+    }
+  ]
+}

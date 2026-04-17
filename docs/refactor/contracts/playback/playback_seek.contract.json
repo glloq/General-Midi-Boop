@@ -1,0 +1,45 @@
+{
+  "command": "playback_seek",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Seek playback to a specific position (seconds). Handler does not validate `position` — current behavior forwards the value as-is to `midiPlayer.seek()`.",
+  "cases": [
+    {
+      "name": "nominal — seek to position",
+      "type": "success",
+      "input": {
+        "position": 42.5
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "edge — seek with no data (position undefined, forwarded as-is)",
+      "type": "success",
+      "input": {},
+      "notes": "Current handler does not validate position. Calling seek(undefined) is the current observable behavior. Any refactor MUST preserve this (or explicitly add validation via ADR).",
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    }
+  ]
+}

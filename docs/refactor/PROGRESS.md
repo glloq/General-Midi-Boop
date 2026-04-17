@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 0 — Baseline sécurité** (en cours) |
 | Branche de travail | `claude/dazzling-ptolemy-rXsBU` |
-| Dernier lot terminé | P0-0.1 |
-| Prochain lot suggéré | Lot P0-0.2 (snapshots contrats WS `playback.*`) |
+| Dernier lot terminé | P0-0.2 |
+| Prochain lot suggéré | Lot P0-0.3 (snapshots contrats WS `routing.*` et assignations) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -41,7 +41,8 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 ### Phase 0 — Baseline sécurité
 
 - [x] **P0-0.1** Créer `docs/refactor/contracts/README.md` — méthode de génération des snapshots WS (outil, format, revue).
-- [ ] **P0-0.2** Capturer les snapshots de contrats WS pour `playback.*` (start, stop, seek, loop, transpose, adapt).
+- [x] **P0-0.2** Capturer les snapshots de contrats WS pour `playback.*` (start, stop, seek, loop, transpose, adapt).
+- [ ] **P0-0.2b** Capturer snapshots des commandes playback avancées : `analyze_channel`, `generate_assignment_suggestions`, `apply_assignments`, `validate_instrument_capabilities`, `get_instrument_defaults`, `update_instrument_capabilities`, `get_file_routings`, `playback_validate_routing`, `playback_set_disconnect_policy`, `playback_get_channels`, `playback_set_channel_routing`, `playback_clear_channel_routing`, `playback_mute_channel`.
 - [ ] **P0-0.3** Capturer les snapshots de contrats WS pour `routing.*` et assignations.
 - [ ] **P0-0.4** Produire `docs/adr/ADR-001-refactor-strategy.md` (décision hybride V2→V3).
 - [ ] **P0-0.5** Produire `docs/refactor/dependency-matrix.md` v1 pour les 5 modules backend + 4 frontend cités au plan §12.
@@ -114,7 +115,8 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | 2026-04-17 | Claude (init) | — | Création plan de référence `REFACTORING_PLAN.md` | `docs/REFACTORING_PLAN.md` | `264ac1a` | Plan initial hybride V2→V3 |
 | 2026-04-17 | Claude (init) | — | Enrichissement plan (garde-fous, KPI, ADR, rollback, ordonnancement) | `docs/REFACTORING_PLAN.md` | `5f08f3e` | +139 lignes |
 | 2026-04-17 | Claude (init) | — | Création fichiers de suivi et routine agent | `docs/refactor/PROGRESS.md`, `docs/refactor/AGENT_ROUTINE.md` | (ce commit) | Seed initial des todos |
-| 2026-04-17 | Claude (refactoring) | P0-0.1 | Création méthode de capture snapshots WS : protocole, format `.contract.json`, patron de test Jest, inventaire 146+ commandes avec criticité, processus de revue | `docs/refactor/contracts/README.md` | (ce commit) | Inventaire complet des commandes WS produit |
+| 2026-04-17 | Claude (refactoring) | P0-0.1 | Création méthode de capture snapshots WS : protocole, format `.contract.json`, patron de test Jest, inventaire 146+ commandes avec criticité, processus de revue | `docs/refactor/contracts/README.md` | `d3d6d67` | Inventaire complet des commandes WS produit |
+| 2026-04-17 | Claude (refactoring) | P0-0.2 | Capture snapshots contrats `playback.*` core : start (4 cas), stop, pause, resume, seek (2 cas), status (2 cas), set_loop (2 cas), set_tempo/transpose/set_volume (stubs, 2 cas chacun) | `docs/refactor/contracts/playback/*.contract.json` (10 fichiers) | (ce commit) | Snapshots couvrent le scope P0-1.1 (playback control). Couvre aussi les stubs set_tempo/transpose/set_volume pour figer leur no-op actuel. |
 
 ---
 
@@ -123,6 +125,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 - **2026-04-17** — Décision : conserver le layout réel (`src/midi/`, `src/storage/`, etc.) plutôt que bouger vers `src/domain/`+`src/infra/`. Cf. `REFACTORING_PLAN.md` §5.
 - **2026-04-17** — Décision : consolider les sub-DBs existantes en Repositories, **ne pas** introduire une couche neuve parallèle.
 - **2026-04-17** — Freeze SQL actif : aucune nouvelle migration tant que Phase 4 n'est pas terminée (sauf exception ADR).
+- **2026-04-17** — Interprétation du scope P0-0.2 (« start, stop, seek, loop, transpose, adapt ») : les commandes de contrôle playback core (playback_start/stop/pause/resume/seek/status/set_loop/set_tempo/transpose/set_volume). Les commandes playback « lourdes » (analyze_channel, generate_assignment_suggestions, apply_assignments, validate_routing, etc.) sont déplacées vers un nouveau lot P0-0.2b afin de garder les lots courts (2-5j). Justification : apply_assignments seul fait ~400 LOC avec multiples cas (split physique/playback, overwrite, cc7 injection, persistance), il nécessite son propre lot focalisé.
 
 ---
 

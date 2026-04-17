@@ -1,0 +1,25 @@
+{
+  "command": "playback_stop",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Stop playback. Handler takes no data.",
+  "cases": [
+    {
+      "name": "nominal — stop playback",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    }
+  ]
+}

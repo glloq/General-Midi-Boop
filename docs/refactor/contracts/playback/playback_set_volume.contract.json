@@ -1,0 +1,44 @@
+{
+  "command": "playback_set_volume",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Stub — future implementation. Handler returns `{ success: true }` unconditionally. Any refactor MUST preserve this behavior until the feature is implemented via ADR.",
+  "cases": [
+    {
+      "name": "nominal — stub accepts volume",
+      "type": "success",
+      "input": {
+        "volume": 80
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "nominal — stub accepts no data",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    }
+  ]
+}
