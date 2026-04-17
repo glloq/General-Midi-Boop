@@ -1,0 +1,49 @@
+{
+  "command": "route_info",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Get detailed info for a route. Throws NotFoundError if route doesn't exist. Note: CommandRegistry-level validator does NOT require routeId for this command, but the handler dereferences it.",
+  "cases": [
+    {
+      "name": "nominal — existing route",
+      "type": "success",
+      "input": {
+        "routeId": "route-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "route": "object"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "route": {
+            "id": "route-1",
+            "source": "dev-in-1",
+            "destination": "dev-out-1",
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "name": "error — unknown routeId",
+      "type": "error",
+      "input": {
+        "routeId": "ghost"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_NOT_FOUND",
+        "error": "Route with id 'ghost' not found"
+      }
+    }
+  ]
+}

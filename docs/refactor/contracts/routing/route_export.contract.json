@@ -1,0 +1,49 @@
+{
+  "command": "route_export",
+  "module": "RoutingCommands.js",
+  "criticality": "low",
+  "description": "Export a route definition. Returns the full route object. Throws NotFoundError if unknown.",
+  "cases": [
+    {
+      "name": "nominal — export route",
+      "type": "success",
+      "input": {
+        "routeId": "route-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "route": "object"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "route": {
+            "id": "route-1",
+            "source": "dev-in-1",
+            "destination": "dev-out-1",
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "name": "error — unknown route",
+      "type": "error",
+      "input": {
+        "routeId": "ghost"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_NOT_FOUND",
+        "error": "Route with id 'ghost' not found"
+      }
+    }
+  ]
+}

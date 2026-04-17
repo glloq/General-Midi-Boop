@@ -1,0 +1,31 @@
+{
+  "command": "route_import",
+  "module": "RoutingCommands.js",
+  "criticality": "low",
+  "description": "Import a route definition. `data.route` is forwarded to `midiRouter.addRoute()`.",
+  "cases": [
+    {
+      "name": "nominal — import route",
+      "type": "success",
+      "input": {
+        "route": {
+          "source": "dev-in-1",
+          "destination": "dev-out-1",
+          "enabled": true
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "routeId": "string"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "routeId": "route-789"
+        }
+      }
+    }
+  ]
+}

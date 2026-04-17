@@ -1,0 +1,135 @@
+{
+  "command": "file_routing_sync",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Sync file channel routings from frontend localStorage to database. Deletes existing non-split routings, re-inserts from `channels` map, preserves auto-assign metadata when the device hasn't changed. Filters out unknown devices (except `virtual-instrument`) and channels not present in the file.",
+  "cases": [
+    {
+      "name": "nominal — empty channels clears all routings for file",
+      "type": "success",
+      "input": {
+        "fileId": 42,
+        "channels": {}
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "invalidDevices": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 0,
+          "invalidDevices": []
+        }
+      }
+    },
+    {
+      "name": "nominal — sync channels with known devices",
+      "type": "success",
+      "input": {
+        "fileId": 42,
+        "channels": {
+          "0": "dev-1",
+          "1": "dev-2::5"
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "invalidDevices": "array",
+          "invalidChannels": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 2,
+          "invalidDevices": [],
+          "invalidChannels": []
+        }
+      }
+    },
+    {
+      "name": "nominal — invalid device IDs are filtered out",
+      "type": "success",
+      "input": {
+        "fileId": 42,
+        "channels": {
+          "0": "unknown-dev",
+          "1": "dev-2"
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "invalidDevices": "array",
+          "invalidChannels": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 1,
+          "invalidDevices": ["unknown-dev"],
+          "invalidChannels": []
+        }
+      }
+    },
+    {
+      "name": "nominal — virtual-instrument is always allowed",
+      "type": "success",
+      "input": {
+        "fileId": 42,
+        "channels": {
+          "0": "virtual-instrument"
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "invalidDevices": "array",
+          "invalidChannels": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 1,
+          "invalidDevices": [],
+          "invalidChannels": []
+        }
+      }
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": {
+        "channels": {}
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "fileId is required"
+      }
+    }
+  ]
+}

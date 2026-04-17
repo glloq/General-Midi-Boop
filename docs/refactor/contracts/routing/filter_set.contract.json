@@ -1,0 +1,48 @@
+{
+  "command": "filter_set",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Set filter on a route. Validator requires `routeId`. `filter` object forwarded to `midiRouter.setFilter()`.",
+  "cases": [
+    {
+      "name": "nominal — set filter",
+      "type": "success",
+      "input": {
+        "routeId": "route-1",
+        "filter": {
+          "channels": [0, 1],
+          "eventTypes": ["noteOn", "noteOff"]
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "error — missing routeId",
+      "type": "error",
+      "input": {
+        "filter": {}
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid filter_set data: routeId is required"
+      }
+    }
+  ]
+}

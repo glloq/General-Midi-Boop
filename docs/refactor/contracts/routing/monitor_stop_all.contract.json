@@ -1,0 +1,25 @@
+{
+  "command": "monitor_stop_all",
+  "module": "RoutingCommands.js",
+  "criticality": "low",
+  "description": "Stop monitoring on all devices. No input required.",
+  "cases": [
+    {
+      "name": "nominal — stop all monitors",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    }
+  ]
+}

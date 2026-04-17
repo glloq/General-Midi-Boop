@@ -1,0 +1,42 @@
+{
+  "command": "monitor_stop",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Stop monitoring MIDI traffic on a device. Validator requires `deviceId`.",
+  "cases": [
+    {
+      "name": "nominal — stop monitor",
+      "type": "success",
+      "input": {
+        "deviceId": "dev-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "error — missing deviceId",
+      "type": "error",
+      "input": {},
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid monitor_stop data: deviceId is required"
+      }
+    }
+  ]
+}

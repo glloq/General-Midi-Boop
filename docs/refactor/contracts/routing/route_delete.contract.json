@@ -1,0 +1,42 @@
+{
+  "command": "route_delete",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Delete a route by ID. Validator requires `routeId`.",
+  "cases": [
+    {
+      "name": "nominal — delete route",
+      "type": "success",
+      "input": {
+        "routeId": "route-123"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "error — missing routeId",
+      "type": "error",
+      "input": {},
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid route_delete data: routeId is required"
+      }
+    }
+  ]
+}

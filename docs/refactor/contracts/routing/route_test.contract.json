@@ -1,0 +1,103 @@
+{
+  "command": "route_test",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Send a test note through a route. Default: middle C (60), velocity 80, channel 0, duration 300ms. Returns NotFoundError if route doesn't exist; returns `{success: false}` if device send fails.",
+  "cases": [
+    {
+      "name": "nominal — test note sent",
+      "type": "success",
+      "input": {
+        "routeId": "route-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "destination": "string",
+          "note": "number",
+          "channel": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "destination": "dev-out-1",
+          "note": 60,
+          "channel": 0
+        }
+      }
+    },
+    {
+      "name": "nominal — test with custom params",
+      "type": "success",
+      "input": {
+        "routeId": "route-1",
+        "channel": 5,
+        "note": 72,
+        "velocity": 100,
+        "duration": 500
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "destination": "string",
+          "note": "number",
+          "channel": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "destination": "dev-out-1",
+          "note": 72,
+          "channel": 5
+        }
+      }
+    },
+    {
+      "name": "error — unknown route",
+      "type": "error",
+      "input": {
+        "routeId": "ghost"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_NOT_FOUND",
+        "error": "Route with id 'ghost' not found"
+      }
+    },
+    {
+      "name": "edge — device send failed (not an error, just success=false)",
+      "type": "success",
+      "input": {
+        "routeId": "route-1"
+      },
+      "preconditions": {
+        "deviceManager.sendMessage": "returns false (device offline)"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "error": "string"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": false,
+          "error": "Failed to send test note to device"
+        }
+      }
+    }
+  ]
+}

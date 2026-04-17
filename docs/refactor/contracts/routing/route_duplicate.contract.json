@@ -1,0 +1,44 @@
+{
+  "command": "route_duplicate",
+  "module": "RoutingCommands.js",
+  "criticality": "low",
+  "description": "Duplicate an existing route. New route is created with `enabled: false`. Returns NotFoundError if source route doesn't exist.",
+  "cases": [
+    {
+      "name": "nominal — duplicate route",
+      "type": "success",
+      "input": {
+        "routeId": "route-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "routeId": "string"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "routeId": "route-456"
+        }
+      }
+    },
+    {
+      "name": "error — unknown source route",
+      "type": "error",
+      "input": {
+        "routeId": "ghost"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_NOT_FOUND",
+        "error": "Route with id 'ghost' not found"
+      }
+    }
+  ]
+}

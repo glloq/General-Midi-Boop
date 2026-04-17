@@ -1,0 +1,65 @@
+{
+  "command": "route_enable",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Enable or disable a route. Validator requires `routeId`. `enabled` is forwarded to `midiRouter.enableRoute()`.",
+  "cases": [
+    {
+      "name": "nominal — enable route",
+      "type": "success",
+      "input": {
+        "routeId": "route-1",
+        "enabled": true
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "nominal — disable route",
+      "type": "success",
+      "input": {
+        "routeId": "route-1",
+        "enabled": false
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "error — missing routeId",
+      "type": "error",
+      "input": {
+        "enabled": true
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid route_enable data: routeId is required"
+      }
+    }
+  ]
+}

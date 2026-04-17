@@ -1,0 +1,116 @@
+{
+  "command": "file_routing_bulk_sync",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Bulk sync all file routings from frontend localStorage. Called once on page load. Iterates over `routings` map (fileId → {channels}), delegates each entry to the same logic as file_routing_sync.",
+  "cases": [
+    {
+      "name": "nominal — empty or missing routings returns success with zero counts",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "files": "number",
+          "invalidDevices": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 0,
+          "files": 0,
+          "invalidDevices": []
+        }
+      }
+    },
+    {
+      "name": "nominal — non-object routings field returns zero counts",
+      "type": "success",
+      "input": {
+        "routings": "not an object"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "files": "number",
+          "invalidDevices": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 0,
+          "files": 0,
+          "invalidDevices": []
+        }
+      }
+    },
+    {
+      "name": "nominal — sync multiple files",
+      "type": "success",
+      "input": {
+        "routings": {
+          "1": {
+            "channels": { "0": "dev-1", "1": "dev-2" }
+          },
+          "2": {
+            "channels": { "0": "dev-1" }
+          }
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "files": "number",
+          "invalidDevices": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 3,
+          "files": 2,
+          "invalidDevices": []
+        }
+      }
+    },
+    {
+      "name": "nominal — files with no channels are skipped",
+      "type": "success",
+      "input": {
+        "routings": {
+          "1": { "channels": {} },
+          "2": { "channels": { "0": "dev-1" } }
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "synced": "number",
+          "files": "number",
+          "invalidDevices": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "synced": 1,
+          "files": 1,
+          "invalidDevices": []
+        }
+      }
+    }
+  ]
+}

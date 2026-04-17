@@ -1,0 +1,48 @@
+{
+  "command": "channel_map",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Set channel mapping on a route. Validator requires `routeId`. `mapping` object forwarded to `midiRouter.setChannelMap()`.",
+  "cases": [
+    {
+      "name": "nominal — set channel mapping",
+      "type": "success",
+      "input": {
+        "routeId": "route-1",
+        "mapping": {
+          "0": 5,
+          "1": 6
+        }
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "error — missing routeId",
+      "type": "error",
+      "input": {
+        "mapping": {}
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid channel_map data: routeId is required"
+      }
+    }
+  ]
+}

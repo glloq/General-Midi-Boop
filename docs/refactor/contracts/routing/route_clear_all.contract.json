@@ -1,0 +1,46 @@
+{
+  "command": "route_clear_all",
+  "module": "RoutingCommands.js",
+  "criticality": "medium",
+  "description": "Delete all routes. Returns the count of deleted routes.",
+  "cases": [
+    {
+      "name": "nominal — clear all (empty)",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "deleted": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "deleted": 0
+        }
+      }
+    },
+    {
+      "name": "nominal — clear all (with routes)",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "deleted": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "success": true,
+          "deleted": 3
+        }
+      }
+    }
+  ]
+}

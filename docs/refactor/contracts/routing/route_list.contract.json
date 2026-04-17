@@ -1,0 +1,49 @@
+{
+  "command": "route_list",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Return all configured routes. No input required. Returns array from `midiRouter.getRouteList()`.",
+  "cases": [
+    {
+      "name": "nominal — empty list",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "routes": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "routes": []
+        }
+      }
+    },
+    {
+      "name": "nominal — list with routes",
+      "type": "success",
+      "input": {},
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "routes": "array"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "routes": [
+            {
+              "id": "route-1",
+              "source": "dev-in-1",
+              "destination": "dev-out-1",
+              "enabled": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

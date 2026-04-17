@@ -1,0 +1,62 @@
+{
+  "command": "route_create",
+  "module": "RoutingCommands.js",
+  "criticality": "high",
+  "description": "Create a new MIDI route between source and destination devices. Validator requires `source` and `destination`.",
+  "cases": [
+    {
+      "name": "nominal — create route",
+      "type": "success",
+      "input": {
+        "source": "dev-in-1",
+        "destination": "dev-out-1"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "routeId": "string"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": {
+          "routeId": "route-123"
+        }
+      }
+    },
+    {
+      "name": "error — missing source",
+      "type": "error",
+      "input": {
+        "destination": "dev-out-1"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid route_create data: source is required"
+      }
+    },
+    {
+      "name": "error — missing destination",
+      "type": "error",
+      "input": {
+        "source": "dev-in-1"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid route_create data: destination is required"
+      }
+    }
+  ]
+}
