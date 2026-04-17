@@ -437,13 +437,7 @@ class FileManager {
         throw new Error(`File not found: ${numericId}`);
       }
 
-      // Explicitly delete related channel data (defense in depth alongside CASCADE)
-      try {
-        this.app.database.deleteFileChannels(numericId);
-      } catch (err) {
-        this.app.logger.warn(`Failed to delete file channels for ${numericId}: ${err.message}`);
-      }
-
+      // midi_file_channels rows are removed by ON DELETE CASCADE (migration 018).
       this.app.database.deleteFile(numericId);
       this.app.logger.info(`File deleted: ${file.filename} (${numericId})`);
 
