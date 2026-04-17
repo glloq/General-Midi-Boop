@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P1-3.4b (BackendAPIClient code propagation) |
-| Prochain lot suggéré | **P2-F.1** : protocole 5 étapes — étape 1 sur `RoutingSummaryPage.js` (extraire constantes) ; OU **P1-4.5b** : `NobleBleAdapter` réel + rewire `BluetoothManager`. |
+| Dernier lot terminé | P2-F.1 |
+| Prochain lot suggéré | **P2-F.2** : étape 2 du protocole 5 étapes — extraire les accès API de `RoutingSummaryPage.js` vers `shared/api`. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -105,7 +105,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 ### Phase 2-frontend (P2)
 
-- [ ] **P2-F.1** Protocole 5 étapes sur `RoutingSummaryPage.js` (≈4748 LOC) — étape 1 : extraire constantes.
+- [x] **P2-F.1** Protocole 5 étapes sur `RoutingSummaryPage.js` (≈4748 LOC) — étape 1 : extraire constantes vers `RoutingSummaryConstants.js` (136 LOC, exposé sur `window.RoutingSummaryConstants`). RoutingSummaryPage.js : 4748 → 4661 LOC (-87, -1.8%). Sera réduit davantage aux étapes suivantes (API, état, sous-composants, orchestrateur).
 - [ ] **P2-F.2** `RoutingSummaryPage.js` — étape 2 : extraire accès API.
 - [ ] **P2-F.3** `RoutingSummaryPage.js` — étape 3 : extraire logique d'état.
 - [ ] **P2-F.4** `RoutingSummaryPage.js` — étape 4 : extraire rendu UI en sous-composants.
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.1 | Étape 1 du protocole 5 étapes (plan §11) sur `RoutingSummaryPage.js` (≈4748 LOC). Extraction des constantes module-level (MAX_INST_NAME, GM_DEFAULT_POLYPHONY, SPLIT_COLORS, BLACK_KEYS, NOTE_NAMES) et helpers utilitaires (getScoreClass/Bg/Label, getTypeIcon/Color, getGmProgramName, getGmDefaultPolyphony, midiNoteToName, safeNoteRange) vers `public/js/views/components/auto-assign/RoutingSummaryConstants.js` (136 LOC). Exposé sur `window.RoutingSummaryConstants` (codebase IIFE+globals, pas d'ES modules). HTML index.html mis à jour pour charger le nouveau fichier avant. RoutingSummaryPage.js : 4748 → 4661 LOC. | `public/js/views/components/auto-assign/RoutingSummaryConstants.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Constantes maintenant réutilisables par les futurs sous-composants (étape 4). |
 | 2026-04-17 | Claude (refactoring) | P1-3.4b | Suite à la recommandation de l'audit P1-3.4 : `BackendAPIClient.handleMessage` propage maintenant `code` et `command` sur l'objet `Error` rejeté. Permet aux callers UI de discriminer ERR_VALIDATION vs ERR_NOT_FOUND vs ERR_CONFIGURATION sans parser la string. Aucun changement de format sur le fil — purement décodage côté client. | `public/js/api/BackendAPIClient.js` | (ce commit) | Backend tests 287/287. (Vitest sandbox indisponible localement mais aucune régression backend possible.) |
 | 2026-04-17 | Claude (refactoring) | P1-4.2 | 2 services domaine extraits : `DeviceReconciliationService` (3 fallbacks de matching + reconcile) et `FileRoutingStatusService` (calcul du status, avec fonction pure `computeRoutingStatus`). Handlers `DeviceCommands.deviceList` et `FileCommands.fileRoutingStatus` réduits. -50 LOC dans les deux handlers cumulés. | `src/midi/domain/devices/DeviceReconciliationService.js` (créé), `src/midi/domain/files/FileRoutingStatusService.js` (créé), `src/core/Application.js`, `src/api/commands/DeviceCommands.js`, `src/api/commands/FileCommands.js` | (ce commit) | 287/287 tests verts. Phase 4 quasi terminée (reste P1-4.5b ; P1-4.5 foundation déjà livrée). |
 | 2026-04-17 | Claude (refactoring) | P1-4.1 | Première extraction de service domaine post-Phase 1 : `src/midi/domain/routing/FileRoutingSyncService.js` (~210 LOC) consolide la logique métier de `fileRoutingSync` et `fileRoutingBulkSync`. Fonction pure `planChannelRouting` exportée pour testabilité unitaire. Service enregistré dans `Application.js` (consomme `routingRepository`, `fileRepository`, `deviceManager`). Handlers RoutingCommands réduits à validate + appel service + log + respond. Mock du contract test routing instancie le **vrai** service (pas un mock) sur les spies → la logique du service est exercée. -120 LOC dans RoutingCommands.js. | `src/midi/domain/routing/FileRoutingSyncService.js` (créé), `src/core/Application.js`, `src/api/commands/RoutingCommands.js`, `tests/contracts/routing.contract.test.js` | (ce commit) | 287/287 tests verts. Snapshots routing verts. Premier service domaine sous `src/midi/domain/`. |
@@ -209,7 +210,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
-| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4748 |
+| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4661 (-1.8%, P2-F.1) |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | ~20 % |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
 | PR refactor sans incident (14 j) | — | ≥ 95 % | — |

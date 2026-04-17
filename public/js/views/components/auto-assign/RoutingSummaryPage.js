@@ -1,116 +1,29 @@
 // public/js/views/components/auto-assign/RoutingSummaryPage.js
 // RoutingSummaryPage — Page résumé du routage automatique avec layout deux panneaux
 (function() {
-const MAX_INST_NAME = 18;
 'use strict';
 
+// Constants and helpers extracted to RoutingSummaryConstants.js (P2-F.1).
+// Loaded earlier in index.html so window.RoutingSummaryConstants is available.
+const RSC = window.RoutingSummaryConstants;
+const {
+  MAX_INST_NAME,
+  SPLIT_COLORS,
+  BLACK_KEYS,
+  NOTE_NAMES,
+  GM_DEFAULT_POLYPHONY,
+  getGmDefaultPolyphony,
+  midiNoteToName,
+  safeNoteRange,
+  getScoreClass,
+  getScoreBgClass,
+  getScoreLabel,
+  getTypeIcon,
+  getTypeColor,
+  getGmProgramName
+} = RSC;
+
 const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
-
-// ============================================================================
-// Utility helpers (standalone, no dependency on AutoAssignModal mixins)
-// ============================================================================
-
-function getScoreClass(score) {
-  if (score >= 80) return 'rs-color-excellent';
-  if (score >= 60) return 'rs-color-good';
-  if (score >= 40) return 'rs-color-fair';
-  return 'rs-color-poor';
-}
-
-function getScoreBgClass(score) {
-  if (score >= 80) return 'rs-bg-excellent';
-  if (score >= 60) return 'rs-bg-good';
-  if (score >= 40) return 'rs-bg-fair';
-  return 'rs-bg-poor';
-}
-
-function getScoreLabel(score) {
-  if (score >= 90) return _t('autoAssign.scoreExcellent');
-  if (score >= 75) return _t('autoAssign.scoreGood');
-  if (score >= 60) return _t('autoAssign.scoreAverage');
-  if (score >= 40) return _t('autoAssign.scoreFair');
-  return _t('autoAssign.scorePoor');
-}
-
-function getTypeIcon(type) {
-  const icons = {
-    drums: '\uD83E\uDD41', bass: '\uD83C\uDFB8', melody: '\uD83C\uDFB9',
-    harmony: '\uD83C\uDFB5', pad: '\uD83C\uDFB6', strings: '\uD83C\uDFBB',
-    brass: '\uD83C\uDFBA', piano: '\uD83C\uDFB9', organ: '\uD83C\uDFB9',
-    guitar: '\uD83C\uDFB8', reed: '\uD83C\uDFB7', pipe: '\uD83E\uDE88',
-    ensemble: '\uD83C\uDFB5', synth_lead: '\uD83C\uDFB9', synth_pad: '\uD83C\uDFB6'
-  };
-  return icons[type] || '\uD83C\uDFB5';
-}
-
-function getTypeColor(type) {
-  const colors = {
-    drums: '#E91E63', bass: '#9C27B0', melody: '#2196F3',
-    harmony: '#4CAF50', pad: '#00BCD4', strings: '#FF9800',
-    brass: '#F44336', piano: '#3F51B5', organ: '#795548',
-    guitar: '#FF5722', reed: '#009688', pipe: '#607D8B',
-    ensemble: '#8BC34A', synth_lead: '#673AB7', synth_pad: '#00BCD4'
-  };
-  return colors[type] || '#607D8B';
-}
-
-function getGmProgramName(program) {
-  if (program == null || program < 0 || program > 127) return null;
-  if (typeof getGMInstrumentName === 'function') return getGMInstrumentName(program);
-  if (typeof GM_INSTRUMENTS !== 'undefined' && GM_INSTRUMENTS[program]) return GM_INSTRUMENTS[program];
-  return `Program ${program}`;
-}
-
-/**
- * GM default polyphony by program (0-127).
- * Typical polyphony of the real acoustic instrument.
- */
-const GM_DEFAULT_POLYPHONY = {
-  0:16,1:16,2:16,3:16,4:16,5:16,6:8,7:8, // Piano
-  8:8,9:4,10:4,11:6,12:4,13:4,14:8,15:4, // Chromatic Percussion
-  16:16,17:16,18:16,19:16,20:16,21:8,22:1,23:8, // Organ
-  24:6,25:6,26:6,27:6,28:6,29:6,30:6,31:6, // Guitar
-  32:1,33:1,34:1,35:1,36:1,37:1,38:1,39:1, // Bass
-  40:4,41:4,42:4,43:4,44:8,45:8,46:8,47:2, // Strings
-  48:16,49:16,50:16,51:16,52:16,53:16,54:16,55:1, // Ensemble
-  56:1,57:1,58:1,59:1,60:1,61:8,62:8,63:8, // Brass
-  64:1,65:1,66:1,67:1,68:1,69:1,70:1,71:1, // Reed
-  72:1,73:1,74:1,75:1,76:1,77:1,78:1,79:1, // Pipe/Flute
-  80:1,81:1,82:1,83:1,84:1,85:1,86:2,87:2, // Synth Lead
-  88:8,89:8,90:8,91:8,92:8,93:8,94:8,95:8, // Synth Pad
-  96:4,97:4,98:4,99:4,100:4,101:4,102:4,103:4, // Synth FX
-  104:4,105:6,106:4,107:4,108:4,109:1,110:4,111:1, // Ethnic
-  112:4,113:4,114:2,115:2,116:4,117:4,118:4,119:4, // Percussive
-  120:1,121:1,122:1,123:1,124:1,125:1,126:1,127:1  // Sound FX
-};
-
-function getGmDefaultPolyphony(gmProgram) {
-  if (gmProgram == null || gmProgram < 0 || gmProgram > 127) return 16;
-  return GM_DEFAULT_POLYPHONY[gmProgram] ?? 16;
-}
-
-const NOTE_NAMES = MidiConstants.NOTE_NAMES;
-
-function midiNoteToName(note) {
-  return NOTE_NAMES[note % 12] + Math.floor(note / 12);
-}
-
-/**
- * Clamp a note range to valid MIDI bounds and ensure min <= max.
- * Returns a safe { min, max } object.
- */
-function safeNoteRange(min, max) {
-  let lo = Math.max(0, Math.min(127, Math.round(min ?? 0)));
-  let hi = Math.max(0, Math.min(127, Math.round(max ?? 127)));
-  if (lo > hi) { const t = lo; lo = hi; hi = t; }
-  return { min: lo, max: hi };
-}
-
-// Module-level constants (avoid recreating per render)
-const SPLIT_COLORS = ['#4A90D9', '#E67E22', '#27AE60', '#9B59B6'];
-
-// Black key pattern within an octave (0-11): C#=1, D#=3, F#=6, G#=8, A#=10
-const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 
 /**
  * Render a mini piano keyboard aligned to the channel's note range.
