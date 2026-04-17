@@ -7,12 +7,12 @@
 
 | Champ | Valeur |
 |---|---|
-| Phase active | **Phase 0 — Baseline sécurité** (non démarrée) |
-| Branche de travail | `claude/review-refactoring-plan-AqlJO` |
-| Dernier lot terminé | — |
-| Prochain lot suggéré | Lot P0-0.1 (voir §Todos ci-dessous) |
+| Phase active | **Phase 0 — Baseline sécurité** (en cours) |
+| Branche de travail | `claude/dazzling-ptolemy-rXsBU` |
+| Dernier lot terminé | P0-0.1 |
+| Prochain lot suggéré | Lot P0-0.2 (snapshots contrats WS `playback.*`) |
 | Date dernière mise à jour | 2026-04-17 |
-| Agent ayant mis à jour | Claude (session initiale) |
+| Agent ayant mis à jour | Claude (agent refactoring) |
 
 ## Règles de mise à jour
 
@@ -40,7 +40,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 ### Phase 0 — Baseline sécurité
 
-- [ ] **P0-0.1** Créer `docs/refactor/contracts/README.md` — méthode de génération des snapshots WS (outil, format, revue).
+- [x] **P0-0.1** Créer `docs/refactor/contracts/README.md` — méthode de génération des snapshots WS (outil, format, revue).
 - [ ] **P0-0.2** Capturer les snapshots de contrats WS pour `playback.*` (start, stop, seek, loop, transpose, adapt).
 - [ ] **P0-0.3** Capturer les snapshots de contrats WS pour `routing.*` et assignations.
 - [ ] **P0-0.4** Produire `docs/adr/ADR-001-refactor-strategy.md` (décision hybride V2→V3).
@@ -114,6 +114,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | 2026-04-17 | Claude (init) | — | Création plan de référence `REFACTORING_PLAN.md` | `docs/REFACTORING_PLAN.md` | `264ac1a` | Plan initial hybride V2→V3 |
 | 2026-04-17 | Claude (init) | — | Enrichissement plan (garde-fous, KPI, ADR, rollback, ordonnancement) | `docs/REFACTORING_PLAN.md` | `5f08f3e` | +139 lignes |
 | 2026-04-17 | Claude (init) | — | Création fichiers de suivi et routine agent | `docs/refactor/PROGRESS.md`, `docs/refactor/AGENT_ROUTINE.md` | (ce commit) | Seed initial des todos |
+| 2026-04-17 | Claude (refactoring) | P0-0.1 | Création méthode de capture snapshots WS : protocole, format `.contract.json`, patron de test Jest, inventaire 146+ commandes avec criticité, processus de revue | `docs/refactor/contracts/README.md` | (ce commit) | Inventaire complet des commandes WS produit |
 
 ---
 
