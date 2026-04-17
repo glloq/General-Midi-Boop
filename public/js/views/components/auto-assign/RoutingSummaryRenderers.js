@@ -108,10 +108,44 @@
     `;
   }
 
+  /**
+   * Preview header button bar with Play-all / Play-channel / Play-original /
+   * Pause / Stop buttons and the filename tag.
+   * @param {object} opts
+   * @param {number|null} opts.selectedChannel  - currently selected channel (null → disabled)
+   * @param {string}      opts.filename         - full filename (truncated to 30 chars for display)
+   * @param {(s:string) => string} [opts.escape] - HTML-escape helper ; defaults to identity
+   */
+  function renderHeaderButtons(opts) {
+    const ch = opts.selectedChannel;
+    const chLabel = ch !== null && ch !== undefined ? (ch + 1) : '?';
+    const fnDisplay = opts.filename || '';
+    const fnShort = fnDisplay.length > 30 ? fnDisplay.slice(0, 27) + '\u2026' : fnDisplay;
+    const escape = opts.escape || ((s) => s);
+    return `
+      <div class="rs-hdr-prev-btns">
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">
+          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewAll') || 'Tout'}
+        </button>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null || ch === undefined ? 'disabled' : ''}>
+          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewChannel') || 'Channel'} ${chLabel}
+        </button>
+        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}">
+          <span class="rs-prev-icon">&#9835;</span> ${_t('routingSummary.previewOriginal') || 'Original'}
+        </button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
+        <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
+        <span class="rs-preview-time" id="rsPreviewTime"></span>
+        <span class="rs-header-filename" title="${escape(fnDisplay)}">${escape(fnShort)}</span>
+      </div>
+    `;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
     renderMiniRange,
-    renderDetailPlaceholder
+    renderDetailPlaceholder,
+    renderHeaderButtons
   });
 })();

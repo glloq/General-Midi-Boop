@@ -30,8 +30,8 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b/F.4c).
-const { renderMiniKeyboard, renderChannelHistogram, renderMiniRange, renderDetailPlaceholder } = window.RoutingSummaryRenderers;
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b/F.4c/F.4d).
+const { renderMiniKeyboard, renderChannelHistogram, renderMiniRange, renderDetailPlaceholder, renderHeaderButtons } = window.RoutingSummaryRenderers;
 
 // ============================================================================
 // RoutingSummaryPage class
@@ -3450,27 +3450,11 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _renderHeaderButtons() {
-    const ch = this.selectedChannel;
-    const chLabel = ch !== null ? (ch + 1) : '?';
-    const fnDisplay = this.filename || '';
-    const fnShort = fnDisplay.length > 30 ? fnDisplay.slice(0, 27) + '\u2026' : fnDisplay;
-    return `
-      <div class="rs-hdr-prev-btns">
-        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">
-          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewAll') || 'Tout'}
-        </button>
-        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewChBtn" title="${_t('routingSummary.previewChannel')} ${chLabel}" ${ch === null ? 'disabled' : ''}>
-          <span class="rs-prev-icon">&#9654;</span> ${_t('routingSummary.previewChannel') || 'Channel'} ${chLabel}
-        </button>
-        <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewOrigBtn" title="${_t('routingSummary.previewOriginal')}">
-          <span class="rs-prev-icon">&#9835;</span> ${_t('routingSummary.previewOriginal') || 'Original'}
-        </button>
-        <button class="btn btn-sm rs-prev-btn" id="rsPreviewPauseBtn" style="display:none">&#10074;&#10074;</button>
-        <button class="btn btn-sm rs-prev-btn" id="rsPreviewStopBtn" style="display:none">&#9632;</button>
-        <span class="rs-preview-time" id="rsPreviewTime"></span>
-        <span class="rs-header-filename" title="${escapeHtml(fnDisplay)}">${escapeHtml(fnShort)}</span>
-      </div>
-    `;
+    return renderHeaderButtons({
+      selectedChannel: this.selectedChannel,
+      filename: this.filename,
+      escape: escapeHtml
+    });
   }
 
   _bindPreviewEvents() {
