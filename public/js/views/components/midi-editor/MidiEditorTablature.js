@@ -1301,7 +1301,20 @@
     }
 
 
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorTablatureFacade {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorTablatureMixin).forEach((key) => {
+        MidiEditorTablatureFacade.prototype[key] = function(...args) {
+            return MidiEditorTablatureMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorTablatureMixin = MidiEditorTablatureMixin;
+        // Named *Facade to avoid collision with the UI component class
+        // `MidiEditorTablature` exported elsewhere (string-instrument editor).
+        window.MidiEditorTablatureFacade = MidiEditorTablatureFacade;
     }
 })();

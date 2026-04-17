@@ -1112,7 +1112,18 @@
         this.log('info', `Drag playback: ${this.dragPlaybackEnabled ? 'ON' : 'OFF'}`);
     }
 
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorEditActions {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorEditActionsMixin).forEach((key) => {
+        MidiEditorEditActions.prototype[key] = function(...args) {
+            return MidiEditorEditActionsMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorEditActionsMixin = MidiEditorEditActionsMixin;
+        window.MidiEditorEditActions = MidiEditorEditActions;
     }
 })();

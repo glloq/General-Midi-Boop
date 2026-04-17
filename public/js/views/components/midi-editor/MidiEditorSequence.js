@@ -331,8 +331,18 @@
         }
     };
 
-    // Export le mixin pour application ulterieure au prototype
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorSequence {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorSequenceMixin).forEach((key) => {
+        MidiEditorSequence.prototype[key] = function(...args) {
+            return MidiEditorSequenceMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorSequenceMixin = MidiEditorSequenceMixin;
+        window.MidiEditorSequence = MidiEditorSequence;
     }
 })();

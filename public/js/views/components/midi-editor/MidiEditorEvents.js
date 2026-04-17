@@ -962,7 +962,18 @@
         this.timelineBar.setZoom(xrange / ((timelineContainer.clientWidth || 800) - pianoLeftOffset));
     }
 
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorEvents {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorEventsMixin).forEach((key) => {
+        MidiEditorEvents.prototype[key] = function(...args) {
+            return MidiEditorEventsMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorEventsMixin = MidiEditorEventsMixin;
+        window.MidiEditorEvents = MidiEditorEvents;
     }
 })();

@@ -696,7 +696,18 @@
     }
 
 
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorCC {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorCCMixin).forEach((key) => {
+        MidiEditorCC.prototype[key] = function(...args) {
+            return MidiEditorCCMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorCCMixin = MidiEditorCCMixin;
+        window.MidiEditorCC = MidiEditorCC;
     }
 })();

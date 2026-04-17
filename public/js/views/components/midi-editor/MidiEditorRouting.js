@@ -905,7 +905,18 @@
         }
     }
 
+    // Facade sub-component (P2-F.10c-batch).
+    class MidiEditorRouting {
+        constructor(modal) { this.modal = modal; }
+    }
+    Object.keys(MidiEditorRoutingMixin).forEach((key) => {
+        MidiEditorRouting.prototype[key] = function(...args) {
+            return MidiEditorRoutingMixin[key].apply(this.modal, args);
+        };
+    });
+
     if (typeof window !== 'undefined') {
         window.MidiEditorRoutingMixin = MidiEditorRoutingMixin;
+        window.MidiEditorRouting = MidiEditorRouting;
     }
 })();
