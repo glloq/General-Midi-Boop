@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.4r (split section, -134 LOC) |
-| Prochain lot suggéré | **P2-F.5** (orchestrateur léger) ou **P1-4.5c**. |
+| Dernier lot terminé | P2-F.4s (content shell, -36 LOC) |
+| Prochain lot suggéré | continuer sur comportements (_bindDetailEvents, _applyPreviewVolumes) ou **P1-4.5c**. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.4s | Extraction du template HTML du modal (`_renderContent` full-rebuild mode, ~56 LOC) vers `renderContentShell({ ... })` (~85 LOC). 17e renderer pur. Le contrôle-flow reste dans la page (_bindGlobalEvents, scroll-save, partial updates) mais le HTML structurel est isolé. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+90 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-36 LOC) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4s : 4748→3258 (**-1490, -31.4%**) → 79% du chemin vers KPI -40%. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4r | Extraction de la section split de `_renderDetailPanel` (~152 LOC) vers `renderSplitSection({ ... })`. Table multi-instrument avec range slider per-segment, overlap zones (resolve buttons), uncovered notes warning. 3 callbacks injectés : `getCompatibleInstrumentsForSegment`, `getDisplayName`, `detectOverlaps`. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+166 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-134 LOC) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4r : 4748→3294 (**-1454, -30.6%**) → 76% du chemin vers KPI -40%. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4q | Extraction de l'adaptation block (pitch shift + OOR handling + embedded poly section, ~67 LOC) vers `RoutingSummaryRenderers.renderAdaptationBlock({ ... })`. Premier extrait depuis l'orchestrateur `_renderDetailPanel` (344 LOC). La poly section reste pré-rendue par la page (déjà extraite en P2-F.4k). | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+95 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-59 LOC) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4q : 4748→3428 (**-1320, -27.8%**) → 70% du chemin vers KPI -40%. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4p | Extraction de `_renderSummaryTable` (~189 LOC) vers `RoutingSummaryRenderers.renderSummaryTable({ ... })`. Gère 2 layouts : condensed (4 colonnes quand détail panel ouvert) et full (9 colonnes). 6 callbacks injectés : getDisplayName, buildInstrumentOptions, getChannelPolyphony, getInstrumentPolyphony, computePlayableNotes, renderVolumeSlider. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+212 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-168 LOC) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4p : 4748→3487 (**-1261, -26.6%**) → 66% du chemin vers KPI -40%. |
@@ -252,7 +253,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
-| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | **3294 (-30.6%, F.1→F.4r cumul)** — 76% du chemin vers -40% |
+| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | **3258 (-31.4%, F.1→F.4s cumul)** — 79% du chemin vers -40% |
 | `MidiSynthesizer.js` LOC | 1192 | < 720 (-40 %) | 1116 (-6.4%, P2-F.8) |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | **backend 437/437** ; nouveautés session : schema-compiler×30, repository-delegations×94, domain services×47 (routing-plan-channel×14, routing-status×11, device-reconciliation×10, file-routing-sync×12), contract×40+ (playback+routing), correlation-id×3, command-metrics×4, routing-integration×7, bluetooth-port×11, transaction-helper×3 |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |

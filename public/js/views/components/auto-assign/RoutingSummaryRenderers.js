@@ -1420,6 +1420,92 @@
     `;
   }
 
+  /**
+   * Full modal layout (header + 2-panel body + footer) used by
+   * `RoutingSummaryPage._renderContent` in "full rebuild" mode. All inner
+   * panels are pre-rendered by the caller.
+   *
+   * @param {Object} opts
+   * @param {boolean} opts.hasDetail
+   * @param {boolean} opts.hasMidiData
+   * @param {boolean} opts.autoAdaptation
+   * @param {boolean} opts.isOverrideModified
+   * @param {number} opts.displayScore
+   * @param {number|null} opts.selectedChannel
+   * @param {string} opts.scoreLabel
+   * @param {number} opts.activeCount
+   * @param {number} opts.totalCount
+   * @param {string} opts.headerButtonsHTML
+   * @param {string} opts.scoreDetailHTML
+   * @param {string} opts.summaryTableHTML
+   * @param {string} opts.detailPanelHTML
+   */
+  function renderContentShell(opts) {
+    const {
+      hasDetail, hasMidiData, autoAdaptation, isOverrideModified,
+      displayScore, selectedChannel, scoreLabel,
+      activeCount, totalCount,
+      headerButtonsHTML, scoreDetailHTML,
+      summaryTableHTML, detailPanelHTML
+    } = opts;
+    const { getScoreBgClass } = window.RoutingSummaryConstants;
+
+    const channelsLabel = _t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: totalCount });
+    const scoreTooltip = _t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail';
+    const settingsTooltip = _t('routingSummary.settings');
+    const autoTooltip = _t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI';
+
+    return `
+      <div class="rs-container ${hasDetail ? 'rs-with-detail' : ''}">
+        <div class="rs-header">
+          <div class="rs-header-row">
+            <div class="rs-header-left">
+              ${hasMidiData ? headerButtonsHTML : `<h2>${_t('routingSummary.title')}</h2>`}
+            </div>
+            <div class="rs-header-center">
+              <div class="rs-score-wrapper">
+                <button class="rs-score-btn ${getScoreBgClass(displayScore)}" id="rsScoreBtn" title="${scoreTooltip}">
+                  ${scoreLabel}
+                </button>
+                <div class="rs-score-popup" id="rsScorePopup" style="display:none">
+                  ${scoreDetailHTML}
+                </div>
+              </div>
+              <button class="rs-adapt-toggle ${autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${autoTooltip}">
+                ${autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
+              </button>
+              <span class="rs-channel-count">${channelsLabel}</span>
+            </div>
+            <div class="rs-header-right">
+              <button class="rs-settings-btn ${isOverrideModified ? 'modified' : ''}" id="rsSettingsBtn" title="${settingsTooltip}">&#9881;</button>
+              <button class="modal-close" id="rsSummaryClose">&times;</button>
+            </div>
+          </div>
+          ${hasMidiData ? '<div class="rs-header-minimap" id="rsMinimapContainer"></div>' : ''}
+        </div>
+
+        <div class="rs-layout">
+          <div class="rs-summary-panel" id="rsSummaryPanel">
+            ${summaryTableHTML}
+          </div>
+          <div class="rs-detail-panel" id="rsDetailPanel">
+            ${detailPanelHTML}
+          </div>
+        </div>
+
+        <div class="rs-footer">
+          <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
+          <div class="rs-footer-center"></div>
+          <div class="rs-footer-right">
+            <button class="btn btn-primary" id="rsSummaryApply">
+              ${_t('routingSummary.applyAll')}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
@@ -1436,6 +1522,7 @@
     renderScoreDetail,
     renderSummaryTable,
     renderAdaptationBlock,
-    renderSplitSection
+    renderSplitSection,
+    renderContentShell
   });
 })();

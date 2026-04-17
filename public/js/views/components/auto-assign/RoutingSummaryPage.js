@@ -33,7 +33,7 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4r).
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4s).
 const {
   renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
   renderDetailPlaceholder, renderHeaderButtons,
@@ -41,7 +41,7 @@ const {
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
   renderScoreDetail, renderSummaryTable, renderAdaptationBlock,
-  renderSplitSection
+  renderSplitSection, renderContentShell
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -398,64 +398,28 @@ class RoutingSummaryPage {
         const savedDetailScroll = detailPanel?.scrollTop || 0;
 
         const activeCount = channelKeys.length - this.skippedChannels.size;
+        const displayScore = this._getDisplayScore();
+        const scoreLabel = this.selectedChannel !== null
+          ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
+          : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
 
-        this.modal.innerHTML = `
-          <div class="rs-container ${this.selectedChannel !== null ? 'rs-with-detail' : ''}">
-            <div class="rs-header">
-              <div class="rs-header-row">
-                <div class="rs-header-left">
-                  ${this.midiData ? this._renderHeaderButtons() : `<h2>${_t('routingSummary.title')}</h2>`}
-                </div>
-                <div class="rs-header-center">
-                  ${(() => {
-                    const displayScore = this._getDisplayScore();
-                    const scoreLabel = this.selectedChannel !== null
-                      ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
-                      : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
-                    return `<div class="rs-score-wrapper">
-                      <button class="rs-score-btn ${getScoreBgClass(displayScore)}" id="rsScoreBtn" title="${_t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail'}">
-                        ${scoreLabel}
-                      </button>
-                      <div class="rs-score-popup" id="rsScorePopup" style="display:none">
-                        ${this._renderScoreDetail()}
-                      </div>
-                    </div>`;
-                  })()}
-                  <button class="rs-adapt-toggle ${this.autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${_t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI'}">
-                    ${this.autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
-                  </button>
-                  <span class="rs-channel-count">
-                    ${_t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length })}
-                  </span>
-                </div>
-                <div class="rs-header-right">
-                  <button class="rs-settings-btn ${this._isOverrideModified() ? 'modified' : ''}" id="rsSettingsBtn" title="${_t('routingSummary.settings')}">&#9881;</button>
-                  <button class="modal-close" id="rsSummaryClose">&times;</button>
-                </div>
-              </div>
-              ${this.midiData ? '<div class="rs-header-minimap" id="rsMinimapContainer"></div>' : ''}
-            </div>
-
-            <div class="rs-layout">
-              <div class="rs-summary-panel" id="rsSummaryPanel">
-                ${this._renderSummaryTable(channelKeys)}
-              </div>
-              <div class="rs-detail-panel" id="rsDetailPanel">
-                ${this.selectedChannel !== null ? this._safeRenderDetailPanel(this.selectedChannel) : this._renderDetailPlaceholder()}
-              </div>
-            </div>
-
-            <div class="rs-footer">
-              <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
-              <div class="rs-footer-center"></div>
-              <div class="rs-footer-right">
-                <button class="btn btn-primary" id="rsSummaryApply">
-                  ${_t('routingSummary.applyAll')}
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
+        this.modal.innerHTML = renderContentShell({
+          hasDetail: this.selectedChannel !== null,
+          hasMidiData: !!this.midiData,
+          autoAdaptation: !!this.autoAdaptation,
+          isOverrideModified: this._isOverrideModified(),
+          displayScore,
+          selectedChannel: this.selectedChannel,
+          scoreLabel,
+          activeCount,
+          totalCount: channelKeys.length,
+          headerButtonsHTML: this._renderHeaderButtons(),
+          scoreDetailHTML: this._renderScoreDetail(),
+          summaryTableHTML: this._renderSummaryTable(channelKeys),
+          detailPanelHTML: this.selectedChannel !== null
+            ? this._safeRenderDetailPanel(this.selectedChannel)
+            : this._renderDetailPlaceholder()
+        });
 
         this._bindGlobalEvents(channelKeys);
         this._bindSummaryEvents(channelKeys);
