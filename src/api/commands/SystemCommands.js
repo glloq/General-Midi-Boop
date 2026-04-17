@@ -21,7 +21,7 @@ async function systemStatus(app) {
     version: APP_VERSION,
     devices: app.deviceManager.getDeviceList().length,
     routes: app.midiRouter.getRouteList().length,
-    files: app.database.getFiles('/').length
+    files: app.fileRepository.findByFolder('/').length
   };
 }
 
@@ -271,6 +271,7 @@ async function systemBackup(app, data) {
   }
 
   const backupPath = resolve(backupsDir, filename);
+  // Admin-level op on the whole database file; no domain Repository fits here.
   app.database.backup(backupPath);
   return { path: backupPath };
 }
