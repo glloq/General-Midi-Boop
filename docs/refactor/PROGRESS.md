@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.5h |
-| Prochain lot suggéré | P0-2.5k (DeviceSettingsCommands + DeviceSettingsRepository, 3 calls) |
+| Dernier lot terminé | P0-2.5k |
+| Prochain lot suggéré | P0-2.5o (SystemCommands, 1 call — backup conservé) ou P0-2.5i (LightingCommands, 25 calls) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -78,7 +78,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
   - [x] **P0-2.5h** `PlaylistCommands.js` + nouveau `PlaylistRepository` (14 appels).
   - [ ] **P0-2.5i** `LightingCommands.js` + nouveau `LightingRepository` (25 appels, sub-DB `LightingDatabase`).
   - [ ] **P0-2.5j** `StringInstrumentCommands.js` + nouveau `StringInstrumentRepository` (38 appels via sous-module).
-  - [ ] **P0-2.5k** `DeviceSettingsCommands.js` + nouveau `DeviceSettingsRepository` (3 appels, sub-DB `DeviceSettingsDB`).
+  - [x] **P0-2.5k** `DeviceSettingsCommands.js` + nouveau `DeviceSettingsRepository` (3 appels).
   - [ ] **P0-2.5l** `DeviceCommands.js` (14 appels, majoritairement instrument-settings).
   - [ ] **P0-2.5m** `VirtualInstrumentCommands.js` (11 appels, mixe SQL inline).
   - [ ] **P0-2.5n** `InstrumentSettingsCommands.js` (33 appels, le plus lourd).
@@ -127,6 +127,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P0-2.5k | Nouveau `DeviceSettingsRepository` (findByDeviceId, ensureDevice, update). `DeviceSettingsCommands.js` migré (3 appels). | `src/repositories/DeviceSettingsRepository.js` (créé), `src/core/Application.js`, `src/api/commands/DeviceSettingsCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5h | Nouveau `PlaylistRepository` (51 LOC, 11 méthodes) : save, delete, findAll, findById, findItems, addItem, removeItem, reorderItem, updateLoop, clearItems, updateSettings. `PlaylistCommands.js` migré (14 appels). | `src/repositories/PlaylistRepository.js` (créé), `src/core/Application.js`, `src/api/commands/PlaylistCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5g | Nouveau `SessionRepository` (21 LOC) : save, findById, findAll, delete. `SessionCommands.js` migré (6 appels). | `src/repositories/SessionRepository.js` (créé), `src/core/Application.js`, `src/api/commands/SessionCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5f | Nouveau `PresetRepository` (25 LOC) : save, findById, findByType, delete, update. Enregistré dans Application.js. `PresetCommands.js` migré : 6 appels `app.database.*` → `app.presetRepository.*`. | `src/repositories/PresetRepository.js` (créé), `src/core/Application.js`, `src/api/commands/PresetCommands.js` | (ce commit) | 241/241 tests verts. Pas d'appels `app.database.*` restants dans PresetCommands.js. Extension de l'ADR-002 (les 3 repos cités ne sont pas exhaustifs — ce pattern s'applique à toutes les entités métier). |
