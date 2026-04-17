@@ -9,7 +9,7 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.3-tests (unit tests sur AssignmentBuilder) |
+| Dernier lot terminé | P1-4.x-tests (unit tests domain services) |
 | Prochain lot suggéré | **P2-F.4b** (continuer l'extraction de renderers) ou **P1-4.5c** (rewire BluetoothManager). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P1-4.x-tests | Tests unitaires Jest sur les 2 fonctions pures extraites en Phase 4 : `planChannelRouting` (P1-4.1) avec 14 tests (guards NaN/empty/skip-channel/skip-device, insert payloads, virtual-instrument exception, targetChannel parsing, metadata preservation same/different device, note_remapping JSON serialisation, `now` override) ; `computeRoutingStatus` (P1-4.2) avec 11 tests (unrouted/partial/playable/routed_incomplete, null scores = manual routings, disabled filtering, connected-devices filter, isAdapted, hasAutoAssigned, channelCount fallback). 310/310 puis 321/321 tests verts. | `tests/services/routing-plan-channel.test.js` (créé), `tests/services/routing-status.test.js` (créé) | (ce commit) | Démontre la testabilité unitaire gagnée par les extractions P1-4.x (fonctions pures, zéro I/O, mocks-free). |
 | 2026-04-17 | Claude (refactoring) | P2-F.3-tests | Tests unitaires Vitest pour `RoutingSummaryAssignmentBuilder` (extrait en P2-F.3). 15 tests couvrant : build non-split (payload vide, skipped, deviceId manquant, minimal, transposition, polyphony from instrument, polyphony GM default), build split (segments + hasSplit, ccSegmentMute Set→Array), computeModificationFlags (transposition, ccRemap, volumeChange, split, rien). Évaluation IIFE via `new Function(src)(window)`. Pattern aligné avec `tests/frontend/midi-editor-clamp.test.js`. | `tests/frontend/routing-summary-assignment-builder.test.js` (créé) | (ce commit) | Syntaxe validée `node --check`. Vitest sandbox indisponible localement (bug vite plugin sans rapport), mais les tests tourneront en CI. Couverture du pattern « extraction pure + test isolé » maintenant démontrée sur le frontend. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4 | Démarrage étape 4 du protocole 5 étapes (plan §11) sur `RoutingSummaryPage.js`. Nouveau fichier `RoutingSummaryRenderers.js` (75 LOC) : 2 fonctions pures HTML extraites (`renderMiniKeyboard`, `renderChannelHistogram`). Elles lisent depuis `window.RoutingSummaryConstants` (BLACK_KEYS, safeNoteRange, midiNoteToName). RoutingSummaryPage.js réduit de 4573 à 4522 (-51). `public/index.html` charge le nouveau fichier. Poursuite possible sur 15+ méthodes `_render*` internes. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Cumul F.1+F.2+F.3+F.4 : -226 LOC dans la page (-4.8%). |
 | 2026-04-17 | Claude (refactoring) | P2-F.10-wire | Instantiation des 9 facades MidiEditor dans le constructeur de `MidiEditorModal`. Noms choisis pour éviter toute collision avec l'état existant (`this.sequence = []` → facade nommée `this.sequenceOps` ; `this.channelRouting` → facade `this.routingOps` ; `this.tablatureEditor` → facade `this.tablatureOps`). Les autres sont directs : `this.ccOps`, `this.fileOps`, `this.renderer`, `this.editActions`, `this.events`, `this.lifecycle`. | `public/js/views/components/MidiEditorModal.js` | (ce commit) | 296/296 tests verts. 12/12 facades MidiEditor sont désormais instanciées. Callsites peuvent migrer progressivement vers `modal.<facade>.<method>()` sans rush — les mixins restent sur le prototype. |
@@ -232,6 +233,6 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
 | `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4522 (-4.8%, F.1+F.2+F.3+F.4 cumul) |
 | `MidiSynthesizer.js` LOC | 1192 | < 720 (-40 %) | 1116 (-6.4%, P2-F.8) |
-| Couverture tests P0/P1 | ~20 % | ≥ 35 % | ~20 % |
+| Couverture tests P0/P1 | ~20 % | ≥ 35 % | en hausse : +25 tests unitaires purs (routing-plan-channel×14, routing-status×11) en plus de l'existant SchemaCompiler×30 et intégration SQLite×7 |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
 | PR refactor sans incident (14 j) | — | ≥ 95 % | — |
