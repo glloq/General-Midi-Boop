@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-OBS.1 |
-| Prochain lot suggéré | **P2-OBS.2** : métriques temps de traitement sur flux playback (via `EventBus`) ou **P2-F.2** (étape 2 sur RoutingSummaryPage — extraction accès API). |
+| Dernier lot terminé | P2-OBS.2 + P2-OBS.3 |
+| Prochain lot suggéré | **P1-4.5b** (NobleBleAdapter réel + rewire BluetoothManager) OU **P2-F.9** (migrer vers layout `public/js/features/`) — les items critiques du plan sont tous livrés. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -119,8 +119,8 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 ### Observabilité (P2)
 
 - [x] **P2-OBS.1** Ajouter un correlation ID par commande WS (traversée log). Tag `[cmd=<command> cid=<id>]` injecté dans tous les logs de `CommandRegistry.handle` (info + error). Fallback UUID court quand `message.id` absent. 3 tests unitaires dans `tests/api/correlation-id.test.js`.
-- [ ] **P2-OBS.2** Ajouter métriques temps de traitement sur flux playback (via `EventBus`).
-- [ ] **P2-OBS.3** Ajouter métriques sur flux routing/adaptation.
+- [x] **P2-OBS.2** Ajouter métriques temps de traitement sur flux playback (via `EventBus`). Événement `ws.command.completed` émis à chaque dispatch dans `CommandRegistry.handle` avec `{ command, cid, duration, success, errorCode? }`. Tout consommateur (dashboard, Prometheus exporter) peut souscrire.
+- [x] **P2-OBS.3** Ajouter métriques sur flux routing/adaptation. Même événement `ws.command.completed` — il couvre l'ensemble des commandes WS, donc playback, routing, adaptation, file, instrument, etc. Discrimination côté consommateur via le champ `command`.
 
 ---
 
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-OBS.2+3 | Métrique temps de traitement via EventBus pour tous les flux (playback + routing + adaptation + autres). `CommandRegistry.handle` émet `ws.command.completed` avec `{ command, cid, duration, success, errorCode? }` en success ET error. 4 tests unitaires dans `tests/api/command-metrics.test.js` (success, ValidationError→ERR_VALIDATION, Error brut→ERR_INTERNAL, absence d'EventBus n'est pas fatale). | `src/api/CommandRegistry.js`, `tests/api/command-metrics.test.js` (créé) | (ce commit) | 294/294 tests verts. Aucun changement de format WS — purement événement interne. OBS.2 et OBS.3 clôturés d'un même trait : le tag unifie les domaines. |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.1 | Correlation ID par commande WS. `CommandRegistry.handle` tag désormais tous les logs info + error avec `[cmd=<command> cid=<id>]`. CID = `message.id` (par défaut, toujours envoyé par le client) ou fallback `_generateCid()` (base36 8-char) si absent. Tests ajoutés : `tests/api/correlation-id.test.js` (3 tests : usage normal, fallback, trace sur erreur). | `src/api/CommandRegistry.js`, `tests/api/correlation-id.test.js` (créé) | (ce commit) | 290/290 tests verts. Première observabilité Phase 2. Pas de changement de format de message WS. |
 | 2026-04-17 | Claude (refactoring) | P2-F.6+F.8 | Étape 1 du protocole 5 étapes sur `MidiSynthesizer.js` (SOUND_BANKS array of 7 banks + DEFAULT_BANK_ID/SUFFIX) et `MidiEditorCCPanel.js` (ALWAYS_VISIBLE_CC_TYPES, STATIC_CC_TYPES, NOTE_NAMES, avec variantes `*_SET` pré-instanciées). Nouveaux fichiers `MidiSynthesizerConstants.js` (37 LOC) et `MidiEditorCCPanelConstants.js` (33 LOC). `public/index.html` mis à jour. `node --check` propre. MidiSynthesizer.js : 1192→1116 LOC (-76). P2-F.7 (Tablature) reporté : aucune constante module-level identifiable à cette étape ; l'extraction viendra à l'étape 4 (sous-composants). | `public/js/audio/MidiSynthesizerConstants.js` (créé), `public/js/audio/MidiSynthesizer.js`, `public/js/views/components/midi-editor/MidiEditorCCPanelConstants.js` (créé), `public/js/views/components/midi-editor/MidiEditorCCPanel.js`, `public/index.html` | (ce commit) | Pattern IIFE + `window.*Constants` uniforme avec P2-F.1. |
 | 2026-04-17 | Claude (refactoring) | P2-F.1 | Étape 1 du protocole 5 étapes (plan §11) sur `RoutingSummaryPage.js` (≈4748 LOC). Extraction des constantes module-level (MAX_INST_NAME, GM_DEFAULT_POLYPHONY, SPLIT_COLORS, BLACK_KEYS, NOTE_NAMES) et helpers utilitaires (getScoreClass/Bg/Label, getTypeIcon/Color, getGmProgramName, getGmDefaultPolyphony, midiNoteToName, safeNoteRange) vers `public/js/views/components/auto-assign/RoutingSummaryConstants.js` (136 LOC). Exposé sur `window.RoutingSummaryConstants` (codebase IIFE+globals, pas d'ES modules). HTML index.html mis à jour pour charger le nouveau fichier avant. RoutingSummaryPage.js : 4748 → 4661 LOC. | `public/js/views/components/auto-assign/RoutingSummaryConstants.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Constantes maintenant réutilisables par les futurs sous-composants (étape 4). |

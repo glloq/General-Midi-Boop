@@ -165,10 +165,28 @@ class CommandRegistry {
         );
       }
 
-      this.app.logger.info(`${tag} Command completed in ${Date.now() - startTime}ms`);
+      const duration = Date.now() - startTime;
+      this.app.logger.info(`${tag} Command completed in ${duration}ms`);
+      // P2-OBS.2/3 : emit a metric event for any interested subscriber
+      // (dashboards, Prometheus exporter, etc.). Payload kept minimal to
+      // avoid log-level bloat.
+      this.app.eventBus?.emit?.('ws.command.completed', {
+        command: cmd,
+        cid,
+        duration,
+        success: true
+      });
     } catch (error) {
+      const duration = Date.now() - startTime;
       this.app.logger.error(`${tag} Command failed: ${error.message}`);
       this.app.logger.error(error.stack);
+      this.app.eventBus?.emit?.('ws.command.completed', {
+        command: cmd,
+        cid,
+        duration,
+        success: false,
+        errorCode: (error instanceof ApplicationError) ? error.code : 'ERR_INTERNAL'
+      });
 
       // Only expose ApplicationError messages to the client;
       // internal errors get a generic message to avoid leaking details.
