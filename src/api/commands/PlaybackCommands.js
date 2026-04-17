@@ -1,21 +1,11 @@
 // src/api/commands/PlaybackCommands.js
 import { parseMidi } from 'midi-file';
 import MidiTransposer from '../../midi/MidiTransposer.js';
-import JsonMidiConverter from '../../storage/JsonMidiConverter.js';
 import InstrumentCapabilitiesValidator from '../../midi/InstrumentCapabilitiesValidator.js';
-import ScoringConfig from '../../midi/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../core/errors/index.js';
 import { register as registerPlaybackControl } from './playback/PlaybackControlCommands.js';
-
-// Lazily-created converter instance per app (keyed by app reference)
-const converterCache = new WeakMap();
-
-function getMidiConverter(app) {
-  if (!converterCache.has(app)) {
-    converterCache.set(app, new JsonMidiConverter(app.logger));
-  }
-  return converterCache.get(app);
-}
+import { register as registerPlaybackAnalysis } from './playback/PlaybackAnalysisCommands.js';
+import { getMidiConverter } from './playback/midiConverterCache.js';
 
 async function playbackGetChannels(app) {
   return {
@@ -80,232 +70,6 @@ async function playbackMuteChannel(app, data) {
     channelDisplay: channel + 1,
     muted: data.muted
   };
-}
-
-/**
- * Analyze a specific MIDI channel
- * @param {Object} data - { fileId, channel }
- * @returns {Object} - Channel analysis
- */
-async function analyzeChannel(app, data) {
-  if (!data.fileId) {
-    throw new ValidationError('fileId is required', 'fileId');
-  }
-  if (data.channel === undefined) {
-    throw new ValidationError('channel is required', 'channel');
-  }
-
-  // Get MIDI file from database
-  const file = app.database.getFile(data.fileId);
-  if (!file) {
-    throw new NotFoundError('File', data.fileId);
-  }
-
-  // Parse MIDI data
-  let midiData;
-  try {
-    const midiConverter = getMidiConverter(app);
-    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
-    midiData = midiConverter.midiToJson(buffer);
-  } catch (error) {
-    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
-  }
-
-  // Use singleton auto-assigner (with cache support)
-  const analysis = app.autoAssigner.analyzeChannel(midiData, data.channel, data.fileId);
-
-  return {
-    success: true,
-    channel: data.channel,
-    analysis
-  };
-}
-
-/**
- * Apply scoring overrides temporarily to ScoringConfig.
- * Validates and deep-merges user-provided overrides.
- * @param {Object} overrides - Partial scoring config
- * @returns {Object} - Snapshot of original config for restoration
- */
-function applyScoringOverrides(overrides) {
-  const original = JSON.parse(JSON.stringify({
-    weights: ScoringConfig.weights,
-    scoreThresholds: ScoringConfig.scoreThresholds,
-    penalties: ScoringConfig.penalties,
-    bonuses: ScoringConfig.bonuses,
-    percussion: ScoringConfig.percussion,
-    splitting: ScoringConfig.splitting,
-    routing: ScoringConfig.routing
-  }));
-
-  // Weights (must sum to 100)
-  if (overrides.weights) {
-    const w = overrides.weights;
-    const keys = ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport'];
-    for (const k of keys) {
-      if (w[k] !== undefined) {
-        ScoringConfig.weights[k] = Math.max(0, Math.min(100, Math.round(Number(w[k]))));
-      }
-    }
-    // Sync bonuses with weights
-    ScoringConfig.bonuses.perfectNoteRange = ScoringConfig.weights.noteRange;
-    ScoringConfig.bonuses.perfectProgramMatch = ScoringConfig.weights.programMatch;
-  }
-
-  // Score thresholds
-  if (overrides.scoreThresholds) {
-    const t = overrides.scoreThresholds;
-    if (t.acceptable !== undefined) ScoringConfig.scoreThresholds.acceptable = Math.max(0, Math.min(100, Number(t.acceptable)));
-    if (t.minimum !== undefined) ScoringConfig.scoreThresholds.minimum = Math.max(0, Math.min(100, Number(t.minimum)));
-  }
-
-  // Penalties
-  if (overrides.penalties) {
-    const p = overrides.penalties;
-    if (p.transpositionPerOctave !== undefined) ScoringConfig.penalties.transpositionPerOctave = Math.max(0, Math.min(20, Number(p.transpositionPerOctave)));
-    if (p.maxTranspositionOctaves !== undefined) ScoringConfig.penalties.maxTranspositionOctaves = Math.max(1, Math.min(6, Number(p.maxTranspositionOctaves)));
-  }
-
-  // Bonuses
-  if (overrides.bonuses) {
-    const b = overrides.bonuses;
-    if (b.sameCategoryMatch !== undefined) ScoringConfig.bonuses.sameCategoryMatch = Math.max(0, Math.min(30, Number(b.sameCategoryMatch)));
-    if (b.sameFamilyMatch !== undefined) ScoringConfig.bonuses.sameFamilyMatch = Math.max(0, Math.min(25, Number(b.sameFamilyMatch)));
-    if (b.exactTypeMatch !== undefined) ScoringConfig.bonuses.exactTypeMatch = Math.max(0, Math.min(30, Number(b.exactTypeMatch)));
-  }
-
-  // Percussion
-  if (overrides.percussion) {
-    const perc = overrides.percussion;
-    if (perc.drumChannelDrumBonus !== undefined) ScoringConfig.percussion.drumChannelDrumBonus = Math.max(0, Math.min(30, Number(perc.drumChannelDrumBonus)));
-    if (perc.drumChannelNonDrumPenalty !== undefined) ScoringConfig.percussion.drumChannelNonDrumPenalty = Math.max(-100, Math.min(0, Number(perc.drumChannelNonDrumPenalty)));
-    if (perc.nonDrumChannelDrumPenalty !== undefined) ScoringConfig.percussion.nonDrumChannelDrumPenalty = Math.max(-100, Math.min(0, Number(perc.nonDrumChannelDrumPenalty)));
-    if (perc.drumChannelWeights) {
-      const dw = perc.drumChannelWeights;
-      for (const k of ['noteRange', 'programMatch', 'instrumentType', 'polyphony', 'ccSupport']) {
-        if (dw[k] !== undefined) ScoringConfig.percussion.drumChannelWeights[k] = Math.max(0, Math.min(100, Math.round(Number(dw[k]))));
-      }
-    }
-  }
-
-  // Splitting
-  if (overrides.splitting) {
-    const s = overrides.splitting;
-    if (s.minQuality !== undefined) ScoringConfig.splitting.minQuality = Math.max(0, Math.min(100, Number(s.minQuality)));
-    if (s.maxInstruments !== undefined) ScoringConfig.splitting.maxInstruments = Math.max(2, Math.min(8, Number(s.maxInstruments)));
-    if (s.triggerBelowScore !== undefined) ScoringConfig.splitting.triggerBelowScore = Math.max(0, Math.min(100, Number(s.triggerBelowScore)));
-  }
-
-  // Routing settings (drum fallback depth, routing flags, instrument reuse)
-  if (overrides.routing) {
-    const r = overrides.routing;
-    if (r.allowInstrumentReuse !== undefined) ScoringConfig.routing.allowInstrumentReuse = !!r.allowInstrumentReuse;
-    if (r.sharedInstrumentPenalty !== undefined) ScoringConfig.routing.sharedInstrumentPenalty = Math.max(0, Math.min(30, Math.round(Number(r.sharedInstrumentPenalty))));
-    if (r.autoSplitAvoidTransposition !== undefined) ScoringConfig.routing.autoSplitAvoidTransposition = !!r.autoSplitAvoidTransposition;
-    if (r.preferSingleInstrument !== undefined) ScoringConfig.routing.preferSingleInstrument = !!r.preferSingleInstrument;
-    if (r.preferSimilarGMType !== undefined) ScoringConfig.routing.preferSimilarGMType = !!r.preferSimilarGMType;
-    if (r.drumFallback && typeof r.drumFallback === 'object') {
-      ScoringConfig.routing.drumFallback = { ...r.drumFallback };
-    }
-  }
-
-  return original;
-}
-
-/**
- * Restore ScoringConfig from a saved snapshot.
- */
-function restoreScoringConfig(original) {
-  Object.assign(ScoringConfig.weights, original.weights);
-  Object.assign(ScoringConfig.scoreThresholds, original.scoreThresholds);
-  Object.assign(ScoringConfig.penalties, original.penalties);
-  Object.assign(ScoringConfig.bonuses, original.bonuses);
-  Object.assign(ScoringConfig.percussion, original.percussion);
-  if (ScoringConfig.percussion.drumChannelWeights && original.percussion.drumChannelWeights) {
-    Object.assign(ScoringConfig.percussion.drumChannelWeights, original.percussion.drumChannelWeights);
-  }
-  Object.assign(ScoringConfig.splitting, original.splitting);
-}
-
-/**
- * Generate auto-assignment suggestions for all channels
- * @param {Object} data - { fileId, topN, minScore, scoringOverrides }
- * @returns {Object} - Suggestions for all channels
- */
-async function generateAssignmentSuggestions(app, data) {
-  if (!data.fileId) {
-    throw new ValidationError('fileId is required', 'fileId');
-  }
-
-  const options = {
-    topN: data.topN || 5,
-    minScore: data.minScore || 30,
-    excludeVirtual: data.excludeVirtual || false,
-    includeMatrix: data.includeMatrix || false
-  };
-
-  // Get MIDI file from database
-  const file = app.database.getFile(data.fileId);
-  if (!file) {
-    throw new NotFoundError('File', data.fileId);
-  }
-
-  // Parse MIDI data
-  let midiData;
-  try {
-    const midiConverter = getMidiConverter(app);
-    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
-    midiData = midiConverter.midiToJson(buffer);
-  } catch (error) {
-    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
-  }
-
-  // Apply temporary scoring overrides if provided
-  let originalConfig = null;
-  if (data.scoringOverrides) {
-    originalConfig = applyScoringOverrides(data.scoringOverrides);
-    app.logger.info('Scoring overrides applied for this request');
-  }
-
-  let result;
-  try {
-    // Generate suggestions using singleton auto-assigner
-    result = await app.autoAssigner.generateSuggestions(midiData, options);
-  } finally {
-    // Always restore original config
-    if (originalConfig) {
-      restoreScoringConfig(originalConfig);
-    }
-  }
-
-  if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-      suggestions: {},
-      autoSelection: {}
-    };
-  }
-
-  const response = {
-    success: true,
-    suggestions: result.suggestions,
-    lowScoreSuggestions: result.lowScoreSuggestions || {},
-    autoSelection: result.autoSelection,
-    splitProposals: result.splitProposals || {},
-    channelAnalyses: result.channelAnalyses,
-    confidenceScore: result.confidenceScore,
-    allInstruments: result.allInstruments || [],
-    stats: result.stats
-  };
-
-  // Include matrix data if requested
-  if (result.matrixScores) {
-    response.matrixScores = result.matrixScores;
-    response.instrumentList = result.instrumentList;
-  }
-
-  return response;
 }
 
 /**
@@ -973,12 +737,11 @@ async function playbackSetDisconnectPolicy(app, data) {
 
 export function register(registry, app) {
   registerPlaybackControl(registry, app);
+  registerPlaybackAnalysis(registry, app);
   registry.register('playback_get_channels', () => playbackGetChannels(app));
   registry.register('playback_set_channel_routing', (data) => playbackSetChannelRouting(app, data));
   registry.register('playback_clear_channel_routing', () => playbackClearChannelRouting(app));
   registry.register('playback_mute_channel', (data) => playbackMuteChannel(app, data));
-  registry.register('analyze_channel', (data) => analyzeChannel(app, data));
-  registry.register('generate_assignment_suggestions', (data) => generateAssignmentSuggestions(app, data));
   registry.register('apply_assignments', (data) => applyAssignments(app, data));
   registry.register('validate_instrument_capabilities', (_data) => validateInstrumentCapabilities(app));
   registry.register('get_instrument_defaults', (data) => getInstrumentDefaults(app, data));

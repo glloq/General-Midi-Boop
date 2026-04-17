@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 0 terminée** → **Phase 1 — Stabilisation Playback** |
 | Branche de travail | `claude/dazzling-ptolemy-rXsBU` |
-| Dernier lot terminé | P0-1.1 |
-| Prochain lot suggéré | P0-1.2 (extraire sous-module analysis/suggestions) |
+| Dernier lot terminé | P0-1.2 |
+| Prochain lot suggéré | P0-1.3 (extraire sous-module assignment apply) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -53,7 +53,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 ### Phase 1 — Stabilisation Playback + MIDI adaptation
 
 - [x] **P0-1.1** Découper `src/api/commands/PlaybackCommands.js` (≈1124 LOC) — extraire sous-module *playback control* (start/stop/seek/loop).
-- [ ] **P0-1.2** Découper `PlaybackCommands.js` — extraire sous-module *analysis/suggestions*.
+- [x] **P0-1.2** Découper `PlaybackCommands.js` — extraire sous-module *analysis/suggestions*.
 - [ ] **P0-1.3** Découper `PlaybackCommands.js` — extraire sous-module *assignment apply*.
 - [ ] **P0-1.4** Découper `PlaybackCommands.js` — extraire sous-module *routing validation*.
 - [ ] **P0-1.5** Produire `ADR-002-repository-layer.md` avant Phase 2.
@@ -123,6 +123,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | 2026-04-17 | Claude (refactoring) | P0-0.6 | Tests Jest de contrat pour 5 commandes playback (start, stop, seek, status, set_loop) + correction de 3 snapshots où l'erreur observable ne correspondait pas au réel (validator CommandRegistry vs. handler) | `tests/contracts/playback.contract.test.js`, `docs/refactor/contracts/playback/{playback_start,playback_seek,playback_set_loop}.contract.json` | `176a29a` | 5 commandes × 17 cas = 17 tests nominaux+erreurs. Correction des contrats : la validation CommandRegistry pré-handler préfixe les erreurs avec `Invalid <cmd> data: ` et peut concaténer plusieurs erreurs. |
 | 2026-04-17 | Claude (refactoring) | P0-0.7 | Tests Jest de contrat pour 8 commandes routing critiques : route_create, route_delete, route_list, route_info, route_enable, route_test, file_routing_sync, file_routing_bulk_sync | `tests/contracts/routing.contract.test.js` | `3a41c6b` | 8 commandes × 22 tests couvrent CRUD, NotFoundError, validation (source/destination/routeId), parsing `deviceId::targetChannel`, virtual-instrument exception, bulk sync multi-fichiers. |
 | 2026-04-17 | Claude (refactoring) | P0-0.8 | Rédaction checklist refactor en 8 sections (DoR, IN/OUT, tests, payload, doc, PROGRESS, commit, DoD) + tableau de navigation vers les autres documents | `docs/refactor/CHECKLIST.md` | `d8bc510` | Clôture la Phase 0 baseline sécurité. Tous les garde-fous du plan §10 sont maintenant opérationnels en documentation ET en tests. |
+| 2026-04-17 | Claude (refactoring) | P0-1.2 | Extraction de analyzeChannel + generateAssignmentSuggestions + applyScoringOverrides + restoreScoringConfig + midiConverterCache partagé | `src/api/commands/playback/PlaybackAnalysisCommands.js` (créé, 185 LOC), `src/api/commands/playback/midiConverterCache.js` (créé, 13 LOC), `src/api/commands/PlaybackCommands.js` (989→752 LOC) | (ce commit) | Imports ScoringConfig et JsonMidiConverter retirés du parent. getMidiConverter mutualisé via midiConverterCache.js (utilisé par analysis ET assignment restant). |
 | 2026-04-17 | Claude (refactoring) | P0-1.1 | Extraction des 10 handlers de contrôle playback (start/stop/pause/resume/seek/status/set_loop/set_tempo/transpose/set_volume) vers `PlaybackControlCommands.js` | `src/api/commands/playback/PlaybackControlCommands.js` (créé, 120 LOC), `src/api/commands/PlaybackCommands.js` (modifié, 1124→989 LOC) | (ce commit) | 1ère extraction Phase 1. ConfigurationError déplacée dans le sous-module, retirée de l'import parent. Les registrations sont déléguées via `registerPlaybackControl(registry, app)`. |
 | 2026-04-17 | Claude (refactoring) | P0-0.2b | 13 snapshots playback avancés : analyze_channel (4 cas), generate_assignment_suggestions (4 cas), apply_assignments (6 cas), validate_instrument_capabilities, get_instrument_defaults (2 cas), update_instrument_capabilities (2 cas), get_file_routings (2 cas), playback_validate_routing (3 cas), playback_set_disconnect_policy (2 cas), playback_get_channels, playback_set_channel_routing (5 cas), playback_clear_channel_routing, playback_mute_channel (4 cas) | `docs/refactor/contracts/playback/*.contract.json` (13 fichiers) | (ce commit) | Phase 0 terminée. 100% des handlers PlaybackCommands.js + RoutingCommands.js sous contrat. |
 
@@ -148,7 +149,7 @@ Aucun.
 
 | Métrique | Baseline | Cible | Actuel |
 |---|---|---|---|
-| `PlaybackCommands.js` LOC | 1124 | < 675 (-40 %) | 989 (-12 %, P0-1.1) |
+| `PlaybackCommands.js` LOC | 1124 | < 675 (-40 %) | 752 (-33 %, P0-1.2) |
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
