@@ -1,0 +1,14 @@
+{
+  "command": "playback_get_channels",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Get current channel routing info. No input. Returns midiPlayer.getChannelRouting().",
+  "cases": [
+    {
+      "name": "nominal — returns channels",
+      "type": "success",
+      "input": {},
+      "output_shape": { "type": "response", "data": { "channels": "any" } }
+    }
+  ]
+}

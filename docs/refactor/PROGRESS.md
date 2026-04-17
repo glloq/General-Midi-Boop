@@ -7,10 +7,10 @@
 
 | Champ | Valeur |
 |---|---|
-| Phase active | **Phase 0 — Baseline sécurité** (quasi terminée) |
+| Phase active | **Phase 0 terminée** → **Phase 1 — Stabilisation Playback** |
 | Branche de travail | `claude/dazzling-ptolemy-rXsBU` |
-| Dernier lot terminé | P0-0.8 |
-| Prochain lot suggéré | Lot P0-0.2b (snapshots contrats playback avancés : analyze_channel, apply_assignments, etc.) **OU** démarrage Phase 1 avec P0-1.1 (découpage PlaybackCommands.js en sous-module playback control) |
+| Dernier lot terminé | P0-0.2b |
+| Prochain lot suggéré | P0-1.1 (découpage PlaybackCommands.js — extraire sous-module playback control) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -42,7 +42,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 - [x] **P0-0.1** Créer `docs/refactor/contracts/README.md` — méthode de génération des snapshots WS (outil, format, revue).
 - [x] **P0-0.2** Capturer les snapshots de contrats WS pour `playback.*` (start, stop, seek, loop, transpose, adapt).
-- [ ] **P0-0.2b** Capturer snapshots des commandes playback avancées : `analyze_channel`, `generate_assignment_suggestions`, `apply_assignments`, `validate_instrument_capabilities`, `get_instrument_defaults`, `update_instrument_capabilities`, `get_file_routings`, `playback_validate_routing`, `playback_set_disconnect_policy`, `playback_get_channels`, `playback_set_channel_routing`, `playback_clear_channel_routing`, `playback_mute_channel`.
+- [x] **P0-0.2b** Capturer snapshots des commandes playback avancées : `analyze_channel`, `generate_assignment_suggestions`, `apply_assignments`, `validate_instrument_capabilities`, `get_instrument_defaults`, `update_instrument_capabilities`, `get_file_routings`, `playback_validate_routing`, `playback_set_disconnect_policy`, `playback_get_channels`, `playback_set_channel_routing`, `playback_clear_channel_routing`, `playback_mute_channel`.
 - [x] **P0-0.3** Capturer les snapshots de contrats WS pour `routing.*` et assignations.
 - [x] **P0-0.4** Produire `docs/adr/ADR-001-refactor-strategy.md` (décision hybride V2→V3).
 - [x] **P0-0.5** Produire `docs/refactor/dependency-matrix.md` v1 pour les 5 modules backend + 4 frontend cités au plan §12.
@@ -122,7 +122,8 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | 2026-04-17 | Claude (refactoring) | P0-0.5 | Rédaction matrice dépendances v1 : 5 modules backend (PlaybackCommands, MidiPlayer, InstrumentMatcher, Database, MidiRouter) + 4 frontend (RoutingSummaryPage, MidiEditorCCPanel, MidiEditorTablature, MidiSynthesizer) avec imports statiques, runtime deps, cibles par phase | `docs/refactor/dependency-matrix.md` | `633264b` | Chiffres : PlaybackCommands a 74 accès `app.*`, MidiPlayer 49 accès `this.*`, MidiRouter n'a que 1 import statique (le plus découplé). Frontend utilise IIFE+globals, pas de ES modules. |
 | 2026-04-17 | Claude (refactoring) | P0-0.6 | Tests Jest de contrat pour 5 commandes playback (start, stop, seek, status, set_loop) + correction de 3 snapshots où l'erreur observable ne correspondait pas au réel (validator CommandRegistry vs. handler) | `tests/contracts/playback.contract.test.js`, `docs/refactor/contracts/playback/{playback_start,playback_seek,playback_set_loop}.contract.json` | `176a29a` | 5 commandes × 17 cas = 17 tests nominaux+erreurs. Correction des contrats : la validation CommandRegistry pré-handler préfixe les erreurs avec `Invalid <cmd> data: ` et peut concaténer plusieurs erreurs. |
 | 2026-04-17 | Claude (refactoring) | P0-0.7 | Tests Jest de contrat pour 8 commandes routing critiques : route_create, route_delete, route_list, route_info, route_enable, route_test, file_routing_sync, file_routing_bulk_sync | `tests/contracts/routing.contract.test.js` | `3a41c6b` | 8 commandes × 22 tests couvrent CRUD, NotFoundError, validation (source/destination/routeId), parsing `deviceId::targetChannel`, virtual-instrument exception, bulk sync multi-fichiers. |
-| 2026-04-17 | Claude (refactoring) | P0-0.8 | Rédaction checklist refactor en 8 sections (DoR, IN/OUT, tests, payload, doc, PROGRESS, commit, DoD) + tableau de navigation vers les autres documents | `docs/refactor/CHECKLIST.md` | (ce commit) | Clôture la Phase 0 baseline sécurité. Tous les garde-fous du plan §10 sont maintenant opérationnels en documentation ET en tests. |
+| 2026-04-17 | Claude (refactoring) | P0-0.8 | Rédaction checklist refactor en 8 sections (DoR, IN/OUT, tests, payload, doc, PROGRESS, commit, DoD) + tableau de navigation vers les autres documents | `docs/refactor/CHECKLIST.md` | `d8bc510` | Clôture la Phase 0 baseline sécurité. Tous les garde-fous du plan §10 sont maintenant opérationnels en documentation ET en tests. |
+| 2026-04-17 | Claude (refactoring) | P0-0.2b | 13 snapshots playback avancés : analyze_channel (4 cas), generate_assignment_suggestions (4 cas), apply_assignments (6 cas), validate_instrument_capabilities, get_instrument_defaults (2 cas), update_instrument_capabilities (2 cas), get_file_routings (2 cas), playback_validate_routing (3 cas), playback_set_disconnect_policy (2 cas), playback_get_channels, playback_set_channel_routing (5 cas), playback_clear_channel_routing, playback_mute_channel (4 cas) | `docs/refactor/contracts/playback/*.contract.json` (13 fichiers) | (ce commit) | Phase 0 terminée. 100% des handlers PlaybackCommands.js + RoutingCommands.js sous contrat. |
 
 ---
 
@@ -152,5 +153,5 @@ Aucun.
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
 | `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4748 |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | ~20 % |
-| Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~48 % (29 commandes : 10 playback + 19 routing sur ~60 commandes jugées critiques P0/P1 — cf. contracts/README.md §5) |
+| Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
 | PR refactor sans incident (14 j) | — | ≥ 95 % | — |

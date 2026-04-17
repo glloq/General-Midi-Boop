@@ -1,0 +1,15 @@
+{
+  "command": "playback_clear_channel_routing",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Clear all channel routings. No input.",
+  "cases": [
+    {
+      "name": "nominal — clear all",
+      "type": "success",
+      "input": {},
+      "output_shape": { "type": "response", "data": { "success": "boolean" } },
+      "output_snapshot": { "type": "response", "data": { "success": true } }
+    }
+  ]
+}

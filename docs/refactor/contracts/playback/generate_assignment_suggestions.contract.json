@@ -1,0 +1,33 @@
+{
+  "command": "generate_assignment_suggestions",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Generate auto-assignment suggestions for all channels of a MIDI file. Supports scoringOverrides (temporary ScoringConfig mutation), topN, minScore, excludeVirtual, includeMatrix options.",
+  "cases": [
+    {
+      "name": "nominal — generate suggestions",
+      "type": "success",
+      "input": { "fileId": "file-001" },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "suggestions": "object", "autoSelection": "object", "channelAnalyses": "any", "confidenceScore": "any", "stats": "any" } }
+    },
+    {
+      "name": "nominal — with scoringOverrides",
+      "type": "success",
+      "input": { "fileId": "file-001", "scoringOverrides": { "weights": { "noteRange": 40 } }, "topN": 3 },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "suggestions": "object" } },
+      "notes": "ScoringConfig is temporarily mutated then restored in a try/finally block."
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": {},
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "fileId is required" }
+    },
+    {
+      "name": "error — file not found",
+      "type": "error",
+      "input": { "fileId": "ghost" },
+      "output_snapshot": { "type": "error", "code": "ERR_NOT_FOUND", "error": "File with id 'ghost' not found" }
+    }
+  ]
+}

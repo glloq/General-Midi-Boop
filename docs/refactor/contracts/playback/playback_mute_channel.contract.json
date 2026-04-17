@@ -1,0 +1,33 @@
+{
+  "command": "playback_mute_channel",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Mute or unmute a channel. Requires channel (0-15) + muted boolean.",
+  "cases": [
+    {
+      "name": "nominal — mute channel",
+      "type": "success",
+      "input": { "channel": 0, "muted": true },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "channel": "number", "channelDisplay": "number", "muted": "boolean" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "channel": 0, "channelDisplay": 1, "muted": true } }
+    },
+    {
+      "name": "nominal — unmute channel",
+      "type": "success",
+      "input": { "channel": 0, "muted": false },
+      "output_snapshot": { "type": "response", "data": { "success": true, "channel": 0, "channelDisplay": 1, "muted": false } }
+    },
+    {
+      "name": "error — missing channel",
+      "type": "error",
+      "input": { "muted": true },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "Missing channel parameter" }
+    },
+    {
+      "name": "error — invalid channel range",
+      "type": "error",
+      "input": { "channel": 16, "muted": true },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "Invalid channel (must be 0-15)" }
+    }
+  ]
+}

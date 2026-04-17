@@ -1,0 +1,45 @@
+{
+  "command": "apply_assignments",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Apply auto-assignments: transpose/remap/split MIDI, create adapted file, persist routings. ~400 LOC handler with complex branching (physical split vs playback split, overwrite vs new file, CC7 injection, polyphony reduction).",
+  "cases": [
+    {
+      "name": "nominal — apply with adapted file creation",
+      "type": "success",
+      "input": { "originalFileId": "file-001", "assignments": { "0": { "deviceId": "dev-1", "instrumentName": "Piano", "score": 85, "transposition": { "semitones": 0 } } } },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "adaptedFileId": "any", "filename": "any", "overwritten": "boolean", "stats": "any", "routings": "array" } }
+    },
+    {
+      "name": "nominal — no modifications needed (routings only against original)",
+      "type": "success",
+      "input": { "originalFileId": "file-001", "assignments": { "0": { "deviceId": "dev-1", "instrumentName": "Piano", "score": 85 } } },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "adaptedFileId": "any", "routings": "array" } },
+      "notes": "When no transposition/remapping is needed, adaptedFileId is null and routings are saved against the original file."
+    },
+    {
+      "name": "nominal — overwrite original",
+      "type": "success",
+      "input": { "originalFileId": "file-001", "overwriteOriginal": true, "assignments": { "0": { "deviceId": "dev-1", "transposition": { "semitones": 2 } } } },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "overwritten": "boolean", "routings": "array" } }
+    },
+    {
+      "name": "error — missing originalFileId",
+      "type": "error",
+      "input": { "assignments": {} },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "originalFileId is required" }
+    },
+    {
+      "name": "error — missing assignments",
+      "type": "error",
+      "input": { "originalFileId": "file-001" },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "assignments is required" }
+    },
+    {
+      "name": "error — file not found",
+      "type": "error",
+      "input": { "originalFileId": "ghost", "assignments": {} },
+      "output_snapshot": { "type": "error", "code": "ERR_NOT_FOUND", "error": "File with id 'ghost' not found" }
+    }
+  ]
+}

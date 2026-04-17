@@ -1,0 +1,26 @@
+{
+  "command": "playback_validate_routing",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Validate routing for a MIDI file before playback. Checks active channels against saved routings and device availability.",
+  "cases": [
+    {
+      "name": "nominal — all routed and online",
+      "type": "success",
+      "input": { "fileId": 42 },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "fileId": "any", "channels": "array", "allRouted": "boolean", "allOnline": "boolean", "warnings": "array" } }
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": {},
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "fileId is required" }
+    },
+    {
+      "name": "error — file not found",
+      "type": "error",
+      "input": { "fileId": "ghost" },
+      "output_snapshot": { "type": "error", "code": "ERR_NOT_FOUND", "error": "File with id 'ghost' not found" }
+    }
+  ]
+}

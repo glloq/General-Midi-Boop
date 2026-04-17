@@ -1,0 +1,39 @@
+{
+  "command": "playback_set_channel_routing",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Set routing for a single channel. Requires channel (0-15), deviceId. Optional targetChannel (0-15, defaults to channel).",
+  "cases": [
+    {
+      "name": "nominal — set routing",
+      "type": "success",
+      "input": { "channel": 0, "deviceId": "dev-1" },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "channel": "number", "channelDisplay": "number", "deviceId": "string", "targetChannel": "number" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "channel": 0, "channelDisplay": 1, "deviceId": "dev-1", "targetChannel": 0 } }
+    },
+    {
+      "name": "nominal — with targetChannel remap",
+      "type": "success",
+      "input": { "channel": 0, "deviceId": "dev-1", "targetChannel": 5 },
+      "output_snapshot": { "type": "response", "data": { "success": true, "channel": 0, "channelDisplay": 1, "deviceId": "dev-1", "targetChannel": 5 } }
+    },
+    {
+      "name": "error — missing channel",
+      "type": "error",
+      "input": { "deviceId": "dev-1" },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "channel is required" }
+    },
+    {
+      "name": "error — missing deviceId",
+      "type": "error",
+      "input": { "channel": 0 },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "deviceId is required" }
+    },
+    {
+      "name": "error — invalid channel range",
+      "type": "error",
+      "input": { "channel": 16, "deviceId": "dev-1" },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "channel must be between 0 and 15" }
+    }
+  ]
+}

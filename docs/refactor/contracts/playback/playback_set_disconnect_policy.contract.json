@@ -1,0 +1,21 @@
+{
+  "command": "playback_set_disconnect_policy",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Set the disconnect policy for playback. Must be 'skip', 'pause', or 'mute'.",
+  "cases": [
+    {
+      "name": "nominal — set policy",
+      "type": "success",
+      "input": { "policy": "pause" },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "policy": "string" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "policy": "pause" } }
+    },
+    {
+      "name": "error — invalid policy",
+      "type": "error",
+      "input": { "policy": "explode" },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "Invalid policy. Must be one of: skip, pause, mute" }
+    }
+  ]
+}

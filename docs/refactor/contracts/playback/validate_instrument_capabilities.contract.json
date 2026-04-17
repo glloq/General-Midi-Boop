@@ -1,0 +1,14 @@
+{
+  "command": "validate_instrument_capabilities",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Validate all instruments' capabilities (note range, polyphony, etc). No input required.",
+  "cases": [
+    {
+      "name": "nominal — all valid",
+      "type": "success",
+      "input": {},
+      "output_shape": { "type": "response", "data": { "success": "boolean", "allValid": "boolean", "validCount": "number", "completeCount": "number", "totalCount": "number", "incompleteInstruments": "array" } }
+    }
+  ]
+}

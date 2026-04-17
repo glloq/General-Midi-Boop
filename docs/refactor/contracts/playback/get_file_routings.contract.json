@@ -1,0 +1,21 @@
+{
+  "command": "get_file_routings",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Get saved routings for a MIDI file. Requires fileId.",
+  "cases": [
+    {
+      "name": "nominal — returns routings",
+      "type": "success",
+      "input": { "fileId": 42 },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "routings": "array", "count": "number" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "routings": [], "count": 0 } }
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": {},
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "fileId is required" }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "command": "get_instrument_defaults",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Get suggested default values for an instrument. Requires instrumentId.",
+  "cases": [
+    {
+      "name": "nominal — returns defaults + current capabilities",
+      "type": "success",
+      "input": { "instrumentId": 1 },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "defaults": "object", "currentCapabilities": "any" } }
+    },
+    {
+      "name": "error — instrument not found",
+      "type": "error",
+      "input": { "instrumentId": 999 },
+      "output_snapshot": { "type": "error", "code": "ERR_NOT_FOUND", "error": "Instrument with id '999' not found" }
+    }
+  ]
+}

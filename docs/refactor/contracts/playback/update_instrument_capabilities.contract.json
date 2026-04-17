@@ -1,0 +1,21 @@
+{
+  "command": "update_instrument_capabilities",
+  "module": "PlaybackCommands.js",
+  "criticality": "medium",
+  "description": "Bulk update instrument capabilities. Requires updates map { instrumentId: { field: value } }. Separates basic fields from capability fields internally.",
+  "cases": [
+    {
+      "name": "nominal — update one instrument",
+      "type": "success",
+      "input": { "updates": { "1": { "note_range_min": 21, "note_range_max": 108 } } },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "updated": "number", "failed": "number", "failedDetails": "array" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "updated": 1, "failed": 0, "failedDetails": [] } }
+    },
+    {
+      "name": "error — missing updates",
+      "type": "error",
+      "input": {},
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "updates is required" }
+    }
+  ]
+}

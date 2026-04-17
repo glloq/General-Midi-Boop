@@ -1,0 +1,34 @@
+{
+  "command": "analyze_channel",
+  "module": "PlaybackCommands.js",
+  "criticality": "high",
+  "description": "Analyze a specific MIDI channel from a file. Requires fileId + channel. Parses MIDI, delegates to autoAssigner.analyzeChannel().",
+  "cases": [
+    {
+      "name": "nominal — analyze channel",
+      "type": "success",
+      "input": { "fileId": "file-001", "channel": 0 },
+      "output_shape": { "type": "response", "data": { "success": "boolean", "channel": "number", "analysis": "object" } },
+      "output_snapshot": { "type": "response", "data": { "success": true, "channel": 0, "analysis": {} } }
+    },
+    {
+      "name": "error — missing fileId",
+      "type": "error",
+      "input": { "channel": 0 },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "fileId is required" }
+    },
+    {
+      "name": "error — missing channel",
+      "type": "error",
+      "input": { "fileId": "file-001" },
+      "output_snapshot": { "type": "error", "code": "ERR_VALIDATION", "error": "channel is required" }
+    },
+    {
+      "name": "error — file not found",
+      "type": "error",
+      "input": { "fileId": "ghost", "channel": 0 },
+      "preconditions": { "database.getFile": "returns null" },
+      "output_snapshot": { "type": "error", "code": "ERR_NOT_FOUND", "error": "File with id 'ghost' not found" }
+    }
+  ]
+}
