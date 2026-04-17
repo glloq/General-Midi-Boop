@@ -7,6 +7,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import InMemoryBleAdapter from '../../src/midi/adapters/InMemoryBleAdapter.js';
+import NobleBleAdapter from '../../src/midi/adapters/NobleBleAdapter.js';
 import { BLE_EVENTS, BLE_PORT_METHODS } from '../../src/midi/ports/BluetoothPort.js';
 
 const FIXTURES = [
@@ -90,6 +91,24 @@ describe.each(adapters)('BluetoothPort contract — %s', (_name, factory) => {
   test('dispose makes the adapter inert', async () => {
     await adapter.dispose();
     await expect(adapter.startDiscovery()).rejects.toThrow(/disposed/);
+  });
+});
+
+describe('NobleBleAdapter — surface (no hardware)', () => {
+  test('exposes the full port surface without initialising D-Bus', () => {
+    const adapter = new NobleBleAdapter({ logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } });
+    for (const method of BLE_PORT_METHODS) {
+      expect(typeof adapter[method]).toBe('function');
+    }
+    // dispose is safe before any init.
+    return adapter.dispose();
+  });
+
+  test('sendMidi rejects non-Uint8Array input before connection check', async () => {
+    const adapter = new NobleBleAdapter();
+    await expect(adapter.sendMidi('AA:BB:CC:00:00:01', [0x90, 60, 100]))
+      .rejects.toThrow(/Uint8Array/);
+    await adapter.dispose();
   });
 });
 

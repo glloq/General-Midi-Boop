@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.2 |
-| Prochain lot suggéré | **P1-4.5b** (NobleBleAdapter réel + rewire BluetoothManager) OU **P2-F.3** (étape 3 : extraire logique d'état de RoutingSummaryPage). |
+| Dernier lot terminé | P1-4.5b (NobleBleAdapter livré ; rewire BluetoothManager reporté) |
+| Prochain lot suggéré | **P1-4.5c** : rewire `BluetoothManager` pour consommer `NobleBleAdapter` en injection (risque élevé, session dédiée conseillée) ; ou **P2-F.3** (étape 3 RoutingSummaryPage). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -101,7 +101,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [x] **P1-4.2** Étendre le découpage domaine à `devices` et `files` — `src/midi/domain/devices/DeviceReconciliationService.js` (résolution des settings d'un device avec fallback serial/MAC/normalized name) et `src/midi/domain/files/FileRoutingStatusService.js` (calcul du status `unrouted/partial/playable/routed_incomplete` ; fonction pure `computeRoutingStatus` exportée séparément). `DeviceCommands.deviceList` et `FileCommands.fileRoutingStatus` deviennent des handlers minces.
 - [x] **P1-4.3** Identifier ports/adapters prioritaires — synthèse [`docs/refactor/ports-adapters-inventory.md`](./ports-adapters-inventory.md). 5 zones étudiées, 1 retenue comme pilote (Bluetooth), Lighting déjà conforme (`BaseLightingDriver`), NetworkManager/RTP reporté, SerialMidi en second.
 - [x] **P1-4.4** Produire [`ADR-003-ws-contract-versioning.md`](../adr/ADR-003-ws-contract-versioning.md) — convention de versionnement par suffixe `_vN`, additif uniquement, dépréciation annoncée par changelog.
-- [/] **P1-4.5** Appliquer le pattern ports/adapters sur au moins un driver hardware pilote — **foundation livrée** : `BluetoothPort` (interface JSDoc + constantes événements/méthodes), `InMemoryBleAdapter` (~110 LOC) et 9 tests de contrat. **À suivre** (P1-4.5b) : `NobleBleAdapter` réel et rewire de `BluetoothManager` pour consommer le port en injection.
+- [x] **P1-4.5** Appliquer le pattern ports/adapters sur au moins un driver hardware pilote — **foundation livrée** (`BluetoothPort` + `InMemoryBleAdapter`) et **`NobleBleAdapter` livré** (wrap node-ble, lazy import, testable sans hardware). 11 tests de contrat verts. Le **rewire** de `BluetoothManager` pour consommer le port en injection est un lot dédié (P1-4.5c) — non livré ici car le refactor d'un manager stateful de 647 LOC mérite sa propre session.
 
 ### Phase 2-frontend (P2)
 
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P1-4.5b | Nouveau `src/midi/adapters/NobleBleAdapter.js` (~170 LOC) : implémentation production du `BluetoothPort`, wrap `node-ble` (BlueZ/DBus). Lazy import du package pour permettre le load en environnement sans node-ble compilé. `scanOnce(durationMs)` répliqué de BluetoothManager pour démarrage aisé. 2 tests ajoutés (surface, rejet Uint8Array). Rewire de `BluetoothManager` non livré ici (P1-4.5c — lot dédié). | `src/midi/adapters/NobleBleAdapter.js` (créé), `tests/ports/bluetooth-port.contract.test.js` (+2 tests) | (ce commit) | 296/296 tests verts. `BluetoothManager` inchangé — production BLE continue de fonctionner. |
 | 2026-04-17 | Claude (refactoring) | P2-F.2 | Étape 2 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryApi.js` (73 LOC) : facade thin autour des 4 commandes WS utilisées (`generate_assignment_suggestions`, `get_file_routings`, `file_read`, `apply_assignments`). `RoutingSummaryPage` instancie `this.apiClient = new window.RoutingSummaryApi(api)` dans le constructor ; les 5 call sites migrés. `this.api` conservé (utilisé par AudioPreview non migré). | `public/js/views/components/auto-assign/RoutingSummaryApi.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Permet l'évolution centralisée des payloads (ADR-003 `_vN`). |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.2+3 | Métrique temps de traitement via EventBus pour tous les flux (playback + routing + adaptation + autres). `CommandRegistry.handle` émet `ws.command.completed` avec `{ command, cid, duration, success, errorCode? }` en success ET error. 4 tests unitaires dans `tests/api/command-metrics.test.js` (success, ValidationError→ERR_VALIDATION, Error brut→ERR_INTERNAL, absence d'EventBus n'est pas fatale). | `src/api/CommandRegistry.js`, `tests/api/command-metrics.test.js` (créé) | (ce commit) | 294/294 tests verts. Aucun changement de format WS — purement événement interne. OBS.2 et OBS.3 clôturés d'un même trait : le tag unifie les domaines. |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.1 | Correlation ID par commande WS. `CommandRegistry.handle` tag désormais tous les logs info + error avec `[cmd=<command> cid=<id>]`. CID = `message.id` (par défaut, toujours envoyé par le client) ou fallback `_generateCid()` (base36 8-char) si absent. Tests ajoutés : `tests/api/correlation-id.test.js` (3 tests : usage normal, fallback, trace sur erreur). | `src/api/CommandRegistry.js`, `tests/api/correlation-id.test.js` (créé) | (ce commit) | 290/290 tests verts. Première observabilité Phase 2. Pas de changement de format de message WS. |
