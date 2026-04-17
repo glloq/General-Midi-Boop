@@ -666,6 +666,13 @@ class DatabaseManager {
     }
   }
 
+  // Wrap a synchronous function in a SQLite transaction so multi-step writes
+  // either all commit or all roll back. Returns the underlying wrapper so
+  // callers can invoke it with their own arguments.
+  transaction(fn) {
+    return this.db.transaction(fn);
+  }
+
   // ==================== DELEGATE TO SUB-MODULES ====================
 
   // MIDI Files
