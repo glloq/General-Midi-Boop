@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 0 terminée** → **Phase 1 — Stabilisation Playback** |
 | Branche de travail | `claude/dazzling-ptolemy-rXsBU` |
-| Dernier lot terminé | P0-2.2 |
-| Prochain lot suggéré | P0-2.3 (InstrumentRepository) |
+| Dernier lot terminé | P0-2.3 |
+| Prochain lot suggéré | P0-2.4 (centraliser transactions/rollbacks) ou P0-2.5 (retirer accès SQL directs depuis handlers) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -65,7 +65,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 - [x] **P0-2.1** Introduire `FileRepository` au-dessus de `MidiDatabase`.
 - [x] **P0-2.2** Introduire `RoutingRepository` au-dessus de `RoutingPersistenceDB` + `MidiRouter`.
-- [ ] **P0-2.3** Introduire `InstrumentRepository` au-dessus de `InstrumentDatabase` + `InstrumentSettingsDB`.
+- [x] **P0-2.3** Introduire `InstrumentRepository` au-dessus de `InstrumentDatabase` + `InstrumentSettingsDB`.
 - [ ] **P0-2.4** Centraliser transactions/rollbacks dans la couche Repository.
 - [ ] **P0-2.5** Retirer tous les accès SQL directs depuis `src/api/commands/**`.
 - [ ] **P0-2.6** Tests d'intégration DB : split / no-split / overwrite.
@@ -123,6 +123,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | 2026-04-17 | Claude (refactoring) | P0-0.6 | Tests Jest de contrat pour 5 commandes playback (start, stop, seek, status, set_loop) + correction de 3 snapshots où l'erreur observable ne correspondait pas au réel (validator CommandRegistry vs. handler) | `tests/contracts/playback.contract.test.js`, `docs/refactor/contracts/playback/{playback_start,playback_seek,playback_set_loop}.contract.json` | `176a29a` | 5 commandes × 17 cas = 17 tests nominaux+erreurs. Correction des contrats : la validation CommandRegistry pré-handler préfixe les erreurs avec `Invalid <cmd> data: ` et peut concaténer plusieurs erreurs. |
 | 2026-04-17 | Claude (refactoring) | P0-0.7 | Tests Jest de contrat pour 8 commandes routing critiques : route_create, route_delete, route_list, route_info, route_enable, route_test, file_routing_sync, file_routing_bulk_sync | `tests/contracts/routing.contract.test.js` | `3a41c6b` | 8 commandes × 22 tests couvrent CRUD, NotFoundError, validation (source/destination/routeId), parsing `deviceId::targetChannel`, virtual-instrument exception, bulk sync multi-fichiers. |
 | 2026-04-17 | Claude (refactoring) | P0-0.8 | Rédaction checklist refactor en 8 sections (DoR, IN/OUT, tests, payload, doc, PROGRESS, commit, DoD) + tableau de navigation vers les autres documents | `docs/refactor/CHECKLIST.md` | `d8bc510` | Clôture la Phase 0 baseline sécurité. Tous les garde-fous du plan §10 sont maintenant opérationnels en documentation ET en tests. |
+| 2026-04-17 | Claude (refactoring) | P0-2.3 | Création InstrumentRepository (43 LOC) : findById, findAll, findAllWithCapabilities, save, update, delete, getCapabilities, updateCapabilities. Enregistré dans Application.js. | `src/repositories/InstrumentRepository.js` (créé), `src/core/Application.js` | (ce commit) | 3/3 Repositories ADR-002 créés. Prochaine étape : migration des handlers pour utiliser les repositories au lieu de app.database. |
 | 2026-04-17 | Claude (refactoring) | P0-2.2 | Création RoutingRepository (30 LOC) : save, saveSplit, findByFileId, countByFiles, deleteByFileId. Enregistré dans Application.js. | `src/repositories/RoutingRepository.js` (créé), `src/core/Application.js` | (ce commit) | |
 | 2026-04-17 | Claude (refactoring) | P0-2.1 | Création FileRepository (wrapper ADR-002 option B, 38 LOC) : findById, findInfoById, findByFolder, save, update, delete, getChannels. Enregistré dans Application.js. | `src/repositories/FileRepository.js` (créé), `src/core/Application.js` | (ce commit) | Début Phase 2. La migration des handlers vers fileRepository se fera incrémentalement dans les lots suivants. |
 | 2026-04-17 | Claude (refactoring) | P0-1.6 | Création MidiAdaptationService (facade sur MidiTransposer + AutoAssigner, 37 LOC). Intégré dans Application.js via _registerService. PlaybackAssignmentCommands utilise app.adaptationService au lieu de new MidiTransposer. PlaybackAnalysisCommands utilise app.adaptationService au lieu de app.autoAssigner. | `src/midi/MidiAdaptationService.js` (créé), `src/core/Application.js`, `src/api/commands/playback/PlaybackAssignmentCommands.js`, `src/api/commands/playback/PlaybackAnalysisCommands.js` | (ce commit) | Import direct MidiTransposer retiré des handlers. Les handlers dépendent d'une interface unifiée, pas d'implémentations concrètes. |

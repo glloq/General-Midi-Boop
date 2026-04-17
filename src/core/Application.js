@@ -22,6 +22,7 @@ import AutoAssigner from '../midi/AutoAssigner.js';
 import MidiAdaptationService from '../midi/MidiAdaptationService.js';
 import FileRepository from '../repositories/FileRepository.js';
 import RoutingRepository from '../repositories/RoutingRepository.js';
+import InstrumentRepository from '../repositories/InstrumentRepository.js';
 import MidiClockGenerator from '../midi/MidiClockGenerator.js';
 import BackupScheduler from '../storage/BackupScheduler.js';
 
@@ -209,6 +210,7 @@ class Application {
       // Initialize repositories (ADR-002: wrappers over existing sub-DBs)
       this._registerService('fileRepository', new FileRepository(this.database));
       this._registerService('routingRepository', new RoutingRepository(this.database));
+      this._registerService('instrumentRepository', new InstrumentRepository(this.database));
 
       // Initialize API
       this._registerService('commandHandler', new CommandHandler(deps));
