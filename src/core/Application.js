@@ -30,6 +30,8 @@ import DeviceSettingsRepository from '../repositories/DeviceSettingsRepository.j
 import LightingRepository from '../repositories/LightingRepository.js';
 import StringInstrumentRepository from '../repositories/StringInstrumentRepository.js';
 import FileRoutingSyncService from '../midi/domain/routing/FileRoutingSyncService.js';
+import DeviceReconciliationService from '../midi/domain/devices/DeviceReconciliationService.js';
+import FileRoutingStatusService from '../midi/domain/files/FileRoutingStatusService.js';
 import MidiClockGenerator from '../midi/MidiClockGenerator.js';
 import BackupScheduler from '../storage/BackupScheduler.js';
 
@@ -231,6 +233,14 @@ class Application {
         fileRepository: this.fileRepository,
         deviceManager: this.deviceManager,
         logger: this.logger
+      }));
+      this._registerService('deviceReconciliationService', new DeviceReconciliationService({
+        instrumentRepository: this.instrumentRepository,
+        logger: this.logger
+      }));
+      this._registerService('fileRoutingStatusService', new FileRoutingStatusService({
+        fileRepository: this.fileRepository,
+        routingRepository: this.routingRepository
       }));
 
       // Initialize API

@@ -8,51 +8,7 @@ async function deviceList(app) {
   if (app.database) {
     for (const device of devices) {
       try {
-        let settings = app.instrumentRepository.getAllSettings(device.id);
-
-        // Fallback: if no settings by device_id, look up by USB serial number
-        if (!settings && device.usbSerialNumber) {
-          const bySerial = app.instrumentRepository.findByUsbSerial(device.usbSerialNumber);
-          if (bySerial && bySerial.device_id !== device.id) {
-            app.logger.info(`[deviceList] USB device "${device.id}" matched by serial number "${device.usbSerialNumber}" to DB entry "${bySerial.device_id}" - reconciling`);
-            // Update the device_id in DB to match the new ALSA name
-            try {
-              app.instrumentRepository.reconcileDeviceId(bySerial.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.instrumentRepository.getAllSettings(device.id);
-          }
-        }
-
-        // Fallback: look up by MAC address for Bluetooth devices
-        if (!settings && device.address && device.type === 'bluetooth') {
-          const byMac = app.instrumentRepository.findByMac(device.address);
-          if (byMac && byMac.device_id !== device.id) {
-            app.logger.info(`[deviceList] Bluetooth device "${device.id}" matched by MAC "${device.address}" to DB entry "${byMac.device_id}" - reconciling`);
-            try {
-              app.instrumentRepository.reconcileDeviceId(byMac.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.instrumentRepository.getAllSettings(device.id);
-          }
-        }
-
-        // Fallback: look up by normalized name (without ALSA port numbers)
-        // Covers the common case where the ALSA port number changes between reboots
-        if (!settings && device.type === 'usb') {
-          const byName = app.instrumentRepository.findByNormalizedName(device.id);
-          if (byName && byName.device_id !== device.id) {
-            app.logger.info(`[deviceList] USB device "${device.id}" matched by normalized name to DB entry "${byName.device_id}" - reconciling`);
-            try {
-              app.instrumentRepository.reconcileDeviceId(byName.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.instrumentRepository.getAllSettings(device.id);
-          }
-        }
+        const settings = app.deviceReconciliationService.resolveSettings(device);
 
         if (settings) {
           if (settings.custom_name) {
