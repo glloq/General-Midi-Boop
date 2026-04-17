@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.3 |
-| Prochain lot suggéré | **P2-F.4** (étape 4 : extraire rendu UI en sous-composants) ou **P1-4.5c** (rewire BluetoothManager). |
+| Dernier lot terminé | P2-F.10 (roadmap) |
+| Prochain lot suggéré | **P2-F.10a** (convertir `MidiEditorDialogsMixin` en sous-composant — plus simple et auto-contenu) ou **P2-F.4** (étape 4 RoutingSummary). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -114,7 +114,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [ ] **P2-F.7** Appliquer le même protocole à `MidiEditorTablature.js` (≈1307 LOC) — *note : aucune constante module-level extractible à l'étape 1 ; reporter à l'étape 4 (sous-composants)*.
 - [x] **P2-F.8** Appliquer le même protocole à `MidiSynthesizer.js` (≈1192 LOC) — **étape 1 faite** : `MidiSynthesizerConstants.js` extrait `SOUND_BANKS`, `DEFAULT_BANK_ID`, `DEFAULT_BANK_SUFFIX`. MidiSynthesizer.js : 1192 → 1116 LOC (-76).
 - [ ] **P2-F.9** Migrer progressivement vers layout `public/js/features/`.
-- [ ] **P2-F.10** Clarifier le pattern mixins de `MidiEditorModal` (recomposition en modules explicites).
+- [x] **P2-F.10** Clarifier le pattern mixins de `MidiEditorModal` — cartographie livrée dans [`docs/refactor/midi-editor-mixins.md`](./midi-editor-mixins.md). 12 mixins inventoriés, roadmap 4 phases (A→D) avec lots suivants P2-F.10a/b/c/d. Aucune conversion dans ce lot (risque) — juste l'analyse et le plan.
 
 ### Observabilité (P2)
 
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.10 | Cartographie du pattern mixins de `MidiEditorModal` (360 LOC + 12 mixins globaux fusionnés dans le prototype au runtime). Inventaire : 12 mixins classés par priorité (🔴 FileOps / Renderer / Events ; 🟡 Sequence / CC / Routing / Tablature ; 🟢 Dialogs / CCPicker / DrawSettings / Lifecycle). Constat : aucune frontière de dépendance explicite, 2 patterns cohabitent (mixins vs sous-composants instanciés). Roadmap 4 phases (A convertir les mixins 🟢 en sous-composants, B services pur-état, C Renderer+FileOps, D doc des shared state). Aucune modif de code. | `docs/refactor/midi-editor-mixins.md` (créé) | (ce commit) | Prépare 4 lots suivants P2-F.10a/b/c/d. |
 | 2026-04-17 | Claude (refactoring) | P2-F.3 | Étape 3 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryAssignmentBuilder.js` (163 LOC) extrait la transformation state → apply_assignments payload. 2 fonctions pures : `buildAssignmentsPayload(state)` (retourne `{assignments, hasAssignment, hasSplit}`) et `computeModificationFlags(assignments, hasSplit)`. Dépendances de la page passées par callbacks (inversion de contrôle) → unit-testable sans DOM. `_applyRouting` ramené de ~105 à ~20 lignes de logique métier avant le dialog. RoutingSummaryPage.js : 4658→4573 (-85). | `public/js/views/components/auto-assign/RoutingSummaryAssignmentBuilder.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Cumul P2-F.1+F.2+F.3 : -175 LOC dans le fichier page, +236 LOC répartis sur 3 modules extraits. |
 | 2026-04-17 | Claude (refactoring) | P1-4.5b | Nouveau `src/midi/adapters/NobleBleAdapter.js` (~170 LOC) : implémentation production du `BluetoothPort`, wrap `node-ble` (BlueZ/DBus). Lazy import du package pour permettre le load en environnement sans node-ble compilé. `scanOnce(durationMs)` répliqué de BluetoothManager pour démarrage aisé. 2 tests ajoutés (surface, rejet Uint8Array). Rewire de `BluetoothManager` non livré ici (P1-4.5c — lot dédié). | `src/midi/adapters/NobleBleAdapter.js` (créé), `tests/ports/bluetooth-port.contract.test.js` (+2 tests) | (ce commit) | 296/296 tests verts. `BluetoothManager` inchangé — production BLE continue de fonctionner. |
 | 2026-04-17 | Claude (refactoring) | P2-F.2 | Étape 2 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryApi.js` (73 LOC) : facade thin autour des 4 commandes WS utilisées (`generate_assignment_suggestions`, `get_file_routings`, `file_read`, `apply_assignments`). `RoutingSummaryPage` instancie `this.apiClient = new window.RoutingSummaryApi(api)` dans le constructor ; les 5 call sites migrés. `this.api` conservé (utilisé par AudioPreview non migré). | `public/js/views/components/auto-assign/RoutingSummaryApi.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Permet l'évolution centralisée des payloads (ADR-003 `_vN`). |
