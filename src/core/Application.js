@@ -24,6 +24,7 @@ import FileRepository from '../repositories/FileRepository.js';
 import RoutingRepository from '../repositories/RoutingRepository.js';
 import InstrumentRepository from '../repositories/InstrumentRepository.js';
 import PresetRepository from '../repositories/PresetRepository.js';
+import SessionRepository from '../repositories/SessionRepository.js';
 import MidiClockGenerator from '../midi/MidiClockGenerator.js';
 import BackupScheduler from '../storage/BackupScheduler.js';
 
@@ -213,6 +214,7 @@ class Application {
       this._registerService('routingRepository', new RoutingRepository(this.database));
       this._registerService('instrumentRepository', new InstrumentRepository(this.database));
       this._registerService('presetRepository', new PresetRepository(this.database));
+      this._registerService('sessionRepository', new SessionRepository(this.database));
 
       // Initialize API
       this._registerService('commandHandler', new CommandHandler(deps));
