@@ -33,13 +33,13 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4m).
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4n).
 const {
   renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
   renderDetailPlaceholder, renderHeaderButtons,
   renderLoadingScreen, renderErrorScreen,
   renderInstrumentChips, renderPolyReductionSection,
-  renderRangeBars, renderDrumMappingSection
+  renderRangeBars, renderDrumMappingSection, renderCCSection
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -2891,117 +2891,13 @@ class RoutingSummaryPage {
   _renderCCSection(channel) {
     const ch = String(channel);
     const analysis = this.channelAnalyses[channel];
-    const channelCCs = analysis?.usedCCs || [];
     const assignment = this.selectedAssignments[ch];
     const isSplit = this.splitChannels.has(channel);
-    const isSkipped = this.skippedChannels.has(channel);
 
-    if (isSkipped || (!assignment && !isSplit)) return '';
-    if (channelCCs.length === 0) return '';
+    // Pre-resolve data for the pure renderer.
+    const segments = (isSplit && this.splitAssignments[channel]?.segments) || [];
+    const segCCs = segments.map(seg => this._getInstrumentCCs(seg.instrumentId));
 
-    const isExpanded = this.ccExpanded[channel] ?? false;
-    const { summaryHTML } = this._computeCCSummary(channel);
-    const toggleIcon = isExpanded ? '\u25BE' : '\u25B8';
-
-    // ── Collapsed: show only title + summary (no heavy DOM) ──
-    if (!isExpanded) {
-      return `
-        <div class="rs-cc-section">
-          <h4 class="rs-cc-title rs-cc-toggle" data-channel="${channel}" style="cursor:pointer">\uD83C\uDF9B ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'} ${toggleIcon} <small>(${channelCCs.length})</small></h4>
-          ${summaryHTML}
-        </div>`;
-    }
-
-    // ── Expanded: render rows with pagination ──
-    const showAll = this.ccShowAll[channel] ?? false;
-    const visibleCCs = showAll ? channelCCs : channelCCs.slice(0, CC_PAGE_SIZE);
-    const hasMore = !showAll && channelCCs.length > CC_PAGE_SIZE;
-
-    const splitColors = SPLIT_COLORS;
-    const currentRemap = this.ccRemapping[ch] || {};
-    // Pre-compute Set for O(1) lookups instead of O(n) includes
-    const channelCCSet = new Set(channelCCs);
-
-    // ── Split mode: per-instrument columns ──
-    if (isSplit && this.splitAssignments[channel]) {
-      const segs = this.splitAssignments[channel].segments || [];
-      if (segs.length === 0) return '';
-
-      // Resolve CCs for each segment
-      const segCCs = segs.map(seg => this._getInstrumentCCs(seg.instrumentId));
-
-      // Table header: CC | Name | Inst1 | Inst2 | ...
-      const headerCols = segs.map((seg, i) => {
-        const color = splitColors[i % splitColors.length];
-        const instRef = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
-        const name = instRef ? this._getInstrumentDisplayName(instRef) : (seg.instrumentName || '?');
-        const short = name.length > 10 ? name.slice(0, 9) + '\u2026' : name;
-        return `<th class="rs-cc-inst-col" style="color:${color}" title="${escapeHtml(name)}">${escapeHtml(short)}</th>`;
-      }).join('');
-
-      // Table rows: one per visible CC, with remap for unsupported
-      const bodyRows = visibleCCs.map(ccNum => {
-        const name = this._getCCName(ccNum);
-        const isDisabled = currentRemap[ccNum] === -1;
-
-        const muteActive = isDisabled ? ' rs-cc-mute-active' : '';
-        const muteTitle = isDisabled
-          ? (_t('routingSummary.ccEnable') || 'Activer ce CC')
-          : (_t('routingSummary.ccDisable') || 'Désactiver ce CC');
-        const muteBtn = `<td class="rs-cc-mute-cell"><button class="rs-cc-mute-btn${muteActive}" data-channel="${ch}" data-cc="${ccNum}" title="${muteTitle}">${isDisabled ? '\u{1F507}' : '\u{1F509}'}</button></td>`;
-
-        const segMutes = this.ccSegmentMute[channel]?.[ccNum];
-        let cells;
-        if (isDisabled) {
-          cells = segs.map(() => `<td class="rs-cc-cell rs-cc-cell-disabled">\u2014</td>`).join('');
-        } else {
-          cells = segCCs.map((ccs, i) => {
-            const isSegMuted = segMutes?.has(i);
-            const segToggleClass = isSegMuted ? ' rs-cc-seg-muted' : '';
-            const segToggleBtn = `<button class="rs-cc-seg-toggle${segToggleClass}" data-channel="${channel}" data-cc="${ccNum}" data-seg="${i}" title="${isSegMuted ? _t('routingSummary.ccEnable') || 'Enable this CC' : _t('routingSummary.ccDisable') || 'Disable this CC'}">${isSegMuted ? '\u{1F507}' : '\u{1F509}'}</button>`;
-
-            if (isSegMuted) {
-              return `<td class="rs-cc-cell rs-cc-cell-seg-muted">${segToggleBtn}</td>`;
-            }
-            if (ccs === null) return `<td class="rs-cc-cell rs-cc-cell-unknown">${segToggleBtn} ?</td>`;
-            if (ccs.includes(ccNum)) return `<td class="rs-cc-cell rs-cc-cell-ok">${segToggleBtn} \u2713</td>`;
-            // Unsupported: show remap dropdown
-            const currentTarget = currentRemap[ccNum];
-            const remapOpts = (ccs || [])
-              .filter(tc => !channelCCSet.has(tc) || tc === ccNum)
-              .map(tc => `<option value="${tc}" ${currentTarget === tc ? 'selected' : ''}>${this._getCCName(tc)}</option>`)
-              .join('');
-            return `<td class="rs-cc-cell rs-cc-cell-no">
-              ${segToggleBtn}
-              <select class="rs-cc-remap rs-cc-remap-split" data-channel="${ch}" data-source="${ccNum}">
-                <option value="">\u2717</option>
-                ${remapOpts}
-              </select>
-            </td>`;
-          }).join('');
-        }
-
-        const anyUnsupported = !isDisabled && segCCs.some(ccs => ccs !== null && !ccs.includes(ccNum));
-        const rowClass = isDisabled ? 'rs-cc-row-disabled' : (anyUnsupported ? 'rs-cc-row-warn' : '');
-        return `<tr class="${rowClass}">${muteBtn}<td class="rs-cc-num">CC${ccNum}</td><td class="rs-cc-name">${escapeHtml(name)}</td>${cells}</tr>`;
-      }).join('');
-
-      const showMoreRow = hasMore
-        ? `<tr><td colspan="${3 + segs.length}" class="rs-cc-show-more" data-channel="${channel}" style="cursor:pointer;text-align:center;padding:6px">${_t('routingSummary.showAllCCs') || 'Voir tout'} (${channelCCs.length - CC_PAGE_SIZE} ${_t('routingSummary.more') || 'de plus'})</td></tr>`
-        : '';
-
-      return `
-        <div class="rs-cc-section">
-          <h4 class="rs-cc-title rs-cc-toggle" data-channel="${channel}" style="cursor:pointer">\uD83C\uDF9B ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'} ${toggleIcon} <small>(${channelCCs.length})</small></h4>
-          ${summaryHTML}
-          <table class="rs-cc-table">
-            <thead><tr><th></th><th>CC</th><th>${_t('common.name') || 'Nom'}</th>${headerCols}</tr></thead>
-            <tbody>${bodyRows}${showMoreRow}</tbody>
-          </table>
-        </div>`;
-    }
-
-    // ── Single instrument mode (table layout matching split mode) ──
     let instrumentCCs = assignment?.supportedCcs ?? null;
     if (instrumentCCs && typeof instrumentCCs === 'string') {
       try { instrumentCCs = JSON.parse(instrumentCCs); } catch { instrumentCCs = null; }
@@ -3010,60 +2906,27 @@ class RoutingSummaryPage {
       instrumentCCs = this._getInstrumentCCs(assignment.instrumentId);
     }
 
-    const instName = assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || _t('autoAssign.instrument');
-    const instShort = instName.length > 10 ? instName.slice(0, 9) + '\u2026' : instName;
+    const { summaryHTML } = this._computeCCSummary(channel);
 
-    const bodyRows = visibleCCs.map(ccNum => {
-      const name = this._getCCName(ccNum);
-      const isDisabled = currentRemap[ccNum] === -1;
-
-      const muteActive = isDisabled ? ' rs-cc-mute-active' : '';
-      const muteTitle = isDisabled
-        ? (_t('routingSummary.ccEnable') || 'Activer ce CC')
-        : (_t('routingSummary.ccDisable') || 'Désactiver ce CC');
-      const muteBtn = `<td class="rs-cc-mute-cell"><button class="rs-cc-mute-btn${muteActive}" data-channel="${ch}" data-cc="${ccNum}" title="${muteTitle}">${isDisabled ? '\u{1F507}' : '\u{1F509}'}</button></td>`;
-
-      let statusCell;
-      if (isDisabled) {
-        statusCell = `<td class="rs-cc-cell rs-cc-cell-disabled">\u2014</td>`;
-      } else if (instrumentCCs === null) {
-        statusCell = `<td class="rs-cc-cell rs-cc-cell-unknown">?</td>`;
-      } else if (instrumentCCs.includes(ccNum)) {
-        statusCell = `<td class="rs-cc-cell rs-cc-cell-ok">\u2713</td>`;
-      } else {
-        // Unsupported: show remap dropdown
-        const currentTarget = currentRemap[ccNum];
-        const remapOpts = instrumentCCs
-          .filter(targetCC => !channelCCSet.has(targetCC) || targetCC === ccNum)
-          .map(targetCC => {
-            const selected = currentTarget === targetCC ? 'selected' : '';
-            return `<option value="${targetCC}" ${selected}>${this._getCCName(targetCC)}</option>`;
-          }).join('');
-        statusCell = `<td class="rs-cc-cell rs-cc-cell-no">
-          <select class="rs-cc-remap" data-channel="${ch}" data-source="${ccNum}">
-            <option value="">\u2717</option>
-            ${remapOpts}
-          </select>
-        </td>`;
-      }
-
-      const rowClass = isDisabled ? 'rs-cc-row-disabled' : (instrumentCCs !== null && !instrumentCCs.includes(ccNum) && !isDisabled ? 'rs-cc-row-warn' : '');
-      return `<tr class="${rowClass}">${muteBtn}<td class="rs-cc-num">CC${ccNum}</td><td class="rs-cc-name">${escapeHtml(name)}</td>${statusCell}</tr>`;
-    }).join('');
-
-    const showMoreRow = hasMore
-      ? `<tr><td colspan="4" class="rs-cc-show-more" data-channel="${channel}" style="cursor:pointer;text-align:center;padding:6px">${_t('routingSummary.showAllCCs') || 'Voir tout'} (${channelCCs.length - CC_PAGE_SIZE} ${_t('routingSummary.more') || 'de plus'})</td></tr>`
-      : '';
-
-    return `
-      <div class="rs-cc-section">
-        <h4 class="rs-cc-title rs-cc-toggle" data-channel="${channel}" style="cursor:pointer">\uD83C\uDF9B ${_t('routingSummary.ccTitle') || 'Contr\u00f4leurs MIDI (CC)'} ${toggleIcon} <small>(${channelCCs.length})</small></h4>
-        ${summaryHTML}
-        <table class="rs-cc-table">
-          <thead><tr><th></th><th>CC</th><th>${_t('common.name') || 'Nom'}</th><th class="rs-cc-inst-col" title="${escapeHtml(instName)}">${escapeHtml(instShort)}</th></tr></thead>
-          <tbody>${bodyRows}${showMoreRow}</tbody>
-        </table>
-      </div>`;
+    return renderCCSection({
+      channel,
+      channelCCs: analysis?.usedCCs || [],
+      assignment,
+      isSplit,
+      isSkipped: this.skippedChannels.has(channel),
+      isExpanded: this.ccExpanded[channel] ?? false,
+      showAll: this.ccShowAll[channel] ?? false,
+      summaryHTML,
+      currentRemap: this.ccRemapping[ch] || {},
+      segments,
+      segCCs,
+      ccSegmentMute: this.ccSegmentMute,
+      allInstruments: this.allInstruments || [],
+      instrumentCCs,
+      getInstrumentDisplayName: (inst) => this._getInstrumentDisplayName(inst),
+      getCCName: (cc) => this._getCCName(cc),
+      escape: escapeHtml
+    });
   }
 
   /**
