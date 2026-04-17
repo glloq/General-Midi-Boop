@@ -13,9 +13,7 @@ const CURRENT_API_VERSION = 1;
 // Map commands to their specific validator methods in JsonValidator
 const COMMAND_VALIDATORS = {
   file_upload: 'validateFileCommand',
-  file_load: 'validateFileCommand',
   file_delete: 'validateFileCommand',
-  file_save: 'validateFileCommand',
   file_rename: 'validateFileCommand',
   file_move: 'validateFileCommand',
   file_export: 'validateFileCommand',

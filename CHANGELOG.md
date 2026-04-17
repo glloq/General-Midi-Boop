@@ -55,6 +55,15 @@ All notable changes to Ma-est-tro are documented in this file.
   `showRenameDialog`, `convertSequenceToMidi`, …) moved out of
   `MidiEditorCCPicker.js` into a dedicated `MidiEditorFileOpsMixin.js`.
 - `MidiTransposer.generateAdaptationMetadata()` (unused after migration 040).
+- Deprecated CC wrapper methods `updateCCChannelSelector` and
+  `attachCCChannelListeners` (both the mixin copies in `MidiEditorCC.js`
+  and the class copies in `MidiEditorCCPanel.js`); callers now use
+  `updateEditorChannelSelector` / `attachEditorChannelListeners` directly.
+- Redundant API commands `file_load` and `file_save` (never called by any
+  client; superseded by `file_read` / `file_write` which carry the same
+  semantics with an explicit `midiData` payload). Handlers, registry
+  entries, validators, and the corresponding rows in `docs/API.md` were
+  all removed.
 
 ## [5.0.0] - 2026-03-24
 

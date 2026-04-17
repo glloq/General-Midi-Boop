@@ -77,11 +77,9 @@ When `MAESTRO_API_TOKEN` is set, connect with:
 | `file_upload` | Upload MIDI file | `filename`, `data` |
 | `file_list` | List files in folder | `folder?` (default '/') |
 | `file_metadata` | Get file metadata | `fileId` |
-| `file_load` | Load file content | `fileId` |
 | `file_read` | Read MIDI file for editing | `fileId` |
 | `file_write` | Write MIDI file from editor | `fileId`, `midiData` |
 | `file_delete` | Delete file | `fileId` |
-| `file_save` | Save file changes | `fileId`, `midi` |
 | `file_save_as` | Save with new name | `fileId`, `newFilename`, `midiData` |
 | `file_rename` | Rename file | `fileId`, `newFilename` |
 | `file_move` | Move file to folder | `fileId`, `folder` |

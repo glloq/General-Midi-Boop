@@ -142,20 +142,10 @@ class JsonValidator {
         }
         break;
 
-      case 'file_load':
       case 'file_delete':
       case 'file_export':
         if (!data.fileId) {
           errors.push('fileId is required');
-        }
-        break;
-
-      case 'file_save':
-        if (!data.fileId) {
-          errors.push('fileId is required');
-        }
-        if (!data.midi) {
-          errors.push('midi data is required');
         }
         break;
 
