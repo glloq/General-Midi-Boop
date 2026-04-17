@@ -141,11 +141,53 @@
     `;
   }
 
+  /**
+   * Loading state for the Routing Summary modal (spinner + "analyzing" text).
+   * Caller remains responsible for binding the close button to its handler.
+   */
+  function renderLoadingScreen() {
+    return `
+      <div class="rs-container">
+        <div class="rs-header">
+          <h2>${_t('routingSummary.title')}</h2>
+          <button class="modal-close" id="rsSummaryClose">&times;</button>
+        </div>
+        <div class="rs-body rs-loading">
+          <div class="spinner"></div>
+          <p>${_t('autoAssign.analyzing')}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Error state for the Routing Summary modal.
+   * @param {string} message - human-readable error (escaped by caller or renderer).
+   * @param {(s:string) => string} [escape] - HTML-escape helper ; defaults to identity.
+   */
+  function renderErrorScreen(message, escape) {
+    const esc = escape || ((s) => s);
+    return `
+      <div class="rs-container">
+        <div class="rs-header">
+          <h2>${_t('autoAssign.error')}</h2>
+          <button class="modal-close" id="rsSummaryClose">&times;</button>
+        </div>
+        <div class="rs-body rs-error">
+          <p>${esc(message)}</p>
+          <button class="btn" id="rsSummaryCloseBtn">${_t('common.close')}</button>
+        </div>
+      </div>
+    `;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
     renderMiniRange,
     renderDetailPlaceholder,
-    renderHeaderButtons
+    renderHeaderButtons,
+    renderLoadingScreen,
+    renderErrorScreen
   });
 })();

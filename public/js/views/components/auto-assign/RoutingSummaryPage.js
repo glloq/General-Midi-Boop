@@ -33,8 +33,12 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b/F.4c/F.4d).
-const { renderMiniKeyboard, renderChannelHistogram, renderMiniRange, renderDetailPlaceholder, renderHeaderButtons } = window.RoutingSummaryRenderers;
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b/F.4c/F.4d/F.4i).
+const {
+  renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
+  renderDetailPlaceholder, renderHeaderButtons,
+  renderLoadingScreen, renderErrorScreen
+} = window.RoutingSummaryRenderers;
 
 // ============================================================================
 // RoutingSummaryPage class
@@ -362,34 +366,12 @@ class RoutingSummaryPage {
   }
 
   _showLoading() {
-    this.modal.innerHTML = `
-      <div class="rs-container">
-        <div class="rs-header">
-          <h2>${_t('routingSummary.title')}</h2>
-          <button class="modal-close" id="rsSummaryClose">&times;</button>
-        </div>
-        <div class="rs-body rs-loading">
-          <div class="spinner"></div>
-          <p>${_t('autoAssign.analyzing')}</p>
-        </div>
-      </div>
-    `;
+    this.modal.innerHTML = renderLoadingScreen();
     this.modal.querySelector('#rsSummaryClose').addEventListener('click', () => this.close());
   }
 
   _showError(message) {
-    this.modal.innerHTML = `
-      <div class="rs-container">
-        <div class="rs-header">
-          <h2>${_t('autoAssign.error')}</h2>
-          <button class="modal-close" id="rsSummaryClose">&times;</button>
-        </div>
-        <div class="rs-body rs-error">
-          <p>${escapeHtml(message)}</p>
-          <button class="btn" id="rsSummaryCloseBtn">${_t('common.close')}</button>
-        </div>
-      </div>
-    `;
+    this.modal.innerHTML = renderErrorScreen(message, escapeHtml);
     this.modal.querySelector('#rsSummaryClose').addEventListener('click', () => this.close());
     this.modal.querySelector('#rsSummaryCloseBtn').addEventListener('click', () => this.close());
   }
