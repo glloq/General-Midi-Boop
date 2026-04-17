@@ -104,15 +104,23 @@ Ma-est-tro/
 │   ├── js/
 │   │   ├── core/              # BaseView, BaseModal, EventBus, etc.
 │   │   ├── views/components/  # 35+ UI components
+│   │   │   └── midi-editor/   # MIDI editor modal (20 files — see docs/MIDI_EDITOR.md)
 │   │   ├── api/               # BackendAPIClient (WebSocket)
 │   │   ├── audio/             # Synthesizer modules
 │   │   └── utils/             # Helpers
 │   ├── locales/               # i18n translation files (28 languages)
 │   └── styles/                # CSS stylesheets
-├── migrations/                # SQL migration files (29 numbered)
+├── migrations/                # SQL migration files (40 numbered)
 ├── tests/                     # Jest + Vitest test suites
 └── docs/                      # Feature documentation
 ```
+
+Feature-specific docs:
+[`MIDI_EDITOR.md`](MIDI_EDITOR.md) — MIDI editor modal architecture ·
+[`TABLATURE_IMPLEMENTATION.md`](TABLATURE_IMPLEMENTATION.md) — string-instrument pipeline ·
+[`AUTO_ASSIGNMENT.md`](AUTO_ASSIGNMENT.md) — channel-to-instrument auto-assignment ·
+[`MIDI_CC_INSTRUMENT_CONTROLS.md`](MIDI_CC_INSTRUMENT_CONTROLS.md) — reserved CC ranges ·
+[`API.md`](API.md) — WebSocket command reference.
 
 ## Key Design Patterns
 

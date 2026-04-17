@@ -1,5 +1,8 @@
 # Tablature System for String Instruments - Implementation Documentation
 
+> The tablature editor runs inside the MIDI editor modal — see
+> [MIDI_EDITOR.md](MIDI_EDITOR.md) for the surrounding architecture.
+
 ## Overview
 
 System to control real acoustic string instruments (guitar, bass, violin, etc.) via solenoids/servomotors/steppers through MIDI CC messages. Uses CC20 (string select) and CC21 (fret select) to indicate which string and fret to activate on the physical instrument.

@@ -82,18 +82,49 @@ Ma-est-tro can automatically analyze a MIDI file and assign each channel to the 
 
 ![MIDI Editor](docs/images/editeur.png)
 
-Built-in multi-mode editor with four specialized views:
-- **Piano Roll** - Traditional note editor with add, move, delete notes, snap grid (1/1 to 1/16), 16 channels with distinct colors, CC & Pitchbend editing
-- **Tablature Editor** - String instrument tablature with bidirectional MIDI-Tab conversion
-- **Drum Pattern Editor** - Visual drum grid editor for creating and editing drum patterns
-- **Wind Instrument Editor** - Specialized editor for wind instrument articulations
+Built-in multi-mode editor with four specialized views sharing a common transport,
+channel panel, and backend persistence.
 
-Common features across all editors:
-- Built-in synthesizer for preview
-- **Tempo automation** - Tempo curve editor with visual automation
-- **Instrument selector** - Display playable note range for connected instruments
-- **Ctrl+A** to select all notes
-- **Cursor repositioning** during playback pause
+**Four editing modes:**
+
+| Mode | Purpose |
+|------|---------|
+| Piano Roll | Add / move / resize / re-channel / velocity, 16 coloured channels, snap grid (1/1 → 1/16) |
+| Tablature | String instruments (guitar, bass, violin…) with bidirectional MIDI ↔ tab conversion |
+| Drums | Grid-based drum pattern editor (GM drum map) |
+| Wind | Articulation and breath dynamics for wind instruments |
+
+**Toolbar actions:** save, save-as, rename, undo / redo, copy / paste / delete,
+select-all, snap grid, horizontal & vertical zoom, play / pause / stop, auto-assign
+routing, channel settings popover, preview source toggle (GM / routed).
+
+**CC & automation editing:** CC 1 / 2 / 5 / 7 / 10 / 11 / 74 / 76 / 77 / 78 / 91 /
+93, pitch bend, channel & poly aftertouch, velocity curves, and tempo automation,
+with linear / exponential / logarithmic / sine curve drawing tools.
+
+**Keyboard shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| `Ctrl/Cmd + S` | Save |
+| `Ctrl/Cmd + Z` | Undo |
+| `Ctrl/Cmd + Y` / `Ctrl+Shift+Z` | Redo |
+| `Ctrl/Cmd + C` / `V` | Copy / paste selected notes |
+| `Ctrl/Cmd + A` | Select all |
+| `Delete` / `Backspace` | Delete selected notes (or CC / velocity points if that section is open) |
+| `Space` | Play / pause |
+| `Escape` | Close dialog or editor |
+
+**Common features across modes:** built-in synthesizer preview (7 soundfonts),
+per-channel routing to connected devices, playable-note highlighting, cursor
+repositioning during playback pause, touch mode (separate Move / Add / Resize
+buttons) for tablets.
+
+**User preferences** (persisted in `localStorage` under `maestro_settings`): touch
+mode, keyboard-playback feedback, drag-playback feedback.
+
+See [docs/MIDI_EDITOR.md](./docs/MIDI_EDITOR.md) for architecture, the public API,
+and extension points.
 
 ### String Instruments & Tablature
 
