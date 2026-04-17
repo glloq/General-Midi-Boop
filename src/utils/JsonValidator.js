@@ -1,6 +1,21 @@
 // src/utils/JsonValidator.js
+import { compileSchema } from './SchemaCompiler.js';
 
 class JsonValidator {
+  /**
+   * Validate data against a declarative schema (ADR-004).
+   * Returns { valid, errors } like the legacy validators so callers can
+   * treat both paths uniformly.
+   * @param {object} schema - see ADR-004 §Format de schéma retenu.
+   * @param {object} data
+   * @returns {{ valid: boolean, errors: string[] }}
+   */
+  static validateBySchema(schema, data) {
+    const compiled = compileSchema(schema);
+    const errors = compiled(data);
+    return { valid: errors.length === 0, errors };
+  }
+
   /**
    * Validate command message structure
    */
