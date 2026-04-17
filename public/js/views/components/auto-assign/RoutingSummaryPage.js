@@ -3095,109 +3095,24 @@ class RoutingSummaryPage {
    * Apply the current routing assignments
    */
   async _applyRouting() {
-    const assignments = {};
-    let hasAssignment = false;
-    let hasSplit = false;
-
-    // Build assignments for non-split channels
-    for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
-      const chNum = parseInt(ch);
-      if (this.skippedChannels.has(chNum)) continue;
-      if (this.splitChannels.has(chNum)) continue; // handled below
-      if (!assignment || !assignment.deviceId) continue;
-
-      const adapt = this.adaptationSettings[ch] || {};
-      const semitones = this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
-      const oorSuppress = this.autoAdaptation ? (adapt.oorHandling === 'suppress') : false;
-      const oorCompress = this.autoAdaptation ? (adapt.oorHandling === 'compress') : false;
-
-      // Polyphony reduction settings
-      const polyEnabled = this.autoAdaptation && adapt.polyReduction && adapt.polyReduction !== 'none';
-      const polyTarget = polyEnabled
-        ? (adapt.polyReduction === 'manual' && adapt.polyTarget != null
-          ? adapt.polyTarget
-          : (this._getInstrumentPolyphony(ch) || getGmDefaultPolyphony(assignment.gmProgram)))
-        : null;
-
-      assignments[ch] = {
-        deviceId: assignment.deviceId,
-        instrumentId: assignment.instrumentId,
-        instrumentChannel: assignment.instrumentChannel,
-        instrumentName: assignment.customName || assignment.instrumentName,
-        transposition: { semitones },
-        noteRemapping: assignment.noteRemapping || null,
-        suppressOutOfRange: oorSuppress,
-        noteCompression: oorCompress,
-        gmProgram: assignment.gmProgram,
-        noteRangeMin: assignment.noteRangeMin,
-        noteRangeMax: assignment.noteRangeMax,
-        noteSelectionMode: assignment.noteSelectionMode,
-        score: assignment.score,
-        ccRemapping: this.ccRemapping[ch] || null,
-        polyReduction: polyEnabled,
-        maxPolyphony: polyTarget,
-        polyStrategy: polyEnabled ? (adapt.polyStrategy || 'shorten') : null,
-        channelVolume: this._getChannelVolume(parseInt(ch))
-      };
-      hasAssignment = true;
-    }
-
-    // Build assignments for split channels — send full segment data
-    for (const [ch, splitData] of Object.entries(this.splitAssignments)) {
-      const chNum = parseInt(ch);
-      if (!this.splitChannels.has(chNum)) continue;
-      if (!splitData?.segments?.length) continue;
-
-      const adapt = this.adaptationSettings[ch] || {};
-      const splitSemitones = this.autoAdaptation ? (adapt.transpositionSemitones || 0) : 0;
-      // Build per-segment CC mute map for serialization (Set → Array)
-      const segMuteData = this.ccSegmentMute[chNum];
-      const ccSegMuteSerialized = segMuteData ? Object.fromEntries(
-        Object.entries(segMuteData).map(([cc, segs]) => [cc, [...segs]])
-      ) : null;
-
-      assignments[ch] = {
-        split: true,
-        splitMode: splitData.type || 'range',
-        overlapStrategy: splitData.overlapStrategy || null,
-        behaviorMode: splitData.behaviorMode || null,
-        transposition: { semitones: splitSemitones },
-        suppressOutOfRange: this.autoAdaptation ? (adapt.oorHandling === 'suppress') : false,
-        noteCompression: this.autoAdaptation ? (adapt.oorHandling === 'compress') : false,
-        ccRemapping: this.ccRemapping[ch] || null,
-        ccSegmentMute: ccSegMuteSerialized,
-        channelVolume: this._getChannelVolume(parseInt(ch)),
-        segments: splitData.segments.map(seg => ({
-          deviceId: seg.deviceId,
-          instrumentId: seg.instrumentId,
-          instrumentChannel: seg.instrumentChannel,
-          instrumentName: seg.instrumentName,
-          noteRange: seg.noteRange,
-          fullRange: seg.fullRange,
-          polyphonyShare: seg.polyphonyShare,
-          score: splitData.quality || null,
-          transposition: seg.transposition || undefined
-        }))
-      };
-      hasAssignment = true;
-      hasSplit = true;
-    }
+    const builder = window.RoutingSummaryAssignmentBuilder;
+    const { assignments, hasAssignment, hasSplit } = builder.buildAssignmentsPayload({
+      selectedAssignments: this.selectedAssignments,
+      splitAssignments: this.splitAssignments,
+      splitChannels: this.splitChannels,
+      skippedChannels: this.skippedChannels,
+      adaptationSettings: this.adaptationSettings,
+      ccRemapping: this.ccRemapping,
+      ccSegmentMute: this.ccSegmentMute,
+      autoAdaptation: this.autoAdaptation,
+      getInstrumentPolyphony: (ch) => this._getInstrumentPolyphony(ch),
+      getChannelVolume: (ch) => this._getChannelVolume(ch)
+    });
 
     if (!hasAssignment) return;
 
-    // Detect if physical file modifications are needed
-    let hasTransposition = false;
-    let hasOorSuppression = false;
-    let hasCCRemap = false;
-    let hasVolumeChange = false;
-    for (const [ch, a] of Object.entries(assignments)) {
-      if (a.transposition?.semitones && a.transposition.semitones !== 0) hasTransposition = true;
-      if (a.suppressOutOfRange) hasOorSuppression = true;
-      if (a.noteCompression) hasOorSuppression = true;
-      if (a.ccRemapping && Object.keys(a.ccRemapping).length > 0) hasCCRemap = true;
-      if (a.channelVolume !== undefined && a.channelVolume !== 100) hasVolumeChange = true;
-    }
-    const needsFileModification = hasSplit || hasTransposition || hasOorSuppression || hasCCRemap || hasVolumeChange;
+    const { hasTransposition, needsFileModification } =
+      builder.computeModificationFlags(assignments, hasSplit);
 
     // Ask user how to save if file modification is needed
     let overwriteOriginal = false;

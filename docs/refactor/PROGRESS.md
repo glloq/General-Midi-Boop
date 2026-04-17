@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P1-4.5b (NobleBleAdapter livré ; rewire BluetoothManager reporté) |
-| Prochain lot suggéré | **P1-4.5c** : rewire `BluetoothManager` pour consommer `NobleBleAdapter` en injection (risque élevé, session dédiée conseillée) ; ou **P2-F.3** (étape 3 RoutingSummaryPage). |
+| Dernier lot terminé | P2-F.3 |
+| Prochain lot suggéré | **P2-F.4** (étape 4 : extraire rendu UI en sous-composants) ou **P1-4.5c** (rewire BluetoothManager). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -107,7 +107,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 - [x] **P2-F.1** Protocole 5 étapes sur `RoutingSummaryPage.js` (≈4748 LOC) — étape 1 : extraire constantes vers `RoutingSummaryConstants.js` (136 LOC, exposé sur `window.RoutingSummaryConstants`). RoutingSummaryPage.js : 4748 → 4661 LOC (-87, -1.8%). Sera réduit davantage aux étapes suivantes (API, état, sous-composants, orchestrateur).
 - [x] **P2-F.2** `RoutingSummaryPage.js` — étape 2 : extraire accès API. Nouveau `RoutingSummaryApi.js` (73 LOC) expose `generateSuggestions`, `getSavedRoutings`, `readFile`, `applyAssignments`. Les 5 call sites `this.api.sendCommand(...)` réduits à 5 appels nommés sur `this.apiClient.*`. Noms de commandes centralisés → prêts pour ADR-003 versioning si besoin.
-- [ ] **P2-F.3** `RoutingSummaryPage.js` — étape 3 : extraire logique d'état.
+- [x] **P2-F.3** `RoutingSummaryPage.js` — étape 3 : extraire logique d'état. Nouveau `RoutingSummaryAssignmentBuilder.js` (163 LOC) : `buildAssignmentsPayload(state)` et `computeModificationFlags(assignments, hasSplit)` — 2 fonctions pures extraites de `_applyRouting`. `_applyRouting` réduit à 2 appels. Les callbacks `getInstrumentPolyphony` / `getChannelVolume` sont passés explicitement (inversion de contrôle).
 - [ ] **P2-F.4** `RoutingSummaryPage.js` — étape 4 : extraire rendu UI en sous-composants.
 - [ ] **P2-F.5** `RoutingSummaryPage.js` — étape 5 : orchestrateur léger.
 - [/] **P2-F.6** Appliquer le même protocole à `MidiEditorCCPanel.js` (≈1329 LOC) — **étape 1 faite** : `MidiEditorCCPanelConstants.js` extrait `ALWAYS_VISIBLE_CC_TYPES`, `STATIC_CC_TYPES`, `NOTE_NAMES`.
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.3 | Étape 3 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryAssignmentBuilder.js` (163 LOC) extrait la transformation state → apply_assignments payload. 2 fonctions pures : `buildAssignmentsPayload(state)` (retourne `{assignments, hasAssignment, hasSplit}`) et `computeModificationFlags(assignments, hasSplit)`. Dépendances de la page passées par callbacks (inversion de contrôle) → unit-testable sans DOM. `_applyRouting` ramené de ~105 à ~20 lignes de logique métier avant le dialog. RoutingSummaryPage.js : 4658→4573 (-85). | `public/js/views/components/auto-assign/RoutingSummaryAssignmentBuilder.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Cumul P2-F.1+F.2+F.3 : -175 LOC dans le fichier page, +236 LOC répartis sur 3 modules extraits. |
 | 2026-04-17 | Claude (refactoring) | P1-4.5b | Nouveau `src/midi/adapters/NobleBleAdapter.js` (~170 LOC) : implémentation production du `BluetoothPort`, wrap `node-ble` (BlueZ/DBus). Lazy import du package pour permettre le load en environnement sans node-ble compilé. `scanOnce(durationMs)` répliqué de BluetoothManager pour démarrage aisé. 2 tests ajoutés (surface, rejet Uint8Array). Rewire de `BluetoothManager` non livré ici (P1-4.5c — lot dédié). | `src/midi/adapters/NobleBleAdapter.js` (créé), `tests/ports/bluetooth-port.contract.test.js` (+2 tests) | (ce commit) | 296/296 tests verts. `BluetoothManager` inchangé — production BLE continue de fonctionner. |
 | 2026-04-17 | Claude (refactoring) | P2-F.2 | Étape 2 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryApi.js` (73 LOC) : facade thin autour des 4 commandes WS utilisées (`generate_assignment_suggestions`, `get_file_routings`, `file_read`, `apply_assignments`). `RoutingSummaryPage` instancie `this.apiClient = new window.RoutingSummaryApi(api)` dans le constructor ; les 5 call sites migrés. `this.api` conservé (utilisé par AudioPreview non migré). | `public/js/views/components/auto-assign/RoutingSummaryApi.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Permet l'évolution centralisée des payloads (ADR-003 `_vN`). |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.2+3 | Métrique temps de traitement via EventBus pour tous les flux (playback + routing + adaptation + autres). `CommandRegistry.handle` émet `ws.command.completed` avec `{ command, cid, duration, success, errorCode? }` en success ET error. 4 tests unitaires dans `tests/api/command-metrics.test.js` (success, ValidationError→ERR_VALIDATION, Error brut→ERR_INTERNAL, absence d'EventBus n'est pas fatale). | `src/api/CommandRegistry.js`, `tests/api/command-metrics.test.js` (créé) | (ce commit) | 294/294 tests verts. Aucun changement de format WS — purement événement interne. OBS.2 et OBS.3 clôturés d'un même trait : le tag unifie les domaines. |
@@ -215,7 +216,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
-| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4661 (-1.8%, P2-F.1) |
+| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4573 (-3.7%, P2-F.1+F.2+F.3 cumul) |
 | `MidiSynthesizer.js` LOC | 1192 | < 720 (-40 %) | 1116 (-6.4%, P2-F.8) |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | ~20 % |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
