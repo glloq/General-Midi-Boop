@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P1-4.3 |
-| Prochain lot suggéré | **P1-4.5** : implémenter `BluetoothPort` + `NobleBleAdapter` + `InMemoryBleAdapter` + test domaine de `BluetoothManager` (zone pilote retenue dans l'inventaire). |
+| Dernier lot terminé | P1-4.5 (foundation) |
+| Prochain lot suggéré | **P1-4.5b** : implémenter `NobleBleAdapter` (wrap `node-ble`) puis rewire `BluetoothManager` pour consommer `BluetoothPort` en injection au lieu de l'import direct ; OU **P1-4.1** : extension du découpage domaine `routing` (hors playback). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -101,7 +101,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [ ] **P1-4.2** Étendre le découpage domaine à `devices` et `files`.
 - [x] **P1-4.3** Identifier ports/adapters prioritaires — synthèse [`docs/refactor/ports-adapters-inventory.md`](./ports-adapters-inventory.md). 5 zones étudiées, 1 retenue comme pilote (Bluetooth), Lighting déjà conforme (`BaseLightingDriver`), NetworkManager/RTP reporté, SerialMidi en second.
 - [x] **P1-4.4** Produire [`ADR-003-ws-contract-versioning.md`](../adr/ADR-003-ws-contract-versioning.md) — convention de versionnement par suffixe `_vN`, additif uniquement, dépréciation annoncée par changelog.
-- [ ] **P1-4.5** Appliquer le pattern ports/adapters sur au moins un driver hardware pilote.
+- [/] **P1-4.5** Appliquer le pattern ports/adapters sur au moins un driver hardware pilote — **foundation livrée** : `BluetoothPort` (interface JSDoc + constantes événements/méthodes), `InMemoryBleAdapter` (~110 LOC) et 9 tests de contrat. **À suivre** (P1-4.5b) : `NobleBleAdapter` réel et rewire de `BluetoothManager` pour consommer le port en injection.
 
 ### Phase 2-frontend (P2)
 
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P1-4.5 (foundation) | Pose des fondations ports/adapters pour Bluetooth : `src/midi/ports/BluetoothPort.js` (interface JSDoc + `BLE_EVENTS` + `BLE_PORT_METHODS`), `src/midi/adapters/InMemoryBleAdapter.js` (~110 LOC, EventEmitter, fixtures, test helpers `_injectIncoming`/`_getSentMidi`), `tests/ports/bluetooth-port.contract.test.js` (9 tests via `describe.each` — pourra exécuter le `NobleBleAdapter` réel sans modification au prochain lot). | `src/midi/ports/BluetoothPort.js` (créé), `src/midi/adapters/InMemoryBleAdapter.js` (créé), `tests/ports/bluetooth-port.contract.test.js` (créé) | (ce commit) | 287/287 tests verts (+9 contract tests). `BluetoothManager` historique conservé tel quel — son rewire viendra dans P1-4.5b. |
 | 2026-04-17 | Claude (refactoring) | P1-4.3 | Inventaire ports/adapters — 5 zones étudiées avec scoring couplage. Bluetooth retenu comme pilote (P1-4.5) : surface API claire (5 méthodes), dépendance `node-ble` lourde à mocker, valeur de test immédiate. Lighting **déjà conforme** (BaseLightingDriver = port implicite). SerialMidi second. NetworkManager/RTP reporté. DeviceManager refactor à enchaîner après ≥2 ports. | `docs/refactor/ports-adapters-inventory.md` (créé) | (ce commit) | Aucune modif de code. Pré-requis P1-4.5. |
 | 2026-04-17 | Claude (refactoring) | P1-4.4 | Rédaction ADR-003 : versionnement par suffixe `_vN` (Option B). 3 options comparées. Conventions opérationnelles documentées (quand introduire v2, cohabitation, dépréciation, suppression, cas additif). Aucun code modifié — l'ADR sert de référence pour toute évolution future du protocole. | `docs/adr/ADR-003-ws-contract-versioning.md` (créé) | (ce commit) | Tous les ADRs prévus par le plan §13 sont désormais produits (001, 002, 003, 004). |
 | 2026-04-17 | Claude (refactoring) | P1-3.4 | Audit d'uniformité des payloads d'erreur (CommandRegistry sérialisation + BackendAPIClient consommation + 26 snapshots avec cas d'erreur). Synthèse dans `docs/refactor/error-payload-audit.md`. Format canonique vérifié. Trouvaille : le client ne propage pas le champ `code` aux callers — recommandation listée pour Phase 4 (non bloquant pour Phase 3). | `docs/refactor/error-payload-audit.md` (créé) | (ce commit) | Aucune modif de code. Phase 3 entièrement clôturée. |
