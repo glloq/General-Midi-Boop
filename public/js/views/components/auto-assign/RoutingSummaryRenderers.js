@@ -781,6 +781,177 @@
       </div>`;
   }
 
+  /**
+   * Score detail panel. Three layouts :
+   *   - empty      : no channels suggested → placeholder
+   *   - detail     : one channel selected  → score breakdown or per-segment coverage
+   *   - summary    : no channel selected   → compact cells grid
+   *
+   * @param {Object} opts
+   * @param {Object} opts.suggestions           - per-channel suggestion list
+   * @param {number|null} opts.selectedChannel
+   * @param {Set<number>} opts.skippedChannels
+   * @param {Set<number>} opts.splitChannels
+   * @param {Object} opts.selectedAssignments
+   * @param {Object} opts.channelAnalyses
+   * @param {Object} opts.splitAssignments
+   * @param {Object} opts.adaptationSettings
+   * @param {boolean} opts.autoAdaptation
+   * @param {Array<Object>} opts.allInstruments
+   * @param {(inst:Object) => string} opts.getDisplayName
+   * @param {(s:string) => string} opts.escape
+   */
+  function renderScoreDetail(opts) {
+    const {
+      suggestions, selectedChannel,
+      skippedChannels, splitChannels,
+      selectedAssignments, channelAnalyses, splitAssignments,
+      adaptationSettings, autoAdaptation,
+      allInstruments,
+      getDisplayName, escape
+    } = opts;
+    const {
+      SPLIT_COLORS, getGmProgramName, midiNoteToName, getScoreClass, getScoreBgClass
+    } = window.RoutingSummaryConstants;
+
+    const allKeys = Object.keys(suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+    const isDetailMode = selectedChannel !== null;
+    const channelKeys = isDetailMode
+      ? allKeys.filter(ch => parseInt(ch) === selectedChannel)
+      : allKeys;
+    if (channelKeys.length === 0) return `<div class="rs-score-empty">${_t('routingSummary.noChannels') || 'Aucun canal'}</div>`;
+
+    if (isDetailMode) {
+      const breakdownLabels = {
+        program: _t('autoAssign.scoreProgram') || 'Programme',
+        noteRange: _t('autoAssign.scoreNoteRange') || 'Tessiture',
+        polyphony: _t('autoAssign.scorePolyphony') || 'Polyphonie',
+        ccSupport: _t('autoAssign.scoreCCSupport') || 'CC Support',
+        instrumentType: _t('autoAssign.scoreType') || 'Type',
+        percussion: _t('autoAssign.scorePercussion') || 'Percussion'
+      };
+      const ch = channelKeys[0];
+      const channel = parseInt(ch);
+      const isSkipped = skippedChannels.has(channel);
+      const isSplit = splitChannels.has(channel);
+      const assignment = selectedAssignments[ch];
+      const analysis = channelAnalyses[channel];
+      const gmName = channel === 9 ? (_t('autoAssign.drums') || 'Drums') : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
+
+      if (isSplit && splitAssignments[channel]) {
+        const segments = splitAssignments[channel].segments || [];
+        const totalNotes = analysis?.noteDistribution ? Object.values(analysis.noteDistribution).reduce((s, c) => s + c, 0) : 0;
+
+        const segRows = segments.map((seg, i) => {
+          const color = SPLIT_COLORS[i % SPLIT_COLORS.length];
+          const inst = seg.instrumentId ? allInstruments.find(ii => ii.id === seg.instrumentId) : null;
+          const name = inst ? getDisplayName(inst) : (seg.instrumentName || `Inst ${i + 1}`);
+          const rMin = seg.noteRange?.min ?? 0;
+          const rMax = seg.noteRange?.max ?? 127;
+          let segNotes = 0;
+          if (analysis?.noteDistribution) {
+            const adapt = adaptationSettings[ch] || {};
+            const semi = (autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
+            for (const [note, count] of Object.entries(analysis.noteDistribution)) {
+              const shifted = parseInt(note) + semi;
+              if (shifted >= rMin && shifted <= rMax) segNotes += count;
+            }
+          }
+          const coveragePct = totalNotes > 0 ? Math.round((segNotes / totalNotes) * 100) : 0;
+
+          return `<div class="rs-score-bar-row">
+            <span class="rs-score-bar-label" style="color:${color}">${escape(name)}</span>
+            <div class="rs-score-bar-track">
+              <div class="rs-score-bar-fill" style="width:${coveragePct}%;background:${color}"></div>
+            </div>
+            <span class="rs-score-bar-value">${coveragePct}% (${midiNoteToName(rMin)}\u2013${midiNoteToName(rMax)})</span>
+          </div>`;
+        }).join('');
+
+        return `<div class="rs-score-detail-content">
+          <div class="rs-score-row">
+            <div class="rs-score-row-header">
+              <span class="rs-score-row-ch">CH ${channel + 1}</span>
+              <span class="rs-score-row-gm">${escape(gmName)}</span>
+              <span class="rs-score-row-arrow">\u2192</span>
+              <span class="rs-score-row-inst">${segments.length} instruments</span>
+            </div>
+            <div class="rs-score-breakdown">
+              <div class="rs-score-bar-row">
+                <span class="rs-score-bar-label" style="font-weight:600">${_t('routingSummary.noteCoverage') || 'Couverture notes'}</span>
+                <span class="rs-score-bar-value"></span>
+              </div>
+              ${segRows}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      const score = assignment?.score || 0;
+      const instName = isSkipped
+        ? `<span class="rs-score-muted">${_t('routingSummary.muted') || 'Muté'}</span>`
+        : escape(assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || '\u2014');
+
+      const breakdown = assignment?.scoreBreakdown;
+      let breakdownHtml = '';
+      if (breakdown && !isSkipped) {
+        const entries = Object.entries(breakdown).filter(([, v]) => v && v.max > 0);
+        breakdownHtml = `<div class="rs-score-breakdown">` +
+          entries.map(([key, val]) => {
+            const pct = val.max > 0 ? Math.round((val.score / val.max) * 100) : 0;
+            return `<div class="rs-score-bar-row">
+              <span class="rs-score-bar-label">${breakdownLabels[key] || key}</span>
+              <div class="rs-score-bar-track">
+                <div class="rs-score-bar-fill ${getScoreBgClass(pct)}" style="width:${pct}%"></div>
+              </div>
+              <span class="rs-score-bar-value">${val.score}/${val.max}</span>
+            </div>`;
+          }).join('') + `</div>`;
+      }
+      const issues = (!isSkipped && assignment?.issues?.length)
+        ? `<div class="rs-score-issues">${assignment.issues.map(i =>
+            `<span class="rs-score-issue rs-score-issue-${i.type || 'warning'}">${escape(i.message)}</span>`
+          ).join('')}</div>` : '';
+
+      return `<div class="rs-score-detail-content">
+        <div class="rs-score-row">
+          <div class="rs-score-row-header">
+            <span class="rs-score-row-ch">CH ${channel + 1}</span>
+            <span class="rs-score-row-gm">${escape(gmName)}</span>
+            <span class="rs-score-row-arrow">\u2192</span>
+            <span class="rs-score-row-inst">${instName}</span>
+            <span class="rs-score-row-score ${getScoreClass(score)}">${isSkipped ? '\u2014' : score}</span>
+          </div>
+          ${breakdownHtml}${issues}
+        </div>
+      </div>`;
+    }
+
+    // Summary mode
+    const cells = channelKeys.map(ch => {
+      const channel = parseInt(ch);
+      const isSkipped = skippedChannels.has(channel);
+      const assignment = selectedAssignments[ch];
+      const score = assignment?.score || 0;
+      const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
+      const instName = isSkipped
+        ? (_t('routingSummary.muted') || 'Muté')
+        : (assignment?.instrumentDisplayName || assignment?.customName || getGmProgramName(assignment?.gmProgram) || assignment?.instrumentName || '\u2014');
+      const displayName = instName.length > 12 ? instName.slice(0, 11) + '\u2026' : instName;
+      const sharedClass = isShared ? ' rs-score-cell-shared' : '';
+      const sharedTitle = isShared && assignment.sharedWith?.length
+        ? ` (${_t('routingSummary.sharedWith', { channels: assignment.sharedWith.map(c => c + 1).join(', ') }) || 'Partagé avec Ch ' + assignment.sharedWith.map(c => c + 1).join(', ')})`
+        : '';
+      return `<div class="rs-score-cell ${isSkipped ? 'rs-score-cell-skipped' : ''}${sharedClass}" title="${escape(instName + sharedTitle)}">
+        <span class="rs-score-cell-ch">CH ${channel + 1}</span>
+        <span class="rs-score-cell-score ${getScoreBgClass(score)}">${isSkipped ? '\u2014' : score}${isShared ? '<span class="rs-shared-badge" title="' + escape((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>' : ''}</span>
+        <span class="rs-score-cell-inst">${escape(displayName)}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="rs-score-grid">${cells}</div>`;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
@@ -793,6 +964,7 @@
     renderPolyReductionSection,
     renderRangeBars,
     renderDrumMappingSection,
-    renderCCSection
+    renderCCSection,
+    renderScoreDetail
   });
 })();
