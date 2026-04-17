@@ -33,14 +33,14 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4o).
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4p).
 const {
   renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
   renderDetailPlaceholder, renderHeaderButtons,
   renderLoadingScreen, renderErrorScreen,
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
-  renderScoreDetail
+  renderScoreDetail, renderSummaryTable
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -744,193 +744,25 @@ class RoutingSummaryPage {
   // ============================================================================
 
   _renderSummaryTable(channelKeys) {
-    const isCondensed = this.selectedChannel !== null;
-
-    const rows = channelKeys.map(ch => {
-      const channel = parseInt(ch);
-      const isSkipped = this.skippedChannels.has(channel);
-      const isSplit = this.splitChannels.has(channel);
-      const assignment = this.selectedAssignments[ch];
-      const score = isSplit ? (this.splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
-      const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
-
-      // Original MIDI instrument
-      const gmName = channel === 9
-        ? _t('autoAssign.drums')
-        : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
-
-      // Status class
-      let statusClass;
-      if (isSkipped) {
-        statusClass = 'skipped';
-      } else if (isSplit || score >= 70) {
-        statusClass = 'ok';
-      } else {
-        statusClass = 'warning';
-      }
-
-      // Prefer estimatedCategory (from GM program) over estimatedType (heuristic) for display
-      const displayType = (analysis?.estimatedCategory && analysis.estimatedCategory !== 'unknown')
-        ? analysis.estimatedCategory
-        : (analysis?.estimatedType || '');
-      const typeIcon = displayType ? getTypeIcon(displayType) : '';
-      const isSelected = this.selectedChannel === channel;
-
-      // Score dot indicator
-      const scoreDotClass = isSkipped ? 'rs-dot-skip' : (score >= 70 ? 'rs-dot-ok' : score >= 40 ? 'rs-dot-warn' : 'rs-dot-poor');
-
-      // Condensed mode: show only channel, GM, routed instrument name, mute button
-      if (isCondensed) {
-        // Get routed instrument name(s)
-        let routedName = '';
-        if (isSkipped) {
-          routedName = `<span class="rs-skipped-condensed">${_t('routingSummary.muted') || 'Muté'}</span>`;
-        } else if (isSplit && this.splitAssignments[channel]) {
-          const segments = this.splitAssignments[channel].segments || [];
-          routedName = segments.map(seg => {
-            const inst = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
-            return inst ? this._getInstrumentDisplayName(inst) : (seg.instrumentName || '?');
-          }).join(' + ');
-        } else if (assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName) {
-          routedName = assignment.instrumentDisplayName || assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName;
-          if (assignment.shared || (assignment.sharedWith && assignment.sharedWith.length > 0)) {
-            routedName += ' <span class="rs-shared-badge" title="' + escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>';
-          }
-        } else {
-          routedName = `<span class="rs-unassigned">\u2014</span>`;
-        }
-
-        return `
-          <tr class="rs-row rs-row-condensed ${isSkipped ? 'skipped' : ''} ${isSelected ? 'selected' : ''}"
-              tabindex="0" role="button" data-channel="${channel}">
-            <td class="rs-col-ch-condensed">
-              <span class="rs-score-dot ${scoreDotClass}"></span>
-              ${typeIcon} <strong>${channel + 1}</strong>${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
-            </td>
-            <td class="rs-col-gm-condensed" title="${escapeHtml(gmName)}">${escapeHtml(gmName)}</td>
-            <td class="rs-col-routed-condensed" title="${typeof routedName === 'string' ? escapeHtml(routedName) : ''}">${routedName}</td>
-            <td class="rs-col-mute-condensed">
-              ${!isSkipped
-                ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip') || 'Muter'}">🔊</button>`
-                : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip') || 'Activer'}">🔇</button>`}
-            </td>
-          </tr>
-        `;
-      }
-
-      // Full mode: dropdown (always visible, with "Ignore" option), score, polyphony, playable, actions
-      let assignedHTML;
-      if (isSplit && !isSkipped && this.splitAssignments[channel]) {
-        const segments = this.splitAssignments[channel].segments || [];
-        const splitParts = segments.map((seg, i) => {
-          const color = SPLIT_COLORS[i % SPLIT_COLORS.length];
-          const instRef = seg.instrumentId ? (this.allInstruments || []).find(ii => ii.id === seg.instrumentId) : null;
-          const name = instRef ? this._getInstrumentDisplayName(instRef) : (seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument');
-          const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
-          return `<span class="rs-split-inst-name" style="color:${color}" title="${escapeHtml(name)}">${escapeHtml(displayName)}</span>`;
-        });
-        assignedHTML = `<div class="rs-split-instruments">${splitParts.join('<span class="rs-split-sep">+</span>')}</div>`;
-      } else {
-        assignedHTML = `<div class="rs-select-zone"><select class="rs-instrument-select" data-channel="${ch}">${this._buildInstrumentOptions(ch, assignment, isSkipped)}</select></div>`;
-      }
-
-      // Score column (with shared badge if applicable)
-      const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
-      const sharedBadge = (!isSkipped && isShared)
-        ? `<span class="rs-shared-badge" title="${escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé'))}">\u{1F517}</span>`
-        : '';
-      const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}${sharedBadge}</span>` : '';
-
-      // Polyphony column: channel max / instrument capacity (+ auto-adapt indicator)
-      let polyHTML = '';
-      if (!isSkipped) {
-        const chPoly = this._getChannelPolyphony(channel);
-        const instPoly = this._getInstrumentPolyphony(channel);
-        if (chPoly && instPoly) {
-          const adapt = this.adaptationSettings[ch];
-          const polyActive = this.autoAdaptation && adapt?.polyReduction && adapt.polyReduction !== 'none';
-          const ok = polyActive || instPoly >= chPoly;
-          const polyLabel = polyActive ? `${chPoly}\u2192${adapt.polyTarget || instPoly}` : `${chPoly}/${instPoly}`;
-          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${polyLabel}</span>`;
-        }
-      }
-
-      // Playable notes column: total notes / playable by instrument
-      let playableHTML = '';
-      if (!isSkipped) {
-        const playableInfo = this._computePlayableNotes(ch);
-        if (playableInfo) {
-          const ok = playableInfo.playable === playableInfo.total;
-          playableHTML = `<span class="rs-playable-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${playableInfo.total}/${playableInfo.playable}</span>`;
-        }
-      }
-
-      return `
-        <tr class="rs-row ${isSkipped ? 'skipped' : ''} ${statusClass} ${isSelected ? 'selected' : ''}"
-            tabindex="0" role="button" data-channel="${channel}"
-            aria-label="${_t('autoAssign.channel')} ${channel + 1}">
-          <td class="rs-col-ch">
-            <span class="rs-score-dot ${scoreDotClass}"></span>
-            Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
-          </td>
-          <td class="rs-col-original">${escapeHtml(gmName)}</td>
-          <td class="rs-col-type"><span class="rs-type-badge" style="color:${getTypeColor(displayType)}" title="${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}">${typeIcon} ${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}</span></td>
-          <td class="rs-col-assigned">${assignedHTML}</td>
-          <td class="rs-col-volume">${this._renderVolumeSlider(channel)}</td>
-          <td class="rs-col-score">${scoreHTML}</td>
-          <td class="rs-col-poly">${polyHTML}</td>
-          <td class="rs-col-playable">${playableHTML}</td>
-          <td class="rs-col-actions">
-            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔊</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔇</button>`}
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    // Condensed header (when detail panel open)
-    if (isCondensed) {
-      return `
-        <div class="rs-table-wrapper rs-table-condensed">
-          <table class="rs-table">
-            <thead>
-              <tr>
-                <th>Ch</th>
-                <th>GM</th>
-                <th>${_t('autoAssign.overviewAssigned') || 'Routé'}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-        </table>
-      </div>
-    `;
-    }
-
-    // Full table (no detail panel open)
-    return `
-      <div class="rs-table-wrapper">
-        <table class="rs-table">
-          <thead>
-            <tr>
-              <th>${_t('autoAssign.overviewChannel')}</th>
-              <th>${_t('autoAssign.overviewOriginal')}</th>
-              <th>${_t('autoAssign.type') || 'Type'}</th>
-              <th>${_t('autoAssign.overviewAssigned')}</th>
-              <th class="rs-th-compact">Vol</th>
-              <th>${_t('routingSummary.score') || 'Score'}</th>
-              <th class="rs-th-compact">${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-sub">${_t('autoAssign.polyphonyHint') || 'canal / instru.'}</span></th>
-              <th class="rs-th-compact">Notes<br><span class="rs-th-sub">${_t('autoAssign.channelNotesHint') || 'total / jouables'}</span></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-      </div>
-    `;
+    return renderSummaryTable({
+      channelKeys,
+      selectedChannel: this.selectedChannel,
+      skippedChannels: this.skippedChannels,
+      splitChannels: this.splitChannels,
+      selectedAssignments: this.selectedAssignments,
+      splitAssignments: this.splitAssignments,
+      channelAnalyses: this.channelAnalyses,
+      allInstruments: this.allInstruments || [],
+      adaptationSettings: this.adaptationSettings,
+      autoAdaptation: this.autoAdaptation,
+      getDisplayName: (inst) => this._getInstrumentDisplayName(inst),
+      buildInstrumentOptions: (ch, assignment, isSkipped) => this._buildInstrumentOptions(ch, assignment, isSkipped),
+      getChannelPolyphony: (channel) => this._getChannelPolyphony(channel),
+      getInstrumentPolyphony: (channel) => this._getInstrumentPolyphony(channel),
+      computePlayableNotes: (ch) => this._computePlayableNotes(ch),
+      renderVolumeSlider: (channel) => this._renderVolumeSlider(channel),
+      escape: escapeHtml
+    });
   }
 
   /**

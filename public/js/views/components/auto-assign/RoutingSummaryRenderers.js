@@ -952,6 +952,217 @@
     return `<div class="rs-score-grid">${cells}</div>`;
   }
 
+  /**
+   * Main summary table of channels (either full 9-column or condensed 4-column
+   * when a detail panel is open).
+   *
+   * @param {Object} opts
+   * @param {Array<string>} opts.channelKeys
+   * @param {number|null} opts.selectedChannel
+   * @param {Set<number>} opts.skippedChannels
+   * @param {Set<number>} opts.splitChannels
+   * @param {Object} opts.selectedAssignments
+   * @param {Object} opts.splitAssignments
+   * @param {Object} opts.channelAnalyses
+   * @param {Array<Object>} opts.allInstruments
+   * @param {Object} opts.adaptationSettings
+   * @param {boolean} opts.autoAdaptation
+   * @param {(inst:Object) => string} opts.getDisplayName
+   * @param {(ch:string, assignment:Object, isSkipped:boolean) => string} opts.buildInstrumentOptions
+   * @param {(channel:number) => number|null} opts.getChannelPolyphony
+   * @param {(channel:number) => number|null} opts.getInstrumentPolyphony
+   * @param {(ch:string) => {total:number, playable:number}|null} opts.computePlayableNotes
+   * @param {(channel:number) => string} opts.renderVolumeSlider
+   * @param {(s:string) => string} opts.escape
+   */
+  function renderSummaryTable(opts) {
+    const {
+      channelKeys, selectedChannel,
+      skippedChannels, splitChannels,
+      selectedAssignments, splitAssignments,
+      channelAnalyses, allInstruments,
+      adaptationSettings, autoAdaptation,
+      getDisplayName, buildInstrumentOptions,
+      getChannelPolyphony, getInstrumentPolyphony,
+      computePlayableNotes, renderVolumeSlider,
+      escape
+    } = opts;
+    const {
+      SPLIT_COLORS, getGmProgramName, getScoreClass, getTypeIcon, getTypeColor
+    } = window.RoutingSummaryConstants;
+    const isCondensed = selectedChannel !== null;
+
+    const rows = channelKeys.map(ch => {
+      const channel = parseInt(ch);
+      const isSkipped = skippedChannels.has(channel);
+      const isSplit = splitChannels.has(channel);
+      const assignment = selectedAssignments[ch];
+      const score = isSplit ? (splitAssignments[channel]?.quality || 0) : (assignment?.score || 0);
+      const analysis = channelAnalyses[channel] || assignment?.channelAnalysis;
+
+      const gmName = channel === 9
+        ? _t('autoAssign.drums')
+        : (getGmProgramName(analysis?.primaryProgram) || '\u2014');
+
+      let statusClass;
+      if (isSkipped) statusClass = 'skipped';
+      else if (isSplit || score >= 70) statusClass = 'ok';
+      else statusClass = 'warning';
+
+      const displayType = (analysis?.estimatedCategory && analysis.estimatedCategory !== 'unknown')
+        ? analysis.estimatedCategory
+        : (analysis?.estimatedType || '');
+      const typeIcon = displayType ? getTypeIcon(displayType) : '';
+      const isSelected = selectedChannel === channel;
+
+      const scoreDotClass = isSkipped ? 'rs-dot-skip' : (score >= 70 ? 'rs-dot-ok' : score >= 40 ? 'rs-dot-warn' : 'rs-dot-poor');
+
+      if (isCondensed) {
+        let routedName = '';
+        if (isSkipped) {
+          routedName = `<span class="rs-skipped-condensed">${_t('routingSummary.muted') || 'Muté'}</span>`;
+        } else if (isSplit && splitAssignments[channel]) {
+          const segments = splitAssignments[channel].segments || [];
+          routedName = segments.map(seg => {
+            const inst = seg.instrumentId ? allInstruments.find(ii => ii.id === seg.instrumentId) : null;
+            return inst ? getDisplayName(inst) : (seg.instrumentName || '?');
+          }).join(' + ');
+        } else if (assignment?.instrumentDisplayName || assignment?.customName || assignment?.instrumentName) {
+          routedName = assignment.instrumentDisplayName || assignment.customName || getGmProgramName(assignment.gmProgram) || assignment.instrumentName;
+          if (assignment.shared || (assignment.sharedWith && assignment.sharedWith.length > 0)) {
+            routedName += ' <span class="rs-shared-badge" title="' + escape((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>';
+          }
+        } else {
+          routedName = `<span class="rs-unassigned">\u2014</span>`;
+        }
+
+        return `
+          <tr class="rs-row rs-row-condensed ${isSkipped ? 'skipped' : ''} ${isSelected ? 'selected' : ''}"
+              tabindex="0" role="button" data-channel="${channel}">
+            <td class="rs-col-ch-condensed">
+              <span class="rs-score-dot ${scoreDotClass}"></span>
+              ${typeIcon} <strong>${channel + 1}</strong>${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
+            </td>
+            <td class="rs-col-gm-condensed" title="${escape(gmName)}">${escape(gmName)}</td>
+            <td class="rs-col-routed-condensed" title="${typeof routedName === 'string' ? escape(routedName) : ''}">${routedName}</td>
+            <td class="rs-col-mute-condensed">
+              ${!isSkipped
+                ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip') || 'Muter'}">🔊</button>`
+                : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip') || 'Activer'}">🔇</button>`}
+            </td>
+          </tr>
+        `;
+      }
+
+      let assignedHTML;
+      if (isSplit && !isSkipped && splitAssignments[channel]) {
+        const segments = splitAssignments[channel].segments || [];
+        const splitParts = segments.map((seg, i) => {
+          const color = SPLIT_COLORS[i % SPLIT_COLORS.length];
+          const instRef = seg.instrumentId ? allInstruments.find(ii => ii.id === seg.instrumentId) : null;
+          const name = instRef ? getDisplayName(instRef) : (seg.instrumentName || getGmProgramName(seg.gmProgram) || 'Instrument');
+          const displayName = name.length > 14 ? name.slice(0, 13) + '\u2026' : name;
+          return `<span class="rs-split-inst-name" style="color:${color}" title="${escape(name)}">${escape(displayName)}</span>`;
+        });
+        assignedHTML = `<div class="rs-split-instruments">${splitParts.join('<span class="rs-split-sep">+</span>')}</div>`;
+      } else {
+        assignedHTML = `<div class="rs-select-zone"><select class="rs-instrument-select" data-channel="${ch}">${buildInstrumentOptions(ch, assignment, isSkipped)}</select></div>`;
+      }
+
+      const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
+      const sharedBadge = (!isSkipped && isShared)
+        ? `<span class="rs-shared-badge" title="${escape((_t('routingSummary.sharedTooltip') || 'Instrument partagé'))}">\u{1F517}</span>`
+        : '';
+      const scoreHTML = (!isSkipped && score > 0) ? `<span class="rs-score-value ${getScoreClass(score)}">${score}${sharedBadge}</span>` : '';
+
+      let polyHTML = '';
+      if (!isSkipped) {
+        const chPoly = getChannelPolyphony(channel);
+        const instPoly = getInstrumentPolyphony(channel);
+        if (chPoly && instPoly) {
+          const adapt = adaptationSettings[ch];
+          const polyActive = autoAdaptation && adapt?.polyReduction && adapt.polyReduction !== 'none';
+          const ok = polyActive || instPoly >= chPoly;
+          const polyLabel = polyActive ? `${chPoly}\u2192${adapt.polyTarget || instPoly}` : `${chPoly}/${instPoly}`;
+          polyHTML = `<span class="rs-poly-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${polyLabel}</span>`;
+        }
+      }
+
+      let playableHTML = '';
+      if (!isSkipped) {
+        const playableInfo = computePlayableNotes(ch);
+        if (playableInfo) {
+          const ok = playableInfo.playable === playableInfo.total;
+          playableHTML = `<span class="rs-playable-cell ${ok ? 'rs-poly-ok' : 'rs-poly-warn'}">${playableInfo.total}/${playableInfo.playable}</span>`;
+        }
+      }
+
+      return `
+        <tr class="rs-row ${isSkipped ? 'skipped' : ''} ${statusClass} ${isSelected ? 'selected' : ''}"
+            tabindex="0" role="button" data-channel="${channel}"
+            aria-label="${_t('autoAssign.channel')} ${channel + 1}">
+          <td class="rs-col-ch">
+            <span class="rs-score-dot ${scoreDotClass}"></span>
+            Ch ${channel + 1}${channel === 9 ? ' <span class="rs-drum-badge">DR</span>' : ''}
+          </td>
+          <td class="rs-col-original">${escape(gmName)}</td>
+          <td class="rs-col-type"><span class="rs-type-badge" style="color:${getTypeColor(displayType)}" title="${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}">${typeIcon} ${displayType ? (_t('autoAssign.type_' + displayType) || displayType) : ''}</span></td>
+          <td class="rs-col-assigned">${assignedHTML}</td>
+          <td class="rs-col-volume">${renderVolumeSlider(channel)}</td>
+          <td class="rs-col-score">${scoreHTML}</td>
+          <td class="rs-col-poly">${polyHTML}</td>
+          <td class="rs-col-playable">${playableHTML}</td>
+          <td class="rs-col-actions">
+            ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔊</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔇</button>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    if (isCondensed) {
+      return `
+        <div class="rs-table-wrapper rs-table-condensed">
+          <table class="rs-table">
+            <thead>
+              <tr>
+                <th>Ch</th>
+                <th>GM</th>
+                <th>${_t('autoAssign.overviewAssigned') || 'Routé'}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+        </table>
+      </div>
+    `;
+    }
+
+    return `
+      <div class="rs-table-wrapper">
+        <table class="rs-table">
+          <thead>
+            <tr>
+              <th>${_t('autoAssign.overviewChannel')}</th>
+              <th>${_t('autoAssign.overviewOriginal')}</th>
+              <th>${_t('autoAssign.type') || 'Type'}</th>
+              <th>${_t('autoAssign.overviewAssigned')}</th>
+              <th class="rs-th-compact">Vol</th>
+              <th>${_t('routingSummary.score') || 'Score'}</th>
+              <th class="rs-th-compact">${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-sub">${_t('autoAssign.polyphonyHint') || 'canal / instru.'}</span></th>
+              <th class="rs-th-compact">Notes<br><span class="rs-th-sub">${_t('autoAssign.channelNotesHint') || 'total / jouables'}</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
@@ -965,6 +1176,7 @@
     renderRangeBars,
     renderDrumMappingSection,
     renderCCSection,
-    renderScoreDetail
+    renderScoreDetail,
+    renderSummaryTable
   });
 })();
