@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.6 |
-| Prochain lot suggéré | **Phase 3 — P1-3.1** : concevoir le format de schéma déclaratif pour `JsonValidator` (ADR). |
+| Dernier lot terminé | P1-3.1 |
+| Prochain lot suggéré | **P1-3.1b** : implémentation du `SchemaCompiler` + tests unitaires (ADR-004 §Plan de migration §2). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -87,10 +87,13 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 
 ### Phase 3 — Validation et erreurs
 
-- [ ] **P1-3.1** Concevoir le format de schéma déclaratif pour `JsonValidator` (ADR).
-- [ ] **P1-3.2** Migrer les validateurs commande par commande (playback en premier).
-- [ ] **P1-3.3** Normaliser les erreurs sur `src/core/errors/index.js` — supprimer les `throw new Error(...)` bruts dans les handlers.
-- [ ] **P1-3.4** Vérifier uniformité des payloads d'erreur côté client.
+- [x] **P1-3.1** Concevoir le format de schéma déclaratif pour `JsonValidator` → [`ADR-004`](../adr/ADR-004-declarative-command-schemas.md).
+- [ ] **P1-3.1b** Implémenter `src/utils/SchemaCompiler.js` + intégration `JsonValidator.validateBySchema` + tests unitaires.
+- [ ] **P1-3.2a** Migrer les schémas playback (premier domaine ; snapshots existants = filet de sécurité).
+- [ ] **P1-3.2b** Migrer les schémas routing.
+- [ ] **P1-3.2c** Migrer les autres domaines (file, instrument, session, playlist, lighting, stringInstrument, device, devices settings, preset, virtual instrument).
+- [x] **P1-3.3** Normaliser les erreurs sur `src/core/errors/index.js` — **déjà respecté** : 0 occurrence de `throw new Error` dans `src/api/commands/**` après la Phase 2.
+- [ ] **P1-3.4** Vérifier uniformité des payloads d'erreur côté client (re-jeu des snapshots + audit de `BackendAPIClient`).
 
 ### Phase 4 — Domaines étendus + ports/adapters
 
@@ -127,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P1-3.1 | Rédaction ADR-004 : schémas déclaratifs maison (Option B) pour la validation des commandes WS. 3 options comparées (Ajv/Zod externe, compilateur maison, typage TS). Format retenu documenté (types id/string/number/integer/boolean/object/array + custom cross-champ). Plan de migration phasé P1-3.1b→P1-3.2c. P1-3.3 déjà clôturé implicitement par la Phase 2. | `docs/adr/ADR-004-declarative-command-schemas.md` (créé) | (ce commit) | Aucune nouvelle dépendance npm (respect plan §10.1). Snapshots WS gardiens. |
 | 2026-04-17 | Claude (refactoring) | P0-2.6 | 7 tests d'intégration SQLite : no-split, overwrite, split (multi-segments), split replaces non-split, rollback transactionnel, deleteByFileId, deleteByDevice. Découverte d'un bug latent : `Database.insertSplitRoutings` n'était pas exposé sur la façade (ajouté). Découverte d'une contrainte legacy `UNIQUE(midi_file_id, track_id)` de migration 006 jamais droppée : les splits requièrent des `target_channel` distincts pour coexister (documenté dans le test). | `tests/repositories/routing-integration.test.js` (créé), `src/storage/Database.js` (+délégation `insertSplitRoutings`) | (ce commit) | 248/248 tests verts (241 existants + 7 nouveaux). Note : `tests/midi-filter.test.js` a 18 échecs pré-existants mais reste volontairement skip via `jest.config.cjs` quand better-sqlite3 est absent (cas CI). |
 | 2026-04-17 | Claude (refactoring) | P0-2.5c | `PlaybackAssignmentCommands.js` (15 appels migrés vers `fileRepository`/`routingRepository`/`instrumentRepository`). Dernier handler à accès DB direct. | `src/api/commands/playback/PlaybackAssignmentCommands.js` | (ce commit) | 241/241 tests verts. **Fin de P0-2.5** : seul `app.database.backup()` conservé (exception admin documentée). |
 | 2026-04-17 | Claude (refactoring) | P0-2.5n | `InstrumentSettingsCommands.js` (33 appels migrés, y compris 6 SQL inline encapsulés). `InstrumentRepository.getAllCapabilities` ajouté. Nouvelles méthodes sub-DB : `StringInstrumentDatabase.deleteByDevice(deviceId, channel?)`, `RoutingPersistenceDB.deleteRoutingsByDevice(deviceId, channel?)`. Exposées via `Database` façade et repositories (`stringInstrumentRepository.deleteByDevice`, `routingRepository.deleteByDevice`). Clôt P0-2.5e. | `src/api/commands/InstrumentSettingsCommands.js`, `src/storage/StringInstrumentDatabase.js`, `src/storage/RoutingPersistenceDB.js`, `src/storage/InstrumentDatabase.js`, `src/storage/Database.js`, `src/repositories/InstrumentRepository.js`, `src/repositories/StringInstrumentRepository.js`, `src/repositories/RoutingRepository.js` | (ce commit) | 241/241 tests verts. |
