@@ -3063,40 +3063,14 @@ class RoutingSummaryPage {
     const { hasTransposition, needsFileModification } =
       builder.computeModificationFlags(assignments, hasSplit);
 
-    // Ask user how to save if file modification is needed
+    // Ask user how to save if file modification is needed (P2-F.4b :
+    // dialog rendering extracted to RoutingSummarySaveDialog).
     let overwriteOriginal = false;
     if (needsFileModification && typeof showConfirm === 'function') {
-      const splitInfo = hasSplit ? (_t('routingSummary.splitChannelInfo') || 'Des canaux seront dupliqués pour le multi-instrument.') + ' ' : '';
-      const transposeInfo = hasTransposition ? (_t('routingSummary.transposeInfo') || 'Des transpositions seront appliquées.') + ' ' : '';
-
-      // Build custom 3-button dialog
-      const dialogResult = await new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay rs-save-dialog-overlay';
-        overlay.innerHTML = `
-          <div class="modal-content rs-save-dialog">
-            <div class="modal-header">
-              <h2>${_t('routingSummary.saveDialogTitle') || 'Enregistrer le routage'}</h2>
-            </div>
-            <div class="rs-save-dialog-body">
-              <p>${splitInfo}${transposeInfo}${_t('routingSummary.saveDialogMessage') || 'Le fichier MIDI doit être modifié. Comment souhaitez-vous enregistrer ?'}</p>
-            </div>
-            <div class="rs-save-dialog-buttons">
-              <button class="btn" data-action="cancel">${_t('common.cancel') || 'Annuler'}</button>
-              <button class="btn btn-primary" data-action="adapted">${_t('routingSummary.saveAsAdapted') || 'Version adaptée'}</button>
-              <button class="btn btn-danger" data-action="overwrite">${_t('routingSummary.overwriteOriginal') || 'Écraser l\'original'}</button>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(overlay);
-        overlay.querySelectorAll('[data-action]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            overlay.remove();
-            resolve(btn.dataset.action);
-          });
-        });
+      const dialogResult = await window.RoutingSummarySaveDialog.askSaveChoice({
+        hasSplit,
+        hasTransposition
       });
-
       if (dialogResult === 'cancel') return;
       overwriteOriginal = (dialogResult === 'overwrite');
     }

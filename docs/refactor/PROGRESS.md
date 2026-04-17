@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P1-4.x-tests-2 (services domain) |
-| Prochain lot suggéré | **P2-F.4b** (extraire plus de renderers RoutingSummary) ou **P1-4.5c** (rewire BluetoothManager). |
+| Dernier lot terminé | P2-F.4b (save dialog extrait) |
+| Prochain lot suggéré | **P2-F.4c** (extraire plus de renderers : `_renderMiniRange`, `_renderDetailPlaceholder`, `_renderHeaderButtons`) ou **P1-4.5c**. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.4b | Extraction du save-dialog 3-boutons de `_applyRouting` dans `RoutingSummarySaveDialog.askSaveChoice({ hasSplit, hasTransposition })` (61 LOC). Le dialog était inline dans `_applyRouting` (~33 LOC de HTML + Promise) — désormais appel one-liner. RoutingSummaryPage.js : 4522 → 4496 (-26). Cumul F.1→F.4b : -252 LOC (-5.3%). | `public/js/views/components/auto-assign/RoutingSummarySaveDialog.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Dialog désormais testable en isolation via stub `window.RoutingSummarySaveDialog`. |
 | 2026-04-17 | Claude (refactoring) | P1-4.x-tests-2 | Tests unitaires pour 2 services domaine de la Phase 4 : `DeviceReconciliationService.resolveSettings` (10 tests couvrant primary lookup, USB serial fallback avec/sans reconcile, MAC fallback bluetooth-only, normalized-name fallback usb-only, résilience aux exceptions) et `FileRoutingSyncService.syncFile` + `bulkSync` (12 tests : delete+save, invalid devices, invalid channels, virtual-instrument exception, targetChannel parsing, metadata preservation/reset, ignore splits, swallow save errors, bulk aggregation). | `tests/services/device-reconciliation.test.js` (créé), `tests/services/file-routing-sync.test.js` (créé) | (ce commit) | **437/437 tests verts** (+22). La chaîne handler → service domaine → repository est désormais couverte de bout en bout. |
 | 2026-04-17 | Claude (refactoring) | P0-2.x-tests | Tests de délégation pour les 9 Repositories (ADR-002). 94 tests Jest (`test.each` par méthode) vérifiant que chaque méthode publique forwarde correctement au `Database` avec les bons arguments et retour préservé. Couvre : FileRepository (13), RoutingRepository (7), InstrumentRepository (21), PresetRepository (5), SessionRepository (4), PlaylistRepository (11), LightingRepository (13), DeviceSettingsRepository (3), StringInstrumentRepository (16 via sub-module `stringInstrumentDB`). | `tests/repositories/repository-delegations.test.js` (créé) | (ce commit) | **415/415 tests verts** (+94). Filet de sécurité sur l'intégrité de la couche Repository — toute divergence future de signature sera détectée. |
 | 2026-04-17 | Claude (refactoring) | P1-4.x-tests | Tests unitaires Jest sur les 2 fonctions pures extraites en Phase 4 : `planChannelRouting` (P1-4.1) avec 14 tests (guards NaN/empty/skip-channel/skip-device, insert payloads, virtual-instrument exception, targetChannel parsing, metadata preservation same/different device, note_remapping JSON serialisation, `now` override) ; `computeRoutingStatus` (P1-4.2) avec 11 tests (unrouted/partial/playable/routed_incomplete, null scores = manual routings, disabled filtering, connected-devices filter, isAdapted, hasAutoAssigned, channelCount fallback). 310/310 puis 321/321 tests verts. | `tests/services/routing-plan-channel.test.js` (créé), `tests/services/routing-status.test.js` (créé) | (ce commit) | Démontre la testabilité unitaire gagnée par les extractions P1-4.x (fonctions pures, zéro I/O, mocks-free). |
@@ -233,7 +234,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
-| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4522 (-4.8%, F.1+F.2+F.3+F.4 cumul) |
+| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4496 (-5.3%, F.1+F.2+F.3+F.4+F.4b cumul) |
 | `MidiSynthesizer.js` LOC | 1192 | < 720 (-40 %) | 1116 (-6.4%, P2-F.8) |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | **backend 437/437** ; nouveautés session : schema-compiler×30, repository-delegations×94, domain services×47 (routing-plan-channel×14, routing-status×11, device-reconciliation×10, file-routing-sync×12), contract×40+ (playback+routing), correlation-id×3, command-metrics×4, routing-integration×7, bluetooth-port×11, transaction-helper×3 |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
