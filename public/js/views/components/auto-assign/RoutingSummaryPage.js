@@ -91,6 +91,9 @@ function renderChannelHistogram(channelAnalysis, transposition = 0) {
 class RoutingSummaryPage {
   constructor(apiClient) {
     this.api = apiClient;
+    // P2-F.2 : centralised API facade. `this.api` kept for components that
+    // still wrap it (e.g. AudioPreview) until they migrate too.
+    this.apiClient = new window.RoutingSummaryApi(apiClient);
     this.fileId = null;
     this.filename = null;
     this.channels = [];
@@ -219,16 +222,13 @@ class RoutingSummaryPage {
       } catch (e) { /* ignore */ }
 
       // Generate auto-assignment suggestions (splits disabled — user adds instruments manually)
-      const response = await this.api.sendCommand('generate_assignment_suggestions', {
-        fileId: fileId,
+      const response = await this.apiClient.generateSuggestions({
+        fileId,
         topN: 5,
         minScore: 30,
-        excludeVirtual: excludeVirtual,
+        excludeVirtual,
         includeMatrix: false,
-        scoringOverrides: {
-          ...this.scoringOverrides,
-          splitting: { ...(this.scoringOverrides?.splitting || {}), triggerBelowScore: 0 }
-        }
+        scoringOverrides: this.scoringOverrides
       });
 
       if (!response.success) {
@@ -253,7 +253,7 @@ class RoutingSummaryPage {
       // Check for existing saved routings before using auto-selection
       let savedRoutings = [];
       try {
-        const savedResp = await this.api.sendCommand('get_file_routings', { fileId });
+        const savedResp = await this.apiClient.getSavedRoutings(fileId);
         if (savedResp?.success && savedResp.routings?.length > 0) {
           savedRoutings = savedResp.routings;
         }
@@ -358,7 +358,7 @@ class RoutingSummaryPage {
 
       // Load MIDI data for preview minimap
       try {
-        const fileResponse = await this.api.sendCommand('file_read', { fileId });
+        const fileResponse = await this.apiClient.readFile(fileId);
         if (fileResponse?.midiData) {
           const raw = fileResponse.midiData;
           this.midiData = (raw.midi && raw.midi.tracks)
@@ -3239,7 +3239,7 @@ class RoutingSummaryPage {
 
     try {
       // Use apply_assignments which handles both normal and split routings
-      const result = await this.api.sendCommand('apply_assignments', {
+      const result = await this.apiClient.applyAssignments({
         originalFileId: this.fileId,
         assignments,
         createAdaptedFile: needsFileModification,
@@ -4538,16 +4538,13 @@ class RoutingSummaryPage {
         if (saved.virtualInstrument) excludeVirtual = false;
       } catch (e) { /* ignore */ }
 
-      const response = await this.api.sendCommand('generate_assignment_suggestions', {
+      const response = await this.apiClient.generateSuggestions({
         fileId: this.fileId,
         topN: 5,
         minScore: this.scoringOverrides.scoreThresholds?.minimum || 30,
-        excludeVirtual: excludeVirtual,
+        excludeVirtual,
         includeMatrix: false,
-        scoringOverrides: {
-          ...this.scoringOverrides,
-          splitting: { ...(this.scoringOverrides?.splitting || {}), triggerBelowScore: 0 }
-        }
+        scoringOverrides: this.scoringOverrides
       });
 
       if (!response.success) {

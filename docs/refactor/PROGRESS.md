@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-OBS.2 + P2-OBS.3 |
-| Prochain lot suggéré | **P1-4.5b** (NobleBleAdapter réel + rewire BluetoothManager) OU **P2-F.9** (migrer vers layout `public/js/features/`) — les items critiques du plan sont tous livrés. |
+| Dernier lot terminé | P2-F.2 |
+| Prochain lot suggéré | **P1-4.5b** (NobleBleAdapter réel + rewire BluetoothManager) OU **P2-F.3** (étape 3 : extraire logique d'état de RoutingSummaryPage). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -106,7 +106,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 ### Phase 2-frontend (P2)
 
 - [x] **P2-F.1** Protocole 5 étapes sur `RoutingSummaryPage.js` (≈4748 LOC) — étape 1 : extraire constantes vers `RoutingSummaryConstants.js` (136 LOC, exposé sur `window.RoutingSummaryConstants`). RoutingSummaryPage.js : 4748 → 4661 LOC (-87, -1.8%). Sera réduit davantage aux étapes suivantes (API, état, sous-composants, orchestrateur).
-- [ ] **P2-F.2** `RoutingSummaryPage.js` — étape 2 : extraire accès API.
+- [x] **P2-F.2** `RoutingSummaryPage.js` — étape 2 : extraire accès API. Nouveau `RoutingSummaryApi.js` (73 LOC) expose `generateSuggestions`, `getSavedRoutings`, `readFile`, `applyAssignments`. Les 5 call sites `this.api.sendCommand(...)` réduits à 5 appels nommés sur `this.apiClient.*`. Noms de commandes centralisés → prêts pour ADR-003 versioning si besoin.
 - [ ] **P2-F.3** `RoutingSummaryPage.js` — étape 3 : extraire logique d'état.
 - [ ] **P2-F.4** `RoutingSummaryPage.js` — étape 4 : extraire rendu UI en sous-composants.
 - [ ] **P2-F.5** `RoutingSummaryPage.js` — étape 5 : orchestrateur léger.
@@ -130,6 +130,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.2 | Étape 2 du protocole 5 étapes sur `RoutingSummaryPage.js`. Nouveau `RoutingSummaryApi.js` (73 LOC) : facade thin autour des 4 commandes WS utilisées (`generate_assignment_suggestions`, `get_file_routings`, `file_read`, `apply_assignments`). `RoutingSummaryPage` instancie `this.apiClient = new window.RoutingSummaryApi(api)` dans le constructor ; les 5 call sites migrés. `this.api` conservé (utilisé par AudioPreview non migré). | `public/js/views/components/auto-assign/RoutingSummaryApi.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe vérifiée (`node --check`). Permet l'évolution centralisée des payloads (ADR-003 `_vN`). |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.2+3 | Métrique temps de traitement via EventBus pour tous les flux (playback + routing + adaptation + autres). `CommandRegistry.handle` émet `ws.command.completed` avec `{ command, cid, duration, success, errorCode? }` en success ET error. 4 tests unitaires dans `tests/api/command-metrics.test.js` (success, ValidationError→ERR_VALIDATION, Error brut→ERR_INTERNAL, absence d'EventBus n'est pas fatale). | `src/api/CommandRegistry.js`, `tests/api/command-metrics.test.js` (créé) | (ce commit) | 294/294 tests verts. Aucun changement de format WS — purement événement interne. OBS.2 et OBS.3 clôturés d'un même trait : le tag unifie les domaines. |
 | 2026-04-17 | Claude (refactoring) | P2-OBS.1 | Correlation ID par commande WS. `CommandRegistry.handle` tag désormais tous les logs info + error avec `[cmd=<command> cid=<id>]`. CID = `message.id` (par défaut, toujours envoyé par le client) ou fallback `_generateCid()` (base36 8-char) si absent. Tests ajoutés : `tests/api/correlation-id.test.js` (3 tests : usage normal, fallback, trace sur erreur). | `src/api/CommandRegistry.js`, `tests/api/correlation-id.test.js` (créé) | (ce commit) | 290/290 tests verts. Première observabilité Phase 2. Pas de changement de format de message WS. |
 | 2026-04-17 | Claude (refactoring) | P2-F.6+F.8 | Étape 1 du protocole 5 étapes sur `MidiSynthesizer.js` (SOUND_BANKS array of 7 banks + DEFAULT_BANK_ID/SUFFIX) et `MidiEditorCCPanel.js` (ALWAYS_VISIBLE_CC_TYPES, STATIC_CC_TYPES, NOTE_NAMES, avec variantes `*_SET` pré-instanciées). Nouveaux fichiers `MidiSynthesizerConstants.js` (37 LOC) et `MidiEditorCCPanelConstants.js` (33 LOC). `public/index.html` mis à jour. `node --check` propre. MidiSynthesizer.js : 1192→1116 LOC (-76). P2-F.7 (Tablature) reporté : aucune constante module-level identifiable à cette étape ; l'extraction viendra à l'étape 4 (sous-composants). | `public/js/audio/MidiSynthesizerConstants.js` (créé), `public/js/audio/MidiSynthesizer.js`, `public/js/views/components/midi-editor/MidiEditorCCPanelConstants.js` (créé), `public/js/views/components/midi-editor/MidiEditorCCPanel.js`, `public/index.html` | (ce commit) | Pattern IIFE + `window.*Constants` uniforme avec P2-F.1. |
