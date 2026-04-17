@@ -3,7 +3,7 @@
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
 async function playlistCreate(app, data) {
-  const playlistId = app.database.insertPlaylist({
+  const playlistId = app.playlistRepository.save({
     name: data.name,
     description: data.description
   });
@@ -11,12 +11,12 @@ async function playlistCreate(app, data) {
 }
 
 async function playlistDelete(app, data) {
-  app.database.deletePlaylist(data.playlistId);
+  app.playlistRepository.delete(data.playlistId);
   return { success: true };
 }
 
 async function playlistList(app) {
-  const playlists = app.database.getPlaylists();
+  const playlists = app.playlistRepository.findAll();
   return { playlists: playlists };
 }
 
@@ -24,11 +24,11 @@ async function playlistGet(app, data) {
   if (!data.playlistId) {
     throw new ValidationError('playlistId is required', 'playlistId');
   }
-  const playlist = app.database.getPlaylist(data.playlistId);
+  const playlist = app.playlistRepository.findById(data.playlistId);
   if (!playlist) {
     throw new NotFoundError('Playlist', data.playlistId);
   }
-  const items = app.database.getPlaylistItems(data.playlistId);
+  const items = app.playlistRepository.findItems(data.playlistId);
   return { playlist, items };
 }
 
@@ -39,7 +39,7 @@ async function playlistAddFile(app, data) {
   if (!data.midiId) {
     throw new ValidationError('midiId is required', 'midiId');
   }
-  const itemId = app.database.addPlaylistItem(data.playlistId, data.midiId, data.position);
+  const itemId = app.playlistRepository.addItem(data.playlistId, data.midiId, data.position);
   return { success: true, itemId };
 }
 
@@ -47,7 +47,7 @@ async function playlistRemoveFile(app, data) {
   if (!data.itemId) {
     throw new ValidationError('itemId is required', 'itemId');
   }
-  app.database.removePlaylistItem(data.itemId);
+  app.playlistRepository.removeItem(data.itemId);
   return { success: true };
 }
 
@@ -55,7 +55,7 @@ async function playlistReorder(app, data) {
   if (!data.playlistId || !data.itemId || data.newPosition === undefined) {
     throw new ValidationError('playlistId, itemId, and newPosition are required', 'playlistId,itemId,newPosition');
   }
-  app.database.reorderPlaylistItem(data.playlistId, data.itemId, data.newPosition);
+  app.playlistRepository.reorderItem(data.playlistId, data.itemId, data.newPosition);
   return { success: true };
 }
 
@@ -63,7 +63,7 @@ async function playlistSetLoop(app, data) {
   if (!data.playlistId) {
     throw new ValidationError('playlistId is required', 'playlistId');
   }
-  app.database.updatePlaylistLoop(data.playlistId, data.loop);
+  app.playlistRepository.updateLoop(data.playlistId, data.loop);
   return { success: true };
 }
 
@@ -71,7 +71,7 @@ async function playlistClear(app, data) {
   if (!data.playlistId) {
     throw new ValidationError('playlistId is required', 'playlistId');
   }
-  app.database.clearPlaylistItems(data.playlistId);
+  app.playlistRepository.clearItems(data.playlistId);
   return { success: true };
 }
 
@@ -79,7 +79,7 @@ async function playlistUpdateSettings(app, data) {
   if (!data.playlistId) {
     throw new ValidationError('playlistId is required', 'playlistId');
   }
-  const playlist = app.database.getPlaylist(data.playlistId);
+  const playlist = app.playlistRepository.findById(data.playlistId);
   if (!playlist) {
     throw new NotFoundError('Playlist', data.playlistId);
   }
@@ -88,7 +88,7 @@ async function playlistUpdateSettings(app, data) {
   if (data.gap_seconds !== undefined) settings.gap_seconds = data.gap_seconds;
   if (data.shuffle !== undefined) settings.shuffle = data.shuffle;
 
-  app.database.updatePlaylistSettings(data.playlistId, settings);
+  app.playlistRepository.updateSettings(data.playlistId, settings);
   return { success: true };
 }
 
@@ -97,12 +97,12 @@ async function playlistStart(app, data) {
     throw new ValidationError('playlistId is required', 'playlistId');
   }
 
-  const playlist = app.database.getPlaylist(data.playlistId);
+  const playlist = app.playlistRepository.findById(data.playlistId);
   if (!playlist) {
     throw new NotFoundError('Playlist', data.playlistId);
   }
 
-  const items = app.database.getPlaylistItems(data.playlistId);
+  const items = app.playlistRepository.findItems(data.playlistId);
   if (items.length === 0) {
     throw new ValidationError('Playlist is empty');
   }
