@@ -405,6 +405,30 @@ class InstrumentSettingsDB {
       throw error;
     }
   }
+
+  /**
+   * Delete instrument settings rows for a device (optionally scoped to one channel).
+   * Encapsulates raw `DELETE FROM instruments_latency` SQL previously duplicated
+   * in handlers (P0-2.5e).
+   * @param {string} deviceId
+   * @param {number} [channel] - If provided, only delete this channel.
+   * @returns {number} Rows affected.
+   */
+  deleteByDevice(deviceId, channel) {
+    try {
+      if (channel !== undefined && channel !== null) {
+        return this.db.prepare(
+          'DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        ).run(deviceId, channel).changes;
+      }
+      return this.db.prepare(
+        'DELETE FROM instruments_latency WHERE device_id = ?'
+      ).run(deviceId).changes;
+    } catch (error) {
+      this.logger.error(`Failed to delete instrument settings: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 export default InstrumentSettingsDB;

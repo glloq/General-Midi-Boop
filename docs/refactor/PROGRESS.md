@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.5j |
-| Prochain lot suggéré | P0-2.5l (DeviceCommands, 14 calls) ou P0-2.5m (VirtualInstrumentCommands, 11 calls) |
+| Dernier lot terminé | P0-2.5m |
+| Prochain lot suggéré | P0-2.5l (DeviceCommands, 14 calls) ou P0-2.5n (InstrumentSettingsCommands, 33 calls, le plus lourd) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -80,7 +80,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
   - [x] **P0-2.5j** `StringInstrumentCommands.js` + nouveau `StringInstrumentRepository` (18 call sites réels — un handler d'un call site peut faire plusieurs patterns sub-module).
   - [x] **P0-2.5k** `DeviceSettingsCommands.js` + nouveau `DeviceSettingsRepository` (3 appels).
   - [ ] **P0-2.5l** `DeviceCommands.js` (14 appels, majoritairement instrument-settings).
-  - [ ] **P0-2.5m** `VirtualInstrumentCommands.js` (11 appels, mixe SQL inline).
+  - [x] **P0-2.5m** `VirtualInstrumentCommands.js` (11 appels, y compris 1 SQL inline `DELETE FROM instruments_latency` encapsulé dans nouvelle méthode `InstrumentSettingsDB.deleteByDevice(deviceId, channel?)`).
   - [ ] **P0-2.5n** `InstrumentSettingsCommands.js` (33 appels, le plus lourd).
   - [x] **P0-2.5o** `SystemCommands.js` (`getFiles('/')` → `fileRepository.findByFolder` ; `database.backup()` conservé car op admin du fichier DB, pas du domaine).
 - [ ] **P0-2.6** Tests d'intégration DB : split / no-split / overwrite.
@@ -127,6 +127,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P0-2.5m | `VirtualInstrumentCommands.js` (11 appels migrés). `InstrumentRepository` étendu : `updateSettings`, `getSettings`, `getAllSettings`, `findByDevice`, `deleteLatencyProfile`, `deleteSettingsByDevice`. Nouvelle méthode `InstrumentSettingsDB.deleteByDevice(deviceId, channel?)` encapsule le SQL inline `DELETE FROM instruments_latency`, exposée via `InstrumentDatabase.deleteInstrumentSettingsByDevice` et `Database.deleteInstrumentSettingsByDevice`. Préfigure P0-2.5e/P0-2.5n (même table côté InstrumentSettingsCommands). | `src/repositories/InstrumentRepository.js`, `src/storage/InstrumentSettingsDB.js`, `src/storage/InstrumentDatabase.js`, `src/storage/Database.js`, `src/api/commands/VirtualInstrumentCommands.js` | (ce commit) | 241/241 tests verts. Les guards `if (!app.database)` subsistent (boot-time guards). |
 | 2026-04-17 | Claude (refactoring) | P0-2.5j | Nouveau `StringInstrumentRepository` (15 méthodes, wrap `database.stringInstrumentDB`). `StringInstrumentCommands.js` migré : 18 call sites `app.database.stringInstrumentDB.*` → `app.stringInstrumentRepository.*`. Le repo masque le chemin sous-module. | `src/repositories/StringInstrumentRepository.js` (créé), `src/core/Application.js`, `src/api/commands/StringInstrumentCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5i | Nouveau `LightingRepository` (13 méthodes — devices/rules/presets). `LightingCommands.js` migré (25 appels). | `src/repositories/LightingRepository.js` (créé), `src/core/Application.js`, `src/api/commands/LightingCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5o | `SystemCommands.js` : `app.database.getFiles('/')` → `app.fileRepository.findByFolder('/')`. `app.database.backup(path)` conservé avec commentaire justificatif (op admin sur le fichier DB, pas du domaine métier). | `src/api/commands/SystemCommands.js` | (ce commit) | 241/241 tests verts. |

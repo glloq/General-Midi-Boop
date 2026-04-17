@@ -38,6 +38,30 @@ export default class InstrumentRepository {
     return this.database.updateInstrumentCapabilities(deviceId, channel, fields);
   }
 
+  updateSettings(deviceId, channel, fields) {
+    return this.database.updateInstrumentSettings(deviceId, channel, fields);
+  }
+
+  getSettings(deviceId, channel) {
+    return this.database.getInstrumentSettings(deviceId, channel);
+  }
+
+  getAllSettings(deviceId) {
+    return this.database.getInstrumentSettings(deviceId);
+  }
+
+  findByDevice(deviceId) {
+    return this.database.getInstrumentsByDevice(deviceId);
+  }
+
+  deleteLatencyProfile(deviceId) {
+    return this.database.deleteLatencyProfile(deviceId);
+  }
+
+  deleteSettingsByDevice(deviceId, channel) {
+    return this.database.deleteInstrumentSettingsByDevice(deviceId, channel);
+  }
+
   // Wrap a synchronous function in a SQLite transaction. Returns the
   // better-sqlite3 wrapper so callers can invoke it with their own arguments
   // (ADR-002 §Conventions — composite writes belong in the Repository layer).

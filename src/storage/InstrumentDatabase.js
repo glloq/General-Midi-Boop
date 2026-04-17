@@ -231,6 +231,7 @@ class InstrumentDatabase {
   findInstrumentByNormalizedName(...args) { return this._settings.findInstrumentByNormalizedName(...args); }
   reconcileDeviceId(...args) { return this._settings.reconcileDeviceId(...args); }
   deduplicateByUsbSerial(...args) { return this._settings.deduplicateByUsbSerial(...args); }
+  deleteInstrumentSettingsByDevice(...args) { return this._settings.deleteByDevice(...args); }
   static normalizeDeviceName(deviceId) { return InstrumentSettingsDB.normalizeDeviceName(deviceId); }
 
   // ==================== DELEGATED: INSTRUMENT CAPABILITIES ====================

@@ -763,6 +763,9 @@ class DatabaseManager {
   deleteLatencyProfile(deviceId) {
     return this.instrumentDB.deleteLatencyProfile(deviceId);
   }
+  deleteInstrumentSettingsByDevice(...args) {
+    return this.instrumentDB.deleteInstrumentSettingsByDevice(...args);
+  }
 
   // Presets
   insertPreset(preset) {
