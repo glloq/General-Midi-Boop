@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.5o |
-| Prochain lot suggéré | P0-2.5i (LightingCommands + LightingRepository, 25 calls) |
+| Dernier lot terminé | P0-2.5i |
+| Prochain lot suggéré | P0-2.5j (StringInstrumentCommands + StringInstrumentRepository, 38 calls via sous-module) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -76,7 +76,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
   - [x] **P0-2.5f** `PresetCommands.js` + nouveau `PresetRepository` (6 appels).
   - [x] **P0-2.5g** `SessionCommands.js` + nouveau `SessionRepository` (6 appels).
   - [x] **P0-2.5h** `PlaylistCommands.js` + nouveau `PlaylistRepository` (14 appels).
-  - [ ] **P0-2.5i** `LightingCommands.js` + nouveau `LightingRepository` (25 appels, sub-DB `LightingDatabase`).
+  - [x] **P0-2.5i** `LightingCommands.js` + nouveau `LightingRepository` (25 appels).
   - [ ] **P0-2.5j** `StringInstrumentCommands.js` + nouveau `StringInstrumentRepository` (38 appels via sous-module).
   - [x] **P0-2.5k** `DeviceSettingsCommands.js` + nouveau `DeviceSettingsRepository` (3 appels).
   - [ ] **P0-2.5l** `DeviceCommands.js` (14 appels, majoritairement instrument-settings).
@@ -127,6 +127,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P0-2.5i | Nouveau `LightingRepository` (13 méthodes — devices/rules/presets). `LightingCommands.js` migré (25 appels). | `src/repositories/LightingRepository.js` (créé), `src/core/Application.js`, `src/api/commands/LightingCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5o | `SystemCommands.js` : `app.database.getFiles('/')` → `app.fileRepository.findByFolder('/')`. `app.database.backup(path)` conservé avec commentaire justificatif (op admin sur le fichier DB, pas du domaine métier). | `src/api/commands/SystemCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5k | Nouveau `DeviceSettingsRepository` (findByDeviceId, ensureDevice, update). `DeviceSettingsCommands.js` migré (3 appels). | `src/repositories/DeviceSettingsRepository.js` (créé), `src/core/Application.js`, `src/api/commands/DeviceSettingsCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5h | Nouveau `PlaylistRepository` (51 LOC, 11 méthodes) : save, delete, findAll, findById, findItems, addItem, removeItem, reorderItem, updateLoop, clearItems, updateSettings. `PlaylistCommands.js` migré (14 appels). | `src/repositories/PlaylistRepository.js` (créé), `src/core/Application.js`, `src/api/commands/PlaylistCommands.js` | (ce commit) | 241/241 tests verts. |
