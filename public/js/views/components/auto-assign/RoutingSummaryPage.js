@@ -3587,74 +3587,19 @@ class RoutingSummaryPage {
   }
 
   _drawMinimapFrame(playheadPct) {
-    const canvas = this._minimapCanvas;
-    if (!canvas || !canvas.parentNode) return; // Skip if canvas detached from DOM
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = this._minimapWidth || 400;
-    const h = this._minimapHeight || 32;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-
-    // Background
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() || '#f0f0f0';
-    ctx.fillRect(0, 0, w, h);
-
-    if (!this._minimapBuckets) return;
-
-    const CHANNEL_COLORS = [
-      '#3b82f6','#ef4444','#10b981','#f59e0b',
-      '#8b5cf6','#ec4899','#06b6d4','#84cc16',
-      '#f97316','#6366f1','#14b8a6','#e11d48',
-      '#a855f7','#0ea5e9','#22c55e','#eab308'
-    ];
-
-    // Split mode: draw per-segment rows with instrument colors (SPLIT_COLORS)
-    // Each instrument gets its own horizontal row, same layout as multi-channel view
-    if (this._minimapSplitMode && this._minimapSegments) {
-      const numSeg = this._minimapSegments.length;
-      const gap = numSeg > 1 ? 1 : 0; // 1px gap between rows for visual separation
-      const totalGap = gap * (numSeg - 1);
-      const rowH = (h - totalGap) / numSeg;
-      for (let si = 0; si < numSeg; si++) {
-        const seg = this._minimapSegments[si];
-        const buckets = this._minimapBuckets.get(seg);
-        if (!buckets) continue;
-        ctx.fillStyle = SPLIT_COLORS[seg % SPLIT_COLORS.length];
-        const rowTop = si * (rowH + gap);
-        for (let i = 0; i < w; i++) {
-          if (buckets[i]) ctx.fillRect(i, rowTop, 1, rowH);
-        }
-      }
-    } else if (this._minimapMultiChannel) {
-      const numCh = this._minimapChannels.length;
-      const rowH = h / numCh;
-      for (let ci = 0; ci < numCh; ci++) {
-        const ch = this._minimapChannels[ci];
-        const buckets = this._minimapBuckets.get(ch);
-        if (!buckets) continue;
-        ctx.fillStyle = CHANNEL_COLORS[ch % CHANNEL_COLORS.length];
-        const rowTop = ci * rowH;
-        for (let i = 0; i < w; i++) {
-          if (buckets[i]) ctx.fillRect(i, rowTop, 1, rowH);
-        }
-      }
-    } else {
-      ctx.fillStyle = '#4285f4';
-      for (let i = 0; i < w; i++) {
-        if (this._minimapBuckets[i]) ctx.fillRect(i, 0, 1, h);
-      }
-    }
-
-    // Playhead
-    if (playheadPct > 0 && playheadPct <= 1) {
-      const x = Math.floor(playheadPct * w);
-      ctx.fillStyle = '#ff4444';
-      ctx.fillRect(x, 0, 2, h);
-    }
+    // Canvas rendering delegated to RoutingSummaryMinimapRenderer (P2-F.4f).
+    window.RoutingSummaryMinimapRenderer.drawMinimapFrame({
+      canvas: this._minimapCanvas,
+      width: this._minimapWidth || 400,
+      height: this._minimapHeight || 32,
+      splitMode: this._minimapSplitMode,
+      segments: this._minimapSegments,
+      channels: this._minimapChannels,
+      multiChannel: this._minimapMultiChannel,
+      buckets: this._minimapBuckets,
+      playheadPct,
+      splitColors: SPLIT_COLORS
+    });
   }
 
   _extractNotesForMinimap(channelFilter, skipRangeFilter = false) {
