@@ -26,4 +26,11 @@ export default class RoutingRepository {
   deleteByFileId(fileId) {
     return this.database.deleteRoutingsByFile(fileId);
   }
+
+  // Wrap a synchronous function in a SQLite transaction. Returns the
+  // better-sqlite3 wrapper so callers can invoke it with their own arguments
+  // (ADR-002 §Conventions — composite writes belong in the Repository layer).
+  transaction(fn) {
+    return this.database.transaction(fn);
+  }
 }

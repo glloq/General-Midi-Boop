@@ -34,4 +34,11 @@ export default class FileRepository {
   getChannels(fileId) {
     return this.database.getFileChannels(fileId);
   }
+
+  // Wrap a synchronous function in a SQLite transaction. Returns the
+  // better-sqlite3 wrapper so callers can invoke it with their own arguments
+  // (ADR-002 §Conventions — composite writes belong in the Repository layer).
+  transaction(fn) {
+    return this.database.transaction(fn);
+  }
 }

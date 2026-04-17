@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.5b |
-| Prochain lot suggéré | P0-2.4 (helper `transaction(fn)` dans les Repositories) ou P0-2.5c (migrer `PlaybackAssignmentCommands.js` — 15 appels, dépend de 2.4 pour les splits) |
+| Dernier lot terminé | P0-2.4 |
+| Prochain lot suggéré | P0-2.5c (migrer `PlaybackAssignmentCommands.js` — 15 appels, peut maintenant utiliser `repo.transaction(fn)` pour les splits) ou P0-2.5d (migrer `FileCommands.js` — nécessite d'étendre `FileRepository`) |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -66,7 +66,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [x] **P0-2.1** Introduire `FileRepository` au-dessus de `MidiDatabase`.
 - [x] **P0-2.2** Introduire `RoutingRepository` au-dessus de `RoutingPersistenceDB` + `MidiRouter`.
 - [x] **P0-2.3** Introduire `InstrumentRepository` au-dessus de `InstrumentDatabase` + `InstrumentSettingsDB`.
-- [ ] **P0-2.4** Centraliser transactions/rollbacks dans la couche Repository.
+- [x] **P0-2.4** Centraliser transactions/rollbacks dans la couche Repository. *(helper `transaction(fn)` ajouté sur les 3 Repositories, délègue à `Database.transaction()` qui expose `db.transaction()` de better-sqlite3)*
 - [/] **P0-2.5** Retirer tous les accès SQL directs depuis `src/api/commands/**`. *(en cours — découpage en sous-lots a/b/c/d/e)*
   - [x] **P0-2.5a** Migrer les 3 handlers playback read-only (`PlaybackAnalysisCommands`, `PlaybackRoutingCommands`, `PlaybackControlCommands`) vers `fileRepository`/`routingRepository` — 5 call sites.
   - [x] **P0-2.5b** Migrer `RoutingCommands.js` (8 appels, tous couverts par `FileRepository` + `RoutingRepository` existants).
@@ -117,6 +117,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P0-2.4 | Ajout d'un helper `transaction(fn)` sur les 3 Repositories (`FileRepository`, `RoutingRepository`, `InstrumentRepository`). Chaque helper délègue à `Database.transaction()` (qui expose `db.transaction()` de better-sqlite3). Nouveau test `tests/repositories/transaction-helper.test.js` (3 tests, un par repo). | `src/repositories/FileRepository.js`, `src/repositories/RoutingRepository.js`, `src/repositories/InstrumentRepository.js`, `tests/repositories/transaction-helper.test.js` (créé) | (ce commit) | Débloque P0-2.5c (PlaybackAssignmentCommands utilise des transactions pour les splits). ADR-002 §Conventions 3 confirmé en implémentation. 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5b | Migration de `RoutingCommands.js` (8 appels : `deleteRoutingsByFile` ×3 → `routingRepository.deleteByFileId` ; `getRoutingsByFile` ×2 → `findByFileId` ; `getFileChannels` → `fileRepository.getChannels` ; `insertRouting` ×2 → `routingRepository.save`). Mock du contract test routing étendu : spies partagés entre `database.*` et `fileRepository`/`routingRepository` pour préserver les assertions existantes. | `src/api/commands/RoutingCommands.js`, `tests/contracts/routing.contract.test.js` | (ce commit) | 238/238 tests verts. Aucun `app.database.*` restant dans `RoutingCommands.js`. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5a | Migration des 3 handlers playback read-only vers `fileRepository`/`routingRepository` (5 call sites). Mock du contract test playback étendu avec `fileRepository`/`routingRepository`. Nouveau test de wiring `tests/api/playback-repository-wiring.test.js` (3 tests) qui prouve la délégation. Première utilisation effective des Repositories créés en P0-2.1→P0-2.3. | `src/api/commands/playback/PlaybackAnalysisCommands.js`, `src/api/commands/playback/PlaybackRoutingCommands.js`, `src/api/commands/playback/PlaybackControlCommands.js`, `tests/contracts/playback.contract.test.js`, `tests/api/playback-repository-wiring.test.js` (créé) | (ce commit) | 238/238 tests verts. Aucun appel `app.database.*` restant dans les 3 handlers touchés. Lint propre. |
 | 2026-04-17 | Claude (init) | — | Création plan de référence `REFACTORING_PLAN.md` | `docs/REFACTORING_PLAN.md` | `264ac1a` | Plan initial hybride V2→V3 |

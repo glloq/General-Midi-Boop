@@ -37,4 +37,11 @@ export default class InstrumentRepository {
   updateCapabilities(deviceId, channel, fields) {
     return this.database.updateInstrumentCapabilities(deviceId, channel, fields);
   }
+
+  // Wrap a synchronous function in a SQLite transaction. Returns the
+  // better-sqlite3 wrapper so callers can invoke it with their own arguments
+  // (ADR-002 §Conventions — composite writes belong in the Repository layer).
+  transaction(fn) {
+    return this.database.transaction(fn);
+  }
 }
