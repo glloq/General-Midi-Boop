@@ -18,7 +18,7 @@ async function applyAssignments(app, data) {
   const warnings = [];
   const midiConverter = getMidiConverter(app);
 
-  const originalFile = app.database.getFile(data.originalFileId);
+  const originalFile = app.fileRepository.findById(data.originalFileId);
   if (!originalFile) {
     throw new NotFoundError('File', data.originalFileId);
   }
@@ -167,7 +167,7 @@ async function applyAssignments(app, data) {
 
       if (overwriteOriginal) {
         try {
-          app.database.updateFile(data.originalFileId, {
+          app.fileRepository.update(data.originalFileId, {
             data: adaptedBuffer.toString('base64'),
             size: adaptedBuffer.length,
             tracks: adaptedMeta.tracks || originalFile.tracks,
@@ -186,7 +186,7 @@ async function applyAssignments(app, data) {
 
         let existingAdaptedId = null;
         try {
-          const existingFiles = app.database.getFiles(originalFile.folder);
+          const existingFiles = app.fileRepository.findByFolder(originalFile.folder);
           const existingAdapted = existingFiles.find(f =>
             f.parent_file_id === data.originalFileId && f.is_original === 0
           );
@@ -194,7 +194,7 @@ async function applyAssignments(app, data) {
         } catch (e) { app.logger.debug('Could not check for existing adapted file', e); }
 
         if (existingAdaptedId) {
-          app.database.updateFile(existingAdaptedId, {
+          app.fileRepository.update(existingAdaptedId, {
             data: adaptedBuffer.toString('base64'),
             size: adaptedBuffer.length,
             tracks: adaptedMeta.tracks || originalFile.tracks,
@@ -220,7 +220,7 @@ async function applyAssignments(app, data) {
             parent_file_id: data.originalFileId,
             ...(adaptedInstrumentMeta.fileMetadata || {})
           };
-          adaptedFileId = app.database.insertFile(adaptedFile);
+          adaptedFileId = app.fileRepository.save(adaptedFile);
           app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
         }
       }
@@ -259,7 +259,7 @@ async function applyAssignments(app, data) {
             created_at: Date.now()
           };
           try {
-            app.database.insertRouting(routing);
+            app.routingRepository.save(routing);
           } catch (dbError) {
             app.logger.warn(`Failed to persist routing for split segment ch ${resolvedCh}: ${dbError.message}`);
           }
@@ -302,7 +302,7 @@ async function applyAssignments(app, data) {
         });
 
         try {
-          app.database.insertSplitRoutings(targetFileId, channelNum, segments);
+          app.routingRepository.saveSplit(targetFileId, channelNum, segments);
         } catch (dbError) {
           app.logger.warn(`Failed to persist split routings for channel ${channelNum}: ${dbError.message}`);
         }
@@ -341,7 +341,7 @@ async function applyAssignments(app, data) {
     };
 
     try {
-      app.database.insertRouting(routing);
+      app.routingRepository.save(routing);
     } catch (dbError) {
       app.logger.warn(`Failed to persist routing for channel ${channelNum}: ${dbError.message}`);
     }
@@ -369,7 +369,7 @@ async function applyAssignments(app, data) {
 
 async function validateInstrumentCapabilities(app) {
   const validator = new InstrumentCapabilitiesValidator();
-  const instruments = app.database.getInstrumentsWithCapabilities();
+  const instruments = app.instrumentRepository.findAllWithCapabilities();
   const validation = validator.validateInstruments(instruments);
 
   return {
@@ -384,7 +384,7 @@ async function validateInstrumentCapabilities(app) {
 
 async function getInstrumentDefaults(app, data) {
   const validator = new InstrumentCapabilitiesValidator();
-  const instrument = app.database.getInstrument(data.instrumentId);
+  const instrument = app.instrumentRepository.findById(data.instrumentId);
 
   if (!instrument) {
     throw new NotFoundError('Instrument', data.instrumentId);
@@ -395,7 +395,7 @@ async function getInstrumentDefaults(app, data) {
   let currentCapabilities = null;
   if (instrument.device_id) {
     try {
-      currentCapabilities = app.database.getInstrumentCapabilities(
+      currentCapabilities = app.instrumentRepository.getCapabilities(
         instrument.device_id, instrument.channel || 0
       );
     } catch (e) {
@@ -421,7 +421,7 @@ async function updateInstrumentCapabilities(app, data) {
   for (const [instrumentId, fields] of Object.entries(data.updates)) {
     try {
       const id = parseInt(instrumentId);
-      const instrument = app.database.getInstrument(id);
+      const instrument = app.instrumentRepository.findById(id);
 
       if (!instrument) {
         failed.push({ instrumentId: id, error: 'Instrument not found' });
@@ -442,12 +442,12 @@ async function updateInstrumentCapabilities(app, data) {
       }
 
       if (Object.keys(basicFields).length > 0) {
-        app.database.updateInstrument(id, basicFields);
+        app.instrumentRepository.update(id, basicFields);
       }
 
       if (Object.keys(capabilityFields).length > 0) {
         const channel = fields.channel !== undefined ? fields.channel : (instrument.channel || 0);
-        app.database.updateInstrumentCapabilities(instrument.device_id, channel, capabilityFields);
+        app.instrumentRepository.updateCapabilities(instrument.device_id, channel, capabilityFields);
       }
 
       updated.push(id);
@@ -470,7 +470,7 @@ async function getFileRoutings(app, data) {
     throw new ValidationError('fileId is required', 'fileId');
   }
 
-  const routings = app.database.getRoutingsByFile(data.fileId);
+  const routings = app.routingRepository.findByFileId(data.fileId);
   return { success: true, routings, count: routings.length };
 }
 

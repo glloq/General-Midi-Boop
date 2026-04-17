@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P0-2.5n (= P0-2.5e) |
-| Prochain lot suggéré | P0-2.5c (PlaybackAssignmentCommands, 15 appels, transactions splits) |
+| Dernier lot terminé | P0-2.5c |
+| Prochain lot suggéré | P0-2.6 (tests d'intégration DB : split / no-split / overwrite) — Phase 2 Repositories quasi terminée. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -67,10 +67,10 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [x] **P0-2.2** Introduire `RoutingRepository` au-dessus de `RoutingPersistenceDB` + `MidiRouter`.
 - [x] **P0-2.3** Introduire `InstrumentRepository` au-dessus de `InstrumentDatabase` + `InstrumentSettingsDB`.
 - [x] **P0-2.4** Centraliser transactions/rollbacks dans la couche Repository. *(helper `transaction(fn)` ajouté sur les 3 Repositories, délègue à `Database.transaction()` qui expose `db.transaction()` de better-sqlite3)*
-- [/] **P0-2.5** Retirer tous les accès SQL directs depuis `src/api/commands/**`. *(en cours — découpage en sous-lots a/b/c/d/e)*
+- [x] **P0-2.5** Retirer tous les accès SQL directs depuis `src/api/commands/**`. *(terminé — seul `app.database.backup()` dans `SystemCommands.js` conservé avec commentaire justificatif : op admin du fichier DB, hors domaine métier)*
   - [x] **P0-2.5a** Migrer les 3 handlers playback read-only (`PlaybackAnalysisCommands`, `PlaybackRoutingCommands`, `PlaybackControlCommands`) vers `fileRepository`/`routingRepository` — 5 call sites.
   - [x] **P0-2.5b** Migrer `RoutingCommands.js` (8 appels, tous couverts par `FileRepository` + `RoutingRepository` existants).
-  - [ ] **P0-2.5c** Migrer `PlaybackAssignmentCommands.js` (15 appels ; attention aux transactions split/overwrite → dépend de P0-2.4).
+  - [x] **P0-2.5c** Migrer `PlaybackAssignmentCommands.js` (15 appels migrés vers `fileRepository`/`routingRepository`/`instrumentRepository`).
   - [x] **P0-2.5d** Migrer `FileCommands.js` (8 appels ; `FileRepository` étendu de 5 méthodes : `search`, `filter`, `countNeedingReanalysis`, `getDistinctInstruments`, `getDistinctCategories`).
   - [x] **P0-2.5e** Encapsuler le SQL inline de `InstrumentSettingsCommands.js` L292-316 et `VirtualInstrumentCommands.js` L133 (réalisé avec P0-2.5m + P0-2.5n via `InstrumentSettingsDB.deleteByDevice`, `StringInstrumentDatabase.deleteByDevice`, `RoutingPersistenceDB.deleteRoutingsByDevice`).
   - [x] **P0-2.5f** `PresetCommands.js` + nouveau `PresetRepository` (6 appels).
@@ -127,6 +127,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P0-2.5c | `PlaybackAssignmentCommands.js` (15 appels migrés vers `fileRepository`/`routingRepository`/`instrumentRepository`). Dernier handler à accès DB direct. | `src/api/commands/playback/PlaybackAssignmentCommands.js` | (ce commit) | 241/241 tests verts. **Fin de P0-2.5** : seul `app.database.backup()` conservé (exception admin documentée). |
 | 2026-04-17 | Claude (refactoring) | P0-2.5n | `InstrumentSettingsCommands.js` (33 appels migrés, y compris 6 SQL inline encapsulés). `InstrumentRepository.getAllCapabilities` ajouté. Nouvelles méthodes sub-DB : `StringInstrumentDatabase.deleteByDevice(deviceId, channel?)`, `RoutingPersistenceDB.deleteRoutingsByDevice(deviceId, channel?)`. Exposées via `Database` façade et repositories (`stringInstrumentRepository.deleteByDevice`, `routingRepository.deleteByDevice`). Clôt P0-2.5e. | `src/api/commands/InstrumentSettingsCommands.js`, `src/storage/StringInstrumentDatabase.js`, `src/storage/RoutingPersistenceDB.js`, `src/storage/InstrumentDatabase.js`, `src/storage/Database.js`, `src/repositories/InstrumentRepository.js`, `src/repositories/StringInstrumentRepository.js`, `src/repositories/RoutingRepository.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5l | `DeviceCommands.js` (14 appels migrés). `InstrumentRepository` étendu : findByUsbSerial, findByMac, findByNormalizedName, reconcileDeviceId, deduplicateByUsbSerial, saveSysExIdentity. Usage de `deviceSettingsRepository` pour getDeviceSettings. | `src/repositories/InstrumentRepository.js`, `src/api/commands/DeviceCommands.js` | (ce commit) | 241/241 tests verts. |
 | 2026-04-17 | Claude (refactoring) | P0-2.5m | `VirtualInstrumentCommands.js` (11 appels migrés). `InstrumentRepository` étendu : `updateSettings`, `getSettings`, `getAllSettings`, `findByDevice`, `deleteLatencyProfile`, `deleteSettingsByDevice`. Nouvelle méthode `InstrumentSettingsDB.deleteByDevice(deviceId, channel?)` encapsule le SQL inline `DELETE FROM instruments_latency`, exposée via `InstrumentDatabase.deleteInstrumentSettingsByDevice` et `Database.deleteInstrumentSettingsByDevice`. Préfigure P0-2.5e/P0-2.5n (même table côté InstrumentSettingsCommands). | `src/repositories/InstrumentRepository.js`, `src/storage/InstrumentSettingsDB.js`, `src/storage/InstrumentDatabase.js`, `src/storage/Database.js`, `src/api/commands/VirtualInstrumentCommands.js` | (ce commit) | 241/241 tests verts. Les guards `if (!app.database)` subsistent (boot-time guards). |
