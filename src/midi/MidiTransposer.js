@@ -573,39 +573,6 @@ class MidiTransposer {
   }
 
   /**
-   * Generate adaptation metadata for a derived file
-   * @param {Object} assignments - Applied assignments
-   * @param {Object} stats - Transposition statistics
-   * @returns {Object}
-   */
-  generateAdaptationMetadata(assignments, stats) {
-    const transpositions = {};
-
-    for (const [channel, assignment] of Object.entries(assignments)) {
-      const channelNum = parseInt(channel);
-      const transposition = assignment.transposition || { semitones: 0, octaves: 0 };
-      const noteRemapping = assignment.noteRemapping || null;
-
-      transpositions[channelNum] = {
-        semitones: transposition.semitones || 0,
-        octaves: transposition.octaves || 0,
-        noteRemapping,
-        reason: assignment.info ? (Array.isArray(assignment.info) ? assignment.info.join('; ') : String(assignment.info)) : 'Auto-assigned'
-      };
-    }
-
-    return {
-      created_at: new Date().toISOString(),
-      strategy: 'octave_preserving',
-      transpositions,
-      notes_changed: stats.notesChanged || 0,
-      notes_remapped: stats.notesRemapped || 0,
-      notes_suppressed: stats.notesSuppressed || 0,
-      total_notes: stats.totalNotes || 0
-    };
-  }
-
-  /**
    * Physically split a MIDI channel into N separate channels in the file.
    * Each segment gets a copy of the source channel's events, filtered to its note range.
    * Control events (CC, pitch bend, program change) are broadcast to all target channels.

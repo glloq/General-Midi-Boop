@@ -3,7 +3,7 @@ import { buildDynamicUpdate } from './dbHelpers.js';
 
 // All columns except 'data' (large base64 BLOB) for listing queries
 const LIST_COLUMNS = `id, filename, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-  is_original, parent_file_id, adaptation_metadata,
+  is_original, parent_file_id,
   instrument_types, channel_count, note_range_min, note_range_max,
   has_drums, has_melody, has_bass`;
 
@@ -24,10 +24,10 @@ class MidiDatabase {
         stmt = this.db.prepare(`
           INSERT INTO midi_files (
             filename, data_blob, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-            is_original, parent_file_id, adaptation_metadata,
+            is_original, parent_file_id,
             instrument_types, channel_count, note_range_min, note_range_max,
             has_drums, has_melody, has_bass
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Convert base64 string to Buffer for BLOB storage
         dataValue = (typeof file.data === 'string') ? Buffer.from(file.data, 'base64') : file.data;
@@ -35,10 +35,10 @@ class MidiDatabase {
         stmt = this.db.prepare(`
           INSERT INTO midi_files (
             filename, data, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-            is_original, parent_file_id, adaptation_metadata,
+            is_original, parent_file_id,
             instrument_types, channel_count, note_range_min, note_range_max,
             has_drums, has_melody, has_bass
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         dataValue = file.data;
       }
@@ -55,7 +55,6 @@ class MidiDatabase {
         file.folder || '/',
         file.is_original !== undefined ? (file.is_original ? 1 : 0) : 1,
         file.parent_file_id || null,
-        file.adaptation_metadata || null,
         file.instrument_types || '[]',
         file.channel_count || 0,
         file.note_range_min ?? null,
@@ -133,7 +132,7 @@ class MidiDatabase {
       const result = buildDynamicUpdate('midi_files', updates, [
         'filename', 'data', 'data_blob', 'size', 'tracks', 'duration',
         'tempo', 'ppq', 'folder', 'is_original', 'parent_file_id',
-        'adaptation_metadata', 'instrument_types', 'channel_count',
+        'instrument_types', 'channel_count',
         'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass'
       ]);
       if (!result) return;

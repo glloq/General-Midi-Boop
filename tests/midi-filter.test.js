@@ -44,7 +44,6 @@ function createTestDb() {
       folder TEXT DEFAULT '/',
       is_original BOOLEAN DEFAULT 1,
       parent_file_id INTEGER,
-      adaptation_metadata TEXT,
       instrument_types TEXT DEFAULT '[]',
       channel_count INTEGER DEFAULT 0,
       note_range_min INTEGER,

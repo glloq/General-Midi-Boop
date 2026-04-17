@@ -587,18 +587,6 @@ describe('MidiTransposer', () => {
 
     expect(transposer.countAllNotes(midiData)).toBe(2);
   });
-
-  test('generateAdaptationMetadata creates correct structure', () => {
-    const metadata = transposer.generateAdaptationMetadata(
-      { 0: { transposition: { semitones: 12, octaves: 1 }, info: ['test'] } },
-      { notesChanged: 10, notesRemapped: 0, totalNotes: 100 }
-    );
-
-    expect(metadata.strategy).toBe('octave_preserving');
-    expect(metadata.notes_changed).toBe(10);
-    expect(metadata.transpositions[0].semitones).toBe(12);
-    expect(metadata.created_at).toBeDefined();
-  });
 });
 
 // ============================================================

@@ -607,9 +607,6 @@ async function applyAssignments(app, data) {
         throw new MidiError(`Failed to convert adapted MIDI: ${error.message}`);
       }
 
-      // Generate adaptation metadata
-      const metadata = transposer.generateAdaptationMetadata(data.assignments, stats);
-
       // Recalculate metadata from the adapted binary (correct track/channel counts)
       let adaptedMeta = { duration: originalFile.duration, tempo: originalFile.tempo, tracks: originalFile.tracks };
       let adaptedInstrumentMeta = {};
@@ -634,7 +631,6 @@ async function applyAssignments(app, data) {
             duration: adaptedMeta.duration || originalFile.duration,
             tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
             ppq: originalFile.ppq,
-            adaptation_metadata: JSON.stringify(metadata),
             ...(adaptedInstrumentMeta.fileMetadata || {})
           });
           // Use original file as target for routings
@@ -666,7 +662,6 @@ async function applyAssignments(app, data) {
             duration: adaptedMeta.duration || originalFile.duration,
             tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
             ppq: originalFile.ppq,
-            adaptation_metadata: JSON.stringify(metadata),
             ...(adaptedInstrumentMeta.fileMetadata || {})
           });
           adaptedFileId = existingAdaptedId;
@@ -685,7 +680,6 @@ async function applyAssignments(app, data) {
             folder: originalFile.folder,
             is_original: false,
             parent_file_id: data.originalFileId,
-            adaptation_metadata: JSON.stringify(metadata),
             ...(adaptedInstrumentMeta.fileMetadata || {})
           };
           adaptedFileId = app.database.insertFile(adaptedFile);
