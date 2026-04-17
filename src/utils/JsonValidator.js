@@ -1,5 +1,13 @@
 // src/utils/JsonValidator.js
 import { compileSchema } from './SchemaCompiler.js';
+import playbackSchemas from '../api/commands/schemas/playback.schemas.js';
+
+// Compile schema maps once at module load (ADR-004 §Plan de migration).
+// Key : command name, Value : compiled validator (data => string[]).
+const COMPILED_SCHEMAS = {};
+for (const [cmd, schema] of Object.entries(playbackSchemas)) {
+  COMPILED_SCHEMAS[cmd] = compileSchema(schema);
+}
 
 class JsonValidator {
   /**
@@ -193,38 +201,16 @@ class JsonValidator {
    * Validate playback command data
    */
   static validatePlaybackCommand(command, data) {
-    const errors = [];
-
-    switch (command) {
-      case 'playback_start':
-        if (!data.fileId && !data.outputDevice) {
-          errors.push('fileId or outputDevice is required');
-        }
-        break;
-
-      case 'playback_seek':
-        if (data.position === undefined) {
-          errors.push('position is required');
-        }
-        if (typeof data.position !== 'number' || data.position < 0) {
-          errors.push('position must be a positive number');
-        }
-        break;
-
-      case 'playback_set_loop':
-        if (data.enabled === undefined) {
-          errors.push('enabled is required');
-        }
-        if (typeof data.enabled !== 'boolean') {
-          errors.push('enabled must be a boolean');
-        }
-        break;
+    // ADR-004 migration (P1-3.2a) : first consult the declarative schema map.
+    // Legacy switch remains below as a no-op fallback for commands not yet
+    // migrated — all current playback cases are covered by the map.
+    const compiled = COMPILED_SCHEMAS[command];
+    if (compiled) {
+      const errors = compiled(data || {});
+      return { valid: errors.length === 0, errors };
     }
 
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return { valid: true, errors: [] };
   }
 
   /**
