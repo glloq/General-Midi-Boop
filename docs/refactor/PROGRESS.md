@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.4d (header buttons extraits) |
-| Prochain lot suggéré | **P2-F.4e** (extraire `_renderMinimap` + dépendances canvas) ou **P1-4.5c**. |
+| Dernier lot terminé | P2-F.4-tests (vitest renderers) |
+| Prochain lot suggéré | **P2-F.4e** (extraire `_renderMinimap`) ou **P1-4.5c**. |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.4-tests | Tests Vitest pour `RoutingSummaryRenderers` (5 fonctions pures). 15 tests : renderMiniKeyboard (2), renderChannelHistogram (3), renderMiniRange (3), renderDetailPlaceholder (1), renderHeaderButtons (5 : boutons, disabled quand null, label 1-based, truncation, escape injection). Pattern IIFE via `new Function(src)(window)`. | `tests/frontend/routing-summary-renderers.test.js` (créé) | (ce commit) | Syntaxe `node --check` propre. Vitest sandbox indisponible localement mais tests tourneront en CI ; syntaxe alignée avec les 2 autres tests frontend existants. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4d | Extraction de `_renderHeaderButtons` vers `RoutingSummaryRenderers.renderHeaderButtons({ selectedChannel, filename, escape })` (34 LOC d'HTML pour les boutons Play all / Play channel / Play original / Pause / Stop + filename tag). Inversion de contrôle : l'escape HTML helper est injecté en paramètre (pas d'accès global depuis le renderer). `_renderHeaderButtons` de la classe devient un délégateur. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+34 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-16 LOC) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4d : 4748→4456 LOC (-292, -6.1%). |
 | 2026-04-17 | Claude (refactoring) | P2-F.4c | 2 renderers supplémentaires ajoutés à `RoutingSummaryRenderers.js` : `renderMiniRange(analysis, assignment)` (pure — visualisation de la plage de notes avec overlay de l'instrument assigné) et `renderDetailPlaceholder()` (placeholder du panneau de détail). `_renderMiniRange` et `_renderDetailPlaceholder` de la classe deviennent des délégateurs one-liners vers les fonctions extraites. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+43 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-24 LOC) | (ce commit) | 437/437 tests backend verts. Cumul F.1→F.4c : RoutingSummaryPage 4748→4472 (-276, -5.8%). |
 | 2026-04-17 | Claude (refactoring) | P2-F.4b | Extraction du save-dialog 3-boutons de `_applyRouting` dans `RoutingSummarySaveDialog.askSaveChoice({ hasSplit, hasTransposition })` (61 LOC). Le dialog était inline dans `_applyRouting` (~33 LOC de HTML + Promise) — désormais appel one-liner. RoutingSummaryPage.js : 4522 → 4496 (-26). Cumul F.1→F.4b : -252 LOC (-5.3%). | `public/js/views/components/auto-assign/RoutingSummarySaveDialog.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Dialog désormais testable en isolation via stub `window.RoutingSummarySaveDialog`. |
