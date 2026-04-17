@@ -10,6 +10,12 @@ const __dirname = dirname(__filename);
 
 const CURRENT_API_VERSION = 1;
 
+// Correlation ID generator (P2-OBS.1). Short enough to be log-friendly,
+// random enough for practical uniqueness within a session.
+function _generateCid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 // Map commands to their specific validator methods in JsonValidator
 const COMMAND_VALIDATORS = {
   file_upload: 'validateFileCommand',
@@ -100,9 +106,16 @@ class CommandRegistry {
    */
   async handle(message, ws) {
     const startTime = Date.now();
+    // Correlation ID per command dispatch (P2-OBS.1).
+    // Priority : message.id sent by the client (already unique per request) →
+    // random UUID fallback so server-initiated or malformed messages are still
+    // traceable.
+    const cid = (message && message.id) || _generateCid();
+    const cmd = message && message.command;
+    const tag = `[cmd=${cmd} cid=${cid}]`;
 
     try {
-      this.app.logger.info(`Handling command: ${message.command} (id: ${message.id})`);
+      this.app.logger.info(`${tag} Handling command`);
 
       // Validate message structure
       const validation = JsonValidator.validateCommand(message);
@@ -130,12 +143,12 @@ class CommandRegistry {
         throw new NotFoundError('command', message.command);
       }
 
-      this.app.logger.info(`Executing handler for: ${message.command}`);
+      this.app.logger.info(`${tag} Executing handler`);
 
       // Execute handler
       const result = await handler(message.data || {});
 
-      this.app.logger.info(`Handler executed, sending response for: ${message.command}`);
+      this.app.logger.info(`${tag} Handler executed, sending response`);
 
       // Send response with request ID for client to match
       if (ws.readyState === 1) {
@@ -152,9 +165,9 @@ class CommandRegistry {
         );
       }
 
-      this.app.logger.info(`Command ${message.command} completed in ${Date.now() - startTime}ms`);
+      this.app.logger.info(`${tag} Command completed in ${Date.now() - startTime}ms`);
     } catch (error) {
-      this.app.logger.error(`Command ${message.command} failed: ${error.message}`);
+      this.app.logger.error(`${tag} Command failed: ${error.message}`);
       this.app.logger.error(error.stack);
 
       // Only expose ApplicationError messages to the client;
