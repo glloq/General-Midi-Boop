@@ -192,13 +192,6 @@ class MidiEditorCCPanel {
     }
 
     /**
-     * DEPRECATED: Use updateEditorChannelSelector() instead
-     */
-    updateCCChannelSelector() {
-        this.updateEditorChannelSelector();
-    }
-
-    /**
      * Attacher les event listeners aux boutons de canal pour CC ou Velocity
      */
     attachEditorChannelListeners() {
@@ -232,13 +225,6 @@ class MidiEditorCCPanel {
                 this.updateDynamicCCButtons();
             }
         });
-    }
-
-    /**
-     * DEPRECATED: Use attachEditorChannelListeners() instead
-     */
-    attachCCChannelListeners() {
-        this.attachEditorChannelListeners();
     }
 
     // ========================================================================
@@ -532,7 +518,7 @@ class MidiEditorCCPanel {
             m.log('info', `Loaded ${m.ccEvents.length} CC events into editor`);
         }
 
-        this.updateCCChannelSelector();
+        this.updateEditorChannelSelector();
 
         // When editing a single channel, use that channel; otherwise pick first available
         let activeChannel;

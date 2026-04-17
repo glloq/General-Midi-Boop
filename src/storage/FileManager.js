@@ -437,13 +437,7 @@ class FileManager {
         throw new Error(`File not found: ${numericId}`);
       }
 
-      // Explicitly delete related channel data (defense in depth alongside CASCADE)
-      try {
-        this.app.database.deleteFileChannels(numericId);
-      } catch (err) {
-        this.app.logger.warn(`Failed to delete file channels for ${numericId}: ${err.message}`);
-      }
-
+      // midi_file_channels rows are removed by ON DELETE CASCADE (migration 018).
       this.app.database.deleteFile(numericId);
       this.app.logger.info(`File deleted: ${file.filename} (${numericId})`);
 
@@ -470,26 +464,26 @@ class FileManager {
       const parsed = parseMidi(buffer);
       const instrumentMetadata = this.extractInstrumentMetadata(parsed);
 
-      this.app.database.updateFile(fileId, {
-        data_blob: buffer,
-        data: null,
-        size: buffer.length,
-        tracks: midiData.tracks.length,
-        duration: metadata.duration,
-        tempo: metadata.tempo,
-        ppq: midiData.header.ticksPerBeat || 480,
-        ...instrumentMetadata.fileMetadata
-      });
+      // Atomic: either the file row, the channel deletion, and the channel
+      // re-insert all commit, or none of them do.
+      const persist = this.app.database.transaction(() => {
+        this.app.database.updateFile(fileId, {
+          data_blob: buffer,
+          data: null,
+          size: buffer.length,
+          tracks: midiData.tracks.length,
+          duration: metadata.duration,
+          tempo: metadata.tempo,
+          ppq: midiData.header.ticksPerBeat || 480,
+          ...instrumentMetadata.fileMetadata
+        });
 
-      // Update channel records
-      try {
         this.app.database.deleteFileChannels(fileId);
         if (instrumentMetadata.channelDetails.length > 0) {
           this.app.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
         }
-      } catch (err) {
-        this.app.logger.warn(`Failed to update channel data on save: ${err.message}`);
-      }
+      });
+      persist();
 
       this.app.logger.info(`File saved: ${fileId}`);
 
@@ -567,50 +561,53 @@ class FileManager {
         newFilename = `${file.filename} (copy)`;
       }
 
-      // Insert duplicate with instrument metadata
-      const newFileId = this.app.database.insertFile({
-        filename: newFilename,
-        data: file.data,
-        size: file.size,
-        tracks: file.tracks,
-        duration: file.duration,
-        tempo: file.tempo,
-        ppq: file.ppq,
-        uploaded_at: new Date().toISOString(),
-        folder: file.folder,
-        instrument_types: file.instrument_types || '[]',
-        channel_count: file.channel_count || 0,
-        note_range_min: file.note_range_min,
-        note_range_max: file.note_range_max,
-        has_drums: file.has_drums ? 1 : 0,
-        has_melody: file.has_melody ? 1 : 0,
-        has_bass: file.has_bass ? 1 : 0
-      });
+      // Pre-read channels outside the transaction so JSON parsing failures
+      // don't roll back the duplicate; the transaction only owns the writes.
+      const sourceChannels = this.app.database.getFileChannels(file.id);
+      const channelDetails = sourceChannels.map(ch => ({
+        channel: ch.channel,
+        primaryProgram: ch.primary_program,
+        gmInstrumentName: ch.gm_instrument_name,
+        gmCategory: ch.gm_category,
+        estimatedType: ch.estimated_type,
+        typeConfidence: ch.type_confidence || 0,
+        noteRangeMin: ch.note_range_min,
+        noteRangeMax: ch.note_range_max,
+        totalNotes: ch.total_notes || 0,
+        polyphonyMax: ch.polyphony_max || 0,
+        polyphonyAvg: ch.polyphony_avg || 0,
+        density: ch.density || 0,
+        trackNames: ch.track_names ? (() => { try { return JSON.parse(ch.track_names); } catch { return []; } })() : []
+      }));
 
-      // Copy channel records from original file
-      try {
-        const channels = this.app.database.getFileChannels(file.id);
-        if (channels.length > 0) {
-          const channelDetails = channels.map(ch => ({
-            channel: ch.channel,
-            primaryProgram: ch.primary_program,
-            gmInstrumentName: ch.gm_instrument_name,
-            gmCategory: ch.gm_category,
-            estimatedType: ch.estimated_type,
-            typeConfidence: ch.type_confidence || 0,
-            noteRangeMin: ch.note_range_min,
-            noteRangeMax: ch.note_range_max,
-            totalNotes: ch.total_notes || 0,
-            polyphonyMax: ch.polyphony_max || 0,
-            polyphonyAvg: ch.polyphony_avg || 0,
-            density: ch.density || 0,
-            trackNames: ch.track_names ? (() => { try { return JSON.parse(ch.track_names); } catch { return []; } })() : []
-          }));
-          this.app.database.insertFileChannels(newFileId, channelDetails);
+      // Atomic: insert the new file row and its channel copies together.
+      const persist = this.app.database.transaction(() => {
+        const newId = this.app.database.insertFile({
+          filename: newFilename,
+          data: file.data,
+          size: file.size,
+          tracks: file.tracks,
+          duration: file.duration,
+          tempo: file.tempo,
+          ppq: file.ppq,
+          uploaded_at: new Date().toISOString(),
+          folder: file.folder,
+          instrument_types: file.instrument_types || '[]',
+          channel_count: file.channel_count || 0,
+          note_range_min: file.note_range_min,
+          note_range_max: file.note_range_max,
+          has_drums: file.has_drums ? 1 : 0,
+          has_melody: file.has_melody ? 1 : 0,
+          has_bass: file.has_bass ? 1 : 0
+        });
+
+        if (channelDetails.length > 0) {
+          this.app.database.insertFileChannels(newId, channelDetails);
         }
-      } catch (err) {
-        this.app.logger.warn(`Failed to copy channel data for duplicate: ${err.message}`);
-      }
+
+        return newId;
+      });
+      const newFileId = persist();
 
       this.app.logger.info(`File duplicated: ${file.filename} → ${newFilename}`);
 
@@ -771,14 +768,16 @@ class FileManager {
           const midi = parseMidi(buffer);
           const instrumentMetadata = this.extractInstrumentMetadata(midi);
 
-          // Update all file metadata (instrument_types, has_drums, has_melody, has_bass, etc.)
-          this.app.database.updateFile(file.id, instrumentMetadata.fileMetadata);
-
-          // Delete old channel data and insert new
-          this.app.database.deleteFileChannels(file.id);
-          if (instrumentMetadata.channelDetails.length > 0) {
-            this.app.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
-          }
+          // Atomic per file: metadata update + channel replace commit together
+          // or not at all. A failure on one file does not roll back siblings.
+          const persist = this.app.database.transaction(() => {
+            this.app.database.updateFile(file.id, instrumentMetadata.fileMetadata);
+            this.app.database.deleteFileChannels(file.id);
+            if (instrumentMetadata.channelDetails.length > 0) {
+              this.app.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
+            }
+          });
+          persist();
 
           analyzed++;
         } catch (err) {

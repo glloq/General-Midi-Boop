@@ -111,13 +111,6 @@
     }
 
     /**
-     * DEPRECATED: Use updateEditorChannelSelector() instead
-     */
-    MidiEditorCCMixin.updateCCChannelSelector = function() {
-        this.updateEditorChannelSelector();
-    }
-
-    /**
      * Attacher les event listeners aux boutons de canal pour CC ou Velocity
      */
     MidiEditorCCMixin.attachEditorChannelListeners = function() {
@@ -155,13 +148,6 @@
             this.highlightUsedCCButtons();
             this.updateDynamicCCButtons();
         });
-    }
-
-    /**
-     * DEPRECATED: Use attachEditorChannelListeners() instead
-     */
-    MidiEditorCCMixin.attachCCChannelListeners = function() {
-        this.attachEditorChannelListeners();
     }
 
     /**

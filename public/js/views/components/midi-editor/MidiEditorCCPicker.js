@@ -232,7 +232,7 @@
         }
 
     // Update the channel selector to show only used channels
-        this.updateCCChannelSelector();
+        this.updateEditorChannelSelector();
 
     // When editing a single channel, use that channel; otherwise fall back to first channel
         let activeChannel;

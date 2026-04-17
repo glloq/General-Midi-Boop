@@ -1,6 +1,73 @@
 # Audit de la Structure du Code — Ma-est-tro
 
-> Derniere mise a jour : 15 avril 2026
+> Derniere mise a jour : 17 avril 2026 (ajout section Modal Editeur)
+
+## 0. Audit cible : Modal Editeur MIDI (2026-04-17)
+
+Audit specifique du modal editeur (MidiEditorModal + 18 mixins + 6 editeurs
+standalone + couche backend FileCommands / FileManager / MidiDatabase).
+
+### Changements applique
+
+- Wrappers deprecie CC (`updateCCChannelSelector`, `attachCCChannelListeners`)
+  retires des 2 emplacements (mixin + classe), 2 appelants rediriges vers
+  `updateEditorChannelSelector`.
+- Commandes API redondantes `file_load` et `file_save` supprimees
+  (0 appelant frontend, supplantees par `file_read` / `file_write`). Mise a
+  jour de `CommandRegistry.js`, `JsonValidator.js`, `docs/API.md`, CHANGELOG.
+- Delete defensif `deleteFileChannels` avant `deleteFile` supprime : le
+  CASCADE declare en migration 018 fait le travail (`PRAGMA foreign_keys = ON`
+  confirme dans `Database.js` et `DatabaseLifecycle.js`).
+- Transactions ajoutees sur les trois ecritures multi-etapes de
+  `FileManager` : `saveFile`, `duplicateFile`, `reanalyzeAllFiles`. Nouveau
+  helper `DatabaseManager.transaction(fn)` delegue au driver better-sqlite3.
+  Pour reanalyze, chaque fichier est sa propre transaction (un fichier KO
+  n'annule plus la batch).
+- Magic number `150` centralise en `MidiEditorConstants.defaultEditorHeight`
+  avec fallback `typeof` pour preserver l'usage standalone des 3 editeurs.
+
+### Items reportes (evidence pour travail futur)
+
+- **`MidiEditorCCPanel.js` (1317 l.) jamais instanciee**. La classe est
+  chargee via `<script>` dans `index.html`, exportee a `window.MidiEditorCCPanel`,
+  mais aucun `new MidiEditorCCPanel(...)` n'existe. La seule lecture de
+  `m.ccPanel` (MidiEditorChannelPanel.js:43) est protegee par une garde
+  `if (m.ccPanel)` qui est toujours fausse en production. Toutes ses methodes
+  (`getAllCCChannels`, `getCCChannelsUsed`, `updateEditorChannelSelector`,
+  `attachEditorChannelListeners`, `initCCEditor`, `initTempoEditor`,
+  `initVelocityEditor`, `updateCCEditorChannel`, `toggleCCSection`, ...)
+  existent en parallele dans les mixins `MidiEditorCC.js`,
+  `MidiEditorCCPicker.js`, `MidiEditorSequence.js` qui sont les versions
+  reellement executees. Ressemble a une refonte mixin->classe entamee puis
+  abandonnee. Decision reportee : analyse ligne a ligne a faire avant
+  suppression pour valider qu'aucune divergence subtile n'a d'usage.
+- **8 colonnes orphelines sur `midi_files`** (creees en migration 006/012,
+  jamais lues ni ecrites depuis) : `midi_json`, `original_filepath`,
+  `metadata`, `duration_ms`, `track_count`, `event_count`, `created_at`,
+  `modified_at`. Une migration 041 de DROP est triviale (SQLite 3.35+ supporte
+  `DROP COLUMN`). Decision reportee : pas de changement de schema dans cet
+  audit. La colonne `data` (base64 TEXT) reste : c'est un pont de migration
+  vers `data_blob` (BLOB, migration 034).
+
+### Observations (non modifie)
+
+- Convention de nommage mixte : colonnes SQL en `snake_case`
+  (`primary_program`, `note_range_min`), proprietes JS en `camelCase`
+  (`primaryProgram`, `noteRangeMin`). Conversion manuelle dans
+  `FileManager.duplicateFile` — pattern repandu dans le projet, rename
+  systemique juge trop risque.
+- Architecture mixin + classe co-existent dans `midi-editor/` (15 mixins +
+  2 classes : `MidiEditorChannelPanel`, `MidiEditorPlayback`, plus le
+  `MidiEditorCCPanel` signale ci-dessus). Absence de regle claire.
+- `FileManager.getFileMetadata` (lignes 282-385) : 4 niveaux de try/catch
+  imbriques qui avalent tous les echecs en warning. Candidat a un refactor
+  en helpers (`_getChannelsForMetadata`, `_getRoutingStatusForMetadata`)
+  pour remonter les erreurs.
+- Plusieurs mixins editeur depassent les 1000 lignes (`MidiEditorTablature`
+  1307, `MidiEditorEditActions` 1118, `MidiEditorCC` ~700 apres nettoyage).
+  Deja sur la liste phase 3 (item 16, "Decouper les fichiers >700 lignes").
+
+
 
 ## 1. Vue d'ensemble
 

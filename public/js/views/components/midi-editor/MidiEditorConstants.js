@@ -5,6 +5,10 @@
 
 const MidiEditorConstants = {
 
+    // Default canvas height in pixels for the standalone velocity / tempo /
+    // CC-pitchbend editors when the caller does not provide options.height.
+    defaultEditorHeight: 150,
+
     // Grille de snap pour l'edition (contrainte de positionnement)
     // Valeurs en ticks (base sur 480 ticks par noire)
     snapValues: [

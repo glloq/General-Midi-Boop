@@ -16,11 +16,6 @@ async function fileMetadata(app, data) {
   return { success: true, metadata: metadata };
 }
 
-async function fileLoad(app, data) {
-  const result = await app.fileManager.loadFile(data.fileId);
-  return result;
-}
-
 async function fileRead(app, data) {
   // Read MIDI file content for editing
   const result = await app.fileManager.loadFile(data.fileId);
@@ -47,11 +42,6 @@ async function fileDelete(app, data) {
   if (app.autoAssigner) {
     app.autoAssigner.invalidateCache(data.fileId);
   }
-  return { success: true };
-}
-
-async function fileSave(app, data) {
-  await app.fileManager.saveFile(data.fileId, data.midi);
   return { success: true };
 }
 
@@ -315,11 +305,9 @@ export function register(registry, app) {
   registry.register('file_upload', (data) => fileUpload(app, data));
   registry.register('file_list', (data) => fileList(app, data));
   registry.register('file_metadata', (data) => fileMetadata(app, data));
-  registry.register('file_load', (data) => fileLoad(app, data));
   registry.register('file_read', (data) => fileRead(app, data));
   registry.register('file_write', (data) => fileWrite(app, data));
   registry.register('file_delete', (data) => fileDelete(app, data));
-  registry.register('file_save', (data) => fileSave(app, data));
   registry.register('file_save_as', (data) => fileSaveAs(app, data));
   registry.register('file_rename', (data) => fileRename(app, data));
   registry.register('file_move', (data) => fileMove(app, data));

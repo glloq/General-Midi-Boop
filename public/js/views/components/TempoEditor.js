@@ -14,7 +14,7 @@ class TempoEditor {
     constructor(container, options = {}) {
         this.container = container;
         this.options = {
-            height: options.height || 150,
+            height: options.height || (typeof MidiEditorConstants !== 'undefined' ? MidiEditorConstants.defaultEditorHeight : 150),
             timebase: options.timebase || 480, // PPQ
             xrange: options.xrange || 1920,
             xoffset: options.xoffset || 0,
