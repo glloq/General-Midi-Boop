@@ -9,8 +9,8 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.10-wire |
-| Prochain lot suggéré | **P2-F.4** (étape 4 RoutingSummary) ou **P1-4.5c** (rewire BluetoothManager). |
+| Dernier lot terminé | P2-F.4 (premiers renderers extraits) |
+| Prochain lot suggéré | **P2-F.4b** (continuer l'extraction de renderers : `_renderVolumeSlider`, `_renderMiniRange`, `_renderHeaderButtons`, `_renderMinimap`...) ou **P2-F.5** (orchestrateur léger). |
 | Date dernière mise à jour | 2026-04-17 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
 
@@ -108,7 +108,7 @@ Un lot = **2–5 jours max de travail**, **une PR cohérente**, **pas de changem
 - [x] **P2-F.1** Protocole 5 étapes sur `RoutingSummaryPage.js` (≈4748 LOC) — étape 1 : extraire constantes vers `RoutingSummaryConstants.js` (136 LOC, exposé sur `window.RoutingSummaryConstants`). RoutingSummaryPage.js : 4748 → 4661 LOC (-87, -1.8%). Sera réduit davantage aux étapes suivantes (API, état, sous-composants, orchestrateur).
 - [x] **P2-F.2** `RoutingSummaryPage.js` — étape 2 : extraire accès API. Nouveau `RoutingSummaryApi.js` (73 LOC) expose `generateSuggestions`, `getSavedRoutings`, `readFile`, `applyAssignments`. Les 5 call sites `this.api.sendCommand(...)` réduits à 5 appels nommés sur `this.apiClient.*`. Noms de commandes centralisés → prêts pour ADR-003 versioning si besoin.
 - [x] **P2-F.3** `RoutingSummaryPage.js` — étape 3 : extraire logique d'état. Nouveau `RoutingSummaryAssignmentBuilder.js` (163 LOC) : `buildAssignmentsPayload(state)` et `computeModificationFlags(assignments, hasSplit)` — 2 fonctions pures extraites de `_applyRouting`. `_applyRouting` réduit à 2 appels. Les callbacks `getInstrumentPolyphony` / `getChannelVolume` sont passés explicitement (inversion de contrôle).
-- [ ] **P2-F.4** `RoutingSummaryPage.js` — étape 4 : extraire rendu UI en sous-composants.
+- [/] **P2-F.4** `RoutingSummaryPage.js` — étape 4 : extraire rendu UI en sous-composants. **Démarré** : `RoutingSummaryRenderers.js` (75 LOC) extrait `renderMiniKeyboard` et `renderChannelHistogram` (2 fonctions pures). Destructuring import dans la page. Poursuite (P2-F.4b/c/d) sur les `_render*` methods internes (VolumeSlider, MiniRange, HeaderButtons, Minimap, CCSection, InstrumentChips, PolyReductionSection, DrumMappingSection, RangeBars) — ~15 méthodes restantes.
 - [ ] **P2-F.5** `RoutingSummaryPage.js` — étape 5 : orchestrateur léger.
 - [/] **P2-F.6** Appliquer le même protocole à `MidiEditorCCPanel.js` (≈1329 LOC) — **étape 1 faite** : `MidiEditorCCPanelConstants.js` extrait `ALWAYS_VISIBLE_CC_TYPES`, `STATIC_CC_TYPES`, `NOTE_NAMES`.
 - [ ] **P2-F.7** Appliquer le même protocole à `MidiEditorTablature.js` (≈1307 LOC) — *note : aucune constante module-level extractible à l'étape 1 ; reporter à l'étape 4 (sous-composants)*.
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-17 | Claude (refactoring) | P2-F.4 | Démarrage étape 4 du protocole 5 étapes (plan §11) sur `RoutingSummaryPage.js`. Nouveau fichier `RoutingSummaryRenderers.js` (75 LOC) : 2 fonctions pures HTML extraites (`renderMiniKeyboard`, `renderChannelHistogram`). Elles lisent depuis `window.RoutingSummaryConstants` (BLACK_KEYS, safeNoteRange, midiNoteToName). RoutingSummaryPage.js réduit de 4573 à 4522 (-51). `public/index.html` charge le nouveau fichier. Poursuite possible sur 15+ méthodes `_render*` internes. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (créé), `public/js/views/components/auto-assign/RoutingSummaryPage.js`, `public/index.html` | (ce commit) | Syntaxe `node --check` propre. Cumul F.1+F.2+F.3+F.4 : -226 LOC dans la page (-4.8%). |
 | 2026-04-17 | Claude (refactoring) | P2-F.10-wire | Instantiation des 9 facades MidiEditor dans le constructeur de `MidiEditorModal`. Noms choisis pour éviter toute collision avec l'état existant (`this.sequence = []` → facade nommée `this.sequenceOps` ; `this.channelRouting` → facade `this.routingOps` ; `this.tablatureEditor` → facade `this.tablatureOps`). Les autres sont directs : `this.ccOps`, `this.fileOps`, `this.renderer`, `this.editActions`, `this.events`, `this.lifecycle`. | `public/js/views/components/MidiEditorModal.js` | (ce commit) | 296/296 tests verts. 12/12 facades MidiEditor sont désormais instanciées. Callsites peuvent migrer progressivement vers `modal.<facade>.<method>()` sans rush — les mixins restent sur le prototype. |
 | 2026-04-17 | Claude (refactoring) | P2-F.10-batch | Application du pattern facade thin aux 9 mixins restants : `MidiEditorSequence`, `MidiEditorCC`, `MidiEditorFileOps`, `MidiEditorRenderer`, `MidiEditorRouting`, `MidiEditorEditActions`, `MidiEditorEvents`, `MidiEditorTablatureFacade` (suffixe pour éviter collision avec le composant UI `MidiEditorTablature`), `MidiEditorLifecycle`. Chaque classe a `constructor(modal)` + toutes les méthodes forwardées via `Object.keys(...).forEach`. Aucun corps de méthode touché. **Non instanciées** : wiring dans MidiEditorModal reporté à P2-F.10-wire (choix de noms non-conflictuels, ex. `this.sequence` est déjà un tableau d'état). Total : 12/12 mixins MidiEditor disposent maintenant d'une facade sub-component. | `public/js/views/components/midi-editor/MidiEditor{Sequence,CC,FileOpsMixin,Renderer,Routing,EditActions,Events,Tablature,Lifecycle}.js` (+15 LOC chacun) | (ce commit) | 296/296 tests verts. Pattern auto-générateur : 9 modifications mécaniquement identiques. |
 | 2026-04-17 | Claude (refactoring) | P2-F.10c | Conversion facade thin pour `MidiEditorCCPickerMixin` (22 méthodes, 769 LOC). Nouvelle classe `MidiEditorCCPicker(modal)` : chaque méthode est générée automatiquement en forwardant `apply(this.modal, args)` vers le mixin existant. Aucune modification des corps de méthode — la migration des corps `this.x` → `this.modal.x` sera P2-F.10c-cleanup (après migration des callsites). Mixin legacy conservé attaché au prototype (callsites inchangés). MidiEditorModal instancie `this.ccPicker`. | `public/js/views/components/midi-editor/MidiEditorCCPicker.js` (+15 LOC), `public/js/views/components/MidiEditorModal.js` (+5 LOC) | (ce commit) | 296/296 tests verts. Pattern « facade thin via Object.keys(...)forEach » réutilisable pour les futurs gros mixins (Renderer, FileOps, etc.). |
@@ -228,7 +229,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 | `MidiPlayer.js` LOC | 1312 | < 790 (-40 %) | 1312 |
 | `InstrumentMatcher.js` LOC | 1178 | < 710 (-40 %) | 1178 |
 | `TablatureConverter.js` LOC | 1250 | < 750 (-40 %) | 1250 |
-| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4573 (-3.7%, P2-F.1+F.2+F.3 cumul) |
+| `RoutingSummaryPage.js` LOC | 4748 | < 2850 (-40 %) | 4522 (-4.8%, F.1+F.2+F.3+F.4 cumul) |
 | `MidiSynthesizer.js` LOC | 1192 | < 720 (-40 %) | 1116 (-6.4%, P2-F.8) |
 | Couverture tests P0/P1 | ~20 % | ≥ 35 % | ~20 % |
 | Commandes WS critiques sous contrat | 0 % | ≥ 90 % | ~70 % (42 commandes : 23 playback + 19 routing — snapshots complets pour PlaybackCommands.js et RoutingCommands.js) |
