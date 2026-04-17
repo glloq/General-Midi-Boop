@@ -1506,6 +1506,73 @@
     `;
   }
 
+  /**
+   * Detail panel container : header (title/route/score/poly/playable + close)
+   * + ordered list of pre-rendered section HTMLs.
+   *
+   * @param {Object} opts
+   * @param {number} opts.channel
+   * @param {string} opts.typeIcon
+   * @param {string} opts.routeHTML          - pre-rendered route line HTML
+   * @param {boolean} opts.isSplit
+   * @param {number} opts.score
+   * @param {Object|null} opts.assignment
+   * @param {string} opts.polyHTML           - pre-rendered poly badge HTML
+   * @param {string} opts.playableInfo       - e.g. "(12/14)"
+   * @param {string} [opts.rangeBarsHTML]
+   * @param {string} [opts.drumMappingHTML]
+   * @param {string} [opts.instrumentChipsHTML]
+   * @param {string} [opts.adaptHTML]
+   * @param {string} [opts.splitSuggestionHTML]
+   * @param {string} [opts.splitHTML]
+   * @param {string} [opts.addInstrumentHTML]
+   * @param {string} [opts.ccSectionHTML]
+   * @param {(s:string) => string} opts.escape
+   */
+  function renderDetailContainer(opts) {
+    const {
+      channel, typeIcon, routeHTML, isSplit, score, assignment,
+      polyHTML, playableInfo,
+      rangeBarsHTML = '', drumMappingHTML = '', instrumentChipsHTML = '',
+      adaptHTML = '', splitSuggestionHTML = '', splitHTML = '',
+      addInstrumentHTML = '', ccSectionHTML = '',
+      escape
+    } = opts;
+    const { getScoreClass } = window.RoutingSummaryConstants;
+
+    const isShared = assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0);
+    const sharedBadge = isShared
+      ? `<span class="rs-shared-badge" title="${escape((_t('routingSummary.sharedTooltip') || 'Instrument partagé'))}">\u{1F517}</span>`
+      : '';
+    const scoreSpan = (!isSplit && score > 0)
+      ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}${sharedBadge}</span>`
+      : '';
+
+    return `
+      <div class="rs-detail-content">
+        <div class="rs-detail-header">
+          <div class="rs-detail-title">
+            <span class="rs-detail-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' DR' : ''}</span>
+            <span class="rs-detail-route">${routeHTML}</span>
+            ${scoreSpan}
+            ${polyHTML}
+            ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
+          </div>
+          <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
+        </div>
+
+        ${rangeBarsHTML}
+        ${drumMappingHTML}
+        ${instrumentChipsHTML}
+        ${adaptHTML}
+        ${splitSuggestionHTML}
+        ${splitHTML}
+        ${addInstrumentHTML}
+        ${ccSectionHTML}
+      </div>
+    `;
+  }
+
   window.RoutingSummaryRenderers = Object.freeze({
     renderMiniKeyboard,
     renderChannelHistogram,
@@ -1523,6 +1590,7 @@
     renderSummaryTable,
     renderAdaptationBlock,
     renderSplitSection,
-    renderContentShell
+    renderContentShell,
+    renderDetailContainer
   });
 })();

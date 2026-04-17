@@ -33,7 +33,7 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
  * White keys are full-height, black keys are shorter and overlaid.
  * C notes get a small label below.
  */
-// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4s).
+// Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4t).
 const {
   renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
   renderDetailPlaceholder, renderHeaderButtons,
@@ -41,7 +41,7 @@ const {
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
   renderScoreDetail, renderSummaryTable, renderAdaptationBlock,
-  renderSplitSection, renderContentShell
+  renderSplitSection, renderContentShell, renderDetailContainer
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -889,29 +889,25 @@ class RoutingSummaryPage {
       polyHTML = `<span class="rs-detail-poly ${polyOk ? 'rs-poly-ok' : 'rs-poly-warn'}" title="${_t('autoAssign.polyphony') || 'Polyphonie'} (${_t('autoAssign.polyphonyHint') || 'canal / instrument'})">\u266B ${polyLabel}</span>`;
     }
 
-    return `
-      <div class="rs-detail-content">
-        <div class="rs-detail-header">
-          <div class="rs-detail-title">
-            <span class="rs-detail-ch">${typeIcon} Ch ${channel + 1}${channel === 9 ? ' DR' : ''}</span>
-            <span class="rs-detail-route">${routeHTML}</span>
-            ${(!isSplit && score > 0) ? `<span class="rs-detail-score ${getScoreClass(score)}">${score}${(assignment?.shared || (assignment?.sharedWith && assignment.sharedWith.length > 0)) ? '<span class="rs-shared-badge" title="' + escapeHtml((_t('routingSummary.sharedTooltip') || 'Instrument partagé')) + '">\u{1F517}</span>' : ''}</span>` : ''}
-            ${polyHTML}
-            ${playableInfo ? `<span class="rs-detail-playable">${playableInfo}</span>` : ''}
-          </div>
-          <button class="btn btn-sm rs-detail-close" id="rsDetailClose">&times;</button>
-        </div>
-
-        ${rangeBarsHTML}
-        ${drumMappingHTML}
-        ${instrumentChipsHTML}
-        ${adaptHTML}
-        ${splitSuggestionHTML}
-        ${splitHTML}
-        ${addInstrumentHTML}
-        ${this._renderCCSection(channel)}
-      </div>
-    `;
+    return renderDetailContainer({
+      channel,
+      typeIcon,
+      routeHTML,
+      isSplit,
+      score,
+      assignment,
+      polyHTML,
+      playableInfo,
+      rangeBarsHTML,
+      drumMappingHTML,
+      instrumentChipsHTML,
+      adaptHTML,
+      splitSuggestionHTML,
+      splitHTML,
+      addInstrumentHTML,
+      ccSectionHTML: this._renderCCSection(channel),
+      escape: escapeHtml
+    });
   }
 
   /**
