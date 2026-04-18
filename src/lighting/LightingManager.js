@@ -1,5 +1,5 @@
 /**
- * @file src/managers/LightingManager.js
+ * @file src/lighting/LightingManager.js
  * @description Top-level lighting manager. Loads the appropriate
  * driver per device (mapped by `type` via {@link DRIVER_MAP}), routes
  * incoming MIDI events through the persisted rules, and exposes the

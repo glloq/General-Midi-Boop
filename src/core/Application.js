@@ -261,7 +261,7 @@ class Application {
 
       // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
       try {
-        const { default: LightingManager } = await import('../managers/LightingManager.js');
+        const { default: LightingManager } = await import('../lighting/LightingManager.js');
         this._registerService('lightingManager', new LightingManager(deps));
         this.logger.info('Lighting manager initialized');
       } catch (error) {
