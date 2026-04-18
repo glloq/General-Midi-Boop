@@ -1,7 +1,13 @@
-// src/repositories/LightingRepository.js
-// Repository wrapper over lighting CRUD via Database facade (ADR-002 option B).
+/**
+ * @file src/repositories/LightingRepository.js
+ * @description Thin business-named wrapper over lighting CRUD on
+ * {@link Database}/{@link LightingDatabase} (ADR-002 option B). Three
+ * concept families: devices, rules (condition→action), presets
+ * (snapshot of the rule set).
+ */
 
 export default class LightingRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

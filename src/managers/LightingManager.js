@@ -1,10 +1,29 @@
-// src/managers/LightingManager.js
+/**
+ * @file src/managers/LightingManager.js
+ * @description Top-level lighting manager. Loads the appropriate
+ * driver per device (mapped by `type` via {@link DRIVER_MAP}), routes
+ * incoming MIDI events through the persisted rules, and exposes the
+ * runtime API consumed by `LightingCommands`:
+ *   - Effects engine (chase, pulse, sparkle, ...) via
+ *     {@link LightingEffectsEngine}.
+ *   - Master dimmer + blackout.
+ *   - Device groups for bulk control.
+ *   - MIDI-learn helper.
+ *   - Scene save/apply (delegated to LightingCommands).
+ *
+ * The file is large (~970 LOC); only the constructor, lifecycle hooks
+ * and public entry points carry full JSDoc per the plan.
+ */
 import EventEmitter from 'events';
 import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
 import BaseLightingDriver from '../lighting/BaseLightingDriver.js';
 import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
 
-// Driver type to module path mapping
+/**
+ * Driver type → ESM module path. Used for dynamic `import()` so a
+ * missing native dep (pigpio, rpi-ws281x-native) only breaks the
+ * specific driver, not the whole manager.
+ */
 const DRIVER_MAP = {
   gpio: '../lighting/GpioLedDriver.js',
   gpio_strip: '../lighting/GpioStripDriver.js',

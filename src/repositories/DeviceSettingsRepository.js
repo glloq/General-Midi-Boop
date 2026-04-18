@@ -1,7 +1,13 @@
-// src/repositories/DeviceSettingsRepository.js
-// Repository wrapper over device-settings CRUD via Database facade (ADR-002 option B).
+/**
+ * @file src/repositories/DeviceSettingsRepository.js
+ * @description Thin business-named wrapper over the per-device settings
+ * methods on {@link Database}/{@link DeviceSettingsDB}
+ * (ADR-002 option B). Surface is intentionally tiny — one row per
+ * device, no joins.
+ */
 
 export default class DeviceSettingsRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

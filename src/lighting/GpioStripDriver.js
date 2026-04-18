@@ -1,10 +1,16 @@
-// src/lighting/GpioStripDriver.js
-// WS2812/NeoPixel addressable LED strip driver for Raspberry Pi
-// Uses rpi-ws281x-native for hardware PWM/SPI control
+/**
+ * @file src/lighting/GpioStripDriver.js
+ * @description {@link BaseLightingDriver} implementation for
+ * WS2812 / NeoPixel addressable LED strips on Raspberry Pi. Uses
+ * `rpi-ws281x-native` for hardware PWM / SPI control — software PWM
+ * is too jittery for the strict timing requirements of WS281x chips.
+ *
+ * Optional native dep: `rpi-ws281x-native`.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 
-// Valid GPIO pins per hardware channel
+/** Valid GPIO pins per WS281x hardware channel. */
 const CHANNEL_GPIO_MAP = {
   0: [18, 12],  // PWM0
   1: [13, 19],  // PWM1

@@ -1,6 +1,11 @@
-// src/lighting/DmxFixtureProfiles.js
-// Library of common DMX fixture profiles for ArtNet and sACN drivers
-// Each profile describes the channel layout of a DMX fixture
+/**
+ * @file src/lighting/DmxFixtureProfiles.js
+ * @description Library of well-known DMX fixture profiles consumed by
+ * {@link ArtNetDriver} and {@link SacnDriver}. Each profile describes
+ * the per-channel layout (e.g. `{r:0, g:1, b:2, dimmer:3}`) of a
+ * fixture so the driver can address logical attributes by name instead
+ * of raw channel numbers.
+ */
 
 const DMX_PROFILES = {
   // ==================== GENERIC ====================

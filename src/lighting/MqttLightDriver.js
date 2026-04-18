@@ -1,6 +1,11 @@
-// src/lighting/MqttLightDriver.js
-// MQTT driver for smart lighting (WLED, Tasmota, ESPHome, Home Assistant, generic)
-// Supports multiple MQTT payload formats for different firmware types
+/**
+ * @file src/lighting/MqttLightDriver.js
+ * @description {@link BaseLightingDriver} implementation that publishes
+ * to an MQTT broker, used by smart-lighting ecosystems
+ * (WLED, Tasmota, ESPHome, Home Assistant, generic JSON). The driver
+ * dispatches between several known payload formats based on the device
+ * `firmware` config field.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 

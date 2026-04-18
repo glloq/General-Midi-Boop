@@ -1,5 +1,10 @@
-// src/lighting/SerialLedDriver.js
-// Serial driver for WS2812/NeoPixel LED strips via Arduino/ESP32
+/**
+ * @file src/lighting/SerialLedDriver.js
+ * @description {@link BaseLightingDriver} implementation that talks to
+ * an external Arduino / ESP32 sketch over a serial line. The
+ * micro-controller is responsible for actually driving the WS281x
+ * strip — this driver only sends the per-LED color commands.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 

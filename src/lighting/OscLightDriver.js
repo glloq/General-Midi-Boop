@@ -1,6 +1,10 @@
-// src/lighting/OscLightDriver.js
-// OSC (Open Sound Control) driver for lighting software integration
-// Compatible with: QLC+, QLab, TouchDesigner, Max/MSP, ETC Eos, etc.
+/**
+ * @file src/lighting/OscLightDriver.js
+ * @description {@link BaseLightingDriver} implementation that emits
+ * OSC (Open Sound Control) messages — used to integrate with show /
+ * lighting software such as QLC+, QLab, TouchDesigner, Max/MSP, and
+ * ETC Eos.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 import dgram from 'dgram';

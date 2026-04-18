@@ -1,4 +1,11 @@
-// src/lighting/BaseLightingDriver.js
+/**
+ * @file src/lighting/BaseLightingDriver.js
+ * @description Abstract base class shared by every concrete lighting
+ * driver (GPIO LED, GPIO strip, serial LED, DMX over ArtNet/sACN, MQTT,
+ * HTTP/WLED, OSC). Establishes the contract consumed by
+ * {@link LightingManager} so swapping drivers requires no manager
+ * changes.
+ */
 import EventEmitter from 'events';
 
 /**

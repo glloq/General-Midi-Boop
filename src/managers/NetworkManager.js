@@ -1,12 +1,15 @@
-// ============================================================================
-// src/managers/NetworkManager.js
-// ============================================================================
-// Description:
-//   Manages MIDI instruments over network/WiFi
-//   - Scan the local network to discover instruments
-//   - Connect/disconnect network instruments
-//   - Manage instruments connected via network
-// ============================================================================
+/**
+ * @file src/managers/NetworkManager.js
+ * @description High-level manager for MIDI instruments reachable over
+ * the local network (RTP-MIDI / AppleMIDI). Responsibilities:
+ *   - LAN discovery via mDNS-style probes and ARP scans.
+ *   - Connect / disconnect lifecycle (one {@link RtpMidiSession} per
+ *     device).
+ *   - Routing inbound MIDI frames to the EventBus and DeviceManager.
+ *
+ * The file is large (~810 LOC); only the constructor, lifecycle hooks
+ * and public entry points carry full JSDoc per the plan.
+ */
 
 import EventEmitter from 'events';
 import { execFile } from 'child_process';

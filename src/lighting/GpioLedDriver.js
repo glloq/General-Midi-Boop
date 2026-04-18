@@ -1,6 +1,12 @@
-// src/lighting/GpioLedDriver.js
-// GPIO PWM driver for RGB LEDs on Raspberry Pi
-// Uses pigpio for hardware PWM control
+/**
+ * @file src/lighting/GpioLedDriver.js
+ * @description {@link BaseLightingDriver} implementation for raw RGB
+ * LEDs wired to Raspberry Pi GPIO pins. Uses `pigpio` for hardware PWM
+ * which is more accurate than software PWM and avoids flicker.
+ *
+ * Optional native dep: `pigpio`. Loaded lazily inside `connect()` so
+ * the driver class itself can be imported in environments without it.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 
