@@ -1,4 +1,22 @@
-// src/api/HttpServer.js
+/**
+ * @file src/api/HttpServer.js
+ * @description Boots the Express application that serves the SPA, the
+ * `/api/*` routes (defined in {@link createApiRouter}) and acts as the
+ * upgrade target for {@link WebSocketServer}.
+ *
+ * Responsibilities wired in {@link HttpServer#setupRoutes}:
+ *   - gzip compression for every response
+ *   - `helmet` security headers (CSP/CORP/COEP intentionally relaxed —
+ *     embedded SPA with inline scripts, accessed over LAN by IP)
+ *   - same-origin / localhost CORS allowlist
+ *   - bearer-token auth on `/api/*` (skipped for `/health` and
+ *     `/update-status` so the dashboard can poll while updating)
+ *   - static asset serving (`dist/` in production, `public/` otherwise)
+ *   - SPA fallback to `index.html`
+ *
+ * TLS is opt-in: when both `server.sslCert` and `server.sslKey` exist on
+ * disk an HTTPS server is created instead of plain HTTP.
+ */
 import express from 'express';
 import compression from 'compression';
 import helmet from 'helmet';
@@ -13,12 +31,24 @@ import { createApiRouter } from './apiRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Express HTTP/HTTPS server. One instance per process; constructor
+ * builds the express app and wires every middleware/route. Call
+ * {@link HttpServer#start} to bind the listener.
+ */
 class HttpServer {
+  /**
+   * @param {Object} deps - DI bag (or Application facade). Needs
+   *   `logger`, `config`, and is also stored on `this._deps` so that
+   *   lazy services consumed inside route handlers (e.g. wsServer,
+   *   deviceManager) are resolved through the container.
+   */
   constructor(deps) {
-    // Support both explicit deps and legacy app object
     this.logger = deps.logger;
     this.config = deps.config;
-    this._deps = deps; // Keep reference for lazy service resolution in route handlers
+    // Stored so route handlers can look up services that may not yet exist
+    // at construction time (HttpServer is built before WebSocketServer).
+    this._deps = deps;
     this.server = null;
     this.expressApp = express();
 
@@ -26,6 +56,12 @@ class HttpServer {
     this.logger.info('HttpServer initialized');
   }
 
+  /**
+   * Wire every middleware and route on the underlying Express app.
+   * Idempotent only if called once — re-invoking would stack middleware.
+   *
+   * @returns {void}
+   */
   setupRoutes() {
     // Gzip compression for all responses
     this.expressApp.use(compression());
@@ -57,15 +93,21 @@ class HttpServer {
       next();
     });
 
-    // API token authentication (enabled via MAESTRO_API_TOKEN env var)
+    // Bearer-token auth, enabled when MAESTRO_API_TOKEN is set.
+    // `Application#_ensureApiToken` guarantees this is the case in normal
+    // runs, so the `if` is mostly for tests that intentionally clear it.
     const apiToken = process.env.MAESTRO_API_TOKEN;
     if (apiToken) {
       const apiTokenBuf = Buffer.from(apiToken);
       this.expressApp.use('/api', (req, res, next) => {
-        if (req.path === '/health' || req.path === '/update-status') return next(); // Public endpoints
+        // Public endpoints used by the frontend dashboard during update.
+        if (req.path === '/health' || req.path === '/update-status') return next();
         const token = req.headers.authorization?.replace('Bearer ', '') || '';
         try {
           const tokenBuf = Buffer.from(token);
+          // Constant-time comparison to defeat timing oracles. Length
+          // mismatch must short-circuit BEFORE timingSafeEqual since that
+          // function throws on differing lengths.
           if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
             return res.status(401).json({ error: 'Unauthorized' });
           }
@@ -100,6 +142,15 @@ class HttpServer {
     });
   }
 
+  /**
+   * Bind the configured port and start accepting connections. Resolves
+   * once the listener is up; rejects on bind/listen errors.
+   *
+   * Selects HTTPS when both `server.sslCert` and `server.sslKey` are
+   * present and exist on disk; otherwise falls back to plain HTTP.
+   *
+   * @returns {Promise<void>}
+   */
   async start() {
     return new Promise((resolve, reject) => {
       const port = this.config.server.port;
@@ -131,6 +182,13 @@ class HttpServer {
     });
   }
 
+  /**
+   * Stop accepting new connections and close existing keep-alives.
+   * Async work is fire-and-forget — no await — because the caller
+   * (Application#stop) does not depend on the close completing.
+   *
+   * @returns {void}
+   */
   close() {
     if (this.server) {
       this.server.close(() => {

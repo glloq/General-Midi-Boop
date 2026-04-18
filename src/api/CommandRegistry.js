@@ -1,4 +1,24 @@
-// src/api/CommandRegistry.js
+/**
+ * @file src/api/CommandRegistry.js
+ * @description Central command dispatcher for the WebSocket API.
+ *
+ * Pipeline applied to every incoming message:
+ *   1. Envelope validation via {@link JsonValidator.validateCommand}.
+ *   2. Per-command payload validation, looked up through the
+ *      {@link COMMAND_VALIDATORS} map and resolved against
+ *      {@link JsonValidator}.
+ *   3. Handler lookup (versioned handlers take priority when the client
+ *      sends `version`; falls back to the v1 handler otherwise).
+ *   4. Async handler execution; result and `duration` are sent back to
+ *      the client and a `ws.command.completed` metric is emitted on the
+ *      EventBus.
+ *   5. Errors are categorised: {@link ApplicationError} subclasses are
+ *      surfaced to the client verbatim; everything else is masked behind
+ *      a generic "Internal server error" to avoid leaking internals.
+ *
+ * Command modules are auto-discovered from `commands/` —
+ * see {@link CommandRegistry#loadCommandModules}.
+ */
 import JsonValidator from '../utils/JsonValidator.js';
 import { ApplicationError, ValidationError, NotFoundError } from '../core/errors/index.js';
 import { readdirSync } from 'fs';
@@ -8,15 +28,35 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Currently advertised API version. Versioned handlers registered with a
+ * different version are kept in a separate map and only invoked when the
+ * client requests them explicitly.
+ */
 const CURRENT_API_VERSION = 1;
 
-// Correlation ID generator (P2-OBS.1). Short enough to be log-friendly,
-// random enough for practical uniqueness within a session.
+/**
+ * Correlation-ID generator used when a client message arrives without an
+ * `id` (server-initiated or malformed frames). 8 base36 characters is
+ * short enough for log readability and random enough for practical
+ * per-session uniqueness — no cryptographic guarantees needed (P2-OBS.1).
+ *
+ * @returns {string} 8-char base36 token.
+ */
 function _generateCid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Map commands to their specific validator methods in JsonValidator
+/**
+ * Maps command names to the static method on {@link JsonValidator} that
+ * validates their payload. Commands not listed here skip per-payload
+ * validation (they may still rely on imperative checks inside the handler).
+ *
+ * TODO: drive this map from the schema files themselves so adding a new
+ * command does not require touching two places.
+ *
+ * @type {Object<string, string>}
+ */
 const COMMAND_VALIDATORS = {
   file_upload: 'validateFileCommand',
   file_delete: 'validateFileCommand',
@@ -48,18 +88,41 @@ const COMMAND_VALIDATORS = {
   system_backup: 'validateSystemCommand'
 };
 
+/**
+ * Holds command-name -> handler bindings and dispatches incoming
+ * WebSocket frames against them.
+ */
 class CommandRegistry {
+  /**
+   * @param {Object} app - Application facade; needs `logger` and
+   *   (optionally) `eventBus` for the metric event.
+   */
   constructor(app) {
     this.app = app;
+    /**
+     * @type {Object<string, Function>} Default (current-version) handlers.
+     */
     this.handlers = {};
-    this.versionedHandlers = {}; // { "v2:commandName": handler }
+    /**
+     * @type {Object<string, Function>} Versioned handlers keyed by
+     *   `"v<version>:<command>"`.
+     */
+    this.versionedHandlers = {};
   }
 
   /**
-   * Register a command handler
-   * @param {string} command - Command name
-   * @param {Function} handler - Async handler function (data) => result
-   * @param {number} [version] - API version (optional, registers as versioned handler)
+   * Register a command handler. When `version` is omitted (or equal to
+   * {@link CURRENT_API_VERSION}), the handler becomes the default. A
+   * different version stashes it in {@link CommandRegistry#versionedHandlers}
+   * so existing default handlers stay untouched.
+   *
+   * Re-registering an existing default handler logs a warning — useful to
+   * catch accidental double-loads during hot-reload.
+   *
+   * @param {string} command - Command name (e.g. `"file_upload"`).
+   * @param {Function} handler - Async function `(data) => result`.
+   * @param {number} [version] - Optional API version.
+   * @returns {void}
    */
   register(command, handler, version) {
     if (version && version !== CURRENT_API_VERSION) {
@@ -74,8 +137,12 @@ class CommandRegistry {
   }
 
   /**
-   * Auto-discover and load all command modules from the commands/ directory.
-   * Each module must export a `register(registry, app)` function.
+   * Auto-discover and load every `*.js` command module from the
+   * sibling `commands/` directory. Each module must export a
+   * `register(registry, app)` function; modules without one are
+   * skipped with a warning instead of crashing the boot.
+   *
+   * @returns {Promise<void>}
    */
   async loadCommandModules() {
     const commandsDir = join(__dirname, 'commands');
@@ -101,8 +168,23 @@ class CommandRegistry {
   }
 
   /**
-   * Main dispatch method – validates incoming message, finds handler, executes,
-   * and sends JSON response/error back over the WebSocket.
+   * Main dispatch method.
+   *
+   * Validates the message, looks up the handler (versioned > default),
+   * executes it, and writes the response back to the originating
+   * WebSocket. Always emits `ws.command.completed` on the EventBus,
+   * regardless of success, so observability tooling sees both halves.
+   *
+   * Errors:
+   * - {@link ValidationError} — surfaced verbatim (HTTP-equivalent 400).
+   * - {@link NotFoundError} — surfaced verbatim when the command name
+   *   is unknown.
+   * - Any other thrown value — masked behind `"Internal server error"`
+   *   in the wire response so internal stack traces never leak.
+   *
+   * @param {Object} message - Parsed WS frame `{id, command, version?, data?}`.
+   * @param {import('ws').WebSocket} ws - Originating socket.
+   * @returns {Promise<void>}
    */
   async handle(message, ws) {
     const startTime = Date.now();
@@ -117,13 +199,13 @@ class CommandRegistry {
     try {
       this.app.logger.info(`${tag} Handling command`);
 
-      // Validate message structure
+      // Envelope validation: message must be an object with a string `command`.
       const validation = JsonValidator.validateCommand(message);
       if (!validation.valid) {
         throw new ValidationError(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
-      // Command-specific input validation
+      // Per-command payload validation, opt-in via the COMMAND_VALIDATORS map.
       const validatorName = COMMAND_VALIDATORS[message.command];
       if (validatorName && typeof JsonValidator[validatorName] === 'function') {
         const cmdValidation = JsonValidator[validatorName](message.command, message.data || {});
@@ -132,7 +214,8 @@ class CommandRegistry {
         }
       }
 
-      // Get handler (check versioned handlers first if version specified)
+      // Versioned handler takes priority when the client requests a
+      // non-current version; fall back to the default handler otherwise.
       let handler;
       if (message.version && message.version !== CURRENT_API_VERSION) {
         const versionedKey = `v${message.version}:${message.command}`;

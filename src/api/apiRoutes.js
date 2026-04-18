@@ -1,5 +1,22 @@
-// src/api/apiRoutes.js
-// Extracted API route handlers — keeps HttpServer focused on server setup.
+/**
+ * @file src/api/apiRoutes.js
+ * @description Express router holding the small set of HTTP endpoints
+ * exposed alongside the WebSocket API. Most operational features live on
+ * the WS side; HTTP is reserved for things that monitoring tools need
+ * (`/health`, `/metrics`) and for the update flow.
+ *
+ * Public (no auth) endpoints:
+ *   - `GET /health` — liveness probe with version + git hash + uptime.
+ *   - `GET /update-status` — polled by the SPA during in-place updates.
+ *
+ * Authenticated endpoints (gated by the bearer middleware in HttpServer):
+ *   - `GET /status` — counts of devices/routes/files plus memory/uptime.
+ *   - `GET /metrics` — Prometheus text exposition format (v0.0.4).
+ *
+ * Module-load side-effect: shells out to `git rev-parse` once to capture
+ * the short hash for `/health`. Failure is silently ignored — value
+ * stays `"unknown"`.
+ */
 import { Router } from 'express';
 import { readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
@@ -13,12 +30,15 @@ const APP_VERSION = pkg.version;
 
 let GIT_HASH = 'unknown';
 try {
+  // 3s timeout protects against slow filesystems / missing git binary.
   GIT_HASH = execSync('git rev-parse --short HEAD', { cwd: join(__dirname, '../..'), encoding: 'utf8', timeout: 3000 }).trim();
-} catch { /* ignore */ }
+} catch { /* ignore — keep "unknown" fallback */ }
 
 /**
- * Create an Express Router with all API endpoints.
- * @param {Object} app - Application instance (service locator)
+ * Build the Express router that exposes the HTTP API surface.
+ *
+ * @param {Object} app - Application facade (service locator). Used to
+ *   resolve `deviceManager`, `midiRouter`, `database`, `wsServer`.
  * @returns {import('express').Router}
  */
 export function createApiRouter(app) {
