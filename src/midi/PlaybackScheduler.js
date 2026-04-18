@@ -196,8 +196,10 @@ class PlaybackScheduler {
       return state.currentEventIndex;
     }
 
-    // Update position
-    const elapsed = (performance.now() - state.startTime) / 1000;
+    // Update position. playbackRate >1 makes playback run faster, <1
+    // makes it run slower (see MidiPlayer.setPlaybackTempo).
+    const rate = state.playbackRate > 0 ? state.playbackRate : 1;
+    const elapsed = (performance.now() - state.startTime) * rate / 1000;
     state.position = elapsed;
 
     // Check if reached end
@@ -260,7 +262,11 @@ class PlaybackScheduler {
     }
 
     const eventTime = event.time;
-    const delay = Math.max(0, eventTime - currentPosition);
+    // Divide wall-clock delay by playbackRate so a rate>1 fires events
+    // proportionally sooner, matching the accelerated position advance
+    // computed in tick().
+    const rate = state.playbackRate > 0 ? state.playbackRate : 1;
+    const delay = Math.max(0, eventTime - currentPosition) / rate;
 
     // For note events, pass the note and event type to routing for split support
     const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';

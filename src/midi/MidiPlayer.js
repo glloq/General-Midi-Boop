@@ -90,7 +90,9 @@ class MidiPlayer {
     this.paused = false;
     this.position = 0; // seconds
     this.duration = 0; // seconds
-    this.tempo = 120; // BPM
+    this.tempo = 120; // BPM — effective (originalTempo * playbackRate)
+    this.originalTempo = null; // BPM at file load; null when no file loaded
+    this.playbackRate = 1.0; // tempo multiplier applied by the scheduler
     this.ppq = 480; // Pulses per quarter note
     this.tracks = [];
     this.events = [];
@@ -208,10 +210,17 @@ class MidiPlayer {
       const tempoEvent = track.find(e => e.type === 'setTempo');
       if (tempoEvent) {
         this.tempo = MICROSECONDS_PER_MINUTE / tempoEvent.microsecondsPerBeat;
+        // Snapshot the file's native tempo so setPlaybackTempo can
+        // compute a stable playbackRate multiplier and setTempo back
+        // to this value resets the rate to 1.0.
+        this.originalTempo = this.tempo;
+        this.playbackRate = 1.0;
         return;
       }
     }
     this.tempo = 120;
+    this.originalTempo = 120;
+    this.playbackRate = 1.0;
   }
 
   extractChannels(midi) {
@@ -525,7 +534,10 @@ class MidiPlayer {
     if (resumePosition !== null) {
       this.position = resumePosition;
       this.currentEventIndex = this.findEventIndexAtTime(resumePosition);
-      this.startTime = performance.now() - (resumePosition * 1000);
+      // Rate-aware anchor: elapsed = (now - startTime) * rate must equal
+      // resumePosition at the next tick.
+      const rate = this.playbackRate > 0 ? this.playbackRate : 1;
+      this.startTime = performance.now() - (resumePosition * 1000 / rate);
     } else {
       this.position = 0;
       this.currentEventIndex = 0;
@@ -561,6 +573,7 @@ class MidiPlayer {
       events: this.events,
       currentEventIndex: this.currentEventIndex,
       startTime: this.startTime,
+      playbackRate: this.playbackRate,
       loop: this.loop,
       channelRouting: this.channelRouting,
       mutedChannels: this.mutedChannels,
@@ -780,6 +793,64 @@ class MidiPlayer {
   setLoop(enabled) {
     this.loop = enabled;
     this.logger.info(`Loop ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Change the playback tempo. Applies a rate multiplier to the
+   * scheduler so events fire `rate` times faster (or slower) without
+   * re-timing the event list. Also forwards the new BPM to the MIDI
+   * Clock generator so external gear synced via MIDI Clock follows.
+   *
+   * Clamps the resulting rate to [0.25, 4] so a runaway value can't
+   * starve the scheduler or flood the MIDI bus.
+   *
+   * @param {number} bpm - Target tempo in BPM.
+   * @returns {{success:boolean, bpm:number, playbackRate:number,
+   *   originalTempo:?number}}
+   */
+  setPlaybackTempo(bpm) {
+    const target = Number(bpm);
+    if (!Number.isFinite(target) || target <= 0) {
+      return { success: false, bpm: this.tempo, playbackRate: this.playbackRate, originalTempo: this.originalTempo };
+    }
+
+    // No file loaded yet — store the value for later and forward to the
+    // clock if it happens to be running (master-only use case).
+    if (!this.originalTempo) {
+      this.tempo = target;
+      if (this.midiClockGenerator?.isEnabled?.()) {
+        this.midiClockGenerator.setTempo(target);
+      }
+      return { success: true, bpm: target, playbackRate: 1.0, originalTempo: null };
+    }
+
+    // Clamp rate so the scheduler can't be starved (0.25x) or swamped
+    // with a 100x backlog (4x).
+    let rate = target / this.originalTempo;
+    if (rate < 0.25) rate = 0.25;
+    if (rate > 4) rate = 4;
+    const effectiveBpm = this.originalTempo * rate;
+
+    // Rebase startTime so `position` stays continuous across the rate
+    // switch: elapsed_old = elapsed_new holds when
+    // startTime_new = now - position * 1000 / rate.
+    if (this.playing && !this.paused) {
+      const now = performance.now();
+      this.startTime = now - (this.position * 1000 / rate);
+    }
+
+    this.playbackRate = rate;
+    this.tempo = effectiveBpm;
+
+    if (this.midiClockGenerator?.isEnabled?.()) {
+      this.midiClockGenerator.setTempo(effectiveBpm);
+    }
+
+    this.logger.info(
+      `Playback tempo set to ${effectiveBpm.toFixed(1)} BPM (rate ${rate.toFixed(3)})`
+    );
+    this.broadcastStatus();
+    return { success: true, bpm: effectiveBpm, playbackRate: rate, originalTempo: this.originalTempo };
   }
 
   /**

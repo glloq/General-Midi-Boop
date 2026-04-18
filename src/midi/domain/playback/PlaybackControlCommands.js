@@ -155,14 +155,23 @@ async function playbackSetLoop(app, data) {
 }
 
 /**
- * Placeholder.
- * TODO: forward to a future MidiPlayer#setTempo override that scales
- * the tempo map at runtime.
+ * Change the playback tempo in BPM. Delegates to
+ * {@link MidiPlayer#setPlaybackTempo}: applies a rate multiplier to the
+ * scheduler so playback speeds up or slows down proportionally and
+ * forwards the new tempo to the MIDI Clock generator so synced external
+ * gear follows. The resulting rate is clamped to [0.25×, 4×].
  *
- * @returns {Promise<{success:true}>}
+ * Accepts `bpm` (preferred) or `tempo` as the payload key for backward
+ * compatibility with older clients.
+ *
+ * @param {Object} app
+ * @param {{bpm?:number, tempo?:number}} data
+ * @returns {Promise<{success:boolean, bpm:number, playbackRate:number,
+ *   originalTempo:?number}>}
  */
-async function playbackSetTempo(_app, _data) {
-  return { success: true };
+async function playbackSetTempo(app, data) {
+  const bpm = Number(data?.bpm ?? data?.tempo);
+  return app.midiPlayer.setPlaybackTempo(bpm);
 }
 
 /**
@@ -176,13 +185,35 @@ async function playbackTranspose(_app, _data) {
 }
 
 /**
- * Placeholder.
- * TODO: surface as a master CC #7 multiplier on the scheduler.
+ * Master volume broadcast. Sends CC #7 (Channel Volume) with the given
+ * value on every MIDI channel of every currently-connected output
+ * device. Value range is the standard MIDI 0..127; out-of-range values
+ * are clamped so a stray slider position cannot corrupt the bus.
  *
- * @returns {Promise<{success:true}>}
+ * @param {Object} app
+ * @param {{volume:(number|string)}} data
+ * @returns {Promise<{success:boolean, volume:number, targets:number}>}
+ *   `targets` is the number of devices actually reached.
  */
-async function playbackSetVolume(_app, _data) {
-  return { success: true };
+async function playbackSetVolume(app, data) {
+  let value = Number(data?.volume);
+  if (!Number.isFinite(value)) value = 100;
+  value = Math.max(0, Math.min(127, Math.round(value)));
+
+  const devices = app.deviceManager?.getDeviceList?.() || [];
+  let targets = 0;
+  for (const device of devices) {
+    if (!device.output || device.enabled === false) continue;
+    let sentAny = false;
+    for (let channel = 0; channel < 16; channel++) {
+      if (app.deviceManager.sendMessage(device.id, 'cc', { channel, controller: 7, value })) {
+        sentAny = true;
+      }
+    }
+    if (sentAny) targets++;
+  }
+
+  return { success: true, volume: value, targets };
 }
 
 /**

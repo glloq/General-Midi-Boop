@@ -2,10 +2,10 @@
   "command": "playback_set_tempo",
   "module": "PlaybackCommands.js",
   "criticality": "medium",
-  "description": "Stub — future implementation. Handler returns `{ success: true }` unconditionally. Any refactor MUST preserve this behavior until the feature is implemented via ADR.",
+  "description": "Change the playback tempo. Applies a rate multiplier to the scheduler (clamped to [0.25, 4]) so events fire proportionally faster or slower, and forwards the new BPM to MidiClockGenerator for external gear synced via MIDI Clock. Accepts `bpm` (preferred) or `tempo` as the payload key. Returns the effective BPM after clamping plus the resulting rate and the file's original tempo.",
   "cases": [
     {
-      "name": "nominal — stub accepts any data",
+      "name": "nominal — bpm inside rate limits",
       "type": "success",
       "input": {
         "bpm": 140
@@ -13,30 +13,40 @@
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
-        }
-      },
-      "output_snapshot": {
-        "type": "response",
-        "data": {
-          "success": true
+          "success": "boolean",
+          "bpm": "number",
+          "playbackRate": "number",
+          "originalTempo": "number|null"
         }
       }
     },
     {
-      "name": "nominal — stub accepts no data",
+      "name": "no payload — falls back to current tempo",
       "type": "success",
       "input": {},
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
+          "success": "boolean",
+          "bpm": "number",
+          "playbackRate": "number",
+          "originalTempo": "number|null"
         }
+      }
+    },
+    {
+      "name": "invalid bpm — success:false with unchanged state",
+      "type": "success",
+      "input": {
+        "bpm": -10
       },
-      "output_snapshot": {
+      "output_shape": {
         "type": "response",
         "data": {
-          "success": true
+          "success": "boolean",
+          "bpm": "number",
+          "playbackRate": "number",
+          "originalTempo": "number|null"
         }
       }
     }

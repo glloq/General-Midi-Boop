@@ -2,10 +2,10 @@
   "command": "playback_set_volume",
   "module": "PlaybackCommands.js",
   "criticality": "medium",
-  "description": "Stub — future implementation. Handler returns `{ success: true }` unconditionally. Any refactor MUST preserve this behavior until the feature is implemented via ADR.",
+  "description": "Master volume broadcast. Emits CC #7 (Channel Volume) with the clamped value on every MIDI channel of every currently-connected, enabled output device. Value is clamped to [0, 127]; non-numeric payloads fall back to 100. Returns the applied value and the number of devices actually reached.",
   "cases": [
     {
-      "name": "nominal — stub accepts volume",
+      "name": "nominal — in-range volume",
       "type": "success",
       "input": {
         "volume": 80
@@ -13,30 +13,37 @@
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
-        }
-      },
-      "output_snapshot": {
-        "type": "response",
-        "data": {
-          "success": true
+          "success": "boolean",
+          "volume": "number",
+          "targets": "number"
         }
       }
     },
     {
-      "name": "nominal — stub accepts no data",
+      "name": "no payload — falls back to default 100",
       "type": "success",
       "input": {},
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
+          "success": "boolean",
+          "volume": "number",
+          "targets": "number"
         }
+      }
+    },
+    {
+      "name": "out-of-range — clamped to 0..127",
+      "type": "success",
+      "input": {
+        "volume": 999
       },
-      "output_snapshot": {
+      "output_shape": {
         "type": "response",
         "data": {
-          "success": true
+          "success": "boolean",
+          "volume": "number",
+          "targets": "number"
         }
       }
     }
