@@ -1,26 +1,26 @@
 // ============================================================================
 // File: public/js/views/components/midi-editor/MidiEditorLifecycle.js
-// Description: Close, cleanup, and lifecycle management
-//   Mixin: methods added to MidiEditorModal.prototype
+// Description: Modal lifecycle hooks (close, unsaved-changes guard, logging,
+//   notifications, error modal, beforeunload wiring).
+//   Sub-component class ; in practice reachable through the modal instance
+//   methods below (`modal.log`, `modal.close`, `modal.showNotification`, ...)
+//   that forward to this facade (see MidiEditorModal.js).
+//   (P2-F.10l body rewrite — no longer a prototype mixin.)
 // ============================================================================
 
 (function() {
     'use strict';
 
-    const MidiEditorLifecycleMixin = {};
+    class MidiEditorLifecycle {
+        constructor(modal) {
+            this.modal = modal;
+        }
 
-    // ========================================================================
-    // CLOSING
-    // ========================================================================
-
-    /**
-    * Fermer la modale
-    */
-    MidiEditorLifecycleMixin.close = function() {
-        this.log('debug', `close() called, isDirty: ${this.isDirty}`);
+    close() {
+        this.log('debug', `close() called, isDirty: ${this.modal.isDirty}`);
 
     // Check for unsaved changes
-        if (this.isDirty) {
+        if (this.modal.isDirty) {
             this.log('debug', 'Has unsaved changes, showing modal');
             this.showUnsavedChangesModal();
             return;
@@ -30,10 +30,7 @@
         this.doClose();
     }
 
-    /**
-    * Afficher la modal de confirmation pour modifications non sauvegardées
-    */
-    MidiEditorLifecycleMixin.showUnsavedChangesModal = function() {
+    showUnsavedChangesModal() {
         this.log('debug', 'Showing unsaved changes modal');
 
     // Create the confirmation modal
@@ -76,16 +73,16 @@
                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                     <span style="font-size: 32px; margin-right: 12px;">⚠️</span>
                     <h2 style="margin: 0; color: ${dlgWarnColor}; font-size: 20px; font-family: sans-serif;">
-                        ${this.t('midiEditor.unsavedChanges.title')}
+                        ${this.modal.t('midiEditor.unsavedChanges.title')}
                     </h2>
                 </div>
 
                 <div style="margin-bottom: 24px; color: ${dlgTextColor}; line-height: 1.6; font-family: sans-serif;">
                     <p style="margin: 0 0 12px 0;">
-                        ${this.t('midiEditor.unsavedChanges.message')}
+                        ${this.modal.t('midiEditor.unsavedChanges.message')}
                     </p>
                     <p style="margin: 0; font-weight: bold; color: ${dlgWarnColor};">
-                        ${this.t('midiEditor.unsavedChanges.warning')}
+                        ${this.modal.t('midiEditor.unsavedChanges.warning')}
                     </p>
                 </div>
 
@@ -100,7 +97,7 @@
                         font-size: 14px;
                         font-family: sans-serif;
                     ">
-                        ↩️ ${this.t('midiEditor.unsavedChanges.cancel')}
+                        ↩️ ${this.modal.t('midiEditor.unsavedChanges.cancel')}
                     </button>
                     <button id="unsaved-save-btn" style="
                         padding: 10px 20px;
@@ -113,7 +110,7 @@
                         font-weight: bold;
                         font-family: sans-serif;
                     ">
-                        💾 ${this.t('midiEditor.unsavedChanges.saveAndClose')}
+                        💾 ${this.modal.t('midiEditor.unsavedChanges.saveAndClose')}
                     </button>
                     <button id="unsaved-discard-btn" style="
                         padding: 10px 20px;
@@ -125,7 +122,7 @@
                         font-size: 14px;
                         font-family: sans-serif;
                     ">
-                        🗑️ ${this.t('midiEditor.unsavedChanges.closeWithoutSave')}
+                        🗑️ ${this.modal.t('midiEditor.unsavedChanges.closeWithoutSave')}
                     </button>
                 </div>
             </div>
@@ -158,7 +155,7 @@
             this.log('debug', 'Save and close clicked');
             document.removeEventListener('keydown', escHandler);
             confirmModal.remove();
-            await this.fileOps.saveMidiFile();
+            await this.modal.fileOps.saveMidiFile();
     // Close after saving
             this.doClose();
         });
@@ -173,180 +170,166 @@
         });
     }
 
-    /**
-    * Effectuer la fermeture réelle de l'éditeur
-    */
-    MidiEditorLifecycleMixin.doClose = function() {
+    doClose() {
     // Clean up channel settings popover (now in document.body)
-        this.tablatureOps._closeChannelSettingsPopover();
+        this.modal.tablatureOps._closeChannelSettingsPopover();
 
     // Unsubscribe from locale changes
-        if (this.localeUnsubscribe) {
-            this.localeUnsubscribe();
-            this.localeUnsubscribe = null;
+        if (this.modal.localeUnsubscribe) {
+            this.modal.localeUnsubscribe();
+            this.modal.localeUnsubscribe = null;
         }
 
     // Stop viewport synchronization
-        if (this.pianoRoll && this._viewportChangeHandler) {
-            this.pianoRoll.removeEventListener('viewportchange', this._viewportChangeHandler);
-            this._viewportChangeHandler = null;
+        if (this.modal.pianoRoll && this.modal._viewportChangeHandler) {
+            this.modal.pianoRoll.removeEventListener('viewportchange', this.modal._viewportChangeHandler);
+            this.modal._viewportChangeHandler = null;
         }
         // Fallback: clear legacy polling interval if still present
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-            this.syncInterval = null;
+        if (this.modal.syncInterval) {
+            clearInterval(this.modal.syncInterval);
+            this.modal.syncInterval = null;
         }
 
     // Nettoyer le piano roll
-        if (this.pianoRoll) {
-            this.pianoRoll.remove();
-            this.pianoRoll = null;
+        if (this.modal.pianoRoll) {
+            this.modal.pianoRoll.remove();
+            this.modal.pianoRoll = null;
         }
 
     // Nettoyer la barre de navigation overview
-        if (this.navigationBar) {
-            this.navigationBar.destroy();
-            this.navigationBar = null;
+        if (this.modal.navigationBar) {
+            this.modal.navigationBar.destroy();
+            this.modal.navigationBar = null;
         }
 
     // Nettoyer la barre de timeline
-        if (this.timelineBar) {
-            this.timelineBar.destroy();
-            this.timelineBar = null;
+        if (this.modal.timelineBar) {
+            this.modal.timelineBar.destroy();
+            this.modal.timelineBar = null;
         }
 
     // Clean up the CC/pitch-bend editor
-        if (this.ccEditor) {
-            this.ccEditor.destroy();
-            this.ccEditor = null;
+        if (this.modal.ccEditor) {
+            this.modal.ccEditor.destroy();
+            this.modal.ccEditor = null;
         }
-        this.ccEvents = [];
-        this.ccSectionExpanded = false;
-        this.currentCCType = 'cc1';
-        this._ccChannelDelegationAttached = false;
+        this.modal.ccEvents = [];
+        this.modal.ccSectionExpanded = false;
+        this.modal.currentCCType = 'cc1';
+        this.modal._ccChannelDelegationAttached = false;
 
     // Clean up the velocity editor
-        if (this.velocityEditor) {
-            this.velocityEditor.destroy();
-            this.velocityEditor = null;
+        if (this.modal.velocityEditor) {
+            this.modal.velocityEditor.destroy();
+            this.modal.velocityEditor = null;
         }
 
     // Clean up the tempo editor
-        if (this.tempoEditor) {
-            this.tempoEditor.destroy();
-            this.tempoEditor = null;
+        if (this.modal.tempoEditor) {
+            this.modal.tempoEditor.destroy();
+            this.modal.tempoEditor = null;
         }
-        this.tempoEvents = [];
+        this.modal.tempoEvents = [];
 
     // Clean up the tablature editor
-        if (this.tablatureEditor) {
-            this.tablatureEditor.destroy();
-            this.tablatureEditor = null;
+        if (this.modal.tablatureEditor) {
+            this.modal.tablatureEditor.destroy();
+            this.modal.tablatureEditor = null;
         }
 
     // Clean up the drum-pattern editor
-        if (this.drumPatternEditor) {
-            this.drumPatternEditor.destroy();
-            this.drumPatternEditor = null;
+        if (this.modal.drumPatternEditor) {
+            this.modal.drumPatternEditor.destroy();
+            this.modal.drumPatternEditor = null;
         }
 
     // Clean up the wind-instrument editor
-        if (this.windInstrumentEditor) {
-            this.windInstrumentEditor.destroy();
-            this.windInstrumentEditor = null;
+        if (this.modal.windInstrumentEditor) {
+            this.modal.windInstrumentEditor.destroy();
+            this.modal.windInstrumentEditor = null;
         }
 
     // Clean up the synthesizer
-        this.disposeSynthesizer();
+        this.modal.disposeSynthesizer();
 
     // Retirer les listeners de resize drag
-        if (this._resizeDoResize) {
-            document.removeEventListener('mousemove', this._resizeDoResize);
-            document.removeEventListener('mouseup', this._resizeStopResize);
-            this._resizeDoResize = null;
-            this._resizeStopResize = null;
+        if (this.modal._resizeDoResize) {
+            document.removeEventListener('mousemove', this.modal._resizeDoResize);
+            document.removeEventListener('mouseup', this.modal._resizeStopResize);
+            this.modal._resizeDoResize = null;
+            this.modal._resizeStopResize = null;
         }
 
     // Remove the escape listener
-        if (this.escapeHandler) {
-            document.removeEventListener('keydown', this.escapeHandler);
-            this.escapeHandler = null;
+        if (this.modal.escapeHandler) {
+            document.removeEventListener('keydown', this.modal.escapeHandler);
+            this.modal.escapeHandler = null;
         }
 
     // Retirer les raccourcis clavier
-        if (this.keyboardHandler) {
-            document.removeEventListener('keydown', this.keyboardHandler);
-            this.keyboardHandler = null;
+        if (this.modal.keyboardHandler) {
+            document.removeEventListener('keydown', this.modal.keyboardHandler);
+            this.modal.keyboardHandler = null;
         }
 
     // Retirer le gestionnaire beforeunload
         this.removeBeforeUnloadHandler();
 
     // Unsubscribe from external routing changes
-        if (this.eventBus && this._onExternalRoutingChanged) {
-            this.eventBus.off('routing:changed', this._onExternalRoutingChanged);
-            this._onExternalRoutingChanged = null;
+        if (this.modal.eventBus && this.modal._onExternalRoutingChanged) {
+            this.modal.eventBus.off('routing:changed', this.modal._onExternalRoutingChanged);
+            this.modal._onExternalRoutingChanged = null;
         }
 
     // Nettoyer l'historique du piano roll
-        if (this.pianoRoll && typeof this.pianoRoll.clearHistory === 'function') {
-            this.pianoRoll.clearHistory();
+        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.clearHistory === 'function') {
+            this.modal.pianoRoll.clearHistory();
         }
 
     // Retirer le conteneur
-        if (this.container) {
-            this.container.remove();
-            this.container = null;
+        if (this.modal.container) {
+            this.modal.container.remove();
+            this.modal.container = null;
         }
 
-        this.isOpen = false;
-        this.currentFile = null;
-        this.currentFilename = null;
-        this.midiData = null;
-        this.isDirty = false;
-        this.sequence = [];
-        this.fullSequence = [];
-        this.activeChannels.clear();
-        this.channels = [];
-        this.clipboard = [];
+        this.modal.isOpen = false;
+        this.modal.currentFile = null;
+        this.modal.currentFilename = null;
+        this.modal.midiData = null;
+        this.modal.isDirty = false;
+        this.modal.sequence = [];
+        this.modal.fullSequence = [];
+        this.modal.activeChannels.clear();
+        this.modal.channels = [];
+        this.modal.clipboard = [];
 
     // Emit event
-        if (this.eventBus) {
-            this.eventBus.emit('midi_editor:closed', {});
+        if (this.modal.eventBus) {
+            this.modal.eventBus.emit('midi_editor:closed', {});
         }
     }
 
-    /**
-    * Installer le gestionnaire beforeunload pour avertir l'utilisateur
-    * s'il tente de fermer la page/onglet avec des modifications non sauvegardées
-    */
-    MidiEditorLifecycleMixin.setupBeforeUnloadHandler = function() {
-        this.beforeUnloadHandler = (e) => {
-            if (this.isDirty) {
+    setupBeforeUnloadHandler() {
+        this.modal.beforeUnloadHandler = (e) => {
+            if (this.modal.isDirty) {
     // Message standard du navigateur
                 e.preventDefault();
                 e.returnValue = ''; // Requis pour Chrome
                 return ''; // Pour les navigateurs plus anciens
             }
         };
-        window.addEventListener('beforeunload', this.beforeUnloadHandler);
+        window.addEventListener('beforeunload', this.modal.beforeUnloadHandler);
     }
 
-    /**
-    * Retirer le gestionnaire beforeunload
-    */
-    MidiEditorLifecycleMixin.removeBeforeUnloadHandler = function() {
-        if (this.beforeUnloadHandler) {
-            window.removeEventListener('beforeunload', this.beforeUnloadHandler);
-            this.beforeUnloadHandler = null;
+    removeBeforeUnloadHandler() {
+        if (this.modal.beforeUnloadHandler) {
+            window.removeEventListener('beforeunload', this.modal.beforeUnloadHandler);
+            this.modal.beforeUnloadHandler = null;
         }
     }
 
-    // ========================================================================
-    // UTILITIES
-    // ========================================================================
-
-    MidiEditorLifecycleMixin.showNotification = function(message, type = 'info') {
+    showNotification(message, type = 'info') {
         if (window.app?.notifications) {
             window.app.notifications.show('Éditeur MIDI', message, type, 3000);
         } else {
@@ -354,14 +337,14 @@
         }
     }
 
-    MidiEditorLifecycleMixin.showError = function(message) {
+    showError(message) {
         this.showErrorModal(message);
     }
 
-    MidiEditorLifecycleMixin.showErrorModal = function(message, title = null) {
-        title = title || this.t('common.error');
+    showErrorModal(message, title = null) {
+        title = title || this.modal.t('common.error');
         this.log('error', message);
-        this.dialogs.showConfirmModal({
+        this.modal.dialogs.showConfirmModal({
             title: title,
             message: message,
             icon: '❌',
@@ -371,27 +354,17 @@
         }).catch(() => {});
     }
 
-    MidiEditorLifecycleMixin.log = function(level, ...args) {
+    log(level, ...args) {
         const prefix = '[MidiEditorModal]';
-        if (typeof this.logger[level] === 'function') {
-            this.logger[level](prefix, ...args);
+        if (typeof this.modal.logger[level] === 'function') {
+            this.modal.logger[level](prefix, ...args);
         } else {
             console[level](prefix, ...args);
         }
     }
-
-    // Facade sub-component (P2-F.10c-batch).
-    class MidiEditorLifecycle {
-        constructor(modal) { this.modal = modal; }
     }
-    Object.keys(MidiEditorLifecycleMixin).forEach((key) => {
-        MidiEditorLifecycle.prototype[key] = function(...args) {
-            return MidiEditorLifecycleMixin[key].apply(this.modal, args);
-        };
-    });
 
     if (typeof window !== 'undefined') {
-        window.MidiEditorLifecycleMixin = MidiEditorLifecycleMixin;
         window.MidiEditorLifecycle = MidiEditorLifecycle;
     }
 })();

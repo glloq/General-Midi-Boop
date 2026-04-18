@@ -137,6 +137,25 @@ class MidiEditorModal {
     }
 
     // ========================================================================
+    // LIFECYCLE FORWARDERS (P2-F.10l)
+    // ------------------------------------------------------------------------
+    // Hot lifecycle methods (`log`, `close`, `showNotification`, …) remain
+    // reachable directly on the modal instance to avoid migrating ~500 call
+    // sites. Each forwarder delegates to `this.lifecycle` (MidiEditorLifecycle
+    // sub-component) which now owns the implementation.
+    // ========================================================================
+
+    log(level, ...args) { return this.lifecycle && this.lifecycle.log(level, ...args); }
+    close() { return this.lifecycle && this.lifecycle.close(); }
+    doClose() { return this.lifecycle && this.lifecycle.doClose(); }
+    showUnsavedChangesModal() { return this.lifecycle && this.lifecycle.showUnsavedChangesModal(); }
+    setupBeforeUnloadHandler() { return this.lifecycle && this.lifecycle.setupBeforeUnloadHandler(); }
+    removeBeforeUnloadHandler() { return this.lifecycle && this.lifecycle.removeBeforeUnloadHandler(); }
+    showNotification(message, type) { return this.lifecycle && this.lifecycle.showNotification(message, type); }
+    showError(message) { return this.lifecycle && this.lifecycle.showError(message); }
+    showErrorModal(message, title) { return this.lifecycle && this.lifecycle.showErrorModal(message, title); }
+
+    // ========================================================================
     // I18N SUPPORT
     // ========================================================================
 
@@ -366,26 +385,13 @@ if (typeof MidiEditorCC !== 'undefined') {
     if (MidiEditorCC.CC_CATEGORIES) MidiEditorModal.CC_CATEGORIES = MidiEditorCC.CC_CATEGORIES;
 }
 
-const _mixins = [
-    // MidiEditorSequenceMixin retiré — remplacé par this.sequenceOps (P2-F.10i body-rewrite).
-    // MidiEditorCCMixin retiré — remplacé par this.ccOps (P2-F.10h body-rewrite).
-    // MidiEditorDrawSettingsMixin retiré — remplacé par this.drawSettings (P2-F.10b-cleanup).
-    // MidiEditorCCPickerMixin retiré — remplacé par this.ccPicker (P2-F.10c body-rewrite).
-    // MidiEditorFileOpsMixin retiré — remplacé par this.fileOps (P2-F.10d body-rewrite).
-    // MidiEditorRendererMixin retiré — remplacé par this.renderer (P2-F.10e body-rewrite).
-    // MidiEditorRoutingMixin retiré — remplacé par this.routingOps (P2-F.10g body-rewrite).
-    // MidiEditorEditActionsMixin retiré — remplacé par this.editActions (P2-F.10j body-rewrite).
-    // MidiEditorDialogsMixin retiré — remplacé par this.dialogs (P2-F.10a-cleanup).
-    // MidiEditorEventsMixin retiré — remplacé par this.events (P2-F.10f body-rewrite).
-    // MidiEditorTablatureMixin retiré — remplacé par this.tablatureOps (P2-F.10k body-rewrite).
-    typeof MidiEditorLifecycleMixin !== 'undefined' ? MidiEditorLifecycleMixin : null,
-];
-
-_mixins.forEach(mixin => {
-    if (mixin) {
-        Object.keys(mixin).forEach(key => {
-            MidiEditorModal.prototype[key] = mixin[key];
-        });
-    }
-});
+// ============================================================================
+// All 12 MidiEditorModal mixins retired (P2-F.10a → P2-F.10l).
+// Each method now lives on its dedicated sub-component class, instantiated
+// in the constructor (this.dialogs / this.drawSettings / this.ccPicker /
+// this.sequenceOps / this.ccOps / this.fileOps / this.renderer /
+// this.routingOps / this.editActions / this.events / this.tablatureOps /
+// this.lifecycle). Lifecycle hot methods (log, close, showNotification, …)
+// are forwarded as modal instance methods to preserve call sites.
+// ============================================================================
 
