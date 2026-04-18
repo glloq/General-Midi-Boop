@@ -1,5 +1,5 @@
 // ============================================================================
-// File: public/js/features/midi-editor/MidiEditorFileOpsMixin.js
+// File: public/js/features/midi-editor/MidiEditorFileOps.js
 // Description: File operations (save/load/rename/export) for the MIDI editor
 //   Sub-component class ; called via `modal.fileOps.<method>(...)`.
 //   (P2-F.10d body rewrite — no longer a prototype mixin.)

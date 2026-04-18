@@ -100,7 +100,7 @@ class MidiEditorModal {
         this.routingOps   = typeof MidiEditorRouting         !== 'undefined' ? new MidiEditorRouting(this)         : null;
         this.editActions  = typeof MidiEditorEditActions     !== 'undefined' ? new MidiEditorEditActions(this)     : null;
         this.events       = typeof MidiEditorEvents          !== 'undefined' ? new MidiEditorEvents(this)          : null;
-        this.tablatureOps = typeof MidiEditorTablatureFacade !== 'undefined' ? new MidiEditorTablatureFacade(this) : null;
+        this.tablatureOps = typeof MidiEditorTablature !== 'undefined' ? new MidiEditorTablature(this) : null;
         this.lifecycle    = typeof MidiEditorLifecycle       !== 'undefined' ? new MidiEditorLifecycle(this)       : null;
 
         // Tablature editor (for string instruments)

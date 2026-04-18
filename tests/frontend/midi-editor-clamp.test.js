@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const mixinSource = readFileSync(
-    resolve(__dirname, '../../public/js/features/midi-editor/MidiEditorFileOpsMixin.js'),
+    resolve(__dirname, '../../public/js/features/midi-editor/MidiEditorFileOps.js'),
     'utf8'
 );
 

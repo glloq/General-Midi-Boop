@@ -3,14 +3,12 @@
 // Description: Tablature / drum pattern / wind editor bridges for the MIDI
 //   editor. Sub-component class ; called via `modal.tablatureOps.<method>(...)`.
 //   (P2-F.10k body rewrite — no longer a prototype mixin.)
-//   Class name is `MidiEditorTablatureFacade` to avoid collision with the
-//   `TablatureEditor` UI component defined elsewhere.
 // ============================================================================
 
 (function() {
     'use strict';
 
-    class MidiEditorTablatureFacade {
+    class MidiEditorTablature {
         constructor(modal) {
             this.modal = modal;
         }
@@ -1166,6 +1164,6 @@
     }
 
     if (typeof window !== 'undefined') {
-        window.MidiEditorTablatureFacade = MidiEditorTablatureFacade;
+        window.MidiEditorTablature = MidiEditorTablature;
     }
 })();
