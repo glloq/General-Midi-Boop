@@ -210,10 +210,10 @@ class MidiEditorModal {
             // Load the MIDI file
             await this.loadMidiFile(fileId);
 
-            // Afficher la modale
+            // Show the modal
             this.routingOps.render();
 
-            // Initialiser le piano roll
+            // Initialize the piano roll
             await this.routingOps.initPianoRoll();
 
             // Scan for string instrument configs to reveal TAB buttons
@@ -267,7 +267,7 @@ class MidiEditorModal {
                 throw new Error('No MIDI data received from server');
             }
 
-            // Le backend renvoie un objet avec : { id, filename, midi: {...}, size, tracks, duration, tempo }
+            // The backend returns an object with: { id, filename, midi: {...}, size, tracks, duration, tempo }
             // Extract the raw MIDI data
             const fileData = response.midiData;
             this.midiData = fileData.midi || fileData;
@@ -277,7 +277,7 @@ class MidiEditorModal {
                 throw new Error('Invalid MIDI data structure');
             }
 
-            // Convertir en sequence pour webaudio-pianoroll
+            // Convert to sequence for webaudio-pianoroll
             this.sequenceOps.convertMidiToSequence();
 
             this.log('info', `MIDI file loaded: ${this.midiData.tracks?.length || 0} tracks, ${this.sequence.length} notes`);
@@ -285,7 +285,7 @@ class MidiEditorModal {
         } catch (error) {
             this.log('error', 'Failed to load MIDI file:', error);
 
-            // Si l'erreur est "Unknown command", proposer une alternative
+            // If the error is "Unknown command", suggest an alternative
             if (error.message.includes('Unknown command') || error.message.includes('file_read')) {
                 throw new Error(this.t('midiEditor.backendNotSupported'));
             }

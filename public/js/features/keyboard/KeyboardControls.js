@@ -141,7 +141,7 @@
             velocityPanel.classList.add('slider-hidden');
         }
 
-        // Modulation : visible si CC#1 est dans supported_ccs
+        // Modulation: visible if CC#1 is in supported_ccs
         let supportsCCs = [];
         if (caps.supported_ccs) {
             try {

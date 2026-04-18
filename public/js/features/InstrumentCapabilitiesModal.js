@@ -620,7 +620,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Ferme le modal
+   * Close the modal
    */
   close() {
     if (this._escHandler) {

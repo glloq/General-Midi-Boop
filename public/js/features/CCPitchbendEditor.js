@@ -1115,7 +1115,7 @@ class CCPitchbendEditor {
     }
 }
 
-// Export pour utilisation
+// Export for use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CCPitchbendEditor;
 }

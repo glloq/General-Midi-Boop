@@ -192,7 +192,7 @@ class KeyboardModalNew {
             this.localeUnsubscribe = null;
         }
 
-        // Stop toutes les notes actives
+        // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
 
         // Reset state

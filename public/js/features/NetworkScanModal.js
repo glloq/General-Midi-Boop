@@ -75,11 +75,11 @@ class NetworkScanModal {
     }
 
     // ========================================================================
-    // AFFICHAGE DE LA MODAL
+    // MODAL DISPLAY
     // ========================================================================
 
     /**
-     * Ouvre la modal et lance le scan
+     * Open the modal and start the scan
      */
     open() {
         if (this.isOpen) {
@@ -99,7 +99,7 @@ class NetworkScanModal {
     }
 
     /**
-     * Ferme la modal
+     * Close the modal
      */
     close() {
         if (!this.isOpen) return;
@@ -124,7 +124,7 @@ class NetworkScanModal {
      * Build the modal DOM
      */
     createModal() {
-        // Supprimer l'ancienne modal si elle existe
+        // Remove the old modal if it exists
         if (this.container) {
             this.container.remove();
         }
@@ -141,7 +141,7 @@ class NetworkScanModal {
     }
 
     /**
-     * Rendu du contenu de la modal
+     * Render the modal content
      */
     renderModalContent() {
         return `
@@ -351,7 +351,7 @@ class NetworkScanModal {
         this.container.addEventListener('click', (e) => {
             const action = e.target.dataset.action;
 
-            // Fermeture
+            // Close
             if (action === 'close' || e.target === this.container) {
                 this.close();
                 return;
@@ -387,7 +387,7 @@ class NetworkScanModal {
             }
         });
 
-        // Enter sur le champ IP
+        // Enter on the IP field
         const manualIpInput = this.container.querySelector('#manualIp');
         if (manualIpInput) {
             manualIpInput.addEventListener('keypress', (e) => {
@@ -453,14 +453,14 @@ class NetworkScanModal {
         const ip = ipInput.value.trim();
         const port = portInput ? portInput.value.trim() : '5004';
 
-        // Validation de l'adresse IP
+        // IP address validation
         if (!ip) {
             alert(`⚠️ ${this.t('network.invalidIP.empty')}`);
             ipInput.focus();
             return;
         }
 
-        // Regex pour valider l'IP
+        // Regex to validate the IP
         const ipPattern = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         if (!ipPattern.test(ip)) {
             alert(`⚠️ ${this.t('network.invalidIP.format')}`);
@@ -614,7 +614,7 @@ class NetworkScanModal {
         // Reload the connected devices list
         this.loadConnectedDevices();
 
-        // Supprimer de la liste des disponibles
+        // Remove from the available list
         const deviceIp = data.ip || data.address;
         this.availableDevices = this.availableDevices.filter(
             d => d.ip !== deviceIp && d.address !== deviceIp

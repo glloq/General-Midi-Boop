@@ -230,7 +230,7 @@ class SettingsModal {
     }
 
     /**
-     * Ouvrir le modal
+     * Open the modal
      */
     open() {
         this.overlay.style.display = 'flex';
@@ -242,7 +242,7 @@ class SettingsModal {
         // Reset cancellation flag so update polling can resume if needed
         this._updateCancelled = false;
 
-        // Restaurer les valeurs actuelles
+        // Restore current values
         const darkModeToggle = this.modal.querySelector('#darkModeToggle');
         if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
 
@@ -294,7 +294,7 @@ class SettingsModal {
     }
 
     /**
-     * Fermer le modal
+     * Close the modal
      */
     close() {
         this.overlay.style.display = 'none';

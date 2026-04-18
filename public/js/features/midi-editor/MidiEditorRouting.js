@@ -341,7 +341,7 @@
                         </div>
                     </div>
 
-                    <!-- Conteneur pour Notes et CC/Pitchbend -->
+                    <!-- Container for Notes and CC/Pitchbend -->
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
@@ -356,7 +356,7 @@
                             </div>
                         </div>
 
-                        <!-- Barre de resize entre notes et CC -->
+                        <!-- Resize bar between notes and CC -->
                         <div class="cc-resize-bar" id="cc-resize-btn" title="${this.modal.t('midiEditor.dragToResize')}">
                             <span class="resize-grip">⋮⋮⋮</span>
                         </div>
@@ -421,7 +421,7 @@
                                             <span class="cc-group-label">+</span>
                                             <div class="cc-btn-group-buttons" id="cc-dynamic-buttons"></div>
                                         </div>
-                                        <!-- Bouton + pour ajouter un CC depuis la liste -->
+                                        <!-- "+" button to add a CC from the list -->
                                         <div class="cc-btn-group" data-group="custom">
                                             <span class="cc-group-label">&nbsp;</span>
                                             <div class="cc-btn-group-buttons">
@@ -477,7 +477,7 @@
     // Attach events
         this.modal.events.attachEvents();
 
-    // Fermer avec Escape
+    // Close with Escape
         this.modal.escapeHandler = (e) => {
             if (e.key === 'Escape') this.modal.close();
         };

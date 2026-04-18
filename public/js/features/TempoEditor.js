@@ -79,7 +79,7 @@ class TempoEditor {
             min-height: 0;
         `;
 
-        // Canvas pour le rendu
+        // Canvas for rendering
         this.canvas = document.createElement('canvas');
         this.canvas.style.cssText = `
             position: absolute;

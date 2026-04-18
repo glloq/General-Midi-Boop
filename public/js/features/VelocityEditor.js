@@ -874,7 +874,7 @@ class VelocityEditor {
     }
 }
 
-// Exporter pour utilisation dans d'autres modules
+// Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = VelocityEditor;
 }
