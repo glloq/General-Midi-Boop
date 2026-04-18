@@ -33,8 +33,8 @@ import MidiPlayer from '../midi/MidiPlayer.js';
 import LatencyCompensator from '../midi/LatencyCompensator.js';
 import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../storage/FileManager.js';
-import BluetoothManager from '../managers/BluetoothManager.js';
-import NetworkManager from '../managers/NetworkManager.js';
+import BluetoothManager from '../transports/BluetoothManager.js';
+import NetworkManager from '../transports/NetworkManager.js';
 import WebSocketServer from '../api/WebSocketServer.js';
 import HttpServer from '../api/HttpServer.js';
 import CommandHandler from '../api/CommandHandler.js';
@@ -252,7 +252,7 @@ class Application {
 
       // Initialize Serial MIDI (optional - requires serialport package)
       try {
-        const { default: SerialMidiManager } = await import('../managers/SerialMidiManager.js');
+        const { default: SerialMidiManager } = await import('../transports/SerialMidiManager.js');
         this._registerService('serialMidiManager', new SerialMidiManager(deps));
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {

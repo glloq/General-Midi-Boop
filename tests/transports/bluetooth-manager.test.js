@@ -1,9 +1,9 @@
-// tests/managers/bluetooth-manager.test.js
+// tests/transports/bluetooth-manager.test.js
 // Unit tests for BluetoothManager (P1-4.5c.6) running against the
 // InMemoryBleAdapter — no D-Bus, no hardware.
 
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import BluetoothManager from '../../src/managers/BluetoothManager.js';
+import BluetoothManager from '../../src/transports/BluetoothManager.js';
 import InMemoryBleAdapter from '../../src/midi/adapters/InMemoryBleAdapter.js';
 
 const FIXTURES = [

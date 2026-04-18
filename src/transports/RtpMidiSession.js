@@ -1,5 +1,5 @@
 /**
- * @file src/managers/RtpMidiSession.js
+ * @file src/transports/RtpMidiSession.js
  * @description Simplified RTP-MIDI (RFC 6295) session implementation.
  * One instance per remote endpoint; created and owned by
  * {@link NetworkManager}. Handles the UDP socket, RTP sequence /

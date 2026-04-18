@@ -1,5 +1,5 @@
 /**
- * @file src/managers/BluetoothManager.js
+ * @file src/transports/BluetoothManager.js
  * @description High-level Bluetooth BLE MIDI device manager built on
  * top of a {@link BluetoothPort} adapter (P1-4.5c — ports/adapters).
  *

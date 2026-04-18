@@ -1,5 +1,5 @@
 /**
- * @file src/managers/NetworkManager.js
+ * @file src/transports/NetworkManager.js
  * @description High-level manager for MIDI instruments reachable over
  * the local network (RTP-MIDI / AppleMIDI). Responsibilities:
  *   - LAN discovery via mDNS-style probes and ARP scans.

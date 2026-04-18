@@ -1,5 +1,5 @@
 /**
- * @file src/managers/SerialMidiManager.js
+ * @file src/transports/SerialMidiManager.js
  * @description MIDI over UART (Raspberry Pi GPIO serial) manager.
  *
  * Responsibilities:
