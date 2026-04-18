@@ -484,13 +484,13 @@ class BluetoothScanModal {
     }
 
     /**
-     * Connecte un périphérique appairé
+     * Connect a paired device
      */
     connectDevice(deviceAddress) {
         this.logger.info('BluetoothScanModal', `Connecting device: ${deviceAddress}`);
 
-        // Désactiver le bouton pendant la connexion pour éviter les clics multiples
-        // MAIS ne pas changer le texte pour éviter le problème de fond violet
+        // Disable the button during connection to prevent multiple clicks
+        // BUT do not change the text to avoid the purple background issue
         const deviceCard = this.container.querySelector(`[data-device-address="${deviceAddress}"]`);
         if (deviceCard) {
             const button = deviceCard.querySelector('.btn-connect');
@@ -507,8 +507,8 @@ class BluetoothScanModal {
             });
         }
 
-        // NE PAS fermer la modal - laisser l'utilisateur voir le statut
-        // this.close(); // SUPPRIMÉ
+        // DO NOT close the modal - let the user see the status
+        // this.close(); // REMOVED
     }
 
     /**
