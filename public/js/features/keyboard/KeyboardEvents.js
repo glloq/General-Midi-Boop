@@ -9,7 +9,7 @@
     // ========================================================================
 
     KeyboardEventsMixin.attachEvents = function() {
-        // Boutons
+        // Buttons
         document.getElementById('keyboard-close-btn')?.addEventListener('click', () => this.close());
 
         document.getElementById('keyboard-octave-up')?.addEventListener('click', () => {
@@ -31,7 +31,7 @@
             let deviceId = rawValue;
             let selectedChannel = undefined;
 
-            // Parser le format "deviceId::channel" pour les devices multi-instruments
+            // Parse the "deviceId::channel" format for multi-instrument devices
             if (rawValue.includes('::')) {
                 const parts = rawValue.split('::');
                 deviceId = parts[0];
@@ -45,13 +45,13 @@
                 return d.device_id === deviceId || d.id === deviceId;
             }) || null;
 
-            // Charger les capacités de l'instrument sélectionné
+            // Load the selected instrument's capabilities
             await this.loadDeviceCapabilities(deviceId, selectedChannel);
 
-            // Auto-centrer le clavier sur la plage de notes de l'instrument
+            // Auto-center the keyboard on the instrument's note range
             this.autoCenterKeyboard();
 
-            // Mettre à jour la visibilité des sliders
+            // Update the slider visibility
             this.updateSlidersVisibility();
 
             // Reset modulation wheel to center when changing instrument
@@ -60,7 +60,7 @@
             const modDisplay = document.getElementById('keyboard-modulation-display');
             if (modDisplay) modDisplay.textContent = '64';
 
-            // Régénérer le clavier pour appliquer les restrictions
+            // Regenerate the keyboard to apply the restrictions
             this.regeneratePianoKeys();
         });
 
@@ -76,7 +76,7 @@
         // Layout
         document.getElementById('keyboard-layout-select')?.addEventListener('change', (e) => {
             this.keyboardLayout = e.target.value;
-            // Mettre à jour le texte d'aide
+            // Update the help text
             const helpText = document.getElementById('keyboard-help-text');
             if (helpText) {
                 helpText.textContent = this.keyboardLayout === 'azerty'
@@ -88,10 +88,10 @@
         // Piano keys - use delegated listeners on the container (not individual per key)
         this._setupPianoDelegation();
 
-        // Gestion globale du mouseup pour le drag
+        // Global mouseup handling for the drag
         document.addEventListener('mouseup', this.handleGlobalMouseUp);
 
-        // Clavier PC
+        // PC keyboard
         window.addEventListener('keydown', this.handleKeyDown);
         window.addEventListener('keyup', this.handleKeyUp);
     }
@@ -120,33 +120,33 @@
     }
 
     /**
-     * Résoudre une touche PC en note MIDI via les touches visibles
-     * Les touches blanches (S D F G H J K L M) mappent aux 9 premières touches blanches
-     * Les touches noires (Z E T Y U O P) mappent aux noires adjacentes
+     * Resolve a PC key to a MIDI note via the visible keys
+     * The white keys (S D F G H J K L M) map to the first 9 white keys
+     * The black keys (Z E T Y U O P) map to adjacent black keys
      */
     KeyboardEventsMixin._resolveKeyToNote = function(code) {
-        // Mapping des touches PC vers les indices des touches blanches visibles
+        // Mapping of PC keys to indices of visible white keys
         const whiteKeyIndices = this.keyboardLayout === 'qwerty'
             ? { 'KeyS': 0, 'KeyD': 1, 'KeyF': 2, 'KeyG': 3, 'KeyH': 4, 'KeyJ': 5, 'KeyK': 6, 'KeyL': 7, 'Semicolon': 8 }
             : { 'KeyS': 0, 'KeyD': 1, 'KeyF': 2, 'KeyG': 3, 'KeyH': 4, 'KeyJ': 5, 'KeyK': 6, 'KeyL': 7, 'KeyM': 8 };
 
-        // Touches noires : entre quelles touches blanches (index de la blanche à gauche)
+        // Black keys: between which white keys (index of the white key on the left)
         const blackKeyIndices = this.keyboardLayout === 'qwerty'
             ? { 'KeyW': 0, 'KeyE': 1, 'KeyT': 3, 'KeyY': 4, 'KeyU': 5, 'KeyO': 7, 'KeyP': 8 }
             : { 'KeyZ': 0, 'KeyE': 1, 'KeyT': 3, 'KeyY': 4, 'KeyU': 5, 'KeyO': 7, 'KeyP': 8 };
 
-        // Touche blanche ?
+        // White key?
         if (whiteKeyIndices[code] !== undefined) {
             const idx = whiteKeyIndices[code];
             return idx < this.visibleWhiteNotes.length ? this.visibleWhiteNotes[idx] : null;
         }
 
-        // Touche noire ? Trouver la noire juste au-dessus de la blanche correspondante
+        // Black key? Find the black key just above the matching white key
         if (blackKeyIndices[code] !== undefined) {
             const whiteIdx = blackKeyIndices[code];
             if (whiteIdx >= this.visibleWhiteNotes.length) return null;
             const whiteNote = this.visibleWhiteNotes[whiteIdx];
-            // La noire est 1 demi-ton au-dessus si elle existe dans les visibles
+            // The black key is 1 semitone above if it exists among the visible ones
             const blackNote = whiteNote + 1;
             return this.visibleBlackNotes.includes(blackNote) ? blackNote : null;
         }
@@ -157,15 +157,15 @@
     KeyboardEventsMixin.playNote = function(note) {
         if (note < 21 || note > 108) return;
 
-        // Ajouter aux notes actives
+        // Add to active notes
         this.activeNotes.add(note);
         this.updatePianoDisplay();
 
-        // Envoyer MIDI si device sélectionné
+        // Send MIDI if a device is selected
         if (this.selectedDevice && this.backend) {
             const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
 
-            // Si c'est le périphérique virtuel, envoyer aux logs
+            // If it is the virtual device, send to logs
             if (this.selectedDevice.isVirtual) {
                 const noteName = this.getNoteNameFromNumber(note);
                 const message = `🎹 ${this.t('keyboard.virtualNoteOn', { note: noteName, number: note, velocity: this.velocity })}`;
@@ -186,15 +186,15 @@
     }
 
     KeyboardEventsMixin.stopNote = function(note) {
-        // Retirer des notes actives
+        // Remove from active notes
         this.activeNotes.delete(note);
         this.updatePianoDisplay();
 
-        // Envoyer MIDI si device sélectionné
+        // Send MIDI if a device is selected
         if (this.selectedDevice && this.backend) {
             const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
 
-            // Si c'est le périphérique virtuel, envoyer aux logs
+            // If it is the virtual device, send to logs
             if (this.selectedDevice.isVirtual) {
                 const noteName = this.getNoteNameFromNumber(note);
                 const message = `🎹 ${this.t('keyboard.virtualNoteOff', { note: noteName, number: note })}`;

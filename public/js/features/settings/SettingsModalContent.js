@@ -554,11 +554,11 @@
             // Restore the dark mode toggle values
             const darkModeToggle = this.modal.querySelector('#darkModeToggle');
             if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
-            // Re-vérifier les mises à jour (le HTML a été régénéré)
+            // Re-check for updates (the HTML has been regenerated)
             this.checkForUpdates();
         }
 
-        // Mettre à jour les boutons du footer
+        // Update the footer buttons
         const cancelBtn = this.modal.querySelector('.settings-cancel-btn');
         const saveBtn = this.modal.querySelector('.settings-save-btn');
         if (cancelBtn) cancelBtn.textContent = i18n.t('common.cancel');

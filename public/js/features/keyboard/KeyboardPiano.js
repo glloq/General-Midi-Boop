@@ -43,7 +43,7 @@
 
                 <div class="modal-body">
                     <div class="keyboard-layout">
-                        <!-- Slider vélocité vertical à gauche -->
+                        <!-- Vertical velocity slider on the left -->
                         <div class="velocity-control-vertical" id="velocity-control-panel">
                             <div class="velocity-label-vertical">${this.t('keyboard.velocity')}</div>
                             <div class="velocity-slider-wrapper">
@@ -88,7 +88,7 @@
 
         document.body.appendChild(this.container);
 
-        // Générer les touches du piano
+        // Generate the piano keys
         this.generatePianoKeys();
     }
 
@@ -106,7 +106,7 @@
         const endNote = this.startNote + totalNotes;
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-        // Collecter les touches blanches et noires
+        // Collect the white and black keys
         this.visibleWhiteNotes = [];
         this.visibleBlackNotes = [];
 
@@ -121,7 +121,7 @@
 
         const totalWhiteKeys = this.visibleWhiteNotes.length;
 
-        // Générer les touches blanches
+        // Generate the white keys
         for (let i = 0; i < totalWhiteKeys; i++) {
             const noteNumber = this.visibleWhiteNotes[i];
             const octave = Math.floor(noteNumber / 12) - 1;
@@ -144,15 +144,15 @@
             pianoContainer.appendChild(whiteKey);
         }
 
-        // Générer les touches noires positionnées sur les blanches
+        // Generate the black keys positioned over the white keys
         for (const blackNote of this.visibleBlackNotes) {
             const octave = Math.floor(blackNote / 12) - 1;
             const noteName = noteNames[blackNote % 12];
 
-            // Trouver la touche blanche juste avant cette noire
-            const whiteBelow = blackNote - 1; // la blanche en dessous
+            // Find the white key just before this black one
+            const whiteBelow = blackNote - 1; // the white key below
             const whiteIndex = this.visibleWhiteNotes.indexOf(whiteBelow);
-            if (whiteIndex < 0) continue; // bord du clavier
+            if (whiteIndex < 0) continue; // edge of the keyboard
 
             const blackKey = document.createElement('div');
             blackKey.className = 'piano-key black-key';
@@ -163,7 +163,7 @@
                 blackKey.classList.add('disabled');
             }
 
-            // Positionner entre la blanche courante et la suivante
+            // Position between the current white key and the next
             blackKey.style.left = `calc(${whiteIndex * (100 / totalWhiteKeys)}% + ${(100 / totalWhiteKeys) * 0.7}%)`;
 
             pianoContainer.appendChild(blackKey);

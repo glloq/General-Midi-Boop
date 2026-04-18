@@ -5,8 +5,8 @@
 
 
     /**
-     * Envoyer un message CC modulation (CC#1) à l'instrument sélectionné
-     * @param {number} value - Valeur de modulation (0-127)
+     * Send a CC modulation (CC#1) message to the selected instrument
+     * @param {number} value - Modulation value (0-127)
      */
     KeyboardControlsMixin.initModWheel = function() {
         const track = document.getElementById('mod-wheel-track');
@@ -113,8 +113,8 @@
     }
 
     /**
-     * Met à jour la visibilité des sliders vélocité et modulation
-     * en fonction des capacités de l'instrument sélectionné
+     * Update the visibility of the velocity and modulation sliders
+     * based on the selected instrument's capabilities
      */
     KeyboardControlsMixin.updateSlidersVisibility = function() {
         const velocityPanel = document.getElementById('velocity-control-panel');
@@ -125,13 +125,13 @@
         const caps = this.selectedDeviceCapabilities;
 
         if (!caps) {
-            // Pas de capacités : afficher vélocité, masquer modulation
+            // No capabilities: show velocity, hide modulation
             velocityPanel.classList.remove('slider-hidden');
             modulationPanel.classList.add('slider-hidden');
             return;
         }
 
-        // Vélocité : toujours visible si l'instrument supporte des notes
+        // Velocity: always visible if the instrument supports notes
         const hasNotes = (caps.note_range_min !== null && caps.note_range_min !== undefined) ||
                          (caps.note_range_max !== null && caps.note_range_max !== undefined) ||
                          caps.note_selection_mode === 'discrete';
@@ -165,7 +165,7 @@
     // ========================================================================
 
     /**
-     * Charger les paramètres depuis localStorage
+     * Load settings from localStorage
      */
     KeyboardControlsMixin.loadSettings = function() {
         try {
@@ -173,12 +173,12 @@
             if (saved) {
                 const settings = JSON.parse(saved);
 
-                // Appliquer le nombre d'octaves (nouveau format)
+                // Apply the number of octaves (new format)
                 if (settings.keyboardOctaves !== undefined) {
                     this.setOctaves(settings.keyboardOctaves);
                     this.logger.info(`[KeyboardModal] Settings loaded: ${settings.keyboardOctaves} octaves`);
                 }
-                // Fallback: ancien format (nombre de touches)
+                // Fallback: old format (number of keys)
                 else if (settings.keyboardKeys !== undefined) {
                     this.setNumberOfKeys(settings.keyboardKeys);
                     this.logger.info(`[KeyboardModal] Settings loaded (legacy): ${settings.keyboardKeys} keys`);
@@ -192,9 +192,9 @@
     KeyboardControlsMixin.loadDevices = async function() {
         try {
             const devices = await this.backend.listDevices();
-            let activeDevices = devices.filter(d => d.status === 2); // Actifs seulement
+            let activeDevices = devices.filter(d => d.status === 2); // Active only
 
-            // Dédupliquer par nom (au cas où le backend n'aurait pas tout dédupliqué)
+            // Deduplicate by name (in case the backend didn't fully deduplicate)
             const uniqueDevices = [];
             const seenNames = new Set();
 
@@ -208,7 +208,7 @@
                 }
             }
 
-            // Éclater les devices multi-instruments en entrées individuelles
+            // Expand multi-instrument devices into individual entries
             const expandedDevices = [];
             for (const device of uniqueDevices) {
                 if (device.instruments && device.instruments.length > 0) {
@@ -229,8 +229,8 @@
             this.devices = expandedDevices;
             this.logger.info(`[KeyboardModal] Loaded ${activeDevices.length} → ${uniqueDevices.length} unique devices → ${expandedDevices.length} instruments`);
 
-            // Charger les instruments virtuels de la DB (créés via Gestion des instruments)
-            // Respecter le réglage "virtualInstrument" de SettingsModal
+            // Load virtual instruments from the DB (created via Instrument management)
+            // Respect the "virtualInstrument" setting from SettingsModal
             let virtualEnabled = false;
             try {
                 const savedSettings = localStorage.getItem('maestro_settings');
@@ -274,7 +274,7 @@
                 this.logger.info('[KeyboardModal] Virtual instruments disabled in settings, skipping');
             }
 
-            // Enrichir avec noms personnalisés
+            // Enrich with custom names
             this.devices = await Promise.all(this.devices.map(async (device) => {
                 const deviceId = device.id || device.device_id;
                 const normalizedDevice = {
@@ -283,12 +283,12 @@
                     device_id: deviceId
                 };
 
-                // Ne pas appeler l'API pour le périphérique virtuel
+                // Don't call the API for the virtual device
                 if (device.isVirtual) {
                     return normalizedDevice;
                 }
 
-                // Les devices multi-instruments ont déjà leur displayName depuis l'éclatement
+                // Multi-instrument devices already have their displayName from expansion
                 if (device._multiInstrument) {
                     return normalizedDevice;
                 }
