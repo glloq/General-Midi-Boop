@@ -1,4 +1,24 @@
-// src/core/Application.js
+/**
+ * @file src/core/Application.js
+ * @description Top-level orchestrator for the MidiMind backend. Owns the
+ * lifecycle of every long-lived service (database, MIDI router/player,
+ * managers, HTTP/WS servers) and the {@link ServiceContainer} used by
+ * everyone else for dependency lookup.
+ *
+ * Lifecycle:
+ *   constructor → {@link Application#initialize} → {@link Application#start}
+ *   → ... → {@link Application#stop} (typically via OS signals routed
+ *   through {@link Application#setupShutdownHandlers}).
+ *
+ * Each service is registered both on `this` (legacy access pattern) and in
+ * the container under the same key. New code should resolve via the
+ * container; the duplicated `this.xxx` references will be removed once
+ * every consumer has migrated.
+ *
+ * Optional services (BluetoothManager, NetworkManager, SerialMidiManager,
+ * LightingManager) are loaded inside try/catch — missing native deps on a
+ * given host are logged as warnings, not fatal errors.
+ */
 import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
@@ -35,7 +55,18 @@ import FileRoutingStatusService from '../midi/domain/files/FileRoutingStatusServ
 import MidiClockGenerator from '../midi/MidiClockGenerator.js';
 import BackupScheduler from '../storage/BackupScheduler.js';
 
+/**
+ * Application root. One instance per process — see `server.js`.
+ */
 class Application {
+  /**
+   * Wire the always-available services (config, logger, event bus, DI
+   * container) and pre-declare the slots for the rest. No I/O happens
+   * here; call {@link Application#initialize} next.
+   *
+   * @param {?string} [configPath=null] - Optional path to an alternate
+   *   `config.json` (forwarded to the {@link Config} constructor).
+   */
   constructor(configPath = null) {
     // Core services (always available)
     this.config = new Config(configPath);
@@ -74,10 +105,16 @@ class Application {
   }
 
   /**
-   * Register a service in both the container and on `this` for backward compat.
-   * New services should use container.resolve() or container.inject() instead.
-   * @param {string} name - Service name
-   * @param {*} instance - Service instance
+   * Register a service in both the container and on `this` for backward
+   * compat. New services should use `container.resolve()` /
+   * `container.inject()` instead.
+   * TODO: drop the `this[name] = instance` line once every consumer has
+   * migrated to container lookup.
+   *
+   * @param {string} name - Service name (becomes the container key).
+   * @param {*} instance - Constructed service instance.
+   * @returns {void}
+   * @private
    */
   _registerService(name, instance) {
     this[name] = instance;
@@ -109,8 +146,13 @@ class Application {
   }
 
   /**
-   * Ensure an API token exists. If MAESTRO_API_TOKEN is not set, generate one,
-   * persist it to .env, and set it in process.env so the HTTP/WS servers pick it up.
+   * Ensure an API bearer token exists. If `MAESTRO_API_TOKEN` is not set,
+   * a 32-byte random hex token is generated, written to `.env`, exported
+   * via `process.env` so the HTTP / WebSocket servers pick it up, and
+   * logged as a one-shot warning so the operator can copy it.
+   *
+   * @returns {void}
+   * @private
    */
   _ensureApiToken() {
     if (process.env.MAESTRO_API_TOKEN) {
@@ -125,7 +167,8 @@ class Application {
       if (existsSync(envPath)) {
         const content = readFileSync(envPath, 'utf8');
         if (content.includes('MAESTRO_API_TOKEN')) {
-          // Variable exists but is empty — replace the line
+          // Variable already declared (likely empty after `.env.example`
+          // copy) — overwrite the existing line in place.
           const updated = content.replace(/^MAESTRO_API_TOKEN=.*$/m, `MAESTRO_API_TOKEN=${token}`);
           writeFileSync(envPath, updated, 'utf8');
         } else {
@@ -145,6 +188,21 @@ class Application {
     this.logger.warn(`================================`);
   }
 
+  /**
+   * Build every backend service and wire EventBus subscriptions. Safe to
+   * call only once per Application instance — call {@link Application#stop}
+   * before re-initialising.
+   *
+   * Registration order mirrors the dependency graph: lower layers
+   * (database, MIDI components) come before higher layers (managers, API).
+   * Optional services that fail to load (missing native deps, missing
+   * hardware) are logged as warnings and silently absent from the
+   * container; callers must use `?.` when accessing them.
+   *
+   * @returns {Promise<void>}
+   * @throws Re-throws the underlying error after logging when initialisation
+   *   of a non-optional service fails.
+   */
   async initialize() {
     try {
       this.logger.info('Initializing application...');
@@ -258,8 +316,15 @@ class Application {
     }
   }
 
+  /**
+   * Subscribe Application-level handlers to the canonical EventBus events
+   * (logging + WS broadcast for device connect/disconnect). Idempotent:
+   * existing handlers from a previous call are detached first to avoid
+   * duplicate notifications after a restart.
+   *
+   * @returns {void}
+   */
   setupEventHandlers() {
-    // Clear any previously registered handlers (prevents leak on restart)
     this.removeEventHandlers();
 
     // Define handlers with references for cleanup
@@ -322,6 +387,13 @@ class Application {
     }
   }
 
+  /**
+   * Detach every handler previously registered through
+   * {@link Application#setupEventHandlers}. Called both before re-binding
+   * and on shutdown to keep the EventBus clean across restarts.
+   *
+   * @returns {void}
+   */
   removeEventHandlers() {
     if (this._eventHandlers) {
       for (const { event, handler } of this._eventHandlers) {
@@ -331,6 +403,15 @@ class Application {
     }
   }
 
+  /**
+   * Bring the application online: scan MIDI devices, start HTTP, then
+   * WebSocket (which needs the http.Server instance), kick off the backup
+   * scheduler, and trigger a one-shot reanalysis of any files missing
+   * channel metadata so GM instrument filters work for legacy uploads.
+   *
+   * @returns {Promise<void>}
+   * @throws Re-throws after logging when a non-optional startup step fails.
+   */
   async start() {
     try {
       this.logger.info('Starting application...');
@@ -381,6 +462,18 @@ class Application {
   }
 
 
+  /**
+   * Tear down everything in roughly the reverse order of {@link
+   * Application#start}/{@link Application#initialize}: backup scheduler,
+   * MIDI player, network servers, MIDI ports, optional managers,
+   * auto-assigner, EventBus subscriptions, and finally the database.
+   *
+   * Each step is wrapped in defensive `if (this.x)` checks because stop()
+   * may run after a partially-failed `initialize()`.
+   *
+   * @returns {Promise<void>}
+   * @throws Re-throws after logging if a teardown step throws.
+   */
   async stop() {
     try {
       this.logger.info('Stopping application...');
@@ -450,12 +543,32 @@ class Application {
     }
   }
 
+  /**
+   * Convenience helper: stop, re-initialise, and start the application
+   * in a single call. Used by some maintenance commands.
+   *
+   * @returns {Promise<void>}
+   */
   async restart() {
     await this.stop();
     await this.initialize();
     await this.start();
   }
 
+  /**
+   * Build a snapshot of runtime metrics (point-in-time, not subscribable).
+   * Used by `server.js` for the boot banner and by `system_status` API.
+   *
+   * @returns {{
+   *   running: boolean,
+   *   uptime: number,
+   *   memory: NodeJS.MemoryUsage,
+   *   devices: number,
+   *   routes: number,
+   *   files: number,
+   *   wsClients: number
+   * }}
+   */
   getStatus() {
     return {
       running: this.running,
@@ -468,9 +581,15 @@ class Application {
     };
   }
 
-  // Graceful shutdown
+  /**
+   * Install OS-signal and last-resort exception handlers that route every
+   * shutdown trigger through {@link Application#stop} exactly once. Safe
+   * to call repeatedly: previously installed handlers are removed first
+   * so they never accumulate across restarts.
+   *
+   * @returns {void}
+   */
   setupShutdownHandlers() {
-    // Remove any previously registered handlers to prevent accumulation on restart
     if (this._shutdownHandlers) {
       for (const { event, handler } of this._shutdownHandlers) {
         process.removeListener(event, handler);
