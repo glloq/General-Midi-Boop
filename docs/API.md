@@ -115,6 +115,35 @@ clients must send `Authorization: Bearer <MAESTRO_API_TOKEN>`.
 | `file_upload_progress` | `{uploadId, stage}` | Emitted during `POST /api/files` for stages: `received`, `hashed`, `parsed`, `analyzed`, `stored` |
 | `file_uploaded` | `{fileId, filename, contentHash}` | Once a file row is committed |
 | `file_list_updated` | `{files: [...]}` | After any CRUD on the library |
+| `file_delete` | `{fileId}` | After a file row + blob is deleted |
+| `file_write` | `{fileId, contentHash}` | After the editor saves new bytes |
+| `playback_status`, `playback_position` | scheduler state | High-frequency push during playback |
+| `playlist_item_changed`, `playlist_waiting` | queue state | Multi-file playback transitions |
+| `monitor_event` | live MIDI message | Routing monitor stream |
+| `device_connected`, `device_disconnected` | `{deviceId, ...}` | Hot-plug detection |
+| `latency_calibration_complete` | `{deviceId, latency, min, max}` | After `latency_measure` finishes |
+
+### API surface not consumed by the bundled SPA
+
+These WS commands are exposed for external clients or future UI work
+but the current SPA does not call them. They are NOT dead — removing
+them would break programmatic clients. Listed here so contributors
+know the gap on the UI side:
+
+- `route_*` (CRUD on static device-to-device routes) — the SPA uses
+  per-file routing (`file_routing_sync`) instead.
+- `preset_save` / `_load` / `_list` / `_delete` / `_rename` / `_export` —
+  no preset UI yet.
+- `midi_panic` — no emergency-stop button wired in the SPA.
+- `file_export` — the SPA downloads via `GET /api/files/:id/blob?dl=1`
+  directly; this command duplicates the URL returned by `file_metadata`.
+- `file_channels`, `playlist_status` — diagnostic queries, no UI surface.
+- `latency_measure` / `_set` / `_get` / `_list` / `_delete` /
+  `_auto_calibrate` / `_recommendations` / `_export` — the SPA uses
+  the `calibrate_*` family. **Note**: `LatencyCompensator` persistence
+  is currently quarantined (v6); these commands work in-memory only,
+  profiles do not survive a restart until the load/save path is wired
+  to `instruments_latency` properly.
 
 ### Playback (21 commands)
 

@@ -6906,6 +6906,31 @@
                     logMidi(data);
                 });
 
+                // File library multi-client sync — refresh on any
+                // server-side change so the list stays consistent across
+                // tabs / devices without polling.
+                const refreshFileList = () => {
+                    try { loadFiles(); } catch (e) { /* ignore */ }
+                };
+                api.on('file_list_updated', refreshFileList);
+                api.on('file_uploaded', refreshFileList);
+                api.on('file_delete', refreshFileList);
+                api.on('file_write', refreshFileList);
+
+                // Upload progress crumbs (received → hashed → parsed →
+                // analyzed → stored). The HTTP POST returns the final
+                // result; this stream is just for big-file UX.
+                api.on('file_upload_progress', (data) => {
+                    log(`Upload ${data.uploadId}: ${data.stage}`);
+                });
+
+                // Latency calibration push — CalibrationModal can listen
+                // to the same channel via the api facade to dismiss
+                // itself instead of polling.
+                api.on('latency_calibration_complete', (data) => {
+                    log(`Latency calibration complete: ${data.deviceId} @ ${data.latency?.toFixed?.(2) ?? data.latency}ms`);
+                });
+
                 await api.connect();
 
             } catch (error) {
