@@ -19,21 +19,21 @@ class MidiEditorModal {
 
         // State
         this.currentFile = null;  // fileId
-        this.currentFilename = null;  // nom du fichier pour affichage
+        this.currentFilename = null;  // filename used for display
         this.midiData = null;
         this.isDirty = false;
 
         // Note sequence for webaudio-pianoroll
         this.sequence = [];
-        this.fullSequence = []; // Toutes les notes (tous canaux)
-        this.activeChannels = new Set(); // Canaux actifs à afficher
-        this.channels = []; // Informations sur les canaux disponibles
+        this.fullSequence = []; // All notes (all channels)
+        this.activeChannels = new Set(); // Active channels to display
+        this.channels = []; // Information about available channels
 
         // Clipboard for copy/paste
         this.clipboard = [];
 
         // Current edit mode
-        this.editMode = 'drag-view'; // 'select', 'drag-notes', 'drag-view', 'edit' - drag-view par défaut pour navigation
+        this.editMode = 'drag-view'; // 'select', 'drag-notes', 'drag-view', 'edit' - drag-view by default for navigation
 
         // Touch mode: shows separate Move/Add/Resize buttons instead of the unified pencil button
         this.touchMode = this._loadTouchModePref();
@@ -43,19 +43,19 @@ class MidiEditorModal {
         this.dragPlaybackEnabled = this._loadDragPlaybackPref();
 
         // Instrument selected for new channels (GM MIDI program)
-        this.selectedInstrument = 0; // Piano par défaut
+        this.selectedInstrument = 0; // Piano by default
 
         // CC/Pitchbend/Velocity/Tempo Editor
         this.ccEditor = null;
         this.velocityEditor = null;
         this.tempoEditor = null;
         this.currentCCType = 'cc1'; // 'cc1', 'cc2', 'cc5', 'cc7', 'cc10', 'cc11', 'cc74', 'cc76', 'cc77', 'cc78', 'cc91', 'pitchbend', 'velocity', 'tempo'
-        this.ccEvents = []; // Événements CC et pitchbend
-        this.tempoEvents = []; // Événements de tempo
-        this.ccSectionExpanded = false; // État du collapse de la section CC
+        this.ccEvents = []; // CC and pitchbend events
+        this.tempoEvents = []; // Tempo events
+        this.ccSectionExpanded = false; // Collapse state of the CC section
 
         // Connected instrument used for routing
-        this.connectedDevices = []; // Liste des appareils MIDI connectés
+        this.connectedDevices = []; // List of connected MIDI devices
 
         // Per-channel routing: Map<channel, deviceValue> (e.g. "deviceId" or "deviceId::channel")
         this.channelRouting = new Map();
@@ -160,19 +160,19 @@ class MidiEditorModal {
     // ========================================================================
 
     /**
-     * Helper pour traduire une clé
-     * @param {string} key - Clé de traduction
-     * @param {Object} params - Paramètres d'interpolation
-     * @returns {string} - Texte traduit
+     * Helper to translate a key
+     * @param {string} key - Translation key
+     * @param {Object} params - Interpolation parameters
+     * @returns {string} - Translated text
      */
     t(key, params = {}) {
         return typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
     }
 
     /**
-     * Récupère le nom d'un instrument GM traduit
-     * @param {number} index - Index de l'instrument (0-127)
-     * @returns {string} - Nom de l'instrument traduit
+     * Retrieve the translated name of a GM instrument
+     * @param {number} index - Instrument index (0-127)
+     * @returns {string} - Translated instrument name
      */
     getInstrumentName(index) {
         const translatedList = this.t('instruments.list');

@@ -530,13 +530,13 @@
     // Default zoom that shows ~20 seconds
     // At 480 ticks/beat and 120 BPM: 20s = 9600 ticks
         const ticksPerBeat = this.modal.midiData.header?.ticksPerBeat || 480;
-        const twentySeconds = ticksPerBeat * 40; // ~20 secondes à 120 BPM
-        const xrange = Math.max(twentySeconds, Math.min(maxTick, twentySeconds)); // Vue sur 20 premières secondes
+        const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
+        const xrange = Math.max(twentySeconds, Math.min(maxTick, twentySeconds)); // View over the first 20 seconds
 
     // Vertically centered view that keeps every note of visible channels onscreen
-        const noteRange = Math.max(24, maxNote - minNote + 4); // +4 notes de marge au lieu de +24
+        const noteRange = Math.max(24, maxNote - minNote + 4); // +4 note margin instead of +24
         const centerNote = Math.floor((minNote + maxNote) / 2);
-        const yoffset = Math.max(0, centerNote - Math.floor(noteRange / 2)); // Centrer verticalement
+        const yoffset = Math.max(0, centerNote - Math.floor(noteRange / 2)); // Center vertically
 
         this.modal.pianoRoll.setAttribute('width', width);
         this.modal.pianoRoll.setAttribute('height', height);
@@ -559,7 +559,7 @@
 
         this.modal.log('info', `Piano roll configured: xrange=${xrange}, yrange=${noteRange}, yoffset=${yoffset} (centered), tempo=${this.modal.tempo || 120} BPM, timebase=${this.modal.ticksPerBeat || 480} ticks/beat`);
 
-    // Ajouter au conteneur AVANT de charger la sequence
+    // Add to container BEFORE loading the sequence
         container.appendChild(this.modal.pianoRoll);
 
     // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
@@ -586,7 +586,7 @@
 
         this.modal.log('info', `Piano roll grid/snap: grid=${this.modal.pianoRoll.grid} ticks, snap=${this.modal.pianoRoll.snap} ticks (${currentSnap.label})`);
 
-    // OPTIMISATION: Remplacer setTimeout(100ms) par un seul RAF
+    // OPTIMIZATION: Replace setTimeout(100ms) with a single RAF
     // The component is already mounted after appendChild — no 100ms wait needed
         await new Promise(resolve => requestAnimationFrame(resolve));
 
@@ -598,10 +598,10 @@
             this.modal.pianoRoll.defaultChannel = Array.from(this.modal.activeChannels)[0];
         }
 
-    // Initialiser la barre de navigation overview
+    // Initialize the navigation overview bar
         this.modal.events._initNavigationOverview(maxTick, xrange);
 
-    // Synchroniser les sliders avec la navigation native du piano roll
+    // Sync the sliders with the piano roll's native navigation
         this.modal.events.setupScrollSynchronization();
 
     // Initialize PlaybackTimelineBar
@@ -615,7 +615,7 @@
         // Assign the sequence to the piano roll
             this.modal.pianoRoll.sequence = this.modal.sequence;
 
-    // OPTIMISATION: redraw direct via RAF au lieu de setTimeout(50ms)
+    // OPTIMIZATION: redraw directly via RAF instead of setTimeout(50ms)
             if (typeof this.modal.pianoRoll.redraw === 'function') {
                 this.modal.pianoRoll.redraw();
                 this.modal.log('info', 'Piano roll redrawn with channel colors');
@@ -652,12 +652,12 @@
                 this.modal.isDirty = true;
                 this.updateSaveButton();
                 this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-                this.modal.updateUndoRedoButtonsState(); // Mettre à jour undo/redo quand la séquence change
-                this.modal.updateEditButtons(); // Mettre à jour copy/paste/delete quand la sélection change
+                this.modal.updateUndoRedoButtonsState(); // Update undo/redo when the sequence changes
+                this.modal.updateEditButtons(); // Update copy/paste/delete when the selection changes
 
     // Update the sequence copy after the sync
                 previousSequence = this.copySequence(this.modal.pianoRoll.sequence);
-            }, 100); // Debounce de 100ms
+            }, 100); // 100ms debounce
         };
 
     // Initialize the sequence copy
@@ -669,7 +669,7 @@
             this.modal.updateEditButtons();
         });
 
-    // Jouer la note au clic sur le clavier piano
+    // Play the note on piano-keyboard click
         this.modal.pianoRoll.addEventListener('pianokey', (e) => {
             if (!this.modal.keyboardPlaybackEnabled) return;
             const note = e.detail.note;
@@ -677,7 +677,7 @@
             this.modal.playNoteFeedback(note, 100, channel);
         });
 
-    // Jouer les notes pendant le deplacement par drag
+    // Play notes during drag movement
         this.modal.pianoRoll.addEventListener('notedragmove', (e) => {
             if (!this.modal.dragPlaybackEnabled) return;
             const notes = e.detail.notes;
@@ -689,13 +689,13 @@
         });
 
         this.updateStats();
-        this.modal.updateEditButtons(); // État initial
-        this.modal.updateUndoRedoButtonsState(); // État initial undo/redo
-        this.modal.renderer.updateInstrumentSelector(); // État initial sélecteur d'instrument
+        this.modal.updateEditButtons(); // Initial state
+        this.modal.updateUndoRedoButtonsState(); // Initial undo/redo state
+        this.modal.renderer.updateInstrumentSelector(); // Initial instrument selector state
 
     // Pick the default mode (drag-view for navigation)
         if (this.modal.pianoRoll && typeof this.modal.pianoRoll.setUIMode === 'function') {
-            this.modal.pianoRoll.setUIMode(this.modal.editMode); // 'drag-view' par défaut
+            this.modal.pianoRoll.setUIMode(this.modal.editMode); // 'drag-view' by default
             this.modal.log('info', `Piano roll UI mode set to: ${this.modal.editMode}`);
         }
 
@@ -716,7 +716,7 @@
 
     updateStats() {
     // Previously showed the note count — removed to save space
-    // L'information est toujours visible dans le tooltip des boutons de canal
+    // The info is still visible in the channel buttons' tooltip
     }
 
     updateSaveButton() {

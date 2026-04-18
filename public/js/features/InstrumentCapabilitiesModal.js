@@ -1,8 +1,8 @@
 /**
  * InstrumentCapabilitiesModal
  *
- * Modal pour compléter les capacités manquantes des instruments
- * avant l'auto-assignation.
+ * Modal to fill in missing instrument capabilities
+ * before auto-assignment.
  */
 (function() {
 'use strict';
@@ -21,9 +21,9 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Affiche le modal pour compléter les capacités
-   * @param {Array} incompleteInstruments - Liste des instruments avec infos manquantes
-   * @param {Function} onComplete - Callback appelé après completion
+   * Show the modal to fill in capabilities
+   * @param {Array} incompleteInstruments - List of instruments with missing info
+   * @param {Function} onComplete - Callback invoked after completion
    */
   async show(incompleteInstruments, onComplete) {
     this.incompleteInstruments = incompleteInstruments;
@@ -31,13 +31,13 @@ class InstrumentCapabilitiesModal {
     this.updates = {};
     this.onComplete = onComplete;
 
-    // Créer le modal
+    // Create the modal
     this.createModal();
 
-    // Afficher le premier instrument
+    // Show the first instrument
     this.showInstrument(0);
 
-    // Rendre global pour les callbacks onclick
+    // Expose globally for onclick callbacks
     window.instrumentCapabilitiesModalInstance = this;
 
     // ESC key handler
@@ -48,7 +48,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Crée la structure HTML du modal
+   * Create the modal's HTML structure
    */
   createModal() {
     const totalCount = this.incompleteInstruments.length;
@@ -67,7 +67,7 @@ class InstrumentCapabilitiesModal {
           </div>
 
           <div id="instrumentCapabilitiesContent" class="modal-body" style="padding: 16px 20px; max-height: 60vh; overflow-y: auto;">
-            <!-- Contenu dynamique -->
+            <!-- Dynamic content -->
           </div>
 
           <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border-color, #e5e7eb); background: var(--bg-tertiary, #f9fafb);">
@@ -90,7 +90,7 @@ class InstrumentCapabilitiesModal {
       </div>
     `;
 
-    // Ajouter au DOM
+    // Add to the DOM
     const modalElement = document.createElement('div');
     modalElement.innerHTML = modalHTML;
     document.body.appendChild(modalElement);
@@ -107,7 +107,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Affiche un instrument pour compléter ses capacités
+   * Show an instrument to fill in its capabilities
    * @param {number} index
    */
   showInstrument(index) {
@@ -119,13 +119,13 @@ class InstrumentCapabilitiesModal {
     const validation = this.incompleteInstruments[index];
     const instrument = validation.instrument;
 
-    // Mettre à jour la progression
+    // Update progress
     const progressText = document.getElementById('progressText');
     if (progressText) {
       progressText.textContent = _t('instrumentCapabilities.progress', { current: index + 1, total: this.incompleteInstruments.length });
     }
 
-    // Activer/désactiver les boutons
+    // Enable/disable the buttons
     const previousBtn = document.getElementById('previousBtn');
     const nextBtn = document.getElementById('nextBtn');
 
@@ -139,20 +139,20 @@ class InstrumentCapabilitiesModal {
       nextBtn.textContent = isLast ? _t('instrumentCapabilities.complete') : _t('instrumentCapabilities.next');
     }
 
-    // Générer le formulaire
+    // Generate the form
     const content = this.generateInstrumentForm(instrument, validation);
 
     const contentElement = document.getElementById('instrumentCapabilitiesContent');
     if (contentElement) {
       contentElement.innerHTML = content;
 
-      // Initialiser les valeurs depuis les updates déjà faits
+      // Initialize values from updates already made
       this.restoreUpdates(instrument.id);
     }
   }
 
   /**
-   * Génère le formulaire HTML pour un instrument
+   * Generate the HTML form for an instrument
    * @param {Object} instrument
    * @param {Object} validation
    * @returns {string}
@@ -195,7 +195,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Génère un champ de formulaire selon le type
+   * Generate a form field based on type
    * @param {Object} instrument
    * @param {Object} field
    * @param {boolean} required
@@ -337,7 +337,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Génère le bouton pour appliquer les valeurs par défaut
+   * Generate the button that applies default values
    * @param {Object} instrument
    * @returns {string}
    */
@@ -354,7 +354,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Met à jour un champ
+   * Update a field
    * @param {string} field
    * @param {*} value
    */
@@ -365,9 +365,9 @@ class InstrumentCapabilitiesModal {
       this.updates[instrument.id] = {};
     }
 
-    // Traiter selon le type
+    // Process based on type
     if (field === 'selected_notes' && typeof value === 'string') {
-      // Convertir la string en array de nombres
+      // Convert the string to an array of numbers
       value = value.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 0 && n <= 127);
     } else if (field === 'gm_program' || field === 'note_range_min' || field === 'note_range_max' || field === 'polyphony') {
       value = parseInt(value);
@@ -453,7 +453,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Met à jour l'array de CCs
+   * Update the CCs array
    * @param {string} field
    * @param {HTMLInputElement} checkbox
    */
@@ -481,12 +481,12 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Applique les valeurs par défaut suggérées
+   * Apply the suggested default values
    */
   async applyDefaults() {
     const instrument = this.incompleteInstruments[this.currentIndex].instrument;
 
-    // Demander au serveur les valeurs par défaut
+    // Ask the server for default values
     try {
       const response = await this.apiClient.sendCommand('get_instrument_defaults', {
         instrumentId: instrument.id,
@@ -494,14 +494,14 @@ class InstrumentCapabilitiesModal {
       });
 
       if (response && response.defaults) {
-        // Appliquer les défaults
+        // Apply the defaults
         if (!this.updates[instrument.id]) {
           this.updates[instrument.id] = {};
         }
 
         Object.assign(this.updates[instrument.id], response.defaults);
 
-        // Rafraîchir l'affichage
+        // Refresh the display
         this.showInstrument(this.currentIndex);
       }
     } catch (error) {
@@ -511,7 +511,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Restaure les mises à jour déjà faites pour un instrument
+   * Restore previously made updates for an instrument
    * @param {number} instrumentId
    */
   restoreUpdates(instrumentId) {
@@ -546,19 +546,19 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Passe à l'instrument suivant
+   * Move to the next instrument
    */
   next() {
     if (this.currentIndex < this.incompleteInstruments.length - 1) {
       this.showInstrument(this.currentIndex + 1);
     } else {
-      // Dernier instrument, terminer
+      // Last instrument, finish
       this.complete();
     }
   }
 
   /**
-   * Retourne à l'instrument précédent
+   * Go back to the previous instrument
    */
   previous() {
     if (this.currentIndex > 0) {
@@ -567,7 +567,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Saute l'instrument actuel
+   * Skip the current instrument
    */
   skip() {
     if (this.currentIndex < this.incompleteInstruments.length - 1) {
@@ -578,10 +578,10 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Termine et sauvegarde toutes les modifications
+   * Finish and save all modifications
    */
   async complete() {
-    // Envoyer les updates au serveur
+    // Send the updates to the server
     try {
       const response = await this.apiClient.sendCommand('update_instrument_capabilities', {
         updates: this.updates
@@ -603,7 +603,7 @@ class InstrumentCapabilitiesModal {
   }
 
   /**
-   * Convertit un numéro MIDI en nom de note
+   * Convert a MIDI number to a note name
    * @param {number} midi
    * @returns {string}
    */

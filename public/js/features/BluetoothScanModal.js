@@ -1,16 +1,16 @@
 // ============================================================================
-// Fichier: frontend/js/features/BluetoothScanModal.js
+// File: frontend/js/features/BluetoothScanModal.js
 // Version: v1.1.0 (i18n support)
 // Date: 2025-11-16
 // ============================================================================
 // Description:
-//   Modal personnalisée pour scanner et connecter des instruments Bluetooth
-//   - Affichage des périphériques disponibles
-//   - Appairage et connexion
-//   - Interface utilisateur intuitive
-//   - Support multilingue (i18n)
+//   Custom modal for scanning and connecting Bluetooth instruments
+//   - Display available devices
+//   - Pairing and connection
+//   - Intuitive UI
+//   - Multi-language support (i18n)
 //
-// Dépendance: i18n doit être chargé avant ce script (js/i18n/I18n.js)
+// Dependency: i18n must be loaded before this script (js/i18n/I18n.js)
 // ============================================================================
 
 class BluetoothScanModal {
@@ -21,8 +21,8 @@ class BluetoothScanModal {
         this.container = null;
         this.isOpen = false;
         this.scanning = false;
-        this.bluetoothEnabled = true; // État du Bluetooth
-        this.bluetoothState = 'unknown'; // État détaillé
+        this.bluetoothEnabled = true; // Bluetooth state
+        this.bluetoothState = 'unknown'; // Detailed state
         this.availableDevices = [];
         this.pairedDevices = [];
 
@@ -32,63 +32,63 @@ class BluetoothScanModal {
     }
 
     // ========================================================================
-    // ÉVÉNEMENTS
+    // EVENTS
     // ========================================================================
 
     setupEventListeners() {
         if (!this.eventBus) return;
 
-        // Réponse du scan Bluetooth
+        // Bluetooth scan response
         this.eventBus.on('bluetooth:scanned', (data) => {
             this.handleScanComplete(data);
         });
 
-        // Réponse de la liste des appareils appairés
+        // Paired-devices list response
         this.eventBus.on('bluetooth:paired_list', (data) => {
             this.handlePairedList(data);
         });
 
-        // Appairage réussi
+        // Pairing succeeded
         this.eventBus.on('bluetooth:paired', (data) => {
             this.handleDevicePaired(data);
         });
 
-        // Erreur de scan
+        // Scan error
         this.eventBus.on('bluetooth:scan_error', (data) => {
             this.handleScanError(data);
         });
 
-        // État du Bluetooth
+        // Bluetooth state
         this.eventBus.on('bluetooth:status', (data) => {
             this.handleBluetoothStatus(data);
         });
 
-        // Bluetooth activé
+        // Bluetooth powered on
         this.eventBus.on('bluetooth:powered_on', (data) => {
             this.handleBluetoothPoweredOn(data);
         });
 
-        // Bluetooth désactivé
+        // Bluetooth powered off
         this.eventBus.on('bluetooth:powered_off', (data) => {
             this.handleBluetoothPoweredOff(data);
         });
 
-        // Périphérique oublié
+        // Device forgotten
         this.eventBus.on('bluetooth:unpaired', (data) => {
             this.handleDeviceUnpaired(data);
         });
 
-        // Périphérique connecté
+        // Device connected
         this.eventBus.on('bluetooth:connected', (data) => {
             this.handleDeviceConnected(data);
         });
 
-        // Périphérique déconnecté
+        // Device disconnected
         this.eventBus.on('bluetooth:disconnected', (data) => {
             this.handleDeviceDisconnected(data);
         });
 
-        // Écouter les changements de langue
+        // Listen for language changes
         if (typeof i18n !== 'undefined') {
             this._localeUnsubscribe = i18n.onLocaleChange(() => this.updateModalContent());
         }
@@ -97,11 +97,11 @@ class BluetoothScanModal {
     }
 
     // ========================================================================
-    // AFFICHAGE DE LA MODAL
+    // MODAL DISPLAY
     // ========================================================================
 
     /**
-     * Ouvre la modal et lance le scan
+     * Open the modal and start the scan
      */
     open() {
         if (this.isOpen) {
@@ -114,13 +114,13 @@ class BluetoothScanModal {
         this.pairedDevices = [];
 
         this.createModal();
-        this.checkBluetoothStatus(); // Vérifier l'état du Bluetooth
+        this.checkBluetoothStatus(); // Check the Bluetooth state
 
         this.logger.info('BluetoothScanModal', 'Modal opened');
     }
 
     /**
-     * Ferme la modal
+     * Close the modal
      */
     close() {
         if (!this.isOpen) return;
@@ -142,28 +142,28 @@ class BluetoothScanModal {
     }
 
     /**
-     * Crée le DOM de la modal
+     * Build the modal DOM
      */
     createModal() {
-        // Supprimer l'ancienne modal si elle existe
+        // Remove the old modal if it exists
         if (this.container) {
             this.container.remove();
         }
 
-        // Créer la nouvelle modal
+        // Create the new modal
         this.container = document.createElement('div');
         this.container.className = 'modal-overlay bluetooth-scan-modal';
         this.container.innerHTML = this.renderModalContent();
 
         document.body.appendChild(this.container);
 
-        // Attacher les événements
+        // Attach events
         this.attachModalEvents();
 
-        // Attacher la délégation d'événements pour les actions sur les périphériques UNE SEULE FOIS
-        // Ces listeners restent actifs même après updateModalContent()
+        // Attach event delegation for device actions ONCE
+        // These listeners stay active even after updateModalContent()
         this.container.addEventListener('click', (e) => {
-            // Clic sur le fond pour fermer
+            // Click backdrop to close
             if (e.target === this.container) {
                 this.close();
                 return;
@@ -196,7 +196,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Rendu du contenu de la modal
+     * Render the modal content
      */
     renderModalContent() {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -209,10 +209,10 @@ class BluetoothScanModal {
                 </div>
 
                 <div class="modal-body">
-                    <!-- État du Bluetooth -->
+                    <!-- Bluetooth state -->
                     ${!this.bluetoothEnabled ? this.renderBluetoothDisabled() : ''}
 
-                    <!-- Section scan -->
+                    <!-- Scan section -->
                     <div class="scan-section">
                         <div class="scan-header">
                             <h3>${t('bluetooth.availableDevices')}</h3>
@@ -227,7 +227,7 @@ class BluetoothScanModal {
                         </div>
                     </div>
 
-                    <!-- Section appareils appairés -->
+                    <!-- Paired devices section -->
                     ${this.pairedDevices.length > 0 ? `
                         <div class="paired-section">
                             <h3>${t('bluetooth.pairedDevices')}</h3>
@@ -237,7 +237,7 @@ class BluetoothScanModal {
                         </div>
                     ` : ''}
 
-                    <!-- Informations -->
+                    <!-- Information -->
                     <div class="info-section">
                         <p>
                             💡 <strong>${t('bluetooth.tipLabel')}</strong> ${t('bluetooth.tip')}
@@ -253,7 +253,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Rendu de la liste des périphériques disponibles
+     * Render the available devices list
      */
     renderAvailableDevices() {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -286,7 +286,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Rendu d'un périphérique disponible
+     * Render an available device
      */
     renderAvailableDevice(device) {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -316,7 +316,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Rendu de la liste des périphériques appairés
+     * Render the paired devices list
      */
     renderPairedDevices() {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -333,7 +333,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Rendu d'un périphérique appairé
+     * Render a paired device
      */
     renderPairedDevice(device) {
         const t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
@@ -375,27 +375,27 @@ class BluetoothScanModal {
     }
 
     // ========================================================================
-    // ÉVÉNEMENTS DOM
+    // DOM EVENTS
     // ========================================================================
 
     /**
-     * Attache les événements de la modal
+     * Attach the modal events
      */
     attachModalEvents() {
         if (!this.container) return;
 
-        // IMPORTANT: Ne réattacher les event listeners que pour les nouveaux éléments
-        // Les event listeners sur le container principal sont attachés une seule fois à la création
+        // IMPORTANT: Only re-attach event listeners for new elements
+        // Listeners on the main container are attached once at creation
 
-        // Fermeture de la modal - réattacher car les boutons sont re-rendus
+        // Modal close - re-attach because the buttons are re-rendered
         const closeButtons = this.container.querySelectorAll('[data-action="close"]');
         closeButtons.forEach(btn => {
-            // Retirer l'ancien listener s'il existe
+            // Remove the old listener if it exists
             btn.removeEventListener('click', this._closeHandler);
             btn.addEventListener('click', () => this.close());
         });
 
-        // Bouton de scan - réattacher car re-rendu
+        // Scan button - re-attach because re-rendered
         const scanButton = this.container.querySelector('[data-action="scan"]');
         if (scanButton) {
             scanButton.removeEventListener('click', this._scanHandler);
@@ -403,7 +403,7 @@ class BluetoothScanModal {
             scanButton.addEventListener('click', this._scanHandler);
         }
 
-        // Bouton d'activation Bluetooth - réattacher car re-rendu
+        // Bluetooth power-on button - re-attach because re-rendered
         const powerOnButton = this.container.querySelector('[data-action="power_on"]');
         if (powerOnButton) {
             powerOnButton.removeEventListener('click', this._powerOnHandler);
@@ -417,7 +417,7 @@ class BluetoothScanModal {
     // ========================================================================
 
     /**
-     * Lance le scan Bluetooth
+     * Start the Bluetooth scan
      */
     startScan() {
         if (this.scanning) {
@@ -441,7 +441,7 @@ class BluetoothScanModal {
     }
 
     /**
-     * Charge la liste des périphériques appairés
+     * Load the paired devices list
      */
     loadPairedDevices() {
         this.logger.debug('BluetoothScanModal', 'Loading paired devices');
@@ -452,18 +452,18 @@ class BluetoothScanModal {
     }
 
     /**
-     * Appaire un périphérique
+     * Pair a device
      */
     pairDevice(deviceId, deviceName) {
         this.logger.info('BluetoothScanModal', `Pairing device: ${deviceId}`);
 
-        // Désactiver le bouton pendant l'appairage SANS changer le texte
-        // (évite le problème de fond violet)
+        // Disable the button during pairing WITHOUT changing the text
+        // (avoids the purple background issue)
         const deviceCard = this.container.querySelector(`[data-device-id="${deviceId}"]`);
         if (deviceCard) {
             const button = deviceCard.querySelector('.btn-pair');
             if (button) {
-                // Empêcher les clics multiples
+                // Prevent multiple clicks
                 if (button.disabled) {
                     this.logger.warn('BluetoothScanModal', 'Pairing already in progress, ignoring click');
                     return;
@@ -893,7 +893,7 @@ class BluetoothScanModal {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Empêcher les clics multiples
+                // Prevent multiple clicks
                 if (confirmBtn.disabled) {
                     return;
                 }

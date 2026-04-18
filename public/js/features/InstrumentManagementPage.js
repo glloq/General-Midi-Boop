@@ -1,11 +1,11 @@
 /**
  * InstrumentManagementPage
  *
- * Page complète de gestion des instruments MIDI avec toutes les fonctionnalités :
- * - Liste de tous les instruments
- * - Édition des capacités
- * - Scan et découverte
- * - Test MIDI
+ * Full MIDI instrument management page with all features:
+ * - List of all instruments
+ * - Capability editing
+ * - Scan and discovery
+ * - MIDI test
  * - Import/Export
  */
 
@@ -21,21 +21,21 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Affiche la page de gestion des instruments
+   * Show the instrument management page
    */
   async show() {
-    // Créer la modal
+    // Create the modal
     this.createModal();
 
-    // Charger les instruments
+    // Load the instruments
     await this.loadInstruments();
 
-    // Rendre global pour les callbacks onclick
+    // Expose globally for onclick callbacks
     window.instrumentManagementPageInstance = this;
   }
 
   /**
-   * Crée la structure HTML de la page
+   * Create the page's HTML structure
    */
   createModal() {
     const modalHTML = `
@@ -70,7 +70,7 @@ class InstrumentManagementPage {
             </button>
           </div>
 
-          <!-- Toolbar connexions -->
+          <!-- Connections toolbar -->
           <div class="inst-mgmt-toolbar" style="padding: 10px 24px; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
               <span class="inst-mgmt-scan-label" style="font-size: 13px; color: #666; font-weight: 600;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
@@ -115,7 +115,7 @@ class InstrumentManagementPage {
       </div>
     `;
 
-    // Ajouter au DOM
+    // Add to the DOM
     const modalElement = document.createElement('div');
     modalElement.innerHTML = modalHTML;
     document.body.appendChild(modalElement);
@@ -124,16 +124,16 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Charge la liste des instruments
+   * Load the instrument list
    */
   async loadInstruments() {
     try {
-      // 1. Charger les devices connectés (enrichis avec instruments[] multi-canal)
+      // 1. Load the connected devices (enriched with multi-channel instruments[])
       const response = await this.apiClient.sendCommand('device_list', {});
       const connectedDevices = (response && response.devices) ? response.devices : [];
       const connectedIds = new Set(connectedDevices.map(d => d.id));
 
-      // 2. Charger les instruments enregistrés en DB (même déconnectés)
+      // 2. Load instruments saved in the DB (even if disconnected)
       let registeredInstruments = [];
       try {
         const capsResponse = await this.apiClient.sendCommand('instrument_list_capabilities');
@@ -144,11 +144,11 @@ class InstrumentManagementPage {
         console.warn('Failed to load registered instruments from DB:', e);
       }
 
-      // 3. Fusionner : connectés (enrichis) + enregistrés non connectés
+      // 3. Merge: connected (enriched) + saved non-connected
       this.instruments = [];
-      const matchedDbIds = new Set(); // IDs DB déjà associés à un device connecté
+      const matchedDbIds = new Set(); // DB IDs already associated with a connected device
 
-      // Ajouter les devices connectés - exploser en une carte par instrument/canal
+      // Add connected devices - expand into one card per instrument/channel
       for (const device of connectedDevices) {
         const deviceBase = {
           connected: true,
@@ -160,12 +160,12 @@ class InstrumentManagementPage {
           _deviceAddress: device.address,
         };
 
-        // Si le device a des instruments multi-canal, créer une entrée par canal
+        // If the device has multi-channel instruments, create one entry per channel
         if (device.instruments && device.instruments.length > 0) {
           for (const inst of device.instruments) {
             const dbId = inst.id || `${device.id}_${inst.channel}`;
             matchedDbIds.add(dbId);
-            // Marquer aussi dans registeredInstruments
+            // Also mark it in registeredInstruments
             const regMatch = registeredInstruments.find(r => r.id === dbId || (r.device_id === device.id && r.channel === inst.channel));
             if (regMatch) matchedDbIds.add(regMatch.id);
 
@@ -185,21 +185,21 @@ class InstrumentManagementPage {
             });
           }
         } else {
-          // Device sans instruments multi-canal : chercher en DB (ancien comportement)
+          // Device without multi-channel instruments: search in DB (legacy behavior)
           let dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
 
-          // Fallback: chercher par USB serial number si pas trouvé par device_id
+          // Fallback: search by USB serial number if not found by device_id
           if (!dbInstrument && (device.usb_serial_number || device.usbSerialNumber)) {
             const serial = device.usb_serial_number || device.usbSerialNumber;
             dbInstrument = registeredInstruments.find(r => r.usb_serial_number === serial);
           }
 
-          // Fallback: chercher par MAC address pour les devices Bluetooth
+          // Fallback: search by MAC address for Bluetooth devices
           if (!dbInstrument && device.address && device.type === 'bluetooth') {
             dbInstrument = registeredInstruments.find(r => r.mac_address === device.address);
           }
 
-          // Fallback: chercher par nom normalisé (sans numéros de port ALSA)
+          // Fallback: search by normalized name (without ALSA port numbers)
           if (!dbInstrument && device.id) {
             const normalizedDeviceName = InstrumentManagementPage.normalizeDeviceName(device.id);
             if (normalizedDeviceName && normalizedDeviceName !== 'virtual') {
@@ -237,8 +237,8 @@ class InstrumentManagementPage {
         }
       }
 
-      // Ajouter les instruments enregistrés qui ne sont PAS connectés
-      // Dédupliquer par usb_serial_number et nom normalisé pour éviter les doublons
+      // Add registered instruments that are NOT connected
+      // Deduplicate by usb_serial_number and normalized name to avoid duplicates
       const seenSerials = new Set();
       const seenNormalizedNames = new Set();
       for (const device of connectedDevices) {
@@ -263,19 +263,19 @@ class InstrumentManagementPage {
       }
 
       for (const registered of registeredInstruments) {
-        // Déjà associé à un device connecté
+        // Already associated with a connected device
         if (matchedDbIds.has(registered.id)) continue;
 
-        // Déjà connecté via device_id
+        // Already connected via device_id
         if (connectedIds.has(registered.device_id)) continue;
 
-        // Dédupliquer: si un autre instrument avec le même serial est déjà affiché
+        // Deduplicate: if another instrument with the same serial is already shown
         if (registered.usb_serial_number && seenSerials.has(registered.usb_serial_number)) continue;
 
-        // Dédupliquer: si un instrument avec le même MAC est déjà affiché
+        // Deduplicate: if an instrument with the same MAC is already shown
         if (registered.mac_address && connectedDevices.some(d => d.address === registered.mac_address)) continue;
 
-        // Dédupliquer: si un device connecté a le même nom normalisé
+        // Deduplicate: if a connected device has the same normalized name
         const normalizedRegName = InstrumentManagementPage.normalizeDeviceName(registered.device_id);
         if (normalizedRegName && !registered.device_id.startsWith('virtual_') && seenNormalizedNames.has(normalizedRegName)) continue;
 
@@ -292,12 +292,12 @@ class InstrumentManagementPage {
         this.instruments.push(registered);
       }
 
-      // Filtrer les instruments virtuels si désactivés dans les réglages
+      // Filter out virtual instruments if disabled in settings
       if (!this._isVirtualEnabled()) {
         this.instruments = this.instruments.filter(inst => !this.isVirtualInstrument(inst));
       }
 
-      // Marquer les instruments virtuels comme toujours disponibles
+      // Mark virtual instruments as always available
       for (const inst of this.instruments) {
         if (this.isVirtualInstrument(inst)) {
           inst.connected = true;
@@ -315,7 +315,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Normalise un nom de device ALSA en retirant les numéros de port.
+   * Normalize an ALSA device name by stripping port numbers.
    * Ex: "Arduino MIDI:Arduino MIDI MIDI 1 20:0" -> "arduino midi"
    */
   static normalizeDeviceName(deviceId) {
@@ -326,7 +326,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Vérifie si les instruments virtuels sont activés dans les réglages
+   * Check whether virtual instruments are enabled in settings
    */
   _isVirtualEnabled() {
     try {
@@ -339,7 +339,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Verifie si un instrument est virtuel
+   * Check whether an instrument is virtual
    */
   isVirtualInstrument(instrument) {
     const deviceId = instrument.device_id || instrument.id || '';
@@ -347,16 +347,16 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Affiche les instruments dans la liste, groupés par device
+   * Display the instruments in the list, grouped by device
    */
   renderInstruments() {
     const content = document.getElementById('instrumentListContent');
     if (!content) return;
 
-    // Filtrer les instruments
+    // Filter instruments
     let filtered = this.instruments;
 
-    // Recherche
+    // Search
     if (this.searchQuery) {
       const query = this.searchQuery.toLowerCase();
       filtered = filtered.filter(inst =>
@@ -366,7 +366,7 @@ class InstrumentManagementPage {
       );
     }
 
-    // Filtre par statut
+    // Filter by status
     if (this.filterStatus === 'complete') {
       filtered = filtered.filter(inst => this.isInstrumentComplete(inst));
     } else if (this.filterStatus === 'incomplete') {
@@ -392,7 +392,7 @@ class InstrumentManagementPage {
       return;
     }
 
-    // Grouper par device
+    // Group by device
     const deviceGroups = new Map();
     for (const inst of filtered) {
       const deviceId = inst._deviceId || inst.device_id || inst.id;
@@ -402,7 +402,7 @@ class InstrumentManagementPage {
       deviceGroups.get(deviceId).push(inst);
     }
 
-    // Séparer les groupes par catégorie
+    // Separate groups by category
     const connectedGroups = [];
     const virtualGroups = [];
     const disconnectedGroups = [];
@@ -423,7 +423,7 @@ class InstrumentManagementPage {
 
     let html = '';
 
-    // Instruments connectés
+    // Connected instruments
     if (connectedGroups.length > 0) {
       const totalInst = connectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
@@ -438,7 +438,7 @@ class InstrumentManagementPage {
       `;
     }
 
-    // Instruments virtuels
+    // Virtual instruments
     if (virtualGroups.length > 0) {
       const totalInst = virtualGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
@@ -453,7 +453,7 @@ class InstrumentManagementPage {
       `;
     }
 
-    // Instruments déconnectés
+    // Disconnected instruments
     if (disconnectedGroups.length > 0) {
       const totalInst = disconnectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
@@ -472,7 +472,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Render un bloc device contenant ses instruments
+   * Render a device block containing its instruments
    */
   renderDeviceBlock(instruments) {
     const first = instruments[0];
@@ -523,7 +523,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Render un sous-bloc instrument dans un device block
+   * Render an instrument sub-block inside a device block
    */
   renderInstrumentSubCard(instrument) {
     const esc = this._escapeHtml;
@@ -586,7 +586,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Retourne l'icône et le label du type de connexion
+   * Return the icon and label for the connection type
    */
   getConnectionTypeInfo(instrument) {
     const type = instrument.type || '';
@@ -601,7 +601,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Retourne la couleur associée à un canal MIDI
+   * Return the color associated with a MIDI channel
    */
   getChannelColor(channel) {
     const colors = [
@@ -614,7 +614,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Vérifie si un instrument est complet
+   * Check whether an instrument is complete
    */
   isInstrumentComplete(instrument) {
     const hasGm = instrument.gm_program !== null && instrument.gm_program !== undefined;
@@ -632,7 +632,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Convertit un numéro MIDI en nom de note
+   * Convert a MIDI number to a note name
    */
   getNoteName(midi) {
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -642,7 +642,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Met à jour les statistiques
+   * Update the statistics
    */
   updateStats() {
     const statsElement = document.getElementById('instrumentStats');
@@ -667,7 +667,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Gère la recherche
+   * Handle the search
    */
   handleSearch(query) {
     this.searchQuery = query;
@@ -675,7 +675,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Gère le filtre
+   * Handle the filter
    */
   handleFilter(status) {
     this.filterStatus = status;
@@ -683,7 +683,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Édite un instrument
+   * Edit an instrument
    */
   openDeviceSettings(deviceId, deviceName) {
     if (!window.DeviceSettingsModal) {
@@ -698,12 +698,12 @@ class InstrumentManagementPage {
   }
 
   editInstrument(deviceId, channel) {
-    // Utiliser le modal existant showInstrumentSettings
+    // Use the existing showInstrumentSettings modal
     const instrument = this.instruments.find(inst =>
       inst.id === deviceId && (channel === undefined || inst.channel === channel)
     );
     if (instrument && window.showInstrumentSettings) {
-      // S'assurer que le channel est bien défini pour showInstrumentSettings
+      // Make sure the channel is set for showInstrumentSettings
       if (channel !== undefined) {
         instrument.channel = channel;
       }
@@ -714,14 +714,14 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Complète un instrument via InstrumentCapabilitiesModal ou settings
+   * Complete an instrument via InstrumentCapabilitiesModal or settings
    */
   async completeInstrument(deviceId) {
     const instrument = this.instruments.find(inst => inst.id === deviceId);
     if (!instrument) return;
 
     try {
-      // Valider les capacités
+      // Validate the capabilities
       const response = await this.apiClient.sendCommand('validate_instrument_capabilities', {});
 
       if (response && response.incompleteInstruments) {
@@ -745,12 +745,12 @@ class InstrumentManagementPage {
       console.warn('Validation failed, falling back to settings:', error);
     }
 
-    // Fallback: ouvrir les réglages complets
+    // Fallback: open the full settings
     this.editInstrument(deviceId);
   }
 
   /**
-   * Test un instrument
+   * Test an instrument
    */
   async testInstrument(deviceId, channel) {
     try {
@@ -794,7 +794,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Supprime un instrument
+   * Delete an instrument
    */
   async deleteInstrument(deviceId, channel) {
     const confirmed = await window.showConfirm(
@@ -824,7 +824,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Presets d'instruments virtuels disponibles cote frontend
+   * Virtual instrument presets available on the frontend
    */
   static VIRTUAL_PRESETS = [
     { type: 'piano', icon: '🎹', label: 'Piano', description: 'A0-C8, polyphonie 64' },
@@ -845,13 +845,13 @@ class InstrumentManagementPage {
   ];
 
   /**
-   * Ajoute un instrument virtuel avec selection du type
+   * Add a virtual instrument with type selection
    */
   addVirtualInstrument() {
     const presets = InstrumentManagementPage.VIRTUAL_PRESETS;
     const esc = this._escapeHtml;
 
-    // Creer le dialog de selection
+    // Create the selection dialog
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10100;display:flex;align-items:center;justify-content:center;';
 
@@ -891,12 +891,12 @@ class InstrumentManagementPage {
 
     document.body.appendChild(overlay);
 
-    // Fermer en cliquant sur le fond
+    // Close on backdrop click
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.remove();
     });
 
-    // Gerer le clic sur un preset
+    // Handle a preset click
     overlay.querySelectorAll('.virtual-preset-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const type = btn.dataset.type || null;
@@ -910,7 +910,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Cree l'instrument virtuel via l'API
+   * Create the virtual instrument via the API
    */
   async _createVirtualInstrument(type, customName) {
     try {
@@ -926,7 +926,7 @@ class InstrumentManagementPage {
       );
       await this.refresh();
 
-      // Ouvrir les reglages pour les instruments personnalises (sans type)
+      // Open settings for custom instruments (no type)
       if (!type && response.deviceId && window.showInstrumentSettings) {
         const newInstrument = this.instruments.find(i =>
           i.device_id === response.deviceId || i.id === response.deviceId
@@ -960,7 +960,7 @@ class InstrumentManagementPage {
    * Scan Bluetooth
    */
   async scanBluetooth() {
-    // Utiliser le modal existant si disponible
+    // Use the existing modal if available
     if (window.showBluetoothScan) {
       window.showBluetoothScan();
     } else {
@@ -972,7 +972,7 @@ class InstrumentManagementPage {
    * Scan Network
    */
   async scanNetwork() {
-    // Utiliser le modal existant si disponible
+    // Use the existing modal if available
     if (window.showNetworkScan) {
       window.showNetworkScan();
     } else {
@@ -981,14 +981,14 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Rafraîchit la liste
+   * Refresh the list
    */
   async refresh() {
     await this.loadInstruments();
   }
 
   /**
-   * Affiche une notification toast dans le modal
+   * Show a toast notification in the modal
    * @param {string} message
    * @param {'success'|'error'|'info'} type
    */
@@ -1014,7 +1014,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Affiche une erreur dans la zone de contenu
+   * Show an error in the content area
    */
   showError(message) {
     const content = document.getElementById('instrumentListContent');
@@ -1033,7 +1033,7 @@ class InstrumentManagementPage {
   }
 
   /**
-   * Ferme la page
+   * Close the page
    */
   close() {
     if (this.modal) {
@@ -1045,5 +1045,5 @@ class InstrumentManagementPage {
   }
 }
 
-// Rendre disponible globalement
+// Expose globally
 window.InstrumentManagementPage = InstrumentManagementPage;
