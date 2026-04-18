@@ -217,7 +217,7 @@
             this.playbackManager.syncMutedChannels();
         }
         this.sequenceOps.updateSequenceFromActiveChannels(previousActiveChannels);
-        this.refreshChannelButtons();
+        this.editActions.refreshChannelButtons();
     }
 
     /**
@@ -447,7 +447,7 @@
         if (typeof this.sequenceOps.updateSequenceFromActiveChannels === 'function') {
             this.sequenceOps.updateSequenceFromActiveChannels(null, true);
         }
-        if (typeof this.refreshChannelButtons === 'function') this.refreshChannelButtons();
+        if (typeof this.editActions.refreshChannelButtons === 'function') this.editActions.refreshChannelButtons();
         if (typeof this.renderer.updateInstrumentSelector === 'function') this.renderer.updateInstrumentSelector();
         if (typeof this.syncMutedChannels === 'function') this.syncMutedChannels();
 
@@ -991,7 +991,7 @@
         this.activeChannels.add(channel);
         this._pianoRollSoloChannel = null;
         this.sequenceOps.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
-        this.refreshChannelButtons();
+        this.editActions.refreshChannelButtons();
 
     // Get MIDI notes for this channel
         const channelNotes = (this.fullSequence || []).filter(n => n.c === channel);
@@ -1062,7 +1062,7 @@
         this.activeChannels.add(channel);
         this._pianoRollSoloChannel = null;
         this.sequenceOps.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
-        this.refreshChannelButtons();
+        this.editActions.refreshChannelButtons();
 
     // Determine wind preset from channel's GM program
         const channelInfo = this.channels?.find(c => c.channel === channel);
@@ -1178,7 +1178,7 @@
         this._pianoRollSoloChannel = channel;
 
         this.sequenceOps.updateSequenceFromActiveChannels(previousActiveChannels);
-        this.refreshChannelButtons();
+        this.editActions.refreshChannelButtons();
         this._updateEditButtonState(true);
     }
 

@@ -79,9 +79,9 @@ class WindInstrumentEditor {
         this._attachCanvasEvents();
 
         // Update main toolbar mode buttons for wind editor
-        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
-        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
-        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
+        if (this.modal.editActions.updateModeButtons) this.modal.editActions.updateModeButtons();
+        if (this.modal.editActions.updateEditButtons) this.modal.editActions.updateEditButtons();
+        if (this.modal.editActions.updateUndoRedoButtonsState) this.modal.editActions.updateUndoRedoButtonsState();
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -111,9 +111,9 @@ class WindInstrumentEditor {
         this._setPianoRollVisible(true);
 
         // Restore main toolbar for piano roll
-        if (this.modal.updateModeButtons) this.modal.updateModeButtons();
-        if (this.modal.updateEditButtons) this.modal.updateEditButtons();
-        if (this.modal.updateUndoRedoButtonsState) this.modal.updateUndoRedoButtonsState();
+        if (this.modal.editActions.updateModeButtons) this.modal.editActions.updateModeButtons();
+        if (this.modal.editActions.updateEditButtons) this.modal.editActions.updateEditButtons();
+        if (this.modal.editActions.updateUndoRedoButtonsState) this.modal.editActions.updateUndoRedoButtonsState();
     }
 
     _setPianoRollVisible(visible) {

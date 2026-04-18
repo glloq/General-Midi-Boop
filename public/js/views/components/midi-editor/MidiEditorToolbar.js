@@ -29,7 +29,7 @@ class MidiEditorToolbar {
             m.pianoRoll.setUIMode(mode);
         }
 
-        this.updateModeButtons();
+        this.editActions.updateModeButtons();
 
         m.log('info', `Edit mode changed to: ${mode}`);
     }
@@ -220,7 +220,7 @@ class MidiEditorToolbar {
             return;
         }
 
-        const count = m.getSelectionCount();
+        const count = m.editActions.getSelectionCount();
         if (count === 0) {
             m.showNotification(m.t('midiEditor.noNoteSelected'), 'info');
             return;
@@ -232,7 +232,7 @@ class MidiEditorToolbar {
         const newChannel = parseInt(channelSelector.value);
         const instrumentSelector = document.getElementById('instrument-selector');
 
-        const selectedNotes = m.getSelectedNotes();
+        const selectedNotes = m.editActions.getSelectedNotes();
         const currentChannels = new Set(selectedNotes.map(n => n.c));
         const currentChannel = currentChannels.size === 1 ? Array.from(currentChannels)[0] : -1;
 
@@ -282,9 +282,9 @@ class MidiEditorToolbar {
         }
 
         m.sequenceOps.updateSequenceFromActiveChannels(null, true);
-        m.refreshChannelButtons();
+        m.editActions.refreshChannelButtons();
         m.updateInstrumentSelector();
-        m.updateEditButtons();
+        m.editActions.updateEditButtons();
     }
 
     // ========================================================================
@@ -328,7 +328,7 @@ class MidiEditorToolbar {
             return;
         }
 
-        const selectionCount = m.getSelectionCount();
+        const selectionCount = m.editActions.getSelectionCount();
         const hasSelection = selectionCount > 0;
 
         const result = await m.dialogs.showChangeInstrumentModal({
@@ -346,9 +346,9 @@ class MidiEditorToolbar {
         }
 
         if (result === true && hasSelection) {
-            await this.applyInstrumentToSelection(selectedProgram, instrumentName);
+            await this.editActions.applyInstrumentToSelection(selectedProgram, instrumentName);
         } else {
-            this.applyInstrumentToChannel(targetChannel, selectedProgram, instrumentName, channelInfo);
+            this.editActions.applyInstrumentToChannel(targetChannel, selectedProgram, instrumentName, channelInfo);
         }
     }
 
@@ -357,10 +357,10 @@ class MidiEditorToolbar {
      */
     async applyInstrumentToSelection(program, instrumentName) {
         const m = this.modal;
-        const selectedNotes = m.getSelectedNotes();
+        const selectedNotes = m.editActions.getSelectedNotes();
         if (selectedNotes.length === 0) return;
 
-        let newChannel = this.findAvailableChannel(program);
+        let newChannel = this.editActions.findAvailableChannel(program);
 
         if (newChannel === -1) {
             m.showNotification(m.t('midiEditor.noChannelAvailable'), 'error');
@@ -413,9 +413,9 @@ class MidiEditorToolbar {
         }
 
         m.sequenceOps.updateSequenceFromActiveChannels(null, true);
-        m.refreshChannelButtons();
+        m.editActions.refreshChannelButtons();
         m.updateInstrumentSelector();
-        m.updateEditButtons();
+        m.editActions.updateEditButtons();
     }
 
     /**
@@ -429,7 +429,7 @@ class MidiEditorToolbar {
         m.log('info', `Applied instrument ${instrumentName} to channel ${channel + 1}`);
         m.showNotification(m.t('midiEditor.instrumentApplied', { channel: channel + 1, instrument: instrumentName }), 'success');
 
-        m.refreshChannelButtons();
+        m.editActions.refreshChannelButtons();
         m.isDirty = true;
         m.updateSaveButton();
     }

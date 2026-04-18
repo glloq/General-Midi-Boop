@@ -557,7 +557,7 @@ class MidiEditorCCPanel {
         const m = this.modal;
         if (!m.ccEditor) return;
 
-        const viewport = m._getActiveViewportState();
+        const viewport = m.editActions._getActiveViewportState();
         m.ccEditor.syncWith({
             xrange: viewport.xrange,
             xoffset: viewport.xoffset,
@@ -722,7 +722,7 @@ class MidiEditorCCPanel {
         const m = this.modal;
         if (!m.tempoEditor) return;
 
-        const viewport = m._getActiveViewportState();
+        const viewport = m.editActions._getActiveViewportState();
         m.tempoEditor.setXRange(viewport.xrange);
         m.tempoEditor.setXOffset(viewport.xoffset);
         m.tempoEditor.setGrid(m.snapValues[m.currentSnapIndex].ticks);
@@ -885,7 +885,7 @@ class MidiEditorCCPanel {
         const m = this.modal;
         if (!m.velocityEditor) return;
 
-        const viewport = m._getActiveViewportState();
+        const viewport = m.editActions._getActiveViewportState();
         m.velocityEditor.syncWith({
             xrange: viewport.xrange,
             xoffset: viewport.xoffset,

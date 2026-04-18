@@ -277,7 +277,7 @@
     syncCCEditor() {
         if (!this.modal.ccEditor) return;
 
-        const viewport = this.modal._getActiveViewportState();
+        const viewport = this.modal.editActions._getActiveViewportState();
         this.modal.ccEditor.syncWith({
             xrange: viewport.xrange,
             xoffset: viewport.xoffset,
@@ -305,7 +305,7 @@
         this.syncVelocityEditor();
         this.syncTempoEditor();
 
-        const viewport = this.modal._getActiveViewportState();
+        const viewport = this.modal.editActions._getActiveViewportState();
         const activeLeftOffset = this._getActiveEditorHeaderWidth();
 
     // Sync PlaybackTimelineBar with active editor scroll/zoom

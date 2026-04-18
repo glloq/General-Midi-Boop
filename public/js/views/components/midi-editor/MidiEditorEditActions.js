@@ -1,41 +1,33 @@
 // ============================================================================
 // File: public/js/views/components/midi-editor/MidiEditorEditActions.js
-// Description: Editing actions (undo/redo/copy/paste/delete/channel/instrument)
-//   Mixin: methods added to MidiEditorModal.prototype
+// Description: Edit actions (undo/redo, copy/paste, channel/instrument,
+//   edit modes, keyboard shortcuts) for the MIDI editor.
+//   Sub-component class ; called via `modal.editActions.<method>(...)`.
+//   (P2-F.10j body rewrite — no longer a prototype mixin.)
 // ============================================================================
 
 (function() {
     'use strict';
 
-    const MidiEditorEditActionsMixin = {};
+    class MidiEditorEditActions {
+        constructor(modal) {
+            this.modal = modal;
+        }
 
-    // ========================================================================
-    // EDIT ACTIONS
-    // ========================================================================
-
-    /**
-    * Return the active specialized editor (Drum, Wind, Tablature) or null when the piano roll is focused
-    */
-    MidiEditorEditActionsMixin._getActiveSpecializedEditor = function() {
-        if (this.drumPatternEditor?.isVisible) return this.drumPatternEditor;
-        if (this.windInstrumentEditor?.isVisible) return this.windInstrumentEditor;
-        if (this.tablatureEditor?.isVisible) return this.tablatureEditor;
+    _getActiveSpecializedEditor() {
+        if (this.modal.drumPatternEditor?.isVisible) return this.modal.drumPatternEditor;
+        if (this.modal.windInstrumentEditor?.isVisible) return this.modal.windInstrumentEditor;
+        if (this.modal.tablatureEditor?.isVisible) return this.modal.tablatureEditor;
         return null;
     }
 
-    /**
-    * Return the inner renderer of the active specialized editor
-    */
-    MidiEditorEditActionsMixin._getActiveSpecializedRenderer = function() {
+    _getActiveSpecializedRenderer() {
         const editor = this._getActiveSpecializedEditor();
         if (!editor) return null;
         return editor.gridRenderer || editor.renderer || null;
     }
 
-    /**
-    * Undo the last action
-    */
-    MidiEditorEditActionsMixin.undo = function() {
+    undo() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (specializedRenderer.undo()) {
@@ -47,32 +39,29 @@
                 if (editor && typeof editor._syncToMidi === 'function') {
                     editor._syncToMidi();
                 }
-                this.isDirty = true;
-                this.routingOps.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.routingOps.updateSaveButton();
                 this.updateUndoRedoButtonsState();
                 this.updateEditButtons();
             }
             return;
         }
 
-        if (!this.pianoRoll || typeof this.pianoRoll.undo !== 'function') {
-            this.log('warn', 'Undo not available');
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.undo !== 'function') {
+            this.modal.log('warn', 'Undo not available');
             return;
         }
 
-        if (this.pianoRoll.undo()) {
-            this.log('info', 'Undo successful');
-            this.isDirty = true;
-            this.routingOps.updateSaveButton();
-            this.sequenceOps.syncFullSequenceFromPianoRoll();
+        if (this.modal.pianoRoll.undo()) {
+            this.modal.log('info', 'Undo successful');
+            this.modal.isDirty = true;
+            this.modal.routingOps.updateSaveButton();
+            this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
             this.updateUndoRedoButtonsState();
         }
     }
 
-    /**
-    * Redo the last undone action
-    */
-    MidiEditorEditActionsMixin.redo = function() {
+    redo() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (specializedRenderer.redo()) {
@@ -83,32 +72,29 @@
                 if (editor && typeof editor._syncToMidi === 'function') {
                     editor._syncToMidi();
                 }
-                this.isDirty = true;
-                this.routingOps.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.routingOps.updateSaveButton();
                 this.updateUndoRedoButtonsState();
                 this.updateEditButtons();
             }
             return;
         }
 
-        if (!this.pianoRoll || typeof this.pianoRoll.redo !== 'function') {
-            this.log('warn', 'Redo not available');
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.redo !== 'function') {
+            this.modal.log('warn', 'Redo not available');
             return;
         }
 
-        if (this.pianoRoll.redo()) {
-            this.log('info', 'Redo successful');
-            this.isDirty = true;
-            this.routingOps.updateSaveButton();
-            this.sequenceOps.syncFullSequenceFromPianoRoll();
+        if (this.modal.pianoRoll.redo()) {
+            this.modal.log('info', 'Redo successful');
+            this.modal.isDirty = true;
+            this.modal.routingOps.updateSaveButton();
+            this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
             this.updateUndoRedoButtonsState();
         }
     }
 
-    /**
-    * Update the undo/redo button state
-    */
-    MidiEditorEditActionsMixin.updateUndoRedoButtonsState = function() {
+    updateUndoRedoButtonsState() {
         const undoBtn = document.getElementById('undo-btn');
         const redoBtn = document.getElementById('redo-btn');
 
@@ -121,53 +107,44 @@
             return;
         }
 
-        if (!this.pianoRoll) return;
+        if (!this.modal.pianoRoll) return;
 
         if (undoBtn) {
-            undoBtn.disabled = !this.pianoRoll.canUndo();
+            undoBtn.disabled = !this.modal.pianoRoll.canUndo();
         }
         if (redoBtn) {
-            redoBtn.disabled = !this.pianoRoll.canRedo();
+            redoBtn.disabled = !this.modal.pianoRoll.canRedo();
         }
     }
 
-    /**
-    * Return the piano roll's currently selected notes
-    */
-    MidiEditorEditActionsMixin.getSelectedNotes = function() {
-        if (!this.pianoRoll) {
+    getSelectedNotes() {
+        if (!this.modal.pianoRoll) {
             return [];
         }
 
     // Use the piano roll's public method when available
-        if (typeof this.pianoRoll.getSelectedNotes === 'function') {
-            return this.pianoRoll.getSelectedNotes();
+        if (typeof this.modal.pianoRoll.getSelectedNotes === 'function') {
+            return this.modal.pianoRoll.getSelectedNotes();
         }
 
     // Fallback: filter the sequence directly
-        const sequence = this.pianoRoll.sequence || [];
+        const sequence = this.modal.pianoRoll.sequence || [];
         return sequence.filter(note => note.f === 1); // f=1 indique une note sélectionnée
     }
 
-    /**
-    * Return the number of selected notes
-    */
-    MidiEditorEditActionsMixin.getSelectionCount = function() {
-        if (!this.pianoRoll || typeof this.pianoRoll.getSelectionCount !== 'function') {
+    getSelectionCount() {
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.getSelectionCount !== 'function') {
             return 0;
         }
-        return this.pianoRoll.getSelectionCount();
+        return this.modal.pianoRoll.getSelectionCount();
     }
 
-    /**
-    * Copy the selected notes
-    */
-    MidiEditorEditActionsMixin.copy = function() {
+    copy() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (typeof specializedRenderer.copySelected === 'function') {
                 specializedRenderer.copySelected();
-                this.log('info', 'Copied selection from specialized editor');
+                this.modal.log('info', 'Copied selection from specialized editor');
     // Enable paste button
                 const pasteBtn = document.getElementById('paste-btn');
                 if (pasteBtn) pasteBtn.disabled = false;
@@ -175,22 +152,22 @@
             return;
         }
 
-        if (!this.pianoRoll || typeof this.pianoRoll.copySelection !== 'function') {
-            this.showNotification(this.t('midiEditor.copyNotAvailable'), 'error');
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.copySelection !== 'function') {
+            this.modal.showNotification(this.modal.t('midiEditor.copyNotAvailable'), 'error');
             return;
         }
 
         const count = this.getSelectionCount();
         if (count === 0) {
-            this.showNotification(this.t('midiEditor.noNoteSelected'), 'info');
+            this.modal.showNotification(this.modal.t('midiEditor.noNoteSelected'), 'info');
             return;
         }
 
     // Use the piano roll's method
-        this.clipboard = this.pianoRoll.copySelection();
+        this.modal.clipboard = this.modal.pianoRoll.copySelection();
 
-        this.log('info', `Copied ${this.clipboard.length} notes`);
-        this.showNotification(this.t('midiEditor.notesCopied', { count: this.clipboard.length }), 'success');
+        this.modal.log('info', `Copied ${this.modal.clipboard.length} notes`);
+        this.modal.showNotification(this.modal.t('midiEditor.notesCopied', { count: this.modal.clipboard.length }), 'success');
 
     // Enable the Paste button
         const pasteBtn = document.getElementById('paste-btn');
@@ -201,10 +178,7 @@
         this.updateEditButtons();
     }
 
-    /**
-    * Paste notes from the clipboard
-    */
-    MidiEditorEditActionsMixin.paste = function() {
+    paste() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (typeof specializedRenderer.hasClipboard === 'function' && specializedRenderer.hasClipboard()) {
@@ -217,42 +191,39 @@
                 if (editor && typeof editor._syncToMidi === 'function') {
                     editor._syncToMidi();
                 }
-                this.isDirty = true;
-                this.routingOps.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.routingOps.updateSaveButton();
                 this.updateEditButtons();
             }
             return;
         }
 
-        if (!this.clipboard || this.clipboard.length === 0) {
-            this.showNotification(this.t('midiEditor.clipboardEmpty'), 'info');
+        if (!this.modal.clipboard || this.modal.clipboard.length === 0) {
+            this.modal.showNotification(this.modal.t('midiEditor.clipboardEmpty'), 'info');
             return;
         }
 
-        if (!this.pianoRoll || typeof this.pianoRoll.pasteNotes !== 'function') {
-            this.showNotification(this.t('midiEditor.pasteNotAvailable'), 'error');
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.pasteNotes !== 'function') {
+            this.modal.showNotification(this.modal.t('midiEditor.pasteNotAvailable'), 'error');
             return;
         }
 
     // Obtenir la position actuelle du curseur
-        const currentTime = this.pianoRoll.xoffset || 0;
+        const currentTime = this.modal.pianoRoll.xoffset || 0;
 
     // Use the piano roll's method
-        this.pianoRoll.pasteNotes(this.clipboard, currentTime);
+        this.modal.pianoRoll.pasteNotes(this.modal.clipboard, currentTime);
 
-        this.log('info', `Pasted ${this.clipboard.length} notes`);
-        this.showNotification(this.t('midiEditor.notesPasted', { count: this.clipboard.length }), 'success');
+        this.modal.log('info', `Pasted ${this.modal.clipboard.length} notes`);
+        this.modal.showNotification(this.modal.t('midiEditor.notesPasted', { count: this.modal.clipboard.length }), 'success');
 
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
-        this.sequenceOps.syncFullSequenceFromPianoRoll();
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
+        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
         this.updateEditButtons();
     }
 
-    /**
-    * Delete the selected notes
-    */
-    MidiEditorEditActionsMixin.deleteSelectedNotes = function() {
+    deleteSelectedNotes() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (typeof specializedRenderer.deleteSelected === 'function') {
@@ -261,22 +232,22 @@
                     if (editor && typeof editor._syncToMidi === 'function') {
                         editor._syncToMidi();
                     }
-                    this.isDirty = true;
-                    this.routingOps.updateSaveButton();
+                    this.modal.isDirty = true;
+                    this.modal.routingOps.updateSaveButton();
                     this.updateEditButtons();
                 }
             }
             return;
         }
 
-        if (!this.pianoRoll || typeof this.pianoRoll.deleteSelection !== 'function') {
-            this.showNotification(this.t('midiEditor.deleteNotAvailable'), 'error');
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.deleteSelection !== 'function') {
+            this.modal.showNotification(this.modal.t('midiEditor.deleteNotAvailable'), 'error');
             return;
         }
 
         const count = this.getSelectionCount();
         if (count === 0) {
-            this.showNotification(this.t('midiEditor.noNoteSelected'), 'info');
+            this.modal.showNotification(this.modal.t('midiEditor.noNoteSelected'), 'info');
             return;
         }
 
@@ -284,24 +255,21 @@
         const selectedNotes = this.getSelectedNotes();
 
     // Use the piano roll's method
-        this.pianoRoll.deleteSelection();
+        this.modal.pianoRoll.deleteSelection();
 
     // Delete CC/velocity points associated with deleted notes
         this.deleteAssociatedCCAndVelocity(selectedNotes);
 
-        this.log('info', `Deleted ${count} notes`);
-        this.showNotification(this.t('midiEditor.notesDeleted', { count }), 'success');
+        this.modal.log('info', `Deleted ${count} notes`);
+        this.modal.showNotification(this.modal.t('midiEditor.notesDeleted', { count }), 'success');
 
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
-        this.sequenceOps.syncFullSequenceFromPianoRoll();
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
+        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
         this.updateEditButtons();
     }
 
-    /**
-    * Supprimer les événements CC et vélocité associés aux notes supprimées
-    */
-    MidiEditorEditActionsMixin.deleteAssociatedCCAndVelocity = function(deletedNotes) {
+    deleteAssociatedCCAndVelocity(deletedNotes) {
         if (!deletedNotes || deletedNotes.length === 0) return;
 
     // Build a Set of (tick, channel) for deleted notes for fast lookup
@@ -313,47 +281,41 @@
         });
 
     // Delete CC/pitch-bend events at the same positions
-        if (this.ccEditor && this.ccEditor.events) {
-            const initialCCCount = this.ccEditor.events.length;
-            this.ccEditor.events = this.ccEditor.events.filter(event => {
+        if (this.modal.ccEditor && this.modal.ccEditor.events) {
+            const initialCCCount = this.modal.ccEditor.events.length;
+            this.modal.ccEditor.events = this.modal.ccEditor.events.filter(event => {
                 const key = `${event.ticks}_${event.channel}`;
                 return !deletedPositions.has(key);
             });
-            const deletedCCCount = initialCCCount - this.ccEditor.events.length;
+            const deletedCCCount = initialCCCount - this.modal.ccEditor.events.length;
             if (deletedCCCount > 0) {
-                this.log('info', `Deleted ${deletedCCCount} CC/pitchbend events associated with deleted notes`);
-                this.ccEditor.renderThrottled();
+                this.modal.log('info', `Deleted ${deletedCCCount} CC/pitchbend events associated with deleted notes`);
+                this.modal.ccEditor.renderThrottled();
             }
         }
 
     // Delete velocity points of deleted notes
     // (velocity is already removed with the note, but we still refresh the editor)
-        if (this.velocityEditor) {
-            this.velocityEditor.setSequence(this.pianoRoll.sequence);
-            this.velocityEditor.renderThrottled();
+        if (this.modal.velocityEditor) {
+            this.modal.velocityEditor.setSequence(this.modal.pianoRoll.sequence);
+            this.modal.velocityEditor.renderThrottled();
         }
     }
 
-    /**
-    * Select all notes affichées (canaux actifs)
-    */
-    MidiEditorEditActionsMixin.selectAllNotes = function() {
+    selectAllNotes() {
     // Delegate to the unified selectAll() which handles all editor types
         this.selectAll();
     }
 
-    /**
-    * Changer le canal des notes sélectionnées
-    */
-    MidiEditorEditActionsMixin.changeChannel = async function() {
-        if (!this.pianoRoll || typeof this.pianoRoll.changeChannelSelection !== 'function') {
-            this.showNotification(this.t('midiEditor.changeChannelNotAvailable'), 'error');
+    async changeChannel() {
+        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.changeChannelSelection !== 'function') {
+            this.modal.showNotification(this.modal.t('midiEditor.changeChannelNotAvailable'), 'error');
             return;
         }
 
         const count = this.getSelectionCount();
         if (count === 0) {
-            this.showNotification(this.t('midiEditor.noNoteSelected'), 'info');
+            this.modal.showNotification(this.modal.t('midiEditor.noNoteSelected'), 'info');
             return;
         }
 
@@ -370,126 +332,120 @@
 
     // Check whether we are moving to the same channel
         if (currentChannel === newChannel) {
-            this.showNotification(this.t('midiEditor.sameChannel'), 'info');
+            this.modal.showNotification(this.modal.t('midiEditor.sameChannel'), 'info');
             return;
         }
 
     // Afficher le modal de confirmation
-        const confirmed = await this.dialogs.showChangeChannelModal(count, currentChannel, newChannel);
+        const confirmed = await this.modal.dialogs.showChangeChannelModal(count, currentChannel, newChannel);
         if (!confirmed) {
-            this.log('info', 'Channel change cancelled by user');
+            this.modal.log('info', 'Channel change cancelled by user');
             return;
         }
 
     // Check whether the target channel already exists
-        const targetChannelInfo = this.channels.find(ch => ch.channel === newChannel);
+        const targetChannelInfo = this.modal.channels.find(ch => ch.channel === newChannel);
 
     // If this is a new channel, use the program selected in the dropdown
         if (!targetChannelInfo && instrumentSelector) {
-            this.selectedInstrument = parseInt(instrumentSelector.value);
-            this.log('info', `New channel ${newChannel} will use instrument: ${this.getInstrumentName(this.selectedInstrument)}`);
+            this.modal.selectedInstrument = parseInt(instrumentSelector.value);
+            this.modal.log('info', `New channel ${newChannel} will use instrument: ${this.modal.getInstrumentName(this.modal.selectedInstrument)}`);
         }
 
     // Use the piano roll's method to move the notes
-        this.pianoRoll.changeChannelSelection(newChannel);
+        this.modal.pianoRoll.changeChannelSelection(newChannel);
 
-        this.log('info', `Changed channel of ${count} notes to ${newChannel}`);
-        this.showNotification(this.t('midiEditor.channelChanged', { count }), 'success');
+        this.modal.log('info', `Changed channel of ${count} notes to ${newChannel}`);
+        this.modal.showNotification(this.modal.t('midiEditor.channelChanged', { count }), 'success');
 
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
-        this.sequenceOps.syncFullSequenceFromPianoRoll();
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
+        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
 
     // Update the channel list (automatically drops empty channels)
-        this.ccPicker.updateChannelsFromSequence();
+        this.modal.ccPicker.updateChannelsFromSequence();
 
     // Nettoyer activeChannels : retirer les canaux qui n'existent plus
-        const existingChannelNumbers = new Set(this.channels.map(ch => ch.channel));
+        const existingChannelNumbers = new Set(this.modal.channels.map(ch => ch.channel));
         const channelsToRemove = [];
-        this.activeChannels.forEach(ch => {
+        this.modal.activeChannels.forEach(ch => {
             if (!existingChannelNumbers.has(ch)) {
                 channelsToRemove.push(ch);
             }
         });
         channelsToRemove.forEach(ch => {
-            this.activeChannels.delete(ch);
-            this.log('info', `Removed empty channel ${ch} from active channels`);
+            this.modal.activeChannels.delete(ch);
+            this.modal.log('info', `Removed empty channel ${ch} from active channels`);
         });
 
     // Auto-activate the new channel if it was not already active
-        if (!this.activeChannels.has(newChannel)) {
-            this.activeChannels.add(newChannel);
+        if (!this.modal.activeChannels.has(newChannel)) {
+            this.modal.activeChannels.add(newChannel);
         }
 
     // Update the displayed sequence (skipSync=true — already synced)
-        this.sequenceOps.updateSequenceFromActiveChannels(null, true);
+        this.modal.sequenceOps.updateSequenceFromActiveChannels(null, true);
 
     // Refresh the channel buttons
         this.refreshChannelButtons();
 
     // Update the instrument selector for the new channel
-        this.renderer.updateInstrumentSelector();
+        this.modal.renderer.updateInstrumentSelector();
 
         this.updateEditButtons();
     }
 
-    /**
-    * Rafraîchir les boutons de canal
-    */
-    MidiEditorEditActionsMixin.refreshChannelButtons = function(keepPopover = false) {
+    refreshChannelButtons(keepPopover = false) {
         if (!keepPopover) {
-            this._closeChannelSettingsPopover();
+            this.modal._closeChannelSettingsPopover();
         }
 
-        const channelsToolbar = this.container?.querySelector('.channels-toolbar');
+        const channelsToolbar = this.modal.container?.querySelector('.channels-toolbar');
         if (channelsToolbar) {
     // Preserve scroll position across DOM rebuild
             const scrollLeft = channelsToolbar.scrollLeft;
 
-            channelsToolbar.innerHTML = this.renderer.renderChannelButtons();
+            channelsToolbar.innerHTML = this.modal.renderer.renderChannelButtons();
 
     // Restore scroll position so the user sees the same channels as before
             channelsToolbar.scrollLeft = scrollLeft;
 
-    // Events are handled through delegation on this.container
+    // Events are handled through delegation on this.modal.container
     // (see attachEventHandlers) — no need to rebind direct listeners
 
     // Update disabled visual states
-            this.channelDisabled.forEach(ch => {
-                this._updateChannelDisabledVisual(ch);
+            this.modal.channelDisabled.forEach(ch => {
+                this.modal._updateChannelDisabledVisual(ch);
             });
 
     // Update TAB button active states
-            this._updateChannelTabButtons();
+            this.modal._updateChannelTabButtons();
 
     // Update DRUM button active states
-            this._updateDrumButtonState(
-                this.drumPatternEditor && this.drumPatternEditor.isVisible
+            this.modal._updateDrumButtonState(
+                this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible
             );
 
     // Update WIND button active states
-            this._updateWindButtonState(
-                this.windInstrumentEditor && this.windInstrumentEditor.isVisible
+            this.modal._updateWindButtonState(
+                this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible
             );
 
     // Async: adjust TAB buttons based on DB cc_enabled setting
-            this._refreshStringInstrumentChannels();
+            this.modal._refreshStringInstrumentChannels();
         }
     }
 
-    /**
-    * Appliquer l'instrument sélectionné au canal ciblé ou aux notes sélectionnées
-    */
-    MidiEditorEditActionsMixin.applyInstrument = async function() {
-        if (this.activeChannels.size === 0) {
-            this.showNotification(this.t('midiEditor.noActiveChannel'), 'info');
+    async applyInstrument() {
+        if (this.modal.activeChannels.size === 0) {
+            this.modal.showNotification(this.modal.t('midiEditor.noActiveChannel'), 'info');
             return;
         }
 
     // Si plusieurs canaux sont actifs, demander de n'en garder qu'un seul
-        if (this.activeChannels.size > 1) {
-            this.showNotification(
-                this.t('midiEditor.multipleChannelsWarning', { count: this.activeChannels.size }),
+        if (this.modal.activeChannels.size > 1) {
+            this.modal.showNotification(
+                this.modal.t('midiEditor.multipleChannelsWarning', { count: this.modal.activeChannels.size }),
                 'warning'
             );
             return;
@@ -499,20 +455,20 @@
         if (!instrumentSelector) return;
 
         const selectedProgram = parseInt(instrumentSelector.value);
-        const instrumentName = this.getInstrumentName(selectedProgram);
+        const instrumentName = this.modal.getInstrumentName(selectedProgram);
 
     // Un seul canal actif : c'est celui-ci qu'on modifie
-        const targetChannel = Array.from(this.activeChannels)[0];
-        const channelInfo = this.channels.find(ch => ch.channel === targetChannel);
+        const targetChannel = Array.from(this.modal.activeChannels)[0];
+        const channelInfo = this.modal.channels.find(ch => ch.channel === targetChannel);
 
         if (!channelInfo) {
-            this.log('error', `Channel ${targetChannel} not found in this.channels`);
+            this.modal.log('error', `Channel ${targetChannel} not found in this.modal.channels`);
             return;
         }
 
     // Check whether the program is changing
         if (channelInfo.program === selectedProgram) {
-            this.showNotification(this.t('midiEditor.sameInstrument'), 'info');
+            this.modal.showNotification(this.modal.t('midiEditor.sameInstrument'), 'info');
             return;
         }
 
@@ -521,7 +477,7 @@
         const hasSelection = selectionCount > 0;
 
     // Afficher le modal de confirmation
-        const result = await this.dialogs.showChangeInstrumentModal({
+        const result = await this.modal.dialogs.showChangeInstrumentModal({
             noteCount: selectionCount,
             channelNoteCount: channelInfo.noteCount,
             channel: targetChannel,
@@ -531,7 +487,7 @@
         });
 
         if (result === false) {
-            this.log('info', 'Instrument change cancelled by user');
+            this.modal.log('info', 'Instrument change cancelled by user');
             return;
         }
 
@@ -545,11 +501,7 @@
         }
     }
 
-    /**
-    * Appliquer l'instrument uniquement aux notes sélectionnées
-    * Crée un nouveau canal si nécessaire
-    */
-    MidiEditorEditActionsMixin.applyInstrumentToSelection = async function(program, instrumentName) {
+    async applyInstrumentToSelection(program, instrumentName) {
         const selectedNotes = this.getSelectedNotes();
         if (selectedNotes.length === 0) return;
 
@@ -557,12 +509,12 @@
         let newChannel = this.findAvailableChannel(program);
 
         if (newChannel === -1) {
-            this.showNotification(this.t('midiEditor.noChannelAvailable'), 'error');
+            this.modal.showNotification(this.modal.t('midiEditor.noChannelAvailable'), 'error');
             return;
         }
 
     // Append the new channel to the list if it does not exist
-        let channelInfo = this.channels.find(ch => ch.channel === newChannel);
+        let channelInfo = this.modal.channels.find(ch => ch.channel === newChannel);
         if (!channelInfo) {
             channelInfo = {
                 channel: newChannel,
@@ -570,7 +522,7 @@
                 instrument: newChannel === 9 ? 'Drums' : instrumentName,
                 noteCount: 0
             };
-            this.channels.push(channelInfo);
+            this.modal.channels.push(channelInfo);
         } else {
     // Update the channel's program
             channelInfo.program = program;
@@ -578,65 +530,62 @@
         }
 
     // Move the selected notes to the new channel
-        if (this.pianoRoll && typeof this.pianoRoll.changeChannelSelection === 'function') {
-            this.pianoRoll.changeChannelSelection(newChannel);
+        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.changeChannelSelection === 'function') {
+            this.modal.pianoRoll.changeChannelSelection(newChannel);
         }
 
-        this.log('info', `Applied instrument ${instrumentName} to ${selectedNotes.length} selected notes (moved to channel ${newChannel + 1})`);
-        this.showNotification(
-            this.t('midiEditor.instrumentAppliedToSelection', { count: selectedNotes.length, instrument: instrumentName }),
+        this.modal.log('info', `Applied instrument ${instrumentName} to ${selectedNotes.length} selected notes (moved to channel ${newChannel + 1})`);
+        this.modal.showNotification(
+            this.modal.t('midiEditor.instrumentAppliedToSelection', { count: selectedNotes.length, instrument: instrumentName }),
             'success'
         );
 
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
-        this.sequenceOps.syncFullSequenceFromPianoRoll();
-        this.ccPicker.updateChannelsFromSequence();
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
+        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
+        this.modal.ccPicker.updateChannelsFromSequence();
 
     // Nettoyer activeChannels : retirer les canaux qui n'existent plus
-        const existingChannelNumbers = new Set(this.channels.map(ch => ch.channel));
+        const existingChannelNumbers = new Set(this.modal.channels.map(ch => ch.channel));
         const channelsToRemove = [];
-        this.activeChannels.forEach(ch => {
+        this.modal.activeChannels.forEach(ch => {
             if (!existingChannelNumbers.has(ch)) {
                 channelsToRemove.push(ch);
             }
         });
         channelsToRemove.forEach(ch => {
-            this.activeChannels.delete(ch);
-            this.log('info', `Removed empty channel ${ch} from active channels`);
+            this.modal.activeChannels.delete(ch);
+            this.modal.log('info', `Removed empty channel ${ch} from active channels`);
         });
 
     // Activer le nouveau canal
-        if (!this.activeChannels.has(newChannel)) {
-            this.activeChannels.add(newChannel);
+        if (!this.modal.activeChannels.has(newChannel)) {
+            this.modal.activeChannels.add(newChannel);
         }
 
     // Update the displayed sequence (skipSync=true — already synced)
-        this.sequenceOps.updateSequenceFromActiveChannels(null, true);
+        this.modal.sequenceOps.updateSequenceFromActiveChannels(null, true);
 
         this.refreshChannelButtons();
-        this._refreshStringInstrumentChannels();
-        this.renderer.updateInstrumentSelector();
+        this.modal._refreshStringInstrumentChannels();
+        this.modal.renderer.updateInstrumentSelector();
         this.updateEditButtons();
     }
 
-    /**
-    * Appliquer l'instrument à tout un canal
-    */
-    MidiEditorEditActionsMixin.applyInstrumentToChannel = function(channel, program, instrumentName, channelInfo) {
+    applyInstrumentToChannel(channel, program, instrumentName, channelInfo) {
         channelInfo.program = program;
         channelInfo.instrument = channel === 9 ? 'Drums' : instrumentName;
         channelInfo.hasExplicitProgram = true;
 
-        this.log('info', `Applied instrument ${instrumentName} to channel ${channel + 1}`);
-        this.showNotification(this.t('midiEditor.instrumentApplied', { channel: channel + 1, instrument: instrumentName }), 'success');
+        this.modal.log('info', `Applied instrument ${instrumentName} to channel ${channel + 1}`);
+        this.modal.showNotification(this.modal.t('midiEditor.instrumentApplied', { channel: channel + 1, instrument: instrumentName }), 'success');
 
         // Reset feedback instruments so they get reloaded with the new program
-        if (this._playback) this._playback._feedbackInstrumentsLoaded = false;
+        if (this.modal._playback) this.modal._playback._feedbackInstrumentsLoaded = false;
 
         this.refreshChannelButtons();
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
 
     // Clean up stale string instrument config if program changed to non-string
         const gmMatch = typeof MidiEditorChannelPanel !== 'undefined'
@@ -644,32 +593,28 @@
             : null;
         if (!gmMatch) {
     // Delete stale DB record for this channel so TAB doesn't reappear
-            this.api.sendCommand('string_instrument_delete', {
-                device_id: this.getEffectiveDeviceId(),
+            this.modal.api.sendCommand('string_instrument_delete', {
+                device_id: this.modal.getEffectiveDeviceId(),
                 channel: channel
             }).catch(() => { /* ignore if no record existed */ });
         }
 
     // Update tablature buttons (string instrument detection may change)
-        this._refreshStringInstrumentChannels();
-        if (this.channelPanel) {
-            this.channelPanel.updateTablatureButton();
+        this.modal._refreshStringInstrumentChannels();
+        if (this.modal.channelPanel) {
+            this.modal.channelPanel.updateTablatureButton();
         }
     }
 
-    /**
-    * Trouver un canal disponible pour un instrument
-    * Priorité : canal existant avec le même instrument, sinon nouveau canal libre
-    */
-    MidiEditorEditActionsMixin.findAvailableChannel = function(program) {
+    findAvailableChannel(program) {
     // Look first for an existing channel with the same program
-        const existingChannel = this.channels.find(ch => ch.program === program && ch.channel !== 9);
+        const existingChannel = this.modal.channels.find(ch => ch.program === program && ch.channel !== 9);
         if (existingChannel) {
             return existingChannel.channel;
         }
 
     // Sinon, trouver un canal libre (0-15, sauf 9 pour drums)
-        const usedChannels = new Set(this.channels.map(ch => ch.channel));
+        const usedChannels = new Set(this.modal.channels.map(ch => ch.channel));
 
         for (let i = 0; i < 16; i++) {
             if (i === 9) continue; // Skip drum channel
@@ -681,7 +626,7 @@
     // If every channel is taken, use the first available one that is not the current channel
         for (let i = 0; i < 16; i++) {
             if (i === 9) continue;
-            const channelInfo = this.channels.find(ch => ch.channel === i);
+            const channelInfo = this.modal.channels.find(ch => ch.channel === i);
             if (channelInfo && channelInfo.noteCount === 0) {
                 return i;
             }
@@ -690,14 +635,11 @@
         return -1; // Aucun canal disponible
     }
 
-    /**
-    * Cycler entre les différentes valeurs de grille/snap
-    */
-    MidiEditorEditActionsMixin.cycleSnap = function() {
+    cycleSnap() {
     // Move to the next value (cycle)
-        this.currentSnapIndex = (this.currentSnapIndex + 1) % this.snapValues.length;
+        this.modal.currentSnapIndex = (this.modal.currentSnapIndex + 1) % this.modal.snapValues.length;
 
-        const currentSnap = this.snapValues[this.currentSnapIndex];
+        const currentSnap = this.modal.snapValues[this.modal.currentSnapIndex];
 
     // Update the button's display
         const snapValueElement = document.getElementById('snap-value');
@@ -707,49 +649,43 @@
 
     // Apply snap on the piano roll (visual grid stays fixed at 120)
     // Use the JavaScript property to ensure the change is applied
-        if (this.pianoRoll) {
-            this.pianoRoll.snap = currentSnap.ticks;
-            this.log('info', `Snap to grid changed to ${currentSnap.label} (${currentSnap.ticks} ticks) - snap property set to ${this.pianoRoll.snap}`);
+        if (this.modal.pianoRoll) {
+            this.modal.pianoRoll.snap = currentSnap.ticks;
+            this.modal.log('info', `Snap to grid changed to ${currentSnap.label} (${currentSnap.ticks} ticks) - snap property set to ${this.modal.pianoRoll.snap}`);
         }
 
     // Sync every editor
-        this.ccPicker.syncAllEditors();
+        this.modal.ccPicker.syncAllEditors();
 
-        this.showNotification(this.t('midiEditor.snapChanged', { snap: currentSnap.label }), 'info');
+        this.modal.showNotification(this.modal.t('midiEditor.snapChanged', { snap: currentSnap.label }), 'info');
     }
 
-    /**
-    * Changer le tempo BPM
-    */
-    MidiEditorEditActionsMixin.setTempo = function(newTempo) {
+    setTempo(newTempo) {
         if (!newTempo || isNaN(newTempo) || newTempo < 20 || newTempo > 300) {
-            this.log('warn', `Invalid tempo value: ${newTempo}`);
+            this.modal.log('warn', `Invalid tempo value: ${newTempo}`);
             return;
         }
 
-        this.tempo = newTempo;
-        this.isDirty = true;
-        this.routingOps.updateSaveButton();
+        this.modal.tempo = newTempo;
+        this.modal.isDirty = true;
+        this.modal.routingOps.updateSaveButton();
 
     // Update the piano roll
-        if (this.pianoRoll) {
-            this.pianoRoll.tempo = newTempo;
+        if (this.modal.pianoRoll) {
+            this.modal.pianoRoll.tempo = newTempo;
         }
 
     // Update the synthesizer if it exists
-        if (this.synthesizer) {
-            this.synthesizer.tempo = newTempo;
+        if (this.modal.synthesizer) {
+            this.modal.synthesizer.tempo = newTempo;
         }
 
-        this.log('info', `Tempo changed to ${newTempo} BPM`);
-        this.showNotification(this.t('midiEditor.tempoChanged', { tempo: newTempo }), 'info');
+        this.modal.log('info', `Tempo changed to ${newTempo} BPM`);
+        this.modal.showNotification(this.modal.t('midiEditor.tempoChanged', { tempo: newTempo }), 'info');
     }
 
-    /**
-    * Changer le mode d'édition
-    */
-    MidiEditorEditActionsMixin.setEditMode = function(mode) {
-        this.editMode = mode;
+    setEditMode(mode) {
+        this.modal.editMode = mode;
 
     // Dispatch to specialized editor if active
         const editor = this._getActiveSpecializedEditor();
@@ -762,25 +698,25 @@
             }
         } else {
     // Use the piano roll's setUIMode method
-            if (this.pianoRoll && typeof this.pianoRoll.setUIMode === 'function') {
-                this.pianoRoll.setUIMode(mode);
+            if (this.modal.pianoRoll && typeof this.modal.pianoRoll.setUIMode === 'function') {
+                this.modal.pianoRoll.setUIMode(mode);
             }
         }
 
     // Propager aux editeurs CC/Velocity/Tempo si la section est ouverte
-        if (this.ccSectionExpanded) {
+        if (this.modal.ccSectionExpanded) {
             const ccToolMap = { 'select': 'select', 'drag-notes': 'move', 'edit': 'move', 'drag-view': 'select' };
             const ccTool = ccToolMap[mode];
             if (ccTool) {
-                if (this.currentCCType === 'tempo' && this.tempoEditor) {
-                    this.tempoEditor.setTool(ccTool);
-                } else if (this.currentCCType === 'velocity' && this.velocityEditor) {
-                    this.velocityEditor.setTool(ccTool);
-                } else if (this.ccEditor) {
-                    this.ccEditor.setTool(ccTool);
+                if (this.modal.currentCCType === 'tempo' && this.modal.tempoEditor) {
+                    this.modal.tempoEditor.setTool(ccTool);
+                } else if (this.modal.currentCCType === 'velocity' && this.modal.velocityEditor) {
+                    this.modal.velocityEditor.setTool(ccTool);
+                } else if (this.modal.ccEditor) {
+                    this.modal.ccEditor.setTool(ccTool);
                 }
             // Update CC tool button active states
-                const ccToolBtns = this.container?.querySelectorAll('.cc-tool-btn');
+                const ccToolBtns = this.modal.container?.querySelectorAll('.cc-tool-btn');
                 if (ccToolBtns) {
                     ccToolBtns.forEach(b => b.classList.remove('active'));
                 }
@@ -790,14 +726,11 @@
     // Update the UI
         this.updateModeButtons();
 
-        this.log('info', `Edit mode changed to: ${mode}`);
+        this.modal.log('info', `Edit mode changed to: ${mode}`);
     }
 
-    /**
-    * Mettre à jour les boutons de mode
-    */
-    MidiEditorEditActionsMixin.updateModeButtons = function() {
-        const modeButtons = this.container?.querySelectorAll('.editor-toolbar [data-mode]');
+    updateModeButtons() {
+        const modeButtons = this.modal.container?.querySelectorAll('.editor-toolbar [data-mode]');
         if (!modeButtons) return;
 
     // Determine supported modes based on active editor
@@ -815,7 +748,7 @@
                 btn.classList.remove('active');
                 btn.classList.add('mode-unsupported');
                 btn.disabled = true;
-            } else if (btnMode === this.editMode) {
+            } else if (btnMode === this.modal.editMode) {
                 btn.classList.add('active');
                 btn.classList.remove('mode-unsupported');
                 btn.disabled = true;
@@ -826,40 +759,34 @@
         });
     }
 
-    /**
-    * Retourne les modes supportes par l'editeur actif
-    */
-    MidiEditorEditActionsMixin._getSupportedModes = function() {
+    _getSupportedModes() {
         const editor = this._getActiveSpecializedEditor();
         if (!editor) {
     // Piano roll: all modes
             return ['drag-view', 'select', 'edit', 'drag-notes', 'add-note', 'resize-note'];
         }
-        if (editor === this.drumPatternEditor) {
+        if (editor === this.modal.drumPatternEditor) {
             return ['drag-view', 'select'];
         }
-        if (editor === this.windInstrumentEditor) {
+        if (editor === this.modal.windInstrumentEditor) {
             return ['drag-view', 'select'];
         }
-        if (editor === this.tablatureEditor) {
+        if (editor === this.modal.tablatureEditor) {
             return ['drag-view', 'select'];
         }
         return ['drag-view', 'select'];
     }
 
-    /**
-    * Basculer le mode tactile (boutons séparés vs bouton crayon unifié)
-    */
-    MidiEditorEditActionsMixin.toggleTouchMode = function() {
-        this.touchMode = !this.touchMode;
-        this._saveTouchModePref(this.touchMode);
+    toggleTouchMode() {
+        this.modal.touchMode = !this.modal.touchMode;
+        this.modal._saveTouchModePref(this.modal.touchMode);
 
         // Update the toggle button
-        const toggleBtn = this.container?.querySelector('#touch-mode-toggle');
+        const toggleBtn = this.modal.container?.querySelector('#touch-mode-toggle');
         if (toggleBtn) {
-            toggleBtn.dataset.active = String(this.touchMode);
+            toggleBtn.dataset.active = String(this.modal.touchMode);
             const srLabel = toggleBtn.querySelector('.sr-only');
-            const label = this.touchMode ? this.t('common.on') : this.t('common.off');
+            const label = this.modal.touchMode ? this.modal.t('common.on') : this.modal.t('common.off');
             if (srLabel) {
                 srLabel.textContent = label;
             } else {
@@ -868,33 +795,30 @@
         }
 
         // Show/hide pencil button vs touch edit buttons
-        const pencilBtn = this.container?.querySelector('.edit-unified-btn');
-        const touchBtns = this.container?.querySelectorAll('.touch-edit-btn');
+        const pencilBtn = this.modal.container?.querySelector('.edit-unified-btn');
+        const touchBtns = this.modal.container?.querySelectorAll('.touch-edit-btn');
 
         if (pencilBtn) {
-            pencilBtn.classList.toggle('hidden', this.touchMode);
+            pencilBtn.classList.toggle('hidden', this.modal.touchMode);
         }
         if (touchBtns) {
-            touchBtns.forEach(b => b.classList.toggle('hidden', !this.touchMode));
+            touchBtns.forEach(b => b.classList.toggle('hidden', !this.modal.touchMode));
         }
 
         // Adjust the current edit mode when needed
-        if (!this.touchMode && (this.editMode === 'drag-notes' || this.editMode === 'add-note' || this.editMode === 'resize-note')) {
+        if (!this.modal.touchMode && (this.modal.editMode === 'drag-notes' || this.modal.editMode === 'add-note' || this.modal.editMode === 'resize-note')) {
             // Leaving touch mode: switch back to the unified edit mode
             this.setEditMode('edit');
-        } else if (this.touchMode && this.editMode === 'edit') {
+        } else if (this.modal.touchMode && this.modal.editMode === 'edit') {
             // Entering touch mode: switch to drag-notes
             this.setEditMode('drag-notes');
         }
 
         this.updateModeButtons();
-        this.log('info', `Touch mode: ${this.touchMode ? 'ON' : 'OFF'}`);
+        this.modal.log('info', `Touch mode: ${this.modal.touchMode ? 'ON' : 'OFF'}`);
     }
 
-    /**
-    * Selectionner tous les elements de l'editeur actif
-    */
-    MidiEditorEditActionsMixin.selectAll = function() {
+    selectAll() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
             if (typeof specializedRenderer.selectAll === 'function') {
@@ -905,16 +829,13 @@
         }
 
     // Piano roll: select all notes
-        if (this.pianoRoll && typeof this.pianoRoll.selectAll === 'function') {
-            this.pianoRoll.selectAll();
+        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.selectAll === 'function') {
+            this.modal.pianoRoll.selectAll();
             this.updateEditButtons();
         }
     }
 
-    /**
-    * Mettre à jour les boutons d'édition (copy, paste, delete, change channel)
-    */
-    MidiEditorEditActionsMixin.updateEditButtons = function() {
+    updateEditButtons() {
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer) {
     // For specialized editors, enable buttons based on renderer state
@@ -943,14 +864,11 @@
         if (deleteBtn) deleteBtn.disabled = !hasSelection;
         if (changeChannelBtn) changeChannelBtn.disabled = !hasSelection;
 
-        this.log('debug', `Selection: ${selectionCount} notes`);
+        this.modal.log('debug', `Selection: ${selectionCount} notes`);
     }
 
-    /**
-    * Configurer les raccourcis clavier
-    */
-    MidiEditorEditActionsMixin.setupKeyboardShortcuts = function() {
-        this.keyboardHandler = (e) => {
+    setupKeyboardShortcuts() {
+        this.modal.keyboardHandler = (e) => {
     // Skip when focus is inside an input/textarea
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
@@ -990,8 +908,8 @@
             else if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
     // When the CC/velocity section is open, delete the selected CC/velocity points
-                if (this.ccSectionExpanded) {
-                    this.ccPicker.deleteSelectedCCVelocity();
+                if (this.modal.ccSectionExpanded) {
+                    this.modal.ccPicker.deleteSelectedCCVelocity();
                 } else {
     // Otherwise delete the selected notes
                     this.deleteSelectedNotes();
@@ -1001,38 +919,27 @@
     // Space = Play/Pause
             else if (e.key === ' ' || e.code === 'Space') {
                 e.preventDefault();
-                this.togglePlayback();
+                this.modal.togglePlayback();
             }
         };
 
-        document.addEventListener('keydown', this.keyboardHandler);
+        document.addEventListener('keydown', this.modal.keyboardHandler);
     }
 
-
-    /**
-    * Retourne true si un editeur specialise (tablature, drum, wind) est actuellement actif
-    */
-    MidiEditorEditActionsMixin._isSpecializedEditorActive = function() {
+    _isSpecializedEditorActive() {
         return !!(
-            (this.tablatureEditor && this.tablatureEditor.isVisible) ||
-            (this.drumPatternEditor && this.drumPatternEditor.isVisible) ||
-            (this.windInstrumentEditor && this.windInstrumentEditor.isVisible)
+            (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible) ||
+            (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible) ||
+            (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)
         );
     }
 
-    /**
-    * Retourne l'etat du viewport de l'editeur actuellement actif.
-    * Cela permet a syncAllEditors, syncCCEditor, etc. de lire les bonnes
-    * valeurs de scroll/zoom meme quand un editeur specialise est actif
-    * (et que le piano roll est cache/stale).
-    * @returns {{ xoffset: number, xrange: number, ticksPerPixel: number }}
-    */
-    MidiEditorEditActionsMixin._getActiveViewportState = function() {
-        const containerWidth = this.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
+    _getActiveViewportState() {
+        const containerWidth = this.modal.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
 
         // Tablature editor
-        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) {
-            const r = this.tablatureEditor.renderer;
+        if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible && this.modal.tablatureEditor.renderer) {
+            const r = this.modal.tablatureEditor.renderer;
             const headerWidth = r.headerWidth || 40;
             const tpp = r.ticksPerPixel || 2;
             const xoffset = r.scrollX || 0;
@@ -1041,8 +948,8 @@
         }
 
         // Drum pattern editor
-        if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.gridRenderer) {
-            const r = this.drumPatternEditor.gridRenderer;
+        if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible && this.modal.drumPatternEditor.gridRenderer) {
+            const r = this.modal.drumPatternEditor.gridRenderer;
             const headerWidth = r.headerWidth || 80;
             const tpp = r.ticksPerPixel || 2;
             const xoffset = r.scrollX || 0;
@@ -1051,8 +958,8 @@
         }
 
         // Wind instrument editor
-        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.renderer) {
-            const r = this.windInstrumentEditor.renderer;
+        if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible && this.modal.windInstrumentEditor.renderer) {
+            const r = this.modal.windInstrumentEditor.renderer;
             const headerWidth = r.headerWidth || 50;
             const tpp = r.ticksPerPixel || 2;
             const xoffset = r.scrollX || 0;
@@ -1061,9 +968,9 @@
         }
 
         // Default: piano roll
-        if (this.pianoRoll) {
-            const xoffset = this.pianoRoll.xoffset || 0;
-            const xrange = this.pianoRoll.xrange || 1920;
+        if (this.modal.pianoRoll) {
+            const xoffset = this.modal.pianoRoll.xoffset || 0;
+            const xrange = this.modal.pianoRoll.xrange || 1920;
             const headerWidth = 64; // yruler 24 + kbwidth 40
             const tpp = xrange / Math.max(1, containerWidth - headerWidth);
             return { xoffset, xrange, ticksPerPixel: tpp };
@@ -1072,58 +979,42 @@
         return { xoffset: 0, xrange: 1920, ticksPerPixel: 2 };
     }
 
-    /**
-    * Basculer le son au clic sur le clavier piano
-    */
-    MidiEditorEditActionsMixin.toggleKeyboardPlayback = function() {
-        this.keyboardPlaybackEnabled = !this.keyboardPlaybackEnabled;
-        this._saveKeyboardPlaybackPref(this.keyboardPlaybackEnabled);
+    toggleKeyboardPlayback() {
+        this.modal.keyboardPlaybackEnabled = !this.modal.keyboardPlaybackEnabled;
+        this.modal._saveKeyboardPlaybackPref(this.modal.keyboardPlaybackEnabled);
         const btn = document.getElementById('keyboard-playback-toggle');
         if (btn) {
-            btn.dataset.active = String(this.keyboardPlaybackEnabled);
+            btn.dataset.active = String(this.modal.keyboardPlaybackEnabled);
             const srLabel = btn.querySelector('.sr-only');
-            const label = this.keyboardPlaybackEnabled ? this.t('common.on') : this.t('common.off');
+            const label = this.modal.keyboardPlaybackEnabled ? this.modal.t('common.on') : this.modal.t('common.off');
             if (srLabel) {
                 srLabel.textContent = label;
             } else {
                 btn.textContent = label;
             }
         }
-        this.log('info', `Keyboard playback: ${this.keyboardPlaybackEnabled ? 'ON' : 'OFF'}`);
+        this.modal.log('info', `Keyboard playback: ${this.modal.keyboardPlaybackEnabled ? 'ON' : 'OFF'}`);
     }
 
-    /**
-    * Basculer le son au deplacement de notes
-    */
-    MidiEditorEditActionsMixin.toggleDragPlayback = function() {
-        this.dragPlaybackEnabled = !this.dragPlaybackEnabled;
-        this._saveDragPlaybackPref(this.dragPlaybackEnabled);
+    toggleDragPlayback() {
+        this.modal.dragPlaybackEnabled = !this.modal.dragPlaybackEnabled;
+        this.modal._saveDragPlaybackPref(this.modal.dragPlaybackEnabled);
         const btn = document.getElementById('drag-playback-toggle');
         if (btn) {
-            btn.dataset.active = String(this.dragPlaybackEnabled);
+            btn.dataset.active = String(this.modal.dragPlaybackEnabled);
             const srLabel = btn.querySelector('.sr-only');
-            const label = this.dragPlaybackEnabled ? this.t('common.on') : this.t('common.off');
+            const label = this.modal.dragPlaybackEnabled ? this.modal.t('common.on') : this.modal.t('common.off');
             if (srLabel) {
                 srLabel.textContent = label;
             } else {
                 btn.textContent = label;
             }
         }
-        this.log('info', `Drag playback: ${this.dragPlaybackEnabled ? 'ON' : 'OFF'}`);
+        this.modal.log('info', `Drag playback: ${this.modal.dragPlaybackEnabled ? 'ON' : 'OFF'}`);
     }
-
-    // Facade sub-component (P2-F.10c-batch).
-    class MidiEditorEditActions {
-        constructor(modal) { this.modal = modal; }
     }
-    Object.keys(MidiEditorEditActionsMixin).forEach((key) => {
-        MidiEditorEditActions.prototype[key] = function(...args) {
-            return MidiEditorEditActionsMixin[key].apply(this.modal, args);
-        };
-    });
 
     if (typeof window !== 'undefined') {
-        window.MidiEditorEditActionsMixin = MidiEditorEditActionsMixin;
         window.MidiEditorEditActions = MidiEditorEditActions;
     }
 })();

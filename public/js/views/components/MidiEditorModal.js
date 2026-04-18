@@ -374,7 +374,7 @@ const _mixins = [
     // MidiEditorFileOpsMixin retiré — remplacé par this.fileOps (P2-F.10d body-rewrite).
     // MidiEditorRendererMixin retiré — remplacé par this.renderer (P2-F.10e body-rewrite).
     // MidiEditorRoutingMixin retiré — remplacé par this.routingOps (P2-F.10g body-rewrite).
-    typeof MidiEditorEditActionsMixin !== 'undefined' ? MidiEditorEditActionsMixin : null,
+    // MidiEditorEditActionsMixin retiré — remplacé par this.editActions (P2-F.10j body-rewrite).
     // MidiEditorDialogsMixin retiré — remplacé par this.dialogs (P2-F.10a-cleanup).
     // MidiEditorEventsMixin retiré — remplacé par this.events (P2-F.10f body-rewrite).
     typeof MidiEditorTablatureMixin !== 'undefined' ? MidiEditorTablatureMixin : null,
