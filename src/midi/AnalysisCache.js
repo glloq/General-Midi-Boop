@@ -1,9 +1,25 @@
-// src/midi/AnalysisCache.js
+/**
+ * @file src/midi/AnalysisCache.js
+ * @description LRU + TTL cache for MIDI channel analyses.
+ *
+ * Sits in front of {@link AutoAssigner}/{@link ChannelAnalyzer} to avoid
+ * re-running expensive per-channel analyses (note range, instrument
+ * suggestions, polyphony stats) when the same file/channel pair is queried
+ * repeatedly during a session.
+ *
+ * Eviction is dual-keyed:
+ *   - LRU: when {@link AnalysisCache#set} would exceed `maxSize`, the
+ *     least-recently-touched entry is dropped first.
+ *   - TTL: entries older than `ttl` ms are treated as missing on `get` and
+ *     swept by an explicit {@link AnalysisCache#cleanup} call.
+ *
+ * Cache invalidation is the caller's responsibility — call
+ * {@link AnalysisCache#invalidateFile} after a file is re-uploaded or its
+ * channel routing changes.
+ */
 
 /**
- * AnalysisCache - LRU cache for MIDI channel analyses
- *
- * Avoids re-running expensive analyses on the same files/channels
+ * Bounded LRU cache for per-channel analysis results.
  */
 class AnalysisCache {
   constructor(maxSize = 100, ttl = 600000) { // 10 minutes by default

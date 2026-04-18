@@ -1,7 +1,32 @@
-// src/midi/PlaybackScheduler.js
-// Extracted from MidiPlayer.js - handles playback scheduling, timing compensation,
-// sync delay management, and event dispatching.
-
+/**
+ * @file src/midi/PlaybackScheduler.js
+ * @description Tick-driven event scheduler extracted from {@link MidiPlayer}.
+ *
+ * Owns the per-playback hot path:
+ *   - 10 ms `setInterval` tick (`SCHEDULER_TICK_MS`) advances the position
+ *     clock and queues every event up to `position + LOOKAHEAD_SECONDS +
+ *     maxCompensation` via `setTimeout`.
+ *   - Per-event `setTimeout` IDs are tracked in `pendingTimeouts` so
+ *     {@link PlaybackScheduler#stopScheduler} can cancel everything in flight
+ *     without leaking timers across stop/start cycles.
+ *
+ * Caches keyed by `device:channel`:
+ *   - `_syncDelayCache` — combined user `sync_delay` + measured hardware
+ *     latency, clamped to ±`MAX_COMPENSATION_MS`.
+ *   - `_stringCCCache`  — whether CC 20/21 (string/fret select) should be
+ *     forwarded for the target instrument.
+ *   - `_timingConstraintCache` — `min_note_interval`, `min_note_duration`
+ *     and `polyphony` from `instrumentCapabilitiesDB`.
+ *
+ * All caches are invalidated on `instrument_settings_changed` and at the
+ * start of every playback via {@link PlaybackScheduler#resetForPlayback}
+ * to prevent stale values from a previous file/routing.
+ *
+ * Disconnect policy (`state.disconnectedPolicy`): the first failed send to
+ * a device is broadcast as `playback_device_disconnected` with policy
+ * `pause` / `mute` / `skip`; subsequent failures on the same device are
+ * silenced for the rest of the playback.
+ */
 import { performance } from 'perf_hooks';
 import { TIMING, MIDI_CC } from '../constants.js';
 
