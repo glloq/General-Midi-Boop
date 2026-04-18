@@ -63,7 +63,7 @@ async function instrumentUpdateSettings(app, data) {
     data.comm_timeout = timeout;
   }
 
-  const id = app.database.updateInstrumentSettings(data.deviceId, channel, {
+  const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {
     custom_name: data.custom_name,
     sync_delay: data.sync_delay,
     mac_address: data.mac_address,
@@ -93,7 +93,7 @@ async function instrumentGetSettings(app, data) {
 
   // Pass channel if provided, otherwise backward compat (first match)
   const channel = data.channel !== undefined ? data.channel : undefined;
-  const settings = app.database.getInstrumentSettings(data.deviceId, channel);
+  const settings = app.instrumentRepository.getSettings(data.deviceId, channel);
 
   return {
     settings: settings || null
@@ -124,7 +124,7 @@ async function instrumentUpdateCapabilities(app, data) {
     data.polyphony = poly;
   }
 
-  const id = app.database.updateInstrumentCapabilities(data.deviceId, channel, {
+  const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, {
     note_range_min: data.note_range_min,
     note_range_max: data.note_range_max,
     supported_ccs: data.supported_ccs,
@@ -151,7 +151,7 @@ async function instrumentGetCapabilities(app, data) {
 
   // Pass channel if provided, otherwise backward compat (first match)
   const channel = data.channel !== undefined ? data.channel : undefined;
-  const capabilities = app.database.getInstrumentCapabilities(data.deviceId, channel);
+  const capabilities = app.instrumentRepository.getCapabilities(data.deviceId, channel);
 
   return {
     capabilities: capabilities || null
@@ -163,7 +163,7 @@ async function instrumentListCapabilities(app) {
     throw new ConfigurationError('Database not available');
   }
 
-  const instruments = app.database.getAllInstrumentCapabilities();
+  const instruments = app.instrumentRepository.getAllCapabilities();
 
   return {
     instruments: instruments
@@ -175,7 +175,7 @@ async function instrumentListRegistered(app) {
     throw new ConfigurationError('Database not available');
   }
 
-  const instruments = app.database.getInstrumentsWithCapabilities();
+  const instruments = app.instrumentRepository.findAllWithCapabilities();
 
   return {
     success: true,
@@ -189,7 +189,7 @@ async function instrumentListConnected(app) {
     throw new ConfigurationError('Database not available');
   }
 
-  const allInstruments = app.database.getInstrumentsWithCapabilities();
+  const allInstruments = app.instrumentRepository.findAllWithCapabilities();
   const connectedDevices = app.deviceManager.getDeviceList();
   const connectedDeviceIds = new Set(connectedDevices.map(d => d.id));
 
@@ -288,47 +288,35 @@ async function instrumentDelete(app, data) {
 
   // Delete instrument settings/capabilities from instruments_latency
   try {
-    if (hasChannel) {
-      app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
-    } else {
-      app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
-    }
+    app.instrumentRepository.deleteSettingsByDevice(data.deviceId, hasChannel ? channel : undefined);
   } catch (e) {
     errors.push(`instruments_latency: ${e.message}`);
   }
 
   // Cascade: delete associated string instrument configs
   try {
-    if (hasChannel) {
-      app.database.db.prepare('DELETE FROM string_instruments WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
-    } else {
-      app.database.db.prepare('DELETE FROM string_instruments WHERE device_id = ?').run(data.deviceId);
-    }
+    app.stringInstrumentRepository.deleteByDevice(data.deviceId, hasChannel ? channel : undefined);
   } catch (e) {
     // string_instruments table may not exist
   }
 
   // Cascade: delete associated MIDI instrument routings
   try {
-    if (hasChannel) {
-      app.database.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?').run(data.deviceId, channel);
-    } else {
-      app.database.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ?').run(data.deviceId);
-    }
+    app.routingRepository.deleteByDevice(data.deviceId, hasChannel ? channel : undefined);
   } catch (e) {
     // midi_instrument_routings table may not exist
   }
 
   // Delete from instruments table if exists
   try {
-    app.database.deleteInstrument(data.deviceId);
+    app.instrumentRepository.delete(data.deviceId);
   } catch (e) {
     // May not have an instruments entry
   }
 
   // Also delete latency profile if exists
   try {
-    app.database.deleteLatencyProfile(data.deviceId);
+    app.instrumentRepository.deleteLatencyProfile(data.deviceId);
   } catch (e) {
     // May not have a latency profile
   }

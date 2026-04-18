@@ -763,6 +763,9 @@ class DatabaseManager {
   deleteLatencyProfile(deviceId) {
     return this.instrumentDB.deleteLatencyProfile(deviceId);
   }
+  deleteInstrumentSettingsByDevice(...args) {
+    return this.instrumentDB.deleteInstrumentSettingsByDevice(...args);
+  }
 
   // Presets
   insertPreset(preset) {
@@ -819,6 +822,9 @@ class DatabaseManager {
   insertRouting(routing) {
     return this.instrumentDB.insertRouting(routing);
   }
+  insertSplitRoutings(...args) {
+    return this.instrumentDB.insertSplitRoutings(...args);
+  }
   getRoutingsByFile(fileId, includeDisabled) {
     return this.instrumentDB.getRoutingsByFile(fileId, includeDisabled);
   }
@@ -827,6 +833,9 @@ class DatabaseManager {
   }
   deleteRoutingsByFile(fileId) {
     return this.instrumentDB.deleteRoutingsByFile(fileId);
+  }
+  deleteRoutingsByDevice(...args) {
+    return this.instrumentDB.deleteRoutingsByDevice(...args);
   }
   getInstrumentsByDevice(deviceId) {
     return this.instrumentDB.getInstrumentsByDevice(deviceId);

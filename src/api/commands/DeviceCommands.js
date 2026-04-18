@@ -8,51 +8,7 @@ async function deviceList(app) {
   if (app.database) {
     for (const device of devices) {
       try {
-        let settings = app.database.getInstrumentSettings(device.id);
-
-        // Fallback: if no settings by device_id, look up by USB serial number
-        if (!settings && device.usbSerialNumber) {
-          const bySerial = app.database.findInstrumentByUsbSerial(device.usbSerialNumber);
-          if (bySerial && bySerial.device_id !== device.id) {
-            app.logger.info(`[deviceList] USB device "${device.id}" matched by serial number "${device.usbSerialNumber}" to DB entry "${bySerial.device_id}" - reconciling`);
-            // Update the device_id in DB to match the new ALSA name
-            try {
-              app.database.reconcileDeviceId(bySerial.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.database.getInstrumentSettings(device.id);
-          }
-        }
-
-        // Fallback: look up by MAC address for Bluetooth devices
-        if (!settings && device.address && device.type === 'bluetooth') {
-          const byMac = app.database.findInstrumentByMac(device.address);
-          if (byMac && byMac.device_id !== device.id) {
-            app.logger.info(`[deviceList] Bluetooth device "${device.id}" matched by MAC "${device.address}" to DB entry "${byMac.device_id}" - reconciling`);
-            try {
-              app.database.reconcileDeviceId(byMac.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.database.getInstrumentSettings(device.id);
-          }
-        }
-
-        // Fallback: look up by normalized name (without ALSA port numbers)
-        // Covers the common case where the ALSA port number changes between reboots
-        if (!settings && device.type === 'usb') {
-          const byName = app.database.findInstrumentByNormalizedName(device.id);
-          if (byName && byName.device_id !== device.id) {
-            app.logger.info(`[deviceList] USB device "${device.id}" matched by normalized name to DB entry "${byName.device_id}" - reconciling`);
-            try {
-              app.database.reconcileDeviceId(byName.device_id, device.id);
-            } catch (e) {
-              app.logger.warn(`[deviceList] Failed to reconcile device_id: ${e.message}`);
-            }
-            settings = app.database.getInstrumentSettings(device.id);
-          }
-        }
+        const settings = app.deviceReconciliationService.resolveSettings(device);
 
         if (settings) {
           if (settings.custom_name) {
@@ -82,7 +38,7 @@ async function deviceList(app) {
 
         // Enrich with device-level custom_name (takes priority over instrument-level)
         try {
-          const deviceSettings = app.database.getDeviceSettings(device.id);
+          const deviceSettings = app.deviceSettingsRepository.findByDeviceId(device.id);
           if (deviceSettings && deviceSettings.custom_name) {
             device.displayName = deviceSettings.custom_name;
             device.deviceCustomName = deviceSettings.custom_name;
@@ -91,7 +47,7 @@ async function deviceList(app) {
 
         // Load all instruments/channels configured on this device
         try {
-          const allInstruments = app.database.getInstrumentsByDevice(device.id);
+          const allInstruments = app.instrumentRepository.findByDevice(device.id);
           if (allInstruments && allInstruments.length > 0) {
             device.instruments = allInstruments.map(inst => {
               let supportedCcs = null;
@@ -135,7 +91,7 @@ async function deviceRefresh(app) {
   // After a scan, reconcile device_ids by USB serial number
   if (app.database) {
     try {
-      const removed = app.database.deduplicateByUsbSerial();
+      const removed = app.instrumentRepository.deduplicateByUsbSerial();
       if (removed > 0) {
         app.logger.info(`[deviceRefresh] Deduplicated ${removed} instrument entries by USB serial`);
       }
@@ -185,7 +141,7 @@ async function deviceSaveSysExIdentity(app, data) {
 
   // Channel defaults to 0 for backward compatibility
   const channel = data.channel !== undefined ? data.channel : 0;
-  const id = app.database.saveSysExIdentity(data.deviceId, channel, data.identity);
+  const id = app.instrumentRepository.saveSysExIdentity(data.deviceId, channel, data.identity);
 
   return {
     success: true,

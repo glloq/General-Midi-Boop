@@ -145,7 +145,13 @@ class BackendAPIClient {
             this.pendingRequests.delete(message.id);
 
             if (message.error) {
-                pending.reject(new Error(message.error));
+                // Propagate the structured error envelope (P1-3.4 audit recommendation):
+                // expose `code` and `command` so callers can switch on the error category
+                // (ERR_VALIDATION / ERR_NOT_FOUND / ERR_CONFIGURATION / ...).
+                const err = new Error(message.error);
+                if (message.code !== undefined) err.code = message.code;
+                if (message.command !== undefined) err.command = message.command;
+                pending.reject(err);
             } else {
                 pending.resolve(message.data || message);
             }

@@ -1,6 +1,6 @@
 // tests/frontend/midi-editor-clamp.test.js
 //
-// Smoke tests for MidiEditorFileOpsMixin.convertSequenceToMidi — the MIDI
+// Smoke tests for MidiEditorFileOps.convertSequenceToMidi — the MIDI
 // serialisation path that the editor invokes on every save. The priority is
 // that out-of-range values (notes, channels, velocity, CC, pitch bend) can
 // never leak into the binary MIDI stream regardless of what the UI produced.
@@ -10,14 +10,14 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const mixinSource = readFileSync(
-    resolve(__dirname, '../../public/js/views/components/midi-editor/MidiEditorFileOpsMixin.js'),
+    resolve(__dirname, '../../public/js/features/midi-editor/MidiEditorFileOps.js'),
     'utf8'
 );
 
-// Run the mixin's IIFE so it registers window.MidiEditorFileOpsMixin.
+// Run the file's IIFE so it registers window.MidiEditorFileOps.
 new Function(mixinSource)();
 
-const mixin = /** @type {Record<string, Function>} */ (globalThis.window.MidiEditorFileOpsMixin);
+const MidiEditorFileOps = /** @type {any} */ (globalThis.window.MidiEditorFileOps);
 
 /**
  * Build a minimal stub that the mixin's convertSequenceToMidi() can run against.
@@ -40,16 +40,12 @@ function makeModal(overrides = {}) {
 }
 
 describe('convertSequenceToMidi', () => {
-    let convertSequenceToMidi;
-
-    beforeEach(() => {
-        convertSequenceToMidi = mixin.convertSequenceToMidi;
-    });
+    /** @param {object} modal */
+    const run = (modal) => new MidiEditorFileOps(modal).convertSequenceToMidi();
 
     it('returns null when there is no sequence to save', () => {
         const modal = makeModal({ fullSequence: [] });
-        const result = convertSequenceToMidi.call(modal);
-        expect(result).toBeNull();
+        expect(run(modal)).toBeNull();
     });
 
     it('emits a setTempo and a programChange per non-drum channel', () => {
@@ -64,7 +60,7 @@ describe('convertSequenceToMidi', () => {
             ]
         });
 
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         expect(midi).not.toBeNull();
         expect(midi.tracks).toBeDefined();
 
@@ -87,7 +83,7 @@ describe('convertSequenceToMidi', () => {
                 { ticks: 480, tempo: 140 }
             ]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const tempos = midi.tracks[0].filter(e => e.type === 'setTempo');
         expect(tempos.length).toBe(2);
         expect(tempos[0].microsecondsPerBeat).toBe(Math.round(60_000_000 / 100));
@@ -99,7 +95,7 @@ describe('convertSequenceToMidi', () => {
             fullSequence: [{ t: 0, g: 120, n: 36, c: 9, v: 100 }],
             channels: [{ channel: 9, program: 0 }]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const programs = midi.tracks[0].filter(e => e.type === 'programChange');
         expect(programs.length).toBe(0);
     });
@@ -111,7 +107,7 @@ describe('convertSequenceToMidi', () => {
                 { t: 0, g: 120, n: -5, c: 0, v: 100 }
             ]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const notes = midi.tracks[0].filter(e => e.type === 'noteOn');
         expect(notes.every(n => n.noteNumber >= 0 && n.noteNumber <= 127)).toBe(true);
         expect(notes.some(n => n.noteNumber === 127)).toBe(true);
@@ -125,7 +121,7 @@ describe('convertSequenceToMidi', () => {
                 { t: 0, g: 120, n: 60, c: -1, v: 100 }
             ]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const notes = midi.tracks[0].filter(e => e.type === 'noteOn');
         expect(notes.every(n => n.channel >= 0 && n.channel <= 15)).toBe(true);
     });
@@ -138,7 +134,7 @@ describe('convertSequenceToMidi', () => {
                 { t: 0, g: 120, n: 64, c: 0, v: -20 }
             ]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const onEvts = midi.tracks[0].filter(e => e.type === 'noteOn');
         const offEvts = midi.tracks[0].filter(e => e.type === 'noteOff');
         expect(onEvts.every(e => e.velocity >= 1 && e.velocity <= 127)).toBe(true);
@@ -155,7 +151,7 @@ describe('convertSequenceToMidi', () => {
                 { ticks: 0, channel: 0, type: 'pitchbend', value: -50000 }
             ]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const trk = midi.tracks[0];
 
         const ccs = trk.filter(e => e.type === 'controller');
@@ -174,7 +170,7 @@ describe('convertSequenceToMidi', () => {
             fullSequence: [{ t: 0, g: 480, n: 60, c: 1, v: 80 }],
             ccEvents: [{ ticks: 0, channel: 1, type: 'cc7', value: 64 }]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const onEvt = midi.tracks[0].find(e => e.type === 'noteOn');
         expect(onEvt.noteNumber).toBe(60);
         expect(onEvt.channel).toBe(1);
@@ -188,7 +184,7 @@ describe('convertSequenceToMidi', () => {
         const modal = makeModal({
             fullSequence: [{ t: 0, g: 0, n: 60, c: 0, v: 100 }]
         });
-        const midi = convertSequenceToMidi.call(modal);
+        const midi = run(modal);
         const events = midi.tracks[0];
         const on = events.find(e => e.type === 'noteOn');
         const off = events.find(e => e.type === 'noteOff');

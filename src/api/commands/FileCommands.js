@@ -71,7 +71,7 @@ async function fileExport(app, data) {
 }
 
 async function fileSearch(app, data) {
-  const files = app.database.searchFiles(data.query);
+  const files = app.fileRepository.search(data.query);
   return { files: files };
 }
 
@@ -144,7 +144,7 @@ async function fileFilter(app, data) {
     }
   });
 
-  const rawFiles = app.database.filterFiles(filters);
+  const rawFiles = app.fileRepository.filter(filters);
 
   // Batch-fetch routing status for all filtered files (same as FileManager.listFiles)
   const fileIds = rawFiles.map(f => f.id);
@@ -215,7 +215,7 @@ async function fileChannels(app, data) {
     throw new ValidationError('fileId is required', 'fileId');
   }
 
-  const channels = app.database.getFileChannels(data.fileId);
+  const channels = app.fileRepository.getChannels(data.fileId);
   return {
     success: true,
     fileId: data.fileId,
@@ -233,7 +233,7 @@ async function fileReanalyzeAll(app) {
 }
 
 function fileReanalyzeCheck(app) {
-  const count = app.database.countFilesNeedingReanalysis();
+  const count = app.fileRepository.countNeedingReanalysis();
   return {
     success: true,
     needsReanalysis: count
@@ -244,14 +244,8 @@ async function fileRoutingStatus(app, data) {
   const fileId = data.fileId;
   if (!fileId) throw new ValidationError('fileId is required', 'fileId');
 
-  const file = app.database.getFileInfo(fileId);
-  if (!file) throw new NotFoundError('File', fileId);
-
-  const routings = app.database.getRoutingsByFile(fileId);
-  // Use channel_count (actual MIDI channels), NOT file.tracks (SMF track count)
-  const channelCount = file.channel_count || 1;
-
-  // Only count routings to currently connected devices
+  // Connected devices restrict the routing count (only routings to live
+  // devices are considered "playable").
   let connectedDeviceIds = null;
   try {
     const deviceList = app.deviceManager?.getDeviceList?.() || [];
@@ -260,31 +254,14 @@ async function fileRoutingStatus(app, data) {
     }
   } catch (e) { /* skip filtering */ }
 
-  const enabledRoutings = routings.filter(r => {
-    if (r.enabled === false) return false;
-    if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
-    return true;
-  });
-  const routedCount = enabledRoutings.length;
+  const result = app.fileRoutingStatusService.computeForFile(fileId, connectedDeviceIds);
+  if (!result) throw new NotFoundError('File', fileId);
 
-  let status = 'unrouted';
-  if (routedCount > 0 && routedCount < channelCount) {
-    status = 'partial';
-  } else if (routedCount >= channelCount && channelCount > 0) {
-    // Filter out NULL scores (manual routings without compatibility data)
-    const scores = enabledRoutings.map(r => r.compatibility_score).filter(s => s !== null && s !== undefined);
-    const minScore = scores.length > 0 ? Math.min(...scores) : null;
-    status = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
-  }
-
-  const hasAutoAssigned = enabledRoutings.some(r => r.auto_assigned);
-  const isAdapted = file.is_original === 0 || file.is_original === false;
-
-  return { success: true, fileId, status, isAdapted, hasAutoAssigned, routedCount, channelCount };
+  return { success: true, fileId, ...result };
 }
 
 async function midiInstrumentsList(app) {
-  const instruments = app.database.getDistinctInstruments();
+  const instruments = app.fileRepository.getDistinctInstruments();
   return {
     success: true,
     instruments: instruments,
@@ -293,7 +270,7 @@ async function midiInstrumentsList(app) {
 }
 
 async function midiCategoriesList(app) {
-  const categories = app.database.getDistinctCategories();
+  const categories = app.fileRepository.getDistinctCategories();
   return {
     success: true,
     categories: categories,

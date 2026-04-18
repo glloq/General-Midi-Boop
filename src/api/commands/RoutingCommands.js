@@ -142,104 +142,21 @@ async function fileRoutingSync(app, data) {
   }
 
   if (!data.channels || Object.keys(data.channels).length === 0) {
-    app.database.deleteRoutingsByFile(data.fileId);
+    app.routingRepository.deleteByFileId(data.fileId);
     return { success: true, synced: 0, invalidDevices: [] };
   }
 
-  // Read existing routings to preserve auto-assign metadata when device hasn't changed
-  const existingRoutings = app.database.getRoutingsByFile(data.fileId, true);
-  const existingByChannel = new Map();
-  for (const r of existingRoutings) {
-    if (r.channel != null && !r.split_mode) {
-      existingByChannel.set(r.channel, r);
-    }
+  const result = app.fileRoutingSyncService.syncFile(data.fileId, data.channels);
+
+  if (result.invalidDevices.length > 0) {
+    app.logger.info(`[fileRoutingSync] Skipped invalid device(s): ${result.invalidDevices.join(', ')}`);
   }
-
-  // Delete existing non-split routings for this file (preserve splits managed by auto-assign)
-  app.database.deleteRoutingsByFile(data.fileId);
-
-  // Build set of known device IDs for validation
-  const knownDevices = new Set();
-  try {
-    const deviceList = app.deviceManager?.getDeviceList?.() || [];
-    for (const d of deviceList) {
-      if (d.id) knownDevices.add(d.id);
-    }
-  } catch (e) { /* ignore — skip validation if device list unavailable */ }
-
-  // Build set of channels actually present in this MIDI file to avoid orphan routings.
-  // If the file hasn't been analysed yet, midi_file_channels is empty → skip this check.
-  const knownChannels = new Set();
-  try {
-    const fileChannels = app.database.getFileChannels(data.fileId) || [];
-    for (const c of fileChannels) {
-      if (c.channel != null) knownChannels.add(c.channel);
-    }
-  } catch (e) { /* ignore — skip validation if channel list unavailable */ }
-
-  let synced = 0;
-  const invalidDeviceIds = new Set();
-  const invalidChannels = new Set();
-
-  for (const [channelStr, routingValue] of Object.entries(data.channels)) {
-    const channel = parseInt(channelStr, 10);
-    if (isNaN(channel) || !routingValue) continue;
-
-    // Skip routings for channels that don't exist in this MIDI file (avoid orphans)
-    if (knownChannels.size > 0 && !knownChannels.has(channel)) {
-      invalidChannels.add(channel);
-      continue;
-    }
-
-    // routingValue may be "deviceId::targetChannel" for multi-instrument devices
-    const parts = routingValue.split('::');
-    const deviceId = parts[0];
-    const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
-
-    // Skip routings to devices that don't exist (but allow virtual instruments)
-    if (knownDevices.size > 0 && !knownDevices.has(deviceId) && deviceId !== 'virtual-instrument') {
-      invalidDeviceIds.add(deviceId);
-      continue;
-    }
-
-    // Preserve metadata from existing routing if the device hasn't changed
-    const existing = existingByChannel.get(channel);
-    const sameDevice = existing && existing.device_id === deviceId;
-
-    try {
-      app.database.insertRouting({
-        midi_file_id: data.fileId,
-        channel: channel,
-        target_channel: isNaN(targetChannel) ? channel : targetChannel,
-        device_id: deviceId,
-        instrument_name: sameDevice ? existing.instrument_name : null,
-        compatibility_score: sameDevice ? existing.compatibility_score : null,
-        transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
-        auto_assigned: sameDevice ? existing.auto_assigned : false,
-        assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
-        note_remapping: sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
-        enabled: true,
-        created_at: Date.now()
-      });
-      synced++;
-    } catch (error) {
-      app.logger.warn(`[fileRoutingSync] Failed to sync channel ${channel}: ${error.message}`);
-    }
+  if (result.invalidChannels.length > 0) {
+    app.logger.info(`[fileRoutingSync] Skipped channels not present in file: ${result.invalidChannels.join(', ')}`);
   }
+  app.logger.info(`[fileRoutingSync] Synced ${result.synced} channels for file ${data.fileId}`);
 
-  if (invalidDeviceIds.size > 0) {
-    app.logger.info(`[fileRoutingSync] Skipped invalid device(s): ${[...invalidDeviceIds].join(', ')}`);
-  }
-  if (invalidChannels.size > 0) {
-    app.logger.info(`[fileRoutingSync] Skipped channels not present in file: ${[...invalidChannels].join(', ')}`);
-  }
-  app.logger.info(`[fileRoutingSync] Synced ${synced} channels for file ${data.fileId}`);
-  return {
-    success: true,
-    synced,
-    invalidDevices: [...invalidDeviceIds],
-    invalidChannels: [...invalidChannels]
-  };
+  return { success: true, ...result };
 }
 
 /**
@@ -252,88 +169,16 @@ async function fileRoutingBulkSync(app, data) {
     return { success: true, synced: 0, files: 0, invalidDevices: [] };
   }
 
-  let totalSynced = 0;
-  let fileCount = 0;
-  const invalidDeviceIds = new Set();
+  const result = app.fileRoutingSyncService.bulkSync(data.routings);
 
-  // Build set of known device IDs for validation
-  const knownDevices = new Set();
-  try {
-    const deviceList = app.deviceManager?.getDeviceList?.() || [];
-    for (const d of deviceList) {
-      if (d.id) knownDevices.add(d.id);
-    }
-  } catch (e) {
-    app.logger.warn(`[fileRoutingBulkSync] Could not get device list: ${e.message}`);
+  if (result.invalidDevices.length > 0) {
+    app.logger.info(
+      `[fileRoutingBulkSync] Skipped ${result.invalidDevices.length} invalid device(s): ${result.invalidDevices.join(', ')}`
+    );
   }
+  app.logger.info(`[fileRoutingBulkSync] Synced ${result.synced} channels across ${result.files} files`);
 
-  for (const [fileId, config] of Object.entries(data.routings)) {
-    if (!config.channels || Object.keys(config.channels).length === 0) continue;
-
-    const parsedFileId = parseInt(fileId, 10);
-
-    // Read existing routings to preserve auto-assign metadata
-    const existingRoutings = app.database.getRoutingsByFile(parsedFileId, true);
-    const existingByChannel = new Map();
-    for (const r of existingRoutings) {
-      if (r.channel != null && !r.split_mode) {
-        existingByChannel.set(r.channel, r);
-      }
-    }
-
-    // Delete existing routings for this file
-    app.database.deleteRoutingsByFile(parsedFileId);
-
-    let hasValidRouting = false;
-    for (const [channelStr, routingValue] of Object.entries(config.channels)) {
-      const channel = parseInt(channelStr, 10);
-      if (isNaN(channel) || !routingValue) continue;
-
-      // Extract deviceId (may be "deviceId::targetChannel")
-      const deviceId = routingValue.split('::')[0];
-
-      // Skip routings to devices that don't exist (but allow virtual instruments)
-      if (knownDevices.size > 0 && !knownDevices.has(deviceId) && deviceId !== 'virtual-instrument') {
-        invalidDeviceIds.add(deviceId);
-        continue;
-      }
-
-      // Preserve metadata from existing routing if the device hasn't changed
-      const existing = existingByChannel.get(channel);
-      const sameDevice = existing && existing.device_id === deviceId;
-
-      try {
-        const parts = routingValue.split('::');
-        const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
-
-        app.database.insertRouting({
-          midi_file_id: parsedFileId,
-          channel: channel,
-          target_channel: isNaN(targetChannel) ? channel : targetChannel,
-          device_id: deviceId,
-          instrument_name: sameDevice ? existing.instrument_name : null,
-          compatibility_score: sameDevice ? existing.compatibility_score : null,
-          transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
-          auto_assigned: sameDevice ? existing.auto_assigned : false,
-          assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
-          note_remapping: sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
-          enabled: true,
-          created_at: config.lastModified || Date.now()
-        });
-        totalSynced++;
-        hasValidRouting = true;
-      } catch (error) {
-        app.logger.warn(`[fileRoutingBulkSync] Failed channel ${channel} for file ${fileId}: ${error.message}`);
-      }
-    }
-    if (hasValidRouting) fileCount++;
-  }
-
-  if (invalidDeviceIds.size > 0) {
-    app.logger.info(`[fileRoutingBulkSync] Skipped ${invalidDeviceIds.size} invalid device(s): ${[...invalidDeviceIds].join(', ')}`);
-  }
-  app.logger.info(`[fileRoutingBulkSync] Synced ${totalSynced} channels across ${fileCount} files`);
-  return { success: true, synced: totalSynced, files: fileCount, invalidDevices: [...invalidDeviceIds] };
+  return { success: true, ...result };
 }
 
 export function register(registry, app) {

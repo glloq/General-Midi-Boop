@@ -62,6 +62,12 @@ function createMockApp({ deviceList = [{ id: 'out-1', output: true, enabled: tru
     database: {
       getRoutingsByFile: jest.fn().mockReturnValue(routings)
     },
+    fileRepository: {
+      findById: jest.fn().mockReturnValue(null)
+    },
+    routingRepository: {
+      findByFileId: jest.fn().mockReturnValue(routings)
+    },
     deviceManager: {
       getDeviceList: jest.fn().mockReturnValue(deviceList)
     }

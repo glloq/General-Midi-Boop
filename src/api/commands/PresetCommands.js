@@ -2,7 +2,7 @@
 import { NotFoundError } from '../../core/errors/index.js';
 
 async function presetSave(app, data) {
-  const presetId = app.database.insertPreset({
+  const presetId = app.presetRepository.save({
     name: data.name,
     description: data.description,
     type: data.type || 'routing',
@@ -12,7 +12,7 @@ async function presetSave(app, data) {
 }
 
 async function presetLoad(app, data) {
-  const preset = app.database.getPreset(data.presetId);
+  const preset = app.presetRepository.findById(data.presetId);
   if (!preset) {
     throw new NotFoundError('Preset', data.presetId);
   }
@@ -20,24 +20,24 @@ async function presetLoad(app, data) {
 }
 
 async function presetList(app, data) {
-  const presets = app.database.getPresets(data.type);
+  const presets = app.presetRepository.findByType(data.type);
   return { presets: presets };
 }
 
 async function presetDelete(app, data) {
-  app.database.deletePreset(data.presetId);
+  app.presetRepository.delete(data.presetId);
   return { success: true };
 }
 
 async function presetRename(app, data) {
-  app.database.updatePreset(data.presetId, {
+  app.presetRepository.update(data.presetId, {
     name: data.newName
   });
   return { success: true };
 }
 
 async function presetExport(app, data) {
-  const preset = app.database.getPreset(data.presetId);
+  const preset = app.presetRepository.findById(data.presetId);
   if (!preset) {
     throw new NotFoundError('Preset', data.presetId);
   }

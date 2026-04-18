@@ -231,6 +231,7 @@ class InstrumentDatabase {
   findInstrumentByNormalizedName(...args) { return this._settings.findInstrumentByNormalizedName(...args); }
   reconcileDeviceId(...args) { return this._settings.reconcileDeviceId(...args); }
   deduplicateByUsbSerial(...args) { return this._settings.deduplicateByUsbSerial(...args); }
+  deleteInstrumentSettingsByDevice(...args) { return this._settings.deleteByDevice(...args); }
   static normalizeDeviceName(deviceId) { return InstrumentSettingsDB.normalizeDeviceName(deviceId); }
 
   // ==================== DELEGATED: INSTRUMENT CAPABILITIES ====================
@@ -250,6 +251,7 @@ class InstrumentDatabase {
   getRoutingsByFile(...args) { return this._routing.getRoutingsByFile(...args); }
   getRoutingCountsByFiles(...args) { return this._routing.getRoutingCountsByFiles(...args); }
   deleteRoutingsByFile(...args) { return this._routing.deleteRoutingsByFile(...args); }
+  deleteRoutingsByDevice(...args) { return this._routing.deleteRoutingsByDevice(...args); }
   disableVirtualRoutings(...args) { return this._routing.disableVirtualRoutings(...args); }
   enableVirtualRoutings(...args) { return this._routing.enableVirtualRoutings(...args); }
 

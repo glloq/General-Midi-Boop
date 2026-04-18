@@ -375,6 +375,28 @@ class StringInstrumentDatabase {
     }
   }
 
+  /**
+   * Delete string instruments for a device (optionally scoped to one channel).
+   * Encapsulates raw `DELETE FROM string_instruments` SQL previously duplicated
+   * in handlers (P0-2.5n).
+   */
+  deleteByDevice(deviceId, channel) {
+    try {
+      if (channel !== undefined && channel !== null) {
+        this.db.prepare(
+          'DELETE FROM string_instruments WHERE device_id = ? AND channel = ?'
+        ).run(deviceId, channel);
+      } else {
+        this.db.prepare(
+          'DELETE FROM string_instruments WHERE device_id = ?'
+        ).run(deviceId);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to delete string instruments by device: ${error.message}`);
+      throw error;
+    }
+  }
+
   // ==================== TUNING PRESETS ====================
 
   /**

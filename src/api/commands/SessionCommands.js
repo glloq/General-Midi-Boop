@@ -8,7 +8,7 @@ async function sessionSave(app, data) {
     player: app.midiPlayer.getStatus()
   };
 
-  const sessionId = app.database.insertSession({
+  const sessionId = app.sessionRepository.save({
     name: data.name,
     description: data.description,
     data: JSON.stringify(sessionData)
@@ -18,7 +18,7 @@ async function sessionSave(app, data) {
 }
 
 async function sessionLoad(app, data) {
-  const session = app.database.getSession(data.sessionId);
+  const session = app.sessionRepository.findById(data.sessionId);
   if (!session) {
     throw new NotFoundError('Session', data.sessionId);
   }
@@ -29,17 +29,17 @@ async function sessionLoad(app, data) {
 }
 
 async function sessionList(app) {
-  const sessions = app.database.getSessions();
+  const sessions = app.sessionRepository.findAll();
   return { sessions: sessions };
 }
 
 async function sessionDelete(app, data) {
-  app.database.deleteSession(data.sessionId);
+  app.sessionRepository.delete(data.sessionId);
   return { success: true };
 }
 
 async function sessionExport(app, data) {
-  const session = app.database.getSession(data.sessionId);
+  const session = app.sessionRepository.findById(data.sessionId);
   if (!session) {
     throw new NotFoundError('Session', data.sessionId);
   }
@@ -47,7 +47,7 @@ async function sessionExport(app, data) {
 }
 
 async function sessionImport(app, data) {
-  const sessionId = app.database.insertSession({
+  const sessionId = app.sessionRepository.save({
     name: data.name,
     description: data.description,
     data: data.data

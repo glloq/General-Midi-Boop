@@ -222,6 +222,27 @@ class RoutingPersistenceDB {
   }
 
   /**
+   * Delete all routings for a device (optionally scoped to one channel).
+   * Encapsulates raw `DELETE FROM midi_instrument_routings` SQL previously
+   * duplicated in handlers (P0-2.5n).
+   */
+  deleteRoutingsByDevice(deviceId, channel) {
+    try {
+      if (channel !== undefined && channel !== null) {
+        this.db.prepare(
+          'DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?'
+        ).run(deviceId, channel);
+      } else {
+        this.db.prepare(
+          'DELETE FROM midi_instrument_routings WHERE device_id = ?'
+        ).run(deviceId);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to delete routings for device ${deviceId}: ${error.message}`);
+    }
+  }
+
+  /**
    * Disable all routings that point to virtual instruments (device_id LIKE 'virtual_%')
    * @returns {{ disabledCount: number, affectedFileIds: number[] }}
    */

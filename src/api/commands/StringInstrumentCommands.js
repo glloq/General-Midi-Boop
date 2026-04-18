@@ -11,7 +11,7 @@ import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 // ==================== STRING INSTRUMENT CONFIG ====================
 
 async function stringInstrumentCreate(app, data) {
-  const id = app.database.stringInstrumentDB.createStringInstrument({
+  const id = app.stringInstrumentRepository.save({
     device_id: data.device_id,
     channel: data.channel,
     instrument_name: data.instrument_name,
@@ -38,7 +38,7 @@ async function stringInstrumentCreate(app, data) {
 async function stringInstrumentUpdate(app, data) {
   if (!data.id) throw new ValidationError('id is required', 'id');
 
-  const updated = app.database.stringInstrumentDB.updateStringInstrument(data.id, {
+  const updated = app.stringInstrumentRepository.update(data.id, {
     instrument_name: data.instrument_name,
     num_strings: data.num_strings,
     num_frets: data.num_frets,
@@ -62,9 +62,9 @@ async function stringInstrumentUpdate(app, data) {
 
 async function stringInstrumentDelete(app, data) {
   if (data.id) {
-    app.database.stringInstrumentDB.deleteStringInstrument(data.id);
+    app.stringInstrumentRepository.delete(data.id);
   } else if (data.device_id !== undefined) {
-    app.database.stringInstrumentDB.deleteStringInstrumentByDeviceChannel(
+    app.stringInstrumentRepository.deleteByDeviceChannel(
       data.device_id, data.channel
     );
   } else {
@@ -76,9 +76,9 @@ async function stringInstrumentDelete(app, data) {
 async function stringInstrumentGet(app, data) {
   let instrument;
   if (data.id) {
-    instrument = app.database.stringInstrumentDB.getStringInstrumentById(data.id);
+    instrument = app.stringInstrumentRepository.findById(data.id);
   } else if (data.device_id !== undefined) {
-    instrument = app.database.stringInstrumentDB.getStringInstrument(data.device_id, data.channel);
+    instrument = app.stringInstrumentRepository.findByDeviceChannel(data.device_id, data.channel);
   } else {
     throw new ValidationError('id or device_id is required', 'id');
   }
@@ -88,9 +88,9 @@ async function stringInstrumentGet(app, data) {
 async function stringInstrumentList(app, data) {
   let instruments;
   if (data.device_id) {
-    instruments = app.database.stringInstrumentDB.getStringInstrumentsByDevice(data.device_id);
+    instruments = app.stringInstrumentRepository.findByDevice(data.device_id);
   } else {
-    instruments = app.database.stringInstrumentDB.getAllStringInstruments();
+    instruments = app.stringInstrumentRepository.findAll();
   }
   return { instruments };
 }
@@ -98,14 +98,14 @@ async function stringInstrumentList(app, data) {
 // ==================== TUNING PRESETS ====================
 
 async function stringInstrumentGetPresets(app) {
-  const presets = app.database.stringInstrumentDB.getTuningPresets();
+  const presets = app.stringInstrumentRepository.findAllTuningPresets();
   return { presets };
 }
 
 async function stringInstrumentApplyPreset(app, data) {
   if (!data.preset_key) throw new ValidationError('preset_key is required', 'preset_key');
 
-  const preset = app.database.stringInstrumentDB.getTuningPreset(data.preset_key);
+  const preset = app.stringInstrumentRepository.findTuningPreset(data.preset_key);
   if (!preset) throw new NotFoundError('Preset', data.preset_key);
 
   return { preset };
@@ -116,11 +116,11 @@ async function stringInstrumentCreateFromPreset(app, data) {
   if (data.channel === undefined) throw new ValidationError('channel is required', 'channel');
   if (!data.preset) throw new ValidationError('preset key is required', 'preset');
 
-  const preset = app.database.stringInstrumentDB.getTuningPreset(data.preset);
+  const preset = app.stringInstrumentRepository.findTuningPreset(data.preset);
   if (!preset) throw new NotFoundError('Preset', data.preset);
 
   // Use UPSERT: createStringInstrument already has ON CONFLICT DO UPDATE
-  const id = app.database.stringInstrumentDB.createStringInstrument({
+  const id = app.stringInstrumentRepository.save({
     device_id: data.device_id,
     channel: data.channel,
     instrument_name: preset.name,
@@ -140,7 +140,7 @@ async function tablatureSave(app, data) {
   if (data.string_instrument_id === undefined) throw new ValidationError('string_instrument_id is required', 'string_instrument_id');
   if (!Array.isArray(data.tablature_data)) throw new ValidationError('tablature_data must be an array', 'tablature_data');
 
-  const id = app.database.stringInstrumentDB.saveTablature(
+  const id = app.stringInstrumentRepository.saveTablature(
     data.midi_file_id,
     data.channel,
     data.string_instrument_id,
@@ -152,7 +152,7 @@ async function tablatureSave(app, data) {
 async function tablatureGet(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
-  const tablature = app.database.stringInstrumentDB.getTablature(
+  const tablature = app.stringInstrumentRepository.findTablature(
     data.midi_file_id, data.channel
   );
   return { tablature };
@@ -161,7 +161,7 @@ async function tablatureGet(app, data) {
 async function tablatureGetByFile(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
-  const tablatures = app.database.stringInstrumentDB.getTablaturesByFile(data.midi_file_id);
+  const tablatures = app.stringInstrumentRepository.findTablaturesByFile(data.midi_file_id);
   return { tablatures };
 }
 
@@ -169,9 +169,9 @@ async function tablatureDelete(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   if (data.channel !== undefined) {
-    app.database.stringInstrumentDB.deleteTablature(data.midi_file_id, data.channel);
+    app.stringInstrumentRepository.deleteTablature(data.midi_file_id, data.channel);
   } else {
-    app.database.stringInstrumentDB.deleteTablaturesByFile(data.midi_file_id);
+    app.stringInstrumentRepository.deleteTablaturesByFile(data.midi_file_id);
   }
   return { success: true };
 }
@@ -186,7 +186,7 @@ async function tablatureConvertFromMidi(app, data) {
 
   let config = data.instrument_config;
   if (!config && data.string_instrument_id) {
-    config = app.database.stringInstrumentDB.getStringInstrumentById(data.string_instrument_id);
+    config = app.stringInstrumentRepository.findById(data.string_instrument_id);
     if (!config) throw new NotFoundError('StringInstrument', data.string_instrument_id);
   }
 
@@ -205,7 +205,7 @@ async function tablatureConvertToMidi(app, data) {
 
   let config = data.instrument_config;
   if (!config && data.string_instrument_id) {
-    config = app.database.stringInstrumentDB.getStringInstrumentById(data.string_instrument_id);
+    config = app.stringInstrumentRepository.findById(data.string_instrument_id);
     if (!config) throw new NotFoundError('StringInstrument', data.string_instrument_id);
   }
 

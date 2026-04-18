@@ -10,7 +10,7 @@ function requireLightingManager(app) {
 }
 
 function lightingDeviceList(app) {
-  const devices = app.database.getLightingDevices();
+  const devices = app.lightingRepository.findAllDevices();
   const statuses = app.lightingManager?.getDeviceStatus() || [];
   const statusMap = new Map(statuses.map(s => [s.id, s.connected]));
 
@@ -26,7 +26,7 @@ function lightingDeviceList(app) {
 async function lightingDeviceAdd(app, data) {
   requireField(data, 'name');
 
-  const id = app.database.insertLightingDevice({
+  const id = app.lightingRepository.saveDevice({
     name: data.name,
     type: data.type || 'gpio',
     connection_config: data.connection_config || {},
@@ -42,14 +42,14 @@ async function lightingDeviceAdd(app, data) {
 
 async function lightingDeviceUpdate(app, data) {
   requireField(data, 'id');
-  app.database.updateLightingDevice(data.id, data);
+  app.lightingRepository.updateDevice(data.id, data);
   await app.lightingManager?.reloadDevices();
   return { success: true };
 }
 
 async function lightingDeviceDelete(app, data) {
   requireField(data, 'id');
-  app.database.deleteLightingDevice(data.id);
+  app.lightingRepository.deleteDevice(data.id);
   await app.lightingManager?.disconnectDevice(data.id);
   app.lightingManager?.reloadRules();
   return { success: true };
@@ -64,9 +64,9 @@ async function lightingDeviceTest(app, data) {
 function lightingRuleList(app, data) {
   let rules;
   if (data?.device_id) {
-    rules = app.database.getLightingRulesForDevice(data.device_id);
+    rules = app.lightingRepository.findRulesByDevice(data.device_id);
   } else {
-    rules = app.database.getAllLightingRules();
+    rules = app.lightingRepository.findAllRules();
   }
   return { success: true, rules };
 }
@@ -81,10 +81,10 @@ function lightingRuleAdd(app, data) {
   }
 
   // Validate device exists
-  const device = app.database.getLightingDevice(data.device_id);
+  const device = app.lightingRepository.findDeviceById(data.device_id);
   if (!device) throw new NotFoundError('LightingDevice', data.device_id);
 
-  const id = app.database.insertLightingRule({
+  const id = app.lightingRepository.saveRule({
     name: data.name || '',
     device_id: data.device_id,
     instrument_id: data.instrument_id || null,
@@ -100,14 +100,14 @@ function lightingRuleAdd(app, data) {
 
 function lightingRuleUpdate(app, data) {
   requireField(data, 'id');
-  app.database.updateLightingRule(data.id, data);
+  app.lightingRepository.updateRule(data.id, data);
   app.lightingManager?.reloadRules();
   return { success: true };
 }
 
 function lightingRuleDelete(app, data) {
   requireField(data, 'id');
-  app.database.deleteLightingRule(data.id);
+  app.lightingRepository.deleteRule(data.id);
   app.lightingManager?.reloadRules();
   return { success: true };
 }
@@ -119,7 +119,7 @@ function lightingRuleTest(app, data) {
 }
 
 function lightingPresetList(app) {
-  const presets = app.database.getLightingPresets();
+  const presets = app.lightingRepository.findAllPresets();
   return { success: true, presets };
 }
 
@@ -127,8 +127,8 @@ function lightingPresetSave(app, data) {
   requireField(data, 'name');
 
   // Snapshot current rules
-  const rules = app.database.getAllLightingRules();
-  const id = app.database.insertLightingPreset({
+  const rules = app.lightingRepository.findAllRules();
+  const id = app.lightingRepository.savePreset({
     name: data.name,
     rules_snapshot: rules
   });
@@ -139,7 +139,7 @@ function lightingPresetSave(app, data) {
 function lightingPresetLoad(app, data) {
   requireField(data, 'id');
 
-  const presets = app.database.getLightingPresets();
+  const presets = app.lightingRepository.findAllPresets();
   const preset = presets.find(p => p.id === data.id);
   if (!preset) throw new NotFoundError('LightingPreset', data.id);
 
@@ -149,13 +149,13 @@ function lightingPresetLoad(app, data) {
   }
 
   // Delete existing rules and recreate from snapshot
-  const existingRules = app.database.getAllLightingRules();
+  const existingRules = app.lightingRepository.findAllRules();
   for (const rule of existingRules) {
-    app.database.deleteLightingRule(rule.id);
+    app.lightingRepository.deleteRule(rule.id);
   }
 
   for (const rule of preset.rules_snapshot) {
-    app.database.insertLightingRule(rule);
+    app.lightingRepository.saveRule(rule);
   }
 
   app.lightingManager?.reloadRules();
@@ -164,7 +164,7 @@ function lightingPresetLoad(app, data) {
 
 function lightingPresetDelete(app, data) {
   requireField(data, 'id');
-  app.database.deleteLightingPreset(data.id);
+  app.lightingRepository.deletePreset(data.id);
   return { success: true };
 }
 
@@ -257,11 +257,11 @@ function lightingGroupOff(app, data) {
 function lightingRulesExport(app, data) {
   let rules;
   if (data?.device_id) {
-    rules = app.database.getLightingRulesForDevice(data.device_id);
+    rules = app.lightingRepository.findRulesByDevice(data.device_id);
   } else {
-    rules = app.database.getAllLightingRules();
+    rules = app.lightingRepository.findAllRules();
   }
-  const devices = app.database.getLightingDevices();
+  const devices = app.lightingRepository.findAllDevices();
 
   return {
     success: true,
@@ -288,7 +288,7 @@ function lightingRulesImport(app, data) {
 
   if (!importData.rules || !Array.isArray(importData.rules)) throw new ValidationError('Invalid import data: missing rules array', 'import_data');
 
-  const devices = app.database.getLightingDevices();
+  const devices = app.lightingRepository.findAllDevices();
   let imported = 0;
   let skipped = 0;
 
@@ -307,7 +307,7 @@ function lightingRulesImport(app, data) {
       continue;
     }
 
-    app.database.insertLightingRule({
+    app.lightingRepository.saveRule({
       name: rule.name || '',
       device_id: deviceId,
       instrument_id: rule.instrument_id || null,
@@ -399,7 +399,7 @@ function lightingSceneSave(app, data) {
   };
 
   // Store device state (what rules are active, what effects are running)
-  const devices = app.database.getLightingDevices();
+  const devices = app.lightingRepository.findAllDevices();
   for (const device of devices) {
     const driver = lm.drivers.get(device.id);
     scene.devices.push({
@@ -411,7 +411,7 @@ function lightingSceneSave(app, data) {
   }
 
   // Store as a preset with scene type
-  const id = app.database.insertLightingPreset({
+  const id = app.lightingRepository.savePreset({
     name: `[scene] ${data.name}`,
     rules_snapshot: scene
   });

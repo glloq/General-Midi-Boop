@@ -9,7 +9,7 @@ function deviceGetSettings(app, data) {
     throw new ValidationError('deviceId is required');
   }
 
-  const settings = app.database.getDeviceSettings(data.deviceId);
+  const settings = app.deviceSettingsRepository.findByDeviceId(data.deviceId);
   return {
     success: true,
     settings: settings || { id: data.deviceId, custom_name: null, midi_clock_enabled: 0, message_rate_limit: 0 }
@@ -25,7 +25,7 @@ function deviceUpdateSettings(app, data) {
   }
 
   // Ensure the device row exists before updating
-  app.database.ensureDevice(data.deviceId, data.deviceName || data.deviceId, 'output');
+  app.deviceSettingsRepository.ensureDevice(data.deviceId, data.deviceName || data.deviceId, 'output');
 
   // Validate fields
   if (data.midi_clock_enabled !== undefined) {
@@ -39,7 +39,7 @@ function deviceUpdateSettings(app, data) {
     data.message_rate_limit = limit;
   }
 
-  app.database.updateDeviceSettings(data.deviceId, {
+  app.deviceSettingsRepository.update(data.deviceId, {
     custom_name: data.custom_name,
     midi_clock_enabled: data.midi_clock_enabled,
     message_rate_limit: data.message_rate_limit

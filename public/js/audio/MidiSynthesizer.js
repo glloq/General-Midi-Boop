@@ -4,85 +4,9 @@
 // Description: Browser-based MIDI player with high-quality sounds
 // ============================================================================
 
-/**
- * Available sound banks from the WebAudioFont CDN (surikov.github.io).
- * Each bank offers a different sonic rendering and variable memory footprint.
- *
- * Quality tiers:
- *   high   — Professional-grade, large samples, rich harmonics
- *   medium — Good quality, balanced size, suitable for most use cases
- *   low    — Lightweight, fast loading, basic sound quality
- *
- * sizeMB is the approximate total download size when all 128 GM instruments
- * are loaded (individual instruments are loaded on demand).
- */
-const SOUND_BANKS = [
-    {
-        id: 'FluidR3_GM',
-        label: 'FluidR3 GM',
-        suffix: 'FluidR3_GM_sf2_file',
-        quality: 'high',
-        sizeMB: 141,
-        descKey: 'settings.soundBank.banks.FluidR3_GM',
-        reverbMix: 0.08  // Samples already have significant reverb
-    },
-    {
-        id: 'GeneralUserGS',
-        label: 'GeneralUser GS',
-        suffix: 'GeneralUserGS_sf2_file',
-        quality: 'high',
-        sizeMB: 30,
-        descKey: 'settings.soundBank.banks.GeneralUserGS',
-        reverbMix: 0.12
-    },
-    {
-        id: 'JCLive',
-        label: 'JCLive',
-        suffix: 'JCLive_sf2_file',
-        quality: 'medium',
-        sizeMB: 26,
-        descKey: 'settings.soundBank.banks.JCLive',
-        reverbMix: 0.10
-    },
-    {
-        id: 'Aspirin',
-        label: 'Aspirin',
-        suffix: 'Aspirin_sf2_file',
-        quality: 'medium',
-        sizeMB: 17,
-        descKey: 'settings.soundBank.banks.Aspirin',
-        reverbMix: 0.14
-    },
-    {
-        id: 'SBLive',
-        label: 'Sound Blaster Live',
-        suffix: 'SBLive_sf2',
-        quality: 'medium',
-        sizeMB: 12,
-        descKey: 'settings.soundBank.banks.SBLive',
-        reverbMix: 0.14
-    },
-    {
-        id: 'Chaos',
-        label: 'Chaos',
-        suffix: 'Chaos_sf2_file',
-        quality: 'low',
-        sizeMB: 8,
-        descKey: 'settings.soundBank.banks.Chaos',
-        reverbMix: 0.16
-    },
-    {
-        id: 'SoundBlasterOld',
-        label: 'Sound Blaster Old',
-        suffix: 'SoundBlasterOld_sf2',
-        quality: 'low',
-        sizeMB: 5,
-        descKey: 'settings.soundBank.banks.SoundBlasterOld',
-        reverbMix: 0.18  // Very dry samples, more reverb needed
-    },
-];
-const DEFAULT_BANK_ID = 'FluidR3_GM';
-const DEFAULT_BANK_SUFFIX = 'FluidR3_GM_sf2_file';
+// Constants extracted to MidiSynthesizerConstants.js (P2-F.8).
+// Loaded earlier in index.html so window.MidiSynthesizerConstants is available.
+const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX } = window.MidiSynthesizerConstants;
 
 /**
  * MidiSynthesizer - Synthétiseur MIDI utilisant WebAudioFont
@@ -582,66 +506,24 @@ class MidiSynthesizer {
      * Convertir ticks en secondes (avec support du tempo map)
      */
     ticksToSeconds(ticks) {
-        if (this.tempoMap.length === 0) {
-            return ticks * this._secondsPerTick;
-        }
-
-        let seconds = 0;
-        let prevTick = 0;
-        let currentTempo = this.tempoMap[0].tempo;
-
-        for (let i = 0; i < this.tempoMap.length; i++) {
-            const entry = this.tempoMap[i];
-            if (entry.ticks >= ticks) break;
-
-            const segmentTicks = entry.ticks - prevTick;
-            const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
-            seconds += segmentTicks / ticksPerSecond;
-
-            prevTick = entry.ticks;
-            currentTempo = entry.tempo;
-        }
-
-        // Segment restant après le dernier point de tempo
-        const remainingTicks = ticks - prevTick;
-        const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
-        seconds += remainingTicks / ticksPerSecond;
-
-        return seconds;
+        return window.MidiSynthesizerTempoMap.ticksToSeconds({
+            ticks,
+            tempoMap: this.tempoMap,
+            ticksPerBeat: this.ticksPerBeat,
+            secondsPerTick: this._secondsPerTick
+        });
     }
 
     /**
      * Convertir secondes en ticks (avec support du tempo map)
      */
     secondsToTicks(seconds) {
-        if (this.tempoMap.length === 0) {
-            return Math.round(seconds * this._ticksPerSecond);
-        }
-
-        let accumulatedSeconds = 0;
-        let prevTick = 0;
-        let currentTempo = this.tempoMap[0].tempo;
-
-        for (let i = 0; i < this.tempoMap.length; i++) {
-            const entry = this.tempoMap[i];
-            const segmentTicks = entry.ticks - prevTick;
-            const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
-            const segmentDuration = segmentTicks / ticksPerSecond;
-
-            if (accumulatedSeconds + segmentDuration >= seconds) {
-                const remainingSeconds = seconds - accumulatedSeconds;
-                return Math.round(prevTick + remainingSeconds * ticksPerSecond);
-            }
-
-            accumulatedSeconds += segmentDuration;
-            prevTick = entry.ticks;
-            currentTempo = entry.tempo;
-        }
-
-        // Au-delà du dernier point de tempo
-        const remainingSeconds = seconds - accumulatedSeconds;
-        const ticksPerSecond = (currentTempo / 60) * this.ticksPerBeat;
-        return Math.round(prevTick + remainingSeconds * ticksPerSecond);
+        return window.MidiSynthesizerTempoMap.secondsToTicks({
+            seconds,
+            tempoMap: this.tempoMap,
+            ticksPerBeat: this.ticksPerBeat,
+            ticksPerSecond: this._ticksPerSecond
+        });
     }
 
     /**
@@ -1080,14 +962,7 @@ class MidiSynthesizer {
      * Binary search: find the index of the first note with t > tick.
      */
     _findNoteIndex(tick) {
-        const seq = this.sequence;
-        let lo = 0, hi = seq.length;
-        while (lo < hi) {
-            const mid = (lo + hi) >>> 1;
-            if (seq[mid].t <= tick) lo = mid + 1;
-            else hi = mid;
-        }
-        return lo;
+        return window.MidiSynthesizerTempoMap.findNoteIndex(this.sequence, tick);
     }
 
     /**

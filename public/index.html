@@ -5370,115 +5370,125 @@
     <script src="lib/webaudio-pianoroll-custom.js"></script>
 
     <!-- CC/Pitchbend Editor Component -->
-    <script src="js/views/components/CCPitchbendEditor.js"></script>
+    <script src="js/features/CCPitchbendEditor.js"></script>
 
     <!-- Velocity Editor Component -->
-    <script src="js/views/components/VelocityEditor.js"></script>
+    <script src="js/features/VelocityEditor.js"></script>
 
     <!-- Tempo Editor Component -->
-    <script src="js/views/components/TempoEditor.js"></script>
+    <script src="js/features/TempoEditor.js"></script>
 
     <!-- WebAudioFont Library (SoundFont player) -->
     <script src="https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js"></script>
 
     <!-- MIDI Synthesizer (WebAudioFont-based) -->
+    <script src="js/audio/MidiSynthesizerConstants.js"></script>
+    <script src="js/audio/MidiSynthesizerTempoMap.js"></script>
     <script src="js/audio/MidiSynthesizer.js"></script>
 
     <!-- Audio Preview Component -->
     <script src="js/audio/AudioPreview.js"></script>
 
     <!-- Instrument Capabilities Modal Component (no modal dependency) -->
-    <script src="js/views/components/InstrumentCapabilitiesModal.js"></script>
+    <script src="js/features/InstrumentCapabilitiesModal.js"></script>
     <!-- Instrument Settings Modal Sub-Components -->
-    <script src="js/views/components/instrument-settings/ISMNavigation.js"></script>
-    <script src="js/views/components/instrument-settings/ISMSections.js"></script>
-    <script src="js/views/components/instrument-settings/ISMSave.js"></script>
-    <script src="js/views/components/instrument-settings/ISMListeners.js"></script>
-    <script src="js/views/components/InstrumentSettingsModal.js"></script>
+    <script src="js/features/instrument-settings/ISMNavigation.js"></script>
+    <script src="js/features/instrument-settings/ISMSections.js"></script>
+    <script src="js/features/instrument-settings/ISMSave.js"></script>
+    <script src="js/features/instrument-settings/ISMListeners.js"></script>
+    <script src="js/features/InstrumentSettingsModal.js"></script>
 
     <!-- Routing Modal Components -->
-    <script src="js/views/components/auto-assign/ScoringSettingsModal.js"></script>
-    <script src="js/views/components/auto-assign/RoutingSummaryPage.js"></script>
+    <script src="js/features/auto-assign/ScoringSettingsModal.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryConstants.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryHelpers.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryApi.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryAssignmentBuilder.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryRenderers.js"></script>
+    <script src="js/features/auto-assign/RoutingSummarySaveDialog.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryMinimapNotes.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryMinimapRenderer.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryPreview.js"></script>
+    <script src="js/features/auto-assign/RoutingSummaryPage.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
-    <script src="js/views/components/midi-editor/SoundBankLoadingIndicator.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorToolbar.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorChannelPanel.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorCCPanel.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorPlayback.js"></script>
+    <script src="js/features/midi-editor/SoundBankLoadingIndicator.js"></script>
+    <script src="js/features/midi-editor/MidiEditorToolbar.js"></script>
+    <script src="js/features/midi-editor/MidiEditorChannelPanel.js"></script>
+    <script src="js/features/midi-editor/MidiEditorPlayback.js"></script>
 
     <!-- MIDI Editor Mixin Modules (loaded before MidiEditorModal.js) -->
-    <script src="js/views/components/midi-editor/MidiEditorConstants.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorSequence.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorCC.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorDrawSettings.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorCCPicker.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorFileOpsMixin.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorRenderer.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorRouting.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorEditActions.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorDialogs.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorEvents.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorTablature.js"></script>
-    <script src="js/views/components/midi-editor/MidiEditorLifecycle.js"></script>
+    <script src="js/features/midi-editor/MidiEditorConstants.js"></script>
+    <script src="js/features/midi-editor/MidiEditorSequence.js"></script>
+    <script src="js/features/midi-editor/MidiEditorCC.js"></script>
+    <script src="js/features/midi-editor/MidiEditorDrawSettings.js"></script>
+    <script src="js/features/midi-editor/MidiEditorCCPicker.js"></script>
+    <script src="js/features/midi-editor/MidiEditorFileOps.js"></script>
+    <script src="js/features/midi-editor/MidiEditorRenderer.js"></script>
+    <script src="js/features/midi-editor/MidiEditorRouting.js"></script>
+    <script src="js/features/midi-editor/MidiEditorEditActions.js"></script>
+    <script src="js/features/midi-editor/MidiEditorDialogs.js"></script>
+    <script src="js/features/midi-editor/MidiEditorEvents.js"></script>
+    <script src="js/features/midi-editor/MidiEditorTablature.js"></script>
+    <script src="js/features/midi-editor/MidiEditorLifecycle.js"></script>
 
     <!-- MIDI Editor Modal Component (depends on RoutingSummaryPage + sub-components + mixins) -->
-    <script src="js/views/components/TablatureRenderer.js"></script>
-    <script src="js/views/components/FretboardDiagram.js"></script>
-    <script src="js/views/components/NeckDiagramConfig.js"></script>
-    <script src="js/views/components/TablatureEditor.js"></script>
-    <script src="js/views/components/StringInstrumentConfigModal.js"></script>
-    <script src="js/views/components/DrumGridRenderer.js"></script>
-    <script src="js/views/components/DrumToolsPanel.js"></script>
-    <script src="js/views/components/DrumPatternEditor.js"></script>
-    <script src="js/views/components/WindInstrumentDatabase.js"></script>
-    <script src="js/views/components/WindMelodyRenderer.js"></script>
-    <script src="js/views/components/WindArticulationPanel.js"></script>
-    <script src="js/views/components/WindInstrumentEditor.js"></script>
-    <script src="js/views/components/NavigationOverviewBar.js"></script>
-    <script src="js/views/components/PlaybackTimelineBar.js"></script>
-    <script src="js/views/components/MidiEditorModal.js"></script>
+    <script src="js/features/TablatureRenderer.js"></script>
+    <script src="js/features/FretboardDiagram.js"></script>
+    <script src="js/features/NeckDiagramConfig.js"></script>
+    <script src="js/features/TablatureEditor.js"></script>
+    <script src="js/features/StringInstrumentConfigModal.js"></script>
+    <script src="js/features/DrumGridRenderer.js"></script>
+    <script src="js/features/DrumToolsPanel.js"></script>
+    <script src="js/features/DrumPatternEditor.js"></script>
+    <script src="js/features/WindInstrumentDatabase.js"></script>
+    <script src="js/features/WindMelodyRenderer.js"></script>
+    <script src="js/features/WindArticulationPanel.js"></script>
+    <script src="js/features/WindInstrumentEditor.js"></script>
+    <script src="js/features/NavigationOverviewBar.js"></script>
+    <script src="js/features/PlaybackTimelineBar.js"></script>
+    <script src="js/features/MidiEditorModal.js"></script>
 
     <!-- Device Settings Modal -->
-    <script src="js/views/components/DeviceSettingsModal.js"></script>
+    <script src="js/features/DeviceSettingsModal.js"></script>
     <!-- Instrument Management Page Component -->
-    <script src="js/views/components/InstrumentManagementPage.js"></script>
+    <script src="js/features/InstrumentManagementPage.js"></script>
     <!-- Lighting Control Page Sub-Components -->
-    <script src="js/views/components/lighting/LightingForms.js"></script>
-    <script src="js/views/components/lighting/LightingDeviceUI.js"></script>
-    <script src="js/views/components/lighting/LightingPresetsUI.js"></script>
-    <script src="js/views/components/lighting/LightingHelpersMixin.js"></script>
-    <script src="js/views/components/LightingControlPage.js"></script>
-    <script src="js/views/components/PlaylistPage.js"></script>
-    <script src="js/views/components/PlaylistEditorModal.js"></script>
+    <script src="js/features/lighting/LightingForms.js"></script>
+    <script src="js/features/lighting/LightingDeviceUI.js"></script>
+    <script src="js/features/lighting/LightingPresetsUI.js"></script>
+    <script src="js/features/lighting/LightingHelpersMixin.js"></script>
+    <script src="js/features/LightingControlPage.js"></script>
+    <script src="js/features/PlaylistPage.js"></script>
+    <script src="js/features/PlaylistEditorModal.js"></script>
 
     <!-- Bluetooth Scan Modal Component -->
-    <script src="js/views/components/BluetoothScanModal.js"></script>
+    <script src="js/features/BluetoothScanModal.js"></script>
 
     <!-- Calibration Modal Component -->
-    <script src="js/views/components/CalibrationModal.js"></script>
+    <script src="js/features/CalibrationModal.js"></script>
 
     <!-- Network Scan Modal Component -->
-    <script src="js/views/components/NetworkScanModal.js"></script>
+    <script src="js/features/NetworkScanModal.js"></script>
 
     <!-- Keyboard Modal Component (Simplified version) -->
     <!-- Keyboard Modal Sub-Components -->
-    <script src="js/views/components/keyboard/KeyboardPiano.js"></script>
-    <script src="js/views/components/keyboard/KeyboardEvents.js"></script>
-    <script src="js/views/components/keyboard/KeyboardControls.js"></script>
-    <script src="js/views/components/KeyboardModal.js"></script>
+    <script src="js/features/keyboard/KeyboardPiano.js"></script>
+    <script src="js/features/keyboard/KeyboardEvents.js"></script>
+    <script src="js/features/keyboard/KeyboardControls.js"></script>
+    <script src="js/features/KeyboardModal.js"></script>
 
     <!-- Settings Modal Component -->
     <!-- Settings Modal Sub-Components -->
-    <script src="js/views/components/settings/SettingsModalContent.js"></script>
-    <script src="js/views/components/settings/SettingsTheme.js"></script>
-    <script src="js/views/components/settings/SettingsSerial.js"></script>
-    <script src="js/views/components/settings/SettingsUpdate.js"></script>
-    <script src="js/views/components/settings/SettingsTemplates.js"></script>
-    <script src="js/views/components/SettingsModal.js"></script>
+    <script src="js/features/settings/SettingsModalContent.js"></script>
+    <script src="js/features/settings/SettingsTheme.js"></script>
+    <script src="js/features/settings/SettingsSerial.js"></script>
+    <script src="js/features/settings/SettingsUpdate.js"></script>
+    <script src="js/features/settings/SettingsTemplates.js"></script>
+    <script src="js/features/SettingsModal.js"></script>
 
     <!-- Piano Roll View Component -->
-    <script src="js/views/components/PianoRollView.js"></script>
+    <script src="js/features/PianoRollView.js"></script>
 
     <script>
         // Timestamp de debut pour la barre de progression du loading screen

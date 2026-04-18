@@ -98,7 +98,13 @@ function createTestDb() {
       latency_ms INTEGER DEFAULT 0,
       enabled BOOLEAN DEFAULT 1,
       note_range_min INTEGER,
-      note_range_max INTEGER
+      note_range_max INTEGER,
+      instrument_type TEXT DEFAULT 'unknown',
+      instrument_subtype TEXT,
+      note_selection_mode TEXT DEFAULT 'range',
+      selected_notes TEXT,
+      gm_program INTEGER,
+      polyphony INTEGER DEFAULT 16
     );
   `);
 
@@ -747,9 +753,15 @@ describeIfSqlite('FileCommands.fileFilter (via register)', () => {
       }
     };
 
+    // Shared mock function — assertions against `_mockApp.database.filterFiles`
+    // still work because it's the exact same jest.fn() aliased to both shapes.
+    // After the P0-2.5d repository migration, FileCommands calls
+    // `app.fileRepository.filter(filters)` instead of `app.database.filterFiles`.
+    const filterMock = jest.fn(() => []);
+
     const mockApp = {
       database: {
-        filterFiles: jest.fn(() => []),
+        filterFiles: filterMock,
         searchFiles: jest.fn(() => []),
         getFile: jest.fn(),
         getFiles: jest.fn(() => []),
@@ -759,8 +771,20 @@ describeIfSqlite('FileCommands.fileFilter (via register)', () => {
         getDistinctCategories: jest.fn(() => []),
         getRoutingsByFile: jest.fn(() => [])
       },
+      fileRepository: {
+        filter: filterMock,
+        search: jest.fn(() => []),
+        findById: jest.fn(),
+        getChannels: jest.fn(() => []),
+        countNeedingReanalysis: jest.fn(() => 0),
+        getDistinctInstruments: jest.fn(() => []),
+        getDistinctCategories: jest.fn(() => [])
+      },
       fileManager: {
-        reanalyzeAllFiles: jest.fn(async () => ({ processed: 0, errors: 0 }))
+        reanalyzeAllFiles: jest.fn(async () => ({ processed: 0, errors: 0 })),
+        _batchGetRoutingStatus: jest.fn(() => new Map()),
+        formatFileSize: jest.fn((n) => `${n}B`),
+        formatDuration: jest.fn((n) => `${n}s`)
       }
     };
 

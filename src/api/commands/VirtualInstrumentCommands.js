@@ -59,7 +59,7 @@ async function instrumentCreateVirtual(app, data) {
   }
 
   // Create instrument settings entry
-  const id = app.database.updateInstrumentSettings(deviceId, channel, {
+  const id = app.instrumentRepository.updateSettings(deviceId, channel, {
     custom_name: name,
     gm_program: data.gm_program !== undefined ? data.gm_program : (preset ? preset.gm_program : null),
     name: name
@@ -74,7 +74,7 @@ async function instrumentCreateVirtual(app, data) {
     capabilities_source: 'virtual'
   };
 
-  app.database.updateInstrumentCapabilities(deviceId, channel, capabilities);
+  app.instrumentRepository.updateCapabilities(deviceId, channel, capabilities);
 
   // Register with device manager if available
   if (app.deviceManager && typeof app.deviceManager.addVirtualDevice === 'function') {
@@ -128,14 +128,14 @@ async function virtualDelete(app, data) {
   }
 
   // Clean up database entries
-  if (app.database) {
+  if (app.instrumentRepository) {
     try {
-      app.database.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(data.deviceId);
+      app.instrumentRepository.deleteSettingsByDevice(data.deviceId);
     } catch (e) {
       // May not exist
     }
     try {
-      app.database.deleteInstrument(data.deviceId);
+      app.instrumentRepository.delete(data.deviceId);
     } catch (e) {
       // May not exist
     }
@@ -152,10 +152,10 @@ async function virtualList(app) {
   const virtualDevices = devices.filter(d => d.type === 'virtual');
 
   // Enrich with database info if available
-  if (app.database) {
+  if (app.instrumentRepository) {
     for (const device of virtualDevices) {
       try {
-        const settings = app.database.getInstrumentSettings(device.id);
+        const settings = app.instrumentRepository.getAllSettings(device.id);
         if (settings) {
           if (settings.custom_name) device.displayName = settings.custom_name;
           if (settings.gm_program !== null && settings.gm_program !== undefined) {
@@ -185,7 +185,7 @@ async function instrumentListByDevice(app, data) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
 
-  const instruments = app.database.getInstrumentsByDevice(data.deviceId);
+  const instruments = app.instrumentRepository.findByDevice(data.deviceId);
 
   return {
     success: true,
@@ -209,14 +209,14 @@ async function instrumentAddToDevice(app, data) {
     throw new ValidationError('channel must be between 0 and 15', 'channel');
   }
 
-  const id = app.database.updateInstrumentSettings(data.deviceId, channel, {
+  const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {
     custom_name: data.name || null,
     gm_program: data.gm_program !== undefined ? data.gm_program : null,
     name: data.name || data.deviceId
   });
 
   if (data.polyphony || data.note_range_min !== undefined || data.note_range_max !== undefined) {
-    app.database.updateInstrumentCapabilities(data.deviceId, channel, {
+    app.instrumentRepository.updateCapabilities(data.deviceId, channel, {
       polyphony: data.polyphony || null,
       note_range_min: data.note_range_min,
       note_range_max: data.note_range_max,
