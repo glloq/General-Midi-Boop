@@ -1,6 +1,15 @@
-// src/storage/MidiFileParser.js
-// Extracted from FileManager.js - handles MIDI file parsing, metadata extraction,
-// instrument metadata analysis, and MIDI-to-JSON conversion.
+/**
+ * @file src/storage/MidiFileParser.js
+ * @description Header / metadata extraction helpers used by
+ * {@link FileManager} during upload. Extracts:
+ *   - File-level metadata (track count, duration, tempo, ppq).
+ *   - Per-channel summary (note range, polyphony, primary GM program).
+ *   - Aggregate instrument metadata for the FileFilter UI
+ *     (`has_drums`, `has_melody`, `has_bass`, distinct GM categories).
+ *
+ * Stateless — every method takes the parsed `midi-file` AST as input
+ * and returns plain values.
+ */
 
 import { parseMidi } from 'midi-file';
 import ChannelAnalyzer from '../midi/ChannelAnalyzer.js';

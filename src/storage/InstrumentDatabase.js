@@ -1,6 +1,16 @@
-// src/storage/InstrumentDatabase.js
-// Core instrument profiles, latency profiles, and presets.
-// Settings, capabilities, and routing persistence are delegated to sub-modules.
+/**
+ * @file src/storage/InstrumentDatabase.js
+ * @description SQLite access layer for the core `instruments`,
+ * `latency_profiles` and `presets` tables. Composes four sub-modules
+ * for the larger feature areas:
+ *   - {@link InstrumentSettingsDB}      — per-channel persisted settings.
+ *   - {@link InstrumentCapabilitiesDB}  — capability matrix.
+ *   - {@link RoutingPersistenceDB}      — file/channel→device routings.
+ *   - {@link DeviceSettingsDB}          — device-level (clock/rate) flags.
+ *
+ * Sub-module method calls are exposed verbatim on this class for
+ * legacy callers; new code should resolve the corresponding repository.
+ */
 import InstrumentSettingsDB from './InstrumentSettingsDB.js';
 import InstrumentCapabilitiesDB from './InstrumentCapabilitiesDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';

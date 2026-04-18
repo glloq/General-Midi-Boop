@@ -1,6 +1,10 @@
 /**
- * InstrumentCapabilitiesDB - Manages instrument capabilities data
- * Extracted from InstrumentDatabase.js
+ * @file src/storage/InstrumentCapabilitiesDB.js
+ * @description SQLite access layer for the per-channel capabilities
+ * matrix (polyphony, note range, supported CCs, instrument type).
+ * Sub-module of {@link InstrumentDatabase}; consumed via the
+ * `InstrumentRepository` and the {@link InstrumentMatcher} scoring
+ * code path.
  */
 import { buildDynamicUpdate } from './dbHelpers.js';
 

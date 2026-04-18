@@ -1,7 +1,17 @@
-// src/storage/JsonMidiConverter.js
+/**
+ * @file src/storage/JsonMidiConverter.js
+ * @description Bidirectional MIDI ↔ JSON converter built on
+ * `midi-file`. Used by the editor (raw bytes → editor JSON; editor
+ * JSON → bytes) and by the analysis commands (parse stored BLOB → JSON
+ * before scoring / auto-assignment).
+ *
+ * Stateless — safe to share across requests via the
+ * {@link getMidiConverter} cache.
+ */
 import { parseMidi, writeMidi } from 'midi-file';
 
 class JsonMidiConverter {
+  /** @param {Object} logger */
   constructor(logger) {
     this.logger = logger;
   }

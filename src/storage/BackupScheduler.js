@@ -1,4 +1,14 @@
-// src/storage/BackupScheduler.js
+/**
+ * @file src/storage/BackupScheduler.js
+ * @description Periodic SQLite backup scheduler. Uses `node-schedule`
+ * cron expressions to snapshot the database file into `backups/` and
+ * prune older backups beyond a configurable retention count. Started
+ * by `Application#start` and registered as `backupScheduler` in the
+ * DI container.
+ *
+ * Failure modes are logged but never thrown — backup failures should
+ * never crash the running application.
+ */
 import schedule from 'node-schedule';
 import fs from 'fs';
 import path from 'path';
@@ -8,10 +18,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEFAULT_BACKUP_DIR = path.join(__dirname, '../../backups');
+/** Default retention count — older backups are pruned by mtime. */
 const DEFAULT_MAX_BACKUPS = 7;
-const DEFAULT_CRON = '0 3 * * *'; // Daily at 3 AM
+/** Default cron — daily at 03:00 server time. */
+const DEFAULT_CRON = '0 3 * * *';
 
 class BackupScheduler {
+  /**
+   * @param {Object} deps - Needs `logger`, `database`.
+   * @param {Object} [options] - Override defaults: `{backupDir,
+   *   maxBackups, cron}`.
+   */
   constructor(deps, options = {}) {
     this.logger = deps.logger;
     this.database = deps.database;
@@ -27,6 +44,10 @@ class BackupScheduler {
     }
   }
 
+  /**
+   * Schedule the cron job. Idempotent only if `stop()` is called first.
+   * @returns {void}
+   */
   start() {
     this.job = schedule.scheduleJob(this.cronExpression, async () => {
       await this.runBackup();
@@ -36,6 +57,11 @@ class BackupScheduler {
     );
   }
 
+  /**
+   * Take a single backup snapshot. Concurrency-guarded by `_running`
+   * so two overlapping cron firings cannot collide on disk.
+   * @returns {Promise<void>}
+   */
   async runBackup() {
     if (this._running) {
       this.logger.warn('Backup already in progress, skipping');
@@ -57,6 +83,13 @@ class BackupScheduler {
     }
   }
 
+  /**
+   * Delete backup files beyond `maxBackups`, keeping the newest by
+   * mtime. Failures (file already deleted, permission error) are
+   * logged and skipped.
+   * @returns {void}
+   * @private
+   */
   _pruneOldBackups() {
     try {
       const files = [];
@@ -88,6 +121,10 @@ class BackupScheduler {
     }
   }
 
+  /**
+   * Cancel the scheduled job. Safe to call when not running.
+   * @returns {void}
+   */
   stop() {
     if (this.job) {
       this.job.cancel();

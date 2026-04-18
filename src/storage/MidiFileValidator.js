@@ -1,8 +1,14 @@
-// src/storage/MidiFileValidator.js
-// Post-parse validation layer for MIDI files.
-// Detects anomalies, edge cases, and structural issues without blocking import.
+/**
+ * @file src/storage/MidiFileValidator.js
+ * @description Non-blocking, post-parse validation pass for MIDI files.
+ * Walks the AST after `midi-file` has accepted it and produces a list
+ * of warnings / structural anomalies (orphan note-offs, ridiculous
+ * tempo, oversized SysEx, missing end-of-track) that the UI can
+ * surface but that should NOT block ingestion.
+ */
 
 class MidiFileValidator {
+  /** @param {Object} logger */
   constructor(logger) {
     this.logger = logger;
   }
