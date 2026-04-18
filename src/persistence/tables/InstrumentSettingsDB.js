@@ -109,6 +109,49 @@ class InstrumentSettingsDB {
   }
 
   /**
+   * Look up a single instrument row by its primary id
+   * (`<device_id>_<channel>`). Returns the raw `instruments_latency`
+   * row or undefined.
+   *
+   * @param {string} instrumentId
+   * @returns {Object|undefined}
+   */
+  findById(instrumentId) {
+    try {
+      return this.db
+        .prepare('SELECT * FROM instruments_latency WHERE id = ?')
+        .get(instrumentId);
+    } catch (error) {
+      this.logger.error(`Failed to find instrument by id: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a row by primary id. Only whitelisted columns can be patched
+   * (same set as updateInstrumentSettings, plus `enabled`).
+   *
+   * @param {string} instrumentId
+   * @param {Object} fields
+   * @returns {void}
+   */
+  updateById(instrumentId, fields) {
+    try {
+      const result = buildDynamicUpdate('instruments_latency', fields, [
+        'name', 'custom_name', 'instrument_type', 'instrument_subtype',
+        'sync_delay', 'mac_address', 'usb_serial_number',
+        'gm_program', 'octave_mode', 'comm_timeout', 'midi_clock_enabled',
+        'min_note_interval', 'min_note_duration', 'enabled'
+      ]);
+      if (!result) return;
+      this.db.prepare(result.sql).run(...result.values, instrumentId);
+    } catch (error) {
+      this.logger.error(`Failed to update instrument by id: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Get all instruments on a device (all channels)
    * @param {string} deviceId - Device identifier
    * @returns {Array} All instruments for this device

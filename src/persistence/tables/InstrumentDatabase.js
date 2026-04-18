@@ -108,6 +108,8 @@ class InstrumentDatabase {
   updateInstrumentSettings(...args) { return this._settings.updateInstrumentSettings(...args); }
   getInstrumentSettings(...args) { return this._settings.getInstrumentSettings(...args); }
   getInstrumentsByDevice(...args) { return this._settings.getInstrumentsByDevice(...args); }
+  findInstrumentById(...args) { return this._settings.findById(...args); }
+  updateInstrumentById(...args) { return this._settings.updateById(...args); }
   saveSysExIdentity(...args) { return this._settings.saveSysExIdentity(...args); }
   findInstrumentByMac(...args) { return this._settings.findInstrumentByMac(...args); }
   findInstrumentByUsbSerial(...args) { return this._settings.findInstrumentByUsbSerial(...args); }

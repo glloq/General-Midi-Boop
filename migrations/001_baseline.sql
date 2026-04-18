@@ -152,21 +152,25 @@ END;
 -- Static routes (input device -> output device, channel mapping)
 -- ----------------------------------------------------------------------------
 
+-- Routes carry runtime-generated string IDs (MidiRouter assigns them) and
+-- store both a per-channel mapping (source channel → destination channel)
+-- and an arbitrary filter object as JSON. Names match the runtime model
+-- in `MidiRouter.addRoute` so persistence is a direct passthrough.
 CREATE TABLE IF NOT EXISTS routes (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    name         TEXT NOT NULL,
-    from_device  TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-    to_device    TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-    from_channel INTEGER CHECK(from_channel BETWEEN 0 AND 15),
-    to_channel   INTEGER CHECK(to_channel BETWEEN 0 AND 15),
-    enabled      BOOLEAN DEFAULT 1,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    id                  TEXT PRIMARY KEY NOT NULL,
+    name                TEXT NOT NULL DEFAULT 'Route',
+    source_device       TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    destination_device  TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    channel_mapping     TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(channel_mapping)),
+    filter              TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(filter)),
+    enabled             BOOLEAN DEFAULT 1,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_routes_from    ON routes(from_device);
-CREATE INDEX IF NOT EXISTS idx_routes_to      ON routes(to_device);
-CREATE INDEX IF NOT EXISTS idx_routes_enabled ON routes(enabled);
+CREATE INDEX IF NOT EXISTS idx_routes_source       ON routes(source_device);
+CREATE INDEX IF NOT EXISTS idx_routes_destination  ON routes(destination_device);
+CREATE INDEX IF NOT EXISTS idx_routes_enabled      ON routes(enabled);
 
 CREATE TRIGGER IF NOT EXISTS trg_routes_update
 AFTER UPDATE ON routes
@@ -280,6 +284,10 @@ CREATE TABLE IF NOT EXISTS midi_instrument_routings (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
     midi_file_id            INTEGER NOT NULL REFERENCES midi_files(id) ON DELETE CASCADE,
     channel                 INTEGER NOT NULL CHECK(channel BETWEEN 0 AND 15),
+    -- Optional remap to a different channel on the destination device
+    -- (used by playback to address e.g. drum channel 9 vs melody channel 0
+    -- on a multi-timbral synth). Defaults to `channel` when NULL.
+    target_channel          INTEGER CHECK(target_channel IS NULL OR target_channel BETWEEN 0 AND 15),
     device_id               TEXT REFERENCES devices(id) ON DELETE SET NULL,
     instrument_name         TEXT,
     enabled                 BOOLEAN NOT NULL DEFAULT 1,
@@ -393,6 +401,11 @@ CREATE TABLE IF NOT EXISTS instruments_latency (
     selected_notes           TEXT CHECK(selected_notes IS NULL OR json_valid(selected_notes)),
     capabilities_source      TEXT DEFAULT 'manual' CHECK(capabilities_source IN ('manual', 'sysex', 'auto')),
     capabilities_updated_at  TEXT,
+
+    -- General MIDI program assignment + max polyphony hint, used by
+    -- the auto-assignment scoring engine and the editor UI.
+    gm_program               INTEGER,
+    polyphony                INTEGER DEFAULT 16,
 
     -- Behaviour
     octave_mode              TEXT DEFAULT 'chromatic',

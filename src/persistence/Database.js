@@ -623,6 +623,12 @@ class DatabaseManager {
   getInstrumentSettings(...args) {
     return this.instrumentDB.getInstrumentSettings(...args);
   }
+  findInstrumentById(...args) {
+    return this.instrumentDB.findInstrumentById(...args);
+  }
+  updateInstrumentById(...args) {
+    return this.instrumentDB.updateInstrumentById(...args);
+  }
   saveSysExIdentity(...args) {
     return this.instrumentDB.saveSysExIdentity(...args);
   }

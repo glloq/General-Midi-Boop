@@ -41,11 +41,17 @@ class RoutingPersistenceDB {
         throw new Error(`Invalid MIDI channel: ${routing.channel} (must be 0-15)`);
       }
 
+      // Normalise target_channel: default to the source `channel` if the
+      // caller didn't pass an explicit remap. Stored as-is in the column
+      // of the same name (v6 baseline — the old `track_id` misnomer is
+      // gone).
+      const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
+
       // For split routings, use a different INSERT (no ON CONFLICT since multiple rows per channel)
       if (routing.split_mode) {
         const stmt = this.db.prepare(`
           INSERT INTO midi_instrument_routings
-            (midi_file_id, track_id, channel, device_id, instrument_name,
+            (midi_file_id, channel, target_channel, device_id, instrument_name,
              compatibility_score, transposition_applied, auto_assigned,
              assignment_reason, note_remapping, enabled, created_at,
              split_mode, split_note_min, split_note_max, split_polyphony_share,
@@ -55,8 +61,8 @@ class RoutingPersistenceDB {
 
         const result = stmt.run(
           routing.midi_file_id,
-          routing.target_channel !== undefined ? routing.target_channel : routing.channel,
           routing.channel,
+          targetChannel,
           routing.device_id,
           routing.instrument_name,
           routing.compatibility_score ?? null,
@@ -80,13 +86,13 @@ class RoutingPersistenceDB {
       // Standard routing (no split) — upsert with unique constraint
       const stmt = this.db.prepare(`
         INSERT INTO midi_instrument_routings
-          (midi_file_id, track_id, channel, device_id, instrument_name,
+          (midi_file_id, channel, target_channel, device_id, instrument_name,
            compatibility_score, transposition_applied, auto_assigned,
            assignment_reason, note_remapping, enabled, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(midi_file_id, channel) WHERE split_mode IS NULL
         DO UPDATE SET
-          track_id = excluded.track_id,
+          target_channel = excluded.target_channel,
           device_id = excluded.device_id,
           instrument_name = excluded.instrument_name,
           compatibility_score = excluded.compatibility_score,
@@ -100,8 +106,8 @@ class RoutingPersistenceDB {
 
       const result = stmt.run(
         routing.midi_file_id,
-        routing.target_channel !== undefined ? routing.target_channel : routing.channel,
         routing.channel,
+        targetChannel,
         routing.device_id,
         routing.instrument_name,
         routing.compatibility_score ?? null,
@@ -168,7 +174,7 @@ class RoutingPersistenceDB {
 
     return rows.map(row => ({
       ...row,
-      target_channel: row.track_id !== undefined ? row.track_id : row.channel,
+      target_channel: row.target_channel ?? row.channel,
       note_remapping: row.note_remapping ? JSON.parse(row.note_remapping) : null,
       auto_assigned: !!row.auto_assigned,
       enabled: !!row.enabled,

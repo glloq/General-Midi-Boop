@@ -16,11 +16,19 @@ export default class InstrumentRepository {
     this.database = database;
   }
 
-  // findById/findAll/save/update/delete generic CRUD over a phantom
-  // `instruments` table were removed in v6 (the table was never created
-  // by the baseline schema and no live caller depended on them).
-  // Per-channel data lives on `instruments_latency` (plural), reachable
-  // via the *Settings/*Capabilities helpers below.
+  // The legacy generic `instruments` table is gone (v6); the per-channel
+  // rows live on `instruments_latency` (plural). The two helpers below
+  // operate on the row primary id (`<device_id>_<channel>`) — used by
+  // the playback assignment flow to load + patch one instrument at a
+  // time without juggling (deviceId, channel) tuples on the caller side.
+
+  findById(instrumentId) {
+    return this.database.findInstrumentById(instrumentId);
+  }
+
+  update(instrumentId, fields) {
+    return this.database.updateInstrumentById(instrumentId, fields);
+  }
 
   findAllWithCapabilities() {
     return this.database.getInstrumentsWithCapabilities();
