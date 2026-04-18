@@ -1,4 +1,4 @@
-// src/api/commands/playback/PlaybackAssignmentCommands.js
+// src/midi/domain/playback/PlaybackAssignmentCommands.js
 // Extracted from PlaybackCommands.js — assignment apply + instrument capabilities (P0-1.3).
 import { parseMidi } from 'midi-file';
 import InstrumentCapabilitiesValidator from '../../../midi/InstrumentCapabilitiesValidator.js';

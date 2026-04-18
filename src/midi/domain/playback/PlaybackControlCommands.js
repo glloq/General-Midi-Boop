@@ -1,4 +1,4 @@
-// src/api/commands/playback/PlaybackControlCommands.js
+// src/midi/domain/playback/PlaybackControlCommands.js
 // Extracted from PlaybackCommands.js — playback control handlers (P0-1.1).
 import { ValidationError, ConfigurationError } from '../../../core/errors/index.js';
 

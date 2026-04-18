@@ -1,4 +1,4 @@
-// src/api/commands/playback/midiConverterCache.js
+// src/midi/domain/playback/midiConverterCache.js
 // Shared lazy MIDI converter cache — extracted from PlaybackCommands.js (P0-1.2).
 import JsonMidiConverter from '../../../storage/JsonMidiConverter.js';
 

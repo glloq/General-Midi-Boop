@@ -1,4 +1,4 @@
-// src/api/commands/playback/PlaybackAnalysisCommands.js
+// src/midi/domain/playback/PlaybackAnalysisCommands.js
 // Extracted from PlaybackCommands.js — analysis/suggestions handlers (P0-1.2).
 import ScoringConfig from '../../../midi/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';

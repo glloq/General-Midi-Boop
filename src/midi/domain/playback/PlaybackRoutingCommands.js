@@ -1,4 +1,4 @@
-// src/api/commands/playback/PlaybackRoutingCommands.js
+// src/midi/domain/playback/PlaybackRoutingCommands.js
 // Extracted from PlaybackCommands.js — routing validation + channel control (P0-1.4).
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
