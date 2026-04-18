@@ -6,7 +6,7 @@
  *
  * Snapshot-preserving: error messages match the legacy
  * `JsonValidator.validateRoutingCommand` output captured in
- * `docs/refactor/contracts/routing/*.contract.json`.
+ * `tests/contracts/fixtures/routing/*.contract.json`.
  */
 
 // route_create : source + destination required, both truthy.

@@ -367,5 +367,5 @@ Certains instruments sont le meme objet physique joue avec des techniques differ
 
 ### Fichiers source de reference
 
-- `src/midi/InstrumentTypeConfig.js` — Hierarchie des 128 programmes GM, labels francais, cles de sous-type
-- `src/midi/DrumNoteMapper.js` — Notes drum GM 35-81 avec noms anglais
+- `src/midi/adaptation/InstrumentTypeConfig.js` — Hierarchie des 128 programmes GM, labels francais, cles de sous-type
+- `src/midi/adaptation/DrumNoteMapper.js` — Notes drum GM 35-81 avec noms anglais

@@ -137,7 +137,7 @@ Piano acoustique, piano electrique, clavecin, orgue.
 
 ## Notes d'implementation
 
-L'architecture existante pour CC20/CC21 (voir `TABLATURE_IMPLEMENTATION.md`) fournit le pattern a suivre :
+L'architecture existante pour CC20/CC21 fournit le pattern a suivre :
 
 - **Constantes** : ajouter dans `src/constants.js` (objet `MIDI_CC`)
 - **Config par instrument** : cc_number, min, max, offset (configurable comme pour string/fret)

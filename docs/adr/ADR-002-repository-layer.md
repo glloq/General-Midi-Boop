@@ -4,9 +4,7 @@
 - **Date** : 2026-04-17
 - **Supersedes** : —
 - **Références** :
-  [`ADR-001`](./ADR-001-refactor-strategy.md),
-  [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md) §5 Phase 2,
-  [`dependency-matrix.md`](../refactor/dependency-matrix.md) §4
+  [`ADR-001`](./ADR-001-refactor-strategy.md)
 
 ## Contexte
 

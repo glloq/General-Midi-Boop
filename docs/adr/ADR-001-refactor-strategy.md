@@ -3,7 +3,6 @@
 - **Statut** : Accepté
 - **Date** : 2026-04-17
 - **Références** :
-  [`docs/REFACTORING_PLAN.md`](../REFACTORING_PLAN.md) §3 §5,
   [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md)
 
 ## Contexte
@@ -13,7 +12,7 @@ devenus des « god files » qui mélangent transport API, orchestration métier,
 adaptation MIDI et persistance :
 
 - `src/api/commands/PlaybackCommands.js` (~1124 LOC, 23 handlers)
-- `src/midi/MidiPlayer.js` (~1312 LOC, scheduling + routing + modes)
+- `src/midi/playback/MidiPlayer.js` (~1312 LOC, scheduling + routing + modes)
 - cluster d'adaptation MIDI (`TablatureConverter` 1250 LOC,
   `InstrumentMatcher` 1178 LOC, `DrumNoteMapper` 947 LOC,
   `ChannelSplitter` 871 LOC)

@@ -118,7 +118,7 @@ results.push(bench('NotFoundError.toJSON()', () => new NotFoundError('User', 1).
 
 // 7. buildDynamicUpdate
 console.log('\nbuildDynamicUpdate:');
-const { buildDynamicUpdate } = await import('../../src/storage/dbHelpers.js');
+const { buildDynamicUpdate } = await import('../../src/persistence/dbHelpers.js');
 const updates = { name: 'test', description: 'hello', enabled: true };
 const allowed = ['name', 'description', 'enabled', 'status'];
 const transforms = { enabled: (v) => (v ? 1 : 0) };

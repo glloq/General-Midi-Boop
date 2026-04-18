@@ -5,7 +5,7 @@
  * Replaces the legacy hand-rolled per-command validators with a single
  * tiny engine that converts a `{ fields, custom }` schema into a
  * validator function `(data) => string[]`. Designed so that existing
- * WS contract snapshots in `docs/refactor/contracts/**` remain
+ * WS contract snapshots in `tests/contracts/fixtures/**` remain
  * byte-stable: error-message phrasing in {@link typeLabel} and
  * {@link validateField} is intentionally aligned with the historical
  * JsonValidator output.

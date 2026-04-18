@@ -1,7 +1,7 @@
 // tests/contracts/routing.contract.test.js
 // Contract tests for critical routing commands.
-// Contracts live in docs/refactor/contracts/routing/*.contract.json.
-// See docs/refactor/contracts/README.md for the methodology.
+// Contracts live in tests/contracts/fixtures/routing/*.contract.json.
+// See tests/contracts/fixtures/README.md for the methodology.
 
 import { jest, describe, test, expect } from '@jest/globals';
 import { readFileSync } from 'fs';
@@ -9,11 +9,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import CommandRegistry from '../../src/api/CommandRegistry.js';
 import { register as registerRoutingCommands } from '../../src/api/commands/RoutingCommands.js';
-import FileRoutingSyncService from '../../src/midi/domain/routing/FileRoutingSyncService.js';
+import FileRoutingSyncService from '../../src/midi/routing/FileRoutingSyncService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const CONTRACTS_DIR = join(__dirname, '../../docs/refactor/contracts/routing');
+const CONTRACTS_DIR = join(__dirname, 'fixtures/routing');
 
 function loadContract(name) {
   const path = join(CONTRACTS_DIR, `${name}.contract.json`);

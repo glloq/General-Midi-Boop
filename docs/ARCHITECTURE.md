@@ -117,7 +117,6 @@ Ma-est-tro/
 
 Feature-specific docs:
 [`MIDI_EDITOR.md`](MIDI_EDITOR.md) — MIDI editor modal architecture ·
-[`TABLATURE_IMPLEMENTATION.md`](TABLATURE_IMPLEMENTATION.md) — string-instrument pipeline ·
 [`AUTO_ASSIGNMENT.md`](AUTO_ASSIGNMENT.md) — channel-to-instrument auto-assignment ·
 [`MIDI_CC_INSTRUMENT_CONTROLS.md`](MIDI_CC_INSTRUMENT_CONTROLS.md) — reserved CC ranges ·
 [`API.md`](API.md) — WebSocket command reference.

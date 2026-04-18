@@ -3,7 +3,7 @@
 // FileRoutingSyncService (P1-4.1). No I/O, no DB.
 
 import { describe, test, expect } from '@jest/globals';
-import { planChannelRouting } from '../../src/midi/domain/routing/FileRoutingSyncService.js';
+import { planChannelRouting } from '../../src/midi/routing/FileRoutingSyncService.js';
 
 const baseArgs = {
   fileId: 42,

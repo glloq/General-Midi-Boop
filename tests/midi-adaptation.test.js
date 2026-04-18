@@ -2,15 +2,15 @@
 // Comprehensive tests for the MIDI adaptation system
 
 import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import ChannelAnalyzer from '../src/midi/ChannelAnalyzer.js';
-import InstrumentMatcher from '../src/midi/InstrumentMatcher.js';
-import MidiTransposer from '../src/midi/MidiTransposer.js';
-import AutoAssigner from '../src/midi/AutoAssigner.js';
-import DrumNoteMapper from '../src/midi/DrumNoteMapper.js';
-import AnalysisCache from '../src/midi/AnalysisCache.js';
-import InstrumentCapabilitiesValidator from '../src/midi/InstrumentCapabilitiesValidator.js';
-import ScoringConfig from '../src/midi/ScoringConfig.js';
-import ChannelSplitter from '../src/midi/ChannelSplitter.js';
+import ChannelAnalyzer from '../src/midi/routing/ChannelAnalyzer.js';
+import InstrumentMatcher from '../src/midi/adaptation/InstrumentMatcher.js';
+import MidiTransposer from '../src/midi/adaptation/MidiTransposer.js';
+import AutoAssigner from '../src/midi/adaptation/AutoAssigner.js';
+import DrumNoteMapper from '../src/midi/adaptation/DrumNoteMapper.js';
+import AnalysisCache from '../src/midi/playback/AnalysisCache.js';
+import InstrumentCapabilitiesValidator from '../src/midi/adaptation/InstrumentCapabilitiesValidator.js';
+import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
+import ChannelSplitter from '../src/midi/routing/ChannelSplitter.js';
 
 // ============================================================
 // Test helpers

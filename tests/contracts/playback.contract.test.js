@@ -1,7 +1,7 @@
 // tests/contracts/playback.contract.test.js
 // Contract tests for the 5 most-used playback commands.
-// Contracts live in docs/refactor/contracts/playback/*.contract.json.
-// See docs/refactor/contracts/README.md for the methodology.
+// Contracts live in tests/contracts/fixtures/playback/*.contract.json.
+// See tests/contracts/fixtures/README.md for the methodology.
 
 import { jest, describe, test, expect } from '@jest/globals';
 import { readFileSync } from 'fs';
@@ -12,7 +12,7 @@ import { register as registerPlaybackCommands } from '../../src/api/commands/Pla
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const CONTRACTS_DIR = join(__dirname, '../../docs/refactor/contracts/playback');
+const CONTRACTS_DIR = join(__dirname, 'fixtures/playback');
 
 function loadContract(name) {
   const path = join(CONTRACTS_DIR, `${name}.contract.json`);

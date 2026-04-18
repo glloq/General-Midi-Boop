@@ -130,7 +130,7 @@ and extension points.
 
 ![Tablature Editor](docs/images/edit%20tab.png)
 
-Control real acoustic string instruments via solenoids/servos through MIDI CC. Includes a tablature editor with bidirectional MIDI-Tab conversion. Supports guitar, bass, violin, ukulele, and more with 19 tuning presets. See [docs/TABLATURE_IMPLEMENTATION.md](./docs/TABLATURE_IMPLEMENTATION.md) for details.
+Control real acoustic string instruments via solenoids/servos through MIDI CC. Includes a tablature editor with bidirectional MIDI-Tab conversion. Supports guitar, bass, violin, ukulele, and more with 19 tuning presets.
 
 ### Drum Pattern Editor
 
@@ -232,7 +232,6 @@ See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed instructions on 
 - [Architecture](./docs/ARCHITECTURE.md)
 - [API Reference](./docs/API.md)
 - [Auto-Assignment System](./docs/AUTO_ASSIGNMENT.md)
-- [Tablature System](./docs/TABLATURE_IMPLEMENTATION.md)
 - [GPIO MIDI Wiring](./docs/GPIO_MIDI_WIRING.md)
 - [SysEx Identity Protocol](./docs/SYSEX_IDENTITY.md)
 - [Contributing](./CONTRIBUTING.md)

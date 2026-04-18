@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { buildDynamicUpdate } from '../src/storage/dbHelpers.js';
+import { buildDynamicUpdate } from '../src/persistence/dbHelpers.js';
 
 describe('buildDynamicUpdate', () => {
   test('builds SQL from allowed fields', () => {

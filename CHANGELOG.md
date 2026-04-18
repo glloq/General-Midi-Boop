@@ -11,8 +11,7 @@ All notable changes to Ma-est-tro are documented in this file.
   points, logging convention, known limitations).
 - Expanded README "MIDI Editor" section with feature table, CC list,
   keyboard shortcuts, and preferences reference.
-- Cross-links from `docs/ARCHITECTURE.md` and `docs/TABLATURE_IMPLEMENTATION.md`
-  to the new editor documentation.
+- Cross-links from `docs/ARCHITECTURE.md` to the new editor documentation.
 - `tests/frontend/midi-editor-clamp.test.js` — 10 Vitest cases that pin the
   save-time MIDI clamping contract (note/channel/velocity/CC/pitch-bend
   ranges, tempo-map emission, drum-channel programChange skip).

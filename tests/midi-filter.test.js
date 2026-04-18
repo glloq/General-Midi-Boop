@@ -14,7 +14,7 @@ try {
 }
 
 const describeIfSqlite = betterSqliteAvailable ? describe : describe.skip;
-import MidiDatabase from '../src/storage/MidiDatabase.js';
+import MidiDatabase from '../src/persistence/tables/MidiDatabase.js';
 
 // ============================================================
 // Test helpers

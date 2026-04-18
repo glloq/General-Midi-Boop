@@ -2,7 +2,7 @@
 // Unit tests for the pure `computeRoutingStatus` function (P1-4.2).
 
 import { describe, test, expect } from '@jest/globals';
-import { computeRoutingStatus } from '../../src/midi/domain/files/FileRoutingStatusService.js';
+import { computeRoutingStatus } from '../../src/midi/files/FileRoutingStatusService.js';
 
 function make(file, routings, connectedDeviceIds) {
   return computeRoutingStatus({ file, routings, connectedDeviceIds });

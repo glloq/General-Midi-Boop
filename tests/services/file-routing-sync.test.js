@@ -2,7 +2,7 @@
 // Unit tests for FileRoutingSyncService.syncFile / bulkSync (P1-4.1).
 
 import { jest, describe, test, expect } from '@jest/globals';
-import FileRoutingSyncService from '../../src/midi/domain/routing/FileRoutingSyncService.js';
+import FileRoutingSyncService from '../../src/midi/routing/FileRoutingSyncService.js';
 
 function silentLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };

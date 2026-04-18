@@ -44,8 +44,7 @@ midiEditorModal = new MidiEditorModal(window.eventBus, api);
 await midiEditorModal.show(fileId, filename);
 ```
 
-See [`docs/TABLATURE_IMPLEMENTATION.md`](TABLATURE_IMPLEMENTATION.md) for the
-string-instrument pipeline and [`docs/AUTO_ASSIGNMENT.md`](AUTO_ASSIGNMENT.md) for the
+See [`docs/AUTO_ASSIGNMENT.md`](AUTO_ASSIGNMENT.md) for the
 auto-assignment flow reachable from the toolbar.
 
 ---

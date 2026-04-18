@@ -28,13 +28,13 @@ Ma-est-tro can automatically analyze a MIDI file and assign each channel to the 
 
 | Module | File | Purpose |
 |--------|------|---------|
-| AutoAssigner | `src/midi/AutoAssigner.js` | Orchestrates the full assignment pipeline |
-| ChannelAnalyzer | `src/midi/ChannelAnalyzer.js` | Analyzes MIDI file channels |
-| InstrumentMatcher | `src/midi/InstrumentMatcher.js` | Scores instrument compatibility |
-| DrumNoteMapper | `src/midi/DrumNoteMapper.js` | Intelligent drum note remapping |
-| MidiTransposer | `src/midi/MidiTransposer.js` | Note transposition |
-| ScoringConfig | `src/midi/ScoringConfig.js` | Scoring weights and thresholds |
-| AnalysisCache | `src/midi/AnalysisCache.js` | LRU cache for analysis results |
+| AutoAssigner | `src/midi/adaptation/AutoAssigner.js` | Orchestrates the full assignment pipeline |
+| ChannelAnalyzer | `src/midi/routing/ChannelAnalyzer.js` | Analyzes MIDI file channels |
+| InstrumentMatcher | `src/midi/adaptation/InstrumentMatcher.js` | Scores instrument compatibility |
+| DrumNoteMapper | `src/midi/adaptation/DrumNoteMapper.js` | Intelligent drum note remapping |
+| MidiTransposer | `src/midi/adaptation/MidiTransposer.js` | Note transposition |
+| ScoringConfig | `src/midi/adaptation/ScoringConfig.js` | Scoring weights and thresholds |
+| AnalysisCache | `src/midi/playback/AnalysisCache.js` | LRU cache for analysis results |
 
 ### Processing Pipeline
 

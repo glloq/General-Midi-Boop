@@ -97,7 +97,7 @@ See [docs/API.md](./docs/API.md) for the complete API reference (146 commands).
 
 ## Known Issues & Improvement Areas
 
-The following areas have been identified through code audits as needing attention. Contributions in these areas are especially welcome. See [docs/AUDIT.md](./docs/AUDIT.md) for the full audit report.
+The following areas have been identified through code audits as needing attention. Contributions in these areas are especially welcome.
 
 ### Security (High Priority)
 

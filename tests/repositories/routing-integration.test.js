@@ -4,7 +4,7 @@
 // by P0-2.6 : no-split (standard), split (multi-segment), overwrite.
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import Database from '../../src/storage/Database.js';
+import Database from '../../src/persistence/Database.js';
 import FileRepository from '../../src/repositories/FileRepository.js';
 import RoutingRepository from '../../src/repositories/RoutingRepository.js';
 import { mkdtempSync, rmSync } from 'fs';

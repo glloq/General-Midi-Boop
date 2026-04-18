@@ -5,15 +5,13 @@
 - **Supersedes** : —
 - **Références** :
   [`ADR-001`](./ADR-001-refactor-strategy.md),
-  [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md) §7 (règle de versions des contrats WS),
-  [`docs/refactor/contracts/`](../refactor/contracts/),
-  [`docs/refactor/error-payload-audit.md`](../refactor/error-payload-audit.md)
+  [`tests/contracts/fixtures/`](../../tests/contracts/fixtures/)
 
 ## Contexte
 
 À l'entrée de la Phase 4, les contrats WS sont gelés : 42 commandes
 critiques (playback + routing) ont des snapshots
-`docs/refactor/contracts/**` qui servent de filet de sécurité aux
+`tests/contracts/fixtures/**` qui servent de filet de sécurité aux
 refactors. Le plan §7 énonce :
 
 > **Règle de versions des contrats WS** :
@@ -111,7 +109,7 @@ champ retourné en plus, nouveau code d'erreur jamais observé avant) :
 - v1 émet un log de dépréciation à l'usage :
   `app.logger.warn('[deprecated] playback_start v1 — use playback_start_v2')`.
 - v1 et v2 ont chacune leur propre snapshot
-  `docs/refactor/contracts/<domain>/<cmd>_v2.contract.json`.
+  `tests/contracts/fixtures/<domain>/<cmd>_v2.contract.json`.
 
 ### 3. Dépréciation et suppression
 

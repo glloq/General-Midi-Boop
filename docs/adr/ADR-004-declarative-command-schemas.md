@@ -5,7 +5,6 @@
 - **Supersedes** : —
 - **Références** :
   [`ADR-001`](./ADR-001-refactor-strategy.md),
-  [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md) §5 Phase 3,
   [`src/utils/JsonValidator.js`](../../src/utils/JsonValidator.js)
 
 ## Contexte
@@ -55,7 +54,7 @@ un schéma JSON/TypeScript, laisser la lib faire la validation.
     compilateur de schémas à l'exécution.
   - Rupture partielle des contrats : les messages d'erreur produits par
     Ajv ne correspondent pas aux snapshots actuels
-    (`docs/refactor/contracts/**`).
+    (`tests/contracts/fixtures/**`).
   - Migration big-bang des 146 commandes.
 
 ### Option B — Schémas déclaratifs maison, compilateur minimaliste (retenue)
@@ -91,7 +90,7 @@ une fois en fonction `(data) => errors[]`. Les handlers deviennent
 - **Avantages** :
   - **Aucune dépendance npm** (respect §10.1).
   - Format identique des messages d'erreur côté client
-    (snapshots `docs/refactor/contracts/**` inchangés).
+    (snapshots `tests/contracts/fixtures/**` inchangés).
   - Migration **incrémentale** : commande par commande, les handlers
     non migrés continuent à utiliser leur validation inline.
   - Indexable : `JsonValidator.describe()` peut retourner tous les
@@ -219,7 +218,7 @@ src/
 - **Aucune** nouvelle dépendance npm (respect §10.1).
 - **Aucun** changement de schéma SQL.
 - **Aucun** changement de format de message WS côté client :
-  les snapshots `docs/refactor/contracts/**` doivent rester verts à
+  les snapshots `tests/contracts/fixtures/**` doivent rester verts à
   chaque PR Phase 3.
 - La migration est **incrémentale** : `JsonValidator` supporte
   simultanément l'ancien `switch` et le nouveau format schéma

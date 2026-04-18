@@ -22,7 +22,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApplicationError } from '../core/errors/index.js';
-import { TIMING } from '../constants.js';
+import { TIMING } from '../core/constants.js';
 
 const __wsFilename = fileURLToPath(import.meta.url);
 const __wsDirname = dirname(__wsFilename);

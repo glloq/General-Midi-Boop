@@ -5,9 +5,8 @@
  * established in P1-4.5 so {@link BluetoothManager} can migrate to
  * dependency injection in a follow-up lot.
  *
- * The existing `src/managers/BluetoothManager.js` keeps its direct
+ * The existing `src/transports/BluetoothManager.js` keeps its direct
  * `node-ble` usage for now — this adapter is additive infrastructure.
- * Rewire is tracked in PROGRESS.md.
  *
  * TODO: have BluetoothManager consume this adapter via DI so the
  * native dependency lives in one place only.

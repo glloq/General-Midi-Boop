@@ -22,24 +22,24 @@
 import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import Config from '../config/Config.js';
+import Config from './Config.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
 import ServiceContainer from './ServiceContainer.js';
-import Database from '../storage/Database.js';
-import DeviceManager from '../midi/DeviceManager.js';
-import MidiRouter from '../midi/MidiRouter.js';
-import MidiPlayer from '../midi/MidiPlayer.js';
-import LatencyCompensator from '../midi/LatencyCompensator.js';
+import Database from '../persistence/Database.js';
+import DeviceManager from '../midi/devices/DeviceManager.js';
+import MidiRouter from '../midi/routing/MidiRouter.js';
+import MidiPlayer from '../midi/playback/MidiPlayer.js';
+import LatencyCompensator from '../midi/adaptation/LatencyCompensator.js';
 import DelayCalibrator from '../audio/DelayCalibrator.js';
-import FileManager from '../storage/FileManager.js';
-import BluetoothManager from '../managers/BluetoothManager.js';
-import NetworkManager from '../managers/NetworkManager.js';
+import FileManager from '../files/FileManager.js';
+import BluetoothManager from '../transports/BluetoothManager.js';
+import NetworkManager from '../transports/NetworkManager.js';
 import WebSocketServer from '../api/WebSocketServer.js';
 import HttpServer from '../api/HttpServer.js';
 import CommandHandler from '../api/CommandHandler.js';
-import AutoAssigner from '../midi/AutoAssigner.js';
-import MidiAdaptationService from '../midi/MidiAdaptationService.js';
+import AutoAssigner from '../midi/adaptation/AutoAssigner.js';
+import MidiAdaptationService from '../midi/adaptation/MidiAdaptationService.js';
 import FileRepository from '../repositories/FileRepository.js';
 import RoutingRepository from '../repositories/RoutingRepository.js';
 import InstrumentRepository from '../repositories/InstrumentRepository.js';
@@ -49,11 +49,11 @@ import PlaylistRepository from '../repositories/PlaylistRepository.js';
 import DeviceSettingsRepository from '../repositories/DeviceSettingsRepository.js';
 import LightingRepository from '../repositories/LightingRepository.js';
 import StringInstrumentRepository from '../repositories/StringInstrumentRepository.js';
-import FileRoutingSyncService from '../midi/domain/routing/FileRoutingSyncService.js';
-import DeviceReconciliationService from '../midi/domain/devices/DeviceReconciliationService.js';
-import FileRoutingStatusService from '../midi/domain/files/FileRoutingStatusService.js';
-import MidiClockGenerator from '../midi/MidiClockGenerator.js';
-import BackupScheduler from '../storage/BackupScheduler.js';
+import FileRoutingSyncService from '../midi/routing/FileRoutingSyncService.js';
+import DeviceReconciliationService from '../midi/devices/DeviceReconciliationService.js';
+import FileRoutingStatusService from '../midi/files/FileRoutingStatusService.js';
+import MidiClockGenerator from '../midi/playback/MidiClockGenerator.js';
+import BackupScheduler from '../persistence/BackupScheduler.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -252,7 +252,7 @@ class Application {
 
       // Initialize Serial MIDI (optional - requires serialport package)
       try {
-        const { default: SerialMidiManager } = await import('../managers/SerialMidiManager.js');
+        const { default: SerialMidiManager } = await import('../transports/SerialMidiManager.js');
         this._registerService('serialMidiManager', new SerialMidiManager(deps));
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {
@@ -261,7 +261,7 @@ class Application {
 
       // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
       try {
-        const { default: LightingManager } = await import('../managers/LightingManager.js');
+        const { default: LightingManager } = await import('../lighting/LightingManager.js');
         this._registerService('lightingManager', new LightingManager(deps));
         this.logger.info('Lighting manager initialized');
       } catch (error) {

@@ -7,7 +7,7 @@
  *
  * Each schema reproduces the exact error messages emitted by the legacy
  * imperative validators, captured in
- * `docs/refactor/contracts/playback/*.contract.json`. The intentional
+ * `tests/contracts/fixtures/playback/*.contract.json`. The intentional
  * double-error pattern (`"X is required, X must be Y"`) preserves
  * historical behaviour where missing fields also fail the type check.
  */

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import Config from '../src/config/Config.js';
+import Config from '../src/core/Config.js';
 
 describe('Config', () => {
   let originalEnv;

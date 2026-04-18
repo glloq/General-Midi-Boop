@@ -3,7 +3,7 @@
 // Covers the settings → USB serial → MAC → normalized-name fallback cascade.
 
 import { jest, describe, test, expect } from '@jest/globals';
-import DeviceReconciliationService from '../../src/midi/domain/devices/DeviceReconciliationService.js';
+import DeviceReconciliationService from '../../src/midi/devices/DeviceReconciliationService.js';
 
 function silentLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };

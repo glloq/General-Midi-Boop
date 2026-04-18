@@ -13,7 +13,7 @@
  * Validation: imperative inside each handler.
  */
 
-import TablatureConverter from '../../midi/TablatureConverter.js';
+import TablatureConverter from '../../midi/adaptation/TablatureConverter.js';
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
 // ==================== STRING INSTRUMENT CONFIG ====================
