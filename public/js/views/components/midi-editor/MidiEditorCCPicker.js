@@ -1,41 +1,37 @@
 // ============================================================================
 // File: public/js/views/components/midi-editor/MidiEditorCCPicker.js
-// Description: CC picker modal
-//   Mixin: methods added to MidiEditorModal.prototype
+// Description: CC picker modal (sub-component class; P2-F.10c body rewrite).
+//   Called via `modal.ccPicker.<method>(...)` — no longer a prototype mixin.
 // ============================================================================
 
 (function() {
     'use strict';
 
-    const MidiEditorCCPickerMixin = {};
+    class MidiEditorCCPicker {
+        constructor(modal) {
+            this.modal = modal;
+        }
 
-    // ========================================================================
-    // CC PICKER MODAL
-    // ========================================================================
-
-    /**
-    * Ouvrir le picker de CC pour ajouter un CC à la liste
-    */
-    MidiEditorCCPickerMixin.openCCPicker = function() {
+    openCCPicker() {
     // Close if already open
-        let existing = this.container?.querySelector('#cc-picker-modal');
+        let existing = this.modal.container?.querySelector('#cc-picker-modal');
         if (existing) {
             existing.remove();
             return;
         }
 
-        const addBtn = this.container?.querySelector('#cc-add-btn');
+        const addBtn = this.modal.container?.querySelector('#cc-add-btn');
         if (!addBtn) return;
 
     // Determine which CCs are already visible (have data or are static buttons)
-        const allUsedTypes = this.getAllUsedCCTypes();
+        const allUsedTypes = this.modal.getAllUsedCCTypes();
         const staticCCNums = new Set([1, 2, 5, 7, 10, 11, 74, 76, 77, 78, 91]);
 
     // Build the picker's HTML content, grouped by category
         let categoriesHTML = '';
         MidiEditorModal.CC_CATEGORIES.forEach(cat => {
             const buttonsHTML = cat.ccs.map(ccNum => {
-                const ccName = this._getCCName(ccNum);
+                const ccName = this.modal._getCCName(ccNum);
                 const ccType = `cc${ccNum}`;
                 const isUsed = allUsedTypes.has(ccType);
                 const isStatic = staticCCNums.has(ccNum);
@@ -60,7 +56,7 @@
     // Ajouter un champ de saisie libre en bas
         const customInputHTML = `
             <div class="cc-picker-custom">
-                <label class="cc-picker-category-title">${this.t('midiEditor.groupCustomCC') || 'CC# libre'}</label>
+                <label class="cc-picker-category-title">${this.modal.t('midiEditor.groupCustomCC') || 'CC# libre'}</label>
                 <div class="cc-picker-custom-row">
                     <input type="number" id="cc-picker-custom-input" min="0" max="127" placeholder="0-127" class="cc-picker-custom-input">
                     <button class="cc-picker-custom-go" id="cc-picker-custom-go">OK</button>
@@ -73,7 +69,7 @@
         picker.className = 'cc-picker-modal';
         picker.innerHTML = `
             <div class="cc-picker-header">
-                <span class="cc-picker-title">${this.t('midiEditor.addCC') || 'Ajouter un CC'}</span>
+                <span class="cc-picker-title">${this.modal.t('midiEditor.addCC') || 'Ajouter un CC'}</span>
                 <button class="cc-picker-close" id="cc-picker-close">✕</button>
             </div>
             <div class="cc-picker-body">
@@ -83,7 +79,7 @@
         `;
 
     // Positionner le picker sous le bouton +
-        const toolbar = this.container?.querySelector('.cc-type-toolbar');
+        const toolbar = this.modal.container?.querySelector('.cc-type-toolbar');
         if (toolbar) {
             toolbar.style.position = 'relative';
             toolbar.appendChild(picker);
@@ -98,9 +94,9 @@
             e.stopPropagation();
             const ccNum = parseInt(item.dataset.ccNum);
             if (!isNaN(ccNum)) {
-                this.selectCCType(`cc${ccNum}`);
+                this.modal.selectCCType(`cc${ccNum}`);
                 picker.remove();
-                this.log('info', `CC picker: CC${ccNum} selected`);
+                this.modal.log('info', `CC picker: CC${ccNum} selected`);
             }
         });
 
@@ -119,9 +115,9 @@
             if (!customInput) return;
             const ccNum = parseInt(customInput.value);
             if (!isNaN(ccNum) && ccNum >= 0 && ccNum <= 127) {
-                this.selectCCType(`cc${ccNum}`);
+                this.modal.selectCCType(`cc${ccNum}`);
                 picker.remove();
-                this.log('info', `CC picker custom: CC${ccNum} selected`);
+                this.modal.log('info', `CC picker custom: CC${ccNum} selected`);
             }
         };
         if (customGo) customGo.addEventListener('click', (e) => { e.preventDefault(); applyCustom(); });
@@ -140,117 +136,105 @@
         setTimeout(() => document.addEventListener('mousedown', closeOnOutside), 0);
     }
 
-    /**
-    * Mettre à jour le canal actif pour l'édition CC
-    */
-    MidiEditorCCPickerMixin.updateCCEditorChannel = function() {
-        if (!this.ccEditor) return;
+    updateCCEditorChannel() {
+        if (!this.modal.ccEditor) return;
 
     // Use the first active channel as the CC editor's channel
-        const activeChannel = this.activeChannels.size > 0
-            ? Array.from(this.activeChannels)[0]
+        const activeChannel = this.modal.activeChannels.size > 0
+            ? Array.from(this.modal.activeChannels)[0]
             : 0;
 
-        this.ccEditor.setChannel(activeChannel);
-        this.log('info', `Canal CC mis à jour: ${activeChannel}`);
+        this.modal.ccEditor.setChannel(activeChannel);
+        this.modal.log('info', `Canal CC mis à jour: ${activeChannel}`);
     }
 
-    /**
-    * Supprimer les éléments sélectionnés (CC/Velocity)
-    */
-    MidiEditorCCPickerMixin.deleteSelectedCCVelocity = function() {
-        if (this.currentCCType === 'tempo' && this.tempoEditor) {
-            const selectedIds = Array.from(this.tempoEditor.selectedEvents);
-            this.tempoEditor.removeEvents(selectedIds);
-        } else if (this.currentCCType === 'velocity' && this.velocityEditor) {
-            this.velocityEditor.deleteSelected();
-        } else if (this.ccEditor) {
-            this.ccEditor.deleteSelected();
+    deleteSelectedCCVelocity() {
+        if (this.modal.currentCCType === 'tempo' && this.modal.tempoEditor) {
+            const selectedIds = Array.from(this.modal.tempoEditor.selectedEvents);
+            this.modal.tempoEditor.removeEvents(selectedIds);
+        } else if (this.modal.currentCCType === 'velocity' && this.modal.velocityEditor) {
+            this.modal.velocityEditor.deleteSelected();
+        } else if (this.modal.ccEditor) {
+            this.modal.ccEditor.deleteSelected();
         }
 
     // Update the delete button state
         this.updateDeleteButtonState();
     }
 
-    /**
-    * Update the delete button state
-    */
-    MidiEditorCCPickerMixin.updateDeleteButtonState = function() {
-        const deleteBtn = this.container?.querySelector('#cc-delete-btn');
+    updateDeleteButtonState() {
+        const deleteBtn = this.modal.container?.querySelector('#cc-delete-btn');
         if (!deleteBtn) return;
 
         let hasSelection = false;
-        if (this.currentCCType === 'tempo' && this.tempoEditor) {
-            hasSelection = this.tempoEditor.selectedEvents.size > 0;
-        } else if (this.currentCCType === 'velocity' && this.velocityEditor) {
-            hasSelection = this.velocityEditor.selectedNotes.size > 0;
-        } else if (this.ccEditor) {
-            hasSelection = this.ccEditor.selectedEvents.size > 0;
+        if (this.modal.currentCCType === 'tempo' && this.modal.tempoEditor) {
+            hasSelection = this.modal.tempoEditor.selectedEvents.size > 0;
+        } else if (this.modal.currentCCType === 'velocity' && this.modal.velocityEditor) {
+            hasSelection = this.modal.velocityEditor.selectedNotes.size > 0;
+        } else if (this.modal.ccEditor) {
+            hasSelection = this.modal.ccEditor.selectedEvents.size > 0;
         }
 
         deleteBtn.disabled = !hasSelection;
     }
 
-    /**
-    * Initialiser l'éditeur CC/Pitchbend
-    */
-    MidiEditorCCPickerMixin.initCCEditor = function() {
+    initCCEditor() {
         const container = document.getElementById('cc-editor-container');
         if (!container) {
-            this.log('warn', 'Container cc-editor-container not found');
+            this.modal.log('warn', 'Container cc-editor-container not found');
             return;
         }
 
-        if (this.ccEditor) {
-            this.log('info', 'CC Editor already initialized');
+        if (this.modal.ccEditor) {
+            this.modal.log('info', 'CC Editor already initialized');
             return;
         }
 
-        this.log('info', `Initializing CC Editor with ${this.ccEvents.length} total CC events`);
+        this.modal.log('info', `Initializing CC Editor with ${this.modal.ccEvents.length} total CC events`);
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.pianoRoll?.timebase || 480,
-            xrange: this.pianoRoll?.xrange || 1920,
-            xoffset: this.pianoRoll?.xoffset || 0,
-            grid: this.snapValues[this.currentSnapIndex].ticks,
+            timebase: this.modal.pianoRoll?.timebase || 480,
+            xrange: this.modal.pianoRoll?.xrange || 1920,
+            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             onChange: () => {
     // Mark as dirty on CC/pitch-bend changes
-                this.isDirty = true;
-                this.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.updateSaveButton();
             }
         };
 
     // Create the editor
-        this.ccEditor = new CCPitchbendEditor(container, options);
-        this.ccEditor.setCC(this.currentCCType);
+        this.modal.ccEditor = new CCPitchbendEditor(container, options);
+        this.modal.ccEditor.setCC(this.modal.currentCCType);
 
     // Load existing events BEFORE refreshing the selector
-        if (this.ccEvents.length > 0) {
-            this.ccEditor.loadEvents(this.ccEvents);
-            this.log('info', `Loaded ${this.ccEvents.length} CC events into editor`);
+        if (this.modal.ccEvents.length > 0) {
+            this.modal.ccEditor.loadEvents(this.modal.ccEvents);
+            this.modal.log('info', `Loaded ${this.modal.ccEvents.length} CC events into editor`);
         }
 
     // Update the channel selector to show only used channels
-        this.updateEditorChannelSelector();
+        this.modal.updateEditorChannelSelector();
 
     // When editing a single channel, use that channel; otherwise fall back to first channel
         let activeChannel;
-        if (this.activeChannels && this.activeChannels.size === 1) {
-            activeChannel = Array.from(this.activeChannels)[0];
+        if (this.modal.activeChannels && this.modal.activeChannels.size === 1) {
+            activeChannel = Array.from(this.modal.activeChannels)[0];
         } else {
-            const fileChannels = this.channels.map(ch => ch.channel).sort((a, b) => a - b);
-            const usedChannels = this.getCCChannelsUsed();
+            const fileChannels = this.modal.channels.map(ch => ch.channel).sort((a, b) => a - b);
+            const usedChannels = this.modal.getCCChannelsUsed();
             activeChannel = fileChannels.length > 0 ? fileChannels[0] : (usedChannels.length > 0 ? usedChannels[0] : 0);
         }
-        this.ccEditor.setChannel(activeChannel);
+        this.modal.ccEditor.setChannel(activeChannel);
 
     // Auto-select a CC type that has data on this channel
-        this.selectBestCCTypeForChannel(activeChannel);
+        this.modal.selectBestCCTypeForChannel(activeChannel);
 
-        this.highlightUsedCCButtons();
+        this.modal.highlightUsedCCButtons();
 
-        this.log('info', `CC Editor initialized - Type: ${this.currentCCType}, Channel: ${activeChannel + 1}, File channels: [${fileChannels.map(c => c + 1).join(', ')}]`);
+        this.modal.log('info', `CC Editor initialized - Type: ${this.modal.currentCCType}, Channel: ${activeChannel + 1}, File channels: [${fileChannels.map(c => c + 1).join(', ')}]`);
 
     // Add a listener that refreshes the delete button on interactions
         container.addEventListener('mouseup', () => {
@@ -263,119 +247,102 @@
         this.waitForCCEditorLayout();
     }
 
-    /**
-    * Attendre que l'éditeur CC ait une hauteur valide avant de le redimensionner
-    */
-    MidiEditorCCPickerMixin.waitForCCEditorLayout = function(attempts = 0, maxAttempts = 60) {
-        if (!this.ccEditor || !this.ccEditor.element) {
-            this.log('warn', 'waitForCCEditorLayout: ccEditor or element not found');
+    waitForCCEditorLayout(attempts = 0, maxAttempts = 60) {
+        if (!this.modal.ccEditor || !this.modal.ccEditor.element) {
+            this.modal.log('warn', 'waitForCCEditorLayout: ccEditor or element not found');
             return;
         }
 
-        const height = this.ccEditor.element.getBoundingClientRect().height;
-        this.log('debug', `waitForCCEditorLayout attempt ${attempts}: height=${height}`);
+        const height = this.modal.ccEditor.element.getBoundingClientRect().height;
+        this.modal.log('debug', `waitForCCEditorLayout attempt ${attempts}: height=${height}`);
 
         if (height > 100) {
     // Layout is ready, we can resize
-            this.ccEditor.resize();
+            this.modal.ccEditor.resize();
     // Resume rendering for the active sub-editor
-            if (typeof this.ccEditor.resume === 'function') this.ccEditor.resume();
-            if (this.velocityEditor && typeof this.velocityEditor.resume === 'function') this.velocityEditor.resume();
-            if (this.tempoEditor && typeof this.tempoEditor.resume === 'function') this.tempoEditor.resume();
-            this.log('info', `CC Editor layout ready after ${attempts} attempts (height=${height})`);
+            if (typeof this.modal.ccEditor.resume === 'function') this.modal.ccEditor.resume();
+            if (this.modal.velocityEditor && typeof this.modal.velocityEditor.resume === 'function') this.modal.velocityEditor.resume();
+            if (this.modal.tempoEditor && typeof this.modal.tempoEditor.resume === 'function') this.modal.tempoEditor.resume();
+            this.modal.log('info', `CC Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
     // Layout is not ready yet, retry on the next frame
             requestAnimationFrame(() => {
                 this.waitForCCEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
-            this.log('error', `waitForCCEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
+            this.modal.log('error', `waitForCCEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
         }
     }
 
-    /**
-    * Synchroniser l'éditeur CC avec le piano roll
-    */
-    MidiEditorCCPickerMixin.syncCCEditor = function() {
-        if (!this.ccEditor) return;
+    syncCCEditor() {
+        if (!this.modal.ccEditor) return;
 
-        const viewport = this._getActiveViewportState();
-        this.ccEditor.syncWith({
+        const viewport = this.modal._getActiveViewportState();
+        this.modal.ccEditor.syncWith({
             xrange: viewport.xrange,
             xoffset: viewport.xoffset,
-            grid: this.snapValues[this.currentSnapIndex].ticks,
-            timebase: this.pianoRoll?.timebase
+            grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
+            timebase: this.modal.pianoRoll?.timebase
         });
     }
 
-    /**
-    * Sync every editor (CC et Velocity) avec le piano roll
-    */
-    /**
-    * Get the header width (left offset) of the currently active editor view.
-    * This is needed to align the PlaybackTimelineBar with the active editor.
-    */
-    MidiEditorCCPickerMixin._getActiveEditorHeaderWidth = function() {
-        if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) {
-            return this.tablatureEditor.renderer.headerWidth || 40;
+    _getActiveEditorHeaderWidth() {
+        if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible && this.modal.tablatureEditor.renderer) {
+            return this.modal.tablatureEditor.renderer.headerWidth || 40;
         }
-        if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.renderer) {
-            return this.windInstrumentEditor.renderer.headerWidth || 50;
+        if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible && this.modal.windInstrumentEditor.renderer) {
+            return this.modal.windInstrumentEditor.renderer.headerWidth || 50;
         }
-        if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.gridRenderer) {
-            return this.drumPatternEditor.gridRenderer.headerWidth || 80;
+        if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible && this.modal.drumPatternEditor.gridRenderer) {
+            return this.modal.drumPatternEditor.gridRenderer.headerWidth || 80;
         }
     // Default: piano roll (yruler 24 + kbwidth 40)
         return 64;
     }
 
-    MidiEditorCCPickerMixin.syncAllEditors = function() {
+    syncAllEditors() {
         this.syncCCEditor();
         this.syncVelocityEditor();
         this.syncTempoEditor();
 
-        const viewport = this._getActiveViewportState();
+        const viewport = this.modal._getActiveViewportState();
         const activeLeftOffset = this._getActiveEditorHeaderWidth();
 
     // Sync PlaybackTimelineBar with active editor scroll/zoom
-        if (this.timelineBar) {
-            const containerWidth = this.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
-            this.timelineBar.setLeftOffset(activeLeftOffset);
-            this.timelineBar.setScrollX(viewport.xoffset);
-            this.timelineBar.setZoom(viewport.xrange / Math.max(1, containerWidth - activeLeftOffset));
+        if (this.modal.timelineBar) {
+            const containerWidth = this.modal.container?.querySelector('#playback-timeline-container')?.clientWidth || 800;
+            this.modal.timelineBar.setLeftOffset(activeLeftOffset);
+            this.modal.timelineBar.setScrollX(viewport.xoffset);
+            this.modal.timelineBar.setZoom(viewport.xrange / Math.max(1, containerWidth - activeLeftOffset));
         }
 
     // Sync NavigationOverviewBar with active editor viewport
-        if (this.navigationBar) {
-            const maxTick = this.midiData?.maxTick || 0;
-            this.navigationBar.setViewport(viewport.xoffset, viewport.xrange, maxTick);
+        if (this.modal.navigationBar) {
+            const maxTick = this.modal.midiData?.maxTick || 0;
+            this.modal.navigationBar.setViewport(viewport.xoffset, viewport.xrange, maxTick);
         }
     }
 
-    /**
-    * Synchroniser les événements depuis l'éditeur CC vers this.ccEvents
-    * Appelé avant la sauvegarde pour récupérer les modifications
-    */
-    MidiEditorCCPickerMixin.syncCCEventsFromEditor = function() {
-        if (!this.ccEditor) {
+    syncCCEventsFromEditor() {
+        if (!this.modal.ccEditor) {
     // The CC editor was never opened — ccEditor is the only editing path,
     // so events extracted from the original file remain up to date.
-            this.log('debug', `syncCCEventsFromEditor: editor not opened, preserving ${this.ccEvents.length} original events`);
+            this.modal.log('debug', `syncCCEventsFromEditor: editor not opened, preserving ${this.modal.ccEvents.length} original events`);
             return;
         }
 
     // Grab every event from the editor
-        const editorEvents = this.ccEditor.getEvents();
+        const editorEvents = this.modal.ccEditor.getEvents();
 
         if (!editorEvents || editorEvents.length === 0) {
-            this.log('info', 'syncCCEventsFromEditor: No CC events in editor');
-            this.ccEvents = [];
+            this.modal.log('info', 'syncCCEventsFromEditor: No CC events in editor');
+            this.modal.ccEvents = [];
             return;
         }
 
     // Editor events are already in the correct format
     // { type: 'cc1'|'cc7'|'cc10'|'cc11'|'pitchbend', ticks: number, value: number, channel: number }
-        this.ccEvents = editorEvents.map(e => ({
+        this.modal.ccEvents = editorEvents.map(e => ({
             type: e.type,
             ticks: e.ticks,
             channel: e.channel,
@@ -383,96 +350,90 @@
             id: e.id
         }));
 
-        this.log('info', `Synchronized ${this.ccEvents.length} CC/pitchbend events from editor`);
+        this.modal.log('info', `Synchronized ${this.modal.ccEvents.length} CC/pitchbend events from editor`);
 
     // Sample log for debugging
-        if (this.ccEvents.length > 0) {
-            const sample = this.ccEvents.slice(0, 3);
-            this.log('debug', 'Sample synchronized events:', sample);
+        if (this.modal.ccEvents.length > 0) {
+            const sample = this.modal.ccEvents.slice(0, 3);
+            this.modal.log('debug', 'Sample synchronized events:', sample);
         }
     }
 
-    /**
-    * Sync tempo events from the editor de tempo
-    */
-    MidiEditorCCPickerMixin.syncTempoEventsFromEditor = function() {
-        if (!this.tempoEditor) {
-            this.log('info', `syncTempoEventsFromEditor: Tempo editor not initialized, keeping ${this.tempoEvents.length} original events`);
+    syncTempoEventsFromEditor() {
+        if (!this.modal.tempoEditor) {
+            this.modal.log('info', `syncTempoEventsFromEditor: Tempo editor not initialized, keeping ${this.modal.tempoEvents.length} original events`);
             return;
         }
 
-        const editorEvents = this.tempoEditor.getEvents();
+        const editorEvents = this.modal.tempoEditor.getEvents();
 
         if (!editorEvents || editorEvents.length === 0) {
-            this.log('info', 'syncTempoEventsFromEditor: No tempo events in editor');
-            this.tempoEvents = [];
+            this.modal.log('info', 'syncTempoEventsFromEditor: No tempo events in editor');
+            this.modal.tempoEvents = [];
             return;
         }
 
-        this.tempoEvents = editorEvents.map(e => ({
+        this.modal.tempoEvents = editorEvents.map(e => ({
             ticks: e.ticks,
             tempo: e.tempo,
             id: e.id
         }));
 
     // Update the global tempo with the first event
-        if (this.tempoEvents.length > 0) {
-            this.tempo = this.tempoEvents[0].tempo;
+        if (this.modal.tempoEvents.length > 0) {
+            this.modal.tempo = this.modal.tempoEvents[0].tempo;
         }
 
-        this.log('info', `Synchronized ${this.tempoEvents.length} tempo events from editor`);
+        this.modal.log('info', `Synchronized ${this.modal.tempoEvents.length} tempo events from editor`);
     }
 
-    /**
-    * Initialiser l'éditeur de vélocité
-    */
-    MidiEditorCCPickerMixin.initVelocityEditor = function() {
+    initVelocityEditor() {
         const container = document.getElementById('velocity-editor-container');
         if (!container) {
-            this.log('warn', 'Container velocity-editor-container not found');
+            this.modal.log('warn', 'Container velocity-editor-container not found');
             return;
         }
 
-        if (this.velocityEditor) {
-            this.log('info', 'Velocity Editor already initialized');
+        if (this.modal.velocityEditor) {
+            this.modal.log('info', 'Velocity Editor already initialized');
             return;
         }
 
-        this.log('info', `Initializing Velocity Editor with ${this.sequence.length} notes`);
+        this.modal.log('info', `Initializing Velocity Editor with ${this.modal.sequence.length} notes`);
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.pianoRoll?.timebase || 480,
-            xrange: this.pianoRoll?.xrange || 1920,
-            xoffset: this.pianoRoll?.xoffset || 0,
-            grid: this.snapValues[this.currentSnapIndex].ticks,
+            timebase: this.modal.pianoRoll?.timebase || 480,
+            xrange: this.modal.pianoRoll?.xrange || 1920,
+            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             onChange: (sequence) => {
     // Mark as dirty on velocity changes
-                this.isDirty = true;
-                this.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.updateSaveButton();
     // Synchroniser vers fullSequence et sequence
                 this.syncSequenceFromVelocityEditor(sequence);
             }
         };
 
     // Create the editor
-        this.velocityEditor = new VelocityEditor(container, options);
+        this.modal.velocityEditor = new VelocityEditor(container, options);
 
     // Load the full (unfiltered) sequence for the velocity editor
-        this.velocityEditor.setSequence(this.fullSequence);
+        this.modal.velocityEditor.setSequence(this.modal.fullSequence);
 
     // When editing a single channel, use that channel; otherwise first channel
-        const firstChannel = (this.activeChannels && this.activeChannels.size === 1)
-            ? Array.from(this.activeChannels)[0]
-            : (this.channels.length > 0 ? this.channels[0].channel : 0);
-        this.velocityEditor.setChannel(firstChannel);
+        const firstChannel = (this.modal.activeChannels && this.modal.activeChannels.size === 1)
+            ? Array.from(this.modal.activeChannels)[0]
+            : (this.modal.channels.length > 0 ? this.modal.channels[0].channel : 0);
+        this.modal.velocityEditor.setChannel(firstChannel);
 
-        this.highlightUsedCCButtons();
+        this.modal.highlightUsedCCButtons();
 
-        this.log('info', `Velocity Editor initialized with ${this.fullSequence.length} notes, default channel: ${firstChannel + 1}`);
+        this.modal.log('info', `Velocity Editor initialized with ${this.modal.fullSequence.length} notes, default channel: ${firstChannel + 1}`);
 
     // Update the channel selector
-        this.updateEditorChannelSelector();
+        this.modal.updateEditorChannelSelector();
 
     // Add a listener that refreshes the delete button on interactions
         container.addEventListener('mouseup', () => {
@@ -484,145 +445,130 @@
         this.waitForVelocityEditorLayout();
     }
 
-    /**
-    * Attendre que l'éditeur de vélocité ait une hauteur valide
-    */
-    MidiEditorCCPickerMixin.waitForVelocityEditorLayout = function(attempts = 0, maxAttempts = 60) {
-        if (!this.velocityEditor || !this.velocityEditor.element) {
-            this.log('warn', 'waitForVelocityEditorLayout: velocityEditor or element not found');
+    waitForVelocityEditorLayout(attempts = 0, maxAttempts = 60) {
+        if (!this.modal.velocityEditor || !this.modal.velocityEditor.element) {
+            this.modal.log('warn', 'waitForVelocityEditorLayout: velocityEditor or element not found');
             return;
         }
 
-        const height = this.velocityEditor.element.getBoundingClientRect().height;
-        this.log('debug', `waitForVelocityEditorLayout attempt ${attempts}: height=${height}`);
+        const height = this.modal.velocityEditor.element.getBoundingClientRect().height;
+        this.modal.log('debug', `waitForVelocityEditorLayout attempt ${attempts}: height=${height}`);
 
         if (height > 100) {
     // Layout is ready, we can resize
-            this.velocityEditor.resize();
-            this.log('info', `Velocity Editor layout ready after ${attempts} attempts (height=${height})`);
+            this.modal.velocityEditor.resize();
+            this.modal.log('info', `Velocity Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
     // Layout is not ready yet, retry on the next frame
             requestAnimationFrame(() => {
                 this.waitForVelocityEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
-            this.log('error', `waitForVelocityEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
+            this.modal.log('error', `waitForVelocityEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
         }
     }
 
-    /**
-    * Initialiser l'éditeur de tempo
-    */
-    MidiEditorCCPickerMixin.initTempoEditor = function() {
+    initTempoEditor() {
         const container = document.getElementById('tempo-editor-container');
         if (!container) {
-            this.log('warn', 'Container tempo-editor-container not found');
+            this.modal.log('warn', 'Container tempo-editor-container not found');
             return;
         }
 
-        if (this.tempoEditor) {
-            this.log('info', 'Tempo Editor already initialized');
+        if (this.modal.tempoEditor) {
+            this.modal.log('info', 'Tempo Editor already initialized');
             return;
         }
 
-        this.log('info', 'Initializing Tempo Editor');
+        this.modal.log('info', 'Initializing Tempo Editor');
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.pianoRoll?.timebase || 480,
-            xrange: this.pianoRoll?.xrange || 1920,
-            xoffset: this.pianoRoll?.xoffset || 0,
-            grid: this.snapValues[this.currentSnapIndex].ticks,
+            timebase: this.modal.pianoRoll?.timebase || 480,
+            xrange: this.modal.pianoRoll?.xrange || 1920,
+            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             minTempo: 20,
             maxTempo: 300,
             onChange: () => {
     // Mark as dirty on tempo changes
-                this.isDirty = true;
-                this.updateSaveButton();
+                this.modal.isDirty = true;
+                this.modal.updateSaveButton();
             }
         };
 
     // Create the editor
-        this.tempoEditor = new TempoEditor(container, options);
+        this.modal.tempoEditor = new TempoEditor(container, options);
 
     // Load existing tempo events
-        this.tempoEditor.setEvents(this.tempoEvents);
+        this.modal.tempoEditor.setEvents(this.modal.tempoEvents);
 
-        this.log('info', `Tempo Editor initialized with ${this.tempoEvents.length} events`);
+        this.modal.log('info', `Tempo Editor initialized with ${this.modal.tempoEvents.length} events`);
 
     // Wait for the layout to be ready
         this.waitForTempoEditorLayout();
     }
 
-    /**
-    * Attendre que l'éditeur de tempo ait une hauteur valide
-    */
-    MidiEditorCCPickerMixin.waitForTempoEditorLayout = function(attempts = 0, maxAttempts = 60) {
-        if (!this.tempoEditor || !this.tempoEditor.element) {
-            this.log('warn', 'waitForTempoEditorLayout: tempoEditor or element not found');
+    waitForTempoEditorLayout(attempts = 0, maxAttempts = 60) {
+        if (!this.modal.tempoEditor || !this.modal.tempoEditor.element) {
+            this.modal.log('warn', 'waitForTempoEditorLayout: tempoEditor or element not found');
             return;
         }
 
-        const height = this.tempoEditor.element.getBoundingClientRect().height;
-        this.log('debug', `waitForTempoEditorLayout attempt ${attempts}: height=${height}`);
+        const height = this.modal.tempoEditor.element.getBoundingClientRect().height;
+        this.modal.log('debug', `waitForTempoEditorLayout attempt ${attempts}: height=${height}`);
 
         if (height > 100) {
     // Layout is ready, we can resize
-            this.tempoEditor.resize();
-            this.log('info', `Tempo Editor layout ready after ${attempts} attempts (height=${height})`);
+            this.modal.tempoEditor.resize();
+            this.modal.log('info', `Tempo Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
     // Layout is not ready yet, retry on the next frame
             requestAnimationFrame(() => {
                 this.waitForTempoEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
-            this.log('error', `waitForTempoEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
+            this.modal.log('error', `waitForTempoEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
         }
     }
 
-    /**
-    * Synchroniser l'éditeur de tempo avec le piano roll
-    */
-    MidiEditorCCPickerMixin.syncTempoEditor = function() {
-        if (!this.tempoEditor || !this.pianoRoll) return;
+    syncTempoEditor() {
+        if (!this.modal.tempoEditor || !this.modal.pianoRoll) return;
 
-        this.tempoEditor.setXRange(this.pianoRoll.xrange);
-        this.tempoEditor.setXOffset(this.pianoRoll.xoffset);
-        this.tempoEditor.setGrid(this.snapValues[this.currentSnapIndex].ticks);
+        this.modal.tempoEditor.setXRange(this.modal.pianoRoll.xrange);
+        this.modal.tempoEditor.setXOffset(this.modal.pianoRoll.xoffset);
+        this.modal.tempoEditor.setGrid(this.modal.snapValues[this.modal.currentSnapIndex].ticks);
     }
 
-    /**
-    * Afficher les boutons de courbes
-    */
-    MidiEditorCCPickerMixin.showCurveButtons = function() {
+    showCurveButtons() {
     // Create the buttons once if they do not exist
-        let curveSection = this.container.querySelector('.curve-section');
+        let curveSection = this.modal.container.querySelector('.curve-section');
         if (!curveSection) {
     // Trouver la toolbar
-            const toolbar = this.container.querySelector('.cc-type-toolbar');
+            const toolbar = this.modal.container.querySelector('.cc-type-toolbar');
             if (!toolbar) return;
 
     // Create the curve-buttons section
             const curveHTML = `
                 <div class="cc-toolbar-divider"></div>
                 <div class="curve-section">
-                    <label class="cc-toolbar-label">${this.t('midiEditor.curveType')}</label>
+                    <label class="cc-toolbar-label">${this.modal.t('midiEditor.curveType')}</label>
                     <div class="cc-curve-buttons-horizontal">
-                        <button class="cc-curve-btn active" data-curve="linear" title="${this.t('midiEditor.curveLinear')}">━</button>
-                        <button class="cc-curve-btn" data-curve="exponential" title="${this.t('midiEditor.curveExponential')}">⌃</button>
-                        <button class="cc-curve-btn" data-curve="logarithmic" title="${this.t('midiEditor.curveLogarithmic')}">⌄</button>
-                        <button class="cc-curve-btn" data-curve="sine" title="${this.t('midiEditor.curveSine')}">∿</button>
+                        <button class="cc-curve-btn active" data-curve="linear" title="${this.modal.t('midiEditor.curveLinear')}">━</button>
+                        <button class="cc-curve-btn" data-curve="exponential" title="${this.modal.t('midiEditor.curveExponential')}">⌃</button>
+                        <button class="cc-curve-btn" data-curve="logarithmic" title="${this.modal.t('midiEditor.curveLogarithmic')}">⌄</button>
+                        <button class="cc-curve-btn" data-curve="sine" title="${this.modal.t('midiEditor.curveSine')}">∿</button>
                     </div>
                 </div>
             `;
 
     // Insert before the divider preceding the delete button
-            const deleteBtn = this.container.querySelector('#cc-delete-btn');
+            const deleteBtn = this.modal.container.querySelector('#cc-delete-btn');
             if (deleteBtn && deleteBtn.previousElementSibling) {
                 deleteBtn.previousElementSibling.insertAdjacentHTML('beforebegin', curveHTML);
 
     // Attach events
-                const ccCurveButtons = this.container.querySelectorAll('.cc-curve-btn');
+                const ccCurveButtons = this.modal.container.querySelectorAll('.cc-curve-btn');
                 ccCurveButtons.forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -633,10 +579,10 @@
     // Enable the clicked button
                             btn.classList.add('active');
     // Change the curve type for the active editor
-                            if (this.currentCCType === 'tempo' && this.tempoEditor) {
-                                this.tempoEditor.setCurveType(curveType);
-                            } else if (this.ccEditor) {
-                                this.ccEditor.setCurveType(curveType);
+                            if (this.modal.currentCCType === 'tempo' && this.modal.tempoEditor) {
+                                this.modal.tempoEditor.setCurveType(curveType);
+                            } else if (this.modal.ccEditor) {
+                                this.modal.ccEditor.setCurveType(curveType);
                             }
                         }
                     });
@@ -649,11 +595,8 @@
         }
     }
 
-    /**
-    * Masquer les boutons de courbes
-    */
-    MidiEditorCCPickerMixin.hideCurveButtons = function() {
-        const curveSection = this.container.querySelector('.curve-section');
+    hideCurveButtons() {
+        const curveSection = this.modal.container.querySelector('.curve-section');
         if (curveSection) {
             curveSection.style.display = 'none';
             if (curveSection.previousElementSibling && curveSection.previousElementSibling.classList.contains('cc-toolbar-divider')) {
@@ -662,28 +605,22 @@
         }
     }
 
-    /**
-    * Synchroniser l'éditeur de vélocité avec le piano roll
-    */
-    MidiEditorCCPickerMixin.syncVelocityEditor = function() {
-        if (!this.velocityEditor || !this.pianoRoll) return;
+    syncVelocityEditor() {
+        if (!this.modal.velocityEditor || !this.modal.pianoRoll) return;
 
-        this.velocityEditor.syncWith({
-            xrange: this.pianoRoll.xrange,
-            xoffset: this.pianoRoll.xoffset,
-            grid: this.snapValues[this.currentSnapIndex].ticks,
-            timebase: this.pianoRoll.timebase
+        this.modal.velocityEditor.syncWith({
+            xrange: this.modal.pianoRoll.xrange,
+            xoffset: this.modal.pianoRoll.xoffset,
+            grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
+            timebase: this.modal.pianoRoll.timebase
         });
     }
 
-    /**
-    * Synchroniser la séquence depuis l'éditeur de vélocité
-    */
-    MidiEditorCCPickerMixin.syncSequenceFromVelocityEditor = function(velocitySequence) {
+    syncSequenceFromVelocityEditor(velocitySequence) {
         if (!velocitySequence) return;
 
     // Update fullSequence and sequence with the new velocities
-        this.fullSequence.forEach(note => {
+        this.modal.fullSequence.forEach(note => {
             const velocityNote = velocitySequence.find(vn =>
                 vn.t === note.t && vn.n === note.n && vn.c === note.c
             );
@@ -693,50 +630,47 @@
         });
 
     // Rebuild the filtered sequence
-        this.sequence = this.fullSequence.filter(note => this.activeChannels.has(note.c));
+        this.modal.sequence = this.modal.fullSequence.filter(note => this.modal.activeChannels.has(note.c));
 
     // Update the piano roll
-        if (this.pianoRoll) {
-            this.pianoRoll.sequence = this.sequence;
-            if (typeof this.pianoRoll.redraw === 'function') {
-                this.pianoRoll.redraw();
+        if (this.modal.pianoRoll) {
+            this.modal.pianoRoll.sequence = this.modal.sequence;
+            if (typeof this.modal.pianoRoll.redraw === 'function') {
+                this.modal.pianoRoll.redraw();
             }
         }
 
-        this.log('debug', 'Synchronized velocities from velocity editor to sequence');
+        this.modal.log('debug', 'Synchronized velocities from velocity editor to sequence');
     }
 
-    /**
-    * Mettre à jour la liste des canaux basée sur fullSequence
-    */
-    MidiEditorCCPickerMixin.updateChannelsFromSequence = function() {
+    updateChannelsFromSequence() {
         const channelNoteCount = new Map();
         const channelPrograms = new Map();
 
     // Count notes per channel and preserve existing programs
-        this.fullSequence.forEach(note => {
+        this.modal.fullSequence.forEach(note => {
             const channel = note.c !== undefined ? note.c : 0;
             channelNoteCount.set(channel, (channelNoteCount.get(channel) || 0) + 1);
 
-    // Trouver le programme pour ce canal (depuis this.channels existants)
+    // Trouver le programme pour ce canal (depuis this.modal.channels existants)
             if (!channelPrograms.has(channel)) {
-                const existingChannel = this.channels.find(ch => ch.channel === channel);
+                const existingChannel = this.modal.channels.find(ch => ch.channel === channel);
                 if (existingChannel) {
                     channelPrograms.set(channel, existingChannel.program);
                 } else {
     // New channel: use the selected program
-                    channelPrograms.set(channel, this.selectedInstrument || 0);
+                    channelPrograms.set(channel, this.modal.selectedInstrument || 0);
                 }
             }
         });
 
-    // Reconstruire this.channels
-        this.channels = [];
+    // Reconstruire this.modal.channels
+        this.modal.channels = [];
         channelNoteCount.forEach((count, channel) => {
             const program = channelPrograms.get(channel) || 0;
-            const instrumentName = channel === 9 ? this.t('midiEditor.drumKit') : this.getInstrumentName(program);
+            const instrumentName = channel === 9 ? this.modal.t('midiEditor.drumKit') : this.modal.getInstrumentName(program);
 
-            this.channels.push({
+            this.modal.channels.push({
                 channel: channel,
                 program: program,
                 instrument: instrumentName,
@@ -745,15 +679,12 @@
         });
 
     // Sort by channel number
-        this.channels.sort((a, b) => a.channel - b.channel);
+        this.modal.channels.sort((a, b) => a.channel - b.channel);
 
-        this.log('debug', `Updated channels: ${this.channels.length} channels found`);
+        this.modal.log('debug', `Updated channels: ${this.modal.channels.length} channels found`);
     }
 
-    /**
-    * Éclaircir/éclairer une couleur hexadécimale pour la rendre plus éclatante
-    */
-    MidiEditorCCPickerMixin.brightenColor = function(color, percent) {
+    brightenColor(color, percent) {
         const num = parseInt(color.replace('#', ''), 16);
         const amt = Math.round(2.55 * percent);
         const R = Math.min(255, (num >> 16) + amt);
@@ -761,28 +692,9 @@
         const B = Math.min(255, (num & 0x0000FF) + amt);
         return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
-
-
-    // ========================================================================
-    // Sub-component wrapper (P2-F.10c)
-    // ------------------------------------------------------------------------
-    // Thin class facade : binds the existing mixin methods to the modal
-    // instance so callers can write `modal.ccPicker.openCCPicker()` instead
-    // of relying on prototype merging. Keeps the 769 LOC of method bodies
-    // untouched ; a body rewrite (substituting `this.modal.*` for state)
-    // can follow in a later cleanup once callsites have migrated.
-    // ========================================================================
-    class MidiEditorCCPicker {
-        constructor(modal) { this.modal = modal; }
     }
-    Object.keys(MidiEditorCCPickerMixin).forEach((key) => {
-        MidiEditorCCPicker.prototype[key] = function(...args) {
-            return MidiEditorCCPickerMixin[key].apply(this.modal, args);
-        };
-    });
 
     if (typeof window !== 'undefined') {
-        window.MidiEditorCCPickerMixin = MidiEditorCCPickerMixin;
         window.MidiEditorCCPicker = MidiEditorCCPicker;
     }
 })();

@@ -221,7 +221,7 @@
                 this.channelPanel.updateTablatureButton();
             }
 
-            this.updateCCEditorChannel();
+            this.ccPicker.updateCCEditorChannel();
             this.syncMutedChannels();
             this._updateChannelDisabledVisual(channel);
 

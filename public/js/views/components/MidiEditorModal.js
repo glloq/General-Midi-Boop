@@ -84,9 +84,9 @@ class MidiEditorModal {
         // Draw settings popover sub-component (P2-F.10b).
         this.drawSettings = typeof MidiEditorDrawSettings !== 'undefined' ? new MidiEditorDrawSettings(this) : null;
 
-        // CC picker sub-component (P2-F.10c). Thin facade over the mixin
-        // prototype — callsites can now use `modal.ccPicker.<method>(...)`.
-        // The mixin remains attached to the prototype for legacy callers.
+        // CC picker sub-component (P2-F.10c). All 22 methods now live on
+        // the class itself — callsites use `modal.ccPicker.<method>(...)`.
+        // The mixin has been removed from the prototype.
         this.ccPicker = typeof MidiEditorCCPicker !== 'undefined' ? new MidiEditorCCPicker(this) : null;
 
         // Remaining 9 facades (P2-F.10-wire). Thin auto-generated facades
@@ -369,7 +369,7 @@ const _mixins = [
     typeof MidiEditorSequenceMixin !== 'undefined' ? MidiEditorSequenceMixin : null,
     typeof MidiEditorCCMixin !== 'undefined' ? MidiEditorCCMixin : null,
     // MidiEditorDrawSettingsMixin retiré — remplacé par this.drawSettings (P2-F.10b-cleanup).
-    typeof MidiEditorCCPickerMixin !== 'undefined' ? MidiEditorCCPickerMixin : null,
+    // MidiEditorCCPickerMixin retiré — remplacé par this.ccPicker (P2-F.10c body-rewrite).
     typeof MidiEditorFileOpsMixin !== 'undefined' ? MidiEditorFileOpsMixin : null,
     typeof MidiEditorRendererMixin !== 'undefined' ? MidiEditorRendererMixin : null,
     typeof MidiEditorRoutingMixin !== 'undefined' ? MidiEditorRoutingMixin : null,

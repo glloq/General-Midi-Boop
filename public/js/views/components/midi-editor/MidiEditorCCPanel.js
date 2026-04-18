@@ -242,9 +242,9 @@ class MidiEditorCCPanel {
                     m.log('debug', 'CC Section transition ended');
 
                     if (!m.ccEditor) {
-                        this.initCCEditor();
+                        this.ccPicker.initCCEditor();
                     } else {
-                        this.waitForCCEditorLayout();
+                        this.ccPicker.waitForCCEditorLayout();
                     }
 
                     // Resize specialized editors after CC section expanded
@@ -263,7 +263,7 @@ class MidiEditorCCPanel {
 
                 setTimeout(() => {
                     if (!m.ccEditor) {
-                        this.initCCEditor();
+                        this.ccPicker.initCCEditor();
                     }
                 }, 400);
             } else {
@@ -339,9 +339,9 @@ class MidiEditorCCPanel {
             if (tempoEditorContainer) tempoEditorContainer.style.display = 'flex';
 
             if (!m.tempoEditor) {
-                this.initTempoEditor();
+                this.ccPicker.initTempoEditor();
             } else {
-                this.syncTempoEditor();
+                this.ccPicker.syncTempoEditor();
                 requestAnimationFrame(() => {
                     if (m.tempoEditor && m.tempoEditor.resize) {
                         m.tempoEditor.resize();
@@ -349,17 +349,17 @@ class MidiEditorCCPanel {
                 });
             }
 
-            this.showCurveButtons();
+            this.ccPicker.showCurveButtons();
         } else if (ccType === 'velocity') {
             if (ccEditorContainer) ccEditorContainer.style.display = 'none';
             if (velocityEditorContainer) velocityEditorContainer.style.display = 'flex';
             if (tempoEditorContainer) tempoEditorContainer.style.display = 'none';
 
             if (!m.velocityEditor) {
-                this.initVelocityEditor();
+                this.ccPicker.initVelocityEditor();
             } else {
                 m.velocityEditor.setSequence(m.fullSequence);
-                this.syncVelocityEditor();
+                this.ccPicker.syncVelocityEditor();
                 requestAnimationFrame(() => {
                     if (m.velocityEditor && m.velocityEditor.resize) {
                         m.velocityEditor.resize();
@@ -368,14 +368,14 @@ class MidiEditorCCPanel {
             }
 
             this.updateEditorChannelSelector();
-            this.hideCurveButtons();
+            this.ccPicker.hideCurveButtons();
         } else {
             if (ccEditorContainer) ccEditorContainer.style.display = 'flex';
             if (velocityEditorContainer) velocityEditorContainer.style.display = 'none';
             if (tempoEditorContainer) tempoEditorContainer.style.display = 'none';
 
             if (!m.ccEditor) {
-                this.initCCEditor();
+                this.ccPicker.initCCEditor();
             } else {
                 m.ccEditor.setCC(ccType);
                 requestAnimationFrame(() => {
@@ -386,13 +386,13 @@ class MidiEditorCCPanel {
                 this.updateEditorChannelSelector();
             }
 
-            this.showCurveButtons();
+            this.ccPicker.showCurveButtons();
 
             // Show/hide the note selector for poly aftertouch
             this.updateNoteSelectorVisibility(ccType);
         }
 
-        this.updateDeleteButtonState();
+        this.ccPicker.updateDeleteButtonState();
         this.highlightUsedCCButtons();
     }
 
@@ -433,7 +433,7 @@ class MidiEditorCCPanel {
             m.ccEditor.deleteSelected();
         }
 
-        this.updateDeleteButtonState();
+        this.ccPicker.updateDeleteButtonState();
     }
 
     /**
@@ -515,10 +515,10 @@ class MidiEditorCCPanel {
         m.log('info', `CC Editor initialized - Type: ${m.currentCCType}, Channel: ${activeChannel + 1}, Type channels: [${usedChannels.map(c => c + 1).join(', ')}], All CC channels: [${allChannels.map(c => c + 1).join(', ')}]`);
 
         container.addEventListener('mouseup', () => {
-            setTimeout(() => this.updateDeleteButtonState(), 0);
+            setTimeout(() => this.ccPicker.updateDeleteButtonState(), 0);
         });
 
-        this.waitForCCEditorLayout();
+        this.ccPicker.waitForCCEditorLayout();
     }
 
     /**
@@ -539,7 +539,7 @@ class MidiEditorCCPanel {
             m.log('info', `CC Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
             requestAnimationFrame(() => {
-                this.waitForCCEditorLayout(attempts + 1, maxAttempts);
+                this.ccPicker.waitForCCEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
             m.log('error', `waitForCCEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
@@ -570,9 +570,9 @@ class MidiEditorCCPanel {
      * Synchroniser tous les editeurs (CC et Velocity) avec le piano roll
      */
     syncAllEditors() {
-        this.syncCCEditor();
-        this.syncVelocityEditor();
-        this.syncTempoEditor();
+        this.ccPicker.syncCCEditor();
+        this.ccPicker.syncVelocityEditor();
+        this.ccPicker.syncTempoEditor();
     }
 
     /**
@@ -687,7 +687,7 @@ class MidiEditorCCPanel {
 
         m.log('info', `Tempo Editor initialized with ${m.tempoEvents.length} events`);
 
-        this.waitForTempoEditorLayout();
+        this.ccPicker.waitForTempoEditorLayout();
     }
 
     /**
@@ -708,7 +708,7 @@ class MidiEditorCCPanel {
             m.log('info', `Tempo Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
             requestAnimationFrame(() => {
-                this.waitForTempoEditorLayout(attempts + 1, maxAttempts);
+                this.ccPicker.waitForTempoEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
             m.log('error', `waitForTempoEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);
@@ -827,7 +827,7 @@ class MidiEditorCCPanel {
             onChange: (sequence) => {
                 m.isDirty = true;
                 m.updateSaveButton();
-                this.syncSequenceFromVelocityEditor(sequence);
+                this.ccPicker.syncSequenceFromVelocityEditor(sequence);
             }
         };
 
@@ -847,10 +847,10 @@ class MidiEditorCCPanel {
         this.updateEditorChannelSelector();
 
         container.addEventListener('mouseup', () => {
-            setTimeout(() => this.updateDeleteButtonState(), 0);
+            setTimeout(() => this.ccPicker.updateDeleteButtonState(), 0);
         });
 
-        this.waitForVelocityEditorLayout();
+        this.ccPicker.waitForVelocityEditorLayout();
     }
 
     /**
@@ -871,7 +871,7 @@ class MidiEditorCCPanel {
             m.log('info', `Velocity Editor layout ready after ${attempts} attempts (height=${height})`);
         } else if (attempts < maxAttempts) {
             requestAnimationFrame(() => {
-                this.waitForVelocityEditorLayout(attempts + 1, maxAttempts);
+                this.ccPicker.waitForVelocityEditorLayout(attempts + 1, maxAttempts);
             });
         } else {
             m.log('error', `waitForVelocityEditorLayout: Max attempts reached (${maxAttempts}), height still ${height}px`);

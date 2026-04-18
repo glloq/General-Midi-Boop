@@ -422,10 +422,10 @@
 
                     // Initialize the CC editor if it does not exist yet
                     if (!this.ccEditor) {
-                        this.initCCEditor();
+                        this.ccPicker.initCCEditor();
                     } else {
                         // The editor already exists — wait for its layout then resize
-                        this.waitForCCEditorLayout();
+                        this.ccPicker.waitForCCEditorLayout();
                     }
                 };
 
@@ -434,7 +434,7 @@
                 // Fallback when there is no transition (already expanded, etc.)
                 setTimeout(() => {
                     if (!this.ccEditor) {
-                        this.initCCEditor();
+                        this.ccPicker.initCCEditor();
                     }
                 }, 400);
             } else {
@@ -556,10 +556,10 @@
 
             // Initialize the tempo editor if it does not exist
             if (!this.tempoEditor) {
-                this.initTempoEditor();
+                this.ccPicker.initTempoEditor();
             } else {
                 // Synchroniser avec le piano roll actuel
-                this.syncTempoEditor();
+                this.ccPicker.syncTempoEditor();
                 // OPTIMIZATION: single RAF instead of double RAF (saves one frame)
                 requestAnimationFrame(() => {
                     if (this.tempoEditor && this.tempoEditor.resize) {
@@ -569,7 +569,7 @@
             }
 
             // Afficher les boutons de courbes pour tempo
-            this.showCurveButtons();
+            this.ccPicker.showCurveButtons();
         } else if (ccType === 'velocity') {
             // Show the velocity editor
             if (ccEditorContainer) ccEditorContainer.style.display = 'none';
@@ -578,11 +578,11 @@
 
             // Initialize the velocity editor if it does not exist
             if (!this.velocityEditor) {
-                this.initVelocityEditor();
+                this.ccPicker.initVelocityEditor();
             } else {
                 // Reload the full sequence (per-channel filtering happens inside the editor)
                 this.velocityEditor.setSequence(this.fullSequence);
-                this.syncVelocityEditor();
+                this.ccPicker.syncVelocityEditor();
                 // OPTIMIZATION: single RAF instead of double RAF (saves one frame)
                 requestAnimationFrame(() => {
                     if (this.velocityEditor && this.velocityEditor.resize) {
@@ -594,7 +594,7 @@
             // Update the channel selector for the velocity editor
             this.updateEditorChannelSelector();
             // Masquer les boutons de courbes
-            this.hideCurveButtons();
+            this.ccPicker.hideCurveButtons();
         } else {
             // Show the CC editor
             if (ccEditorContainer) ccEditorContainer.style.display = 'flex';
@@ -603,7 +603,7 @@
 
             // Initialize the CC editor if it does not exist
             if (!this.ccEditor) {
-                this.initCCEditor();
+                this.ccPicker.initCCEditor();
             } else {
                 this.ccEditor.setCC(ccType);
                 // OPTIMISATION: Simple RAF au lieu de double RAF
@@ -617,11 +617,11 @@
             }
 
             // Afficher les boutons de courbes pour les CC aussi
-            this.showCurveButtons();
+            this.ccPicker.showCurveButtons();
         }
 
         // Update the delete button state after the type change
-        this.updateDeleteButtonState();
+        this.ccPicker.updateDeleteButtonState();
         this.highlightUsedCCButtons();
     }
 

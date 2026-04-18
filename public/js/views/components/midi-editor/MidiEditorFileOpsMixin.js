@@ -245,13 +245,13 @@
             this.syncFullSequenceFromPianoRoll();
 
     // Sync CC/pitch-bend events from the editor
-            this.syncCCEventsFromEditor();
+            this.ccPicker.syncCCEventsFromEditor();
 
     // Sync tempo events from the editor
-            this.syncTempoEventsFromEditor();
+            this.ccPicker.syncTempoEventsFromEditor();
 
     // Update the channel list to reflect the current sequence
-            this.updateChannelsFromSequence();
+            this.ccPicker.updateChannelsFromSequence();
 
             this.log('info', `Saving ${this.fullSequence.length} notes across ${this.channels.length} channels`);
 
@@ -389,8 +389,8 @@
 
     // Synchronize data from piano roll
             this.syncFullSequenceFromPianoRoll();
-            this.syncCCEventsFromEditor();
-            this.updateChannelsFromSequence();
+            this.ccPicker.syncCCEventsFromEditor();
+            this.ccPicker.updateChannelsFromSequence();
 
             this.log('info', `Saving ${this.fullSequence.length} notes across ${this.channels.length} channels`);
 

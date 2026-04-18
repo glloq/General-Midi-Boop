@@ -332,7 +332,7 @@
             }
             if (e.target.closest('#cc-delete-btn')) {
                 e.preventDefault();
-                this.deleteSelectedCCVelocity();
+                this.ccPicker.deleteSelectedCCVelocity();
                 return;
             }
         });
@@ -343,7 +343,7 @@
             ccAddBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                this.openCCPicker();
+                this.ccPicker.openCCPicker();
             });
         }
 
@@ -613,7 +613,7 @@
             const currentTPP = specializedRenderer.ticksPerPixel || 2;
     // factor < 1 = zoom in (reduce ticksPerPixel), factor > 1 = zoom out
             specializedRenderer.setZoom(currentTPP * factor);
-            this.syncAllEditors();
+            this.ccPicker.syncAllEditors();
             return;
         }
 
@@ -637,7 +637,7 @@
             if (typeof this.pianoRoll.redraw === 'function') {
                 this.pianoRoll.redraw();
             }
-            this.syncAllEditors();
+            this.ccPicker.syncAllEditors();
         }, 50);
 
         this.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
@@ -651,7 +651,7 @@
         const specializedRenderer = this._getActiveSpecializedRenderer();
         if (specializedRenderer && typeof specializedRenderer.setVerticalZoom === 'function') {
             specializedRenderer.setVerticalZoom(factor);
-            this.syncAllEditors();
+            this.ccPicker.syncAllEditors();
             return;
         }
 
@@ -744,7 +744,7 @@
             if (!syncScheduled) {
                 syncScheduled = true;
                 requestAnimationFrame(() => {
-                    this.syncAllEditors();
+                    this.ccPicker.syncAllEditors();
                     syncScheduled = false;
                 });
             }
@@ -804,7 +804,7 @@
         }
 
     // Sync the CC editor
-        this.syncCCEditor();
+        this.ccPicker.syncCCEditor();
     }
 
     /**
@@ -898,7 +898,7 @@
             this.timelineBar = null;
         }
 
-        const pianoLeftOffset = this._getActiveEditorHeaderWidth();
+        const pianoLeftOffset = this.ccPicker._getActiveEditorHeaderWidth();
 
         this.timelineBar = new PlaybackTimelineBar(timelineContainer, {
             ticksPerBeat: ticksPerBeat,
@@ -931,9 +931,9 @@
                 if (this.tablatureEditor && this.tablatureEditor.isVisible && this.tablatureEditor.renderer) this.tablatureEditor.renderer.setScrollX(newScrollX);
                 if (this.drumPatternEditor && this.drumPatternEditor.isVisible && this.drumPatternEditor.gridRenderer) this.drumPatternEditor.gridRenderer.setScrollX(newScrollX);
                 if (this.windInstrumentEditor && this.windInstrumentEditor.isVisible && this.windInstrumentEditor.renderer) this.windInstrumentEditor.renderer.setScrollX(newScrollX);
-                this.syncCCEditor();
-                this.syncVelocityEditor();
-                this.syncTempoEditor();
+                this.ccPicker.syncCCEditor();
+                this.ccPicker.syncVelocityEditor();
+                this.ccPicker.syncTempoEditor();
             },
             onRangeChange: (start, end) => {
                 if (this.pianoRoll) {

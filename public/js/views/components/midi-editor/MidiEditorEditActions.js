@@ -401,7 +401,7 @@
         this.syncFullSequenceFromPianoRoll();
 
     // Update the channel list (automatically drops empty channels)
-        this.updateChannelsFromSequence();
+        this.ccPicker.updateChannelsFromSequence();
 
     // Nettoyer activeChannels : retirer les canaux qui n'existent plus
         const existingChannelNumbers = new Set(this.channels.map(ch => ch.channel));
@@ -591,7 +591,7 @@
         this.isDirty = true;
         this.updateSaveButton();
         this.syncFullSequenceFromPianoRoll();
-        this.updateChannelsFromSequence();
+        this.ccPicker.updateChannelsFromSequence();
 
     // Nettoyer activeChannels : retirer les canaux qui n'existent plus
         const existingChannelNumbers = new Set(this.channels.map(ch => ch.channel));
@@ -713,7 +713,7 @@
         }
 
     // Sync every editor
-        this.syncAllEditors();
+        this.ccPicker.syncAllEditors();
 
         this.showNotification(this.t('midiEditor.snapChanged', { snap: currentSnap.label }), 'info');
     }
@@ -991,7 +991,7 @@
                 e.preventDefault();
     // When the CC/velocity section is open, delete the selected CC/velocity points
                 if (this.ccSectionExpanded) {
-                    this.deleteSelectedCCVelocity();
+                    this.ccPicker.deleteSelectedCCVelocity();
                 } else {
     // Otherwise delete the selected notes
                     this.deleteSelectedNotes();
