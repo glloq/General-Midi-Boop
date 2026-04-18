@@ -68,11 +68,11 @@ class BaseView {
             debounceMs: 100
         };
         
-        // Cache d'éléments DOM
+        // DOM element cache
         this.elements = {};
         this.cachedElements = new Map();
         
-        // Gestion des événements
+        // Event handling
         this.eventSubscriptions = [];
         this.domEventListeners = [];
         
@@ -80,7 +80,7 @@ class BaseView {
         this._updateTimer = null;
         this._renderTimer = null;
         
-        // Métriques
+        // Metrics
         this.metrics = {
             renderCount: 0,
             updateCount: 0,
@@ -97,7 +97,7 @@ class BaseView {
     }
     
     // ========================================================================
-    // RÉSOLUTION CONTAINER
+    // CONTAINER RESOLUTION
     // ========================================================================
     
     /**
