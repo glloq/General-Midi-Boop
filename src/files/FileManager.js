@@ -250,6 +250,9 @@ class FileManager {
       this._safeBlobDelete(file.blob_path);
     }
     this.app.logger.info(`File deleted: ${file.filename} (${numericId})`);
+    if (this.app.eventBus) {
+      this.app.eventBus.emit('file_delete', { fileId: numericId });
+    }
     this.broadcastFileList();
     return { success: true };
   }
@@ -313,6 +316,9 @@ class FileManager {
     }
 
     this.app.logger.info(`File saved: ${fileId} (hash=${newBlob.hash.slice(0, 8)}…)`);
+    if (this.app.eventBus) {
+      this.app.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
+    }
     this.broadcastFileList();
     return { success: true };
   }

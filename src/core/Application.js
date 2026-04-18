@@ -279,8 +279,9 @@ class Application {
         this.logger.warn(`Lighting manager not available: ${error.message}`);
       }
 
-      // Initialize auto-assigner (singleton with cache)
-      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger));
+      // Initialize auto-assigner (singleton with cache; EventBus invalidates
+      // on file_write / file_delete / file_uploaded automatically).
+      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger, this.eventBus));
 
       // Initialize MIDI adaptation service (facade over MidiTransposer + AutoAssigner)
       this._registerService('adaptationService', new MidiAdaptationService(this.logger, this.autoAssigner));

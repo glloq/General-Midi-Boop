@@ -85,6 +85,7 @@ class MidiPlayer {
   constructor(deps) {
     this.logger = deps.logger;
     this.database = deps.database;
+    this.blobStore = deps.blobStore;
     this._deps = deps; // For lazy resolution of wsServer, deviceManager
     this.playing = false;
     this.paused = false;
@@ -148,12 +149,14 @@ class MidiPlayer {
       if (!file) {
         throw new Error(`File not found: ${fileId}`);
       }
-      if (!file.data) {
-        throw new Error(`File ${fileId} (${file.filename}) has no MIDI data`);
+      if (!file.blob_path) {
+        throw new Error(`File ${fileId} (${file.filename}) has no blob_path`);
       }
 
-      // Handle both Buffer (BLOB) and base64 string (legacy)
-      const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
+      // Bytes live on disk under data/midi/<sha[0..1]>/<sha>.mid; resolved
+      // by BlobStore. Re-parsed every load — for typical files this is
+      // 5-15 ms on a Pi 4, well below playback startup budget.
+      const buffer = this.blobStore.read(file.blob_path);
       const midi = parseMidi(buffer);
 
       if (!midi || !midi.header || !Array.isArray(midi.tracks)) {
