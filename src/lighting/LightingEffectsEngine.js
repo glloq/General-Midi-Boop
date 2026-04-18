@@ -1,10 +1,19 @@
-// src/lighting/LightingEffectsEngine.js
-// Effects engine for animated lighting patterns
-// Supports: strobe, rainbow, chase, fire, breathe, sparkle, color_cycle, wave
+/**
+ * @file src/lighting/LightingEffectsEngine.js
+ * @description Animated lighting effects engine. Owned by
+ * {@link LightingManager}; runs one independent timer per active
+ * effect and writes to the relevant driver on each tick.
+ *
+ * Supported effect types: `strobe`, `rainbow`, `chase`, `fire`,
+ * `breathe`, `sparkle`, `color_cycle`, `wave`. Tempo-synced effects
+ * read `this.bpm` which is updated either explicitly or via the
+ * `tapTempo` helper.
+ */
 
 import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
 
 class LightingEffectsEngine {
+  /** @param {Object} logger */
   constructor(logger) {
     this.logger = logger;
     this.activeEffects = new Map(); // effectKey -> { interval, driver, config }

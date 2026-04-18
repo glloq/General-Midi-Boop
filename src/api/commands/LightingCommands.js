@@ -1,14 +1,56 @@
-// src/api/commands/LightingCommands.js
+/**
+ * @file src/api/commands/LightingCommands.js
+ * @description WebSocket commands for the lighting subsystem (GPIO LEDs,
+ * WS281x strips, DMX fixtures via the optional LightingManager).
+ *
+ * Responsibility split:
+ *   - Persistence (devices, rules, presets, groups, scenes) is delegated
+ *     to `lightingRepository`.
+ *   - Runtime control (effects engine, BPM, MIDI-learn, scene apply,
+ *     master dimmer, blackout) is delegated to `lightingManager` and
+ *     guarded by {@link requireLightingManager}.
+ *
+ * Registered commands (grouped):
+ *   - Devices: list, add, update, delete, test, scan
+ *   - Rules: list, add, update, delete, test
+ *   - Presets: list, save, load, delete
+ *   - Effects: start, stop, list
+ *   - Master controls: all_off, master_dimmer, blackout
+ *   - Groups: create, delete, list, color, off
+ *   - Rules import/export
+ *   - Scenes: save, apply
+ *   - MIDI-learn: start
+ *   - BPM: set, tap, get
+ *   - LED broadcast toggle, DMX profile list
+ *
+ * Validation: imperative inside each handler, using `requireField` /
+ * `validateMidiRange` from ValidationUtils.
+ */
 
 import { ValidationError, NotFoundError, ConfigurationError } from '../../core/errors/index.js';
 import { hexToRgb } from '../../utils/ColorUtils.js';
 import { requireField, validateMidiRange } from '../../utils/ValidationUtils.js';
 
+/**
+ * Resolve and return the lighting manager, or throw a structured error
+ * when it is not loaded (missing `pigpio`/`rpi-ws281x-native` deps).
+ *
+ * @param {Object} app
+ * @returns {Object} The live LightingManager instance.
+ * @throws {ConfigurationError}
+ */
 function requireLightingManager(app) {
   if (!app.lightingManager) throw new ConfigurationError('Lighting manager not available');
   return app.lightingManager;
 }
 
+/**
+ * List every persisted lighting device, enriched with a live
+ * `connected` flag from the manager (false when the manager is absent).
+ *
+ * @param {Object} app
+ * @returns {{success:true, devices:Object[]}}
+ */
 function lightingDeviceList(app) {
   const devices = app.lightingRepository.findAllDevices();
   const statuses = app.lightingManager?.getDeviceStatus() || [];
@@ -23,6 +65,16 @@ function lightingDeviceList(app) {
   };
 }
 
+/**
+ * Persist a new lighting device row, then ask the manager to reload its
+ * driver list so the device becomes immediately controllable.
+ *
+ * @param {Object} app
+ * @param {{name:string, type?:string, connection_config?:Object,
+ *   led_count?:number, enabled?:boolean}} data
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ * @throws {ValidationError}
+ */
 async function lightingDeviceAdd(app, data) {
   requireField(data, 'name');
 
@@ -40,6 +92,15 @@ async function lightingDeviceAdd(app, data) {
   return { success: true, id };
 }
 
+/**
+ * Update an existing lighting device row + reload drivers.
+ *
+ * @param {Object} app
+ * @param {Object} data - Must include `id`; remaining fields are
+ *   forwarded to `lightingRepository.updateDevice`.
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function lightingDeviceUpdate(app, data) {
   requireField(data, 'id');
   app.lightingRepository.updateDevice(data.id, data);
@@ -47,6 +108,15 @@ async function lightingDeviceUpdate(app, data) {
   return { success: true };
 }
 
+/**
+ * Delete a lighting device, disconnect it from the manager, and refresh
+ * the rule cache (rules referencing the device become orphaned).
+ *
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function lightingDeviceDelete(app, data) {
   requireField(data, 'id');
   app.lightingRepository.deleteDevice(data.id);
@@ -55,12 +125,27 @@ async function lightingDeviceDelete(app, data) {
   return { success: true };
 }
 
+/**
+ * Trigger a hardware self-test on a device (color cycle / chase pattern).
+ *
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {Promise<Object>}
+ * @throws {ValidationError|ConfigurationError}
+ */
 async function lightingDeviceTest(app, data) {
   requireField(data, 'id');
   const lm = requireLightingManager(app);
   return await lm.testDevice(data.id);
 }
 
+/**
+ * List rules, optionally scoped to a single device.
+ *
+ * @param {Object} app
+ * @param {?{device_id?:(string|number)}} data
+ * @returns {{success:true, rules:Object[]}}
+ */
 function lightingRuleList(app, data) {
   let rules;
   if (data?.device_id) {
@@ -71,6 +156,16 @@ function lightingRuleList(app, data) {
   return { success: true, rules };
 }
 
+/**
+ * Persist a new rule (condition → action). Validates the MIDI-range
+ * fields up front so invalid bounds never reach the engine.
+ *
+ * @param {Object} app
+ * @param {Object} data - `{device_id, instrument_id?, name?, priority?,
+ *   enabled?, condition_config?, action_config?}`.
+ * @returns {{success:true, id:(string|number)}}
+ * @throws {ValidationError|NotFoundError}
+ */
 function lightingRuleAdd(app, data) {
   requireField(data, 'device_id');
 
@@ -98,6 +193,12 @@ function lightingRuleAdd(app, data) {
   return { success: true, id };
 }
 
+/**
+ * @param {Object} app
+ * @param {Object} data - Must include `id`.
+ * @returns {{success:true}}
+ * @throws {ValidationError}
+ */
 function lightingRuleUpdate(app, data) {
   requireField(data, 'id');
   app.lightingRepository.updateRule(data.id, data);
@@ -105,6 +206,12 @@ function lightingRuleUpdate(app, data) {
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {{success:true}}
+ * @throws {ValidationError}
+ */
 function lightingRuleDelete(app, data) {
   requireField(data, 'id');
   app.lightingRepository.deleteRule(data.id);
@@ -112,17 +219,38 @@ function lightingRuleDelete(app, data) {
   return { success: true };
 }
 
+/**
+ * Trigger a one-shot test fire of a single rule (without waiting for a
+ * matching MIDI event).
+ *
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingRuleTest(app, data) {
   requireField(data, 'id');
   const lm = requireLightingManager(app);
   return lm.testRule(data.id);
 }
 
+/**
+ * @param {Object} app
+ * @returns {{success:true, presets:Object[]}}
+ */
 function lightingPresetList(app) {
   const presets = app.lightingRepository.findAllPresets();
   return { success: true, presets };
 }
 
+/**
+ * Snapshot the current rule set as a named preset.
+ *
+ * @param {Object} app
+ * @param {{name:string}} data
+ * @returns {{success:true, id:(string|number)}}
+ * @throws {ValidationError}
+ */
 function lightingPresetSave(app, data) {
   requireField(data, 'name');
 
@@ -136,6 +264,17 @@ function lightingPresetSave(app, data) {
   return { success: true, id };
 }
 
+/**
+ * Replace every active rule with the contents of a saved preset.
+ * Existing rules are deleted first so the replay is exact, not additive.
+ * Scene-style presets (whose snapshot is an object, not an array) are
+ * rejected — callers must use `lighting_scene_apply` for those.
+ *
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {{success:true, rules_loaded:number}}
+ * @throws {ValidationError|NotFoundError}
+ */
 function lightingPresetLoad(app, data) {
   requireField(data, 'id');
 
@@ -162,12 +301,24 @@ function lightingPresetLoad(app, data) {
   return { success: true, rules_loaded: preset.rules_snapshot.length };
 }
 
+/**
+ * @param {Object} app
+ * @param {{id:(string|number)}} data
+ * @returns {{success:true}}
+ * @throws {ValidationError}
+ */
 function lightingPresetDelete(app, data) {
   requireField(data, 'id');
   app.lightingRepository.deletePreset(data.id);
   return { success: true };
 }
 
+/**
+ * Force every device to dark state. No-op when the manager is absent.
+ *
+ * @param {Object} app
+ * @returns {{success:true}}
+ */
 function lightingAllOff(app) {
   if (app.lightingManager) {
     app.lightingManager.allOff();
@@ -177,6 +328,19 @@ function lightingAllOff(app) {
 
 // ==================== EFFECTS API ====================
 
+/**
+ * Start a runtime effect (chase, pulse, sparkle, etc.) on a slice of
+ * one device's LED strip. Returns the effect key the caller needs to
+ * later stop it.
+ *
+ * @param {Object} app
+ * @param {{device_id:(string|number), effect_type:string, led_start?:number,
+ *   led_end?:number, speed?:number, brightness?:number, color?:string,
+ *   color2?:?string, density?:number}} data - `led_end:-1` means
+ *   "to the end of the strip"; `color`/`color2` accept hex strings.
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingEffectStart(app, data) {
   requireField(data, 'device_id');
   requireField(data, 'effect_type');
@@ -193,12 +357,22 @@ function lightingEffectStart(app, data) {
   });
 }
 
+/**
+ * @param {Object} app
+ * @param {{effect_key:string}} data
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingEffectStop(app, data) {
   requireField(data, 'effect_key');
   const lm = requireLightingManager(app);
   return lm.stopEffect(data.effect_key);
 }
 
+/**
+ * @param {Object} app
+ * @returns {{success:true, effects:Object[]}}
+ */
 function lightingEffectList(app) {
   if (!app.lightingManager) return { success: true, effects: [] };
   return { success: true, effects: app.lightingManager.getActiveEffects() };
@@ -206,6 +380,14 @@ function lightingEffectList(app) {
 
 // ==================== MASTER DIMMER API ====================
 
+/**
+ * Setter when `data.value` is provided, getter otherwise.
+ *
+ * @param {Object} app
+ * @param {?{value?:number}} data - `value` in 0..255.
+ * @returns {Object} Manager response.
+ * @throws {ConfigurationError}
+ */
 function lightingMasterDimmer(app, data) {
   const lm = requireLightingManager(app);
   if (data?.value !== undefined) {
@@ -214,6 +396,13 @@ function lightingMasterDimmer(app, data) {
   return { success: true, masterDimmer: lm.getMasterDimmer() };
 }
 
+/**
+ * Instant blackout — every device goes dark, every effect stops.
+ *
+ * @param {Object} app
+ * @returns {Object}
+ * @throws {ConfigurationError}
+ */
 function lightingBlackout(app) {
   const lm = requireLightingManager(app);
   return lm.blackout();
@@ -221,6 +410,15 @@ function lightingBlackout(app) {
 
 // ==================== DEVICE GROUPS API ====================
 
+/**
+ * Create a named device group so subsequent commands can target several
+ * devices at once.
+ *
+ * @param {Object} app
+ * @param {{name:string, device_ids:(string|number)[]}} data
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingGroupCreate(app, data) {
   requireField(data, 'name');
   if (!data.device_ids || !Array.isArray(data.device_ids)) throw new ValidationError('device_ids array is required', 'device_ids');
@@ -228,17 +426,37 @@ function lightingGroupCreate(app, data) {
   return lm.createGroup(data.name, data.device_ids);
 }
 
+/**
+ * @param {Object} app
+ * @param {{name:string}} data
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingGroupDelete(app, data) {
   requireField(data, 'name');
   const lm = requireLightingManager(app);
   return lm.deleteGroup(data.name);
 }
 
+/**
+ * @param {Object} app
+ * @returns {{success:true, groups:Object}}
+ */
 function lightingGroupList(app) {
   if (!app.lightingManager) return { success: true, groups: {} };
   return { success: true, groups: app.lightingManager.getGroups() };
 }
 
+/**
+ * Set a uniform color across a group. Accepts either a hex string
+ * (`color`) or explicit RGB components (`r`, `g`, `b`).
+ *
+ * @param {Object} app
+ * @param {{name:string, color?:string, r?:number, g?:number, b?:number,
+ *   brightness?:number}} data - `brightness` 0..255.
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingGroupColor(app, data) {
   requireField(data, 'name');
   const lm = requireLightingManager(app);
@@ -246,6 +464,12 @@ function lightingGroupColor(app, data) {
   return lm.setGroupColor(data.name, color.r, color.g, color.b, data.brightness || 255);
 }
 
+/**
+ * @param {Object} app
+ * @param {{name:string}} data
+ * @returns {Object}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingGroupOff(app, data) {
   requireField(data, 'name');
   const lm = requireLightingManager(app);
@@ -254,6 +478,14 @@ function lightingGroupOff(app, data) {
 
 // ==================== RULE IMPORT/EXPORT API ====================
 
+/**
+ * Export rules (optionally scoped to a single device) plus referenced
+ * device metadata as a portable JSON document.
+ *
+ * @param {Object} app
+ * @param {?{device_id?:(string|number)}} data
+ * @returns {{success:true, export_data:Object}}
+ */
 function lightingRulesExport(app, data) {
   let rules;
   if (data?.device_id) {
@@ -282,6 +514,16 @@ function lightingRulesExport(app, data) {
   };
 }
 
+/**
+ * Import rules from an exported JSON document. Devices are matched by
+ * `device_name`; unmatched rules either fall back to
+ * `default_device_id` (if provided) or are skipped.
+ *
+ * @param {Object} app
+ * @param {{import_data:(string|Object), default_device_id?:(string|number)}} data
+ * @returns {{success:true, imported:number, skipped:number}}
+ * @throws {ValidationError}
+ */
 function lightingRulesImport(app, data) {
   requireField(data, 'import_data');
   const importData = typeof data.import_data === 'string' ? JSON.parse(data.import_data) : data.import_data;
@@ -325,16 +567,28 @@ function lightingRulesImport(app, data) {
 
 // ==================== DEVICE SCAN/DISCOVER API ====================
 
+/**
+ * Discover lighting devices on the local network via HTTP probing
+ * (WLED) and well-known discovery URLs (Hue). Probes are batched to
+ * avoid overwhelming the LAN.
+ *
+ * @param {Object} app
+ * @param {?{type?:('all'|'wled'|'hue'), subnet?:string}} data - `subnet`
+ *   defaults to `"192.168.1"`; the handler probes `<subnet>.1` to
+ *   `<subnet>.254`.
+ * @returns {Promise<{success:true, discovered:Object[]}>}
+ */
 async function lightingDeviceScan(app, data) {
   const scanType = data?.type || 'all';
   const discovered = [];
 
-  // Scan for WLED devices via mDNS-like HTTP probe on common ranges
+  // WLED discovery: each instance exposes /json/info; we probe every IP
+  // in the subnet in batches because a single broadcast probe is not
+  // available without raw sockets.
   if (scanType === 'all' || scanType === 'wled') {
     const subnet = data?.subnet || '192.168.1';
     const scanPromises = [];
 
-    // Probe common addresses
     for (let i = 1; i <= 254; i++) {
       const ip = `${subnet}.${i}`;
       scanPromises.push(
@@ -386,6 +640,15 @@ async function lightingDeviceScan(app, data) {
 
 // ==================== SCENES API ====================
 
+/**
+ * Snapshot the current live state of every device (master dimmer,
+ * effects, group bindings) into a named scene preset.
+ *
+ * @param {Object} app
+ * @param {{name:string}} data
+ * @returns {{success:true, id:(string|number)}}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingSceneSave(app, data) {
   requireField(data, 'name');
   const lm = requireLightingManager(app);
@@ -419,6 +682,16 @@ function lightingSceneSave(app, data) {
   return { success: true, id };
 }
 
+/**
+ * Apply a scene snapshot: restore master dimmer, paint device colors,
+ * relaunch effects. Devices/effects whose drivers are no longer
+ * connected are silently skipped so partial restorations succeed.
+ *
+ * @param {Object} app
+ * @param {{scene:Object}} data
+ * @returns {{success:true}}
+ * @throws {ValidationError|ConfigurationError}
+ */
 function lightingSceneApply(app, data) {
   requireField(data, 'scene', 'scene data is required');
   const lm = requireLightingManager(app);
@@ -463,10 +736,20 @@ function lightingSceneApply(app, data) {
 
 // ==================== MIDI LEARN ====================
 
+/**
+ * One-shot MIDI-learn helper: subscribe to the next `midi_message`
+ * event and return its descriptor. Resolves with `success:false` after
+ * a 10-second timeout so the UI can offer a retry.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:boolean, learned?:Object,
+ *   error?:string, message?:string}>}
+ * @throws {ConfigurationError}
+ */
 function lightingMidiLearnStart(app, _data) {
   requireLightingManager(app);
 
-  // Set up a one-shot MIDI listener that captures the next MIDI event
+  // Set up a one-shot MIDI listener that captures the next MIDI event.
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       app.eventBus.removeListener('midi_message', handler);
@@ -495,6 +778,11 @@ function lightingMidiLearnStart(app, _data) {
   });
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('lighting_device_list', () => lightingDeviceList(app));
   registry.register('lighting_device_add', (data) => lightingDeviceAdd(app, data));

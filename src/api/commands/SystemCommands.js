@@ -1,4 +1,27 @@
-// src/api/commands/SystemCommands.js
+/**
+ * @file src/api/commands/SystemCommands.js
+ * @description WebSocket command handlers for system-level operations
+ * (status, info, restart, in-place update, backup).
+ *
+ * Registered commands:
+ *   - `system_status`        — devices/routes/files counts + uptime
+ *   - `system_info`          — host platform/CPU/memory
+ *   - `system_restart`       — clean exit; PM2 restarts
+ *   - `system_shutdown`      — same as restart in this codebase
+ *   - `system_check_update`  — git ls-remote vs local HEAD
+ *   - `system_update`        — spawn detached `scripts/update.sh`
+ *   - `system_backup`        — copy DB to `backups/<filename>.db`
+ *   - `system_restore`       — placeholder
+ *   - `system_logs`          — placeholder
+ *   - `system_clear_logs`    — placeholder
+ *
+ * Mutating commands (restart/shutdown/update) are gated by
+ * {@link requireTokenConfigured} so they are unreachable when API token
+ * auth is not configured.
+ *
+ * Validation: `system_backup` schema lives inline in
+ * `JsonValidator.validateSystemCommand`; the rest take no payload.
+ */
 import os from 'os';
 import { readFileSync, accessSync, openSync, closeSync, mkdirSync, unlinkSync, constants as fsConstants } from 'fs';
 import { fileURLToPath } from 'url';
@@ -11,9 +34,20 @@ const PROJECT_ROOT = resolve(__dirname, '../../..');
 const pkg = JSON.parse(readFileSync(join(PROJECT_ROOT, 'package.json'), 'utf8'));
 const APP_VERSION = pkg.version;
 
+/**
+ * Process-wide guard preventing concurrent `system_update` invocations.
+ * Reset by either a successful update (server restart drops the value)
+ * or the safety timeout in {@link systemUpdate}.
+ */
 let _updateInProgress = false;
+/** Timer that resets `_updateInProgress` after the safety window. */
 let _updateInProgressTimer = null;
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{uptime:number, memory:NodeJS.MemoryUsage,
+ *   version:string, devices:number, routes:number, files:number}>}
+ */
 async function systemStatus(app) {
   return {
     uptime: process.uptime(),
@@ -25,6 +59,10 @@ async function systemStatus(app) {
   };
 }
 
+/**
+ * @returns {Promise<{platform:string, arch:string, nodeVersion:string,
+ *   cpus:number, totalMemory:number, freeMemory:number}>}
+ */
 async function systemInfo(_app) {
   return {
     platform: process.platform,
@@ -37,9 +75,12 @@ async function systemInfo(_app) {
 }
 
 /**
- * Guard for critical system commands — requires that API token authentication
- * is configured. Prevents accidental or unauthorized system operations when
- * the server runs without token protection.
+ * Guard for critical system commands. Requires `MAESTRO_API_TOKEN` to
+ * be configured so destructive operations cannot be invoked through an
+ * unauthenticated server.
+ *
+ * @returns {void}
+ * @throws {AuthenticationError}
  */
 function requireTokenConfigured() {
   if (!process.env.MAESTRO_API_TOKEN) {
@@ -47,6 +88,14 @@ function requireTokenConfigured() {
   }
 }
 
+/**
+ * Schedule a clean process exit after a 1s delay (gives the WS response
+ * time to reach the client). PM2 / systemd restarts the process.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ * @throws {AuthenticationError}
+ */
 async function systemRestart(app) {
   requireTokenConfigured();
   app.logger.info('System restart requested');
@@ -54,6 +103,15 @@ async function systemRestart(app) {
   return { success: true };
 }
 
+/**
+ * Same semantics as {@link systemRestart} — the process supervisor
+ * decides whether to bring the server back up. Distinct command name so
+ * the UI can label the action correctly.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ * @throws {AuthenticationError}
+ */
 async function systemShutdown(app) {
   requireTokenConfigured();
   app.logger.info('System shutdown requested');
@@ -61,6 +119,23 @@ async function systemShutdown(app) {
   return { success: true };
 }
 
+/**
+ * Compare local HEAD against `origin/main` to detect available updates.
+ * Uses `git ls-remote` (no write to `.git/`) plus a best-effort `git
+ * fetch` for the remote date and behind count when write access exists.
+ *
+ * @param {Object} app
+ * @returns {Promise<{
+ *   upToDate: boolean|null,
+ *   localHash?: string,
+ *   remoteHash?: string,
+ *   localDate?: string,
+ *   remoteDate?: string,
+ *   behindCount?: number,
+ *   error?: string,
+ *   version: string
+ * }>} `upToDate: null` indicates the comparison could not be made.
+ */
 async function systemCheckUpdate(app) {
   const { execSync } = await import('child_process');
   const cwd = PROJECT_ROOT;
@@ -114,6 +189,18 @@ async function systemCheckUpdate(app) {
   }
 }
 
+/**
+ * Spawn `scripts/update.sh` detached so it survives the server restart
+ * triggered later in the script. Concurrent invocations are blocked by
+ * a process-local flag (with a 5-minute safety reset). Sets up a poller
+ * that triggers a self-`process.exit(0)` once the script writes
+ * `restarting` or `done` to the status file — PM2 brings the new code
+ * up.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:boolean, message?:string, error?:string}>}
+ * @throws {AuthenticationError}
+ */
 async function systemUpdate(app) {
   requireTokenConfigured();
   app.logger.info('System update requested');
@@ -254,15 +341,24 @@ async function systemUpdate(app) {
   return { success: true, message: 'Update started' };
 }
 
+/**
+ * Snapshot the SQLite database file into `./backups/<filename>`. Any
+ * caller-provided `path` is reduced to its `basename` and refused if it
+ * contains `..` or starts with `.` — directory escapes and dotfiles are
+ * rejected to keep the destination locked to `backups/`.
+ *
+ * @param {Object} app
+ * @param {{path?:string}} data
+ * @returns {Promise<{path:string}>} Absolute path of the written backup.
+ * @throws {ValidationError} For unsafe filenames.
+ */
 async function systemBackup(app, data) {
   const { resolve, basename } = await import('path');
   const backupsDir = resolve('./backups');
 
-  // Sanitize: only allow filename, force it into backups directory
   let filename;
   if (data.path) {
     filename = basename(data.path);
-    // Reject suspicious filenames
     if (filename.includes('..') || filename.startsWith('.')) {
       throw new ValidationError('Invalid backup filename', 'path');
     }
@@ -276,21 +372,46 @@ async function systemBackup(app, data) {
   return { path: backupPath };
 }
 
+/**
+ * Placeholder for full database restore.
+ * TODO: implement once the UI exposes a confirmation dialog and a way
+ * to upload a backup blob securely.
+ *
+ * @returns {Promise<{success:true}>}
+ */
 async function systemRestore(_app, _data) {
-  // Future implementation
   return { success: true };
 }
 
+/**
+ * Placeholder for streaming recent logs to the client.
+ * TODO: tail `logs/midimind.log` and return the last N lines (or stream
+ * them as events).
+ *
+ * @returns {Promise<{logs: Array}>}
+ */
 async function systemLogs(_app, _data) {
-  // Future implementation - return recent logs
   return { logs: [] };
 }
 
+/**
+ * Placeholder for log truncation.
+ * TODO: rotate `logs/midimind.log` and unlink any rotated files older
+ * than the configured retention window.
+ *
+ * @returns {Promise<{success:true}>}
+ */
 async function systemClearLogs(_app) {
-  // Future implementation
   return { success: true };
 }
 
+/**
+ * Wire every system-level command on the registry.
+ *
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('system_status', () => systemStatus(app));
   registry.register('system_info', () => systemInfo(app));

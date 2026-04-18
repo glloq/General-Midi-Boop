@@ -1,4 +1,12 @@
-// src/storage/StringInstrumentDatabase.js
+/**
+ * @file src/storage/StringInstrumentDatabase.js
+ * @description SQLite access layer for guitar/bass/violin configuration
+ * and tablature data. Owns the `string_instruments` (tuning, fret
+ * count, capo, CC mapping) and `string_instrument_tablatures` tables,
+ * plus an in-memory tuning-preset catalogue. Sub-module of
+ * {@link Database}; consumed via `StringInstrumentRepository` and the
+ * {@link TablatureConverter} workflow.
+ */
 
 /**
  * Database access layer for string instrument configuration and tablature data.

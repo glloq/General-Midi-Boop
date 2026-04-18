@@ -1,17 +1,17 @@
-// ============================================================================
-// src/managers/BluetoothManager.js
-// ============================================================================
-// Description:
-//   Manages Bluetooth BLE MIDI devices on top of a `BluetoothPort` adapter
-//   (P1-4.5c — ports/adapters).
-//
-//   - Default adapter in production: NobleBleAdapter (wraps node-ble).
-//   - In tests: InMemoryBleAdapter can be injected for hermetic unit tests.
-//
-//   The public API (startScan/stopScan/connect/disconnect/send*/getStatus/…)
-//   is preserved for existing callers (BluetoothCommands, DeviceManager,
-//   MidiClockGenerator).
-// ============================================================================
+/**
+ * @file src/managers/BluetoothManager.js
+ * @description High-level Bluetooth BLE MIDI device manager built on
+ * top of a {@link BluetoothPort} adapter (P1-4.5c — ports/adapters).
+ *
+ * Adapter selection:
+ *   - Default in production: {@link NobleBleAdapter} (wraps `node-ble`).
+ *   - In tests: {@link InMemoryBleAdapter} can be injected via
+ *     `options.port` for hermetic unit tests.
+ *
+ * The public API (`startScan` / `stopScan` / `connect` / `disconnect` /
+ * `sendMessage` / `getStatus` / ...) is preserved for existing callers
+ * (BluetoothCommands, DeviceManager, MidiClockGenerator).
+ */
 
 import EventEmitter from 'events';
 import MidiUtils from '../utils/MidiUtils.js';

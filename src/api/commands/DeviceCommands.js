@@ -1,6 +1,32 @@
-// src/api/commands/DeviceCommands.js
+/**
+ * @file src/api/commands/DeviceCommands.js
+ * @description WebSocket command handlers for MIDI device discovery,
+ * inspection and lifecycle.
+ *
+ * Registered commands:
+ *   - `device_list`                 — enumerate ports + enrich with DB
+ *   - `device_refresh`              — rescan hardware then deduplicate
+ *   - `device_info`                 — single-device detail
+ *   - `device_set_properties`       — placeholder, currently no-op
+ *   - `device_enable`               — toggle a port on/off
+ *   - `device_identity_request`     — emit MIDI Universal Identity Request
+ *   - `sysex_identity_request`      — alias of the above
+ *   - `device_save_sysex_identity`  — persist sniffed identity
+ *
+ * Validation: see `device.schemas.js`.
+ */
 import { NotFoundError, ConfigurationError } from '../../core/errors/index.js';
 
+/**
+ * Enumerate every MIDI port currently visible to the DeviceManager and
+ * enrich each entry with persisted settings (custom display name, GM
+ * program, polyphony, note-range, USB serial, channel-level instruments).
+ * Database lookups are best-effort: a missing or partial settings row
+ * never prevents a device from appearing.
+ *
+ * @param {Object} app - Application facade.
+ * @returns {Promise<{devices: Object[]}>}
+ */
 async function deviceList(app) {
   const devices = app.deviceManager.getDeviceList();
 
@@ -85,6 +111,13 @@ async function deviceList(app) {
   return { devices: devices };
 }
 
+/**
+ * Force a hardware rescan and run instrument-row deduplication keyed by
+ * USB serial (cleans up after a device replaced/repaired its address).
+ *
+ * @param {Object} app
+ * @returns {Promise<{devices: Object[]}>}
+ */
 async function deviceRefresh(app) {
   const devices = await app.deviceManager.scanDevices();
 
@@ -103,6 +136,14 @@ async function deviceRefresh(app) {
   return { devices: devices };
 }
 
+/**
+ * Look up a single device by id.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string}} data
+ * @returns {Promise<{device: Object}>}
+ * @throws {NotFoundError} When `deviceId` is unknown.
+ */
 async function deviceInfo(app, data) {
   const device = app.deviceManager.getDeviceInfo(data.deviceId);
   if (!device) {
@@ -111,18 +152,42 @@ async function deviceInfo(app, data) {
   return { device: device };
 }
 
+/**
+ * Placeholder for per-device property updates.
+ * TODO: wire to `DeviceSettingsRepository#update` once the UI surfaces
+ * an editor.
+ *
+ * @returns {Promise<{success: true}>}
+ */
 async function deviceSetProperties(_app, _data) {
-  // Future implementation for device-specific settings
   return { success: true };
 }
 
+/**
+ * Toggle a device on or off in the DeviceManager (no DB persistence —
+ * the toggle is process-local).
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, enabled:boolean}} data
+ * @returns {Promise<{success: true}>}
+ */
 async function deviceEnable(app, data) {
   app.deviceManager.enableDevice(data.deviceId, data.enabled);
   return { success: true };
 }
 
+/**
+ * Send a MIDI Universal Identity Request SysEx to a device. Response
+ * (if any) arrives asynchronously through the normal MIDI input path —
+ * this command only emits the request.
+ *
+ * @param {Object} app
+ * @param {{deviceName:string, deviceId?:number}} data - `deviceId`
+ *   defaults to `0x7F` (the SysEx broadcast address).
+ * @returns {Promise<{success:true, message:string}>}
+ * @throws Propagates any error thrown by `DeviceManager#sendIdentityRequest`.
+ */
 async function deviceIdentityRequest(app, data) {
-  // sendIdentityRequest() will throw an exception if it fails
   app.deviceManager.sendIdentityRequest(
     data.deviceName,
     data.deviceId || 0x7F
@@ -134,12 +199,22 @@ async function deviceIdentityRequest(app, data) {
   };
 }
 
+/**
+ * Persist a previously sniffed Universal Identity Reply against the
+ * given device/channel.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel?:number, identity:Object}} data -
+ *   `channel` defaults to 0 for backward compatibility with single-channel
+ *   devices.
+ * @returns {Promise<{success:true, id:number}>}
+ * @throws {ConfigurationError} When the database is not available.
+ */
 async function deviceSaveSysExIdentity(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
   }
 
-  // Channel defaults to 0 for backward compatibility
   const channel = data.channel !== undefined ? data.channel : 0;
   const id = app.instrumentRepository.saveSysExIdentity(data.deviceId, channel, data.identity);
 
@@ -149,6 +224,13 @@ async function deviceSaveSysExIdentity(app, data) {
   };
 }
 
+/**
+ * Wire every device-related command on the registry.
+ *
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('device_list', () => deviceList(app));
   registry.register('device_refresh', () => deviceRefresh(app));

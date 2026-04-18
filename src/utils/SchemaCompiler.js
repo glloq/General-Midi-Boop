@@ -1,24 +1,46 @@
-// src/utils/SchemaCompiler.js
-// Declarative command schema compiler (ADR-004).
-//
-// Usage:
-//   const validate = compileSchema({
-//     fields: { fileId: { type: 'id', required: true } },
-//     custom: (data) => data.foo === data.bar ? 'foo and bar must differ' : null
-//   });
-//   const errors = validate(payload);  // => string[] (empty if valid)
-//
-// Behaviour is aligned with the historical JsonValidator output so that
-// existing WS contract snapshots (docs/refactor/contracts/**) remain stable.
+/**
+ * @file src/utils/SchemaCompiler.js
+ * @description Declarative command schema compiler (ADR-004).
+ *
+ * Replaces the legacy hand-rolled per-command validators with a single
+ * tiny engine that converts a `{ fields, custom }` schema into a
+ * validator function `(data) => string[]`. Designed so that existing
+ * WS contract snapshots in `docs/refactor/contracts/**` remain
+ * byte-stable: error-message phrasing in {@link typeLabel} and
+ * {@link validateField} is intentionally aligned with the historical
+ * JsonValidator output.
+ *
+ * @example
+ *   const validate = compileSchema({
+ *     fields: { fileId: { type: 'id', required: true } },
+ *     custom: (data) => data.foo === data.bar ? 'foo and bar must differ' : null
+ *   });
+ *   const errors = validate(payload);  // => string[] (empty if valid)
+ */
 
+/** Field types accepted by the compiler. */
 const SUPPORTED_TYPES = new Set([
   'id', 'string', 'number', 'integer', 'boolean', 'object', 'array'
 ]);
 
+/**
+ * @param {*} v
+ * @returns {boolean} True for plain `{...}` objects (excludes arrays/null).
+ */
 function isPlainObject(v) {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/**
+ * Runtime type predicate matching the schema `type` keyword.
+ *
+ * `'id'` accepts either a finite positive number or a non-empty string —
+ * mirrors how the legacy validators treated row IDs returned from SQLite.
+ *
+ * @param {*} value - Value under test.
+ * @param {string} type - One of {@link SUPPORTED_TYPES}.
+ * @returns {boolean}
+ */
 function checkType(value, type) {
   switch (type) {
     case 'id':
@@ -42,8 +64,15 @@ function checkType(value, type) {
   }
 }
 
+/**
+ * Human-readable label for a schema type, used inside error messages.
+ * Wording is intentionally aligned with the legacy JsonValidator so the
+ * WS contract snapshots stay stable.
+ *
+ * @param {string} type
+ * @returns {string}
+ */
 function typeLabel(type) {
-  // Keep error messages close to the legacy JsonValidator phrasing.
   switch (type) {
     case 'id':      return 'a number or non-empty string';
     case 'string':  return 'a string';
@@ -56,6 +85,18 @@ function typeLabel(type) {
   }
 }
 
+/**
+ * Validate a single named field against its spec.
+ *
+ * Returns an array of error strings (possibly empty). When the field is
+ * absent and `spec.required` is false, the spec is silently skipped — no
+ * type check is performed on `undefined`/`null`.
+ *
+ * @param {string} name - Field name (used in error messages).
+ * @param {Object} spec - Field spec (`{type, required?, min?, max?, ...}`).
+ * @param {Object} data - The full data object being validated.
+ * @returns {string[]} Error messages for this field (empty when valid).
+ */
 function validateField(name, spec, data) {
   const errors = [];
   const present = Object.prototype.hasOwnProperty.call(data, name)
@@ -106,6 +147,15 @@ function validateField(name, spec, data) {
   return errors;
 }
 
+/**
+ * Validate the shape of a schema object itself (before compiling). Throws
+ * a descriptive Error so authoring mistakes surface at startup, not at
+ * the first request.
+ *
+ * @param {Object} schema
+ * @returns {void}
+ * @throws {Error} If `schema` is malformed.
+ */
 function assertSchemaShape(schema) {
   if (!isPlainObject(schema)) {
     throw new Error('Schema must be an object');

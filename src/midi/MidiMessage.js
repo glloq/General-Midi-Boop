@@ -1,20 +1,40 @@
-// src/midi/MidiMessage.js
+/**
+ * @file src/midi/MidiMessage.js
+ * @description Parse / serialize / validate / pretty-print a single MIDI
+ * message. Accepts both raw byte arrays (channel voice messages and the
+ * common system messages) and richer object form used internally on the
+ * EventBus. Pitch bend is normalised to the centered range
+ * (-8192..8191) at parse time and re-encoded to raw 14-bit at serialize
+ * time.
+ */
 import MidiUtils from '../utils/MidiUtils.js';
 
 class MidiMessage {
+  /**
+   * @param {(number[]|Object)} [data] - Raw byte array or object form.
+   *   When omitted, the instance is left empty for callers that want to
+   *   build a message field-by-field before calling `toBytes`.
+   */
   constructor(data) {
     this.raw = data;
     this.type = null;
     this.channel = null;
     this.timestamp = Date.now();
-    
+
     if (data) {
       this.parse(data);
     }
   }
 
+  /**
+   * Dispatch to {@link MidiMessage#parseBytes} or
+   * {@link MidiMessage#parseObject} based on the input shape.
+   *
+   * @param {(number[]|Object)} data
+   * @returns {void}
+   * @throws {Error} For unsupported input types.
+   */
   parse(data) {
-    // Handle different input formats
     if (Array.isArray(data)) {
       this.parseBytes(data);
     } else if (typeof data === 'object') {
@@ -24,6 +44,15 @@ class MidiMessage {
     }
   }
 
+  /**
+   * Decode a raw MIDI byte stream into the typed instance fields. Note
+   * On with velocity 0 is rewritten as Note Off (canonical MIDI
+   * convention). Unsupported message types throw — caller handles.
+   *
+   * @param {number[]} bytes
+   * @returns {void}
+   * @throws {Error}
+   */
   parseBytes(bytes) {
     if (!bytes || bytes.length < 1) {
       throw new Error('Empty MIDI message');
@@ -91,11 +120,17 @@ class MidiMessage {
     }
   }
 
+  /**
+   * Hydrate from the object form used on the EventBus. Property copy
+   * is whitelisted to defeat prototype pollution from untrusted payloads.
+   *
+   * @param {Object} obj
+   * @returns {void}
+   */
   parseObject(obj) {
     this.type = obj.type;
     this.channel = obj.channel;
 
-    // Copy only known MIDI properties (whitelist to prevent prototype pollution)
     const allowedKeys = [
       'note', 'velocity', 'pressure', 'controller', 'value',
       'program', 'data', 'song', 'timestamp', 'raw'
@@ -107,6 +142,15 @@ class MidiMessage {
     });
   }
 
+  /**
+   * Decode System Common / Real-Time messages. Each branch sets `type`
+   * and any payload field expected by downstream consumers.
+   * Unrecognised system status bytes are silently ignored — they are
+   * harmless on the bus and we don't want to throw mid-stream.
+   *
+   * @param {number[]} bytes
+   * @returns {void}
+   */
   parseSystemMessage(bytes) {
     const status = bytes[0];
 
@@ -150,6 +194,13 @@ class MidiMessage {
     }
   }
 
+  /**
+   * Translate a MIDI status type code (0x80, 0x90, …) into the string
+   * label used everywhere else in the codebase.
+   *
+   * @param {number} typeCode
+   * @returns {string} Lowercase event name (`'noteon'`, `'cc'`, ...).
+   */
   getTypeString(typeCode) {
     switch (typeCode) {
       case MidiUtils.MessageTypes.NOTE_OFF: return 'noteoff';
@@ -164,6 +215,13 @@ class MidiMessage {
     }
   }
 
+  /**
+   * Serialize the message back to its raw byte form.
+   *
+   * @returns {number[]}
+   * @throws {Error} For types that do not have a byte encoding here
+   *   (e.g. `'mtc'`, `'sensing'` — these are read-only in this codebase).
+   */
   toBytes() {
     const bytes = [];
 
@@ -223,6 +281,13 @@ class MidiMessage {
     return bytes;
   }
 
+  /**
+   * Run range checks against the populated fields and return a
+   * structured result. Mostly used by tests; the runtime parsers above
+   * already enforce most constraints.
+   *
+   * @returns {{valid:boolean, errors:string[]}}
+   */
   validate() {
     const errors = [];
 
@@ -286,10 +351,18 @@ class MidiMessage {
     };
   }
 
+  /** @returns {MidiMessage} A deep-copied independent instance. */
   clone() {
     return new MidiMessage(this.toObject());
   }
 
+  /**
+   * Marshal to the plain-object form consumed by EventBus listeners.
+   * Only fields relevant to `this.type` are included so subscribers can
+   * deconstruct without optional-chaining everywhere.
+   *
+   * @returns {Object}
+   */
   toObject() {
     const obj = {
       type: this.type,
@@ -335,6 +408,12 @@ class MidiMessage {
     return obj;
   }
 
+  /**
+   * Render the message as a single human-readable line for log output
+   * (e.g. `[NOTEON] ch:1 note:C4 vel:96`).
+   *
+   * @returns {string}
+   */
   toString() {
     const parts = [`[${(this.type || 'UNKNOWN').toUpperCase()}]`];
     

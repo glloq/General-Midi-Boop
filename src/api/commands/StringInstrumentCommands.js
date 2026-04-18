@@ -1,15 +1,32 @@
-// src/api/commands/StringInstrumentCommands.js
+/**
+ * @file src/api/commands/StringInstrumentCommands.js
+ * @description WebSocket commands for string-instrument configuration
+ * (guitar/bass/violin per-channel mapping: tuning, fret count, capo,
+ * CC mappings) and tablature CRUD/conversion.
+ *
+ * Registered commands:
+ *   - `string_instrument_create` / `_update` / `_delete` / `_get` / `_list`
+ *   - `string_instrument_get_presets` / `_apply_preset` / `_create_from_preset`
+ *   - `tablature_save` / `_get` / `_get_by_file` / `_delete`
+ *   - `tablature_convert_from_midi` / `_convert_to_midi`
+ *
+ * Validation: imperative inside each handler.
+ */
 
 import TablatureConverter from '../../midi/TablatureConverter.js';
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 
-/**
- * WebSocket commands for string instrument configuration and tablature management.
- * Handles CRUD for string instruments, tuning presets, and tablature data.
- */
-
 // ==================== STRING INSTRUMENT CONFIG ====================
 
+/**
+ * Persist a new string-instrument config row.
+ *
+ * @param {Object} app
+ * @param {Object} data - Full config payload (device_id, channel,
+ *   instrument_name, num_strings, num_frets, tuning, is_fretless,
+ *   capo_fret, CC mapping fields, frets_per_string).
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ */
 async function stringInstrumentCreate(app, data) {
   const id = app.stringInstrumentRepository.save({
     device_id: data.device_id,
@@ -35,6 +52,14 @@ async function stringInstrumentCreate(app, data) {
   return { success: true, id };
 }
 
+/**
+ * Partial update — only fields present in `data` are written.
+ *
+ * @param {Object} app
+ * @param {Object} data - Must include `id`; remaining fields optional.
+ * @returns {Promise<{success:boolean}>}
+ * @throws {ValidationError}
+ */
 async function stringInstrumentUpdate(app, data) {
   if (!data.id) throw new ValidationError('id is required', 'id');
 
@@ -60,6 +85,14 @@ async function stringInstrumentUpdate(app, data) {
   return { success: updated };
 }
 
+/**
+ * Delete by row id, or by `(device_id, channel)` pair.
+ *
+ * @param {Object} app
+ * @param {{id?:(string|number), device_id?:string, channel?:number}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function stringInstrumentDelete(app, data) {
   if (data.id) {
     app.stringInstrumentRepository.delete(data.id);
@@ -73,6 +106,14 @@ async function stringInstrumentDelete(app, data) {
   return { success: true };
 }
 
+/**
+ * Lookup by row id, or by `(device_id, channel)` pair.
+ *
+ * @param {Object} app
+ * @param {{id?:(string|number), device_id?:string, channel?:number}} data
+ * @returns {Promise<{instrument: ?Object}>}
+ * @throws {ValidationError}
+ */
 async function stringInstrumentGet(app, data) {
   let instrument;
   if (data.id) {
@@ -85,6 +126,12 @@ async function stringInstrumentGet(app, data) {
   return { instrument };
 }
 
+/**
+ * @param {Object} app
+ * @param {{device_id?:string}} data - When `device_id` is provided,
+ *   lists rows for that device only.
+ * @returns {Promise<{instruments:Object[]}>}
+ */
 async function stringInstrumentList(app, data) {
   let instruments;
   if (data.device_id) {
@@ -97,11 +144,24 @@ async function stringInstrumentList(app, data) {
 
 // ==================== TUNING PRESETS ====================
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{presets:Object[]}>}
+ */
 async function stringInstrumentGetPresets(app) {
   const presets = app.stringInstrumentRepository.findAllTuningPresets();
   return { presets };
 }
 
+/**
+ * Resolve a preset descriptor by key (read-only — caller decides when
+ * to persist).
+ *
+ * @param {Object} app
+ * @param {{preset_key:string}} data
+ * @returns {Promise<{preset:Object}>}
+ * @throws {ValidationError|NotFoundError}
+ */
 async function stringInstrumentApplyPreset(app, data) {
   if (!data.preset_key) throw new ValidationError('preset_key is required', 'preset_key');
 
@@ -111,6 +171,14 @@ async function stringInstrumentApplyPreset(app, data) {
   return { preset };
 }
 
+/**
+ * UPSERT a string-instrument config materialised from a tuning preset.
+ *
+ * @param {Object} app
+ * @param {{device_id:string, channel:number, preset:string}} data
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ * @throws {ValidationError|NotFoundError}
+ */
 async function stringInstrumentCreateFromPreset(app, data) {
   if (!data.device_id) throw new ValidationError('device_id is required', 'device_id');
   if (data.channel === undefined) throw new ValidationError('channel is required', 'channel');
@@ -135,6 +203,13 @@ async function stringInstrumentCreateFromPreset(app, data) {
 
 // ==================== TABLATURE DATA ====================
 
+/**
+ * @param {Object} app
+ * @param {{midi_file_id:(string|number), channel:number,
+ *   string_instrument_id:(string|number), tablature_data:Object[]}} data
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ * @throws {ValidationError}
+ */
 async function tablatureSave(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
   if (data.string_instrument_id === undefined) throw new ValidationError('string_instrument_id is required', 'string_instrument_id');
@@ -149,6 +224,12 @@ async function tablatureSave(app, data) {
   return { success: true, id };
 }
 
+/**
+ * @param {Object} app
+ * @param {{midi_file_id:(string|number), channel:number}} data
+ * @returns {Promise<{tablature: ?Object}>}
+ * @throws {ValidationError}
+ */
 async function tablatureGet(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
@@ -158,6 +239,12 @@ async function tablatureGet(app, data) {
   return { tablature };
 }
 
+/**
+ * @param {Object} app
+ * @param {{midi_file_id:(string|number)}} data
+ * @returns {Promise<{tablatures:Object[]}>}
+ * @throws {ValidationError}
+ */
 async function tablatureGetByFile(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
@@ -165,6 +252,15 @@ async function tablatureGetByFile(app, data) {
   return { tablatures };
 }
 
+/**
+ * Delete a single (file, channel) tablature row, or every row for the
+ * file when `channel` is omitted.
+ *
+ * @param {Object} app
+ * @param {{midi_file_id:(string|number), channel?:number}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function tablatureDelete(app, data) {
   if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
@@ -178,6 +274,17 @@ async function tablatureDelete(app, data) {
 
 // ==================== CONVERSION ====================
 
+/**
+ * Run the {@link TablatureConverter} on a list of MIDI notes, returning
+ * the inferred tablature events plus the playable note range for the
+ * supplied or referenced instrument config.
+ *
+ * @param {Object} app
+ * @param {{notes:Object[], instrument_config?:Object,
+ *   string_instrument_id?:(string|number)}} data
+ * @returns {Promise<{tablature:Object[], playable_range:Object}>}
+ * @throws {ValidationError|NotFoundError}
+ */
 async function tablatureConvertFromMidi(app, data) {
   if (!data.notes || !Array.isArray(data.notes)) throw new ValidationError('notes array is required', 'notes');
   if (!data.instrument_config && !data.string_instrument_id) {
@@ -197,6 +304,16 @@ async function tablatureConvertFromMidi(app, data) {
   return { tablature: tabEvents, playable_range: range };
 }
 
+/**
+ * Reverse direction: convert tablature events back into MIDI notes
+ * (and matching CC events for fret/string when configured).
+ *
+ * @param {Object} app
+ * @param {{tab_events:Object[], instrument_config?:Object,
+ *   string_instrument_id?:(string|number)}} data
+ * @returns {Promise<{notes:Object[], cc_events:Object[]}>}
+ * @throws {ValidationError|NotFoundError}
+ */
 async function tablatureConvertToMidi(app, data) {
   if (!data.tab_events || !Array.isArray(data.tab_events)) throw new ValidationError('tab_events array is required', 'tab_events');
   if (!data.instrument_config && !data.string_instrument_id) {
@@ -217,6 +334,11 @@ async function tablatureConvertToMidi(app, data) {
 
 // ==================== REGISTER ====================
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   // String instrument configuration
   registry.register('string_instrument_create', (data) => stringInstrumentCreate(app, data));

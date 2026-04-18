@@ -1,8 +1,13 @@
-// src/api/commands/schemas/routing.schemas.js
-// Declarative schemas for routing WS commands (P1-3.2b, ADR-004).
-//
-// Snapshot-preserving : messages match JsonValidator.validateRoutingCommand
-// (docs/refactor/contracts/routing/*.contract.json).
+/**
+ * @file src/api/commands/schemas/routing.schemas.js
+ * @description Declarative validation schemas for routing-related
+ * WebSocket commands (`route_*`, `filter_*`, `channel_map`, `monitor_*`).
+ * Consumed by `JsonValidator.validateRoutingCommand` (P1-3.2b, ADR-004).
+ *
+ * Snapshot-preserving: error messages match the legacy
+ * `JsonValidator.validateRoutingCommand` output captured in
+ * `docs/refactor/contracts/routing/*.contract.json`.
+ */
 
 // route_create : source + destination required, both truthy.
 export const route_create = {

@@ -1,18 +1,27 @@
-// src/midi/adapters/NobleBleAdapter.js
-// Production BluetoothPort adapter wrapping node-ble (BlueZ/DBus on Linux).
-// Mirrors the surface established in P1-4.5 (see BluetoothPort.js) so that
-// BluetoothManager can migrate to dependency injection in a follow-up lot.
-//
-// The existing `src/managers/BluetoothManager.js` keeps its direct node-ble
-// usage for now — this adapter is additive infrastructure. Rewire is tracked
-// as a todo in PROGRESS.md.
+/**
+ * @file src/midi/adapters/NobleBleAdapter.js
+ * @description Production {@link BluetoothPort} adapter wrapping
+ * `node-ble` (BlueZ over DBus on Linux). Mirrors the surface
+ * established in P1-4.5 so {@link BluetoothManager} can migrate to
+ * dependency injection in a follow-up lot.
+ *
+ * The existing `src/managers/BluetoothManager.js` keeps its direct
+ * `node-ble` usage for now — this adapter is additive infrastructure.
+ * Rewire is tracked in PROGRESS.md.
+ *
+ * TODO: have BluetoothManager consume this adapter via DI so the
+ * native dependency lives in one place only.
+ */
 
 import EventEmitter from 'events';
 import { existsSync } from 'fs';
 import { BLE_EVENTS } from '../ports/BluetoothPort.js';
 
+/** Standard BLE-MIDI service UUID (assigned by Apple). */
 const BLE_MIDI_SERVICE_UUID = '03b80e5a-ede8-4b33-a751-6ce34ec4c700';
+/** Standard BLE-MIDI data characteristic UUID. */
 const BLE_MIDI_CHARACTERISTIC_UUID = '7772e5db-3868-4112-a1a9-f2669d106bf3';
+/** Probed at init to fail fast when DBus is not available. */
 const DBUS_SYSTEM_SOCKET = '/var/run/dbus/system_bus_socket';
 
 export default class NobleBleAdapter extends EventEmitter {

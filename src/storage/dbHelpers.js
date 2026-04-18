@@ -1,4 +1,10 @@
-// src/storage/dbHelpers.js
+/**
+ * @file src/storage/dbHelpers.js
+ * @description Tiny SQL helper used by every database sub-module.
+ * Centralises the "build a dynamic UPDATE from an arbitrary patch"
+ * pattern with an explicit allow-list to defeat field injection from
+ * untrusted payloads.
+ */
 
 /**
  * Build a dynamic UPDATE statement from an updates object.

@@ -1,8 +1,40 @@
-// src/api/commands/LatencyCommands.js
+/**
+ * @file src/api/commands/LatencyCommands.js
+ * @description WebSocket commands for per-device latency profiles plus
+ * the audio-driven calibration workflow.
+ *
+ * Two collaborators are involved:
+ *   - {@link LatencyCompensator} — manages persisted profiles and
+ *     applies offsets to outgoing MIDI.
+ *   - {@link DelayCalibrator} — drives an ALSA capture loop to measure
+ *     the round-trip MIDI→audio delay.
+ *
+ * Registered commands (latency_*):
+ *   - `latency_measure` / `_set` / `_get` / `_list` / `_delete`
+ *   - `latency_auto_calibrate` / `_recommendations` / `_export`
+ *
+ * Registered commands (calibrate_*):
+ *   - `calibrate_delay`             — single-channel ALSA-based calibration
+ *   - `calibrate_list_alsa_devices` — enumerate `arecord -l` devices
+ *   - `calibrate_preview_note`      — emit a single test note
+ *   - `calibrate_monitor_start` / `_stop` — broadcast live audio levels
+ *
+ * Validation: see `latency.schemas.js` for the latency_* family;
+ * calibrate_* commands rely on imperative checks inside each handler.
+ */
 
 import { ValidationError } from '../../core/errors/index.js';
 import DelayCalibrator from '../../audio/DelayCalibrator.js';
 
+/**
+ * Run a one-off latency measurement on a device.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, iterations?:number}} data - `iterations`
+ *   defaults to 5; clamped to [1, 50].
+ * @returns {Promise<Object>} Measurement result from LatencyCompensator.
+ * @throws {ValidationError}
+ */
 async function latencyMeasure(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -22,6 +54,14 @@ async function latencyMeasure(app, data) {
   return result;
 }
 
+/**
+ * Manually set the latency profile for a device (bypasses measurement).
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, latency:number}} data - `latency` in ms.
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function latencySet(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -34,6 +74,12 @@ async function latencySet(app, data) {
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @param {{deviceId:string}} data
+ * @returns {Promise<{profile:Object}>}
+ * @throws {ValidationError}
+ */
 async function latencyGet(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -42,11 +88,21 @@ async function latencyGet(app, data) {
   return { profile: profile };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{profiles:Object[]}>}
+ */
 async function latencyList(app) {
   const profiles = app.latencyCompensator.getAllProfiles();
   return { profiles: profiles };
 }
 
+/**
+ * @param {Object} app
+ * @param {{deviceId:string}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function latencyDelete(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -55,6 +111,14 @@ async function latencyDelete(app, data) {
   return { success: true };
 }
 
+/**
+ * Bulk-measure latency for several devices in parallel.
+ *
+ * @param {Object} app
+ * @param {{deviceIds:string[]}} data
+ * @returns {Promise<{results:Object[]}>}
+ * @throws {ValidationError}
+ */
 async function latencyAutoCalibrate(app, data) {
   if (!data.deviceIds || !Array.isArray(data.deviceIds) || data.deviceIds.length === 0) {
     throw new ValidationError('deviceIds must be a non-empty array', 'deviceIds');
@@ -63,16 +127,39 @@ async function latencyAutoCalibrate(app, data) {
   return { results: results };
 }
 
+/**
+ * Devices whose calibration is stale (older than
+ * `latency.recalibrationDays`).
+ *
+ * @param {Object} app
+ * @returns {Promise<{recommendations:Object[]}>}
+ */
 async function latencyRecommendations(app) {
   const recommendations = app.latencyCompensator.getRecommendedCalibrations();
   return { recommendations: recommendations };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{profiles:Object[]}>}
+ */
 async function latencyExport(app) {
   const profiles = app.latencyCompensator.getAllProfiles();
   return { profiles: profiles };
 }
 
+/**
+ * Run audio-driven latency calibration for a single channel of a
+ * device. Validates every input bound (channel 0-15, threshold
+ * 0.01-0.10, measurements 1-20). Concurrent calibrations are blocked
+ * by the calibrator's `isRecording` flag.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel:(number|string), threshold?:number,
+ *   alsaDevice?:string, measurements?:number}} data
+ * @returns {Promise<Object>} Calibration result.
+ * @throws {ValidationError}
+ */
 async function calibrateDelay(app, data) {
   const { deviceId, channel, threshold, alsaDevice, measurements } = data;
 
@@ -130,11 +217,24 @@ async function calibrateDelay(app, data) {
   return result;
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true, devices:Object[]}>}
+ */
 async function calibrateListAlsaDevices(app) {
   const devices = await app.delayCalibrator.listAlsaDevices();
   return { success: true, devices: devices };
 }
 
+/**
+ * Emit a single test note (used by the calibration UI to confirm the
+ * route works before starting a measurement).
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel:(number|string)}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function calibratePreviewNote(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -151,6 +251,16 @@ async function calibratePreviewNote(app, data) {
   return { success: true };
 }
 
+/**
+ * Start broadcasting live ALSA capture levels as
+ * `calibration:audio_level` WebSocket events so the UI can render a
+ * realtime VU meter while the user adjusts gain.
+ *
+ * @param {Object} app
+ * @param {{alsaDevice?:string}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function calibrateMonitorStart(app, data) {
   const alsaDevice = data.alsaDevice;
 
@@ -158,10 +268,10 @@ async function calibrateMonitorStart(app, data) {
     throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
   }
 
-  // Stop existing monitor if running
+  // Idempotent: drop any previous monitor before starting a new one
+  // (otherwise calling `start` twice leaks the first capture process).
   app.delayCalibrator.stopMonitoring();
 
-  // Start monitoring and broadcast levels via WebSocket
   app.delayCalibrator.startMonitoring((level) => {
     if (app.wsServer && app.wsServer.broadcast) {
       app.wsServer.broadcast('calibration:audio_level', level);
@@ -171,11 +281,20 @@ async function calibrateMonitorStart(app, data) {
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
 async function calibrateMonitorStop(app) {
   app.delayCalibrator.stopMonitoring();
   return { success: true };
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('latency_measure', (data) => latencyMeasure(app, data));
   registry.register('latency_set', (data) => latencySet(app, data));

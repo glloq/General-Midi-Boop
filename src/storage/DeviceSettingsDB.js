@@ -1,6 +1,16 @@
+/**
+ * @file src/storage/DeviceSettingsDB.js
+ * @description CRUD for the `devices` table — per-device settings
+ * (custom display name, MIDI Clock enable, outbound rate limit).
+ * Sub-module of {@link Database}; consumed via `DeviceSettingsRepository`.
+ */
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 class DeviceSettingsDB {
+  /**
+   * @param {import('better-sqlite3').Database} db
+   * @param {Object} logger
+   */
   constructor(db, logger) {
     this.db = db;
     this.logger = logger;

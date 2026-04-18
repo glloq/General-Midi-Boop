@@ -1,6 +1,25 @@
-// src/api/commands/NetworkCommands.js
+/**
+ * @file src/api/commands/NetworkCommands.js
+ * @description WebSocket commands for network MIDI devices (RTP-MIDI,
+ * mDNS-discovered AppleMIDI, etc.). All handlers throw
+ * {@link ConfigurationError} when the optional NetworkManager is absent.
+ *
+ * Registered commands:
+ *   - `network_scan`             — discovery sweep
+ *   - `network_connected_list`   — currently bonded sessions
+ *   - `network_connect` / `_disconnect` — by IP (or `address` alias)
+ *
+ * Validation: imperative inside each handler.
+ */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
+/**
+ * @param {Object} app
+ * @param {{timeout?:number, fullScan?:boolean}} data - `timeout` in
+ *   seconds (defaults to 5); `fullScan` defaults to true.
+ * @returns {Promise<{success:true, data:{devices:Object[]}}>}
+ * @throws {ConfigurationError}
+ */
 async function networkScan(app, data) {
   if (!app.networkManager) {
     throw new ConfigurationError('Network manager not available');
@@ -19,6 +38,11 @@ async function networkScan(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true, data:{devices:Object[]}}>}
+ * @throws {ConfigurationError}
+ */
 async function networkConnectedList(app) {
   if (!app.networkManager) {
     throw new ConfigurationError('Network manager not available');
@@ -34,6 +58,16 @@ async function networkConnectedList(app) {
   };
 }
 
+/**
+ * Connect to a network MIDI device. Accepts both `ip` and `address` as
+ * the destination key for backwards compatibility with older clients.
+ *
+ * @param {Object} app
+ * @param {{ip?:string, address?:string, port?:string}} data - `port`
+ *   defaults to `'5004'` (the AppleMIDI default).
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function networkConnect(app, data) {
   if (!app.networkManager) {
     throw new ConfigurationError('Network manager not available');
@@ -54,6 +88,12 @@ async function networkConnect(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @param {{ip?:string, address?:string}} data
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function networkDisconnect(app, data) {
   if (!app.networkManager) {
     throw new ConfigurationError('Network manager not available');
@@ -73,6 +113,11 @@ async function networkDisconnect(app, data) {
   };
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('network_scan', (data) => networkScan(app, data));
   registry.register('network_connected_list', () => networkConnectedList(app));

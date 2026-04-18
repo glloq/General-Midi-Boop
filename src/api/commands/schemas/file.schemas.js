@@ -1,8 +1,18 @@
-// src/api/commands/schemas/file.schemas.js
-// Declarative schemas for file WS commands (P1-3.2c, ADR-004).
+/**
+ * @file src/api/commands/schemas/file.schemas.js
+ * @description Declarative validation schemas for `file_*` WebSocket
+ * commands (P1-3.2c, ADR-004). Consumed by
+ * `JsonValidator.validateFileCommand`.
+ */
 
-// Local copy of the base64 check to avoid a circular import with
-// JsonValidator (which loads this schema map at module init).
+/**
+ * Local copy of the base64 well-formedness check, intentionally
+ * duplicated from `JsonValidator.isValidBase64` to avoid a circular
+ * import — JsonValidator loads this schema map at module init time.
+ *
+ * @param {*} str
+ * @returns {boolean}
+ */
 function isValidBase64(str) {
   if (typeof str !== 'string') return false;
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(str)) return false;

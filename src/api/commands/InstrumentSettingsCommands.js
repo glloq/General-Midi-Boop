@@ -1,8 +1,41 @@
-// src/api/commands/InstrumentSettingsCommands.js
+/**
+ * @file src/api/commands/InstrumentSettingsCommands.js
+ * @description WebSocket commands for per-channel instrument settings
+ * (custom name, sync delay, GM program, octave mode, capabilities) and
+ * the registered/connected listings.
+ *
+ * Registered commands:
+ *   - `instrument_update_settings` / `instrument_get_settings`
+ *   - `instrument_update_capabilities` / `instrument_get_capabilities`
+ *   - `instrument_list_capabilities`
+ *   - `instrument_list_registered` / `instrument_list_connected`
+ *   - `instrument_delete`
+ *
+ * Settings updates emit `instrument_settings_changed` on the EventBus
+ * so cached latency / GM mapping values are recomputed.
+ *
+ * Validation: imperative inside each handler (range checks for MIDI
+ * fields, length cap for free-text custom names).
+ */
 import InstrumentDatabase from '../../storage/InstrumentDatabase.js';
 import InstrumentTypeConfig from '../../midi/InstrumentTypeConfig.js';
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
+/**
+ * Persist per-channel instrument settings (custom name, sync delay,
+ * GM program, octave mode, comm timeout). When `usb_serial_number` is
+ * not supplied, it is looked up from the live DeviceManager so the row
+ * remains identifiable across USB re-enumerations.
+ *
+ * Emits `instrument_settings_changed` on the EventBus.
+ *
+ * @param {Object} app
+ * @param {Object} data - `{deviceId, channel?, custom_name?,
+ *   sync_delay?, mac_address?, usb_serial_number?, name?, gm_program?,
+ *   octave_mode?, comm_timeout?}`. Channel defaults to 0.
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentUpdateSettings(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -86,12 +119,21 @@ async function instrumentUpdateSettings(app, data) {
   };
 }
 
+/**
+ * Read per-channel instrument settings. When `channel` is omitted, the
+ * repository returns the first matching row (legacy single-channel
+ * behaviour).
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel?:number}} data
+ * @returns {Promise<{settings: ?Object}>}
+ * @throws {ConfigurationError}
+ */
 async function instrumentGetSettings(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
   }
 
-  // Pass channel if provided, otherwise backward compat (first match)
   const channel = data.channel !== undefined ? data.channel : undefined;
   const settings = app.instrumentRepository.getSettings(data.deviceId, channel);
 
@@ -100,6 +142,17 @@ async function instrumentGetSettings(app, data) {
   };
 }
 
+/**
+ * Persist per-channel capabilities (polyphony, note range, supported
+ * CCs, instrument type). Validates the polyphony range and channel
+ * bounds; emits `instrument_settings_changed`.
+ *
+ * @param {Object} app
+ * @param {Object} data - `{deviceId, channel?, polyphony?, note_range_min?,
+ *   note_range_max?, supported_ccs?, instrument_type?, ...}`.
+ * @returns {Promise<{success:true, id:(string|number)}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentUpdateCapabilities(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -140,6 +193,15 @@ async function instrumentUpdateCapabilities(app, data) {
   };
 }
 
+/**
+ * Read per-channel capabilities. Channel-less call returns the first
+ * matching row.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel?:number}} data
+ * @returns {Promise<{capabilities: ?Object}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentGetCapabilities(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -158,6 +220,14 @@ async function instrumentGetCapabilities(app, data) {
   };
 }
 
+/**
+ * List capability rows for every registered instrument (across every
+ * channel).
+ *
+ * @param {Object} app
+ * @returns {Promise<{instruments:Object[]}>}
+ * @throws {ConfigurationError}
+ */
 async function instrumentListCapabilities(app) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -170,6 +240,14 @@ async function instrumentListCapabilities(app) {
   };
 }
 
+/**
+ * List every registered instrument (with capabilities), regardless of
+ * whether the underlying device is currently connected.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true, instruments:Object[], total:number}>}
+ * @throws {ConfigurationError}
+ */
 async function instrumentListRegistered(app) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -184,6 +262,20 @@ async function instrumentListRegistered(app) {
   };
 }
 
+/**
+ * Return the subset of registered instruments whose underlying device
+ * is currently connected, plus stub records for live devices that are
+ * not yet registered.
+ *
+ * Matching falls back through several keys (device_id → USB serial →
+ * Bluetooth MAC → normalised device name) so identifier drift caused
+ * by USB re-enumeration or driver renames does not orphan rows.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true, instruments:Object[], total:number,
+ *   connectedDevices:number}>}
+ * @throws {ConfigurationError}
+ */
 async function instrumentListConnected(app) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -269,6 +361,18 @@ async function instrumentListConnected(app) {
   };
 }
 
+/**
+ * Delete an instrument row. When `channel` is supplied, only that
+ * channel is removed; otherwise every channel for the device is wiped.
+ * Cascades to the auxiliary tables (string instruments, routings,
+ * device settings, lighting rules) so referential integrity is
+ * preserved without relying on FK declarations.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, channel?:number}} data
+ * @returns {Promise<{success:boolean, errors?:string[]}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentDelete(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -330,6 +434,11 @@ async function instrumentDelete(app, data) {
   };
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('instrument_update_settings', (data) => instrumentUpdateSettings(app, data));
   registry.register('instrument_get_settings', (data) => instrumentGetSettings(app, data));

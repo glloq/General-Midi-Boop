@@ -1,15 +1,41 @@
-// src/midi/MidiPlayer.js
+/**
+ * @file src/midi/MidiPlayer.js
+ * @description Master MIDI playback engine. Loads a file from the
+ * database, expands its tracks into a single absolute-time event list,
+ * and feeds the {@link PlaybackScheduler} which is responsible for the
+ * sub-millisecond scheduling of each event.
+ *
+ * Major responsibilities (1300 LOC; only public methods carry full
+ * JSDoc, internal helpers get one-liners where useful):
+ *   - File loading + tempo-aware tick→seconds conversion
+ *   - Per-channel routing & muting (with split-routing support)
+ *   - Tablature CC injection so string-instrument controllers receive
+ *     fret/string events alongside the noteOn/noteOff stream
+ *   - Playlist queue management (loop, shuffle, gap, status broadcast)
+ *   - Lifecycle: play / pause / resume / seek / stop / destroy
+ *   - WS broadcast of `playback_*` events for the frontend
+ *
+ * Collaborators:
+ *   - {@link PlaybackScheduler} for actual timer / send orchestration.
+ *   - {@link MidiClockGenerator} when MIDI Clock should accompany playback.
+ *   - DeviceManager (lazy via `_deps`) for MIDI emission.
+ *   - Database for file payload + persisted routings.
+ */
 import { parseMidi } from 'midi-file';
 import { performance } from 'perf_hooks';
 import PlaybackScheduler from './PlaybackScheduler.js';
 
-// Playback timing constants
-const MICROSECONDS_PER_MINUTE = 60000000; // For tempo conversion
+/** Used to convert MIDI `microsecondsPerBeat` into BPM. */
+const MICROSECONDS_PER_MINUTE = 60000000;
 
-// MIDI CC constants
+/** MIDI Channel Mode CC #123. */
 const MIDI_CC_ALL_NOTES_OFF = 123;
 
-// Event builders for buildEventList() — maps MIDI event types to output event constructors
+/**
+ * Maps `midi-file` event types to constructors that produce the
+ * normalised event objects consumed by {@link PlaybackScheduler}. Each
+ * builder is `(rawEvent, absoluteTimeSec) => normalisedEvent`.
+ */
 const EVENT_BUILDERS = {
   noteOn: (e, time) => ({
     time, type: 'noteOn', channel: e.channel ?? 0,
@@ -45,7 +71,17 @@ const EVENT_BUILDERS = {
   })
 };
 
+/**
+ * Stateful playback engine. One instance per process, registered as
+ * `midiPlayer`. Many consumers (CommandRegistry, PlaylistCommands)
+ * call directly into it.
+ */
 class MidiPlayer {
+  /**
+   * @param {Object} deps - DI bag (or Application facade). Needs at
+   *   least `logger`, `database`. `wsServer`, `deviceManager`,
+   *   `midiClockGenerator`, `latencyCompensator` are resolved lazily.
+   */
   constructor(deps) {
     this.logger = deps.logger;
     this.database = deps.database;
@@ -94,6 +130,16 @@ class MidiPlayer {
     this.logger.info('MidiPlayer initialized');
   }
 
+  /**
+   * Load a MIDI file from the database, parse it, build the absolute-
+   * time event list and prime the scheduler. Sets up tempo, ppq,
+   * channel summary, duration; loads any persisted routings.
+   *
+   * @param {(string|number)} fileId
+   * @returns {Promise<{success:boolean, fileId:(string|number),
+   *   tracks:number, channels:Object[], duration:number, tempo:number}>}
+   * @throws {Error} When the file cannot be found or parsed.
+   */
   async loadFile(fileId) {
     try {
       const file = this.database.getFile(fileId);
@@ -203,6 +249,18 @@ class MidiPlayer {
     this.logger.info(`Found ${this.channels.length} MIDI channels: ${this.channels.map(c => c.channelDisplay).join(', ')}`);
   }
 
+  /**
+   * Walk every track of the loaded file, accumulate per-track tick
+   * counters, and produce a single absolute-time event list ordered by
+   * `time`. Non-channel meta events that affect playback (`setTempo`,
+   * future: `timeSignature`) are kept; lyrics/text are ignored.
+   *
+   * Tablature CC injection is performed via
+   * {@link MidiPlayer#_injectTablatureCCEvents} after the merge.
+   *
+   * @returns {void} Mutates `this.events` and `this.tempoMap`.
+   * @private
+   */
   buildEventList() {
     this.events = [];
     const tempoMap = this._buildTempoMap();
@@ -410,12 +468,25 @@ class MidiPlayer {
     return activeEntry.time + (deltaTicks * secondsPerTick);
   }
 
+  /**
+   * Linear approximation: convert MIDI ticks to seconds using the
+   * single tempo captured at file load. Use the tempo-map-aware
+   * variant {@link MidiPlayer#_ticksToSecondsWithTempoMap} when the
+   * file contains tempo changes.
+   *
+   * @param {number} ticks
+   * @returns {number} Seconds.
+   */
   ticksToSeconds(ticks) {
     const beatsPerSecond = this.tempo / 60;
     const ticksPerSecond = beatsPerSecond * this.ppq;
     return ticks / ticksPerSecond;
   }
 
+  /**
+   * @returns {number} File duration in seconds (last event time, or 0
+   *   when there are no events).
+   */
   calculateDuration() {
     if (this.events.length === 0) {
       this.duration = 0;
@@ -424,6 +495,19 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Begin playback of the loaded file on `outputDevice`. When
+   * `resumePosition` is supplied (seek case), playback starts at that
+   * absolute second instead of 0.
+   *
+   * Emits `playback_started` on the EventBus and triggers the
+   * MidiClockGenerator if it's enabled.
+   *
+   * @param {?string} outputDevice - Default output device id (per-channel
+   *   routing overrides this).
+   * @param {?number} [resumePosition] - Resume position in seconds.
+   * @returns {boolean} True if playback was actually started.
+   */
   start(outputDevice, resumePosition = null) {
     if (this.playing) {
       this.logger.warn('Player already playing');
@@ -502,6 +586,12 @@ class MidiPlayer {
     this._lastBroadcastPosition = state._lastBroadcastPosition;
   }
 
+  /**
+   * Pause playback. The current position is preserved; resume()
+   * continues from there. No-op when not playing.
+   *
+   * @returns {boolean} True when the call actually transitioned state.
+   */
   pause() {
     if (!this.playing || this.paused) {
       return;
@@ -522,6 +612,12 @@ class MidiPlayer {
     this.logger.info('Playback paused');
   }
 
+  /**
+   * Resume from the position captured by {@link MidiPlayer#pause}.
+   * No-op when not paused.
+   *
+   * @returns {boolean} True when the call actually transitioned state.
+   */
   resume() {
     if (!this.playing || !this.paused) {
       return;
@@ -544,6 +640,12 @@ class MidiPlayer {
     this.logger.info('Playback resumed');
   }
 
+  /**
+   * Stop playback, send All Notes Off, reset position to 0.
+   * Idempotent. Emits `playback_stopped`.
+   *
+   * @returns {boolean} True when the call actually transitioned state.
+   */
   stop() {
     this._clearGapTimer();
 
@@ -572,6 +674,13 @@ class MidiPlayer {
     this.logger.info('Playback stopped');
   }
 
+  /**
+   * Tear down the player: stop playback, clear timers, release
+   * scheduler resources, drop any cached file. Called from
+   * Application#stop.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.stop();
     this.scheduler.destroy();
@@ -584,6 +693,14 @@ class MidiPlayer {
     this.mutedChannels.clear();
   }
 
+  /**
+   * Move playback to `position` seconds. Sends All Notes Off to avoid
+   * stuck notes, then re-anchors the scheduler at the new position.
+   * Works whether playback is currently active or paused.
+   *
+   * @param {number} position - Absolute target position in seconds.
+   * @returns {boolean} True when the seek was applied.
+   */
   seek(position) {
     const wasPlaying = this.playing;
     const seekPosition = Math.max(0, Math.min(position, this.duration));
@@ -645,15 +762,32 @@ class MidiPlayer {
     return lo;
   }
 
+  /**
+   * Send All Notes Off (CC #123) on every channel of every routed
+   * device. Used by stop / seek to avoid stuck notes.
+   *
+   * @returns {void}
+   */
   sendAllNotesOff() {
     this.scheduler.sendAllNotesOff(this.outputDevice, this.channelRouting, this.channels);
   }
 
+  /**
+   * @param {boolean} enabled - When true, the file restarts from
+   *   position 0 on end-of-file instead of stopping.
+   * @returns {boolean}
+   */
   setLoop(enabled) {
     this.loop = enabled;
     this.logger.info(`Loop ${enabled ? 'enabled' : 'disabled'}`);
   }
 
+  /**
+   * Broadcast a `playback_status` WebSocket event with the full state
+   * snapshot. Called on every transition (start/pause/stop/seek).
+   *
+   * @returns {void}
+   */
   broadcastStatus() {
     if (this._deps.wsServer) {
       const status = {
@@ -676,6 +810,13 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Lighter event than {@link MidiPlayer#broadcastStatus} — only
+   * `position` + `duration`. Sent at high frequency by the scheduler so
+   * the playhead UI stays smooth without saturating the WS.
+   *
+   * @returns {void}
+   */
   broadcastPosition() {
     if (this._deps.wsServer) {
       this._deps.wsServer.broadcast('playback_position', {
@@ -685,6 +826,12 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Build a status snapshot for the API (`playback_status` command).
+   *
+   * @returns {Object} Includes flags, position/duration, tempo, file id,
+   *   channel summary, current routing/mute state, queue progress.
+   */
   getStatus() {
     return {
       playing: this.playing,
@@ -701,6 +848,15 @@ class MidiPlayer {
 
   // ==================== CHANNEL ROUTING ====================
 
+  /**
+   * Route a single MIDI channel to a specific output device, optionally
+   * remapping to a different target channel.
+   *
+   * @param {number} channel - Source channel (0-15).
+   * @param {string} deviceId - Output device id; falsy clears the route.
+   * @param {?number} [targetChannel] - Optional remapped destination channel.
+   * @returns {void}
+   */
   setChannelRouting(channel, deviceId, targetChannel) {
     const target = (targetChannel !== undefined && targetChannel !== null) ? targetChannel : channel;
     this.channelRouting.set(channel, { device: deviceId, targetChannel: target });
@@ -718,6 +874,15 @@ class MidiPlayer {
    * Set split routing: one channel → multiple instruments based on note ranges
    * @param {number} channel - Source MIDI channel
    * @param {Array<Object>} segments - [{ device_id, target_channel, split_note_min, split_note_max, overlap_strategy }]
+   */
+  /**
+   * Split a channel across multiple destinations based on note range
+   * (e.g. low notes → bass amp, high notes → guitar amp).
+   *
+   * @param {number} channel - Source channel.
+   * @param {Array<{minNote:number, maxNote:number, deviceId:string,
+   *   targetChannel?:number}>} segments
+   * @returns {void}
    */
   setChannelSplitRouting(channel, segments) {
     // Extract overlap_strategy from first segment that has one (shared across the split)
@@ -746,6 +911,12 @@ class MidiPlayer {
     this.logger.info(`Channel ${channel + 1} split across ${segments.length} instruments`);
   }
 
+  /**
+   * Drop every per-channel routing override; channels fall back to the
+   * default `outputDevice` passed to {@link MidiPlayer#start}.
+   *
+   * @returns {void}
+   */
   clearChannelRouting() {
     this.channelRouting.clear();
     this.scheduler.invalidateCompensationCache();
@@ -753,6 +924,10 @@ class MidiPlayer {
     this.logger.info('All channel routing cleared');
   }
 
+  /**
+   * @returns {Object<number, Object>} Snapshot of the current routing
+   *   map keyed by source channel.
+   */
   getChannelRouting() {
     return this.channels.map(c => {
       const routing = this.channelRouting.get(c.channel);
@@ -776,6 +951,18 @@ class MidiPlayer {
    * @param {number|null} [note=null] - MIDI note number (for split routing)
    * @param {string|null} [eventType=null] - 'noteOn' or 'noteOff' (for least_loaded tracking)
    * @returns {Object|Array|null} - { device, targetChannel } or array for broadcast, or null if muted
+   */
+  /**
+   * Resolve the destination for a single event. Considers (in order):
+   * channel-level routing, split routing by note range, and finally the
+   * default `outputDevice`. Returns `null` when nothing matches so the
+   * scheduler can drop the event silently.
+   *
+   * @param {number} channel
+   * @param {?number} [note] - For note events; required by split routing.
+   * @param {?string} [eventType] - Used to differentiate note-vs-cc when
+   *   choosing how to apply target-channel mapping.
+   * @returns {?{deviceId:string, targetChannel:number}}
    */
   getOutputForChannel(channel, note = null, eventType = null) {
     if (this.channelRouting.has(channel)) {
@@ -1006,6 +1193,10 @@ class MidiPlayer {
     return { device: this.outputDevice, targetChannel: channel };
   }
 
+  /**
+   * @param {number} channel
+   * @returns {void}
+   */
   muteChannel(channel) {
     this.mutedChannels.add(channel);
     this.logger.info(`Channel ${channel + 1} muted`);
@@ -1033,21 +1224,42 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * @param {number} channel
+   * @returns {void}
+   */
   unmuteChannel(channel) {
     this.mutedChannels.delete(channel);
     this.logger.info(`Channel ${channel + 1} unmuted`);
   }
 
+  /**
+   * @param {number} channel
+   * @returns {boolean}
+   */
   isChannelMuted(channel) {
     return this.mutedChannels.has(channel);
   }
 
+  /** @returns {number[]} Sorted list of currently muted channels. */
   getMutedChannels() {
     return Array.from(this.mutedChannels);
   }
 
   // ==================== QUEUE / PLAYLIST ====================
 
+  /**
+   * Replace the playback queue. Used by playlist commands and the
+   * editor to enqueue a single file.
+   *
+   * @param {Array<{fileId:(string|number), filename:string}>} items
+   * @param {boolean} loop - When true, restart from the first item on
+   *   end-of-queue.
+   * @param {?(string|number)} playlistId - Source playlist id, used for
+   *   broadcast events.
+   * @param {{gapSeconds?:number, shuffle?:boolean}} [options]
+   * @returns {void}
+   */
   setQueue(items, loop, playlistId, options = {}) {
     this.queue = items.map(item => ({ fileId: item.fileId, filename: item.filename }));
     this.queueIndex = -1;
@@ -1063,6 +1275,12 @@ class MidiPlayer {
     this.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, shuffle=${this.queueShuffle}, gap=${this.queueGapSeconds}s, playlist=${this.playlistId}`);
   }
 
+  /**
+   * Drop every queue entry, cancel any pending gap timer, and reset
+   * queue state. Does NOT stop the currently playing file.
+   *
+   * @returns {void}
+   */
   clearQueue() {
     this._clearGapTimer();
     this.queue = [];
@@ -1074,6 +1292,11 @@ class MidiPlayer {
     this.logger.info('Queue cleared');
   }
 
+  /**
+   * @returns {{active:boolean, playlistId:?(string|number), index:number,
+   *   total:number, loop:boolean, shuffle:boolean, gapSeconds:number,
+   *   gapRemaining?:number}} Snapshot of the queue runtime state.
+   */
   getQueueStatus() {
     return {
       active: this.queue.length > 0 && this.queueIndex >= 0,
@@ -1139,6 +1362,14 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Load + start the queue item at `index` (0-based). When `index` is
+   * out of range, the queue is considered finished and
+   * `_handleFileEnd` is called.
+   *
+   * @param {number} index
+   * @returns {Promise<void>}
+   */
   async playQueueItem(index) {
     if (index < 0 || index >= this.queue.length) {
       throw new Error(`Queue index out of range: ${index}`);
@@ -1192,6 +1423,11 @@ class MidiPlayer {
     this.logger.info(`Playing queue item ${index + 1}/${this.queue.length}: ${item.filename}`);
   }
 
+  /**
+   * Advance to the next queue item, wrapping when `queueLoop` is true.
+   *
+   * @returns {Promise<void>}
+   */
   async nextInQueue() {
     if (this.queue.length === 0) return;
 
@@ -1217,6 +1453,11 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Step back to the previous queue item; clamps at index 0.
+   *
+   * @returns {Promise<void>}
+   */
   async previousInQueue() {
     if (this.queue.length === 0) return;
 

@@ -1,25 +1,69 @@
-// src/midi/MidiRouter.js
+/**
+ * @file src/midi/MidiRouter.js
+ * @description Real-time MIDI routing engine. Owns the route table,
+ * dispatches incoming messages to their destinations after applying
+ * filter and channel-mapping rules, and applies *relative* latency
+ * compensation so a single source feeding several destinations stays
+ * synchronised at the listener's ear.
+ *
+ * Indexes:
+ *   - `routes`            — `Map<routeId, route>` for direct lookup.
+ *   - `routesBySource`    — secondary `Map<source, Set<routeId>>` so the
+ *     hot path is O(routes-from-this-source) rather than O(total-routes).
+ *
+ * Compensation strategy: real-time routing cannot send messages "in the
+ * past", so the slowest destination sends immediately and faster
+ * destinations are delayed by `(slowest - this)` ms. The per-device
+ * compensation lookup is memoised in a 30-second cache that is also
+ * invalidated on the `instrument_settings_changed` event.
+ *
+ * Events:
+ *   - emits `midi_routed` after each successful send.
+ *   - subscribes to `instrument_settings_changed` to refresh the
+ *     compensation cache.
+ */
 import { TIMING } from '../constants.js';
 
+/** Hard ceiling on per-message compensation; logged + clamped above this. */
 const MAX_COMPENSATION_MS = TIMING.MAX_COMPENSATION_MS;
 
+/**
+ * Stateful router. One instance per process; registered in the DI
+ * container as `midiRouter`.
+ */
 class MidiRouter {
+  /**
+   * @param {Object} deps - DI bag (or Application facade). Must expose
+   *   `logger`, `database`, `eventBus`. `deviceManager`,
+   *   `latencyCompensator`, and `wsServer` are resolved lazily through
+   *   `_deps` because they are constructed after the router itself.
+   */
   constructor(deps) {
     this.logger = deps.logger;
     this.database = deps.database;
     this.eventBus = deps.eventBus;
-    this._deps = deps; // For lazy resolution of deviceManager, latencyCompensator, wsServer
+    // Lazy-resolved deps (deviceManager, latencyCompensator, wsServer).
+    this._deps = deps;
+    /** @type {Map<string, Object>} routeId → route record. */
     this.routes = new Map();
-    this.routesBySource = new Map(); // Secondary index: source -> Set of routeIds
+    /** @type {Map<string, Set<string>>} sourceId → set of routeIds. */
+    this.routesBySource = new Map();
+    /** @type {Set<string>} Per-device monitor subscriptions. */
     this.monitors = new Set();
-    this.monitorAll = false; // Broadcast all MIDI messages when debug console is open
-    this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
+    /** Global "monitor every device" flag (debug console). */
+    this.monitorAll = false;
+    /** @type {Set<NodeJS.Timeout>} Pending compensation timers. */
+    this.pendingTimeouts = new Set();
+    /**
+     * Compensation cache `(deviceId[_channel]) → ms`. Refreshed every
+     * 30 s and invalidated on `instrument_settings_changed`.
+     * @type {Map<string, number>}
+     */
     this._compensationCache = new Map();
     this._compensationCacheTimer = setInterval(() => {
       this._compensationCache.clear();
     }, 30000);
 
-    // Invalidate cache immediately when instrument settings change
     this._onSettingsChanged = () => {
       this._compensationCache.clear();
     };
@@ -29,6 +73,12 @@ class MidiRouter {
     this.logger.info('MidiRouter initialized');
   }
 
+  /**
+   * Re-hydrate the in-memory route table from the database. Errors on
+   * individual rows are logged but do not abort the load.
+   *
+   * @returns {void}
+   */
   loadRoutesFromDB() {
     try {
       const routes = this.database.getRoutes();
@@ -54,9 +104,19 @@ class MidiRouter {
     }
   }
 
+  /**
+   * Insert a route in memory and (for new routes) persist it to the
+   * database. If the DB insert fails, the in-memory state is rolled
+   * back so the two views stay consistent.
+   *
+   * @param {Object} route - `{id?, source, destination, channelMap?,
+   *   filter?, enabled?}`. When `id` is missing one is generated.
+   * @returns {string} The route id.
+   * @throws Re-throws DB errors after rollback.
+   */
   addRoute(route) {
     const routeId = route.id || this.generateRouteId();
-    
+
     const routeObj = {
       id: routeId,
       source: route.source,
@@ -100,6 +160,15 @@ class MidiRouter {
     return routeId;
   }
 
+  /**
+   * Delete a route from both database and in-memory indexes.
+   * DB deletion happens first so a DB failure leaves both views
+   * consistent (the route still exists in memory).
+   *
+   * @param {string} routeId
+   * @returns {void}
+   * @throws {Error} When the route does not exist.
+   */
   deleteRoute(routeId) {
     if (!this.routes.has(routeId)) {
       throw new Error(`Route not found: ${routeId}`);
@@ -107,7 +176,6 @@ class MidiRouter {
 
     const route = this.routes.get(routeId);
 
-    // Delete from DB first; if DB fails, in-memory state stays consistent
     this.database.deleteRoute(routeId);
 
     // Remove from source index
@@ -123,6 +191,12 @@ class MidiRouter {
     this.logger.info(`Route deleted: ${routeId}`);
   }
 
+  /**
+   * @param {string} routeId
+   * @param {boolean} enabled
+   * @returns {void}
+   * @throws {Error}
+   */
   enableRoute(routeId, enabled) {
     const route = this.routes.get(routeId);
     if (!route) {
@@ -134,6 +208,12 @@ class MidiRouter {
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
+  /**
+   * @param {string} routeId
+   * @param {Object} filter - Filter spec; see {@link MidiRouter#passesFilter}.
+   * @returns {void}
+   * @throws {Error}
+   */
   setFilter(routeId, filter) {
     const route = this.routes.get(routeId);
     if (!route) {
@@ -147,6 +227,12 @@ class MidiRouter {
     this.logger.info(`Filter updated for route ${routeId}`);
   }
 
+/**
+   * @param {string} routeId
+   * @param {Object<string|number, number>} channelMap - source → dest channel.
+   * @returns {void}
+   * @throws {Error}
+   */
   setChannelMap(routeId, channelMap) {
     const route = this.routes.get(routeId);
     if (!route) {
@@ -160,8 +246,20 @@ class MidiRouter {
     this.logger.info(`Channel map updated for route ${routeId}`);
   }
 
+  /**
+   * Hot path: dispatch a single MIDI message from `sourceDevice` to
+   * every enabled route registered against that source. Applies filter,
+   * channel map, then either sends immediately or schedules a
+   * compensation-delayed send. Emits `midi_routed` on each successful
+   * send and broadcasts a `monitor_event` when monitoring is active.
+   *
+   * @param {string} sourceDevice - Originating device id.
+   * @param {string} type - MIDI message type (`noteon`, `cc`, etc.).
+   * @param {Object} msg - Parsed MIDI message payload.
+   * @returns {void}
+   */
   routeMessage(sourceDevice, type, msg) {
-    // Use source index for O(1) lookup instead of iterating all routes
+    // Source index keeps the hot path O(routes-for-this-source).
     const routeIds = this.routesBySource.get(sourceDevice);
     if (routeIds) {
       for (const routeId of routeIds) {
@@ -231,8 +329,22 @@ class MidiRouter {
     }
   }
 
+  /**
+   * Apply a route filter to a message.
+   *
+   * Supported filter keys:
+   *   - `types: string[]`      — message types to allow.
+   *   - `channels: number[]`   — MIDI channels (0-15) to allow.
+   *   - `noteRange: {min, max}` — applied to noteon/noteoff.
+   *   - `velocityRange: {min,max}` — applied to noteon.
+   *   - `ccNumbers: number[]`  — applied to cc messages.
+   *
+   * @param {string} type
+   * @param {Object} msg
+   * @param {?Object} filter
+   * @returns {boolean} True when the message should be forwarded.
+   */
   passesFilter(type, msg, filter) {
-    // No filter = pass all
     if (!filter || Object.keys(filter).length === 0) {
       return true;
     }
@@ -281,6 +393,15 @@ class MidiRouter {
     return true;
   }
 
+  /**
+   * Remap the message's channel according to `mapping`. Out-of-range
+   * targets fall back to the original channel — invalid mappings never
+   * silently drop the message.
+   *
+   * @param {Object} msg
+   * @param {Object<string|number, number>} mapping
+   * @returns {Object} A copy of `msg` with the channel possibly rewritten.
+   */
   applyChannelMap(msg, mapping) {
     if (!mapping || Object.keys(mapping).length === 0) {
       return msg;
@@ -297,26 +418,51 @@ class MidiRouter {
     return mapped;
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {void}
+   */
   startMonitor(deviceId) {
     this.monitors.add(deviceId);
     this.logger.info(`Monitor started for device: ${deviceId}`);
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {void}
+   */
   stopMonitor(deviceId) {
     this.monitors.delete(deviceId);
     this.logger.info(`Monitor stopped for device: ${deviceId}`);
   }
 
+  /**
+   * Enable global monitoring (every device's traffic is broadcast).
+   * Used by the debug console.
+   *
+   * @returns {void}
+   */
   startMonitorAll() {
     this.monitorAll = true;
     this.logger.info('Monitor ALL devices started (debug console)');
   }
 
+  /** @returns {void} */
   stopMonitorAll() {
     this.monitorAll = false;
     this.logger.info('Monitor ALL devices stopped (debug console)');
   }
 
+  /**
+   * Send a `monitor_event` WebSocket broadcast for a single MIDI
+   * message. Tries to attach a friendly `instrumentName` from the DB
+   * but never blocks the hot path on the lookup.
+   *
+   * @param {string} deviceId
+   * @param {string} type
+   * @param {Object} msg
+   * @returns {void}
+   */
   broadcastMonitorEvent(deviceId, type, msg) {
     if (this._deps.wsServer) {
       // Resolve instrument name from database
@@ -417,18 +563,36 @@ class MidiRouter {
     return Math.max(0, maxComp - thisComp);
   }
 
+  /** @returns {Object[]} Snapshot of every registered route. */
   getRouteList() {
     return Array.from(this.routes.values());
   }
 
+  /**
+   * @param {string} routeId
+   * @returns {?Object}
+   */
   getRoute(routeId) {
     return this.routes.get(routeId);
   }
 
+  /**
+   * @returns {string} A new unique route id (`"route_<ts>_<rand>"`).
+   *   Not cryptographically random — collisions inside a single second
+   *   are practically impossible for human-driven workflows.
+   */
   generateRouteId() {
     return `route_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
+  /**
+   * Cancel every pending compensation timer, drop the cache + cache
+   * timer, detach the EventBus subscription, and clear the route /
+   * monitor maps. Must be called during application shutdown to avoid
+   * leaks across restarts.
+   *
+   * @returns {void}
+   */
   destroy() {
     // Clear all pending message timeouts
     for (const timeoutId of this.pendingTimeouts) {

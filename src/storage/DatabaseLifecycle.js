@@ -1,5 +1,13 @@
-// src/storage/DatabaseLifecycle.js
-// Extracted from Database.js — handles connection, migrations, schema repairs, backup/vacuum.
+/**
+ * @file src/storage/DatabaseLifecycle.js
+ * @description Connection bootstrap helpers extracted from
+ * `Database.js`. Owns the dance of opening the SQLite file with the
+ * right pragmas (WAL, foreign keys), applying schema migrations, and
+ * running the periodic backup / vacuum maintenance jobs.
+ *
+ * Pure helpers — no class state — so the same code can be reused by
+ * one-shot scripts under `scripts/` (migrate, rollback, ...).
+ */
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';

@@ -1,7 +1,17 @@
-// src/repositories/InstrumentRepository.js
-// Repository wrapper over InstrumentDatabase + InstrumentSettingsDB (P0-2.3, ADR-002).
+/**
+ * @file src/repositories/InstrumentRepository.js
+ * @description Thin business-named wrapper over the instrument-related
+ * methods on {@link Database}/{@link InstrumentDatabase} +
+ * {@link InstrumentSettingsDB} + {@link InstrumentCapabilitiesDB}
+ * (P0-2.3, ADR-002).
+ *
+ * Used by every command that touches instruments — settings, lookups,
+ * capability writes, USB-serial / MAC / normalized-name reconciliation
+ * helpers consumed by {@link DeviceReconciliationService}.
+ */
 
 export default class InstrumentRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

@@ -1,19 +1,21 @@
-// src/midi/ChannelAnalyzer.js
+/**
+ * @file src/midi/ChannelAnalyzer.js
+ * @description Pure-data MIDI channel profiler. Walks every event in a
+ * file and produces a per-channel summary used by {@link AutoAssigner}
+ * and {@link InstrumentMatcher}:
+ *   - Note range (min / max)
+ *   - Note distribution (histogram per pitch class)
+ *   - Polyphony (max simultaneous, average)
+ *   - MIDI controllers used (CC numbers + frequency)
+ *   - Primary GM program (most common Program Change)
+ *   - Estimated instrument type via {@link InstrumentTypeConfig}
+ *
+ * Stateless besides the injected {@link ScoringConfig}; safe to share.
+ */
 
 import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
-/**
- * ChannelAnalyzer - Analyzes MIDI channel characteristics
- *
- * Extracts important channel information:
- * - Note range (min/max)
- * - Note distribution
- * - Polyphony (max/average)
- * - Used MIDI controllers
- * - Primary MIDI program
- * - Estimated instrument type
- */
 class ChannelAnalyzer {
   constructor(logger, config = null) {
     this.logger = logger;

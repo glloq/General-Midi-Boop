@@ -1,4 +1,18 @@
-// src/storage/FileManager.js
+/**
+ * @file src/storage/FileManager.js
+ * @description High-level file-library service. Wraps the lower-level
+ * {@link MidiDatabase} with workflows for upload (with size check, parse,
+ * validate, metadata extraction), edit/save, rename/move, duplicate,
+ * export and bulk re-analysis. Also owns the routing-status batch
+ * helpers consumed by the file listing API.
+ *
+ * Collaborators:
+ *   - {@link MidiFileParser} for MIDI → metadata extraction.
+ *   - {@link MidiFileValidator} for non-blocking structural validation.
+ *
+ * The file is large (~800 LOC); only public entry points carry full
+ * JSDoc. Helpers documented inline where logic is non-obvious.
+ */
 import { parseMidi } from 'midi-file';
 import { writeMidi } from 'midi-file';
 import MidiFileParser from './MidiFileParser.js';
@@ -6,6 +20,11 @@ import MidiFileValidator from './MidiFileValidator.js';
 import { LIMITS } from '../constants.js';
 
 class FileManager {
+  /**
+   * @param {Object} app - Application facade. Needs `logger`,
+   *   `database`, `eventBus`, `fileRepository`, `routingRepository`,
+   *   `autoAssigner`.
+   */
   constructor(app) {
     this.app = app;
     this.uploadDir = './uploads';
@@ -15,6 +34,19 @@ class FileManager {
     this.app.logger.info('FileManager initialized');
   }
 
+  /**
+   * Decode + persist a base64-encoded MIDI upload. Performs:
+   *   1. Size cap (against `LIMITS.MAX_MIDI_FILE_SIZE`).
+   *   2. Parse via `midi-file` (rejects on malformed data).
+   *   3. Non-blocking validation report (warnings only).
+   *   4. Header / channel / instrument metadata extraction.
+   *   5. Database insert + EventBus emit `file_uploaded`.
+   *
+   * @param {string} filename
+   * @param {string} base64Data
+   * @returns {Promise<Object>} Persisted file row + extracted metadata.
+   * @throws {Error} On size, parse, or insert failure.
+   */
   async handleUpload(filename, base64Data) {
     try {
       const uploadStartTime = Date.now();

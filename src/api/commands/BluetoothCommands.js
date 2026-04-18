@@ -1,6 +1,30 @@
-// src/api/commands/BluetoothCommands.js
+/**
+ * @file src/api/commands/BluetoothCommands.js
+ * @description WebSocket commands for Bluetooth Low Energy MIDI devices.
+ * All handlers throw {@link ConfigurationError} when the optional
+ * BluetoothManager is not loaded (no `node-ble`, no permissions, or
+ * BLE disabled in config).
+ *
+ * Registered commands:
+ *   - `ble_scan_start` / `_stop`   — active scan with optional filter
+ *   - `ble_connect` / `_disconnect`/ `_forget`
+ *   - `ble_paired`                 — list bonded devices
+ *   - `ble_status`                 — adapter availability + state
+ *   - `ble_power_on` / `_off`      — adapter power control
+ *
+ * Validation: see `device.schemas.js` for `ble_connect` / `ble_disconnect`
+ * (require `address`); other commands rely on inline checks.
+ */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
+/**
+ * @param {Object} app
+ * @param {{duration?:number, filter?:string}} data - `duration` in
+ *   seconds (defaults to 5); `filter` substring matched against device
+ *   names server-side.
+ * @returns {Promise<{success:true, data:{devices:Object[]}}>}
+ * @throws {ConfigurationError}
+ */
 async function bleScanStart(app, data) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -19,6 +43,11 @@ async function bleScanStart(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ * @throws {ConfigurationError}
+ */
 async function bleScanStop(app) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -28,6 +57,12 @@ async function bleScanStop(app) {
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @param {{address:string}} data - Bluetooth MAC address.
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function bleConnect(app, data) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -45,6 +80,12 @@ async function bleConnect(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @param {{address:string}} data
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function bleDisconnect(app, data) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -62,6 +103,14 @@ async function bleDisconnect(app, data) {
   };
 }
 
+/**
+ * Remove a previously paired device from the bonding list.
+ *
+ * @param {Object} app
+ * @param {{address:string}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function bleForget(app, data) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -78,6 +127,11 @@ async function bleForget(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true, data:{devices:Object[]}}>}
+ * @throws {ConfigurationError}
+ */
 async function blePaired(app) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -93,6 +147,14 @@ async function blePaired(app) {
   };
 }
 
+/**
+ * Returns adapter availability + state. Unlike the other handlers, this
+ * one does NOT throw when the manager is missing — it reports
+ * `{enabled:false, available:false}` so the UI can hide BLE controls.
+ *
+ * @param {Object} app
+ * @returns {Promise<Object>}
+ */
 async function bleStatus(app) {
   if (!app.bluetoothManager) {
     return {
@@ -104,6 +166,11 @@ async function bleStatus(app) {
   return app.bluetoothManager.getStatus();
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError}
+ */
 async function blePowerOn(app) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -117,6 +184,11 @@ async function blePowerOn(app) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true, data:Object}>}
+ * @throws {ConfigurationError}
+ */
 async function blePowerOff(app) {
   if (!app.bluetoothManager) {
     throw new ConfigurationError('Bluetooth not available');
@@ -130,6 +202,11 @@ async function blePowerOff(app) {
   };
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('ble_scan_start', (data) => bleScanStart(app, data));
   registry.register('ble_scan_stop', () => bleScanStop(app));

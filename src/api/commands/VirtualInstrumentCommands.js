@@ -1,6 +1,31 @@
-// src/api/commands/VirtualInstrumentCommands.js
+/**
+ * @file src/api/commands/VirtualInstrumentCommands.js
+ * @description WebSocket commands for virtual MIDI instruments —
+ * software-only sources/sinks that show up in the device list and can
+ * be routed to like real hardware.
+ *
+ * Two flavours coexist:
+ *   - "Instrument-style" virtuals (`instrument_create_virtual`) include
+ *     persisted settings + capabilities + DeviceManager registration,
+ *     with optional GM presets.
+ *   - "Raw" virtuals (`virtual_create`) are simpler stub devices used
+ *     by tests and the editor preview.
+ *
+ * Registered commands:
+ *   - `instrument_create_virtual`
+ *   - `virtual_create` / `virtual_delete` / `virtual_list`
+ *   - `instrument_list_by_device` / `instrument_add_to_device`
+ *   - `virtual_instrument_toggle`
+ *
+ * Validation: see `device.schemas.js` for `virtual_create` /
+ * `virtual_delete`; remaining commands rely on imperative checks.
+ */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
+/**
+ * Built-in capability presets for {@link instrumentCreateVirtual}. Each
+ * key is the value clients pass in `data.preset`.
+ */
 const VIRTUAL_INSTRUMENT_PRESETS = {
   piano: {
     name: 'Virtual Piano',
@@ -44,6 +69,20 @@ const VIRTUAL_INSTRUMENT_PRESETS = {
   }
 };
 
+/**
+ * Create a fully-fledged virtual instrument: settings row,
+ * capabilities row, and a DeviceManager registration so it appears in
+ * `device_list` and is routable. Capability defaults come from a named
+ * preset when `data.preset` matches a key in
+ * {@link VIRTUAL_INSTRUMENT_PRESETS}.
+ *
+ * @param {Object} app
+ * @param {Object} data - `{name?, preset?, channel?, gm_program?,
+ *   polyphony?, note_range_min?, note_range_max?, note_selection_mode?}`.
+ * @returns {Promise<{success:true, deviceId:string, id:(string|number),
+ *   name:string, channel:number}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentCreateVirtual(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -94,6 +133,14 @@ async function instrumentCreateVirtual(app, data) {
   };
 }
 
+/**
+ * Stub virtual device — registers in the DeviceManager only, no DB row.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, name?:string, enabled?:boolean}} data
+ * @returns {Promise<{success:true, deviceId:string, name:string}>}
+ * @throws {ValidationError}
+ */
 async function virtualCreate(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -117,6 +164,15 @@ async function virtualCreate(app, data) {
   };
 }
 
+/**
+ * Remove a virtual device from the DeviceManager and best-effort delete
+ * any associated instrument settings rows.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string}} data
+ * @returns {Promise<{success:true, deviceId:string}>}
+ * @throws {ValidationError}
+ */
 async function virtualDelete(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -147,6 +203,14 @@ async function virtualDelete(app, data) {
   };
 }
 
+/**
+ * List currently active virtual devices (filtered from the live
+ * DeviceManager) plus the available preset keys for the UI.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true, devices:Object[], total:number,
+ *   presets:string[]}>}
+ */
 async function virtualList(app) {
   const devices = app.deviceManager.getDeviceList();
   const virtualDevices = devices.filter(d => d.type === 'virtual');
@@ -176,6 +240,13 @@ async function virtualList(app) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @param {{deviceId:string}} data
+ * @returns {Promise<{success:true, instruments:Object[],
+ *   deviceId:string, total:number}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentListByDevice(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -195,6 +266,18 @@ async function instrumentListByDevice(app, data) {
   };
 }
 
+/**
+ * Persist a new instrument settings + optional capabilities row on a
+ * specific device/channel.
+ *
+ * @param {Object} app
+ * @param {Object} data - `{deviceId, channel?, name?, gm_program?,
+ *   polyphony?, note_range_min?, note_range_max?,
+ *   note_selection_mode?, capabilities_source?}`.
+ * @returns {Promise<{success:true, id:(string|number),
+ *   deviceId:string, channel:number}>}
+ * @throws {ConfigurationError|ValidationError}
+ */
 async function instrumentAddToDevice(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
@@ -233,6 +316,15 @@ async function instrumentAddToDevice(app, data) {
   };
 }
 
+/**
+ * Enable/disable a virtual device through the DeviceManager.
+ *
+ * @param {Object} app
+ * @param {{deviceId:string, enabled?:boolean}} data - `enabled` defaults
+ *   to `true`.
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function virtualInstrumentToggle(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
@@ -252,6 +344,11 @@ async function virtualInstrumentToggle(app, data) {
   };
 }
 
+/**
+ * @param {import('../CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('instrument_create_virtual', (data) => instrumentCreateVirtual(app, data));
   registry.register('virtual_create', (data) => virtualCreate(app, data));

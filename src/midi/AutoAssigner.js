@@ -1,4 +1,16 @@
-// src/midi/AutoAssigner.js
+/**
+ * @file src/midi/AutoAssigner.js
+ * @description End-to-end auto-assignment orchestrator. For each active
+ * channel of a MIDI file, asks {@link ChannelAnalyzer} for the channel
+ * profile, runs every registered instrument through
+ * {@link InstrumentMatcher}, optionally splits a channel across several
+ * instruments via {@link ChannelSplitter}, and returns the top-N
+ * suggestions. Heavy result objects are cached in {@link AnalysisCache}
+ * keyed by `(fileId, channel, instrument-set hash)`.
+ *
+ * Singleton — registered as `autoAssigner`. Cleans up its cache and
+ * sweep timer in {@link AutoAssigner#destroy}.
+ */
 
 import ChannelAnalyzer from './ChannelAnalyzer.js';
 import InstrumentMatcher from './InstrumentMatcher.js';
@@ -7,12 +19,6 @@ import AnalysisCache from './AnalysisCache.js';
 import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
-/**
- * AutoAssigner - Generates automatic assignment suggestions
- *
- * For each active MIDI channel, proposes the N best available
- * instruments with their compatibility scores.
- */
 class AutoAssigner {
   constructor(instrumentDatabase, logger) {
     this.instrumentDatabase = instrumentDatabase;

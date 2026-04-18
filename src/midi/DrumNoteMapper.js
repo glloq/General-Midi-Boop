@@ -1,15 +1,17 @@
-// src/midi/DrumNoteMapper.js
-
 /**
- * DrumNoteMapper - Intelligent drum note mapping system
+ * @file src/midi/DrumNoteMapper.js
+ * @description Intelligent General-MIDI percussion mapper. When a drum
+ * track contains GM notes the available drum machine cannot reproduce
+ * 1:1, this mapper picks the closest acceptable substitute from the
+ * machine's own note set, preserving the musical function of each hit.
  *
- * Maps General MIDI drum notes to available instrument notes while:
- * - Preserving musical function (kick, snare, hi-hat priority)
- * - Using intelligent substitution tables
- * - Grouping similar elements
- * - Providing quality metrics
+ * The substitution table is grouped by drum family (kicks, snares,
+ * hi-hats, toms, cymbals, latin, etc.) — sources/targets are picked
+ * within the same family before falling back to a cross-family proxy.
  *
- * Based on study: docs/DRUMS_NOTE_MAPPING_STUDY.md
+ * The file is large (~950 LOC); only public entry points carry full
+ * JSDoc — see `docs/DRUMS_NOTE_MAPPING_STUDY.md` for the substitution
+ * matrix rationale.
  */
 class DrumNoteMapper {
   constructor(logger) {

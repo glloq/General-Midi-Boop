@@ -1,10 +1,17 @@
-// ============================================================================
-// src/managers/RtpMidiSession.js
-// ============================================================================
-// Description:
-//   Simplified implementation of the RTP-MIDI protocol (RFC 6295)
-//   Manages an RTP-MIDI session for sending/receiving MIDI messages over UDP
-// ============================================================================
+/**
+ * @file src/managers/RtpMidiSession.js
+ * @description Simplified RTP-MIDI (RFC 6295) session implementation.
+ * One instance per remote endpoint; created and owned by
+ * {@link NetworkManager}. Handles the UDP socket, RTP sequence /
+ * timestamp bookkeeping, and bidirectional MIDI frame conversion.
+ *
+ * The simplified implementation does not implement the AppleMIDI
+ * journal recovery; lost packets manifest as occasional dropped
+ * notes which is acceptable on a stable LAN.
+ *
+ * TODO: implement the journal once a real-world deployment surfaces
+ * recurring packet loss.
+ */
 
 import dgram from 'dgram';
 import EventEmitter from 'events';

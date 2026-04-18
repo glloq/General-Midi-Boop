@@ -1,16 +1,23 @@
-// src/midi/MidiTransposer.js
-
-// MIDI note constants
-const MIDI_NOTE_MIN = 0;
-const MIDI_NOTE_MAX = 127;
 /**
- * MidiTransposer - Applies transpositions to MIDI files
+ * @file src/midi/MidiTransposer.js
+ * @description Applies transformations to a parsed MIDI file:
+ *   - Channel transposition by N semitones (typically multiples of 12).
+ *   - Per-note remapping (used by drum maps and discrete-pad targets).
+ *   - Free-channel discovery so a split can be materialised without
+ *     stomping on existing channels.
  *
- * Allows:
- * - Transposing channels by octaves (multiples of 12 semitones)
- * - Remapping notes (for drums/discrete pads)
- * - Creating derived files with transformation metadata
+ * Operates on a deep-cloned copy of the input — original `midiData`
+ * objects are never mutated, which keeps the file editor safe.
+ *
+ * The file is large (~760 LOC); only public entry points carry full
+ * JSDoc.
  */
+
+/** Lower MIDI note bound. */
+const MIDI_NOTE_MIN = 0;
+/** Upper MIDI note bound. */
+const MIDI_NOTE_MAX = 127;
+
 class MidiTransposer {
   constructor(logger) {
     this.logger = logger;

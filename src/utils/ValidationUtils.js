@@ -1,5 +1,12 @@
-// src/utils/ValidationUtils.js
-// Shared validation utilities for command handlers.
+/**
+ * @file src/utils/ValidationUtils.js
+ * @description Tiny validation helpers used by command handlers to keep
+ * "is this field present?" / "is this MIDI value in range?" / "is the
+ * required manager loaded?" checks consistent across the API surface.
+ *
+ * Each helper throws an {@link ApplicationError} subclass on failure so
+ * the central error middleware can translate it to a structured response.
+ */
 
 import { ValidationError, ConfigurationError } from '../core/errors/index.js';
 

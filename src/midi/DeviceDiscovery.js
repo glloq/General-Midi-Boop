@@ -1,13 +1,25 @@
-// src/midi/DeviceDiscovery.js
-// Extracted from DeviceManager.js — handles device scanning, hot-plug monitoring,
-// USB serial number detection, and system device filtering.
+/**
+ * @file src/midi/DeviceDiscovery.js
+ * @description Hardware discovery helper extracted from DeviceManager.
+ * Owns the cross-platform plumbing for:
+ *   - Listing MIDI ports via `easymidi`.
+ *   - Polling for hot-plug events at a fixed interval (Linux/macOS lack
+ *     a userspace MIDI inotify so polling is the simplest reliable path).
+ *   - Reading USB serial numbers from `/sys/bus/usb/...` so persisted
+ *     configurations survive port re-enumeration.
+ *   - Filtering out system loopback ports (`Midi Through`, `Through`)
+ *     so they don't pollute the user-visible device list.
+ *
+ * Calls back into DeviceManager via the callbacks installed by
+ * {@link DeviceDiscovery#setChangeCallbacks}.
+ */
 
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-// Timing constants
-const PORT_RELEASE_DELAY_MS = 250; // Delay to ensure MIDI ports are released
+/** Wait between port close and reopen so kernel buffers can drain. */
+const PORT_RELEASE_DELAY_MS = 250;
 
 class DeviceDiscovery {
   /**

@@ -1,14 +1,23 @@
-// src/audio/DelayCalibrator.js
+/**
+ * @file src/audio/DelayCalibrator.js
+ * @description Audio-driven instrument latency calibrator. Uses ALSA's
+ * `arecord` (Raspberry Pi-friendly) to capture audio from a microphone
+ * placed near the instrument, then measures the delay between emitting
+ * a test MIDI note and detecting the resulting sound peak.
+ *
+ * The captured per-channel offset is fed back into
+ * {@link LatencyCompensator} via the `instrument_settings.sync_delay`
+ * column so future playback events can be pre-shifted.
+ *
+ * Supports two workflows:
+ *   - One-shot calibration (`calibrateInstrument`).
+ *   - Live monitoring (`startMonitoring`/`stopMonitoring`) used by the
+ *     UI to render a real-time VU meter while the operator adjusts gain.
+ */
 
 import { spawn } from 'child_process';
 import { performance } from 'perf_hooks';
 
-/**
- * DelayCalibrator - Measures instrument latency delays via microphone
- *
- * Uses ALSA (arecord) on Raspberry Pi to capture audio and measure
- * the delay between sending a MIDI note and detecting the sound.
- */
 class DelayCalibrator {
   /**
    * Validate ALSA device identifier format.

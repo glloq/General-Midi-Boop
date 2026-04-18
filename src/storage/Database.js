@@ -1,4 +1,26 @@
-// src/storage/Database.js
+/**
+ * @file src/storage/Database.js
+ * @description Top-level SQLite façade. Owns the single
+ * `better-sqlite3` connection, runs schema migrations, and instantiates
+ * the per-domain sub-modules ({@link MidiDatabase},
+ * {@link InstrumentDatabase}, {@link LightingDatabase},
+ * {@link StringInstrumentDatabase}, {@link DeviceSettingsDB}).
+ *
+ * Notes:
+ *   - `better-sqlite3` is **synchronous**; every method here returns
+ *     directly, no Promise.
+ *   - Migrations are applied at boot via {@link DatabaseLifecycle}, then
+ *     a couple of one-shot repair / data-migration passes run inline so
+ *     a freshly upgraded server self-heals (`_migrateBase64ToBlob`,
+ *     `_repairMissingChannelCounts`).
+ *   - Many "domain" methods on this class are thin proxies to the sub-
+ *     module that owns the table — kept for backward compatibility with
+ *     pre-split call sites. New code should call the sub-module directly.
+ *
+ * The file is large (~1000 LOC); only the constructor, lifecycle hooks
+ * and public façade methods carry full JSDoc — sub-module proxy calls
+ * follow a one-liner-per-method pattern.
+ */
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -14,7 +36,15 @@ import { buildDynamicUpdate } from './dbHelpers.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Top-level database manager. One instance per process; registered as
+ * `database` in the DI container.
+ */
 class DatabaseManager {
+  /**
+   * @param {Object} deps - DI bag (or Application facade). Needs
+   *   `logger` and `config` (`config.database.path`).
+   */
   constructor(deps) {
     this.logger = deps.logger;
     this.config = deps.config;
@@ -50,8 +80,12 @@ class DatabaseManager {
   }
 
   /**
-   * Convert base64 TEXT data to binary BLOB for MIDI files.
-   * Processes in batches to limit memory usage on RPi.
+   * One-shot migration that converts legacy base64 TEXT payloads to
+   * binary BLOBs in `midi_files`. Runs in 50-row batches (recursive
+   * via setImmediate) to keep peak memory low on Raspberry Pi.
+   *
+   * @returns {void}
+   * @private
    */
   _migrateBase64ToBlob() {
     try {
@@ -117,6 +151,10 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * Create the directory holding the SQLite file when missing.
+   * @returns {void}
+   */
   ensureDataDir() {
     const dir = path.dirname(this.dbPath);
     if (!fs.existsSync(dir)) {
@@ -124,6 +162,11 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * Open the SQLite connection with WAL mode + the pragmas needed by
+   * the rest of the application.
+   * @returns {void}
+   */
   connect() {
     try {
       this.db = new Database(this.dbPath);
@@ -136,6 +179,14 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * Apply pending migrations from `migrations/` in numeric order. Each
+   * migration runs in a transaction; the version counter is updated
+   * inside the same transaction so partial migrations cannot poison
+   * the schema.
+   *
+   * @returns {void}
+   */
   runMigrations() {
     try {
       // Create migrations table if not exists

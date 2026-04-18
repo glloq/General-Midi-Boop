@@ -1,10 +1,17 @@
-// src/utils/ColorUtils.js
-// Shared color conversion utilities used by lighting drivers, effects engine, and commands.
+/**
+ * @file src/utils/ColorUtils.js
+ * @description Color-space conversion helpers shared by the lighting
+ * drivers, the effects engine and the lighting commands. Pure functions
+ * with no I/O — safe to import from anywhere.
+ */
 
 /**
  * Parse a hex color string to RGB components.
- * @param {string} hex - Color string, e.g. "#FF00AA" or "FF00AA"
- * @returns {{ r: number, g: number, b: number }} RGB object (0-255 each), defaults to white if invalid
+ *
+ * @param {string} hex - Color string, e.g. `"#FF00AA"` or `"FF00AA"`.
+ * @returns {{ r: number, g: number, b: number }} RGB object (0-255 each).
+ *   Returns white when the input does not match the 6-hex-digit pattern,
+ *   chosen as a safe default so devices stay visible during config errors.
  */
 export function hexToRgb(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -16,11 +23,13 @@ export function hexToRgb(hex) {
 }
 
 /**
- * Convert HSV color to RGB.
- * @param {number} h - Hue (0-360)
- * @param {number} s - Saturation (0-1)
- * @param {number} v - Value/brightness (0-1)
- * @returns {{ r: number, g: number, b: number }} RGB object (0-255 each)
+ * Convert HSV color to RGB. Implements the standard piecewise formula —
+ * see https://en.wikipedia.org/wiki/HSL_and_HSV.
+ *
+ * @param {number} h - Hue in degrees (0-360, wrapped via modulo).
+ * @param {number} s - Saturation (0-1).
+ * @param {number} v - Value/brightness (0-1).
+ * @returns {{ r: number, g: number, b: number }} RGB object (0-255 each).
  */
 export function hsvToRgb(h, s, v) {
   h = h % 360;

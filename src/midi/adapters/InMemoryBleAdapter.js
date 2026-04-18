@@ -1,6 +1,15 @@
-// src/midi/adapters/InMemoryBleAdapter.js
-// In-memory implementation of BluetoothPort for tests (P1-4.5).
-// No native dependency, no DBus, no hardware required.
+/**
+ * @file src/midi/adapters/InMemoryBleAdapter.js
+ * @description In-memory implementation of {@link BluetoothPort} for
+ * tests (P1-4.5). No native dependency, no DBus, no hardware required —
+ * the adapter exposes the same surface as {@link NobleBleAdapter} so
+ * the contract tests in `tests/ports/bluetooth-port.contract.test.js`
+ * apply unchanged.
+ *
+ * Test helpers (prefixed `_`) are NOT part of the port contract — they
+ * exist so individual tests can inject incoming MIDI packets and
+ * inspect outgoing traffic.
+ */
 
 import EventEmitter from 'events';
 import { BLE_EVENTS } from '../ports/BluetoothPort.js';

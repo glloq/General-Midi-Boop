@@ -1,8 +1,16 @@
 /**
- * InstrumentCapabilitiesValidator
+ * @file src/midi/InstrumentCapabilitiesValidator.js
+ * @description Capability completeness checker for instrument records.
+ * Used by the auto-assigner UI to flag instruments that are missing
+ * data needed to score them properly (`gm_program`, `polyphony`,
+ * `note_selection_mode`, plus mode-conditional fields like
+ * `selected_notes` for discrete-pad instruments and the note range for
+ * range-based instruments).
  *
- * Validates that instruments have all the required capabilities
- * for auto-assignment and identifies missing information.
+ * The validator returns a structured report (`isValid`, `isComplete`,
+ * `missing`, `recommended`) so the UI can both block invalid configs
+ * AND nudge the user to fill in optional but recommended fields like
+ * `supported_ccs` and `type`.
  */
 
 class InstrumentCapabilitiesValidator {

@@ -1,5 +1,10 @@
-// src/lighting/HttpLightDriver.js
-// HTTP REST API driver for controlling lights via HTTP (WLED, Philips Hue, generic REST endpoints)
+/**
+ * @file src/lighting/HttpLightDriver.js
+ * @description {@link BaseLightingDriver} implementation talking to
+ * lights over HTTP REST endpoints (WLED `/json`, Philips Hue REST API,
+ * generic). Per-LED writes are batched through `_pendingUpdates` so
+ * a fast burst of changes coalesces into one round-trip.
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 

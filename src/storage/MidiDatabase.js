@@ -1,18 +1,48 @@
-// src/storage/MidiDatabase.js
+/**
+ * @file src/storage/MidiDatabase.js
+ * @description SQLite access layer for MIDI files and their analyzed
+ * channel metadata. Owns four tables:
+ *   - `midi_files`             — file rows (header + binary BLOB).
+ *   - `midi_file_channels`     — per-channel analysis cache.
+ *   - `midi_file_routings`     — persisted per-file routings.
+ *   - `midi_file_assignments`  — historical auto-assign decisions.
+ *
+ * Listing queries read only {@link LIST_COLUMNS} so the heavy `data`
+ * BLOB stays out of memory until the editor explicitly requests it.
+ *
+ * The file is large (~830 LOC); only public CRUD entry points carry
+ * full JSDoc — SQL is colocated with each method.
+ */
 import { buildDynamicUpdate } from './dbHelpers.js';
 
-// All columns except 'data' (large base64 BLOB) for listing queries
+/**
+ * SELECT projection used by every list-style query. Excludes the heavy
+ * `data` / `data_blob` payload so listings stay cheap on Pi-class
+ * hardware.
+ */
 const LIST_COLUMNS = `id, filename, size, tracks, duration, tempo, ppq, uploaded_at, folder,
   is_original, parent_file_id,
   instrument_types, channel_count, note_range_min, note_range_max,
   has_drums, has_melody, has_bass`;
 
 class MidiDatabase {
+  /**
+   * @param {import('better-sqlite3').Database} db
+   * @param {Object} logger
+   */
   constructor(db, logger) {
     this.db = db;
     this.logger = logger;
   }
 
+  /**
+   * Insert a new MIDI file row. Stores the payload as a binary BLOB
+   * when `data_blob` column exists (post-migration 034); otherwise
+   * falls back to base64 TEXT for backward compatibility.
+   *
+   * @param {Object} file - File record with metadata + payload.
+   * @returns {(string|number)} New row id.
+   */
   insertFile(file) {
     try {
       // Store as binary BLOB if data_blob column exists, otherwise fall back to base64 TEXT

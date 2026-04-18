@@ -1,20 +1,26 @@
-// src/midi/TablatureConverter.js
-
 /**
- * TablatureConverter — Bidirectional conversion between MIDI notes and tablature.
+ * @file src/midi/TablatureConverter.js
+ * @description Bidirectional MIDI ↔ string-instrument tablature
+ * converter.
  *
- * MIDI → Tab:
- *   Given a sequence of MIDI notes and a string instrument config (tuning, frets, capo),
- *   assigns each note to a (string, fret) position, optimizing for minimal hand movement
- *   and ensuring no two simultaneous notes share the same string.
+ * MIDI → Tab: given a string-instrument config (tuning, fret count,
+ * capo, fretless flag) and a sequence of MIDI notes, assigns each note
+ * to a `(string, fret)` position. The optimiser minimises hand
+ * movement, refuses to place simultaneous notes on the same string,
+ * and supports several algorithms (`greedy`, `look-ahead`, `optimal`).
  *
- * Tab → MIDI:
- *   Converts (string, fret) positions back to MIDI note numbers and generates
- *   CC20 (string select) + CC21 (fret select) events before each note-on.
+ * Tab → MIDI: converts `(string, fret)` events back into MIDI note
+ * numbers and emits CC20 (string select) + CC21 (fret select) right
+ * before each note-on so the receiving instrument can pre-position its
+ * mechanical fingers.
+ *
+ * The file is large (~1250 LOC); only public entry points carry full
+ * JSDoc — algorithm-specific helpers retain their inline comments.
  */
 
-// Default CC numbers for string instrument control (matches constants.js MIDI_CC)
+/** Default CC for "select string" — matches constants.js MIDI_CC. */
 const CC_STRING_SELECT_DEFAULT = 20;
+/** Default CC for "select fret" — matches constants.js MIDI_CC. */
 const CC_FRET_SELECT_DEFAULT = 21;
 
 class TablatureConverter {

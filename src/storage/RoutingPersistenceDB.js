@@ -1,6 +1,10 @@
 /**
- * RoutingPersistenceDB — extracted routing persistence methods
- * for MIDI instrument routing storage operations.
+ * @file src/storage/RoutingPersistenceDB.js
+ * @description SQLite access layer for the `midi_file_routings` table.
+ * Owns the persisted file/channel → device routing rows including the
+ * split-routing variant (multiple instruments per channel keyed by
+ * note range + overlap strategy). Sub-module of
+ * {@link InstrumentDatabase}; consumed via `RoutingRepository`.
  */
 class RoutingPersistenceDB {
   /**

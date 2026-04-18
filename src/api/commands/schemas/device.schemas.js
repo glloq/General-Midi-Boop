@@ -1,5 +1,9 @@
-// src/api/commands/schemas/device.schemas.js
-// Declarative schemas for device WS commands (P1-3.2c, ADR-004).
+/**
+ * @file src/api/commands/schemas/device.schemas.js
+ * @description Declarative validation schemas for `device_*`,
+ * `virtual_*` and `ble_*` WebSocket commands (P1-3.2c, ADR-004).
+ * Consumed by `JsonValidator.validateDeviceCommand`.
+ */
 
 const requireDeviceId = {
   custom: (data) => (!data.deviceId ? 'deviceId is required' : null)

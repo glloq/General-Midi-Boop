@@ -1,7 +1,30 @@
-// src/midi/domain/playback/PlaybackControlCommands.js
-// Extracted from PlaybackCommands.js — playback control handlers (P0-1.1).
+/**
+ * @file src/midi/domain/playback/PlaybackControlCommands.js
+ * @description Playback control handlers extracted from
+ * `PlaybackCommands.js` (P0-1.1).
+ *
+ * Registered commands:
+ *   - `playback_start`        — load file, auto-restore routings, start
+ *   - `playback_stop`         — stop and reset to position 0
+ *   - `playback_pause` / `_resume`
+ *   - `playback_seek`         — move to absolute position (seconds)
+ *   - `playback_status`       — snapshot of player state
+ *   - `playback_set_loop`     — toggle loop-on-end behaviour
+ *   - `playback_set_tempo` / `_transpose` / `_set_volume` — placeholders
+ */
 import { ValidationError, ConfigurationError } from '../../../core/errors/index.js';
 
+/**
+ * Load a file, restore any persisted per-channel routings (with
+ * split-routing support), pick a default output device when none was
+ * supplied, and start playback.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number), outputDevice?:string}} data
+ * @returns {Promise<{success:true, fileInfo:Object, outputDevice:string,
+ *   loadedRoutings:number}>}
+ * @throws {ValidationError|ConfigurationError}
+ */
 async function playbackStart(app, data) {
   if (!data.fileId) {
     throw new ValidationError('fileId is required', 'fileId');
@@ -76,47 +99,97 @@ async function playbackStart(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackStop(app) {
   app.midiPlayer.stop();
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackPause(app) {
   app.midiPlayer.pause();
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackResume(app) {
   app.midiPlayer.resume();
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @param {{position:number}} data - Position in seconds.
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackSeek(app, data) {
   app.midiPlayer.seek(data.position);
   return { success: true };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<Object>}
+ */
 async function playbackStatus(app) {
   return app.midiPlayer.getStatus();
 }
 
+/**
+ * @param {Object} app
+ * @param {{enabled:boolean}} data
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackSetLoop(app, data) {
   app.midiPlayer.setLoop(data.enabled);
   return { success: true };
 }
 
+/**
+ * Placeholder.
+ * TODO: forward to a future MidiPlayer#setTempo override that scales
+ * the tempo map at runtime.
+ *
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackSetTempo(_app, _data) {
   return { success: true };
 }
 
+/**
+ * Placeholder.
+ * TODO: implement using {@link MidiAdaptationService#transposeChannels}.
+ *
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackTranspose(_app, _data) {
   return { success: true };
 }
 
+/**
+ * Placeholder.
+ * TODO: surface as a master CC #7 multiplier on the scheduler.
+ *
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackSetVolume(_app, _data) {
   return { success: true };
 }
 
+/**
+ * @param {import('../../../api/CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('playback_start', (data) => playbackStart(app, data));
   registry.register('playback_stop', () => playbackStop(app));

@@ -1,7 +1,21 @@
-// src/storage/LightingDatabase.js
+/**
+ * @file src/storage/LightingDatabase.js
+ * @description SQLite access layer for the lighting subsystem:
+ *   - `lighting_devices`  — physical / virtual lighting devices.
+ *   - `lighting_rules`    — condition→action rules (MIDI → light).
+ *   - `lighting_presets`  — named snapshots of the rule set.
+ *   - `lighting_groups`   — named groups for bulk control.
+ *
+ * Sub-module of {@link Database}; consumed via `LightingRepository`
+ * and the LightingManager.
+ */
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 class LightingDatabase {
+  /**
+   * @param {import('better-sqlite3').Database} db
+   * @param {Object} logger
+   */
   constructor(db, logger) {
     this.db = db;
     this.logger = logger;

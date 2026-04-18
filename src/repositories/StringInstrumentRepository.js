@@ -1,8 +1,13 @@
-// src/repositories/StringInstrumentRepository.js
-// Repository wrapper over StringInstrumentDatabase (ADR-002 option B).
-// Wraps `database.stringInstrumentDB` to hide the sub-module path from handlers.
+/**
+ * @file src/repositories/StringInstrumentRepository.js
+ * @description Thin business-named wrapper over
+ * {@link StringInstrumentDatabase} (ADR-002 option B). Hides the
+ * `database.stringInstrumentDB` sub-module path from handlers and
+ * groups the API into "instruments" / "tuning presets" / "tablatures".
+ */
 
 export default class StringInstrumentRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

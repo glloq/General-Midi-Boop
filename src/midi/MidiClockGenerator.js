@@ -1,11 +1,27 @@
-// src/midi/MidiClockGenerator.js
-// Generates MIDI clock (24 PPQ) with per-device latency compensation.
-// Sends transport messages (Start/Stop/Continue) synchronized with playback.
+/**
+ * @file src/midi/MidiClockGenerator.js
+ * @description Master MIDI clock generator. Emits 24 pulses per quarter
+ * note (industry standard) plus the Start / Stop / Continue transport
+ * messages. Uses a drift-correcting `setTimeout` schedule so the long-
+ * term tempo stays accurate despite per-tick jitter.
+ *
+ * Per-device latency compensation: the slowest target sends its tick
+ * immediately, every other target is delayed by `(slowest - this)` ms.
+ * This mirrors the strategy in {@link MidiRouter} so clock pulses
+ * arrive in sync with the routed MIDI traffic.
+ *
+ * Caches:
+ *   - `_compensationCache` per-device latency lookups, invalidated on
+ *     `instrument_settings_changed` and `device_settings_changed`.
+ *   - `_cachedTargetDevices` device list, invalidated on
+ *     `device_connected` / `device_disconnected`.
+ */
 
 import { performance } from 'perf_hooks';
 import { TIMING } from '../constants.js';
 
-const MIDI_CLOCK_PPQ = TIMING.MIDI_CLOCK_PPQ; // 24 pulses per quarter note
+/** 24 pulses per quarter note — MIDI 1.0 standard. */
+const MIDI_CLOCK_PPQ = TIMING.MIDI_CLOCK_PPQ;
 
 class MidiClockGenerator {
   /**
@@ -54,7 +70,14 @@ class MidiClockGenerator {
 
   // ─── Configuration ──────────────────────────────────────────
 
-  /** Enable/disable clock globally */
+  /**
+   * Enable / disable the clock generator globally. When transitioning
+   * from on→off mid-playback, also stops the running clock so devices
+   * receive a proper Stop transport message.
+   *
+   * @param {boolean} enabled
+   * @returns {void}
+   */
   setEnabled(enabled) {
     const wasEnabled = this._enabled;
     this._enabled = !!enabled;
@@ -66,29 +89,45 @@ class MidiClockGenerator {
     }
   }
 
+  /** @returns {boolean} */
   isEnabled() {
     return this._enabled;
   }
 
-  /** Enable/disable clock for a specific device */
+  /**
+   * Per-device override of clock targeting. Process-local (not
+   * persisted); use the device-settings command to persist.
+   *
+   * @param {string} deviceId
+   * @param {boolean} enabled
+   * @returns {void}
+   */
   setDeviceClockEnabled(deviceId, enabled) {
     this._deviceClockEnabled.set(deviceId, !!enabled);
     this._invalidateDeviceCache();
   }
 
+  /**
+   * Resolve the effective clock-enabled state for a device. Runtime
+   * overrides win; otherwise falls back to the persisted DB flag.
+   *
+   * @param {string} deviceId
+   * @returns {boolean}
+   */
   isDeviceClockEnabled(deviceId) {
-    // Runtime override takes priority (set via API)
     if (this._deviceClockEnabled.has(deviceId)) {
       return this._deviceClockEnabled.get(deviceId);
     }
-    // Check DB: device has clock enabled if ANY of its channels has midi_clock_enabled = 1
     return this._isDeviceClockEnabledInDB(deviceId);
   }
 
   /**
-   * Check if a device has midi_clock_enabled in the devices table.
+   * Check the devices table for `midi_clock_enabled = 1` on the device
+   * (any channel suffices).
+   *
    * @param {string} deviceId
    * @returns {boolean}
+   * @private
    */
   _isDeviceClockEnabledInDB(deviceId) {
     if (!this.app.database) return false;
@@ -187,6 +226,7 @@ class MidiClockGenerator {
     this.app.logger.debug(`MIDI Clock tempo changed to ${bpm.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
   }
 
+  /** @returns {number} Current tempo in BPM. */
   getTempo() {
     return this._tempo;
   }
@@ -444,6 +484,13 @@ class MidiClockGenerator {
 
   // ─── Cleanup ────────────────────────────────────────────────
 
+  /**
+   * Stop the clock, drop all caches and detach EventBus listeners.
+   * Must be called during application shutdown to avoid handler / timer
+   * leaks across restarts.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.stopPlayback();
     this._compensationCache.clear();

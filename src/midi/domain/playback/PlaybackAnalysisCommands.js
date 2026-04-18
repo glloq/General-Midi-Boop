@@ -1,8 +1,24 @@
-// src/midi/domain/playback/PlaybackAnalysisCommands.js
-// Extracted from PlaybackCommands.js — analysis/suggestions handlers (P0-1.2).
+/**
+ * @file src/midi/domain/playback/PlaybackAnalysisCommands.js
+ * @description Channel analysis + auto-assignment suggestion handlers
+ * extracted from `PlaybackCommands.js` (P0-1.2). Wraps
+ * {@link MidiAdaptationService.analyzeChannel} and the
+ * {@link AutoAssigner} suggestion engine.
+ */
 import ScoringConfig from '../../../midi/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
+
+/**
+ * Analyse a single channel of a stored MIDI file (range, polyphony,
+ * CCs, primary GM program). Returned profile is the same shape produced
+ * by {@link ChannelAnalyzer}.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number), channel:number}} data
+ * @returns {Promise<{success:true, channel:number, analysis:Object}>}
+ * @throws {ValidationError|NotFoundError|MidiError}
+ */
 
 async function analyzeChannel(app, data) {
   if (!data.fileId) {
@@ -35,6 +51,18 @@ async function analyzeChannel(app, data) {
   };
 }
 
+/**
+ * Mutate the global {@link ScoringConfig} object with caller-supplied
+ * tweaks for the duration of one suggestion request. Returns the
+ * pre-mutation snapshot so the caller can restore it via
+ * {@link restoreScoringConfig} in a `finally` block.
+ *
+ * Every numeric override is clamped to its legal range to defeat
+ * accidental misconfiguration from the UI.
+ *
+ * @param {Object} overrides
+ * @returns {Object} Snapshot suitable for {@link restoreScoringConfig}.
+ */
 function applyScoringOverrides(overrides) {
   const original = JSON.parse(JSON.stringify({
     weights: ScoringConfig.weights,
@@ -112,6 +140,14 @@ function applyScoringOverrides(overrides) {
   return original;
 }
 
+/**
+ * Reverse of {@link applyScoringOverrides}. Always called from a
+ * `finally` so a failing suggestion run cannot leak request-scoped
+ * scoring tweaks into the next request.
+ *
+ * @param {Object} original
+ * @returns {void}
+ */
 function restoreScoringConfig(original) {
   Object.assign(ScoringConfig.weights, original.weights);
   Object.assign(ScoringConfig.scoreThresholds, original.scoreThresholds);
@@ -124,6 +160,23 @@ function restoreScoringConfig(original) {
   Object.assign(ScoringConfig.splitting, original.splitting);
 }
 
+/**
+ * Build top-N auto-assignment suggestions for every channel of a file.
+ * Optional `data.scoringOverrides` lets the caller temporarily tweak
+ * weights / thresholds for a "what-if" exploration without touching
+ * the persisted scoring profile.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number), topN?:number, minScore?:number,
+ *   excludeVirtual?:boolean, includeMatrix?:boolean,
+ *   scoringOverrides?:Object}} data
+ * @returns {Promise<{success:boolean, suggestions?:Object,
+ *   autoSelection?:Object, splitProposals?:Object,
+ *   channelAnalyses?:Object, confidenceScore?:number,
+ *   allInstruments?:Object[], stats?:Object,
+ *   matrixScores?:Object, instrumentList?:Object[], error?:string}>}
+ * @throws {ValidationError|NotFoundError|MidiError}
+ */
 async function generateAssignmentSuggestions(app, data) {
   if (!data.fileId) {
     throw new ValidationError('fileId is required', 'fileId');
@@ -194,6 +247,11 @@ async function generateAssignmentSuggestions(app, data) {
   return response;
 }
 
+/**
+ * @param {import('../../../api/CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('analyze_channel', (data) => analyzeChannel(app, data));
   registry.register('generate_assignment_suggestions', (data) => generateAssignmentSuggestions(app, data));

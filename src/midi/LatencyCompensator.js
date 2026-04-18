@@ -1,15 +1,30 @@
-// src/midi/LatencyCompensator.js
+/**
+ * @file src/midi/LatencyCompensator.js
+ * @description Per-device latency profile store and round-trip
+ * calibrator. Profiles persist in the SQLite `latency_profiles` table
+ * and are mirrored in memory for hot-path access by {@link MidiRouter}.
+ *
+ * Calibration sends a known noteOn to the device and waits for the
+ * corresponding noteOn to arrive back on the input port. The captured
+ * round-trip is divided by 2 to derive the one-way latency. The
+ * filtering on (device, type, note, channel, velocity) prevents
+ * false positives when other devices are emitting traffic.
+ */
 
-// Latency calibration constants
 const CALIBRATION_TEST_NOTE = 60; // Middle C
 const CALIBRATION_TEST_VELOCITY = 64;
 const CALIBRATION_TEST_CHANNEL = 0;
 const CALIBRATION_TIMEOUT_MS = 5000;
 const CALIBRATION_NOTE_DURATION_MS = 50;
 const CALIBRATION_PAUSE_BETWEEN_MS = 100;
+/** Profiles older than this are flagged for re-calibration. */
 const RECALIBRATION_DAYS = 7;
 
 class LatencyCompensator {
+  /**
+   * @param {Object} app - Application facade. Needs `logger`,
+   *   `database`, `deviceManager`, `eventBus`, `wsServer`.
+   */
   constructor(app) {
     this.app = app;
     this.profiles = new Map();
@@ -20,6 +35,13 @@ class LatencyCompensator {
     this.app.logger.info('LatencyCompensator initialized');
   }
 
+  /**
+   * Re-hydrate in-memory `profiles` from the database at startup.
+   * Failures are logged but do not abort boot — the server can still
+   * operate without profiles, it just skips compensation.
+   *
+   * @returns {void}
+   */
   loadProfilesFromDB() {
     try {
       const profiles = this.app.database.getLatencyProfiles();
@@ -39,6 +61,19 @@ class LatencyCompensator {
     }
   }
 
+  /**
+   * Run `iterations` round-trip measurements and persist the resulting
+   * profile (avg, min, max in ms). Concurrent calibrations are blocked
+   * by `calibrationInProgress`. Broadcasts
+   * `latency_calibration_complete` over WebSocket on success.
+   *
+   * @param {string} deviceId
+   * @param {number} [iterations=5] - Number of round-trips averaged.
+   * @returns {Promise<{deviceId:string, latency:number, min:number,
+   *   max:number, measurements:number[]}>}
+   * @throws {Error} On calibration conflict, missing device, or device
+   *   missing input/output port.
+   */
   async measureLatency(deviceId, iterations = 5) {
     if (this.calibrationInProgress) {
       throw new Error('Calibration already in progress');
@@ -106,6 +141,16 @@ class LatencyCompensator {
     }
   }
 
+  /**
+   * Send one test note and resolve with the measured round-trip in ms.
+   * Uses `process.hrtime.bigint` (nanosecond precision) so the
+   * per-message clock noise is well below the typical 1-ms jitter of
+   * USB MIDI transport.
+   *
+   * @param {string} deviceId
+   * @returns {Promise<number>} Round-trip latency in milliseconds.
+   * @throws {Error} On `CALIBRATION_TIMEOUT_MS` timeout.
+   */
   async measureSingleRoundtrip(deviceId) {
     return new Promise((resolve, reject) => {
       const testNote = CALIBRATION_TEST_NOTE;
@@ -164,6 +209,17 @@ class LatencyCompensator {
     });
   }
 
+  /**
+   * Persist a profile (in-memory + DB). When `stats` is omitted the
+   * single value is used for avg/min/max so manually-set profiles still
+   * have a complete row shape.
+   *
+   * @param {string} deviceId
+   * @param {number} latency - One-way latency in ms.
+   * @param {{measurementCount?:number, averageLatency?:number,
+   *   minLatency?:number, maxLatency?:number}} [stats]
+   * @returns {void}
+   */
   setLatency(deviceId, latency, stats = {}) {
     const profile = {
       latency: latency,
@@ -194,15 +250,24 @@ class LatencyCompensator {
     this.app.logger.info(`Latency set for ${deviceId}: ${latency.toFixed(2)}ms`);
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {number} Latency in ms (0 when no profile is registered).
+   */
   getLatency(deviceId) {
     const profile = this.profiles.get(deviceId);
     return profile ? profile.latency : 0;
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {?Object}
+   */
   getProfile(deviceId) {
     return this.profiles.get(deviceId);
   }
 
+  /** @returns {Object[]} Array snapshot of every profile. */
   getAllProfiles() {
     const profiles = [];
     this.profiles.forEach((profile, deviceId) => {
@@ -214,11 +279,24 @@ class LatencyCompensator {
     return profiles;
   }
 
+  /**
+   * Apply latency compensation to an absolute timestamp (in seconds).
+   * Used by the playback scheduler when it can re-time events ahead of
+   * playback (unlike the router, which can only delay).
+   *
+   * @param {string} deviceId
+   * @param {number} timestamp - Seconds.
+   * @returns {number} Adjusted timestamp.
+   */
   compensateTimestamp(deviceId, timestamp) {
     const latency = this.getLatency(deviceId);
-    return timestamp - (latency / 1000); // Convert ms to seconds
+    return timestamp - (latency / 1000);
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {void}
+   */
   deleteProfile(deviceId) {
     this.profiles.delete(deviceId);
     
@@ -230,6 +308,14 @@ class LatencyCompensator {
     }
   }
 
+  /**
+   * Run {@link LatencyCompensator#measureLatency} sequentially across
+   * `deviceIds`. Failures are recorded in the result list rather than
+   * aborting the batch.
+   *
+   * @param {string[]} deviceIds
+   * @returns {Promise<Object[]>}
+   */
   async autoCalibrate(deviceIds) {
     const results = [];
     
@@ -249,17 +335,28 @@ class LatencyCompensator {
     return results;
   }
 
+  /**
+   * @param {string} deviceId
+   * @returns {boolean} True when the device has no profile or its
+   *   profile is older than {@link RECALIBRATION_DAYS}.
+   */
   shouldRecalibrate(deviceId) {
     const profile = this.profiles.get(deviceId);
     if (!profile) {
-      return true; // No profile, needs calibration
+      return true;
     }
 
-    // Recalibrate if older than 7 days
     const daysSinceCalibration = (Date.now() - profile.lastCalibrated.getTime()) / (1000 * 60 * 60 * 24);
     return daysSinceCalibration > RECALIBRATION_DAYS;
   }
 
+  /**
+   * Build a list of devices the user should re-calibrate. Combines
+   * stale profiles (`reason: 'outdated'`) and connected devices that
+   * have never been calibrated (`reason: 'missing'`).
+   *
+   * @returns {{deviceId:string, lastCalibrated?:Date, reason:string}[]}
+   */
   getRecommendedCalibrations() {
     const recommendations = [];
     
@@ -287,6 +384,13 @@ class LatencyCompensator {
     return recommendations;
   }
 
+  /**
+   * Promise-based pause used between calibration iterations to let the
+   * device's audio engine settle.
+   *
+   * @param {number} ms
+   * @returns {Promise<void>}
+   */
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

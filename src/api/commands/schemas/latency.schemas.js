@@ -1,5 +1,9 @@
-// src/api/commands/schemas/latency.schemas.js
-// Declarative schemas for latency WS commands (P1-3.2c, ADR-004).
+/**
+ * @file src/api/commands/schemas/latency.schemas.js
+ * @description Declarative validation schemas for `latency_*` WebSocket
+ * commands (P1-3.2c, ADR-004). Consumed by
+ * `JsonValidator.validateLatencyCommand`.
+ */
 
 const requireDeviceId = {
   custom: (data) => (!data.deviceId ? 'deviceId is required' : null)

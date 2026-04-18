@@ -1,6 +1,19 @@
-// src/utils/MidiUtils.js
+/**
+ * @file src/utils/MidiUtils.js
+ * @description MIDI message helpers shared by the router, player,
+ * adapters and command handlers. Pure functions / static methods grouped
+ * on the {@link MidiUtils} class.
+ *
+ * Static fields re-export the canonical constants from `src/constants.js`
+ * (`MessageTypes`, `CC`, `NoteNames`) for backwards compatibility with
+ * older call sites that still reach for them via this module.
+ */
 import { MIDI_STATUS, MIDI_CC, MIDI_NOTE } from '../constants.js';
 
+/**
+ * Static utility class — all members are static. Not meant to be
+ * instantiated; import and use as `MidiUtils.foo(...)`.
+ */
 class MidiUtils {
   /**
    * MIDI message type constants

@@ -1,6 +1,10 @@
-// src/lighting/SacnDriver.js
-// sACN / E1.31 (Streaming ACN) driver for modern DMX over Ethernet
-// Used by many LED controllers, architectural lighting, and show lighting software
+/**
+ * @file src/lighting/SacnDriver.js
+ * @description {@link BaseLightingDriver} implementation for sACN /
+ * E1.31 (Streaming ACN) — modern DMX-over-Ethernet used by many LED
+ * controllers, architectural lighting installs, and show-lighting
+ * software (QLC+, MagicQ, ETC consoles).
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 import dgram from 'dgram';

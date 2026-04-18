@@ -1,14 +1,36 @@
-// src/midi/domain/playback/PlaybackRoutingCommands.js
-// Extracted from PlaybackCommands.js — routing validation + channel control (P0-1.4).
+/**
+ * @file src/midi/domain/playback/PlaybackRoutingCommands.js
+ * @description Per-channel routing + channel-mute handlers extracted
+ * from `PlaybackCommands.js` (P0-1.4). Wraps MidiPlayer's channel
+ * routing API with input validation and friendlier error messages.
+ *
+ * Registered commands include channel routing (set/clear), per-channel
+ * mute/unmute, and "validate-routings" which checks a planned routing
+ * against the file's actual channels.
+ */
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{channels:Object}>}
+ */
 async function playbackGetChannels(app) {
   return {
     channels: app.midiPlayer.getChannelRouting()
   };
 }
 
+/**
+ * Set a per-channel routing for the player. `targetChannel` defaults
+ * to the source channel when omitted.
+ *
+ * @param {Object} app
+ * @param {{channel:number, deviceId:string, targetChannel?:number}} data
+ * @returns {Promise<{success:true, channel:number, channelDisplay:number,
+ *   deviceId:string, targetChannel:number}>}
+ * @throws {ValidationError}
+ */
 async function playbackSetChannelRouting(app, data) {
   if (data.channel === undefined || data.channel === null) {
     throw new ValidationError('channel is required', 'channel');
@@ -38,11 +60,23 @@ async function playbackSetChannelRouting(app, data) {
   };
 }
 
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
 async function playbackClearChannelRouting(app) {
   app.midiPlayer.clearChannelRouting();
   return { success: true };
 }
 
+/**
+ * Mute / unmute a single channel.
+ *
+ * @param {Object} app
+ * @param {{channel:number, muted:boolean}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function playbackMuteChannel(app, data) {
   if (data.channel === undefined) {
     throw new ValidationError('Missing channel parameter', 'channel');
@@ -67,6 +101,21 @@ async function playbackMuteChannel(app, data) {
   };
 }
 
+/**
+ * Pre-flight check before starting playback. For every active channel
+ * in the file, reports whether a routing exists (`routed`/`unrouted`)
+ * and whether the destination device is currently connected.
+ *
+ * Result is consumed by the UI to show "all good", "missing routing",
+ * or "device offline" warnings before the user hits play.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number)}} data
+ * @returns {Promise<{success:true, fileId:(string|number),
+ *   channels:Object[], allRouted:boolean, allOnline:boolean,
+ *   warnings:string[]}>}
+ * @throws {ValidationError|NotFoundError|MidiError}
+ */
 async function playbackValidateRouting(app, data) {
   if (!data.fileId) {
     throw new ValidationError('fileId is required', 'fileId');
@@ -148,6 +197,15 @@ async function playbackValidateRouting(app, data) {
   };
 }
 
+/**
+ * Choose how the player reacts when a routed device disconnects
+ * mid-playback.
+ *
+ * @param {Object} app
+ * @param {{policy:('skip'|'pause'|'mute')}} data
+ * @returns {Promise<{success:true, policy:string}>}
+ * @throws {ValidationError}
+ */
 async function playbackSetDisconnectPolicy(app, data) {
   const validPolicies = ['skip', 'pause', 'mute'];
   if (!data.policy || !validPolicies.includes(data.policy)) {
@@ -158,6 +216,11 @@ async function playbackSetDisconnectPolicy(app, data) {
   return { success: true, policy: data.policy };
 }
 
+/**
+ * @param {import('../../../api/CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('playback_get_channels', () => playbackGetChannels(app));
   registry.register('playback_set_channel_routing', (data) => playbackSetChannelRouting(app, data));

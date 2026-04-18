@@ -1,8 +1,29 @@
-// src/midi/DeviceManager.js
+/**
+ * @file src/midi/DeviceManager.js
+ * @description Authoritative registry of every MIDI device the
+ * application can talk to. Owns the inputs/outputs maps, the virtual
+ * device list, the per-device rate-limit state, and the high-level
+ * dispatch (`sendMessage`) used by the router and the API.
+ *
+ * Hot-plug discovery, USB-serial detection, and the system-device
+ * filter are delegated to {@link DeviceDiscovery}; this class
+ * subscribes to the discovery's change callbacks to keep the in-memory
+ * maps in sync.
+ *
+ * Optional dependency `easymidi` (native ALSA bindings) — when missing,
+ * `midiAvailable` flips to `false` and stub classes prevent imports
+ * elsewhere from crashing.
+ */
 import DeviceDiscovery from './DeviceDiscovery.js';
 import { DEVICE_STATUS } from '../constants.js';
 
 let easymidi;
+/**
+ * True when the native MIDI library loaded successfully. When false
+ * the manager keeps running but every send is a no-op so the rest of
+ * the app can boot in development environments without ALSA.
+ * @type {boolean}
+ */
 let midiAvailable = false;
 try {
   easymidi = (await import('easymidi')).default;
@@ -20,7 +41,15 @@ try {
   };
 }
 
+/**
+ * Stateful MIDI device manager. Registered as `deviceManager` in the
+ * DI container.
+ */
 class DeviceManager {
+  /**
+   * @param {Object} app - Application facade. Needs `logger`,
+   *   `eventBus`, `database`, `wsServer`.
+   */
   constructor(app) {
     this.app = app;
     this.devices = new Map();
@@ -67,6 +96,14 @@ class DeviceManager {
     }
   }
 
+  /**
+   * Full rescan of available MIDI hardware. Closes/reopens ports as
+   * needed, rebuilds the device map, broadcasts the result over WS, and
+   * restarts hot-plug monitoring. Safe to call repeatedly — used both
+   * at boot and via the `device_refresh` API command.
+   *
+   * @returns {Promise<Object[]>} Snapshot of the device list after the scan.
+   */
   async scanDevices() {
     await this.discovery.scanAndReopen(
       this.inputs,
@@ -94,6 +131,14 @@ class DeviceManager {
     return deviceList;
   }
 
+  /**
+   * Open an input port by name and wire its message listener. No-op
+   * when already opened or when the port is classified as a system
+   * device (Midi Through, etc.).
+   *
+   * @param {string} name
+   * @returns {void}
+   */
   addInput(name) {
     if (this.inputs.has(name)) {
       return;
@@ -124,6 +169,13 @@ class DeviceManager {
     }
   }
 
+  /**
+   * Open an output port by name. No-op when already opened or when the
+   * port is a system device.
+   *
+   * @param {string} name
+   * @returns {void}
+   */
   addOutput(name) {
     if (this.outputs.has(name)) {
       return;
@@ -138,6 +190,14 @@ class DeviceManager {
     }
   }
 
+  /**
+   * Reconcile the in-memory `devices` map with the currently-open
+   * inputs/outputs/virtual devices and any persisted device-settings
+   * rows. Idempotent — produces the canonical snapshot consumed by
+   * {@link DeviceManager#getDeviceList} and the `device_list` command.
+   *
+   * @returns {Promise<void>}
+   */
   async updateDeviceMap() {
     this.devices.clear();
 
@@ -209,6 +269,10 @@ class DeviceManager {
     });
   }
 
+  /**
+   * @returns {Object[]} Snapshot of every registered device (hardware,
+   *   virtual, and inactive entries with persisted settings).
+   */
   getDeviceList() {
     const usbDevices = Array.from(this.devices.values());
     const allDevices = [...usbDevices];
@@ -315,6 +379,17 @@ class DeviceManager {
     return uniqueDevices;
   }
 
+  /**
+   * Public dispatch entry. Resolves the named device to an output port
+   * (or virtual sink), enforces per-device rate limiting, then sends.
+   * Returns false when the device is unknown, gated by the rate limiter,
+   * or the underlying send threw.
+   *
+   * @param {string} deviceName
+   * @param {string} type - Message type (`'noteon'`, `'cc'`, ...).
+   * @param {Object} data - Message payload.
+   * @returns {boolean} True on successful enqueue.
+   */
   sendMessage(deviceName, type, data) {
     // Skip rate limiting for real-time messages (clock, transport)
     const isRealTime = type === 'clock' || type === 'start' || type === 'stop' || type === 'continue';
@@ -420,6 +495,15 @@ class DeviceManager {
   /**
    * Send SysEx Identity Request to a device using MidiMind Block 1 protocol
    */
+  /**
+   * Send a MIDI Universal Identity Request (SysEx F0 7E <id> 06 01 F7)
+   * to a device. Reply, if any, arrives asynchronously via the normal
+   * input path and is processed by {@link DeviceManager#parseIdentityReply}.
+   *
+   * @param {string} deviceName
+   * @param {number} [_deviceId=0x7F] - SysEx target id (0x7F = broadcast).
+   * @returns {boolean} True when the request was queued for send.
+   */
   sendIdentityRequest(deviceName, _deviceId = 0x7F) {
     this.app.logger.debug(`Looking for output: ${deviceName}`);
     this.app.logger.debug(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
@@ -456,6 +540,16 @@ class DeviceManager {
     }
   }
 
+  /**
+   * Common entry point for every inbound MIDI message. Emits
+   * `midi_message` on the EventBus, hands it to the {@link MidiRouter},
+   * and intercepts SysEx Identity Replies for auto-detection.
+   *
+   * @param {string} deviceName
+   * @param {string} type
+   * @param {Object} msg
+   * @returns {void}
+   */
   handleMidiMessage(deviceName, type, msg) {
     const timestamp = Date.now();
 
@@ -529,6 +623,14 @@ class DeviceManager {
   /**
    * Parse SysEx Identity Reply message using MidiMind Block 1 protocol
    */
+  /**
+   * Decode a SysEx Universal Identity Reply (F0 7E <ch> 06 02 ...) into
+   * `{manufacturerId, manufacturerName, family, model, version}`.
+   * Returns null when the SysEx payload is not an identity reply.
+   *
+   * @param {{bytes:number[]}|number[]} msg
+   * @returns {?Object}
+   */
   parseIdentityReply(msg) {
     const bytes = Array.isArray(msg) ? msg : (msg.bytes || []);
 
@@ -599,6 +701,14 @@ class DeviceManager {
   /**
    * Get manufacturer name from manufacturer ID
    */
+  /**
+   * Resolve a SysEx manufacturer ID (1 byte or 3 bytes for the
+   * 0x00-prefixed extended range) to a human-readable name. Returns
+   * `"Unknown (0x...)"` for IDs not in the lookup table.
+   *
+   * @param {number[]} id
+   * @returns {string}
+   */
   getManufacturerName(id) {
     const manufacturers = {
       0x01: 'Sequential Circuits', 0x02: 'IDP', 0x03: 'Voyetra/Octave-Plateau',
@@ -620,6 +730,14 @@ class DeviceManager {
     return manufacturers[id] || 'Unknown';
   }
 
+  /**
+   * Open a software MIDI port using easymidi's virtual ports
+   * (Linux/macOS only). The same port is registered as both an input
+   * and an output so other applications can talk to it bidirectionally.
+   *
+   * @param {string} name
+   * @returns {Promise<{success:boolean, error?:string}>}
+   */
   async createVirtualDevice(name) {
     if (this.virtualDevices.has(name)) {
       throw new Error(`Virtual device already exists: ${name}`);
@@ -640,6 +758,13 @@ class DeviceManager {
     return name;
   }
 
+  /**
+   * Close and unregister a virtual port previously created with
+   * {@link DeviceManager#createVirtualDevice}.
+   *
+   * @param {string} name
+   * @returns {Promise<{success:boolean, error?:string}>}
+   */
   async deleteVirtualDevice(name) {
     const vdev = this.virtualDevices.get(name);
     if (!vdev) {
@@ -656,6 +781,11 @@ class DeviceManager {
     this.app.logger.info(`Virtual device deleted: ${name}`);
   }
 
+  /**
+   * @param {string} deviceId
+   * @param {boolean} enabled
+   * @returns {void}
+   */
   enableDevice(deviceId, enabled) {
     const device = this.devices.get(deviceId);
     if (!device) {
@@ -680,22 +810,32 @@ class DeviceManager {
     return this.discovery.getUsbSerialNumbers();
   }
 
+  /** @returns {?string} */
   _findSerialNumberInMap(deviceName, serialNumbers) {
     return this.discovery.findSerialNumberInMap(deviceName, serialNumbers);
   }
 
+  /** @returns {Promise<?string>} */
   async findSerialNumberForDevice(deviceName) {
     return this.discovery.findSerialNumberForDevice(deviceName);
   }
 
+  /** Start hot-plug monitoring (delegates to {@link DeviceDiscovery}). */
   startHotPlugMonitoring() {
     this.discovery.startHotPlugMonitoring(this.inputs, this.outputs);
   }
 
+  /** Stop hot-plug monitoring. */
   stopHotPlugMonitoring() {
     this.discovery.stopHotPlugMonitoring();
   }
 
+  /**
+   * Broadcast a `device_list` WebSocket event with the current snapshot.
+   * Called from `scanDevices` and on hot-plug events.
+   *
+   * @returns {void}
+   */
   broadcastDeviceList() {
     if (this.app.wsServer) {
       this.app.wsServer.broadcast('device_list', {
@@ -704,6 +844,13 @@ class DeviceManager {
     }
   }
 
+  /**
+   * Close every open input/output/virtual port and stop hot-plug
+   * monitoring. Listeners are removed before close to prevent callbacks
+   * firing during teardown. Called from Application#stop.
+   *
+   * @returns {void}
+   */
   close() {
     // Stop hot-plug monitoring
     this.discovery.stopHotPlugMonitoring();

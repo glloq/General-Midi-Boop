@@ -1,4 +1,18 @@
-// src/midi/InstrumentMatcher.js
+/**
+ * @file src/midi/InstrumentMatcher.js
+ * @description Heuristic engine that scores how well a registered
+ * instrument can play a given MIDI channel. Used by the auto-assigner
+ * UI to rank suggestions and by the routing-status filter to decide
+ * which files are "playable" with the currently connected hardware.
+ *
+ * Weighting constants live in {@link ScoringConfig}; tweaking them
+ * changes the rankings without touching the scoring logic. Drum
+ * channels are routed through {@link DrumNoteMapper} which has its own
+ * General MIDI percussion mapping table.
+ *
+ * The file is large (~1200 LOC) — only public entry points carry full
+ * JSDoc; internal scoring helpers are documented with one-liners.
+ */
 
 import MidiUtils from '../utils/MidiUtils.js';
 import ScoringConfig from './ScoringConfig.js';
@@ -6,15 +20,9 @@ import DrumNoteMapper from './DrumNoteMapper.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 /**
- * InstrumentMatcher - Calculates compatibility between MIDI channels and instruments
- *
- * Uses a multi-criteria scoring system (0-100) based on:
- * - MIDI program match (GM)
- * - Note range compatibility
- * - Sufficient polyphony
- * - Supported MIDI controllers
- * - Instrument type
- * - Intelligent drum mapping (via DrumNoteMapper)
+ * Multi-criteria channel ↔ instrument compatibility scorer (0-100).
+ * Stateless besides the pluggable {@link ScoringConfig}; safe to share
+ * one instance across the application.
  */
 class InstrumentMatcher {
   constructor(logger, config = null) {

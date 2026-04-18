@@ -1,7 +1,12 @@
-// src/repositories/SessionRepository.js
-// Repository wrapper over session CRUD via Database facade (ADR-002 option B).
+/**
+ * @file src/repositories/SessionRepository.js
+ * @description Thin business-named wrapper over session CRUD on
+ * {@link Database} (ADR-002 option B). Sessions are JSON snapshots of
+ * device list, routing table and player state — see SessionCommands.
+ */
 
 export default class SessionRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

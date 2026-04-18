@@ -1,19 +1,24 @@
-// src/midi/ChannelSplitter.js
+/**
+ * @file src/midi/ChannelSplitter.js
+ * @description Splits a single MIDI channel across multiple instruments
+ * of the same type when no single instrument can cover the channel
+ * (note range too wide, polyphony too low, etc.).
+ *
+ * Three split strategies, selected by {@link AutoAssigner} based on the
+ * channel profile:
+ *   - `'range'`     — each instrument receives notes that fall inside
+ *                     its own playable range.
+ *   - `'polyphony'` — round-robin allocation when combined polyphony is
+ *                     the bottleneck.
+ *   - `'mixed'`     — combination of both — primary instrument covers
+ *                     its range, overflow notes spill onto secondaries.
+ *
+ * The file is large (~870 LOC); only the public entry points carry full
+ * JSDoc, internal helpers retain their existing inline documentation.
+ */
 
 import ScoringConfig from './ScoringConfig.js';
 
-/**
- * ChannelSplitter - Splits a MIDI channel across multiple instruments
- *
- * Allows assigning a MIDI channel to multiple instruments of the same type
- * when a single instrument cannot cover all notes or when polyphony
- * is insufficient.
- *
- * Split modes:
- * - 'range': each instrument receives notes within its range
- * - 'polyphony': round-robin when combined polyphony is needed
- * - 'mixed': combination of both modes
- */
 class ChannelSplitter {
   constructor(logger) {
     this.logger = logger;

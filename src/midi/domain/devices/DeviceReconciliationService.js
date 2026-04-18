@@ -1,12 +1,19 @@
-// src/midi/domain/devices/DeviceReconciliationService.js
-// Domain service for matching a hardware device to its persisted instrument
-// settings, with USB-serial / MAC / normalized-name fallbacks (P1-4.2).
-//
-// Extracted from DeviceCommands.deviceList. The reconcile rule is :
-//   1. lookup by current device.id
-//   2. if not found, try device.usbSerialNumber → reconcile + re-lookup
-//   3. if still not found and bluetooth, try MAC → reconcile + re-lookup
-//   4. if still not found and usb, try normalized name → reconcile + re-lookup
+/**
+ * @file src/midi/domain/devices/DeviceReconciliationService.js
+ * @description Matches a live hardware device to its persisted
+ * instrument-settings row, even when the OS-assigned device id has
+ * drifted (USB re-enumeration, driver rename) (P1-4.2).
+ *
+ * Reconciliation rule (in order):
+ *   1. Direct lookup by current `device.id`.
+ *   2. Fallback by `device.usbSerialNumber` → migrate the row to the
+ *      new id then re-lookup.
+ *   3. For Bluetooth: fallback by MAC address.
+ *   4. For USB: fallback by normalised device name.
+ *
+ * All repository calls are wrapped in {@link DeviceReconciliationService#_safe}
+ * so a single corrupted row never aborts the resolution chain.
+ */
 
 export default class DeviceReconciliationService {
   /**
@@ -68,6 +75,14 @@ export default class DeviceReconciliationService {
     return null;
   }
 
+  /**
+   * Run a repository call defensively; logs and swallows any error so
+   * the reconciliation chain can continue trying alternate matchers.
+   *
+   * @param {Function} fn
+   * @returns {*} The return value of `fn` or `null` on error.
+   * @private
+   */
   _safe(fn) {
     try {
       return fn();

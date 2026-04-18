@@ -1,10 +1,10 @@
-// src/midi/ScoringConfig.js
-
 /**
- * Weight configuration for compatibility scoring
- *
- * Allows fine-tuning the auto-assignment algorithm
- * by adjusting weights without modifying the code.
+ * @file src/midi/ScoringConfig.js
+ * @description Weight tables that drive the compatibility score
+ * computed by {@link InstrumentMatcher} and the cache parameters used
+ * by {@link AutoAssigner}. Tweak values here to influence the
+ * auto-assignment ranking without touching algorithmic code; the sum of
+ * `weights.*` should remain 100.
  */
 const ScoringConfig = {
   /**

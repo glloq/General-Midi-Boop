@@ -1,8 +1,12 @@
-// src/repositories/FileRepository.js
-// Repository wrapper over MidiDatabase (P0-2.1, ADR-002 option B).
-// Exposes a business-named API; delegates to the existing sub-DB.
+/**
+ * @file src/repositories/FileRepository.js
+ * @description Thin business-named wrapper over the file methods on
+ * {@link Database}/{@link MidiDatabase} (P0-2.1, ADR-002 option B).
+ * Decouples consumers from the wide DB surface.
+ */
 
 export default class FileRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

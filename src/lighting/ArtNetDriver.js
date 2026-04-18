@@ -1,6 +1,10 @@
-// src/lighting/ArtNetDriver.js
-// Art-Net (DMX over Ethernet) driver for professional lighting fixtures
-// Implements Art-Net protocol v4 (OemCode 0xFFFF for open source)
+/**
+ * @file src/lighting/ArtNetDriver.js
+ * @description {@link BaseLightingDriver} implementation for Art-Net
+ * (DMX-over-Ethernet) — used to control professional lighting fixtures
+ * (moving heads, par-cans, fog machines). Implements Art-Net protocol
+ * v4 (OemCode `0xFFFF` for open-source projects).
+ */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 import dgram from 'dgram';

@@ -1,7 +1,12 @@
-// src/repositories/PlaylistRepository.js
-// Repository wrapper over playlist CRUD via Database facade (ADR-002 option B).
+/**
+ * @file src/repositories/PlaylistRepository.js
+ * @description Thin business-named wrapper over playlist CRUD on
+ * {@link Database} (ADR-002 option B). Owns both the playlist headers
+ * and the ordered item rows; runtime queue state lives in MidiPlayer.
+ */
 
 export default class PlaylistRepository {
+  /** @param {Object} database - Application database facade. */
   constructor(database) {
     this.database = database;
   }

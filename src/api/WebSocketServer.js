@@ -1,4 +1,21 @@
-// src/api/WebSocketServer.js
+/**
+ * @file src/api/WebSocketServer.js
+ * @description WebSocket transport layer. Attaches a `ws` server to the
+ * existing HTTP listener so HTTPS and WS share the same port, then
+ * forwards every parsed frame to {@link CommandHandler#handle}.
+ *
+ * Per-connection safeguards (RPi-friendly defaults):
+ *   - Hard cap of {@link MAX_WS_CLIENTS} simultaneous clients.
+ *   - {@link MAX_PAYLOAD_BYTES} max frame size (16 MB — fits a base64
+ *     encoded MIDI file plus headers).
+ *   - Sliding-window rate limiter
+ *     ({@link RATE_LIMIT_MAX_MESSAGES}/{@link RATE_LIMIT_WINDOW_MS}).
+ *   - ping/pong heartbeat that terminates dead sockets after a missed
+ *     beat.
+ *
+ * Auth: same `MAESTRO_API_TOKEN` as the HTTP layer; same-origin browsers
+ * connect without a token because the SPA is served from the same host.
+ */
 import { WebSocketServer as WSServer } from 'ws';
 import { timingSafeEqual } from 'crypto';
 import { readFileSync } from 'fs';
@@ -12,25 +29,49 @@ const __wsDirname = dirname(__wsFilename);
 const wsPkg = JSON.parse(readFileSync(join(__wsDirname, '../../package.json'), 'utf8'));
 const APP_VERSION = wsPkg.version;
 
-// WebSocket constants (centralized in constants.js where applicable)
+/** Heartbeat ping/pong cadence (ms). */
 const HEARTBEAT_INTERVAL_MS = TIMING.HEARTBEAT_INTERVAL_MS;
-const MAX_WS_CLIENTS = 10; // Max simultaneous WebSocket connections (RPi-friendly)
-const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024; // 16MB max message size
-const RATE_LIMIT_WINDOW_MS = 1000; // Rate limit window: 1 second
-const RATE_LIMIT_MAX_MESSAGES = 60; // Max messages per window
+/** Max simultaneous WebSocket connections (deliberately conservative for Pi). */
+const MAX_WS_CLIENTS = 10;
+/** Max single-frame size in bytes (16 MB). Big enough for base64 MIDI uploads. */
+const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
+/** Rate-limiter sliding-window length (ms). */
+const RATE_LIMIT_WINDOW_MS = 1000;
+/** Max messages allowed per {@link RATE_LIMIT_WINDOW_MS}. */
+const RATE_LIMIT_MAX_MESSAGES = 60;
 
+/**
+ * `ws`-backed WebSocket server. One instance per process; constructed by
+ * {@link Application#initialize}, started by {@link Application#start}
+ * once `HttpServer.server` exists.
+ */
 class WebSocketServer {
+  /**
+   * @param {Object} deps - DI bag (or Application facade). Needs at
+   *   least `logger`, `config`, `commandHandler`.
+   * @param {?import('http').Server} httpServer - The bound HTTP server to
+   *   attach to. May be `null` at construction; assigned later by
+   *   `Application#start`.
+   */
   constructor(deps, httpServer) {
     this.logger = deps.logger;
     this.config = deps.config;
     this._deps = deps;
     this.httpServer = httpServer;
     this.wss = null;
+    /** @type {Set<import('ws').WebSocket>} Live client sockets. */
     this.clients = new Set();
 
     this.logger.info('WebSocketServer initialized');
   }
 
+  /**
+   * Build the underlying `ws.Server`, install the upgrade handler with
+   * same-origin / token-based auth, register connection / error
+   * listeners, and kick off the heartbeat ticker.
+   *
+   * @returns {void}
+   */
   start() {
     const apiToken = process.env.MAESTRO_API_TOKEN;
     const serverPort = this.config?.server?.port || 8080;
@@ -93,6 +134,15 @@ class WebSocketServer {
     this.logger.info(`WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`);
   }
 
+  /**
+   * Per-client setup: enforce {@link MAX_WS_CLIENTS}, send the welcome
+   * frame (containing the server version), wire message / close / error
+   * listeners and initialise rate-limit + heartbeat state.
+   *
+   * @param {import('ws').WebSocket} ws
+   * @param {import('http').IncomingMessage} req
+   * @returns {void}
+   */
   handleConnection(ws, req) {
     const clientIp = req.socket.remoteAddress;
 
@@ -159,15 +209,25 @@ class WebSocketServer {
     });
   }
 
+  /**
+   * Parse a raw frame, log it, and dispatch to {@link CommandHandler}.
+   * Errors are caught and translated into the `{type:'error'}` wire shape;
+   * details are exposed only for {@link ApplicationError} subclasses to
+   * avoid leaking internals.
+   *
+   * @param {import('ws').WebSocket} ws
+   * @param {Buffer|string} data - Raw inbound frame payload.
+   * @returns {Promise<void>}
+   */
   async handleMessage(ws, data) {
     let parsedMessage = null;
     try {
       parsedMessage = JSON.parse(data.toString());
 
-      // Log command with ID
       this.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
 
-      // Dispatch to command handler (await to catch async errors)
+      // Awaited so async errors (rejections inside handlers) are caught here
+      // instead of becoming unhandled rejections on the Node process.
       await this._deps.commandHandler.handle(parsedMessage, ws);
     } catch (error) {
       this.logger.error(`Failed to process message: ${error.message}`);
@@ -191,11 +251,27 @@ class WebSocketServer {
     }
   }
 
+  /**
+   * Drop the client from the active set on close. Idempotent.
+   *
+   * @param {import('ws').WebSocket} ws
+   * @param {string} clientIp
+   * @returns {void}
+   */
   handleClose(ws, clientIp) {
     this.clients.delete(ws);
     this.logger.info(`Client disconnected: ${clientIp} (${this.clients.size}/${MAX_WS_CLIENTS})`);
   }
 
+  /**
+   * Send a server-pushed event to every open client. Stale (CLOSING /
+   * CLOSED) sockets are pruned during the same iteration to keep the
+   * `clients` set free of zombies.
+   *
+   * @param {string} event - Event name forwarded as the `event` field.
+   * @param {*} data - JSON-serialisable payload.
+   * @returns {void}
+   */
   broadcast(event, data) {
     let message;
     try {
@@ -230,9 +306,17 @@ class WebSocketServer {
     this.logger.debug(`Broadcast ${event} to ${sent} clients`);
   }
 
+  /**
+   * Send a single typed frame to one client. Silently drops the call when
+   * the socket is not OPEN to avoid `ws` errors on closing connections.
+   *
+   * @param {import('ws').WebSocket} ws
+   * @param {string} type - Frame `type` field.
+   * @param {*} data - JSON-serialisable payload.
+   * @returns {void}
+   */
   send(ws, type, data) {
     if (ws.readyState === 1) {
-      // OPEN
       ws.send(
         JSON.stringify({
           type: type,
@@ -243,6 +327,13 @@ class WebSocketServer {
     }
   }
 
+  /**
+   * Start the periodic ping/pong tick. Sockets that did not pong since
+   * the previous tick are terminated and removed — this keeps `clients`
+   * accurate even when the network drops without a clean close frame.
+   *
+   * @returns {void}
+   */
   startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
       this.clients.forEach((ws) => {
@@ -258,19 +349,26 @@ class WebSocketServer {
     }, HEARTBEAT_INTERVAL_MS);
   }
 
+  /**
+   * Stop the heartbeat ticker, send a `1001 Going Away` close frame to
+   * every client, then shut down the underlying `ws.Server` after a
+   * brief grace window so clients have time to receive the close frame.
+   *
+   * @returns {void}
+   */
   close() {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
 
-    // Send close frame with reason before shutting down
     this.clients.forEach((client) => {
       if (client.readyState === 1) {
         client.close(1001, 'Server shutting down');
       }
     });
 
-    // Give clients a moment to receive the close frame, then force close
+    // 500ms is enough for the TCP-level write of the close frame to
+    // flush on a LAN; longer would unnecessarily delay shutdown.
     setTimeout(() => {
       if (this.wss) {
         this.wss.close();
@@ -280,6 +378,10 @@ class WebSocketServer {
     this.logger.info('WebSocket server closed');
   }
 
+  /**
+   * @returns {{clients:number, maxClients:number, port:?number}} Live
+   *   stats consumed by `apiRoutes` (`/metrics`) and the boot banner.
+   */
   getStats() {
     return {
       clients: this.clients.size,

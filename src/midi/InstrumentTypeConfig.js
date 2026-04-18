@@ -1,13 +1,18 @@
-// src/midi/InstrumentTypeConfig.js
-
 /**
- * InstrumentTypeConfig - Instrument type hierarchy
+ * @file src/midi/InstrumentTypeConfig.js
+ * @description Static instrument-type hierarchy aligned with the General
+ * MIDI standard. Each top-level category exposes:
+ *   - `label`        — UI-visible category name (kept as-is, French in the
+ *                      current copy because it is rendered in the user's
+ *                      locale and persisted alongside other settings).
+ *   - `gmPrograms`   — GM program numbers (0-127) that fall under it.
+ *   - `subtypes`     — finer-grained breakdown also keyed to GM programs.
  *
- * Defines general categories and subtypes aligned with the General MIDI standard.
- * Used for:
- * - Mandatory type selection when configuring an instrument
- * - Improved scoring in MIDI auto-assignment
- * - Automatic type detection from the GM program
+ * Consumers:
+ *   - Instrument-settings UI (mandatory category selector).
+ *   - {@link InstrumentMatcher} for category-aware scoring.
+ *   - {@link InstrumentTypeConfig.detectTypeFromProgram} for GM-program
+ *     reverse lookup.
  */
 
 const INSTRUMENT_TYPE_HIERARCHY = {
