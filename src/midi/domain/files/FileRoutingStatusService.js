@@ -1,16 +1,27 @@
-// src/midi/domain/files/FileRoutingStatusService.js
-// Domain service computing the routing status of a file (P1-4.2).
-//
-// Extracted from FileCommands.fileRoutingStatus. The status is derived
-// from (channel_count, enabled routings, connected devices, compatibility
-// scores). Pure computation — no I/O — so trivially testable.
-//
-// Possible statuses :
-//   - 'unrouted'         : zero routed channels
-//   - 'partial'          : some channels routed but < channel_count
-//   - 'playable'         : all channels routed with no compatibility loss
-//   - 'routed_incomplete': all channels routed but min compatibility < 100
+/**
+ * @file src/midi/domain/files/FileRoutingStatusService.js
+ * @description Pure-function helper + DI-friendly service that compute
+ * the routing playability status of a stored MIDI file (P1-4.2).
+ *
+ * Possible statuses:
+ *   - `'unrouted'`          — zero routed channels.
+ *   - `'partial'`           — some channels routed but `< channel_count`.
+ *   - `'playable'`          — all channels routed AND every routing has
+ *                             100% compatibility score (or no score data).
+ *   - `'routed_incomplete'` — all channels routed but at least one
+ *                             routing has < 100% compatibility.
+ */
 
+/**
+ * Pure status calculator. No I/O — easy to unit-test in isolation.
+ *
+ * @param {{file:Object, routings:Object[],
+ *   connectedDeviceIds?:?Set<string>}} params - When
+ *   `connectedDeviceIds` is supplied, routings to disconnected devices
+ *   are excluded so the status reflects what is *currently playable*.
+ * @returns {{status:string, isAdapted:boolean, hasAutoAssigned:boolean,
+ *   routedCount:number, channelCount:number}}
+ */
 export function computeRoutingStatus({ file, routings, connectedDeviceIds = null }) {
   const channelCount = file.channel_count || 1;
 

@@ -1,10 +1,35 @@
-// src/midi/domain/playback/PlaybackAssignmentCommands.js
-// Extracted from PlaybackCommands.js — assignment apply + instrument capabilities (P0-1.3).
+/**
+ * @file src/midi/domain/playback/PlaybackAssignmentCommands.js
+ * @description Auto-assignment "apply" handlers extracted from
+ * `PlaybackCommands.js` (P0-1.3). Translates the user's choice from the
+ * suggestion UI into:
+ *   - A persisted routing record per channel.
+ *   - An optional adapted file (transposed, compressed, polyphony-
+ *     reduced) saved alongside the original so playback can use the
+ *     pre-adapted version directly.
+ *
+ * Also exposes capability-validation helpers used by the same UI.
+ */
 import { parseMidi } from 'midi-file';
 import InstrumentCapabilitiesValidator from '../../../midi/InstrumentCapabilitiesValidator.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
 
+/**
+ * Apply a user-selected auto-assignment plan: optionally produce an
+ * adapted MIDI file (transpose / remap / compress / poly-reduce / CC
+ * remap) and persist a routing row per channel so future playbacks
+ * pick the same destinations.
+ *
+ * @param {Object} app
+ * @param {{originalFileId:(string|number),
+ *   assignments:Object<string, Object>,
+ *   createAdaptedFile?:boolean,
+ *   overwriteOriginal?:boolean}} data
+ * @returns {Promise<Object>} Operation summary including any warnings,
+ *   the adapted file id (when generated), and applied routing count.
+ * @throws {ValidationError|NotFoundError|MidiError}
+ */
 async function applyAssignments(app, data) {
   if (!data.originalFileId) {
     throw new ValidationError('originalFileId is required', 'originalFileId');
@@ -367,6 +392,13 @@ async function applyAssignments(app, data) {
   };
 }
 
+/**
+ * Run the {@link InstrumentCapabilitiesValidator} over every registered
+ * instrument and return the aggregated report.
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true, report:Object}>}
+ */
 async function validateInstrumentCapabilities(app) {
   const validator = new InstrumentCapabilitiesValidator();
   const instruments = app.instrumentRepository.findAllWithCapabilities();
@@ -382,6 +414,15 @@ async function validateInstrumentCapabilities(app) {
   };
 }
 
+/**
+ * Suggest default capabilities for an instrument based on its GM
+ * program and family. Used by the "Add instrument" UI to pre-fill the
+ * capability form.
+ *
+ * @param {Object} app
+ * @param {{gm_program?:number}} data
+ * @returns {Promise<{success:true, defaults:Object}>}
+ */
 async function getInstrumentDefaults(app, data) {
   const validator = new InstrumentCapabilitiesValidator();
   const instrument = app.instrumentRepository.findById(data.instrumentId);
@@ -410,6 +451,15 @@ async function getInstrumentDefaults(app, data) {
   };
 }
 
+/**
+ * Persist the user-edited instrument capability set. Emits
+ * `instrument_settings_changed` so caches refresh.
+ *
+ * @param {Object} app
+ * @param {Object} data - Instrument id + capability fields.
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
 async function updateInstrumentCapabilities(app, data) {
   if (!data.updates) {
     throw new ValidationError('updates is required', 'updates');
@@ -465,6 +515,14 @@ async function updateInstrumentCapabilities(app, data) {
   };
 }
 
+/**
+ * Read every persisted routing row for a file.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number)}} data
+ * @returns {Promise<{success:true, routings:Object[]}>}
+ * @throws {ValidationError}
+ */
 async function getFileRoutings(app, data) {
   if (!data.fileId) {
     throw new ValidationError('fileId is required', 'fileId');
@@ -474,6 +532,11 @@ async function getFileRoutings(app, data) {
   return { success: true, routings, count: routings.length };
 }
 
+/**
+ * @param {import('../../../api/CommandRegistry.js').default} registry
+ * @param {Object} app
+ * @returns {void}
+ */
 export function register(registry, app) {
   registry.register('apply_assignments', (data) => applyAssignments(app, data));
   registry.register('validate_instrument_capabilities', (_data) => validateInstrumentCapabilities(app));

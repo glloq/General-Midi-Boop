@@ -1,20 +1,22 @@
-// src/midi/ports/BluetoothPort.js
-// Bluetooth (BLE-MIDI) port interface (P1-4.5, ADR-001 §V4 ports/adapters).
-//
-// This file defines the **contract** that any Bluetooth adapter must
-// satisfy : the production `NobleBleAdapter` (wrapping `node-ble`) and
-// the test `InMemoryBleAdapter` are interchangeable behind this surface.
-//
-// Implementations are duck-typed (no abstract class) to keep the layer
-// thin. The contract test (`tests/ports/bluetooth-port.contract.test.js`)
-// runs against any object claiming to implement this port.
-//
-// Events (EventEmitter) :
-//   - 'device-discovered' : { address, name, rssi? }
-//   - 'connected'         : { address }
-//   - 'disconnected'      : { address }
-//   - 'midi-message'      : { address, data: Uint8Array }
-//   - 'powered-off'       : { reason? }
+/**
+ * @file src/midi/ports/BluetoothPort.js
+ * @description Bluetooth (BLE-MIDI) port interface — the contract every
+ * Bluetooth adapter must satisfy (P1-4.5, ADR-001 §V4 ports/adapters).
+ * The production {@link NobleBleAdapter} (wrapping `node-ble`) and the
+ * test {@link InMemoryBleAdapter} are interchangeable behind this
+ * surface.
+ *
+ * Implementations are duck-typed (no abstract class) to keep the layer
+ * thin. The contract test (`tests/ports/bluetooth-port.contract.test.js`)
+ * runs against any object claiming to implement this port.
+ *
+ * Events (EventEmitter):
+ *   - `device-discovered` — `{ address, name, rssi? }`
+ *   - `connected`         — `{ address }`
+ *   - `disconnected`      — `{ address }`
+ *   - `midi-message`      — `{ address, data: Uint8Array }`
+ *   - `powered-off`       — `{ reason? }`
+ */
 
 /**
  * @typedef {object} BluetoothDeviceDescriptor
@@ -46,8 +48,11 @@
  *   Cleanly shut down the adapter (close DBus, free resources).
  */
 
-// Required event names — exported so tests / adapters can reference them
-// by symbol rather than string-literal duplication.
+/**
+ * Canonical event names emitted by every {@link BluetoothPort} adapter.
+ * Exported so tests / adapters can reference them by symbol instead of
+ * duplicating literal strings.
+ */
 export const BLE_EVENTS = Object.freeze({
   DEVICE_DISCOVERED: 'device-discovered',
   CONNECTED: 'connected',
@@ -56,8 +61,10 @@ export const BLE_EVENTS = Object.freeze({
   POWERED_OFF: 'powered-off'
 });
 
-// Required method names — used by the contract test to assert that an
-// implementation exposes the full surface.
+/**
+ * Required method names — used by the contract test to assert that an
+ * implementation exposes the full {@link BluetoothPort} surface.
+ */
 export const BLE_PORT_METHODS = Object.freeze([
   'startDiscovery',
   'stopDiscovery',

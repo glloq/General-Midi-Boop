@@ -1,17 +1,39 @@
-// src/midi/domain/routing/FileRoutingSyncService.js
-// Domain service for file-routing synchronisation (P1-4.1).
-//
-// Extracted from RoutingCommands.fileRoutingSync / fileRoutingBulkSync.
-// The service is **transport-agnostic** : it does not know about WS, the
-// command registry or the request/response envelope. It depends on the
-// repositories and an optional `knownDevices` set.
+/**
+ * @file src/midi/domain/routing/FileRoutingSyncService.js
+ * @description Domain service for file-routing synchronisation (P1-4.1).
+ *
+ * Extracted from `RoutingCommands.fileRoutingSync /
+ * fileRoutingBulkSync`. The service is intentionally
+ * **transport-agnostic** — it knows nothing about WebSocket, the
+ * command registry, or the request/response envelope. It depends only
+ * on the repositories and an optional `knownDevices` filter that the
+ * command handler builds from the live DeviceManager snapshot.
+ */
 
 /**
- * Plan a single channel sync : decide whether to skip (orphan / invalid
- * device) or to insert, and build the routing payload preserving the
- * legacy auto-assign metadata when the device hasn't changed.
+ * Plan a single channel sync. Returns one of three actions:
  *
- * Pure function — no side effects, easily testable.
+ *   - `'skip'`         — invalid input (NaN channel or empty routing).
+ *   - `'skip-channel'` — channel not present in the file (orphan).
+ *   - `'skip-device'`  — destination device is not connected and is
+ *                        not the magic `'virtual-instrument'` value.
+ *   - `'insert'`       — return a fully-populated routing payload that
+ *                        preserves legacy auto-assign metadata when the
+ *                        target device is unchanged.
+ *
+ * Pure function — no side effects, easy to unit-test in isolation.
+ *
+ * @param {Object} params
+ * @param {(string|number)} params.fileId
+ * @param {number} params.channel
+ * @param {string} params.routingValue - `"deviceId"` or
+ *   `"deviceId::targetChannel"`.
+ * @param {Map<number, Object>} params.existingByChannel
+ * @param {?Set<string>} [params.knownDevices]
+ * @param {?Set<number>} [params.knownChannels]
+ * @param {number} [params.now=Date.now()]
+ * @returns {{action:string, reason?:string, channel?:number,
+ *   deviceId?:string, routing?:Object}}
  */
 export function planChannelRouting({
   fileId,
@@ -81,6 +103,11 @@ export default class FileRoutingSyncService {
     this.logger = deps.logger || { info: () => {}, warn: () => {}, error: () => {} };
   }
 
+  /**
+   * @returns {Set<string>} Snapshot of every connected device id; used
+   *   as a filter when deciding which routings to keep.
+   * @private
+   */
   _knownDevices() {
     const set = new Set();
     try {
@@ -90,6 +117,12 @@ export default class FileRoutingSyncService {
     return set;
   }
 
+  /**
+   * @param {(string|number)} fileId
+   * @returns {Set<number>} Channels actually present in the file —
+   *   used to drop routings for channels that don't exist in the data.
+   * @private
+   */
   _knownChannels(fileId) {
     const set = new Set();
     try {
@@ -100,9 +133,18 @@ export default class FileRoutingSyncService {
   }
 
   /**
-   * Sync a single file's channel-to-device map.
-   * Pre : channels is non-empty (caller handles the "clear" case).
-   * Returns { synced, invalidDevices, invalidChannels }.
+   * Sync a single file's channel-to-device map. Replaces all
+   * non-split routings for the file (split routings are managed by
+   * the auto-assigner and intentionally preserved).
+   *
+   * Pre: `channels` is non-empty — the caller handles the "clear"
+   * case via `routingRepository.deleteByFileId`.
+   *
+   * @param {(string|number)} fileId
+   * @param {Object<string, string>} channels - channel index → routing
+   *   value (`"deviceId"` or `"deviceId::targetChannel"`).
+   * @returns {{synced:number, invalidDevices:string[],
+   *   invalidChannels:number[]}}
    */
   syncFile(fileId, channels) {
     const existingRoutings = this.routingRepository.findByFileId(fileId, true);
@@ -162,8 +204,14 @@ export default class FileRoutingSyncService {
   }
 
   /**
-   * Bulk variant : same logic per file, aggregated counters.
-   * Returns { synced, files, invalidDevices }.
+   * Bulk variant of {@link FileRoutingSyncService#syncFile}. Same
+   * per-file logic but with aggregated counters and one-shot device
+   * snapshot. Channel-existence check is intentionally skipped here
+   * to preserve legacy bulk-sync behaviour.
+   *
+   * @param {Object<string, {channels:Object<string,string>,
+   *   lastModified?:number}>} routingsByFile
+   * @returns {{synced:number, files:number, invalidDevices:string[]}}
    */
   bulkSync(routingsByFile) {
     let totalSynced = 0;
