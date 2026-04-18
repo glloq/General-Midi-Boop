@@ -25,17 +25,9 @@ class MidiEditorCCPanel {
      */
     getUsedCCTypesForChannel(channel) {
         const m = this.modal;
-        const usedTypes = new Set();
-        m.ccEvents.forEach(event => {
-            if (event.channel === channel) {
-                usedTypes.add(event.type);
-            }
+        return window.MidiEditorCCPanelAnalysis.getUsedCCTypesForChannel({
+            channel, ccEvents: m.ccEvents, fullSequence: m.fullSequence
         });
-        // Verifier aussi velocity (notes presentes sur ce canal)
-        if (m.fullSequence && m.fullSequence.some(note => note.c === channel)) {
-            usedTypes.add('velocity');
-        }
-        return usedTypes;
     }
 
     /**
@@ -43,15 +35,9 @@ class MidiEditorCCPanel {
      */
     getAllUsedCCTypes() {
         const m = this.modal;
-        const allTypes = new Set();
-        m.ccEvents.forEach(event => {
-            allTypes.add(event.type);
+        return window.MidiEditorCCPanelAnalysis.getAllUsedCCTypes({
+            ccEvents: m.ccEvents, fullSequence: m.fullSequence
         });
-        // Verifier aussi velocity (notes presentes sur n'importe quel canal)
-        if (m.fullSequence && m.fullSequence.length > 0) {
-            allTypes.add('velocity');
-        }
-        return allTypes;
     }
 
     /**
@@ -99,14 +85,7 @@ class MidiEditorCCPanel {
      * Obtenir l'ensemble de TOUS les canaux ayant des evenements CC/Pitchbend
      */
     getAllCCChannels() {
-        const m = this.modal;
-        const channels = new Set();
-        m.ccEvents.forEach(event => {
-            if (event.channel !== undefined) {
-                channels.add(event.channel);
-            }
-        });
-        return Array.from(channels).sort((a, b) => a - b);
+        return window.MidiEditorCCPanelAnalysis.getAllCCChannels(this.modal.ccEvents);
     }
 
     /**
@@ -114,13 +93,9 @@ class MidiEditorCCPanel {
      */
     getCCChannelsUsed() {
         const m = this.modal;
-        const channels = new Set();
-        m.ccEvents.forEach(event => {
-            if (event.type === m.currentCCType && event.channel !== undefined) {
-                channels.add(event.channel);
-            }
+        return window.MidiEditorCCPanelAnalysis.getCCChannelsUsed({
+            ccEvents: m.ccEvents, ccType: m.currentCCType
         });
-        return Array.from(channels).sort((a, b) => a - b);
     }
 
     // ========================================================================
