@@ -20,20 +20,19 @@ import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
 class AutoAssigner {
-  constructor(instrumentDatabase, logger) {
+  constructor(instrumentDatabase, logger, eventBus = null) {
     this.instrumentDatabase = instrumentDatabase;
     this.logger = logger;
     this.analyzer = new ChannelAnalyzer(logger);
     this.matcher = new InstrumentMatcher(logger);
     this.splitter = new ChannelSplitter(logger);
-    this.cache = new AnalysisCache(ScoringConfig.cache.maxSize, ScoringConfig.cache.ttl);
-
-    // Periodic cache cleanup (every 5 minutes)
-    this.cleanupInterval = setInterval(() => {
-      this.cache.cleanup();
-      const stats = this.cache.getStats();
-      this.logger.debug(`Cache cleanup: ${stats.size}/${stats.maxSize} entries`);
-    }, 300000);
+    // Size-bounded LRU; invalidation is event-driven via EventBus when
+    // available, so the periodic TTL sweep is no longer needed.
+    this.cache = new AnalysisCache({
+      maxSize: ScoringConfig.cache.maxSize,
+      eventBus,
+      logger
+    });
   }
 
   /**

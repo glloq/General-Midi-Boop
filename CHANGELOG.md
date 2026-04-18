@@ -4,6 +4,102 @@ All notable changes to Ma-est-tro are documented in this file.
 
 ## [Unreleased]
 
+### Added (v6 storage refactor)
+- **`migrations/001_baseline.sql`** — single consolidated baseline schema
+  (20 tables, 47 indexes, 14 declared FKs) replacing the 34 incremental
+  migrations 001..040. Fresh installs only.
+- **`src/files/BlobStore.js`** — content-addressable filesystem storage
+  for MIDI bytes under `data/midi/<sha256[0..1]>/<sha256>.mid`. Atomic
+  writes via tmp+rename, free deduplication on identical content,
+  `gcOrphans` helper, no SQLite BLOB pressure on the WAL.
+- **`src/files/UploadQueue.js`** — in-process FIFO queue (concurrency 1)
+  for upload post-processing, with optional `onProgress` callback used
+  to broadcast `file_upload_progress` over WebSocket.
+- **`POST /api/files`** + **`GET /api/files/:id/blob`** — HTTP upload /
+  download endpoints replacing the WS `file_upload` command.
+- `midi_files.content_hash` (UNIQUE, SHA-256), `blob_path`,
+  `midi_file_tempo_map` table for persisted tempo-map cache.
+- BackupScheduler now writes a `*.manifest.json` sidecar listing every
+  blob and whether it exists on disk — restore operators can identify
+  which MIDI files lost their bytes.
+- Same-origin auth bypass on `/api/*` for the SPA (mirrors the WS
+  `verifyClient` rule).
+- `tests/helpers/createTestFile.js` — shared fixture builder for the
+  v6 `midi_files` shape.
+
+### Changed (v6 storage refactor)
+- **WS `file_upload` removed.** SPA now POSTs raw bytes to `/api/files`.
+- `file_export` returns `{url, contentHash, ...}` instead of an inline
+  base64 payload.
+- `file_read` no longer ships the full `convertMidiToJSON` over the WS;
+  the editor is expected to fetch bytes via `GET /api/files/:id/blob`.
+- WS `MAX_PAYLOAD_BYTES` lowered from 16 MB to 1 MB now that binary
+  uploads go through HTTP.
+- `AnalysisCache` rewritten to a size-bounded LRU (default 32 MB / 500
+  entries) with EventBus-driven invalidation on `file_write` /
+  `file_delete` / `file_uploaded`. The 10-min TTL eviction is gone.
+- `MidiPlayer.loadFile` reads bytes via `BlobStore.read(blob_path)`
+  instead of the legacy `file.data` BLOB / base64 path.
+- `LatencyCompensator` persistence quarantined: `loadProfilesFromDB`,
+  `setLatency` save, and `deleteProfile` save are now no-ops with
+  `@deprecated` notes. Profiles live in memory only until a real
+  `instruments_latency`-backed read/write path is wired.
+
+### Removed (v6 storage refactor)
+- 34 legacy migrations (`001_initial.sql` .. `040_drop_adaptation_metadata.sql`).
+- Phantom tables: `instruments` (CRUD methods deleted), `instrument_latency`
+  (singular, latency-profile methods deleted), `files` (legacy duplicate
+  of `midi_files`); unused calibration views (`active_instruments`,
+  `instruments_needing_calibration`, `calibration_stats`).
+- `midi_history` table (moved to `data/logs/midi_history.jsonl`).
+- Columns dropped: `midi_files.data` (base64), `midi_files.data_blob`
+  (BLOB), `midi_files.midi_json`, `midi_files.metadata`,
+  `midi_files.duration_ms`, `midi_files.adaptation_metadata`,
+  `instruments_latency.compensation_offset` (deprecated µs offset).
+- `scripts/rollback-db.js` + `migrate:rollback` npm script (no longer
+  applicable to a single-baseline workflow).
+- Frontend orphan helpers `arrayBufferToBase64` / `base64ToArrayBuffer`.
+
+### Fixed (v6 storage refactor)
+- `PlaybackAssignmentCommands`, `PlaybackRoutingCommands`,
+  `PlaybackAnalysisCommands` no longer crash on missing `file.data`;
+  they read via `app.blobStore.read(file.blob_path)`.
+- Preset CRUD targets the actual `presets.category` column (was using
+  the non-existent `type` column); the `type` API field is preserved
+  for the SPA via mapping in `InstrumentDatabase.insertPreset` /
+  `updatePreset`.
+- Two test suites realigned with the v6 schema
+  (`tests/repositories/routing-integration.test.js`,
+  `tests/midi-filter.test.js`).
+
+### Fixed (post-v6 audit)
+- **`routes` table aligned with the runtime model.** The baseline had
+  `from_device/to_device/from_channel/to_channel` (INTEGER PK) but
+  every caller wrote `source_device/destination_device/channel_mapping/
+  filter` (TEXT PK). All CRUD on static device routes was crashing on
+  unknown columns; column shape now matches MidiRouter.addRoute.
+- **`midi_instrument_routings.target_channel` added** as a typed
+  INTEGER column (CHECK 0..15). Replaces the dead `track_id` reference
+  that RoutingPersistenceDB still wrote to.
+- **`instruments_latency.gm_program` and `polyphony` columns added**;
+  every InstrumentSettings/InstrumentCapabilities save was crashing on
+  unknown columns.
+- **`InstrumentRepository.findById` / `update` restored** (regression
+  introduced by the dead-code cleanup commit), branched at
+  `instruments_latency` rather than the phantom `instruments` table.
+  Unblocks `PlaybackAssignmentCommands.{getInstrumentDefaults,
+  updateInstrumentCapabilities}`.
+- **LatencyCompensator persistence wired to `instruments_latency`.**
+  Profiles are now stored on each device's channel-0 row
+  (`sync_delay`, `avg_latency`, `min_latency`, `max_latency`,
+  `measurement_count`, `last_calibration`) and reloaded at every boot.
+  The v6 quarantine is over.
+- **5 missing WS event listeners wired in `index.html`**:
+  `file_list_updated` / `file_uploaded` / `file_delete` / `file_write`
+  refresh the file library across tabs, `file_upload_progress` logs
+  big-file stages, `latency_calibration_complete` surfaces calibration
+  outcomes.
+
 ### Added
 - `docs/MIDI_EDITOR.md` — technical documentation for the MIDI editor modal
   (architecture, module map, public API, state model, load/save data flow,

@@ -16,28 +16,22 @@ export default class InstrumentRepository {
     this.database = database;
   }
 
+  // The legacy generic `instruments` table is gone (v6); the per-channel
+  // rows live on `instruments_latency` (plural). The two helpers below
+  // operate on the row primary id (`<device_id>_<channel>`) — used by
+  // the playback assignment flow to load + patch one instrument at a
+  // time without juggling (deviceId, channel) tuples on the caller side.
+
   findById(instrumentId) {
-    return this.database.getInstrument(instrumentId);
+    return this.database.findInstrumentById(instrumentId);
   }
 
-  findAll() {
-    return this.database.getInstruments();
+  update(instrumentId, fields) {
+    return this.database.updateInstrumentById(instrumentId, fields);
   }
 
   findAllWithCapabilities() {
     return this.database.getInstrumentsWithCapabilities();
-  }
-
-  save(instrument) {
-    return this.database.insertInstrument(instrument);
-  }
-
-  update(instrumentId, updates) {
-    return this.database.updateInstrument(instrumentId, updates);
-  }
-
-  delete(instrumentId) {
-    return this.database.deleteInstrument(instrumentId);
   }
 
   getCapabilities(deviceId, channel) {
@@ -68,9 +62,11 @@ export default class InstrumentRepository {
     return this.database.getInstrumentsByDevice(deviceId);
   }
 
-  deleteLatencyProfile(deviceId) {
-    return this.database.deleteLatencyProfile(deviceId);
-  }
+  // deleteLatencyProfile removed in v6 — latency now lives on the
+  // per-channel rows of `instruments_latency` (plural). To clear a
+  // device's latency, either patch sync_delay/avg_latency back to 0
+  // via updateSettings, or use deleteSettingsByDevice to drop the row
+  // entirely.
 
   deleteSettingsByDevice(deviceId, channel) {
     return this.database.deleteInstrumentSettingsByDevice(deviceId, channel);

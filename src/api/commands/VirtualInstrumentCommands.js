@@ -183,15 +183,12 @@ async function virtualDelete(app, data) {
     app.deviceManager.removeVirtualDevice(data.deviceId);
   }
 
-  // Clean up database entries
+  // Clean up DB rows for this device — `instruments_latency` (plural)
+  // holds every per-channel row; the legacy generic `instruments` table
+  // was removed in v6.
   if (app.instrumentRepository) {
     try {
       app.instrumentRepository.deleteSettingsByDevice(data.deviceId);
-    } catch (e) {
-      // May not exist
-    }
-    try {
-      app.instrumentRepository.delete(data.deviceId);
     } catch (e) {
       // May not exist
     }

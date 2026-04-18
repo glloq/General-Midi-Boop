@@ -129,7 +129,7 @@ async function playbackValidateRouting(app, data) {
   const midiConverter = getMidiConverter(app);
   let midiData;
   try {
-    const buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data, 'base64');
+    const buffer = app.blobStore.read(file.blob_path);
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
     throw new MidiError(`Failed to parse MIDI file: ${error.message}`);

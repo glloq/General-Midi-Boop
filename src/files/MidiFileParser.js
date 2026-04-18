@@ -252,6 +252,36 @@ class MidiFileParser {
   }
 
   /**
+   * Extract the tempo map as a flat array of absolute-tick BPM points.
+   * Result is ready to persist in `midi_file_tempo_map` so playback
+   * can seek without re-parsing the binary.
+   *
+   * @param {Object} midi - Parsed MIDI object
+   * @returns {Array<{tick: number, bpm: number}>}
+   */
+  extractTempoMap(midi) {
+    const out = [];
+    const seen = new Set();
+    for (const track of midi.tracks || []) {
+      let trackTicks = 0;
+      for (const event of track) {
+        trackTicks += event.deltaTime || 0;
+        if (event.type === 'setTempo' && event.microsecondsPerBeat > 0) {
+          const key = `${trackTicks}:${event.microsecondsPerBeat}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({
+            tick: trackTicks,
+            bpm: 60000000 / event.microsecondsPerBeat
+          });
+        }
+      }
+    }
+    out.sort((a, b) => a.tick - b.tick);
+    return out;
+  }
+
+  /**
    * Convert a parsed MIDI object to a clean JSON representation.
    * @param {Object} midi - Parsed MIDI object
    * @returns {Object} JSON-friendly MIDI representation

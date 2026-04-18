@@ -6,6 +6,14 @@
  * by `Application#start` and registered as `backupScheduler` in the
  * DI container.
  *
+ * Each snapshot is paired with a `*.manifest.json` sidecar listing every
+ * blob the DB references (`content_hash`, `blob_path`, on-disk size,
+ * `exists` flag). Bytes themselves live under `data/midi/` and are NOT
+ * copied — backups stay small. The manifest lets a restore operator
+ * spot which MIDI files have lost their bytes (because the operator
+ * restored only the DB, or because a blob was orphaned and GC'd) and
+ * re-upload them deliberately.
+ *
  * Failure modes are logged but never thrown — backup failures should
  * never crash the running application.
  */
@@ -25,13 +33,15 @@ const DEFAULT_CRON = '0 3 * * *';
 
 class BackupScheduler {
   /**
-   * @param {Object} deps - Needs `logger`, `database`.
+   * @param {Object} deps - Needs `logger`, `database`. `blobStore` is
+   *   optional but required for the manifest sidecar.
    * @param {Object} [options] - Override defaults: `{backupDir,
    *   maxBackups, cron}`.
    */
   constructor(deps, options = {}) {
     this.logger = deps.logger;
     this.database = deps.database;
+    this.blobStore = deps.blobStore || null;
     this.backupDir = options.backupDir || DEFAULT_BACKUP_DIR;
     this.maxBackups = options.maxBackups || DEFAULT_MAX_BACKUPS;
     this.cronExpression = options.cron || DEFAULT_CRON;
@@ -71,15 +81,81 @@ class BackupScheduler {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(this.backupDir, `midimind-${timestamp}.db`);
+    const manifestPath = path.join(this.backupDir, `midimind-${timestamp}.manifest.json`);
 
     try {
       await this.database.backup(backupPath);
       this.logger.info(`Scheduled backup completed: ${backupPath}`);
+      this._writeManifest(manifestPath, backupPath);
       this._pruneOldBackups();
     } catch (error) {
       this.logger.error(`Scheduled backup failed: ${error.message}`);
     } finally {
       this._running = false;
+    }
+  }
+
+  /**
+   * Walk the file table and stat each blob on disk; write a JSON
+   * sidecar so a restore operator knows exactly which bytes are
+   * missing. Failures are non-fatal — the DB snapshot is the truth,
+   * the manifest is just an aid.
+   *
+   * @param {string} manifestPath
+   * @param {string} backupPath - DB snapshot path, embedded for context.
+   * @returns {void}
+   * @private
+   */
+  _writeManifest(manifestPath, backupPath) {
+    if (!this.blobStore || !this.database || !this.database.midiDB) {
+      this.logger.debug('Skipping backup manifest: blobStore or midiDB unavailable');
+      return;
+    }
+    try {
+      const rows = this.database.midiDB.listBlobsForManifest();
+      const blobs = [];
+      const missing = [];
+      let dbSize = 0;
+      try { dbSize = fs.statSync(backupPath).size; } catch { /* ignore */ }
+
+      for (const row of rows) {
+        let exists = false;
+        let onDiskSize = null;
+        try {
+          const abs = path.join(this.blobStore.baseDir, row.blob_path);
+          const stat = fs.statSync(abs);
+          exists = true;
+          onDiskSize = stat.size;
+        } catch { /* blob missing */ }
+
+        const entry = {
+          fileId: row.id,
+          filename: row.filename,
+          contentHash: row.content_hash,
+          blobPath: row.blob_path,
+          dbSize: row.size,
+          onDiskSize,
+          exists
+        };
+        blobs.push(entry);
+        if (!exists) missing.push({ fileId: row.id, blobPath: row.blob_path });
+      }
+
+      const manifest = {
+        timestamp: new Date().toISOString(),
+        dbBackup: path.basename(backupPath),
+        dbSize,
+        blobCount: blobs.length,
+        missingCount: missing.length,
+        blobs,
+        missingBlobs: missing
+      };
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+      this.logger.info(
+        `Backup manifest written: ${manifestPath} (${blobs.length} blobs, ${missing.length} missing)`
+      );
+    } catch (error) {
+      this.logger.error(`Backup manifest failed: ${error.message}`);
     }
   }
 
@@ -113,6 +189,13 @@ class BackupScheduler {
             this.logger.info(`Pruned old backup: ${file.name}`);
           } catch {
             // File may already be deleted
+          }
+          // Best-effort delete of the matching manifest sidecar.
+          const manifestPath = file.path.replace(/\.db$/, '.manifest.json');
+          try {
+            fs.unlinkSync(manifestPath);
+          } catch {
+            // Manifest may not exist or already pruned.
           }
         }
       }

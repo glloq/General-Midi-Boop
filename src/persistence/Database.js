@@ -1,25 +1,12 @@
 /**
  * @file src/persistence/Database.js
  * @description Top-level SQLite façade. Owns the single
- * `better-sqlite3` connection, runs schema migrations, and instantiates
- * the per-domain sub-modules ({@link MidiDatabase},
- * {@link InstrumentDatabase}, {@link LightingDatabase},
- * {@link StringInstrumentDatabase}, {@link DeviceSettingsDB}).
+ * `better-sqlite3` connection, applies migrations from `migrations/`,
+ * and instantiates the per-domain sub-modules.
  *
- * Notes:
- *   - `better-sqlite3` is **synchronous**; every method here returns
- *     directly, no Promise.
- *   - Migrations are applied at boot via {@link DatabaseLifecycle}, then
- *     a couple of one-shot repair / data-migration passes run inline so
- *     a freshly upgraded server self-heals (`_migrateBase64ToBlob`,
- *     `_repairMissingChannelCounts`).
- *   - Many "domain" methods on this class are thin proxies to the sub-
- *     module that owns the table — kept for backward compatibility with
- *     pre-split call sites. New code should call the sub-module directly.
- *
- * The file is large (~1000 LOC); only the constructor, lifecycle hooks
- * and public façade methods carry full JSDoc — sub-module proxy calls
- * follow a one-liner-per-method pattern.
+ * Fresh-install schema (001_baseline.sql) is the single source of
+ * truth. Future features each get their own incremental migration
+ * (`NNN_snake_case.sql`). Version tracking lives in `schema_version`.
  */
 import Database from 'better-sqlite3';
 import fs from 'fs';
@@ -60,95 +47,13 @@ class DatabaseManager {
     this.connect();
     this.runMigrations();
 
-    // Ensure instrument capabilities columns exist (safety net)
-    this.ensureInstrumentCapabilitiesColumns();
-
-    // Initialize sub-modules
     this.midiDB = new MidiDatabase(this.db, this.logger);
     this.instrumentDB = new InstrumentDatabase(this.db, this.logger);
     this.lightingDB = new LightingDatabase(this.db, this.logger);
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.logger);
     this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
 
-    // Migrate base64 TEXT data to binary BLOB (one-time, after migration 031)
-    this._migrateBase64ToBlob();
-
-    // Repair: populate channel_count from midi_file_channels for files missing it
-    this._repairMissingChannelCounts();
-
     this.logger.info('Database initialized');
-  }
-
-  /**
-   * One-shot migration that converts legacy base64 TEXT payloads to
-   * binary BLOBs in `midi_files`. Runs in 50-row batches (recursive
-   * via setImmediate) to keep peak memory low on Raspberry Pi.
-   *
-   * @returns {void}
-   * @private
-   */
-  _migrateBase64ToBlob() {
-    try {
-      // Check if data_blob column exists (migration 034 applied)
-      const columns = this.db.prepare("SELECT name FROM pragma_table_info('midi_files')").all();
-      const hasDataBlob = columns.some(c => c.name === 'data_blob');
-      if (!hasDataBlob) return;
-
-      // Find files that have base64 data but no blob
-      const pending = this.db.prepare(
-        'SELECT id FROM midi_files WHERE data IS NOT NULL AND data_blob IS NULL LIMIT 50'
-      ).all();
-
-      if (pending.length === 0) return;
-
-      this.logger.info(`[DB Migration] Converting ${pending.length} file(s) from base64 to BLOB...`);
-
-      const update = this.db.prepare('UPDATE midi_files SET data_blob = ?, data = NULL WHERE id = ?');
-      const select = this.db.prepare('SELECT data FROM midi_files WHERE id = ?');
-
-      const batchConvert = this.db.transaction((ids) => {
-        for (const { id } of ids) {
-          const row = select.get(id);
-          if (row && row.data) {
-            const buffer = Buffer.from(row.data, 'base64');
-            update.run(buffer, id);
-          }
-        }
-      });
-
-      batchConvert(pending);
-      this.logger.info(`[DB Migration] Converted ${pending.length} file(s) to BLOB format`);
-
-      // Check if more remain
-      const remaining = this.db.prepare(
-        'SELECT COUNT(*) as count FROM midi_files WHERE data IS NOT NULL AND data_blob IS NULL'
-      ).get();
-      if (remaining.count > 0) {
-        this.logger.info(`[DB Migration] ${remaining.count} file(s) still need conversion (will continue next startup)`);
-      }
-    } catch (err) {
-      this.logger.warn(`[DB Migration] Base64 to BLOB conversion: ${err.message}`);
-    }
-  }
-
-  /**
-   * Fix files where channel_count is 0 but midi_file_channels has actual channel data.
-   * This can happen if files were uploaded before channel analysis was implemented.
-   */
-  _repairMissingChannelCounts() {
-    try {
-      const result = this.db.prepare(`
-        UPDATE midi_files SET channel_count = (
-          SELECT COUNT(*) FROM midi_file_channels WHERE midi_file_id = midi_files.id
-        ) WHERE (channel_count IS NULL OR channel_count = 0)
-          AND id IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
-      `).run();
-      if (result.changes > 0) {
-        this.logger.info(`[DB Repair] Updated channel_count for ${result.changes} file(s) from midi_file_channels`);
-      }
-    } catch (err) {
-      this.logger.warn(`[DB Repair] Failed to repair channel counts: ${err.message}`);
-    }
   }
 
   /**
@@ -180,57 +85,59 @@ class DatabaseManager {
   }
 
   /**
-   * Apply pending migrations from `migrations/` in numeric order. Each
-   * migration runs in a transaction; the version counter is updated
-   * inside the same transaction so partial migrations cannot poison
-   * the schema.
+   * Apply pending migrations from `migrations/` in numeric order. The
+   * first file (001_baseline.sql) creates `schema_version` + the full
+   * schema; subsequent migrations are single-feature SQL files that
+   * each register themselves into `schema_version`.
+   *
+   * Each migration runs inside a transaction so partial application
+   * cannot poison the DB.
    *
    * @returns {void}
    */
   runMigrations() {
+    const migrationsDir = path.join(__dirname, '../../migrations');
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+
+    for (const file of migrationFiles) {
+      const version = parseInt(file.split('_')[0], 10);
+      if (!Number.isFinite(version)) continue;
+
+      if (this.hasMigration(version)) continue;
+      this.runMigration(version, file, migrationsDir);
+    }
+
+    this.logger.info(`Migrations up to date (current version: ${this.getCurrentVersion()})`);
+  }
+
+  /**
+   * Current (maximum) applied schema version. Returns 0 when the DB is
+   * brand new and `schema_version` does not exist yet.
+   */
+  getCurrentVersion() {
     try {
-      // Create migrations table if not exists
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS migrations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          version INTEGER UNIQUE NOT NULL,
-          name TEXT NOT NULL,
-          executed_at TEXT NOT NULL
-        )
-      `);
-
-      // Get current version
-      const currentVersion = this.getCurrentVersion();
-      this.logger.info(`Current database version: ${currentVersion}`);
-
-      // Load and run migrations
-      const migrationsDir = path.join(__dirname, '../../migrations');
-      const migrationFiles = fs
-        .readdirSync(migrationsDir)
-        .filter((f) => f.endsWith('.sql'))
-        .sort();
-
-      for (const file of migrationFiles) {
-        const version = parseInt(file.split('_')[0]);
-
-        if (version > currentVersion) {
-          this.runMigration(version, file, migrationsDir);
-        }
-      }
-
-      this.logger.info('Migrations completed');
-    } catch (error) {
-      this.logger.error(`Migration failed: ${error.message}`);
-      throw error;
+      const row = this.db.prepare('SELECT MAX(version) as v FROM schema_version').get();
+      return row?.v ?? 0;
+    } catch {
+      return 0;
     }
   }
 
-  getCurrentVersion() {
+  /**
+   * Check whether a migration is already recorded. Returns false when
+   * `schema_version` does not exist yet (baseline not applied).
+   */
+  hasMigration(version) {
     try {
-      const result = this.db.prepare('SELECT MAX(version) as version FROM migrations').get();
-      return result.version || 0;
-    } catch (error) {
-      return 0;
+      const row = this.db
+        .prepare('SELECT 1 FROM schema_version WHERE version = ?')
+        .get(version);
+      return Boolean(row);
+    } catch {
+      return false;
     }
   }
 
@@ -238,139 +145,23 @@ class DatabaseManager {
     const filePath = path.join(migrationsDir, filename);
     const sql = fs.readFileSync(filePath, 'utf8');
 
+    this.logger.info(`Running migration ${version}: ${filename}`);
     try {
-      this.logger.info(`Running migration ${version}: ${filename}`);
-
-      // Run migration in transaction
       this.db.exec('BEGIN TRANSACTION');
       this.db.exec(sql);
 
-      // Record migration
-      const stmt = this.db.prepare(`
-        INSERT INTO migrations (version, name, executed_at)
-        VALUES (?, ?, ?)
-      `);
-      stmt.run(version, filename, new Date().toISOString());
+      // Ensure the migration is recorded even if the SQL forgot to
+      // INSERT into schema_version (defensive).
+      this.db
+        .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
+        .run(version, filename);
 
       this.db.exec('COMMIT');
-
       this.logger.info(`Migration ${version} completed`);
     } catch (error) {
       this.db.exec('ROLLBACK');
       this.logger.error(`Migration ${version} failed: ${error.message}`);
       throw error;
-    }
-  }
-
-  /**
-   * Rollback the last N migrations using down scripts.
-   * Down scripts must exist in migrations/down/ with matching filenames.
-   * @param {number} steps - Number of migrations to rollback (default 1)
-   */
-  rollbackMigrations(steps = 1) {
-    const migrationsDir = path.join(__dirname, '../../migrations');
-    const downDir = path.join(migrationsDir, 'down');
-
-    if (!fs.existsSync(downDir)) {
-      throw new Error('No down migrations directory found');
-    }
-
-    const applied = this.db
-      .prepare('SELECT version, name FROM migrations ORDER BY version DESC LIMIT ?')
-      .all(steps);
-
-    if (applied.length === 0) {
-      this.logger.info('No migrations to rollback');
-      return;
-    }
-
-    // Pre-check: ensure ALL down migration files exist before starting
-    for (const migration of applied) {
-      const downFile = path.join(downDir, migration.name);
-      if (!fs.existsSync(downFile)) {
-        throw new Error(`Down migration not found for ${migration.name}. Cannot rollback.`);
-      }
-    }
-
-    for (const migration of applied) {
-      const downFile = path.join(downDir, migration.name);
-      const sql = fs.readFileSync(downFile, 'utf8');
-      try {
-        this.logger.info(`Rolling back migration ${migration.version}: ${migration.name}`);
-        this.db.exec('BEGIN TRANSACTION');
-        this.db.exec(sql);
-        this.db.prepare('DELETE FROM migrations WHERE version = ?').run(migration.version);
-        this.db.exec('COMMIT');
-        this.logger.info(`Rollback of migration ${migration.version} completed`);
-      } catch (error) {
-        this.db.exec('ROLLBACK');
-        this.logger.error(
-          `Rollback of migration ${migration.version} failed: ${error.message}`
-        );
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Ensure required columns exist in instruments_latency table
-   * This is a safety net for partial migration failures
-   */
-  ensureInstrumentCapabilitiesColumns() {
-    const requiredColumns = [
-      {
-        name: 'note_range_min',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_min INTEGER'
-      },
-      {
-        name: 'note_range_max',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN note_range_max INTEGER'
-      },
-      {
-        name: 'supported_ccs',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN supported_ccs TEXT'
-      },
-      {
-        name: 'note_selection_mode',
-        sql: "ALTER TABLE instruments_latency ADD COLUMN note_selection_mode TEXT DEFAULT 'range'"
-      },
-      {
-        name: 'selected_notes',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN selected_notes TEXT'
-      },
-      {
-        name: 'capabilities_source',
-        sql: "ALTER TABLE instruments_latency ADD COLUMN capabilities_source TEXT DEFAULT 'manual'"
-      },
-      {
-        name: 'capabilities_updated_at',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN capabilities_updated_at TEXT'
-      },
-      { name: 'gm_program', sql: 'ALTER TABLE instruments_latency ADD COLUMN gm_program INTEGER' },
-      {
-        name: 'polyphony',
-        sql: 'ALTER TABLE instruments_latency ADD COLUMN polyphony INTEGER DEFAULT 16'
-      }
-    ];
-
-    try {
-      const existingColumns = this.db
-        .prepare("SELECT name FROM pragma_table_info('instruments_latency')")
-        .all();
-      const existingNames = new Set(existingColumns.map((c) => c.name));
-
-      for (const col of requiredColumns) {
-        if (!existingNames.has(col.name)) {
-          try {
-            this.db.exec(col.sql);
-            this.logger.info(`Added missing column: ${col.name}`);
-          } catch (err) {
-            this.logger.warn(`Could not add column ${col.name}: ${err.message}`);
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.warn(`ensureInstrumentCapabilitiesColumns: ${error.message}`);
     }
   }
 
@@ -733,6 +524,9 @@ class DatabaseManager {
   getFile(fileId) {
     return this.midiDB.getFile(fileId);
   }
+  getFileByContentHash(hash) {
+    return this.midiDB.getFileByContentHash(hash);
+  }
   getFileInfo(fileId) {
     return this.midiDB.getFileInfo(fileId);
   }
@@ -768,6 +562,17 @@ class DatabaseManager {
   deleteFileChannels(fileId) {
     return this.midiDB.deleteFileChannels(fileId);
   }
+
+  // MIDI File Tempo Map
+  insertFileTempoMap(fileId, tempoMap) {
+    return this.midiDB.insertFileTempoMap(fileId, tempoMap);
+  }
+  getFileTempoMap(fileId) {
+    return this.midiDB.getFileTempoMap(fileId);
+  }
+  deleteFileTempoMap(fileId) {
+    return this.midiDB.deleteFileTempoMap(fileId);
+  }
   countFilesWithoutChannels() {
     return this.midiDB.countFilesWithoutChannels();
   }
@@ -784,36 +589,12 @@ class DatabaseManager {
     return this.midiDB.findFilesByCategory(categories, mode);
   }
 
-  // Instruments
-  insertInstrument(instrument) {
-    return this.instrumentDB.insertInstrument(instrument);
-  }
-  getInstrument(instrumentId) {
-    return this.instrumentDB.getInstrument(instrumentId);
-  }
-  getInstruments() {
-    return this.instrumentDB.getInstruments();
-  }
-  updateInstrument(instrumentId, updates) {
-    return this.instrumentDB.updateInstrument(instrumentId, updates);
-  }
-  deleteInstrument(instrumentId) {
-    return this.instrumentDB.deleteInstrument(instrumentId);
-  }
+  // Instruments + LatencyProfile generic CRUD methods removed in v6 —
+  // both the `instruments` and `instrument_latency` (singular) tables
+  // were dropped from the baseline schema. Per-channel settings + latency
+  // now live exclusively on `instruments_latency` (plural) via
+  // InstrumentSettingsDB / InstrumentCapabilitiesDB.
 
-  // Latency Profiles
-  saveLatencyProfile(profile) {
-    return this.instrumentDB.saveLatencyProfile(profile);
-  }
-  getLatencyProfile(deviceId) {
-    return this.instrumentDB.getLatencyProfile(deviceId);
-  }
-  getLatencyProfiles() {
-    return this.instrumentDB.getLatencyProfiles();
-  }
-  deleteLatencyProfile(deviceId) {
-    return this.instrumentDB.deleteLatencyProfile(deviceId);
-  }
   deleteInstrumentSettingsByDevice(...args) {
     return this.instrumentDB.deleteInstrumentSettingsByDevice(...args);
   }
@@ -841,6 +622,21 @@ class DatabaseManager {
   }
   getInstrumentSettings(...args) {
     return this.instrumentDB.getInstrumentSettings(...args);
+  }
+  findInstrumentById(...args) {
+    return this.instrumentDB.findInstrumentById(...args);
+  }
+  updateInstrumentById(...args) {
+    return this.instrumentDB.updateInstrumentById(...args);
+  }
+  getAllLatencyProfiles() {
+    return this.instrumentDB.getAllLatencyProfiles();
+  }
+  saveDeviceLatency(...args) {
+    return this.instrumentDB.saveDeviceLatency(...args);
+  }
+  clearDeviceLatency(...args) {
+    return this.instrumentDB.clearDeviceLatency(...args);
   }
   saveSysExIdentity(...args) {
     return this.instrumentDB.saveSysExIdentity(...args);
@@ -1054,7 +850,7 @@ class DatabaseManager {
         size: fs.statSync(this.dbPath).size,
         files: safeCount('midi_files'),
         routes: safeCount('routes'),
-        instruments: safeCount('instruments'),
+        instruments: safeCount('instruments_latency'),
         sessions: safeCount('sessions'),
         playlists: safeCount('playlists')
       };

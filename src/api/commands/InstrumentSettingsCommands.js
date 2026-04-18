@@ -411,19 +411,10 @@ async function instrumentDelete(app, data) {
     // midi_instrument_routings table may not exist
   }
 
-  // Delete from instruments table if exists
-  try {
-    app.instrumentRepository.delete(data.deviceId);
-  } catch (e) {
-    // May not have an instruments entry
-  }
-
-  // Also delete latency profile if exists
-  try {
-    app.instrumentRepository.deleteLatencyProfile(data.deviceId);
-  } catch (e) {
-    // May not have a latency profile
-  }
+  // The legacy `instruments` table and `instrument_latency` (singular)
+  // were removed in v6. The deleteSettingsByDevice() call above already
+  // wiped every per-channel row on `instruments_latency` (plural),
+  // which is the only place latency + capabilities live now.
 
   if (errors.length > 0) {
     app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);

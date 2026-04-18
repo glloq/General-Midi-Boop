@@ -1,26 +1,24 @@
 /**
  * @file src/persistence/tables/MidiDatabase.js
  * @description SQLite access layer for MIDI files and their analyzed
- * channel metadata. Owns four tables:
- *   - `midi_files`             — file rows (header + binary BLOB).
- *   - `midi_file_channels`     — per-channel analysis cache.
- *   - `midi_file_routings`     — persisted per-file routings.
- *   - `midi_file_assignments`  — historical auto-assign decisions.
+ * metadata. Owns three tables:
+ *   - `midi_files`            — file rows (metadata + blob_path; bytes on fs)
+ *   - `midi_file_channels`    — per-channel analysis cache
+ *   - `midi_file_tempo_map`   — tempo changes indexed by tick
  *
- * Listing queries read only {@link LIST_COLUMNS} so the heavy `data`
- * BLOB stays out of memory until the editor explicitly requests it.
- *
- * The file is large (~830 LOC); only public CRUD entry points carry
- * full JSDoc — SQL is colocated with each method.
+ * Binary bytes live on disk under `data/midi/<hash[0..1]>/<hash>.mid`
+ * and are reached via `BlobStore` — NEVER through this class. Listing
+ * queries read only {@link LIST_COLUMNS}.
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
 
 /**
- * SELECT projection used by every list-style query. Excludes the heavy
- * `data` / `data_blob` payload so listings stay cheap on Pi-class
- * hardware.
+ * SELECT projection used by every list-style query. Content hash and
+ * blob path are included so callers can resolve bytes via BlobStore
+ * without an extra round trip.
  */
-const LIST_COLUMNS = `id, filename, size, tracks, duration, tempo, ppq, uploaded_at, folder,
+const LIST_COLUMNS = `id, content_hash, blob_path, filename, size, tracks,
+  duration, tempo, ppq, uploaded_at, folder,
   is_original, parent_file_id,
   instrument_types, channel_count, note_range_min, note_range_max,
   has_drums, has_melody, has_bass`;
@@ -36,86 +34,84 @@ class MidiDatabase {
   }
 
   /**
-   * Insert a new MIDI file row. Stores the payload as a binary BLOB
-   * when `data_blob` column exists (post-migration 034); otherwise
-   * falls back to base64 TEXT for backward compatibility.
+   * Insert a new MIDI file row. Binary payload is NOT stored here —
+   * caller is responsible for writing bytes to the BlobStore first
+   * and passing `content_hash` + `blob_path` here.
    *
-   * @param {Object} file - File record with metadata + payload.
-   * @returns {(string|number)} New row id.
+   * @param {Object} file - File record with metadata and blob pointer.
+   * @param {string} file.content_hash - SHA-256 hex of bytes (64 chars).
+   * @param {string} file.blob_path    - Relative path under data dir.
+   * @returns {number} New row id.
    */
   insertFile(file) {
     try {
-      // Store as binary BLOB if data_blob column exists, otherwise fall back to base64 TEXT
-      const hasDataBlob = this.db.prepare("SELECT name FROM pragma_table_info('midi_files') WHERE name = 'data_blob'").get();
-
-      let stmt;
-      let dataValue;
-      if (hasDataBlob) {
-        stmt = this.db.prepare(`
-          INSERT INTO midi_files (
-            filename, data_blob, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-            is_original, parent_file_id,
-            instrument_types, channel_count, note_range_min, note_range_max,
-            has_drums, has_melody, has_bass
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        // Convert base64 string to Buffer for BLOB storage
-        dataValue = (typeof file.data === 'string') ? Buffer.from(file.data, 'base64') : file.data;
-      } else {
-        stmt = this.db.prepare(`
-          INSERT INTO midi_files (
-            filename, data, size, tracks, duration, tempo, ppq, uploaded_at, folder,
-            is_original, parent_file_id,
-            instrument_types, channel_count, note_range_min, note_range_max,
-            has_drums, has_melody, has_bass
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        dataValue = file.data;
-      }
+      const stmt = this.db.prepare(`
+        INSERT INTO midi_files (
+          content_hash, filename, folder, blob_path, size,
+          tracks, duration, tempo, ppq,
+          channel_count, note_range_min, note_range_max,
+          instrument_types, has_drums, has_melody, has_bass,
+          is_original, parent_file_id, uploaded_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
       const result = stmt.run(
+        file.content_hash,
         file.filename,
-        dataValue,
+        file.folder || '/',
+        file.blob_path,
         file.size,
-        file.tracks,
+        file.tracks || 0,
         file.duration || 0,
         file.tempo || 120,
         file.ppq || 480,
-        file.uploaded_at,
-        file.folder || '/',
-        file.is_original !== undefined ? (file.is_original ? 1 : 0) : 1,
-        file.parent_file_id || null,
-        file.instrument_types || '[]',
         file.channel_count || 0,
         file.note_range_min ?? null,
         file.note_range_max ?? null,
+        file.instrument_types || '[]',
         file.has_drums ? 1 : 0,
         file.has_melody ? 1 : 0,
-        file.has_bass ? 1 : 0
+        file.has_bass ? 1 : 0,
+        file.is_original === false ? 0 : 1,
+        file.parent_file_id || null,
+        file.uploaded_at || new Date().toISOString()
       );
 
       return result.lastInsertRowid;
     } catch (error) {
-      if (error.message && error.message.includes('UNIQUE constraint failed: midi_files.filename')) {
-        throw new Error(`A file with the name "${file.filename}" already exists. Please rename the file before adding it.`);
+      if (error.message && error.message.includes('UNIQUE constraint failed: midi_files.content_hash')) {
+        const existing = this.getFileByContentHash(file.content_hash);
+        const err = new Error(
+          `MIDI file with identical content already exists (id=${existing?.id}).`
+        );
+        err.code = 'DUPLICATE_CONTENT';
+        err.existingId = existing?.id;
+        throw err;
       }
       this.logger.error(`Failed to insert file: ${error.message}`);
       throw error;
     }
   }
 
+  /**
+   * Look up a file row by its SHA-256 content hash (dedup path).
+   * @param {string} hash - SHA-256 hex.
+   * @returns {Object|undefined}
+   */
+  getFileByContentHash(hash) {
+    try {
+      return this.db
+        .prepare(`SELECT ${LIST_COLUMNS} FROM midi_files WHERE content_hash = ?`)
+        .get(hash);
+    } catch (error) {
+      this.logger.error(`Failed to look up file by hash: ${error.message}`);
+      throw error;
+    }
+  }
+
   getFile(fileId) {
     try {
-      const stmt = this.db.prepare('SELECT * FROM midi_files WHERE id = ?');
-      const row = stmt.get(fileId);
-      if (row) {
-        // Normalize: prefer data_blob (Buffer), fall back to data (base64 string)
-        if (row.data_blob) {
-          row.data = row.data_blob;
-          delete row.data_blob;
-        }
-      }
-      return row;
+      return this.db.prepare('SELECT * FROM midi_files WHERE id = ?').get(fileId);
     } catch (error) {
       this.logger.error(`Failed to get file: ${error.message}`);
       throw error;
@@ -160,8 +156,8 @@ class MidiDatabase {
   updateFile(fileId, updates) {
     try {
       const result = buildDynamicUpdate('midi_files', updates, [
-        'filename', 'data', 'data_blob', 'size', 'tracks', 'duration',
-        'tempo', 'ppq', 'folder', 'is_original', 'parent_file_id',
+        'filename', 'folder', 'blob_path', 'size', 'tracks', 'duration',
+        'tempo', 'ppq', 'is_original', 'parent_file_id',
         'instrument_types', 'channel_count',
         'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass'
       ]);
@@ -697,9 +693,7 @@ class MidiDatabase {
       const stmt = this.db.prepare(`
         SELECT COUNT(*) as count FROM midi_files mf
         WHERE mf.id NOT IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
-          OR mf.instrument_types IS NULL
           OR mf.instrument_types = '[]'
-          OR mf.has_drums IS NULL
       `);
       return stmt.get().count;
     } catch (error) {
@@ -744,16 +738,14 @@ class MidiDatabase {
 
   /**
    * Count files that need metadata re-analysis
-   * (files with NULL or empty instrument_types, or no midi_file_channels rows)
+   * (files with empty instrument_types, or no midi_file_channels rows)
    * @returns {number}
    */
   countFilesNeedingReanalysis() {
     try {
       const stmt = this.db.prepare(`
         SELECT COUNT(*) as count FROM midi_files
-        WHERE instrument_types IS NULL
-          OR instrument_types = '[]'
-          OR has_drums IS NULL
+        WHERE instrument_types = '[]'
           OR id NOT IN (SELECT DISTINCT midi_file_id FROM midi_file_channels)
       `);
       return stmt.get().count;
@@ -850,6 +842,77 @@ class MidiDatabase {
     } catch (error) {
       this.logger.error(`Failed to find files by category: ${error.message}`);
       throw error;
+    }
+  }
+
+  // ==================== MIDI FILE TEMPO MAP ====================
+
+  /**
+   * Persist the tempo map for a file. Replaces any existing rows.
+   * @param {number} fileId
+   * @param {Array<{tick:number, bpm:number}>} tempoMap
+   */
+  insertFileTempoMap(fileId, tempoMap) {
+    if (!Array.isArray(tempoMap) || tempoMap.length === 0) return;
+    try {
+      const del = this.db.prepare('DELETE FROM midi_file_tempo_map WHERE midi_file_id = ?');
+      const ins = this.db.prepare(
+        'INSERT INTO midi_file_tempo_map (midi_file_id, tick, bpm) VALUES (?, ?, ?)'
+      );
+      const insertMany = this.db.transaction((id, points) => {
+        del.run(id);
+        for (const p of points) {
+          ins.run(id, p.tick | 0, Number(p.bpm));
+        }
+      });
+      insertMany(fileId, tempoMap);
+    } catch (error) {
+      this.logger.error(`Failed to insert tempo map: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch the stored tempo map for a file.
+   * @param {number} fileId
+   * @returns {Array<{tick:number, bpm:number}>}
+   */
+  getFileTempoMap(fileId) {
+    try {
+      return this.db
+        .prepare('SELECT tick, bpm FROM midi_file_tempo_map WHERE midi_file_id = ? ORDER BY tick')
+        .all(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to get tempo map: ${error.message}`);
+      return [];
+    }
+  }
+
+  deleteFileTempoMap(fileId) {
+    try {
+      this.db.prepare('DELETE FROM midi_file_tempo_map WHERE midi_file_id = ?').run(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to delete tempo map: ${error.message}`);
+    }
+  }
+
+  /**
+   * Snapshot of every file's blob pointer, for a backup manifest. The
+   * BackupScheduler walks this list, stats each blob on disk, and
+   * writes a sidecar JSON next to the SQLite snapshot so a restore
+   * operator knows exactly which MIDI files lost their bytes.
+   *
+   * @returns {Array<{id:number, content_hash:string, blob_path:string,
+   *   filename:string, size:number}>}
+   */
+  listBlobsForManifest() {
+    try {
+      return this.db
+        .prepare('SELECT id, content_hash, blob_path, filename, size FROM midi_files ORDER BY id')
+        .all();
+    } catch (error) {
+      this.logger.error(`Failed to list blobs for manifest: ${error.message}`);
+      return [];
     }
   }
 }

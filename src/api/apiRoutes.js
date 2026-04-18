@@ -17,11 +17,13 @@
  * the short hash for `/health`. Failure is silently ignored — value
  * stays `"unknown"`.
  */
-import { Router } from 'express';
-import { readFileSync, existsSync } from 'fs';
+import { Router, raw as expressRaw } from 'express';
+import { randomBytes } from 'crypto';
+import { readFileSync, existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { LIMITS } from '../core/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,6 +99,68 @@ export function createApiRouter(app) {
 
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(lines.join('\n'));
+  });
+
+  // ==========================================================================
+  // MIDI file upload + download
+  // ==========================================================================
+
+  // Cap the request body just above MAX_MIDI_FILE_SIZE so we reject oversize
+  // payloads before buffering. `application/octet-stream` (or any audio/midi
+  // variant) is accepted; the SPA sets Content-Type explicitly.
+  const uploadLimit = LIMITS.MAX_MIDI_FILE_SIZE + 64 * 1024;
+  router.post('/files', expressRaw({ type: '*/*', limit: uploadLimit }), async (req, res) => {
+    try {
+      if (!req.body || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: 'Empty body. Send raw MIDI bytes.' });
+      }
+      const filename = String(req.query.filename || '').trim() || 'upload.mid';
+      const folder = String(req.query.folder || '/');
+      if (!folder.startsWith('/')) {
+        return res.status(400).json({ error: 'folder must start with "/"' });
+      }
+      const uploadId = randomBytes(8).toString('hex');
+
+      const result = await app.uploadQueue.add(uploadId, (report) =>
+        app.fileManager.handleUpload(filename, req.body, { folder, report })
+      );
+
+      const status = result.status === 'duplicate' ? 200 : 201;
+      res.status(status).json({ uploadId, ...result });
+    } catch (err) {
+      app.logger.error(`POST /api/files failed: ${err.message}`);
+      const code = /too large/i.test(err.message) ? 413
+                 : /invalid midi/i.test(err.message) ? 415
+                 : 500;
+      res.status(code).json({ error: err.message });
+    }
+  });
+
+  router.get('/files/:id/blob', (req, res) => {
+    try {
+      const fileId = Number(req.params.id);
+      if (!Number.isFinite(fileId) || fileId <= 0) {
+        return res.status(400).json({ error: 'Invalid file id' });
+      }
+      const file = app.database.getFileInfo(fileId);
+      if (!file || !file.blob_path) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      const abs = app.blobStore.resolve(file.blob_path);
+      const stat = statSync(abs);
+      res.setHeader('Content-Type', 'audio/midi');
+      res.setHeader('Content-Length', stat.size);
+      res.setHeader('ETag', `"${file.content_hash}"`);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      if (req.query.dl) {
+        const safeName = String(file.filename).replace(/[^\w.\-]/g, '_');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      }
+      app.blobStore.readStream(file.blob_path).pipe(res);
+    } catch (err) {
+      app.logger.error(`GET /api/files/${req.params.id}/blob failed: ${err.message}`);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Update status (public — no auth, used by frontend during update)

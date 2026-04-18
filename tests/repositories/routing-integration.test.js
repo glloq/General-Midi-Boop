@@ -10,6 +10,7 @@ import RoutingRepository from '../../src/repositories/RoutingRepository.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { createTestFilePayload } from '../helpers/createTestFile.js';
 
 function silentLogger() {
   return { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
@@ -38,20 +39,9 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
   });
 
   beforeEach(() => {
-    // Fresh file per test to isolate routing state
-    fileId = fileRepo.save({
-      filename: `test-${Date.now()}-${Math.random()}.mid`,
-      data: Buffer.from([0x4d, 0x54, 0x68, 0x64]),
-      size: 4,
-      tracks: 1,
-      duration: 1,
-      tempo: 120,
-      ppq: 480,
-      uploaded_at: new Date().toISOString(),
-      folder: '/',
-      is_original: 1,
-      channel_count: 2
-    });
+    // Fresh file per test to isolate routing state. content_hash is
+    // derived from random bytes so each call produces a unique row.
+    fileId = fileRepo.save(createTestFilePayload({ overrides: { channel_count: 2 } }));
   });
 
   test('no-split — single routing per channel can be read back', () => {

@@ -42,17 +42,26 @@ class LatencyCompensator {
    *
    * @returns {void}
    */
+  /**
+   * Re-hydrate `this.profiles` from `instruments_latency` (plural) at
+   * boot. Persistence is keyed per-device on the channel-0 row; see
+   * {@link InstrumentSettingsDB#saveDeviceLatency}. Failures are
+   * logged but never throw — the server can still operate without
+   * profiles, it just skips compensation.
+   *
+   * @returns {void}
+   */
   loadProfilesFromDB() {
     try {
-      const profiles = this.app.database.getLatencyProfiles();
+      const profiles = this.app.database.getAllLatencyProfiles();
       profiles.forEach(profile => {
         this.profiles.set(profile.device_id, {
-          latency: profile.latency_ms,
-          lastCalibrated: new Date(profile.last_calibrated),
-          measurementCount: profile.measurement_count || 1,
-          averageLatency: profile.average_latency_ms || profile.latency_ms,
-          minLatency: profile.min_latency_ms || profile.latency_ms,
-          maxLatency: profile.max_latency_ms || profile.latency_ms
+          latency: profile.latency,
+          lastCalibrated: profile.lastCalibrated ? new Date(profile.lastCalibrated) : null,
+          measurementCount: profile.measurementCount,
+          averageLatency: profile.averageLatency,
+          minLatency: profile.minLatency,
+          maxLatency: profile.maxLatency
         });
       });
       this.app.logger.info(`Loaded ${profiles.length} latency profiles from database`);
@@ -232,19 +241,15 @@ class LatencyCompensator {
 
     this.profiles.set(deviceId, profile);
 
-    // Save to database
     try {
-      this.app.database.saveLatencyProfile({
-        device_id: deviceId,
-        latency_ms: latency,
-        last_calibrated: profile.lastCalibrated.toISOString(),
-        measurement_count: profile.measurementCount,
-        average_latency_ms: profile.averageLatency,
-        min_latency_ms: profile.minLatency,
-        max_latency_ms: profile.maxLatency
-      });
+      // Make sure the device row exists before we tag it with latency
+      // (instruments_latency.device_id REFERENCES devices(id)).
+      if (this.app.database.ensureDevice) {
+        this.app.database.ensureDevice(deviceId, deviceId, 'output');
+      }
+      this.app.database.saveDeviceLatency(deviceId, profile);
     } catch (error) {
-      this.app.logger.error(`Failed to save latency profile: ${error.message}`);
+      this.app.logger.error(`Failed to persist latency profile: ${error.message}`);
     }
 
     this.app.logger.info(`Latency set for ${deviceId}: ${latency.toFixed(2)}ms`);
@@ -299,13 +304,12 @@ class LatencyCompensator {
    */
   deleteProfile(deviceId) {
     this.profiles.delete(deviceId);
-    
     try {
-      this.app.database.deleteLatencyProfile(deviceId);
-      this.app.logger.info(`Latency profile deleted for ${deviceId}`);
+      this.app.database.clearDeviceLatency(deviceId);
     } catch (error) {
-      this.app.logger.error(`Failed to delete latency profile: ${error.message}`);
+      this.app.logger.error(`Failed to clear latency profile: ${error.message}`);
     }
+    this.app.logger.info(`Latency profile deleted for ${deviceId}`);
   }
 
   /**

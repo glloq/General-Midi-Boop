@@ -33,6 +33,9 @@ import MidiPlayer from '../midi/playback/MidiPlayer.js';
 import LatencyCompensator from '../midi/adaptation/LatencyCompensator.js';
 import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../files/FileManager.js';
+import BlobStore from '../files/BlobStore.js';
+import UploadQueue from '../files/UploadQueue.js';
+import path from 'path';
 import BluetoothManager from '../transports/BluetoothManager.js';
 import NetworkManager from '../transports/NetworkManager.js';
 import WebSocketServer from '../api/WebSocketServer.js';
@@ -231,7 +234,15 @@ class Application {
         new DelayCalibrator(this.deviceManager, this.logger)
       );
 
-      // Initialize storage
+      // Initialize storage: BlobStore lives next to the SQLite file.
+      const dataDir = path.dirname(this.config.database.path || './data/midimind.db');
+      this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
+      this._registerService('uploadQueue', new UploadQueue({
+        logger: this.logger,
+        onProgress: ({ uploadId, stage }) => {
+          this.wsServer?.broadcast('file_upload_progress', { uploadId, stage });
+        }
+      }));
       this._registerService('fileManager', new FileManager(deps));
 
       // Initialize Bluetooth (optional - may not be available on all systems)
@@ -268,8 +279,9 @@ class Application {
         this.logger.warn(`Lighting manager not available: ${error.message}`);
       }
 
-      // Initialize auto-assigner (singleton with cache)
-      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger));
+      // Initialize auto-assigner (singleton with cache; EventBus invalidates
+      // on file_write / file_delete / file_uploaded automatically).
+      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger, this.eventBus));
 
       // Initialize MIDI adaptation service (facade over MidiTransposer + AutoAssigner)
       this._registerService('adaptationService', new MidiAdaptationService(this.logger, this.autoAssigner));
@@ -426,9 +438,9 @@ class Application {
       this.wsServer.httpServer = this.httpServer.server;
       this.wsServer.start(); // start() already calls startHeartbeat()
 
-      // Start automated backups
+      // Start automated backups (DB snapshot + blob manifest sidecar).
       this._registerService('backupScheduler', new BackupScheduler(
-        { logger: this.logger, database: this.database }
+        { logger: this.logger, database: this.database, blobStore: this.blobStore }
       ));
       this.backupScheduler.start();
 

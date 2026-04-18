@@ -3,6 +3,7 @@
 // Split into sections: DB filters, FileCommands handler, FilterManager client
 
 import { jest, describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { createHash } from 'crypto';
 
 let Database;
 let betterSqliteAvailable = false;
@@ -30,27 +31,34 @@ const mockLogger = {
 function createTestDb() {
   const db = new Database(':memory:');
 
+  // Schema mirrors migrations/001_baseline.sql for the tables this
+  // suite touches. Kept inline (rather than reading the SQL file) so
+  // the test stays self-contained, but the column shape MUST stay in
+  // sync with the baseline (content_hash UNIQUE NOT NULL, blob_path
+  // NOT NULL, no `data` column).
   db.exec(`
     CREATE TABLE midi_files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      filename TEXT NOT NULL UNIQUE,
-      data TEXT,
-      size INTEGER,
-      tracks INTEGER,
-      duration REAL,
-      tempo REAL,
-      ppq INTEGER,
-      uploaded_at TEXT,
-      folder TEXT DEFAULT '/',
-      is_original BOOLEAN DEFAULT 1,
-      parent_file_id INTEGER,
-      instrument_types TEXT DEFAULT '[]',
-      channel_count INTEGER DEFAULT 0,
+      content_hash TEXT NOT NULL UNIQUE,
+      filename TEXT NOT NULL,
+      folder TEXT NOT NULL DEFAULT '/',
+      blob_path TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      tracks INTEGER NOT NULL DEFAULT 0,
+      duration REAL NOT NULL DEFAULT 0,
+      tempo REAL NOT NULL DEFAULT 120,
+      ppq INTEGER NOT NULL DEFAULT 480,
+      channel_count INTEGER NOT NULL DEFAULT 0,
       note_range_min INTEGER,
       note_range_max INTEGER,
-      has_drums BOOLEAN DEFAULT 0,
-      has_melody BOOLEAN DEFAULT 0,
-      has_bass BOOLEAN DEFAULT 0
+      instrument_types TEXT NOT NULL DEFAULT '[]',
+      has_drums BOOLEAN NOT NULL DEFAULT 0,
+      has_melody BOOLEAN NOT NULL DEFAULT 0,
+      has_bass BOOLEAN NOT NULL DEFAULT 0,
+      is_original BOOLEAN NOT NULL DEFAULT 1,
+      parent_file_id INTEGER,
+      uploaded_at TEXT,
+      updated_at TEXT
     );
 
     CREATE TABLE midi_file_channels (
@@ -254,12 +262,28 @@ function seedTestData(db) {
   ];
 
   const insertFile = db.prepare(`
-    INSERT INTO midi_files (filename, size, tracks, duration, tempo, ppq, uploaded_at, folder, is_original, parent_file_id, instrument_types, channel_count, has_drums, has_melody, has_bass)
-    VALUES (@filename, @size, @tracks, @duration, @tempo, @ppq, @uploaded_at, @folder, @is_original, @parent_file_id, @instrument_types, @channel_count, @has_drums, @has_melody, @has_bass)
+    INSERT INTO midi_files (
+      content_hash, blob_path, filename, size, tracks, duration, tempo, ppq,
+      uploaded_at, folder, is_original, parent_file_id,
+      instrument_types, channel_count, has_drums, has_melody, has_bass
+    ) VALUES (
+      @content_hash, @blob_path, @filename, @size, @tracks, @duration, @tempo, @ppq,
+      @uploaded_at, @folder, @is_original, @parent_file_id,
+      @instrument_types, @channel_count, @has_drums, @has_melody, @has_bass
+    )
   `);
 
+  // Synthesize a unique content_hash + blob_path per row from the
+  // filename, so fixtures stay deterministic without needing a real
+  // BlobStore.
   for (const f of files) {
-    insertFile.run({ parent_file_id: null, ...f });
+    const hash = createHash('sha256').update(f.filename).digest('hex');
+    insertFile.run({
+      parent_file_id: null,
+      content_hash: hash,
+      blob_path: `midi/${hash.slice(0, 2)}/${hash}.mid`,
+      ...f
+    });
   }
 
   // midi_file_channels

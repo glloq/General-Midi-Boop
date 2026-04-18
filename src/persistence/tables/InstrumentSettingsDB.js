@@ -108,6 +108,185 @@ class InstrumentSettingsDB {
     }
   }
 
+  // ==========================================================================
+  // Latency profile persistence
+  //
+  // Latency is a property of the physical device, not of an individual
+  // channel — the cable + driver round-trip is the same regardless of
+  // which channel a note is on. We persist the profile on the device's
+  // channel-0 row in `instruments_latency` and dedupe by device_id when
+  // reading back. The schema would support per-channel calibration if
+  // we ever needed it (Bluetooth multi-channel etc.).
+  //
+  // Unit: every measurement is stored in milliseconds (sync_delay,
+  // avg_latency, min_latency, max_latency). The `avg_latency` CHECK
+  // constraint (BETWEEN 0 AND 1_000_000) tolerates ~16 minutes of
+  // latency, which is well above any plausible MIDI round-trip.
+  // ==========================================================================
+
+  /**
+   * Load every persisted latency profile, deduped by device_id.
+   *
+   * @returns {Array<{device_id:string, latency:number, lastCalibrated:string,
+   *   measurementCount:number, averageLatency:number, minLatency:number,
+   *   maxLatency:number}>}
+   */
+  getAllLatencyProfiles() {
+    try {
+      // One row per device — pick the lowest channel that actually has
+      // a calibration timestamp. ROW_NUMBER() lets us avoid ambiguity
+      // when more than one channel was calibrated for the same device.
+      const stmt = this.db.prepare(`
+        SELECT device_id, sync_delay, avg_latency, min_latency, max_latency,
+               measurement_count, last_calibration
+        FROM (
+          SELECT
+            device_id, sync_delay, avg_latency, min_latency, max_latency,
+            measurement_count, last_calibration,
+            ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY channel ASC) AS rn
+          FROM instruments_latency
+          WHERE last_calibration IS NOT NULL
+        )
+        WHERE rn = 1
+      `);
+      return stmt.all().map(row => ({
+        device_id: row.device_id,
+        latency: row.sync_delay || 0,
+        lastCalibrated: row.last_calibration,
+        measurementCount: row.measurement_count || 1,
+        averageLatency: row.avg_latency || row.sync_delay || 0,
+        minLatency: row.min_latency || row.sync_delay || 0,
+        maxLatency: row.max_latency || row.sync_delay || 0
+      }));
+    } catch (error) {
+      this.logger.error(`Failed to load latency profiles: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Persist a device-level latency profile on the device's channel-0
+   * row. Idempotent: ensures the row exists, then UPDATEs the latency
+   * fields without touching unrelated settings (custom_name,
+   * instrument_type, …). Caller is responsible for `ensureDevice`.
+   *
+   * @param {string} deviceId
+   * @param {{latency:number, averageLatency?:number, minLatency?:number,
+   *   maxLatency?:number, measurementCount?:number, lastCalibrated?:Date}}
+   *     profile - All measurements in milliseconds.
+   * @returns {void}
+   */
+  saveDeviceLatency(deviceId, profile) {
+    try {
+      const id = `${deviceId}_0`;
+      const lastCal = (profile.lastCalibrated instanceof Date)
+        ? profile.lastCalibrated.toISOString()
+        : (profile.lastCalibrated || new Date().toISOString());
+      const avg = Math.round(profile.averageLatency ?? profile.latency ?? 0);
+      const min = Math.round(profile.minLatency ?? profile.latency ?? 0);
+      const max = Math.round(profile.maxLatency ?? profile.latency ?? 0);
+      const sync = Math.round(profile.latency ?? 0);
+      const count = profile.measurementCount || 1;
+
+      const persist = this.db.transaction(() => {
+        // Seed the row if it doesn't exist yet — minimal shape so we
+        // don't clobber a richer existing settings row.
+        this.db.prepare(`
+          INSERT OR IGNORE INTO instruments_latency
+            (id, device_id, channel, name, calibration_method)
+          VALUES (?, ?, 0, 'Calibrated Device', 'manual')
+        `).run(id, deviceId);
+
+        // Apply the latency fields. WHERE on `id` so this never
+        // accidentally touches another device's rows.
+        this.db.prepare(`
+          UPDATE instruments_latency
+          SET sync_delay = ?,
+              avg_latency = ?,
+              min_latency = ?,
+              max_latency = ?,
+              measurement_count = ?,
+              last_calibration = ?,
+              calibration_method = 'manual'
+          WHERE id = ?
+        `).run(sync, avg, min, max, count, lastCal, id);
+      });
+      persist();
+    } catch (error) {
+      this.logger.error(`Failed to save latency profile for ${deviceId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear the latency profile across every channel of a device. Settings
+   * unrelated to latency (custom_name, instrument_type, capabilities)
+   * are preserved.
+   *
+   * @param {string} deviceId
+   * @returns {void}
+   */
+  clearDeviceLatency(deviceId) {
+    try {
+      this.db.prepare(`
+        UPDATE instruments_latency
+        SET sync_delay = 0,
+            avg_latency = 0,
+            min_latency = 0,
+            max_latency = 0,
+            measurement_count = 0,
+            last_calibration = NULL
+        WHERE device_id = ?
+      `).run(deviceId);
+    } catch (error) {
+      this.logger.error(`Failed to clear latency profile for ${deviceId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Look up a single instrument row by its primary id
+   * (`<device_id>_<channel>`). Returns the raw `instruments_latency`
+   * row or undefined.
+   *
+   * @param {string} instrumentId
+   * @returns {Object|undefined}
+   */
+  findById(instrumentId) {
+    try {
+      return this.db
+        .prepare('SELECT * FROM instruments_latency WHERE id = ?')
+        .get(instrumentId);
+    } catch (error) {
+      this.logger.error(`Failed to find instrument by id: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a row by primary id. Only whitelisted columns can be patched
+   * (same set as updateInstrumentSettings, plus `enabled`).
+   *
+   * @param {string} instrumentId
+   * @param {Object} fields
+   * @returns {void}
+   */
+  updateById(instrumentId, fields) {
+    try {
+      const result = buildDynamicUpdate('instruments_latency', fields, [
+        'name', 'custom_name', 'instrument_type', 'instrument_subtype',
+        'sync_delay', 'mac_address', 'usb_serial_number',
+        'gm_program', 'octave_mode', 'comm_timeout', 'midi_clock_enabled',
+        'min_note_interval', 'min_note_duration', 'enabled'
+      ]);
+      if (!result) return;
+      this.db.prepare(result.sql).run(...result.values, instrumentId);
+    } catch (error) {
+      this.logger.error(`Failed to update instrument by id: ${error.message}`);
+      throw error;
+    }
+  }
+
   /**
    * Get all instruments on a device (all channels)
    * @param {string} deviceId - Device identifier
@@ -316,14 +495,9 @@ class InstrumentSettingsDB {
         }
       }
 
-      // Also update instrument_latency table if it exists
-      try {
-        this.db.prepare(
-          'UPDATE instrument_latency SET device_id = ? WHERE device_id = ?'
-        ).run(newDeviceId, oldDeviceId);
-      } catch (e) {
-        // Table may not exist
-      }
+      // The legacy `instrument_latency` (singular) table was dropped
+      // in v6 — only the plural `instruments_latency` rows updated above
+      // need to follow the device_id rename.
 
       // Also update routing table if it exists
       try {

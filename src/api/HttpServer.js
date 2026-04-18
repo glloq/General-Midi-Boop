@@ -102,6 +102,23 @@ class HttpServer {
       this.expressApp.use('/api', (req, res, next) => {
         // Public endpoints used by the frontend dashboard during update.
         if (req.path === '/health' || req.path === '/update-status') return next();
+
+        // Same-origin SPA bypass: mirrors WebSocketServer.verifyClient.
+        // The CORS middleware above already restricts the Origin header to
+        // localhost / the request host, so an Origin echo here is a strong
+        // same-origin signal.
+        const origin = req.headers.origin;
+        if (origin) {
+          try {
+            const url = new URL(origin);
+            if (url.hostname === 'localhost'
+                || url.hostname === '127.0.0.1'
+                || url.hostname === req.hostname) {
+              return next();
+            }
+          } catch { /* fall through to token check */ }
+        }
+
         const token = req.headers.authorization?.replace('Bearer ', '') || '';
         try {
           const tokenBuf = Buffer.from(token);
@@ -116,7 +133,7 @@ class HttpServer {
         }
         next();
       });
-      this.logger.info('API token authentication enabled');
+      this.logger.info('API token authentication enabled (same-origin bypass for SPA)');
     }
 
     // Serve static files — use dist/ in production if available, public/ otherwise

@@ -50,7 +50,7 @@ async function applyAssignments(app, data) {
 
   let midiData;
   try {
-    const buffer = Buffer.isBuffer(originalFile.data) ? originalFile.data : Buffer.from(originalFile.data, 'base64');
+    const buffer = app.blobStore.read(originalFile.blob_path);
     midiData = midiConverter.midiToJson(buffer);
   } catch (error) {
     throw new MidiError(`Failed to parse MIDI file: ${error.message}`);

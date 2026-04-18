@@ -70,11 +70,16 @@ When `MAESTRO_API_TOKEN` is set, connect with:
 | `midi_all_notes_off` | All notes off on all channels | `deviceId` |
 | `midi_reset` | MIDI System Reset | `deviceId` |
 
-### File Management (20 commands)
+### File Management (WebSocket commands)
+
+> **Upload + download moved to HTTP in v6.** Uploads use
+> `POST /api/files` (raw binary body) and downloads stream from
+> `GET /api/files/:id/blob`. The legacy `file_upload` WS command is
+> gone; `file_export` now returns `{ url, contentHash, size, ... }`
+> instead of an inline base64 payload. See "HTTP endpoints" below.
 
 | Command | Description | Parameters |
 |---------|-------------|------------|
-| `file_upload` | Upload MIDI file | `filename`, `data` |
 | `file_list` | List files in folder | `folder?` (default '/') |
 | `file_metadata` | Get file metadata | `fileId` |
 | `file_read` | Read MIDI file for editing | `fileId` |
@@ -83,8 +88,8 @@ When `MAESTRO_API_TOKEN` is set, connect with:
 | `file_save_as` | Save with new name | `fileId`, `newFilename`, `midiData` |
 | `file_rename` | Rename file | `fileId`, `newFilename` |
 | `file_move` | Move file to folder | `fileId`, `folder` |
-| `file_duplicate` | Duplicate file | `fileId` |
-| `file_export` | Export file | `fileId` |
+| `file_duplicate` | Duplicate file (no-op when content_hash exists) | `fileId` |
+| `file_export` | Return signed download metadata `{url}` | `fileId` |
 | `file_search` | Search files | `query` |
 | `file_filter` | Advanced filtering | Multiple filter criteria |
 | `file_channels` | Get MIDI channels | `fileId` |
@@ -92,6 +97,53 @@ When `MAESTRO_API_TOKEN` is set, connect with:
 | `file_routing_status` | Get routing status | `fileId` |
 | `midi_instruments_list` | List distinct instruments | — |
 | `midi_categories_list` | List instrument categories | — |
+
+### HTTP endpoints
+
+| Method | Path | Body / Query | Response |
+|--------|------|--------------|----------|
+| `POST` | `/api/files?filename=&folder=` | Raw MIDI bytes (`Content-Type: application/octet-stream`), capped at `MAX_MIDI_FILE_SIZE` | `201 {fileId, contentHash, status:'created', ...}` or `200 {status:'duplicate'}` if content already known |
+| `GET` | `/api/files/:id/blob[?dl=1]` | — | `200` streaming `audio/midi`; `ETag` is the SHA-256 content hash |
+
+Same-origin browser requests skip the bearer-token check; external
+clients must send `Authorization: Bearer <MAESTRO_API_TOKEN>`.
+
+### WS events (server → client)
+
+| Event | Payload | When |
+|-------|---------|------|
+| `file_upload_progress` | `{uploadId, stage}` | Emitted during `POST /api/files` for stages: `received`, `hashed`, `parsed`, `analyzed`, `stored` |
+| `file_uploaded` | `{fileId, filename, contentHash}` | Once a file row is committed |
+| `file_list_updated` | `{files: [...]}` | After any CRUD on the library |
+| `file_delete` | `{fileId}` | After a file row + blob is deleted |
+| `file_write` | `{fileId, contentHash}` | After the editor saves new bytes |
+| `playback_status`, `playback_position` | scheduler state | High-frequency push during playback |
+| `playlist_item_changed`, `playlist_waiting` | queue state | Multi-file playback transitions |
+| `monitor_event` | live MIDI message | Routing monitor stream |
+| `device_connected`, `device_disconnected` | `{deviceId, ...}` | Hot-plug detection |
+| `latency_calibration_complete` | `{deviceId, latency, min, max}` | After `latency_measure` finishes |
+
+### API surface not consumed by the bundled SPA
+
+These WS commands are exposed for external clients or future UI work
+but the current SPA does not call them. They are NOT dead — removing
+them would break programmatic clients. Listed here so contributors
+know the gap on the UI side:
+
+- `route_*` (CRUD on static device-to-device routes) — the SPA uses
+  per-file routing (`file_routing_sync`) instead.
+- `preset_save` / `_load` / `_list` / `_delete` / `_rename` / `_export` —
+  no preset UI yet.
+- `midi_panic` — no emergency-stop button wired in the SPA.
+- `file_export` — the SPA downloads via `GET /api/files/:id/blob?dl=1`
+  directly; this command duplicates the URL returned by `file_metadata`.
+- `file_channels`, `playlist_status` — diagnostic queries, no UI surface.
+- `latency_measure` / `_set` / `_get` / `_list` / `_delete` /
+  `_auto_calibrate` / `_recommendations` / `_export` — the SPA uses
+  the `calibrate_*` family. Profiles are persisted on the device's
+  channel-0 row of `instruments_latency` (`sync_delay`, `avg_latency`,
+  `min_latency`, `max_latency`, `last_calibration`) and reloaded at
+  every boot via `LatencyCompensator.loadProfilesFromDB`.
 
 ### Playback (21 commands)
 
