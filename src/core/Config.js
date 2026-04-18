@@ -1,5 +1,5 @@
 /**
- * @file src/config/Config.js
+ * @file src/core/Config.js
  * @description Runtime configuration loader for MidiMind.
  *
  * Resolution order (lowest to highest priority):

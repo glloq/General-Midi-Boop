@@ -18,7 +18,7 @@ import EventEmitter from 'events';
 import fs from 'fs';
 import path from 'path';
 import MidiUtils from '../utils/MidiUtils.js';
-import { SYSTEM_MESSAGE_LENGTH } from '../constants.js';
+import { SYSTEM_MESSAGE_LENGTH } from '../core/constants.js';
 
 // MIDI Serial constants
 const MIDI_BAUD_RATE = 31250;

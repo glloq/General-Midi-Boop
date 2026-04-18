@@ -18,7 +18,7 @@
  */
 
 import { performance } from 'perf_hooks';
-import { TIMING } from '../constants.js';
+import { TIMING } from '../core/constants.js';
 
 /** 24 pulses per quarter note — MIDI 1.0 standard. */
 const MIDI_CLOCK_PPQ = TIMING.MIDI_CLOCK_PPQ;

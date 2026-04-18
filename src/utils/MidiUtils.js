@@ -8,7 +8,7 @@
  * (`MessageTypes`, `CC`, `NoteNames`) for backwards compatibility with
  * older call sites that still reach for them via this module.
  */
-import { MIDI_STATUS, MIDI_CC, MIDI_NOTE } from '../constants.js';
+import { MIDI_STATUS, MIDI_CC, MIDI_NOTE } from '../core/constants.js';
 
 /**
  * Static utility class — all members are static. Not meant to be

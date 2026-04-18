@@ -22,7 +22,7 @@
  *   - subscribes to `instrument_settings_changed` to refresh the
  *     compensation cache.
  */
-import { TIMING } from '../constants.js';
+import { TIMING } from '../core/constants.js';
 
 /** Hard ceiling on per-message compensation; logged + clamped above this. */
 const MAX_COMPENSATION_MS = TIMING.MAX_COMPENSATION_MS;

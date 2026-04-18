@@ -28,7 +28,7 @@
  * silenced for the rest of the playback.
  */
 import { performance } from 'perf_hooks';
-import { TIMING, MIDI_CC } from '../constants.js';
+import { TIMING, MIDI_CC } from '../core/constants.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, MAX_COMPENSATION_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;

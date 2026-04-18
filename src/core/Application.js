@@ -22,7 +22,7 @@
 import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import Config from '../config/Config.js';
+import Config from './Config.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
 import ServiceContainer from './ServiceContainer.js';

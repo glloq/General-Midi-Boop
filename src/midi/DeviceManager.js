@@ -15,7 +15,7 @@
  * elsewhere from crashing.
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
-import { DEVICE_STATUS } from '../constants.js';
+import { DEVICE_STATUS } from '../core/constants.js';
 
 let easymidi;
 /**

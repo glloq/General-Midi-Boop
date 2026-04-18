@@ -17,7 +17,7 @@ import { parseMidi } from 'midi-file';
 import { writeMidi } from 'midi-file';
 import MidiFileParser from './MidiFileParser.js';
 import MidiFileValidator from './MidiFileValidator.js';
-import { LIMITS } from '../constants.js';
+import { LIMITS } from '../core/constants.js';
 
 class FileManager {
   /**

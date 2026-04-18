@@ -3,7 +3,7 @@
 // Usage: node scripts/rollback-db.js [steps]
 // Rolls back the last N database migrations (default: 1)
 
-import Config from '../src/config/Config.js';
+import Config from '../src/core/Config.js';
 import Logger from '../src/core/Logger.js';
 import Database from '../src/storage/Database.js';
 
