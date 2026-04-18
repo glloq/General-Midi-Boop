@@ -1,17 +1,20 @@
 /**
  * @file src/utils/JsonValidator.js
- * @description Static façade over the {@link SchemaCompiler} engine plus a
- * handful of legacy free-form validators (MIDI message, base64, JSON
- * string, sanitisation) that do not yet have a declarative schema.
+ * @description Static façade over the {@link SchemaCompiler} engine.
  *
- * The `validate*Command(command, data)` family looks up the precompiled
- * schema for `command` in {@link COMPILED_SCHEMAS}. Commands without a
- * registered schema currently return `{ valid: true, errors: [] }` —
- * effectively a permissive default (ADR-004 migration).
+ * Every validator now runs through the same engine:
+ *   - `validateByCommand(command, data)` is the canonical entry point
+ *     consumed by `CommandRegistry`; it looks up the precompiled
+ *     schema for `command` in {@link COMPILED_SCHEMAS}.
+ *   - The historical per-category helpers (`validateDeviceCommand`,
+ *     `validateFileCommand`, ...) are now thin delegations to
+ *     `validateByCommand` and preserved for backward compatibility.
+ *   - The data-only validators (`validateMidiMessage`,
+ *     `validateSession`, `validatePlaylist`, `validateInstrument`) run
+ *     through their own compiled schemas declared below.
  *
- * TODO: migrate `validateMidiMessage`, `validateSession`, `validatePlaylist`,
- * `validateInstrument`, `validateSystemCommand` to declarative schemas so
- * this file becomes a thin façade only.
+ * Commands without a registered schema return the permissive
+ * `{valid:true, errors:[]}` default.
  */
 import { compileSchema } from './SchemaCompiler.js';
 import playbackSchemas from '../api/commands/schemas/playback.schemas.js';
@@ -19,6 +22,7 @@ import routingSchemas from '../api/commands/schemas/routing.schemas.js';
 import deviceSchemas from '../api/commands/schemas/device.schemas.js';
 import fileSchemas from '../api/commands/schemas/file.schemas.js';
 import latencySchemas from '../api/commands/schemas/latency.schemas.js';
+import systemSchemas from '../api/commands/schemas/system.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -32,7 +36,8 @@ for (const schemas of [
   routingSchemas,
   deviceSchemas,
   fileSchemas,
-  latencySchemas
+  latencySchemas,
+  systemSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);
@@ -40,9 +45,127 @@ for (const schemas of [
 }
 
 /**
- * Static validator façade. Methods are mapped from command names by
- * `CommandRegistry.COMMAND_VALIDATORS`. All `validate*` methods return
- * the canonical `{ valid: boolean, errors: string[] }` shape.
+ * Data-only schemas for the non-command validators (payloads that are
+ * not routed through the WS command dispatcher — they're called
+ * directly by specific handlers). Each preserves the exact error
+ * messages of the pre-migration imperative code so snapshots stay
+ * stable.
+ */
+const MIDI_MESSAGE_SCHEMA = {
+  custom: (data) => {
+    const errors = [];
+    if (!data.type) errors.push('type is required');
+    if (!data.deviceId) errors.push('deviceId is required');
+
+    switch (data.type) {
+      case 'noteon':
+      case 'noteoff':
+        if (data.note === undefined || data.note < 0 || data.note > 127) {
+          errors.push('note must be 0-127');
+        }
+        if (data.velocity === undefined || data.velocity < 0 || data.velocity > 127) {
+          errors.push('velocity must be 0-127');
+        }
+        break;
+      case 'cc':
+        if (data.controller === undefined || data.controller < 0 || data.controller > 127) {
+          errors.push('controller must be 0-127');
+        }
+        if (data.value === undefined || data.value < 0 || data.value > 127) {
+          errors.push('value must be 0-127');
+        }
+        break;
+      case 'program':
+        if (data.program === undefined || data.program < 0 || data.program > 127) {
+          errors.push('program must be 0-127');
+        }
+        break;
+      case 'pitchbend':
+        if (data.value === undefined || data.value < -8192 || data.value > 8191) {
+          errors.push('value must be -8192 to 8191');
+        }
+        break;
+    }
+
+    if (data.channel !== undefined && (data.channel < 0 || data.channel > 15)) {
+      errors.push('channel must be 0-15');
+    }
+
+    return errors;
+  }
+};
+
+const SESSION_SCHEMA = {
+  custom: (data) => {
+    const errors = [];
+    if (!data.name || typeof data.name !== 'string') {
+      errors.push('name is required and must be a string');
+    }
+    if (data.data && typeof data.data !== 'string') {
+      errors.push('data must be a JSON string');
+    }
+    if (data.data && typeof data.data === 'string') {
+      try {
+        JSON.parse(data.data);
+      } catch {
+        errors.push('data must be valid JSON');
+      }
+    }
+    return errors;
+  }
+};
+
+const PLAYLIST_SCHEMA = {
+  custom: (data) => {
+    if (!data.name || typeof data.name !== 'string') {
+      return 'name is required and must be a string';
+    }
+    return null;
+  }
+};
+
+const INSTRUMENT_SCHEMA = {
+  custom: (data) => {
+    const errors = [];
+    if (!data.name || typeof data.name !== 'string') {
+      errors.push('name is required and must be a string');
+    }
+    if (data.midi_channel !== undefined) {
+      if (!Number.isInteger(data.midi_channel) || data.midi_channel < 0 || data.midi_channel > 15) {
+        errors.push('midi_channel must be 0-15');
+      }
+    }
+    if (data.program_number !== undefined) {
+      if (!Number.isInteger(data.program_number) || data.program_number < 0 || data.program_number > 127) {
+        errors.push('program_number must be 0-127');
+      }
+    }
+    return errors;
+  }
+};
+
+const COMPILED_MIDI_MESSAGE = compileSchema(MIDI_MESSAGE_SCHEMA);
+const COMPILED_SESSION = compileSchema(SESSION_SCHEMA);
+const COMPILED_PLAYLIST = compileSchema(PLAYLIST_SCHEMA);
+const COMPILED_INSTRUMENT = compileSchema(INSTRUMENT_SCHEMA);
+
+/**
+ * Internal helper: wrap a compiled validator's `string[]` output into
+ * the canonical `{valid, errors}` envelope used by every caller.
+ *
+ * @param {Function} compiled
+ * @param {Object} data
+ * @returns {{valid:boolean, errors:string[]}}
+ * @private
+ */
+function _run(compiled, data) {
+  const errors = compiled(data || {});
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Static validator façade. Every `validate*` method returns the
+ * canonical `{valid: boolean, errors: string[]}` shape.
  */
 class JsonValidator {
   /**
@@ -92,155 +215,86 @@ class JsonValidator {
   }
 
   /**
-   * Validate the payload of a `device_*` command against its declarative
-   * schema, if registered.
+   * Canonical command-payload validator. Looks up `command` in the
+   * global compiled-schema registry and runs it; returns the permissive
+   * `{valid:true, errors:[]}` default when no schema is registered.
    *
-   * @param {string} command - Command name (e.g. `"device_enable"`).
-   * @param {Object} data - Command payload.
-   * @returns {{valid: boolean, errors: string[]}} Permissive default
-   *   `{valid:true, errors:[]}` when no schema is registered for `command`.
+   * This is the single entry point consumed by
+   * {@link CommandRegistry#handle} — the per-category helpers below
+   * (`validateDeviceCommand`, `validateFileCommand`, ...) are thin
+   * backward-compat shims.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid:boolean, errors:string[]}}
    */
-  static validateDeviceCommand(command, data) {
+  static validateByCommand(command, data) {
     const compiled = COMPILED_SCHEMAS[command];
-    if (compiled) {
-      const errors = compiled(data || {});
-      return { valid: errors.length === 0, errors };
-    }
-    return { valid: true, errors: [] };
+    if (!compiled) return { valid: true, errors: [] };
+    return _run(compiled, data);
   }
 
   /**
-   * Validate the payload of a routing command (`route_*`, `filter_*`,
-   * `channel_map`, `monitor_*`) against its declarative schema.
-   *
+   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
+   */
+  static validateDeviceCommand(command, data) {
+    return JsonValidator.validateByCommand(command, data);
+  }
+
+  /**
+   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
    * @param {string} command
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateRoutingCommand(command, data) {
-    const compiled = COMPILED_SCHEMAS[command];
-    if (compiled) {
-      const errors = compiled(data || {});
-      return { valid: errors.length === 0, errors };
-    }
-    return { valid: true, errors: [] };
+    return JsonValidator.validateByCommand(command, data);
   }
 
   /**
-   * Validate the payload of a file command (`file_*`) against its
-   * declarative schema.
-   *
+   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
    * @param {string} command
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateFileCommand(command, data) {
-    const compiled = COMPILED_SCHEMAS[command];
-    if (compiled) {
-      const errors = compiled(data || {});
-      return { valid: errors.length === 0, errors };
-    }
-    return { valid: true, errors: [] };
+    return JsonValidator.validateByCommand(command, data);
   }
 
   /**
-   * Validate the payload of a playback command (`playback_*`) against its
-   * declarative schema. The legacy switch-based fallback was removed in
-   * ADR-004 P1-3.2a since every current playback command has a schema.
-   *
+   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
    * @param {string} command
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validatePlaybackCommand(command, data) {
-    const compiled = COMPILED_SCHEMAS[command];
-    if (compiled) {
-      const errors = compiled(data || {});
-      return { valid: errors.length === 0, errors };
-    }
-
-    return { valid: true, errors: [] };
+    return JsonValidator.validateByCommand(command, data);
   }
 
   /**
-   * Validate the payload of a latency command (`latency_*`) against its
-   * declarative schema.
-   *
+   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
    * @param {string} command
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateLatencyCommand(command, data) {
-    const compiled = COMPILED_SCHEMAS[command];
-    if (compiled) {
-      const errors = compiled(data || {});
-      return { valid: errors.length === 0, errors };
-    }
-    return { valid: true, errors: [] };
+    return JsonValidator.validateByCommand(command, data);
   }
 
   /**
-   * Imperative validator for the in-memory MIDI message shape used by the
-   * router and player (note on/off, CC, program, pitchbend). Channel
-   * field is checked for every type.
+   * Validate the in-memory MIDI message shape used by the router and
+   * player (note on/off, CC, program, pitchbend). Runs through the
+   * {@link SchemaCompiler} engine; error messages are preserved
+   * byte-for-byte vs. the pre-migration imperative code.
    *
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateMidiMessage(data) {
-    const errors = [];
-
-    if (!data.type) {
-      errors.push('type is required');
-    }
-
-    if (!data.deviceId) {
-      errors.push('deviceId is required');
-    }
-
-    // Type-specific validation
-    switch (data.type) {
-      case 'noteon':
-      case 'noteoff':
-        if (data.note === undefined || data.note < 0 || data.note > 127) {
-          errors.push('note must be 0-127');
-        }
-        if (data.velocity === undefined || data.velocity < 0 || data.velocity > 127) {
-          errors.push('velocity must be 0-127');
-        }
-        break;
-
-      case 'cc':
-        if (data.controller === undefined || data.controller < 0 || data.controller > 127) {
-          errors.push('controller must be 0-127');
-        }
-        if (data.value === undefined || data.value < 0 || data.value > 127) {
-          errors.push('value must be 0-127');
-        }
-        break;
-
-      case 'program':
-        if (data.program === undefined || data.program < 0 || data.program > 127) {
-          errors.push('program must be 0-127');
-        }
-        break;
-
-      case 'pitchbend':
-        if (data.value === undefined || data.value < -8192 || data.value > 8191) {
-          errors.push('value must be -8192 to 8191');
-        }
-        break;
-    }
-
-    // Channel validation
-    if (data.channel !== undefined && (data.channel < 0 || data.channel > 15)) {
-      errors.push('channel must be 0-15');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return _run(COMPILED_MIDI_MESSAGE, data);
   }
 
   /**
@@ -304,110 +358,53 @@ class JsonValidator {
   }
 
   /**
-   * Validate the payload of a `system_*` command. Currently only checks
-   * `system_backup.path` is a string when present — unrecognised
-   * subcommands pass through.
+   * Backward-compat shim for the system-command validator. Routes
+   * through {@link JsonValidator.validateByCommand} now that
+   * `system_backup` has a real declarative schema in
+   * `schemas/system.schemas.js`. Unrecognised subcommands pass through
+   * with the permissive default.
    *
    * @param {string} command
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateSystemCommand(command, data) {
-    const errors = [];
-
-    switch (command) {
-      case 'system_backup':
-        if (data.path && typeof data.path !== 'string') {
-          errors.push('path must be a string');
-        }
-        break;
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return JsonValidator.validateByCommand(command, data);
   }
 
   /**
-   * Validate a session record before persistence. Requires a string
-   * `name`; if `data` is provided it must be a JSON-encoded string.
+   * Validate a session record before persistence. Runs through
+   * {@link SESSION_SCHEMA} — requires a string `name`; when `data` is
+   * present it must be a valid JSON-encoded string.
    *
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateSession(data) {
-    const errors = [];
-
-    if (!data.name || typeof data.name !== 'string') {
-      errors.push('name is required and must be a string');
-    }
-
-    if (data.data && typeof data.data !== 'string') {
-      errors.push('data must be a JSON string');
-    }
-
-    if (data.data && !this.isValidJson(data.data)) {
-      errors.push('data must be valid JSON');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return _run(COMPILED_SESSION, data);
   }
 
   /**
-   * Validate a playlist record before persistence. Only checks `name`
-   * is a non-empty string; ordering of items is validated elsewhere.
+   * Validate a playlist record before persistence. Runs through
+   * {@link PLAYLIST_SCHEMA} — requires a non-empty string `name`.
    *
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validatePlaylist(data) {
-    const errors = [];
-
-    if (!data.name || typeof data.name !== 'string') {
-      errors.push('name is required and must be a string');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return _run(COMPILED_PLAYLIST, data);
   }
 
   /**
-   * Validate an instrument record before persistence. Requires a string
-   * `name`; checks `midi_channel` (0-15) and `program_number` (0-127)
-   * when present.
+   * Validate an instrument record before persistence. Runs through
+   * {@link INSTRUMENT_SCHEMA} — requires a string `name`, checks
+   * `midi_channel` (0-15) and `program_number` (0-127) when present.
    *
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateInstrument(data) {
-    const errors = [];
-
-    if (!data.name || typeof data.name !== 'string') {
-      errors.push('name is required and must be a string');
-    }
-
-    if (data.midi_channel !== undefined) {
-      if (!Number.isInteger(data.midi_channel) || data.midi_channel < 0 || data.midi_channel > 15) {
-        errors.push('midi_channel must be 0-15');
-      }
-    }
-
-    if (data.program_number !== undefined) {
-      if (!Number.isInteger(data.program_number) || data.program_number < 0 || data.program_number > 127) {
-        errors.push('program_number must be 0-127');
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors: errors
-    };
+    return _run(COMPILED_INSTRUMENT, data);
   }
 }
 

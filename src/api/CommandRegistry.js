@@ -4,9 +4,9 @@
  *
  * Pipeline applied to every incoming message:
  *   1. Envelope validation via {@link JsonValidator.validateCommand}.
- *   2. Per-command payload validation, looked up through the
- *      {@link COMMAND_VALIDATORS} map and resolved against
- *      {@link JsonValidator}.
+ *   2. Per-command payload validation via
+ *      {@link JsonValidator.validateByCommand}, which reads the
+ *      precompiled schema registry built from `schemas/*.schemas.js`.
  *   3. Handler lookup (versioned handlers take priority when the client
  *      sends `version`; falls back to the v1 handler otherwise).
  *   4. Async handler execution; result and `duration` are sent back to
@@ -47,46 +47,10 @@ function _generateCid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-/**
- * Maps command names to the static method on {@link JsonValidator} that
- * validates their payload. Commands not listed here skip per-payload
- * validation (they may still rely on imperative checks inside the handler).
- *
- * TODO: drive this map from the schema files themselves so adding a new
- * command does not require touching two places.
- *
- * @type {Object<string, string>}
- */
-const COMMAND_VALIDATORS = {
-  file_upload: 'validateFileCommand',
-  file_delete: 'validateFileCommand',
-  file_rename: 'validateFileCommand',
-  file_move: 'validateFileCommand',
-  file_export: 'validateFileCommand',
-  device_info: 'validateDeviceCommand',
-  device_enable: 'validateDeviceCommand',
-  device_set_properties: 'validateDeviceCommand',
-  virtual_create: 'validateDeviceCommand',
-  virtual_delete: 'validateDeviceCommand',
-  ble_connect: 'validateDeviceCommand',
-  ble_disconnect: 'validateDeviceCommand',
-  route_create: 'validateRoutingCommand',
-  route_delete: 'validateRoutingCommand',
-  route_enable: 'validateRoutingCommand',
-  filter_set: 'validateRoutingCommand',
-  filter_clear: 'validateRoutingCommand',
-  channel_map: 'validateRoutingCommand',
-  monitor_start: 'validateRoutingCommand',
-  monitor_stop: 'validateRoutingCommand',
-  playback_start: 'validatePlaybackCommand',
-  playback_seek: 'validatePlaybackCommand',
-  playback_set_loop: 'validatePlaybackCommand',
-  latency_measure: 'validateLatencyCommand',
-  latency_set: 'validateLatencyCommand',
-  latency_get: 'validateLatencyCommand',
-  latency_delete: 'validateLatencyCommand',
-  system_backup: 'validateSystemCommand'
-};
+// Per-command payload validation is now driven entirely by the schema
+// registry inside JsonValidator (`validateByCommand`). Adding a new
+// command only requires creating an entry in a `schemas/*.schemas.js`
+// file — no manual map maintenance here.
 
 /**
  * Holds command-name -> handler bindings and dispatches incoming
@@ -205,13 +169,12 @@ class CommandRegistry {
         throw new ValidationError(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
-      // Per-command payload validation, opt-in via the COMMAND_VALIDATORS map.
-      const validatorName = COMMAND_VALIDATORS[message.command];
-      if (validatorName && typeof JsonValidator[validatorName] === 'function') {
-        const cmdValidation = JsonValidator[validatorName](message.command, message.data || {});
-        if (!cmdValidation.valid) {
-          throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
-        }
+      // Per-command payload validation via the schema registry. Commands
+      // without a registered schema get the permissive default — they
+      // may still rely on imperative checks inside the handler.
+      const cmdValidation = JsonValidator.validateByCommand(message.command, message.data || {});
+      if (!cmdValidation.valid) {
+        throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
       }
 
       // Versioned handler takes priority when the client requests a
