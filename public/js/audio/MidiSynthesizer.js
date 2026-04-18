@@ -9,8 +9,8 @@
 const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX } = window.MidiSynthesizerConstants;
 
 /**
- * MidiSynthesizer - Synthétiseur MIDI utilisant WebAudioFont
- * Utilise des samples réels pour un rendu de qualité professionnelle
+ * MidiSynthesizer - MIDI synthesizer using WebAudioFont
+ * Uses real samples for professional-quality rendering
  */
 class MidiSynthesizer {
     constructor() {
@@ -20,60 +20,60 @@ class MidiSynthesizer {
         this.isPlaying = false;
         this.isPaused = false;
 
-        // État de lecture
+        // Playback state
         this.currentTick = 0;
         this.startTick = 0;
         this.endTick = 0;
         this.startTime = 0;
 
-        // Tempo et timing
+        // Tempo and timing
         this.tempo = 120; // BPM
         this.ticksPerBeat = 480; // PPQ standard
-        this.tempoMap = []; // [{ticks, tempo, timeSeconds}] - tempo map triée par ticks
+        this.tempoMap = []; // [{ticks, tempo, timeSeconds}] - tempo map sorted by ticks
         this._ticksPerSecond = (120 / 60) * 480; // Cached conversion factor
         this._secondsPerTick = 1 / this._ticksPerSecond;
 
-        // Canaux et instruments
+        // Channels and instruments
         this.channelInstruments = new Array(16).fill(0);
         this.channelVolumes = new Array(16).fill(100);
-        this.mutedChannels = new Set(); // Canaux mutés
+        this.mutedChannels = new Set(); // Muted channels
 
-        // Instruments chargés (cache)
+        // Loaded instruments (cache)
         this.loadedInstruments = new Map(); // program -> instrument data
         this.loadingInstruments = new Map(); // program -> Promise
 
         // Scheduler
         this.schedulerInterval = null;
         this.animationFrame = null;
-        this.scheduleAheadTime = 0.2; // 200ms de lookahead
+        this.scheduleAheadTime = 0.2; // 200ms of lookahead
         this.lastScheduledTick = 0;
         this.schedulePointer = 0; // Index into sorted sequence for O(1) scheduling
 
-        // Notes actives pour pouvoir les arrêter
+        // Active notes so we can stop them
         this.activeEnvelopes = [];
 
         // Callbacks
         this.onTickUpdate = null;
         this.onPlaybackEnd = null;
 
-        // Séquence
+        // Sequence
         this.sequence = [];
 
         // Logger
         this.logger = window.logger || console;
 
-        // Banque son courante (lue depuis localStorage)
+        // Current sound bank (read from localStorage)
         const savedBank = MidiSynthesizer.getSavedBank();
         const bankInfo = SOUND_BANKS.find(b => b.id === savedBank);
         this.currentBankId = bankInfo ? bankInfo.id : DEFAULT_BANK_ID;
         this.currentBankSuffix = bankInfo ? bankInfo.suffix : DEFAULT_BANK_SUFFIX;
         this._pendingBankSwitch = null;
 
-        // Mapping General MIDI vers WebAudioFont
-        // Format: [fichier, variable] pour chaque programme GM (0-127)
+        // General MIDI to WebAudioFont mapping
+        // Format: [file, variable] for each GM program (0-127)
         this.gmInstrumentMap = this.createGMInstrumentMap(this.currentBankSuffix);
 
-        // Drums (canal 9) — per-note presets from JCLive (better cymbals)
+        // Drums (channel 9) — per-note presets from JCLive (better cymbals)
         // Fallback to SBLive for notes not in JCLive
         this.drumKit = null; // Legacy single-kit (unused, kept for compat)
         this.drumPresets = new Map(); // note → loaded preset
@@ -135,8 +135,8 @@ class MidiSynthesizer {
     }
 
     /**
-     * Créer le mapping des 128 instruments GM vers les fichiers WebAudioFont
-     * @param {string} bankSuffix - Suffixe de la banque son (ex: 'FluidR3_GM_sf2_file')
+     * Create the mapping of the 128 GM instruments to WebAudioFont files
+     * @param {string} bankSuffix - Sound bank suffix (e.g. 'FluidR3_GM_sf2_file')
      */
     createGMInstrumentMap(bankSuffix = DEFAULT_BANK_SUFFIX) {
         const base = 'https://surikov.github.io/webaudiofontdata/sound/';
@@ -153,9 +153,9 @@ class MidiSynthesizer {
     }
 
     /**
-     * Changer la banque son
-     * @param {string} bankId - Identifiant de la banque (ex: 'FluidR3_GM', 'Aspirin')
-     * @returns {boolean} true si le changement est accepté
+     * Change the sound bank
+     * @param {string} bankId - Bank identifier (e.g. 'FluidR3_GM', 'Aspirin')
+     * @returns {boolean} true if the change is accepted
      */
     setSoundBank(bankId) {
         const bank = SOUND_BANKS.find(b => b.id === bankId);
@@ -176,7 +176,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Appliquer le changement de banque son (interne)
+     * Apply the sound bank change (internal)
      */
     _applyBankSwitch(bank) {
         this.log('info', `Switching sound bank to ${bank.id}`);
@@ -195,15 +195,15 @@ class MidiSynthesizer {
     }
 
     /**
-     * Vider le cache d'instruments mélodiques chargés
+     * Clear the cache of loaded melodic instruments
      */
     _clearInstrumentCache() {
         this.loadedInstruments.clear();
         this.loadingInstruments.clear();
-        // Supprimer les anciens <script> mélodiques pour libérer la mémoire
+        // Remove old melodic <script> elements to free memory
         const scripts = document.querySelectorAll('script[src*="surikov.github.io/webaudiofontdata/sound/"]');
         scripts.forEach(s => {
-            // Ne supprimer que les scripts mélodiques (pas les drums qui commencent par /128)
+            // Only remove melodic scripts (not drums which start with /128)
             if (!s.src.includes('/128')) {
                 s.remove();
             }
@@ -211,8 +211,8 @@ class MidiSynthesizer {
     }
 
     /**
-     * Lire la banque son sauvegardée dans localStorage
-     * @returns {string} L'identifiant de la banque sauvegardée
+     * Read the sound bank saved in localStorage
+     * @returns {string} The saved bank identifier
      */
     static getSavedBank() {
         try {
@@ -226,29 +226,29 @@ class MidiSynthesizer {
     }
 
     /**
-     * Obtenir la liste des banques son disponibles
-     * @returns {Array} Liste des banques {id, label, suffix}
+     * Get the list of available sound banks
+     * @returns {Array} List of banks {id, label, suffix}
      */
     static getAvailableBanks() {
         return SOUND_BANKS;
     }
 
     /**
-     * Initialiser le synthétiseur
+     * Initialize the synthesizer
      */
     async initialize() {
         if (this.isInitialized) return true;
 
         try {
-            // Vérifier que WebAudioFont est chargé
+            // Check that WebAudioFont is loaded
             if (typeof WebAudioFontPlayer === 'undefined') {
                 throw new Error('WebAudioFontPlayer not loaded');
             }
 
-            // Créer le contexte audio
+            // Create the audio context
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-            // Créer le player WebAudioFont
+            // Create the WebAudioFont player
             this.player = new WebAudioFontPlayer();
 
             // Setup drum audio bus with reverb for cymbals
@@ -265,20 +265,20 @@ class MidiSynthesizer {
     }
 
     /**
-     * Charger un instrument
-     * @param {number} program - Numéro de programme GM (0-127)
+     * Load an instrument
+     * @param {number} program - GM program number (0-127)
      */
     async loadInstrument(program) {
         if (program < 0 || program >= 128) {
             program = 0;
         }
 
-        // Déjà chargé ?
+        // Already loaded?
         if (this.loadedInstruments.has(program)) {
             return this.loadedInstruments.get(program);
         }
 
-        // En cours de chargement ?
+        // Currently loading?
         if (this.loadingInstruments.has(program)) {
             return this.loadingInstruments.get(program);
         }
@@ -286,13 +286,13 @@ class MidiSynthesizer {
         const instrumentInfo = this.gmInstrumentMap[program];
 
         const loadPromise = new Promise((resolve, reject) => {
-            // Charger le script de l'instrument
+            // Load the instrument script
             const script = document.createElement('script');
             script.src = instrumentInfo.url;
             script.onload = () => {
                 const instrument = window[instrumentInfo.variable];
                 if (instrument) {
-                    // Ajuster les zones de l'instrument
+                    // Adjust the instrument zones
                     this.player.adjustPreset(this.audioContext, instrument);
                     this.loadedInstruments.set(program, instrument);
                     this.loadingInstruments.delete(program);
@@ -304,7 +304,7 @@ class MidiSynthesizer {
             };
             script.onerror = () => {
                 this.loadingInstruments.delete(program);
-                // Fallback vers FluidR3_GM si la banque courante n'a pas cet instrument
+                // Fallback to FluidR3_GM if the current bank doesn't have this instrument
                 if (this.currentBankId !== DEFAULT_BANK_ID) {
                     this.log('warn', `Bank ${this.currentBankId} missing program ${program}, falling back to ${DEFAULT_BANK_ID}`);
                     const num = String(program * 10).padStart(4, '0');
@@ -370,7 +370,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Charger le kit de drums — loads per-note presets for all notes used in sequence
+     * Load the drum kit — loads per-note presets for all notes used in sequence
      */
     async loadDrumKit() {
         // Collect which drum notes are actually used in the sequence
@@ -405,13 +405,13 @@ class MidiSynthesizer {
     }
 
     /**
-     * Précharger les instruments utilisés dans la séquence
+     * Preload the instruments used in the sequence
      */
     async preloadInstruments() {
         const usedPrograms = new Set();
         let hasDrums = false;
 
-        // Collecter les instruments utilisés
+        // Collect used instruments
         this.sequence.forEach(note => {
             if (note.c === 9) {
                 hasDrums = true;
@@ -421,14 +421,14 @@ class MidiSynthesizer {
             }
         });
 
-        // Aussi vérifier les canaux configurés
+        // Also check configured channels
         this.channelInstruments.forEach((program, channel) => {
             if (channel !== 9 && program !== undefined) {
                 usedPrograms.add(program);
             }
         });
 
-        // Si aucun instrument, charger le piano par défaut
+        // If no instrument, load the default piano
         if (usedPrograms.size === 0) {
             usedPrograms.add(0);
         }
@@ -485,7 +485,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Définir l'instrument pour un canal
+     * Set the instrument for a channel
      */
     setChannelInstrument(channel, program) {
         if (channel >= 0 && channel < 16) {
@@ -494,7 +494,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Définir le volume d'un canal
+     * Set the volume of a channel
      */
     setChannelVolume(channel, volume) {
         if (channel >= 0 && channel < 16) {
@@ -503,7 +503,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Convertir ticks en secondes (avec support du tempo map)
+     * Convert ticks to seconds (with tempo map support)
      */
     ticksToSeconds(ticks) {
         return window.MidiSynthesizerTempoMap.ticksToSeconds({
@@ -515,7 +515,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Convertir secondes en ticks (avec support du tempo map)
+     * Convert seconds to ticks (with tempo map support)
      */
     secondsToTicks(seconds) {
         return window.MidiSynthesizerTempoMap.secondsToTicks({
@@ -527,7 +527,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Charger une séquence
+     * Load a sequence
      */
     loadSequence(sequence, tempo = 120, ticksPerBeat = 480, tempoEvents = null) {
         // Normalize defaults in-place (callers pass disposable arrays)
@@ -545,7 +545,7 @@ class MidiSynthesizer {
         this._ticksPerSecond = (tempo / 60) * ticksPerBeat;
         this._secondsPerTick = 1 / this._ticksPerSecond;
 
-        // Construire le tempo map à partir des événements de tempo
+        // Build the tempo map from tempo events
         if (tempoEvents && tempoEvents.length > 0) {
             this.tempoMap = tempoEvents
                 .map(e => ({ ticks: e.ticks, tempo: e.tempo }))
@@ -571,7 +571,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Définir la plage de lecture
+     * Set the playback range
      */
     setPlaybackRange(startTick, endTick) {
         this.startTick = Math.max(0, startTick);
@@ -653,7 +653,7 @@ class MidiSynthesizer {
     }
 
     /**
-     * Jouer une note
+     * Play a note
      */
     playNote(note, velocity, channel, duration, time = null) {
         if (!this.isInitialized || !this.player) return;
@@ -762,7 +762,7 @@ class MidiSynthesizer {
                 }
             }
         } catch (error) {
-            // Ignorer les erreurs silencieusement
+            // Silently ignore errors
         }
     }
 

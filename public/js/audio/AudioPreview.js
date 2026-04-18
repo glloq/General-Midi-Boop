@@ -1,12 +1,12 @@
 // public/js/audio/AudioPreview.js
 
 /**
- * AudioPreview - Systeme de preview audio pour l'auto-assignation
+ * AudioPreview - Audio preview system for auto-assignment
  *
- * Permet d'ecouter un extrait du fichier MIDI avec les transpositions appliquees
- * avant de valider l'assignation.
- * Supporte le preview global (tous canaux), single-channel, et original.
- * Fournit des callbacks de progression pour la barre de progression et la minimap.
+ * Allows listening to a MIDI file excerpt with transpositions applied
+ * before validating the assignment.
+ * Supports global preview (all channels), single-channel, and original.
+ * Provides progress callbacks for the progress bar and minimap.
  */
 class AudioPreview {
   constructor(apiClient) {
@@ -14,14 +14,14 @@ class AudioPreview {
     this.synthesizer = null;
     this.isPlaying = false;
     this.isPreviewing = false;
-    this.previewDuration = 15; // secondes (legacy, used when fullFile=false)
-    this.previewStart = 0; // secondes
+    this.previewDuration = 15; // seconds (legacy, used when fullFile=false)
+    this.previewStart = 0; // seconds
 
     // Progress tracking
     this.onProgress = null;      // callback(currentTick, totalTicks, currentTimeSec, totalTimeSec)
     this.onPlaybackEnd = null;   // callback()
     this.totalTicks = 0;
-    this.totalDuration = 0;      // secondes
+    this.totalDuration = 0;      // seconds
   }
 
   /**
@@ -35,7 +35,7 @@ class AudioPreview {
       this.synthesizer = new window.MidiSynthesizer();
       await this.synthesizer.initialize();
     } else if (this.synthesizer.setSoundBank) {
-      // Synchroniser la banque son avec le réglage courant
+      // Synchronize the sound bank with the current setting
       const savedBank = window.MidiSynthesizer.getSavedBank();
       this.synthesizer.setSoundBank(savedBank);
     }
