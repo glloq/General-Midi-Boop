@@ -33,6 +33,9 @@ import MidiPlayer from '../midi/playback/MidiPlayer.js';
 import LatencyCompensator from '../midi/adaptation/LatencyCompensator.js';
 import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../files/FileManager.js';
+import BlobStore from '../files/BlobStore.js';
+import UploadQueue from '../files/UploadQueue.js';
+import path from 'path';
 import BluetoothManager from '../transports/BluetoothManager.js';
 import NetworkManager from '../transports/NetworkManager.js';
 import WebSocketServer from '../api/WebSocketServer.js';
@@ -231,7 +234,15 @@ class Application {
         new DelayCalibrator(this.deviceManager, this.logger)
       );
 
-      // Initialize storage
+      // Initialize storage: BlobStore lives next to the SQLite file.
+      const dataDir = path.dirname(this.config.database.path || './data/midimind.db');
+      this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
+      this._registerService('uploadQueue', new UploadQueue({
+        logger: this.logger,
+        onProgress: ({ uploadId, stage }) => {
+          this.wsServer?.broadcast('file_upload_progress', { uploadId, stage });
+        }
+      }));
       this._registerService('fileManager', new FileManager(deps));
 
       // Initialize Bluetooth (optional - may not be available on all systems)

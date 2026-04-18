@@ -5,7 +5,6 @@
  * inspection and bulk re-analysis.
  *
  * Registered commands:
- *   - `file_upload`              — base64 → DB + parse + analyze
  *   - `file_list`                — flat list under a folder (with routing)
  *   - `file_metadata`            — header info for one file
  *   - `file_read`                — full MIDI payload for the editor
@@ -29,18 +28,6 @@
  * other commands rely on imperative checks inside the handler.
  */
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';
-
-/**
- * Decode a base64 file payload, persist it, and analyze its content.
- *
- * @param {Object} app
- * @param {{filename:string, data:string}} data - `data` is base64.
- * @returns {Promise<Object>} Result returned verbatim by FileManager.
- */
-async function fileUpload(app, data) {
-  const result = await app.fileManager.handleUpload(data.filename, data.data);
-  return result;
-}
 
 /**
  * List files under `folder` (defaults to `/`). Result entries already
@@ -430,7 +417,7 @@ async function midiCategoriesList(app) {
  * @returns {void}
  */
 export function register(registry, app) {
-  registry.register('file_upload', (data) => fileUpload(app, data));
+  // file_upload removed — uploads now go through HTTP `POST /api/files`.
   registry.register('file_list', (data) => fileList(app, data));
   registry.register('file_metadata', (data) => fileMetadata(app, data));
   registry.register('file_read', (data) => fileRead(app, data));

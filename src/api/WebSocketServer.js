@@ -33,8 +33,10 @@ const APP_VERSION = wsPkg.version;
 const HEARTBEAT_INTERVAL_MS = TIMING.HEARTBEAT_INTERVAL_MS;
 /** Max simultaneous WebSocket connections (deliberately conservative for Pi). */
 const MAX_WS_CLIENTS = 10;
-/** Max single-frame size in bytes (16 MB). Big enough for base64 MIDI uploads. */
-const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
+/** Max single-frame size in bytes (1 MB). Binary MIDI uploads now go through
+ *  the HTTP `POST /api/files` route, so the WS channel only carries control
+ *  messages and JSON payloads. */
+const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
 /** Rate-limiter sliding-window length (ms). */
 const RATE_LIMIT_WINDOW_MS = 1000;
 /** Max messages allowed per {@link RATE_LIMIT_WINDOW_MS}. */
