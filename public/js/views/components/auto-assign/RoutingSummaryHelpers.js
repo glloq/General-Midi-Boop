@@ -194,6 +194,131 @@
     return inst?.polyphony || assignment.polyphony || null;
   }
 
+  /**
+   * Apply a behavior mode to a split assignment, reconfiguring segments
+   * (noteRange, type, overlapStrategy, behaviorMode) in-place.
+   * Pure function: mutates the passed `splitData` only — no DOM, no globals.
+   */
+  function applyBehaviorMode({ splitData, channelNoteRange, mode }) {
+    if (!splitData || !splitData.segments || splitData.segments.length < 2) return;
+
+    const chMin = channelNoteRange?.min ?? 0;
+    const chMax = channelNoteRange?.max ?? 127;
+    const segA = splitData.segments[0];
+    const segB = splitData.segments[1];
+
+    splitData.behaviorMode = mode;
+
+    switch (mode) {
+      case 'overflow':
+        segA.noteRange = { min: chMin, max: chMax };
+        segB.noteRange = { min: chMin, max: chMax };
+        splitData.type = 'polyphony';
+        splitData.overlapStrategy = 'overflow';
+        break;
+
+      case 'combineNoOverlap': {
+        const aMax = segA.fullRange?.max ?? chMax;
+        const bMin = segB.fullRange?.min ?? chMin;
+        let splitPoint = Math.round((aMax + bMin) / 2);
+        splitPoint = Math.max(chMin, Math.min(chMax, splitPoint));
+        segA.noteRange = { min: chMin, max: splitPoint };
+        segB.noteRange = { min: splitPoint + 1, max: chMax };
+        splitData.type = 'range';
+        splitData.overlapStrategy = 'shared';
+        break;
+      }
+
+      case 'combineWithOverlap': {
+        const aEffMin = Math.max(segA.fullRange?.min ?? 0, chMin);
+        const aEffMax = Math.min(segA.fullRange?.max ?? 127, chMax);
+        const bEffMin = Math.max(segB.fullRange?.min ?? 0, chMin);
+        const bEffMax = Math.min(segB.fullRange?.max ?? 127, chMax);
+        segA.noteRange = { min: aEffMin, max: aEffMax };
+        segB.noteRange = { min: bEffMin, max: bEffMax };
+        splitData.type = 'range';
+        splitData.overlapStrategy = 'shared';
+        break;
+      }
+
+      case 'alternate':
+        segA.noteRange = { min: chMin, max: chMax };
+        segB.noteRange = { min: chMin, max: chMax };
+        splitData.type = 'polyphony';
+        splitData.overlapStrategy = 'alternate';
+        break;
+    }
+  }
+
+  /**
+   * Re-clamp segment noteRanges after the channel transposition changed.
+   * Mutates `splitData.segments[*].noteRange`.
+   */
+  function reclampSplitRanges({ splitData, oldSemitones, newSemitones, channelNoteRange }) {
+    if (!splitData?.segments?.length) return;
+    const delta = (newSemitones || 0) - (oldSemitones || 0);
+    if (delta === 0) return;
+
+    const baseMin = channelNoteRange?.min ?? 0;
+    const baseMax = channelNoteRange?.max ?? 127;
+    const tCh = {
+      min: Math.max(0, Math.min(127, baseMin + (newSemitones || 0))),
+      max: Math.max(0, Math.min(127, baseMax + (newSemitones || 0)))
+    };
+    if (tCh.min > tCh.max) { const t = tCh.min; tCh.min = tCh.max; tCh.max = t; }
+
+    for (const seg of splitData.segments) {
+      const physMin = seg.fullRange?.min ?? 0;
+      const physMax = seg.fullRange?.max ?? 127;
+      const shiftedMinRaw = Math.max(physMin, (seg.noteRange?.min ?? physMin) + delta);
+      const shiftedMaxRaw = Math.min(physMax, (seg.noteRange?.max ?? physMax) + delta);
+      const sMin = Math.max(0, Math.min(127, shiftedMinRaw));
+      const sMax = Math.max(0, Math.min(127, shiftedMaxRaw));
+      const lo = Math.max(sMin, tCh.min);
+      const hi = Math.min(sMax, tCh.max);
+      seg.noteRange = (lo > hi) ? { min: hi, max: lo } : { min: lo, max: hi };
+    }
+  }
+
+  /**
+   * Move one bound (min/max) of a segment range, keeping min <= max.
+   * Mutates `splitData.segments[segIdx].noteRange`.
+   */
+  function updateSegmentRange({ splitData, segIdx, bound, value }) {
+    if (!splitData?.segments?.[segIdx]) return;
+    const clamped = Math.max(0, Math.min(127, parseInt(value) || 0));
+    const seg = splitData.segments[segIdx];
+    if (bound === 'min') {
+      seg.noteRange.min = clamped;
+      if (clamped > seg.noteRange.max) seg.noteRange.max = clamped;
+    } else {
+      seg.noteRange.max = clamped;
+      if (clamped < seg.noteRange.min) seg.noteRange.min = clamped;
+    }
+  }
+
+  /**
+   * Resolve an overlap between two segments by 'first', 'second', or 'shared'.
+   * Mutates `splitData`.
+   */
+  function resolveOverlap({ splitData, overlapIdx, strategy }) {
+    if (!splitData?.segments) return;
+    const overlaps = detectOverlaps(splitData.segments);
+    const ov = overlaps[overlapIdx];
+    if (!ov) return;
+
+    const segA = splitData.segments[ov.segA];
+    const segB = splitData.segments[ov.segB];
+    if (!segA?.noteRange || !segB?.noteRange) return;
+
+    if (strategy === 'first') {
+      segB.noteRange.min = ov.max + 1;
+    } else if (strategy === 'second') {
+      segA.noteRange.max = ov.min - 1;
+    }
+    splitData.overlapStrategy = strategy;
+  }
+
   function buildInstrumentOptions({ channel, assignment, isSkipped, suggestions, lowScoreSuggestions, maxNameLen, escape, getDisplayName }) {
     const options = suggestions[String(channel)] || [];
     const lowOptions = lowScoreSuggestions[String(channel)] || [];
@@ -248,6 +373,10 @@
     getChannelPolyphony,
     getInstrumentPolyphony,
     computePlayableNotes,
-    buildInstrumentOptions
+    buildInstrumentOptions,
+    applyBehaviorMode,
+    reclampSplitRanges,
+    updateSegmentRange,
+    resolveOverlap
   });
 })();

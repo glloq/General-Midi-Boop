@@ -1727,33 +1727,12 @@ class RoutingSummaryPage {
    * @param {number} newSemitones - new transposition value
    */
   _reclampSplitRanges(channel, oldSemitones, newSemitones) {
-    const data = this._getActiveSplitData(channel);
-    if (!data?.segments?.length) return;
-
-    const delta = (newSemitones || 0) - (oldSemitones || 0);
-    if (delta === 0) return;
-
-    // Compute transposed channel range for secondary clamping
-    const analysis = this.channelAnalyses[channel];
-    const tCh = safeNoteRange(
-      (analysis?.noteRange?.min ?? 0) + (newSemitones || 0),
-      (analysis?.noteRange?.max ?? 127) + (newSemitones || 0)
-    );
-
-    for (const seg of data.segments) {
-      const physMin = seg.fullRange?.min ?? 0;
-      const physMax = seg.fullRange?.max ?? 127;
-      // Shift the range by the transposition delta, clamp to instrument physical limits
-      const shifted = safeNoteRange(
-        Math.max(physMin, (seg.noteRange?.min ?? physMin) + delta),
-        Math.min(physMax, (seg.noteRange?.max ?? physMax) + delta)
-      );
-      // Second clamp: ensure segment stays within the transposed channel range
-      seg.noteRange = safeNoteRange(
-        Math.max(shifted.min, tCh.min),
-        Math.min(shifted.max, tCh.max)
-      );
-    }
+    window.RoutingSummaryHelpers.reclampSplitRanges({
+      splitData: this._getActiveSplitData(channel),
+      oldSemitones,
+      newSemitones,
+      channelNoteRange: this.channelAnalyses[channel]?.noteRange
+    });
   }
 
   /**
@@ -1763,19 +1742,7 @@ class RoutingSummaryPage {
     const data = this._getActiveSplitData(channel);
     if (!data?.segments?.[segIdx]) return;
     this.splitEdited[channel] = true;
-    const clamped = Math.max(0, Math.min(127, parseInt(value) || 0));
-    if (bound === 'min') {
-      data.segments[segIdx].noteRange.min = clamped;
-      // Ensure min <= max
-      if (clamped > data.segments[segIdx].noteRange.max) {
-        data.segments[segIdx].noteRange.max = clamped;
-      }
-    } else {
-      data.segments[segIdx].noteRange.max = clamped;
-      if (clamped < data.segments[segIdx].noteRange.min) {
-        data.segments[segIdx].noteRange.min = clamped;
-      }
-    }
+    window.RoutingSummaryHelpers.updateSegmentRange({ splitData: data, segIdx, bound, value });
     this._refreshUI(channelKeys, 'both-panels');
   }
 
@@ -1785,27 +1752,8 @@ class RoutingSummaryPage {
   _resolveOverlap(channel, overlapIdx, strategy, channelKeys) {
     const data = this._getActiveSplitData(channel);
     if (!data?.segments) return;
-    const overlaps = this._detectOverlaps(data.segments);
-    const ov = overlaps[overlapIdx];
-    if (!ov) return;
-
-    const segA = data.segments[ov.segA];
-    const segB = data.segments[ov.segB];
-    if (!segA?.noteRange || !segB?.noteRange) return;
-
-    if (strategy === 'first') {
-      // Give overlap zone to segment A: shrink B's min
-      segB.noteRange.min = ov.max + 1;
-    } else if (strategy === 'second') {
-      // Give overlap zone to segment B: shrink A's max
-      segA.noteRange.max = ov.min - 1;
-    }
-    // 'shared' = keep overlapping (round-robin at playback), no range change
-
-    // Store the overlap strategy on the split data for persistence
-    data.overlapStrategy = strategy;
+    window.RoutingSummaryHelpers.resolveOverlap({ splitData: data, overlapIdx, strategy });
     this.splitEdited[channel] = true;
-
     this._refreshUI(channelKeys, 'both-panels');
   }
 
@@ -1952,68 +1900,11 @@ class RoutingSummaryPage {
    * @param {string} mode - 'overflow'|'combineNoOverlap'|'combineWithOverlap'|'alternate'
    */
   _applyBehaviorMode(channel, mode) {
-    const splitData = this.splitAssignments[channel];
-    if (!splitData || !splitData.segments || splitData.segments.length < 2) return;
-
-    const analysis = this.channelAnalyses[channel];
-    const chMin = analysis?.noteRange?.min ?? 0;
-    const chMax = analysis?.noteRange?.max ?? 127;
-    const segA = splitData.segments[0];
-    const segB = splitData.segments[1];
-
-    splitData.behaviorMode = mode;
-
-    switch (mode) {
-      case 'overflow':
-        // Both instruments cover full channel range; A is primary, B catches overflow
-        segA.noteRange = { min: chMin, max: chMax };
-        segB.noteRange = { min: chMin, max: chMax };
-        splitData.type = 'polyphony';
-        splitData.overlapStrategy = 'overflow';
-        break;
-
-      case 'combineNoOverlap': {
-        // Auto-compute split point based on natural instrument ranges
-        const aMax = segA.fullRange?.max ?? chMax;
-        const bMin = segB.fullRange?.min ?? chMin;
-        // Split point: midpoint of overlap, or boundary of ranges
-        let splitPoint;
-        if (aMax >= bMin) {
-          // Overlap exists — split at midpoint
-          splitPoint = Math.round((aMax + bMin) / 2);
-        } else {
-          // Gap — split at midpoint of gap
-          splitPoint = Math.round((aMax + bMin) / 2);
-        }
-        splitPoint = Math.max(chMin, Math.min(chMax, splitPoint));
-        segA.noteRange = { min: chMin, max: splitPoint };
-        segB.noteRange = { min: splitPoint + 1, max: chMax };
-        splitData.type = 'range';
-        splitData.overlapStrategy = 'shared';
-        break;
-      }
-
-      case 'combineWithOverlap': {
-        // Use natural instrument ranges, allowing overlap
-        const aEffMin = Math.max(segA.fullRange?.min ?? 0, chMin);
-        const aEffMax = Math.min(segA.fullRange?.max ?? 127, chMax);
-        const bEffMin = Math.max(segB.fullRange?.min ?? 0, chMin);
-        const bEffMax = Math.min(segB.fullRange?.max ?? 127, chMax);
-        segA.noteRange = { min: aEffMin, max: aEffMax };
-        segB.noteRange = { min: bEffMin, max: bEffMax };
-        splitData.type = 'range';
-        splitData.overlapStrategy = 'shared';
-        break;
-      }
-
-      case 'alternate':
-        // Both instruments cover full channel range; notes alternate round-robin
-        segA.noteRange = { min: chMin, max: chMax };
-        segB.noteRange = { min: chMin, max: chMax };
-        splitData.type = 'polyphony';
-        splitData.overlapStrategy = 'alternate';
-        break;
-    }
+    window.RoutingSummaryHelpers.applyBehaviorMode({
+      splitData: this.splitAssignments[channel],
+      channelNoteRange: this.channelAnalyses[channel]?.noteRange,
+      mode
+    });
   }
 
   /**

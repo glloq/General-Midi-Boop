@@ -9,7 +9,7 @@
 |---|---|
 | Phase active | **Phase 2 — Persistance (migration handlers)** |
 | Branche de travail | `claude/refactor-maestro-project-L6ptg` |
-| Dernier lot terminé | P2-F.4v (helpers — resolveSegmentGmProgram, displayName, polyphony, playableNotes, buildInstrumentOptions) |
+| Dernier lot terminé | P2-F.4w (split ops — applyBehaviorMode, reclampSplitRanges, updateSegmentRange, resolveOverlap) |
 | Prochain lot suggéré | continuer sur comportements (_bindDetailEvents, _applyPreviewVolumes) ou **P1-4.5c**. |
 | Date dernière mise à jour | 2026-04-18 |
 | Agent ayant mis à jour | Claude (agent refactoring) |
@@ -135,6 +135,7 @@ Format d'une ligne : date ISO — agent — identifiant lot — résumé — fic
 
 | Date | Agent | Lot | Résumé | Fichiers touchés | Commit | Notes |
 |---|---|---|---|---|---|---|
+| 2026-04-18 | Claude (refactoring) | P2-F.4w | Extraction des opérations pures sur splits : `applyBehaviorMode({ splitData, channelNoteRange, mode })` (4 modes : overflow / combineNoOverlap / combineWithOverlap / alternate, ~64 LOC), `reclampSplitRanges` (re-clamp post-transposition), `updateSegmentRange` (move bound), `resolveOverlap` (resolve overlap par 'first'/'second'/'shared'). Toutes mutent splitData en place ; les 4 méthodes de la page deviennent 1-3 lignes. | `public/js/views/components/auto-assign/RoutingSummaryHelpers.js` (+129 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-109 LOC) | (ce commit) | Cumul F.1→F.4w : 4748→3002 (**-1746, -36.8%**) → 92% du chemin vers KPI -40%. |
 | 2026-04-18 | Claude (refactoring) | P2-F.4v | Deuxième vague d'extraction vers `RoutingSummaryHelpers.js` : `resolveSegmentGmProgram`, `getInstrumentDisplayName`, `getChannelPolyphony`, `getInstrumentPolyphony`, `computePlayableNotes`, `buildInstrumentOptions`. Inversion de contrôle pour escape + getDisplayName (pour buildInstrumentOptions). | `public/js/views/components/auto-assign/RoutingSummaryHelpers.js` (+90 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-38 LOC) | (ce commit) | Cumul F.1→F.4v : 4748→3111 (**-1637, -34.5%**) → 86% du chemin vers KPI -40%. |
 | 2026-04-18 | Claude (refactoring) | P2-F.4u | Extraction des helpers purs (`mergeHints`, `detectOverlaps`, `computeSplitCoverageScore`, `getCCName`, `getInstrumentCCs`, `computeCCSummary`) vers nouveau module `RoutingSummaryHelpers.js`. Inversion de contrôle : cache CC name et `findInstrumentById` passés en paramètres. Les 6 méthodes de la classe deviennent 1-liners. | `public/js/views/components/auto-assign/RoutingSummaryHelpers.js` (+163 LOC, nouveau), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-105 LOC), `public/index.html` (+1 script tag) | (ce commit) | Cumul F.1→F.4u : 4748→3149 (**-1599, -33.7%**) → 84% du chemin vers KPI -40%. |
 | 2026-04-17 | Claude (refactoring) | P2-F.4t | Extraction du container HTML du detail panel (~23 LOC template) vers `renderDetailContainer({ ... })`. 18e renderer pur. Header composite (typeIcon + route + score + poly + playable + close button) + ordonnancement des sections pre-rendues. | `public/js/views/components/auto-assign/RoutingSummaryRenderers.js` (+71 LOC), `public/js/views/components/auto-assign/RoutingSummaryPage.js` (-4 LOC nets) | (ce commit) | 437/437 tests verts. Cumul F.1→F.4t : 4748→3254 (**-1494, -31.5%**). |
