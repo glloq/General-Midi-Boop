@@ -1,4 +1,18 @@
-// src/utils/JsonValidator.js
+/**
+ * @file src/utils/JsonValidator.js
+ * @description Static façade over the {@link SchemaCompiler} engine plus a
+ * handful of legacy free-form validators (MIDI message, base64, JSON
+ * string, sanitisation) that do not yet have a declarative schema.
+ *
+ * The `validate*Command(command, data)` family looks up the precompiled
+ * schema for `command` in {@link COMPILED_SCHEMAS}. Commands without a
+ * registered schema currently return `{ valid: true, errors: [] }` —
+ * effectively a permissive default (ADR-004 migration).
+ *
+ * TODO: migrate `validateMidiMessage`, `validateSession`, `validatePlaylist`,
+ * `validateInstrument`, `validateSystemCommand` to declarative schemas so
+ * this file becomes a thin façade only.
+ */
 import { compileSchema } from './SchemaCompiler.js';
 import playbackSchemas from '../api/commands/schemas/playback.schemas.js';
 import routingSchemas from '../api/commands/schemas/routing.schemas.js';
@@ -6,8 +20,12 @@ import deviceSchemas from '../api/commands/schemas/device.schemas.js';
 import fileSchemas from '../api/commands/schemas/file.schemas.js';
 import latencySchemas from '../api/commands/schemas/latency.schemas.js';
 
-// Compile schema maps once at module load (ADR-004 §Plan de migration).
-// Key : command name, Value : compiled validator (data => string[]).
+/**
+ * Map of command name -> compiled validator (`(data) => string[]`).
+ * Built once at module load so per-request validation costs only a map
+ * lookup (ADR-004 §Plan de migration).
+ * @type {Object<string, Function>}
+ */
 const COMPILED_SCHEMAS = {};
 for (const schemas of [
   playbackSchemas,
@@ -21,6 +39,11 @@ for (const schemas of [
   }
 }
 
+/**
+ * Static validator façade. Methods are mapped from command names by
+ * `CommandRegistry.COMMAND_VALIDATORS`. All `validate*` methods return
+ * the canonical `{ valid: boolean, errors: string[] }` shape.
+ */
 class JsonValidator {
   /**
    * Validate data against a declarative schema (ADR-004).
@@ -37,7 +60,12 @@ class JsonValidator {
   }
 
   /**
-   * Validate command message structure
+   * Structural check on the WebSocket message envelope (not the
+   * per-command payload). Confirms `message` is an object with a
+   * non-empty string `command` and an optional object `data`.
+   *
+   * @param {*} message - Raw decoded WS frame.
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateCommand(message) {
     const errors = [];
@@ -64,10 +92,15 @@ class JsonValidator {
   }
 
   /**
-   * Validate device command data
+   * Validate the payload of a `device_*` command against its declarative
+   * schema, if registered.
+   *
+   * @param {string} command - Command name (e.g. `"device_enable"`).
+   * @param {Object} data - Command payload.
+   * @returns {{valid: boolean, errors: string[]}} Permissive default
+   *   `{valid:true, errors:[]}` when no schema is registered for `command`.
    */
   static validateDeviceCommand(command, data) {
-    // ADR-004 migration (P1-3.2c) : lookup in declarative schema map.
     const compiled = COMPILED_SCHEMAS[command];
     if (compiled) {
       const errors = compiled(data || {});
@@ -77,10 +110,14 @@ class JsonValidator {
   }
 
   /**
-   * Validate routing command data
+   * Validate the payload of a routing command (`route_*`, `filter_*`,
+   * `channel_map`, `monitor_*`) against its declarative schema.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateRoutingCommand(command, data) {
-    // ADR-004 migration (P1-3.2b) : lookup in declarative schema map.
     const compiled = COMPILED_SCHEMAS[command];
     if (compiled) {
       const errors = compiled(data || {});
@@ -90,10 +127,14 @@ class JsonValidator {
   }
 
   /**
-   * Validate file command data
+   * Validate the payload of a file command (`file_*`) against its
+   * declarative schema.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateFileCommand(command, data) {
-    // ADR-004 migration (P1-3.2c) : lookup in declarative schema map.
     const compiled = COMPILED_SCHEMAS[command];
     if (compiled) {
       const errors = compiled(data || {});
@@ -103,12 +144,15 @@ class JsonValidator {
   }
 
   /**
-   * Validate playback command data
+   * Validate the payload of a playback command (`playback_*`) against its
+   * declarative schema. The legacy switch-based fallback was removed in
+   * ADR-004 P1-3.2a since every current playback command has a schema.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validatePlaybackCommand(command, data) {
-    // ADR-004 migration (P1-3.2a) : first consult the declarative schema map.
-    // Legacy switch remains below as a no-op fallback for commands not yet
-    // migrated — all current playback cases are covered by the map.
     const compiled = COMPILED_SCHEMAS[command];
     if (compiled) {
       const errors = compiled(data || {});
@@ -119,10 +163,14 @@ class JsonValidator {
   }
 
   /**
-   * Validate latency command data
+   * Validate the payload of a latency command (`latency_*`) against its
+   * declarative schema.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateLatencyCommand(command, data) {
-    // ADR-004 migration (P1-3.2c) : lookup in declarative schema map.
     const compiled = COMPILED_SCHEMAS[command];
     if (compiled) {
       const errors = compiled(data || {});
@@ -132,7 +180,12 @@ class JsonValidator {
   }
 
   /**
-   * Validate MIDI message data
+   * Imperative validator for the in-memory MIDI message shape used by the
+   * router and player (note on/off, CC, program, pitchbend). Channel
+   * field is checked for every type.
+   *
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateMidiMessage(data) {
     const errors = [];
@@ -191,22 +244,23 @@ class JsonValidator {
   }
 
   /**
-   * Check if string is valid base64
+   * Cheap base64 well-formedness check. Does NOT decode — only verifies
+   * the input matches `[A-Za-z0-9+/]*={0,2}` and has a length that is a
+   * multiple of 4. Used to gate file uploads before allocating a buffer.
+   *
+   * @param {*} str
+   * @returns {boolean}
    */
   static isValidBase64(str) {
     if (typeof str !== 'string') {
       return false;
     }
 
-    // Base64 regex pattern
     const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
-    
-    // Check pattern
     if (!base64Pattern.test(str)) {
       return false;
     }
 
-    // Check length (must be multiple of 4)
     if (str.length % 4 !== 0) {
       return false;
     }
@@ -215,7 +269,8 @@ class JsonValidator {
   }
 
   /**
-   * Validate JSON string
+   * @param {string} str
+   * @returns {boolean} True iff `str` parses as JSON.
    */
   static isValidJson(str) {
     try {
@@ -227,24 +282,35 @@ class JsonValidator {
   }
 
   /**
-   * Sanitize string input
+   * Trim, length-cap, and strip ASCII control characters from a user-
+   * supplied string. Returns `""` for non-string input. Does NOT escape
+   * HTML — callers rendering output in a UI must still encode.
+   *
+   * @param {*} str
+   * @param {number} [maxLength=255]
+   * @returns {string}
    */
   static sanitizeString(str, maxLength = 255) {
     if (typeof str !== 'string') {
       return '';
     }
 
-    // Trim and limit length
     str = str.trim().substring(0, maxLength);
-
-    // Remove control characters
+    // Drop ASCII control bytes (0x00-0x1F, 0x7F) which can break log
+    // viewers and DB drivers if persisted.
     str = str.replace(/[\x00-\x1F\x7F]/g, '');
 
     return str;
   }
 
   /**
-   * Validate system command data
+   * Validate the payload of a `system_*` command. Currently only checks
+   * `system_backup.path` is a string when present — unrecognised
+   * subcommands pass through.
+   *
+   * @param {string} command
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateSystemCommand(command, data) {
     const errors = [];
@@ -264,7 +330,11 @@ class JsonValidator {
   }
 
   /**
-   * Validate session data
+   * Validate a session record before persistence. Requires a string
+   * `name`; if `data` is provided it must be a JSON-encoded string.
+   *
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateSession(data) {
     const errors = [];
@@ -288,7 +358,11 @@ class JsonValidator {
   }
 
   /**
-   * Validate playlist data
+   * Validate a playlist record before persistence. Only checks `name`
+   * is a non-empty string; ordering of items is validated elsewhere.
+   *
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validatePlaylist(data) {
     const errors = [];
@@ -304,7 +378,12 @@ class JsonValidator {
   }
 
   /**
-   * Validate instrument data
+   * Validate an instrument record before persistence. Requires a string
+   * `name`; checks `midi_channel` (0-15) and `program_number` (0-127)
+   * when present.
+   *
+   * @param {Object} data
+   * @returns {{valid: boolean, errors: string[]}}
    */
   static validateInstrument(data) {
     const errors = [];
