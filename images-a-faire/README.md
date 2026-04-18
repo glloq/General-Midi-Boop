@@ -45,8 +45,8 @@ Les images serviront a identifier visuellement chaque instrument dans l'interfac
 - [ ] `bright_acoustic.svg` — GM 1 — Piano brillant
 - [x] `electric_grand.svg` — GM 2 — Piano electrique grand
 - [ ] `honky_tonk.svg` — GM 3 — Honky-tonk
-- [ ] `electric_piano_1.svg` — GM 4 — Piano electrique 1 (Rhodes)
-- [ ] `electric_piano_2.svg` — GM 5 — Piano electrique 2 (Wurlitzer/DX7)
+- [x] `electric_grand.svg` — GM 4 — Piano electrique 1 (Rhodes)
+- [x] `electric_grand.svg` — GM 5 — Piano electrique 2 (Wurlitzer/DX7)
 - [ ] `harpsichord.svg` — GM 6 — Clavecin
 - [ ] `clavinet.svg` — GM 7 — Clavinet
 
@@ -180,14 +180,14 @@ Chaque element de percussion du kit General MIDI standard (canal 10).
 
 - [ ] `drum_37.svg` — Note 37 — Side Stick
 - [ ] `drum_38.svg` — Note 38 — Acoustic Snare
-- [x] `drum_39.svg` — Note 39 — Hand Clap
+- [x] `Hand-Clap.svg` — Note 39 — Hand Clap
 - [ ] `drum_40.svg` — Note 40 — Electric Snare
 
 #### Charleston (Hi-Hat)
 
 - [ ] `drum_42.svg` — Note 42 — Closed Hi-Hat
 - [ ] `drum_44.svg` — Note 44 — Pedal Hi-Hat
-- [ ] `drum_46.svg` — Note 46 — Open Hi-Hat
+- [x] `Open-Hi-Hat.svg` — Note 46 — Open Hi-Hat
 
 #### Toms
 
@@ -229,7 +229,7 @@ Chaque element de percussion du kit General MIDI standard (canal 10).
 #### Petites percussions
 
 - [x] `Cabasa.svg` — Note 69 — Cabasa
-- [ ] `drum_70.svg` — Note 70 — Maracas
+- [x] `Maracas.svg` — Note 70 — Maracas
 - [x] `whistle.svg` — Note 71 — Short Whistle
 - [x] `whistle.svg` — Note 72 — Long Whistle
 - [ ] `drum_73.svg` — Note 73 — Short Guiro
