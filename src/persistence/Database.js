@@ -629,6 +629,15 @@ class DatabaseManager {
   updateInstrumentById(...args) {
     return this.instrumentDB.updateInstrumentById(...args);
   }
+  getAllLatencyProfiles() {
+    return this.instrumentDB.getAllLatencyProfiles();
+  }
+  saveDeviceLatency(...args) {
+    return this.instrumentDB.saveDeviceLatency(...args);
+  }
+  clearDeviceLatency(...args) {
+    return this.instrumentDB.clearDeviceLatency(...args);
+  }
   saveSysExIdentity(...args) {
     return this.instrumentDB.saveSysExIdentity(...args);
   }

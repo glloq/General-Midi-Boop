@@ -110,6 +110,9 @@ class InstrumentDatabase {
   getInstrumentsByDevice(...args) { return this._settings.getInstrumentsByDevice(...args); }
   findInstrumentById(...args) { return this._settings.findById(...args); }
   updateInstrumentById(...args) { return this._settings.updateById(...args); }
+  getAllLatencyProfiles() { return this._settings.getAllLatencyProfiles(); }
+  saveDeviceLatency(...args) { return this._settings.saveDeviceLatency(...args); }
+  clearDeviceLatency(...args) { return this._settings.clearDeviceLatency(...args); }
   saveSysExIdentity(...args) { return this._settings.saveSysExIdentity(...args); }
   findInstrumentByMac(...args) { return this._settings.findInstrumentByMac(...args); }
   findInstrumentByUsbSerial(...args) { return this._settings.findInstrumentByUsbSerial(...args); }

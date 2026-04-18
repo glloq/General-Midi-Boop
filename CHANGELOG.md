@@ -72,6 +72,34 @@ All notable changes to Ma-est-tro are documented in this file.
   (`tests/repositories/routing-integration.test.js`,
   `tests/midi-filter.test.js`).
 
+### Fixed (post-v6 audit)
+- **`routes` table aligned with the runtime model.** The baseline had
+  `from_device/to_device/from_channel/to_channel` (INTEGER PK) but
+  every caller wrote `source_device/destination_device/channel_mapping/
+  filter` (TEXT PK). All CRUD on static device routes was crashing on
+  unknown columns; column shape now matches MidiRouter.addRoute.
+- **`midi_instrument_routings.target_channel` added** as a typed
+  INTEGER column (CHECK 0..15). Replaces the dead `track_id` reference
+  that RoutingPersistenceDB still wrote to.
+- **`instruments_latency.gm_program` and `polyphony` columns added**;
+  every InstrumentSettings/InstrumentCapabilities save was crashing on
+  unknown columns.
+- **`InstrumentRepository.findById` / `update` restored** (regression
+  introduced by the dead-code cleanup commit), branched at
+  `instruments_latency` rather than the phantom `instruments` table.
+  Unblocks `PlaybackAssignmentCommands.{getInstrumentDefaults,
+  updateInstrumentCapabilities}`.
+- **LatencyCompensator persistence wired to `instruments_latency`.**
+  Profiles are now stored on each device's channel-0 row
+  (`sync_delay`, `avg_latency`, `min_latency`, `max_latency`,
+  `measurement_count`, `last_calibration`) and reloaded at every boot.
+  The v6 quarantine is over.
+- **5 missing WS event listeners wired in `index.html`**:
+  `file_list_updated` / `file_uploaded` / `file_delete` / `file_write`
+  refresh the file library across tabs, `file_upload_progress` logs
+  big-file stages, `latency_calibration_complete` surfaces calibration
+  outcomes.
+
 ### Added
 - `docs/MIDI_EDITOR.md` — technical documentation for the MIDI editor modal
   (architecture, module map, public API, state model, load/save data flow,

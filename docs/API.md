@@ -140,10 +140,10 @@ know the gap on the UI side:
 - `file_channels`, `playlist_status` — diagnostic queries, no UI surface.
 - `latency_measure` / `_set` / `_get` / `_list` / `_delete` /
   `_auto_calibrate` / `_recommendations` / `_export` — the SPA uses
-  the `calibrate_*` family. **Note**: `LatencyCompensator` persistence
-  is currently quarantined (v6); these commands work in-memory only,
-  profiles do not survive a restart until the load/save path is wired
-  to `instruments_latency` properly.
+  the `calibrate_*` family. Profiles are persisted on the device's
+  channel-0 row of `instruments_latency` (`sync_delay`, `avg_latency`,
+  `min_latency`, `max_latency`, `last_calibration`) and reloaded at
+  every boot via `LatencyCompensator.loadProfilesFromDB`.
 
 ### Playback (21 commands)
 
