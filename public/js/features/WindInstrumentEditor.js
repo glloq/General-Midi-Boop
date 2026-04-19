@@ -86,7 +86,7 @@ class WindInstrumentEditor {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
-                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
+                if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
                 // Center view on the notes after layout settles
                 if (this.renderer && this.melodyCanvasEl &&
                     this.melodyCanvasEl.width > 0 && this.melodyCanvasEl.height > 0) {
@@ -114,6 +114,11 @@ class WindInstrumentEditor {
         if (this.modal.editActions.updateModeButtons) this.modal.editActions.updateModeButtons();
         if (this.modal.editActions.updateEditButtons) this.modal.editActions.updateEditButtons();
         if (this.modal.editActions.updateUndoRedoButtonsState) this.modal.editActions.updateUndoRedoButtonsState();
+
+        // Refresh timeline / navigation bar so they switch from wind's
+        // viewport (scrollX / ticksPerPixel) back to the piano roll's
+        // xoffset / xrange. Without this, nav bar keeps stale wind state.
+        if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
     }
 
     _setPianoRollVisible(visible) {
@@ -512,8 +517,8 @@ class WindInstrumentEditor {
         if (!this.isVisible) return;
 
         // Use the unified syncAllEditors which now reads from _getActiveViewportState()
-        if (this.modal && this.modal.syncAllEditors) {
-            this.modal.syncAllEditors();
+        if (this.modal && this.modal.ccPicker?.syncAllEditors) {
+            this.modal.ccPicker.syncAllEditors();
         }
     }
 

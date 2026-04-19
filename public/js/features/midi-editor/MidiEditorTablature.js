@@ -651,6 +651,14 @@
 
         } catch (error) {
             this.modal.log('error', 'Failed to toggle tablature:', error);
+            // Surface the actual error to the user — otherwise the "no string
+            // instrument" fallback notification masks real backend failures
+            // (FK errors, missing preset, converter crash, …) and the tab
+            // editor just silently never appears.
+            this.modal.showNotification(
+                `${this.modal.t('tablature.openFailed') || 'Failed to open tablature editor'}: ${error?.message || error}`,
+                'error'
+            );
         }
     }
 

@@ -104,7 +104,7 @@ class TablatureEditor {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
-                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
+                if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
             });
         });
 
@@ -127,6 +127,9 @@ class TablatureEditor {
         if (this.modal.editActions.updateModeButtons) this.modal.editActions.updateModeButtons();
         if (this.modal.editActions.updateEditButtons) this.modal.editActions.updateEditButtons();
         if (this.modal.editActions.updateUndoRedoButtonsState) this.modal.editActions.updateUndoRedoButtonsState();
+
+        // Refresh timeline / navigation bar to piano-roll viewport.
+        if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
     }
 
     /**
@@ -296,8 +299,8 @@ class TablatureEditor {
             isFretless: this.stringInstrument.is_fretless,
             capoFret: this.stringInstrument.capo_fret || 0,
             onScrollChange: () => {
-                if (this.modal && this.modal.syncAllEditors) {
-                    this.modal.syncAllEditors();
+                if (this.modal && this.modal.ccPicker?.syncAllEditors) {
+                    this.modal.ccPicker.syncAllEditors();
                 }
             }
         });

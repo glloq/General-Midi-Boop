@@ -602,7 +602,7 @@
 
     zoomHorizontal(factor) {
     // Dispatch to specialized editor if active
-        const specializedRenderer = this.modal._getActiveSpecializedRenderer();
+        const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
         if (specializedRenderer && typeof specializedRenderer.setZoom === 'function') {
             const currentTPP = specializedRenderer.ticksPerPixel || 2;
     // factor < 1 = zoom in (reduce ticksPerPixel), factor > 1 = zoom out
@@ -639,7 +639,7 @@
 
     zoomVertical(factor) {
     // Dispatch to specialized editor if active
-        const specializedRenderer = this.modal._getActiveSpecializedRenderer();
+        const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
         if (specializedRenderer && typeof specializedRenderer.setVerticalZoom === 'function') {
             specializedRenderer.setVerticalZoom(factor);
             this.modal.ccPicker.syncAllEditors();
