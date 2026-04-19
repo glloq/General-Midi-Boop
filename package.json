@@ -25,7 +25,7 @@
     "pm2:restart": "pm2 restart gmboop",
     "pm2:logs": "pm2 logs gmboop",
     "pm2:status": "pm2 status",
-    "prepare": "husky"
+    "prepare": "node .husky/install.mjs"
   },
   "keywords": [
     "midi",

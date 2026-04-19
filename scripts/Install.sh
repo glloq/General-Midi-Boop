@@ -178,8 +178,10 @@ print_success "Directories created"
 
 # Install Node.js dependencies (deterministic prod install from lockfile).
 # --omit=dev skips Jest/Vitest/ESLint/etc. which are not needed at runtime.
+# NODE_ENV=production makes the `prepare` script (.husky/install.mjs) no-op
+# so it doesn't try to invoke the husky binary that --omit=dev just skipped.
 print_info "Installing Node.js dependencies (this may take a few minutes)..."
-npm ci --omit=dev --silent
+NODE_ENV=production npm ci --omit=dev --silent
 print_success "Dependencies installed"
 
 # =============================================================================
