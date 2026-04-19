@@ -95,6 +95,7 @@ class RoutingSummaryPage {
     this.showLowScores = {}; // Per-channel toggle for low score instruments
     this.autoAdaptation = true; // Toggle for automatic MIDI channel adaptation
     this.channelVolumes = {}; // Per-channel volume overrides (CC7, 0-127, default 100)
+    this._instrumentOptionsCache = {}; // Memoized <option> HTML per channel for summary dropdowns
 
     // Preview state
     this.midiData = null;
@@ -484,10 +485,16 @@ class RoutingSummaryPage {
       scoreBtn.className = `rs-score-btn ${getScoreBgClass(displayScore)}`;
     }
 
-    // Score popup content: re-render to match current channel selection
+    // Score popup content: only re-render when the popup is actually visible.
+    // Otherwise mark it stale so it rebuilds the next time the user opens it.
     const scorePopup = modal.querySelector('#rsScorePopup');
     if (scorePopup) {
-      scorePopup.innerHTML = this._renderScoreDetail();
+      if (scorePopup.style.display !== 'none') {
+        scorePopup.innerHTML = this._renderScoreDetail();
+        scorePopup.dataset.stale = '';
+      } else {
+        scorePopup.dataset.stale = '1';
+      }
     }
 
     // Channel count
@@ -636,9 +643,15 @@ class RoutingSummaryPage {
 
   /**
    * Build <option> list for instrument dropdown in summary table.
+   * Memoized per (channel, selected instrument, skipped flag) — output
+   * is pure HTML that only changes when one of those inputs changes, so
+   * we can avoid rebuilding 16 large option strings on every refresh.
    */
   _buildInstrumentOptions(ch, assignment, isSkipped) {
-    return window.RoutingSummaryHelpers.buildInstrumentOptions({
+    const key = `${ch}|${assignment?.instrumentId || ''}|${isSkipped ? 1 : 0}`;
+    const cached = this._instrumentOptionsCache[key];
+    if (cached !== undefined) return cached;
+    const html = window.RoutingSummaryHelpers.buildInstrumentOptions({
       channel: ch,
       assignment,
       isSkipped,
@@ -648,6 +661,8 @@ class RoutingSummaryPage {
       escape: escapeHtml,
       getDisplayName: (inst) => this._getInstrumentDisplayName(inst)
     });
+    this._instrumentOptionsCache[key] = html;
+    return html;
   }
 
   // ============================================================================
@@ -1046,7 +1061,12 @@ class RoutingSummaryPage {
     if (scoreEl && popupEl) {
       scoreEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        popupEl.style.display = popupEl.style.display === 'none' ? '' : 'none';
+        const opening = popupEl.style.display === 'none';
+        if (opening && popupEl.dataset.stale === '1') {
+          popupEl.innerHTML = this._renderScoreDetail();
+          popupEl.dataset.stale = '';
+        }
+        popupEl.style.display = opening ? '' : 'none';
       });
       popupEl.addEventListener('click', (e) => e.stopPropagation());
       // Close popup when clicking anywhere else in modal
@@ -1784,6 +1804,7 @@ class RoutingSummaryPage {
   _selectInstrument(ch, instrumentId, channelKeys) {
     // Invalidate segment instrument cache when assignment changes
     this._segmentInstrumentCache = null;
+    this._instrumentOptionsCache = {};
     const options = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selected = options.find(o => o.instrument.id === instrumentId);
     if (!selected) return;
@@ -2755,6 +2776,7 @@ class RoutingSummaryPage {
 
       // Invalidate memoization caches after data reload
       this._segmentInstrumentCache = null;
+      this._instrumentOptionsCache = {};
 
       this.loading = false;
       this._renderContent();

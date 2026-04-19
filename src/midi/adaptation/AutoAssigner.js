@@ -19,6 +19,12 @@ import AnalysisCache from '../playback/AnalysisCache.js';
 import ScoringConfig from './ScoringConfig.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 
+// Cap the low-score suggestions per channel. With large instrument libraries
+// this list can reach 1000+ entries, which makes the routing-summary modal
+// ship a huge payload and slow the detail panel rebuild. 50 is plenty for
+// "show me the next-best options" UX.
+const LOW_SCORE_MAX_PER_CHANNEL = 50;
+
 class AutoAssigner {
   constructor(instrumentDatabase, logger, eventBus = null) {
     this.instrumentDatabase = instrumentDatabase;
@@ -167,9 +173,9 @@ class AutoAssigner {
         scores.sort((a, b) => b.compatibility.score - a.compatibility.score);
         suggestions[analysis.channel] = scores.slice(0, topN);
 
-        // Also keep low-score instruments (sorted)
+        // Also keep low-score instruments (sorted, capped)
         lowScores.sort((a, b) => b.compatibility.score - a.compatibility.score);
-        lowScoreSuggestions[analysis.channel] = lowScores;
+        lowScoreSuggestions[analysis.channel] = lowScores.slice(0, LOW_SCORE_MAX_PER_CHANNEL);
       }
 
       // 4. Automatic selection (best score per channel)

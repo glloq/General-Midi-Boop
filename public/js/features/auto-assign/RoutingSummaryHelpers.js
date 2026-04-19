@@ -7,6 +7,12 @@
 
   const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
 
+  // Cap the number of <option> tags rendered per channel dropdown in the
+  // summary table. Without this cap, 16 rows × (suggestions + lowScoreSuggestions)
+  // can reach tens of thousands of DOM nodes and freeze the main thread for
+  // many seconds on every full rebuild.
+  const SUMMARY_DROPDOWN_MAX = 30;
+
   function mergeHints(a, b) {
     if (!a) return b;
     if (!b) return a;
@@ -330,7 +336,18 @@
 
     if (allOptions.length === 0) return html;
 
-    for (const opt of allOptions) {
+    // Cap the list to avoid generating thousands of <option> nodes per row.
+    // Always keep the currently-selected instrument visible, even if it's
+    // ranked beyond the cap.
+    let trimmed = allOptions.length > SUMMARY_DROPDOWN_MAX
+      ? allOptions.slice(0, SUMMARY_DROPDOWN_MAX)
+      : allOptions;
+    if (currentId && !trimmed.some(o => o.instrument?.id === currentId)) {
+      const cur = allOptions.find(o => o.instrument?.id === currentId);
+      if (cur) trimmed = [cur, ...trimmed];
+    }
+
+    for (const opt of trimmed) {
       const inst = opt.instrument;
       const score = opt.compatibility?.score || 0;
       const name = getDisplayName(inst);
