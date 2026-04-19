@@ -49,7 +49,7 @@
         const chips = this.modal.container?.querySelectorAll('.channel-chip');
         if (!chips) return;
 
-        const specializedActive = this.modal._isSpecializedEditorActive();
+        const specializedActive = this.modal.editActions?._isSpecializedEditorActive();
 
         chips.forEach(chip => {
             const channel = parseInt(chip.dataset.channel);
@@ -484,7 +484,7 @@
         document.addEventListener('keydown', this.modal.escapeHandler);
 
     // Raccourcis clavier
-        this.modal.setupKeyboardShortcuts();
+        this.modal.editActions?.setupKeyboardShortcuts();
     }
 
     async initPianoRoll() {
@@ -652,8 +652,8 @@
                 this.modal.isDirty = true;
                 this.updateSaveButton();
                 this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-                this.modal.updateUndoRedoButtonsState(); // Update undo/redo when the sequence changes
-                this.modal.updateEditButtons(); // Update copy/paste/delete when the selection changes
+                this.modal.editActions?.updateUndoRedoButtonsState(); // Update undo/redo when the sequence changes
+                this.modal.editActions?.updateEditButtons(); // Update copy/paste/delete when the selection changes
 
     // Update the sequence copy after the sync
                 previousSequence = this.copySequence(this.modal.pianoRoll.sequence);
@@ -666,7 +666,7 @@
     // Listen for changes with a debounce
         this.modal.pianoRoll.addEventListener('change', handleChange);
         this.modal.pianoRoll.addEventListener('selectionchange', () => {
-            this.modal.updateEditButtons();
+            this.modal.editActions?.updateEditButtons();
         });
 
     // Play the note on piano-keyboard click
@@ -689,8 +689,8 @@
         });
 
         this.updateStats();
-        this.modal.updateEditButtons(); // Initial state
-        this.modal.updateUndoRedoButtonsState(); // Initial undo/redo state
+        this.modal.editActions?.updateEditButtons(); // Initial state
+        this.modal.editActions?.updateUndoRedoButtonsState(); // Initial undo/redo state
         this.modal.renderer.updateInstrumentSelector(); // Initial instrument selector state
 
     // Pick the default mode (drag-view for navigation)
@@ -706,7 +706,7 @@
         await this.loadConnectedDevices();
 
     // Restore the routings saved in DB for this file
-        await this.modal._loadSavedRoutings();
+        await this.modal.tablatureOps?._loadSavedRoutings();
 
     // Update tablature button visibility for initial channel selection
         if (this.modal.channelPanel) {

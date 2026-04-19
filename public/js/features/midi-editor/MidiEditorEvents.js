@@ -130,7 +130,7 @@
                 e.preventDefault();
                 e.stopPropagation();
     // Block channel toggle when a specialized editor is active
-                if (this.modal._isSpecializedEditorActive()) {
+                if (this.modal.editActions?._isSpecializedEditorActive()) {
                     this.modal.showNotification(this.modal.t('midiEditor.closeEditorFirst') || 'Close the specialized editor first', 'info');
                     return;
                 }
@@ -207,7 +207,7 @@
                 e.preventDefault();
                 e.stopPropagation();
     // Block solo when a specialized editor is active
-                if (this.modal._isSpecializedEditorActive()) return;
+                if (this.modal.editActions?._isSpecializedEditorActive()) return;
                 const channel = parseInt(channelChip.dataset.channel);
                 if (!isNaN(channel)) {
                     const previousActiveChannels = new Set(this.modal.activeChannels);

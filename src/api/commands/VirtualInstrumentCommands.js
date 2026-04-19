@@ -117,7 +117,7 @@ async function instrumentCreateVirtual(app, data) {
     note_range_min: data.note_range_min !== undefined ? data.note_range_min : (preset ? preset.note_range_min : null),
     note_range_max: data.note_range_max !== undefined ? data.note_range_max : (preset ? preset.note_range_max : null),
     note_selection_mode: data.note_selection_mode || (preset ? preset.note_selection_mode : 'range'),
-    capabilities_source: 'virtual'
+    capabilities_source: 'manual'
   };
 
   app.instrumentRepository.updateCapabilities(deviceId, channel, capabilities);

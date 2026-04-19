@@ -265,7 +265,7 @@
 
             if (response && response.success) {
                 this.modal.isDirty = false;
-                this.modal.updateSaveButton();
+                this.modal.routingOps?.updateSaveButton();
                 this.modal.showNotification(this.modal.t('midiEditor.saveSuccess'), 'success');
 
     // Emit event

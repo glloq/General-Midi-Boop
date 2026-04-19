@@ -201,7 +201,7 @@
             onChange: () => {
     // Mark as dirty on CC/pitch-bend changes
                 this.modal.isDirty = true;
-                this.modal.updateSaveButton();
+                this.modal.routingOps?.updateSaveButton();
             }
         };
 
@@ -410,7 +410,7 @@
             onChange: (sequence) => {
     // Mark as dirty on velocity changes
                 this.modal.isDirty = true;
-                this.modal.updateSaveButton();
+                this.modal.routingOps?.updateSaveButton();
     // Synchroniser vers fullSequence et sequence
                 this.syncSequenceFromVelocityEditor(sequence);
             }
@@ -493,7 +493,7 @@
             onChange: () => {
     // Mark as dirty on tempo changes
                 this.modal.isDirty = true;
-                this.modal.updateSaveButton();
+                this.modal.routingOps?.updateSaveButton();
             }
         };
 
