@@ -30,33 +30,105 @@ const VIRTUAL_INSTRUMENT_PRESETS = {
   piano: {
     name: 'Virtual Piano',
     gm_program: 0,
-    polyphony: 128,
+    polyphony: 64,
     note_range_min: 21,
     note_range_max: 108,
     note_selection_mode: 'range'
   },
-  organ: {
-    name: 'Virtual Organ',
-    gm_program: 19,
-    polyphony: 64,
-    note_range_min: 36,
-    note_range_max: 96,
-    note_selection_mode: 'range'
-  },
-  strings: {
-    name: 'Virtual Strings',
-    gm_program: 48,
+  electric_piano: {
+    name: 'Virtual Electric Piano',
+    gm_program: 4,
     polyphony: 32,
     note_range_min: 28,
     note_range_max: 103,
     note_selection_mode: 'range'
   },
-  synth: {
-    name: 'Virtual Synth',
-    gm_program: 80,
+  organ: {
+    name: 'Virtual Organ',
+    gm_program: 19,
     polyphony: 16,
-    note_range_min: 0,
-    note_range_max: 127,
+    note_range_min: 36,
+    note_range_max: 96,
+    note_selection_mode: 'range'
+  },
+  guitar: {
+    name: 'Virtual Guitar',
+    gm_program: 24,
+    polyphony: 6,
+    note_range_min: 40,
+    note_range_max: 88,
+    note_selection_mode: 'range'
+  },
+  bass: {
+    name: 'Virtual Bass',
+    gm_program: 33,
+    polyphony: 4,
+    note_range_min: 28,
+    note_range_max: 67,
+    note_selection_mode: 'range'
+  },
+  violin: {
+    name: 'Virtual Violin',
+    gm_program: 40,
+    polyphony: 4,
+    note_range_min: 55,
+    note_range_max: 103,
+    note_selection_mode: 'range'
+  },
+  cello: {
+    name: 'Virtual Cello',
+    gm_program: 42,
+    polyphony: 4,
+    note_range_min: 36,
+    note_range_max: 84,
+    note_selection_mode: 'range'
+  },
+  strings: {
+    name: 'Virtual Strings',
+    gm_program: 48,
+    polyphony: 16,
+    note_range_min: 36,
+    note_range_max: 96,
+    note_selection_mode: 'range'
+  },
+  trumpet: {
+    name: 'Virtual Trumpet',
+    gm_program: 56,
+    polyphony: 1,
+    note_range_min: 52,
+    note_range_max: 84,
+    note_selection_mode: 'range'
+  },
+  saxophone: {
+    name: 'Virtual Saxophone',
+    gm_program: 65,
+    polyphony: 1,
+    note_range_min: 49,
+    note_range_max: 87,
+    note_selection_mode: 'range'
+  },
+  flute: {
+    name: 'Virtual Flute',
+    gm_program: 73,
+    polyphony: 1,
+    note_range_min: 60,
+    note_range_max: 96,
+    note_selection_mode: 'range'
+  },
+  synth_lead: {
+    name: 'Virtual Synth Lead',
+    gm_program: 80,
+    polyphony: 8,
+    note_range_min: 36,
+    note_range_max: 96,
+    note_selection_mode: 'range'
+  },
+  synth_pad: {
+    name: 'Virtual Synth Pad',
+    gm_program: 88,
+    polyphony: 16,
+    note_range_min: 36,
+    note_range_max: 96,
     note_selection_mode: 'range'
   },
   drums: {
@@ -91,7 +163,9 @@ async function instrumentCreateVirtual(app, data) {
   const preset = data.preset ? VIRTUAL_INSTRUMENT_PRESETS[data.preset] : null;
   const name = data.name || (preset ? preset.name : 'Virtual Instrument');
   const deviceId = `virtual_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
+  // GM drums live on MIDI channel 10 (0-indexed: 9).
+  const defaultChannel = data.preset === 'drums' ? 9 : 0;
+  const channel = data.channel !== undefined ? parseInt(data.channel) : defaultChannel;
 
   if (channel < 0 || channel > 15) {
     throw new ValidationError('channel must be between 0 and 15', 'channel');

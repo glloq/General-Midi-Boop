@@ -914,8 +914,8 @@ class InstrumentManagementPage {
    */
   async _createVirtualInstrument(type, customName) {
     try {
-      const payload = { channel: 0 };
-      if (type) payload.type = type;
+      const payload = {};
+      if (type) payload.preset = type;
       if (customName) payload.name = customName;
 
       const response = await this.apiClient.sendCommand('instrument_create_virtual', payload);

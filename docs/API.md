@@ -53,7 +53,7 @@ When `GMBOOP_API_TOKEN` is set, connect with:
 | `instrument_delete` | Delete instrument | `deviceId`, `channel?` |
 | `instrument_add_to_device` | Add instrument to device channel | `deviceId`, `channel`, config |
 | `instrument_list_by_device` | List instruments on device | `deviceId` |
-| `instrument_create_virtual` | Create virtual instrument | `name`, `type`, `channel`, config |
+| `instrument_create_virtual` | Create virtual instrument | `name`, `preset`, `channel`, config |
 | `virtual_create` | Create virtual device | `name` |
 | `virtual_delete` | Delete virtual device | `deviceId` |
 | `virtual_list` | List virtual devices | — |
