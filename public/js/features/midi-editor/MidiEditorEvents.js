@@ -54,31 +54,31 @@
 
     // New edit buttons
                 case 'undo':
-                    this.modal.undo();
+                    this.modal.editActions?.undo();
                     break;
                 case 'redo':
-                    this.modal.redo();
+                    this.modal.editActions?.redo();
                     break;
                 case 'copy':
-                    this.modal.copy();
+                    this.modal.editActions?.copy();
                     break;
                 case 'paste':
-                    this.modal.paste();
+                    this.modal.editActions?.paste();
                     break;
                 case 'delete':
-                    this.modal.deleteSelectedNotes();
+                    this.modal.editActions?.deleteSelectedNotes();
                     break;
                 case 'select-all':
-                    this.modal.selectAll();
+                    this.modal.editActions?.selectAll();
                     break;
                 case 'change-channel':
-                    this.modal.changeChannel();
+                    this.modal.editActions?.changeChannel();
                     break;
                 case 'apply-instrument':
-                    this.modal.applyInstrument();
+                    this.modal.editActions?.applyInstrument();
                     break;
                 case 'cycle-snap':
-                    this.modal.cycleSnap();
+                    this.modal.editActions?.cycleSnap();
                     break;
                 case 'rename-file':
                     this.modal.fileOps.showRenameDialog();
@@ -87,7 +87,7 @@
                     this.toggleSettingsPopover();
                     break;
                 case 'toggle-preview-source':
-                    this.modal.togglePreviewSource();
+                    this.modal.routingOps?.togglePreviewSource();
                     break;
     // configure-string-instrument removed — config is in instrument settings
 
@@ -111,7 +111,7 @@
                 case 'mode-edit': {
                     const mode = btn.dataset.mode;
                     if (mode) {
-                        this.modal.setEditMode(mode);
+                        this.modal.editActions?.setEditMode(mode);
                     }
                     break;
                 }
@@ -143,7 +143,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const channel = parseInt(settingsBtn.dataset.channel);
-                if (!isNaN(channel)) this.modal._toggleChannelSettingsPopover(channel, settingsBtn);
+                if (!isNaN(channel)) this.modal.tablatureOps?._toggleChannelSettingsPopover(channel, settingsBtn);
                 return;
             }
     // Global "Show All" button
@@ -171,7 +171,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const channel = parseInt(tabBtn.dataset.channel);
-                if (!isNaN(channel)) this.modal._openTablatureForChannel(channel);
+                if (!isNaN(channel)) this.modal.tablatureOps?._openTablatureForChannel(channel);
                 return;
             }
             const drumBtn = e.target.closest('.channel-drum-btn');
@@ -179,7 +179,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const channel = parseInt(drumBtn.dataset.channel);
-                if (!isNaN(channel)) this.modal._openDrumPatternForChannel(channel);
+                if (!isNaN(channel)) this.modal.tablatureOps?._openDrumPatternForChannel(channel);
                 return;
             }
             const windBtn = e.target.closest('.channel-wind-btn');
@@ -187,7 +187,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const channel = parseInt(windBtn.dataset.channel);
-                if (!isNaN(channel)) this.modal._openWindEditorForChannel(channel);
+                if (!isNaN(channel)) this.modal.tablatureOps?._openWindEditorForChannel(channel);
                 return;
             }
             const editBtn = e.target.closest('.channel-edit-btn');
@@ -195,7 +195,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const channel = parseInt(editBtn.dataset.channel);
-                if (!isNaN(channel)) this.modal._openPianoRollForChannel(channel);
+                if (!isNaN(channel)) this.modal.tablatureOps?._openPianoRollForChannel(channel);
                 return;
             }
         });
@@ -232,7 +232,7 @@
     // Toggle preview source (GM / Routed)
         const previewToggle = document.getElementById('preview-source-toggle');
         if (previewToggle) {
-            previewToggle.addEventListener('click', () => this.modal.togglePreviewSource());
+            previewToggle.addEventListener('click', () => this.modal.routingOps?.togglePreviewSource());
         }
 
     // Toggle playable notes global

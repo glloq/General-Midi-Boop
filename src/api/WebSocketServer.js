@@ -33,10 +33,13 @@ const APP_VERSION = wsPkg.version;
 const HEARTBEAT_INTERVAL_MS = TIMING.HEARTBEAT_INTERVAL_MS;
 /** Max simultaneous WebSocket connections (deliberately conservative for Pi). */
 const MAX_WS_CLIENTS = 10;
-/** Max single-frame size in bytes (1 MB). Binary MIDI uploads now go through
- *  the HTTP `POST /api/files` route, so the WS channel only carries control
- *  messages and JSON payloads. */
-const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
+/** Max single-frame size in bytes (16 MB). Headroom above
+ *  LIMITS.MAX_MIDI_FILE_SIZE (10 MB) so the `file_write` command,
+ *  which carries the full MIDI payload as JSON, can save the largest
+ *  files the server is willing to store. Binary upload (new file)
+ *  still goes through HTTP `POST /api/files`; this limit covers the
+ *  edit-save path. */
+const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
 /** Rate-limiter sliding-window length (ms). */
 const RATE_LIMIT_WINDOW_MS = 1000;
 /** Max messages allowed per {@link RATE_LIMIT_WINDOW_MS}. */
