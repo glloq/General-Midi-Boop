@@ -533,8 +533,9 @@ class WindInstrumentEditor {
         const visibleTicks = (canvasWidth - this.renderer.headerWidth) * this.renderer.ticksPerPixel;
         const maxOffset = Math.max(0, maxTick - visibleTicks);
         const newOffset = Math.round((percentage / 100) * maxOffset);
-        this.renderer.scrollX = newOffset;
-        this.renderer.redraw();
+        // Use setScrollX so _notifyScrollChange fires and syncAllEditors()
+        // refreshes the navigation overview viewport rectangle.
+        this.renderer.setScrollX(newOffset);
     }
 
     /**
@@ -551,6 +552,10 @@ class WindInstrumentEditor {
         this.renderer.displayNoteMax = Math.min(127, newOffset + displayRange);
         this.renderer.scrollY = newOffset - Math.max(0, this.renderer.noteMin - 5);
         this.renderer.redraw();
+        // Notify listeners so syncAllEditors() refreshes the navigation bar.
+        // setScrollY can't be used here because it recomputes display range
+        // from noteMin/noteMax which would discard vertical zoom.
+        this.renderer._notifyScrollChange?.();
     }
 
     // ========================================================================

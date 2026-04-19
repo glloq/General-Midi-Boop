@@ -413,6 +413,11 @@
     // Events are handled through delegation on this.modal.container
     // (see attachEventHandlers) — no need to rebind direct listeners
 
+    // Re-apply --chip-bg / --chip-border CSS vars on the freshly rendered
+    // chips. renderChannelButtons() only emits --chip-color inline; without
+    // this call, active chips remain visually greyed until "show all" is hit.
+            this.modal.routingOps?.updateChannelButtons();
+
     // Update disabled visual states
             this.modal.channelDisabled.forEach(ch => {
                 this.modal.tablatureOps._updateChannelDisabledVisual(ch);

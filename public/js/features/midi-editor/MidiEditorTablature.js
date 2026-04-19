@@ -570,7 +570,11 @@
 
     // Require exactly one active channel
         if (this.modal.activeChannels.size !== 1) {
-            this.modal.log('warn', 'Tablature requires exactly one active channel');
+            this.modal.log('warn', `Tablature requires exactly one active channel (got ${this.modal.activeChannels.size})`);
+            this.modal.showNotification(
+                this.modal.t('tablature.requiresOneChannel') || 'Select exactly one channel to open the tablature editor.',
+                'info'
+            );
             return;
         }
 
@@ -598,27 +602,38 @@
             }
 
     // Fallback: sync with GM preset when no routed config found
-            if (!stringInstrument) {
-                const channelInfo = this.modal.channels.find(ch => ch.channel === activeChannel);
-                const hasRouting = this.modal.channelRouting.has(activeChannel);
-                const routedGm = this.modal._routedGmPrograms.get(activeChannel);
-                const effectiveProgram = (hasRouting && routedGm != null) ? routedGm : (channelInfo?.program ?? null);
-                const gmMatch = effectiveProgram != null ? MidiEditorChannelPanel.getStringInstrumentCategory(effectiveProgram) : null;
+            const channelInfo = this.modal.channels.find(ch => ch.channel === activeChannel);
+            const hasRouting = this.modal.channelRouting.has(activeChannel);
+            const routedGm = this.modal._routedGmPrograms.get(activeChannel);
+            const effectiveProgram = (hasRouting && routedGm != null) ? routedGm : (channelInfo?.program ?? null);
+            const gmMatch = effectiveProgram != null ? MidiEditorChannelPanel.getStringInstrumentCategory(effectiveProgram) : null;
+            const deviceId = this.getEffectiveDeviceId();
 
+            if (!stringInstrument) {
                 if (gmMatch) {
-                    await this.modal.api.sendCommand('string_instrument_create_from_preset', {
-                        device_id: this.getEffectiveDeviceId(),
+                    const createResp = await this.modal.api.sendCommand('string_instrument_create_from_preset', {
+                        device_id: deviceId,
                         channel: activeChannel,
                         preset: gmMatch.preset
                     });
                     this.modal.log('info', `Synced ${gmMatch.category} preset for channel ${activeChannel + 1}`);
+    // Prefer the row returned by the create call to avoid a second lookup
+    // that can miss the freshly inserted record (device_id/channel mismatch).
+                    if (createResp?.instrument) {
+                        stringInstrument = createResp.instrument;
+                    }
                 }
 
-                stringInstrument = await this.findStringInstrument(activeChannel);
+                if (!stringInstrument) {
+                    stringInstrument = await this.findStringInstrument(activeChannel);
+                }
             }
 
             if (!stringInstrument) {
-                this.modal.log('info', 'No string instrument configured for this channel');
+                this.modal.log('warn',
+                    `No string instrument for channel ${activeChannel + 1} ` +
+                    `(program=${effectiveProgram}, gmMatch=${gmMatch?.category ?? 'none'}, device=${deviceId})`
+                );
                 this.modal.showNotification(
                     this.modal.t('tablature.noStringInstrument') || 'Configure this channel as a string instrument in the instrument settings first.',
                     'info'
