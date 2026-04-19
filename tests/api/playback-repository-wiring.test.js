@@ -10,21 +10,26 @@ import { register as registerPlaybackCommands } from '../../src/api/commands/Pla
 function makeMidiBuffer() {
   // Minimal valid MIDI header chunk (MThd + length + format + tracks + division).
   const header = Buffer.from([
-    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x60
+    0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x60
   ]);
   const track = Buffer.from([
-    0x4d, 0x54, 0x72, 0x6b, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0xff, 0x2f, 0x00
+    0x4d, 0x54, 0x72, 0x6b, 0x00, 0x00, 0x00, 0x04, 0x00, 0xff, 0x2f, 0x00
   ]);
   return Buffer.concat([header, track]);
 }
 
-function createApp({ file = { id: 'f1', data: makeMidiBuffer() }, routings = [] } = {}) {
+function createApp({ file = { id: 'f1', blob_path: 'test.mid' }, routings = [] } = {}) {
   return {
     logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
     midiPlayer: {
-      loadFile: jest.fn().mockResolvedValue({ filename: 't.mid', duration: 1, tracks: 1, events: 1, tempo: 120, channels: [] }),
+      loadFile: jest.fn().mockResolvedValue({
+        filename: 't.mid',
+        duration: 1,
+        tracks: 1,
+        events: 1,
+        tempo: 120,
+        channels: []
+      }),
       start: jest.fn(),
       clearChannelRouting: jest.fn(),
       setChannelRouting: jest.fn(),
@@ -36,7 +41,13 @@ function createApp({ file = { id: 'f1', data: makeMidiBuffer() }, routings = [] 
     },
     adaptationService: {
       analyzeChannel: jest.fn().mockReturnValue({ notes: 0, range: null }),
-      generateSuggestions: jest.fn().mockResolvedValue({ success: true, suggestions: {}, autoSelection: {} })
+      generateSuggestions: jest
+        .fn()
+        .mockResolvedValue({ success: true, suggestions: {}, autoSelection: {} })
+    },
+    // v6: blobs live on disk, handlers read them via blobStore.read(blob_path).
+    blobStore: {
+      read: jest.fn().mockReturnValue(makeMidiBuffer())
     },
     // Intentionally empty — any call to app.database.getFile / getRoutingsByFile
     // from the migrated handlers would throw "is not a function" and fail the test.

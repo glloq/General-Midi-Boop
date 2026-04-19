@@ -50,10 +50,12 @@ class AutoAssigner {
 
       // Exclude virtual instruments if disabled in settings
       if (excludeVirtual) {
-        availableInstruments = availableInstruments.filter(inst =>
-          !inst.device_id || !inst.device_id.startsWith('virtual_')
+        availableInstruments = availableInstruments.filter(
+          (inst) => !inst.device_id || !inst.device_id.startsWith('virtual_')
         );
-        this.logger.info(`Auto-assign: excluded virtual instruments, ${availableInstruments.length} remaining`);
+        this.logger.info(
+          `Auto-assign: excluded virtual instruments, ${availableInstruments.length} remaining`
+        );
       }
 
       if (availableInstruments.length === 0) {
@@ -81,7 +83,9 @@ class AutoAssigner {
         };
       }
 
-      this.logger.info(`Analyzing ${channelAnalyses.length} active channels against ${availableInstruments.length} instruments`);
+      this.logger.info(
+        `Analyzing ${channelAnalyses.length} active channels against ${availableInstruments.length} instruments`
+      );
 
       // 3. For each channel, score all instruments
       const suggestions = {};
@@ -103,10 +107,11 @@ class AutoAssigner {
           // 2. Discrete note mode (pad-based instruments can't play melodic content)
           // 3. MIDI channel 9 (standard GM drum channel)
           // 4. GM percussive programs (112-119)
-          const isDrumInstrument = instrument.instrument_type === 'drums'
-            || instrument.note_selection_mode === 'discrete'
-            || instrument.channel === 9
-            || (instrument.gm_program >= 112 && instrument.gm_program <= 119);
+          const isDrumInstrument =
+            instrument.instrument_type === 'drums' ||
+            instrument.note_selection_mode === 'discrete' ||
+            instrument.channel === 9 ||
+            (instrument.gm_program >= 112 && instrument.gm_program <= 119);
 
           if ((isDrumChannel && !isDrumInstrument) || (!isDrumChannel && isDrumInstrument)) {
             // Mark as incompatible in the matrix
@@ -172,7 +177,9 @@ class AutoAssigner {
 
       // 5. Evaluate splits for skipped or poorly scored channels
       const splitProposals = this.evaluateChannelSplits(
-        channelAnalyses, autoSelection, availableInstruments
+        channelAnalyses,
+        autoSelection,
+        availableInstruments
       );
 
       // 6. Calculate overall confidence score
@@ -219,7 +226,7 @@ class AutoAssigner {
    * @returns {Array}
    */
   _buildInstrumentList(availableInstruments) {
-    return availableInstruments.map(inst => ({
+    return availableInstruments.map((inst) => ({
       id: inst.id,
       device_id: inst.device_id,
       channel: inst.channel,
@@ -269,7 +276,7 @@ class AutoAssigner {
     const channelsByScarcity = Object.entries(suggestions)
       .map(([channel, options]) => {
         const ch = parseInt(channel);
-        const viableCount = options.filter(o => o.compatibility.score >= acceptableScore).length;
+        const viableCount = options.filter((o) => o.compatibility.score >= acceptableScore).length;
         return {
           channel: ch,
           bestScore: options[0]?.compatibility.score || 0,
@@ -290,15 +297,17 @@ class AutoAssigner {
 
     const totalChannels = channelsByScarcity.length;
     const totalInstruments = new Set(
-      Object.values(suggestions).flatMap(opts => opts.map(o => o.instrument.id))
+      Object.values(suggestions).flatMap((opts) => opts.map((o) => o.instrument.id))
     ).size;
 
-    this.logger.info(`Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering, reuse=${allowReuse})`);
+    this.logger.info(
+      `Auto-assign: ${totalChannels} channels, ${totalInstruments} unique instruments available (scarcity-based ordering, reuse=${allowReuse})`
+    );
 
     // -- Pass 1: unique assignment -- each instrument only once --
     const pendingChannels = []; // channels without a unique instrument
     for (const entry of channelsByScarcity) {
-      const { channel, options, analysis, viableCount } = entry;
+      const { channel, options, analysis } = entry;
       let selected = null;
 
       for (const option of options) {
@@ -339,7 +348,9 @@ class AutoAssigner {
 
         if (!selected) {
           autoSkipped.add(channel);
-          this.logger.info(`Channel ${channel}: auto-skipped (no compatible instrument at all, had ${viableCount} viable options)`);
+          this.logger.info(
+            `Channel ${channel}: auto-skipped (no compatible instrument at all, had ${viableCount} viable options)`
+          );
           continue;
         }
 
@@ -352,11 +363,15 @@ class AutoAssigner {
         // Track which channels share this instrument
         if (!instrumentUsage[selected.instrument.id]) instrumentUsage[selected.instrument.id] = [];
         instrumentUsage[selected.instrument.id].push(channel);
-        assignment.sharedWith = instrumentUsage[selected.instrument.id].filter(ch => ch !== channel);
+        assignment.sharedWith = instrumentUsage[selected.instrument.id].filter(
+          (ch) => ch !== channel
+        );
 
         assignments[channel] = assignment;
         sharedChannels.add(channel);
-        this.logger.info(`Channel ${channel}: shared assignment → ${selected.instrument.name} (score ${selected.compatibility.score} → ${assignment.score} after penalty, shared with ch ${assignment.sharedWith.join(',')})`);
+        this.logger.info(
+          `Channel ${channel}: shared assignment → ${selected.instrument.name} (score ${selected.compatibility.score} → ${assignment.score} after penalty, shared with ch ${assignment.sharedWith.join(',')})`
+        );
       }
 
       // Update sharedWith on pass 1 channels that now share
@@ -364,21 +379,27 @@ class AutoAssigner {
         if (!a || typeof a !== 'object' || a.shared) continue;
         const usage = instrumentUsage[a.instrumentId];
         if (usage && usage.length > 1) {
-          a.sharedWith = usage.filter(c => c !== parseInt(ch));
+          a.sharedWith = usage.filter((c) => c !== parseInt(ch));
         }
       }
     } else {
       // No sharing -- mark all pending as auto-skipped
       for (const { channel, viableCount } of pendingChannels) {
         autoSkipped.add(channel);
-        this.logger.info(`Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`);
+        this.logger.info(
+          `Channel ${channel}: auto-skipped (no unique instrument available, ${usedInstruments.size}/${totalInstruments} instruments already assigned, had ${viableCount} viable options)`
+        );
       }
     }
 
     if (autoSkipped.size > 0) {
-      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), ${autoSkipped.size} auto-skipped`);
+      this.logger.info(
+        `Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), ${autoSkipped.size} auto-skipped`
+      );
     } else if (sharedChannels.size > 0) {
-      this.logger.info(`Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), 0 auto-skipped`);
+      this.logger.info(
+        `Auto-assign summary: ${Object.keys(assignments).length} assigned (${sharedChannels.size} shared), 0 auto-skipped`
+      );
     }
 
     // Return autoSkipped as a separate property (not on the assignments dictionary
@@ -454,12 +475,17 @@ class AutoAssigner {
 
       // Channel assigned WITH transposition when autoSplitAvoidTransposition is enabled -> candidate
       // Even if the score is acceptable, a split could avoid transposition
-      if (ScoringConfig.routing.autoSplitAvoidTransposition &&
-          assignment && assignment.transposition &&
-          assignment.transposition.semitones !== 0 &&
-          !autoSkipped.includes(ch)) {
+      if (
+        ScoringConfig.routing.autoSplitAvoidTransposition &&
+        assignment &&
+        assignment.transposition &&
+        assignment.transposition.semitones !== 0 &&
+        !autoSkipped.includes(ch)
+      ) {
         candidateChannels.push(analysis);
-        this.logger.debug(`Channel ${ch}: candidate for split (autoSplitAvoidTransposition, transposition=${assignment.transposition.semitones}st)`);
+        this.logger.debug(
+          `Channel ${ch}: candidate for split (autoSplitAvoidTransposition, transposition=${assignment.transposition.semitones}st)`
+        );
       }
     }
 
@@ -480,7 +506,10 @@ class AutoAssigner {
     for (const analysis of candidateChannels) {
       // Force drums category for channel 9 (drums often have no program change, leading to 'unknown')
       let channelCategory = analysis.estimatedCategory;
-      if ((analysis.channel === 9 || analysis.estimatedType === 'drums') && (!channelCategory || channelCategory === 'unknown')) {
+      if (
+        (analysis.channel === 9 || analysis.estimatedType === 'drums') &&
+        (!channelCategory || channelCategory === 'unknown')
+      ) {
         channelCategory = 'drums';
       }
       if (!channelCategory || channelCategory === 'unknown') continue;
@@ -509,14 +538,19 @@ class AutoAssigner {
       if (sameType.length < 2 && analysis.noteRange && analysis.noteRange.min !== null) {
         const channelMin = analysis.noteRange.min;
         const channelMax = analysis.noteRange.max;
-        const crossFamilyInstruments = availableInstruments.filter(inst =>
-          inst.note_range_min != null && inst.note_range_max != null &&
-          inst.note_range_min <= channelMax && inst.note_range_max >= channelMin &&
-          inst.instrument_type !== 'drums' // Exclude drums from cross-family splits
+        const crossFamilyInstruments = availableInstruments.filter(
+          (inst) =>
+            inst.note_range_min != null &&
+            inst.note_range_max != null &&
+            inst.note_range_min <= channelMax &&
+            inst.note_range_max >= channelMin &&
+            inst.instrument_type !== 'drums' // Exclude drums from cross-family splits
         );
         if (crossFamilyInstruments.length >= 2) {
           sameType = crossFamilyInstruments;
-          this.logger.debug(`Channel ${analysis.channel}: using cross-family split (${crossFamilyInstruments.length} instruments with compatible ranges)`);
+          this.logger.debug(
+            `Channel ${analysis.channel}: using cross-family split (${crossFamilyInstruments.length} instruments with compatible ranges)`
+          );
         }
       }
 
@@ -527,15 +561,17 @@ class AutoAssigner {
         // If this channel was added specifically for autoSplitAvoidTransposition,
         // only keep the proposal if it reduces/eliminates transposition
         const assignment = autoSelection[analysis.channel];
-        const wasAddedForTransposition = ScoringConfig.routing.autoSplitAvoidTransposition &&
-          assignment && assignment.transposition &&
+        const wasAddedForTransposition =
+          ScoringConfig.routing.autoSplitAvoidTransposition &&
+          assignment &&
+          assignment.transposition &&
           assignment.transposition.semitones !== 0 &&
           assignment.score >= triggerThreshold &&
           !autoSkipped.includes(analysis.channel);
 
         if (wasAddedForTransposition) {
           const hasSegTransposition = proposal.segments.some(
-            seg => seg.transposition && seg.transposition.semitones !== 0
+            (seg) => seg.transposition && seg.transposition.semitones !== 0
           );
           if (hasSegTransposition) {
             this.logger.debug(
@@ -566,15 +602,18 @@ class AutoAssigner {
    * @returns {number}
    */
   calculateConfidence(autoSelection, totalChannels) {
-    const entries = Object.values(autoSelection)
-      .filter(a => typeof a === 'object' && a !== null && typeof a.score === 'number');
+    const entries = Object.values(autoSelection).filter(
+      (a) => typeof a === 'object' && a !== null && typeof a.score === 'number'
+    );
 
     if (entries.length === 0 || totalChannels === 0) {
       return 0;
     }
 
     // For shared channels, use the pre-penalty score if available
-    const scores = entries.map(a => a.shared && a.scoreBeforePenalty != null ? a.scoreBeforePenalty : a.score);
+    const scores = entries.map((a) =>
+      a.shared && a.scoreBeforePenalty != null ? a.scoreBeforePenalty : a.score
+    );
 
     // Average score of assigned channels
     const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
@@ -642,13 +681,10 @@ class AutoAssigner {
   }
 
   /**
-   * Cleans up resources (intervals, cache)
+   * Clears the analysis cache. v6 removed the TTL cleanup interval —
+   * invalidation is event-driven (EventBus) now.
    */
   destroy() {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
     this.cache.clear();
   }
 }

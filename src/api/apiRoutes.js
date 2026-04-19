@@ -33,8 +33,14 @@ const APP_VERSION = pkg.version;
 let GIT_HASH = 'unknown';
 try {
   // 3s timeout protects against slow filesystems / missing git binary.
-  GIT_HASH = execSync('git rev-parse --short HEAD', { cwd: join(__dirname, '../..'), encoding: 'utf8', timeout: 3000 }).trim();
-} catch { /* ignore — keep "unknown" fallback */ }
+  GIT_HASH = execSync('git rev-parse --short HEAD', {
+    cwd: join(__dirname, '../..'),
+    encoding: 'utf8',
+    timeout: 3000
+  }).trim();
+} catch {
+  /* ignore — keep "unknown" fallback */
+}
 
 /**
  * Build the Express router that exposes the HTTP API surface.
@@ -129,9 +135,11 @@ export function createApiRouter(app) {
       res.status(status).json({ uploadId, ...result });
     } catch (err) {
       app.logger.error(`POST /api/files failed: ${err.message}`);
-      const code = /too large/i.test(err.message) ? 413
-                 : /invalid midi/i.test(err.message) ? 415
-                 : 500;
+      const code = /too large/i.test(err.message)
+        ? 413
+        : /invalid midi/i.test(err.message)
+          ? 415
+          : 500;
       res.status(code).json({ error: err.message });
     }
   });
@@ -153,7 +161,7 @@ export function createApiRouter(app) {
       res.setHeader('ETag', `"${file.content_hash}"`);
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       if (req.query.dl) {
-        const safeName = String(file.filename).replace(/[^\w.\-]/g, '_');
+        const safeName = String(file.filename).replace(/[^\w.-]/g, '_');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
       }
       app.blobStore.readStream(file.blob_path).pipe(res);
@@ -175,7 +183,9 @@ export function createApiRouter(app) {
     if (existsSync(statusFile)) {
       try {
         status = readFileSync(statusFile, 'utf8').trim();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     if (existsSync(logFile)) {
@@ -183,7 +193,9 @@ export function createApiRouter(app) {
         const full = readFileSync(logFile, 'utf8');
         const lines = full.split('\n');
         logTail = lines.slice(-30).join('\n');
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     res.json({ status, logTail });

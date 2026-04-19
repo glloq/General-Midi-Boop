@@ -2085,7 +2085,7 @@ body.dark-mode .aa-tab-split.active {
   color: #8ea4f0;
 }
 
-/* .aa-adaptation-result now uses --aa-success-*/--aa-warning-* variables */
+/* .aa-adaptation-result now uses --aa-success- / --aa-warning- variables */
 
 /* Drum summary/badges now use --aa-* semantic variables */
 

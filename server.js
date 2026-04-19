@@ -1,6 +1,6 @@
 /**
  * @file server.js
- * @description Process entry point for GeneralMidiBoop 5.0.
+ * @description Process entry point for GeneralMidiBoop.
  *
  * Boots an {@link Application} instance, wires graceful shutdown handlers,
  * starts the HTTP/WebSocket servers and prints a one-shot status summary.
@@ -32,15 +32,18 @@ async function main() {
 
     // One-shot startup banner — values are point-in-time, not live counters.
     const status = app.getStatus();
-    console.log('\n=== Application Status ===');
-    console.log(`Devices: ${status.devices}`);
-    console.log(`Routes: ${status.routes}`);
-    console.log(`Files: ${status.files}`);
-    console.log(`WebSocket Clients: ${status.wsClients}`);
-    console.log('==========================\n');
-
+    app.logger.info(
+      `Status — devices: ${status.devices}, routes: ${status.routes}, ` +
+        `files: ${status.files}, ws clients: ${status.wsClients}`
+    );
   } catch (error) {
-    console.error('Failed to start application:', error);
+    // Logger may not be available if construction itself failed.
+    if (app.logger) {
+      app.logger.error(`Failed to start application: ${error.message}`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.error('Failed to start application:', error);
+    }
     process.exit(1);
   }
 }

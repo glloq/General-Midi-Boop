@@ -1,4 +1,4 @@
-# API Reference - Général Midi Boop v5.0.0
+# API Reference - Général Midi Boop
 
 ## Transport
 

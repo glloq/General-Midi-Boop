@@ -462,20 +462,23 @@ General-Midi-Boop/
 ├── docker-compose.yml         # Docker composition
 ├── ecosystem.config.cjs       # PM2 config
 ├── src/
-│   ├── core/                  # Application framework (EventBus, Logger, DI)
+│   ├── core/                  # Application framework (EventBus, Logger, DI, Config)
 │   ├── api/                   # HTTP server, WebSocket, commands
-│   ├── midi/                  # MIDI device management, playback, analysis
-│   ├── storage/               # Database, file management, backups
-│   ├── managers/              # Bluetooth, Network, Serial, Lighting managers
-│   ├── lighting/              # LED/DMX lighting effects
+│   ├── midi/                  # MIDI (devices/, routing/, playback/, adaptation/, …)
+│   ├── persistence/           # SQLite database + per-table managers
+│   ├── repositories/          # Business-named wrappers over persistence
+│   ├── files/                 # MIDI file parsing, blob store, upload queue
+│   ├── transports/            # Bluetooth, Network (RTP-MIDI), Serial
+│   ├── lighting/              # Lighting manager + drivers (LED/DMX/ArtNet/OSC…)
 │   ├── audio/                 # Delay calibration
-│   └── config/                # Configuration management
+│   ├── types/                 # Ambient TypeScript type definitions
+│   └── utils/                 # Shared helpers
 ├── public/                    # Frontend (Web SPA)
 │   ├── js/                    # JavaScript components
 │   ├── locales/               # Translations (28 languages)
 │   └── styles/                # CSS stylesheets
 ├── docs/                      # Documentation
-├── migrations/                # SQLite migrations (29 files)
+├── migrations/                # SQLite migrations (consolidated baseline)
 ├── tests/                     # Test suites
 ├── scripts/                   # Installation/update scripts
 ├── data/                      # SQLite database (runtime)

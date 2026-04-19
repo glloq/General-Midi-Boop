@@ -1,14 +1,19 @@
 #!/bin/bash
 # =============================================================================
-# GeneralMidiBoop 5.0 - Complete Installation Script
-# Raspberry Pi / Linux / macOS
+# GeneralMidiBoop - Complete Installation Script
+# Raspberry Pi (Raspbian / Debian) / Linux / macOS
 # =============================================================================
 
 set -e
 
+# Read the real version from package.json so the banner never drifts.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+APP_VERSION=$(node -e "console.log(require('$APP_DIR/package.json').version)" 2>/dev/null || echo "unknown")
+
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║                                                               ║"
-echo "║              🎹 GeneralMidiBoop 5.0 Installation 🎹                  ║"
+echo "║        🎹 GeneralMidiBoop v${APP_VERSION} Installation 🎹              ║"
 echo "║                                                               ║"
 echo "║  Complete MIDI orchestration system with modern web UI        ║"
 echo "║                                                               ║"
@@ -79,6 +84,9 @@ if [ "$OS" == "linux" ]; then
     sudo apt-get update -qq
 
     print_info "Installing system packages..."
+    # Native-deps toolchain (build-essential, python3) is required by
+    # better-sqlite3, serialport, easymidi, node-ble. libasound2-dev
+    # and libbluetooth-dev are required at compile time.
     sudo apt-get install -y \
       libasound2-dev \
       bluetooth \
@@ -108,25 +116,28 @@ fi
 # NODE.JS
 # =============================================================================
 
-print_step "2. Installing Node.js 18 LTS"
+print_step "2. Installing Node.js 20 LTS"
+
+# package.json "engines" requires Node >= 20. Keep this in sync when
+# bumping the engines field.
+NODE_MIN_MAJOR=20
 
 if command -v node &> /dev/null; then
     NODE_VERSION=$(node --version)
     print_success "Node.js already installed: $NODE_VERSION"
 
-    # Check version
     NODE_MAJOR=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-    if [ "$NODE_MAJOR" -lt 18 ]; then
-        print_warning "Node.js version is too old (< 18). Upgrading..."
+    if [ "$NODE_MAJOR" -lt "$NODE_MIN_MAJOR" ]; then
+        print_warning "Node.js version is too old (< ${NODE_MIN_MAJOR}). Upgrading..."
         if [ "$OS" == "linux" ]; then
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            curl -fsSL https://deb.nodesource.com/setup_${NODE_MIN_MAJOR}.x | sudo -E bash -
             sudo apt-get install -y nodejs
         fi
     fi
 else
-    print_info "Installing Node.js 18 LTS..."
+    print_info "Installing Node.js ${NODE_MIN_MAJOR} LTS..."
     if [ "$OS" == "linux" ]; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        curl -fsSL https://deb.nodesource.com/setup_${NODE_MIN_MAJOR}.x | sudo -E bash -
         sudo apt-get install -y nodejs
     fi
     print_success "Node.js installed: $(node --version)"
@@ -165,9 +176,10 @@ mkdir -p examples
 
 print_success "Directories created"
 
-# Install Node.js dependencies
+# Install Node.js dependencies (deterministic prod install from lockfile).
+# --omit=dev skips Jest/Vitest/ESLint/etc. which are not needed at runtime.
 print_info "Installing Node.js dependencies (this may take a few minutes)..."
-npm install --silent
+npm ci --omit=dev --silent
 print_success "Dependencies installed"
 
 # =============================================================================
@@ -191,33 +203,48 @@ fi
 
 print_step "6. Configuration"
 
-# Create default config if it doesn't exist
+# The repo ships a config.json at the root with the current schema. We only
+# create one if it's truly missing (e.g. a hand-rolled copy of the install).
 if [ ! -f config.json ]; then
-    print_info "Creating default configuration..."
-    cat > config.json <<EOF
+    print_info "Creating default configuration (schema aligned with src/core/Config.js)..."
+    cat > config.json <<'EOF'
 {
   "server": {
     "port": 8080,
-    "host": "0.0.0.0"
-  },
-  "websocket": {
-    "port": 8081
+    "wsPort": 8080,
+    "staticPath": "./public"
   },
   "midi": {
-    "defaultLatency": 10,
-    "enableBluetooth": true,
-    "enableVirtual": true
+    "bufferSize": 1024,
+    "sampleRate": 44100,
+    "defaultLatency": 10
   },
   "database": {
     "path": "./data/gmboop.db"
   },
   "logging": {
     "level": "info",
-    "file": "./logs/gmboop.log"
+    "file": "./logs/gmboop.log",
+    "console": true
   },
-  "uploads": {
-    "maxSize": 10485760,
-    "allowedTypes": [".mid", ".midi"]
+  "playback": {
+    "defaultTempo": 120,
+    "defaultVolume": 100,
+    "lookahead": 100
+  },
+  "latency": {
+    "defaultIterations": 5,
+    "recalibrationDays": 7
+  },
+  "ble": {
+    "enabled": false,
+    "scanDuration": 10000
+  },
+  "serial": {
+    "enabled": false,
+    "autoDetect": true,
+    "baudRate": 31250,
+    "ports": []
   }
 }
 EOF
@@ -314,7 +341,7 @@ if [ "$OS" == "linux" ]; then
 
     sudo tee $SERVICE_FILE > /dev/null <<EOF
 [Unit]
-Description=GeneralMidiBoop 5.0 MIDI Orchestration System
+Description=GeneralMidiBoop MIDI Orchestration System
 After=network.target
 
 [Service]
@@ -436,8 +463,7 @@ elif [ "$OS" == "macos" ]; then
 fi
 
 print_info "Local IP: $LOCAL_IP"
-print_info "HTTP Server: http://$LOCAL_IP:8080"
-print_info "WebSocket: ws://$LOCAL_IP:8081"
+print_info "HTTP + WebSocket server: http://$LOCAL_IP:8080 (ws on the same port via /ws)"
 
 # =============================================================================
 # COMPLETION
@@ -451,7 +477,7 @@ echo "║                                                               ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
 
-print_success "GeneralMidiBoop 5.0 est prêt à l'emploi !"
+print_success "GeneralMidiBoop v${APP_VERSION} est prêt à l'emploi !"
 echo ""
 
 if [ "$OS" == "linux" ]; then
@@ -485,15 +511,11 @@ print_info "Depuis un autre appareil :"
 echo "    ${BLUE}http://$LOCAL_IP:8080${NC}"
 echo ""
 
-print_info "Suite de Tests :"
-echo "    Ouvrir : ${BLUE}examples/functionality-test.html${NC}"
-echo ""
-
 print_info "Documentation :"
-echo "    README.md              - Documentation principale"
-echo "    QUICK_START.md         - Guide de démarrage rapide"
-echo "    INTEGRATION_GUIDE.md   - Guide d'intégration complet"
-echo "    TESTING.md             - Documentation des tests"
+echo "    README.md                      - Documentation principale"
+echo "    docs/INSTALLATION.md           - Guide d'installation détaillé"
+echo "    docs/ARCHITECTURE.md           - Architecture logicielle"
+echo "    docs/API.md                    - Référence API WebSocket"
 echo ""
 
 print_info "Prochaines Étapes :"

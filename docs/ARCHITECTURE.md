@@ -1,4 +1,4 @@
-# Architecture - Général Midi Boop v5.0.0
+# Architecture - Général Midi Boop
 
 ## Overview
 
@@ -29,12 +29,12 @@ Général Midi Boop is a real-time MIDI orchestration system for Raspberry Pi. I
 │  ┌──────┴──────────────────┬──────────────────┤             │
 │  ▼                         ▼                  ▼             │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │ MIDI Layer  │  │ Managers     │  │ Storage Layer    │   │
+│  │ MIDI Layer  │  │ Transports   │  │ Persistence Layer│   │
 │  │ DeviceManager│  │ Bluetooth    │  │ Database (SQLite)│   │
-│  │ MidiRouter  │  │ Network      │  │ FileManager      │   │
-│  │ MidiPlayer  │  │ Lighting     │  │ BackupScheduler  │   │
-│  │ AutoAssigner│  │ Serial       │  │ MidiDatabase     │   │
-│  │ Latency     │  │              │  │ InstrumentDB     │   │
+│  │ MidiRouter  │  │ Network      │  │ BackupScheduler  │   │
+│  │ MidiPlayer  │  │ Serial       │  │ Table managers   │   │
+│  │ AutoAssigner│  │ Lighting     │  │ Repositories     │   │
+│  │ Latency     │  │              │  │ FileManager      │   │
 │  └─────────────┘  └──────────────┘  └──────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -59,34 +59,38 @@ General-Midi-Boop/
 │   │   ├── CommandHandler.js  # Command dispatch
 │   │   ├── CommandRegistry.js # Auto-discovery of commands
 │   │   └── commands/          # 15 command modules
-│   ├── midi/                  # MIDI domain
-│   │   ├── DeviceManager.js   # Device discovery & management
-│   │   ├── MidiRouter.js      # Message routing
-│   │   ├── MidiPlayer.js      # File playback
-│   │   ├── AutoAssigner.js    # Instrument auto-assignment
-│   │   ├── ChannelAnalyzer.js # MIDI channel analysis
-│   │   ├── InstrumentMatcher.js # Scoring & matching
-│   │   ├── DrumNoteMapper.js  # Drum note mapping
-│   │   ├── MidiTransposer.js  # Note transposition
-│   │   ├── TablatureConverter.js # MIDI ↔ tablature conversion
-│   │   ├── LatencyCompensator.js
-│   │   ├── ScoringConfig.js   # Assignment scoring weights
-│   │   └── AnalysisCache.js   # LRU analysis cache
-│   ├── storage/               # Persistence layer
-│   │   ├── Database.js        # Main facade (SQLite + migrations)
-│   │   ├── MidiDatabase.js    # MIDI file queries
-│   │   ├── InstrumentDatabase.js
-│   │   ├── LightingDatabase.js
-│   │   ├── StringInstrumentDatabase.js
-│   │   ├── FileManager.js     # MIDI file I/O
+│   ├── midi/                  # MIDI domain (split into sub-modules)
+│   │   ├── devices/           # Device discovery & management
+│   │   ├── routing/           # Router, channel analysis, splitters
+│   │   ├── playback/          # Player, playback commands, analysis cache
+│   │   ├── adaptation/        # Auto-assigner, matcher, transposer, drums
+│   │   ├── messages/          # MIDI message constructors/parsers
+│   │   └── files/             # MIDI file parsing helpers
+│   ├── persistence/           # SQLite layer
+│   │   ├── Database.js        # Main facade + lifecycle
+│   │   ├── DatabaseLifecycle.js
 │   │   ├── BackupScheduler.js # Automated backups
-│   │   └── dbHelpers.js       # Shared query builders
-│   ├── managers/              # Optional service managers
+│   │   ├── dbHelpers.js       # Shared query builders
+│   │   └── tables/            # Per-table managers
+│   ├── repositories/          # Thin business-named wrappers over Database
+│   │   ├── FileRepository.js
+│   │   ├── RoutingRepository.js
+│   │   ├── InstrumentRepository.js
+│   │   └── …                   # one per domain entity
+│   ├── files/                 # MIDI file I/O
+│   │   ├── FileManager.js
+│   │   ├── BlobStore.js       # On-disk blob storage
+│   │   ├── MidiFileParser.js
+│   │   ├── MidiFileValidator.js
+│   │   ├── JsonMidiConverter.js
+│   │   └── UploadQueue.js
+│   ├── transports/            # Optional service managers (renamed from managers/)
 │   │   ├── BluetoothManager.js  # BLE MIDI
 │   │   ├── NetworkManager.js    # RTP-MIDI
 │   │   ├── SerialMidiManager.js # GPIO UART MIDI
-│   │   └── LightingManager.js  # Lighting orchestration
-│   ├── lighting/              # Lighting drivers
+│   │   └── RtpMidiSession.js
+│   ├── lighting/              # Lighting manager + drivers (co-located)
+│   │   ├── LightingManager.js
 │   │   ├── LightingEffectsEngine.js
 │   │   ├── GpioStripDriver.js # GPIO LED strips
 │   │   ├── ArtNetDriver.js    # DMX via ArtNet
@@ -96,10 +100,10 @@ General-Midi-Boop/
 │   │   └── MqttLightDriver.js # MQTT
 │   ├── audio/
 │   │   └── DelayCalibrator.js # Microphone-based latency calibration
-│   ├── config/
-│   │   └── Config.js          # Config with env-var overrides
-│   └── utils/
-│       └── JsonValidator.js   # Message validation
+│   ├── core/                  # Application framework (incl. Config)
+│   │   └── Config.js          # Consolidated config with env-var overrides
+│   ├── types/                 # Ambient TypeScript type definitions
+│   └── utils/                 # Cross-cutting helpers (JsonValidator, …)
 ├── public/                    # Frontend SPA
 │   ├── js/
 │   │   ├── core/              # BaseView, BaseModal, EventBus, etc.
@@ -110,7 +114,7 @@ General-Midi-Boop/
 │   │   └── utils/             # Helpers
 │   ├── locales/               # i18n translation files (28 languages)
 │   └── styles/                # CSS stylesheets
-├── migrations/                # SQL migration files (40 numbered)
+├── migrations/                # SQL migrations (consolidated baseline + incrementals)
 ├── tests/                     # Jest + Vitest test suites
 └── docs/                      # Feature documentation
 ```
@@ -152,9 +156,12 @@ MIDI Device → DeviceManager → EventBus → MidiRouter → Output Device
 ## Database
 
 - **Engine**: SQLite (better-sqlite3) with WAL mode
-- **Migrations**: 29 numbered SQL files, auto-run at startup in transactions
+- **Migrations**: `001_baseline.sql` consolidates the historical chain; later
+  migrations land as additional numbered files and are applied at startup
+  inside a single transaction.
 - **Backup**: Automated daily via BackupScheduler (node-schedule)
-- **Sub-modules**: MidiDatabase, InstrumentDatabase, LightingDatabase, StringInstrumentDatabase
+- **Sub-modules**: `src/persistence/tables/*` (MidiDatabase, InstrumentDatabase,
+  LightingDatabase, StringInstrumentDatabase, …)
 
 ## Configuration
 

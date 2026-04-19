@@ -104,7 +104,17 @@ class Application {
     // Track bound event handlers for cleanup
     this._eventHandlers = [];
 
-    this.logger.info('=== GeneralMidiBoop 5.0 Starting ===');
+    this.version = (() => {
+      try {
+        const pkg = JSON.parse(
+          readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+        );
+        return pkg.version || 'unknown';
+      } catch {
+        return 'unknown';
+      }
+    })();
+    this.logger.info(`=== GeneralMidiBoop ${this.version} Starting ===`);
   }
 
   /**
@@ -160,7 +170,7 @@ class Application {
   _migrateLegacyArtifacts() {
     const pairs = [
       ['./data/midimind.db', './data/gmboop.db'],
-      ['./logs/midimind.log', './logs/gmboop.log'],
+      ['./logs/midimind.log', './logs/gmboop.log']
     ];
     for (const [oldPath, newPath] of pairs) {
       if (existsSync(oldPath) && !existsSync(newPath)) {
@@ -257,12 +267,15 @@ class Application {
       // Initialize storage: BlobStore lives next to the SQLite file.
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
       this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
-      this._registerService('uploadQueue', new UploadQueue({
-        logger: this.logger,
-        onProgress: ({ uploadId, stage }) => {
-          this.wsServer?.broadcast('file_upload_progress', { uploadId, stage });
-        }
-      }));
+      this._registerService(
+        'uploadQueue',
+        new UploadQueue({
+          logger: this.logger,
+          onProgress: ({ uploadId, stage }) => {
+            this.wsServer?.broadcast('file_upload_progress', { uploadId, stage });
+          }
+        })
+      );
       this._registerService('fileManager', new FileManager(deps));
 
       // Initialize Bluetooth (optional - may not be available on all systems)
@@ -301,10 +314,16 @@ class Application {
 
       // Initialize auto-assigner (singleton with cache; EventBus invalidates
       // on file_write / file_delete / file_uploaded automatically).
-      this._registerService('autoAssigner', new AutoAssigner(this.database, this.logger, this.eventBus));
+      this._registerService(
+        'autoAssigner',
+        new AutoAssigner(this.database, this.logger, this.eventBus)
+      );
 
       // Initialize MIDI adaptation service (facade over MidiTransposer + AutoAssigner)
-      this._registerService('adaptationService', new MidiAdaptationService(this.logger, this.autoAssigner));
+      this._registerService(
+        'adaptationService',
+        new MidiAdaptationService(this.logger, this.autoAssigner)
+      );
 
       // Initialize repositories (ADR-002: wrappers over existing sub-DBs)
       this._registerService('fileRepository', new FileRepository(this.database));
@@ -313,25 +332,40 @@ class Application {
       this._registerService('presetRepository', new PresetRepository(this.database));
       this._registerService('sessionRepository', new SessionRepository(this.database));
       this._registerService('playlistRepository', new PlaylistRepository(this.database));
-      this._registerService('deviceSettingsRepository', new DeviceSettingsRepository(this.database));
+      this._registerService(
+        'deviceSettingsRepository',
+        new DeviceSettingsRepository(this.database)
+      );
       this._registerService('lightingRepository', new LightingRepository(this.database));
-      this._registerService('stringInstrumentRepository', new StringInstrumentRepository(this.database));
+      this._registerService(
+        'stringInstrumentRepository',
+        new StringInstrumentRepository(this.database)
+      );
 
       // Initialize domain services (Phase 4 — P1-4.1+)
-      this._registerService('fileRoutingSyncService', new FileRoutingSyncService({
-        routingRepository: this.routingRepository,
-        fileRepository: this.fileRepository,
-        deviceManager: this.deviceManager,
-        logger: this.logger
-      }));
-      this._registerService('deviceReconciliationService', new DeviceReconciliationService({
-        instrumentRepository: this.instrumentRepository,
-        logger: this.logger
-      }));
-      this._registerService('fileRoutingStatusService', new FileRoutingStatusService({
-        fileRepository: this.fileRepository,
-        routingRepository: this.routingRepository
-      }));
+      this._registerService(
+        'fileRoutingSyncService',
+        new FileRoutingSyncService({
+          routingRepository: this.routingRepository,
+          fileRepository: this.fileRepository,
+          deviceManager: this.deviceManager,
+          logger: this.logger
+        })
+      );
+      this._registerService(
+        'deviceReconciliationService',
+        new DeviceReconciliationService({
+          instrumentRepository: this.instrumentRepository,
+          logger: this.logger
+        })
+      );
+      this._registerService(
+        'fileRoutingStatusService',
+        new FileRoutingStatusService({
+          fileRepository: this.fileRepository,
+          routingRepository: this.routingRepository
+        })
+      );
 
       // Initialize API
       this._registerService('commandHandler', new CommandHandler(deps));
@@ -459,13 +493,18 @@ class Application {
       this.wsServer.start(); // start() already calls startHeartbeat()
 
       // Start automated backups (DB snapshot + blob manifest sidecar).
-      this._registerService('backupScheduler', new BackupScheduler(
-        { logger: this.logger, database: this.database, blobStore: this.blobStore }
-      ));
+      this._registerService(
+        'backupScheduler',
+        new BackupScheduler({
+          logger: this.logger,
+          database: this.database,
+          blobStore: this.blobStore
+        })
+      );
       this.backupScheduler.start();
 
       this.running = true;
-      this.logger.info('=== GeneralMidiBoop 5.0 Running ===');
+      this.logger.info(`=== GeneralMidiBoop ${this.version} Running ===`);
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
 
       // Auto-reanalyze files missing channel data (needed for GM instrument filters)
@@ -492,7 +531,6 @@ class Application {
       throw error;
     }
   }
-
 
   /**
    * Tear down everything in roughly the reverse order of {@link
@@ -568,7 +606,7 @@ class Application {
         this.database.close();
       }
 
-      this.logger.info('=== GeneralMidiBoop 5.0 Stopped ===');
+      this.logger.info(`=== GeneralMidiBoop ${this.version} Stopped ===`);
     } catch (error) {
       this.logger.error(`Stop failed: ${error.message}`);
       throw error;

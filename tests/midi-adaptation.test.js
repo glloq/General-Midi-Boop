@@ -744,12 +744,12 @@ describe('DrumNoteMapper', () => {
 
   test('classifyDrumNotes categorizes new categories correctly', () => {
     const events = [
-      noteOn(9, 69, 80),  // Cabasa → shakers
-      noteOn(9, 76, 70),  // Hi Wood Block → woodsMetal
-      noteOn(9, 71, 60),  // Short Whistle → pitched
-      noteOn(9, 78, 50),  // Mute Cuica → cuicas
-      noteOn(9, 80, 40),  // Mute Triangle → triangles
-      noteOn(9, 52, 90)   // Chinese Cymbal → crashes
+      noteOn(9, 69, 80), // Cabasa → shakers
+      noteOn(9, 76, 70), // Hi Wood Block → woodsMetal
+      noteOn(9, 71, 60), // Short Whistle → pitched
+      noteOn(9, 78, 50), // Mute Cuica → cuicas
+      noteOn(9, 80, 40), // Mute Triangle → triangles
+      noteOn(9, 52, 90) // Chinese Cymbal → crashes
     ];
 
     const result = mapper.classifyDrumNotes(events);
@@ -764,10 +764,10 @@ describe('DrumNoteMapper', () => {
 
   test('generateMapping uses substitution chains for previously unmapped notes', () => {
     const midiNotes = mapper.classifyDrumNotes([
-      noteOn(9, 71, 80),  // Short Whistle
-      noteOn(9, 76, 70),  // Hi Wood Block
-      noteOn(9, 78, 60),  // Mute Cuica
-      noteOn(9, 80, 50)   // Mute Triangle
+      noteOn(9, 71, 80), // Short Whistle
+      noteOn(9, 76, 70), // Hi Wood Block
+      noteOn(9, 78, 60), // Mute Cuica
+      noteOn(9, 80, 50) // Mute Triangle
     ]);
 
     // Instrument has only the substitution targets
@@ -814,15 +814,9 @@ describe('AnalysisCache', () => {
     expect(cache.get(99, 15)).toBe(null);
   });
 
-  test('entries expire after TTL', async () => {
-    cache = new AnalysisCache(5, 50); // 50ms TTL
-    cache.set(1, 0, { test: true });
-
-    // Wait for TTL to expire
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    expect(cache.get(1, 0)).toBe(null);
-  });
+  // v6: TTL-based expiration was removed — invalidation is now event-driven
+  // (see AnalysisCache header). The legacy `cleanup()` is a no-op for
+  // backward compat; the associated TTL/cleanup tests were removed.
 
   test('LRU eviction works when cache is full', () => {
     // Fill cache (max 5)
@@ -859,14 +853,10 @@ describe('AnalysisCache', () => {
     expect(cache.getStats().size).toBe(0);
   });
 
-  test('cleanup removes expired entries', async () => {
-    cache = new AnalysisCache(5, 50);
+  test('cleanup is a no-op in v6 (backward-compat stub)', () => {
     cache.set(1, 0, { a: 1 });
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
     cache.cleanup();
-    expect(cache.getStats().size).toBe(0);
+    expect(cache.getStats().size).toBe(1);
   });
 });
 
@@ -1235,9 +1225,10 @@ describe('AutoAssigner', () => {
     // After invalidation, file 42's entries should be gone
   });
 
-  test('destroy cleans up resources', () => {
+  test('destroy clears the analysis cache', () => {
+    autoAssigner.analyzeChannel(createMidiData([createPianoTrack()]), 0, 42);
     autoAssigner.destroy();
-    expect(autoAssigner.cleanupInterval).toBe(null);
+    expect(autoAssigner.cache.getStats().size).toBe(0);
   });
 });
 
@@ -1290,10 +1281,7 @@ describe('ChannelSplitter', () => {
   describe('calculateRangeSplit', () => {
     test('splits two non-overlapping instruments correctly', () => {
       const analysis = makeChannelAnalysis(0, 36, 84);
-      const instruments = [
-        makeInstrument('a', 36, 60),
-        makeInstrument('b', 61, 84)
-      ];
+      const instruments = [makeInstrument('a', 36, 60), makeInstrument('b', 61, 84)];
       const result = splitter.calculateRangeSplit(analysis, instruments);
       expect(result).not.toBeNull();
       expect(result.segments).toHaveLength(2);
@@ -1302,10 +1290,7 @@ describe('ChannelSplitter', () => {
 
     test('detects overlap when instrument ranges overlap', () => {
       const analysis = makeChannelAnalysis(0, 36, 84);
-      const instruments = [
-        makeInstrument('a', 36, 72),
-        makeInstrument('b', 60, 84)
-      ];
+      const instruments = [makeInstrument('a', 36, 72), makeInstrument('b', 60, 84)];
       const result = splitter.calculateRangeSplit(analysis, instruments);
       expect(result).not.toBeNull();
       expect(result.segments).toHaveLength(2);
@@ -1330,10 +1315,7 @@ describe('ChannelSplitter', () => {
     test('assigns overlap notes correctly after fix', () => {
       // Both instruments cover C3-C5 (48-72)
       const analysis = makeChannelAnalysis(0, 48, 72);
-      const instruments = [
-        makeInstrument('a', 36, 72),
-        makeInstrument('b', 48, 84)
-      ];
+      const instruments = [makeInstrument('a', 36, 72), makeInstrument('b', 48, 84)];
       const result = splitter.calculateFullCoverageSplit(analysis, instruments);
       if (result) {
         expect(result.segments).toHaveLength(2);
@@ -1348,10 +1330,7 @@ describe('ChannelSplitter', () => {
 
   describe('findCoverageGaps', () => {
     test('detects gap between two segments', () => {
-      const segments = [
-        { noteRange: { min: 36, max: 50 } },
-        { noteRange: { min: 60, max: 84 } }
-      ];
+      const segments = [{ noteRange: { min: 36, max: 50 } }, { noteRange: { min: 60, max: 84 } }];
       const gaps = splitter.findCoverageGaps(segments, 36, 84);
       expect(gaps.length).toBeGreaterThan(0);
       expect(gaps[0].min).toBe(51);
@@ -1359,10 +1338,7 @@ describe('ChannelSplitter', () => {
     });
 
     test('returns empty when full coverage', () => {
-      const segments = [
-        { noteRange: { min: 36, max: 60 } },
-        { noteRange: { min: 61, max: 84 } }
-      ];
+      const segments = [{ noteRange: { min: 36, max: 60 } }, { noteRange: { min: 61, max: 84 } }];
       const gaps = splitter.findCoverageGaps(segments, 36, 84);
       expect(gaps).toHaveLength(0);
     });
@@ -1397,7 +1373,7 @@ describe('ChannelSplitter', () => {
       const selected = splitter.selectBestInstrumentsForCoverage(instruments, analysis, 2);
       expect(selected).toHaveLength(2);
       // Should pick a + b for best coverage
-      const ids = selected.map(i => i.id);
+      const ids = selected.map((i) => i.id);
       expect(ids).toContain('a');
       expect(ids).toContain('b');
     });
@@ -1416,7 +1392,7 @@ describe('MidiPlayer getOutputForChannel overlap strategies', () => {
       _overlapCounters: null,
       _segmentNoteCounts: null,
       _overlapNoteAssign: null,
-      getOutputForChannel(channel, note = null, eventType = null) {
+      getOutputForChannel(channel, note = null) {
         if (player.channelRouting.has(channel)) {
           const routing = player.channelRouting.get(channel);
           if (typeof routing === 'string') {
@@ -1424,7 +1400,9 @@ describe('MidiPlayer getOutputForChannel overlap strategies', () => {
           }
           if (routing.split && routing.segments) {
             if (note !== null) {
-              const matching = routing.segments.filter(seg => note >= seg.noteMin && note <= seg.noteMax);
+              const matching = routing.segments.filter(
+                (seg) => note >= seg.noteMin && note <= seg.noteMax
+              );
               if (matching.length === 1) {
                 return { device: matching[0].device, targetChannel: matching[0].targetChannel };
               }
@@ -1433,7 +1411,7 @@ describe('MidiPlayer getOutputForChannel overlap strategies', () => {
                 if (strategy === 'shared' || strategy === 'round_robin') {
                   if (!player._overlapCounters) player._overlapCounters = new Map();
                   const key = `${channel}_${note}`;
-                  const counter = (player._overlapCounters.get(key) || 0);
+                  const counter = player._overlapCounters.get(key) || 0;
                   player._overlapCounters.set(key, counter + 1);
                   const seg = matching[counter % matching.length];
                   return { device: seg.device, targetChannel: seg.targetChannel };
@@ -1449,11 +1427,17 @@ describe('MidiPlayer getOutputForChannel overlap strategies', () => {
               let minDist = Infinity;
               for (const seg of routing.segments) {
                 const dist = Math.min(Math.abs(note - seg.noteMin), Math.abs(note - seg.noteMax));
-                if (dist < minDist) { minDist = dist; closest = seg; }
+                if (dist < minDist) {
+                  minDist = dist;
+                  closest = seg;
+                }
               }
               return { device: closest.device, targetChannel: closest.targetChannel };
             }
-            return routing.segments.map(seg => ({ device: seg.device, targetChannel: seg.targetChannel }));
+            return routing.segments.map((seg) => ({
+              device: seg.device,
+              targetChannel: seg.targetChannel
+            }));
           }
           return routing;
         }
@@ -1576,47 +1560,55 @@ describe('RoutingPersistenceDB validations', () => {
 
   test('rejects split_note_min > split_note_max', () => {
     const db = createMockRoutingDB();
-    expect(() => db.insertRouting({
-      midi_file_id: 1,
-      channel: 0,
-      device_id: 'dev1',
-      split_mode: 'range',
-      split_note_min: 80,
-      split_note_max: 40
-    })).toThrow('Invalid split range');
+    expect(() =>
+      db.insertRouting({
+        midi_file_id: 1,
+        channel: 0,
+        device_id: 'dev1',
+        split_mode: 'range',
+        split_note_min: 80,
+        split_note_max: 40
+      })
+    ).toThrow('Invalid split range');
   });
 
   test('rejects MIDI notes out of bounds', () => {
     const db = createMockRoutingDB();
-    expect(() => db.insertRouting({
-      midi_file_id: 1,
-      channel: 0,
-      device_id: 'dev1',
-      split_mode: 'range',
-      split_note_min: -1,
-      split_note_max: 60
-    })).toThrow('out of MIDI bounds');
+    expect(() =>
+      db.insertRouting({
+        midi_file_id: 1,
+        channel: 0,
+        device_id: 'dev1',
+        split_mode: 'range',
+        split_note_min: -1,
+        split_note_max: 60
+      })
+    ).toThrow('out of MIDI bounds');
   });
 
   test('rejects invalid channel number', () => {
     const db = createMockRoutingDB();
-    expect(() => db.insertRouting({
-      midi_file_id: 1,
-      channel: 16,
-      device_id: 'dev1'
-    })).toThrow('Invalid MIDI channel');
+    expect(() =>
+      db.insertRouting({
+        midi_file_id: 1,
+        channel: 16,
+        device_id: 'dev1'
+      })
+    ).toThrow('Invalid MIDI channel');
   });
 
   test('accepts valid split routing', () => {
     const db = createMockRoutingDB();
-    expect(() => db.insertRouting({
-      midi_file_id: 1,
-      channel: 0,
-      device_id: 'dev1',
-      split_mode: 'range',
-      split_note_min: 36,
-      split_note_max: 72
-    })).not.toThrow();
+    expect(() =>
+      db.insertRouting({
+        midi_file_id: 1,
+        channel: 0,
+        device_id: 'dev1',
+        split_mode: 'range',
+        split_note_min: 36,
+        split_note_max: 72
+      })
+    ).not.toThrow();
   });
 
   test('persists overlap_strategy', () => {

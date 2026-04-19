@@ -67,19 +67,19 @@ describe('RoutingRepository — delegations', () => {
 });
 
 describe('InstrumentRepository — delegations', () => {
+  // v6 note: the generic `instruments` table was dropped. Per-channel rows
+  // live on `instruments_latency`; generic helpers (`findAll`, `save`,
+  // `delete`, `deleteLatencyProfile`) no longer exist on the repository.
+  // `findById` / `update` delegate to the row-PK variants.
   const cases = [
-    ['findById', 'getInstrument', ['i1']],
-    ['findAll', 'getInstruments', []],
+    ['findById', 'findInstrumentById', ['i1']],
     ['findAllWithCapabilities', 'getInstrumentsWithCapabilities', []],
-    ['save', 'insertInstrument', [{ id: 'i1' }]],
-    ['update', 'updateInstrument', ['i1', { x: 1 }]],
-    ['delete', 'deleteInstrument', ['i1']],
+    ['update', 'updateInstrumentById', ['i1', { x: 1 }]],
     ['getCapabilities', 'getInstrumentCapabilities', ['dev-1', 0]],
     ['updateCapabilities', 'updateInstrumentCapabilities', ['dev-1', 0, {}]],
     ['updateSettings', 'updateInstrumentSettings', ['dev-1', 0, {}]],
     ['getSettings', 'getInstrumentSettings', ['dev-1', 0]],
     ['findByDevice', 'getInstrumentsByDevice', ['dev-1']],
-    ['deleteLatencyProfile', 'deleteLatencyProfile', ['dev-1']],
     ['deleteSettingsByDevice', 'deleteInstrumentSettingsByDevice', ['dev-1', 0]],
     ['findByUsbSerial', 'findInstrumentByUsbSerial', ['123']],
     ['findByMac', 'findInstrumentByMac', ['AA:BB']],

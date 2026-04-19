@@ -31,10 +31,35 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
     });
     fileRepo = new FileRepository(database);
     routingRepo = new RoutingRepository(database);
+
+    // Seed devices referenced by the routing FKs (device_id REFERENCES
+    // devices(id)). Without these, every insert would fail FOREIGN KEY.
+    const deviceIds = [
+      'out-1',
+      'out-old',
+      'out-new',
+      'bass-synth',
+      'lead-synth',
+      'single-device',
+      'split-a',
+      'split-b',
+      'original',
+      'ok-device',
+      'bad-device',
+      'a',
+      'b',
+      'device-x',
+      'device-y'
+    ];
+    for (const id of deviceIds) database.ensureDevice(id, id, 'output');
   });
 
   afterAll(() => {
-    try { database.close?.(); } catch { /* ignore */ }
+    try {
+      database.close?.();
+    } catch {
+      /* ignore */
+    }
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -85,7 +110,7 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
     });
 
     const routings = routingRepo.findByFileId(fileId);
-    const ch3 = routings.filter(r => r.channel === 3);
+    const ch3 = routings.filter((r) => r.channel === 3);
     expect(ch3).toHaveLength(1);
     expect(ch3[0].device_id).toBe('out-new');
     expect(ch3[0].instrument_name).toBe('New');
@@ -123,11 +148,11 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
     routingRepo.saveSplit(fileId, 1, segments);
 
     const routings = routingRepo.findByFileId(fileId);
-    const ch1 = routings.filter(r => r.channel === 1);
+    const ch1 = routings.filter((r) => r.channel === 1);
     expect(ch1).toHaveLength(2);
-    const devices = ch1.map(r => r.device_id).sort();
+    const devices = ch1.map((r) => r.device_id).sort();
     expect(devices).toEqual(['bass-synth', 'lead-synth']);
-    expect(ch1.every(r => r.split_mode === 'range')).toBe(true);
+    expect(ch1.every((r) => r.split_mode === 'range')).toBe(true);
   });
 
   test('split replaces non-split — saveSplit on a channel with a prior routing removes it', () => {
@@ -164,10 +189,10 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
     ]);
 
     const routings = routingRepo.findByFileId(fileId);
-    const ch2 = routings.filter(r => r.channel === 2);
+    const ch2 = routings.filter((r) => r.channel === 2);
     expect(ch2).toHaveLength(2);
-    expect(ch2.some(r => r.device_id === 'single-device')).toBe(false);
-    expect(ch2.every(r => r.split_mode === 'range')).toBe(true);
+    expect(ch2.some((r) => r.device_id === 'single-device')).toBe(false);
+    expect(ch2.every((r) => r.split_mode === 'range')).toBe(true);
   });
 
   test('split rollback — atomic failure leaves channel clean (transaction)', () => {
@@ -206,7 +231,7 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
 
     // After rollback the original routing is preserved (or DELETE was also rolled back).
     const routings = routingRepo.findByFileId(fileId);
-    const ch4 = routings.filter(r => r.channel === 4);
+    const ch4 = routings.filter((r) => r.channel === 4);
     // The transaction must leave channel 4 in its pre-call state: one non-split routing.
     expect(ch4).toHaveLength(1);
     expect(ch4[0].device_id).toBe('original');
@@ -254,7 +279,7 @@ describe('P0-2.6 — RoutingRepository integration (real SQLite)', () => {
     });
 
     routingRepo.deleteByDevice('device-x');
-    const remaining = routingRepo.findByFileId(fileId).map(r => r.device_id);
+    const remaining = routingRepo.findByFileId(fileId).map((r) => r.device_id);
     expect(remaining).not.toContain('device-x');
     expect(remaining).toContain('device-y');
   });
