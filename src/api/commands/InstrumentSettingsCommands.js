@@ -96,6 +96,19 @@ async function instrumentUpdateSettings(app, data) {
     data.comm_timeout = timeout;
   }
 
+  // `instruments_latency.device_id` has a FK to `devices(id)`. Ensure
+  // the parent row exists (idempotent INSERT OR IGNORE) before the
+  // settings row is upserted — otherwise the first save for a newly
+  // discovered / hot-plugged device trips SQLITE_CONSTRAINT and the
+  // client sees a generic "Internal server error".
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.deviceId,
+      data.name || data.deviceId,
+      'output'
+    );
+  }
+
   const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {
     custom_name: data.custom_name,
     sync_delay: data.sync_delay,
@@ -175,6 +188,16 @@ async function instrumentUpdateCapabilities(app, data) {
       throw new ValidationError('polyphony must be between 1 and 128', 'polyphony');
     }
     data.polyphony = poly;
+  }
+
+  // Same FK guard as instrument_update_settings — capabilities can be
+  // saved before settings for a freshly discovered device.
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.deviceId,
+      data.name || data.deviceId,
+      'output'
+    );
   }
 
   const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, {
