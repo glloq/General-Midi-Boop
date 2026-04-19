@@ -75,7 +75,7 @@
     // Routed instrument line — detect split routing
             const isSplit = this.modal._splitChannelNames && this.modal._splitChannelNames.has(ch.channel);
             const splitNames = isSplit ? this.modal._splitChannelNames.get(ch.channel) : null;
-            const routedName = this.modal.getRoutedInstrumentName(ch.channel);
+            const routedName = this.modal.tablatureOps?.getRoutedInstrumentName(ch.channel) ?? null;
             let routedLine;
             if (isSplit && splitNames && splitNames.length > 1) {
                 routedLine = `<span class="chip-routing-line chip-split-line">🔀 ${splitNames.join(' + ')}</span>`;
