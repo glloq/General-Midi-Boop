@@ -137,7 +137,8 @@ const VIRTUAL_INSTRUMENT_PRESETS = {
     polyphony: 32,
     note_range_min: 35,
     note_range_max: 81,
-    note_selection_mode: 'selected'
+    note_selection_mode: 'discrete',
+    selected_notes: Array.from({ length: 81 - 35 + 1 }, (_, i) => 35 + i)
   }
 };
 
@@ -191,6 +192,9 @@ async function instrumentCreateVirtual(app, data) {
     note_range_min: data.note_range_min !== undefined ? data.note_range_min : (preset ? preset.note_range_min : null),
     note_range_max: data.note_range_max !== undefined ? data.note_range_max : (preset ? preset.note_range_max : null),
     note_selection_mode: data.note_selection_mode || (preset ? preset.note_selection_mode : 'range'),
+    selected_notes: data.selected_notes !== undefined
+      ? data.selected_notes
+      : (preset && preset.selected_notes ? preset.selected_notes : null),
     capabilities_source: 'manual'
   };
 

@@ -205,16 +205,16 @@ class MidiEditorPlayback {
             const startAt = (cursorTick >= rangeStart && cursorTick <= rangeEnd && cursorTick > 0)
                 ? cursorTick : rangeStart;
 
-            // Set currentTick before play() so play() respects it via isPaused path
-            m.synthesizer.currentTick = startAt;
-            m.synthesizer.lastScheduledTick = startAt;
+            // seek() positions schedulePointer via binary search so scheduleNotes()
+            // won't re-fire every note from t=0 through the cursor (which, on large
+            // files, scheduled thousands of notes in the past and froze the tab).
+            m.synthesizer.seek(startAt);
             m.synthesizer.isPaused = true; // Trick: play() will resume from currentTick
         } else if (m.isPaused) {
             // Resume from current cursor position
             if (m.pianoRoll) {
                 const cursorTick = m.pianoRoll.cursor || 0;
-                m.synthesizer.currentTick = Math.max(m.synthesizer.startTick, Math.min(cursorTick, m.synthesizer.endTick));
-                m.synthesizer.lastScheduledTick = m.synthesizer.currentTick;
+                m.synthesizer.seek(cursorTick);
             }
         }
 
