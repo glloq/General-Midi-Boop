@@ -86,7 +86,7 @@ class WindInstrumentEditor {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
-                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
+                if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
                 // Center view on the notes after layout settles
                 if (this.renderer && this.melodyCanvasEl &&
                     this.melodyCanvasEl.width > 0 && this.melodyCanvasEl.height > 0) {
@@ -512,8 +512,8 @@ class WindInstrumentEditor {
         if (!this.isVisible) return;
 
         // Use the unified syncAllEditors which now reads from _getActiveViewportState()
-        if (this.modal && this.modal.syncAllEditors) {
-            this.modal.syncAllEditors();
+        if (this.modal && this.modal.ccPicker?.syncAllEditors) {
+            this.modal.ccPicker.syncAllEditors();
         }
     }
 

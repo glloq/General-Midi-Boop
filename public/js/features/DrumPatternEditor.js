@@ -95,7 +95,7 @@ class DrumPatternEditor {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 this.handleResize();
-                if (this.modal.syncAllEditors) this.modal.syncAllEditors();
+                if (this.modal.ccPicker?.syncAllEditors) this.modal.ccPicker.syncAllEditors();
             });
         });
     }
@@ -310,8 +310,8 @@ class DrumPatternEditor {
         this.gridRenderer = new DrumGridRenderer(this.gridCanvasEl, {
             tool: 'pan',
             onScrollChange: () => {
-                if (this.modal && this.modal.syncAllEditors) {
-                    this.modal.syncAllEditors();
+                if (this.modal && this.modal.ccPicker?.syncAllEditors) {
+                    this.modal.ccPicker.syncAllEditors();
                 }
             }
         });
