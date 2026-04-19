@@ -28,6 +28,17 @@ import { ValidationError, NotFoundError } from '../../core/errors/index.js';
  * @returns {Promise<{success:true, id:(string|number)}>}
  */
 async function stringInstrumentCreate(app, data) {
+  // `string_instruments.device_id` has a FK to `devices(id)`. Ensure the
+  // parent row exists (idempotent) — same pattern as VirtualInstrument
+  // and InstrumentSettings commands.
+  if (app.deviceSettingsRepository && data.device_id) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.device_id,
+      data.instrument_name || data.device_id,
+      'output'
+    );
+  }
+
   const id = app.stringInstrumentRepository.save({
     device_id: data.device_id,
     channel: data.channel,
@@ -186,6 +197,17 @@ async function stringInstrumentCreateFromPreset(app, data) {
 
   const preset = app.stringInstrumentRepository.findTuningPreset(data.preset);
   if (!preset) throw new NotFoundError('Preset', data.preset);
+
+  // Same FK guard — the editor passes the pseudo-device id '_editor',
+  // which must exist in `devices` before a `string_instruments` row can
+  // reference it.
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.device_id,
+      preset.name || data.device_id,
+      'output'
+    );
+  }
 
   // Use UPSERT: createStringInstrument already has ON CONFLICT DO UPDATE
   const id = app.stringInstrumentRepository.save({

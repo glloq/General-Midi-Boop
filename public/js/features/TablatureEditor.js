@@ -517,21 +517,14 @@ class TablatureEditor {
         if (!this.isVisible) return;
 
         if (this.renderer) {
-            // Auto-scroll the tablature view to follow the playhead
-            const canvasWidth = this.tabCanvasEl?.width || 800;
-            const visibleTicks = (canvasWidth - this.renderer.headerWidth) * this.renderer.ticksPerPixel;
-            const scrollX = this.renderer.scrollX;
-
-            if (tick > scrollX + visibleTicks * 0.9) {
-                this.renderer.scrollX = tick - visibleTicks * 0.2;
-            } else if (tick < scrollX) {
-                this.renderer.scrollX = Math.max(0, tick - visibleTicks * 0.1);
-            }
-
-            // Keep piano roll scroll in sync with tablature
+            // Pull scroll from the piano roll (single source of truth for
+            // horizontal scroll position — same pattern as DrumPatternEditor
+            // and WindInstrumentEditor). The piano roll's auto-scroll in
+            // MidiEditorPlayback.updatePlaybackCursor drives the shared
+            // xoffset, which keeps every editor visually aligned.
             const pr = this.modal.pianoRoll;
             if (pr) {
-                pr.xoffset = this.renderer.scrollX;
+                this.renderer.scrollX = pr.xoffset || 0;
             }
 
             this.renderer.setPlayhead(tick);
