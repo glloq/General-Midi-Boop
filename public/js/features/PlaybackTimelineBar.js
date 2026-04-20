@@ -52,6 +52,7 @@ class PlaybackTimelineBar {
         this.onSeek = options.onSeek || null;
         this.onRangeChange = options.onRangeChange || null;
         this.onPan = options.onPan || null;
+        this.onResize = options.onResize || null;
 
         // Interaction state
         this._isDragging = false;
@@ -110,6 +111,14 @@ class PlaybackTimelineBar {
 
         // Resize
         window.addEventListener('resize', this._onResize);
+
+        // Observe container size changes (CC panel open/close, modal resize…) —
+        // the zoom depends on container width and must be recalculated, not just
+        // the canvas size.
+        if (typeof ResizeObserver !== 'undefined') {
+            this._resizeObserver = new ResizeObserver(() => this._onResize());
+            this._resizeObserver.observe(this.container);
+        }
 
         // Initial sizing
         this.resize();
@@ -209,6 +218,13 @@ class PlaybackTimelineBar {
         const w = rect.width;
         const h = this.height;
 
+        // Skip when the container is detached or collapsed — would zero out
+        // canvas size and the observer fires that same degenerate case.
+        if (w <= 0) return;
+
+        const widthChanged = Math.abs(w - (this._lastWidth || 0)) > 0.5;
+        this._lastWidth = w;
+
         this.canvas.width = w * dpr;
         this.canvas.height = h * dpr;
         this.canvas.style.width = w + 'px';
@@ -216,6 +232,12 @@ class PlaybackTimelineBar {
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         this._dirty = true; this._scheduleRender();
+
+        // Let consumers recalculate ticksPerPixel / scrollX against the new
+        // container width (the zoom was computed against the initial width).
+        if (widthChanged && typeof this.onResize === 'function') {
+            this.onResize(w);
+        }
     }
 
     // ========================================================================
@@ -772,6 +794,11 @@ class PlaybackTimelineBar {
         this.canvas.removeEventListener('touchmove', this._onTouchMove);
         this.canvas.removeEventListener('touchend', this._onTouchEnd);
         window.removeEventListener('resize', this._onResize);
+
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = null;
+        }
 
         // Remove canvas from DOM
         if (this.canvas.parentNode) {

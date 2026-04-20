@@ -318,16 +318,28 @@ class MidiEditorPlayback {
         const m = this.modal;
 
         // Update piano roll cursor (even when hidden, keeps state consistent)
+        let scrolled = false;
         if (m.pianoRoll) {
             m.pianoRoll.cursor = tick;
 
             const xoffset = m.pianoRoll.xoffset || 0;
             const xrange = m.pianoRoll.xrange || 1920;
 
-            if (tick > xoffset + xrange * 0.9) {
-                m.pianoRoll.xoffset = tick - xrange * 0.2;
+            // Page-turn: trigger earlier (85%) and land further from the edge (30%)
+            // so the cursor remains visible without brutal teleport.
+            if (tick > xoffset + xrange * 0.85) {
+                m.pianoRoll.xoffset = tick - xrange * 0.3;
+                scrolled = true;
             } else if (tick < xoffset) {
                 m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+                scrolled = true;
+            }
+
+            // Force a synchronous redraw on scroll so the piano roll and the
+            // timeline bar are painted in the same frame (the xoffset setter
+            // normally throttles via RAF, which causes a one-frame misalignment).
+            if (scrolled && typeof m.pianoRoll.redraw === 'function') {
+                m.pianoRoll.redraw();
             }
         }
 
@@ -337,6 +349,12 @@ class MidiEditorPlayback {
             if (m.pianoRoll) {
                 m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
             }
+        }
+
+        // Re-sync all editors' zoom/scroll with the new viewport whenever the
+        // piano roll has auto-scrolled. Handles any container resize/zoom drift.
+        if (scrolled && m.ccPicker && typeof m.ccPicker.syncAllEditors === 'function') {
+            m.ccPicker.syncAllEditors();
         }
 
         // Update tablature editor playhead, fretboard, and auto-scroll

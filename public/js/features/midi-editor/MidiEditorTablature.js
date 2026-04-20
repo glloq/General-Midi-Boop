@@ -373,10 +373,12 @@
             this.modal.syncMutedChannels();
         });
 
-    // Event: show all channels
+    // Event: show all channels — same cleanup as the global Show-All button
         const showAllBtn = popover.querySelector('.channel-show-all-btn');
         showAllBtn.addEventListener('click', () => {
             const previousActiveChannels = new Set(this.modal.activeChannels);
+            this._exitSpecializedEditor();
+            this.modal._savedActiveChannels = null;
             this.modal.channels.forEach(ch => {
                 this.modal.activeChannels.add(ch.channel);
                 this.modal.channelDisabled.delete(ch.channel);
@@ -385,6 +387,7 @@
             this.modal.routingOps.updateChannelButtons();
             this.modal.renderer.updateInstrumentSelector();
             this.modal.syncMutedChannels();
+            this._closeChannelSettingsPopover();
         });
 
     }
@@ -1047,6 +1050,28 @@
         if (this.modal.playbackManager) {
             this.modal.playbackManager.syncMutedChannels();
         }
+    }
+
+    // Unified exit from any specialized editor (TAB / DRUM / WIND / piano-roll solo).
+    // Hides the editor, clears _pianoRollSoloChannel, and removes .active from every
+    // editor button. Does NOT touch _savedActiveChannels or activeChannels — the
+    // caller decides how to restore the channel state.
+    _exitSpecializedEditor() {
+        if (this.modal.tablatureEditor?.isVisible) {
+            this.modal.tablatureEditor.hide();
+        }
+        if (this.modal.drumPatternEditor?.isVisible) {
+            this.modal.drumPatternEditor.hide();
+        }
+        if (this.modal.windInstrumentEditor?.isVisible) {
+            this.modal.windInstrumentEditor.hide();
+        }
+        this.modal._pianoRollSoloChannel = null;
+
+        this._updateChannelTabButtons();
+        this._updateDrumButtonState(false);
+        this._updateWindButtonState(false);
+        this._updateEditButtonState(false);
     }
 
     _openPianoRollForChannel(channel) {

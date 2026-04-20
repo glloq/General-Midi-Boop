@@ -129,13 +129,30 @@
             if (channelChip) {
                 e.preventDefault();
                 e.stopPropagation();
-    // Block channel toggle when a specialized editor is active
-                if (this.modal.editActions?._isSpecializedEditorActive()) {
-                    this.modal.showNotification(this.modal.t('midiEditor.closeEditorFirst') || 'Close the specialized editor first', 'info');
+                const channel = parseInt(channelChip.dataset.channel);
+                if (isNaN(channel)) return;
+
+    // If a specialized editor (TAB/DRUM/WIND) or the piano-roll solo mode is
+    // active, exit it and show the previously-active channels PLUS the newly
+    // clicked channel in the normal piano roll.
+                const wasSpecialized = this.modal.editActions?._isSpecializedEditorActive()
+                    || this.modal._pianoRollSoloChannel != null;
+                if (wasSpecialized) {
+                    const previousActiveChannels = new Set(this.modal.activeChannels);
+                    this.modal.tablatureOps._exitSpecializedEditor();
+                    if (this.modal._savedActiveChannels) {
+                        this.modal.activeChannels = new Set(this.modal._savedActiveChannels);
+                        this.modal._savedActiveChannels = null;
+                    }
+                    this.modal.activeChannels.add(channel);
+                    this.modal.channelDisabled.delete(channel);
+                    this.modal.sequenceOps.updateSequenceFromActiveChannels(previousActiveChannels);
+                    this.modal.routingOps.updateChannelButtons();
+                    this.modal.renderer.updateInstrumentSelector();
+                    this.modal.syncMutedChannels();
                     return;
                 }
-                const channel = parseInt(channelChip.dataset.channel);
-                if (!isNaN(channel)) this.modal.sequenceOps.toggleChannel(channel);
+                this.modal.sequenceOps.toggleChannel(channel);
                 return;
             }
             const settingsBtn = e.target.closest('.chip-settings-btn');
@@ -151,11 +168,10 @@
             if (showAllBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-    // Close any active specialized editor first so we truly show all channels
-                if (this.modal.tablatureEditor?.isVisible) this.modal.tablatureEditor.hide();
-                if (this.modal.drumPatternEditor?.isVisible) this.modal.drumPatternEditor.hide();
-                if (this.modal.windInstrumentEditor?.isVisible) this.modal.windInstrumentEditor.hide();
                 const previousActiveChannels = new Set(this.modal.activeChannels);
+    // Exit any specialized/solo editor and reset .active on every editor button
+                this.modal.tablatureOps?._exitSpecializedEditor();
+                this.modal._savedActiveChannels = null;
                 this.modal.channels.forEach(ch => {
                     this.modal.activeChannels.add(ch.channel);
                     this.modal.channelDisabled.delete(ch.channel);
@@ -896,6 +912,14 @@
                 this.modal.ccPicker.syncCCEditor();
                 this.modal.ccPicker.syncVelocityEditor();
                 this.modal.ccPicker.syncTempoEditor();
+            },
+            onResize: () => {
+    // Container width changed (modal resize, CC panel toggle, DPR change…) —
+    // re-sync all editors so the timeline bar's ticksPerPixel tracks the
+    // piano roll's xrange against the new width.
+                if (this.modal.ccPicker && typeof this.modal.ccPicker.syncAllEditors === 'function') {
+                    this.modal.ccPicker.syncAllEditors();
+                }
             },
             onRangeChange: (start, end) => {
                 if (this.modal.pianoRoll) {
