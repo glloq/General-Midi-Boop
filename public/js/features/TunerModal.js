@@ -64,9 +64,13 @@
             this.alsaDevice = options.alsaDevice || null;
             this.logger = window.logger || console;
 
-            // Last displayed values & smoothing
+            // Smoothing state
             this._lastUpdateTs = 0;
             this._noSignalTimer = null;
+            this._freqRing = [];        // recent accepted frequencies
+            this._confRing = [];        // parallel confidences for weighting
+            this._ringSize = 9;         // ~1.2 s at 128 ms/frame
+            this._changeStreak = 0;     // consecutive frames far from current median
 
             // UI state
             this.state = {
@@ -224,9 +228,18 @@
         // BACKEND PITCH MONITORING
         // ========================================================================
 
+        _resetSmoothing() {
+            this._freqRing = [];
+            this._confRing = [];
+            this._changeStreak = 0;
+            this.state.smoothedFreq = 0;
+            this._lastUpdateTs = 0;
+        }
+
         async _startListening() {
             if (this.state.isListening) return;
             this._clearError();
+            this._resetSmoothing();
 
             const api = this._getApi();
             if (!api || !api.sendCommand || !api.on) {
@@ -281,27 +294,95 @@
             this._resetDisplay();
         }
 
+        /**
+         * Smooth the raw detector output. Plucked/bowed strings produce
+         * noisy readings, octave slips, and attack transients; a plain
+         * EMA is not enough. Pipeline:
+         *   1. Discard low-confidence frames.
+         *   2. Snap obvious octave errors to the neighborhood of the
+         *      recent median (1/3, 1/2, 2x, 3x jumps get corrected).
+         *   3. Detect a genuine note change (3 consecutive frames > 100¢
+         *      away from the current median) and reset the ring.
+         *   4. Keep a ring of the last N frames; the displayed frequency
+         *      is the confidence-weighted median, then EMA-smoothed for
+         *      silky needle motion.
+         */
         _handlePitchEvent(payload) {
             if (!this.isOpen || !this.state.isListening) return;
             const freq = payload && typeof payload.freq === 'number' ? payload.freq : 0;
             const confidence = payload && typeof payload.confidence === 'number' ? payload.confidence : 0;
 
-            if (freq > 0 && confidence > 0.5) {
-                const alpha = 0.2;
-                this.state.smoothedFreq = this.state.smoothedFreq > 0
-                    ? this.state.smoothedFreq * (1 - alpha) + freq * alpha
-                    : freq;
-                this._lastUpdateTs = Date.now();
-                this._updateDisplay(this.state.smoothedFreq);
+            if (freq <= 0 || confidence < 0.6) return;
+
+            let corrected = freq;
+            const ring = this._freqRing;
+
+            if (ring.length >= 2) {
+                // Use the median of the 3 most recent accepted values as a
+                // stable anchor for octave-error correction.
+                const recent = ring.slice(-Math.min(3, ring.length));
+                const sorted = recent.slice().sort((a, b) => a - b);
+                const anchor = sorted[Math.floor(sorted.length / 2)];
+                const ratio = freq / anchor;
+
+                if (ratio > 1.8 && ratio < 2.2)      corrected = freq / 2;
+                else if (ratio > 0.45 && ratio < 0.55) corrected = freq * 2;
+                else if (ratio > 2.8 && ratio < 3.2)   corrected = freq / 3;
+                else if (ratio > 0.30 && ratio < 0.36) corrected = freq * 3;
             }
+
+            // Detect a real note change: consistently far from the ring median.
+            if (ring.length >= 3) {
+                const sorted = ring.slice().sort((a, b) => a - b);
+                const median = sorted[Math.floor(sorted.length / 2)];
+                const cents = 1200 * Math.log2(corrected / median);
+                if (Math.abs(cents) > 100) {
+                    this._changeStreak++;
+                    if (this._changeStreak >= 3) {
+                        // New note: flush history and reseed.
+                        this._freqRing = [];
+                        this._confRing = [];
+                        this.state.smoothedFreq = 0;
+                        this._changeStreak = 0;
+                    }
+                } else {
+                    this._changeStreak = 0;
+                }
+            }
+
+            this._freqRing.push(corrected);
+            this._confRing.push(confidence);
+            if (this._freqRing.length > this._ringSize) {
+                this._freqRing.shift();
+                this._confRing.shift();
+            }
+
+            // Confidence-weighted median over the ring.
+            const pairs = this._freqRing.map((f, i) => ({ f, w: this._confRing[i] }));
+            pairs.sort((a, b) => a.f - b.f);
+            const totalW = pairs.reduce((s, p) => s + p.w, 0);
+            let acc = 0;
+            let weightedMedian = pairs[Math.floor(pairs.length / 2)].f;
+            for (const p of pairs) {
+                acc += p.w;
+                if (acc >= totalW / 2) { weightedMedian = p.f; break; }
+            }
+
+            // EMA on top of the median for smooth needle motion.
+            const alpha = this.state.smoothedFreq > 0 ? 0.25 : 1;
+            this.state.smoothedFreq = this.state.smoothedFreq * (1 - alpha) + weightedMedian * alpha;
+
+            this._lastUpdateTs = Date.now();
+            this._updateDisplay(this.state.smoothedFreq);
         }
 
         _scheduleNoSignalWatchdog() {
-            // If no usable pitch has arrived for ~500 ms, fade the display.
+            // If no usable pitch has arrived for ~500 ms, fade the display and
+            // clear the smoothing history so the next note starts fresh.
             this._noSignalTimer = setInterval(() => {
                 if (!this.state.isListening) return;
                 if (Date.now() - this._lastUpdateTs > 500) {
-                    this.state.smoothedFreq = 0;
+                    this._resetSmoothing();
                     this._fadeDisplay();
                 }
             }, 250);
