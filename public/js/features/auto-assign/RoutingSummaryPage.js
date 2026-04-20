@@ -95,6 +95,7 @@ class RoutingSummaryPage {
     this.showLowScores = {}; // Per-channel toggle for low score instruments
     this.autoAdaptation = true; // Toggle for automatic MIDI channel adaptation
     this.channelVolumes = {}; // Per-channel volume overrides (CC7, 0-127, default 100)
+    this._instrumentOptionsCache = {}; // Memoized <option> HTML per channel for summary dropdowns
 
     // Preview state
     this.midiData = null;
@@ -484,10 +485,16 @@ class RoutingSummaryPage {
       scoreBtn.className = `rs-score-btn ${getScoreBgClass(displayScore)}`;
     }
 
-    // Score popup content: re-render to match current channel selection
+    // Score popup content: only re-render when the popup is actually visible.
+    // Otherwise mark it stale so it rebuilds the next time the user opens it.
     const scorePopup = modal.querySelector('#rsScorePopup');
     if (scorePopup) {
-      scorePopup.innerHTML = this._renderScoreDetail();
+      if (scorePopup.style.display !== 'none') {
+        scorePopup.innerHTML = this._renderScoreDetail();
+        scorePopup.dataset.stale = '';
+      } else {
+        scorePopup.dataset.stale = '1';
+      }
     }
 
     // Channel count
@@ -636,9 +643,15 @@ class RoutingSummaryPage {
 
   /**
    * Build <option> list for instrument dropdown in summary table.
+   * Memoized per (channel, selected instrument, skipped flag) — output
+   * is pure HTML that only changes when one of those inputs changes, so
+   * we can avoid rebuilding 16 large option strings on every refresh.
    */
   _buildInstrumentOptions(ch, assignment, isSkipped) {
-    return window.RoutingSummaryHelpers.buildInstrumentOptions({
+    const key = `${ch}|${assignment?.instrumentId || ''}|${isSkipped ? 1 : 0}`;
+    const cached = this._instrumentOptionsCache[key];
+    if (cached !== undefined) return cached;
+    const html = window.RoutingSummaryHelpers.buildInstrumentOptions({
       channel: ch,
       assignment,
       isSkipped,
@@ -648,6 +661,8 @@ class RoutingSummaryPage {
       escape: escapeHtml,
       getDisplayName: (inst) => this._getInstrumentDisplayName(inst)
     });
+    this._instrumentOptionsCache[key] = html;
+    return html;
   }
 
   // ============================================================================
@@ -741,16 +756,7 @@ class RoutingSummaryPage {
     const playableInfo = playableData ? `(${playableData.playable}/${playableData.total})` : '';
 
     // Adaptation controls (pitch shift + OOR handling) — P2-F.4q
-    const adaptHTML = renderAdaptationBlock({
-      channel,
-      adaptation,
-      analysis,
-      assignment,
-      isSkipped,
-      isDrumChannel,
-      playableWithTranspose: (adaptation.pitchShift === 'manual') ? this._computePlayableNotes(ch) : null,
-      polyReductionHTML: this._renderPolyReductionSection(channel, adaptation, analysis, assignment)
-    });
+    const adaptHTML = this._renderAdaptationBlock(channel);
 
     // Instrument chips (horizontal bar) — always show, even on skipped channels
     const instrumentChipsHTML = (options.length > 0 || lowOptions.length > 0)
@@ -886,6 +892,52 @@ class RoutingSummaryPage {
       channelPolyphony: this._getChannelPolyphony(channel),
       instrumentPolyphony: this._getInstrumentPolyphony(channel)
     });
+  }
+
+  /**
+   * Render the adaptation block for a channel (pitch-shift + OOR + polyphony).
+   * Used both during full detail rebuilds and for the targeted partial refresh
+   * triggered by adaptation radio toggles.
+   */
+  _renderAdaptationBlock(channel) {
+    const ch = String(channel);
+    const isSkipped = this.skippedChannels.has(channel);
+    const assignment = this.selectedAssignments[ch];
+    const analysis = this.channelAnalyses[channel] || assignment?.channelAnalysis;
+    const isDrumChannel = channel === 9 || analysis?.estimatedType === 'drums';
+    const adaptation = this.adaptationSettings[ch] || {};
+    return renderAdaptationBlock({
+      channel,
+      adaptation,
+      analysis,
+      assignment,
+      isSkipped,
+      isDrumChannel,
+      playableWithTranspose: (adaptation.pitchShift === 'manual') ? this._computePlayableNotes(ch) : null,
+      polyReductionHTML: this._renderPolyReductionSection(channel, adaptation, analysis, assignment)
+    });
+  }
+
+  /**
+   * Targeted partial update of the .rs-adaptation block for a channel.
+   * Avoids rebuilding the entire detail panel when only an adaptation
+   * radio toggle changed (pitchShift / oorHandling / polyReduction /
+   * polyStrategy) — those changes don't affect the rest of the panel.
+   * Returns false if the block isn't currently in the DOM (caller should
+   * fall back to a full refresh).
+   */
+  _refreshAdaptationBlock(channel) {
+    const panel = this.modal?.querySelector('#rsDetailPanel');
+    const block = panel?.querySelector('.rs-adaptation');
+    if (!block) return false;
+    const html = this._renderAdaptationBlock(channel);
+    if (!html) return false;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    const fresh = wrapper.firstElementChild;
+    if (!fresh) return false;
+    block.replaceWith(fresh);
+    return true;
   }
 
   /**
@@ -1046,7 +1098,12 @@ class RoutingSummaryPage {
     if (scoreEl && popupEl) {
       scoreEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        popupEl.style.display = popupEl.style.display === 'none' ? '' : 'none';
+        const opening = popupEl.style.display === 'none';
+        if (opening && popupEl.dataset.stale === '1') {
+          popupEl.innerHTML = this._renderScoreDetail();
+          popupEl.dataset.stale = '';
+        }
+        popupEl.style.display = opening ? '' : 'none';
       });
       popupEl.addEventListener('click', (e) => e.stopPropagation());
       // Close popup when clicking anywhere else in modal
@@ -1265,7 +1322,9 @@ class RoutingSummaryPage {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           const current = this.adaptationSettings[ch].polyTarget || this._getInstrumentPolyphony(ch) || getGmDefaultPolyphony(this.selectedAssignments[ch]?.gmProgram) || 8;
           this.adaptationSettings[ch].polyTarget = Math.max(1, Math.min(128, current + delta));
-          this._refreshUI(channelKeys, 'detail');
+          if (!this._refreshAdaptationBlock(parseInt(ch))) {
+            this._refreshUI(channelKeys, 'detail');
+          }
         }
         return;
       }
@@ -1422,8 +1481,15 @@ class RoutingSummaryPage {
             transpositionChanged = oldSemi !== newSemi;
             this._reclampSplitRanges(parseInt(ch), oldSemi, newSemi);
           }
-          // Only rebuild summary when transposition value actually changed (affects scores/ranges)
-          this._refreshUI(channelKeys, transpositionChanged ? 'both-panels' : 'detail');
+          // When the transposition value didn't change, only the adaptation
+          // block needs to be re-rendered. A full detail rebuild is wasteful
+          // (and laggy on complex panels). Falls back to the heavy path
+          // when the targeted update can't apply.
+          if (transpositionChanged) {
+            this._refreshUI(channelKeys, 'both-panels');
+          } else if (!this._refreshAdaptationBlock(parseInt(ch))) {
+            this._refreshUI(channelKeys, 'detail');
+          }
         }
         return;
       }
@@ -1435,7 +1501,9 @@ class RoutingSummaryPage {
         if (ch && !isNaN(val) && val >= 1) {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           this.adaptationSettings[ch].polyTarget = Math.max(1, Math.min(128, val));
-          this._refreshUI(channelKeys, 'detail');
+          if (!this._refreshAdaptationBlock(parseInt(ch))) {
+            this._refreshUI(channelKeys, 'detail');
+          }
         }
         return;
       }
@@ -1784,6 +1852,7 @@ class RoutingSummaryPage {
   _selectInstrument(ch, instrumentId, channelKeys) {
     // Invalidate segment instrument cache when assignment changes
     this._segmentInstrumentCache = null;
+    this._instrumentOptionsCache = {};
     const options = [...(this.suggestions[ch] || []), ...(this.lowScoreSuggestions[ch] || [])];
     const selected = options.find(o => o.instrument.id === instrumentId);
     if (!selected) return;
@@ -2755,6 +2824,7 @@ class RoutingSummaryPage {
 
       // Invalidate memoization caches after data reload
       this._segmentInstrumentCache = null;
+      this._instrumentOptionsCache = {};
 
       this.loading = false;
       this._renderContent();

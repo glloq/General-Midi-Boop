@@ -11,6 +11,16 @@
 
   const _t = (key, params) => (typeof i18n !== 'undefined' ? i18n.t(key, params) : key);
 
+  // Cap the number of low-score instrument chips rendered in the detail
+  // panel. Without a cap, a channel with no high-score suggestion falls
+  // back to rendering the full low list (hundreds/thousands of chips),
+  // freezing the panel for seconds.
+  const LOW_CHIPS_MAX = 40;
+
+  // Cap the number of compatible instruments listed in a split segment's
+  // <select>. The currently-selected instrument is always kept.
+  const SEGMENT_SELECT_MAX = 80;
+
   /**
    * Render a mini piano keyboard aligned to the channel's note range.
    * White keys are full-height, black keys are shorter and overlaid.
@@ -242,19 +252,24 @@
     const chips = options.map((opt) => chipHTML(opt)).join('');
 
     const showLowChips = showLow || options.length === 0;
-    const lowChips = (showLowChips && lowOptions.length > 0)
-      ? lowOptions.map((opt) => chipHTML(opt, 'unrouted')).join('')
-      : '';
+    const visibleLowOptions = (showLowChips && lowOptions.length > 0)
+      ? lowOptions.slice(0, LOW_CHIPS_MAX)
+      : [];
+    const lowChips = visibleLowOptions.map((opt) => chipHTML(opt, 'unrouted')).join('');
+    const hiddenLowCount = Math.max(0, lowOptions.length - visibleLowOptions.length);
 
     const showMoreBtn = (lowOptions.length > 0 && options.length > 0) ? `
       <button class="aa-instbar-btn aa-instbar-show-all ${showLow ? 'active' : ''}" data-channel="${ch}">
         ${showLow ? '\u25C9' : '\u25CB'} ${showLow ? _t('autoAssign.hideDetails') : `+${lowOptions.length}`}
       </button>
     ` : '';
+    const hiddenHint = (showLowChips && hiddenLowCount > 0)
+      ? `<span class="aa-instbar-hidden-hint" title="${escape(`${hiddenLowCount} ${_t('autoAssign.hidden') || 'masqués'}`)}">+${hiddenLowCount}</span>`
+      : '';
 
     return `
       <div class="aa-instbar-content ${isSkipped ? 'rs-chips-skipped' : ''}">
-        <div class="aa-instbar-list">${chips}${lowChips}${showMoreBtn}</div>
+        <div class="aa-instbar-list">${chips}${lowChips}${hiddenHint}${showMoreBtn}</div>
       </div>
     `;
   }
@@ -1300,7 +1315,16 @@
         const currentInst = allInstruments.find(ii => ii.id === seg.instrumentId);
         if (currentInst) compatInstruments.unshift({ ...currentInst, _score: -1 });
       }
-      const selectOptions = compatInstruments.map(inst => {
+      // Cap the options list. Always keep the currently-selected instrument.
+      let segOptionInstruments = compatInstruments.length > SEGMENT_SELECT_MAX
+        ? compatInstruments.slice(0, SEGMENT_SELECT_MAX)
+        : compatInstruments;
+      if (seg.instrumentId && !segOptionInstruments.some(inst => inst.id === seg.instrumentId)) {
+        const currentInst = compatInstruments.find(inst => inst.id === seg.instrumentId)
+          || allInstruments.find(ii => ii.id === seg.instrumentId);
+        if (currentInst) segOptionInstruments = [currentInst, ...segOptionInstruments];
+      }
+      const selectOptions = segOptionInstruments.map(inst => {
         const selected = inst.id === seg.instrumentId ? 'selected' : '';
         const name = getDisplayName(inst);
         const label = name.length > MAX_INST_NAME ? name.slice(0, MAX_INST_NAME - 1) + '\u2026' : name;
