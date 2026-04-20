@@ -102,6 +102,23 @@
     text-align: center;
 }
 
+.tuner-picker-hint-empty {
+    padding: 10px 14px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    color: #92400e;
+    font-style: normal;
+    font-size: 13px;
+    text-align: center;
+}
+
+body.theme-dark .tuner-picker-hint-empty {
+    background: #422006;
+    border-color: #78350f;
+    color: #fde68a;
+}
+
 .tuner-instrument-row {
     display: flex;
     align-items: center;
@@ -111,6 +128,8 @@
 }
 
 .tuner-instrument-row select {
+    flex: 1;
+    min-width: 0;
     padding: 4px 10px;
     border: 1px solid #d1d5db;
     border-radius: 6px;

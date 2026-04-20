@@ -1803,6 +1803,11 @@
         "tooHigh": "Trop haut",
         "hintAuto": "Mode libre : jouez une note, la plus proche sera affichée",
         "heardNote": "Note détectée : {note}",
+        "connectedInstruments": "Instruments connectés",
+        "genericPresets": "Presets génériques",
+        "noInstrumentsConnected": "Aucun instrument connecté — utilisez un preset générique.",
+        "noConfigForInstrument": "Aucune configuration d'accordage pour cet instrument — renseignez-la depuis les réglages d'instrument.",
+        "sourceConfigured": "✓ configuré",
         "mode": {
             "auto": "Libre",
             "note": "Note ciblée",

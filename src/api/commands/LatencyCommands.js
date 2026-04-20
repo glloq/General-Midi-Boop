@@ -331,6 +331,102 @@ async function tunerMonitorStop(app) {
 }
 
 /**
+ * Enumerate every connected-output MIDI instrument (one entry per
+ * device×channel) along with any configured open-string tuning, for
+ * the tuner modal's "connected instrument" picker.
+ *
+ * The backend only surfaces user-saved string_instruments rows — it
+ * deliberately does NOT fabricate a default tuning from the GM program,
+ * so the user sees exactly what they configured (or is told to configure).
+ *
+ * @param {Object} app
+ * @returns {Promise<{instruments: Array<{
+ *   deviceId: string,
+ *   channel: number,
+ *   displayName: string,
+ *   gmProgram: (number|null),
+ *   instrumentType: (string|null),
+ *   looksStringed: boolean,
+ *   tuning: (number[]|null),
+ *   numStrings: (number|null),
+ *   isFretless: boolean,
+ *   source: ('db'|null)
+ * }>}>}
+ */
+async function tunerListInstruments(app) {
+  const devices = (app.deviceManager && app.deviceManager.getDeviceList)
+    ? app.deviceManager.getDeviceList()
+    : [];
+  const items = [];
+
+  for (const dev of devices) {
+    if (dev.output === false) continue;
+    const connected = dev.status === 2 || dev.connected;
+    if (!connected) continue;
+
+    // Load all channel-level instruments configured on this device.
+    let channels = [];
+    try {
+      if (app.instrumentRepository && app.instrumentRepository.findByDevice) {
+        channels = app.instrumentRepository.findByDevice(dev.id) || [];
+      }
+    } catch (_e) { channels = []; }
+
+    // No per-channel config → synthesize a single channel-0 entry so the
+    // device still shows up in the list (useful for melodic instruments
+    // that haven't had their capabilities completed yet).
+    if (channels.length === 0) {
+      channels = [{ channel: 0, gm_program: null, note_range_min: null, note_range_max: null, instrument_type: null, custom_name: null, name: null }];
+    }
+
+    for (const inst of channels) {
+      const ch = Number.isFinite(inst.channel) ? inst.channel : 0;
+      const base = inst.custom_name || inst.name || dev.displayName || dev.name || dev.id;
+      const displayName = channels.length > 1 ? `${base} — Ch ${ch + 1}` : base;
+
+      // Pull tuning from the user's saved config only.
+      let tuning = null, numStrings = null, isFretless = false, source = null;
+      try {
+        if (app.stringInstrumentRepository && app.stringInstrumentRepository.findByDeviceChannel) {
+          const row = app.stringInstrumentRepository.findByDeviceChannel(dev.id, ch);
+          if (row && Array.isArray(row.tuning) && row.tuning.length > 0) {
+            tuning = row.tuning.slice();
+            numStrings = row.num_strings || row.tuning.length;
+            isFretless = !!row.is_fretless;
+            source = 'db';
+          }
+        }
+      } catch (_e) { /* ignore, tuning stays null */ }
+
+      // Heuristic for "this is a stringed instrument" — drives the UX
+      // between "show chromatic picker (melodic)" and "ask user to
+      // configure an open-string tuning (stringed)".
+      const gm = inst.gm_program;
+      const looksStringed = inst.instrument_type === 'stringed'
+        || inst.instrument_type === 'guitar'
+        || inst.instrument_type === 'bass'
+        || inst.instrument_type === 'strings'
+        || (typeof gm === 'number' && gm >= 24 && gm <= 39);
+
+      items.push({
+        deviceId: dev.id,
+        channel: ch,
+        displayName,
+        gmProgram: gm != null ? gm : null,
+        instrumentType: inst.instrument_type || null,
+        looksStringed,
+        tuning,
+        numStrings,
+        isFretless,
+        source
+      });
+    }
+  }
+
+  return { instruments: items };
+}
+
+/**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app
  * @returns {void}
@@ -351,4 +447,5 @@ export function register(registry, app) {
   registry.register('calibrate_monitor_stop', () => calibrateMonitorStop(app));
   registry.register('tuner_monitor_start', (data) => tunerMonitorStart(app, data));
   registry.register('tuner_monitor_stop', () => tunerMonitorStop(app));
+  registry.register('tuner_list_instruments', () => tunerListInstruments(app));
 }
