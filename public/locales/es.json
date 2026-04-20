@@ -1824,6 +1824,13 @@
         "previewChannel": "Canal",
         "previewOriginal": "Original",
         "addInstrument": "Añadir instrumento",
+        "strategy": {
+            "barLabel": "Estrategias de enrutamiento",
+            "share": "Compartir",
+            "split": "División",
+            "single": "Un solo instr.",
+            "sameType": "Tipo GM"
+        },
         "settings": "Ajustes de puntuación",
         "settingsTitle": "Ajustes de enrutamiento automático",
         "settingsWeights": "Prioridades de puntuación",

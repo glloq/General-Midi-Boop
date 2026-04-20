@@ -1842,6 +1842,13 @@
         "previewChannel": "Canal",
         "previewOriginal": "Original",
         "addInstrument": "Ajouter instrument",
+        "strategy": {
+            "barLabel": "Strategies de routage",
+            "share": "Partage",
+            "split": "Decoupe",
+            "single": "Un seul instr.",
+            "sameType": "Type GM"
+        },
         "settings": "Reglages du scoring",
         "settingsTitle": "Reglages du routage automatique",
         "settingsWeights": "Priorites de scoring",

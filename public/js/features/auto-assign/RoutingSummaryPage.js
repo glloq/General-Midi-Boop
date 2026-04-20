@@ -41,7 +41,8 @@ const {
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
   renderScoreDetail, renderSummaryTable, renderAdaptationBlock,
-  renderSplitSection, renderContentShell, renderDetailContainer
+  renderSplitSection, renderContentShell, renderDetailContainer,
+  renderStrategyChips
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -155,6 +156,25 @@ class RoutingSummaryPage {
     // Ignore _preset key (UI-only, not a scoring parameter)
     const clean = (obj) => { const c = { ...obj }; delete c._preset; return c; };
     return JSON.stringify(clean(this.scoringOverrides)) !== JSON.stringify(clean(defaults));
+  }
+
+  // Effective active state of a strategy flag, honouring per-key defaults
+  // (allowInstrumentReuse, preferSingleInstrument, preferSimilarGMType default true ;
+  // autoSplitAvoidTransposition defaults false).
+  _isStrategyActive(key) {
+    const routing = this.scoringOverrides && this.scoringOverrides.routing;
+    const v = routing ? routing[key] : undefined;
+    if (v === undefined) return key !== 'autoSplitAvoidTransposition';
+    return v !== false;
+  }
+
+  // Debounced wrapper around _recalculate() — coalesces rapid chip toggles.
+  _debouncedRecalculate() {
+    if (this._recalcTimer) clearTimeout(this._recalcTimer);
+    this._recalcTimer = setTimeout(() => {
+      this._recalcTimer = null;
+      this._recalculate();
+    }, 250);
   }
 
   /**
@@ -419,7 +439,8 @@ class RoutingSummaryPage {
           summaryTableHTML: this._renderSummaryTable(channelKeys),
           detailPanelHTML: this.selectedChannel !== null
             ? this._safeRenderDetailPanel(this.selectedChannel)
-            : this._renderDetailPlaceholder()
+            : this._renderDetailPlaceholder(),
+          strategyChipsHTML: renderStrategyChips(this.scoringOverrides && this.scoringOverrides.routing)
         });
 
         this._bindGlobalEvents(channelKeys);
@@ -1091,6 +1112,21 @@ class RoutingSummaryPage {
         settingsModal.open();
       });
     }
+
+    // Inline strategy chips — toggle routing flags without opening the settings modal
+    modal.querySelectorAll('.rs-strategy-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const key = chip.dataset.strategyKey;
+        if (!key) return;
+        if (!this.scoringOverrides.routing) this.scoringOverrides.routing = {};
+        const nextValue = !this._isStrategyActive(key);
+        this.scoringOverrides.routing[key] = nextValue;
+        chip.classList.toggle('active', nextValue);
+        chip.setAttribute('aria-pressed', nextValue ? 'true' : 'false');
+        this._saveScoringOverrides();
+        this._debouncedRecalculate();
+      });
+    });
 
     // Score detail popup toggle
     const scoreEl = modal.querySelector('#rsScoreBtn');

@@ -5972,6 +5972,76 @@ body.dark-mode .rs-split-viz-handle:active {
   gap: 8px;
 }
 
+/* Inline routing-strategy chips — surfaced from ScoringSettingsModal so the
+ * user can toggle auto-routing strategies without opening the ⚙ settings. */
+.rs-strategy-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-right: 4px;
+}
+
+.rs-strategy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text-primary, #333);
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.rs-strategy-chip:hover {
+  opacity: 1;
+  border-color: var(--accent-color, #4285f4);
+}
+
+.rs-strategy-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.35);
+}
+
+.rs-strategy-chip.active {
+  opacity: 1;
+  color: #fff;
+  background: var(--accent-color, #4285f4);
+  border-color: var(--accent-color, #4285f4);
+}
+
+.rs-strategy-chip .rs-chip-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.rs-strategy-chip .rs-chip-label {
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .rs-strategy-bar {
+    flex-basis: 100%;
+    order: 99;
+    margin: 4px 0 0;
+  }
+  .rs-strategy-chip .rs-chip-label {
+    display: none;
+  }
+  .rs-strategy-chip {
+    padding: 4px 8px;
+  }
+}
+
 /* Settings panel */
 .rs-settings-panel {
   background: var(--bg-secondary, #f9f9f9);

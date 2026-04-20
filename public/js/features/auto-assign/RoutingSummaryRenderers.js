@@ -153,6 +153,88 @@
   }
 
   /**
+   * Definitions of the 4 routing-strategy chips surfaced in the header.
+   * Kept local to the renderer so the page layer just passes the routing object.
+   * Each item: key (scoringOverrides.routing path), default active value,
+   * icon, i18n label key, i18n long-description key (reused as tooltip).
+   */
+  const STRATEGY_CHIPS = [
+    {
+      key: 'allowInstrumentReuse',
+      defaultActive: true,
+      icon: '\u{1F517}', // 🔗
+      labelKey: 'routingSummary.strategy.share',
+      labelFallback: 'Share',
+      descKey: 'scoringSettings.allowInstrumentReuseDesc'
+    },
+    {
+      key: 'autoSplitAvoidTransposition',
+      defaultActive: false,
+      icon: '\u2702\uFE0F', // ✂️
+      labelKey: 'routingSummary.strategy.split',
+      labelFallback: 'Split',
+      descKey: 'scoringSettings.autoSplitAvoidTranspositionDesc'
+    },
+    {
+      key: 'preferSingleInstrument',
+      defaultActive: true,
+      icon: '\u{1F3AF}', // 🎯
+      labelKey: 'routingSummary.strategy.single',
+      labelFallback: 'Single instr.',
+      descKey: 'scoringSettings.preferSingleInstrumentDesc'
+    },
+    {
+      key: 'preferSimilarGMType',
+      defaultActive: true,
+      icon: '\u{1F3BC}', // 🎼
+      labelKey: 'routingSummary.strategy.sameType',
+      labelFallback: 'GM type',
+      descKey: 'scoringSettings.preferSimilarGMTypeDesc'
+    }
+  ];
+
+  // i18n.t returns the raw key when missing — fall back to the provided string.
+  function _tOr(key, fallback) {
+    const v = _t(key);
+    return (!v || v === key) ? fallback : v;
+  }
+
+  function isStrategyActive(routing, chip) {
+    const v = routing ? routing[chip.key] : undefined;
+    if (v === undefined) return chip.defaultActive;
+    return v !== false;
+  }
+
+  /**
+   * Render the inline strategy chips bar shown in the RoutingSummaryPage header.
+   * Each chip is a toggle button (aria-pressed) reflecting scoringOverrides.routing[key].
+   */
+  function renderStrategyChips(routing) {
+    const safeRouting = routing || {};
+    const chipsHTML = STRATEGY_CHIPS.map(chip => {
+      const active = isStrategyActive(safeRouting, chip);
+      const label = _tOr(chip.labelKey, chip.labelFallback);
+      const desc = _tOr(chip.descKey, label);
+      return `
+        <button type="button"
+                class="rs-strategy-chip${active ? ' active' : ''}"
+                data-strategy-key="${chip.key}"
+                aria-pressed="${active ? 'true' : 'false'}"
+                title="${desc}">
+          <span class="rs-chip-icon" aria-hidden="true">${chip.icon}</span>
+          <span class="rs-chip-label">${label}</span>
+        </button>
+      `;
+    }).join('');
+    const barLabel = _tOr('routingSummary.strategy.barLabel', 'Routing strategies');
+    return `
+      <div class="rs-strategy-bar" role="group" aria-label="${barLabel}">
+        ${chipsHTML}
+      </div>
+    `;
+  }
+
+  /**
    * Loading state for the Routing Summary modal (spinner + "analyzing" text).
    * Caller remains responsible for binding the close button to its handler.
    */
@@ -1471,7 +1553,8 @@
       displayScore, selectedChannel, scoreLabel,
       activeCount, totalCount,
       headerButtonsHTML, scoreDetailHTML,
-      summaryTableHTML, detailPanelHTML
+      summaryTableHTML, detailPanelHTML,
+      strategyChipsHTML
     } = opts;
     const { getScoreBgClass } = window.RoutingSummaryConstants;
 
@@ -1502,6 +1585,7 @@
               <span class="rs-channel-count">${channelsLabel}</span>
             </div>
             <div class="rs-header-right">
+              ${strategyChipsHTML || ''}
               <button class="rs-settings-btn ${isOverrideModified ? 'modified' : ''}" id="rsSettingsBtn" title="${settingsTooltip}">&#9881;</button>
               <button class="modal-close" id="rsSummaryClose">&times;</button>
             </div>
@@ -1604,6 +1688,7 @@
     renderMiniRange,
     renderDetailPlaceholder,
     renderHeaderButtons,
+    renderStrategyChips,
     renderLoadingScreen,
     renderErrorScreen,
     renderInstrumentChips,
