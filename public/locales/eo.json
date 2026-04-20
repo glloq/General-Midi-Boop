@@ -1801,6 +1801,13 @@
         "inTune": "Juste",
         "tooLow": "Trop bas",
         "tooHigh": "Trop haut",
+        "hintAuto": "Mode libre : jouez une note, la plus proche sera affichée",
+        "heardNote": "Note détectée : {note}",
+        "mode": {
+            "auto": "Libre",
+            "note": "Note ciblée",
+            "instrument": "Instrument"
+        },
         "preset": {
             "label": "Instrument",
             "chromatic": "Chromatique",

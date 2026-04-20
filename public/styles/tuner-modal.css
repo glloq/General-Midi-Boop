@@ -5,23 +5,24 @@
  *                                          > .modal-header + .modal-body + .modal-footer
  * ============================================================================ */
 
+/* ========== MODAL DIALOG ========== */
 .tuner-modal {
-    max-width: 540px !important;
-    width: 92% !important;
-    max-height: 90vh;
+    max-width: 720px !important;
+    width: 94% !important;
+    max-height: 92vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 .tuner-modal .modal-body {
-    padding: 16px 20px;
-    overflow-y: auto;
+    padding: 14px 18px;
     flex: 1;
     min-height: 0;
+    overflow-y: visible;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .tuner-modal .modal-footer {
@@ -29,59 +30,166 @@
     border-top: 1px solid #e5e7eb;
 }
 
-/* ========== CONTROLS ========== */
-.tuner-controls {
+/* ========== TOP BAR: MODE SELECTOR + A4 ========== */
+.tuner-top-bar {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
 }
 
-.tuner-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-    min-width: 140px;
+.tuner-mode-selector {
+    display: inline-flex;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f9fafb;
 }
 
-.tuner-field label {
-    font-size: 12px;
-    color: #888;
+.tuner-mode-btn {
+    padding: 6px 16px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #d1d5db;
+    font-size: 13px;
     font-weight: 500;
+    color: #4b5563;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
 }
 
-.tuner-select,
-.tuner-input {
-    padding: 6px 10px;
+.tuner-mode-btn:last-child { border-right: none; }
+
+.tuner-mode-btn:hover { background: #f3f4f6; }
+
+.tuner-mode-btn.active {
+    background: #667eea;
+    color: #fff;
+}
+
+.tuner-a4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.tuner-a4 input {
+    width: 80px;
+    padding: 4px 8px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     background: #fff;
-    font-size: 14px;
+    font-size: 13px;
     color: #111;
 }
 
-.tuner-select:focus,
-.tuner-input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+/* ========== PICKER ROW ========== */
+.tuner-picker-row {
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-/* ========== DEVICE INFO ========== */
-.tuner-device-info {
-    font-size: 12px;
-    color: #6b7280;
+.tuner-picker-hint {
+    font-size: 13px;
+    color: #9ca3af;
+    font-style: italic;
+    padding: 14px 0;
     text-align: center;
-    padding: 4px 0;
+}
+
+.tuner-instrument-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.tuner-instrument-row select {
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13px;
+    color: #111;
+}
+
+.tuner-picker {
+    display: flex;
+    gap: 4px;
+    padding: 2px 0;
+}
+
+.tuner-picker-chromatic {
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+}
+
+.tuner-picker-strings {
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+
+.tuner-pick-pill {
+    flex: 0 0 auto;
+    min-width: 38px;
+    padding: 6px 10px;
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+
+.tuner-pick-pill:hover {
+    border-color: #a5b4fc;
+    background: #f5f3ff;
+}
+
+.tuner-pick-pill.black {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #1f2937;
+}
+
+.tuner-pick-pill.black:hover {
+    background: #1f2937;
+}
+
+.tuner-pick-pill.active {
+    background: #667eea !important;
+    border-color: #4c51bf !important;
+    color: #fff !important;
+    transform: scale(1.08);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+}
+
+.tuner-picker-strings .tuner-pick-pill {
+    min-width: 52px;
+    padding: 8px 14px;
+    font-size: 15px;
 }
 
 /* ========== DISPLAY ========== */
 .tuner-display {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 20px 16px;
+    gap: 6px;
+    padding: 14px 16px;
     background: #f5f7fa;
     border-radius: 12px;
     border: 2px solid transparent;
@@ -94,11 +202,6 @@
     animation: tuner-pulse 1.2s ease-in-out infinite;
 }
 
-.tuner-display.too-low .tuner-note-large,
-.tuner-display.too-high .tuner-note-large {
-    color: #b45309;
-}
-
 @keyframes tuner-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
     50%      { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
@@ -106,20 +209,36 @@
 
 .tuner-note-large {
     font-family: 'Courier New', Consolas, monospace;
-    font-size: 88px;
+    font-size: 84px;
     font-weight: 700;
     line-height: 1;
     color: #1f2937;
     letter-spacing: 2px;
-    min-height: 88px;
+    min-height: 84px;
 }
 
-.tuner-display.in-tune .tuner-note-large {
-    color: #15803d;
+.tuner-display.in-tune .tuner-note-large { color: #15803d; }
+.tuner-display.far-off .tuner-note-large { color: #b45309; }
+
+.tuner-arrow {
+    position: absolute;
+    font-size: 32px;
+    font-weight: bold;
+    color: #f59e0b;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
 }
+
+.tuner-arrow.visible { opacity: 1; }
+
+.tuner-arrow-up   { left: 12%;  top: 50%;  transform: translateY(-50%); }
+.tuner-arrow-down { right: 12%; top: 50%;  transform: translateY(-50%); }
+
+.tuner-display.far-off .tuner-arrow { color: #dc2626; font-size: 40px; }
 
 .tuner-freq {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 500;
     color: #4b5563;
     font-variant-numeric: tabular-nums;
@@ -128,7 +247,7 @@
 /* ========== CENTS BAR ========== */
 .tuner-bar {
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
     position: relative;
     padding-top: 18px;
 }
@@ -182,9 +301,7 @@
     box-shadow: 0 0 4px rgba(0,0,0,0.4);
 }
 
-.tuner-display.in-tune .tuner-bar-needle {
-    background: #15803d;
-}
+.tuner-display.in-tune .tuner-bar-needle { background: #15803d; }
 
 .tuner-status {
     font-size: 14px;
@@ -192,54 +309,22 @@
     color: #4b5563;
     min-height: 18px;
     font-variant-numeric: tabular-nums;
+    text-align: center;
 }
 
-.tuner-display.in-tune .tuner-status {
-    color: #15803d;
-}
-
+.tuner-display.in-tune .tuner-status { color: #15803d; }
 .tuner-display.too-low .tuner-status,
-.tuner-display.too-high .tuner-status {
-    color: #b45309;
+.tuner-display.too-high .tuner-status { color: #b45309; }
+.tuner-display.far-off .tuner-status  { color: #dc2626; }
+
+/* ========== DEVICE INFO / ERROR ========== */
+.tuner-device-info {
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: center;
+    padding: 0;
 }
 
-/* ========== TARGETS (preset strings) ========== */
-.tuner-targets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-}
-
-.tuner-targets:empty {
-    display: none;
-}
-
-.tuner-target {
-    min-width: 44px;
-    height: 40px;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f3f4f6;
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    font-family: 'Courier New', Consolas, monospace;
-    font-weight: 700;
-    font-size: 16px;
-    color: #6b7280;
-    transition: all 0.15s;
-}
-
-.tuner-target.active {
-    background: #dbeafe;
-    border-color: #667eea;
-    color: #1e40af;
-    transform: scale(1.1);
-}
-
-/* ========== ERROR ========== */
 .tuner-error {
     padding: 10px 14px;
     background: #fef2f2;
@@ -249,16 +334,10 @@
     font-size: 13px;
 }
 
-/* ========== TOGGLE BUTTON ========== */
-.tuner-toggle-btn.listening {
-    background: #ef4444;
-}
+/* ========== TOGGLE + CALIBRATION BUTTON ========== */
+.tuner-toggle-btn.listening { background: #ef4444; }
+.tuner-toggle-btn.listening:hover { background: #dc2626; }
 
-.tuner-toggle-btn.listening:hover {
-    background: #dc2626;
-}
-
-/* ========== CALIBRATION MODAL BUTTON ========== */
 .calibration-tuner-btn {
     padding: 4px 10px;
     margin-left: 8px;
@@ -270,67 +349,40 @@
     transition: background 0.15s;
 }
 
-.calibration-tuner-btn:hover {
-    background: #e5e7eb;
-}
+.calibration-tuner-btn:hover { background: #e5e7eb; }
 
 /* ========== DARK THEME ========== */
-body.theme-dark .tuner-modal .modal-footer {
-    border-top-color: #374151;
+body.theme-dark .tuner-modal .modal-footer { border-top-color: #374151; }
+
+body.theme-dark .tuner-mode-selector { background: #1f2937; border-color: #374151; }
+body.theme-dark .tuner-mode-btn { color: #d1d5db; border-right-color: #374151; }
+body.theme-dark .tuner-mode-btn:hover { background: #111827; }
+body.theme-dark .tuner-mode-btn.active { background: #667eea; color: #fff; }
+
+body.theme-dark .tuner-a4 { color: #9ca3af; }
+body.theme-dark .tuner-a4 input { background: #1f2937; border-color: #374151; color: #f3f4f6; }
+
+body.theme-dark .tuner-instrument-row { color: #d1d5db; }
+body.theme-dark .tuner-instrument-row select { background: #1f2937; border-color: #374151; color: #f3f4f6; }
+
+body.theme-dark .tuner-pick-pill { background: #1f2937; border-color: #374151; color: #e5e7eb; }
+body.theme-dark .tuner-pick-pill:hover { background: #111827; border-color: #6366f1; }
+body.theme-dark .tuner-pick-pill.black { background: #0b1220; color: #9ca3af; }
+body.theme-dark .tuner-pick-pill.active {
+    background: #667eea !important;
+    border-color: #818cf8 !important;
+    color: #fff !important;
 }
 
-body.theme-dark .tuner-display {
-    background: #1f2937;
-}
-
-body.theme-dark .tuner-display.in-tune {
-    background: #14532d;
-}
-
-body.theme-dark .tuner-note-large {
-    color: #f3f4f6;
-}
-
+body.theme-dark .tuner-display { background: #1f2937; }
+body.theme-dark .tuner-display.in-tune { background: #14532d; }
+body.theme-dark .tuner-note-large { color: #f3f4f6; }
 body.theme-dark .tuner-freq,
-body.theme-dark .tuner-status {
-    color: #d1d5db;
-}
+body.theme-dark .tuner-status { color: #d1d5db; }
 
-body.theme-dark .tuner-select,
-body.theme-dark .tuner-input {
-    background: #1f2937;
-    border-color: #374151;
-    color: #f3f4f6;
-}
+body.theme-dark .tuner-device-info { color: #6b7280; }
 
-body.theme-dark .tuner-target {
-    background: #1f2937;
-    border-color: #374151;
-    color: #9ca3af;
-}
+body.theme-dark .calibration-tuner-btn { background: #1f2937; border-color: #374151; color: #e5e7eb; }
+body.theme-dark .calibration-tuner-btn:hover { background: #374151; }
 
-body.theme-dark .tuner-target.active {
-    background: #1e3a8a;
-    border-color: #667eea;
-    color: #dbeafe;
-}
-
-body.theme-dark .calibration-tuner-btn {
-    background: #1f2937;
-    border-color: #374151;
-    color: #e5e7eb;
-}
-
-body.theme-dark .calibration-tuner-btn:hover {
-    background: #374151;
-}
-
-body.theme-dark .tuner-device-info {
-    color: #9ca3af;
-}
-
-body.theme-dark .tuner-error {
-    background: #7f1d1d;
-    border-color: #991b1b;
-    color: #fecaca;
-}
+body.theme-dark .tuner-error { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
