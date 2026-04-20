@@ -1857,7 +1857,11 @@
         "mean": "Moyenne",
         "chart": "Graphique des mesures",
         "applied": "Calibration appliquée pour {count} instrument(s)",
-        "refresh": "Actualiser"
+        "refresh": "Actualiser",
+        "measure": "Mesurer",
+        "tests": "Tests",
+        "testDelayCategory": "Mesure de délai",
+        "testDelayCategoryHint": "Mesure le temps entre l'envoi d'une note MIDI et la détection du son par le micro."
     },
     "routingSummary": {
         "title": "Routage automatique",

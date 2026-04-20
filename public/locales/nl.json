@@ -1857,7 +1857,11 @@
         "applied": "Calibration applied for {count} instrument(s)",
         "refresh": "Refresh",
         "startListening": "Start listening",
-        "stopListening": "Stop listening"
+        "stopListening": "Stop listening",
+        "measure": "Meten",
+        "tests": "Tests",
+        "testDelayCategory": "Vertragingsmeting",
+        "testDelayCategoryHint": "Meet de tijd tussen het verzenden van een MIDI-noot en de detectie van het geluid door de microfoon."
     },
     "routingSummary": {
         "title": "Automatische routing",

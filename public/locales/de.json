@@ -1857,7 +1857,11 @@
         "applied": "Kalibrierung angewendet für {count} Instrument(e)",
         "refresh": "Aktualisieren",
         "startListening": "Start listening",
-        "stopListening": "Stop listening"
+        "stopListening": "Stop listening",
+        "measure": "Messen",
+        "tests": "Tests",
+        "testDelayCategory": "Verzögerungsmessung",
+        "testDelayCategoryHint": "Misst die Zeit zwischen dem Senden einer MIDI-Note und der Erkennung des Klangs durch das Mikrofon."
     },
     "routingSummary": {
         "title": "Automatisches Routing",
