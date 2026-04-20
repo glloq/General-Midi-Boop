@@ -362,6 +362,10 @@ class TablatureEditor {
 
             if (response && response.tablature) {
                 this.tabEvents = response.tablature;
+                const dropped = response.stats && typeof response.stats.dropped === 'number'
+                    ? response.stats.dropped
+                    : Math.max(0, midiNotes.length - this.tabEvents.length);
+                this._notifyDroppedNotes(dropped);
                 if (this.renderer) {
                     this.renderer.setTabEvents(this.tabEvents);
                 }
@@ -370,6 +374,7 @@ class TablatureEditor {
             this.logger.error('Failed to convert MIDI to tablature:', error);
             // Fallback: try client-side simple conversion
             this.tabEvents = this._simpleMidiToTab(midiNotes);
+            this._notifyDroppedNotes(Math.max(0, midiNotes.length - this.tabEvents.length));
             if (this.renderer) {
                 this.renderer.setTabEvents(this.tabEvents);
             }
@@ -404,6 +409,7 @@ class TablatureEditor {
             }
 
             // Find first available string that can play this note
+            let placed = false;
             for (let s = 0; s < tuning.length; s++) {
                 const stringNum = s + 1;
                 if (occupiedStrings.has(stringNum)) continue;
@@ -418,12 +424,59 @@ class TablatureEditor {
                         midiNote: note.n,
                         channel: note.c
                     });
+                    placed = true;
                     break;
                 }
+            }
+
+            if (placed) continue;
+
+            // Clamp fallback: pick the free string whose raw fret is closest to
+            // the playable range, clamp the fret, and mark unplayable so the
+            // renderer displays it in the warning colour. Avoids silent drops.
+            let bestString = -1;
+            let bestFret = 0;
+            let bestDist = Infinity;
+            const maxAllowed = this.stringInstrument.is_fretless ? 48 : numFrets;
+            for (let s = 0; s < tuning.length; s++) {
+                const stringNum = s + 1;
+                if (occupiedStrings.has(stringNum)) continue;
+                const raw = note.n - (tuning[s] + capo);
+                const dist = raw < 0 ? -raw : Math.max(0, raw - maxAllowed);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestString = stringNum;
+                    bestFret = Math.max(0, Math.min(raw, maxAllowed));
+                }
+            }
+            if (bestString !== -1) {
+                events.push({
+                    tick: note.t,
+                    string: bestString,
+                    fret: bestFret,
+                    velocity: note.v,
+                    duration: note.g,
+                    midiNote: note.n,
+                    channel: note.c,
+                    unplayable: true
+                });
             }
         }
 
         return events;
+    }
+
+    /**
+     * Emit a user notification when conversion dropped notes.
+     * @private
+     */
+    _notifyDroppedNotes(dropped) {
+        if (!dropped || dropped <= 0) return;
+        if (!this.modal || typeof this.modal.showNotification !== 'function') return;
+        this.modal.showNotification(
+            `${dropped} note(s) ignorée(s) : conflits de cordes insolubles sur cet instrument.`,
+            'warn'
+        );
     }
 
     // ========================================================================

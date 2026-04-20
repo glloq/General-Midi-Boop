@@ -323,7 +323,11 @@ async function tablatureConvertFromMidi(app, data) {
   const tabEvents = converter.convertMidiToTablature(data.notes);
   const range = converter.getPlayableRange();
 
-  return { tablature: tabEvents, playable_range: range };
+  return {
+    tablature: tabEvents,
+    playable_range: range,
+    stats: converter.lastConversionStats
+  };
 }
 
 /**

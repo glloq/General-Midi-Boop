@@ -109,21 +109,32 @@ class TablatureConverter {
    *   Each event: { tick, string (1-based), fret (0-based or float for fretless), velocity, duration, midiNote, channel }
    */
   convertMidiToTablature(notes, algorithmOverride) {
+    this._droppedCount = 0;
+    this.lastConversionStats = { dropped: 0, total: notes ? notes.length : 0 };
     if (!notes || notes.length === 0) return [];
 
     const algo = algorithmOverride || this.algorithm;
 
+    let result;
     switch (algo) {
       case 'lowest_fret':
-        return this._convertLowestFret(notes);
+        result = this._convertLowestFret(notes);
+        break;
       case 'highest_fret':
-        return this._convertHighestFret(notes);
+        result = this._convertHighestFret(notes);
+        break;
       case 'zone':
-        return this._convertZone(notes);
+        result = this._convertZone(notes);
+        break;
       case 'min_movement':
       default:
-        return this._convertMinMovement(notes);
+        result = this._convertMinMovement(notes);
+        break;
     }
+
+    this.lastConversionStats.dropped = this._droppedCount;
+    this.lastConversionStats.emitted = result.length;
+    return result;
   }
 
   // ==========================================================================
@@ -191,14 +202,19 @@ class TablatureConverter {
           });
         }
 
-        // Handle case where no valid assignment exists for first group
+        // Handle case where no valid assignment exists for first group:
+        // fall back to clamped positions (marked unplayable) so no note is dropped.
         if (currStates.length === 0) {
+          const fallback = this._buildClampedAssignment(chordNotes, new Set());
           currStates.push({
-            assignment: [],
+            assignment: fallback,
             handPosition: defaultHandPos,
-            totalCost: 0,
+            // Penalise fallback heavily so a valid path is always preferred later.
+            totalCost: 100,
             backPointer: null,
-            recentEvents: []
+            recentEvents: fallback.map(a => ({
+              tick, string: a.string, duration: a.note.g
+            }))
           });
         }
       } else {
@@ -214,16 +230,24 @@ class TablatureConverter {
           const assignments = this._enumerateStatesForGroup(chordNotes, occupiedStrings, MAX_CHORD_STATES);
 
           if (assignments.length === 0) {
-            // No valid assignment — propagate previous state with skip
-            const key = 'skip';
-            const totalCost = prevState.totalCost;
+            // No valid assignment — fall back to clamped positions (unplayable)
+            // so notes are still rendered (in red) instead of dropped silently.
+            const fallback = this._buildClampedAssignment(chordNotes, occupiedStrings);
+            const key = fallback.length
+              ? 'fallback:' + fallback.map(a => `${a.string}:${a.fret}`).sort().join(',')
+              : 'skip';
+            const totalCost = prevState.totalCost + 100; // Heavy penalty
             if (!stateMap.has(key) || totalCost < stateMap.get(key).totalCost) {
+              const newRecent = this._pruneRecentEvents(prevState.recentEvents, tick);
+              for (const a of fallback) {
+                newRecent.push({ tick, string: a.string, duration: a.note.g });
+              }
               stateMap.set(key, {
-                assignment: [],
+                assignment: fallback,
                 handPosition: prevState.handPosition,
                 totalCost,
                 backPointer: prevState,
-                recentEvents: this._pruneRecentEvents(prevState.recentEvents, tick)
+                recentEvents: newRecent
               });
             }
             continue;
@@ -260,15 +284,21 @@ class TablatureConverter {
           currStates.push(state);
         }
 
-        // Handle edge case: no states at all
+        // Handle edge case: no states at all (prev was already degenerate)
         if (currStates.length === 0) {
           const bestPrev = prevStates[0]; // Already sorted by cost
+          const occupiedStrings = this._getOccupiedStringsFromRecent(bestPrev.recentEvents, tick);
+          const fallback = this._buildClampedAssignment(chordNotes, occupiedStrings);
+          const newRecent = this._pruneRecentEvents(bestPrev.recentEvents, tick);
+          for (const a of fallback) {
+            newRecent.push({ tick, string: a.string, duration: a.note.g });
+          }
           currStates.push({
-            assignment: [],
+            assignment: fallback,
             handPosition: bestPrev.handPosition,
-            totalCost: bestPrev.totalCost,
+            totalCost: bestPrev.totalCost + 100,
             backPointer: bestPrev,
-            recentEvents: this._pruneRecentEvents(bestPrev.recentEvents, tick)
+            recentEvents: newRecent
           });
         }
       }
@@ -300,10 +330,18 @@ class TablatureConverter {
     }
 
     // --- Phase 3: Build output ---
+    // For notes the Viterbi search chose to skip we classify them: notes that
+    // have no valid fret anywhere (out of range) are clamped and emitted in
+    // red; notes skipped for string-occupancy / fret-span conflicts are
+    // counted as dropped (user preference: keep optimal fit, surface stat).
     const tabEvents = [];
     for (let i = 0; i < path.length; i++) {
       const tick = chordGroups[i].tick;
-      for (const entry of path[i]) {
+      const emitted = path[i];
+      const emittedNotes = new Set(emitted.map(e => e.note));
+      const occupiedAtTick = new Set(emitted.map(e => e.string));
+
+      for (const entry of emitted) {
         tabEvents.push({
           tick,
           string: entry.string,
@@ -311,12 +349,67 @@ class TablatureConverter {
           velocity: entry.note.v,
           duration: entry.note.g,
           midiNote: entry.note.n,
-          channel: entry.note.c
+          channel: entry.note.c,
+          ...(entry.unplayable ? { unplayable: true } : {})
         });
+      }
+
+      for (const note of chordGroups[i].notes) {
+        if (emittedNotes.has(note)) continue;
+        const hasValidPosition = this._getPossiblePositions(note.n).length > 0;
+        if (!hasValidPosition) {
+          const clamp = this._getClampedPosition(note.n, occupiedAtTick);
+          if (clamp) {
+            occupiedAtTick.add(clamp.string);
+            tabEvents.push({
+              tick,
+              string: clamp.string,
+              fret: clamp.fret,
+              velocity: note.v,
+              duration: note.g,
+              midiNote: note.n,
+              channel: note.c,
+              unplayable: true
+            });
+            continue;
+          }
+        }
+        this._droppedCount++;
       }
     }
 
     return tabEvents;
+  }
+
+  /**
+   * Build a clamped fallback assignment for a chord group. Used when the
+   * Viterbi lattice cannot produce any valid assignment. Each note is
+   * placed on the closest-fitting free string with the fret clamped to
+   * [0, maxFret], and flagged as unplayable. If every string is occupied,
+   * the note is skipped (caller will count it as dropped via emitted.length).
+   * @private
+   */
+  _buildClampedAssignment(chordNotes, occupiedStrings) {
+    const used = new Set(occupiedStrings);
+    const fallback = [];
+    // Lowest-pitch first keeps assignments deterministic and close to how
+    // a player voices a low→high arpeggio.
+    const sorted = chordNotes
+      .map((note, idx) => ({ note, idx }))
+      .sort((a, b) => a.note.n - b.note.n);
+    for (const { note, idx } of sorted) {
+      const clamp = this._getClampedPosition(note.n, used);
+      if (!clamp) continue;
+      used.add(clamp.string);
+      fallback.push({
+        noteIndex: idx,
+        string: clamp.string,
+        fret: clamp.fret,
+        note,
+        unplayable: true
+      });
+    }
+    return fallback;
   }
 
   /**
@@ -392,7 +485,17 @@ class TablatureConverter {
         const note = chordNotes[0];
         const positions = this._getPossiblePositions(note.n)
           .filter(pos => !occupiedStrings.has(pos.string));
-        if (positions.length === 0) continue;
+
+        if (positions.length === 0) {
+          const clamp = this._getClampedPosition(note.n, occupiedStrings);
+          if (!clamp) { this._droppedCount++; continue; }
+          tabEvents.push({
+            tick, string: clamp.string, fret: clamp.fret,
+            velocity: note.v, duration: note.g,
+            midiNote: note.n, channel: note.c, unplayable: true
+          });
+          continue;
+        }
 
         const best = singlePicker(positions);
         tabEvents.push({
@@ -405,7 +508,8 @@ class TablatureConverter {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
             velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel
+            midiNote: entry.midiNote, channel: entry.channel,
+            ...(entry.unplayable ? { unplayable: true } : {})
           });
         }
       }
@@ -440,7 +544,17 @@ class TablatureConverter {
         const note = chordNotes[0];
         const positions = this._getPossiblePositions(note.n)
           .filter(pos => !occupiedStrings.has(pos.string));
-        if (positions.length === 0) continue;
+
+        if (positions.length === 0) {
+          const clamp = this._getClampedPosition(note.n, occupiedStrings);
+          if (!clamp) { this._droppedCount++; continue; }
+          tabEvents.push({
+            tick, string: clamp.string, fret: clamp.fret,
+            velocity: note.v, duration: note.g,
+            midiNote: note.n, channel: note.c, unplayable: true
+          });
+          continue;
+        }
 
         // Pick position closest to that string's zone center
         const best = this._pickBestInZone(positions, stringZones, ZONE_SIZE);
@@ -455,7 +569,8 @@ class TablatureConverter {
           tabEvents.push({
             tick, string: entry.string, fret: entry.fret,
             velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel
+            midiNote: entry.midiNote, channel: entry.channel,
+            ...(entry.unplayable ? { unplayable: true } : {})
           });
         }
       }
@@ -554,7 +669,10 @@ class TablatureConverter {
       const positions = this._getPossiblePositions(note.n)
         .filter(pos => !usedStrings[pos.string]);
 
-      if (positions.length === 0) continue;
+      if (positions.length === 0) {
+        this._droppedCount++;
+        continue;
+      }
 
       // Score by zone proximity
       const scored = positions.map(pos => {
@@ -604,7 +722,10 @@ class TablatureConverter {
       const positions = this._getPossiblePositions(note.n)
         .filter(pos => !usedStrings[pos.string]);
 
-      if (positions.length === 0) continue;
+      if (positions.length === 0) {
+        this._droppedCount++;
+        continue;
+      }
 
       const best = picker(positions);
       usedStrings[best.string] = true;
@@ -766,6 +887,36 @@ class TablatureConverter {
     }
 
     return positions;
+  }
+
+  /**
+   * Fallback position for a MIDI note that has no valid fret on any string.
+   * Picks the string whose open-note distance puts the note closest to the
+   * playable fret range, clamps the fret to [0, maxAllowed], and flags the
+   * result as unplayable so the renderer draws it in the warning colour.
+   * @private
+   * @param {number} midiNote
+   * @param {Set<number>} [occupiedStrings] 1-based string numbers to skip
+   * @returns {{string: number, fret: number, unplayable: true} | null}
+   */
+  _getClampedPosition(midiNote, occupiedStrings) {
+    let bestString = -1;
+    let bestFret = 0;
+    let bestDistance = Infinity;
+    for (let i = 0; i < this.numStrings; i++) {
+      if (occupiedStrings && occupiedStrings.has(i + 1)) continue;
+      const rawFret = midiNote - this.effectiveTuning[i];
+      const maxFret = this.fretsPerString?.[i] ?? this.numFrets;
+      const maxAllowed = this.isFretless ? 48 : maxFret;
+      const distance = rawFret < 0 ? -rawFret : Math.max(0, rawFret - maxAllowed);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestString = i + 1;
+        bestFret = Math.max(0, Math.min(rawFret, maxAllowed));
+      }
+    }
+    if (bestString === -1) return null;
+    return { string: bestString, fret: bestFret, unplayable: true };
   }
 
   /**
