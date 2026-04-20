@@ -117,6 +117,9 @@ class CalibrationModal extends BaseModal {
                 <div class="calibration-vu-meter" id="calibVuMeter">
                     <div class="calibration-vu-meter-label">
                         <span>🎤 ${this.t('calibration.vuMeter')}</span>
+                        <button type="button" id="calibListenToggle" class="calibration-listen-btn">
+                            ▶ ${this.t('calibration.startListening')}
+                        </button>
                         <span class="calibration-vu-meter-rms" id="calibRmsValue">0.000</span>
                     </div>
                     <div class="calibration-vu-meter-bar">
@@ -184,8 +187,10 @@ class CalibrationModal extends BaseModal {
     onOpen() {
         this._attachEventHandlers();
         this._loadInstruments();
+        // _loadAlsaDevices() triggers _startMonitoring() once the real device
+        // list has populated the <select>, so arecord is spawned with the
+        // actual selected device instead of the hardcoded hw:1,0 default.
         this._loadAlsaDevices();
-        this._startMonitoring();
         this._updateThresholdIndicator();
     }
 
@@ -208,6 +213,7 @@ class CalibrationModal extends BaseModal {
         this._loadInstruments();
         this._loadAlsaDevices();
         this._updateThresholdIndicator();
+        this._updateListenButton();
     }
 
     // ========================================================================
@@ -236,6 +242,23 @@ class CalibrationModal extends BaseModal {
         // Refresh ALSA
         const refreshBtn = this.$('#calibRefreshAlsa');
         if (refreshBtn) refreshBtn.addEventListener('click', () => this._loadAlsaDevices());
+
+        // ALSA device change: restart monitoring on the new device
+        const alsaSelect = this.$('#calibAlsaDevice');
+        if (alsaSelect) {
+            alsaSelect.addEventListener('change', async () => {
+                if (this.state.isMonitoring) {
+                    await this._stopMonitoring();
+                    await this._startMonitoring();
+                }
+            });
+        }
+
+        // Listen toggle button
+        const listenBtn = this.$('#calibListenToggle');
+        if (listenBtn) {
+            listenBtn.addEventListener('click', () => this._toggleListening());
+        }
 
         // Threshold slider
         const slider = this.$('#calibThreshold');
@@ -444,6 +467,10 @@ class CalibrationModal extends BaseModal {
         } catch (error) {
             this.logger.error('CalibrationModal', 'Failed to load ALSA devices:', error);
         }
+
+        if (this.isOpen && !this.state.isMonitoring && !this.state.isRunning) {
+            this._startMonitoring();
+        }
     }
 
     // ========================================================================
@@ -489,9 +516,30 @@ class CalibrationModal extends BaseModal {
     // VU-METER MONITORING
     // ========================================================================
 
+    async _toggleListening() {
+        if (this.state.isMonitoring) {
+            await this._stopMonitoring();
+        } else {
+            await this._startMonitoring();
+        }
+    }
+
+    _updateListenButton() {
+        const btn = this.$('#calibListenToggle');
+        if (!btn) return;
+        if (this.state.isMonitoring) {
+            btn.textContent = `⏸ ${this.t('calibration.stopListening')}`;
+            btn.classList.add('listening');
+        } else {
+            btn.textContent = `▶ ${this.t('calibration.startListening')}`;
+            btn.classList.remove('listening');
+        }
+    }
+
     async _startMonitoring() {
         if (this.state.isMonitoring) return;
         this.state.isMonitoring = true;
+        this._updateListenButton();
 
         try {
             await this._getApi().sendCommand('calibrate_monitor_start', {
@@ -507,11 +555,19 @@ class CalibrationModal extends BaseModal {
 
     async _stopMonitoring() {
         this.state.isMonitoring = false;
+        this._updateListenButton();
 
         if (this._vuMeterRAF) {
             cancelAnimationFrame(this._vuMeterRAF);
             this._vuMeterRAF = null;
         }
+
+        // Reset VU-meter bar and threshold indicator to idle state
+        const fill = this.$('#calibVuFill');
+        if (fill) fill.style.width = '0%';
+        const thresholdEl = this.$('#calibVuThreshold');
+        if (thresholdEl) thresholdEl.classList.remove('crossed');
+        this._currentRMS = 0;
 
         try {
             await this._getApi().sendCommand('calibrate_monitor_stop', {});
@@ -525,6 +581,7 @@ class CalibrationModal extends BaseModal {
 
         const fill = this.$('#calibVuFill');
         const rmsDisplay = this.$('#calibRmsValue');
+        const thresholdEl = this.$('#calibVuThreshold');
 
         if (fill) {
             // Scale RMS relative to a max of 0.15 for visual range
@@ -534,6 +591,10 @@ class CalibrationModal extends BaseModal {
 
         if (rmsDisplay) {
             rmsDisplay.textContent = this._currentRMS.toFixed(3);
+        }
+
+        if (thresholdEl) {
+            thresholdEl.classList.toggle('crossed', this._currentRMS > this._getThreshold());
         }
 
         this._vuMeterRAF = requestAnimationFrame(() => this._animateVuMeter());

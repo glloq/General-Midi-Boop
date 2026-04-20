@@ -1796,6 +1796,8 @@
         "progress": "Progress",
         "results": "Results",
         "vuMeter": "Microphone level",
+        "startListening": "Start listening",
+        "stopListening": "Stop listening",
         "previewNote": "Test",
         "previewSending": "Sending...",
         "statusWaiting": "Waiting",

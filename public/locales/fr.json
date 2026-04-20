@@ -1796,6 +1796,8 @@
         "progress": "Progression",
         "results": "Résultats",
         "vuMeter": "Niveau du microphone",
+        "startListening": "Activer l'écoute",
+        "stopListening": "Arrêter l'écoute",
         "previewNote": "Test",
         "previewSending": "Envoi...",
         "statusWaiting": "En attente",
