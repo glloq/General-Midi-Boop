@@ -113,28 +113,55 @@ class TablatureConverter {
     this.lastConversionStats = { dropped: 0, total: notes ? notes.length : 0 };
     if (!notes || notes.length === 0) return [];
 
+    // A string instrument can only sound one pitch per (tick, channel).
+    // MIDI files frequently layer the same pitch across multiple tracks on
+    // the same channel — without dedup those extras would be placed on
+    // additional strings, inflating the chord beyond what the composer wrote.
+    const deduped = this._dedupeSimultaneousPitches(notes);
+
     const algo = algorithmOverride || this.algorithm;
 
     let result;
     switch (algo) {
       case 'lowest_fret':
-        result = this._convertLowestFret(notes);
+        result = this._convertLowestFret(deduped);
         break;
       case 'highest_fret':
-        result = this._convertHighestFret(notes);
+        result = this._convertHighestFret(deduped);
         break;
       case 'zone':
-        result = this._convertZone(notes);
+        result = this._convertZone(deduped);
         break;
       case 'min_movement':
       default:
-        result = this._convertMinMovement(notes);
+        result = this._convertMinMovement(deduped);
         break;
     }
 
     this.lastConversionStats.dropped = this._droppedCount;
     this.lastConversionStats.emitted = result.length;
     return result;
+  }
+
+  /**
+   * Remove notes that share (tick, pitch, channel) with an earlier note.
+   * Keeps the longest gate and highest velocity so that the surviving note
+   * represents the envelope of the overlapping layer.
+   * @private
+   */
+  _dedupeSimultaneousPitches(notes) {
+    const seen = new Map();
+    for (const note of notes) {
+      const key = `${note.t}|${note.n}|${note.c ?? 0}`;
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, { ...note });
+        continue;
+      }
+      if ((note.g || 0) > (existing.g || 0)) existing.g = note.g;
+      if ((note.v || 0) > (existing.v || 0)) existing.v = note.v;
+    }
+    return Array.from(seen.values());
   }
 
   // ==========================================================================

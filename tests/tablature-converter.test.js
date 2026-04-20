@@ -95,6 +95,39 @@ describe('TablatureConverter — mixed sequences preserve count', () => {
   });
 });
 
+describe('TablatureConverter — dedupes simultaneous duplicate pitches', () => {
+  test('doubled 4-note chord (8 events) collapses to 4 tab events', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    // MIDI files often layer the same notes across multiple tracks on the
+    // same channel; without dedup the converter would spread the doubles
+    // onto extra strings and invent notes the composer never wrote.
+    const chord = [52, 55, 59, 64];
+    const doubled = [...chord, ...chord].map(n => note(0, n));
+    const out = conv.convertMidiToTablature(doubled);
+    expect(out).toHaveLength(4);
+    const uniquePitches = new Set(out.map(e => e.midiNote));
+    expect(uniquePitches.size).toBe(4);
+  });
+
+  test('duplicate pitch on different channels is kept separate', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    const out = conv.convertMidiToTablature([
+      note(0, 64, 240, 80, 0),
+      note(0, 64, 240, 80, 1)
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  test('duplicate pitch at different ticks is kept separate', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    const out = conv.convertMidiToTablature([
+      note(0, 64),
+      note(240, 64)
+    ]);
+    expect(out).toHaveLength(2);
+  });
+});
+
 describe('TablatureConverter — _getClampedPosition', () => {
   test('picks lowest string for sub-range note', () => {
     const conv = new TablatureConverter(guitarConfig);
