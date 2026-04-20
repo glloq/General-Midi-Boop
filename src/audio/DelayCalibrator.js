@@ -729,15 +729,32 @@ class DelayCalibrator {
     this._buildFilterCoeffs(sr);
     this._resetFilterState();
 
-    this.tunerProcess = spawn('arecord', [
+    this._emittedCount = 0;
+    this._startedAt = Date.now();
+    this._usePlugFallback = device.startsWith('hw:');  // remember for fallback
+    this._spawnArecord(captureDevice, sr, windowSize, hopSize);
+  }
+
+  /**
+   * Spawn the arecord capture and wire its stdout to the pitch analyzer.
+   * Extracted so we can retry with a different device string if the first
+   * attempt fails (e.g. plughw: not available on a particular setup).
+   */
+  _spawnArecord(captureDevice, sr, windowSize, hopSize) {
+    const args = [
       '-D', captureDevice,
       '-f', this.config.format,
       '-r', sr.toString(),
       '-c', this.config.channels.toString(),
       '-t', 'raw'
-    ]);
+    ];
+    this.logger.info(`Tuner arecord spawn: arecord ${args.join(' ')}`);
+    this.tunerProcess = spawn('arecord', args);
+    let stderrBuf = '';
+    let firstChunkSeen = false;
 
     this.tunerProcess.stdout.on('data', (chunk) => {
+      firstChunkSeen = true;
       const samples = this.decodeS16LE(chunk);
       // Apply HPF→LPF cascade to the full chunk; state advances once per
       // sample in capture order so IIR transients do not ring per-window.
@@ -762,24 +779,39 @@ class DelayCalibrator {
               this.logger.warn(`Tuner callback threw: ${e.message}`);
             }
           }
+          this._emittedCount++;
+          if (this._emittedCount <= 3 || this._emittedCount % 40 === 0) {
+            this.logger.info(`Tuner pitch #${this._emittedCount}: freq=${result.freq.toFixed(2)} Hz, conf=${result.confidence.toFixed(3)}, rms=${result.rms.toFixed(4)}`);
+          }
         }
       }
     });
 
     this.tunerProcess.stderr.on('data', (data) => {
       const msg = data.toString();
-      if (msg.includes('Error') || msg.includes('error')) {
-        this.logger.warn(`Tuner arecord stderr: ${msg}`);
-      }
+      stderrBuf += msg;
+      this.logger.info(`Tuner arecord stderr: ${msg.trim()}`);
     });
 
     this.tunerProcess.on('error', (error) => {
-      this.logger.error(`Tuner arecord error: ${error.message}`);
+      this.logger.error(`Tuner arecord spawn error: ${error.message}`);
       this.tunerProcess = null;
     });
 
-    this.tunerProcess.on('close', () => {
+    this.tunerProcess.on('close', (code) => {
+      const elapsed = Date.now() - this._startedAt;
       this.tunerProcess = null;
+      // If the process dies within 500 ms without ever producing a chunk,
+      // the device probably didn't accept the requested rate/format.
+      // Retry once with `hw:` if we originally used `plughw:`.
+      if (!firstChunkSeen && elapsed < 500 && this._usePlugFallback && captureDevice.startsWith('plug')) {
+        const fallback = captureDevice.slice(4); // strip "plug"
+        this.logger.warn(`Tuner ${captureDevice} closed after ${elapsed}ms with code ${code}; retrying with ${fallback}. stderr: ${stderrBuf.trim()}`);
+        this._usePlugFallback = false;
+        this._spawnArecord(fallback, sr, windowSize, hopSize);
+      } else if (!firstChunkSeen) {
+        this.logger.error(`Tuner arecord ${captureDevice} exited after ${elapsed}ms with code ${code} without producing audio. stderr: ${stderrBuf.trim()}`);
+      }
     });
 
     this.logger.info(`Tuner monitoring started on ${captureDevice} (window=${windowSize}, hop=${hopSize})`);

@@ -312,9 +312,12 @@
             const freq = payload && typeof payload.freq === 'number' ? payload.freq : 0;
             const confidence = payload && typeof payload.confidence === 'number' ? payload.confidence : 0;
 
-            // MPM clarity on a clean sustained note is typically > 0.9;
-            // below 0.85 is usually transient or noise.
-            if (freq <= 0 || confidence < 0.85) return;
+            // MPM clarity on real strings through a cheap USB mic is
+            // noticeably below what synthetic tests produce — noise, room
+            // tone and mic self-noise all widen the NSDF peak. Keep the
+            // gate permissive; the median + octave-correction downstream
+            // rejects the low-clarity outliers.
+            if (freq <= 0 || confidence < 0.5) return;
 
             let corrected = freq;
             const ring = this._freqRing;
