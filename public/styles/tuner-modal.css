@@ -67,6 +67,14 @@
     box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
+/* ========== DEVICE INFO ========== */
+.tuner-device-info {
+    font-size: 12px;
+    color: #6b7280;
+    text-align: center;
+    padding: 4px 0;
+}
+
 /* ========== DISPLAY ========== */
 .tuner-display {
     display: flex;
@@ -315,6 +323,10 @@ body.theme-dark .calibration-tuner-btn {
 
 body.theme-dark .calibration-tuner-btn:hover {
     background: #374151;
+}
+
+body.theme-dark .tuner-device-info {
+    color: #9ca3af;
 }
 
 body.theme-dark .tuner-error {

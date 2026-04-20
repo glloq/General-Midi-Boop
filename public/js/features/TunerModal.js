@@ -1,14 +1,15 @@
 // ============================================================================
 // File: js/features/TunerModal.js
-// Version: v1.0.0
+// Version: v1.1.0
 // Description:
-//   Modal providing a chromatic instrument tuner using the browser Web Audio
-//   API (getUserMedia + AnalyserNode + autocorrelation). Displays the detected
-//   note, its frequency and the deviation in cents with a needle indicator.
-//   Supports instrument presets (guitar, bass, violin, viola, cello, ukulele)
-//   that highlight the target strings.
+//   Modal providing a chromatic instrument tuner. Audio is captured on the
+//   backend (arecord on the Raspberry Pi, same ALSA device as the calibration
+//   modal) and pitch detection runs server-side. The frontend subscribes to
+//   `tuner:pitch` WebSocket events and renders note name, frequency and cents
+//   deviation with a needle indicator. Supports instrument presets (guitar,
+//   bass, violin, viola, cello, ukulele) that highlight the target strings.
 //
-// Dependencies: BaseModal.js, i18n
+// Dependencies: BaseModal.js, BackendAPIClient, i18n
 // ============================================================================
 
 (function() {
@@ -44,7 +45,13 @@
     }
 
     class TunerModal extends BaseModal {
-        constructor(onCloseCb) {
+        /**
+         * @param {Object} [options]
+         * @param {Object} [options.api]       - BackendAPIClient (falls back to window.api)
+         * @param {string} [options.alsaDevice] - ALSA device string (e.g. "hw:1,0")
+         * @param {Function} [options.onClose] - Invoked after the modal closes
+         */
+        constructor(options = {}) {
             super({
                 id: 'tuner-modal',
                 size: 'md',
@@ -52,16 +59,14 @@
                 customClass: 'tuner-modal'
             });
 
-            this.onCloseCb = typeof onCloseCb === 'function' ? onCloseCb : null;
+            this.api = options.api || null;
+            this.onCloseCb = typeof options.onClose === 'function' ? options.onClose : null;
+            this.alsaDevice = options.alsaDevice || null;
             this.logger = window.logger || console;
 
-            // Audio pipeline
-            this.audioCtx = null;
-            this.analyser = null;
-            this.mediaStream = null;
-            this.sourceNode = null;
-            this.rafId = null;
-            this.buffer = new Float32Array(2048);
+            // Last displayed values & smoothing
+            this._lastUpdateTs = 0;
+            this._noSignalTimer = null;
 
             // UI state
             this.state = {
@@ -69,10 +74,17 @@
                 a4: parseFloat(localStorage.getItem('tuner_a4')) || 440,
                 preset: localStorage.getItem('tuner_preset') || 'chromatic',
                 smoothedFreq: 0,
-                permissionDenied: false
+                error: null
             };
 
-            this.logger.info('TunerModal', 'Modal initialized v1.0.0');
+            // WebSocket listener reference (for clean unsubscribe)
+            this._onPitchEvent = null;
+
+            this.logger.info('TunerModal', 'Modal initialized v1.1.0');
+        }
+
+        _getApi() {
+            return this.api || window.api || window.apiClient;
         }
 
         // ========================================================================
@@ -83,6 +95,8 @@
             const presetOptions = Object.keys(TUNER_PRESETS).map(key =>
                 `<option value="${key}" ${this.state.preset === key ? 'selected' : ''}>${this.escape(this.t(TUNER_PRESETS[key].labelKey))}</option>`
             ).join('');
+
+            const device = this.alsaDevice ? ` (${this.escape(this.alsaDevice)})` : '';
 
             return `
                 <div class="tuner-controls">
@@ -95,6 +109,10 @@
                         <input type="number" id="tunerA4" class="tuner-input"
                                min="415" max="466" step="0.1" value="${this.state.a4}">
                     </div>
+                </div>
+
+                <div class="tuner-device-info">
+                    🎤 ${this.t('tuner.listeningVia')}${device}
                 </div>
 
                 <div class="tuner-display" id="tunerDisplay">
@@ -138,7 +156,7 @@
         onOpen() {
             this._attachHandlers();
             this._renderTargets();
-            // Attempt to start listening automatically; user can stop via button.
+            // Auto-start listening; user can stop via button.
             this._startListening();
         }
 
@@ -203,167 +221,90 @@
         }
 
         // ========================================================================
-        // AUDIO CAPTURE
+        // BACKEND PITCH MONITORING
         // ========================================================================
 
         async _startListening() {
             if (this.state.isListening) return;
             this._clearError();
 
-            try {
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false
-                    }
-                });
-            } catch (err) {
-                this.logger.warn('TunerModal', 'getUserMedia failed:', err);
-                this.state.permissionDenied = true;
-                this._showError(this.t('tuner.permissionDenied'));
+            const api = this._getApi();
+            if (!api || !api.sendCommand || !api.on) {
+                this._showError(this.t('tuner.backendUnavailable'));
                 return;
             }
 
+            // Subscribe to pitch events first so we don't miss the initial ones.
+            this._onPitchEvent = (payload) => this._handlePitchEvent(payload);
+            api.on('tuner:pitch', this._onPitchEvent);
+
             try {
-                const Ctor = window.AudioContext || window.webkitAudioContext;
-                this.audioCtx = new Ctor();
-                this.sourceNode = this.audioCtx.createMediaStreamSource(this.mediaStream);
-                this.analyser = this.audioCtx.createAnalyser();
-                this.analyser.fftSize = 2048;
-                this.analyser.smoothingTimeConstant = 0;
-                this.sourceNode.connect(this.analyser);
+                await api.sendCommand('tuner_monitor_start', {
+                    alsaDevice: this.alsaDevice || undefined
+                });
             } catch (err) {
-                this.logger.warn('TunerModal', 'AudioContext setup failed:', err);
-                this._showError(this.t('tuner.permissionDenied'));
-                this._teardownAudio();
+                this.logger.warn('TunerModal', 'tuner_monitor_start failed:', err);
+                this._showError(`${this.t('tuner.backendError')}: ${err && err.message ? err.message : err}`);
+                if (this._onPitchEvent && api.off) api.off('tuner:pitch', this._onPitchEvent);
+                this._onPitchEvent = null;
                 return;
             }
 
             this.state.isListening = true;
             this._updateToggleButton();
-            this._tick();
+            this._scheduleNoSignalWatchdog();
         }
 
-        _stopListening() {
+        async _stopListening() {
             this.state.isListening = false;
-            if (this.rafId) {
-                cancelAnimationFrame(this.rafId);
-                this.rafId = null;
-            }
-            this._teardownAudio();
             this._updateToggleButton();
+
+            if (this._noSignalTimer) {
+                clearInterval(this._noSignalTimer);
+                this._noSignalTimer = null;
+            }
+
+            const api = this._getApi();
+            if (api && this._onPitchEvent && api.off) {
+                api.off('tuner:pitch', this._onPitchEvent);
+            }
+            this._onPitchEvent = null;
+
+            if (api && api.sendCommand) {
+                try {
+                    await api.sendCommand('tuner_monitor_stop', {});
+                } catch (err) {
+                    this.logger.warn('TunerModal', 'tuner_monitor_stop failed:', err);
+                }
+            }
+
             this._resetDisplay();
         }
 
-        _teardownAudio() {
-            try {
-                if (this.sourceNode) this.sourceNode.disconnect();
-            } catch (_) {}
-            this.sourceNode = null;
-            this.analyser = null;
+        _handlePitchEvent(payload) {
+            if (!this.isOpen || !this.state.isListening) return;
+            const freq = payload && typeof payload.freq === 'number' ? payload.freq : 0;
+            const confidence = payload && typeof payload.confidence === 'number' ? payload.confidence : 0;
 
-            if (this.audioCtx) {
-                try { this.audioCtx.close(); } catch (_) {}
-                this.audioCtx = null;
-            }
-
-            if (this.mediaStream) {
-                this.mediaStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-                this.mediaStream = null;
-            }
-        }
-
-        _tick() {
-            if (!this.state.isListening || !this.analyser || !this.audioCtx) return;
-
-            this.analyser.getFloatTimeDomainData(this.buffer);
-            const result = this._detectPitch(this.buffer, this.audioCtx.sampleRate);
-
-            if (result.freq > 0 && result.confidence > 0.5) {
-                // Exponential moving average to smooth the needle
+            if (freq > 0 && confidence > 0.5) {
                 const alpha = 0.2;
                 this.state.smoothedFreq = this.state.smoothedFreq > 0
-                    ? this.state.smoothedFreq * (1 - alpha) + result.freq * alpha
-                    : result.freq;
+                    ? this.state.smoothedFreq * (1 - alpha) + freq * alpha
+                    : freq;
+                this._lastUpdateTs = Date.now();
                 this._updateDisplay(this.state.smoothedFreq);
-            } else {
-                this.state.smoothedFreq = 0;
-                this._fadeDisplay();
             }
-
-            this.rafId = requestAnimationFrame(() => this._tick());
         }
 
-        // ========================================================================
-        // PITCH DETECTION (normalized autocorrelation)
-        // ========================================================================
-
-        _detectPitch(buf, sampleRate) {
-            const SIZE = buf.length;
-
-            // 1) RMS gate: ignore silence / noise floor
-            let rms = 0;
-            for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
-            rms = Math.sqrt(rms / SIZE);
-            if (rms < 0.01) return { freq: 0, confidence: 0 };
-
-            // 2) Trim leading/trailing samples below a low threshold
-            const thr = 0.2;
-            let r1 = 0, r2 = SIZE - 1;
-            for (let i = 0; i < SIZE / 2; i++) {
-                if (Math.abs(buf[i]) >= thr) { r1 = i; break; }
-            }
-            for (let i = 1; i < SIZE / 2; i++) {
-                if (Math.abs(buf[SIZE - i]) >= thr) { r2 = SIZE - i; break; }
-            }
-            if (r2 - r1 < 32) return { freq: 0, confidence: 0 };
-            const N = r2 - r1;
-
-            // 3) Normalized autocorrelation, searching for the first strong peak
-            // Restrict lag range to sensible musical frequencies: 60 Hz .. 2000 Hz
-            const minLag = Math.max(2, Math.floor(sampleRate / 2000));
-            const maxLag = Math.min(Math.floor(N / 2), Math.floor(sampleRate / 60));
-
-            const c = new Float32Array(maxLag + 2);
-            let bestLag = -1;
-            let bestCorr = 0;
-            let foundPeak = false;
-
-            for (let lag = minLag; lag <= maxLag; lag++) {
-                let sum = 0;
-                for (let i = 0; i < N - lag; i++) {
-                    sum += buf[r1 + i] * buf[r1 + i + lag];
+        _scheduleNoSignalWatchdog() {
+            // If no usable pitch has arrived for ~500 ms, fade the display.
+            this._noSignalTimer = setInterval(() => {
+                if (!this.state.isListening) return;
+                if (Date.now() - this._lastUpdateTs > 500) {
+                    this.state.smoothedFreq = 0;
+                    this._fadeDisplay();
                 }
-                const corr = sum / (N - lag);
-                c[lag] = corr;
-
-                if (corr > bestCorr) {
-                    bestCorr = corr;
-                    bestLag = lag;
-                } else if (bestLag > 0 && corr < bestCorr * 0.8) {
-                    // First strong peak has passed; stop scanning
-                    foundPeak = true;
-                    break;
-                }
-            }
-
-            if (bestLag <= 0 || bestCorr <= 0) return { freq: 0, confidence: 0 };
-
-            // 4) Parabolic interpolation around bestLag for sub-sample precision
-            const y1 = c[bestLag - 1] || 0;
-            const y2 = c[bestLag];
-            const y3 = c[bestLag + 1] || 0;
-            const denom = 2 * (2 * y2 - y1 - y3);
-            const shift = denom !== 0 ? (y3 - y1) / denom : 0;
-            const refinedLag = bestLag + shift;
-
-            const freq = sampleRate / refinedLag;
-            // Normalize confidence against signal energy at lag 0
-            const energy = c[minLag] > 0 ? c[minLag] : bestCorr;
-            const confidence = Math.min(1, bestCorr / (energy || 1));
-
-            return { freq, confidence: foundPeak ? confidence : confidence * 0.6 };
+            }, 250);
         }
 
         // ========================================================================
@@ -446,7 +387,6 @@
             const preset = TUNER_PRESETS[this.state.preset];
             if (!preset || !preset.notes) return;
 
-            // Pick the target note with the smallest MIDI distance to the detected one.
             let closestName = null;
             let closestDist = Infinity;
             preset.notes.forEach(n => {
@@ -467,6 +407,7 @@
                 el.textContent = msg;
                 el.style.display = 'block';
             }
+            this.state.error = msg;
         }
 
         _clearError() {
@@ -475,7 +416,7 @@
                 el.textContent = '';
                 el.style.display = 'none';
             }
-            this.state.permissionDenied = false;
+            this.state.error = null;
         }
     }
 

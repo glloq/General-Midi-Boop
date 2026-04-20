@@ -18,6 +18,7 @@
  *   - `calibrate_list_alsa_devices` — enumerate `arecord -l` devices
  *   - `calibrate_preview_note`      — emit a single test note
  *   - `calibrate_monitor_start` / `_stop` — broadcast live audio levels
+ *   - `tuner_monitor_start` / `_stop`     — broadcast live pitch detection
  *
  * Validation: see `latency.schemas.js` for the latency_* family;
  * calibrate_* commands rely on imperative checks inside each handler.
@@ -291,6 +292,45 @@ async function calibrateMonitorStop(app) {
 }
 
 /**
+ * Start broadcasting real-time pitch detection results as
+ * `tuner:pitch` WebSocket events. Uses the same arecord pipeline as the
+ * calibration monitor but accumulates samples into a 2048-sample window
+ * and runs autocorrelation-based pitch detection server-side.
+ *
+ * @param {Object} app
+ * @param {{alsaDevice?:string}} data
+ * @returns {Promise<{success:true}>}
+ * @throws {ValidationError}
+ */
+async function tunerMonitorStart(app, data) {
+  const alsaDevice = data && data.alsaDevice;
+
+  if (alsaDevice !== undefined && !DelayCalibrator.isValidAlsaDevice(alsaDevice)) {
+    throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
+  }
+
+  // Idempotent: drop any previous tuner monitor before starting a new one.
+  app.delayCalibrator.stopTunerMonitoring();
+
+  app.delayCalibrator.startTunerMonitoring((payload) => {
+    if (app.wsServer && app.wsServer.broadcast) {
+      app.wsServer.broadcast('tuner:pitch', payload);
+    }
+  }, { alsaDevice });
+
+  return { success: true };
+}
+
+/**
+ * @param {Object} app
+ * @returns {Promise<{success:true}>}
+ */
+async function tunerMonitorStop(app) {
+  app.delayCalibrator.stopTunerMonitoring();
+  return { success: true };
+}
+
+/**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app
  * @returns {void}
@@ -309,4 +349,6 @@ export function register(registry, app) {
   registry.register('calibrate_preview_note', (data) => calibratePreviewNote(app, data));
   registry.register('calibrate_monitor_start', (data) => calibrateMonitorStart(app, data));
   registry.register('calibrate_monitor_stop', () => calibrateMonitorStop(app));
+  registry.register('tuner_monitor_start', (data) => tunerMonitorStart(app, data));
+  registry.register('tuner_monitor_stop', () => tunerMonitorStop(app));
 }

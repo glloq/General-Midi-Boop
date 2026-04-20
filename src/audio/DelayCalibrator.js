@@ -473,6 +473,200 @@ class DelayCalibrator {
   }
 
   /**
+   * Decode an S16_LE audio buffer into a Float32Array normalized to [-1, 1].
+   * @param {Buffer} buffer
+   * @returns {Float32Array}
+   */
+  decodeS16LE(buffer) {
+    const byteLength = buffer.length - (buffer.length % 2);
+    const out = new Float32Array(byteLength / 2);
+    for (let i = 0, j = 0; i < byteLength; i += 2, j++) {
+      out[j] = buffer.readInt16LE(i) / 32768.0;
+    }
+    return out;
+  }
+
+  /**
+   * Estimate the fundamental frequency of a mono audio window using
+   * normalized autocorrelation with parabolic interpolation. Adequate
+   * for monophonic instruments (guitar, violin, voice).
+   *
+   * The algorithm first walks past the autocorrelation's initial
+   * positive lobe and the following negative region, then locates the
+   * strongest peak in the subsequent positive region — this avoids
+   * reporting sub-period lags that still have a positive correlation
+   * value but lie on the decay of the lag-0 peak.
+   *
+   * @param {Float32Array} buf - Audio samples normalized to [-1, 1]
+   * @param {number} sampleRate
+   * @returns {{ freq: number, confidence: number, rms: number }}
+   */
+  detectPitch(buf, sampleRate) {
+    const SIZE = buf.length;
+    if (SIZE < 64) return { freq: 0, confidence: 0, rms: 0 };
+
+    // RMS gate: ignore silence / low-level noise
+    let rms = 0;
+    for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 0.01) return { freq: 0, confidence: 0, rms };
+
+    // Trim to the stable part of the window
+    const thr = 0.2;
+    let r1 = 0, r2 = SIZE - 1;
+    for (let i = 0; i < SIZE / 2; i++) {
+      if (Math.abs(buf[i]) >= thr) { r1 = i; break; }
+    }
+    for (let i = 1; i < SIZE / 2; i++) {
+      if (Math.abs(buf[SIZE - i]) >= thr) { r2 = SIZE - i; break; }
+    }
+    if (r2 - r1 < 32) return { freq: 0, confidence: 0, rms };
+    const N = r2 - r1;
+
+    // Restrict lag range to musical frequencies: 30 Hz .. 2000 Hz
+    const minLag = Math.max(2, Math.floor(sampleRate / 2000));
+    const maxLag = Math.min(Math.floor(N / 2), Math.floor(sampleRate / 30));
+    if (minLag >= maxLag) return { freq: 0, confidence: 0, rms };
+
+    // Compute normalized autocorrelation over the full lag range.
+    const c = new Float32Array(maxLag + 2);
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let sum = 0;
+      for (let i = 0; i < N - lag; i++) {
+        sum += buf[r1 + i] * buf[r1 + i + lag];
+      }
+      c[lag] = sum / (N - lag);
+    }
+
+    // Walk past the initial positive lobe (decaying from lag 0) ...
+    let lag = minLag;
+    while (lag <= maxLag && c[lag] > 0) lag++;
+    // ... then past the subsequent negative region.
+    while (lag <= maxLag && c[lag] <= 0) lag++;
+    if (lag > maxLag) return { freq: 0, confidence: 0, rms };
+
+    // From here, find the strongest local peak. Stop once we've clearly
+    // passed the peak (drop below 60% of the running best).
+    let bestLag = -1;
+    let bestCorr = 0;
+    for (; lag <= maxLag; lag++) {
+      const corr = c[lag];
+      if (corr > bestCorr) {
+        bestCorr = corr;
+        bestLag = lag;
+      } else if (bestLag > 0 && corr < bestCorr * 0.6) {
+        break;
+      }
+    }
+
+    if (bestLag <= 0 || bestCorr <= 0) return { freq: 0, confidence: 0, rms };
+
+    // Parabolic interpolation for sub-sample precision.
+    const y1 = c[bestLag - 1] || 0;
+    const y2 = c[bestLag];
+    const y3 = c[bestLag + 1] || 0;
+    const denom = 2 * (2 * y2 - y1 - y3);
+    const shift = denom !== 0 ? (y3 - y1) / denom : 0;
+    const refinedLag = bestLag + Math.max(-1, Math.min(1, shift));
+
+    const freq = sampleRate / refinedLag;
+    // Confidence proxy: peak strength relative to signal energy (c[minLag]
+    // is a decent proxy for near-zero-lag energy given our minLag is small).
+    const energy = c[minLag] > 0 ? c[minLag] : bestCorr;
+    const confidence = Math.min(1, bestCorr / (energy || 1));
+
+    return { freq, confidence, rms };
+  }
+
+  /**
+   * Start a continuous pitch-monitoring loop, invoking `callback` with
+   * `{ rms, freq, confidence }` each time a full analysis window has
+   * been accumulated (~128 ms at 16 kHz). Shares the same `arecord`
+   * pipeline layout as {@link startMonitoring}, but is kept separate to
+   * avoid disturbing the VU-meter contract when the tuner modal is in use.
+   *
+   * @param {Function} callback
+   * @param {Object} [options] - { alsaDevice?: string, windowSize?: number }
+   */
+  startTunerMonitoring(callback, options = {}) {
+    if (this.tunerProcess) {
+      this.stopTunerMonitoring();
+    }
+
+    const device = options.alsaDevice || this.config.alsaDevice;
+    if (!DelayCalibrator.isValidAlsaDevice(device)) {
+      throw new Error(`Invalid ALSA device format: ${device}`);
+    }
+
+    const windowSize = options.windowSize || 2048;
+    this.tunerCallback = callback;
+    this.tunerWindow = new Float32Array(windowSize);
+    this.tunerWindowFilled = 0;
+
+    this.tunerProcess = spawn('arecord', [
+      '-D', device,
+      '-f', this.config.format,
+      '-r', this.config.sampleRate.toString(),
+      '-c', this.config.channels.toString(),
+      '-t', 'raw'
+    ]);
+
+    this.tunerProcess.stdout.on('data', (chunk) => {
+      const samples = this.decodeS16LE(chunk);
+      let offset = 0;
+      while (offset < samples.length) {
+        const remaining = windowSize - this.tunerWindowFilled;
+        const toCopy = Math.min(remaining, samples.length - offset);
+        this.tunerWindow.set(samples.subarray(offset, offset + toCopy), this.tunerWindowFilled);
+        this.tunerWindowFilled += toCopy;
+        offset += toCopy;
+
+        if (this.tunerWindowFilled === windowSize) {
+          const result = this.detectPitch(this.tunerWindow, this.config.sampleRate);
+          if (this.tunerCallback) {
+            try { this.tunerCallback(result); } catch (e) {
+              this.logger.warn(`Tuner callback threw: ${e.message}`);
+            }
+          }
+          this.tunerWindowFilled = 0;
+        }
+      }
+    });
+
+    this.tunerProcess.stderr.on('data', (data) => {
+      const msg = data.toString();
+      if (msg.includes('Error') || msg.includes('error')) {
+        this.logger.warn(`Tuner arecord stderr: ${msg}`);
+      }
+    });
+
+    this.tunerProcess.on('error', (error) => {
+      this.logger.error(`Tuner arecord error: ${error.message}`);
+      this.tunerProcess = null;
+    });
+
+    this.tunerProcess.on('close', () => {
+      this.tunerProcess = null;
+    });
+
+    this.logger.info(`Tuner monitoring started on ${device}`);
+  }
+
+  /**
+   * Stop the pitch-monitoring loop.
+   */
+  stopTunerMonitoring() {
+    if (this.tunerProcess) {
+      this.tunerProcess.kill('SIGTERM');
+      this.tunerProcess = null;
+    }
+    this.tunerCallback = null;
+    this.tunerWindow = null;
+    this.tunerWindowFilled = 0;
+    this.logger.info('Tuner monitoring stopped');
+  }
+
+  /**
    * Utility: sleep
    */
   sleep(ms) {
@@ -485,6 +679,7 @@ class DelayCalibrator {
   destroy() {
     this.stopRecording();
     this.stopMonitoring();
+    this.stopTunerMonitoring();
   }
 }
 

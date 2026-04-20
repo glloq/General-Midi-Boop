@@ -263,7 +263,7 @@ class CalibrationModal extends BaseModal {
             listenBtn.addEventListener('click', () => this._toggleListening());
         }
 
-        // Open Tuner modal (releases arecord, restores it on close)
+        // Open Tuner modal (releases arecord, restores VU-meter on close)
         const tunerBtn = this.$('#calibOpenTunerBtn');
         if (tunerBtn) {
             tunerBtn.addEventListener('click', async () => {
@@ -273,9 +273,13 @@ class CalibrationModal extends BaseModal {
                 }
                 const wasMonitoring = this.state.isMonitoring;
                 await this._stopMonitoring();
-                const tuner = new TunerModal(() => {
-                    if (wasMonitoring && this.isOpen) {
-                        this._startMonitoring();
+                const tuner = new TunerModal({
+                    api: this._getApi(),
+                    alsaDevice: this._getAlsaDevice(),
+                    onClose: () => {
+                        if (wasMonitoring && this.isOpen) {
+                            this._startMonitoring();
+                        }
                     }
                 });
                 tuner.open();
