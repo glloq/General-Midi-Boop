@@ -463,13 +463,15 @@ class DelayCalibrator {
   }
 
   /**
-   * Stop audio monitoring
+   * Stop audio monitoring. Resolves once the underlying `arecord` child has
+   * actually exited so callers can safely open the device again (ALSA `hw:`
+   * devices are exclusive — returning too early causes a "Device or resource
+   * busy" race with the next consumer, e.g. the tuner).
+   * @returns {Promise<void>}
    */
   stopMonitoring() {
-    if (this.monitorProcess) {
-      this.monitorProcess.kill('SIGTERM');
-      this.monitorProcess = null;
-    }
+    const proc = this.monitorProcess;
+    this.monitorProcess = null;
 
     if (this.monitorPeakInterval) {
       clearInterval(this.monitorPeakInterval);
@@ -478,7 +480,31 @@ class DelayCalibrator {
 
     this.monitorCallback = null;
     this.monitorPeakRMS = 0;
-    this.logger.info('Audio monitoring stopped');
+
+    if (!proc || proc.exitCode !== null || proc.signalCode !== null) {
+      this.logger.info('Audio monitoring stopped');
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this.logger.info('Audio monitoring stopped');
+        resolve();
+      };
+      proc.once('close', finish);
+      proc.once('exit', finish);
+      // Fallback: SIGKILL + resolve if SIGTERM didn't land within 500 ms
+      const timer = setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch (_) { /* noop */ }
+        // Give the kernel a frame to release the FD before resolving.
+        setTimeout(finish, 50);
+      }, 500);
+      try { proc.kill('SIGTERM'); } catch (_) { finish(); }
+    });
   }
 
   /**
@@ -818,13 +844,14 @@ class DelayCalibrator {
   }
 
   /**
-   * Stop the pitch-monitoring loop.
+   * Stop the pitch-monitoring loop. Resolves once the underlying `arecord`
+   * child has actually exited so callers can safely open the device again.
+   * @returns {Promise<void>}
    */
   stopTunerMonitoring() {
-    if (this.tunerProcess) {
-      this.tunerProcess.kill('SIGTERM');
-      this.tunerProcess = null;
-    }
+    const proc = this.tunerProcess;
+    this.tunerProcess = null;
+
     this.tunerCallback = null;
     this.tunerRing = null;
     this.tunerWindow = null;
@@ -832,7 +859,29 @@ class DelayCalibrator {
     this.tunerRingFilled = 0;
     this.tunerSamplesSinceAnalysis = 0;
     this._resetFilterState();
-    this.logger.info('Tuner monitoring stopped');
+
+    if (!proc || proc.exitCode !== null || proc.signalCode !== null) {
+      this.logger.info('Tuner monitoring stopped');
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this.logger.info('Tuner monitoring stopped');
+        resolve();
+      };
+      proc.once('close', finish);
+      proc.once('exit', finish);
+      const timer = setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch (_) { /* noop */ }
+        setTimeout(finish, 50);
+      }, 500);
+      try { proc.kill('SIGTERM'); } catch (_) { finish(); }
+    });
   }
 
   /**

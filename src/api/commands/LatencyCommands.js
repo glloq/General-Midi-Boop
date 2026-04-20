@@ -269,9 +269,11 @@ async function calibrateMonitorStart(app, data) {
     throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
   }
 
-  // Idempotent: drop any previous monitor before starting a new one
-  // (otherwise calling `start` twice leaks the first capture process).
-  app.delayCalibrator.stopMonitoring();
+  // Mutually exclusive on the ALSA device: await both pipelines' previous
+  // arecord processes before spawning a new one. Otherwise a lingering
+  // tuner/monitor holds the device and the new arecord fails with "busy".
+  await app.delayCalibrator.stopMonitoring();
+  await app.delayCalibrator.stopTunerMonitoring();
 
   app.delayCalibrator.startMonitoring((level) => {
     if (app.wsServer && app.wsServer.broadcast) {
@@ -287,7 +289,7 @@ async function calibrateMonitorStart(app, data) {
  * @returns {Promise<{success:true}>}
  */
 async function calibrateMonitorStop(app) {
-  app.delayCalibrator.stopMonitoring();
+  await app.delayCalibrator.stopMonitoring();
   return { success: true };
 }
 
@@ -309,8 +311,10 @@ async function tunerMonitorStart(app, data) {
     throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
   }
 
-  // Idempotent: drop any previous tuner monitor before starting a new one.
-  app.delayCalibrator.stopTunerMonitoring();
+  // Mutually exclusive on the ALSA device: await both pipelines' previous
+  // arecord processes before spawning a new one.
+  await app.delayCalibrator.stopTunerMonitoring();
+  await app.delayCalibrator.stopMonitoring();
 
   app.delayCalibrator.startTunerMonitoring((payload) => {
     if (app.wsServer && app.wsServer.broadcast) {
@@ -326,7 +330,7 @@ async function tunerMonitorStart(app, data) {
  * @returns {Promise<{success:true}>}
  */
 async function tunerMonitorStop(app) {
-  app.delayCalibrator.stopTunerMonitoring();
+  await app.delayCalibrator.stopTunerMonitoring();
   return { success: true };
 }
 
