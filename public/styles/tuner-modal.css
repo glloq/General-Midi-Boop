@@ -1,0 +1,324 @@
+/* ============================================================================
+ * File: styles/tuner-modal.css
+ * Description: Styles for the chromatic tuner modal (accordeur).
+ * Structure: BaseModal -> .modal-overlay > .modal-dialog.tuner-modal
+ *                                          > .modal-header + .modal-body + .modal-footer
+ * ============================================================================ */
+
+.tuner-modal {
+    max-width: 540px !important;
+    width: 92% !important;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tuner-modal .modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.tuner-modal .modal-footer {
+    flex-shrink: 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* ========== CONTROLS ========== */
+.tuner-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tuner-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 140px;
+}
+
+.tuner-field label {
+    font-size: 12px;
+    color: #888;
+    font-weight: 500;
+}
+
+.tuner-select,
+.tuner-input {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 14px;
+    color: #111;
+}
+
+.tuner-select:focus,
+.tuner-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* ========== DISPLAY ========== */
+.tuner-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 16px;
+    background: #f5f7fa;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.tuner-display.in-tune {
+    border-color: #22c55e;
+    background: #f0fdf4;
+    animation: tuner-pulse 1.2s ease-in-out infinite;
+}
+
+.tuner-display.too-low .tuner-note-large,
+.tuner-display.too-high .tuner-note-large {
+    color: #b45309;
+}
+
+@keyframes tuner-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+    50%      { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+.tuner-note-large {
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1;
+    color: #1f2937;
+    letter-spacing: 2px;
+    min-height: 88px;
+}
+
+.tuner-display.in-tune .tuner-note-large {
+    color: #15803d;
+}
+
+.tuner-freq {
+    font-size: 18px;
+    font-weight: 500;
+    color: #4b5563;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ========== CENTS BAR ========== */
+.tuner-bar {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    padding-top: 18px;
+}
+
+.tuner-bar-scale {
+    position: relative;
+    height: 14px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.tuner-bar-label {
+    position: absolute;
+    transform: translateX(-50%);
+    top: 0;
+}
+
+.tuner-bar-track {
+    position: relative;
+    height: 22px;
+    background: linear-gradient(to right,
+        #ef4444 0%,
+        #f59e0b 25%,
+        #22c55e 50%,
+        #f59e0b 75%,
+        #ef4444 100%);
+    border-radius: 11px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.tuner-bar-center {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(255,255,255,0.7);
+    transform: translateX(-50%);
+}
+
+.tuner-bar-needle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 4px;
+    background: #1f2937;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    transition: left 0.08s ease-out;
+    box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+
+.tuner-display.in-tune .tuner-bar-needle {
+    background: #15803d;
+}
+
+.tuner-status {
+    font-size: 14px;
+    font-weight: 600;
+    color: #4b5563;
+    min-height: 18px;
+    font-variant-numeric: tabular-nums;
+}
+
+.tuner-display.in-tune .tuner-status {
+    color: #15803d;
+}
+
+.tuner-display.too-low .tuner-status,
+.tuner-display.too-high .tuner-status {
+    color: #b45309;
+}
+
+/* ========== TARGETS (preset strings) ========== */
+.tuner-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.tuner-targets:empty {
+    display: none;
+}
+
+.tuner-target {
+    min-width: 44px;
+    height: 40px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-weight: 700;
+    font-size: 16px;
+    color: #6b7280;
+    transition: all 0.15s;
+}
+
+.tuner-target.active {
+    background: #dbeafe;
+    border-color: #667eea;
+    color: #1e40af;
+    transform: scale(1.1);
+}
+
+/* ========== ERROR ========== */
+.tuner-error {
+    padding: 10px 14px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #b91c1c;
+    font-size: 13px;
+}
+
+/* ========== TOGGLE BUTTON ========== */
+.tuner-toggle-btn.listening {
+    background: #ef4444;
+}
+
+.tuner-toggle-btn.listening:hover {
+    background: #dc2626;
+}
+
+/* ========== CALIBRATION MODAL BUTTON ========== */
+.calibration-tuner-btn {
+    padding: 4px 10px;
+    margin-left: 8px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.calibration-tuner-btn:hover {
+    background: #e5e7eb;
+}
+
+/* ========== DARK THEME ========== */
+body.theme-dark .tuner-modal .modal-footer {
+    border-top-color: #374151;
+}
+
+body.theme-dark .tuner-display {
+    background: #1f2937;
+}
+
+body.theme-dark .tuner-display.in-tune {
+    background: #14532d;
+}
+
+body.theme-dark .tuner-note-large {
+    color: #f3f4f6;
+}
+
+body.theme-dark .tuner-freq,
+body.theme-dark .tuner-status {
+    color: #d1d5db;
+}
+
+body.theme-dark .tuner-select,
+body.theme-dark .tuner-input {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+body.theme-dark .tuner-target {
+    background: #1f2937;
+    border-color: #374151;
+    color: #9ca3af;
+}
+
+body.theme-dark .tuner-target.active {
+    background: #1e3a8a;
+    border-color: #667eea;
+    color: #dbeafe;
+}
+
+body.theme-dark .calibration-tuner-btn {
+    background: #1f2937;
+    border-color: #374151;
+    color: #e5e7eb;
+}
+
+body.theme-dark .calibration-tuner-btn:hover {
+    background: #374151;
+}
+
+body.theme-dark .tuner-error {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+}

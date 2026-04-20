@@ -121,6 +121,15 @@
                 "SBLive": "Banco Creative Labs Sound Blaster Live. Versátil con carácter nostálgico.",
                 "Chaos": "Banco creativo ligero. Carga rápida, sonidos básicos pero funcionales para vista previa rápida.",
                 "SoundBlasterOld": "Banco clásico Sound Blaster. Menor huella, carácter retro. Ideal para conexiones de bajo ancho de banda."
+            },
+            "effects": {
+                "title": "🎛️ Bank effects",
+                "reverbMix": "Reverb mix",
+                "reverbDecay": "Reverb decay",
+                "echoMix": "Echo mix",
+                "echoTime": "Echo time",
+                "echoFeedback": "Echo feedback",
+                "reset": "Reset"
             }
         },
         "language": {
@@ -458,7 +467,14 @@
         "previewSourceHint": "Elegir entre sonido GM original o instrumento ruteado",
         "playableNotesTitle": "Notas ejecutables",
         "playableNotesHint": "Mostrar notas que el instrumento ruteado puede tocar",
-        "applyBtn": "Aplicar"
+        "applyBtn": "Aplicar",
+        "loadingSoundBank": "Loading sound bank…",
+        "settingsPopoverTitle": "Settings",
+        "settingsGroupActions": "Actions",
+        "settingsGroupDisplay": "Display",
+        "settingsGroupInterface": "Interface",
+        "settingsGroupPlayback": "Playback",
+        "deleteChannel": "Delete channel"
     },
     "errors": {
         "deviceNotFound": "Dispositivo no encontrado: {deviceId}",
@@ -1770,6 +1786,30 @@
         "123": "All Notes Off",
         "fallback": "Ctrl {num}"
     },
+    "tuner": {
+        "title": "Accordeur",
+        "openTuner": "Accordeur",
+        "note": "Note",
+        "frequency": "Fréquence",
+        "cents": "Écart (cents)",
+        "start": "Démarrer",
+        "stop": "Arrêter",
+        "permissionDenied": "Accès au microphone refusé. Autorisez l'accès au micro dans votre navigateur pour utiliser l'accordeur.",
+        "referenceA4": "Référence La4 (Hz)",
+        "inTune": "Juste",
+        "tooLow": "Trop bas",
+        "tooHigh": "Trop haut",
+        "preset": {
+            "label": "Instrument",
+            "chromatic": "Chromatique",
+            "guitar": "Guitare (EADGBE)",
+            "bass": "Basse (EADG)",
+            "violin": "Violon (GDAE)",
+            "viola": "Alto (CGDA)",
+            "cello": "Violoncelle (CGDA)",
+            "ukulele": "Ukulélé (GCEA)"
+        }
+    },
     "calibration": {
         "title": "Calibración de retardo (Micrófono)",
         "modeSimple": "Simple",
@@ -1801,7 +1841,9 @@
         "mean": "Media",
         "chart": "Gráfico de mediciones",
         "applied": "Calibración aplicada para {count} instrumento(s)",
-        "refresh": "Actualizar"
+        "refresh": "Actualizar",
+        "startListening": "Start listening",
+        "stopListening": "Stop listening"
     },
     "routingSummary": {
         "title": "Enrutamiento automático",

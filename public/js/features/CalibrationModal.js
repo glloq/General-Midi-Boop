@@ -120,6 +120,9 @@ class CalibrationModal extends BaseModal {
                         <button type="button" id="calibListenToggle" class="calibration-listen-btn">
                             ▶ ${this.t('calibration.startListening')}
                         </button>
+                        <button type="button" id="calibOpenTunerBtn" class="calibration-tuner-btn">
+                            🎵 ${this.t('tuner.openTuner')}
+                        </button>
                         <span class="calibration-vu-meter-rms" id="calibRmsValue">0.000</span>
                     </div>
                     <div class="calibration-vu-meter-bar">
@@ -258,6 +261,25 @@ class CalibrationModal extends BaseModal {
         const listenBtn = this.$('#calibListenToggle');
         if (listenBtn) {
             listenBtn.addEventListener('click', () => this._toggleListening());
+        }
+
+        // Open Tuner modal (releases arecord, restores it on close)
+        const tunerBtn = this.$('#calibOpenTunerBtn');
+        if (tunerBtn) {
+            tunerBtn.addEventListener('click', async () => {
+                if (typeof TunerModal === 'undefined') {
+                    this.logger.warn('CalibrationModal', 'TunerModal not loaded');
+                    return;
+                }
+                const wasMonitoring = this.state.isMonitoring;
+                await this._stopMonitoring();
+                const tuner = new TunerModal(() => {
+                    if (wasMonitoring && this.isOpen) {
+                        this._startMonitoring();
+                    }
+                });
+                tuner.open();
+            });
         }
 
         // Threshold slider

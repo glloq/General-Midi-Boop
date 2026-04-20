@@ -1786,6 +1786,30 @@
         "bar": "mesure",
         "bars": "mesures"
     },
+    "tuner": {
+        "title": "Accordeur",
+        "openTuner": "Accordeur",
+        "note": "Note",
+        "frequency": "Fréquence",
+        "cents": "Écart (cents)",
+        "start": "Démarrer",
+        "stop": "Arrêter",
+        "permissionDenied": "Accès au microphone refusé. Autorisez l'accès au micro dans votre navigateur pour utiliser l'accordeur.",
+        "referenceA4": "Référence La4 (Hz)",
+        "inTune": "Juste",
+        "tooLow": "Trop bas",
+        "tooHigh": "Trop haut",
+        "preset": {
+            "label": "Instrument",
+            "chromatic": "Chromatique",
+            "guitar": "Guitare (EADGBE)",
+            "bass": "Basse (EADG)",
+            "violin": "Violon (GDAE)",
+            "viola": "Alto (CGDA)",
+            "cello": "Violoncelle (CGDA)",
+            "ukulele": "Ukulélé (GCEA)"
+        }
+    },
     "calibration": {
         "title": "Calibration des délais (Microphone)",
         "modeSimple": "Simple",
