@@ -704,6 +704,14 @@ class DelayCalibrator {
       throw new Error(`Invalid ALSA device format: ${device}`);
     }
 
+    // Pitch detection is exquisitely sensitive to the actual capture rate:
+    // if arecord opens the device at (say) 48 kHz but we analyze samples
+    // as if they were at 16 kHz, every detected frequency is off by a
+    // factor of 3. Using `plughw:` instead of `hw:` forces ALSA to go
+    // through its rate/format conversion plugin so the requested 16 kHz
+    // is always honored regardless of the mic's native rate.
+    const captureDevice = device.startsWith('hw:') ? 'plug' + device : device;
+
     const windowSize = options.windowSize || 4096;
     const hopSize = options.hopSize || Math.floor(windowSize / 2);
     const sr = this.config.sampleRate;
@@ -722,7 +730,7 @@ class DelayCalibrator {
     this._resetFilterState();
 
     this.tunerProcess = spawn('arecord', [
-      '-D', device,
+      '-D', captureDevice,
       '-f', this.config.format,
       '-r', sr.toString(),
       '-c', this.config.channels.toString(),
@@ -774,7 +782,7 @@ class DelayCalibrator {
       this.tunerProcess = null;
     });
 
-    this.logger.info(`Tuner monitoring started on ${device} (window=${windowSize}, hop=${hopSize})`);
+    this.logger.info(`Tuner monitoring started on ${captureDevice} (window=${windowSize}, hop=${hopSize})`);
   }
 
   /**
