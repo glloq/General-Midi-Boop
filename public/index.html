@@ -2987,8 +2987,8 @@
 
         /* Debug resize handle */
         .debug-resize-handle {
-            height: 8px;
-            background: #e5e7eb;
+            height: 16px;
+            background: #d1d5db;
             cursor: ns-resize;
             display: none;
             align-items: center;
@@ -2996,6 +2996,8 @@
             flex-shrink: 0;
             position: relative;
             user-select: none;
+            border-top: 1px solid #9ca3af;
+            border-bottom: 1px solid #9ca3af;
         }
 
         .debug-resize-handle.visible {
@@ -3004,15 +3006,16 @@
 
         .debug-resize-handle::before {
             content: '';
-            width: 40px;
-            height: 4px;
-            background: #9ca3af;
-            border-radius: 2px;
+            width: 60px;
+            height: 5px;
+            background: #6b7280;
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
         }
 
         .debug-resize-handle:hover,
         .debug-resize-handle.active {
-            background: #d1d5db;
+            background: #9ca3af;
         }
 
         .debug-resize-handle:hover::before,
@@ -3022,23 +3025,25 @@
 
         /* Dark theme resize handle */
         body.theme-dark .debug-resize-handle {
-            background: #374151;
+            background: #4b5563;
+            border-top-color: #6b7280;
+            border-bottom-color: #6b7280;
         }
         body.theme-dark .debug-resize-handle::before {
-            background: #6b7280;
+            background: #d1d5db;
         }
         body.theme-dark .debug-resize-handle:hover,
         body.theme-dark .debug-resize-handle.active {
-            background: #4b5563;
+            background: #6b7280;
         }
         body.theme-dark .debug-resize-handle:hover::before,
         body.theme-dark .debug-resize-handle.active::before {
-            background: #667eea;
+            background: #93c5fd;
         }
 
         /* Colored theme resize handle */
         .debug-resize-handle {
-            background: rgba(118, 75, 162, 0.1);
+            background: rgba(118, 75, 162, 0.35);
         }
         .debug-resize-handle::before {
             background: rgba(118, 75, 162, 0.3);
@@ -3230,9 +3235,15 @@
         }
 
         .debug-instrument-chip.active {
-            background: #667eea;
-            border-color: #667eea;
-            color: #fff;
+            background: #93c5fd;
+            border-color: #60a5fa;
+            color: #0c2a4a;
+        }
+
+        .debug-instrument-chip.active:hover {
+            background: #bfdbfe;
+            border-color: #93c5fd;
+            color: #0c2a4a;
         }
 
         .loading {
@@ -5115,11 +5126,10 @@
             </div>
 
             <!-- Debug Resize Handle -->
-            <div class="debug-resize-handle" id="debugResizeHandle"></div>
+            <div class="debug-resize-handle" id="debugResizeHandle" title="Glisser pour redimensionner" role="separator" aria-orientation="horizontal" aria-label="Redimensionner la console de débogage"></div>
 
             <!-- Console -->
-            <section class="card hidden" id="debugConsole" aria-labelledby="debugConsoleHeading">
-                <h2 id="debugConsoleHeading">📋 <span data-i18n="ui.debugConsole">Console de débogage</span></h2>
+            <section class="card hidden" id="debugConsole" aria-label="Console de débogage">
                 <!-- Debug Filter Toolbar -->
                 <div id="debugFilterBar" class="debug-filter-bar">
                     <!-- Source toggles -->
@@ -6650,6 +6660,14 @@
 
             // Clean up saved instruments that no longer exist
             debugFilters.instruments = debugFilters.instruments.filter(n => instrumentNames.includes(n));
+
+            // Default: all instruments selected. Auto-add any newly detected instrument
+            // so new devices are visible immediately (and the user sees a highlighted chip).
+            const newlyDetected = instrumentNames.filter(n => !debugFilters.instruments.includes(n));
+            if (newlyDetected.length > 0) {
+                debugFilters.instruments.push(...newlyDetected);
+                saveDebugFilters();
+            }
 
             instrumentNames.forEach(name => {
                 const chip = document.createElement('button');
