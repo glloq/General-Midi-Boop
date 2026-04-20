@@ -18,6 +18,7 @@ import InstrumentDatabase from './tables/InstrumentDatabase.js';
 import LightingDatabase from './tables/LightingDatabase.js';
 import StringInstrumentDatabase from './tables/StringInstrumentDatabase.js';
 import DeviceSettingsDB from './tables/DeviceSettingsDB.js';
+import BankEffectsDB from './tables/BankEffectsDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +43,7 @@ class DatabaseManager {
     this.lightingDB = null;
     this.stringInstrumentDB = null;
     this.deviceSettingsDB = null;
+    this.bankEffectsDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -52,6 +54,7 @@ class DatabaseManager {
     this.lightingDB = new LightingDatabase(this.db, this.logger);
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.logger);
     this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
+    this.bankEffectsDB = new BankEffectsDB(this.db, this.logger);
 
     this.logger.info('Database initialized');
   }
@@ -805,6 +808,20 @@ class DatabaseManager {
   }
   ensureDevice(deviceId, name, type) {
     return this.deviceSettingsDB.ensureDevice(deviceId, name, type);
+  }
+
+  // Sound-bank effect overrides (browser synth)
+  getBankEffects(bankId) {
+    return this.bankEffectsDB.getForBank(bankId);
+  }
+  listBankEffects() {
+    return this.bankEffectsDB.listAll();
+  }
+  upsertBankEffects(bankId, values) {
+    return this.bankEffectsDB.upsert(bankId, values);
+  }
+  resetBankEffects(bankId) {
+    return this.bankEffectsDB.resetBank(bankId);
   }
 
   // ==================== UTILITIES ====================

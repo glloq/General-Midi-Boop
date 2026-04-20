@@ -131,6 +131,15 @@
                 "SBLive": "Creative Labs Sound Blaster Live bank. Solid all-rounder with nostalgic character.",
                 "Chaos": "Lightweight creative bank. Fast loading, basic but functional sounds for quick preview.",
                 "SoundBlasterOld": "Classic Sound Blaster bank. Smallest footprint, retro character. Ideal for low-bandwidth use."
+            },
+            "effects": {
+                "title": "🎛️ Bank effects",
+                "reverbMix": "Reverb mix",
+                "reverbDecay": "Reverb decay",
+                "echoMix": "Echo mix",
+                "echoTime": "Echo time",
+                "echoFeedback": "Echo feedback",
+                "reset": "Reset"
             }
         },
         "language": {

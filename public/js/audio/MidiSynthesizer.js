@@ -13,6 +13,22 @@ const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX } = window.MidiSynthes
  * Uses real samples for professional-quality rendering
  */
 class MidiSynthesizer {
+    // Live instances (used by broadcastBankEffects to keep every
+    // synth — MIDI editor, AudioPreview, etc. — in sync when the
+    // user moves an effects slider in the Settings modal).
+    static _instances = new Set();
+
+    /**
+     * Apply a set of bank-effect values to every live MidiSynthesizer.
+     * @param {Object|null} effects - `{reverb_mix, reverb_decay_s,
+     *   echo_mix, echo_time_ms, echo_feedback}` or null for defaults.
+     */
+    static broadcastBankEffects(effects) {
+        for (const inst of MidiSynthesizer._instances) {
+            try { inst.applyBankEffects(effects); } catch (e) { /* ignore */ }
+        }
+    }
+
     constructor() {
         this.audioContext = null;
         this.player = null;
@@ -85,6 +101,22 @@ class MidiSynthesizer {
         this.drumDryGain = null;        // Dry gain for drums
         this.drumActiveNotes = new Map(); // note -> envelope (for hi-hat choke)
 
+        // Echo / delay bus (shared by melody + drums)
+        this.echoDelayNode = null;
+        this.echoFeedbackGain = null;
+        this.echoWetGain = null;
+
+        // Last-applied effect values. `reverb_mix = null` means "use the
+        // current bank's built-in reverbMix". Populated when applyBankEffects()
+        // is called by SettingsModal after hydrating from the server.
+        this.bankEffects = {
+            reverb_mix: null,
+            reverb_decay_s: 1.2,
+            echo_mix: 0.0,
+            echo_time_ms: 250,
+            echo_feedback: 0.3
+        };
+
         // Minimum durations for drum categories (in seconds)
         this.drumMinDurations = {
             // Cymbals need to ring out
@@ -101,6 +133,8 @@ class MidiSynthesizer {
         // Hi-hat choke groups: playing closed (42/44) cancels open (46)
         this.hihatCloseNotes = new Set([42, 44]);
         this.hihatOpenNote = 46;
+
+        MidiSynthesizer._instances.add(this);
     }
 
     /**
@@ -185,13 +219,22 @@ class MidiSynthesizer {
         this.currentBankSuffix = bank.suffix;
         this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
 
-        // Update melody reverb level for the new bank
+        // Reset the saved reverb_mix so applyBankEffects(null) would fall
+        // back to the new bank's built-in default. External listeners
+        // (SettingsModal) will fetch the DB overrides for the new bank
+        // via the bank_changed hook and call applyBankEffects() with the
+        // persisted row (if any).
+        this.bankEffects.reverb_mix = null;
         const reverbMix = bank.reverbMix ?? 0.12;
         if (this.melodyReverbGain) {
             this.melodyReverbGain.gain.value = reverbMix;
         }
 
         this.log('info', `Sound bank switched to ${bank.id} (reverbMix=${reverbMix})`);
+
+        if (typeof this.onBankChanged === 'function') {
+            try { this.onBankChanged(bank.id); } catch (e) { /* ignore */ }
+        }
     }
 
     /**
@@ -580,6 +623,47 @@ class MidiSynthesizer {
     }
 
     /**
+     * Generate an exponential-decay white-noise impulse response.
+     * Decay length drives the reverb tail duration.
+     */
+    _generateImpulseBuffer(decaySeconds) {
+        const ctx = this.audioContext;
+        if (!ctx) return null;
+        try {
+            const sampleRate = ctx.sampleRate;
+            const length = Math.max(1, Math.floor(sampleRate * decaySeconds));
+            const buffer = ctx.createBuffer(2, length, sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+                const data = buffer.getChannelData(ch);
+                for (let i = 0; i < length; i++) {
+                    const decay = Math.exp(-3.5 * i / length);
+                    data[i] = (Math.random() * 2 - 1) * decay;
+                }
+            }
+            return buffer;
+        } catch (error) {
+            this.log('warn', 'Failed to generate reverb impulse:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Rebuild the convolver impulse response when reverb decay changes.
+     * Both the drum and melody convolvers share the same buffer.
+     */
+    _regenerateReverbIR(decaySeconds) {
+        const buffer = this._generateImpulseBuffer(decaySeconds);
+        if (!buffer) return;
+        if (this.drumReverbNode) {
+            try { this.drumReverbNode.buffer = buffer; } catch (e) { /* ignore */ }
+        }
+        if (this.melodyReverbNode) {
+            try { this.melodyReverbNode.buffer = buffer; } catch (e) { /* ignore */ }
+        }
+        this.bankEffects.reverb_decay_s = decaySeconds;
+    }
+
+    /**
      * Setup audio buses with reverb for drums and melodic instruments.
      * Drums: dedicated convolver for cymbals (fixed gain).
      * Melody: separate convolver with per-bank reverbMix to normalize
@@ -588,22 +672,11 @@ class MidiSynthesizer {
     _setupDrumBus() {
         const ctx = this.audioContext;
 
-        // Generate a shared impulse response (1.2s exponential decay)
-        let impulseBuffer = null;
-        try {
-            const sampleRate = ctx.sampleRate;
-            const length = sampleRate * 1.2;
-            impulseBuffer = ctx.createBuffer(2, length, sampleRate);
-            for (let ch = 0; ch < 2; ch++) {
-                const data = impulseBuffer.getChannelData(ch);
-                for (let i = 0; i < length; i++) {
-                    const decay = Math.exp(-3.5 * i / length);
-                    data[i] = (Math.random() * 2 - 1) * decay;
-                }
-            }
-        } catch (error) {
-            this.log('warn', 'Failed to generate reverb impulse:', error.message);
-        }
+        // Use the currently configured decay (bankEffects may have been
+        // hydrated from the server before initialize() runs; otherwise
+        // the constructor default of 1.2s applies).
+        const decay = this.bankEffects.reverb_decay_s ?? 1.2;
+        const impulseBuffer = this._generateImpulseBuffer(decay);
 
         // --- Drum bus (unchanged behavior) ---
         this.drumDryGain = ctx.createGain();
@@ -627,7 +700,7 @@ class MidiSynthesizer {
 
         // --- Melody bus (per-bank reverb normalization) ---
         const bankInfo = SOUND_BANKS.find(b => b.id === this.currentBankId);
-        const reverbMix = bankInfo?.reverbMix ?? 0.12;
+        const reverbMix = this.bankEffects.reverb_mix ?? bankInfo?.reverbMix ?? 0.12;
 
         this.melodyDryGain = ctx.createGain();
         this.melodyDryGain.gain.value = 1.0;
@@ -649,7 +722,99 @@ class MidiSynthesizer {
             }
         }
 
+        // --- Echo / delay bus (shared by melody + drums) ---
+        this._setupEchoBus();
+
         this.log('info', `Audio bus initialized (melody reverbMix=${reverbMix} for bank ${this.currentBankId})`);
+    }
+
+    /**
+     * Setup a simple feedback-delay bus. Routing is opt-in per note:
+     * playNote() only sends the signal to echoDelayNode when the wet
+     * gain is above zero (set via applyBankEffects).
+     */
+    _setupEchoBus() {
+        const ctx = this.audioContext;
+        try {
+            this.echoDelayNode = ctx.createDelay(2.0); // 2s hard cap
+            const timeMs = this.bankEffects.echo_time_ms ?? 250;
+            this.echoDelayNode.delayTime.value = timeMs / 1000;
+
+            this.echoFeedbackGain = ctx.createGain();
+            this.echoFeedbackGain.gain.value = this.bankEffects.echo_feedback ?? 0.3;
+
+            this.echoWetGain = ctx.createGain();
+            this.echoWetGain.gain.value = this.bankEffects.echo_mix ?? 0.0;
+
+            // Feedback loop: delay -> feedback gain -> delay
+            this.echoDelayNode.connect(this.echoFeedbackGain);
+            this.echoFeedbackGain.connect(this.echoDelayNode);
+
+            // Wet output: delay -> wet gain -> destination
+            this.echoDelayNode.connect(this.echoWetGain);
+            this.echoWetGain.connect(ctx.destination);
+        } catch (error) {
+            this.log('warn', 'Failed to create echo bus:', error.message);
+            this.echoDelayNode = null;
+            this.echoFeedbackGain = null;
+            this.echoWetGain = null;
+        }
+    }
+
+    /**
+     * Apply a set of effect parameters (reverb + echo) to the live
+     * audio graph. Called on startup, on bank switch, and whenever the
+     * user moves a slider in the settings modal.
+     *
+     * Any field missing from `effects` falls back to the current bank's
+     * built-in default (for reverb_mix) or to a safe default (others).
+     *
+     * @param {Object|null} effects - Server row from `bank_effects`,
+     *   or null to reset to bank defaults.
+     */
+    applyBankEffects(effects) {
+        const bank = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        const defaultReverbMix = bank?.reverbMix ?? 0.12;
+
+        const src = effects || {};
+        const reverbMix = src.reverb_mix !== undefined && src.reverb_mix !== null
+            ? Number(src.reverb_mix) : defaultReverbMix;
+        const reverbDecay = src.reverb_decay_s !== undefined && src.reverb_decay_s !== null
+            ? Number(src.reverb_decay_s) : 1.2;
+        const echoMix = src.echo_mix !== undefined && src.echo_mix !== null
+            ? Number(src.echo_mix) : 0.0;
+        const echoTimeMs = src.echo_time_ms !== undefined && src.echo_time_ms !== null
+            ? Number(src.echo_time_ms) : 250;
+        const echoFeedback = src.echo_feedback !== undefined && src.echo_feedback !== null
+            ? Number(src.echo_feedback) : 0.3;
+
+        if (this.melodyReverbGain) {
+            this.melodyReverbGain.gain.value = reverbMix;
+        }
+
+        // Only regenerate the IR when the change is perceptible — recreating
+        // a convolver buffer mid-playback is cheap but not free.
+        if (Math.abs(reverbDecay - (this.bankEffects.reverb_decay_s ?? 1.2)) > 0.05) {
+            this._regenerateReverbIR(reverbDecay);
+        }
+
+        if (this.echoDelayNode) {
+            this.echoDelayNode.delayTime.value = echoTimeMs / 1000;
+        }
+        if (this.echoFeedbackGain) {
+            this.echoFeedbackGain.gain.value = echoFeedback;
+        }
+        if (this.echoWetGain) {
+            this.echoWetGain.gain.value = echoMix;
+        }
+
+        this.bankEffects = {
+            reverb_mix: reverbMix,
+            reverb_decay_s: reverbDecay,
+            echo_mix: echoMix,
+            echo_time_ms: echoTimeMs,
+            echo_feedback: echoFeedback
+        };
     }
 
     /**
@@ -759,6 +924,24 @@ class MidiSynthesizer {
                 // Track drum envelopes for hi-hat choke
                 if (channel === 9) {
                     this.drumActiveNotes.set(note, envelope);
+                }
+            }
+
+            // Echo send (shared across channels). Only tap the delay line
+            // when the wet gain is audible; otherwise we save a voice.
+            if (this.echoDelayNode && this.echoWetGain
+                && this.echoWetGain.gain.value > 0.001) {
+                const echoEnvelope = this.player.queueWaveTable(
+                    this.audioContext,
+                    this.echoDelayNode,
+                    instrument,
+                    startTime,
+                    note,
+                    effectiveDuration,
+                    volume
+                );
+                if (echoEnvelope) {
+                    this.activeEnvelopes.push(echoEnvelope);
                 }
             }
         } catch (error) {
@@ -1029,12 +1212,18 @@ class MidiSynthesizer {
         if (this.melodyDryGain) { try { this.melodyDryGain.disconnect(); } catch(e) {} }
         if (this.melodyReverbGain) { try { this.melodyReverbGain.disconnect(); } catch(e) {} }
         if (this.melodyReverbNode) { try { this.melodyReverbNode.disconnect(); } catch(e) {} }
+        if (this.echoDelayNode) { try { this.echoDelayNode.disconnect(); } catch(e) {} }
+        if (this.echoFeedbackGain) { try { this.echoFeedbackGain.disconnect(); } catch(e) {} }
+        if (this.echoWetGain) { try { this.echoWetGain.disconnect(); } catch(e) {} }
         this.drumDryGain = null;
         this.drumReverbGain = null;
         this.drumReverbNode = null;
         this.melodyDryGain = null;
         this.melodyReverbGain = null;
         this.melodyReverbNode = null;
+        this.echoDelayNode = null;
+        this.echoFeedbackGain = null;
+        this.echoWetGain = null;
         this.drumActiveNotes.clear();
 
         if (this.audioContext && this.audioContext.state !== 'closed') {
@@ -1047,6 +1236,8 @@ class MidiSynthesizer {
         this.drumKit = null;
         this.drumPresets.clear();
         this.isInitialized = false;
+
+        MidiSynthesizer._instances.delete(this);
 
         this.log('info', 'MidiSynthesizer disposed');
     }

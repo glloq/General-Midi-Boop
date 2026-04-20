@@ -131,6 +131,15 @@
                 "SBLive": "Banque Creative Labs Sound Blaster Live. Polyvalente avec un caractère nostalgique.",
                 "Chaos": "Banque créative légère. Chargement rapide, sons basiques mais fonctionnels pour un aperçu rapide.",
                 "SoundBlasterOld": "Banque Sound Blaster classique. Empreinte minimale, caractère rétro. Idéale pour les connexions lentes."
+            },
+            "effects": {
+                "title": "🎛️ Effets de la banque",
+                "reverbMix": "Niveau de reverb",
+                "reverbDecay": "Durée de reverb",
+                "echoMix": "Niveau d'écho",
+                "echoTime": "Temps d'écho",
+                "echoFeedback": "Retour d'écho",
+                "reset": "Réinitialiser"
             }
         },
         "language": {

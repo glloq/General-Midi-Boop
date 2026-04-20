@@ -220,7 +220,16 @@ class SettingsModal {
                 } else {
                     soundBankDesc.textContent = i18n.t('settings.soundBank.description') || '';
                 }
+                // Reload the per-bank effect sliders for the newly
+                // selected bank (may have its own stored overrides).
+                if (typeof this.hydrateBankEffects === 'function') {
+                    this.hydrateBankEffects();
+                }
             });
+        }
+
+        if (typeof this.attachBankEffectsListeners === 'function') {
+            this.attachBankEffectsListeners();
         }
 
         const updateBtn = this.modal.querySelector('#systemUpdateBtn');
@@ -288,6 +297,11 @@ class SettingsModal {
 
         const soundBankSelect = this.modal.querySelector('#soundBankSelect');
         if (soundBankSelect) soundBankSelect.value = this.settings.soundBank;
+
+        // Load per-bank effect slider values for the current bank.
+        if (typeof this.hydrateBankEffects === 'function') {
+            this.hydrateBankEffects();
+        }
 
         this.logger?.info('Settings modal opened');
         this.checkForUpdates();
@@ -447,6 +461,9 @@ Object.assign(SettingsModal.prototype, SettingsTemplates);
 Object.assign(SettingsModal.prototype, SettingsTheme);
 Object.assign(SettingsModal.prototype, SettingsUpdate);
 Object.assign(SettingsModal.prototype, SettingsSerial);
+if (typeof SettingsBankEffects !== 'undefined') {
+    Object.assign(SettingsModal.prototype, SettingsBankEffects);
+}
 
 // Export global
 if (typeof window !== 'undefined') {

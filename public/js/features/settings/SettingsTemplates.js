@@ -260,6 +260,59 @@
                             return i18n.t('settings.soundBank.description') || 'Sample library for audio synthesis. Lighter banks reduce memory usage.';
                         })()}
                     </p>
+
+                    <!-- Per-bank effect sliders. Values are loaded from the
+                         server on modal open and on bank change; see
+                         SettingsModal.hydrateBankEffects(). -->
+                    <details id="bankEffectsPanel" style="margin-top: 16px;">
+                        <summary style="cursor: pointer; font-size: 13px; color: var(--text-primary, #333); user-select: none;">
+                            ${i18n.t('settings.soundBank.effects.title') || '🎛️ Effets de la banque'}
+                        </summary>
+                        <div style="padding: 12px 4px 4px 4px; display: flex; flex-direction: column; gap: 14px;">
+                            ${this.renderBankEffectSlider({
+                                id: 'bankEffectReverbMix',
+                                labelKey: 'settings.soundBank.effects.reverbMix',
+                                fallbackLabel: 'Reverb mix',
+                                min: 0, max: 100, step: 1, unit: '%'
+                            })}
+                            ${this.renderBankEffectSlider({
+                                id: 'bankEffectReverbDecay',
+                                labelKey: 'settings.soundBank.effects.reverbDecay',
+                                fallbackLabel: 'Reverb decay',
+                                min: 0.3, max: 3.0, step: 0.1, unit: 's'
+                            })}
+                            ${this.renderBankEffectSlider({
+                                id: 'bankEffectEchoMix',
+                                labelKey: 'settings.soundBank.effects.echoMix',
+                                fallbackLabel: 'Echo mix',
+                                min: 0, max: 100, step: 1, unit: '%'
+                            })}
+                            ${this.renderBankEffectSlider({
+                                id: 'bankEffectEchoTime',
+                                labelKey: 'settings.soundBank.effects.echoTime',
+                                fallbackLabel: 'Echo time',
+                                min: 50, max: 1000, step: 10, unit: 'ms'
+                            })}
+                            ${this.renderBankEffectSlider({
+                                id: 'bankEffectEchoFeedback',
+                                labelKey: 'settings.soundBank.effects.echoFeedback',
+                                fallbackLabel: 'Echo feedback',
+                                min: 0, max: 90, step: 1, unit: '%'
+                            })}
+                            <button id="bankEffectsReset" type="button" style="
+                                align-self: flex-start;
+                                padding: 6px 12px;
+                                font-size: 12px;
+                                border: 1px solid var(--border-color, #e5e7eb);
+                                background: var(--bg-secondary, white);
+                                color: var(--text-primary, #333);
+                                border-radius: 6px;
+                                cursor: pointer;
+                            ">
+                                ${i18n.t('settings.soundBank.effects.reset') || 'Réinitialiser'}
+                            </button>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -491,6 +544,31 @@
                     </div>
                     <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
                 </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Render a single slider row for the per-bank effects panel.
+     * The range input has no bound value — SettingsModal.hydrateBankEffects()
+     * sets the values once the server payload has been received.
+     */
+    SettingsTemplates.renderBankEffectSlider = function(opts) {
+        const label = i18n.t(opts.labelKey) || opts.fallbackLabel;
+        const valueId = opts.id + 'Value';
+        return `
+            <div class="bank-effect-row" style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text-primary, #333);">
+                    <span>${label}</span>
+                    <span id="${valueId}" style="color: var(--text-secondary, #666); font-variant-numeric: tabular-nums;">—</span>
+                </div>
+                <input type="range"
+                       id="${opts.id}"
+                       data-unit="${opts.unit}"
+                       min="${opts.min}"
+                       max="${opts.max}"
+                       step="${opts.step}"
+                       style="width: 100%; accent-color: #667eea;">
             </div>
         `;
     };
