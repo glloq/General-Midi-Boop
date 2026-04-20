@@ -4613,13 +4613,13 @@
         }
 
         #activeFiltersBadges .filter-badge .remove-badge {
-            font-weight: bold;
+            position: relative;
             margin-left: 6px;
-            font-size: 14px;
-            line-height: 1;
             width: 18px;
             height: 18px;
             padding: 0;
+            font-size: 0;
+            line-height: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -4628,6 +4628,26 @@
             color: var(--close-btn-color);
             transition: background 0.2s;
             cursor: pointer;
+        }
+
+        #activeFiltersBadges .filter-badge .remove-badge::before,
+        #activeFiltersBadges .filter-badge .remove-badge::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 2px;
+            background: var(--close-btn-color);
+            border-radius: 1px;
+        }
+
+        #activeFiltersBadges .filter-badge .remove-badge::before {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        #activeFiltersBadges .filter-badge .remove-badge::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
         }
 
         #activeFiltersBadges .filter-badge .remove-badge:hover {
