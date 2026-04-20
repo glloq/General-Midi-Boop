@@ -1,6 +1,6 @@
 // ============================================================================
 // File: js/features/TunerModal.js
-// Version: v1.2.0
+// Version: v1.3.0
 // Description:
 //   Modal providing a chromatic instrument tuner. Audio is captured on the
 //   backend (arecord on the Raspberry Pi) and pitch detection runs server-
@@ -11,8 +11,11 @@
 //     - 'note'       : user picks a target note from a chromatic horizontal
 //                      strip (E1..C6); display shows up/down guidance against
 //                      the chosen target
-//     - 'instrument' : user picks a stringed instrument preset, the picker
-//                      exposes only its open-string notes
+//     - 'instrument' : user picks a connected MIDI instrument (via the
+//                      `tuner_list_instruments` backend command) or a generic
+//                      preset. For stringed instruments with a configured
+//                      tuning the picker exposes the open-string notes; for
+//                      melodic instruments it falls back to the chromatic row.
 //
 // Dependencies: BaseModal.js, BackendAPIClient, i18n
 // ============================================================================
@@ -87,6 +90,7 @@
             const savedMode = localStorage.getItem('tuner_mode');
             const savedTarget = parseInt(localStorage.getItem('tuner_targetMidi'), 10);
             const savedPreset = localStorage.getItem('tuner_preset');
+            const savedSource = localStorage.getItem('tuner_instrumentSource');
 
             // UI state
             this.state = {
@@ -95,13 +99,21 @@
                 mode: ['auto', 'note', 'instrument'].includes(savedMode) ? savedMode : 'auto',
                 preset: (savedPreset && TUNER_PRESETS[savedPreset]) ? savedPreset : 'guitar',
                 targetMidi: Number.isFinite(savedTarget) ? savedTarget : 64, // E4 default
+                // For 'instrument' mode: whether we're looking at a connected
+                // instrument or a generic preset. Value is either
+                //   "connected:<deviceId>:<channel>" or "preset:<key>".
+                instrumentSource: savedSource || null,
                 smoothedFreq: 0,
                 error: null
             };
 
+            // Populated on first switch into 'instrument' mode.
+            this._connectedInstruments = [];
+            this._connectedLoaded = false;
+
             this._onPitchEvent = null;
 
-            this.logger.info('TunerModal', 'Modal initialized v1.2.0');
+            this.logger.info('TunerModal', 'Modal initialized v1.3.0');
         }
 
         _getApi() {
@@ -172,25 +184,18 @@
                 return `<div class="tuner-picker-hint">${this.t('tuner.hintAuto')}</div>`;
             }
             if (mode === 'instrument') {
-                const opts = Object.keys(TUNER_PRESETS).map(key =>
-                    `<option value="${key}" ${this.state.preset === key ? 'selected' : ''}>${this.escape(this.t(TUNER_PRESETS[key].labelKey))}</option>`
-                ).join('');
-                const preset = TUNER_PRESETS[this.state.preset];
-                const strings = (preset ? preset.notes : []).map(n => {
-                    const midi = noteNameToMidi(n);
-                    const active = midi === this.state.targetMidi;
-                    return `<button type="button" class="tuner-pick-pill ${active ? 'active' : ''}"
-                            data-midi="${midi}">${this.escape(n)}</button>`;
-                }).join('');
-                return `
-                    <div class="tuner-instrument-row">
-                        <label for="tunerPreset">${this.t('tuner.preset.label')}:</label>
-                        <select id="tunerPreset" class="tuner-select">${opts}</select>
-                    </div>
-                    <div class="tuner-picker tuner-picker-strings">${strings}</div>
-                `;
+                return this._renderInstrumentRow();
             }
             // mode === 'note' : full chromatic picker
+            return `<div class="tuner-picker tuner-picker-chromatic">${this._chromaticPillsHtml()}</div>`;
+        }
+
+        /**
+         * Build the full chromatic picker HTML (E1..C6, piano-key styling).
+         * Reused by mode 'note' and by mode 'instrument' when the selected
+         * connected instrument is melodic / has no string tuning.
+         */
+        _chromaticPillsHtml() {
             const pills = [];
             for (let m = PICKER_MIN_MIDI; m <= PICKER_MAX_MIDI; m++) {
                 const isBlack = BLACK_KEY_SEMITONES.has(((m % 12) + 12) % 12);
@@ -199,7 +204,105 @@
                         class="tuner-pick-pill ${isBlack ? 'black' : ''} ${active ? 'active' : ''}"
                         data-midi="${m}">${this.escape(midiToNoteName(m))}</button>`);
             }
-            return `<div class="tuner-picker tuner-picker-chromatic">${pills.join('')}</div>`;
+            return pills.join('');
+        }
+
+        /**
+         * Build the open-string picker for an array of MIDI notes.
+         */
+        _stringPillsHtml(midiArr) {
+            return midiArr.map(midi => {
+                const active = midi === this.state.targetMidi;
+                return `<button type="button" class="tuner-pick-pill ${active ? 'active' : ''}"
+                        data-midi="${midi}">${this.escape(midiToNoteName(midi))}</button>`;
+            }).join('');
+        }
+
+        /**
+         * Render the 'instrument' mode : a grouped <select> of connected
+         * instruments + generic presets, followed by a picker row whose
+         * content depends on what's selected.
+         */
+        _renderInstrumentRow() {
+            // Default selection when nothing's been chosen yet: first connected
+            // instrument that has a configured tuning, else first generic preset.
+            let sourceKey = this.state.instrumentSource;
+            if (!sourceKey) {
+                const configured = this._connectedInstruments.find(x => x.tuning);
+                if (configured) sourceKey = `connected:${configured.deviceId}:${configured.channel}`;
+                else sourceKey = `preset:${this.state.preset}`;
+            }
+
+            // Build grouped options.
+            const connectedOpts = this._connectedInstruments.map(inst => {
+                const key = `connected:${inst.deviceId}:${inst.channel}`;
+                const selected = key === sourceKey ? 'selected' : '';
+                const badge = inst.source === 'db' ? ` ${this.t('tuner.sourceConfigured')}` : '';
+                return `<option value="${this.escape(key)}" ${selected}>${this.escape(inst.displayName)}${badge}</option>`;
+            }).join('');
+
+            const presetOpts = Object.keys(TUNER_PRESETS).map(presetKey => {
+                const key = `preset:${presetKey}`;
+                const selected = key === sourceKey ? 'selected' : '';
+                return `<option value="${this.escape(key)}" ${selected}>${this.escape(this.t(TUNER_PRESETS[presetKey].labelKey))}</option>`;
+            }).join('');
+
+            const groups = [];
+            if (connectedOpts) {
+                groups.push(`<optgroup label="${this.escape(this.t('tuner.connectedInstruments'))}">${connectedOpts}</optgroup>`);
+            }
+            groups.push(`<optgroup label="${this.escape(this.t('tuner.genericPresets'))}">${presetOpts}</optgroup>`);
+
+            // Build the picker content for the current selection.
+            const pickerHtml = this._renderInstrumentPicker(sourceKey);
+
+            const loadedAndEmpty = this._connectedLoaded && this._connectedInstruments.length === 0;
+            const emptyHint = loadedAndEmpty
+                ? `<div class="tuner-picker-hint tuner-picker-hint-empty">${this.t('tuner.noInstrumentsConnected')}</div>`
+                : '';
+
+            return `
+                <div class="tuner-instrument-row">
+                    <label for="tunerInstrumentSelect">${this.t('tuner.preset.label')}:</label>
+                    <select id="tunerInstrumentSelect" class="tuner-select">${groups.join('')}</select>
+                </div>
+                ${emptyHint}
+                ${pickerHtml}
+            `;
+        }
+
+        _renderInstrumentPicker(sourceKey) {
+            if (!sourceKey) return '';
+            if (sourceKey.startsWith('preset:')) {
+                const presetKey = sourceKey.slice('preset:'.length);
+                const preset = TUNER_PRESETS[presetKey];
+                if (!preset) return '';
+                const midis = preset.notes.map(noteNameToMidi).filter(m => Number.isFinite(m));
+                return `<div class="tuner-picker tuner-picker-strings">${this._stringPillsHtml(midis)}</div>`;
+            }
+            if (sourceKey.startsWith('connected:')) {
+                const rest = sourceKey.slice('connected:'.length);
+                const lastColon = rest.lastIndexOf(':');
+                const deviceId = rest.slice(0, lastColon);
+                const channel = parseInt(rest.slice(lastColon + 1), 10);
+                const inst = this._connectedInstruments.find(x =>
+                    x.deviceId === deviceId && x.channel === channel);
+
+                if (!inst) {
+                    return `<div class="tuner-picker-hint tuner-picker-hint-empty">${this.t('tuner.noInstrumentsConnected')}</div>`;
+                }
+                // 1. Configured stringed → show open strings
+                if (Array.isArray(inst.tuning) && inst.tuning.length > 0) {
+                    return `<div class="tuner-picker tuner-picker-strings">${this._stringPillsHtml(inst.tuning)}</div>`;
+                }
+                // 2. Stringed but not configured → ask the user to configure
+                if (inst.looksStringed) {
+                    return `<div class="tuner-picker-hint tuner-picker-hint-empty">${this.t('tuner.noConfigForInstrument')}</div>`;
+                }
+                // 3. Melodic → full chromatic row
+                return `<div class="tuner-picker tuner-picker-chromatic">${this._chromaticPillsHtml()}</div>`;
+            }
+            return '';
         }
 
         renderFooter() {
@@ -221,6 +324,11 @@
             this._attachHandlers();
             this._scrollPickerToTarget();
             this._startListening();
+            // If the modal opens directly into 'instrument' mode, fetch the
+            // connected-instruments list and re-render once it arrives.
+            if (this.state.mode === 'instrument') {
+                this._loadConnectedInstruments().then(() => this._rerenderPicker());
+            }
         }
 
         onClose() {
@@ -259,18 +367,10 @@
         }
 
         _attachPickerHandlers() {
-            // Preset select (only in instrument mode)
-            this.$('#tunerPreset')?.addEventListener('change', (e) => {
-                this.state.preset = e.target.value;
-                localStorage.setItem('tuner_preset', this.state.preset);
-                // Default target to first string of the preset
-                const first = TUNER_PRESETS[this.state.preset]?.notes[0];
-                const midi = first ? noteNameToMidi(first) : null;
-                if (midi != null) {
-                    this.state.targetMidi = midi;
-                    localStorage.setItem('tuner_targetMidi', String(midi));
-                }
-                this._rerenderPicker();
+            // Instrument select (mode === 'instrument'): choose between a
+            // connected instrument or a generic preset.
+            this.$('#tunerInstrumentSelect')?.addEventListener('change', (e) => {
+                this._applyInstrumentSource(e.target.value);
             });
 
             // Pick a target note
@@ -286,6 +386,63 @@
             });
         }
 
+        _applyInstrumentSource(sourceKey) {
+            if (!sourceKey) return;
+            this.state.instrumentSource = sourceKey;
+            localStorage.setItem('tuner_instrumentSource', sourceKey);
+
+            // Default the target to the first note of the new selection,
+            // so the display has something to compare against right away.
+            let firstMidi = null;
+            if (sourceKey.startsWith('preset:')) {
+                const key = sourceKey.slice('preset:'.length);
+                this.state.preset = key;
+                localStorage.setItem('tuner_preset', key);
+                const noteName = TUNER_PRESETS[key]?.notes[0];
+                firstMidi = noteName ? noteNameToMidi(noteName) : null;
+            } else if (sourceKey.startsWith('connected:')) {
+                const rest = sourceKey.slice('connected:'.length);
+                const lastColon = rest.lastIndexOf(':');
+                const deviceId = rest.slice(0, lastColon);
+                const channel = parseInt(rest.slice(lastColon + 1), 10);
+                const inst = this._connectedInstruments.find(x =>
+                    x.deviceId === deviceId && x.channel === channel);
+                if (inst && Array.isArray(inst.tuning) && inst.tuning.length > 0) {
+                    firstMidi = inst.tuning[0];
+                }
+                // Melodic / unconfigured instruments keep the existing targetMidi.
+            }
+
+            if (firstMidi != null) {
+                this.state.targetMidi = firstMidi;
+                localStorage.setItem('tuner_targetMidi', String(firstMidi));
+            }
+
+            this._rerenderPicker();
+        }
+
+        /**
+         * Fetch the list of connected instruments once, the first time the
+         * user switches to 'instrument' mode in a given modal session.
+         */
+        async _loadConnectedInstruments() {
+            if (this._connectedLoaded) return;
+            const api = this._getApi();
+            if (!api || !api.sendCommand) {
+                this._connectedInstruments = [];
+                this._connectedLoaded = true;
+                return;
+            }
+            try {
+                const res = await api.sendCommand('tuner_list_instruments', {});
+                this._connectedInstruments = (res && Array.isArray(res.instruments)) ? res.instruments : [];
+            } catch (err) {
+                this.logger.warn('TunerModal', 'tuner_list_instruments failed:', err);
+                this._connectedInstruments = [];
+            }
+            this._connectedLoaded = true;
+        }
+
         _setMode(newMode) {
             if (!['auto', 'note', 'instrument'].includes(newMode)) return;
             if (newMode === this.state.mode) return;
@@ -296,6 +453,12 @@
             });
             this._rerenderPicker();
             this._resetDisplay();
+
+            // First time we enter 'instrument' mode, fetch the connected list
+            // and re-render once it's here so the dropdown actually has items.
+            if (newMode === 'instrument' && !this._connectedLoaded) {
+                this._loadConnectedInstruments().then(() => this._rerenderPicker());
+            }
         }
 
         _rerenderPicker() {
