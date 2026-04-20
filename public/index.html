@@ -4622,13 +4622,14 @@
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.25);
+            background: var(--close-btn-bg);
+            color: var(--close-btn-color);
             transition: background 0.2s;
             cursor: pointer;
         }
 
         #activeFiltersBadges .filter-badge .remove-badge:hover {
-            background: rgba(255, 255, 255, 0.5);
+            background: var(--close-btn-bg-hover);
         }
 
         /* .close-btn — styled by universal close button rule in components.css */
