@@ -173,19 +173,47 @@ class DelayCalibrator {
       // and fold arecord's own startup into the measured delay.
       await this.waitForFirstChunk(500);
 
+      // Gather a short quiet window (~50 ms of audio) to estimate the
+      // pre-note baseline noise floor. The onset detector will then trigger
+      // on a SUDDEN RISE above this baseline rather than a fixed absolute
+      // threshold — so continuous ambient noise above the raw threshold
+      // doesn't prevent (or mis-time) detection.
+      await this.sleep(50);
+      const baselineRms = this._estimateBaselineRms();
+      this.logger.info(`Baseline RMS (pre-note): ${baselineRms.toFixed(4)}`);
+
       const firstChunk = this.audioBuffer[0];
       if (firstChunk) {
         const firstMs = (firstChunk.chunk.length / 2 / this.config.sampleRate) * 1000;
         this.logger.info(`First arecord chunk: ${firstChunk.chunk.length} bytes = ${firstMs.toFixed(1)}ms of audio`);
       }
 
-      // Send the MIDI note and capture the timestamp
+      // Fire the MIDI note inline right BEFORE capturing sendTime so the
+      // captured timestamp brackets the actual MIDI emission as tightly as
+      // possible. sendMessage is synchronous — the packet is queued to the
+      // transport immediately. Note OFF is deferred asynchronously via
+      // setTimeout so we don't block the detection path with a 500 ms sleep.
+      const note = this.config.testNote;
+      const velocity = this.config.noteVelocity;
+      this.midiController.sendMessage(deviceId, 'noteon', { channel, note, velocity });
       const sendTime = performance.now();
-      await this.sendTestNote(deviceId, channel);
 
-      // Wait for sound detection — only chunks captured AFTER sendTime count,
-      // so ambient noise that predates the MIDI note can't trigger detection.
-      const detectionTime = await this.waitForSound(this.config.maxWaitTime, sendTime);
+      const noteOffTimer = setTimeout(() => {
+        try {
+          this.midiController.sendMessage(deviceId, 'noteoff', { channel, note, velocity: 0 });
+        } catch (e) {
+          this.logger.warn(`noteoff failed: ${e && e.message ? e.message : e}`);
+        }
+      }, this.config.noteDuration);
+
+      // Wait for sound detection — triggers on a jump above baseline.
+      const detectionTime = await this.waitForSound(this.config.maxWaitTime, sendTime, baselineRms);
+
+      // Make sure the note-off fires even if waitForSound returned early.
+      clearTimeout(noteOffTimer);
+      try {
+        this.midiController.sendMessage(deviceId, 'noteoff', { channel, note, velocity: 0 });
+      } catch (_) { /* ignore */ }
 
       // Stop recording
       await this.stopRecording();
@@ -204,6 +232,32 @@ class DelayCalibrator {
       await this.stopRecording();
       throw error;
     }
+  }
+
+  /**
+   * Estimate the RMS of audio captured up to now. Used as a noise-floor
+   * baseline so onset detection can trigger on a sudden rise rather than
+   * an absolute threshold.
+   * @returns {number} RMS in [0, 1]
+   */
+  _estimateBaselineRms() {
+    if (this.audioBuffer.length === 0) return 0;
+    // Use up to the last ~40 ms of audio for the baseline (typically 8
+    // chunks at 5 ms/period). Skipping the very first chunk avoids
+    // including any arecord-warmup transients.
+    const start = Math.max(1, this.audioBuffer.length - 8);
+    let sumSq = 0;
+    let samples = 0;
+    for (let i = start; i < this.audioBuffer.length; i++) {
+      const buf = this.audioBuffer[i].chunk;
+      const n = Math.floor(buf.length / 2);
+      for (let j = 0; j < n; j++) {
+        const s = buf.readInt16LE(j * 2) / 32768.0;
+        sumSq += s * s;
+      }
+      samples += n;
+    }
+    return samples > 0 ? Math.sqrt(sumSq / samples) : 0;
   }
 
   /**
@@ -261,8 +315,8 @@ class DelayCalibrator {
       '-f', this.config.format,
       '-r', this.config.sampleRate.toString(),
       '-c', this.config.channels.toString(),
-      '-B', '40000',  // total buffer in µs → 40 ms
-      '-F', '10000',  // period (interrupt interval) in µs → 10 ms
+      '-B', '20000',  // total buffer in µs → 20 ms
+      '-F', '5000',   // period (interrupt interval) in µs → 5 ms (finer onset resolution)
       '-t', 'raw'
     ]);
 
@@ -301,7 +355,7 @@ class DelayCalibrator {
       this.isRecording = false;
     });
 
-    this.logger.info(`Recording started on ${this.config.alsaDevice} @${this.config.sampleRate}Hz (period=10ms, buffer=40ms)`);
+    this.logger.info(`Recording started on ${this.config.alsaDevice} @${this.config.sampleRate}Hz (period=5ms, buffer=20ms)`);
   }
 
   /**
@@ -372,12 +426,27 @@ class DelayCalibrator {
    * @param {number} sendTime - Wall-clock time the MIDI note was emitted
    * @returns {Promise<number|null>} - Detection timestamp or null
    */
-  waitForSound(timeoutMs, sendTime) {
+  waitForSound(timeoutMs, sendTime, baselineRms = 0) {
     return new Promise((resolve) => {
       const startTime = performance.now();
       const checkInterval = 5;
       let lastCheckedIndex = 0;
       const sr = this.config.sampleRate;
+
+      // Effective threshold floats above the measured noise floor. A 3×
+      // multiplier (with a 0.01 floor) keeps a constant ambient signal from
+      // triggering detection without the MIDI note's sound, but still lets
+      // a modest instrument response register — the MIDI note adds energy
+      // on top of any pre-existing noise, which produces a clear jump.
+      const effectiveThreshold = Math.max(
+        this.config.threshold,
+        baselineRms * 3,
+        0.01
+      );
+      this.logger.info(
+        `Detection threshold: config=${this.config.threshold}, ` +
+        `baseline=${baselineRms.toFixed(4)} → effective=${effectiveThreshold.toFixed(4)}`
+      );
 
       const sampleToTime = (absSampleIdx) => {
         return this._audioTimelineStart + (absSampleIdx / sr) * 1000;
@@ -395,7 +464,7 @@ class DelayCalibrator {
           const entry = this.audioBuffer[lastCheckedIndex];
           lastCheckedIndex++;
 
-          const onset = this.findOnsetInChunk(entry.chunk, this.config.threshold);
+          const onset = this.findOnsetInChunk(entry.chunk, effectiveThreshold);
           if (onset === -1) continue;
 
           const absoluteOnsetSample = entry.startSample + onset;
@@ -435,8 +504,9 @@ class DelayCalibrator {
   findOnsetInChunk(buffer, threshold) {
     if (!buffer || buffer.length < 2) return -1;
 
-    const WINDOW_SAMPLES = 128;
-    const HOP_SAMPLES = 32; // ~2 ms hop at 16 kHz — plenty of resolution
+    const WINDOW_SAMPLES = 64;  // 4 ms window at 16 kHz — shorter window =
+                                // faster response to a transient onset
+    const HOP_SAMPLES = 16;     // 1 ms hop at 16 kHz — sub-ms onset resolution
     const BYTES_PER_SAMPLE = 2;
     const totalSamples = Math.floor(buffer.length / BYTES_PER_SAMPLE);
     if (totalSamples < WINDOW_SAMPLES) {
