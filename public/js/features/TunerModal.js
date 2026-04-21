@@ -21,7 +21,15 @@
     'use strict';
 
     const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const NOTE_NAMES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
     const BLACK_KEY_SEMITONES = new Set([1, 3, 6, 8, 10]);
+
+    // Concert pitch reference. Modern standard is 440 Hz; exposed as a
+    // module constant rather than a user setting because any reasonable
+    // value lives between 440 and 443 and practically never changes.
+    const A4_HZ = 440;
+
+    const DISPLAY_FORMATS = ['us', 'fr', 'midi'];
 
     // Instrument presets for the 'instrument' mode. `notes` lists open strings
     // in standard tuning, using scientific pitch notation (A4 = MIDI 69).
@@ -50,6 +58,13 @@
     function midiToNoteName(midi) {
         const rounded = Math.round(midi);
         return NOTE_NAMES[((rounded % 12) + 12) % 12] + (Math.floor(rounded / 12) - 1);
+    }
+
+    function midiToNoteNameFormatted(midi, format) {
+        const rounded = Math.round(midi);
+        if (format === 'midi') return String(rounded);
+        const table = format === 'fr' ? NOTE_NAMES_FR : NOTE_NAMES;
+        return table[((rounded % 12) + 12) % 12] + (Math.floor(rounded / 12) - 1);
     }
 
     function midiToFreq(midi, a4) {
@@ -87,14 +102,15 @@
             const savedMode = localStorage.getItem('tuner_mode');
             const savedTarget = parseInt(localStorage.getItem('tuner_targetMidi'), 10);
             const savedPreset = localStorage.getItem('tuner_preset');
+            const savedFormat = localStorage.getItem('tuner_displayFormat');
 
             // UI state
             this.state = {
                 isListening: false,
-                a4: parseFloat(localStorage.getItem('tuner_a4')) || 440,
                 mode: ['auto', 'note', 'instrument'].includes(savedMode) ? savedMode : 'auto',
                 preset: (savedPreset && TUNER_PRESETS[savedPreset]) ? savedPreset : 'guitar',
                 targetMidi: Number.isFinite(savedTarget) ? savedTarget : 64, // E4 default
+                displayFormat: DISPLAY_FORMATS.includes(savedFormat) ? savedFormat : 'us',
                 smoothedFreq: 0,
                 error: null
             };
@@ -115,6 +131,7 @@
         renderBody() {
             const device = this.alsaDevice ? ` (${this.escape(this.alsaDevice)})` : '';
             const mode = this.state.mode;
+            const fmt = this.state.displayFormat;
 
             return `
                 <div class="tuner-top-bar">
@@ -126,10 +143,13 @@
                         <button type="button" role="tab" class="tuner-mode-btn ${mode === 'instrument' ? 'active' : ''}"
                                 data-mode="instrument">${this.t('tuner.mode.instrument')}</button>
                     </div>
-                    <div class="tuner-a4">
-                        <label for="tunerA4">${this.t('tuner.referenceA4')}:</label>
-                        <input type="number" id="tunerA4" class="tuner-input"
-                               min="415" max="466" step="0.1" value="${this.state.a4}">
+                    <div class="tuner-format-selector" role="tablist" aria-label="${this.t('tuner.displayFormat')}">
+                        <button type="button" role="tab" class="tuner-format-btn ${fmt === 'us' ? 'active' : ''}"
+                                data-format="us" title="C D E…">US</button>
+                        <button type="button" role="tab" class="tuner-format-btn ${fmt === 'fr' ? 'active' : ''}"
+                                data-format="fr" title="Do Ré Mi…">FR</button>
+                        <button type="button" role="tab" class="tuner-format-btn ${fmt === 'midi' ? 'active' : ''}"
+                                data-format="midi" title="MIDI #">MIDI</button>
                     </div>
                 </div>
 
@@ -180,7 +200,7 @@
                     const midi = noteNameToMidi(n);
                     const active = midi === this.state.targetMidi;
                     return `<button type="button" class="tuner-pick-pill ${active ? 'active' : ''}"
-                            data-midi="${midi}">${this.escape(n)}</button>`;
+                            data-midi="${midi}">${this.escape(this._formatNote(midi))}</button>`;
                 }).join('');
                 return `
                     <div class="tuner-instrument-row">
@@ -197,9 +217,13 @@
                 const active = m === this.state.targetMidi;
                 pills.push(`<button type="button"
                         class="tuner-pick-pill ${isBlack ? 'black' : ''} ${active ? 'active' : ''}"
-                        data-midi="${m}">${this.escape(midiToNoteName(m))}</button>`);
+                        data-midi="${m}">${this.escape(this._formatNote(m))}</button>`);
             }
             return `<div class="tuner-picker tuner-picker-chromatic">${pills.join('')}</div>`;
+        }
+
+        _formatNote(midi) {
+            return midiToNoteNameFormatted(midi, this.state.displayFormat);
         }
 
         renderFooter() {
@@ -242,20 +266,31 @@
             this.$('#tunerCloseBtn')?.addEventListener('click', () => this.close());
             this.$('#tunerToggleBtn')?.addEventListener('click', () => this._toggleListening());
 
-            this.$('#tunerA4')?.addEventListener('change', (e) => {
-                const val = parseFloat(e.target.value);
-                if (!isNaN(val) && val >= 415 && val <= 466) {
-                    this.state.a4 = val;
-                    localStorage.setItem('tuner_a4', String(val));
-                }
-            });
-
             // Mode selector buttons
             this.$$('.tuner-mode-btn').forEach(btn => {
                 btn.addEventListener('click', () => this._setMode(btn.dataset.mode));
             });
 
+            // Note-format selector (US / FR / MIDI)
+            this.$$('.tuner-format-btn').forEach(btn => {
+                btn.addEventListener('click', () => this._setDisplayFormat(btn.dataset.format));
+            });
+
             this._attachPickerHandlers();
+        }
+
+        _setDisplayFormat(format) {
+            if (!DISPLAY_FORMATS.includes(format)) return;
+            if (format === this.state.displayFormat) return;
+            this.state.displayFormat = format;
+            localStorage.setItem('tuner_displayFormat', format);
+            this.$$('.tuner-format-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.format === format);
+            });
+            // Re-render picker pills (they show note names) and the current
+            // target note in the big display.
+            this._rerenderPicker();
+            this._resetDisplay();
         }
 
         _attachPickerHandlers() {
@@ -469,10 +504,9 @@
 
         _updateDisplay(freq) {
             const mode = this.state.mode;
-            const a4 = this.state.a4;
 
             // MIDI number (float) of the detected frequency.
-            const detectedMidiFloat = 69 + 12 * Math.log2(freq / a4);
+            const detectedMidiFloat = 69 + 12 * Math.log2(freq / A4_HZ);
 
             // Targeted mode (note or instrument): compare to the chosen MIDI.
             // Auto mode: target is the nearest integer MIDI number (current behavior).
@@ -481,7 +515,7 @@
                 : this.state.targetMidi;
 
             const cents = (detectedMidiFloat - targetMidi) * 100;
-            const targetName = midiToNoteName(targetMidi);
+            const targetName = this._formatNote(targetMidi);
 
             const noteEl = this.$('#tunerNote');
             const freqEl = this.$('#tunerFreq');
@@ -517,7 +551,7 @@
                 if (inTune) {
                     statusEl.textContent = this.t('tuner.inTune');
                 } else if (farOff && mode !== 'auto') {
-                    const detectedName = midiToNoteName(Math.round(detectedMidiFloat));
+                    const detectedName = this._formatNote(Math.round(detectedMidiFloat));
                     statusEl.textContent = `${cents < 0 ? '↑' : '↓'} ${this.t('tuner.heardNote', { note: detectedName })}`;
                 } else if (cents < 0) {
                     statusEl.textContent = `${this.t('tuner.tooLow')} (${cents.toFixed(1)}¢)`;
@@ -545,7 +579,7 @@
             const freqEl = this.$('#tunerFreq');
             const needle = this.$('#tunerNeedle');
             if (noteEl) {
-                noteEl.textContent = this.state.mode === 'auto' ? '—' : midiToNoteName(this.state.targetMidi);
+                noteEl.textContent = this.state.mode === 'auto' ? '—' : this._formatNote(this.state.targetMidi);
             }
             if (freqEl) freqEl.textContent = '— Hz';
             if (needle) needle.style.left = '50%';

@@ -30,7 +30,7 @@
     border-top: 1px solid #e5e7eb;
 }
 
-/* ========== TOP BAR: MODE SELECTOR + A4 ========== */
+/* ========== TOP BAR: MODE SELECTOR + NOTE-FORMAT SELECTOR ========== */
 .tuner-top-bar {
     display: flex;
     align-items: center;
@@ -39,7 +39,8 @@
     flex-wrap: wrap;
 }
 
-.tuner-mode-selector {
+.tuner-mode-selector,
+.tuner-format-selector {
     display: inline-flex;
     border: 1px solid #d1d5db;
     border-radius: 8px;
@@ -47,7 +48,8 @@
     background: #f9fafb;
 }
 
-.tuner-mode-btn {
+.tuner-mode-btn,
+.tuner-format-btn {
     padding: 6px 16px;
     background: transparent;
     border: none;
@@ -59,31 +61,22 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.tuner-mode-btn:last-child { border-right: none; }
+.tuner-mode-btn:last-child,
+.tuner-format-btn:last-child { border-right: none; }
 
-.tuner-mode-btn:hover { background: #f3f4f6; }
+.tuner-mode-btn:hover,
+.tuner-format-btn:hover { background: #f3f4f6; }
 
-.tuner-mode-btn.active {
+.tuner-mode-btn.active,
+.tuner-format-btn.active {
     background: #667eea;
     color: #fff;
 }
 
-.tuner-a4 {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.tuner-format-btn {
+    padding: 6px 12px;
     font-size: 12px;
-    color: #6b7280;
-}
-
-.tuner-a4 input {
-    width: 80px;
-    padding: 4px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #fff;
-    font-size: 13px;
-    color: #111;
+    letter-spacing: 0.02em;
 }
 
 /* ========== PICKER ROW ========== */
@@ -354,13 +347,14 @@
 /* ========== DARK THEME ========== */
 body.theme-dark .tuner-modal .modal-footer { border-top-color: #374151; }
 
-body.theme-dark .tuner-mode-selector { background: #1f2937; border-color: #374151; }
-body.theme-dark .tuner-mode-btn { color: #d1d5db; border-right-color: #374151; }
-body.theme-dark .tuner-mode-btn:hover { background: #111827; }
-body.theme-dark .tuner-mode-btn.active { background: #667eea; color: #fff; }
-
-body.theme-dark .tuner-a4 { color: #9ca3af; }
-body.theme-dark .tuner-a4 input { background: #1f2937; border-color: #374151; color: #f3f4f6; }
+body.theme-dark .tuner-mode-selector,
+body.theme-dark .tuner-format-selector { background: #1f2937; border-color: #374151; }
+body.theme-dark .tuner-mode-btn,
+body.theme-dark .tuner-format-btn { color: #d1d5db; border-right-color: #374151; }
+body.theme-dark .tuner-mode-btn:hover,
+body.theme-dark .tuner-format-btn:hover { background: #111827; }
+body.theme-dark .tuner-mode-btn.active,
+body.theme-dark .tuner-format-btn.active { background: #667eea; color: #fff; }
 
 body.theme-dark .tuner-instrument-row { color: #d1d5db; }
 body.theme-dark .tuner-instrument-row select { background: #1f2937; border-color: #374151; color: #f3f4f6; }

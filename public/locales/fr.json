@@ -1797,7 +1797,6 @@
         "listeningVia": "Écoute via le micro du Raspberry",
         "backendUnavailable": "Backend indisponible. Impossible de démarrer l'accordeur.",
         "backendError": "Erreur backend",
-        "referenceA4": "Référence La4 (Hz)",
         "inTune": "Juste",
         "tooLow": "Trop bas",
         "tooHigh": "Trop haut",
@@ -1817,7 +1816,8 @@
             "viola": "Alto (CGDA)",
             "cello": "Violoncelle (CGDA)",
             "ukulele": "Ukulélé (GCEA)"
-        }
+        },
+        "displayFormat": "Affichage des notes"
     },
     "calibration": {
         "title": "Calibration des délais (Microphone)",
