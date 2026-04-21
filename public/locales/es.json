@@ -1865,7 +1865,9 @@
         "measure": "Medir",
         "tests": "Pruebas",
         "testDelayCategory": "Medición de retraso",
-        "testDelayCategoryHint": "Mide el tiempo entre el envío de una nota MIDI y la detección del sonido por el micrófono."
+        "testDelayCategoryHint": "Mide el tiempo entre el envío de una nota MIDI y la detección del sonido por el micrófono.",
+        "measurementOffset": "Offset de medición (ms)",
+        "measurementOffsetHint": "Se resta a cada retraso medido para compensar la latencia de la cadena micrófono/ALSA."
     },
     "routingSummary": {
         "title": "Enrutamiento automático",

@@ -308,6 +308,14 @@
     font-style: italic;
 }
 
+.calibration-test-category-options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
 .calibration-test-category-option {
     display: inline-flex;
     align-items: center;

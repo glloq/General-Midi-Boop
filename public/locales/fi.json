@@ -1865,7 +1865,9 @@
         "measure": "Measure",
         "tests": "Tests",
         "testDelayCategory": "Delay measurement",
-        "testDelayCategoryHint": "Measures the time between sending a MIDI note and detecting the sound with the mic."
+        "testDelayCategoryHint": "Measures the time between sending a MIDI note and detecting the sound with the mic.",
+        "measurementOffset": "Measurement offset (ms)",
+        "measurementOffsetHint": "Subtracted from every measured delay to compensate for the mic/ALSA chain latency."
     },
     "routingSummary": {
         "title": "Automaattinen reititys",

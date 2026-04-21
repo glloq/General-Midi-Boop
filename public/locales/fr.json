@@ -1865,7 +1865,9 @@
         "measure": "Mesurer",
         "tests": "Tests",
         "testDelayCategory": "Mesure de délai",
-        "testDelayCategoryHint": "Mesure le temps entre l'envoi d'une note MIDI et la détection du son par le micro."
+        "testDelayCategoryHint": "Mesure le temps entre l'envoi d'une note MIDI et la détection du son par le micro.",
+        "measurementOffset": "Offset de mesure (ms)",
+        "measurementOffsetHint": "Soustrait à chaque délai mesuré pour compenser la latence inhérente à la chaîne micro/ALSA."
     },
     "routingSummary": {
         "title": "Routage automatique",

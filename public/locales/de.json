@@ -1865,7 +1865,9 @@
         "measure": "Messen",
         "tests": "Tests",
         "testDelayCategory": "Verzögerungsmessung",
-        "testDelayCategoryHint": "Misst die Zeit zwischen dem Senden einer MIDI-Note und der Erkennung des Klangs durch das Mikrofon."
+        "testDelayCategoryHint": "Misst die Zeit zwischen dem Senden einer MIDI-Note und der Erkennung des Klangs durch das Mikrofon.",
+        "measurementOffset": "Mess-Offset (ms)",
+        "measurementOffsetHint": "Von jeder gemessenen Verzögerung abgezogen, um die Latenz der Mikrofon-/ALSA-Kette zu kompensieren."
     },
     "routingSummary": {
         "title": "Automatisches Routing",

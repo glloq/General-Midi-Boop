@@ -1865,7 +1865,9 @@
         "measure": "Meten",
         "tests": "Tests",
         "testDelayCategory": "Vertragingsmeting",
-        "testDelayCategoryHint": "Meet de tijd tussen het verzenden van een MIDI-noot en de detectie van het geluid door de microfoon."
+        "testDelayCategoryHint": "Meet de tijd tussen het verzenden van een MIDI-noot en de detectie van het geluid door de microfoon.",
+        "measurementOffset": "Meetoffset (ms)",
+        "measurementOffsetHint": "Afgetrokken van elke gemeten vertraging om de latentie van de mic/ALSA-keten te compenseren."
     },
     "routingSummary": {
         "title": "Automatische routing",

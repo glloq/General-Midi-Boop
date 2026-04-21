@@ -117,11 +117,19 @@ class CalibrationModal extends BaseModal {
                             <h4>⏱️ ${this.t('calibration.testDelayCategory')}</h4>
                             <small>${this.t('calibration.testDelayCategoryHint')}</small>
                         </div>
-                        <label class="calibration-test-category-option" for="calibMeasurements">
-                            <span>${this.t('calibration.measurements')}:</span>
-                            <input type="number" id="calibMeasurements" class="calibration-input-inline"
-                                   min="1" max="20" value="5">
-                        </label>
+                        <div class="calibration-test-category-options">
+                            <label class="calibration-test-category-option" for="calibMeasurementOffset">
+                                <span>${this.t('calibration.measurementOffset')}:</span>
+                                <input type="number" id="calibMeasurementOffset" class="calibration-input-inline"
+                                       min="0" max="100" step="1" value="${this._getSavedOffset()}"
+                                       title="${this.t('calibration.measurementOffsetHint')}">
+                            </label>
+                            <label class="calibration-test-category-option" for="calibMeasurements">
+                                <span>${this.t('calibration.measurements')}:</span>
+                                <input type="number" id="calibMeasurements" class="calibration-input-inline"
+                                       min="1" max="20" value="5">
+                            </label>
+                        </div>
                     </div>
                     <div id="calibInstrumentsList" class="calibration-instruments-list">
                         <div class="calibration-no-instruments">${this.t('calibration.noInstruments')}</div>
@@ -237,6 +245,17 @@ class CalibrationModal extends BaseModal {
                 const val = parseFloat(e.target.value);
                 const display = this.$('#calibThresholdValue');
                 if (display) display.textContent = val.toFixed(3);
+            });
+        }
+
+        // Measurement offset: persist changes so the correction survives reloads.
+        const offsetInput = this.$('#calibMeasurementOffset');
+        if (offsetInput) {
+            offsetInput.addEventListener('change', () => {
+                const n = parseInt(offsetInput.value, 10);
+                if (Number.isFinite(n)) {
+                    localStorage.setItem('calibration_measurement_offset', String(Math.max(0, Math.min(100, n))));
+                }
             });
         }
 
@@ -540,6 +559,8 @@ class CalibrationModal extends BaseModal {
 
         this._setInstrumentStatus(instrument.key, 'running');
 
+        const offset = this._getMeasurementOffset();
+
         try {
             const result = await this._getApi().sendCommand('calibrate_delay', {
                 deviceId: instrument.deviceId,
@@ -549,12 +570,16 @@ class CalibrationModal extends BaseModal {
                 measurements
             });
 
-            this.state.results[instrument.key] = { ...result, instrument };
+            // Subtract the measurement-chain offset (ALSA buffer + USB mic +
+            // processing overhead) so the stored delay reflects the real
+            // MIDI→sound latency of the instrument alone.
+            const corrected = this._applyOffsetToResult(result, offset);
+            this.state.results[instrument.key] = { ...corrected, instrument, measurementOffset: offset };
 
-            if (result.success) {
-                this._setInstrumentStatus(instrument.key, 'success', `${result.delay}ms`);
+            if (corrected.success) {
+                this._setInstrumentStatus(instrument.key, 'success', `${corrected.delay}ms`);
             } else {
-                this._setInstrumentStatus(instrument.key, 'error', result.error || this.t('calibration.statusError'));
+                this._setInstrumentStatus(instrument.key, 'error', corrected.error || this.t('calibration.statusError'));
             }
             this._updateRowResult(instrument.key, this.state.results[instrument.key]);
         } catch (error) {
@@ -786,6 +811,41 @@ class CalibrationModal extends BaseModal {
         const n = parseInt(input.value, 10);
         if (!Number.isFinite(n)) return 5;
         return Math.max(1, Math.min(20, n));
+    }
+
+    _getSavedOffset() {
+        const saved = parseInt(localStorage.getItem('calibration_measurement_offset'), 10);
+        return Number.isFinite(saved) ? Math.max(0, Math.min(100, saved)) : 0;
+    }
+
+    _getMeasurementOffset() {
+        const input = this.$('#calibMeasurementOffset');
+        if (!input) return this._getSavedOffset();
+        const n = parseInt(input.value, 10);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(100, n));
+    }
+
+    /**
+     * Subtract the measurement-chain offset from a calibration result.
+     * Applied non-destructively so the raw backend response isn't mutated.
+     * Clamps individual measurements and the reported delay at 0 — negative
+     * latency is physically impossible and would just be noise.
+     */
+    _applyOffsetToResult(result, offset) {
+        if (!result || !result.success || !offset) return result;
+        const next = { ...result };
+        if (Array.isArray(result.measurements)) {
+            next.measurements = result.measurements.map(m => Math.max(0, m - offset));
+        }
+        if (typeof result.delay === 'number') {
+            next.delay = Math.max(0, Math.round(result.delay - offset));
+        }
+        if (typeof result.mean === 'number') {
+            next.mean = Math.max(0, Math.round(result.mean - offset));
+        }
+        // stdDev is unchanged by a constant subtraction.
+        return next;
     }
 }
 
