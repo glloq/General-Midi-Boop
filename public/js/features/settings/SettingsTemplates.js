@@ -10,6 +10,10 @@
         const locales = i18n.getSupportedLocales();
 
         return `
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- Column 1 : Apparence + Lecture & Affichage       -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <div class="settings-column">
             <!-- ═══════════════════════════════════════ -->
             <!-- GROUPE A : Apparence                    -->
             <!-- ═══════════════════════════════════════ -->
@@ -204,6 +208,12 @@
                 </div>
             </div>
 
+            </div><!-- /column 1 -->
+
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- Column 2 : Son + Boutons + Matériel & Système   -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <div class="settings-column">
             <!-- ═══════════════════════════════════════ -->
             <!-- GROUPE C : Son                           -->
             <!-- ═══════════════════════════════════════ -->
@@ -554,6 +564,7 @@
                     <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
                 </div>
             </div>
+            </div><!-- /column 2 -->
         `;
     };
 

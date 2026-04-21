@@ -1,9 +1,9 @@
 /* ============================================================================
    Settings Modal - Responsive Layout
    ============================================================================
-   2-column masonry-like layout on large screens, single column on mobile.
-   Uses CSS multi-column to avoid row alignment gaps when groups differ in
-   height.
+   Two explicit flex columns on large screens, single column on mobile.
+   Groups are hand-assigned to columns in SettingsTemplates.renderContent()
+   so heights stay balanced and no group ends up alone in a column.
    ============================================================================ */
 
 /* ========== Overlay ========== */
@@ -52,30 +52,27 @@
 
 /* .settings-close-btn — styled by universal close button rule in components.css */
 
-/* ========== Content area - 2-column masonry via CSS columns ========== */
+/* ========== Content area - 2 explicit flex columns ========== */
 .settings-modal-content {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  column-count: 2;
-  column-gap: 32px;
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.settings-modal-content .settings-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* ========== Settings groups ========== */
 .settings-modal-content .settings-group {
-  /* override inline margin-top used for legacy single-column stacking */
-  margin-top: 0 !important;
-  margin-bottom: 20px;
-  /* Keep a group together inside a single column */
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  page-break-inside: avoid;
-  /* Columns treat block-level children as independent items */
-  display: block;
-}
-
-.settings-modal-content .settings-group:last-child {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 /* ========== Footer ========== */
@@ -130,7 +127,8 @@
   }
 
   .settings-modal-content {
-    column-count: 1;
+    flex-direction: column;
+    gap: 20px;
   }
 }
 
