@@ -113,8 +113,15 @@ class CalibrationModal extends BaseModal {
 
                 <div class="calibration-test-category" data-category="delay">
                     <div class="calibration-test-category-header">
-                        <h4>⏱️ ${this.t('calibration.testDelayCategory')}</h4>
-                        <small>${this.t('calibration.testDelayCategoryHint')}</small>
+                        <div class="calibration-test-category-title">
+                            <h4>⏱️ ${this.t('calibration.testDelayCategory')}</h4>
+                            <small>${this.t('calibration.testDelayCategoryHint')}</small>
+                        </div>
+                        <label class="calibration-test-category-option" for="calibMeasurements">
+                            <span>${this.t('calibration.measurements')}:</span>
+                            <input type="number" id="calibMeasurements" class="calibration-input-inline"
+                                   min="1" max="20" value="5">
+                        </label>
                     </div>
                     <div id="calibInstrumentsList" class="calibration-instruments-list">
                         <div class="calibration-no-instruments">${this.t('calibration.noInstruments')}</div>
@@ -774,7 +781,11 @@ class CalibrationModal extends BaseModal {
     }
 
     _getMeasurements() {
-        return 5;
+        const input = this.$('#calibMeasurements');
+        if (!input) return 5;
+        const n = parseInt(input.value, 10);
+        if (!Number.isFinite(n)) return 5;
+        return Math.max(1, Math.min(20, n));
     }
 }
 
