@@ -90,6 +90,7 @@
         "groups": {
             "appearance": "Appearance",
             "playback": "Playback & Display",
+            "sound": "Sound",
             "buttons": "Interface Buttons",
             "system": "Hardware & System"
         },

@@ -65,7 +65,7 @@
 .settings-modal-content .settings-group {
   /* override inline margin-top used for legacy single-column stacking */
   margin-top: 0 !important;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   /* Keep a group together inside a single column */
   break-inside: avoid;
   -webkit-column-break-inside: avoid;
