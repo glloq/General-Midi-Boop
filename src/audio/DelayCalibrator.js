@@ -173,15 +173,6 @@ class DelayCalibrator {
       // and fold arecord's own startup into the measured delay.
       await this.waitForFirstChunk(500);
 
-      // Gather a short quiet window (~50 ms of audio) to estimate the
-      // pre-note baseline noise floor. The onset detector will then trigger
-      // on a SUDDEN RISE above this baseline rather than a fixed absolute
-      // threshold — so continuous ambient noise above the raw threshold
-      // doesn't prevent (or mis-time) detection.
-      await this.sleep(50);
-      const baselineRms = this._estimateBaselineRms();
-      this.logger.info(`Baseline RMS (pre-note): ${baselineRms.toFixed(4)}`);
-
       const firstChunk = this.audioBuffer[0];
       if (firstChunk) {
         const firstMs = (firstChunk.chunk.length / 2 / this.config.sampleRate) * 1000;
@@ -206,8 +197,8 @@ class DelayCalibrator {
         }
       }, this.config.noteDuration);
 
-      // Wait for sound detection — triggers on a jump above baseline.
-      const detectionTime = await this.waitForSound(this.config.maxWaitTime, sendTime, baselineRms);
+      // Wait for sound detection.
+      const detectionTime = await this.waitForSound(this.config.maxWaitTime, sendTime);
 
       // Make sure the note-off fires even if waitForSound returned early.
       clearTimeout(noteOffTimer);
@@ -232,32 +223,6 @@ class DelayCalibrator {
       await this.stopRecording();
       throw error;
     }
-  }
-
-  /**
-   * Estimate the RMS of audio captured up to now. Used as a noise-floor
-   * baseline so onset detection can trigger on a sudden rise rather than
-   * an absolute threshold.
-   * @returns {number} RMS in [0, 1]
-   */
-  _estimateBaselineRms() {
-    if (this.audioBuffer.length === 0) return 0;
-    // Use up to the last ~40 ms of audio for the baseline (typically 8
-    // chunks at 5 ms/period). Skipping the very first chunk avoids
-    // including any arecord-warmup transients.
-    const start = Math.max(1, this.audioBuffer.length - 8);
-    let sumSq = 0;
-    let samples = 0;
-    for (let i = start; i < this.audioBuffer.length; i++) {
-      const buf = this.audioBuffer[i].chunk;
-      const n = Math.floor(buf.length / 2);
-      for (let j = 0; j < n; j++) {
-        const s = buf.readInt16LE(j * 2) / 32768.0;
-        sumSq += s * s;
-      }
-      samples += n;
-    }
-    return samples > 0 ? Math.sqrt(sumSq / samples) : 0;
   }
 
   /**
@@ -426,27 +391,13 @@ class DelayCalibrator {
    * @param {number} sendTime - Wall-clock time the MIDI note was emitted
    * @returns {Promise<number|null>} - Detection timestamp or null
    */
-  waitForSound(timeoutMs, sendTime, baselineRms = 0) {
+  waitForSound(timeoutMs, sendTime) {
     return new Promise((resolve) => {
       const startTime = performance.now();
       const checkInterval = 5;
       let lastCheckedIndex = 0;
       const sr = this.config.sampleRate;
-
-      // Effective threshold floats above the measured noise floor. A 3×
-      // multiplier (with a 0.01 floor) keeps a constant ambient signal from
-      // triggering detection without the MIDI note's sound, but still lets
-      // a modest instrument response register — the MIDI note adds energy
-      // on top of any pre-existing noise, which produces a clear jump.
-      const effectiveThreshold = Math.max(
-        this.config.threshold,
-        baselineRms * 3,
-        0.01
-      );
-      this.logger.info(
-        `Detection threshold: config=${this.config.threshold}, ` +
-        `baseline=${baselineRms.toFixed(4)} → effective=${effectiveThreshold.toFixed(4)}`
-      );
+      const threshold = this.config.threshold;
 
       const sampleToTime = (absSampleIdx) => {
         return this._audioTimelineStart + (absSampleIdx / sr) * 1000;
@@ -464,7 +415,7 @@ class DelayCalibrator {
           const entry = this.audioBuffer[lastCheckedIndex];
           lastCheckedIndex++;
 
-          const onset = this.findOnsetInChunk(entry.chunk, effectiveThreshold);
+          const onset = this.findOnsetInChunk(entry.chunk, threshold);
           if (onset === -1) continue;
 
           const absoluteOnsetSample = entry.startSample + onset;
