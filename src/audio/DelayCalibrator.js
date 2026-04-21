@@ -173,6 +173,12 @@ class DelayCalibrator {
       // and fold arecord's own startup into the measured delay.
       await this.waitForFirstChunk(500);
 
+      const firstChunk = this.audioBuffer[0];
+      if (firstChunk) {
+        const firstMs = (firstChunk.chunk.length / 2 / this.config.sampleRate) * 1000;
+        this.logger.info(`First arecord chunk: ${firstChunk.chunk.length} bytes = ${firstMs.toFixed(1)}ms of audio`);
+      }
+
       // Send the MIDI note and capture the timestamp
       const sendTime = performance.now();
       await this.sendTestNote(deviceId, channel);
@@ -232,11 +238,13 @@ class DelayCalibrator {
   /**
    * Start audio recording via arecord.
    *
-   * Each stdout chunk is pushed with a wall-clock timestamp so downstream
-   * detection (waitForSound) can compute sound-onset time from capture-time,
-   * not polling-time. Small `--period-size` / `--buffer-size` flags force
-   * arecord to flush ~16 ms of audio at 16 kHz instead of the default
-   * 200+ ms, which directly bounds the measurement resolution.
+   * Each stdout chunk is pushed with a wall-clock timestamp AND a running
+   * sample-count index so downstream detection (waitForSound) can compute
+   * sound-onset time from a monotonic audio timeline rather than relying
+   * purely on chunk-arrival timestamps (which can be batched by Node's IO
+   * layer). `-F 10000 -B 40000` (10 ms period / 40 ms buffer, in
+   * microseconds) caps ALSA's own buffering; `-F/-B` are the short flags
+   * and are honored more widely than `--period-size`/`--buffer-size`.
    */
   startRecording() {
     if (this.isRecording) {
@@ -245,31 +253,45 @@ class DelayCalibrator {
 
     this.audioBuffer = [];
     this.isRecording = true;
+    this._samplesCaptured = 0;
+    this._audioTimelineStart = null;
 
-    // Spawn arecord process. --period-size=256 (samples) + --buffer-size=1024
-    // at 16 kHz = ~16 ms chunks, ~64 ms total ALSA buffer. Without these the
-    // default buffer can exceed 500 ms on USB audio interfaces, which would
-    // make the measured delay dominated by arecord's own startup latency.
     this.recording = spawn('arecord', [
       '-D', this.config.alsaDevice,
       '-f', this.config.format,
       '-r', this.config.sampleRate.toString(),
       '-c', this.config.channels.toString(),
-      '--period-size=256',
-      '--buffer-size=1024',
+      '-B', '40000',  // total buffer in µs → 40 ms
+      '-F', '10000',  // period (interrupt interval) in µs → 10 ms
       '-t', 'raw'
     ]);
 
-    // Capture audio data with per-chunk arrival timestamp. `t` approximates
-    // the wall-clock moment the chunk's audio was captured (minus small,
-    // consistent ALSA period-fill + Node IPC latencies).
+    const BYTES_PER_SAMPLE = 2; // S16_LE mono
+
+    // Capture audio. Each chunk is tagged with:
+    //   - t: arrival wall-clock
+    //   - startSample: index of first sample IN THE AUDIO STREAM (not in the
+    //     chunk). Used to build a timeline that's robust against IPC batching.
     this.recording.stdout.on('data', (chunk) => {
-      if (this.isRecording) {
-        this.audioBuffer.push({ chunk, t: performance.now() });
+      if (!this.isRecording) return;
+      const samples = Math.floor(chunk.length / BYTES_PER_SAMPLE);
+      const now = performance.now();
+      // Anchor the timeline at the first chunk's arrival. The chunk content
+      // is captured in the PAST relative to `now`, so we back-date by the
+      // chunk's duration: the first sample of chunk0 corresponds to
+      // `audioTimelineStart`.
+      if (this._audioTimelineStart === null) {
+        const chunkMs = (samples / this.config.sampleRate) * 1000;
+        this._audioTimelineStart = now - chunkMs;
       }
+      this.audioBuffer.push({
+        chunk,
+        t: now,
+        startSample: this._samplesCaptured
+      });
+      this._samplesCaptured += samples;
     });
 
-    // Handle errors
     this.recording.stderr.on('data', (data) => {
       this.logger.warn(`arecord stderr: ${data}`);
     });
@@ -279,7 +301,7 @@ class DelayCalibrator {
       this.isRecording = false;
     });
 
-    this.logger.debug('Recording started');
+    this.logger.info(`Recording started on ${this.config.alsaDevice} @${this.config.sampleRate}Hz (period=10ms, buffer=40ms)`);
   }
 
   /**
@@ -337,11 +359,14 @@ class DelayCalibrator {
   /**
    * Wait for sound detection in the audio buffer.
    *
-   * Uses per-chunk capture timestamps (recorded in startRecording) plus
-   * sub-chunk onset detection (128-sample sliding windows) to pinpoint the
-   * moment the audio rose above threshold. Chunks that pre-date `sendTime`
-   * are skipped — they can't contain the echo of a MIDI note that hadn't
-   * yet been emitted, so any pre-existing ambient noise is ignored.
+   * Uses the monotonic sample-count timeline (established in startRecording)
+   * to translate a sub-chunk onset sample into a wall-clock timestamp. This
+   * is robust against Node IPC batching that can cluster multiple chunks'
+   * `data` events into the same tick and give them misleading arrival times.
+   * Any absolute sample index is converted via
+   *   detectionTime = audioTimelineStart + sampleIndex / sampleRate * 1000
+   * Onset samples whose timeline time predates `sendTime` are ignored so
+   * pre-existing ambient noise cannot fire detection.
    *
    * @param {number} timeoutMs - Timeout in milliseconds
    * @param {number} sendTime - Wall-clock time the MIDI note was emitted
@@ -350,41 +375,47 @@ class DelayCalibrator {
   waitForSound(timeoutMs, sendTime) {
     return new Promise((resolve) => {
       const startTime = performance.now();
-      const checkInterval = 10;
+      const checkInterval = 5;
       let lastCheckedIndex = 0;
+      const sr = this.config.sampleRate;
+
+      const sampleToTime = (absSampleIdx) => {
+        return this._audioTimelineStart + (absSampleIdx / sr) * 1000;
+      };
 
       const interval = setInterval(() => {
-        // Check timeout
         if (performance.now() - startTime > timeoutMs) {
           clearInterval(interval);
+          this.logger.info(`waitForSound timeout — scanned ${lastCheckedIndex} chunks, none crossed threshold after sendTime`);
           resolve(null);
           return;
         }
 
-        // Scan any new chunks since the last check
         while (lastCheckedIndex < this.audioBuffer.length) {
           const entry = this.audioBuffer[lastCheckedIndex];
           lastCheckedIndex++;
 
-          // Ignore chunks whose audio was captured before the MIDI note
-          // was sent — they're ambient noise, not a response.
-          if (sendTime !== undefined && entry.t < sendTime) {
-            continue;
-          }
-
           const onset = this.findOnsetInChunk(entry.chunk, this.config.threshold);
           if (onset === -1) continue;
 
-          // Translate the onset sample index inside the chunk into a
-          // wall-clock timestamp. `entry.t` approximates when the LAST
-          // sample of the chunk was captured, so we subtract the duration
-          // of the samples that follow the onset.
-          const bytesPerSample = 2; // S16_LE, mono
-          const totalSamples = Math.floor(entry.chunk.length / bytesPerSample);
-          const samplesAfterOnset = Math.max(0, totalSamples - onset);
-          const ms = (samplesAfterOnset / this.config.sampleRate) * 1000;
+          const absoluteOnsetSample = entry.startSample + onset;
+          const detectionTime = sampleToTime(absoluteOnsetSample);
+
+          // Reject onsets whose audio-time predates the MIDI send. Pre-note
+          // ambient noise is not a valid response, even if its chunk arrived
+          // after sendTime.
+          if (detectionTime < sendTime) {
+            continue;
+          }
+
           clearInterval(interval);
-          resolve(entry.t - ms);
+          const delay = detectionTime - sendTime;
+          this.logger.info(
+            `Detection: chunk #${lastCheckedIndex - 1}, onset sample ${onset} ` +
+            `(abs ${absoluteOnsetSample}), audio-time ${detectionTime.toFixed(1)}ms, ` +
+            `sendTime ${sendTime.toFixed(1)}ms → delay ${delay.toFixed(1)}ms`
+          );
+          resolve(detectionTime);
           return;
         }
       }, checkInterval);
