@@ -166,15 +166,20 @@ class DelayCalibrator {
       // Start recording
       this.startRecording();
 
-      // Wait for recording to start
-      await this.sleep(this.config.preRecordTime);
+      // Wait until arecord has actually emitted its first chunk (warm-up)
+      // before capturing sendTime. A fixed sleep isn't enough: USB audio
+      // interfaces often take 200-500 ms before the first stdout chunk, and
+      // any sendTime captured earlier would underestimate the latency budget
+      // and fold arecord's own startup into the measured delay.
+      await this.waitForFirstChunk(500);
 
       // Send the MIDI note and capture the timestamp
       const sendTime = performance.now();
       await this.sendTestNote(deviceId, channel);
 
-      // Wait for sound detection
-      const detectionTime = await this.waitForSound(this.config.maxWaitTime);
+      // Wait for sound detection — only chunks captured AFTER sendTime count,
+      // so ambient noise that predates the MIDI note can't trigger detection.
+      const detectionTime = await this.waitForSound(this.config.maxWaitTime, sendTime);
 
       // Stop recording
       await this.stopRecording();
@@ -196,7 +201,42 @@ class DelayCalibrator {
   }
 
   /**
-   * Start audio recording via arecord
+   * Wait until arecord has emitted at least one chunk, or `timeoutMs`
+   * elapses. Resolves as soon as `audioBuffer` becomes non-empty. Falls
+   * back to resolving at the timeout so the caller can still proceed
+   * (the measurement will likely fail via waitForSound, but at least the
+   * MIDI note is still sent and we fail cleanly).
+   * @param {number} timeoutMs
+   * @returns {Promise<void>}
+   */
+  waitForFirstChunk(timeoutMs) {
+    return new Promise((resolve) => {
+      if (this.audioBuffer.length > 0) {
+        resolve();
+        return;
+      }
+      const start = performance.now();
+      const tick = setInterval(() => {
+        if (this.audioBuffer.length > 0) {
+          clearInterval(tick);
+          resolve();
+        } else if (performance.now() - start >= timeoutMs) {
+          clearInterval(tick);
+          this.logger.warn(`arecord produced no audio within ${timeoutMs} ms`);
+          resolve();
+        }
+      }, 5);
+    });
+  }
+
+  /**
+   * Start audio recording via arecord.
+   *
+   * Each stdout chunk is pushed with a wall-clock timestamp so downstream
+   * detection (waitForSound) can compute sound-onset time from capture-time,
+   * not polling-time. Small `--period-size` / `--buffer-size` flags force
+   * arecord to flush ~16 ms of audio at 16 kHz instead of the default
+   * 200+ ms, which directly bounds the measurement resolution.
    */
   startRecording() {
     if (this.isRecording) {
@@ -206,19 +246,26 @@ class DelayCalibrator {
     this.audioBuffer = [];
     this.isRecording = true;
 
-    // Spawn arecord process
+    // Spawn arecord process. --period-size=256 (samples) + --buffer-size=1024
+    // at 16 kHz = ~16 ms chunks, ~64 ms total ALSA buffer. Without these the
+    // default buffer can exceed 500 ms on USB audio interfaces, which would
+    // make the measured delay dominated by arecord's own startup latency.
     this.recording = spawn('arecord', [
       '-D', this.config.alsaDevice,
       '-f', this.config.format,
       '-r', this.config.sampleRate.toString(),
       '-c', this.config.channels.toString(),
+      '--period-size=256',
+      '--buffer-size=1024',
       '-t', 'raw'
     ]);
 
-    // Capture audio data
+    // Capture audio data with per-chunk arrival timestamp. `t` approximates
+    // the wall-clock moment the chunk's audio was captured (minus small,
+    // consistent ALSA period-fill + Node IPC latencies).
     this.recording.stdout.on('data', (chunk) => {
       if (this.isRecording) {
-        this.audioBuffer.push(chunk);
+        this.audioBuffer.push({ chunk, t: performance.now() });
       }
     });
 
@@ -288,14 +335,22 @@ class DelayCalibrator {
   }
 
   /**
-   * Wait for sound detection in the audio buffer
+   * Wait for sound detection in the audio buffer.
+   *
+   * Uses per-chunk capture timestamps (recorded in startRecording) plus
+   * sub-chunk onset detection (128-sample sliding windows) to pinpoint the
+   * moment the audio rose above threshold. Chunks that pre-date `sendTime`
+   * are skipped — they can't contain the echo of a MIDI note that hadn't
+   * yet been emitted, so any pre-existing ambient noise is ignored.
+   *
    * @param {number} timeoutMs - Timeout in milliseconds
+   * @param {number} sendTime - Wall-clock time the MIDI note was emitted
    * @returns {Promise<number|null>} - Detection timestamp or null
    */
-  waitForSound(timeoutMs) {
+  waitForSound(timeoutMs, sendTime) {
     return new Promise((resolve) => {
       const startTime = performance.now();
-      const checkInterval = 10; // Check every 10ms
+      const checkInterval = 10;
       let lastCheckedIndex = 0;
 
       const interval = setInterval(() => {
@@ -306,20 +361,73 @@ class DelayCalibrator {
           return;
         }
 
-        // Only check new chunks since the last check
+        // Scan any new chunks since the last check
         while (lastCheckedIndex < this.audioBuffer.length) {
-          const chunk = this.audioBuffer[lastCheckedIndex];
-          const rms = this.calculateRMS(chunk);
-
-          if (rms > this.config.threshold) {
-            clearInterval(interval);
-            resolve(performance.now());
-            return;
-          }
+          const entry = this.audioBuffer[lastCheckedIndex];
           lastCheckedIndex++;
+
+          // Ignore chunks whose audio was captured before the MIDI note
+          // was sent — they're ambient noise, not a response.
+          if (sendTime !== undefined && entry.t < sendTime) {
+            continue;
+          }
+
+          const onset = this.findOnsetInChunk(entry.chunk, this.config.threshold);
+          if (onset === -1) continue;
+
+          // Translate the onset sample index inside the chunk into a
+          // wall-clock timestamp. `entry.t` approximates when the LAST
+          // sample of the chunk was captured, so we subtract the duration
+          // of the samples that follow the onset.
+          const bytesPerSample = 2; // S16_LE, mono
+          const totalSamples = Math.floor(entry.chunk.length / bytesPerSample);
+          const samplesAfterOnset = Math.max(0, totalSamples - onset);
+          const ms = (samplesAfterOnset / this.config.sampleRate) * 1000;
+          clearInterval(interval);
+          resolve(entry.t - ms);
+          return;
         }
       }, checkInterval);
     });
+  }
+
+  /**
+   * Find the first sample index in `buffer` where a 128-sample RMS window
+   * exceeds `threshold`. Returns -1 if no window crosses. Enables sub-chunk
+   * onset detection (≈8 ms resolution at 16 kHz) instead of treating the
+   * whole chunk as a single point in time.
+   *
+   * @param {Buffer} buffer - S16_LE mono audio
+   * @param {number} threshold - RMS threshold in [0, 1]
+   * @returns {number} - Sample index of first window over threshold, or -1
+   */
+  findOnsetInChunk(buffer, threshold) {
+    if (!buffer || buffer.length < 2) return -1;
+
+    const WINDOW_SAMPLES = 128;
+    const HOP_SAMPLES = 32; // ~2 ms hop at 16 kHz — plenty of resolution
+    const BYTES_PER_SAMPLE = 2;
+    const totalSamples = Math.floor(buffer.length / BYTES_PER_SAMPLE);
+    if (totalSamples < WINDOW_SAMPLES) {
+      // Fall back to whole-chunk RMS for very short buffers.
+      return this.calculateRMS(buffer) > threshold ? 0 : -1;
+    }
+
+    const thresholdSq = threshold * threshold;
+
+    for (let start = 0; start + WINDOW_SAMPLES <= totalSamples; start += HOP_SAMPLES) {
+      let sumSq = 0;
+      for (let i = 0; i < WINDOW_SAMPLES; i++) {
+        const sample = buffer.readInt16LE((start + i) * BYTES_PER_SAMPLE);
+        const n = sample / 32768.0;
+        sumSq += n * n;
+      }
+      // Compare mean-square to threshold² — avoids one sqrt per window.
+      if (sumSq / WINDOW_SAMPLES > thresholdSq) {
+        return start;
+      }
+    }
+    return -1;
   }
 
   /**
