@@ -283,6 +283,16 @@
 
 .calibration-test-category-header {
     margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.calibration-test-category-title {
+    flex: 1;
+    min-width: 0;
 }
 
 .calibration-test-category-header h4 {
@@ -296,6 +306,42 @@
     font-size: 12px;
     color: #888;
     font-style: italic;
+}
+
+.calibration-test-category-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.calibration-input-inline {
+    width: 56px;
+    padding: 4px 6px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    color: #111;
+    text-align: center;
+}
+
+.calibration-input-inline:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+body.theme-dark .calibration-test-category-option {
+    color: #9ca3af;
+}
+
+body.theme-dark .calibration-input-inline {
+    background: #3d3d3d;
+    border-color: #555;
+    color: #e0e0e0;
 }
 
 /* ========== INSTRUMENTS LIST ========== */
