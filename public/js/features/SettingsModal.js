@@ -176,17 +176,6 @@ class SettingsModal {
 
         // Dark mode toggle - no immediate action, applied on save
 
-        const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
-        const keyboardValue = this.modal.querySelector('#keyboardOctavesValue');
-        const keyboardTouchesCount = this.modal.querySelector('#keyboardTouchesCount');
-        if (keyboardRange) {
-            keyboardRange.addEventListener('input', (e) => {
-                const octaves = parseInt(e.target.value);
-                keyboardValue.textContent = octaves;
-                keyboardTouchesCount.textContent = octaves * 12;
-            });
-        }
-
         const timeRange = this.modal.querySelector('#noteDisplayTimeRange');
         const timeValue = this.modal.querySelector('#noteDisplayTimeValue');
         if (timeRange) {
@@ -255,16 +244,10 @@ class SettingsModal {
         const darkModeToggle = this.modal.querySelector('#darkModeToggle');
         if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
 
-        const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
-        const keyboardValue = this.modal.querySelector('#keyboardOctavesValue');
-        const keyboardTouchesCount = this.modal.querySelector('#keyboardTouchesCount');
         const timeRange = this.modal.querySelector('#noteDisplayTimeRange');
         const timeValue = this.modal.querySelector('#noteDisplayTimeValue');
         const virtualToggle = this.modal.querySelector('#virtualInstrumentToggle');
 
-        if (keyboardRange) keyboardRange.value = this.settings.keyboardOctaves;
-        if (keyboardValue) keyboardValue.textContent = this.settings.keyboardOctaves;
-        if (keyboardTouchesCount) keyboardTouchesCount.textContent = this.settings.keyboardOctaves * 12;
         if (timeRange) timeRange.value = this.settings.noteDisplayTime;
         if (timeValue) timeValue.textContent = this.settings.noteDisplayTime + 's';
         if (virtualToggle) virtualToggle.checked = this.settings.virtualInstrument;
@@ -333,7 +316,6 @@ class SettingsModal {
      */
     save() {
         const darkModeToggle = this.modal.querySelector('#darkModeToggle');
-        const keyboardRange = this.modal.querySelector('#keyboardOctavesRange');
         const timeRange = this.modal.querySelector('#noteDisplayTimeRange');
         const virtualToggle = this.modal.querySelector('#virtualInstrumentToggle');
         const pianoRollToggle = this.modal.querySelector('#showPianoRollToggle');
@@ -348,7 +330,7 @@ class SettingsModal {
 
         const newSettings = {
             theme: darkModeToggle ? (darkModeToggle.checked ? 'dark' : 'colored') : this.settings.theme,
-            keyboardOctaves: keyboardRange ? parseInt(keyboardRange.value) : this.settings.keyboardOctaves,
+            keyboardOctaves: this.settings.keyboardOctaves,
             noteDisplayTime: timeRange ? parseInt(timeRange.value) : this.settings.noteDisplayTime,
             virtualInstrument: virtualToggle ? virtualToggle.checked : this.settings.virtualInstrument,
             showPianoRoll: pianoRollToggle ? pianoRollToggle.checked : this.settings.showPianoRoll,
@@ -363,7 +345,6 @@ class SettingsModal {
         };
 
         const themeChanged = newSettings.theme !== this.settings.theme;
-        const keyboardChanged = newSettings.keyboardOctaves !== this.settings.keyboardOctaves;
         const timeChanged = newSettings.noteDisplayTime !== this.settings.noteDisplayTime;
         const virtualInstrumentChanged = newSettings.virtualInstrument !== this.settings.virtualInstrument;
         const pianoRollChanged = newSettings.showPianoRoll !== this.settings.showPianoRoll;
@@ -380,7 +361,6 @@ class SettingsModal {
         this.applySettings();
 
         if (themeChanged) this.eventBus?.emit('settings:theme_changed', { theme: newSettings.theme });
-        if (keyboardChanged) this.eventBus?.emit('settings:keyboard_changed', { octaves: newSettings.keyboardOctaves });
         if (timeChanged) this.eventBus?.emit('settings:display_time_changed', { time: newSettings.noteDisplayTime });
         if (virtualInstrumentChanged) {
             this.eventBus?.emit('settings:virtual_instrument_changed', { enabled: newSettings.virtualInstrument });

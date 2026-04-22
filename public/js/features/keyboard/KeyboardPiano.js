@@ -14,7 +14,6 @@
             <div class="modal-dialog">
                 <div class="modal-header">
                     <div class="keyboard-header-row">
-                        <h2>🎹 ${this.t('keyboard.title')}</h2>
                         <div class="keyboard-header-controls">
                             <div class="control-group">
                                 <label>${this.t('keyboard.instrument')}</label>
@@ -36,6 +35,16 @@
                                     <option value="qwerty">${this.t('keyboard.layoutQwerty')}</option>
                                 </select>
                             </div>
+
+                            <div class="control-group octaves-count-group">
+                                <label>${this.t('settings.keyboard.octaveCount')}</label>
+                                <select class="octaves-count-select" id="keyboard-octaves-count-select">
+                                    <option value="1" ${this.octaves === 1 ? 'selected' : ''}>1</option>
+                                    <option value="2" ${this.octaves === 2 ? 'selected' : ''}>2</option>
+                                    <option value="3" ${this.octaves === 3 ? 'selected' : ''}>3</option>
+                                    <option value="4" ${this.octaves === 4 ? 'selected' : ''}>4</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <button class="modal-close" id="keyboard-close-btn">&times;</button>
@@ -44,7 +53,7 @@
                 <div class="modal-body">
                     <div class="keyboard-layout">
                         <!-- Vertical velocity slider on the left -->
-                        <div class="velocity-control-vertical" id="velocity-control-panel">
+                        <div class="velocity-control-vertical no-transition" id="velocity-control-panel">
                             <div class="velocity-label-vertical">${this.t('keyboard.velocity')}</div>
                             <div class="velocity-slider-wrapper">
                                 <input type="range"
@@ -58,8 +67,8 @@
                             <div class="velocity-value-vertical" id="keyboard-velocity-display">80</div>
                         </div>
 
-                        <!-- Mod wheel custom -->
-                        <div class="velocity-control-vertical modulation-control-vertical" id="modulation-control-panel">
+                        <!-- Mod wheel custom (hidden by default, shown if instrument supports CC#1) -->
+                        <div class="velocity-control-vertical modulation-control-vertical slider-hidden no-transition" id="modulation-control-panel">
                             <div class="velocity-label-vertical">${this.t('keyboard.modulation')}</div>
                             <div class="mod-wheel-wrapper">
                                 <div class="mod-wheel-track" id="mod-wheel-track">
@@ -163,8 +172,11 @@
                 blackKey.classList.add('disabled');
             }
 
-            // Position between the current white key and the next
-            blackKey.style.left = `calc(${whiteIndex * (100 / totalWhiteKeys)}% + ${(100 / totalWhiteKeys) * 0.7}%)`;
+            // Width and position scaled relative to the number of white keys
+            // so black keys stay narrower than white keys regardless of octave count.
+            const whiteKeyPercent = 100 / totalWhiteKeys;
+            blackKey.style.width = `${whiteKeyPercent * 0.6}%`;
+            blackKey.style.left = `${whiteKeyPercent * (whiteIndex + 0.7)}%`;
 
             pianoContainer.appendChild(blackKey);
         }

@@ -70,10 +70,6 @@ class KeyboardModalNew {
     updateTranslations() {
         if (!this.container) return;
 
-        // Title
-        const title = this.container.querySelector('.modal-header h2');
-        if (title) title.textContent = `🎹 ${this.t('keyboard.title')}`;
-
         // Velocity
         const velocityLabel = this.container.querySelector('#velocity-control-panel .velocity-label-vertical');
         if (velocityLabel) velocityLabel.textContent = this.t('keyboard.velocity');
@@ -82,10 +78,11 @@ class KeyboardModalNew {
         const modulationLabel = this.container.querySelector('#modulation-control-panel .velocity-label-vertical');
         if (modulationLabel) modulationLabel.textContent = this.t('keyboard.modulation');
 
-        // Instrument label
+        // Instrument / layout / octaves labels
         const labels = this.container.querySelectorAll('.keyboard-header-controls .control-group label');
         if (labels[0]) labels[0].textContent = this.t('keyboard.instrument');
         if (labels[1]) labels[1].textContent = this.t('keyboard.layout');
+        if (labels[2]) labels[2].textContent = this.t('settings.keyboard.octaveCount');
 
         // Note range display
         this._updateOctaveDisplay();
@@ -289,9 +286,29 @@ class KeyboardModalNew {
 
         this.logger.info(`[KeyboardModal] Nombre d'octaves changé: ${this.octaves} (${this.octaves * 12} touches)`);
 
+        // Keep header select in sync
+        const select = document.getElementById('keyboard-octaves-count-select');
+        if (select && parseInt(select.value) !== this.octaves) {
+            select.value = String(this.octaves);
+        }
+
         // Regenerate the keyboard if the modal is open
         if (this.isOpen) {
             this.regeneratePianoKeys();
+        }
+    }
+
+    /**
+     * Persist the current octave count to localStorage
+     */
+    saveOctavesToSettings() {
+        try {
+            const saved = localStorage.getItem('gmboop_settings');
+            const settings = saved ? JSON.parse(saved) : {};
+            settings.keyboardOctaves = this.octaves;
+            localStorage.setItem('gmboop_settings', JSON.stringify(settings));
+        } catch (error) {
+            this.logger.error('[KeyboardModal] Failed to save octaves:', error);
         }
     }
 
