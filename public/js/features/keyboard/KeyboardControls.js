@@ -124,10 +124,20 @@
 
         const caps = this.selectedDeviceCapabilities;
 
+        const enableTransitionsNextFrame = () => {
+            // After the initial layout settles, re-enable transitions so that
+            // later visibility changes animate smoothly.
+            requestAnimationFrame(() => {
+                velocityPanel.classList.remove('no-transition');
+                modulationPanel.classList.remove('no-transition');
+            });
+        };
+
         if (!caps) {
             // No capabilities: show velocity, hide modulation
             velocityPanel.classList.remove('slider-hidden');
             modulationPanel.classList.add('slider-hidden');
+            enableTransitionsNextFrame();
             return;
         }
 
@@ -158,6 +168,8 @@
         } else {
             modulationPanel.classList.add('slider-hidden');
         }
+
+        enableTransitionsNextFrame();
     }
 
     // ========================================================================

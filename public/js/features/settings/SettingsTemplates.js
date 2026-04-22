@@ -120,26 +120,8 @@
                     ${i18n.t('settings.groups.playback') || 'Lecture & Affichage'}
                 </h2>
 
-                <!-- Clavier -->
-                <div class="settings-section">
-                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🎹 ${i18n.t('settings.keyboard.title')}</h3>
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <label style="font-size: 14px; color: var(--text-secondary, #666);">
-                            ${i18n.t('settings.keyboard.octaveCount')} : <strong id="keyboardOctavesValue">${this.settings.keyboardOctaves}</strong>
-                            <span style="color: var(--text-muted, #999); font-weight: normal;">(<span id="keyboardTouchesCount">${this.settings.keyboardOctaves * 12}</span> ${i18n.t('common.keys')})</span>
-                        </label>
-                        <input type="range" id="keyboardOctavesRange" min="1" max="4" step="1"
-                               value="${this.settings.keyboardOctaves}"
-                               style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted, #999);">
-                            <span>1 ${i18n.t('common.octave')}</span>
-                            <span>4 ${i18n.t('common.octaves')}</span>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Temps d'affichage -->
-                <div class="settings-section" style="margin-top: 16px;">
+                <div class="settings-section">
                     <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">⏱️ ${i18n.t('settings.noteDisplay.title')}</h3>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         <label style="font-size: 14px; color: var(--text-secondary, #666);">

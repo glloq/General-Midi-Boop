@@ -126,7 +126,8 @@
 }
 
 .keyboard-header-controls .device-select,
-.keyboard-header-controls .layout-select {
+.keyboard-header-controls .layout-select,
+.keyboard-header-controls .octaves-count-select {
     padding: 6px 10px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
@@ -137,14 +138,25 @@
     min-width: 160px;
 }
 
+.keyboard-header-controls .octaves-count-select {
+    min-width: 60px;
+    text-align: center;
+}
+
+.keyboard-header-controls .octaves-count-group {
+    margin-left: auto;
+}
+
 .keyboard-header-controls .device-select:hover,
-.keyboard-header-controls .layout-select:hover {
+.keyboard-header-controls .layout-select:hover,
+.keyboard-header-controls .octaves-count-select:hover {
     border-color: rgba(255, 255, 255, 0.6);
     background: white;
 }
 
 .keyboard-header-controls .device-select:focus,
-.keyboard-header-controls .layout-select:focus {
+.keyboard-header-controls .layout-select:focus,
+.keyboard-header-controls .octaves-count-select:focus {
     outline: none;
     border-color: white;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
@@ -432,7 +444,7 @@
 /* Show/hide animation for slider panels */
 .velocity-control-vertical,
 .modulation-control-vertical {
-    transition: min-width 0.3s ease, padding 0.3s ease, opacity 0.3s ease, border-width 0.3s ease;
+    transition: min-width 0.25s ease, padding 0.25s ease, opacity 0.2s ease, border-width 0.25s ease;
     overflow: hidden;
 }
 
@@ -443,6 +455,13 @@
     opacity: 0;
     border-right-width: 0 !important;
     pointer-events: none;
+}
+
+/* Disable the open transition so the modulation panel doesn't briefly
+   flash visible before being hidden when no instrument exposes CC#1. */
+.keyboard-modal .velocity-control-vertical.no-transition,
+.keyboard-modal .modulation-control-vertical.no-transition {
+    transition: none !important;
 }
 
 /* Zone principale du clavier */
@@ -470,10 +489,12 @@
     display: flex;
     width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
     background: #2c2c2c;
     border-radius: 8px;
     padding: 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
 }
 
 /* Help bar below keyboard */
@@ -521,13 +542,13 @@
 
 .black-key {
     position: absolute;
-    width: 5%;
     height: 65%;
     background: linear-gradient(to bottom, #2c2c2c 0%, #1a1a1a 100%);
     border: 1px solid #000;
     border-radius: 0 0 3px 3px;
     z-index: 10;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
 }
 
 .black-key:hover {
