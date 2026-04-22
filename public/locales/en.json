@@ -87,6 +87,11 @@
             "enable": "Show playlist button",
             "description": "Shows the playlist button in the navigation bar"
         },
+        "keyboardButton": {
+            "title": "Virtual Keyboard Button",
+            "enable": "Show virtual keyboard button",
+            "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+        },
         "groups": {
             "appearance": "Appearance",
             "playback": "Playback & Display",

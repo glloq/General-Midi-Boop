@@ -87,6 +87,11 @@
             "enable": "Afficher le bouton playlist",
             "description": "Affiche le bouton playlist dans la barre de navigation"
         },
+        "keyboardButton": {
+            "title": "Bouton Clavier virtuel",
+            "enable": "Afficher le bouton du clavier virtuel",
+            "description": "Affiche le bouton du clavier MIDI virtuel dans la barre de navigation"
+        },
         "groups": {
             "appearance": "Apparence",
             "playback": "Lecture & Affichage",
