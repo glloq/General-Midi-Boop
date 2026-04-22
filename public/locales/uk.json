@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Клавіші ПК:",
-        "azertyHelp": "SDFGHJKLM (білі) / ZETYUOP (чорні)",
+        "azertyHelp": "QSDFGHJKLM ù * (білі) / ZETYUOP (чорні)",
         "qwertyHelp": "SDFGHJKL; (білі) / WETYUOP (чорні)",
         "virtualInstrument": "Віртуальний інструмент",
         "virtualNoteOn": "[Віртуальний] Note ON: {note} ({number}) velocity={velocity}",

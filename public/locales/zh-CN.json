@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC按键：",
-        "azertyHelp": "SDFGHJKLM（白键）/ ZETYUOP（黑键）",
+        "azertyHelp": "QSDFGHJKLM ù *（白键）/ ZETYUOP（黑键）",
         "qwertyHelp": "SDFGHJKL;（白键）/ WETYUOP（黑键）",
         "virtualInstrument": "虚拟乐器",
         "virtualNoteOn": "[虚拟] 音符开：{note}（{number}）velocity={velocity}",

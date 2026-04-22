@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Teclas PC:",
-        "azertyHelp": "SDFGHJKLM (blancas) / ZETYUOP (negras)",
+        "azertyHelp": "QSDFGHJKLM ù * (blancas) / ZETYUOP (negras)",
         "qwertyHelp": "SDFGHJKL; (blancas) / WETYUOP (negras)",
         "virtualInstrument": "Instrumento Virtual",
         "virtualNoteOn": "[Virtual] Nota ON: {note} ({number}) velocidad={velocity}",

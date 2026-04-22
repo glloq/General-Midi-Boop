@@ -131,19 +131,43 @@
 
     /**
      * Resolve a PC key to a MIDI note via the visible keys
-     * The white keys (S D F G H J K L M) map to the first 9 white keys
-     * The black keys (Z E T Y U O P) map to adjacent black keys
+     * White keys map to the lower letter row, black keys to the upper letter row.
+     * AZERTY: Q S D F G H J K L M ù * (white) / Z E T Y U O P (black)
+     * QWERTY: S D F G H J K L ; (white) / W E T Y U O P (black)
      */
     KeyboardEventsMixin._resolveKeyToNote = function(code) {
         // Mapping of PC keys to indices of visible white keys
+        // event.code reflects the physical (US-QWERTY) position; AZERTY users press
+        // their labeled letter, which on hardware corresponds to the US-QWERTY name below.
         const whiteKeyIndices = this.keyboardLayout === 'qwerty'
             ? { 'KeyS': 0, 'KeyD': 1, 'KeyF': 2, 'KeyG': 3, 'KeyH': 4, 'KeyJ': 5, 'KeyK': 6, 'KeyL': 7, 'Semicolon': 8 }
-            : { 'KeyS': 0, 'KeyD': 1, 'KeyF': 2, 'KeyG': 3, 'KeyH': 4, 'KeyJ': 5, 'KeyK': 6, 'KeyL': 7, 'KeyM': 8 };
+            : {
+                'KeyA': 0,        // Q
+                'KeyS': 1,        // S
+                'KeyD': 2,        // D
+                'KeyF': 3,        // F
+                'KeyG': 4,        // G
+                'KeyH': 5,        // H
+                'KeyJ': 6,        // J
+                'KeyK': 7,        // K
+                'KeyL': 8,        // L
+                'Semicolon': 9,   // M
+                'Quote': 10,      // ù
+                'Backslash': 11   // *
+            };
 
         // Black keys: between which white keys (index of the white key on the left)
         const blackKeyIndices = this.keyboardLayout === 'qwerty'
             ? { 'KeyW': 0, 'KeyE': 1, 'KeyT': 3, 'KeyY': 4, 'KeyU': 5, 'KeyO': 7, 'KeyP': 8 }
-            : { 'KeyZ': 0, 'KeyE': 1, 'KeyT': 3, 'KeyY': 4, 'KeyU': 5, 'KeyO': 7, 'KeyP': 8 };
+            : {
+                'KeyW': 0,  // Z
+                'KeyE': 1,  // E
+                'KeyT': 3,  // T
+                'KeyY': 4,  // Y
+                'KeyU': 5,  // U
+                'KeyO': 7,  // O
+                'KeyP': 8   // P
+            };
 
         // White key?
         if (whiteKeyIndices[code] !== undefined) {

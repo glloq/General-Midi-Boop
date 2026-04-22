@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC 키:",
-        "azertyHelp": "SDFGHJKLM (흰건반) / ZETYUOP (검은건반)",
+        "azertyHelp": "QSDFGHJKLM ù * (흰건반) / ZETYUOP (검은건반)",
         "qwertyHelp": "SDFGHJKL; (흰건반) / WETYUOP (검은건반)",
         "virtualInstrument": "가상 악기",
         "virtualNoteOn": "[가상] 노트 ON: {note} ({number}) 벨로시티={velocity}",

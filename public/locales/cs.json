@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC klávesy:",
-        "azertyHelp": "SDFGHJKLM (bílé) / ZETYUOP (černé)",
+        "azertyHelp": "QSDFGHJKLM ù * (bílé) / ZETYUOP (černé)",
         "qwertyHelp": "SDFGHJKL; (bílé) / WETYUOP (černé)",
         "virtualInstrument": "Virtuální nástroj",
         "virtualNoteOn": "[Virtuální] Nota ZAP: {note} ({number}) velocity={velocity}",

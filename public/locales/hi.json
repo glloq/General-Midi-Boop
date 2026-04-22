@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC कुंजियाँ:",
-        "azertyHelp": "SDFGHJKLM (सफेद) / ZETYUOP (काला)",
+        "azertyHelp": "QSDFGHJKLM ù * (सफेद) / ZETYUOP (काला)",
         "qwertyHelp": "SDFGHJKL; (सफेद) / WETYUOP (काला)",
         "virtualInstrument": "वर्चुअल इंस्ट्रूमेंट",
         "virtualNoteOn": "[वर्चुअल] नोट ON: {note} ({number}) वेलोसिटी={velocity}",

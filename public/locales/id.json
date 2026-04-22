@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Tombol PC:",
-        "azertyHelp": "SDFGHJKLM (putih) / ZETYUOP (hitam)",
+        "azertyHelp": "QSDFGHJKLM ù * (putih) / ZETYUOP (hitam)",
         "qwertyHelp": "SDFGHJKL; (putih) / WETYUOP (hitam)",
         "virtualInstrument": "Instrumen Virtual",
         "virtualNoteOn": "[Virtual] Not ON: {note} ({number}) kecepatan={velocity}",

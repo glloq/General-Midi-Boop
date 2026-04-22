@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC-taster:",
-        "azertyHelp": "SDFGHJKLM (hvite) / ZETYUOP (svarte)",
+        "azertyHelp": "QSDFGHJKLM ù * (hvite) / ZETYUOP (svarte)",
         "qwertyHelp": "SDFGHJKL; (hvite) / WETYUOP (svarte)",
         "virtualInstrument": "Virtuelt instrument",
         "virtualNoteOn": "[Virtuell] Note PÅ: {note} ({number}) hastighet={velocity}",

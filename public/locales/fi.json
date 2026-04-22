@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC-näppäimet:",
-        "azertyHelp": "SDFGHJKLM (valkoiset) / ZETYUOP (mustat)",
+        "azertyHelp": "QSDFGHJKLM ù * (valkoiset) / ZETYUOP (mustat)",
         "qwertyHelp": "SDFGHJKL; (valkoiset) / WETYUOP (mustat)",
         "virtualInstrument": "Virtuaalinen soitin",
         "virtualNoteOn": "[Virtuaalinen] Nuotti PÄÄLLÄ: {note} ({number}) nopeus={velocity}",

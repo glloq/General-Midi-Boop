@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Πλήκτρα PC:",
-        "azertyHelp": "SDFGHJKLM (λευκά) / ZETYUOP (μαύρα)",
+        "azertyHelp": "QSDFGHJKLM ù * (λευκά) / ZETYUOP (μαύρα)",
         "qwertyHelp": "SDFGHJKL; (λευκά) / WETYUOP (μαύρα)",
         "virtualInstrument": "Εικονικό Όργανο",
         "virtualNoteOn": "[Εικονικό] Νότα ON: {note} ({number}) ταχύτητα={velocity}",

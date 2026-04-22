@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Mga PC Key:",
-        "azertyHelp": "SDFGHJKLM (puti) / ZETYUOP (itim)",
+        "azertyHelp": "QSDFGHJKLM ù * (puti) / ZETYUOP (itim)",
         "qwertyHelp": "SDFGHJKL; (puti) / WETYUOP (itim)",
         "virtualInstrument": "Virtual na Instrumento",
         "virtualNoteOn": "[Virtual] Note ON: {note} ({number}) velocity={velocity}",

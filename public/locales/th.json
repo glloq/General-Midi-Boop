@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "คีย์ PC:",
-        "azertyHelp": "SDFGHJKLM (ขาว) / ZETYUOP (ดำ)",
+        "azertyHelp": "QSDFGHJKLM ù * (ขาว) / ZETYUOP (ดำ)",
         "qwertyHelp": "SDFGHJKL; (ขาว) / WETYUOP (ดำ)",
         "virtualInstrument": "เครื่องดนตรีเสมือน",
         "virtualNoteOn": "[เสมือน] โน้ต ON: {note} ({number}) ความเร็ว={velocity}",

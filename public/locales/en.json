@@ -87,6 +87,11 @@
             "enable": "Show playlist button",
             "description": "Shows the playlist button in the navigation bar"
         },
+        "keyboardButton": {
+            "title": "Virtual Keyboard Button",
+            "enable": "Show virtual keyboard button",
+            "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+        },
         "groups": {
             "appearance": "Appearance",
             "playback": "Playback & Display",
@@ -247,7 +252,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC Keys:",
-        "azertyHelp": "SDFGHJKLM (white) / ZETYUOP (black)",
+        "azertyHelp": "QSDFGHJKLM ù * (white) / ZETYUOP (black)",
         "qwertyHelp": "SDFGHJKL; (white) / WETYUOP (black)",
         "virtualInstrument": "Virtual Instrument",
         "virtualNoteOn": "[Virtual] Note ON: {note} ({number}) velocity={velocity}",

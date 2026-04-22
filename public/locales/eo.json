@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Komputilaj klavoj:",
-        "azertyHelp": "SDFGHJKLM (blankaj) / ZETYUOP (nigraj)",
+        "azertyHelp": "QSDFGHJKLM ù * (blankaj) / ZETYUOP (nigraj)",
         "qwertyHelp": "SDFGHJKL; (blankaj) / WETYUOP (nigraj)",
         "virtualInstrument": "Virtuala Instrumento",
         "virtualNoteOn": "[Virtuala] Noto EKfunkcias: {note} ({number}) rapido={velocity}",

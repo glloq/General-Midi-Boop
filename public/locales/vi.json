@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "Phím PC:",
-        "azertyHelp": "SDFGHJKLM (trắng) / ZETYUOP (đen)",
+        "azertyHelp": "QSDFGHJKLM ù * (trắng) / ZETYUOP (đen)",
         "qwertyHelp": "SDFGHJKL; (trắng) / WETYUOP (đen)",
         "virtualInstrument": "Nhạc cụ Ảo",
         "virtualNoteOn": "[Ảo] Nốt BẬT: {note} ({number}) cường độ={velocity}",

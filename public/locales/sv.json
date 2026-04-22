@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC-tangenter:",
-        "azertyHelp": "SDFGHJKLM (vita) / ZETYUOP (svarta)",
+        "azertyHelp": "QSDFGHJKLM ù * (vita) / ZETYUOP (svarta)",
         "qwertyHelp": "SDFGHJKL; (vita) / WETYUOP (svarta)",
         "virtualInstrument": "Virtuellt instrument",
         "virtualNoteOn": "[Virtuell] Not PÅ: {note} ({number}) velocity={velocity}",

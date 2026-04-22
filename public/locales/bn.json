@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC কী:",
-        "azertyHelp": "SDFGHJKLM (সাদা) / ZETYUOP (কালো)",
+        "azertyHelp": "QSDFGHJKLM ù * (সাদা) / ZETYUOP (কালো)",
         "qwertyHelp": "SDFGHJKL; (সাদা) / WETYUOP (কালো)",
         "virtualInstrument": "ভার্চুয়াল যন্ত্র",
         "virtualNoteOn": "[ভার্চুয়াল] নোট চালু: {note} ({number}) বেগ={velocity}",

@@ -246,7 +246,7 @@
         "layoutAzerty": "AZERTY",
         "layoutQwerty": "QWERTY",
         "pcKeys": "PC billentyűk:",
-        "azertyHelp": "SDFGHJKLM (fehér) / ZETYUOP (fekete)",
+        "azertyHelp": "QSDFGHJKLM ù * (fehér) / ZETYUOP (fekete)",
         "qwertyHelp": "SDFGHJKL; (fehér) / WETYUOP (fekete)",
         "virtualInstrument": "Virtuális hangszer",
         "virtualNoteOn": "[Virtuális] Hang BE: {note} ({number}) erősség={velocity}",
