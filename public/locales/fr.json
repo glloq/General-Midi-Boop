@@ -665,7 +665,13 @@
         "minNoteInterval": "Temps minimum entre 2 notes (ms)",
         "minNoteIntervalHelp": "Délai minimum entre deux note-on consécutifs (en ms)",
         "minNoteDuration": "Temps note actif minimum (ms)",
-        "minNoteDurationHelp": "Durée minimum pendant laquelle une note reste active (en ms)"
+        "minNoteDurationHelp": "Durée minimum pendant laquelle une note reste active (en ms)",
+        "pickFamily": "Choisir une famille d'instruments",
+        "pickInstrument": "Choisir un instrument dans la famille",
+        "backToFamily": "Familles",
+        "editInstrument": "Modifier l'instrument",
+        "deleteInstrument": "Effacer l'instrument",
+        "deleteInstrumentConfirm": "Effacer le choix d'instrument pour ce canal ?"
     },
     "playlist": {
         "title": "Playlists",
@@ -2073,5 +2079,20 @@
         "presetJazzDesc": "Priorité au timbre et au type d'instrument pour les formations jazz",
         "presetDrumsFocusedDesc": "Maximise la qualité du mapping percussions et le bonus canal 10",
         "presetMinimalDesc": "Seuils permissifs et splits limités pour les petites configurations"
+    },
+    "instrumentFamilies": {
+        "keyboards": "Instruments à touches",
+        "chromaticPercussion": "Percussions chromatiques",
+        "organs": "Orgues",
+        "pluckedStrings": "Cordes grattées",
+        "bowedStrings": "Cordes frottées",
+        "ensembles": "Ensembles",
+        "brass": "Cuivres",
+        "reeds": "Anches",
+        "winds": "Vents (flûtes)",
+        "synths": "Synthétiseurs",
+        "percussive": "Percussions diverses",
+        "sfx": "Effets sonores",
+        "drumKits": "Batteries (kits GM)"
     }
 }

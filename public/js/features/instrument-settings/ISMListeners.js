@@ -347,70 +347,189 @@
     };
 
 
-    ISMListeners._wireGmProgramChange = function() {
+    // ===== Identity picker listeners (family row / instrument grid / selected) =====
+
+    /**
+     * Build a minimal shim mimicking a <select> element so the legacy global
+     * `onGmProgramChanged(selectEl)` keeps working unchanged. That global reads:
+     *   - selectEl.value                              (parseInt)
+     *   - selectEl.options[selectEl.selectedIndex]    (selected <option>)
+     *   - option.hasAttribute('data-drum-kit')
+     *   - option.getAttribute('data-desc')
+     */
+    ISMListeners._buildGmShim = function(encodedValue, isDrumKit, desc) {
+        const attrs = {};
+        if (isDrumKit) attrs['data-drum-kit'] = '';
+        if (desc) attrs['data-desc'] = desc;
+        const fakeOption = {
+            hasAttribute: function(k) { return Object.prototype.hasOwnProperty.call(attrs, k); },
+            getAttribute: function(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; }
+        };
+        return {
+            value: String(encodedValue == null ? '' : encodedValue),
+            selectedIndex: 0,
+            options: [fakeOption]
+        };
+    };
+
+    ISMListeners._rerenderIdentityPicker = function() {
+        const wrap = this.$('.ism-identity-picker-wrap');
+        if (!wrap) return;
+        const existing = wrap.querySelector('.ism-identity-picker');
+        const html = this._renderIdentityPicker();
+        if (existing) {
+            existing.outerHTML = html;
+        } else {
+            wrap.insertAdjacentHTML('beforeend', html);
+        }
+        this._wireIdentityPickerListeners();
+        // Refresh the section-title emoji based on current program
+        const tab = this._getActiveTab();
+        const gmProgram = tab ? tab.settings.gm_program : null;
+        const catKey = this._getGmCategoryKey(gmProgram);
+        const gmEmoji = catKey ? (InstrumentSettingsModal.GM_CATEGORY_EMOJIS[catKey] || '🎵') : '🎵';
+        const titleIcon = this.$('.ism-section[data-section="identity"] .ism-section-title-icon');
+        if (titleIcon) titleIcon.textContent = gmEmoji;
+    };
+
+    ISMListeners._refreshNotesSectionForProgram = function() {
+        // Refresh notes section (strings/drums subsections depend on gm_program)
+        const notesSection = this.$('.ism-section[data-section="notes"]');
+        if (notesSection) {
+            notesSection.innerHTML = this._renderNotesSection();
+            this._attachNotesSectionListeners();
+            if (this.activeSection === 'notes') {
+                this._initPianoForActiveTab();
+            }
+        }
+    };
+
+    ISMListeners._wireIdentityPickerListeners = function() {
         const self = this;
 
-        // Step 1: Category select
-        const catSelect = this.$('#gmCategorySelect');
-        if (catSelect) {
-            catSelect.addEventListener('change', function() {
-                const categoryKey = catSelect.value;
-                const gmProgramGroup = self.$('#gmProgramGroup');
-                const gmSelect = self.$('#gmProgramSelect');
+        // Family buttons → switch to instrument grid
+        this.$$('.ism-family-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                self._identityUI = self._identityUI || { step: 'family', currentFamilySlug: null };
+                self._identityUI.step = 'instruments';
+                self._identityUI.currentFamilySlug = btn.dataset.family;
+                self._rerenderIdentityPicker();
+            });
+        });
 
-                if (!categoryKey) {
-                    // No category selected - hide program select
-                    if (gmProgramGroup) gmProgramGroup.style.display = 'none';
-                    return;
-                }
-
-                // Show and populate program select for the chosen category
-                if (gmProgramGroup) gmProgramGroup.style.display = '';
-                if (gmSelect && typeof renderGMProgramOptionsForCategory === 'function') {
-                    const tab = self._getActiveTab();
-                    const channel = tab ? tab.channel : 0;
-                    gmSelect.innerHTML = renderGMProgramOptionsForCategory(categoryKey, null, channel);
-                    // Auto-select first program
-                    if (gmSelect.options.length > 0) {
-                        gmSelect.selectedIndex = 0;
-                        gmSelect.dispatchEvent(new Event('change'));
-                    }
-                }
+        // Back button → back to family row
+        const backBtn = this.$('.ism-back-to-family');
+        if (backBtn) {
+            backBtn.addEventListener('click', function() {
+                self._identityUI.step = 'family';
+                self._rerenderIdentityPicker();
             });
         }
 
-        // Step 2: Program select
-        const gmSelect = this.$('#gmProgramSelect');
-        if (gmSelect) {
-            gmSelect.addEventListener('change', function() {
-                const tab = self._getActiveTab();
-                if (tab) {
-                    const rawVal = parseInt(gmSelect.value);
-                    const decoded = typeof selectValueToGmProgram === 'function'
-                        ? selectValueToGmProgram(rawVal) : { program: rawVal, isDrumKit: false };
-                    tab.settings.gm_program = decoded.program;
-                    self._syncGlobalState();
-                }
-                if (typeof onGmProgramChanged === 'function') onGmProgramChanged(gmSelect);
-
-                // Refresh notes section (strings/drums subsections depend on GM)
-                const notesSection = self.$('.ism-section[data-section="notes"]');
-                if (notesSection) {
-                    notesSection.innerHTML = self._renderNotesSection();
-                    self._attachNotesSectionListeners();
-                    // Re-init piano if notes section is currently visible
-                    if (self.activeSection === 'notes') {
-                        self._initPianoForActiveTab();
-                    }
-                }
-
-                // Refresh identity section emoji only (not full re-render to avoid losing category state)
-                const gmProgram = tab ? tab.settings.gm_program : null;
-                const catKey = self._getGmCategoryKey(gmProgram);
-                const gmEmoji = catKey ? (InstrumentSettingsModal.GM_CATEGORY_EMOJIS[catKey] || '🎵') : '🎵';
-                const titleIcon = self.$('.ism-section[data-section="identity"] .ism-section-title-icon');
-                if (titleIcon) titleIcon.textContent = gmEmoji;
+        // Instrument tile → select that program
+        this.$$('.ism-instrument-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const encoded = parseInt(btn.dataset.program);
+                const isDrumKit = btn.dataset.drumKit === 'true';
+                const desc = btn.dataset.desc || '';
+                self._selectProgram(encoded, isDrumKit, desc);
             });
+        });
+
+        // Edit → re-open instrument grid with current family preselected
+        const editBtn = this.$('.ism-edit-instrument');
+        if (editBtn) {
+            editBtn.addEventListener('click', function() {
+                self._identityUI.step = 'instruments';
+                self._rerenderIdentityPicker();
+            });
+        }
+
+        // Delete → confirm then clear
+        const delBtn = this.$('.ism-delete-instrument');
+        if (delBtn) {
+            delBtn.addEventListener('click', function() {
+                self._clearInstrument();
+            });
+        }
+    };
+
+    ISMListeners._selectProgram = function(encodedValue, isDrumKit, desc) {
+        const tab = this._getActiveTab();
+        const decoded = typeof selectValueToGmProgram === 'function'
+            ? selectValueToGmProgram(encodedValue)
+            : { program: encodedValue, isDrumKit: isDrumKit };
+
+        // 1) Update hidden input (save path reads #gmProgramSelect)
+        const hiddenSel = this.$('#gmProgramSelect');
+        if (hiddenSel) hiddenSel.value = String(encodedValue);
+
+        // 2) Update settings
+        if (tab) {
+            tab.settings.gm_program = decoded.program;
+        }
+
+        // 3) Auto-switch channel 10 (index 9) for drum kits + repaint channel grid
+        if (isDrumKit) {
+            const channelInput = this.$('#channelSelect');
+            if (channelInput) channelInput.value = 9;
+            if (tab) tab.channel = 9;
+            this.activeChannel = 9;
+            this.$$('.ism-channel-btn').forEach(function(b) {
+                const bCh = parseInt(b.dataset.channel);
+                const color = InstrumentSettingsModal.CHANNEL_COLORS[bCh];
+                b.classList.toggle('active', bCh === 9);
+                b.style.background = bCh === 9 ? color : '';
+                b.style.color = bCh === 9 ? '#fff' : '';
+            });
+        }
+
+        this._syncGlobalState();
+
+        // 4) Call legacy global through a shim so dependent sections react
+        if (typeof onGmProgramChanged === 'function') {
+            const shim = this._buildGmShim(encodedValue, isDrumKit, desc);
+            try { onGmProgramChanged(shim); } catch (e) { console.warn('onGmProgramChanged shim error:', e); }
+        }
+
+        // 5) Refresh Notes section (may have revealed strings/drums subsection)
+        this._refreshNotesSectionForProgram();
+
+        // 6) Switch picker to selected state and rerender it only
+        this._identityUI = this._identityUI || {};
+        this._identityUI.step = 'selected';
+        const fam = window.InstrumentFamilies
+            ? window.InstrumentFamilies.getFamilyForProgram(decoded.program, isDrumKit ? 9 : (tab ? tab.channel : 0))
+            : null;
+        this._identityUI.currentFamilySlug = fam ? fam.slug : null;
+        this._rerenderIdentityPicker();
+    };
+
+    ISMListeners._clearInstrument = function() {
+        const self = this;
+        const msg = this.t('instrumentSettings.deleteInstrumentConfirm')
+            || 'Effacer le choix d\'instrument ?';
+        const confirmFn = (typeof showConfirm === 'function') ? showConfirm : null;
+        const done = function() {
+            const tab = self._getActiveTab();
+            if (tab) tab.settings.gm_program = null;
+            const hiddenSel = self.$('#gmProgramSelect');
+            if (hiddenSel) hiddenSel.value = '';
+            self._syncGlobalState();
+            // Hide drum kit notice/desc
+            const desc = document.getElementById('drumKitDesc');
+            if (desc) desc.style.display = 'none';
+            const notice = document.getElementById('drumKitNotice');
+            if (notice) notice.style.display = 'none';
+            self._refreshNotesSectionForProgram();
+            self._identityUI = { step: 'family', currentFamilySlug: null };
+            self._rerenderIdentityPicker();
+        };
+        if (confirmFn) {
+            Promise.resolve(confirmFn(msg, { title: self.t('common.confirm') || 'Confirmation', icon: '🗑️' }))
+                .then(function(ok) { if (ok) done(); });
+        } else if (window.confirm(msg)) {
+            done();
         }
     };
 
@@ -423,7 +542,7 @@
 
     ISMListeners._attachIdentitySectionListeners = function() {
         this._wireChannelGridListeners();
-        this._wireGmProgramChange();
+        this._wireIdentityPickerListeners();
     };
 
     ISMListeners._measureDelay = function() {

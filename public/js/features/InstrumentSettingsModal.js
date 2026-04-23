@@ -279,6 +279,9 @@ class InstrumentSettingsModal extends BaseModal {
         this.tuningPresets = {};
         this.activeSection = 'identity';
         this.isCreationMode = false;
+        // Identity picker state: { step: 'family'|'instruments'|'selected', currentFamilySlug }
+        // Initialized on each full render by ISMSections._renderIdentitySection.
+        this._identityUI = null;
     }
 
     // ========== PUBLIC API ==========
