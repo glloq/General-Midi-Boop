@@ -1860,3 +1860,188 @@ body.dark-mode .ism-delete-instrument:hover {
   border-color: #f87171;
   background: rgba(248, 113, 113, 0.12);
 }
+
+/* ========== Header layout with preview keyboard ========== */
+.ism-modal .modal-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.ism-header-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 1.1rem;
+}
+
+.ism-header-gear {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.ism-header-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ism-preview-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.ism-preview-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* ---- Mini piano (1 octave) ---- */
+.ism-preview-piano {
+  position: relative;
+  display: inline-flex;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 3px;
+  gap: 2px;
+  user-select: none;
+}
+
+.ism-prv-key {
+  cursor: pointer;
+  border-radius: 3px;
+  border: none;
+  padding: 0;
+  transition: background-color 0.1s ease, transform 0.1s ease;
+}
+
+.ism-prv-white {
+  width: 24px;
+  height: 38px;
+  background: #fdfdfd;
+  color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.ism-prv-white:hover,
+.ism-prv-white.active {
+  background: #ffd85c;
+  color: #1f2937;
+  transform: translateY(1px);
+}
+
+.ism-prv-key-label {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ism-prv-black-overlay {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  pointer-events: none;
+}
+
+.ism-prv-black {
+  position: absolute;
+  width: 14px;
+  height: 22px;
+  background: #1f2937;
+  color: transparent;
+  pointer-events: auto;
+  /* --pos = index among the 7 white keys (0 = C, 1 = D, 3 = F, 4 = G, 5 = A) */
+  left: calc((var(--pos) + 1) * 26px - 9px);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.ism-prv-black:hover,
+.ism-prv-black.active {
+  background: #f59e0b;
+}
+
+/* ---- Drum pads ---- */
+.ism-preview-drums {
+  display: inline-grid;
+  grid-template-columns: repeat(8, auto);
+  gap: 3px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 3px;
+  user-select: none;
+}
+
+.ism-prv-pad {
+  width: 52px;
+  height: 38px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px;
+  transition: background-color 0.1s ease, transform 0.1s ease;
+}
+
+.ism-prv-pad-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ism-prv-pad-label {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.ism-prv-pad:hover,
+.ism-prv-pad.active {
+  background: #f59e0b;
+  color: #1f2937;
+  transform: translateY(1px);
+}
+
+/* ---- Responsive (hide preview when header too narrow) ---- */
+@media (max-width: 720px) {
+  .ism-modal .modal-header h2 {
+    gap: 8px;
+  }
+  .ism-preview-piano,
+  .ism-preview-drums {
+    height: 38px;
+  }
+  .ism-prv-white { width: 20px; height: 32px; }
+  .ism-prv-black { width: 12px; height: 18px; left: calc((var(--pos) + 1) * 22px - 8px); }
+  .ism-prv-pad { width: 40px; height: 32px; }
+  .ism-prv-pad-icon { font-size: 12px; }
+  .ism-prv-pad-label { font-size: 8px; }
+}
+
+@media (max-width: 520px) {
+  .ism-preview-slot { display: none; }
+}

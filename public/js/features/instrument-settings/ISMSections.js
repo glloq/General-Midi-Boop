@@ -535,18 +535,6 @@
                                 <label>CC#</label>
                                 <input type="number" class="si-input si-input-xs" id="ism-cc-str-num" value="${ccStrNum}" min="0" max="127">
                             </div>
-                            <div class="si-cc-param">
-                                <label>Min</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-min" value="${ccStrMin}" min="0" max="127">
-                            </div>
-                            <div class="si-cc-param">
-                                <label>Max</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-max" value="${ccStrMax}" min="0" max="127">
-                            </div>
-                            <div class="si-cc-param">
-                                <label>Offset</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-str-offset" value="${ccStrOff}" min="-127" max="127">
-                            </div>
                         </div>
                     </div>
                     <div class="si-cc-row">
@@ -556,20 +544,14 @@
                                 <label>CC#</label>
                                 <input type="number" class="si-input si-input-xs" id="ism-cc-fret-num" value="${ccFretNum}" min="0" max="127">
                             </div>
-                            <div class="si-cc-param">
-                                <label>Min</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-min" value="${ccFretMin}" min="0" max="127">
-                            </div>
-                            <div class="si-cc-param">
-                                <label>Max</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-max" value="${ccFretMax}" min="0" max="127">
-                            </div>
-                            <div class="si-cc-param">
-                                <label>Offset</label>
-                                <input type="number" class="si-input si-input-xs" id="ism-cc-fret-offset" value="${ccFretOff}" min="-127" max="127">
-                            </div>
                         </div>
                     </div>
+                    <input type="hidden" id="ism-cc-str-min" value="${ccStrMin}">
+                    <input type="hidden" id="ism-cc-str-max" value="${ccStrMax}">
+                    <input type="hidden" id="ism-cc-str-offset" value="${ccStrOff}">
+                    <input type="hidden" id="ism-cc-fret-min" value="${ccFretMin}">
+                    <input type="hidden" id="ism-cc-fret-max" value="${ccFretMax}">
+                    <input type="hidden" id="ism-cc-fret-offset" value="${ccFretOff}">
                 </div>
             </div>
         `;

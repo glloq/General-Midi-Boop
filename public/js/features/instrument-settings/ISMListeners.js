@@ -492,10 +492,14 @@
             try { onGmProgramChanged(shim); } catch (e) { console.warn('onGmProgramChanged shim error:', e); }
         }
 
-        // 5) Refresh Notes section (may have revealed strings/drums subsection)
+        // 5) Send program_change so the preview keyboard plays the new bank
+        const previewChannel = isDrumKit ? 9 : (tab ? tab.channel : 0);
+        this._sendPreviewProgramChange(decoded.program, previewChannel);
+
+        // 6) Refresh Notes section (may have revealed strings/drums subsection)
         this._refreshNotesSectionForProgram();
 
-        // 6) Switch picker to selected state and rerender it only
+        // 7) Switch picker to selected state and rerender it only
         this._identityUI = this._identityUI || {};
         this._identityUI.step = 'selected';
         const fam = window.InstrumentFamilies
@@ -503,6 +507,9 @@
             : null;
         this._identityUI.currentFamilySlug = fam ? fam.slug : null;
         this._rerenderIdentityPicker();
+
+        // 8) Refresh preview keyboard (may have switched piano ↔ drum pads)
+        this._renderPreviewKeyboard();
     };
 
     ISMListeners._clearInstrument = function() {
@@ -524,6 +531,8 @@
             self._refreshNotesSectionForProgram();
             self._identityUI = { step: 'family', currentFamilySlug: null };
             self._rerenderIdentityPicker();
+            self._previewAllNotesOff();
+            self._renderPreviewKeyboard();
         };
         if (confirmFn) {
             Promise.resolve(confirmFn(msg, { title: self.t('common.confirm') || 'Confirmation', icon: '🗑️' }))

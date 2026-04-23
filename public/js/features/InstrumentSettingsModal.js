@@ -374,10 +374,7 @@ class InstrumentSettingsModal extends BaseModal {
             this.options.title = '';
             this.open();
 
-            const headerEl = this.$('.modal-header h2');
-            if (headerEl) {
-                headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.titleNew') || this.t('instrumentSettings.title')} — ${this.escape(deviceId)}`;
-            }
+            this._updateHeader();
         } catch (error) {
             console.error('Error opening instrument creation:', error);
             if (typeof showAlert === 'function') {
@@ -421,6 +418,156 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram.destroy();
             this._neckDiagram = null;
         }
+        this._previewAllNotesOff();
+    }
+
+    // ========== PREVIEW KEYBOARD (in header) ==========
+
+    _renderPreviewKeyboard() {
+        const slot = this.$('#ismPreviewSlot');
+        if (!slot) return;
+        const tab = this._getActiveTab();
+        const gmProgram = tab ? tab.settings.gm_program : null;
+        const channel = tab ? tab.channel : 0;
+        const isDrumKit = channel === 9 || (gmProgram != null && gmProgram >= 128);
+
+        if (gmProgram == null && !isDrumKit) {
+            slot.innerHTML = `<span class="ism-preview-hint">${this.escape(this.t('instrumentSettings.previewPickInstrument') || '🎵 Choisir un instrument pour activer la preview')}</span>`;
+            return;
+        }
+
+        slot.innerHTML = isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano();
+        this._wirePreviewKeyboardListeners();
+    }
+
+    _renderPreviewPiano() {
+        const whites = [60, 62, 64, 65, 67, 69, 71];
+        const blacks = [
+            { note: 61, pos: 0 },
+            { note: 63, pos: 1 },
+            { note: 66, pos: 3 },
+            { note: 68, pos: 4 },
+            { note: 70, pos: 5 }
+        ];
+        const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        let html = '<div class="ism-preview-piano" aria-label="preview keyboard">';
+        for (const n of whites) {
+            html += `<button type="button" class="ism-prv-key ism-prv-white" data-note="${n}"><span class="ism-prv-key-label">${NAMES[n % 12]}</span></button>`;
+        }
+        html += '<div class="ism-prv-black-overlay">';
+        for (const b of blacks) {
+            html += `<button type="button" class="ism-prv-key ism-prv-black" data-note="${b.note}" style="--pos:${b.pos}"></button>`;
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    _renderPreviewDrums() {
+        const pads = [
+            { note: 36, label: 'Kick',  icon: '🥁' },
+            { note: 38, label: 'Snare', icon: '🪘' },
+            { note: 42, label: 'HH',    icon: '🎩' },
+            { note: 46, label: 'OHH',   icon: '🎩' },
+            { note: 50, label: 'Tom↑',  icon: '🥁' },
+            { note: 45, label: 'Tom↓',  icon: '🥁' },
+            { note: 49, label: 'Crash', icon: '💥' },
+            { note: 51, label: 'Ride',  icon: '🔔' }
+        ];
+        let html = '<div class="ism-preview-drums" aria-label="preview drum pads">';
+        for (const p of pads) {
+            html += `<button type="button" class="ism-prv-pad" data-note="${p.note}" title="${p.label}">
+                <span class="ism-prv-pad-icon">${p.icon}</span>
+                <span class="ism-prv-pad-label">${p.label}</span>
+            </button>`;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    _wirePreviewKeyboardListeners() {
+        const self = this;
+        const keys = this.$$('.ism-prv-key, .ism-prv-pad');
+        keys.forEach(function(k) {
+            k.addEventListener('mouseenter', function() {
+                self._previewNoteOn(parseInt(k.dataset.note), k);
+            });
+            k.addEventListener('mouseleave', function() {
+                self._previewNoteOff(parseInt(k.dataset.note), k);
+            });
+        });
+        const slot = this.$('#ismPreviewSlot');
+        if (slot) {
+            slot.addEventListener('mouseleave', function() { self._previewAllNotesOff(); });
+        }
+    }
+
+    _previewNoteOn(note, el) {
+        if (!this.device || !this.device.id || isNaN(note)) return;
+        if (!this._previewActive) this._previewActive = new Set();
+        if (this._previewActive.has(note)) return;
+        this._previewActive.add(note);
+        if (el) el.classList.add('active');
+        const tab = this._getActiveTab();
+        const channel = tab ? tab.channel : 0;
+        try {
+            this.api.sendCommand('midi_send', {
+                deviceId: this.device.id,
+                channel: channel,
+                type: 'noteon',
+                note: note,
+                velocity: 100
+            });
+        } catch (e) { /* ignore */ }
+    }
+
+    _previewNoteOff(note, el) {
+        if (!this.device || !this.device.id || isNaN(note)) return;
+        if (this._previewActive) this._previewActive.delete(note);
+        if (el) el.classList.remove('active');
+        const tab = this._getActiveTab();
+        const channel = tab ? tab.channel : 0;
+        try {
+            this.api.sendCommand('midi_send', {
+                deviceId: this.device.id,
+                channel: channel,
+                type: 'noteoff',
+                note: note,
+                velocity: 0
+            });
+        } catch (e) { /* ignore */ }
+    }
+
+    _previewAllNotesOff() {
+        if (!this._previewActive || this._previewActive.size === 0) return;
+        if (!this.device || !this.device.id) { this._previewActive.clear(); return; }
+        const tab = this._getActiveTab();
+        const channel = tab ? tab.channel : 0;
+        const notes = [...this._previewActive];
+        this._previewActive.clear();
+        this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function(el) { el.classList.remove('active'); });
+        for (const n of notes) {
+            try {
+                this.api.sendCommand('midi_send', {
+                    deviceId: this.device.id,
+                    channel: channel,
+                    type: 'noteoff',
+                    note: n,
+                    velocity: 0
+                });
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    _sendPreviewProgramChange(program, channel) {
+        if (!this.device || !this.device.id || program == null) return;
+        try {
+            this.api.sendCommand('midi_send', {
+                deviceId: this.device.id,
+                channel: channel,
+                type: 'program',
+                program: program
+            });
+        } catch (e) { /* ignore */ }
     }
 
     // ========== HEADER ==========
@@ -429,8 +576,17 @@ class InstrumentSettingsModal extends BaseModal {
         const headerEl = this.$('.modal-header h2');
         if (!headerEl) return;
         const tab = this._getActiveTab();
-        const instrumentName = tab ? (tab.settings.custom_name || tab.settings.name || `Ch ${tab.channel + 1}`) : '';
-        headerEl.innerHTML = `⚙️ ${this.t('instrumentSettings.title')} — ${this.escape(instrumentName)}`;
+        const instrumentName = tab
+            ? (tab.settings.custom_name || tab.settings.name || (this.device && this.device.displayName) || (this.device && this.device.name) || `Ch ${tab.channel + 1}`)
+            : ((this.device && this.device.displayName) || (this.device && this.device.name) || '');
+        headerEl.innerHTML = `
+            <span class="ism-header-main">
+                <span class="ism-header-gear">⚙️</span>
+                <span class="ism-header-name">${this.escape(instrumentName)}</span>
+            </span>
+            <div class="ism-preview-slot" id="ismPreviewSlot"></div>
+        `;
+        this._renderPreviewKeyboard();
     }
 
     // ========== TABS BAR ==========
