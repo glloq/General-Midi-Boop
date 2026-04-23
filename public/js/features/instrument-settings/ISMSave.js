@@ -177,6 +177,26 @@
                 });
             }
 
+            // Persist secondary GM voices (multi-GM alternatives)
+            const tabForSave = this._getActiveTab();
+            const voicesToSave = (tabForSave && Array.isArray(tabForSave.voices)) ? tabForSave.voices : [];
+            try {
+                await this.api.sendCommand('instrument_voice_replace', {
+                    deviceId: this.device.id,
+                    channel: saveChannel,
+                    voices: voicesToSave.map(function(v) {
+                        return {
+                            gm_program: v.gm_program,
+                            min_note_interval: v.min_note_interval,
+                            min_note_duration: v.min_note_duration,
+                            supported_ccs: v.supported_ccs
+                        };
+                    })
+                });
+            } catch (e) {
+                console.warn('Failed to save secondary voices:', e);
+            }
+
             // Close and refresh
             this.close();
             if (typeof loadDevices === 'function') await loadDevices();
@@ -212,7 +232,24 @@
             if (siResp && siResp.instrument) stringInstrumentConfig = siResp.instrument;
         } catch (e) { /* no config */ }
 
-        return { channel, settings, stringInstrumentConfig, isBleDevice };
+        // Load secondary GM voices (multi-GM alternatives) for this (device, channel)
+        let voices = [];
+        try {
+            const voicesResp = await this.api.sendCommand('instrument_voice_list', { deviceId, channel });
+            if (voicesResp && Array.isArray(voicesResp.voices)) {
+                voices = voicesResp.voices.map(function(v) {
+                    return {
+                        id: v.id != null ? v.id : null,
+                        gm_program: v.gm_program,
+                        min_note_interval: v.min_note_interval,
+                        min_note_duration: v.min_note_duration,
+                        supported_ccs: Array.isArray(v.supported_ccs) ? v.supported_ccs : null
+                    };
+                });
+            }
+        } catch (e) { /* no voices yet or backend not ready */ }
+
+        return { channel, settings, stringInstrumentConfig, isBleDevice, voices };
     };
 
     if (typeof window !== 'undefined') window.ISMSave = ISMSave;

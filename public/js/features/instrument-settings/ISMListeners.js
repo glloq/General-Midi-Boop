@@ -546,7 +546,246 @@
         this._wireNotesModeListeners();
         this._wireDrumListeners();
         this._attachStringsSectionListeners();
+        this._wireVoicesListeners();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
+    };
+
+    // ===== Multi-GM voices (Notes subsection) =====
+
+    ISMListeners._wireVoicesListeners = function() {
+        const self = this;
+
+        // Add voice button -> picker overlay
+        const addBtn = this.$('.ism-voice-add-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', function() { self._openVoicePicker(); });
+        }
+
+        // Delete voice
+        this.$$('.ism-voice-delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const row = btn.closest('.ism-voice-row');
+                if (!row) return;
+                const idx = parseInt(row.dataset.voiceIndex, 10);
+                self._deleteVoiceAt(idx);
+            });
+        });
+
+        // Param edits (interval / duration / ccs) -> mutate tab.voices in-place
+        this.$$('.ism-voice-row').forEach(function(row) {
+            const idx = parseInt(row.dataset.voiceIndex, 10);
+            const intervalEl = row.querySelector('.ism-voice-interval');
+            const durationEl = row.querySelector('.ism-voice-duration');
+            const ccsEl = row.querySelector('.ism-voice-ccs-input');
+            const tab = self._getActiveTab();
+            if (!tab || !Array.isArray(tab.voices) || !tab.voices[idx]) return;
+            if (intervalEl) {
+                intervalEl.addEventListener('input', function() {
+                    const v = intervalEl.value.trim();
+                    tab.voices[idx].min_note_interval = v === '' ? null : parseInt(v, 10);
+                });
+            }
+            if (durationEl) {
+                durationEl.addEventListener('input', function() {
+                    const v = durationEl.value.trim();
+                    tab.voices[idx].min_note_duration = v === '' ? null : parseInt(v, 10);
+                });
+            }
+            if (ccsEl) {
+                ccsEl.addEventListener('input', function() {
+                    const parts = ccsEl.value
+                        .split(',')
+                        .map(function(s) { return parseInt(s.trim(), 10); })
+                        .filter(function(n) { return Number.isFinite(n) && n >= 0 && n <= 127; });
+                    tab.voices[idx].supported_ccs = parts.length === 0 ? null : parts;
+                });
+            }
+        });
+    };
+
+    ISMListeners._deleteVoiceAt = function(idx) {
+        const tab = this._getActiveTab();
+        if (!tab || !Array.isArray(tab.voices)) return;
+        if (idx < 0 || idx >= tab.voices.length) return;
+        tab.voices.splice(idx, 1);
+        this._rerenderVoicesSubsection();
+    };
+
+    ISMListeners._rerenderVoicesSubsection = function() {
+        const sub = this.$('#voicesSubsection');
+        if (!sub) return;
+        // Preserve subsection title, replace only list + add btn
+        const titleEl = sub.querySelector('.ism-subsection-title');
+        const hintEl = sub.querySelector('.ism-subsection-hint');
+        sub.innerHTML = (titleEl ? titleEl.outerHTML : '')
+            + (hintEl ? hintEl.outerHTML : '')
+            + this._renderVoicesSubsection();
+        this._wireVoicesListeners();
+    };
+
+    ISMListeners._openVoicePicker = function() {
+        const self = this;
+        const families = (window.InstrumentFamilies && window.InstrumentFamilies.getAllFamilies()) || [];
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay ism-voice-picker-overlay';
+        overlay.style.zIndex = '10002';
+        overlay.innerHTML = `
+            <div class="modal-content ism-voice-picker-content">
+                <div class="modal-header">
+                    <h2>${self.escape(self.t('instrumentSettings.pickFamily') || 'Choisir une famille')}</h2>
+                    <button class="modal-close" data-voice-close>×</button>
+                </div>
+                <div class="ism-voice-picker-body" data-step="family">
+                    ${self._renderVoicePickerFamilies(families)}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = function() { overlay.remove(); };
+        overlay.querySelector('[data-voice-close]').addEventListener('click', close);
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+
+        // Family click -> show instrument grid
+        overlay.querySelectorAll('.ism-family-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const slug = btn.dataset.family;
+                const fam = window.InstrumentFamilies.getFamilyBySlug(slug);
+                if (!fam) return;
+                const body = overlay.querySelector('.ism-voice-picker-body');
+                body.dataset.step = 'instruments';
+                body.innerHTML = self._renderVoicePickerInstruments(fam);
+                // Back button
+                const back = overlay.querySelector('.ism-back-to-family');
+                if (back) back.addEventListener('click', function() {
+                    body.dataset.step = 'family';
+                    body.innerHTML = self._renderVoicePickerFamilies(families);
+                    self._rewireVoicePickerOverlay(overlay, families, close);
+                });
+                // Instrument tile click
+                overlay.querySelectorAll('.ism-instrument-btn').forEach(function(iBtn) {
+                    iBtn.addEventListener('click', function() {
+                        const encoded = parseInt(iBtn.dataset.program, 10);
+                        const isDrum = iBtn.dataset.drumKit === 'true';
+                        self._addVoice(encoded, isDrum);
+                        close();
+                    });
+                });
+            });
+        });
+    };
+
+    ISMListeners._rewireVoicePickerOverlay = function(overlay, families, close) {
+        const self = this;
+        overlay.querySelectorAll('.ism-family-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const slug = btn.dataset.family;
+                const fam = window.InstrumentFamilies.getFamilyBySlug(slug);
+                if (!fam) return;
+                const body = overlay.querySelector('.ism-voice-picker-body');
+                body.dataset.step = 'instruments';
+                body.innerHTML = self._renderVoicePickerInstruments(fam);
+                const back = overlay.querySelector('.ism-back-to-family');
+                if (back) back.addEventListener('click', function() {
+                    body.dataset.step = 'family';
+                    body.innerHTML = self._renderVoicePickerFamilies(families);
+                    self._rewireVoicePickerOverlay(overlay, families, close);
+                });
+                overlay.querySelectorAll('.ism-instrument-btn').forEach(function(iBtn) {
+                    iBtn.addEventListener('click', function() {
+                        const encoded = parseInt(iBtn.dataset.program, 10);
+                        const isDrum = iBtn.dataset.drumKit === 'true';
+                        self._addVoice(encoded, isDrum);
+                        close();
+                    });
+                });
+            });
+        });
+    };
+
+    ISMListeners._renderVoicePickerFamilies = function(families) {
+        const self = this;
+        const btns = families.map(function(fam) {
+            const label = self.t(fam.labelKey) || fam.slug;
+            const svg = window.InstrumentFamilies.familyIconUrl(fam.slug);
+            return `<button type="button" class="ism-family-btn" data-family="${fam.slug}" title="${self.escape(label)}">
+                <span class="ism-family-icon">
+                    <img class="ism-family-svg" src="${svg}" alt=""
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                    <span class="ism-family-emoji" style="display:none">${fam.emoji}</span>
+                </span>
+                <span class="ism-family-label">${self.escape(label)}</span>
+            </button>`;
+        }).join('');
+        return `<div class="ism-family-row">${btns}</div>`;
+    };
+
+    ISMListeners._renderVoicePickerInstruments = function(fam) {
+        const self = this;
+        const tab = this._getActiveTab();
+        const channel = tab ? tab.channel : 0;
+        const backLabel = this.t('instrumentSettings.backToFamily') || 'Familles';
+        const famLabel = this.t(fam.labelKey) || fam.slug;
+        let tiles = '';
+        if (fam.isDrumKits) {
+            const kits = window.InstrumentFamilies.GM_DRUM_KITS_LIST;
+            const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+            tiles = kits.map(function(kit) {
+                const encoded = kit.program + offset;
+                const icon = window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: encoded, channel: 9 });
+                const kitName = icon.name || kit.name;
+                return `<button type="button" class="ism-instrument-btn" data-program="${encoded}" data-drum-kit="true" title="${self.escape(kitName)}">
+                    <span class="ism-inst-icon">
+                        ${icon.slug ? `<img class="ism-inst-svg" src="${icon.svgUrl}" alt=""
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                        <span class="ism-inst-emoji" style="display:none">${icon.emoji}</span>`
+                        : `<span class="ism-inst-emoji">${icon.emoji}</span>`}
+                    </span>
+                    <span class="ism-inst-number">${kit.program}</span>
+                    <span class="ism-inst-name">${self.escape(kitName)}</span>
+                </button>`;
+            }).join('');
+        } else {
+            tiles = fam.programs.map(function(p) {
+                const icon = window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: p, channel: channel });
+                const name = (typeof getGMInstrumentName === 'function') ? getGMInstrumentName(p) : ('Program ' + p);
+                return `<button type="button" class="ism-instrument-btn" data-program="${p}" data-drum-kit="false" title="${self.escape(name)}">
+                    <span class="ism-inst-icon">
+                        ${icon.slug ? `<img class="ism-inst-svg" src="${icon.svgUrl}" alt=""
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                        <span class="ism-inst-emoji" style="display:none">${icon.emoji}</span>`
+                        : `<span class="ism-inst-emoji">${icon.emoji}</span>`}
+                    </span>
+                    <span class="ism-inst-number">${p}</span>
+                    <span class="ism-inst-name">${self.escape(name)}</span>
+                </button>`;
+            }).join('');
+        }
+        return `<div class="ism-instrument-grid-header">
+                <button type="button" class="ism-back-to-family">◀ ${this.escape(backLabel)}</button>
+                <span class="ism-instrument-grid-family">${fam.emoji} ${this.escape(famLabel)}</span>
+            </div>
+            <div class="ism-instrument-grid">${tiles}</div>`;
+    };
+
+    ISMListeners._addVoice = function(encodedValue, isDrumKit) {
+        const tab = this._getActiveTab();
+        if (!tab) return;
+        if (!Array.isArray(tab.voices)) tab.voices = [];
+        const decoded = typeof selectValueToGmProgram === 'function'
+            ? selectValueToGmProgram(encodedValue)
+            : { program: encodedValue, isDrumKit: isDrumKit };
+        // Store raw GM program for melodic; for drum kits we keep the encoded offset so the UI/resolver can distinguish
+        const storedProgram = isDrumKit ? (decoded.program + (typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128)) : decoded.program;
+        tab.voices.push({
+            id: null,   // assigned by backend on save
+            gm_program: storedProgram,
+            min_note_interval: null,
+            min_note_duration: null,
+            supported_ccs: null
+        });
+        this._rerenderVoicesSubsection();
     };
 
     ISMListeners._attachIdentitySectionListeners = function() {

@@ -17,6 +17,8 @@ non homogènes) par les **13 familles physiques** définies en Phase 0 dans
 | Phase | Titre | Statut |
 |---|---|---|
 | 0 | Sélecteur d'identité (modal) | **✅ Livré** |
+| 0b | Clavier de preview + simplification header + CC cordes | **✅ Livré** |
+| 0c | Multi-voix GM (backend `instrument_voices` + UI Notes) | **✅ Livré** |
 | 1 | Pipeline d'assets SVG | ⏳ À faire |
 | 2 | Taxonomie partagée backend ↔ frontend | ⏳ À faire |
 | 3 | Consommateurs UI en aval (éditeur MIDI, lighting) | ⏳ À faire |
@@ -24,6 +26,7 @@ non homogènes) par les **13 familles physiques** définies en Phase 0 dans
 | 5 | Dépréciations (code legacy) | ⏳ À faire |
 | 6 | i18n complet (26 autres locales) | ⏳ À faire |
 | 7 | Tests E2E (Playwright) | ⏳ À faire |
+| 8 | Moteur de playback multi-voix (sélection par note) | ⏳ À faire |
 
 ---
 
@@ -68,6 +71,82 @@ non homogènes) par les **13 familles physiques** définies en Phase 0 dans
 - Fonction globale `onGmProgramChanged` appelée via un objet shim pour
   préserver les comportements dépendants (sous-section cordes 24-45, notice
   drum kit, filtrage des presets d'accordage).
+
+---
+
+## Phase 0b — Clavier de preview, header, CC cordes (livré)
+
+**Livrables** :
+- Header du modal : texte de titre supprimé, il ne reste que `⚙️` + nom de
+  l'instrument. `showCreate` réutilise `_updateHeader` au lieu d'un
+  `innerHTML` ad hoc.
+- Clavier de preview 1 octave dans le header :
+  - mélodique → mini-piano C4-B4 (7 blanches + 5 noires en overlay)
+  - kit batterie → 8 pads (kick, snare, HH, OHH, tom↑, tom↓, crash, ride)
+  - rien de sélectionné → libellé discret
+  - hover (`mouseenter`/`mouseleave`) → `midi_send noteon`/`noteoff` via
+    le backend
+  - `_selectProgram` envoie un `midi_send type: program` au device pour
+    que le preview joue la bonne banque avant sauvegarde
+  - `onClose` relâche toutes les notes actives
+- CC cordes simplifié : on ne voit plus que les champs `CC#` pour
+  String Select et Fret Select ; Min/Max/Offset deviennent des inputs
+  cachés qui préservent les valeurs existantes (save inchangé).
+- Bug i18n : clé `instrumentManagement.free` ajoutée aux locales fr/en
+  (plus de clé-brute affichée dans la grille de canaux).
+
+## Phase 0c — Multi-voix GM (livré)
+
+**Contexte** : un instrument physique peut avoir plusieurs techniques de
+jeu (ex : basse fingerstyle + slap + tapping + cello). Chaque technique
+est un programme GM différent mais partage le même canal, les mêmes
+cordes et la même plage de notes.
+
+**Sémantique** : voix = **alternatives** (pas de layering). Le moteur
+de playback choisira UNE voix par note selon le contexte — cf. Phase 8.
+
+**Livrables** :
+- Migration SQL : `migrations/003_instrument_voices.sql` crée la table
+  `instrument_voices(id, device_id, channel, gm_program,
+  min_note_interval, min_note_duration, supported_ccs JSON,
+  display_order, created_at, updated_at)` avec index et trigger
+  `updated_at`. Schema version bumped à 3.
+- Backend :
+  - `src/persistence/tables/InstrumentVoicesDB.js` — CRUD
+    (list/create/update/delete/deleteByInstrument/replaceAll dans une
+    transaction).
+  - `src/persistence/tables/InstrumentDatabase.js` — façade
+    (`listInstrumentVoices`, `createInstrumentVoice`, …).
+  - `src/repositories/InstrumentRepository.js` — wrappers business
+    (`listVoices`, `createVoice`, `updateVoice`, `deleteVoice`,
+    `deleteVoicesByInstrument`, `replaceVoices`).
+  - `src/api/commands/InstrumentVoiceCommands.js` — commandes WS
+    `instrument_voice_list/create/update/delete/replace` avec
+    validation MIDI (gm_program 0-255, timings 0-5000 ms, CCs 0-127).
+  - `instrument_delete` cascade désormais sur `instrument_voices`.
+- Frontend :
+  - Sous-section « Voix GM additionnelles » dans l'onglet Notes &
+    Capacités (pas dans Identité). Chaque voix : icône + n° GM + nom,
+    inputs `min_note_interval`, `min_note_duration`, CC liste CSV,
+    bouton 🗑️.
+  - Bouton « ➕ Ajouter une voix » ouvre un overlay à 2 étapes
+    (famille → instrument) qui réutilise le CSS du picker d'identité.
+  - `_loadChannelData` charge `tab.voices` via `instrument_voice_list`.
+  - `_save` persiste via `instrument_voice_replace` (atomique).
+  - Les timings `min_note_interval` / `min_note_duration` ont été
+    déplacés de l'onglet Avancé à l'onglet Notes (appliqués à la voix
+    principale, celle de `instruments_latency.gm_program`).
+- i18n : 7 nouvelles clés `instrumentSettings.*` ajoutées en FR/EN
+  (`sectionTimings`, `sectionVoices`, `voicesHint`, `voicesEmpty`,
+  `addVoice`, `deleteVoice`, `voiceCcs`).
+- CSS : classes `.ism-voices-list`, `.ism-voice-row`, `.ism-voice-head`,
+  `.ism-voice-params`, `.ism-voice-add-btn`, `.ism-voice-picker-overlay`
+  avec dark mode.
+
+**Compatibilité préservée** :
+- Voix primaire reste sur `instruments_latency.gm_program` — tous les
+  consommateurs existants (matcher, MIDI editor, lighting) continuent
+  de fonctionner tant qu'ils lisent uniquement le GM primaire.
 
 ---
 
@@ -217,6 +296,42 @@ et afficheront donc un fallback clé-brute ou le français.
 3. Audit : vérifier que `instruments.programs.*` et `instruments.drumKits.*`
    sont complets dans toutes les locales (les noms GM des 128 programmes +
    9 kits).
+
+---
+
+## Phase 8 — Moteur de playback multi-voix
+
+**Contexte** : la Phase 0c persiste plusieurs GM voices par instrument
+avec leurs timings et CCs spécifiques. Aucun consommateur ne les lit
+encore — le moteur de playback continue d'utiliser uniquement
+`instruments_latency.gm_program`. Il faut maintenant décider de la
+politique de sélection **par note** à l'exécution.
+
+**Tâches** :
+1. Concevoir la stratégie de sélection : par octave, par vélocité, via
+   un CC dédié (ex : articulation switch), via annotation dans le
+   fichier MIDI, ou combinaison.
+2. Étendre le pipeline :
+   - `src/midi/playback/MidiPlayer.js` ou `MidiTransposer.js` — avant
+     d'émettre la note, résoudre la voix active et émettre un
+     `program_change` vers le GM correspondant **si** la voix a changé
+     depuis la note précédente (éviter les program_change à chaque
+     note).
+   - `src/midi/adaptation/InstrumentMatcher*.js` — accepter plusieurs
+     GM candidats par canal au lieu d'un seul lors du scoring.
+3. Adapter l'UI : indicateur visuel de la voix active dans le MIDI
+   editor / channel panel.
+4. Respecter les timings par voix : `min_note_interval` et
+   `min_note_duration` de la voix sélectionnée s'appliquent à la note
+   courante (remplacent les valeurs de l'instrument primaire).
+5. Tests de régression : sans multi-voix (voices=[]), le comportement
+   doit être strictement identique à aujourd'hui.
+
+**Lieux à modifier (pointeurs)** :
+- `src/midi/playback/MidiPlayer.js`
+- `src/midi/adaptation/MidiTransposer.js`
+- `src/midi/adaptation/InstrumentMatcher*.js`
+- `public/js/features/midi-editor/MidiEditorChannelPanel.js`
 
 ---
 

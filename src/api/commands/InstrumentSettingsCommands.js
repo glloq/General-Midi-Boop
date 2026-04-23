@@ -427,6 +427,18 @@ async function instrumentDelete(app, data) {
     // string_instruments table may not exist
   }
 
+  // Cascade: delete secondary GM voices (multi-GM) for this instrument
+  try {
+    if (hasChannel) {
+      app.instrumentRepository.deleteVoicesByInstrument(data.deviceId, channel);
+    } else {
+      // device-wide: purge voices across all channels
+      app.instrumentRepository.deleteVoicesByInstrument(data.deviceId);
+    }
+  } catch (e) {
+    errors.push(`instrument_voices: ${e.message}`);
+  }
+
   // Cascade: delete associated MIDI instrument routings
   try {
     app.routingRepository.deleteByDevice(data.deviceId, hasChannel ? channel : undefined);

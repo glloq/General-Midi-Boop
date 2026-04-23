@@ -96,6 +96,36 @@ export default class InstrumentRepository {
     return this.database.saveSysExIdentity(deviceId, channel, identity);
   }
 
+  // ============ Multi-GM voices (secondary alternatives) ============
+  // The primary GM program still lives on `instruments_latency.gm_program`.
+  // These methods cover the SECONDARY voices attached to the same
+  // (deviceId, channel) pair — each representing a different actuator
+  // or technique on the same physical instrument.
+
+  listVoices(deviceId, channel) {
+    return this.database.listInstrumentVoices(deviceId, channel);
+  }
+
+  createVoice(deviceId, channel, payload) {
+    return this.database.createInstrumentVoice(deviceId, channel, payload);
+  }
+
+  updateVoice(id, patch) {
+    return this.database.updateInstrumentVoice(id, patch);
+  }
+
+  deleteVoice(id) {
+    return this.database.deleteInstrumentVoice(id);
+  }
+
+  deleteVoicesByInstrument(deviceId, channel) {
+    return this.database.deleteInstrumentVoicesByInstrument(deviceId, channel);
+  }
+
+  replaceVoices(deviceId, channel, voices) {
+    return this.database.replaceInstrumentVoices(deviceId, channel, voices);
+  }
+
   // Wrap a synchronous function in a SQLite transaction. Returns the
   // better-sqlite3 wrapper so callers can invoke it with their own arguments
   // (ADR-002 §Conventions — composite writes belong in the Repository layer).

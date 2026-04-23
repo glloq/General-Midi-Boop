@@ -365,7 +365,7 @@ class InstrumentSettingsModal extends BaseModal {
             };
 
             this.device = { id: deviceId, name: deviceId, displayName: deviceId };
-            this.instrumentTabs = [{ channel: 0, settings: defaultSettings, stringInstrumentConfig: null, isBleDevice: false }];
+            this.instrumentTabs = [{ channel: 0, settings: defaultSettings, stringInstrumentConfig: null, isBleDevice: false, voices: [] }];
             this.activeChannel = 0;
             this.activeSection = 'identity';
 

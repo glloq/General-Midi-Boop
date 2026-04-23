@@ -17,6 +17,7 @@
  */
 import InstrumentSettingsDB from './InstrumentSettingsDB.js';
 import InstrumentCapabilitiesDB from './InstrumentCapabilitiesDB.js';
+import InstrumentVoicesDB from './InstrumentVoicesDB.js';
 import { buildDynamicUpdate } from '../dbHelpers.js';
 import RoutingPersistenceDB from './RoutingPersistenceDB.js';
 import DeviceSettingsDB from './DeviceSettingsDB.js';
@@ -28,6 +29,7 @@ class InstrumentDatabase {
 
     this._settings = new InstrumentSettingsDB(db, logger);
     this._capabilities = new InstrumentCapabilitiesDB(db, logger);
+    this._voices = new InstrumentVoicesDB(db, logger);
     this._routing = new RoutingPersistenceDB(db, logger);
     this._deviceSettings = new DeviceSettingsDB(db, logger);
   }
@@ -130,6 +132,16 @@ class InstrumentDatabase {
   getAllInstrumentCapabilities() { return this._capabilities.getAllInstrumentCapabilities(); }
   getRegisteredInstrumentIds() { return this._capabilities.getRegisteredInstrumentIds(); }
   getInstrumentsWithCapabilities() { return this._capabilities.getInstrumentsWithCapabilities(); }
+
+  // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
+  // Full implementations in InstrumentVoicesDB.js
+
+  listInstrumentVoices(...args) { return this._voices.listByInstrument(...args); }
+  createInstrumentVoice(...args) { return this._voices.create(...args); }
+  updateInstrumentVoice(...args) { return this._voices.update(...args); }
+  deleteInstrumentVoice(...args) { return this._voices.deleteById(...args); }
+  deleteInstrumentVoicesByInstrument(...args) { return this._voices.deleteByInstrument(...args); }
+  replaceInstrumentVoices(...args) { return this._voices.replaceAll(...args); }
 
   // ==================== DELEGATED: ROUTING PERSISTENCE ====================
   // Full implementations in RoutingPersistenceDB.js
