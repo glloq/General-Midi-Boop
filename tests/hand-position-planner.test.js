@@ -4,6 +4,9 @@
 import { describe, test, expect } from '@jest/globals';
 import HandPositionPlanner from '../src/midi/adaptation/HandPositionPlanner.js';
 
+// Default test config uses a full 88-key range on each hand so the
+// anchor-logic tests don't accidentally hit the clamp. Clamping behavior
+// is covered by its own dedicated describe block below.
 const pianoCfg = {
   enabled: true,
   hands: [
@@ -11,7 +14,7 @@ const pianoCfg = {
       id: 'left',
       cc_position_number: 23,
       note_range_min: 21,
-      note_range_max: 72,
+      note_range_max: 108,
       hand_span_semitones: 14,
       polyphony: 5,
       finger_min_interval_ms: 40,
@@ -20,7 +23,7 @@ const pianoCfg = {
     {
       id: 'right',
       cc_position_number: 24,
-      note_range_min: 48,
+      note_range_min: 21,
       note_range_max: 108,
       hand_span_semitones: 14,
       polyphony: 5,
@@ -186,7 +189,11 @@ describe('HandPositionPlanner — feasibility warnings', () => {
   });
 
   test('out_of_range fires for notes outside hand reach', () => {
-    const p = new HandPositionPlanner(pianoCfg);
+    const narrow = {
+      enabled: true,
+      hands: [{ id: 'left', cc_position_number: 23, note_range_min: 21, note_range_max: 72, hand_span_semitones: 14 }]
+    };
+    const p = new HandPositionPlanner(narrow);
     const events = [
       note(0, 20, 'left'),  // below min 21
       note(1, 80, 'left')   // above max 72
@@ -194,6 +201,50 @@ describe('HandPositionPlanner — feasibility warnings', () => {
     const { warnings } = p.plan(events);
     const codes = warnings.map(w => w.code);
     expect(codes.filter(c => c === 'out_of_range').length).toBe(2);
+  });
+});
+
+describe('HandPositionPlanner — clamp to hand range', () => {
+  const narrow = {
+    enabled: true,
+    hands: [{
+      id: 'left', cc_position_number: 23,
+      note_range_min: 40, note_range_max: 60,
+      hand_span_semitones: 14
+    }]
+  };
+
+  test('CC anchor is clamped below note_range_min', () => {
+    const p = new HandPositionPlanner(narrow);
+    const { ccEvents, warnings } = p.plan([
+      { time: 0, note: 30, channel: 0, velocity: 80, hand: 'left' }
+    ]);
+    expect(ccEvents[0].value).toBe(40); // clamped to min
+    expect(warnings.some(w => w.code === 'out_of_range')).toBe(true);
+  });
+
+  test('CC anchor is clamped so window top stays <= note_range_max', () => {
+    const p = new HandPositionPlanner(narrow);
+    const { ccEvents, warnings } = p.plan([
+      { time: 0, note: 70, channel: 0, velocity: 80, hand: 'left' }
+    ]);
+    // 70 alone would anchor at 70, but 70+14=84 > max 60 → clamp to 60-14=46.
+    expect(ccEvents[0].value).toBe(46);
+    expect(warnings.some(w => w.code === 'out_of_range')).toBe(true);
+  });
+
+  test('clamping never drops below note_range_min', () => {
+    // Hand with span bigger than its own range: clamp should still
+    // prefer note_range_min (don't send negative or below-min values).
+    const cfg = {
+      enabled: true,
+      hands: [{ id: 'left', cc_position_number: 23, note_range_min: 60, note_range_max: 65, hand_span_semitones: 14 }]
+    };
+    const p = new HandPositionPlanner(cfg);
+    const { ccEvents } = p.plan([
+      { time: 0, note: 80, channel: 0, velocity: 80, hand: 'left' }
+    ]);
+    expect(ccEvents[0].value).toBeGreaterThanOrEqual(60);
   });
 });
 

@@ -10,11 +10,16 @@ function makeDeps(handsConfig) {
   const logger = {
     info: () => {}, warn: () => {}, debug: () => {}, error: () => {}
   };
-  const database = {
-    getInstrumentCapabilities(_deviceId, _channel) {
-      return handsConfig ? { hands_config: handsConfig } : null;
+  // Accept either a single config (applied to every lookup) or a map
+  // keyed by `deviceId:channel` for split-routing scenarios.
+  const lookup = (deviceId, channel) => {
+    if (handsConfig && typeof handsConfig === 'object' && !Array.isArray(handsConfig) && handsConfig.__byKey) {
+      const cfg = handsConfig.__byKey[`${deviceId}:${channel}`];
+      return cfg ? { hands_config: cfg } : null;
     }
+    return handsConfig ? { hands_config: handsConfig } : null;
   };
+  const database = { getInstrumentCapabilities: lookup };
   const blobStore = { read: () => Buffer.alloc(0) };
   const wsServer = { broadcast: jest.fn() };
   const eventBus = { on: () => {}, emit: jest.fn() };
@@ -107,14 +112,82 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     );
   });
 
-  test('skips split routings (Phase 1 scope)', () => {
-    const deps = makeDeps(pianoHands);
+  test('split routings: each segment gets its own CC stream', () => {
+    // Left segment (notes 0-59, device bass) and right segment (60-127, device treble)
+    // with their own hand configs.
+    const bassHands = {
+      enabled: true,
+      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14, polyphony: 5 }]
+    };
+    const trebleHands = {
+      enabled: true,
+      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14, polyphony: 5 }]
+    };
+    const deps = makeDeps({
+      __byKey: {
+        'dev-bass:0': bassHands,
+        'dev-treble:0': trebleHands
+      }
+    });
     const player = new MidiPlayer(deps);
-    primePlayer(player, [{ time: 0.5, note: 40 }]);
-    player.channelRouting.set(0, { split: true, segments: [] });
+    primePlayer(player, [
+      { time: 0.5, note: 40 },  // bass segment
+      { time: 1.0, note: 72 },  // treble segment
+      { time: 1.5, note: 45 }   // bass segment
+    ]);
+    player.channelRouting.set(0, {
+      split: true,
+      segments: [
+        { device: 'dev-bass',   targetChannel: 0, noteMin: 0,  noteMax: 59 },
+        { device: 'dev-treble', targetChannel: 0, noteMin: 60, noteMax: 127 }
+      ]
+    });
 
-    const injected = player._injectHandPositionCCEvents();
-    expect(injected).toBe(0);
+    player._injectHandPositionCCEvents();
+
+    const ccs = player.events.filter(e => e.type === 'controller');
+    const bassCCs = ccs.filter(e => e._routeTo?.device === 'dev-bass');
+    const trebleCCs = ccs.filter(e => e._routeTo?.device === 'dev-treble');
+
+    expect(bassCCs.length).toBeGreaterThan(0);
+    expect(trebleCCs.length).toBeGreaterThan(0);
+    expect(bassCCs[0].controller).toBe(23);
+    expect(bassCCs[0].value).toBe(40);
+    expect(trebleCCs[0].controller).toBe(24);
+    expect(trebleCCs[0].value).toBe(72);
+    // Every injected CC must carry _routeTo so the scheduler bypasses
+    // the split-broadcast path.
+    for (const cc of ccs) {
+      expect(cc._routeTo).toEqual(expect.objectContaining({ device: expect.any(String) }));
+    }
+  });
+
+  test('split routing: segment without hands_config is skipped', () => {
+    const trebleHands = {
+      enabled: true,
+      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14, polyphony: 5 }]
+    };
+    const deps = makeDeps({
+      __byKey: { 'dev-treble:0': trebleHands } // bass destination has no config
+    });
+    const player = new MidiPlayer(deps);
+    primePlayer(player, [
+      { time: 0.5, note: 40 },
+      { time: 1.0, note: 72 }
+    ]);
+    player.channelRouting.set(0, {
+      split: true,
+      segments: [
+        { device: 'dev-bass',   targetChannel: 0, noteMin: 0,  noteMax: 59 },
+        { device: 'dev-treble', targetChannel: 0, noteMin: 60, noteMax: 127 }
+      ]
+    });
+
+    player._injectHandPositionCCEvents();
+
+    const ccs = player.events.filter(e => e.type === 'controller');
+    expect(ccs.every(e => e._routeTo?.device === 'dev-treble')).toBe(true);
+    expect(ccs.some(e => e._routeTo?.device === 'dev-bass')).toBe(false);
   });
 
   test('no-op when there are no routings', () => {

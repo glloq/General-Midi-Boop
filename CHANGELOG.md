@@ -27,6 +27,16 @@ All notable changes to Général Midi Boop are documented in this file.
 - Migration `004_instrument_hands_config.sql`.
 - "Mains" section in the instrument settings modal, visible only for
   keyboard-family instruments (Phase 2 will unify string instruments).
+- **Split routings**: hand-position planning runs per segment. Each
+  segment sees only the notes it will actually play (its noteMin..noteMax
+  window) and its destination's own `hands_config`. Injected CCs carry
+  `_routeTo` so the scheduler bypasses the split-broadcast path and the
+  CC reaches only the intended device.
+- **Safety clamp**: the CC value is clamped to the hand's physical
+  `[note_range_min, note_range_max - span]` range, so the hardware is
+  never commanded to move outside its reach even when the music goes
+  beyond what the hand can play (the individual notes still raise
+  `out_of_range` warnings).
 
 ## [0.7.0] - 2026-04-18
 

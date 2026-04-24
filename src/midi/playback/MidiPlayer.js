@@ -454,32 +454,28 @@ class MidiPlayer {
     const allWarnings = [];
     let hadAny = false;
 
-    for (const [srcChannel, routing] of this.channelRouting.entries()) {
-      // Split routing is skipped in Phase 1 — the split segments would
-      // each need their own hands_config lookup; that's a Phase 2 nicety.
-      if (!routing || routing.split) continue;
-      if (!routing.device) continue;
-
+    /**
+     * Plan hand CCs for one destination. `segmentFilter` is used by split
+     * routings to restrict the notes that this destination actually plays
+     * (matches the scheduler's own noteMin/noteMax logic).
+     */
+    const planForDestination = (srcChannel, device, targetChannel, segmentLabel, segmentFilter) => {
       let capabilities;
       try {
-        capabilities = this.database.getInstrumentCapabilities(
-          routing.device,
-          routing.targetChannel ?? srcChannel
-        );
+        capabilities = this.database.getInstrumentCapabilities(device, targetChannel);
       } catch (e) {
-        continue;
+        return;
       }
       const handsCfg = capabilities?.hands_config;
-      if (!handsCfg || handsCfg.enabled === false) continue;
-      if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) continue;
+      if (!handsCfg || handsCfg.enabled === false) return;
+      if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) return;
 
-      // Build the note-on list for this source channel (only note events
-      // — the planner is not interested in CCs/program changes).
       const notes = [];
       for (let i = 0; i < this.events.length; i++) {
         const e = this.events[i];
         if (e.channel !== srcChannel) continue;
         if (e.type !== 'noteOn' || (e.velocity ?? 0) === 0) continue;
+        if (segmentFilter && !segmentFilter(e.note)) continue;
         notes.push({
           time: e.time,
           note: e.note,
@@ -488,28 +484,69 @@ class MidiPlayer {
           track: e.track
         });
       }
-      if (notes.length === 0) continue;
+      if (notes.length === 0) return;
 
       const assigner = new HandAssigner(handsCfg);
       const { assignments, warnings: assignWarnings, resolvedMode } = assigner.assign(notes);
-      for (const w of assignWarnings) allWarnings.push({ ...w, channel: srcChannel });
+      for (const w of assignWarnings) {
+        allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
+      }
 
-      // Project hand tags onto the notes.
       const tagged = notes.map((n, idx) => ({ ...n, hand: assignments[idx]?.hand }));
 
       const planner = new HandPositionPlanner(handsCfg);
       const { ccEvents, warnings: planWarnings } = planner.plan(tagged);
-      for (const w of planWarnings) allWarnings.push({ ...w, channel: srcChannel });
+      for (const w of planWarnings) {
+        allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
+      }
 
       for (const cc of ccEvents) {
         cc._handInjected = true;
+        // Route the CC straight to this destination; split broadcasts
+        // would otherwise fire the same CC at every segment's device.
+        cc._routeTo = { device, targetChannel };
         allCCs.push(cc);
       }
       if (ccEvents.length > 0) hadAny = true;
 
       this.logger.debug(
-        `Hand planner (ch ${srcChannel + 1}, device ${routing.device}): ` +
-        `${ccEvents.length} CC events, ${planWarnings.length + assignWarnings.length} warnings, mode=${resolvedMode}`
+        `Hand planner (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
+        `device ${device}): ${ccEvents.length} CC events, ` +
+        `${planWarnings.length + assignWarnings.length} warnings, mode=${resolvedMode}`
+      );
+    };
+
+    for (const [srcChannel, routing] of this.channelRouting.entries()) {
+      if (!routing) continue;
+
+      if (routing.split && Array.isArray(routing.segments)) {
+        // Split routing: plan per-segment so each destination gets a CC
+        // stream that respects its own hand constraints, and only for
+        // the notes it will actually play (segment noteMin..noteMax).
+        for (let segIdx = 0; segIdx < routing.segments.length; segIdx++) {
+          const seg = routing.segments[segIdx];
+          if (!seg?.device) continue;
+          const lo = seg.noteMin ?? 0;
+          const hi = seg.noteMax ?? 127;
+          const target = seg.targetChannel ?? srcChannel;
+          planForDestination(
+            srcChannel,
+            seg.device,
+            target,
+            `${segIdx}[${lo}-${hi}]`,
+            (n) => n >= lo && n <= hi
+          );
+        }
+        continue;
+      }
+
+      if (!routing.device) continue;
+      planForDestination(
+        srcChannel,
+        routing.device,
+        routing.targetChannel ?? srcChannel,
+        null,
+        null
       );
     }
 
