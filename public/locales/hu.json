@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Hangbank betöltése"
+        "previewLoadingBank": "Hangbank betöltése",
+        "omniMode": "Omni · minden csatorna elfogadása",
+        "omniModeHelp": "A hangszer bármely MIDI csatornán elfogad hangokat (hasznos, ha ez az eszköz egyetlen hangszere)",
+        "omniModeActiveHint": "Ez a hangszer bármely csatornán fogad hangokat — a fenti csatornaválasztás figyelmen kívül marad."
     },
     "playlist": {
         "title": "Lejátszási listák",

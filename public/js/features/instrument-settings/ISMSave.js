@@ -80,6 +80,10 @@
             const minNoteDurationVal = this.$('#minNoteDuration')?.value?.trim();
             const minNoteDuration = minNoteDurationVal !== '' && minNoteDurationVal != null ? parseInt(minNoteDurationVal) : null;
 
+            // Omni mode (accept notes on any channel — useful for devices hosting a single instrument)
+            const omniModeVal = this.$('#omniModeInput')?.value;
+            const omniMode = omniModeVal === '1' || omniModeVal === 'true';
+
             // Save base settings
             await this.api.sendCommand('instrument_update_settings', {
                 deviceId: this.device.id,
@@ -92,7 +96,8 @@
                 octave_mode: octaveMode,
                 comm_timeout: commTimeout,
                 min_note_interval: minNoteInterval,
-                min_note_duration: minNoteDuration
+                min_note_duration: minNoteDuration,
+                omni_mode: omniMode
             });
 
             // String instrument path

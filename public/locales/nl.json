@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Geluidsbank laden"
+        "previewLoadingBank": "Geluidsbank laden",
+        "omniMode": "Omni · alle kanalen accepteren",
+        "omniModeHelp": "Dit instrument accepteert noten op elk MIDI-kanaal (handig wanneer het het enige instrument op het apparaat is)",
+        "omniModeActiveHint": "Dit instrument ontvangt noten op elk kanaal — de kanaalkeuze hierboven wordt genegeerd."
     },
     "playlist": {
         "title": "Afspeellijsten",

@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Ladataan äänipankkia"
+        "previewLoadingBank": "Ladataan äänipankkia",
+        "omniMode": "Omni · hyväksy kaikki kanavat",
+        "omniModeHelp": "Soitin hyväksyy nuotteja millä tahansa MIDI-kanavalla (hyödyllinen kun se on laitteen ainoa soitin)",
+        "omniModeActiveHint": "Tämä soitin vastaanottaa nuotteja millä tahansa kanavalla — yllä oleva kanavavalinta jätetään huomiotta."
     },
     "playlist": {
         "title": "Soittolistat",

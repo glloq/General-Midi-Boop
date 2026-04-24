@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Φόρτωση τράπεζας ήχων"
+        "previewLoadingBank": "Φόρτωση τράπεζας ήχων",
+        "omniMode": "Omni · αποδοχή όλων των καναλιών",
+        "omniModeHelp": "Αυτό το όργανο δέχεται νότες σε οποιοδήποτε κανάλι MIDI (χρήσιμο όταν είναι το μοναδικό όργανο της συσκευής)",
+        "omniModeActiveHint": "Αυτό το όργανο λαμβάνει νότες σε οποιοδήποτε κανάλι — η παραπάνω επιλογή καναλιού αγνοείται."
     },
     "playlist": {
         "title": "Λίστες αναπαραγωγής",

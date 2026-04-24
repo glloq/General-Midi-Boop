@@ -1123,6 +1123,7 @@ class MidiPlayer {
   clearChannelRouting() {
     this.channelRouting.clear();
     this.scheduler.invalidateCompensationCache();
+    this.invalidateOmniFallback();
     this.channels.forEach(c => c.assignedDevice = null);
     this.logger.info('All channel routing cleared');
   }
@@ -1389,11 +1390,41 @@ class MidiPlayer {
       return routing;
     }
 
+    // Omni fallback: if the user flagged one or more instruments as "accepts
+    // all channels", route unrouted channels to the first omni instrument.
+    // This is the use case "a single instrument on the device and I don't
+    // want to care about which channel the MIDI file uses".
+    const omniTarget = this._getOmniFallback();
+    if (omniTarget) {
+      return { device: omniTarget.device_id, targetChannel: omniTarget.channel };
+    }
+
     if (this.channelRouting.size > 0) {
       return null;
     }
 
     return { device: this.outputDevice, targetChannel: channel };
+  }
+
+  /**
+   * Cached lookup of the first omni-mode instrument row. Cache is invalidated
+   * by {@link invalidateOmniFallback} — callers should invalidate on
+   * `instrument_settings_changed`. Returns `null` when no omni instrument is
+   * configured or the database is not available.
+   */
+  _getOmniFallback() {
+    if (this._omniFallbackCache !== undefined) return this._omniFallbackCache;
+    try {
+      const rows = this.database?.getOmniInstruments?.() || [];
+      this._omniFallbackCache = rows.length > 0 ? rows[0] : null;
+    } catch {
+      this._omniFallbackCache = null;
+    }
+    return this._omniFallbackCache;
+  }
+
+  invalidateOmniFallback() {
+    this._omniFallbackCache = undefined;
   }
 
   /**

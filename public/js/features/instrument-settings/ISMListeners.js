@@ -791,6 +791,40 @@
     ISMListeners._attachIdentitySectionListeners = function() {
         this._wireChannelGridListeners();
         this._wireIdentityPickerListeners();
+        this._wireOmniToggleListener();
+    };
+
+    ISMListeners._wireOmniToggleListener = function() {
+        const toggle = this.$('#omniModeToggle');
+        if (!toggle) return;
+        const self = this;
+        toggle.addEventListener('click', function() {
+            const hidden = self.$('#omniModeInput');
+            const isOn = hidden && hidden.value === '1';
+            const nextOn = !isOn;
+            if (hidden) hidden.value = nextOn ? '1' : '0';
+            toggle.classList.toggle('active', nextOn);
+            toggle.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
+
+            // Disable/enable the channel grid buttons (except the already-used ones)
+            const grid = self.$('#channelGrid');
+            if (grid) grid.classList.toggle('ism-channel-grid-disabled', nextOn);
+            const currentCh = self.activeChannel;
+            const used = self.instrumentTabs.map(function(t) { return t.channel; }).filter(function(ch) { return ch !== currentCh; });
+            self.$$('.ism-channel-btn').forEach(function(btn) {
+                const ch = parseInt(btn.dataset.channel);
+                const isUsed = used.includes(ch);
+                btn.disabled = nextOn || (isUsed && ch !== currentCh);
+            });
+
+            // Update the hint text inline without a full rerender
+            const hint = toggle.parentElement && toggle.parentElement.querySelector('.ism-form-hint');
+            if (hint) {
+                hint.textContent = nextOn
+                    ? (self.t('instrumentSettings.omniModeActiveHint') || 'Cet instrument reçoit les notes sur n\'importe quel canal — le choix du canal est ignoré.')
+                    : (self.t('instrumentSettings.midiChannelHelp') || 'Canal MIDI utilisé par cet instrument');
+            }
+        });
     };
 
     ISMListeners._measureDelay = function() {

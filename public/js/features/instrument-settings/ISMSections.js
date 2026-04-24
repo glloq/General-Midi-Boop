@@ -77,13 +77,15 @@
         // Channel grid (16 buttons)
         const usedChannels = this.instrumentTabs.map(function(t) { return t.channel; }).filter(function(ch) { return ch !== channel; });
         const colors = InstrumentSettingsModal.CHANNEL_COLORS;
+        const omniMode = !!settings.omni_mode;
         let channelGrid = '';
         for (let ch = 0; ch < 16; ch++) {
             const isUsed = usedChannels.includes(ch);
             const isCurrent = ch === channel;
             const isDrum = (ch === 9);
             const cls = isCurrent ? 'active' : '';
-            channelGrid += `<button type="button" class="ism-channel-btn ${cls}" data-channel="${ch}" ${isUsed && !isCurrent ? 'disabled' : ''} style="--ch-color: ${colors[ch]}; ${isCurrent ? `background: ${colors[ch]}; color: #fff; border-color: ${colors[ch]};` : `border-color: ${colors[ch]};`}">
+            const disabled = (isUsed && !isCurrent) || omniMode;
+            channelGrid += `<button type="button" class="ism-channel-btn ${cls}" data-channel="${ch}" ${disabled ? 'disabled' : ''} style="--ch-color: ${colors[ch]}; ${isCurrent ? `background: ${colors[ch]}; color: #fff; border-color: ${colors[ch]};` : `border-color: ${colors[ch]};`}">
                 ${ch + 1}${isDrum ? ' DR' : ''}
             </button>`;
         }
@@ -134,9 +136,20 @@
 
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.midiChannel') || 'Canal MIDI'}</label>
-                <div class="ism-channel-grid" id="channelGrid">${channelGrid}</div>
-                <span class="ism-form-hint">${this.t('instrumentSettings.midiChannelHelp') || 'Canal MIDI utilisé par cet instrument'}</span>
+                <div class="ism-channel-grid ${omniMode ? 'ism-channel-grid-disabled' : ''}" id="channelGrid">${channelGrid}</div>
+                <button type="button"
+                        id="omniModeToggle"
+                        class="ism-omni-toggle ${omniMode ? 'active' : ''}"
+                        aria-pressed="${omniMode ? 'true' : 'false'}"
+                        title="${this.escape(this.t('instrumentSettings.omniModeHelp') || 'L\'instrument accepte les notes sur n\'importe quel canal MIDI')}">
+                    <span class="ism-omni-dot"></span>
+                    <span class="ism-omni-label">${this.escape(this.t('instrumentSettings.omniMode') || 'Omni · accepter tous les canaux')}</span>
+                </button>
+                <span class="ism-form-hint">${omniMode
+                    ? (this.t('instrumentSettings.omniModeActiveHint') || 'Cet instrument reçoit les notes sur n\'importe quel canal — le choix du canal est ignoré.')
+                    : (this.t('instrumentSettings.midiChannelHelp') || 'Canal MIDI utilisé par cet instrument')}</span>
                 <input type="hidden" id="channelSelect" value="${channel}">
+                <input type="hidden" id="omniModeInput" value="${omniMode ? '1' : '0'}">
             </div>
 
             <div class="ism-form-group">

@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Caricamento banco suoni"
+        "previewLoadingBank": "Caricamento banco suoni",
+        "omniMode": "Omni · accetta tutti i canali",
+        "omniModeHelp": "Lo strumento accetta note su qualsiasi canale MIDI (utile quando è l'unico strumento del dispositivo)",
+        "omniModeActiveHint": "Questo strumento riceve note su qualsiasi canale — la selezione del canale qui sopra viene ignorata."
     },
     "playlist": {
         "title": "Playlist",

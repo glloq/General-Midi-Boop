@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Indlæser lydbank"
+        "previewLoadingBank": "Indlæser lydbank",
+        "omniMode": "Omni · acceptér alle kanaler",
+        "omniModeHelp": "Dette instrument accepterer noder på enhver MIDI-kanal (nyttigt når det er det eneste instrument på enheden)",
+        "omniModeActiveHint": "Dette instrument modtager noder på enhver kanal — kanalvalget ovenfor ignoreres."
     },
     "playlist": {
         "title": "Playlister",

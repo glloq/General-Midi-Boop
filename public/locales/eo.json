@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Ŝarĝo de sonbanko"
+        "previewLoadingBank": "Ŝarĝo de sonbanko",
+        "omniMode": "Omni · akcepti ĉiujn kanalojn",
+        "omniModeHelp": "Ĉi tiu instrumento akceptas notojn sur iu ajn MIDI-kanalo (utila kiam ĝi estas la sola instrumento sur la aparato)",
+        "omniModeActiveHint": "Ĉi tiu instrumento ricevas notojn sur iu ajn kanalo — la supra kanala elekto estas ignorita."
     },
     "playlist": {
         "title": "Ludlistoj",

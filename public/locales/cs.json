@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Načítání zvukové banky"
+        "previewLoadingBank": "Načítání zvukové banky",
+        "omniMode": "Omni · přijímat všechny kanály",
+        "omniModeHelp": "Nástroj přijímá noty z libovolného MIDI kanálu (užitečné, když je jediným nástrojem zařízení)",
+        "omniModeActiveHint": "Tento nástroj přijímá noty z libovolného kanálu — výběr kanálu výše je ignorován."
     },
     "playlist": {
         "title": "Playlisty",

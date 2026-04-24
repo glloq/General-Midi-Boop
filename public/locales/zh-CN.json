@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "正在加载音色库"
+        "previewLoadingBank": "正在加载音色库",
+        "omniMode": "Omni · 接受所有通道",
+        "omniModeHelp": "此乐器接受任意 MIDI 通道上的音符(当它是设备上的唯一乐器时很有用)",
+        "omniModeActiveHint": "此乐器接受任意通道上的音符 — 上面的通道选择将被忽略。"
     },
     "playlist": {
         "title": "播放列表",

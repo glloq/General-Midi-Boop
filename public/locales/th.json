@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "กำลังโหลดชุดเสียง"
+        "previewLoadingBank": "กำลังโหลดชุดเสียง",
+        "omniMode": "ออมนิ · รับทุกช่อง",
+        "omniModeHelp": "เครื่องดนตรีนี้รับโน้ตบนช่อง MIDI ใดก็ได้ (มีประโยชน์เมื่อเป็นเครื่องเดียวบนอุปกรณ์)",
+        "omniModeActiveHint": "เครื่องดนตรีนี้รับโน้ตบนช่องใดก็ได้ — การเลือกช่องด้านบนจะถูกละเว้น"
     },
     "playlist": {
         "title": "เพลย์ลิสต์",

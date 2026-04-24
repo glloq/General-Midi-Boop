@@ -320,6 +320,65 @@
   cursor: not-allowed;
 }
 
+.ism-channel-grid.ism-channel-grid-disabled .ism-channel-btn {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+/* ---- Omni mode toggle ---- */
+.ism-omni-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 999px;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.ism-omni-toggle:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ism-omni-toggle.active {
+  background: #f59e0b;
+  color: #1f2937;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+.ism-omni-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.ism-omni-toggle.active .ism-omni-dot {
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+}
+
+body.dark-mode .ism-omni-toggle {
+  background: var(--bg-secondary, #1f2937);
+  color: var(--text-primary, #f3f4f6);
+}
+
+body.dark-mode .ism-omni-toggle.active {
+  color: #1f2937;
+}
+
 /* ========== CC Grid ========== */
 .ism-cc-grid {
   display: grid;

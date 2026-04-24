@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "সাউন্ড ব্যাঙ্ক লোড হচ্ছে"
+        "previewLoadingBank": "সাউন্ড ব্যাঙ্ক লোড হচ্ছে",
+        "omniMode": "ওমনি · সব চ্যানেল গ্রহণ করুন",
+        "omniModeHelp": "এই যন্ত্রটি যেকোনো MIDI চ্যানেলে নোট গ্রহণ করে (ডিভাইসে একমাত্র যন্ত্র হলে কার্যকর)",
+        "omniModeActiveHint": "এই যন্ত্রটি যেকোনো চ্যানেলে নোট গ্রহণ করে — উপরের চ্যানেল নির্বাচন উপেক্ষা করা হয়েছে।"
     },
     "playlist": {
         "title": "প্লেলিস্ট",

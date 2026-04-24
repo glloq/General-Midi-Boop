@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Naglo-load ng sound bank"
+        "previewLoadingBank": "Naglo-load ng sound bank",
+        "omniMode": "Omni · tanggapin ang lahat ng channel",
+        "omniModeHelp": "Tinatanggap ng instrumentong ito ang mga nota sa anumang MIDI channel (kapaki-pakinabang kapag ito lang ang instrumento sa device)",
+        "omniModeActiveHint": "Ang instrumentong ito ay tumatanggap ng mga nota sa anumang channel — hindi pinapansin ang napiling channel sa itaas."
     },
     "playlist": {
         "title": "Mga Playlist",

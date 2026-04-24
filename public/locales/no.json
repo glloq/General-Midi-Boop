@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Laster lydbank"
+        "previewLoadingBank": "Laster lydbank",
+        "omniMode": "Omni · aksepter alle kanaler",
+        "omniModeHelp": "Dette instrumentet aksepterer noter på hvilken som helst MIDI-kanal (nyttig når det er enheten sitt eneste instrument)",
+        "omniModeActiveHint": "Dette instrumentet mottar noter på hvilken som helst kanal — kanalvalget over ignoreres."
     },
     "playlist": {
         "title": "Spillelister",

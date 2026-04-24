@@ -46,7 +46,7 @@ class InstrumentSettingsDB {
           'custom_name', 'sync_delay', 'mac_address', 'usb_serial_number',
           'name', 'gm_program', 'octave_mode', 'comm_timeout',
           'instrument_type', 'instrument_subtype',
-          'min_note_interval', 'min_note_duration'
+          'min_note_interval', 'min_note_duration', 'omni_mode'
         ], { whereClause: 'device_id = ? AND channel = ?' });
 
         if (!result) return existing.id;
@@ -57,8 +57,8 @@ class InstrumentSettingsDB {
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
             id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout, instrument_type, instrument_subtype,
-            min_note_interval, min_note_duration
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            min_note_interval, min_note_duration, omni_mode
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -77,7 +77,8 @@ class InstrumentSettingsDB {
           settings.instrument_type || 'unknown',
           settings.instrument_subtype || null,
           settings.min_note_interval !== undefined ? settings.min_note_interval : null,
-          settings.min_note_duration !== undefined ? settings.min_note_duration : null
+          settings.min_note_duration !== undefined ? settings.min_note_duration : null,
+          settings.omni_mode ? 1 : 0
         );
 
         return id;
@@ -284,6 +285,22 @@ class InstrumentSettingsDB {
     } catch (error) {
       this.logger.error(`Failed to update instrument by id: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * List all instruments whose omni_mode flag is set. Consumed by the MIDI
+   * routing layer as a fallback for channels that have no explicit routing.
+   * @returns {Array<{device_id:string, channel:number}>}
+   */
+  getOmniInstruments() {
+    try {
+      return this.db.prepare(
+        'SELECT device_id, channel FROM instruments_latency WHERE omni_mode = 1'
+      ).all();
+    } catch (error) {
+      this.logger.error(`Failed to list omni instruments: ${error.message}`);
+      return [];
     }
   }
 

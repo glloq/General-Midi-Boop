@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Завантаження банку звуків"
+        "previewLoadingBank": "Завантаження банку звуків",
+        "omniMode": "Omni · приймати всі канали",
+        "omniModeHelp": "Інструмент приймає ноти на будь-якому MIDI-каналі (корисно, коли це єдиний інструмент пристрою)",
+        "omniModeActiveHint": "Цей інструмент отримує ноти на будь-якому каналі — вибір каналу вище ігнорується."
     },
     "playlist": {
         "title": "Плейлисти",

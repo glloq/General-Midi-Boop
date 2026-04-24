@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Ses bankası yükleniyor"
+        "previewLoadingBank": "Ses bankası yükleniyor",
+        "omniMode": "Omni · tüm kanalları kabul et",
+        "omniModeHelp": "Bu enstrüman herhangi bir MIDI kanalındaki notaları kabul eder (cihazdaki tek enstrüman olduğunda faydalı)",
+        "omniModeActiveHint": "Bu enstrüman herhangi bir kanalda notaları alır — yukarıdaki kanal seçimi yoksayılır."
     },
     "playlist": {
         "title": "Çalma Listeleri",

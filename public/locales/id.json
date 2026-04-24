@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Memuat bank suara"
+        "previewLoadingBank": "Memuat bank suara",
+        "omniMode": "Omni · terima semua kanal",
+        "omniModeHelp": "Instrumen ini menerima not pada kanal MIDI apa pun (berguna bila ini adalah satu-satunya instrumen di perangkat)",
+        "omniModeActiveHint": "Instrumen ini menerima not pada kanal apa pun — pilihan kanal di atas diabaikan."
     },
     "playlist": {
         "title": "Daftar Putar",

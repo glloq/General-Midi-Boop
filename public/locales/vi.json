@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Đang tải ngân hàng âm thanh"
+        "previewLoadingBank": "Đang tải ngân hàng âm thanh",
+        "omniMode": "Omni · chấp nhận mọi kênh",
+        "omniModeHelp": "Nhạc cụ này chấp nhận các nốt trên bất kỳ kênh MIDI nào (hữu ích khi là nhạc cụ duy nhất trên thiết bị)",
+        "omniModeActiveHint": "Nhạc cụ này nhận các nốt trên bất kỳ kênh nào — lựa chọn kênh ở trên sẽ bị bỏ qua."
     },
     "playlist": {
         "title": "Danh sách phát",

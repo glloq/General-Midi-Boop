@@ -690,6 +690,9 @@ class DatabaseManager {
   getInstrumentsByDevice(deviceId) {
     return this.instrumentDB.getInstrumentsByDevice(deviceId);
   }
+  getOmniInstruments() {
+    return this.instrumentDB.getOmniInstruments();
+  }
 
   // Lighting Devices
   insertLightingDevice(device) {

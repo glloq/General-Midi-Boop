@@ -674,7 +674,10 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
-        "previewLoadingBank": "Laddar ljudbank"
+        "previewLoadingBank": "Laddar ljudbank",
+        "omniMode": "Omni · acceptera alla kanaler",
+        "omniModeHelp": "Instrumentet accepterar noter på vilken MIDI-kanal som helst (användbart när det är enhetens enda instrument)",
+        "omniModeActiveHint": "Det här instrumentet tar emot noter på vilken kanal som helst — kanalvalet ovan ignoreras."
     },
     "playlist": {
         "title": "Spellistor",

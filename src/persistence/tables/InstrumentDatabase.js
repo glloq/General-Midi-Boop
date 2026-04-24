@@ -110,6 +110,7 @@ class InstrumentDatabase {
   updateInstrumentSettings(...args) { return this._settings.updateInstrumentSettings(...args); }
   getInstrumentSettings(...args) { return this._settings.getInstrumentSettings(...args); }
   getInstrumentsByDevice(...args) { return this._settings.getInstrumentsByDevice(...args); }
+  getOmniInstruments(...args) { return this._settings.getOmniInstruments(...args); }
   findInstrumentById(...args) { return this._settings.findById(...args); }
   updateInstrumentById(...args) { return this._settings.updateById(...args); }
   getAllLatencyProfiles() { return this._settings.getAllLatencyProfiles(); }

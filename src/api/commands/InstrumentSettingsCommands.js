@@ -96,6 +96,11 @@ async function instrumentUpdateSettings(app, data) {
     data.comm_timeout = timeout;
   }
 
+  // Coerce omni_mode to 0/1 for SQLite INTEGER CHECK
+  if (data.omni_mode !== undefined && data.omni_mode !== null) {
+    data.omni_mode = data.omni_mode ? 1 : 0;
+  }
+
   // `instruments_latency.device_id` has a FK to `devices(id)`. Ensure
   // the parent row exists (idempotent INSERT OR IGNORE) before the
   // settings row is upserted — otherwise the first save for a newly
@@ -117,7 +122,8 @@ async function instrumentUpdateSettings(app, data) {
     name: data.name,
     gm_program: data.gm_program,
     octave_mode: data.octave_mode,
-    comm_timeout: data.comm_timeout
+    comm_timeout: data.comm_timeout,
+    omni_mode: data.omni_mode
   });
 
   // Notify routing/playback systems to invalidate cached compensation values
