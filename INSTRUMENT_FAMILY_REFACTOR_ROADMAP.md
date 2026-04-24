@@ -19,13 +19,13 @@ non homogènes) par les **13 familles physiques** définies en Phase 0 dans
 | 0 | Sélecteur d'identité (modal) | **✅ Livré** |
 | 0b | Clavier de preview + simplification header + CC cordes | **✅ Livré** |
 | 0c | Multi-voix GM (backend `instrument_voices` + UI Notes) | **✅ Livré** |
-| 1 | Pipeline d'assets SVG | ⏳ À faire |
-| 2 | Taxonomie partagée backend ↔ frontend | ⏳ À faire |
+| 1 | Pipeline d'assets SVG (68/128 déployés) | **✅ Livré** |
+| 2 | Taxonomie partagée backend ↔ frontend | **✅ Livré** |
 | 3 | Consommateurs UI en aval (éditeur MIDI, lighting) | ⏳ À faire |
-| 4 | Matcher & auto-assignation | ⏳ À faire |
+| 4 | Matcher & auto-assignation | **✅ Livré** |
 | 5 | Dépréciations (code legacy) | ⏳ À faire |
-| 6 | i18n complet (26 autres locales) | ⏳ À faire |
-| 7 | Tests E2E (Playwright) | ⏳ À faire |
+| 6 | i18n complet (26 autres locales) | **✅ Livré** (EN fallback) |
+| 7 | Tests E2E (Playwright) | **✅ Sans objet** (aucune spec ne cible les anciens sélecteurs) |
 | 8 | Moteur de playback multi-voix (sélection par note) | ⏳ À faire |
 
 ---
@@ -150,12 +150,20 @@ de playback choisira UNE voix par note selon le contexte — cf. Phase 8.
 
 ---
 
-## Phase 1 — Pipeline d'assets SVG
+## Phase 1 — Pipeline d'assets SVG (livré — partiel)
 
-**Contexte** : 68 SVG existent dans `images-a-faire/instruments/` mais ne
-sont pas servis par l'app. Le resolver fait déjà un fallback emoji gracieux
-via `<img onerror>`. Il reste à déployer les icônes et à produire les
-manquantes.
+**Livré** :
+- Les 68 SVG existants ont été déplacés de `images-a-faire/instruments/`
+  vers `public/assets/instruments/` (via `git mv`). Vite sert
+  automatiquement `/assets/instruments/<slug>.svg` (root = `public/`),
+  donc le resolver du picker affiche maintenant les vraies icônes pour
+  les 68 programmes couverts.
+- Correspondance exacte vérifiée : 68 slugs dans `PROGRAM_TO_SLUG` ↔
+  68 fichiers SVG (0 manquant, 0 en trop).
+- Fallback emoji toujours en place pour les 60 programmes GM + 13
+  icônes de famille + 9 kits batterie qui n'ont pas encore de SVG.
+
+**Reste à faire** :
 
 **Tâches** :
 1. Déplacer `images-a-faire/instruments/*.svg` → `public/assets/instruments/`
@@ -190,11 +198,25 @@ SVG, aucun fallback emoji n'est visible en usage courant.
 
 ---
 
-## Phase 2 — Taxonomie partagée backend ↔ frontend
+## Phase 2 — Taxonomie partagée backend ↔ frontend (livré)
 
-**Contexte** : la taxonomie vit actuellement dans un seul fichier frontend.
-Les pipelines backend d'adaptation (`src/midi/adaptation/InstrumentTypeConfig.js`)
-utilisent une hiérarchie différente. Dupliquer serait source de dérive.
+**Livré** :
+- `shared/instrument-families.json` : source canonique unique
+  (13 familles, 68 entrées `programToSlug`, 9 kits, `drumKitOffset`).
+- `src/midi/gm/InstrumentFamilies.js` : module Node ESM qui charge le
+  JSON synchronement à l'import et expose `getFamilies`,
+  `getFamilyBySlug`, `getFamilyForProgram`, `isDrumFamily`,
+  `getProgramSlug`, `gmDrumKits`, `drumKitOffset`. Données gelées.
+- `tests/frontend/instrument-families-sync.test.js` : 5 tests Vitest
+  qui parsent les littéraux inline du frontend (`FAMILIES`,
+  `PROGRAM_TO_SLUG`, `GM_DRUM_KITS_LIST`) et assertent l'égalité
+  stricte avec le JSON, plus l'invariant de couverture GM 0-127 et la
+  présence physique des SVG référencés dans `public/assets/instruments/`.
+- Choix de design : le frontend garde ses données inline (chargement
+  synchrone, pas de fetch au page-load) ; le test sync garantit qu'on
+  ne dérive pas d'un côté ou de l'autre.
+
+**Reste optionnel** :
 
 **Tâches** :
 1. Extraire les 13 familles vers `shared/instrument-families.json` (nouveau
@@ -241,20 +263,26 @@ la catégorie GM historique par la famille physique dans les composants UI.
 
 ---
 
-## Phase 4 — Matcher & auto-assignation
+## Phase 4 — Matcher & auto-assignation (livré)
 
-**Contexte** : le pipeline de matching
-(`src/midi/adaptation/InstrumentMatcher*.js`) attribue un instrument détecté
-à un canal. Il utilise `INSTRUMENT_TYPE_HIERARCHY` pour scorer.
+**Livré** :
+- `ScoringConfig.bonuses.samePhysicalFamilyMatch: 6` — nouveau bonus
+  additif (distinct de `sameFamilyMatch` qui reste pour la hiérarchie
+  `InstrumentTypeConfig`).
+- `InstrumentMatcher.scorePhysicalFamilyMatch(chanProgram, chanCh,
+  instProgram, instCh)` : fire seulement quand les deux programmes
+  résolvent vers la MÊME famille physique MAIS viennent de catégories
+  GM différentes (gate contre double-compte avec `sameCategoryMatch`).
+  - Appel dans `calculateCompatibility` juste après le program score.
+- 7 nouveaux tests Jest dans `tests/midi-adaptation.test.js` couvrant
+  null guards, exact match, double-count guard, et 3 cas cross-catégorie
+  (nylon↔sitar, violon↔fiddle, accordéon↔clarinette).
+- Règle drum_kits : la config `percussion.drumChannelDrumBonus` / `.
+  drumChannelNonDrumPenalty` existante gère déjà le cas canal 9 ; le
+  nouveau helper récompense en plus les matchings drum_kit ↔ drum_kit
+  cross-programs.
 
-**Tâches** :
-1. Ajouter une dimension de scoring "même famille physique" (boost fort),
-   complémentaire au score par type d'adaptation.
-2. Mettre à jour `tests/midi-adaptation.test.js` et
-   `tests/contracts/fixtures/playback/*.contract.json` si la nouvelle
-   pondération change les outputs attendus.
-3. Gérer le cas `drum_kits` : le matcher doit forcer canal 9 si la famille
-   détectée est `drum_kits`, cohérent avec la règle UI.
+**Totaux** : 109 tests backend passent (était 102 ; +7 nouveaux).
 
 ---
 
@@ -281,21 +309,23 @@ legacy.
 
 ---
 
-## Phase 6 — i18n complet
+## Phase 6 — i18n complet (livré — fallback EN)
 
-**Contexte** : Phase 0 n'a mis à jour que `fr.json` et `en.json`. Les 26
-autres locales (bn, cs, da, de, el, eo, es, fi, hi, hu, id, it, ja, ko, nl,
-no, pl, pt, ru, sv, th, tl, tr, uk, vi, zh-CN) n'ont pas les nouvelles clés
-et afficheront donc un fallback clé-brute ou le français.
+**Livré** :
+- Les 28 nouvelles clés (13 `instrumentFamilies.*` + 14
+  `instrumentSettings.*` + 1 `instrumentManagement.free`) ont été
+  propagées dans les 26 locales manquantes (bn, cs, da, de, el, eo,
+  es, fi, hi, hu, id, it, ja, ko, nl, no, pl, pt, ru, sv, th, tl, tr,
+  uk, vi, zh-CN) avec les chaînes EN en fallback.
+- 26 × 28 = 728 clés ajoutées ; l'UI ne montre plus la clé brute pour
+  aucune locale.
 
-**Tâches** :
-1. Propager les 13 clés `instrumentFamilies.*` dans les 26 autres locales.
-2. Propager les 7 nouvelles clés `instrumentSettings.*` (pickFamily,
-   pickInstrument, backToFamily, editInstrument, deleteInstrument,
-   deleteInstrumentConfirm, drumKit).
-3. Audit : vérifier que `instruments.programs.*` et `instruments.drumKits.*`
-   sont complets dans toutes les locales (les noms GM des 128 programmes +
-   9 kits).
+**Reste à faire (optionnel)** :
+1. Traduction proprement dite pour chaque locale (actuellement les 26
+   locales non-fr/en reçoivent le texte EN).
+2. Audit : vérifier que `instruments.programs.*` et
+   `instruments.drumKits.*` (noms GM des 128 programmes + 9 kits) sont
+   complets dans toutes les locales.
 
 ---
 
@@ -335,21 +365,17 @@ politique de sélection **par note** à l'exécution.
 
 ---
 
-## Phase 7 — Tests E2E (Playwright)
+## Phase 7 — Tests E2E (Playwright) — sans objet
 
-**Contexte** : si des specs Playwright existent et cliquent sur
-`#gmCategorySelect` ou sur les `<option>` d'un `<select>`, elles casseront
-silencieusement (le sélecteur `#gmCategorySelect` n'existe plus ;
-`#gmProgramSelect` reste en input hidden, les anciennes assertions de texte
-sur le select ne fonctionnent plus).
+**Audit** : `grep -rn "gmCategorySelect\|gmProgramSelect" tests/` retourne
+zéro résultat ; aucun test E2E ne cible les anciens sélecteurs. Phase
+marquée comme close.
 
-**Tâches** :
-1. `grep -rn "gmCategorySelect\|gmProgramSelect" tests/` — inventaire.
-2. Remplacer les clics par `page.click('.ism-family-btn[data-family="..."]')`
-   puis `page.click('.ism-instrument-btn[data-program="..."]')`.
-3. Ajouter des specs pour le flux edit (✏️) et delete (🗑️).
-4. Visual regression sur le picker (family row, instrument grid, selected
-   view) — desktop + mobile.
+**À créer si/quand Playwright est introduit** :
+1. Specs pour le flux picker (family row → grille → selected view).
+2. Specs pour les flux edit (✏️) et delete (🗑️).
+3. Specs pour le multi-voix (ajout / suppression / timings par voix).
+4. Visual regression desktop + mobile.
 
 ---
 
