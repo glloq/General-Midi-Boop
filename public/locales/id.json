@@ -679,7 +679,11 @@
         "omniModeHelp": "Instrumen ini menerima not pada kanal MIDI apa pun (berguna bila ini adalah satu-satunya instrumen di perangkat)",
         "omniModeActiveHint": "Instrumen ini menerima not pada kanal apa pun — pilihan kanal di atas diabaikan.",
         "addGmInstrument": "Tambah instrumen GM",
-        "secondaryVoices": "Suara tambahan"
+        "secondaryVoices": "Suara tambahan",
+        "sectionTimingsPerGm": "Pengaturan waktu per instrumen GM",
+        "timingsPerGmHint": "Setiap suara GM dapat memiliki batasan waktu sendiri (berguna bila instrumen memiliki waktu respons berbeda).",
+        "primaryVoiceBadge": "Suara utama",
+        "primaryVoice": "Suara utama"
     },
     "playlist": {
         "title": "Daftar Putar",

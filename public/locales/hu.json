@@ -679,7 +679,11 @@
         "omniModeHelp": "A hangszer bármely MIDI csatornán elfogad hangokat (hasznos, ha ez az eszköz egyetlen hangszere)",
         "omniModeActiveHint": "Ez a hangszer bármely csatornán fogad hangokat — a fenti csatornaválasztás figyelmen kívül marad.",
         "addGmInstrument": "GM hangszer hozzáadása",
-        "secondaryVoices": "További hangok"
+        "secondaryVoices": "További hangok",
+        "sectionTimingsPerGm": "Időzítések GM hangszerenként",
+        "timingsPerGmHint": "Minden GM hangnak lehetnek saját időzítési korlátai (hasznos, ha a hangszerek válaszideje eltér).",
+        "primaryVoiceBadge": "Fő hang",
+        "primaryVoice": "Fő hang"
     },
     "playlist": {
         "title": "Lejátszási listák",

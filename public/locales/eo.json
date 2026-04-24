@@ -679,7 +679,11 @@
         "omniModeHelp": "Ĉi tiu instrumento akceptas notojn sur iu ajn MIDI-kanalo (utila kiam ĝi estas la sola instrumento sur la aparato)",
         "omniModeActiveHint": "Ĉi tiu instrumento ricevas notojn sur iu ajn kanalo — la supra kanala elekto estas ignorita.",
         "addGmInstrument": "Aldoni GM-instrumenton",
-        "secondaryVoices": "Pliaj voĉoj"
+        "secondaryVoices": "Pliaj voĉoj",
+        "sectionTimingsPerGm": "Tempigoj laŭ GM-instrumento",
+        "timingsPerGmHint": "Ĉiu GM-voĉo povas havi proprajn tempigajn limigojn (utila kiam instrumentoj havas malsamajn respondtempojn).",
+        "primaryVoiceBadge": "Ĉefa voĉo",
+        "primaryVoice": "Ĉefa voĉo"
     },
     "playlist": {
         "title": "Ludlistoj",

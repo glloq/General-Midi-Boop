@@ -679,7 +679,11 @@
         "omniModeHelp": "Tinatanggap ng instrumentong ito ang mga nota sa anumang MIDI channel (kapaki-pakinabang kapag ito lang ang instrumento sa device)",
         "omniModeActiveHint": "Ang instrumentong ito ay tumatanggap ng mga nota sa anumang channel — hindi pinapansin ang napiling channel sa itaas.",
         "addGmInstrument": "Magdagdag ng GM instrument",
-        "secondaryVoices": "Karagdagang boses"
+        "secondaryVoices": "Karagdagang boses",
+        "sectionTimingsPerGm": "Timings kada GM instrument",
+        "timingsPerGmHint": "Maaaring magkaroon ng sariling mga timing constraint ang bawat GM voice (kapaki-pakinabang kapag iba-iba ang response time ng mga instrumento).",
+        "primaryVoiceBadge": "Pangunahing boses",
+        "primaryVoice": "Pangunahing boses"
     },
     "playlist": {
         "title": "Mga Playlist",

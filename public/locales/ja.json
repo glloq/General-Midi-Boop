@@ -679,7 +679,11 @@
         "omniModeHelp": "この楽器は任意のMIDIチャンネルのノートを受け取ります(デバイスに楽器が1つだけの場合に便利)",
         "omniModeActiveHint": "この楽器は任意のチャンネルのノートを受け取ります — 上のチャンネル選択は無視されます。",
         "addGmInstrument": "GM楽器を追加",
-        "secondaryVoices": "追加のボイス"
+        "secondaryVoices": "追加のボイス",
+        "sectionTimingsPerGm": "GM楽器ごとのタイミング",
+        "timingsPerGmHint": "各GMボイスは独自のタイミング制約を持てます(楽器の応答時間が異なる場合に便利)。",
+        "primaryVoiceBadge": "メインボイス",
+        "primaryVoice": "メインボイス"
     },
     "playlist": {
         "title": "プレイリスト",

@@ -679,7 +679,11 @@
         "omniModeHelp": "Instrumentet accepterar noter på vilken MIDI-kanal som helst (användbart när det är enhetens enda instrument)",
         "omniModeActiveHint": "Det här instrumentet tar emot noter på vilken kanal som helst — kanalvalet ovan ignoreras.",
         "addGmInstrument": "Lägg till GM-instrument",
-        "secondaryVoices": "Ytterligare röster"
+        "secondaryVoices": "Ytterligare röster",
+        "sectionTimingsPerGm": "Tidsinställningar per GM-instrument",
+        "timingsPerGmHint": "Varje GM-röst kan ha egna tidsbegränsningar (användbart när instrument har olika svarstider).",
+        "primaryVoiceBadge": "Huvudröst",
+        "primaryVoice": "Huvudröst"
     },
     "playlist": {
         "title": "Spellistor",

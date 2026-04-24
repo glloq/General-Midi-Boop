@@ -679,7 +679,11 @@
         "omniModeHelp": "Bu enstrüman herhangi bir MIDI kanalındaki notaları kabul eder (cihazdaki tek enstrüman olduğunda faydalı)",
         "omniModeActiveHint": "Bu enstrüman herhangi bir kanalda notaları alır — yukarıdaki kanal seçimi yoksayılır.",
         "addGmInstrument": "GM enstrümanı ekle",
-        "secondaryVoices": "Ek sesler"
+        "secondaryVoices": "Ek sesler",
+        "sectionTimingsPerGm": "GM enstrüman başına zamanlamalar",
+        "timingsPerGmHint": "Her GM sesinin kendi zamanlama kısıtlamaları olabilir (enstrümanların yanıt süreleri farklı olduğunda faydalı).",
+        "primaryVoiceBadge": "Ana ses",
+        "primaryVoice": "Ana ses"
     },
     "playlist": {
         "title": "Çalma Listeleri",

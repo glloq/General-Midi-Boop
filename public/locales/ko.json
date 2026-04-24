@@ -679,7 +679,11 @@
         "omniModeHelp": "이 악기는 모든 MIDI 채널의 노트를 수용합니다 (장치의 유일한 악기일 때 유용함)",
         "omniModeActiveHint": "이 악기는 모든 채널에서 노트를 받습니다 — 위의 채널 선택은 무시됩니다.",
         "addGmInstrument": "GM 악기 추가",
-        "secondaryVoices": "추가 보이스"
+        "secondaryVoices": "추가 보이스",
+        "sectionTimingsPerGm": "GM 악기별 타이밍",
+        "timingsPerGmHint": "각 GM 보이스는 자체 타이밍 제약을 가질 수 있습니다 (악기마다 응답 시간이 다를 때 유용함).",
+        "primaryVoiceBadge": "기본 보이스",
+        "primaryVoice": "기본 보이스"
     },
     "playlist": {
         "title": "재생목록",

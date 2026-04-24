@@ -2227,6 +2227,156 @@ body.dark-mode .ism-delete-instrument:hover {
   text-align: center;
 }
 
+/* ---- ⏱️ Timings per GM instrument (stacked blocks) ---- */
+#timingsPrimaryBlock,
+#timingsVoicesList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#timingsVoicesList:not(:empty) {
+  margin-top: 10px;
+}
+
+.ism-timings-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 10px;
+  background: var(--bg-primary, white);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ism-timings-row.ism-timings-primary {
+  border-left: 3px solid var(--accent-primary, #667eea);
+}
+
+.ism-timings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ism-timings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ism-timings-svg {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+
+.ism-timings-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.ism-timings-program {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary, #6b7280);
+  background: rgba(102, 126, 234, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.ism-timings-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ism-timings-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.ism-timings-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.ism-timings-primary .ism-timings-params {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ism-timings-param {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ism-timings-param label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+}
+
+.ism-timings-param input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .ism-timings-params,
+  .ism-timings-primary .ism-timings-params {
+    grid-template-columns: 1fr;
+  }
+}
+
+body.dark-mode .ism-timings-row {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-mode .ism-timings-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+body.dark-mode .ism-timings-program {
+  background: rgba(102, 126, 234, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+body.dark-mode .ism-timings-param input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .ism-voice-row {
   padding: 10px 12px;
   border: 1px solid var(--border-color, #e5e7eb);

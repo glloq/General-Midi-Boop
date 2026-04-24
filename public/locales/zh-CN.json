@@ -679,7 +679,11 @@
         "omniModeHelp": "此乐器接受任意 MIDI 通道上的音符(当它是设备上的唯一乐器时很有用)",
         "omniModeActiveHint": "此乐器接受任意通道上的音符 — 上面的通道选择将被忽略。",
         "addGmInstrument": "添加 GM 乐器",
-        "secondaryVoices": "附加音色"
+        "secondaryVoices": "附加音色",
+        "sectionTimingsPerGm": "按 GM 乐器设置的时值",
+        "timingsPerGmHint": "每个 GM 音色可以有自己的时值约束(当乐器响应时间不同时很有用)。",
+        "primaryVoiceBadge": "主音色",
+        "primaryVoice": "主音色"
     },
     "playlist": {
         "title": "播放列表",

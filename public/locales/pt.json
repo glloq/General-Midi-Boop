@@ -679,7 +679,11 @@
         "omniModeHelp": "Este instrumento aceita notas em qualquer canal MIDI (útil quando é o único instrumento do dispositivo)",
         "omniModeActiveHint": "Este instrumento recebe notas em qualquer canal — a seleção de canal acima é ignorada.",
         "addGmInstrument": "Adicionar instrumento GM",
-        "secondaryVoices": "Vozes adicionais"
+        "secondaryVoices": "Vozes adicionais",
+        "sectionTimingsPerGm": "Temporizações por instrumento GM",
+        "timingsPerGmHint": "Cada voz GM pode ter suas próprias restrições de tempo (útil quando os instrumentos têm tempos de resposta diferentes).",
+        "primaryVoiceBadge": "Voz principal",
+        "primaryVoice": "Voz principal"
     },
     "playlist": {
         "title": "Playlists",

@@ -679,7 +679,11 @@
         "omniModeHelp": "Nhạc cụ này chấp nhận các nốt trên bất kỳ kênh MIDI nào (hữu ích khi là nhạc cụ duy nhất trên thiết bị)",
         "omniModeActiveHint": "Nhạc cụ này nhận các nốt trên bất kỳ kênh nào — lựa chọn kênh ở trên sẽ bị bỏ qua.",
         "addGmInstrument": "Thêm nhạc cụ GM",
-        "secondaryVoices": "Giọng bổ sung"
+        "secondaryVoices": "Giọng bổ sung",
+        "sectionTimingsPerGm": "Thời gian theo nhạc cụ GM",
+        "timingsPerGmHint": "Mỗi giọng GM có thể có các ràng buộc thời gian riêng (hữu ích khi các nhạc cụ có thời gian phản hồi khác nhau).",
+        "primaryVoiceBadge": "Giọng chính",
+        "primaryVoice": "Giọng chính"
     },
     "playlist": {
         "title": "Danh sách phát",

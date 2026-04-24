@@ -569,28 +569,13 @@
         // Piano is initialized by _switchSection('notes') when the section becomes visible
     };
 
-    // ===== Multi-GM voices (Notes subsection) =====
+    // ===== Multi-GM voices (per-voice timing rows in the ⏱️ Timings subsection) =====
 
     ISMListeners._wireVoicesListeners = function() {
         const self = this;
 
-        // Add voice button -> picker overlay
-        const addBtn = this.$('.ism-voice-add-btn');
-        if (addBtn) {
-            addBtn.addEventListener('click', function() { self._openVoicePicker(); });
-        }
-
-        // Delete voice
-        this.$$('.ism-voice-delete').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const row = btn.closest('.ism-voice-row');
-                if (!row) return;
-                const idx = parseInt(row.dataset.voiceIndex, 10);
-                self._deleteVoiceAt(idx);
-            });
-        });
-
-        // Param edits (interval / duration / ccs) -> mutate tab.voices in-place
+        // Param edits (interval / duration / ccs) -> mutate tab.voices in-place.
+        // Add/delete are handled from the Identity tab; no buttons here.
         this.$$('.ism-voice-row').forEach(function(row) {
             const idx = parseInt(row.dataset.voiceIndex, 10);
             const intervalEl = row.querySelector('.ism-voice-interval');
@@ -631,15 +616,15 @@
         this._rerenderIdentityPicker();
     };
 
+    /**
+     * Rerender just the voices list inside the ⏱️ Timings subsection. The
+     * primary block is left untouched so unsaved input in `#minNoteInterval`
+     * / `#minNoteDuration` is preserved across voice add/delete.
+     */
     ISMListeners._rerenderVoicesSubsection = function() {
-        const sub = this.$('#voicesSubsection');
-        if (!sub) return;
-        // Preserve subsection title, replace only list + add btn
-        const titleEl = sub.querySelector('.ism-subsection-title');
-        const hintEl = sub.querySelector('.ism-subsection-hint');
-        sub.innerHTML = (titleEl ? titleEl.outerHTML : '')
-            + (hintEl ? hintEl.outerHTML : '')
-            + this._renderVoicesSubsection();
+        const list = this.$('#timingsVoicesList');
+        if (!list) return;
+        list.innerHTML = this._renderVoicesSubsection();
         this._wireVoicesListeners();
     };
 

@@ -485,29 +485,68 @@
             </div>` : ''}
 
             <div class="ism-subsection" id="timingsSubsection">
-                <h4 class="ism-subsection-title">⏱️ ${this.t('instrumentSettings.sectionTimings') || 'Temporisations (voix principale)'}</h4>
-                <div class="ism-form-row">
-                    <div class="ism-form-group">
-                        <label>${this.t('instrumentSettings.minNoteInterval') || 'Temps minimum entre 2 notes (ms)'}</label>
-                        <input type="number" id="minNoteInterval" value="${settings.min_note_interval != null ? settings.min_note_interval : ''}" min="0" max="5000" step="1" placeholder="0">
-                        <span class="ism-form-hint">${this.t('instrumentSettings.minNoteIntervalHelp') || 'Délai minimum entre deux note-on consécutifs (en ms)'}</span>
-                    </div>
-                    <div class="ism-form-group">
-                        <label>${this.t('instrumentSettings.minNoteDuration') || 'Temps note actif minimum (ms)'}</label>
-                        <input type="number" id="minNoteDuration" value="${settings.min_note_duration != null ? settings.min_note_duration : ''}" min="0" max="5000" step="1" placeholder="0">
-                        <span class="ism-form-hint">${this.t('instrumentSettings.minNoteDurationHelp') || 'Durée minimum pendant laquelle une note reste active (en ms)'}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="ism-subsection" id="voicesSubsection">
-                <h4 class="ism-subsection-title">🎛️ ${this.t('instrumentSettings.sectionVoices') || 'Voix GM additionnelles'}</h4>
-                <p class="ism-subsection-hint">${this.t('instrumentSettings.voicesHint') || 'Ajoutez des variantes de timbre (ex : fingerstyle, slap, tapping) jouant les mêmes notes avec un actionneur différent.'}</p>
-                ${this._renderVoicesSubsection()}
+                <h4 class="ism-subsection-title">⏱️ ${this.t('instrumentSettings.sectionTimingsPerGm') || 'Temporisations par instrument GM'}</h4>
+                <p class="ism-subsection-hint">${this.t('instrumentSettings.timingsPerGmHint') || 'Chaque voix GM peut avoir ses propres contraintes de timing (utile quand les instruments ont des temps de réponse différents).'}</p>
+                <div id="timingsPrimaryBlock">${this._renderTimingsPrimaryBlock()}</div>
+                <div id="timingsVoicesList">${this._renderVoicesSubsection()}</div>
             </div>
 
             <input type="hidden" id="supportedCCs" value="${currentCCs.join(', ')}">
         `;
+    };
+
+    /**
+     * Render the primary GM instrument's timing block (interval + duration).
+     * Kept separate from the voices list so rerenders triggered by voice
+     * add/delete do not wipe the user's unsaved primary inputs.
+     */
+    ISMSections._renderTimingsPrimaryBlock = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const settings = tab.settings;
+        const gmProgram = settings.gm_program;
+        const channel = tab.channel;
+        const isDrumChannel = channel === 9;
+        const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+        const resolverProgram = isDrumChannel && gmProgram != null ? (gmProgram + offset) : gmProgram;
+        const icon = (window.InstrumentFamilies
+            ? window.InstrumentFamilies.resolveInstrumentIcon({
+                gmProgram: resolverProgram,
+                channel: channel
+            })
+            : { emoji: '🎵', svgUrl: null, slug: null, name: null });
+        const name = icon.name
+            || (isDrumChannel
+                ? (this.t('instrumentSettings.drumKit') || 'Kit batterie')
+                : (typeof getGMInstrumentName === 'function' && gmProgram != null
+                    ? getGMInstrumentName(gmProgram)
+                    : (this.t('instrumentSettings.primaryVoice') || 'Voix principale')));
+        const programBadge = gmProgram != null ? gmProgram : '';
+        const primaryBadge = this.t('instrumentSettings.primaryVoiceBadge') || 'Voix principale';
+
+        return `<div class="ism-timings-row ism-timings-primary">
+            <div class="ism-timings-head">
+                <span class="ism-timings-icon">
+                    ${icon.slug ? `<img class="ism-timings-svg" src="${icon.svgUrl}" alt=""
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                    <span class="ism-timings-emoji" style="display:none">${icon.emoji}</span>`
+                    : `<span class="ism-timings-emoji">${icon.emoji}</span>`}
+                </span>
+                <span class="ism-timings-program">${programBadge}</span>
+                <span class="ism-timings-name">${this.escape(name)}</span>
+                <span class="ism-timings-tag">${this.escape(primaryBadge)}</span>
+            </div>
+            <div class="ism-timings-params">
+                <div class="ism-timings-param">
+                    <label for="minNoteInterval">${this.t('instrumentSettings.minNoteInterval') || 'Temps minimum entre 2 notes (ms)'}</label>
+                    <input type="number" id="minNoteInterval" value="${settings.min_note_interval != null ? settings.min_note_interval : ''}" min="0" max="5000" step="1" placeholder="0">
+                </div>
+                <div class="ism-timings-param">
+                    <label for="minNoteDuration">${this.t('instrumentSettings.minNoteDuration') || 'Temps note actif minimum (ms)'}</label>
+                    <input type="number" id="minNoteDuration" value="${settings.min_note_duration != null ? settings.min_note_duration : ''}" min="0" max="5000" step="1" placeholder="0">
+                </div>
+            </div>
+        </div>`;
     };
 
     ISMSections._renderStringsContent = function() {
@@ -635,6 +674,11 @@
 
     // ===== Voices subsection (multi-GM alternatives) =====
 
+    /**
+     * Render the per-voice timing rows (interval + duration + CCs) shown under
+     * the primary block inside the ⏱️ Timings subsection. Add/delete lives in
+     * the Identity tab — this renderer only exposes the timing parameters.
+     */
     ISMSections._renderVoicesSubsection = function() {
         const tab = this._getActiveTab();
         if (!tab) return '';
@@ -642,51 +686,45 @@
         const channel = tab.channel;
         const self = this;
 
-        let rowsHtml = '';
         if (voices.length === 0) {
-            rowsHtml = `<div class="ism-voices-empty">${this.escape(this.t('instrumentSettings.voicesEmpty') || 'Aucune voix additionnelle — la voix principale est définie dans l\'onglet Identité.')}</div>`;
-        } else {
-            rowsHtml = voices.map(function(v, idx) {
-                const gmProgram = v.gm_program;
-                const icon = window.InstrumentFamilies
-                    ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: gmProgram, channel: channel })
-                    : { emoji: '🎵', svgUrl: null, slug: null, name: null };
-                const name = icon.name
-                    || (typeof getGMInstrumentName === 'function' && gmProgram != null ? getGMInstrumentName(gmProgram) : '—');
-                const ccCsv = Array.isArray(v.supported_ccs) ? v.supported_ccs.join(', ') : '';
-                return `<div class="ism-voice-row" data-voice-index="${idx}">
-                    <div class="ism-voice-head">
-                        <span class="ism-voice-icon">
-                            ${icon.slug ? `<img class="ism-voice-svg" src="${icon.svgUrl}" alt=""
-                                onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
-                            <span class="ism-voice-emoji" style="display:none">${icon.emoji}</span>`
-                            : `<span class="ism-voice-emoji">${icon.emoji}</span>`}
-                        </span>
-                        <span class="ism-voice-number">${gmProgram != null ? gmProgram : '—'}</span>
-                        <span class="ism-voice-name">${self.escape(name)}</span>
-                        <button type="button" class="ism-icon-btn ism-voice-delete" title="${self.escape(self.t('instrumentSettings.deleteVoice') || 'Supprimer cette voix')}" aria-label="${self.escape(self.t('instrumentSettings.deleteVoice') || 'Supprimer cette voix')}">🗑️</button>
-                    </div>
-                    <div class="ism-voice-params">
-                        <div class="ism-voice-param">
-                            <label>${self.escape(self.t('instrumentSettings.minNoteInterval') || 'Temps min entre 2 notes (ms)')}</label>
-                            <input type="number" class="ism-voice-interval" value="${v.min_note_interval != null ? v.min_note_interval : ''}" min="0" max="5000" placeholder="0">
-                        </div>
-                        <div class="ism-voice-param">
-                            <label>${self.escape(self.t('instrumentSettings.minNoteDuration') || 'Temps note active min (ms)')}</label>
-                            <input type="number" class="ism-voice-duration" value="${v.min_note_duration != null ? v.min_note_duration : ''}" min="0" max="5000" placeholder="0">
-                        </div>
-                        <div class="ism-voice-param ism-voice-ccs">
-                            <label>${self.escape(self.t('instrumentSettings.voiceCcs') || 'CC supportés (séparés par virgules)')}</label>
-                            <input type="text" class="ism-voice-ccs-input" value="${self.escape(ccCsv)}" placeholder="1, 7, 11">
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+            return `<div class="ism-voices-empty">${this.escape(this.t('instrumentSettings.voicesEmpty') || 'Aucune voix additionnelle — ajoutez-en depuis l\'onglet Identité.')}</div>`;
         }
 
-        const addLabel = this.t('instrumentSettings.addVoice') || 'Ajouter une voix';
-        return `<div class="ism-voices-list">${rowsHtml}</div>
-            <button type="button" class="ism-voice-add-btn">➕ ${this.escape(addLabel)}</button>`;
+        return voices.map(function(v, idx) {
+            const gmProgram = v.gm_program;
+            const icon = window.InstrumentFamilies
+                ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: gmProgram, channel: channel })
+                : { emoji: '🎵', svgUrl: null, slug: null, name: null };
+            const name = icon.name
+                || (typeof getGMInstrumentName === 'function' && gmProgram != null ? getGMInstrumentName(gmProgram) : '—');
+            const ccCsv = Array.isArray(v.supported_ccs) ? v.supported_ccs.join(', ') : '';
+            return `<div class="ism-timings-row ism-voice-row" data-voice-index="${idx}">
+                <div class="ism-timings-head">
+                    <span class="ism-timings-icon">
+                        ${icon.slug ? `<img class="ism-timings-svg" src="${icon.svgUrl}" alt=""
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                        <span class="ism-timings-emoji" style="display:none">${icon.emoji}</span>`
+                        : `<span class="ism-timings-emoji">${icon.emoji}</span>`}
+                    </span>
+                    <span class="ism-timings-program">${gmProgram != null ? gmProgram : '—'}</span>
+                    <span class="ism-timings-name">${self.escape(name)}</span>
+                </div>
+                <div class="ism-timings-params">
+                    <div class="ism-timings-param">
+                        <label>${self.escape(self.t('instrumentSettings.minNoteInterval') || 'Temps min entre 2 notes (ms)')}</label>
+                        <input type="number" class="ism-voice-interval" value="${v.min_note_interval != null ? v.min_note_interval : ''}" min="0" max="5000" placeholder="0">
+                    </div>
+                    <div class="ism-timings-param">
+                        <label>${self.escape(self.t('instrumentSettings.minNoteDuration') || 'Temps note active min (ms)')}</label>
+                        <input type="number" class="ism-voice-duration" value="${v.min_note_duration != null ? v.min_note_duration : ''}" min="0" max="5000" placeholder="0">
+                    </div>
+                    <div class="ism-timings-param ism-voice-ccs">
+                        <label>${self.escape(self.t('instrumentSettings.voiceCcs') || 'CC supportés (séparés par virgules)')}</label>
+                        <input type="text" class="ism-voice-ccs-input" value="${self.escape(ccCsv)}" placeholder="1, 7, 11">
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
     };
 
     ISMSections._renderDrumsContent = function() {

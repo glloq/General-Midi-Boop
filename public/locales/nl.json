@@ -679,7 +679,11 @@
         "omniModeHelp": "Dit instrument accepteert noten op elk MIDI-kanaal (handig wanneer het het enige instrument op het apparaat is)",
         "omniModeActiveHint": "Dit instrument ontvangt noten op elk kanaal — de kanaalkeuze hierboven wordt genegeerd.",
         "addGmInstrument": "Een GM-instrument toevoegen",
-        "secondaryVoices": "Aanvullende stemmen"
+        "secondaryVoices": "Aanvullende stemmen",
+        "sectionTimingsPerGm": "Timings per GM-instrument",
+        "timingsPerGmHint": "Elke GM-stem kan eigen timingbeperkingen hebben (nuttig wanneer instrumenten verschillende responstijden hebben).",
+        "primaryVoiceBadge": "Hoofdstem",
+        "primaryVoice": "Hoofdstem"
     },
     "playlist": {
         "title": "Afspeellijsten",
