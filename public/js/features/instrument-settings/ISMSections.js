@@ -24,8 +24,9 @@
 
     /**
      * Hand-position control is meaningful only for instruments where the
-     * pitch comes from a spatial actuator. Phase 1: keyboard-family GM
-     * programs. Phase 2 will extend to plucked/bowed strings.
+     * pitch comes from a spatial actuator. Keyboard-family instruments
+     * use the semitone mode (two hands, pitch split). Plucked and bowed
+     * strings use the frets mode (single fretting hand, fret window).
      */
     ISMSections._shouldShowHandsSection = function(tab) {
         if (!tab) return false;
@@ -35,7 +36,25 @@
         if (gmProgram == null) return false;
         const fam = window.InstrumentFamilies?.getFamilyForProgram(gmProgram, channel);
         if (!fam) return false;
-        return fam.slug === 'keyboards' || fam.slug === 'chromatic_percussion' || fam.slug === 'organs';
+        return fam.slug === 'keyboards'
+            || fam.slug === 'chromatic_percussion'
+            || fam.slug === 'organs'
+            || fam.slug === 'plucked_strings'
+            || fam.slug === 'bowed_strings';
+    };
+
+    /**
+     * Which hand-position mode does this instrument use?
+     * Strings → 'frets' (single fretting hand). Everything else → 'semitones'.
+     */
+    ISMSections._handsModeForTab = function(tab) {
+        const gmProgram = tab?.settings?.gm_program;
+        const channel = tab?.channel;
+        const fam = window.InstrumentFamilies?.getFamilyForProgram(gmProgram, channel);
+        if (fam && (fam.slug === 'plucked_strings' || fam.slug === 'bowed_strings')) {
+            return 'frets';
+        }
+        return 'semitones';
     };
 
     ISMSections._renderIdentitySection = function() {
@@ -916,25 +935,42 @@
     };
 
     /**
-     * Hand-position section: edit the `hands_config` JSON payload.
-     * Phase 1 keyboards: always two hands (left + right). Per-hand we
-     * only store the CC number and the reachable span without moving;
-     * the travel speed is shared across both hands. The reachable note
-     * range is derived at play time from the instrument's own
-     * `note_range_min`/`note_range_max`, and the minimum gap between
-     * notes comes from the instrument's `min_note_interval`.
+     * Hand-position section: edit the `hands_config` JSON payload. Two
+     * layouts, selected by the instrument family:
+     *   - Keyboards/organs/chromatic percussion → semitones mode (two
+     *     hands, assignment block, span in semitones).
+     *   - Plucked/bowed strings → frets mode (single fretting hand, no
+     *     assignment, span in frets). Reachable range is derived at play
+     *     time from the attached string_instrument's `frets_per_string`.
      */
     ISMSections._renderHandsSection = function() {
         const tab = this._getActiveTab();
         if (!tab) return '';
+        const mode = ISMSections._handsModeForTab(tab);
         const settings = tab.settings;
-        const cfg = settings.hands_config || ISMSections._defaultHandsConfig();
+        const cfg = settings.hands_config || ISMSections._defaultHandsConfig(mode);
 
+        // If the stored config's mode doesn't match the instrument family
+        // (user changed the GM program), fall back to a fresh default for
+        // the new family so the rendered form is coherent.
+        const effectiveCfg = (cfg.mode === mode
+            || (cfg.mode == null && mode === 'semitones'))
+            ? cfg
+            : ISMSections._defaultHandsConfig(mode);
+
+        if (mode === 'frets') {
+            return ISMSections._renderHandsSectionFrets(effectiveCfg);
+        }
+        return ISMSections._renderHandsSectionSemitones(effectiveCfg);
+    };
+
+    ISMSections._renderHandsSectionSemitones = function(cfg) {
+        const defaults = ISMSections._defaultHandsConfig('semitones');
         const enabled = cfg.enabled !== false;
         const assignment = cfg.assignment || { mode: 'auto' };
         const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
             ? cfg.hands
-            : ISMSections._defaultHandsConfig().hands;
+            : defaults.hands;
         const commonSpeed = Number.isFinite(cfg.hand_move_semitones_per_sec)
             ? cfg.hand_move_semitones_per_sec
             : 60;
@@ -963,6 +999,7 @@
 
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> Mains</h3>
+            <input type="hidden" id="handsMode" value="semitones">
             <div class="ism-form-group">
                 <label>
                     <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
@@ -1001,15 +1038,78 @@
             </div>
 
             <div class="ism-hands-list">
-                ${handRow(hands.find(h => h.id === 'left') || ISMSections._defaultHandsConfig().hands[0])}
-                ${handRow(hands.find(h => h.id === 'right') || ISMSections._defaultHandsConfig().hands[1])}
+                ${handRow(hands.find(h => h.id === 'left') || defaults.hands[0])}
+                ${handRow(hands.find(h => h.id === 'right') || defaults.hands[1])}
             </div>
         `;
     };
 
-    ISMSections._defaultHandsConfig = function() {
+    ISMSections._renderHandsSectionFrets = function(cfg) {
+        const defaults = ISMSections._defaultHandsConfig('frets');
+        const enabled = cfg.enabled !== false;
+        const hand = (Array.isArray(cfg.hands) && cfg.hands[0])
+            ? cfg.hands[0]
+            : defaults.hands[0];
+        const commonSpeed = Number.isFinite(cfg.hand_move_frets_per_sec)
+            ? cfg.hand_move_frets_per_sec
+            : 12;
+
+        return `
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> Main de jeu</h3>
+            <input type="hidden" id="handsMode" value="frets">
+            <div class="ism-form-group">
+                <label>
+                    <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
+                    Activer le contrôle de position de la main
+                </label>
+                <span class="ism-form-hint">
+                    Si activé, le lecteur envoie un CC avec la frette la plus basse de la fenêtre courante dès que la main doit se déplacer.
+                    La plage de frettes atteignable est dérivée de l'instrument à cordes associé (<code>frets_per_string</code> / <code>num_frets</code>).
+                </span>
+            </div>
+
+            <div class="ism-form-group">
+                <label>Vitesse de déplacement (frettes/s)</label>
+                <input type="number" id="handsMoveSpeed" value="${commonSpeed}" min="1" max="120">
+                <span class="ism-form-hint">Vitesse mécanique du chariot de la main, utilisée pour signaler les déplacements trop rapides.</span>
+            </div>
+
+            <div class="ism-hands-list">
+                <div class="ism-hand-row" data-hand="fretting">
+                    <h4 class="ism-hand-title">🎸 Main de jeu (frettage)</h4>
+                    <div class="ism-form-group ism-form-grid-2">
+                        <div>
+                            <label>CC position</label>
+                            <input type="number" class="ism-hand-cc" data-hand="fretting" data-field="cc_position_number"
+                                   value="${hand.cc_position_number}" min="0" max="127">
+                            <span class="ism-form-hint">Numéro de CC envoyé pour la position de la main (valeur = frette absolue la plus basse, capo inclus).</span>
+                        </div>
+                        <div>
+                            <label>Écart max sans bouger (frettes)</label>
+                            <input type="number" class="ism-hand-span" data-hand="fretting" data-field="hand_span_frets"
+                                   value="${hand.hand_span_frets}" min="1" max="24">
+                            <span class="ism-form-hint">Nombre de frettes couvertes par la main dans une même position.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    ISMSections._defaultHandsConfig = function(mode) {
+        if (mode === 'frets') {
+            return {
+                enabled: true,
+                mode: 'frets',
+                hand_move_frets_per_sec: 12,
+                hands: [
+                    { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }
+                ]
+            };
+        }
         return {
             enabled: true,
+            mode: 'semitones',
             hand_move_semitones_per_sec: 60,
             assignment: { mode: 'auto', pitch_split_note: 60, pitch_split_hysteresis: 2 },
             hands: [
@@ -1021,19 +1121,42 @@
 
     /**
      * Read the hands-section DOM back into a hands_config object ready
-     * to persist. Returns `null` when the section is not rendered (the
-     * instrument is not keyboard-family) — the caller stores null so the
-     * feature stays disabled.
+     * to persist. Returns `undefined` when the section is not rendered
+     * (instrument family without hand-position support) so the caller
+     * leaves the existing value untouched. The shape depends on the
+     * hidden `#handsMode` field set by the renderer.
      */
     ISMSections._collectHandsConfig = function(rootEl) {
         const section = rootEl?.querySelector('.ism-section[data-section="hands"]');
         if (!section) return undefined; // no-op: section not rendered
 
+        const mode = rootEl.querySelector('#handsMode')?.value === 'frets'
+            ? 'frets'
+            : 'semitones';
         const enabled = !!rootEl.querySelector('#handsEnabled')?.checked;
-        const mode = rootEl.querySelector('#handsAssignmentMode')?.value || 'auto';
+        const moveSpeed = parseInt(rootEl.querySelector('#handsMoveSpeed')?.value, 10);
+
+        if (mode === 'frets') {
+            const row = section.querySelector('.ism-hand-row[data-hand="fretting"]');
+            const readInt = (field, dflt) => {
+                const v = parseInt(row?.querySelector(`[data-field="${field}"]`)?.value, 10);
+                return Number.isFinite(v) ? v : dflt;
+            };
+            return {
+                enabled,
+                mode: 'frets',
+                hand_move_frets_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 12,
+                hands: [{
+                    id: 'fretting',
+                    cc_position_number: readInt('cc_position_number', 22),
+                    hand_span_frets: readInt('hand_span_frets', 4)
+                }]
+            };
+        }
+
+        const assignmentMode = rootEl.querySelector('#handsAssignmentMode')?.value || 'auto';
         const pitchSplitNote = parseInt(rootEl.querySelector('#handsPitchSplitNote')?.value, 10);
         const hysteresis = parseInt(rootEl.querySelector('#handsPitchSplitHysteresis')?.value, 10);
-        const moveSpeed = parseInt(rootEl.querySelector('#handsMoveSpeed')?.value, 10);
 
         const readHand = (id) => {
             const row = section.querySelector(`.ism-hand-row[data-hand="${id}"]`);
@@ -1052,9 +1175,10 @@
         const hands = [readHand('left'), readHand('right')].filter(Boolean);
         return {
             enabled,
+            mode: 'semitones',
             hand_move_semitones_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 60,
             assignment: {
-                mode,
+                mode: assignmentMode,
                 pitch_split_note: Number.isFinite(pitchSplitNote) ? pitchSplitNote : 60,
                 pitch_split_hysteresis: Number.isFinite(hysteresis) ? hysteresis : 2
             },
