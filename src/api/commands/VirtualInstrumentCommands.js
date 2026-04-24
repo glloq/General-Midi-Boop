@@ -374,6 +374,21 @@ async function instrumentAddToDevice(app, data) {
     throw new ValidationError('channel must be between 0 and 15', 'channel');
   }
 
+  // `instruments_latency.device_id` has a FK to `devices(id)`. The
+  // sibling `instrument_update_settings` / `_update_capabilities`
+  // handlers call `ensureDevice` for this exact reason — the `+` flow
+  // from the modal hits a device that may not yet be registered
+  // (freshly discovered, hot-plugged, or virtual-only), so without
+  // the guard the first add to that device trips SQLITE_CONSTRAINT
+  // and the client sees "Internal server error".
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.deviceId,
+      data.name || data.deviceId,
+      'output'
+    );
+  }
+
   const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {
     custom_name: data.name || null,
     gm_program: data.gm_program !== undefined ? data.gm_program : null,
