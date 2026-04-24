@@ -293,6 +293,23 @@ class PlaybackScheduler {
     const rate = state.playbackRate > 0 ? state.playbackRate : 1;
     const delay = Math.max(0, eventTime - currentPosition) / rate;
 
+    // Routing override: events injected by the hand-position planner for
+    // a specific split-routing segment carry `_routeTo: { device,
+    // targetChannel }` so they reach only that segment's device. Without
+    // this bypass the generic split dispatch would broadcast the CC to
+    // every segment of the split, which is wrong because each segment
+    // may declare its own hands_config and CC number.
+    if (event._routeTo && event._routeTo.device) {
+      const syncDelay = this._getSyncDelay(event._routeTo.device, event._routeTo.targetChannel);
+      const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts.delete(timeoutId);
+        this._sendEventToRouting(event, event._routeTo, state);
+      }, adjustedDelay * 1000);
+      this.pendingTimeouts.add(timeoutId);
+      return;
+    }
+
     // For note events, pass the note and event type to routing for split support
     const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
     const note = isNoteEvent ? (event.note ?? null) : null;

@@ -157,6 +157,18 @@ class HandPositionPlanner {
           newLow = Math.max(groupLow, groupHigh - span);
         }
 
+        // Clamp the anchor to the hand's physical range so the CC we
+        // send is always a note the hand can actually reach. The note
+        // itself may still be out-of-range (reported separately as
+        // `out_of_range`); clamping keeps the hardware safe by not
+        // commanding it to move somewhere it cannot go.
+        if (hand.note_range_min != null && newLow < hand.note_range_min) {
+          newLow = hand.note_range_min;
+        }
+        if (hand.note_range_max != null && newLow + span > hand.note_range_max) {
+          newLow = Math.max(hand.note_range_min ?? 0, hand.note_range_max - span);
+        }
+
         // Emit CC as early as possible.
         let ccTime;
         if (!s.firstCCEmitted) {
