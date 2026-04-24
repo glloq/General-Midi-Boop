@@ -144,9 +144,28 @@
                 channel: this.activeChannel
             });
             this.instrumentTabs = this.instrumentTabs.filter(t => t.channel !== this.activeChannel);
-            await this._switchTab(this.instrumentTabs[0].channel);
+            // Defensive: the delete button is hidden when only one tab
+            // remains, but if we ever get here with an empty list just
+            // close the modal cleanly instead of crashing on `[0].channel`.
+            if (this.instrumentTabs.length === 0) {
+                this.close();
+            } else {
+                await this._switchTab(this.instrumentTabs[0].channel);
+            }
+            // Mirror the save-path refresh so the parent device list
+            // doesn't show a stale row after the delete.
+            if (typeof loadDevices === 'function') await loadDevices();
+            if (window.instrumentManagementPageInstance) {
+                await window.instrumentManagementPageInstance.refresh();
+            }
         } catch (e) {
             console.error('Failed to delete instrument:', e);
+            if (typeof showAlert === 'function') {
+                await showAlert(
+                    (this.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ' : ' + (e.message || e),
+                    { title: this.t('common.error') || 'Erreur', icon: '❌' }
+                );
+            }
         }
     };
 

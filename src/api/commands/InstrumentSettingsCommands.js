@@ -474,6 +474,16 @@ async function instrumentDelete(app, data) {
     app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
   }
 
+  // Notify routing / clock / playback caches that this (device, channel)
+  // no longer exists — same signal the update handlers emit. Consumers
+  // (MidiRouter, MidiClockGenerator, PlaybackScheduler) ignore the
+  // payload and invalidate wholesale, so broadcasting `channel: null`
+  // for device-wide deletes is safe.
+  app.eventBus?.emit('instrument_settings_changed', {
+    deviceId: data.deviceId,
+    channel: hasChannel ? channel : null
+  });
+
   return {
     success: true
   };
