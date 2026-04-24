@@ -1654,7 +1654,11 @@
             "contrabass": "Contrabajo (EADG)"
         },
         "configCreated": "Configuración de instrumento de cuerda creada con preset por defecto.",
-        "configExists": "Ya existe una configuración de instrumento de cuerda para este dispositivo."
+        "configExists": "Ya existe una configuración de instrumento de cuerda para este dispositivo.",
+        "fretsLabel": "Frets",
+        "fretsTitle": "Fret count on this string",
+        "positionsLabel": "Positions",
+        "positionsTitle": "Playable range (semitones above the open string)"
     },
     "windEditor": {
         "icon": "WIND",

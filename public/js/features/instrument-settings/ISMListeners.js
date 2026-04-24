@@ -102,6 +102,8 @@
                     stringsSubsection.innerHTML = titleOuter + this._renderStringsContent();
                     this._attachStringsSectionListeners();
                 }
+                // Sync polyphony default — one voice per string.
+                this._syncPolyphonyToNumStrings(num);
             }.bind(this));
         }
 
@@ -133,11 +135,30 @@
                     stringsSubsection.innerHTML = titleOuter + this._renderStringsContent();
                     this._attachStringsSectionListeners();
                 }
+                // Sync polyphony to match the preset's string count — picking
+                // a new instrument is a reset, so overwrite any stale value.
+                this._syncPolyphonyToNumStrings(preset.strings);
             }.bind(this));
         }
 
         // Init neck diagram
         this._initNeckDiagram();
+    };
+
+    /**
+     * Update `#polyphonyInput` to `numStrings`. Called when the user picks
+     * a preset or changes the string count — one voice per string is the
+     * physically-accurate default for plucked / bowed instruments.
+     */
+    ISMListeners._syncPolyphonyToNumStrings = function(numStrings) {
+        const input = this.$('#polyphonyInput');
+        if (input && Number.isFinite(numStrings)) {
+            input.value = String(numStrings);
+        }
+        const tab = this._getActiveTab();
+        if (tab?.settings) {
+            tab.settings.polyphony = numStrings;
+        }
     };
 
     ISMListeners._initNeckDiagram = function() {
@@ -184,15 +205,32 @@
             });
         }.bind(this));
 
-        // Wire fret inputs -> neck diagram sync
+        // Wire fret inputs -> sync into config + neck diagram (when present).
+        // The inputs are the only per-string range control for fretless
+        // (bowed) instruments since the canvas isn't rendered; for fretted
+        // instruments the canvas still drives the primary UX but typed
+        // edits need to flow back into its state.
         this.$$('.si-frets-val').forEach(function(input) {
             input.addEventListener('change', function() {
-                if (!this._neckDiagram) return;
-                const idx = parseInt(input.id.replace('siFrets', ''));
+                const idx = parseInt(input.dataset.string ?? input.id.replace('siFrets', ''), 10);
                 if (isNaN(idx)) return;
-                const val = parseInt(input.value) || 0;
-                this._neckDiagram.fretsPerString[idx] = Math.max(0, Math.min(36, val));
-                this._neckDiagram.redraw();
+                const raw = parseInt(input.value, 10);
+                const val = Math.max(0, Math.min(36, isNaN(raw) ? 0 : raw));
+                input.value = String(val);
+
+                const tab = this._getActiveTab();
+                if (tab?.stringInstrumentConfig) {
+                    const cfg = tab.stringInstrumentConfig;
+                    if (!Array.isArray(cfg.frets_per_string) || cfg.frets_per_string.length !== cfg.num_strings) {
+                        cfg.frets_per_string = new Array(cfg.num_strings).fill(cfg.num_frets ?? 24);
+                    }
+                    cfg.frets_per_string[idx] = val;
+                }
+
+                if (this._neckDiagram) {
+                    this._neckDiagram.fretsPerString[idx] = val;
+                    this._neckDiagram.redraw();
+                }
             }.bind(this));
         }.bind(this));
 

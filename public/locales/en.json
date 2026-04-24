@@ -1637,6 +1637,10 @@
         "isFretless": "Fretless",
         "capoFret": "Capo Position",
         "noCapo": "No Capo",
+        "fretsLabel": "Frets",
+        "fretsTitle": "Fret count on this string",
+        "positionsLabel": "Positions",
+        "positionsTitle": "Playable range (semitones above the open string)",
         "ccEnabled": "Enable CC20/CC21 (string & fret select)",
         "algorithm": "Conversion algorithm",
         "presets": {

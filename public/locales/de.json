@@ -1654,7 +1654,11 @@
             "contrabass": "Kontrabass (EADG)"
         },
         "configCreated": "Saiteninstrument-Konfiguration mit Standard-Preset erstellt.",
-        "configExists": "Es existiert bereits eine Konfiguration für dieses Gerät."
+        "configExists": "Es existiert bereits eine Konfiguration für dieses Gerät.",
+        "fretsLabel": "Frets",
+        "fretsTitle": "Fret count on this string",
+        "positionsLabel": "Positions",
+        "positionsTitle": "Playable range (semitones above the open string)"
     },
     "windEditor": {
         "icon": "WIND",

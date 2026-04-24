@@ -1595,6 +1595,10 @@
         "isFretless": "Sans frettes",
         "capoFret": "Position du capo",
         "noCapo": "Pas de capo",
+        "fretsLabel": "Frettes",
+        "fretsTitle": "Nombre de frettes sur cette corde",
+        "positionsLabel": "Positions",
+        "positionsTitle": "Étendue jouable (demi-tons depuis l'accordage à vide)",
         "ccEnabled": "Activer CC20/CC21 (sélection corde et frette)",
         "algorithm": "Algorithme de conversion",
         "presets": {
