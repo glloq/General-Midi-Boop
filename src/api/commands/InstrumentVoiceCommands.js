@@ -32,6 +32,17 @@ function _validateIdentity(data) {
   return { deviceId: data.deviceId, channel };
 }
 
+/**
+ * Validate + normalise a single secondary-voice payload. Exported so the
+ * atomic `instrument_save_all` handler in {@link InstrumentSettingsCommands}
+ * can reuse the exact same contract without duplicating the rules.
+ * @param {Object} v
+ * @returns {Object} normalised payload
+ */
+export function validateVoicePayload(v) {
+  return _validateVoicePayload(v);
+}
+
 function _validateVoicePayload(v) {
   const payload = {};
   if (v.gm_program !== undefined && v.gm_program !== null) {
