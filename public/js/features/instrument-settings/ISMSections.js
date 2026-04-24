@@ -701,18 +701,13 @@
         const numFrets = config?.num_frets ?? 24;
 
         // Build horizontal header rows (string numbers, note badges,
-        // MIDI tuning inputs, per-string fret/position inputs).
-        // The fret cells are visible for both fretted and fretless
-        // instruments — on fretted, the canvas below also edits them;
-        // on fretless (bowed) it's the only per-string range control.
+        // MIDI tuning inputs). Per-string fret / position values ride
+        // along in hidden inputs — the interactive editor is the neck
+        // canvas below, which renders for both fretted and fretless.
         let stringNumCells = '';
         let noteBadgeCells = '';
         let midiInputCells = '';
-        let fretInputCells = '';
-        const fretInputMax = isFretless ? 36 : 36;
-        const fretInputTitle = isFretless
-            ? (this.t('stringInstrument.positionsTitle') || 'Étendue jouable (demi-tons depuis l\'accordage)')
-            : (this.t('stringInstrument.fretsTitle') || 'Nombre de frettes sur cette corde');
+        let hiddenFretInputs = '';
         for (let i = 0; i < numStrings; i++) {
             const note = tuning[i] || 40;
             const noteName = NOTE_NAMES[note % 12] + (Math.floor(note / 12) - 1);
@@ -722,9 +717,8 @@
                            data-string="${i}" value="${note}" min="0" max="127"
                            title="MIDI">`;
             const fretVal = fretsPerString ? (fretsPerString[i] ?? numFrets) : numFrets;
-            fretInputCells += `<input type="number" class="si-input si-input-xs si-frets-val" id="siFrets${i}"
-                           data-string="${i}" value="${fretVal}" min="0" max="${fretInputMax}"
-                           title="${this.escape(fretInputTitle)}">`;
+            hiddenFretInputs += `<input type="hidden" class="si-frets-val" id="siFrets${i}"
+                           data-string="${i}" value="${fretVal}">`;
         }
 
         return `
@@ -754,18 +748,11 @@
                             <span class="si-neck-row-label">MIDI</span>
                             ${midiInputCells}
                         </div>
-                        <div class="si-neck-header-row">
-                            <span class="si-neck-row-label">${isFretless
-                                ? (this.t('stringInstrument.positionsLabel') || 'Positions')
-                                : (this.t('stringInstrument.fretsLabel') || 'Frettes')}</span>
-                            ${fretInputCells}
-                        </div>
                     </div>
-                    ${!isFretless ? `
                     <div class="si-neck-canvas-panel">
                         <canvas id="ism-neck-canvas" width="400" height="350"></canvas>
                     </div>
-                    ` : ''}
+                    <div style="display:none">${hiddenFretInputs}</div>
                 </div>
 
                 <div class="si-cc-toggle-row" style="margin-top:8px">
