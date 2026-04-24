@@ -165,7 +165,16 @@
                 }
             } else {
                 // Standard / drum instrument
-                await this.api.sendCommand('instrument_update_capabilities', {
+                // Hands configuration (Phase 1: keyboards only, section
+                // collected only when rendered). `undefined` means the
+                // section was not present → preserve existing DB value.
+                let handsConfigPayload = undefined;
+                const modalEl = this.$('.modal-content') || document;
+                if (window.ISMSections?._collectHandsConfig) {
+                    handsConfigPayload = window.ISMSections._collectHandsConfig(modalEl);
+                }
+
+                const capPayload = {
                     deviceId: this.device.id, channel: saveChannel,
                     note_selection_mode: (gmDecoded.isDrumKit || this.activeChannel === 9) ? 'discrete' : noteSelectionMode,
                     note_range_min: noteSelectionMode === 'range' && !gmDecoded.isDrumKit ? parsedMin : null,
@@ -174,7 +183,11 @@
                     supported_ccs: supportedCCs,
                     polyphony,
                     capabilities_source: 'manual'
-                });
+                };
+                if (handsConfigPayload !== undefined) {
+                    capPayload.hands_config = handsConfigPayload;
+                }
+                await this.api.sendCommand('instrument_update_capabilities', capPayload);
             }
 
             // Persist secondary GM voices (multi-GM alternatives)

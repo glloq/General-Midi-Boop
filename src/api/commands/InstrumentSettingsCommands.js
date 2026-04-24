@@ -200,7 +200,7 @@ async function instrumentUpdateCapabilities(app, data) {
     );
   }
 
-  const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, {
+  const updatePayload = {
     note_range_min: data.note_range_min,
     note_range_max: data.note_range_max,
     supported_ccs: data.supported_ccs,
@@ -208,7 +208,14 @@ async function instrumentUpdateCapabilities(app, data) {
     selected_notes: data.selected_notes,
     polyphony: data.polyphony,
     capabilities_source: data.capabilities_source || 'manual'
-  });
+  };
+  // Only forward hands_config when the caller explicitly sent it, so an
+  // update that does not touch the Hands section preserves the existing
+  // value (pass `null` to clear the feature).
+  if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
+    updatePayload.hands_config = data.hands_config;
+  }
+  const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, updatePayload);
 
   return {
     success: true,

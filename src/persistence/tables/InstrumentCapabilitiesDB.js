@@ -105,19 +105,33 @@ class InstrumentCapabilitiesDB {
         }
       }
 
+      // Hands_config: accept either an object (stringified here) or an
+      // already-serialized JSON string. `null` means "clear the feature".
+      let handsConfigJson = undefined;
+      if (capabilities.hands_config !== undefined) {
+        if (capabilities.hands_config === null) {
+          handsConfigJson = null;
+        } else if (typeof capabilities.hands_config === 'string') {
+          handsConfigJson = capabilities.hands_config;
+        } else if (typeof capabilities.hands_config === 'object') {
+          handsConfigJson = JSON.stringify(capabilities.hands_config);
+        }
+      }
+
       if (existing) {
         // Build update with timestamp always included
         const capWithTimestamp = { ...capabilities, capabilities_updated_at: now };
         const result = buildDynamicUpdate('instruments_latency', capWithTimestamp, [
           'note_range_min', 'note_range_max', 'supported_ccs',
           'note_selection_mode', 'selected_notes', 'polyphony',
-          'capabilities_source', 'capabilities_updated_at'
+          'capabilities_source', 'capabilities_updated_at', 'hands_config'
         ], {
           whereClause: 'device_id = ? AND channel = ?',
           transforms: {
             supported_ccs: () => supportedCcsJson,
             selected_notes: () => selectedNotesJson,
-            polyphony: v => v !== null ? parseInt(v) : null
+            polyphony: v => v !== null ? parseInt(v) : null,
+            hands_config: () => handsConfigJson
           }
         });
 
@@ -174,7 +188,7 @@ class InstrumentCapabilitiesDB {
             channel, gm_program,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
-            capabilities_source, capabilities_updated_at
+            capabilities_source, capabilities_updated_at, hands_config
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -185,7 +199,7 @@ class InstrumentCapabilitiesDB {
             channel, gm_program,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
-            capabilities_source, capabilities_updated_at
+            capabilities_source, capabilities_updated_at, hands_config
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -216,6 +230,15 @@ class InstrumentCapabilitiesDB {
         }
       }
 
+      let handsConfig = null;
+      if (result.hands_config) {
+        try {
+          handsConfig = JSON.parse(result.hands_config);
+        } catch (e) {
+          this.logger.warn(`Failed to parse hands_config for ${deviceId}: ${e.message}`);
+        }
+      }
+
       return {
         channel: result.channel !== undefined && result.channel !== null ? result.channel : 0,
         gm_program: result.gm_program !== undefined ? result.gm_program : null,
@@ -226,7 +249,8 @@ class InstrumentCapabilitiesDB {
         selected_notes: selectedNotes,
         polyphony: result.polyphony || null,
         capabilities_source: result.capabilities_source,
-        capabilities_updated_at: result.capabilities_updated_at
+        capabilities_updated_at: result.capabilities_updated_at,
+        hands_config: handsConfig
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);
@@ -247,7 +271,7 @@ class InstrumentCapabilitiesDB {
           note_range_min, note_range_max, supported_ccs,
           note_selection_mode, selected_notes, polyphony,
           capabilities_source, capabilities_updated_at,
-          usb_serial_number, mac_address
+          usb_serial_number, mac_address, hands_config
         FROM instruments_latency
         ORDER BY device_id
       `);
@@ -273,11 +297,21 @@ class InstrumentCapabilitiesDB {
           }
         }
 
+        let handsConfig = null;
+        if (result.hands_config) {
+          try {
+            handsConfig = JSON.parse(result.hands_config);
+          } catch (e) {
+            this.logger.warn(`Failed to parse hands_config for ${result.device_id}`);
+          }
+        }
+
         return {
           ...result,
           supported_ccs: supportedCcs,
           note_selection_mode: result.note_selection_mode || 'range',
-          selected_notes: selectedNotes
+          selected_notes: selectedNotes,
+          hands_config: handsConfig
         };
       });
     } catch (error) {
@@ -320,7 +354,7 @@ class InstrumentCapabilitiesDB {
           mac_address, usb_serial_number,
           sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
           instrument_type, instrument_subtype,
-          min_note_interval, min_note_duration
+          min_note_interval, min_note_duration, hands_config
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -346,6 +380,15 @@ class InstrumentCapabilitiesDB {
           }
         }
 
+        let handsConfig = null;
+        if (result.hands_config) {
+          try {
+            handsConfig = JSON.parse(result.hands_config);
+          } catch (e) {
+            this.logger.warn(`Failed to parse hands_config for ${result.device_id}`);
+          }
+        }
+
         return {
           id: result.id,
           device_id: result.device_id,
@@ -368,6 +411,8 @@ class InstrumentCapabilitiesDB {
           // Timing constraints
           min_note_interval: result.min_note_interval || null,
           min_note_duration: result.min_note_duration || null,
+          // Hand-position control (optional, piano/strings)
+          hands_config: handsConfig,
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

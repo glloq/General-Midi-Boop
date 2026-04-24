@@ -2,6 +2,32 @@
 
 All notable changes to Général Midi Boop are documented in this file.
 
+## [Unreleased]
+
+### Added — Hand-position control (Phase 1: keyboards)
+
+- New per-instrument `hands_config` (optional JSON column on
+  `instruments_latency`) that describes each hand's physical constraints
+  and the CC number to control its position. Absence = feature disabled;
+  byte-identical behavior for every existing instrument.
+- `HandAssigner` tags each note with `left` / `right` using either an
+  explicit track→hand map, a pitch split (with hysteresis to avoid
+  chattering around the split note), or an `auto` mode that promotes to
+  track-based when the source MIDI has multiple tracks and falls back to
+  pitch split otherwise. Warnings are surfaced for ambiguous cases.
+- `HandPositionPlanner` emits CC events (e.g. CC23 for left, CC24 for
+  right) whose value is the MIDI note of the lowest note of the current
+  hand window. CCs are scheduled as early as possible — right after the
+  last note-on of the previous window — so the mechanical hand has the
+  maximum travel time.
+- Feasibility report (non-blocking): `move_too_fast`,
+  `overpolyphony_hand`, `finger_interval_violated`, `out_of_range`,
+  `chord_span_exceeded`, plus assignment warnings. Broadcast over the
+  WebSocket as `playback_hand_position_warnings` for the UI to display.
+- Migration `004_instrument_hands_config.sql`.
+- "Mains" section in the instrument settings modal, visible only for
+  keyboard-family instruments (Phase 2 will unify string instruments).
+
 ## [0.7.0] - 2026-04-18
 
 ### Changed — Project rebrand

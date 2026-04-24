@@ -3,6 +3,8 @@
     const ISMSections = {};
 
     ISMSections._renderAllSections = function() {
+        const tab = this._getActiveTab();
+        const showHands = ISMSections._shouldShowHandsSection(tab);
         return `
             <div class="ism-section ${this.activeSection === 'identity' ? 'active' : ''}" data-section="identity">
                 ${this._renderIdentitySection()}
@@ -10,10 +12,30 @@
             <div class="ism-section ${this.activeSection === 'notes' ? 'active' : ''}" data-section="notes">
                 ${this._renderNotesSection()}
             </div>
+            ${showHands ? `
+            <div class="ism-section ${this.activeSection === 'hands' ? 'active' : ''}" data-section="hands">
+                ${this._renderHandsSection()}
+            </div>` : ''}
             <div class="ism-section ${this.activeSection === 'advanced' ? 'active' : ''}" data-section="advanced">
                 ${this._renderAdvancedSection()}
             </div>
         `;
+    };
+
+    /**
+     * Hand-position control is meaningful only for instruments where the
+     * pitch comes from a spatial actuator. Phase 1: keyboard-family GM
+     * programs. Phase 2 will extend to plucked/bowed strings.
+     */
+    ISMSections._shouldShowHandsSection = function(tab) {
+        if (!tab) return false;
+        const gmProgram = tab.settings?.gm_program;
+        const channel = tab.channel;
+        if (channel === 9) return false; // drum kit
+        if (gmProgram == null) return false;
+        const fam = window.InstrumentFamilies?.getFamilyForProgram(gmProgram, channel);
+        if (!fam) return false;
+        return fam.slug === 'keyboards' || fam.slug === 'chromatic_percussion' || fam.slug === 'organs';
     };
 
     ISMSections._renderIdentitySection = function() {
@@ -705,6 +727,190 @@
 
             <div class="ism-drum-categories">${catsHtml}</div>
         `;
+    };
+
+    /**
+     * Hand-position section: edit the `hands_config` JSON payload.
+     * Phase 1 keyboards: always two hands (left + right), each with CC
+     * number, physical note range, hand span, fingers (polyphony),
+     * minimum finger interval, and mechanical travel speed. A small
+     * assignment block controls how notes are split across the two
+     * hands (auto / track map / pitch split).
+     */
+    ISMSections._renderHandsSection = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const settings = tab.settings;
+        const cfg = settings.hands_config || ISMSections._defaultHandsConfig();
+
+        const enabled = cfg.enabled !== false;
+        const assignment = cfg.assignment || { mode: 'auto' };
+        const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
+            ? cfg.hands
+            : ISMSections._defaultHandsConfig().hands;
+
+        const handRow = (h) => {
+            const idLabel = h.id === 'left' ? '🫲 Gauche' : '🫱 Droite';
+            return `
+            <div class="ism-hand-row" data-hand="${h.id}">
+                <h4 class="ism-hand-title">${idLabel}</h4>
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>CC position</label>
+                        <input type="number" class="ism-hand-cc" data-hand="${h.id}" data-field="cc_position_number"
+                               value="${h.cc_position_number}" min="0" max="127">
+                        <span class="ism-form-hint">Numéro de CC envoyé pour la position de main (valeur = note MIDI la plus grave).</span>
+                    </div>
+                    <div>
+                        <label>Écart max (demi-tons)</label>
+                        <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
+                               value="${h.hand_span_semitones}" min="1" max="48">
+                        <span class="ism-form-hint">Empan maximal atteignable sans déplacer la main.</span>
+                    </div>
+                </div>
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>Note la plus grave atteignable</label>
+                        <input type="number" data-hand="${h.id}" data-field="note_range_min"
+                               value="${h.note_range_min ?? ''}" min="0" max="127">
+                    </div>
+                    <div>
+                        <label>Note la plus aiguë atteignable</label>
+                        <input type="number" data-hand="${h.id}" data-field="note_range_max"
+                               value="${h.note_range_max ?? ''}" min="0" max="127">
+                    </div>
+                </div>
+                <div class="ism-form-group ism-form-grid-3">
+                    <div>
+                        <label>Doigts</label>
+                        <input type="number" data-hand="${h.id}" data-field="polyphony"
+                               value="${h.polyphony ?? 5}" min="1" max="10">
+                    </div>
+                    <div>
+                        <label>Intervalle doigt min (ms)</label>
+                        <input type="number" data-hand="${h.id}" data-field="finger_min_interval_ms"
+                               value="${h.finger_min_interval_ms ?? 40}" min="0" max="2000">
+                    </div>
+                    <div>
+                        <label>Vitesse main (demi-tons/s)</label>
+                        <input type="number" data-hand="${h.id}" data-field="hand_move_semitones_per_sec"
+                               value="${h.hand_move_semitones_per_sec ?? 60}" min="1" max="500">
+                    </div>
+                </div>
+            </div>`;
+        };
+
+        return `
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> Mains</h3>
+            <div class="ism-form-group">
+                <label>
+                    <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
+                    Activer le contrôle de position des mains
+                </label>
+                <span class="ism-form-hint">
+                    Si activé, le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main,
+                    dès que la main doit se déplacer. Non-bloquant : les violations de faisabilité sont signalées à l'utilisateur.
+                </span>
+            </div>
+
+            <div class="ism-form-group">
+                <label>Affectation des notes aux mains</label>
+                <select id="handsAssignmentMode">
+                    <option value="auto" ${assignment.mode === 'auto' ? 'selected' : ''}>Auto (tracks si possibles, sinon split par hauteur)</option>
+                    <option value="track" ${assignment.mode === 'track' ? 'selected' : ''}>Par piste (track map)</option>
+                    <option value="pitch_split" ${assignment.mode === 'pitch_split' ? 'selected' : ''}>Split par hauteur</option>
+                </select>
+            </div>
+
+            <div class="ism-form-group ism-form-grid-2">
+                <div>
+                    <label>Note de split (par hauteur)</label>
+                    <input type="number" id="handsPitchSplitNote" value="${assignment.pitch_split_note ?? 60}" min="0" max="127">
+                </div>
+                <div>
+                    <label>Hystérésis (demi-tons)</label>
+                    <input type="number" id="handsPitchSplitHysteresis" value="${assignment.pitch_split_hysteresis ?? 2}" min="0" max="12">
+                </div>
+            </div>
+
+            <div class="ism-hands-list">
+                ${handRow(hands.find(h => h.id === 'left') || ISMSections._defaultHandsConfig().hands[0])}
+                ${handRow(hands.find(h => h.id === 'right') || ISMSections._defaultHandsConfig().hands[1])}
+            </div>
+        `;
+    };
+
+    ISMSections._defaultHandsConfig = function() {
+        return {
+            enabled: true,
+            assignment: { mode: 'auto', pitch_split_note: 60, pitch_split_hysteresis: 2 },
+            hands: [
+                {
+                    id: 'left',  cc_position_number: 23,
+                    note_range_min: 21, note_range_max: 72,
+                    hand_span_semitones: 14, polyphony: 5,
+                    finger_min_interval_ms: 40, hand_move_semitones_per_sec: 60
+                },
+                {
+                    id: 'right', cc_position_number: 24,
+                    note_range_min: 48, note_range_max: 108,
+                    hand_span_semitones: 14, polyphony: 5,
+                    finger_min_interval_ms: 40, hand_move_semitones_per_sec: 60
+                }
+            ]
+        };
+    };
+
+    /**
+     * Read the hands-section DOM back into a hands_config object ready
+     * to persist. Returns `null` when the section is not rendered (the
+     * instrument is not keyboard-family) — the caller stores null so the
+     * feature stays disabled.
+     */
+    ISMSections._collectHandsConfig = function(rootEl) {
+        const section = rootEl?.querySelector('.ism-section[data-section="hands"]');
+        if (!section) return undefined; // no-op: section not rendered
+
+        const enabled = !!rootEl.querySelector('#handsEnabled')?.checked;
+        const mode = rootEl.querySelector('#handsAssignmentMode')?.value || 'auto';
+        const pitchSplitNote = parseInt(rootEl.querySelector('#handsPitchSplitNote')?.value, 10);
+        const hysteresis = parseInt(rootEl.querySelector('#handsPitchSplitHysteresis')?.value, 10);
+
+        const readHand = (id) => {
+            const row = section.querySelector(`.ism-hand-row[data-hand="${id}"]`);
+            if (!row) return null;
+            const readInt = (field, dflt) => {
+                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
+                return Number.isFinite(v) ? v : dflt;
+            };
+            const readIntOrNull = (field) => {
+                const raw = row.querySelector(`[data-field="${field}"]`)?.value;
+                if (raw == null || raw === '') return null;
+                const v = parseInt(raw, 10);
+                return Number.isFinite(v) ? v : null;
+            };
+            return {
+                id,
+                cc_position_number: readInt('cc_position_number', id === 'left' ? 23 : 24),
+                hand_span_semitones: readInt('hand_span_semitones', 14),
+                note_range_min: readIntOrNull('note_range_min'),
+                note_range_max: readIntOrNull('note_range_max'),
+                polyphony: readInt('polyphony', 5),
+                finger_min_interval_ms: readInt('finger_min_interval_ms', 40),
+                hand_move_semitones_per_sec: readInt('hand_move_semitones_per_sec', 60)
+            };
+        };
+
+        const hands = [readHand('left'), readHand('right')].filter(Boolean);
+        return {
+            enabled,
+            assignment: {
+                mode,
+                pitch_split_note: Number.isFinite(pitchSplitNote) ? pitchSplitNote : 60,
+                pitch_split_hysteresis: Number.isFinite(hysteresis) ? hysteresis : 2
+            },
+            hands
+        };
     };
 
     ISMSections._renderAdvancedSection = function() {

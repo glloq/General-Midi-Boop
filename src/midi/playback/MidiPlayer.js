@@ -24,6 +24,8 @@
 import { parseMidi } from 'midi-file';
 import { performance } from 'perf_hooks';
 import PlaybackScheduler from './PlaybackScheduler.js';
+import HandAssigner from '../adaptation/HandAssigner.js';
+import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 
 /** Used to convert MIDI `microsecondsPerBeat` into BPM. */
 const MICROSECONDS_PER_MINUTE = 60000000;
@@ -285,7 +287,11 @@ class MidiPlayer {
 
         const builder = EVENT_BUILDERS[event.type];
         if (builder) {
-          this.events.push(builder(event, timeInSeconds));
+          const built = builder(event, timeInSeconds);
+          // Tag the source track so downstream passes (hand-position
+          // planner, split router) can use track identity when available.
+          built.track = track.index;
+          this.events.push(built);
         }
       });
     });
@@ -415,6 +421,120 @@ class MidiPlayer {
     }
   }
 
+  /**
+   * Inject hand-position CC events (e.g. CC23 left / CC24 right) for
+   * every source channel whose destination instrument declares a
+   * `hands_config`. Destinations without the feature are skipped, so an
+   * unconfigured playback pipeline is byte-identical to pre-feature.
+   *
+   * Must be called AFTER `channelRouting` is populated (before playback
+   * starts) because the feature is looked up on the destination
+   * instrument, not the source channel.
+   *
+   * Collected feasibility warnings are broadcast via the event bus so
+   * the UI can surface them to the operator — non-blocking.
+   *
+   * @returns {number} Number of CC events injected.
+   * @private
+   */
+  _injectHandPositionCCEvents() {
+    if (!this.events || this.events.length === 0) return 0;
+    if (!this.channelRouting || this.channelRouting.size === 0) return 0;
+    if (!this.database?.getInstrumentCapabilities) return 0;
+
+    // First, remove any hand CCs left over from a previous pass (so that
+    // re-routings don't accumulate). Hand CCs carry a `_handInjected`
+    // marker to make this safe and cheap.
+    if (this._handCCCount) {
+      this.events = this.events.filter(e => !e._handInjected);
+      this._handCCCount = 0;
+    }
+
+    const allCCs = [];
+    const allWarnings = [];
+    let hadAny = false;
+
+    for (const [srcChannel, routing] of this.channelRouting.entries()) {
+      // Split routing is skipped in Phase 1 — the split segments would
+      // each need their own hands_config lookup; that's a Phase 2 nicety.
+      if (!routing || routing.split) continue;
+      if (!routing.device) continue;
+
+      let capabilities;
+      try {
+        capabilities = this.database.getInstrumentCapabilities(
+          routing.device,
+          routing.targetChannel ?? srcChannel
+        );
+      } catch (e) {
+        continue;
+      }
+      const handsCfg = capabilities?.hands_config;
+      if (!handsCfg || handsCfg.enabled === false) continue;
+      if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) continue;
+
+      // Build the note-on list for this source channel (only note events
+      // — the planner is not interested in CCs/program changes).
+      const notes = [];
+      for (let i = 0; i < this.events.length; i++) {
+        const e = this.events[i];
+        if (e.channel !== srcChannel) continue;
+        if (e.type !== 'noteOn' || (e.velocity ?? 0) === 0) continue;
+        notes.push({
+          time: e.time,
+          note: e.note,
+          channel: e.channel,
+          velocity: e.velocity,
+          track: e.track
+        });
+      }
+      if (notes.length === 0) continue;
+
+      const assigner = new HandAssigner(handsCfg);
+      const { assignments, warnings: assignWarnings, resolvedMode } = assigner.assign(notes);
+      for (const w of assignWarnings) allWarnings.push({ ...w, channel: srcChannel });
+
+      // Project hand tags onto the notes.
+      const tagged = notes.map((n, idx) => ({ ...n, hand: assignments[idx]?.hand }));
+
+      const planner = new HandPositionPlanner(handsCfg);
+      const { ccEvents, warnings: planWarnings } = planner.plan(tagged);
+      for (const w of planWarnings) allWarnings.push({ ...w, channel: srcChannel });
+
+      for (const cc of ccEvents) {
+        cc._handInjected = true;
+        allCCs.push(cc);
+      }
+      if (ccEvents.length > 0) hadAny = true;
+
+      this.logger.debug(
+        `Hand planner (ch ${srcChannel + 1}, device ${routing.device}): ` +
+        `${ccEvents.length} CC events, ${planWarnings.length + assignWarnings.length} warnings, mode=${resolvedMode}`
+      );
+    }
+
+    if (!hadAny) return 0;
+
+    this.events.push(...allCCs);
+    this.events.sort((a, b) => a.time - b.time);
+    this._handCCCount = allCCs.length;
+
+    if (allWarnings.length > 0) {
+      // Broadcast non-blocking feasibility report so the UI can show it.
+      this._deps.wsServer?.broadcast?.('playback_hand_position_warnings', {
+        fileId: this.loadedFileId,
+        warnings: allWarnings
+      });
+      this._deps.eventBus?.emit?.('playback_hand_position_warnings', {
+        fileId: this.loadedFileId,
+        warnings: allWarnings
+      });
+    }
+
+    this.logger.info(`Injected ${allCCs.length} hand-position CC events (${allWarnings.length} warnings)`);
+    return allCCs.length;
+  }
+
   _buildTempoMap() {
     const tempoEvents = [];
 
@@ -533,6 +653,15 @@ class MidiPlayer {
     this.outputDevice = outputDevice;
     this.playing = true;
     this.paused = false;
+
+    // Inject hand-position CC events now that routings are known. Safe to
+    // call every start: the method is idempotent (removes prior injections
+    // before re-running) and a no-op for instruments without hands_config.
+    try {
+      this._injectHandPositionCCEvents();
+    } catch (err) {
+      this.logger.warn(`Hand-position injection failed: ${err.message}`);
+    }
 
     if (resumePosition !== null) {
       this.position = resumePosition;

@@ -64,6 +64,7 @@ class InstrumentSettingsModal extends BaseModal {
     static SECTIONS = [
         { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
         { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
+        { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
 
@@ -623,8 +624,15 @@ class InstrumentSettingsModal extends BaseModal {
     // ========== SIDEBAR ==========
 
     _renderSidebar() {
+        // Sections flagged `keyboardsOnly` (e.g. hand-position control) are
+        // hidden unless the active tab is a keyboard-family instrument.
+        const tab = this._getActiveTab?.();
+        const showHands = typeof window.ISMSections?._shouldShowHandsSection === 'function'
+            && window.ISMSections._shouldShowHandsSection(tab);
+
         let html = '<nav class="ism-sidebar">';
         for (const sec of InstrumentSettingsModal.SECTIONS) {
+            if (sec.keyboardsOnly && !showHands) continue;
             const active = this.activeSection === sec.id ? 'active' : '';
             html += `<button type="button" class="ism-nav-item ${active}" data-section="${sec.id}">
                 <span class="ism-nav-icon">${sec.icon}</span>

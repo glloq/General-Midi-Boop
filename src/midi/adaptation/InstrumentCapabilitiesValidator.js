@@ -103,6 +103,13 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
+    // Optional: validate hands_config shape when present. Missing or null
+    // means the hand-position feature is disabled for this instrument —
+    // that is a valid state (Phase 1 keyboards only, everything else is
+    // opt-in). When present, the structure must be coherent.
+    const handIssues = this._validateHandsConfig(instrument.hands_config);
+    for (const issue of handIssues) missing.push(issue);
+
     const isValid = missing.length === 0;
     const isComplete = missing.length === 0 && recommended.length === 0;
 
@@ -113,6 +120,85 @@ class InstrumentCapabilitiesValidator {
       recommended,
       instrument
     };
+  }
+
+  /**
+   * Validate the optional `hands_config` JSON payload. Returns an array
+   * of `missing`-shaped entries (empty when absent or well-formed).
+   * @private
+   */
+  _validateHandsConfig(raw) {
+    if (raw === null || raw === undefined || raw === '') return [];
+
+    let cfg = raw;
+    if (typeof cfg === 'string') {
+      try {
+        cfg = JSON.parse(cfg);
+      } catch (e) {
+        return [{
+          field: 'hands_config',
+          label: this.getCapabilityLabel('hands_config'),
+          type: 'json',
+          required: true,
+          reason: `Invalid JSON: ${e.message}`
+        }];
+      }
+    }
+
+    const issues = [];
+    if (typeof cfg !== 'object' || Array.isArray(cfg)) {
+      issues.push({
+        field: 'hands_config', label: this.getCapabilityLabel('hands_config'),
+        type: 'json', required: true, reason: 'Must be an object.'
+      });
+      return issues;
+    }
+
+    if (cfg.enabled === false) return []; // explicitly disabled — OK
+
+    if (!Array.isArray(cfg.hands) || cfg.hands.length === 0) {
+      issues.push({
+        field: 'hands_config.hands', label: 'Hands list',
+        type: 'array', required: true, conditional: true,
+        reason: 'hands_config requires at least one hand.'
+      });
+      return issues;
+    }
+
+    const seenIds = new Set();
+    for (let i = 0; i < cfg.hands.length; i++) {
+      const h = cfg.hands[i];
+      if (!h || typeof h !== 'object') {
+        issues.push({ field: `hands_config.hands[${i}]`, label: 'Hand entry', type: 'object', required: true, reason: 'Must be an object.' });
+        continue;
+      }
+      if (!h.id || (h.id !== 'left' && h.id !== 'right')) {
+        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: "id must be 'left' or 'right'." });
+      }
+      if (h.id && seenIds.has(h.id)) {
+        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: `Duplicate hand id '${h.id}'.` });
+      }
+      if (h.id) seenIds.add(h.id);
+      if (!Number.isFinite(h.cc_position_number) || h.cc_position_number < 0 || h.cc_position_number > 127) {
+        issues.push({ field: `hands_config.hands[${i}].cc_position_number`, label: 'CC number', type: 'number', required: true, reason: 'Must be an integer in [0,127].' });
+      }
+      if (!Number.isFinite(h.hand_span_semitones) || h.hand_span_semitones <= 0) {
+        issues.push({ field: `hands_config.hands[${i}].hand_span_semitones`, label: 'Hand span', type: 'number', required: true, reason: 'Must be a positive number of semitones.' });
+      }
+      if (h.note_range_min != null && h.note_range_max != null && h.note_range_min > h.note_range_max) {
+        issues.push({ field: `hands_config.hands[${i}].note_range`, label: 'Hand range', type: 'range', required: true, reason: 'note_range_min must be <= note_range_max.' });
+      }
+      if (h.polyphony != null && (!Number.isInteger(h.polyphony) || h.polyphony < 1)) {
+        issues.push({ field: `hands_config.hands[${i}].polyphony`, label: 'Fingers', type: 'number', required: true, reason: 'polyphony must be an integer >= 1.' });
+      }
+    }
+
+    const mode = cfg.assignment?.mode;
+    if (mode && mode !== 'auto' && mode !== 'track' && mode !== 'pitch_split') {
+      issues.push({ field: 'hands_config.assignment.mode', label: 'Assignment mode', type: 'select', required: true, reason: `Unknown mode '${mode}'.` });
+    }
+
+    return issues;
   }
 
   /**
@@ -150,7 +236,8 @@ class InstrumentCapabilitiesValidator {
       'note_selection_mode': 'Play Mode',
       'supported_ccs': 'Supported Control Changes',
       'type': 'Instrument Type',
-      'selected_notes': 'Playable Notes (Discrete Mode)'
+      'selected_notes': 'Playable Notes (Discrete Mode)',
+      'hands_config': 'Hand-Position Configuration'
     };
 
     return labels[capability] || capability;
