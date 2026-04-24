@@ -381,4 +381,76 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     const second = player.events.filter(e => e._handInjected).length;
     expect(second).toBe(first);
   });
+
+  test('physical model: a 0→4 jump near the nut forces a shift on a 80mm hand', () => {
+    // 80 mm hand on 650 mm scale ≈ 2.2 frets at fret 0. A 4-fret jump
+    // exceeds that → 2 CCs.
+    const tabEvents = [
+      { tick: 0,    string: 0, fret: 0, midiNote: 60 }, // open: filtered upstream
+      { tick: 240,  string: 0, fret: 1, midiNote: 61 },
+      { tick: 960,  string: 0, fret: 4, midiNote: 64 }
+    ];
+    const handsCfgPhys = {
+      enabled: true,
+      mode: 'frets',
+      hand_move_mm_per_sec: 250,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+    };
+    const deps = makeFretsDeps({
+      handsConfig: handsCfgPhys,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22, scale_length_mm: 650 }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const ccs = player.events.filter(e => e._handInjected);
+    expect(ccs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('physical model: same 0→4 jump high on the neck (fret 12→16) does not shift', () => {
+    // ~4.4 frets reach at fret 12, so 12→15 fits in the same window.
+    const tabEvents = [
+      { tick: 0,    string: 0, fret: 12, midiNote: 76 },
+      { tick: 960,  string: 0, fret: 15, midiNote: 79 }
+    ];
+    const handsCfgPhys = {
+      enabled: true,
+      mode: 'frets',
+      hand_move_mm_per_sec: 250,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+    };
+    const deps = makeFretsDeps({
+      handsConfig: handsCfgPhys,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22, scale_length_mm: 650 }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const ccs = player.events.filter(e => e._handInjected);
+    expect(ccs).toHaveLength(1);
+    expect(ccs[0].value).toBe(12);
+  });
+
+  test('falls back to fret-count model when scale_length_mm is null', () => {
+    // No scale length → 4-fret constant window, regardless of position.
+    const tabEvents = [
+      { tick: 0,    string: 0, fret: 12, midiNote: 76 },
+      { tick: 960,  string: 0, fret: 15, midiNote: 79 } // within 4 frets → no shift
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22, scale_length_mm: null }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const ccs = player.events.filter(e => e._handInjected);
+    expect(ccs).toHaveLength(1);
+  });
 });

@@ -676,11 +676,20 @@ class MidiPlayer {
 
     notes.sort((a, b) => a.time - b.time);
 
+    // Forward scale_length_mm to the planner so it can switch to the
+    // position-dependent physical model when a hand span in mm is also
+    // configured. When either input is missing, the planner falls back
+    // to the constant-fret-window model (transparent to the caller).
+    const scaleLengthMm = stringInstrument && Number.isFinite(stringInstrument.scale_length_mm)
+      ? stringInstrument.scale_length_mm
+      : null;
+
     const planner = new HandPositionPlanner(handsCfg, {
       unit: 'frets',
       noteRangeMin: 0,
       noteRangeMax: maxFret,
-      minNoteIntervalMs: capabilities?.min_note_interval ?? 0
+      minNoteIntervalMs: capabilities?.min_note_interval ?? 0,
+      scaleLengthMm
     });
     const { ccEvents, warnings: planWarnings } = planner.plan(notes);
     for (const w of planWarnings) {
@@ -697,7 +706,7 @@ class MidiPlayer {
     this.logger.debug(
       `Hand planner [frets] (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
       `device ${device}): ${ccEvents.length} CC events, ${planWarnings.length} warnings, ` +
-      `maxFret=${maxFret}`
+      `maxFret=${maxFret}, scaleLengthMm=${scaleLengthMm ?? 'n/a'}`
     );
   }
 
