@@ -163,6 +163,20 @@ class DatabaseManager {
       this.logger.info(`Migration ${version} completed`);
     } catch (error) {
       this.db.exec('ROLLBACK');
+      // Duplicate-column errors from `ALTER TABLE ADD COLUMN` mean the
+      // schema is already in the desired state — typically because an
+      // earlier, differently-numbered copy of the same migration ran
+      // on this install (see `006_omni_mode.sql` for the concrete
+      // scenario). Record the version and continue; a partial
+      // `CREATE INDEX IF NOT EXISTS` is still safe because the
+      // existing index would be kept and a new one wouldn't fire.
+      if (/duplicate column name/i.test(error.message)) {
+        this.logger.warn(`Migration ${version} (${filename}): column already present, marking as applied`);
+        this.db
+          .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
+          .run(version, `${filename} (column already present)`);
+        return;
+      }
       this.logger.error(`Migration ${version} failed: ${error.message}`);
       throw error;
     }
