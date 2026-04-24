@@ -678,7 +678,9 @@
         "voicesEmpty": "No additional voice — the primary voice is set in the Identity tab.",
         "addVoice": "Add a voice",
         "deleteVoice": "Remove this voice",
-        "voiceCcs": "Supported CCs (comma-separated)"
+        "voiceCcs": "Supported CCs (comma-separated)",
+        "gmCategory": "Instrument",
+        "previewPickInstrument": "🎵 Pick an instrument to enable the preview"
     },
     "playlist": {
         "title": "Playlists",

@@ -678,7 +678,9 @@
         "voicesEmpty": "Aucune voix additionnelle — la voix principale est définie dans l'onglet Identité.",
         "addVoice": "Ajouter une voix",
         "deleteVoice": "Supprimer cette voix",
-        "voiceCcs": "CC supportés (séparés par virgules)"
+        "voiceCcs": "CC supportés (séparés par virgules)",
+        "gmCategory": "Instrument",
+        "previewPickInstrument": "🎵 Choisir un instrument pour activer la preview"
     },
     "playlist": {
         "title": "Playlists",
