@@ -2117,6 +2117,13 @@ body.dark-mode .ism-delete-instrument:hover {
 .ism-header-gear {
   font-size: 1.2rem;
   line-height: 1;
+  /* On systems without a colored U+2699 glyph (notably some Linux builds
+     without Noto Color Emoji), the gear falls back to a thin monochrome
+     outline that reads as "grayed out" on the purple gradient. Force the
+     color-emoji font stack explicitly. */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+               "EmojiOne Color", "Twemoji Mozilla", sans-serif;
+  font-variant-emoji: emoji;
 }
 
 .ism-header-name {

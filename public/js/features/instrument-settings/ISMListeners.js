@@ -565,6 +565,33 @@
             tab.settings.gm_program = decoded.program;
         }
 
+        // 2b) When the user leaves the string-instrument family (piano
+        // after a guitar, etc.), drop the string configuration so the
+        // Active-CCs summary stops surfacing `String Select` / `Fret Select`
+        // tags and the save path doesn't resend stale cc_string_number /
+        // cc_fret_number values. Also clear them from `supported_ccs` if
+        // they were manually added to the checkbox picker.
+        if (tab && !isDrumKit && typeof isGmStringInstrument === 'function'
+            && !isGmStringInstrument(decoded.program)) {
+            const oldConfig = tab.stringInstrumentConfig;
+            if (oldConfig) {
+                const strCCs = new Set([
+                    oldConfig.cc_string_number ?? 20,
+                    oldConfig.cc_fret_number ?? 21
+                ]);
+                // Mark the row for backend deletion on next save. The
+                // frontend clears the local cache immediately so the UI
+                // refresh doesn't resurrect the tags.
+                tab._stringInstrumentDeleted = true;
+                tab.stringInstrumentConfig = null;
+                if (Array.isArray(tab.settings.supported_ccs)) {
+                    tab.settings.supported_ccs = tab.settings.supported_ccs.filter(function(cc) {
+                        return !strCCs.has(cc);
+                    });
+                }
+            }
+        }
+
         // 3) Auto-switch channel 10 (index 9) for drum kits + repaint channel grid
         if (isDrumKit) {
             const channelInput = this.$('#channelSelect');

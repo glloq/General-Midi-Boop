@@ -260,6 +260,23 @@
             }
             await this.api.sendCommand('instrument_save_all', saveAllPayload);
 
+            // If the user switched away from a string-instrument family, the
+            // `string_instruments` row for this (device, channel) is now
+            // orphaned. Delete it so the DB stops surfacing stale CC config
+            // on reload (and so `_getStringCCNumbers` returns [] after the
+            // page refreshes).
+            if (!isStringInst && primaryTab?._stringInstrumentDeleted) {
+                try {
+                    await this.api.sendCommand('string_instrument_delete', {
+                        device_id: this.device.id,
+                        channel: saveChannel
+                    });
+                } catch (e) {
+                    console.warn('Failed to delete orphaned string_instrument row:', e);
+                }
+                delete primaryTab._stringInstrumentDeleted;
+            }
+
             // Close and refresh
             this.close();
             if (typeof loadDevices === 'function') await loadDevices();
