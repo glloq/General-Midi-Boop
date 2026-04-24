@@ -6,7 +6,7 @@
 import { describe, test, expect, jest } from '@jest/globals';
 import MidiPlayer from '../src/midi/playback/MidiPlayer.js';
 
-function makeDeps(handsConfig) {
+function makeDeps(handsConfig, extraCapabilities) {
   const logger = {
     info: () => {}, warn: () => {}, debug: () => {}, error: () => {}
   };
@@ -15,9 +15,9 @@ function makeDeps(handsConfig) {
   const lookup = (deviceId, channel) => {
     if (handsConfig && typeof handsConfig === 'object' && !Array.isArray(handsConfig) && handsConfig.__byKey) {
       const cfg = handsConfig.__byKey[`${deviceId}:${channel}`];
-      return cfg ? { hands_config: cfg } : null;
+      return cfg ? { hands_config: cfg, ...(extraCapabilities || {}) } : null;
     }
-    return handsConfig ? { hands_config: handsConfig } : null;
+    return handsConfig ? { hands_config: handsConfig, ...(extraCapabilities || {}) } : null;
   };
   const database = { getInstrumentCapabilities: lookup };
   const blobStore = { read: () => Buffer.alloc(0) };
@@ -43,8 +43,8 @@ function primePlayer(player, notes) {
 const pianoHands = {
   enabled: true,
   hands: [
-    { id: 'left', cc_position_number: 23, hand_span_semitones: 14, polyphony: 5 },
-    { id: 'right', cc_position_number: 24, hand_span_semitones: 14, polyphony: 5 }
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
 
@@ -94,13 +94,15 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
   });
 
   test('broadcasts feasibility warnings when present', () => {
-    const handsWithNarrowRange = {
+    const handsCfg = {
       enabled: true,
       hands: [
-        { id: 'left', cc_position_number: 23, hand_span_semitones: 14, polyphony: 5, note_range_min: 50, note_range_max: 70 }
+        { id: 'left', cc_position_number: 23, hand_span_semitones: 14 }
       ]
     };
-    const deps = makeDeps(handsWithNarrowRange);
+    // The playable range (used for out_of_range checks) now lives on
+    // the instrument's capabilities, not on each hand.
+    const deps = makeDeps(handsCfg, { note_range_min: 50, note_range_max: 70 });
     const player = new MidiPlayer(deps);
     primePlayer(player, [{ time: 0.5, note: 40 }]); // below range_min → warning
 
@@ -117,11 +119,11 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     // with their own hand configs.
     const bassHands = {
       enabled: true,
-      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14, polyphony: 5 }]
+      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
     };
     const trebleHands = {
       enabled: true,
-      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14, polyphony: 5 }]
+      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14 }]
     };
     const deps = makeDeps({
       __byKey: {
@@ -165,7 +167,7 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
   test('split routing: segment without hands_config is skipped', () => {
     const trebleHands = {
       enabled: true,
-      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14, polyphony: 5 }]
+      hands: [{ id: 'right', cc_position_number: 24, hand_span_semitones: 14 }]
     };
     const deps = makeDeps({
       __byKey: { 'dev-treble:0': trebleHands } // bass destination has no config

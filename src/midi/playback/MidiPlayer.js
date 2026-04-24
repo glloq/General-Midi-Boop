@@ -494,7 +494,11 @@ class MidiPlayer {
 
       const tagged = notes.map((n, idx) => ({ ...n, hand: assignments[idx]?.hand }));
 
-      const planner = new HandPositionPlanner(handsCfg);
+      const planner = new HandPositionPlanner(handsCfg, {
+        noteRangeMin: capabilities?.note_range_min ?? null,
+        noteRangeMax: capabilities?.note_range_max ?? null,
+        minNoteIntervalMs: capabilities?.min_note_interval ?? 0
+      });
       const { ccEvents, warnings: planWarnings } = planner.plan(tagged);
       for (const w of planWarnings) {
         allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
