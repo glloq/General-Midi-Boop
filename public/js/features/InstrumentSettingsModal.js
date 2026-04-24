@@ -625,6 +625,62 @@ class InstrumentSettingsModal extends BaseModal {
         return true;
     }
 
+    /**
+     * Resolve which object the Notes section should read/write note-range
+     * data from. When the user has the "voices share notes" toggle ON
+     * (default), always the primary. When OFF and the user is on a voice
+     * tab, the matching entry in tab.voices.
+     *
+     * @returns {?{kind:'primary'|'voice', idx:?number, obj:Object}}
+     */
+    _getActiveNotesTarget() {
+        const tab = this._getActiveTab();
+        if (!tab) return null;
+        const shareNotes = tab.settings.voices_share_notes === 0 || tab.settings.voices_share_notes === false
+            ? false : true;
+        const idx = this._activeNotesVoiceIdx;
+        if (!shareNotes && idx != null && Array.isArray(tab.voices) && tab.voices[idx]) {
+            return { kind: 'voice', idx: idx, obj: tab.voices[idx] };
+        }
+        return { kind: 'primary', idx: null, obj: tab.settings };
+    }
+
+    /**
+     * Flush whatever the user currently has in the Notes editor hidden
+     * inputs into the active target (primary or a voice), so the values
+     * survive across tab switches and eventual save.
+     */
+    _commitCurrentNotesEditor() {
+        const target = this._getActiveNotesTarget();
+        if (!target) return;
+        const obj = target.obj;
+        const modeInput = this.$('#noteSelectionModeInput');
+        const minInput = this.$('#noteRangeMin');
+        const maxInput = this.$('#noteRangeMax');
+        const selInput = this.$('#selectedNotesInput');
+        const octInput = this.$('#octaveModeInput');
+        if (!modeInput) return; // Notes section not mounted (e.g. drum/strings layout)
+
+        const mode = modeInput.value || 'range';
+        const minRaw = (minInput?.value || '').trim();
+        const maxRaw = (maxInput?.value || '').trim();
+        const selRaw = (selInput?.value || '').trim();
+        const oct = (octInput?.value || '').trim() || 'chromatic';
+
+        obj.note_selection_mode = mode;
+        obj.note_range_min = minRaw === '' ? null : parseInt(minRaw, 10);
+        obj.note_range_max = maxRaw === '' ? null : parseInt(maxRaw, 10);
+        if (selRaw) {
+            try {
+                const parsed = JSON.parse(selRaw);
+                obj.selected_notes = Array.isArray(parsed) ? parsed : null;
+            } catch { obj.selected_notes = null; }
+        } else {
+            obj.selected_notes = null;
+        }
+        obj.octave_mode = oct;
+    }
+
     _cancelPreviewEnvelope(note) {
         if (!this._previewEnvelopes) return;
         const envs = this._previewEnvelopes.get(note);
@@ -867,12 +923,16 @@ class InstrumentSettingsModal extends BaseModal {
     _initPianoForActiveTab() {
         const tab = this._getActiveTab();
         if (!tab) return;
-        const s = tab.settings;
+        // When a secondary voice tab is active (shareNotes=false), the piano
+        // must reflect that voice's note capabilities, not the primary's.
+        const target = this._getActiveNotesTarget();
+        const s = target ? target.obj : tab.settings;
         if (typeof initPianoKeyboard !== 'function') return;
 
-        // Don't init piano for drum instruments (no piano needed)
-        const gmProg = s.gm_program;
-        const isDrum = this.activeChannel === 9 || (gmProg != null && gmProg >= 128);
+        // Don't init piano for drum instruments (no piano needed) — decision
+        // based on PRIMARY, since the section layout depends on primary type.
+        const primaryProg = tab.settings.gm_program;
+        const isDrum = this.activeChannel === 9 || (primaryProg != null && primaryProg >= 128);
         if (isDrum) return;
 
         const self = this;

@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Mga suportadong CC",
         "supportedCcsLabel": "Mga suportadong CC (pinaghihiwalay ng kuwit)",
         "supportedCcsHint": "Ibinabahagi sa lahat ng GM voice ng instrumentong ito. Ang mga CC na hindi suportado ng isang instrumento ay simpleng hindi pinapansin sa hardware side.",
-        "previewThisVoice": "Mag-click upang i-preview ang boses na ito sa keyboard"
+        "previewThisVoice": "Mag-click upang i-preview ang boses na ito sa keyboard",
+        "voicesShareNotes": "Ang lahat ng instrumentong GM ay tumutugtog ng parehong MIDI notes",
+        "voicesShareNotesHint": "Alisin ang check para bigyan ang bawat instrumentong GM ng sarili nitong matutugtog na nota.",
+        "channelOccupied": "Ang target na channel ay ginagamit na ng ibang instrumento sa device na ito.",
+        "drumChannelOccupied": "Ginagamit na ng ibang instrumento ang channel 10 (percussion). Alisin muna ito bago maglagay ng drum kit dito.",
+        "voiceSaveWarning": "Nai-save ang mga pangunahing setting, ngunit hindi ma-save ang mga karagdagang GM voice"
     },
     "playlist": {
         "title": "Mga Playlist",

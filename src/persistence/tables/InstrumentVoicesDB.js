@@ -38,6 +38,8 @@ class InstrumentVoicesDB {
         SELECT id, device_id, channel, gm_program,
                min_note_interval, min_note_duration,
                supported_ccs, display_order,
+               note_selection_mode, note_range_min, note_range_max,
+               selected_notes, octave_mode,
                created_at, updated_at
         FROM instrument_voices
         WHERE device_id = ? AND channel = ?
@@ -45,7 +47,8 @@ class InstrumentVoicesDB {
       `).all(deviceId, channel);
       return rows.map((r) => ({
         ...r,
-        supported_ccs: _parseCcList(r.supported_ccs)
+        supported_ccs: _parseCcList(r.supported_ccs),
+        selected_notes: _parseNoteList(r.selected_notes)
       }));
     } catch (error) {
       this.logger.error(`Failed to list instrument voices: ${error.message}`);
@@ -72,8 +75,10 @@ class InstrumentVoicesDB {
         INSERT INTO instrument_voices
           (device_id, channel, gm_program,
            min_note_interval, min_note_duration,
-           supported_ccs, display_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+           supported_ccs, display_order,
+           note_selection_mode, note_range_min, note_range_max,
+           selected_notes, octave_mode)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         deviceId,
         channel,
@@ -81,7 +86,12 @@ class InstrumentVoicesDB {
         payload.min_note_interval ?? null,
         payload.min_note_duration ?? null,
         _serializeCcList(payload.supported_ccs),
-        order
+        order,
+        payload.note_selection_mode ?? null,
+        payload.note_range_min ?? null,
+        payload.note_range_max ?? null,
+        _serializeNoteList(payload.selected_notes),
+        payload.octave_mode ?? null
       );
       return Number(result.lastInsertRowid);
     } catch (error) {
@@ -103,9 +113,14 @@ class InstrumentVoicesDB {
       if (Object.prototype.hasOwnProperty.call(next, 'supported_ccs')) {
         next.supported_ccs = _serializeCcList(next.supported_ccs);
       }
+      if (Object.prototype.hasOwnProperty.call(next, 'selected_notes')) {
+        next.selected_notes = _serializeNoteList(next.selected_notes);
+      }
       const result = buildDynamicUpdate('instrument_voices', next, [
         'gm_program', 'min_note_interval', 'min_note_duration',
-        'supported_ccs', 'display_order'
+        'supported_ccs', 'display_order',
+        'note_selection_mode', 'note_range_min', 'note_range_max',
+        'selected_notes', 'octave_mode'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, id);
@@ -171,8 +186,10 @@ class InstrumentVoicesDB {
       INSERT INTO instrument_voices
         (device_id, channel, gm_program,
          min_note_interval, min_note_duration,
-         supported_ccs, display_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+         supported_ccs, display_order,
+         note_selection_mode, note_range_min, note_range_max,
+         selected_notes, octave_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const del = this.db.prepare(
       'DELETE FROM instrument_voices WHERE device_id = ? AND channel = ?'
@@ -189,7 +206,12 @@ class InstrumentVoicesDB {
           v.min_note_interval ?? null,
           v.min_note_duration ?? null,
           _serializeCcList(v.supported_ccs),
-          order++
+          order++,
+          v.note_selection_mode ?? null,
+          v.note_range_min ?? null,
+          v.note_range_max ?? null,
+          _serializeNoteList(v.selected_notes),
+          v.octave_mode ?? null
         );
         ids.push(Number(res.lastInsertRowid));
       }
@@ -226,6 +248,39 @@ function _serializeCcList(value) {
     return clean.length === 0 ? null : JSON.stringify(clean);
   }
   if (typeof value === 'string') {
+    const parts = value
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
+    return parts.length === 0 ? null : JSON.stringify(parts);
+  }
+  return null;
+}
+
+function _parseNoteList(raw) {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function _serializeNoteList(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const clean = value
+      .map((n) => (typeof n === 'string' ? parseInt(n, 10) : n))
+      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
+    return clean.length === 0 ? null : JSON.stringify(clean);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return _serializeNoteList(parsed);
+    } catch { /* fall through to CSV path */ }
     const parts = value
       .split(',')
       .map((s) => parseInt(s.trim(), 10))

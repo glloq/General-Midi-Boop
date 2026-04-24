@@ -498,6 +498,26 @@
             ? selectValueToGmProgram(encodedValue)
             : { program: encodedValue, isDrumKit: isDrumKit };
 
+        // Pre-flight: a drum kit always lives on channel 10 (index 9).
+        // If the user picked a drum kit on a different channel AND another
+        // tab already occupies channel 9, silently forcing `tab.channel = 9`
+        // would overwrite that other tab on save. Abort before any state
+        // mutation so the user can free channel 9 manually first.
+        if (isDrumKit && tab && tab.channel !== 9) {
+            const collision = this.instrumentTabs.some(function(t) {
+                return t.channel === 9 && t !== tab;
+            });
+            if (collision) {
+                if (typeof showAlert === 'function') {
+                    showAlert(
+                        this.t('instrumentSettings.drumChannelOccupied') || 'Le canal 10 (percussions) est déjà utilisé par un autre instrument.',
+                        { title: this.t('common.error') || 'Erreur', icon: '⚠️' }
+                    );
+                }
+                return;
+            }
+        }
+
         // 1) Update hidden input (save path reads #gmProgramSelect)
         const hiddenSel = this.$('#gmProgramSelect');
         if (hiddenSel) hiddenSel.value = String(encodedValue);
@@ -585,7 +605,67 @@
         this._wireDrumListeners();
         this._attachStringsSectionListeners();
         this._wireVoicesListeners();
+        this._wireVoicesShareToggle();
+        this._wireNotesVoiceTabs();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
+    };
+
+    // ===== "Voices share notes" checkbox + per-voice Notes tabs =====
+
+    ISMListeners._wireVoicesShareToggle = function() {
+        const cb = this.$('#voicesShareNotesCheckbox');
+        if (!cb) return;
+        const self = this;
+        cb.addEventListener('change', function() {
+            const tab = self._getActiveTab();
+            if (!tab) return;
+            // Persist the user's current editor state before we flip modes,
+            // so any unsaved primary/voice tweaks survive the rerender.
+            if (typeof self._commitCurrentNotesEditor === 'function') {
+                self._commitCurrentNotesEditor();
+            }
+            const share = cb.checked;
+            tab.settings.voices_share_notes = share ? 1 : 0;
+            // When turning sharing OFF, seed any voice that still has null
+            // notes with the primary's current values so the per-voice
+            // editor starts from a sensible baseline.
+            if (!share && Array.isArray(tab.voices)) {
+                for (const v of tab.voices) {
+                    if (v.note_selection_mode == null && v.note_range_min == null
+                        && v.note_range_max == null && v.octave_mode == null
+                        && (!Array.isArray(v.selected_notes) || v.selected_notes.length === 0)) {
+                        v.note_selection_mode = tab.settings.note_selection_mode || 'range';
+                        v.note_range_min = tab.settings.note_range_min ?? null;
+                        v.note_range_max = tab.settings.note_range_max ?? null;
+                        v.octave_mode = tab.settings.octave_mode || 'chromatic';
+                        v.selected_notes = Array.isArray(tab.settings.selected_notes)
+                            ? [...tab.settings.selected_notes] : null;
+                    }
+                }
+            }
+            // When sharing is ON the tab selector is hidden; reset the
+            // active voice to primary so a later unshare starts cleanly.
+            if (share) self._activeNotesVoiceIdx = null;
+            self._refreshNotesSectionForProgram();
+            if (self.activeSection === 'notes') self._initPianoForActiveTab();
+        });
+    };
+
+    ISMListeners._wireNotesVoiceTabs = function() {
+        const self = this;
+        this.$$('#notesVoiceTabs .ism-notes-voice-tab').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const raw = btn.dataset.voiceIdx;
+                const idx = (raw === '' || raw == null) ? null : parseInt(raw, 10);
+                if (self._activeNotesVoiceIdx === idx) return;
+                if (typeof self._commitCurrentNotesEditor === 'function') {
+                    self._commitCurrentNotesEditor();
+                }
+                self._activeNotesVoiceIdx = idx;
+                self._refreshNotesSectionForProgram();
+                if (self.activeSection === 'notes') self._initPianoForActiveTab();
+            });
+        });
     };
 
     // ===== Multi-GM voices (per-voice timing rows in the ⏱️ Timings subsection) =====
@@ -632,20 +712,26 @@
         if (idx < 0 || idx >= tab.voices.length) return;
         tab.voices.splice(idx, 1);
 
-        // Keep the preview routing consistent with the spliced list: if the
-        // deleted voice WAS the preview target, fall back to the primary;
-        // if a voice BEFORE the active one was deleted, shift the index down.
-        if (this._previewActiveVoice != null) {
-            if (this._previewActiveVoice === idx) {
-                this._previewActiveVoice = null;
-            } else if (this._previewActiveVoice > idx) {
-                this._previewActiveVoice -= 1;
-            }
-        }
+        // Keep per-voice pointers (preview routing + active Notes voice tab)
+        // consistent with the spliced list.
+        const reconcile = (cur) => {
+            if (cur == null) return null;
+            if (cur === idx) return null;        // active voice removed → primary
+            if (cur > idx) return cur - 1;       // earlier voice removed → shift
+            return cur;
+        };
+        this._previewActiveVoice = reconcile(this._previewActiveVoice);
+        this._activeNotesVoiceIdx = reconcile(this._activeNotesVoiceIdx);
 
         this._rerenderVoicesSubsection();
         this._rerenderIdentityPicker();
         this._renderPreviewKeyboard();
+        // If we're looking at the Notes section, the voice tabs and editor
+        // may reference the deleted voice — force a rerender.
+        if (this.activeSection === 'notes') {
+            this._refreshNotesSectionForProgram();
+            this._initPianoForActiveTab();
+        }
     };
 
     /**

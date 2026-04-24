@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Understøttede CC'er",
         "supportedCcsLabel": "Understøttede CC'er (kommasepareret)",
         "supportedCcsHint": "Delt på tværs af alle GM-stemmer på dette instrument. CC'er som et instrument ikke håndterer, ignoreres simpelthen på hardwaresiden.",
-        "previewThisVoice": "Klik for at forhåndsvise denne stemme på tastaturet"
+        "previewThisVoice": "Klik for at forhåndsvise denne stemme på tastaturet",
+        "voicesShareNotes": "Alle GM-instrumenter spiller samme MIDI-noder",
+        "voicesShareNotesHint": "Fjern markeringen for at give hvert GM-instrument sine egne spilbare noder.",
+        "channelOccupied": "Målkanalen bruges allerede af et andet instrument på denne enhed.",
+        "drumChannelOccupied": "Kanal 10 (percussion) bruges allerede af et andet instrument. Fjern det først, før du placerer et trommesæt her.",
+        "voiceSaveWarning": "Hovedindstillingerne blev gemt, men de ekstra GM-stemmer kunne ikke gemmes"
     },
     "playlist": {
         "title": "Playlister",

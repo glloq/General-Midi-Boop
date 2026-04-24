@@ -687,7 +687,12 @@
         "supportedCcsTitle": "支持的 CC",
         "supportedCcsLabel": "支持的 CC(逗号分隔)",
         "supportedCcsHint": "由此乐器的所有 GM 音色共享。乐器不处理的 CC 会在硬件端被直接忽略。",
-        "previewThisVoice": "点击在键盘上试听此音色"
+        "previewThisVoice": "点击在键盘上试听此音色",
+        "voicesShareNotes": "所有 GM 乐器演奏相同的 MIDI 音符",
+        "voicesShareNotesHint": "取消勾选以为每个 GM 乐器指定各自的可演奏音符。",
+        "channelOccupied": "目标通道已被此设备的另一个乐器占用。",
+        "drumChannelOccupied": "通道 10(打击乐)已被另一个乐器占用。请先将其移除,再在此处放置鼓组。",
+        "voiceSaveWarning": "主要设置已保存,但无法保存附加的 GM 音色"
     },
     "playlist": {
         "title": "播放列表",

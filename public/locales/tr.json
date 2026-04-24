@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Desteklenen CC'ler",
         "supportedCcsLabel": "Desteklenen CC'ler (virgülle ayrılmış)",
         "supportedCcsHint": "Bu enstrümanın tüm GM sesleri arasında paylaşılır. Bir enstrümanın işlemediği CC'ler donanım tarafında basitçe göz ardı edilir.",
-        "previewThisVoice": "Bu sesi klavyede önizlemek için tıklayın"
+        "previewThisVoice": "Bu sesi klavyede önizlemek için tıklayın",
+        "voicesShareNotes": "Tüm GM enstrümanları aynı MIDI notalarını çalar",
+        "voicesShareNotesHint": "Her GM enstrümanına kendi çalınabilir notalarını vermek için işareti kaldırın.",
+        "channelOccupied": "Hedef kanal bu cihazdaki başka bir enstrüman tarafından zaten kullanılıyor.",
+        "drumChannelOccupied": "Kanal 10 (perküsyon) zaten başka bir enstrüman tarafından kullanılıyor. Buraya bir davul seti yerleştirmeden önce onu kaldırın.",
+        "voiceSaveWarning": "Ana ayarlar kaydedildi, ancak ek GM sesleri kaydedilemedi"
     },
     "playlist": {
         "title": "Çalma Listeleri",

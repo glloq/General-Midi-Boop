@@ -46,7 +46,8 @@ class InstrumentSettingsDB {
           'custom_name', 'sync_delay', 'mac_address', 'usb_serial_number',
           'name', 'gm_program', 'octave_mode', 'comm_timeout',
           'instrument_type', 'instrument_subtype',
-          'min_note_interval', 'min_note_duration', 'omni_mode'
+          'min_note_interval', 'min_note_duration', 'omni_mode',
+          'voices_share_notes'
         ], { whereClause: 'device_id = ? AND channel = ?' });
 
         if (!result) return existing.id;
@@ -57,8 +58,8 @@ class InstrumentSettingsDB {
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
             id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout, instrument_type, instrument_subtype,
-            min_note_interval, min_note_duration, omni_mode
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            min_note_interval, min_note_duration, omni_mode, voices_share_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -78,7 +79,8 @@ class InstrumentSettingsDB {
           settings.instrument_subtype || null,
           settings.min_note_interval !== undefined ? settings.min_note_interval : null,
           settings.min_note_duration !== undefined ? settings.min_note_duration : null,
-          settings.omni_mode ? 1 : 0
+          settings.omni_mode ? 1 : 0,
+          settings.voices_share_notes === 0 || settings.voices_share_notes === false ? 0 : 1
         );
 
         return id;

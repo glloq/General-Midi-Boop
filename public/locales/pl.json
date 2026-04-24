@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Obsługiwane CC",
         "supportedCcsLabel": "Obsługiwane CC (oddzielone przecinkami)",
         "supportedCcsHint": "Współdzielone przez wszystkie głosy GM tego instrumentu. CC, których instrument nie obsługuje, są po prostu ignorowane po stronie sprzętu.",
-        "previewThisVoice": "Kliknij, aby wyświetlić podgląd tego głosu na klawiaturze"
+        "previewThisVoice": "Kliknij, aby wyświetlić podgląd tego głosu na klawiaturze",
+        "voicesShareNotes": "Wszystkie instrumenty GM grają te same nuty MIDI",
+        "voicesShareNotesHint": "Odznacz, aby każdy instrument GM miał własne grywalne nuty.",
+        "channelOccupied": "Kanał docelowy jest już używany przez inny instrument tego urządzenia.",
+        "drumChannelOccupied": "Kanał 10 (perkusja) jest już używany przez inny instrument. Usuń go najpierw, zanim umieścisz tu zestaw perkusyjny.",
+        "voiceSaveWarning": "Główne ustawienia zostały zapisane, ale dodatkowe głosy GM nie mogły zostać zapisane"
     },
     "playlist": {
         "title": "Playlisty",

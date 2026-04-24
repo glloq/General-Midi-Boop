@@ -21,8 +21,10 @@
     ISMNavigation._switchTab = async function(channel) {
         this.activeChannel = channel;
         this.activeSection = 'identity';
-        // Reset preview routing: each tab starts with its primary voice active.
+        // Reset preview routing + Notes-tab voice pointer: each tab starts
+        // on its primary voice (sharing ON is the default baseline).
         this._previewActiveVoice = null;
+        this._activeNotesVoiceIdx = null;
         this._syncGlobalState();
         this._refreshContent();
         this._updateHeader();
@@ -38,6 +40,10 @@
     };
 
     ISMNavigation._addTab = async function() {
+        // Debounce rapid `+` clicks: a double-click used to spawn two
+        // overlays and race two `instrument_add_to_device` calls.
+        if (this._addingTab) return;
+        this._addingTab = true;
         try {
             const usedChannels = this.instrumentTabs.map(t => t.channel);
             const freeChannels = [];
@@ -90,7 +96,13 @@
             document.body.appendChild(overlay);
 
             const self = this;
-            overlay.querySelector('[data-close-add]').addEventListener('click', function() { overlay.remove(); });
+            // If the user dismisses the overlay without picking a channel
+            // we still need to clear the debounce flag so `+` keeps working.
+            const dismissClosedWithoutPick = function() {
+                overlay.remove();
+                self._addingTab = false;
+            };
+            overlay.querySelector('[data-close-add]').addEventListener('click', dismissClosedWithoutPick);
             overlay.querySelectorAll('.add-inst-channel-btn:not([disabled])').forEach(function(btn) {
                 btn.addEventListener('click', async function() {
                     const ch = parseInt(btn.dataset.channel);
@@ -105,20 +117,31 @@
                         const newTabData = await self._loadChannelData(self.device.id, ch, self.device.type);
                         self.instrumentTabs.push(newTabData);
                         self.instrumentTabs.sort(function(a, b) { return a.channel - b.channel; });
-                        self.activeChannel = ch;
-                        self.activeSection = 'identity';
-                        self._syncGlobalState();
-                        self._refreshContent();
+                        // Use the canonical tab-switch path so per-voice
+                        // preview / Notes state from the previous tab is
+                        // reset (otherwise `_previewActiveVoice` and
+                        // `_activeNotesVoiceIdx` carry over, pointing at
+                        // voices that don't exist on the new tab).
+                        await self._switchTab(ch);
+                        // Mirror the save-path refresh: the parent device
+                        // list should surface the new channel immediately.
+                        if (typeof loadDevices === 'function') await loadDevices();
+                        if (window.instrumentManagementPageInstance) {
+                            await window.instrumentManagementPageInstance.refresh();
+                        }
                     } catch (e) {
                         console.error('Failed to add instrument:', e);
                         if (typeof showAlert === 'function') {
                             await showAlert((self.t('instrumentManagement.addFailed') || 'Erreur') + ': ' + e.message, { title: self.t('common.error') || 'Erreur', icon: '❌' });
                         }
+                    } finally {
+                        self._addingTab = false;
                     }
                 });
             });
         } catch (err) {
             console.error('_addTab error:', err);
+            this._addingTab = false;
         }
     };
 
@@ -142,9 +165,28 @@
                 channel: this.activeChannel
             });
             this.instrumentTabs = this.instrumentTabs.filter(t => t.channel !== this.activeChannel);
-            await this._switchTab(this.instrumentTabs[0].channel);
+            // Defensive: the delete button is hidden when only one tab
+            // remains, but if we ever get here with an empty list just
+            // close the modal cleanly instead of crashing on `[0].channel`.
+            if (this.instrumentTabs.length === 0) {
+                this.close();
+            } else {
+                await this._switchTab(this.instrumentTabs[0].channel);
+            }
+            // Mirror the save-path refresh so the parent device list
+            // doesn't show a stale row after the delete.
+            if (typeof loadDevices === 'function') await loadDevices();
+            if (window.instrumentManagementPageInstance) {
+                await window.instrumentManagementPageInstance.refresh();
+            }
         } catch (e) {
             console.error('Failed to delete instrument:', e);
+            if (typeof showAlert === 'function') {
+                await showAlert(
+                    (this.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ' : ' + (e.message || e),
+                    { title: this.t('common.error') || 'Erreur', icon: '❌' }
+                );
+            }
         }
     };
 

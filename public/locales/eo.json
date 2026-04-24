@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Subtenataj CC",
         "supportedCcsLabel": "Subtenataj CC (apartigitaj per komo)",
         "supportedCcsHint": "Dividita inter ĉiuj GM-voĉoj de ĉi tiu instrumento. CC, kiujn instrumento ne traktas, estas simple ignoritaj ĉe la aparatflanko.",
-        "previewThisVoice": "Klaku por antaŭaŭskulti ĉi tiun voĉon sur la klavaro"
+        "previewThisVoice": "Klaku por antaŭaŭskulti ĉi tiun voĉon sur la klavaro",
+        "voicesShareNotes": "Ĉiuj GM-instrumentoj ludas la samajn MIDI-notojn",
+        "voicesShareNotesHint": "Malmarku por doni al ĉiu GM-instrumento propran ludeblan noto-aron.",
+        "channelOccupied": "La celkanalo jam estas uzata de alia instrumento de ĉi tiu aparato.",
+        "drumChannelOccupied": "Kanalo 10 (perkutado) jam estas uzata de alia instrumento. Forigi ĝin unue antaŭ ol meti drumkiton ĉi tien.",
+        "voiceSaveWarning": "La ĉefaj agordoj estis konservitaj, sed la pliaj GM-voĉoj ne povis esti konservitaj"
     },
     "playlist": {
         "title": "Ludlistoj",

@@ -687,7 +687,12 @@
         "supportedCcsTitle": "CC som stöds",
         "supportedCcsLabel": "CC som stöds (kommaseparerad)",
         "supportedCcsHint": "Delas av alla GM-röster på detta instrument. CC som ett instrument inte hanterar ignoreras helt enkelt på maskinvarusidan.",
-        "previewThisVoice": "Klicka för att förhandslyssna på den här rösten på klaviaturen"
+        "previewThisVoice": "Klicka för att förhandslyssna på den här rösten på klaviaturen",
+        "voicesShareNotes": "Alla GM-instrument spelar samma MIDI-noter",
+        "voicesShareNotesHint": "Avmarkera för att ge varje GM-instrument sina egna spelbara noter.",
+        "channelOccupied": "Målkanalen används redan av ett annat instrument på denna enhet.",
+        "drumChannelOccupied": "Kanal 10 (slagverk) används redan av ett annat instrument. Ta bort det först innan du placerar ett trumset här.",
+        "voiceSaveWarning": "Huvudinställningarna sparades, men de extra GM-rösterna kunde inte sparas"
     },
     "playlist": {
         "title": "Spellistor",

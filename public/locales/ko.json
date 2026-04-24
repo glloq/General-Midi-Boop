@@ -687,7 +687,12 @@
         "supportedCcsTitle": "지원 CC",
         "supportedCcsLabel": "지원 CC (쉼표로 구분)",
         "supportedCcsHint": "이 악기의 모든 GM 보이스에서 공유됩니다. 악기가 처리하지 않는 CC는 하드웨어 쪽에서 단순히 무시됩니다.",
-        "previewThisVoice": "키보드에서 이 보이스를 미리 듣기하려면 클릭"
+        "previewThisVoice": "키보드에서 이 보이스를 미리 듣기하려면 클릭",
+        "voicesShareNotes": "모든 GM 악기가 동일한 MIDI 노트를 연주",
+        "voicesShareNotesHint": "각 GM 악기에 고유한 연주 가능 노트를 설정하려면 체크 해제하세요.",
+        "channelOccupied": "대상 채널은 이 장치의 다른 악기에서 이미 사용 중입니다.",
+        "drumChannelOccupied": "채널 10 (타악기)은 이미 다른 악기에서 사용 중입니다. 여기에 드럼 키트를 배치하기 전에 먼저 제거하세요.",
+        "voiceSaveWarning": "주요 설정은 저장되었지만 추가 GM 보이스는 저장할 수 없습니다"
     },
     "playlist": {
         "title": "재생목록",

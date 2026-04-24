@@ -417,8 +417,21 @@
         const gmProgram = settings.gm_program;
         const isString = typeof isGmStringInstrument === 'function' && isGmStringInstrument(gmProgram);
         const isDrum = this.activeChannel === 9 || (gmProgram !== null && gmProgram !== undefined && gmProgram >= 128);
-        const noteMode = settings.note_selection_mode || 'range';
-        const octaveMode = settings.octave_mode || 'chromatic';
+
+        // Active notes target (primary or one of the voices). Note-range data
+        // is read from this object so per-voice tabs can override the primary.
+        const activeNotes = (typeof this._getActiveNotesTarget === 'function')
+            ? this._getActiveNotesTarget()
+            : { kind: 'primary', idx: null, obj: settings };
+        const notesSrc = activeNotes && activeNotes.obj ? activeNotes.obj : settings;
+
+        const shareNotes = settings.voices_share_notes === 0 || settings.voices_share_notes === false ? false : true;
+        const voices = Array.isArray(tab.voices) ? tab.voices : [];
+        const showShareToggle = voices.length > 0 && !isString && !isDrum;
+        const showVoiceTabs = showShareToggle && !shareNotes;
+
+        const noteMode = notesSrc.note_selection_mode || 'range';
+        const octaveMode = notesSrc.octave_mode || 'chromatic';
 
         // CC data — preserved as-is in a hidden input; only String/Fret CC config is exposed in the UI (strings subsection)
         const currentCCs = settings.supported_ccs
@@ -441,12 +454,57 @@
         }
 
         // Compute playable notes for display info
-        const rangeMin = settings.note_range_min != null ? settings.note_range_min : 21;
-        const rangeMax = settings.note_range_max != null ? settings.note_range_max : 108;
+        const rangeMin = notesSrc.note_range_min != null ? notesSrc.note_range_min : 21;
+        const rangeMax = notesSrc.note_range_max != null ? notesSrc.note_range_max : 108;
         const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, octaveMode);
+
+        // Voice tabs header (shown only when sharing is OFF). The primary is
+        // always the first tab so the user can still edit it from this view.
+        let voiceTabsHtml = '';
+        if (showVoiceTabs) {
+            const activeIdx = this._activeNotesVoiceIdx;
+            const self = this;
+            const tabBtn = function(idx, gmProg, isPrimary) {
+                const icon = window.InstrumentFamilies
+                    ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: gmProg, channel: tab.channel })
+                    : { emoji: '🎵', svgUrl: null, slug: null, name: null };
+                const name = icon.name
+                    || (typeof getGMInstrumentName === 'function' && gmProg != null ? getGMInstrumentName(gmProg) : '—');
+                const isActive = isPrimary ? activeIdx == null : activeIdx === idx;
+                return `<button type="button" class="ism-notes-voice-tab ${isActive ? 'active' : ''}"
+                        data-voice-idx="${isPrimary ? '' : idx}">
+                    <span class="ism-notes-voice-tab-icon">
+                        ${icon.slug ? `<img class="ism-notes-voice-tab-svg" src="${icon.svgUrl}" alt=""
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                        <span class="ism-notes-voice-tab-emoji" style="display:none">${icon.emoji}</span>`
+                        : `<span class="ism-notes-voice-tab-emoji">${icon.emoji}</span>`}
+                    </span>
+                    <span class="ism-notes-voice-tab-name">${self.escape(name)}</span>
+                </button>`;
+            };
+            voiceTabsHtml = `<div class="ism-notes-voice-tabs" id="notesVoiceTabs">
+                ${tabBtn(null, gmProgram, true)}
+                ${voices.map(function(v, i) { return tabBtn(i, v.gm_program, false); }).join('')}
+            </div>`;
+        }
+
+        // Shared/per-voice toggle — only when there are secondary GM voices on
+        // a non-drum, non-string primary (where per-voice note ranges make sense).
+        const shareToggleHtml = showShareToggle
+            ? `<div class="ism-form-group ism-voices-share-group">
+                <label class="ism-voices-share-label">
+                    <input type="checkbox" id="voicesShareNotesCheckbox" ${shareNotes ? 'checked' : ''}>
+                    <span>${this.escape(this.t('instrumentSettings.voicesShareNotes') || 'Tous les instruments GM jouent les mêmes notes MIDI')}</span>
+                </label>
+                <span class="ism-form-hint">${this.escape(this.t('instrumentSettings.voicesShareNotesHint') || 'Décochez pour définir des notes jouables différentes par instrument GM.')}</span>
+            </div>`
+            : '';
 
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎹</span> ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
+
+            ${shareToggleHtml}
+            ${voiceTabsHtml}
 
             ${!isDrum ? `
             <div id="noteSelectionSection" style="${isString ? 'display: none;' : ''}">
@@ -489,9 +547,9 @@
                     </div>
 
                     <input type="hidden" id="noteSelectionModeInput" value="${noteMode}">
-                    <input type="hidden" id="noteRangeMin" value="${settings.note_range_min != null ? settings.note_range_min : ''}">
-                    <input type="hidden" id="noteRangeMax" value="${settings.note_range_max != null ? settings.note_range_max : ''}">
-                    <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
+                    <input type="hidden" id="noteRangeMin" value="${notesSrc.note_range_min != null ? notesSrc.note_range_min : ''}">
+                    <input type="hidden" id="noteRangeMax" value="${notesSrc.note_range_max != null ? notesSrc.note_range_max : ''}">
+                    <input type="hidden" id="selectedNotesInput" value="${notesSrc.selected_notes ? JSON.stringify(notesSrc.selected_notes) : ''}">
                     <input type="hidden" id="octaveModeInput" value="${octaveMode}">
                     <input type="hidden" id="playableNotesInput" value="${JSON.stringify(playableNotes)}">
                 </div>
@@ -500,7 +558,7 @@
             <input type="hidden" id="noteSelectionModeInput" value="discrete">
             <input type="hidden" id="noteRangeMin" value="">
             <input type="hidden" id="noteRangeMax" value="">
-            <input type="hidden" id="selectedNotesInput" value="${settings.selected_notes ? JSON.stringify(settings.selected_notes) : ''}">
+            <input type="hidden" id="selectedNotesInput" value="${notesSrc.selected_notes ? JSON.stringify(notesSrc.selected_notes) : ''}">
             <input type="hidden" id="octaveModeInput" value="chromatic">
             <input type="hidden" id="playableNotesInput" value="[]">
             `}

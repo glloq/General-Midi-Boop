@@ -20,6 +20,7 @@
 import InstrumentDatabase from '../../persistence/tables/InstrumentDatabase.js';
 import InstrumentTypeConfig from '../../midi/adaptation/InstrumentTypeConfig.js';
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
+import { validateVoicePayload } from './InstrumentVoiceCommands.js';
 
 /**
  * Persist per-channel instrument settings (custom name, sync delay,
@@ -101,6 +102,11 @@ async function instrumentUpdateSettings(app, data) {
     data.omni_mode = data.omni_mode ? 1 : 0;
   }
 
+  // Coerce voices_share_notes to 0/1 for SQLite INTEGER CHECK
+  if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
+    data.voices_share_notes = data.voices_share_notes ? 1 : 0;
+  }
+
   // `instruments_latency.device_id` has a FK to `devices(id)`. Ensure
   // the parent row exists (idempotent INSERT OR IGNORE) before the
   // settings row is upserted — otherwise the first save for a newly
@@ -123,7 +129,8 @@ async function instrumentUpdateSettings(app, data) {
     gm_program: data.gm_program,
     octave_mode: data.octave_mode,
     comm_timeout: data.comm_timeout,
-    omni_mode: data.omni_mode
+    omni_mode: data.omni_mode,
+    voices_share_notes: data.voices_share_notes
   });
 
   // Notify routing/playback systems to invalidate cached compensation values
@@ -468,9 +475,208 @@ async function instrumentDelete(app, data) {
     app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
   }
 
+  // Notify routing / clock / playback caches that this (device, channel)
+  // no longer exists — same signal the update handlers emit. Consumers
+  // (MidiRouter, MidiClockGenerator, PlaybackScheduler) ignore the
+  // payload and invalidate wholesale, so broadcasting `channel: null`
+  // for device-wide deletes is safe.
+  app.eventBus?.emit('instrument_settings_changed', {
+    deviceId: data.deviceId,
+    channel: hasChannel ? channel : null
+  });
+
   return {
     success: true
   };
+}
+
+/**
+ * Atomic save for an entire instrument: settings + capabilities +
+ * secondary voices + (optional) string instrument config are all written
+ * inside a single SQLite transaction, so a mid-save failure cannot leave
+ * a partial row. Replaces the old sequence of three separate WebSocket
+ * commands in the UI save path (the individual commands remain registered
+ * for backward compat — e.g. auto-assignment writes capabilities on their
+ * own).
+ *
+ * Payload shape:
+ *   {
+ *     deviceId, channel,
+ *     // settings
+ *     custom_name?, sync_delay?, mac_address?, usb_serial_number?, name?,
+ *     gm_program?, octave_mode?, comm_timeout?,
+ *     min_note_interval?, min_note_duration?, omni_mode?,
+ *     voices_share_notes?,
+ *     // capabilities
+ *     polyphony?, note_range_min?, note_range_max?, supported_ccs?,
+ *     note_selection_mode?, selected_notes?, capabilities_source?,
+ *     // secondary voices (already validated per-voice)
+ *     voices?: Array<VoicePayload>,
+ *     // string instrument (optional — only for fretted/bowed GM programs)
+ *     string_instrument?: Object
+ *   }
+ *
+ * Emits `instrument_settings_changed` once on success.
+ * @throws {ConfigurationError|ValidationError}
+ */
+async function instrumentSaveAll(app, data) {
+  if (!app.database) {
+    throw new ConfigurationError('Database not available');
+  }
+  if (!data.deviceId) {
+    throw new ValidationError('deviceId is required', 'deviceId');
+  }
+
+  // USB serial fallback — same fallback as instrument_update_settings so
+  // a newly-discovered device keeps its identity across re-enumeration.
+  let usbSerialNumber = data.usb_serial_number;
+  if (!usbSerialNumber && app.deviceManager) {
+    const device = app.deviceManager.getDeviceInfo(data.deviceId);
+    if (device && device.usbSerialNumber) usbSerialNumber = device.usbSerialNumber;
+  }
+
+  // Validate identity
+  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
+  if (channel < 0 || channel > 15) {
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
+  }
+
+  // Validate settings fields (same rules as instrument_update_settings)
+  if (data.sync_delay !== undefined) {
+    const parsedDelay = parseInt(data.sync_delay);
+    if (isNaN(parsedDelay) || parsedDelay < -5000 || parsedDelay > 5000) {
+      throw new ValidationError('sync_delay must be between -5000 and 5000 milliseconds', 'sync_delay');
+    }
+    data.sync_delay = parsedDelay;
+  }
+  if (data.gm_program !== undefined && data.gm_program !== null) {
+    const gmProg = parseInt(data.gm_program);
+    if (isNaN(gmProg) || gmProg < 0 || gmProg > 127) {
+      throw new ValidationError('gm_program must be between 0 and 127', 'gm_program');
+    }
+    data.gm_program = gmProg;
+  }
+  if (data.custom_name && data.custom_name.length > 255) {
+    throw new ValidationError('custom_name must not exceed 255 characters', 'custom_name');
+  }
+  if (data.octave_mode !== undefined && data.octave_mode !== null) {
+    const validModes = ['chromatic', 'diatonic', 'pentatonic'];
+    if (!validModes.includes(data.octave_mode)) {
+      throw new ValidationError('octave_mode must be one of: chromatic, diatonic, pentatonic', 'octave_mode');
+    }
+  }
+  if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
+    const timeout = parseInt(data.comm_timeout);
+    if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
+      throw new ValidationError('comm_timeout must be between 100 and 30000 milliseconds', 'comm_timeout');
+    }
+    data.comm_timeout = timeout;
+  }
+  if (data.omni_mode !== undefined && data.omni_mode !== null) {
+    data.omni_mode = data.omni_mode ? 1 : 0;
+  }
+  if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
+    data.voices_share_notes = data.voices_share_notes ? 1 : 0;
+  }
+
+  // Validate capabilities
+  if (data.polyphony !== undefined && data.polyphony !== null) {
+    const poly = parseInt(data.polyphony);
+    if (isNaN(poly) || poly < 1 || poly > 128) {
+      throw new ValidationError('polyphony must be between 1 and 128', 'polyphony');
+    }
+    data.polyphony = poly;
+  }
+  // Cross-field range check at the save-all boundary, mirroring the
+  // per-voice guard in InstrumentVoiceCommands.
+  if (data.note_range_min != null && data.note_range_max != null
+      && parseInt(data.note_range_min) > parseInt(data.note_range_max)) {
+    throw new ValidationError('note_range_min must be <= note_range_max', 'note_range_min');
+  }
+
+  // Validate secondary voices via the shared validator (same contract as
+  // instrument_voice_replace).
+  const rawVoices = Array.isArray(data.voices) ? data.voices : [];
+  const normalizedVoices = rawVoices.map((v) => validateVoicePayload(v));
+
+  // FK guard — ensureDevice is idempotent.
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(
+      data.deviceId,
+      data.name || data.deviceId,
+      'output'
+    );
+  }
+
+  // Run every DB write in a single SQLite transaction so a failure
+  // anywhere rolls back the whole save.
+  const tx = app.instrumentRepository.transaction(() => {
+    app.instrumentRepository.updateSettings(data.deviceId, channel, {
+      custom_name: data.custom_name,
+      sync_delay: data.sync_delay,
+      mac_address: data.mac_address,
+      usb_serial_number: usbSerialNumber,
+      name: data.name,
+      gm_program: data.gm_program,
+      octave_mode: data.octave_mode,
+      comm_timeout: data.comm_timeout,
+      min_note_interval: data.min_note_interval,
+      min_note_duration: data.min_note_duration,
+      omni_mode: data.omni_mode,
+      voices_share_notes: data.voices_share_notes
+    });
+
+    const capPayload = {
+      note_range_min: data.note_range_min,
+      note_range_max: data.note_range_max,
+      supported_ccs: data.supported_ccs,
+      note_selection_mode: data.note_selection_mode,
+      selected_notes: data.selected_notes,
+      polyphony: data.polyphony,
+      capabilities_source: data.capabilities_source || 'manual'
+    };
+    // Only forward hands_config when the caller explicitly sent it, so an
+    // omitted key preserves the existing DB value (same contract as
+    // `instrument_update_capabilities`).
+    if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
+      capPayload.hands_config = data.hands_config;
+    }
+    app.instrumentRepository.updateCapabilities(data.deviceId, channel, capPayload);
+
+    if (data.string_instrument && app.stringInstrumentRepository) {
+      const si = data.string_instrument;
+      app.stringInstrumentRepository.save({
+        device_id: data.deviceId,
+        channel: channel,
+        instrument_name: si.instrument_name,
+        num_strings: si.num_strings,
+        num_frets: si.num_frets,
+        tuning: si.tuning,
+        is_fretless: si.is_fretless,
+        capo_fret: si.capo_fret,
+        cc_enabled: si.cc_enabled,
+        cc_string_number: si.cc_string_number,
+        cc_string_min: si.cc_string_min,
+        cc_string_max: si.cc_string_max,
+        cc_string_offset: si.cc_string_offset,
+        cc_fret_number: si.cc_fret_number,
+        cc_fret_min: si.cc_fret_min,
+        cc_fret_max: si.cc_fret_max,
+        cc_fret_offset: si.cc_fret_offset,
+        frets_per_string: si.frets_per_string
+      });
+    }
+
+    app.instrumentRepository.replaceVoices(data.deviceId, channel, normalizedVoices);
+  });
+  tx();
+
+  app.eventBus?.emit('instrument_settings_changed', {
+    deviceId: data.deviceId,
+    channel: channel
+  });
+
+  return { success: true };
 }
 
 /**
@@ -487,6 +693,7 @@ export function register(registry, app) {
   registry.register('instrument_list_registered', () => instrumentListRegistered(app));
   registry.register('instrument_list_connected', () => instrumentListConnected(app));
   registry.register('instrument_delete', (data) => instrumentDelete(app, data));
+  registry.register('instrument_save_all', (data) => instrumentSaveAll(app, data));
   registry.register('instrument_types_list', () => ({
     categories: InstrumentTypeConfig.getCategories(),
     hierarchy: InstrumentTypeConfig.hierarchy,

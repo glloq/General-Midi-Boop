@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Támogatott CC-k",
         "supportedCcsLabel": "Támogatott CC-k (vesszővel elválasztva)",
         "supportedCcsHint": "A hangszer összes GM hangja között megosztva. A hangszer által nem kezelt CC-ket a hardver oldalán egyszerűen figyelmen kívül hagyják.",
-        "previewThisVoice": "Kattintson a hang előnézetéhez a billentyűzeten"
+        "previewThisVoice": "Kattintson a hang előnézetéhez a billentyűzeten",
+        "voicesShareNotes": "Minden GM hangszer ugyanazokat a MIDI hangokat játssza",
+        "voicesShareNotesHint": "Szüntesd meg a jelölést, hogy minden GM hangszernek saját játszható hangjai legyenek.",
+        "channelOccupied": "A célcsatornát már egy másik hangszer használja ezen az eszközön.",
+        "drumChannelOccupied": "A 10. csatornát (ütőhangszerek) már egy másik hangszer használja. Távolítsd el először, mielőtt ide dobfelszerelést helyezel.",
+        "voiceSaveWarning": "A fő beállítások mentésre kerültek, de a további GM hangokat nem sikerült menteni"
     },
     "playlist": {
         "title": "Lejátszási listák",

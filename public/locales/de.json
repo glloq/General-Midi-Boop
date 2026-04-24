@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Unterstützte CCs",
         "supportedCcsLabel": "Unterstützte CCs (kommagetrennt)",
         "supportedCcsHint": "Wird von allen GM-Stimmen dieses Instruments gemeinsam genutzt. CCs, die ein Instrument nicht versteht, werden hardwareseitig einfach ignoriert.",
-        "previewThisVoice": "Klicken, um diese Stimme auf dem Keyboard vorzuhören"
+        "previewThisVoice": "Klicken, um diese Stimme auf dem Keyboard vorzuhören",
+        "voicesShareNotes": "Alle GM-Instrumente spielen dieselben MIDI-Noten",
+        "voicesShareNotesHint": "Deaktivieren, um jedem GM-Instrument eigene spielbare Noten zuzuweisen.",
+        "channelOccupied": "Der Zielkanal wird bereits von einem anderen Instrument dieses Geräts verwendet.",
+        "drumChannelOccupied": "Kanal 10 (Percussion) wird bereits von einem anderen Instrument verwendet. Entferne es zuerst, bevor du hier ein Schlagzeug-Kit platzierst.",
+        "voiceSaveWarning": "Die Haupteinstellungen wurden gespeichert, aber die zusätzlichen GM-Stimmen konnten nicht gespeichert werden"
     },
     "playlist": {
         "title": "Playlists",

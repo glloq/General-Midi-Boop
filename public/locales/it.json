@@ -687,7 +687,12 @@
         "supportedCcsTitle": "CC supportati",
         "supportedCcsLabel": "CC supportati (separati da virgole)",
         "supportedCcsHint": "Condiviso tra tutte le voci GM di questo strumento. I CC non gestiti da uno strumento sono semplicemente ignorati lato hardware.",
-        "previewThisVoice": "Clicca per visualizzare in anteprima questa voce sulla tastiera"
+        "previewThisVoice": "Clicca per visualizzare in anteprima questa voce sulla tastiera",
+        "voicesShareNotes": "Tutti gli strumenti GM suonano le stesse note MIDI",
+        "voicesShareNotesHint": "Deseleziona per dare a ogni strumento GM le proprie note suonabili.",
+        "channelOccupied": "Il canale di destinazione è già usato da un altro strumento di questo dispositivo.",
+        "drumChannelOccupied": "Il canale 10 (percussioni) è già usato da un altro strumento. Rimuovilo prima di posizionare una batteria qui.",
+        "voiceSaveWarning": "Le impostazioni principali sono state salvate, ma le voci GM aggiuntive non sono state salvate"
     },
     "playlist": {
         "title": "Playlist",

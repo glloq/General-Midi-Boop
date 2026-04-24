@@ -687,7 +687,12 @@
         "supportedCcsTitle": "Podporované CC",
         "supportedCcsLabel": "Podporované CC (oddělené čárkou)",
         "supportedCcsHint": "Sdíleno napříč všemi GM hlasy tohoto nástroje. CC, kterým nástroj nerozumí, jsou jednoduše ignorovány na hardwarové straně.",
-        "previewThisVoice": "Klikněte pro náhled tohoto hlasu na klávesnici"
+        "previewThisVoice": "Klikněte pro náhled tohoto hlasu na klávesnici",
+        "voicesShareNotes": "Všechny GM nástroje hrají stejné MIDI noty",
+        "voicesShareNotesHint": "Odznačte, abyste každému GM nástroji nastavili vlastní hratelné noty.",
+        "channelOccupied": "Cílový kanál již používá jiný nástroj tohoto zařízení.",
+        "drumChannelOccupied": "Kanál 10 (perkuse) již používá jiný nástroj. Nejprve jej odstraňte, než sem umístíte bicí sadu.",
+        "voiceSaveWarning": "Hlavní nastavení byla uložena, ale další GM hlasy se nepodařilo uložit"
     },
     "playlist": {
         "title": "Playlisty",

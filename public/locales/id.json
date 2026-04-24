@@ -687,7 +687,12 @@
         "supportedCcsTitle": "CC yang didukung",
         "supportedCcsLabel": "CC yang didukung (dipisahkan koma)",
         "supportedCcsHint": "Dibagikan ke semua suara GM instrumen ini. CC yang tidak ditangani instrumen cukup diabaikan di sisi perangkat keras.",
-        "previewThisVoice": "Klik untuk pratinjau suara ini di keyboard"
+        "previewThisVoice": "Klik untuk pratinjau suara ini di keyboard",
+        "voicesShareNotes": "Semua instrumen GM memainkan nada MIDI yang sama",
+        "voicesShareNotesHint": "Hapus centang untuk memberikan setiap instrumen GM nada yang dapat dimainkan sendiri.",
+        "channelOccupied": "Kanal target sudah digunakan oleh instrumen lain di perangkat ini.",
+        "drumChannelOccupied": "Kanal 10 (perkusi) sudah digunakan oleh instrumen lain. Hapus dulu sebelum meletakkan drum kit di sini.",
+        "voiceSaveWarning": "Pengaturan utama disimpan, tetapi suara GM tambahan tidak dapat disimpan"
     },
     "playlist": {
         "title": "Daftar Putar",

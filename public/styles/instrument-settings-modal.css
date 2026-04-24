@@ -1889,6 +1889,105 @@ body.dark-mode .ism-selected-instrument.ism-preview-active {
   gap: 6px;
 }
 
+/* --- Notes tab: "voices share notes" checkbox + per-voice tab bar --- */
+.ism-voices-share-group {
+  margin-bottom: 10px;
+}
+
+.ism-voices-share-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
+}
+
+.ism-voices-share-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.ism-notes-voice-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.ism-notes-voice-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-secondary, #f9fafb);
+  color: var(--text-secondary, #6b7280);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  top: 1px;
+  max-width: 200px;
+}
+
+.ism-notes-voice-tab:hover:not(.active) {
+  background: rgba(102, 126, 234, 0.06);
+  color: var(--text-primary, #1f2937);
+}
+
+.ism-notes-voice-tab.active {
+  background: var(--bg-primary, white);
+  color: var(--accent-primary, #667eea);
+  border-color: var(--border-color, #e5e7eb);
+  border-bottom-color: var(--bg-primary, white);
+  cursor: default;
+}
+
+.ism-notes-voice-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ism-notes-voice-tab-svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.ism-notes-voice-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.dark-mode .ism-notes-voice-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .ism-notes-voice-tab.active {
+  background: var(--bg-primary, #111827);
+  color: #93c5fd;
+  border-bottom-color: var(--bg-primary, #111827);
+}
+
 .ism-selected-secondary {
   padding: 8px 12px;
   border-style: dashed;

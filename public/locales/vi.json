@@ -687,7 +687,12 @@
         "supportedCcsTitle": "CC được hỗ trợ",
         "supportedCcsLabel": "CC được hỗ trợ (phân cách bằng dấu phẩy)",
         "supportedCcsHint": "Dùng chung cho tất cả các giọng GM của nhạc cụ này. Các CC mà một nhạc cụ không xử lý sẽ đơn giản bị bỏ qua ở phía phần cứng.",
-        "previewThisVoice": "Nhấp để nghe thử giọng này trên bàn phím"
+        "previewThisVoice": "Nhấp để nghe thử giọng này trên bàn phím",
+        "voicesShareNotes": "Tất cả nhạc cụ GM chơi cùng các nốt MIDI",
+        "voicesShareNotesHint": "Bỏ chọn để đặt cho mỗi nhạc cụ GM những nốt có thể chơi riêng.",
+        "channelOccupied": "Kênh đích đã được sử dụng bởi một nhạc cụ khác trên thiết bị này.",
+        "drumChannelOccupied": "Kênh 10 (gõ) đã được sử dụng bởi một nhạc cụ khác. Hãy xóa nó trước khi đặt bộ trống ở đây.",
+        "voiceSaveWarning": "Các cài đặt chính đã được lưu, nhưng các giọng GM bổ sung không thể được lưu"
     },
     "playlist": {
         "title": "Danh sách phát",
