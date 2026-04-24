@@ -673,7 +673,8 @@
         "addVoice": "Add a voice",
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
-        "previewPickInstrument": "🎵 Pick an instrument to enable the preview"
+        "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
+        "previewLoadingBank": "사운드 뱅크 로딩 중"
     },
     "playlist": {
         "title": "재생목록",

@@ -673,7 +673,8 @@
         "addVoice": "Add a voice",
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
-        "previewPickInstrument": "🎵 Pick an instrument to enable the preview"
+        "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
+        "previewLoadingBank": "Загрузка банка звуков"
     },
     "playlist": {
         "title": "Плейлисты",

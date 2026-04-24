@@ -680,7 +680,8 @@
         "deleteVoice": "Remove this voice",
         "voiceCcs": "Supported CCs (comma-separated)",
         "gmCategory": "Instrument",
-        "previewPickInstrument": "🎵 Pick an instrument to enable the preview"
+        "previewPickInstrument": "🎵 Pick an instrument to enable the preview",
+        "previewLoadingBank": "Loading sound bank"
     },
     "playlist": {
         "title": "Playlists",

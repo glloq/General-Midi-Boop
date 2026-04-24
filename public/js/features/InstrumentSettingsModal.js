@@ -436,7 +436,11 @@ class InstrumentSettingsModal extends BaseModal {
             return;
         }
 
-        slot.innerHTML = isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano();
+        const loadingMarkup = `<span class="ism-preview-loading" style="display:none;">
+            <span class="ism-preview-loading-dot"></span>
+            <span class="ism-preview-loading-text"></span>
+        </span>`;
+        slot.innerHTML = loadingMarkup + (isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano());
         this._wirePreviewKeyboardListeners();
     }
 
@@ -501,73 +505,180 @@ class InstrumentSettingsModal extends BaseModal {
         }
     }
 
+    /**
+     * Lazily create (and reuse across modal opens) a local MidiSynthesizer for
+     * sound preview. The preview never sends MIDI to the physical instrument —
+     * it plays the sound of the currently-selected system soundbank locally.
+     */
+    _getPreviewSynth() {
+        if (window.__ismPreviewSynth && window.__ismPreviewSynth.isInitialized) {
+            return Promise.resolve(window.__ismPreviewSynth);
+        }
+        if (window.__ismPreviewSynthInit) return window.__ismPreviewSynthInit;
+        window.__ismPreviewSynthInit = (async () => {
+            if (typeof MidiSynthesizer !== 'function') return null;
+            const synth = new MidiSynthesizer();
+            const ok = await synth.initialize();
+            if (!ok) return null;
+            window.__ismPreviewSynth = synth;
+            return synth;
+        })();
+        return window.__ismPreviewSynthInit;
+    }
+
+    _syncPreviewBank(synth) {
+        if (!synth || typeof MidiSynthesizer !== 'function') return;
+        try {
+            const saved = MidiSynthesizer.getSavedBank && MidiSynthesizer.getSavedBank();
+            if (saved && synth.setSoundBank && saved !== synth.currentBankId) {
+                synth.setSoundBank(saved);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    _getCurrentBankLabel() {
+        try {
+            const savedId = MidiSynthesizer.getSavedBank ? MidiSynthesizer.getSavedBank() : null;
+            const banks = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.SOUND_BANKS) || [];
+            const bank = banks.find(b => b.id === savedId);
+            return bank ? (bank.label || bank.id) : (savedId || '');
+        } catch (e) { return ''; }
+    }
+
+    _showPreviewLoading() {
+        const slot = this.$('#ismPreviewSlot');
+        if (!slot) return;
+        const loader = slot.querySelector('.ism-preview-loading');
+        if (!loader) return;
+        const label = this._getCurrentBankLabel();
+        const baseMsg = this.t('instrumentSettings.previewLoadingBank') || 'Chargement banque son';
+        const fullMsg = label ? `${baseMsg} · ${label}…` : `${baseMsg}…`;
+        const txt = loader.querySelector('.ism-preview-loading-text');
+        if (txt) txt.textContent = fullMsg;
+        loader.title = label || '';
+        loader.style.display = '';
+    }
+
+    _hidePreviewLoading() {
+        const slot = this.$('#ismPreviewSlot');
+        if (!slot) return;
+        const loader = slot.querySelector('.ism-preview-loading');
+        if (loader) loader.style.display = 'none';
+    }
+
+    /**
+     * Ensure the instrument (melodic GM program or drum note preset) is loaded
+     * before playing. Shows/hides the header loading indicator while lazy-loading.
+     */
+    async _ensurePreviewLoaded(synth, isDrumKit, gmProgram, note) {
+        if (!synth) return false;
+        this._syncPreviewBank(synth);
+        let needsLoad = false;
+        let loadPromise = null;
+        if (isDrumKit) {
+            if (synth.drumPresetMap && synth.drumPresetMap[note] && !synth.drumPresets.has(note)) {
+                needsLoad = true;
+                loadPromise = synth._loadDrumPreset(note);
+            }
+        } else {
+            const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
+            if (!synth.loadedInstruments.has(prog)) {
+                needsLoad = true;
+                loadPromise = synth.loadInstrument(prog);
+            }
+        }
+        if (needsLoad) {
+            this._showPreviewLoading();
+            try { await loadPromise; }
+            catch (e) { /* ignore */ }
+            finally {
+                if (!synth.loadingInstruments || synth.loadingInstruments.size === 0) {
+                    this._hidePreviewLoading();
+                }
+            }
+        }
+        return true;
+    }
+
     _previewNoteOn(note, el) {
-        if (!this.device || !this.device.id || isNaN(note)) return;
+        if (isNaN(note)) return;
         if (!this._previewActive) this._previewActive = new Set();
         if (this._previewActive.has(note)) return;
         this._previewActive.add(note);
         if (el) el.classList.add('active');
+
         const tab = this._getActiveTab();
-        const channel = tab ? tab.channel : 0;
-        try {
-            this.api.sendCommand('midi_send', {
-                deviceId: this.device.id,
-                channel: channel,
-                type: 'noteon',
-                note: note,
-                velocity: 100
-            });
-        } catch (e) { /* ignore */ }
+        const gmProgram = tab ? tab.settings.gm_program : null;
+        const rawChannel = tab ? tab.channel : 0;
+        const isDrumKit = rawChannel === 9 || (gmProgram != null && gmProgram >= 128);
+        const synthChannel = isDrumKit ? 9 : 0;
+        const program = (gmProgram != null && !isDrumKit) ? (gmProgram & 0x7f) : 0;
+
+        const self = this;
+        (async () => {
+            const synth = await self._getPreviewSynth();
+            if (!synth) return;
+            try {
+                if (synth.audioContext && synth.audioContext.state === 'suspended') {
+                    await synth.audioContext.resume();
+                }
+            } catch (e) { /* ignore */ }
+            await self._ensurePreviewLoaded(synth, isDrumKit, program, note);
+            // User already released the key before loading finished — don't play
+            if (!self._previewActive.has(note)) return;
+            if (!isDrumKit && typeof synth.setChannelInstrument === 'function') {
+                synth.setChannelInstrument(synthChannel, program);
+            }
+            try { synth.playNote(note, 100, synthChannel, 1.8); }
+            catch (e) { /* ignore */ }
+        })();
     }
 
     _previewNoteOff(note, el) {
-        if (!this.device || !this.device.id || isNaN(note)) return;
+        if (isNaN(note)) return;
         if (this._previewActive) this._previewActive.delete(note);
         if (el) el.classList.remove('active');
-        const tab = this._getActiveTab();
-        const channel = tab ? tab.channel : 0;
-        try {
-            this.api.sendCommand('midi_send', {
-                deviceId: this.device.id,
-                channel: channel,
-                type: 'noteoff',
-                note: note,
-                velocity: 0
-            });
-        } catch (e) { /* ignore */ }
     }
 
     _previewAllNotesOff() {
-        if (!this._previewActive || this._previewActive.size === 0) return;
-        if (!this.device || !this.device.id) { this._previewActive.clear(); return; }
-        const tab = this._getActiveTab();
-        const channel = tab ? tab.channel : 0;
-        const notes = [...this._previewActive];
-        this._previewActive.clear();
-        this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function(el) { el.classList.remove('active'); });
-        for (const n of notes) {
-            try {
-                this.api.sendCommand('midi_send', {
-                    deviceId: this.device.id,
-                    channel: channel,
-                    type: 'noteoff',
-                    note: n,
-                    velocity: 0
-                });
-            } catch (e) { /* ignore */ }
-        }
+        if (this._previewActive) this._previewActive.clear();
+        this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function(el) {
+            el.classList.remove('active');
+        });
     }
 
+    /**
+     * Called when the user picks a new GM program. Instead of sending a MIDI
+     * program change to the physical instrument, pre-load the soundbank voice
+     * locally so the header preview is responsive when hovered.
+     */
     _sendPreviewProgramChange(program, channel) {
-        if (!this.device || !this.device.id || program == null) return;
-        try {
-            this.api.sendCommand('midi_send', {
-                deviceId: this.device.id,
-                channel: channel,
-                type: 'program',
-                program: program
-            });
-        } catch (e) { /* ignore */ }
+        if (program == null) return;
+        const isDrum = channel === 9 || program >= 128;
+        const self = this;
+        (async () => {
+            const synth = await self._getPreviewSynth();
+            if (!synth) return;
+            self._syncPreviewBank(synth);
+            if (isDrum) {
+                const padNotes = [36, 38, 42, 46, 50, 45, 49, 51];
+                const missing = padNotes.filter(n =>
+                    synth.drumPresetMap && synth.drumPresetMap[n] && !synth.drumPresets.has(n)
+                );
+                if (missing.length === 0) return;
+                self._showPreviewLoading();
+                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n))); }
+                catch (e) { /* ignore */ }
+                finally { self._hidePreviewLoading(); }
+            } else {
+                const prog = program & 0x7f;
+                if (synth.loadedInstruments.has(prog)) return;
+                self._showPreviewLoading();
+                try { await synth.loadInstrument(prog); }
+                catch (e) { /* ignore */ }
+                finally { self._hidePreviewLoading(); }
+            }
+        })();
     }
 
     // ========== HEADER ==========

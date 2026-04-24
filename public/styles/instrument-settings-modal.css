@@ -1897,6 +1897,7 @@ body.dark-mode .ism-delete-instrument:hover {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -1905,6 +1906,39 @@ body.dark-mode .ism-delete-instrument:hover {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
   font-style: italic;
+}
+
+/* ---- Soundbank lazy-loading indicator ---- */
+.ism-preview-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffd85c;
+  font-size: 11px;
+  font-weight: 500;
+  font-style: italic;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ism-preview-loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffd85c;
+  animation: ism-preview-loading-pulse 0.9s ease-in-out infinite;
+}
+
+.ism-preview-loading-text {
+  line-height: 1;
+}
+
+@keyframes ism-preview-loading-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.1);  }
 }
 
 /* ---- Mini piano (1 octave) ---- */
