@@ -818,10 +818,16 @@ class MidiSynthesizer {
     }
 
     /**
-     * Play a note
+     * Play a note.
+     *
+     * @returns {?Array<Object>} The envelope objects scheduled for this note
+     *   (dry + reverb + echo). Callers that need to stop the note early
+     *   (e.g. the instrument-settings preview keyboard) can iterate and
+     *   call `envelope.cancel()`. Returns `null` if the note could not be
+     *   scheduled (synth not initialized, instrument missing, error).
      */
     playNote(note, velocity, channel, duration, time = null) {
-        if (!this.isInitialized || !this.player) return;
+        if (!this.isInitialized || !this.player) return null;
 
         const startTime = time || this.audioContext.currentTime;
 
@@ -845,9 +851,10 @@ class MidiSynthesizer {
         }
 
         if (!instrument) {
-            return;
+            return null;
         }
 
+        const scheduled = [];
         try {
             // For drums: apply minimum durations and hi-hat choke
             let effectiveDuration = duration;
@@ -884,6 +891,7 @@ class MidiSynthesizer {
                     );
                     if (reverbEnvelope) {
                         this.activeEnvelopes.push(reverbEnvelope);
+                        scheduled.push(reverbEnvelope);
                     }
                 } else if (this.drumDryGain) {
                     outputNode = this.drumDryGain;
@@ -905,6 +913,7 @@ class MidiSynthesizer {
                     );
                     if (reverbEnvelope) {
                         this.activeEnvelopes.push(reverbEnvelope);
+                        scheduled.push(reverbEnvelope);
                     }
                 }
             }
@@ -921,6 +930,7 @@ class MidiSynthesizer {
 
             if (envelope) {
                 this.activeEnvelopes.push(envelope);
+                scheduled.push(envelope);
                 // Track drum envelopes for hi-hat choke
                 if (channel === 9) {
                     this.drumActiveNotes.set(note, envelope);
@@ -942,11 +952,14 @@ class MidiSynthesizer {
                 );
                 if (echoEnvelope) {
                     this.activeEnvelopes.push(echoEnvelope);
+                    scheduled.push(echoEnvelope);
                 }
             }
         } catch (error) {
             // Silently ignore errors
         }
+
+        return scheduled.length > 0 ? scheduled : null;
     }
 
     /**

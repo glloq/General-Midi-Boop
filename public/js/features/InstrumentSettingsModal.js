@@ -624,9 +624,23 @@ class InstrumentSettingsModal extends BaseModal {
         return true;
     }
 
+    _cancelPreviewEnvelope(note) {
+        if (!this._previewEnvelopes) return;
+        const envs = this._previewEnvelopes.get(note);
+        if (envs) {
+            for (const env of envs) {
+                try {
+                    if (env && typeof env.cancel === 'function') env.cancel();
+                } catch (e) { /* ignore */ }
+            }
+            this._previewEnvelopes.delete(note);
+        }
+    }
+
     _previewNoteOn(note, el) {
         if (isNaN(note)) return;
         if (!this._previewActive) this._previewActive = new Set();
+        if (!this._previewEnvelopes) this._previewEnvelopes = new Map();
         if (this._previewActive.has(note)) return;
         this._previewActive.add(note);
         if (el) el.classList.add('active');
@@ -651,8 +665,22 @@ class InstrumentSettingsModal extends BaseModal {
             if (!isDrumKit && typeof synth.setChannelInstrument === 'function') {
                 synth.setChannelInstrument(synthChannel, program);
             }
-            try { synth.playNote(note, 100, synthChannel, 1.8); }
-            catch (e) { /* ignore */ }
+            // Long duration (30 s) acts as a safety net — the envelope is
+            // cancelled explicitly in _previewNoteOff when the pointer leaves
+            // the key, so the real "sustain" length is how long the user
+            // hovers. This replaces the old fixed 1.8 s behaviour, which
+            // caused overlapping sustained notes when sliding across keys.
+            try {
+                const envelopes = synth.playNote(note, 100, synthChannel, 30);
+                if (envelopes && self._previewActive.has(note)) {
+                    self._previewEnvelopes.set(note, envelopes);
+                } else if (envelopes) {
+                    // mouseleave fired between load and scheduling — cancel now
+                    for (const env of envelopes) {
+                        try { if (env.cancel) env.cancel(); } catch (e) { /* ignore */ }
+                    }
+                }
+            } catch (e) { /* ignore */ }
         })();
     }
 
@@ -660,6 +688,7 @@ class InstrumentSettingsModal extends BaseModal {
         if (isNaN(note)) return;
         if (this._previewActive) this._previewActive.delete(note);
         if (el) el.classList.remove('active');
+        this._cancelPreviewEnvelope(note);
     }
 
     _previewAllNotesOff() {
@@ -667,6 +696,16 @@ class InstrumentSettingsModal extends BaseModal {
         this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function(el) {
             el.classList.remove('active');
         });
+        if (this._previewEnvelopes) {
+            for (const envs of this._previewEnvelopes.values()) {
+                for (const env of envs) {
+                    try {
+                        if (env && typeof env.cancel === 'function') env.cancel();
+                    } catch (e) { /* ignore */ }
+                }
+            }
+            this._previewEnvelopes.clear();
+        }
     }
 
     /**

@@ -303,7 +303,6 @@
         const editTitle = this.t('instrumentSettings.editInstrument') || 'Modifier l\'instrument';
         const delTitle = this.t('instrumentSettings.deleteInstrument') || 'Effacer l\'instrument';
         const addLabel = this.t('instrumentSettings.addGmInstrument') || 'Ajouter un instrument GM';
-        const secondaryLabel = this.t('instrumentSettings.secondaryVoices') || 'Voix supplémentaires';
         const previewTitle = this.t('instrumentSettings.previewThisVoice') || 'Cliquez pour prévisualiser cette voix';
         // Which row is currently routed to the preview keyboard?
         // null => primary voice, number => index in tab.voices.
@@ -366,14 +365,11 @@
             <span class="ism-add-gm-label">${this.escape(addLabel)}</span>
         </button>`;
 
-        const secondaryWrap = (voices.length > 0)
-            ? `<div class="ism-secondary-voices-wrap">
-                    <div class="ism-secondary-voices-label">${this.escape(secondaryLabel)}</div>
-                    <div class="ism-secondary-voices-list">${voiceRows}</div>
-                </div>`
-            : '';
+        // Primary and secondary voices live in the same stacked list with
+        // consistent spacing — no "Voix supplémentaires" header or separator.
+        const listHtml = `<div class="ism-selected-list">${primaryHtml}${voiceRows}</div>`;
 
-        return primaryHtml + secondaryWrap + addBtnHtml;
+        return listHtml + addBtnHtml;
     };
 
     ISMSections._renderSysexIdentityCard = function(identity) {
