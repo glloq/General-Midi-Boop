@@ -18,6 +18,13 @@
  *                          mechanical hand so its leftmost finger sits
  *                          on this note".
  *
+ * Simplified per-hand model: each hand only stores `cc_position_number`
+ * and `hand_span_semitones`. The reachable note range is derived from
+ * the instrument's own `note_range_min`/`note_range_max`; the minimum
+ * gap between notes comes from the instrument's `min_note_interval`;
+ * the mechanical travel speed is a single value shared by both hands
+ * (`hands_config.hand_move_semitones_per_sec`).
+ *
  * Emission timing (the "as early as possible" rule):
  *   When a new window is needed (a note falls outside the current one),
  *   the CC is scheduled at `last_note_on_in_prev_window + EPSILON`. This
@@ -26,10 +33,9 @@
  *   (`t_first - EPSILON`) so the hand is pre-positioned on file start.
  *
  * Warning codes (all non-blocking):
- *   - `move_too_fast`            — hand_move_semitones_per_sec too slow for the shift.
- *   - `overpolyphony_hand`       — simultaneous notes on one hand > fingers.
- *   - `finger_interval_violated` — gap between two notes < finger_min_interval_ms.
- *   - `out_of_range`             — note outside [note_range_min, note_range_max].
+ *   - `move_too_fast`            — travel speed too slow for the shift.
+ *   - `finger_interval_violated` — gap between two notes on the same hand < instrument's `min_note_interval`.
+ *   - `out_of_range`             — note outside the instrument's playable range.
  *   - `chord_span_exceeded`      — chord width > hand_span_semitones (forced shift, one note may still be uncomfortable).
  */
 
@@ -40,14 +46,21 @@ const CHORD_GROUPING_TOLERANCE = 0.002;
 class HandPositionPlanner {
   /**
    * @param {Object} handsConfig - Validated `hands_config` payload.
+   * @param {number} [handsConfig.hand_move_semitones_per_sec] - Shared travel speed.
    * @param {Array<{id:string, cc_position_number:number,
-   *                note_range_min?:number, note_range_max?:number,
-   *                hand_span_semitones:number, polyphony?:number,
-   *                finger_min_interval_ms?:number,
-   *                hand_move_semitones_per_sec?:number}>} handsConfig.hands
+   *                hand_span_semitones:number}>} handsConfig.hands
+   * @param {Object} [instrumentContext] - Fields pulled from the owning
+   *   instrument's capabilities. All optional; when absent the matching
+   *   check is skipped (preserves pre-feature behavior).
+   * @param {number} [instrumentContext.noteRangeMin] - Lowest playable note.
+   * @param {number} [instrumentContext.noteRangeMax] - Highest playable note.
+   * @param {number} [instrumentContext.minNoteIntervalMs] - Min gap between
+   *   consecutive notes on the same hand (milliseconds). 0 or null disables
+   *   the `finger_interval_violated` warning.
    */
-  constructor(handsConfig) {
+  constructor(handsConfig, instrumentContext) {
     this.config = handsConfig || {};
+    this.ctx = instrumentContext || {};
     this.handById = new Map();
     for (const h of (this.config.hands || [])) {
       this.handById.set(h.id, h);
@@ -89,38 +102,33 @@ class HandPositionPlanner {
     // Group simultaneous notes per hand into chords.
     const groups = this._groupByHandAndTime(notes);
 
+    const instrumentMin = this.ctx.noteRangeMin;
+    const instrumentMax = this.ctx.noteRangeMax;
+    const commonSpeed = this.config.hand_move_semitones_per_sec || 60;
+    const minIntervalMs = this.ctx.minNoteIntervalMs ?? 0;
+
     for (const g of groups) {
       const hand = this.handById.get(g.hand);
       if (!hand) continue; // unknown hand id — skip defensively
       const s = state.get(g.hand);
 
-      // Out-of-range check per note.
+      // Out-of-range check per note, against the instrument's playable range.
       for (const nIdx of g.notes) {
         const n = notes[nIdx];
-        if (hand.note_range_min != null && n.note < hand.note_range_min) {
+        if (instrumentMin != null && n.note < instrumentMin) {
           warnings.push({
             time: n.time, hand: g.hand, note: n.note,
             code: 'out_of_range',
-            message: `Note ${n.note} < hand range min ${hand.note_range_min}`
+            message: `Note ${n.note} < instrument range min ${instrumentMin}`
           });
         }
-        if (hand.note_range_max != null && n.note > hand.note_range_max) {
+        if (instrumentMax != null && n.note > instrumentMax) {
           warnings.push({
             time: n.time, hand: g.hand, note: n.note,
             code: 'out_of_range',
-            message: `Note ${n.note} > hand range max ${hand.note_range_max}`
+            message: `Note ${n.note} > instrument range max ${instrumentMax}`
           });
         }
-      }
-
-      // Polyphony (fingers) check.
-      const polyphony = hand.polyphony ?? 5;
-      if (g.notes.length > polyphony) {
-        warnings.push({
-          time: g.time, hand: g.hand, note: null,
-          code: 'overpolyphony_hand',
-          message: `${g.notes.length} simultaneous notes > ${polyphony} fingers`
-        });
       }
 
       // Chord span check + window decision.
@@ -157,16 +165,16 @@ class HandPositionPlanner {
           newLow = Math.max(groupLow, groupHigh - span);
         }
 
-        // Clamp the anchor to the hand's physical range so the CC we
-        // send is always a note the hand can actually reach. The note
-        // itself may still be out-of-range (reported separately as
+        // Clamp the anchor to the instrument's playable range so the
+        // CC we send is always a note the hand can actually reach. The
+        // note itself may still be out-of-range (reported separately as
         // `out_of_range`); clamping keeps the hardware safe by not
         // commanding it to move somewhere it cannot go.
-        if (hand.note_range_min != null && newLow < hand.note_range_min) {
-          newLow = hand.note_range_min;
+        if (instrumentMin != null && newLow < instrumentMin) {
+          newLow = instrumentMin;
         }
-        if (hand.note_range_max != null && newLow + span > hand.note_range_max) {
-          newLow = Math.max(hand.note_range_min ?? 0, hand.note_range_max - span);
+        if (instrumentMax != null && newLow + span > instrumentMax) {
+          newLow = Math.max(instrumentMin ?? 0, instrumentMax - span);
         }
 
         // Emit CC as early as possible.
@@ -179,8 +187,7 @@ class HandPositionPlanner {
           ccTime = (s.lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
           // Feasibility: enough time to physically move?
           const travelSemitones = Math.abs(newLow - s.windowLowest);
-          const speed = hand.hand_move_semitones_per_sec || 60;
-          const requiredSec = travelSemitones / speed;
+          const requiredSec = travelSemitones / commonSpeed;
           const availableSec = g.time - ccTime;
           if (requiredSec > availableSec) {
             warnings.push({
@@ -206,16 +213,16 @@ class HandPositionPlanner {
       }
 
       // Finger-interval check between consecutive single-note events on
-      // the same hand (chord-internal simultaneity does not count).
+      // the same hand (chord-internal simultaneity does not count). The
+      // minimum gap is the instrument-wide `min_note_interval`.
       if (g.notes.length === 1) {
-        const minInterval = hand.finger_min_interval_ms ?? 0;
-        if (s.lastSingleNoteOnTime != null && minInterval > 0) {
+        if (s.lastSingleNoteOnTime != null && minIntervalMs > 0) {
           const deltaMs = (g.time - s.lastSingleNoteOnTime) * 1000;
-          if (deltaMs < minInterval) {
+          if (deltaMs < minIntervalMs) {
             warnings.push({
               time: g.time, hand: g.hand, note: null,
               code: 'finger_interval_violated',
-              message: `Gap ${deltaMs.toFixed(0)}ms < min ${minInterval}ms between notes`
+              message: `Gap ${deltaMs.toFixed(0)}ms < min ${minIntervalMs}ms between notes`
             });
           }
         }

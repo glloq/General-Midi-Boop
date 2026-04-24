@@ -188,6 +188,7 @@ class InstrumentCapabilitiesDB {
             channel, gm_program,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
+            min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
@@ -199,6 +200,7 @@ class InstrumentCapabilitiesDB {
             channel, gm_program,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
+            min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config
           FROM instruments_latency
           WHERE device_id = ?
@@ -248,6 +250,8 @@ class InstrumentCapabilitiesDB {
         note_selection_mode: result.note_selection_mode || 'range',
         selected_notes: selectedNotes,
         polyphony: result.polyphony || null,
+        min_note_interval: result.min_note_interval ?? null,
+        min_note_duration: result.min_note_duration ?? null,
         capabilities_source: result.capabilities_source,
         capabilities_updated_at: result.capabilities_updated_at,
         hands_config: handsConfig

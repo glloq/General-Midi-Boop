@@ -42,9 +42,10 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       ...baseInstrument(),
       hands_config: {
         enabled: true,
+        hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, note_range_min: 21, note_range_max: 72, polyphony: 5 },
-          { id: 'right', cc_position_number: 24, hand_span_semitones: 14, note_range_min: 48, note_range_max: 108, polyphony: 5 }
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
@@ -84,19 +85,20 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
     expect(r.missing.some(m => /Duplicate hand id/.test(m.reason || ''))).toBe(true);
   });
 
-  test('inverted note range is flagged', () => {
+  test('non-positive travel speed is flagged', () => {
     const v = new InstrumentCapabilitiesValidator();
     const r = v.validateInstrument({
       ...baseInstrument(),
       hands_config: {
         enabled: true,
+        hand_move_semitones_per_sec: 0,
         hands: [
-          { id: 'left', cc_position_number: 23, hand_span_semitones: 14, note_range_min: 80, note_range_max: 40 }
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field.endsWith('.note_range'))).toBe(true);
+    expect(r.missing.some(m => m.field === 'hands_config.hand_move_semitones_per_sec')).toBe(true);
   });
 
   test('unknown assignment mode is flagged', () => {

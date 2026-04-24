@@ -185,12 +185,15 @@ class InstrumentCapabilitiesValidator {
       if (!Number.isFinite(h.hand_span_semitones) || h.hand_span_semitones <= 0) {
         issues.push({ field: `hands_config.hands[${i}].hand_span_semitones`, label: 'Hand span', type: 'number', required: true, reason: 'Must be a positive number of semitones.' });
       }
-      if (h.note_range_min != null && h.note_range_max != null && h.note_range_min > h.note_range_max) {
-        issues.push({ field: `hands_config.hands[${i}].note_range`, label: 'Hand range', type: 'range', required: true, reason: 'note_range_min must be <= note_range_max.' });
-      }
-      if (h.polyphony != null && (!Number.isInteger(h.polyphony) || h.polyphony < 1)) {
-        issues.push({ field: `hands_config.hands[${i}].polyphony`, label: 'Fingers', type: 'number', required: true, reason: 'polyphony must be an integer >= 1.' });
-      }
+    }
+
+    if (cfg.hand_move_semitones_per_sec != null
+        && (!Number.isFinite(cfg.hand_move_semitones_per_sec) || cfg.hand_move_semitones_per_sec <= 0)) {
+      issues.push({
+        field: 'hands_config.hand_move_semitones_per_sec', label: 'Travel speed',
+        type: 'number', required: true,
+        reason: 'hand_move_semitones_per_sec must be a positive number.'
+      });
     }
 
     const mode = cfg.assignment?.mode;

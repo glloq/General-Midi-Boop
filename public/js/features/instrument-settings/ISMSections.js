@@ -917,11 +917,12 @@
 
     /**
      * Hand-position section: edit the `hands_config` JSON payload.
-     * Phase 1 keyboards: always two hands (left + right), each with CC
-     * number, physical note range, hand span, fingers (polyphony),
-     * minimum finger interval, and mechanical travel speed. A small
-     * assignment block controls how notes are split across the two
-     * hands (auto / track map / pitch split).
+     * Phase 1 keyboards: always two hands (left + right). Per-hand we
+     * only store the CC number and the reachable span without moving;
+     * the travel speed is shared across both hands. The reachable note
+     * range is derived at play time from the instrument's own
+     * `note_range_min`/`note_range_max`, and the minimum gap between
+     * notes comes from the instrument's `min_note_interval`.
      */
     ISMSections._renderHandsSection = function() {
         const tab = this._getActiveTab();
@@ -934,6 +935,9 @@
         const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
             ? cfg.hands
             : ISMSections._defaultHandsConfig().hands;
+        const commonSpeed = Number.isFinite(cfg.hand_move_semitones_per_sec)
+            ? cfg.hand_move_semitones_per_sec
+            : 60;
 
         const handRow = (h) => {
             const idLabel = h.id === 'left' ? '🫲 Gauche' : '🫱 Droite';
@@ -948,39 +952,10 @@
                         <span class="ism-form-hint">Numéro de CC envoyé pour la position de main (valeur = note MIDI la plus grave).</span>
                     </div>
                     <div>
-                        <label>Écart max (demi-tons)</label>
+                        <label>Écart max sans bouger (demi-tons)</label>
                         <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
                                value="${h.hand_span_semitones}" min="1" max="48">
-                        <span class="ism-form-hint">Empan maximal atteignable sans déplacer la main.</span>
-                    </div>
-                </div>
-                <div class="ism-form-group ism-form-grid-2">
-                    <div>
-                        <label>Note la plus grave atteignable</label>
-                        <input type="number" data-hand="${h.id}" data-field="note_range_min"
-                               value="${h.note_range_min ?? ''}" min="0" max="127">
-                    </div>
-                    <div>
-                        <label>Note la plus aiguë atteignable</label>
-                        <input type="number" data-hand="${h.id}" data-field="note_range_max"
-                               value="${h.note_range_max ?? ''}" min="0" max="127">
-                    </div>
-                </div>
-                <div class="ism-form-group ism-form-grid-3">
-                    <div>
-                        <label>Doigts</label>
-                        <input type="number" data-hand="${h.id}" data-field="polyphony"
-                               value="${h.polyphony ?? 5}" min="1" max="10">
-                    </div>
-                    <div>
-                        <label>Intervalle doigt min (ms)</label>
-                        <input type="number" data-hand="${h.id}" data-field="finger_min_interval_ms"
-                               value="${h.finger_min_interval_ms ?? 40}" min="0" max="2000">
-                    </div>
-                    <div>
-                        <label>Vitesse main (demi-tons/s)</label>
-                        <input type="number" data-hand="${h.id}" data-field="hand_move_semitones_per_sec"
-                               value="${h.hand_move_semitones_per_sec ?? 60}" min="1" max="500">
+                        <span class="ism-form-hint">Intervalle de notes jouables sans déplacer la main.</span>
                     </div>
                 </div>
             </div>`;
@@ -995,7 +970,7 @@
                 </label>
                 <span class="ism-form-hint">
                     Si activé, le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main,
-                    dès que la main doit se déplacer. Non-bloquant : les violations de faisabilité sont signalées à l'utilisateur.
+                    dès que la main doit se déplacer. Les notes atteignables sont dérivées de la plage de l'instrument.
                 </span>
             </div>
 
@@ -1019,6 +994,12 @@
                 </div>
             </div>
 
+            <div class="ism-form-group">
+                <label>Vitesse de déplacement (demi-tons/s)</label>
+                <input type="number" id="handsMoveSpeed" value="${commonSpeed}" min="1" max="500">
+                <span class="ism-form-hint">Vitesse commune aux deux mains, utilisée pour signaler les déplacements trop rapides.</span>
+            </div>
+
             <div class="ism-hands-list">
                 ${handRow(hands.find(h => h.id === 'left') || ISMSections._defaultHandsConfig().hands[0])}
                 ${handRow(hands.find(h => h.id === 'right') || ISMSections._defaultHandsConfig().hands[1])}
@@ -1029,20 +1010,11 @@
     ISMSections._defaultHandsConfig = function() {
         return {
             enabled: true,
+            hand_move_semitones_per_sec: 60,
             assignment: { mode: 'auto', pitch_split_note: 60, pitch_split_hysteresis: 2 },
             hands: [
-                {
-                    id: 'left',  cc_position_number: 23,
-                    note_range_min: 21, note_range_max: 72,
-                    hand_span_semitones: 14, polyphony: 5,
-                    finger_min_interval_ms: 40, hand_move_semitones_per_sec: 60
-                },
-                {
-                    id: 'right', cc_position_number: 24,
-                    note_range_min: 48, note_range_max: 108,
-                    hand_span_semitones: 14, polyphony: 5,
-                    finger_min_interval_ms: 40, hand_move_semitones_per_sec: 60
-                }
+                { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+                { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
             ]
         };
     };
@@ -1061,6 +1033,7 @@
         const mode = rootEl.querySelector('#handsAssignmentMode')?.value || 'auto';
         const pitchSplitNote = parseInt(rootEl.querySelector('#handsPitchSplitNote')?.value, 10);
         const hysteresis = parseInt(rootEl.querySelector('#handsPitchSplitHysteresis')?.value, 10);
+        const moveSpeed = parseInt(rootEl.querySelector('#handsMoveSpeed')?.value, 10);
 
         const readHand = (id) => {
             const row = section.querySelector(`.ism-hand-row[data-hand="${id}"]`);
@@ -1069,27 +1042,17 @@
                 const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
                 return Number.isFinite(v) ? v : dflt;
             };
-            const readIntOrNull = (field) => {
-                const raw = row.querySelector(`[data-field="${field}"]`)?.value;
-                if (raw == null || raw === '') return null;
-                const v = parseInt(raw, 10);
-                return Number.isFinite(v) ? v : null;
-            };
             return {
                 id,
                 cc_position_number: readInt('cc_position_number', id === 'left' ? 23 : 24),
-                hand_span_semitones: readInt('hand_span_semitones', 14),
-                note_range_min: readIntOrNull('note_range_min'),
-                note_range_max: readIntOrNull('note_range_max'),
-                polyphony: readInt('polyphony', 5),
-                finger_min_interval_ms: readInt('finger_min_interval_ms', 40),
-                hand_move_semitones_per_sec: readInt('hand_move_semitones_per_sec', 60)
+                hand_span_semitones: readInt('hand_span_semitones', 14)
             };
         };
 
         const hands = [readHand('left'), readHand('right')].filter(Boolean);
         return {
             enabled,
+            hand_move_semitones_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 60,
             assignment: {
                 mode,
                 pitch_split_note: Number.isFinite(pitchSplitNote) ? pitchSplitNote : 60,
