@@ -433,10 +433,16 @@
         const noteMode = notesSrc.note_selection_mode || 'range';
         const octaveMode = notesSrc.octave_mode || 'chromatic';
 
-        // CC data — preserved as-is in a hidden input; only String/Fret CC config is exposed in the UI (strings subsection)
+        // CC data — the Notes tab hosts a grouped picker (accordion + active-CC
+        // tags + "apply recommended" button). The hidden #supportedCCs stays in
+        // sync with the checkbox state for the save path.
         const currentCCs = settings.supported_ccs
             ? (Array.isArray(settings.supported_ccs) ? settings.supported_ccs : String(settings.supported_ccs).split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); }))
             : [];
+        const gmProgramForCC = settings.gm_program;
+        const catKeyForCC = this._getGmCategoryKey(gmProgramForCC);
+        const recommendedCCs = catKeyForCC ? (InstrumentSettingsModal.GM_RECOMMENDED_CCS[catKeyForCC] || []) : [];
+        const ccAccordionHtml = this._renderCCAccordion(currentCCs, recommendedCCs);
 
         const polyphonyVal = tab.stringInstrumentConfig
             ? tab.stringInstrumentConfig.num_strings
@@ -589,10 +595,12 @@
             <div class="ism-subsection" id="sharedCcsSubsection">
                 <h4 class="ism-subsection-title">🎛️ ${this.t('instrumentSettings.supportedCcsTitle') || 'CC supportés'}</h4>
                 <p class="ism-subsection-hint">${this.t('instrumentSettings.supportedCcsHint') || 'Liste partagée par toutes les voix GM de cet instrument. Les CC non gérés par un instrument sont simplement ignorés côté matériel.'}</p>
-                <div class="ism-form-group">
-                    <label for="supportedCCs">${this.t('instrumentSettings.supportedCcsLabel') || 'CC supportés (séparés par des virgules)'}</label>
-                    <input type="text" id="supportedCCs" value="${currentCCs.join(', ')}" placeholder="1, 7, 11, 64">
+                <div class="ism-active-ccs-summary" id="activeCCsSummary">
+                    ${this._renderActiveCCsSummary(currentCCs)}
                 </div>
+                ${recommendedCCs.length > 0 ? `<button type="button" class="btn btn-small ism-apply-recommended-ccs" id="applyRecommendedCCs">✨ ${this.t('instrumentSettings.applyRecommendedCCs') || 'Appliquer les CC recommandés'}</button>` : ''}
+                ${ccAccordionHtml}
+                <input type="hidden" id="supportedCCs" value="${currentCCs.join(', ')}">
             </div>
         `;
     };
@@ -1116,6 +1124,100 @@
             </div>
 
         `;
+    };
+
+    /**
+     * Render the grouped CC picker (accordion + checkboxes). Each group's
+     * header shows a running "n/total" badge so the user can scan at a
+     * glance which categories are active. Recommended CCs for the current
+     * GM category get a ★ marker.
+     */
+    ISMSections._renderCCAccordion = function(currentCCs, recommendedCCs) {
+        const groups = InstrumentSettingsModal.CC_GROUPS;
+        let html = '<div class="ism-cc-accordion">';
+        for (const groupId of Object.keys(groups)) {
+            const group = groups[groupId];
+            const ccsObj = group.ccs;
+            const ccNums = Object.keys(ccsObj).map(Number);
+            const checkedCount = ccNums.filter(function(cc) { return currentCCs.includes(cc); }).length;
+
+            let ccsHtml = '';
+            for (const ccNum of ccNums) {
+                const info = ccsObj[ccNum];
+                const checked = currentCCs.includes(ccNum) ? 'checked' : '';
+                const isRecommended = recommendedCCs.includes(ccNum);
+                ccsHtml += `<label class="ism-cc-item ${checked ? 'checked' : ''}" title="${this.escape(info.desc + ' | ' + info.range)}">
+                    <input type="checkbox" class="ism-cc-checkbox" value="${ccNum}" ${checked}>
+                    <span class="ism-cc-num">${ccNum}</span>
+                    <span class="ism-cc-name">${this.escape(info.name)}</span>
+                    <span class="ism-cc-range">${this.escape(info.range)}</span>
+                    ${isRecommended ? '<span class="ism-cc-recommended" title="Recommandé pour cet instrument">★</span>' : ''}
+                </label>`;
+            }
+
+            html += `<div class="ism-cc-group" data-group="${groupId}">
+                <div class="ism-cc-group-header">
+                    <span class="ism-cc-group-icon">${group.icon || ''}</span>
+                    <span class="ism-cc-group-name">${group.label}</span>
+                    <span class="ism-cc-group-badge">${checkedCount}/${ccNums.length}</span>
+                    <span class="ism-cc-group-chevron">▸</span>
+                </div>
+                <div class="ism-cc-group-body">
+                    <div class="ism-cc-grid">${ccsHtml}</div>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        return html;
+    };
+
+    /**
+     * Return the CC numbers claimed by the string-instrument subsection
+     * (string-select + fret-select). They're merged into the summary so the
+     * user sees every CC flowing to the device — even the ones configured
+     * from another subsection.
+     */
+    ISMSections._getStringCCNumbers = function() {
+        const tab = this._getActiveTab();
+        const config = tab?.stringInstrumentConfig;
+        if (!config || config.cc_enabled === false) return [];
+        return [config.cc_string_number ?? 20, config.cc_fret_number ?? 21];
+    };
+
+    /**
+     * Render the compact tag strip at the top of the picker. String-instrument
+     * CCs get a distinct style and no close button (owned by another subsection).
+     */
+    ISMSections._renderActiveCCsSummary = function(activeCCs) {
+        const stringCCs = this._getStringCCNumbers();
+        const allCCs = [...(activeCCs || [])];
+        for (const scc of stringCCs) {
+            if (!allCCs.includes(scc)) allCCs.push(scc);
+        }
+        if (allCCs.length === 0) {
+            return `<span class="ism-active-ccs-empty">${this.t('instrumentSettings.noActiveCcs') || 'Aucun CC actif'}</span>`;
+        }
+        const groups = InstrumentSettingsModal.CC_GROUPS;
+        const ccNames = {};
+        for (const groupId of Object.keys(groups)) {
+            const ccsObj = groups[groupId].ccs;
+            for (const ccNum of Object.keys(ccsObj)) {
+                ccNames[Number(ccNum)] = ccsObj[ccNum].name;
+            }
+        }
+        const stringCCSet = new Set(stringCCs);
+        const self = this;
+        const sorted = [...allCCs].sort(function(a, b) { return a - b; });
+        return sorted.map(function(cc) {
+            const isStringCC = stringCCSet.has(cc);
+            const name = isStringCC
+                ? (cc === (self._getActiveTab()?.stringInstrumentConfig?.cc_string_number ?? 20) ? 'String Select' : 'Fret Select')
+                : (ccNames[cc] || ('CC ' + cc));
+            if (isStringCC) {
+                return `<span class="ism-active-cc-tag ism-cc-tag-string" title="${self.escape(name)} (Cordes)"><span class="ism-active-cc-num">${cc}</span> ${self.escape(name)}</span>`;
+            }
+            return `<span class="ism-active-cc-tag" title="${self.escape(name)}"><span class="ism-active-cc-num">${cc}</span> ${self.escape(name)}<button type="button" class="ism-cc-tag-remove" data-cc="${cc}" aria-label="Supprimer CC ${cc}">×</button></span>`;
+        }).join('');
     };
 
     if (typeof window !== 'undefined') window.ISMSections = ISMSections;

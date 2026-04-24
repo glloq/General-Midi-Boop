@@ -607,7 +607,104 @@
         this._wireVoicesListeners();
         this._wireVoicesShareToggle();
         this._wireNotesVoiceTabs();
+        this._wireCCAccordionListeners();
+        this._wireApplyRecommendedCCs();
+        this._wireActiveCCTagRemoval();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
+    };
+
+    // ===== Grouped CC picker (accordion + active-CC tags + recommended) =====
+
+    ISMListeners._wireCCAccordionListeners = function() {
+        const self = this;
+        this.$$('.ism-cc-group-header').forEach(function(header) {
+            header.addEventListener('click', function() {
+                header.closest('.ism-cc-group').classList.toggle('expanded');
+            });
+        });
+        this.$$('.ism-cc-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                cb.closest('.ism-cc-item').classList.toggle('checked', cb.checked);
+                self._updateCCHiddenInput();
+                self._updateCCGroupBadges();
+                self._updateActiveCCsSummary();
+            });
+        });
+    };
+
+    ISMListeners._wireApplyRecommendedCCs = function() {
+        const btn = this.$('#applyRecommendedCCs');
+        if (!btn) return;
+        const self = this;
+        btn.addEventListener('click', function() { self._applyRecommendedCCs(); });
+    };
+
+    ISMListeners._wireActiveCCTagRemoval = function() {
+        // Event delegation — summary DOM is rebuilt on every change.
+        const summary = this.$('#activeCCsSummary');
+        if (!summary) return;
+        const self = this;
+        summary.addEventListener('click', function(e) {
+            const removeBtn = e.target.closest('.ism-cc-tag-remove');
+            if (!removeBtn) return;
+            e.stopPropagation();
+            const ccNum = parseInt(removeBtn.dataset.cc);
+            if (isNaN(ccNum)) return;
+            const cb = self.$(`.ism-cc-checkbox[value="${ccNum}"]`);
+            if (cb) {
+                cb.checked = false;
+                const item = cb.closest('.ism-cc-item');
+                if (item) item.classList.remove('checked');
+            }
+            self._updateCCHiddenInput();
+            self._updateCCGroupBadges();
+            self._updateActiveCCsSummary();
+        });
+    };
+
+    ISMListeners._applyRecommendedCCs = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return;
+        const catKey = this._getGmCategoryKey(tab.settings.gm_program);
+        const recommended = catKey ? (InstrumentSettingsModal.GM_RECOMMENDED_CCS[catKey] || []) : [];
+        if (recommended.length === 0) return;
+        this.$$('.ism-cc-checkbox').forEach(function(cb) {
+            const ccNum = parseInt(cb.value);
+            if (recommended.includes(ccNum)) {
+                cb.checked = true;
+                cb.closest('.ism-cc-item')?.classList.add('checked');
+            }
+        });
+        this._updateCCHiddenInput();
+        this._updateCCGroupBadges();
+        this._updateActiveCCsSummary();
+    };
+
+    ISMListeners._updateCCHiddenInput = function() {
+        const selected = [];
+        this.$$('.ism-cc-checkbox:checked').forEach(function(c) { selected.push(parseInt(c.value)); });
+        const hidden = this.$('#supportedCCs');
+        if (hidden) hidden.value = selected.join(', ');
+    };
+
+    ISMListeners._updateActiveCCsSummary = function() {
+        const summary = this.$('#activeCCsSummary');
+        if (!summary) return;
+        const selected = [];
+        this.$$('.ism-cc-checkbox:checked').forEach(function(c) { selected.push(parseInt(c.value)); });
+        summary.innerHTML = this._renderActiveCCsSummary(selected);
+    };
+
+    ISMListeners._updateCCGroupBadges = function() {
+        const groups = InstrumentSettingsModal.CC_GROUPS;
+        for (const groupId of Object.keys(groups)) {
+            const groupEl = this.$(`.ism-cc-group[data-group="${groupId}"]`);
+            if (!groupEl) continue;
+            const cbs = groupEl.querySelectorAll('.ism-cc-checkbox');
+            const checkedCount = groupEl.querySelectorAll('.ism-cc-checkbox:checked').length;
+            const badge = groupEl.querySelector('.ism-cc-group-badge');
+            if (badge) badge.textContent = `${checkedCount}/${cbs.length}`;
+        }
     };
 
     // ===== "Voices share notes" checkbox + per-voice Notes tabs =====
