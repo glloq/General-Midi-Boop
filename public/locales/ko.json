@@ -677,7 +677,9 @@
         "previewLoadingBank": "사운드 뱅크 로딩 중",
         "omniMode": "옴니 · 모든 채널 수용",
         "omniModeHelp": "이 악기는 모든 MIDI 채널의 노트를 수용합니다 (장치의 유일한 악기일 때 유용함)",
-        "omniModeActiveHint": "이 악기는 모든 채널에서 노트를 받습니다 — 위의 채널 선택은 무시됩니다."
+        "omniModeActiveHint": "이 악기는 모든 채널에서 노트를 받습니다 — 위의 채널 선택은 무시됩니다.",
+        "addGmInstrument": "GM 악기 추가",
+        "secondaryVoices": "추가 보이스"
     },
     "playlist": {
         "title": "재생목록",

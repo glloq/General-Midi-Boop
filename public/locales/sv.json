@@ -677,7 +677,9 @@
         "previewLoadingBank": "Laddar ljudbank",
         "omniMode": "Omni · acceptera alla kanaler",
         "omniModeHelp": "Instrumentet accepterar noter på vilken MIDI-kanal som helst (användbart när det är enhetens enda instrument)",
-        "omniModeActiveHint": "Det här instrumentet tar emot noter på vilken kanal som helst — kanalvalet ovan ignoreras."
+        "omniModeActiveHint": "Det här instrumentet tar emot noter på vilken kanal som helst — kanalvalet ovan ignoreras.",
+        "addGmInstrument": "Lägg till GM-instrument",
+        "secondaryVoices": "Ytterligare röster"
     },
     "playlist": {
         "title": "Spellistor",

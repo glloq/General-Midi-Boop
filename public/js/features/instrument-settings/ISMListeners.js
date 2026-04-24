@@ -452,6 +452,25 @@
                 self._clearInstrument();
             });
         }
+
+        // Add another GM instrument (secondary voice) from the Identity tab
+        const addGmBtn = this.$('.ism-add-gm-instrument-btn');
+        if (addGmBtn) {
+            addGmBtn.addEventListener('click', function() {
+                self._openVoicePicker();
+            });
+        }
+
+        // Delete a secondary voice directly from the Identity tab.
+        // _deleteVoiceAt rerenders both the Notes-tab list and this picker.
+        this.$$('.ism-identity-voice-delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const row = btn.closest('.ism-selected-secondary');
+                if (!row) return;
+                const idx = parseInt(row.dataset.voiceIndex, 10);
+                self._deleteVoiceAt(idx);
+            });
+        });
     };
 
     ISMListeners._selectProgram = function(encodedValue, isDrumKit, desc) {
@@ -609,6 +628,7 @@
         if (idx < 0 || idx >= tab.voices.length) return;
         tab.voices.splice(idx, 1);
         this._rerenderVoicesSubsection();
+        this._rerenderIdentityPicker();
     };
 
     ISMListeners._rerenderVoicesSubsection = function() {
@@ -785,7 +805,9 @@
             min_note_duration: null,
             supported_ccs: null
         });
+        // Keep both the Notes-tab voices list and the Identity-tab voices list in sync.
         this._rerenderVoicesSubsection();
+        this._rerenderIdentityPicker();
     };
 
     ISMListeners._attachIdentitySectionListeners = function() {

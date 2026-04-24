@@ -677,7 +677,9 @@
         "previewLoadingBank": "サウンドバンクを読み込み中",
         "omniMode": "オムニ · すべてのチャンネルを受け入れる",
         "omniModeHelp": "この楽器は任意のMIDIチャンネルのノートを受け取ります(デバイスに楽器が1つだけの場合に便利)",
-        "omniModeActiveHint": "この楽器は任意のチャンネルのノートを受け取ります — 上のチャンネル選択は無視されます。"
+        "omniModeActiveHint": "この楽器は任意のチャンネルのノートを受け取ります — 上のチャンネル選択は無視されます。",
+        "addGmInstrument": "GM楽器を追加",
+        "secondaryVoices": "追加のボイス"
     },
     "playlist": {
         "title": "プレイリスト",

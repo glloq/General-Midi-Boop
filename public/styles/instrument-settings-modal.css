@@ -1852,6 +1852,68 @@ body.theme-dark .ism-cc-range {
   background: rgba(239, 68, 68, 0.08);
 }
 
+/* --- Secondary GM voices list shown inside the Identity picker --- */
+.ism-secondary-voices-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ism-secondary-voices-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ism-secondary-voices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ism-selected-secondary {
+  padding: 8px 12px;
+  border-style: dashed;
+  opacity: 0.92;
+}
+
+.ism-identity-voice-delete:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* --- "Add GM instrument" button --- */
+.ism-add-gm-instrument-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 2px dashed var(--border-color, #e5e7eb);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  align-self: flex-start;
+}
+
+.ism-add-gm-instrument-btn:hover {
+  border-color: var(--accent-primary, #667eea);
+  color: var(--accent-primary, #667eea);
+  background: rgba(102, 126, 234, 0.06);
+}
+
+.ism-add-gm-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
 /* --- Responsive --- */
 @media (max-width: 640px) {
   .ism-instrument-grid {

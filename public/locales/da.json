@@ -677,7 +677,9 @@
         "previewLoadingBank": "Indlæser lydbank",
         "omniMode": "Omni · acceptér alle kanaler",
         "omniModeHelp": "Dette instrument accepterer noder på enhver MIDI-kanal (nyttigt når det er det eneste instrument på enheden)",
-        "omniModeActiveHint": "Dette instrument modtager noder på enhver kanal — kanalvalget ovenfor ignoreres."
+        "omniModeActiveHint": "Dette instrument modtager noder på enhver kanal — kanalvalget ovenfor ignoreres.",
+        "addGmInstrument": "Tilføj et GM-instrument",
+        "secondaryVoices": "Yderligere stemmer"
     },
     "playlist": {
         "title": "Playlister",

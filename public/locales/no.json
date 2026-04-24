@@ -677,7 +677,9 @@
         "previewLoadingBank": "Laster lydbank",
         "omniMode": "Omni · aksepter alle kanaler",
         "omniModeHelp": "Dette instrumentet aksepterer noter på hvilken som helst MIDI-kanal (nyttig når det er enheten sitt eneste instrument)",
-        "omniModeActiveHint": "Dette instrumentet mottar noter på hvilken som helst kanal — kanalvalget over ignoreres."
+        "omniModeActiveHint": "Dette instrumentet mottar noter på hvilken som helst kanal — kanalvalget over ignoreres.",
+        "addGmInstrument": "Legg til et GM-instrument",
+        "secondaryVoices": "Ekstra stemmer"
     },
     "playlist": {
         "title": "Spillelister",

@@ -677,7 +677,9 @@
         "previewLoadingBank": "Ŝarĝo de sonbanko",
         "omniMode": "Omni · akcepti ĉiujn kanalojn",
         "omniModeHelp": "Ĉi tiu instrumento akceptas notojn sur iu ajn MIDI-kanalo (utila kiam ĝi estas la sola instrumento sur la aparato)",
-        "omniModeActiveHint": "Ĉi tiu instrumento ricevas notojn sur iu ajn kanalo — la supra kanala elekto estas ignorita."
+        "omniModeActiveHint": "Ĉi tiu instrumento ricevas notojn sur iu ajn kanalo — la supra kanala elekto estas ignorita.",
+        "addGmInstrument": "Aldoni GM-instrumenton",
+        "secondaryVoices": "Pliaj voĉoj"
     },
     "playlist": {
         "title": "Ludlistoj",

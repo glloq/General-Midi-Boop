@@ -646,6 +646,8 @@
         "omniMode": "Omni · accept all channels",
         "omniModeHelp": "This instrument accepts notes on any MIDI channel (useful when it is the only instrument on the device)",
         "omniModeActiveHint": "This instrument receives notes on any channel — the channel selection above is ignored.",
+        "addGmInstrument": "Add a GM instrument",
+        "secondaryVoices": "Additional voices",
         "capabilitiesSource": "Capabilities source",
         "saveErrorTitle": "Save error",
         "drumToggleAll": "Check/uncheck all",

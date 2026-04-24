@@ -677,7 +677,9 @@
         "previewLoadingBank": "Naglo-load ng sound bank",
         "omniMode": "Omni · tanggapin ang lahat ng channel",
         "omniModeHelp": "Tinatanggap ng instrumentong ito ang mga nota sa anumang MIDI channel (kapaki-pakinabang kapag ito lang ang instrumento sa device)",
-        "omniModeActiveHint": "Ang instrumentong ito ay tumatanggap ng mga nota sa anumang channel — hindi pinapansin ang napiling channel sa itaas."
+        "omniModeActiveHint": "Ang instrumentong ito ay tumatanggap ng mga nota sa anumang channel — hindi pinapansin ang napiling channel sa itaas.",
+        "addGmInstrument": "Magdagdag ng GM instrument",
+        "secondaryVoices": "Karagdagang boses"
     },
     "playlist": {
         "title": "Mga Playlist",

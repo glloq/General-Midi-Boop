@@ -677,7 +677,9 @@
         "previewLoadingBank": "Ladataan äänipankkia",
         "omniMode": "Omni · hyväksy kaikki kanavat",
         "omniModeHelp": "Soitin hyväksyy nuotteja millä tahansa MIDI-kanavalla (hyödyllinen kun se on laitteen ainoa soitin)",
-        "omniModeActiveHint": "Tämä soitin vastaanottaa nuotteja millä tahansa kanavalla — yllä oleva kanavavalinta jätetään huomiotta."
+        "omniModeActiveHint": "Tämä soitin vastaanottaa nuotteja millä tahansa kanavalla — yllä oleva kanavavalinta jätetään huomiotta.",
+        "addGmInstrument": "Lisää GM-soitin",
+        "secondaryVoices": "Lisä-äänet"
     },
     "playlist": {
         "title": "Soittolistat",

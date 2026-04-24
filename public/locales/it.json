@@ -677,7 +677,9 @@
         "previewLoadingBank": "Caricamento banco suoni",
         "omniMode": "Omni · accetta tutti i canali",
         "omniModeHelp": "Lo strumento accetta note su qualsiasi canale MIDI (utile quando è l'unico strumento del dispositivo)",
-        "omniModeActiveHint": "Questo strumento riceve note su qualsiasi canale — la selezione del canale qui sopra viene ignorata."
+        "omniModeActiveHint": "Questo strumento riceve note su qualsiasi canale — la selezione del canale qui sopra viene ignorata.",
+        "addGmInstrument": "Aggiungi uno strumento GM",
+        "secondaryVoices": "Voci aggiuntive"
     },
     "playlist": {
         "title": "Playlist",

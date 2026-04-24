@@ -677,7 +677,9 @@
         "previewLoadingBank": "Načítání zvukové banky",
         "omniMode": "Omni · přijímat všechny kanály",
         "omniModeHelp": "Nástroj přijímá noty z libovolného MIDI kanálu (užitečné, když je jediným nástrojem zařízení)",
-        "omniModeActiveHint": "Tento nástroj přijímá noty z libovolného kanálu — výběr kanálu výše je ignorován."
+        "omniModeActiveHint": "Tento nástroj přijímá noty z libovolného kanálu — výběr kanálu výše je ignorován.",
+        "addGmInstrument": "Přidat GM nástroj",
+        "secondaryVoices": "Další hlasy"
     },
     "playlist": {
         "title": "Playlisty",

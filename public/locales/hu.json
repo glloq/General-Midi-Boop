@@ -677,7 +677,9 @@
         "previewLoadingBank": "Hangbank betöltése",
         "omniMode": "Omni · minden csatorna elfogadása",
         "omniModeHelp": "A hangszer bármely MIDI csatornán elfogad hangokat (hasznos, ha ez az eszköz egyetlen hangszere)",
-        "omniModeActiveHint": "Ez a hangszer bármely csatornán fogad hangokat — a fenti csatornaválasztás figyelmen kívül marad."
+        "omniModeActiveHint": "Ez a hangszer bármely csatornán fogad hangokat — a fenti csatornaválasztás figyelmen kívül marad.",
+        "addGmInstrument": "GM hangszer hozzáadása",
+        "secondaryVoices": "További hangok"
     },
     "playlist": {
         "title": "Lejátszási listák",

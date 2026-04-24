@@ -677,7 +677,9 @@
         "previewLoadingBank": "Ses bankası yükleniyor",
         "omniMode": "Omni · tüm kanalları kabul et",
         "omniModeHelp": "Bu enstrüman herhangi bir MIDI kanalındaki notaları kabul eder (cihazdaki tek enstrüman olduğunda faydalı)",
-        "omniModeActiveHint": "Bu enstrüman herhangi bir kanalda notaları alır — yukarıdaki kanal seçimi yoksayılır."
+        "omniModeActiveHint": "Bu enstrüman herhangi bir kanalda notaları alır — yukarıdaki kanal seçimi yoksayılır.",
+        "addGmInstrument": "GM enstrümanı ekle",
+        "secondaryVoices": "Ek sesler"
     },
     "playlist": {
         "title": "Çalma Listeleri",

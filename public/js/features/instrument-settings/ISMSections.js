@@ -321,8 +321,10 @@
 
         const editTitle = this.t('instrumentSettings.editInstrument') || 'Modifier l\'instrument';
         const delTitle = this.t('instrumentSettings.deleteInstrument') || 'Effacer l\'instrument';
+        const addLabel = this.t('instrumentSettings.addGmInstrument') || 'Ajouter un instrument GM';
+        const secondaryLabel = this.t('instrumentSettings.secondaryVoices') || 'Voix supplémentaires';
 
-        return `<div class="ism-selected-instrument">
+        const primaryHtml = `<div class="ism-selected-instrument ism-selected-primary">
             <span class="ism-sel-icon">
                 ${icon.slug ? `<img class="ism-sel-svg" src="${icon.svgUrl}" alt=""
                     onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
@@ -336,6 +338,45 @@
                 <button type="button" class="ism-icon-btn ism-delete-instrument" title="${this.escape(delTitle)}" aria-label="${this.escape(delTitle)}">🗑️</button>
             </div>
         </div>`;
+
+        const voices = Array.isArray(tab.voices) ? tab.voices : [];
+        const delVoiceTitle = this.t('instrumentSettings.deleteVoice') || 'Supprimer cette voix';
+        const self = this;
+        const voiceRows = voices.map(function(v, idx) {
+            const vProgram = v.gm_program;
+            const vIcon = window.InstrumentFamilies
+                ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: vProgram, channel: channel })
+                : { emoji: '🎵', svgUrl: null, slug: null, name: null };
+            const vName = vIcon.name
+                || (typeof getGMInstrumentName === 'function' && vProgram != null ? getGMInstrumentName(vProgram) : '—');
+            return `<div class="ism-selected-instrument ism-selected-secondary" data-voice-index="${idx}">
+                <span class="ism-sel-icon">
+                    ${vIcon.slug ? `<img class="ism-sel-svg" src="${vIcon.svgUrl}" alt=""
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                    <span class="ism-sel-emoji" style="display:none">${vIcon.emoji}</span>`
+                    : `<span class="ism-sel-emoji">${vIcon.emoji}</span>`}
+                </span>
+                <span class="ism-sel-program">${vProgram != null ? vProgram : ''}</span>
+                <span class="ism-sel-name">${self.escape(vName)}</span>
+                <div class="ism-sel-actions">
+                    <button type="button" class="ism-icon-btn ism-identity-voice-delete" title="${self.escape(delVoiceTitle)}" aria-label="${self.escape(delVoiceTitle)}">🗑️</button>
+                </div>
+            </div>`;
+        }).join('');
+
+        const addBtnHtml = `<button type="button" class="ism-add-gm-instrument-btn" title="${this.escape(addLabel)}">
+            <span class="ism-add-gm-icon">➕</span>
+            <span class="ism-add-gm-label">${this.escape(addLabel)}</span>
+        </button>`;
+
+        const secondaryWrap = (voices.length > 0)
+            ? `<div class="ism-secondary-voices-wrap">
+                    <div class="ism-secondary-voices-label">${this.escape(secondaryLabel)}</div>
+                    <div class="ism-secondary-voices-list">${voiceRows}</div>
+                </div>`
+            : '';
+
+        return primaryHtml + secondaryWrap + addBtnHtml;
     };
 
     ISMSections._renderSysexIdentityCard = function(identity) {
