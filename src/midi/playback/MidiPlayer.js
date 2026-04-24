@@ -454,6 +454,28 @@ class MidiPlayer {
     const allWarnings = [];
     let hadAny = false;
 
+    // Tablatures are loaded lazily once per call — frets-mode destinations
+    // need them but keyboard-only sessions should not pay the DB round-trip.
+    let tabByChannel = null;
+    const getTabsForChannel = (srcChannel) => {
+      if (tabByChannel === null) {
+        tabByChannel = new Map();
+        if (this.loadedFileId && this.database?.getTablaturesByFile) {
+          try {
+            const tabs = this.database.getTablaturesByFile(this.loadedFileId) || [];
+            for (const t of tabs) {
+              if (Array.isArray(t.tablature_data) && t.tablature_data.length > 0) {
+                tabByChannel.set(t.channel ?? 0, t);
+              }
+            }
+          } catch (e) {
+            this.logger.debug(`Hand planner: no tablatures for file ${this.loadedFileId}: ${e.message}`);
+          }
+        }
+      }
+      return tabByChannel.get(srcChannel) || null;
+    };
+
     /**
      * Plan hand CCs for one destination. `segmentFilter` is used by split
      * routings to restrict the notes that this destination actually plays
@@ -469,6 +491,15 @@ class MidiPlayer {
       const handsCfg = capabilities?.hands_config;
       if (!handsCfg || handsCfg.enabled === false) return;
       if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) return;
+
+      if (handsCfg.mode === 'frets') {
+        this._planFretsForDestination({
+          srcChannel, device, targetChannel, segmentLabel, segmentFilter,
+          handsCfg, capabilities, getTabsForChannel, allCCs, allWarnings,
+          markHadAny: () => { hadAny = true; }
+        });
+        return;
+      }
 
       const notes = [];
       for (let i = 0; i < this.events.length; i++) {
@@ -574,6 +605,100 @@ class MidiPlayer {
 
     this.logger.info(`Injected ${allCCs.length} hand-position CC events (${allWarnings.length} warnings)`);
     return allCCs.length;
+  }
+
+  /**
+   * Fret-mode branch of {@link MidiPlayer#_injectHandPositionCCEvents}.
+   * Reads the channel's persisted tablature (already laid out by the
+   * TablatureConverter as `[{tick, string, fret, midiNote}, …]`), builds
+   * planner input events with `fretPosition`, skips open strings so they
+   * don't force unnecessary window shifts, and delegates window planning
+   * to the generic {@link HandPositionPlanner} in 'frets' unit mode.
+   *
+   * The max reachable fret is taken from the associated `string_instrument`
+   * (`max(frets_per_string)` or `num_frets`, with a 48 fretless floor).
+   *
+   * @private
+   * @param {Object} ctx
+   */
+  _planFretsForDestination(ctx) {
+    const {
+      srcChannel, device, targetChannel, segmentLabel, segmentFilter,
+      handsCfg, capabilities, getTabsForChannel, allCCs, allWarnings, markHadAny
+    } = ctx;
+
+    const tablature = getTabsForChannel(srcChannel);
+    if (!tablature || !Array.isArray(tablature.tablature_data) || tablature.tablature_data.length === 0) {
+      this.logger.debug(`Hand planner (ch ${srcChannel + 1}, device ${device}): frets mode but no tablature — skipped`);
+      return;
+    }
+
+    let stringInstrument = null;
+    if (tablature.string_instrument_id && this.database?.stringInstrumentDB?.getStringInstrumentById) {
+      try {
+        stringInstrument = this.database.stringInstrumentDB.getStringInstrumentById(tablature.string_instrument_id);
+      } catch (e) {
+        this.logger.debug(`Hand planner: string_instrument ${tablature.string_instrument_id} lookup failed: ${e.message}`);
+      }
+    }
+
+    // Max fret that can actually be addressed on this instrument. Fretless
+    // instruments advertise num_frets=0; we give the planner a generous
+    // ceiling (48 semitones / "frets") so fractional positions have room.
+    let maxFret = 24;
+    if (stringInstrument) {
+      if (Array.isArray(stringInstrument.frets_per_string) && stringInstrument.frets_per_string.length > 0) {
+        maxFret = stringInstrument.frets_per_string.reduce((a, b) => Math.max(a, b ?? 0), 0);
+      } else if (Number.isFinite(stringInstrument.num_frets) && stringInstrument.num_frets > 0) {
+        maxFret = stringInstrument.num_frets;
+      } else if (stringInstrument.is_fretless || stringInstrument.num_frets === 0) {
+        maxFret = 48;
+      }
+    }
+
+    const tempoMap = this._buildTempoMap();
+    const notes = [];
+    for (const ev of tablature.tablature_data) {
+      if (!Number.isFinite(ev.fret)) continue;
+      if (ev.fret <= 0) continue; // open string: no fretting-hand constraint
+      if (segmentFilter && ev.midiNote != null && !segmentFilter(ev.midiNote)) continue;
+      const time = this._ticksToSecondsWithTempoMap(ev.tick, tempoMap);
+      notes.push({
+        time,
+        note: ev.midiNote,
+        fretPosition: ev.fret,
+        channel: srcChannel,
+        velocity: 80,
+        hand: 'fretting'
+      });
+    }
+    if (notes.length === 0) return;
+
+    notes.sort((a, b) => a.time - b.time);
+
+    const planner = new HandPositionPlanner(handsCfg, {
+      unit: 'frets',
+      noteRangeMin: 0,
+      noteRangeMax: maxFret,
+      minNoteIntervalMs: capabilities?.min_note_interval ?? 0
+    });
+    const { ccEvents, warnings: planWarnings } = planner.plan(notes);
+    for (const w of planWarnings) {
+      allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
+    }
+
+    for (const cc of ccEvents) {
+      cc._handInjected = true;
+      cc._routeTo = { device, targetChannel };
+      allCCs.push(cc);
+    }
+    if (ccEvents.length > 0) markHadAny();
+
+    this.logger.debug(
+      `Hand planner [frets] (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
+      `device ${device}): ${ccEvents.length} CC events, ${planWarnings.length} warnings, ` +
+      `maxFret=${maxFret}`
+    );
   }
 
   _buildTempoMap() {

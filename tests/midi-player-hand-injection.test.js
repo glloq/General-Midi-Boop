@@ -202,3 +202,183 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     expect(injected).toBe(0);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Frets mode: reads persisted tablature_data, derives maxFret from the
+// string_instrument, skips open strings, and emits CC22 with absolute fret.
+// -----------------------------------------------------------------------------
+
+function makeFretsDeps({ handsConfig, tablature, stringInstrument, extraCapabilities }) {
+  const logger = {
+    info: () => {}, warn: () => {}, debug: () => {}, error: () => {}
+  };
+  const database = {
+    getInstrumentCapabilities: () => handsConfig
+      ? { hands_config: handsConfig, ...(extraCapabilities || {}) }
+      : null,
+    getTablaturesByFile: () => (tablature ? [tablature] : []),
+    stringInstrumentDB: {
+      getStringInstrumentById: () => stringInstrument || null
+    }
+  };
+  const blobStore = { read: () => Buffer.alloc(0) };
+  const wsServer = { broadcast: jest.fn() };
+  const eventBus = { on: () => {}, emit: jest.fn() };
+  return { logger, database, blobStore, wsServer, eventBus };
+}
+
+function primeFretsPlayer(player, tabEvents) {
+  // Note-on events mirror the tablature entries so the scheduler has
+  // something to route. With ppq=480 and tempo=120, tick 960 == 1s.
+  player.events = tabEvents.map(ev => ({
+    time: ev.tick / (480 * 2), // ticksToSeconds at 120 BPM, ppq 480
+    type: 'noteOn',
+    channel: 0,
+    note: ev.midiNote,
+    velocity: 80,
+    track: 0
+  }));
+  player.channelRouting.set(0, { device: 'gtr', targetChannel: 0 });
+  player.loadedFileId = 101;
+}
+
+const guitarHands = {
+  enabled: true,
+  mode: 'frets',
+  hand_move_frets_per_sec: 12,
+  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
+};
+
+describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
+  test('injects CC22 with absolute fret for a fretted sequence', () => {
+    const tabEvents = [
+      { tick: 0,    string: 5, fret: 3, midiNote: 43 },
+      { tick: 480,  string: 5, fret: 5, midiNote: 45 },
+      { tick: 1920, string: 3, fret: 12, midiNote: 62 } // forces shift
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22, frets_per_string: [22, 22, 22, 22, 22, 22] }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    const injected = player._injectHandPositionCCEvents();
+    expect(injected).toBeGreaterThan(0);
+
+    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
+    expect(ccs.every(e => e.controller === 22)).toBe(true);
+    // First CC anchors the initial window at fret 3.
+    expect(ccs[0].value).toBe(3);
+    // A subsequent shift to fret 12 lands above span 4.
+    expect(ccs.some(e => e.value === 12)).toBe(true);
+    // Every injected CC carries _routeTo for the split-broadcast bypass.
+    for (const cc of ccs) {
+      expect(cc._routeTo).toEqual(expect.objectContaining({ device: 'gtr' }));
+    }
+  });
+
+  test('open strings (fret=0) do not force shifts', () => {
+    const tabEvents = [
+      { tick: 0,    string: 5, fret: 5, midiNote: 45 },
+      { tick: 480,  string: 0, fret: 0, midiNote: 64 }, // open high E
+      { tick: 960,  string: 5, fret: 7, midiNote: 47 }
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22 }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
+    // Only one CC: the initial anchor. The open string must not move the hand
+    // and the return to fret 7 stays inside [5..9].
+    expect(ccs).toHaveLength(1);
+    expect(ccs[0].value).toBe(5);
+  });
+
+  test('initial CC is scheduled before the first fretted note', () => {
+    const tabEvents = [
+      { tick: 960, string: 5, fret: 5, midiNote: 45 }
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22 }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
+    expect(ccs).toHaveLength(1);
+    // Note is at 1.0s; CC must fire strictly before.
+    expect(ccs[0].time).toBeLessThan(1.0);
+    expect(ccs[0].time).toBeGreaterThan(0.99);
+  });
+
+  test('frets mode with no tablature is a no-op', () => {
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: null,
+      stringInstrument: { num_frets: 22 }
+    });
+    const player = new MidiPlayer(deps);
+    // Even though we have noteOn events, no tablature = no fret positions = skip.
+    primeFretsPlayer(player, [{ tick: 0, string: 5, fret: 3, midiNote: 43 }]);
+
+    const injected = player._injectHandPositionCCEvents();
+    expect(injected).toBe(0);
+    expect(player.events.some(e => e.type === 'controller' && e._handInjected)).toBe(false);
+  });
+
+  test('maxFret comes from frets_per_string when present', () => {
+    // Uneven fretboard: string 6 caps at 12, others at 22. Playing fret 20
+    // should still be accepted (it's within max=22), but a fret beyond
+    // max=22 should raise an out_of_range warning.
+    const tabEvents = [
+      { tick: 0,   string: 0, fret: 25, midiNote: 100 } // 25 > maxFret 22
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22, frets_per_string: [22, 22, 22, 22, 22, 12] }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+    player._injectHandPositionCCEvents();
+
+    expect(deps.wsServer.broadcast).toHaveBeenCalledWith(
+      'playback_hand_position_warnings',
+      expect.objectContaining({
+        warnings: expect.arrayContaining([
+          expect.objectContaining({ code: 'out_of_range' })
+        ])
+      })
+    );
+  });
+
+  test('idempotent across re-runs in frets mode', () => {
+    const tabEvents = [
+      { tick: 0,   string: 5, fret: 3, midiNote: 43 },
+      { tick: 480, string: 5, fret: 5, midiNote: 45 }
+    ];
+    const deps = makeFretsDeps({
+      handsConfig: guitarHands,
+      tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
+      stringInstrument: { num_frets: 22 }
+    });
+    const player = new MidiPlayer(deps);
+    primeFretsPlayer(player, tabEvents);
+
+    player._injectHandPositionCCEvents();
+    const first = player.events.filter(e => e._handInjected).length;
+    player._injectHandPositionCCEvents();
+    const second = player.events.filter(e => e._handInjected).length;
+    expect(second).toBe(first);
+  });
+});
