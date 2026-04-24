@@ -429,8 +429,9 @@ class NeckDiagramConfig {
     }
 
     _drawHandles(_neck) {
-        if (this.isFretless) return;
-
+        // Handles are drawn for both fretted and fretless. On fretless
+        // instruments the "frets" are semitone positions above the open
+        // string — the editor metaphor is identical.
         const ctx = this.ctx;
         const handleRadius = 7;
 
@@ -476,7 +477,7 @@ class NeckDiagramConfig {
     _onMouseDown(e) {
         const pos = this._getCanvasPos(e);
         const stringIdx = this._getStringAtX(pos.x);
-        if (stringIdx < 0 || this.isFretless) return;
+        if (stringIdx < 0) return;
 
         // Check if near the handle
         const handleX = this._getStringX(stringIdx);
@@ -507,7 +508,7 @@ class NeckDiagramConfig {
         // Hover detection
         const stringIdx = this._getStringAtX(pos.x);
         let newHover = -1;
-        if (stringIdx >= 0 && !this.isFretless) {
+        if (stringIdx >= 0) {
             const handleX = this._getStringX(stringIdx);
             const handleY = this._getFretY(this.fretsPerString[stringIdx]);
             const dist = Math.sqrt((pos.x - handleX) ** 2 + (pos.y - handleY) ** 2);
