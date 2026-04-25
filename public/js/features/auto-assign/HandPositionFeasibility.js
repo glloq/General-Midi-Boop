@@ -873,19 +873,18 @@
             }
 
             // Resolve unannotated notes WITH the current hand
-            // anchor in mind. Open strings (fret 0) are always
-            // preferred (free finger); otherwise prefer frets
-            // within the hand's reach so the simulator doesn't
-            // flag a note as outside_window when a different
-            // string would have placed it inside the band.
+            // anchor in mind. Done at the CHORD level so that no two
+            // notes get assigned to the same string — physically a
+            // single string can only sound one pitch at a time.
+            // Already-tagged notes (with explicit string + fret)
+            // reserve their string before the unresolved ones are
+            // assigned greedily.
             if (tuning && tuning.length > 0) {
-                g.notes = g.notes.map(n => {
-                    if (Number.isFinite(n.fret) && Number.isFinite(n.string)) return n;
-                    const resolved = _resolveStringFretWithContext(
-                        n.note, tuning, numFrets, capoFret, anchor, spanFrets);
-                    return resolved
-                        ? { ...n, fret: resolved.fret, string: resolved.string }
-                        : n;
+                const resolutions = _resolveChordStringFret(
+                    g.notes, tuning, numFrets, capoFret, anchor, spanFrets);
+                g.notes = g.notes.map((n, i) => {
+                    const r = resolutions[i];
+                    return r ? { ...n, fret: r.fret, string: r.string } : n;
                 });
             }
 
@@ -984,14 +983,19 @@
 
     /**
      * Hand-aware variant of `_resolveStringFret`. When the simulator
-     * already knows where the hand sits, the resolver prefers a fret
-     * inside the hand's reach `[anchor, anchor + spanFrets]` so a
-     * note that COULD be played on a different string lands inside
-     * the band instead of being flagged outside_window. Open strings
-     * (fret 0) are always preferred — they never need a finger.
+     * already knows where the hand sits, the resolver prefers a
+     * fret INSIDE the hand's reach `[anchor, anchor + spanFrets]`
+     * over open strings or out-of-window options — keeping the
+     * hand actually following the music instead of drifting on a
+     * long string of open notes and then making a huge jump.
      *
-     * Falls back to the lowest-fret heuristic when `anchor` is null
-     * (= first chord, no context yet).
+     * Score order (highest wins):
+     *   1. In-window fretted (1000 − distance-from-anchor)
+     *   2. Open string                                    (500)
+     *   3. Out-of-window fretted (100 − distance-to-window)
+     *
+     * Tie-break: lower fret wins. Falls back to the lowest-fret
+     * heuristic when `anchor` is null (= first chord).
      * @private
      */
     function _resolveStringFretWithContext(midi, tuning, numFrets, capoFret,
@@ -1006,13 +1010,14 @@
             const fret = midi - open;
             if (fret < 0 || fret > numFrets) continue;
             let score;
-            if (fret === 0) {
-                // Open string — always cheapest (no finger needed).
-                score = 1000;
-            } else if (useContext && fret >= anchor && fret <= anchor + spanFrets) {
-                // In-window: rank by closeness to anchor (lower fret
-                // within window = lower-numbered finger).
-                score = 500 - (fret - anchor);
+            if (useContext && fret > 0 && fret >= anchor && fret <= anchor + spanFrets) {
+                // In-window fretted — top priority. Closer to anchor
+                // = lower-numbered finger = preferred.
+                score = 1000 - (fret - anchor);
+            } else if (fret === 0) {
+                // Open string — cheap (no finger) but only when no
+                // in-window option beat it.
+                score = 500;
             } else if (useContext) {
                 // Outside the current window — penalty proportional
                 // to how far we'd have to shift the hand.
@@ -1031,6 +1036,87 @@
             }
         }
         return best;
+    }
+
+    /**
+     * Chord-level MIDI → (string, fret) resolver. Guarantees that
+     * every assignment uses a UNIQUE string — physically a single
+     * string can only sound one pitch at a time. Pre-tagged notes
+     * (with explicit `string` + `fret`) reserve their string before
+     * the unresolved ones are processed.
+     *
+     * The unresolved notes are walked from LOW pitch to HIGH so the
+     * bass naturally lands on the lower strings (= the open chord
+     * convention). For each note, we score the remaining viable
+     * (string, fret) options with the same priority order as
+     * `_resolveStringFretWithContext` (in-window > open > out-of-
+     * window) and pick the best.
+     *
+     * Returns an array of `{string, fret} | null` aligned with
+     * `notes`; `null` means no string was available (= the chord
+     * has more notes than strings or every alternative is out of
+     * range).
+     * @private
+     */
+    function _resolveChordStringFret(notes, tuning, numFrets, capoFret, anchor, spanFrets) {
+        const N = notes.length;
+        const result = new Array(N).fill(null);
+        if (!Array.isArray(tuning) || tuning.length === 0) return result;
+        const usedStrings = new Set();
+
+        // Pre-tagged notes claim their string first.
+        for (let i = 0; i < N; i++) {
+            const n = notes[i];
+            if (Number.isFinite(n.fret) && Number.isFinite(n.string)) {
+                result[i] = { string: n.string, fret: n.fret };
+                usedStrings.add(n.string);
+            }
+        }
+
+        // Sort the unresolved indices by pitch ascending — assign
+        // low pitches first so they land on the (typically) lower
+        // strings.
+        const unresolved = [];
+        for (let i = 0; i < N; i++) {
+            if (!result[i] && Number.isFinite(notes[i]?.note)) unresolved.push(i);
+        }
+        unresolved.sort((a, b) => notes[a].note - notes[b].note);
+
+        const useContext = Number.isFinite(anchor) && Number.isFinite(spanFrets) && spanFrets > 0;
+        for (const i of unresolved) {
+            const midi = notes[i].note;
+            let best = null;
+            let bestScore = -Infinity;
+            for (let s = 1; s <= tuning.length; s++) {
+                if (usedStrings.has(s)) continue;
+                const open = tuning[s - 1] + (capoFret || 0);
+                const fret = midi - open;
+                if (fret < 0 || fret > numFrets) continue;
+                let score;
+                if (useContext && fret > 0 && fret >= anchor && fret <= anchor + spanFrets) {
+                    score = 1000 - (fret - anchor);
+                } else if (fret === 0) {
+                    score = 500;
+                } else if (useContext) {
+                    const dist = Math.min(
+                        Math.abs(fret - anchor),
+                        Math.abs(fret - (anchor + spanFrets))
+                    );
+                    score = 100 - dist;
+                } else {
+                    score = 100 - fret;
+                }
+                if (score > bestScore || (score === bestScore && (!best || fret < best.fret))) {
+                    bestScore = score;
+                    best = { string: s, fret };
+                }
+            }
+            if (best) {
+                result[i] = best;
+                usedStrings.add(best.string);
+            }
+        }
+        return result;
     }
 
     if (typeof window !== 'undefined') {
