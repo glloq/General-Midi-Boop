@@ -33,6 +33,10 @@
 
     const STANDARD_MARKER_FRETS  = [3, 5, 7, 9, 15, 17, 19, 21];
     const DOUBLE_MARKER_FRETS    = [12, 24];
+    // Vertical overflow for the hand band (top + bottom). Makes the
+    // band read as "the hand", not "the fret slot" — it brackets
+    // the strings rather than sitting flush with the wood-tone fill.
+    const HAND_BAND_Y_OVERFLOW   = 6;
 
     class FretboardHandPreview {
         constructor(canvas, opts = {}) {
@@ -227,21 +231,36 @@
             this._drawUnplayablePositions();
         }
 
-        _drawGhostAnchor(fbY, fbH) {
-            const { anchorFret, spanFrets, level } = this.ghostAnchor;
-            const x0 = this._fretX(anchorFret);
+        /**
+         * Compute the [x0, x1] horizontal extent of a hand band on
+         * the fretboard. The band aligns with the SLOT of each fret
+         * — for anchor=1 (= index finger on fret 1) the band starts
+         * at the nut wire (`_fretX(0)`), NOT at fret 1's wire.
+         * @private
+         */
+        _handWindowX(anchorFret, spanFrets) {
+            const slotLeft = Math.max(0, anchorFret - 1);
+            const x0 = this._fretX(slotLeft);
             let x1;
             if (this.scaleLengthMm && this.handSpanMm) {
-                const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -anchorFret / 12));
+                const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -slotLeft / 12));
                 const rightMm = anchorMm + this.handSpanMm;
-                if (rightMm >= this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12))) {
+                const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
+                if (rightMm >= totalDistMm) {
                     x1 = this._fretX(this.numFrets);
                 } else {
                     x1 = this._xFromMm(rightMm);
                 }
             } else {
-                x1 = this._fretX(Math.min(this.numFrets, anchorFret + (spanFrets || this.handSpanFrets)));
+                const span = spanFrets || this.handSpanFrets;
+                x1 = this._fretX(Math.min(this.numFrets, slotLeft + span));
             }
+            return { x0, x1 };
+        }
+
+        _drawGhostAnchor(fbY, fbH) {
+            const { anchorFret, spanFrets, level } = this.ghostAnchor;
+            const { x0, x1 } = this._handWindowX(anchorFret, spanFrets);
             if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
 
             // Faded fills (≈ 40 % of handWindow alpha) so the ghost
@@ -257,12 +276,17 @@
                 infeasible: 'rgba(239, 68, 68, 0.65)'
             };
             const ctx = this.ctx;
+            // Vertical overflow so the band reads as "the hand", not
+            // "the fret slot" — same offset on top and bottom.
+            const yOverflow = HAND_BAND_Y_OVERFLOW;
+            const yTop = fbY - yOverflow;
+            const bandH = fbH + 2 * yOverflow;
             ctx.fillStyle = fills[level] || fills.ok;
-            ctx.fillRect(x0, fbY, x1 - x0, fbH);
+            ctx.fillRect(x0, yTop, x1 - x0, bandH);
             ctx.strokeStyle = strokes[level] || strokes.ok;
             ctx.lineWidth = 1;
             ctx.setLineDash([2, 4]);
-            ctx.strokeRect(x0, fbY, x1 - x0, fbH);
+            ctx.strokeRect(x0, yTop, x1 - x0, bandH);
             ctx.setLineDash([]);
         }
 
@@ -295,19 +319,7 @@
 
         _drawHandWindow(fbX, fbY, fbW, fbH, _canvasW) {
             const { anchorFret, spanFrets, level } = this.handWindow;
-            const x0 = this._fretX(anchorFret);
-            let x1;
-            if (this.scaleLengthMm && this.handSpanMm) {
-                const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -anchorFret / 12));
-                const rightMm = anchorMm + this.handSpanMm;
-                if (rightMm >= this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12))) {
-                    x1 = this._fretX(this.numFrets);
-                } else {
-                    x1 = this._xFromMm(rightMm);
-                }
-            } else {
-                x1 = this._fretX(Math.min(this.numFrets, anchorFret + (spanFrets || this.handSpanFrets)));
-            }
+            const { x0, x1 } = this._handWindowX(anchorFret, spanFrets);
             if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
 
             const fills = {
@@ -321,12 +333,15 @@
                 infeasible: 'rgba(239, 68, 68, 0.75)'
             };
             const ctx = this.ctx;
+            const yOverflow = HAND_BAND_Y_OVERFLOW;
+            const yTop = fbY - yOverflow;
+            const bandH = fbH + 2 * yOverflow;
             ctx.fillStyle = fills[level] || fills.ok;
-            ctx.fillRect(x0, fbY, x1 - x0, fbH);
+            ctx.fillRect(x0, yTop, x1 - x0, bandH);
             ctx.strokeStyle = strokes[level] || strokes.ok;
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 3]);
-            ctx.strokeRect(x0, fbY, x1 - x0, fbH);
+            ctx.strokeRect(x0, yTop, x1 - x0, bandH);
             ctx.setLineDash([]);
         }
 

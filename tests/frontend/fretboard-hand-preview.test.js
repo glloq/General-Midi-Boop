@@ -167,21 +167,51 @@ describe('FretboardHandPreview — hand window rectangle', () => {
     expect(fretsReachedAtH12).toBeGreaterThan(fretsReachedAtNut);
   });
 
-  it('with no scaleLengthMm / handSpanMm, falls back to span frets', () => {
+  it('with no scaleLengthMm / handSpanMm, falls back to span frets and aligns with the slot', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
       // no scaleLengthMm, no handSpanMm
     });
     fb.setHandWindow({ anchorFret: 5, spanFrets: 4 });
-    // Expected band right edge = fretX(5+4)=fretX(9).
-    const expectedRight = fb._fretX(9);
-    const x0 = fb._fretX(5);
+    // Anchor=5 means index finger on fret 5 → band starts at the
+    // LEFT side of fret 5's slot = `_fretX(4)` (right edge of the
+    // fret 4 wire). Span=4 frets → ends at `_fretX(4+4)=_fretX(8)`.
+    const x0 = fb._fretX(4);
+    const expectedRight = fb._fretX(8);
     const expectedW = expectedRight - x0;
     const bandRect = calls
       .filter(c => c.method === 'fillRect')
       .find(c => Math.abs(c.args[0] - x0) < 0.5);
     expect(bandRect).toBeDefined();
     expect(bandRect.args[2]).toBeCloseTo(expectedW, 0);
+  });
+
+  it('anchor=1 starts the band AT the nut (NOT at the fret 1 wire)', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+    });
+    fb.setHandWindow({ anchorFret: 1, spanFrets: 4 });
+    const xNut = fb._fretX(0);
+    const bandRect = calls
+      .filter(c => c.method === 'fillRect')
+      .find(c => Math.abs(c.args[0] - xNut) < 0.5);
+    expect(bandRect).toBeDefined();
+  });
+
+  it('hand band overflows above and below the fretboard (better visibility)', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(600, 200), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+    });
+    fb.setHandWindow({ anchorFret: 5, spanFrets: 4 });
+    const fbY = fb.margin.top;
+    const fbH = 200 - fb.margin.top - fb.margin.bottom;
+    const bandRect = calls
+      .filter(c => c.method === 'fillRect')
+      .find(c => c.args[1] < fbY); // a fillRect with y < fretboard top edge
+    expect(bandRect).toBeDefined();
+    // Band y is ABOVE fbY and band height extends BELOW fbY+fbH.
+    expect(bandRect.args[1]).toBeLessThan(fbY);
+    expect(bandRect.args[1] + bandRect.args[3]).toBeGreaterThan(fbY + fbH);
   });
 });
 
