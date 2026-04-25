@@ -871,7 +871,92 @@
         // we keep the structure consistent with semitones).
         const prevReleaseByHand = Object.create(null);
 
-        for (const g of groups) {
+        // Precompute an estimated [minA, maxA] anchor range for each
+        // upcoming chord. The estimate uses the LOWEST-fret-per-
+        // string heuristic on the raw MIDI notes (= same idea as
+        // `_resolveStringFret` without context). It's intentionally
+        // anchor-independent so we can use it as a lookahead hint
+        // when picking the current chord's anchor — without
+        // creating circular "anchor depends on resolution depends on
+        // anchor" dependencies.
+        const LOOKAHEAD_K = 4;
+        const chordAnchorRanges = groups.map(g => {
+            let lo = Infinity, hi = -Infinity;
+            for (const n of g.notes) {
+                let bestFret = null;
+                if (Number.isFinite(n.fret) && n.fret > 0) {
+                    bestFret = n.fret;
+                } else if (Number.isFinite(n.note) && tuning) {
+                    for (let s = 0; s < tuning.length; s++) {
+                        const fret = n.note - tuning[s] - capoFret;
+                        if (fret > 0 && fret <= numFrets) {
+                            if (bestFret == null || fret < bestFret) bestFret = fret;
+                        }
+                    }
+                }
+                if (bestFret != null) {
+                    if (bestFret < lo) lo = bestFret;
+                    if (bestFret > hi) hi = bestFret;
+                }
+            }
+            if (lo === Infinity) return null; // chord has no fretted note (open strings only)
+            return [minAnchorForTop(hi), lo];
+        });
+
+        /**
+         * Lookahead-aware anchor picker. Given the prev anchor, the
+         * CURRENT chord's valid anchor range, and a list of future
+         * anchor ranges, pick the in-range anchor that minimises the
+         * cumulative shift cost over the next K chords (with
+         * exponential decay). Tie-break: lower fret wins.
+         * @private
+         */
+        function pickAnchorWithLookahead(prev, range, futureRanges) {
+            if (!range) return prev;
+            const [minA, maxA] = range;
+            if (minA > maxA) return maxA; // empty range (chord wider than hand)
+
+            const candidates = new Set();
+            candidates.add(minA);
+            candidates.add(maxA);
+            if (prev != null) candidates.add(Math.max(minA, Math.min(maxA, prev)));
+            for (const r of futureRanges) {
+                if (!r) continue;
+                candidates.add(Math.max(minA, Math.min(maxA, r[0])));
+                candidates.add(Math.max(minA, Math.min(maxA, r[1])));
+            }
+
+            let best = null;
+            for (const c of candidates) {
+                let cost = (prev != null) ? Math.abs(c - prev) : 0;
+                let cur = c;
+                // Weight starts at 1.0 — the IMMEDIATE next chord's
+                // shift cost matters as much as the move we're about
+                // to make. Without that, the picker is too lazy and
+                // never trades a small proactive shift for a much
+                // bigger forced shift one chord later.
+                let weight = 1.0;
+                for (const r of futureRanges) {
+                    if (!r) { weight *= 0.7; continue; }
+                    const next = Math.max(r[0], Math.min(cur, r[1]));
+                    cost += weight * Math.abs(next - cur);
+                    cur = next;
+                    weight *= 0.7;
+                }
+                // Tie-break: prefer the natural-floor anchor (maxA =
+                // lo of the chord's fretted notes). Matches the
+                // legacy behaviour and feels natural when the music
+                // sits at a stable position.
+                cost += Math.abs(c - maxA) * 1e-6;
+                if (!best || cost < best.cost) {
+                    best = { anchor: c, cost };
+                }
+            }
+            return best ? best.anchor : maxA;
+        }
+
+        for (let i = 0; i < groups.length; i++) {
+            const g = groups[i];
             // Override pin first.
             const ovKey = `${handId}:${g.tick}`;
             if (overrideAnchors.has(ovKey)) {
@@ -912,27 +997,28 @@
                 if (anchor == null
                     || lo < anchor
                     || hi > maxReach(anchor)) {
-                    // Pick the new anchor so the WHOLE chord fits
-                    // (lo and hi inside [anchor, anchor+span]) AND
-                    // the hand moves the LEAST possible. The valid
-                    // range is [minAnchorForTop(hi), lo]; we clamp
-                    // the current anchor into that range. When the
-                    // chord exceeds the hand's reach (range empty),
-                    // fall back to `lo` so at least the low note
-                    // sits inside; the rest will be flagged
-                    // outside_window below.
+                    // The hand MUST move. Pick the new anchor
+                    // inside the chord's valid range
+                    // [minAnchorForTop(hi), lo] using a LOOKAHEAD
+                    // that biases toward an anchor minimising the
+                    // NEXT shift's cost too — same bookkeeping as
+                    // the keyboard `_pickAnchorWithLookahead`. For
+                    // chords wider than the hand's reach the range
+                    // is empty; fall back to `lo` so the low note
+                    // still sits inside.
                     const minA = minAnchorForTop(hi);
                     const maxA = lo;
                     let newAnchor;
                     if (minA > maxA) {
-                        newAnchor = lo; // chord wider than the hand
-                    } else if (anchor == null) {
-                        // First chord: pick the LOW edge so the
-                        // hand sits at the natural floor of the
-                        // music.
-                        newAnchor = maxA;
+                        newAnchor = lo;
                     } else {
-                        newAnchor = Math.max(minA, Math.min(maxA, anchor));
+                        const futureRanges = [];
+                        for (let j = i + 1;
+                                j < Math.min(i + 1 + LOOKAHEAD_K, groups.length);
+                                j++) {
+                            futureRanges.push(chordAnchorRanges[j]);
+                        }
+                        newAnchor = pickAnchorWithLookahead(anchor, [minA, maxA], futureRanges);
                     }
                     const motion = computeMotion(anchor, newAnchor,
                                                   prevReleaseByHand[handId], g.tick);

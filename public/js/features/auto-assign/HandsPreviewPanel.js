@@ -76,6 +76,7 @@
             this.keyboard = null;
             this.lookahead = null;
             this.fretboard = null;
+            this.fretboardLookahead = null;
             this._currentHandWindows = new Map(); // handId → anchor (semitones only)
             this._currentTick = 0;
 
@@ -193,29 +194,43 @@
         }
 
         _renderFretsLayout(body) {
-            const fbCanvas = document.createElement('canvas');
-            fbCanvas.className = 'hpp-fretboard';
-            fbCanvas.style.cssText = 'width:100%;height:160px;display:block;border:1px solid #e5e7eb;border-radius:4px;background:#f5f7fb;';
-            body.appendChild(fbCanvas);
-
-            // Pull the fretting hand's physical config so the
-            // preview can render the hand window at TRUE scale on
-            // the neck (geometric fret spacing × hand_span_mm).
+            // Lookahead strip ABOVE the live fretboard — vertical
+            // timeline (now at the bottom, +4s at the top). Shows
+            // the planned hand band over the next few seconds.
             const handsArr = _hands(this.instrument);
             const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0] || {};
-            const PreviewClass = (typeof window !== 'undefined' && window.FretboardHandPreview)
-                ? window.FretboardHandPreview
-                : window.FretboardDiagram;
-            this.fretboard = new PreviewClass(fbCanvas, {
+            const fbCommonOpts = {
                 tuning: this.instrument?.tuning || [40, 45, 50, 55, 59, 64],
                 numFrets: this.instrument?.num_frets || 24,
                 scaleLengthMm: this.instrument?.scale_length_mm,
                 handSpanMm: fretting.hand_span_mm,
                 handSpanFrets: fretting.hand_span_frets || 4
-            });
+            };
+            if (typeof window !== 'undefined' && window.FretboardLookaheadStrip) {
+                const strip = document.createElement('canvas');
+                strip.className = 'hpp-fretboard-lookahead';
+                strip.style.cssText = 'width:100%;height:140px;display:block;border:1px solid #e5e7eb;border-bottom:none;border-radius:4px 4px 0 0;background:#f5f7fb;';
+                body.appendChild(strip);
+                this.fretboardLookahead = new window.FretboardLookaheadStrip(strip, {
+                    ...fbCommonOpts,
+                    windowSeconds: 4
+                });
+            }
+
+            const fbCanvas = document.createElement('canvas');
+            fbCanvas.className = 'hpp-fretboard';
+            const radius = this.fretboardLookahead ? '0 0 4px 4px' : '4px';
+            fbCanvas.style.cssText = `width:100%;height:160px;display:block;border:1px solid #e5e7eb;border-radius:${radius};background:#f5f7fb;`;
+            body.appendChild(fbCanvas);
+
+            const PreviewClass = (typeof window !== 'undefined' && window.FretboardHandPreview)
+                ? window.FretboardHandPreview
+                : window.FretboardDiagram;
+            this.fretboard = new PreviewClass(fbCanvas, fbCommonOpts);
             // Initial paint so the empty board is visible before the
             // first engine event lands.
             this.fretboard.draw && this.fretboard.draw();
+            if (this.fretboardLookahead) this.fretboardLookahead.draw();
         }
 
         // -----------------------------------------------------------------
@@ -283,11 +298,10 @@
                 if (this.lookahead) this.lookahead.setCurrentTime(e.detail.currentSec);
                 if (this.fretboard
                         && typeof this.fretboard.setCurrentTime === 'function') {
-                    // The fretboard derives the band + ghost from
-                    // its own trajectory, so this single call drives
-                    // the whole frets visualisation. No `_refreshGhostAnchor`
-                    // anymore — the ghost is recomputed inside draw().
                     this.fretboard.setCurrentTime(e.detail.currentSec);
+                }
+                if (this.fretboardLookahead) {
+                    this.fretboardLookahead.setCurrentTime(e.detail.currentSec);
                 }
                 if (typeof this.onSeek === 'function') {
                     this.onSeek(e.detail.currentTick, e.detail.totalTicks);
@@ -335,24 +349,31 @@
         }
 
         /** Push the engine's fretting-hand trajectory + tempo into
-         *  the fretboard preview so its band animation is driven by
-         *  the playhead. Re-called on override changes. */
+         *  BOTH the live fretboard and the lookahead strip above
+         *  it. Re-called on override changes. */
         _refreshFretboardTrajectory() {
-            if (this.mode !== 'frets') return;
-            if (!this.fretboard || !this.engine) return;
+            if (this.mode !== 'frets' || !this.engine) return;
             if (typeof this.engine.getHandTrajectories !== 'function') return;
-            if (typeof this.fretboard.setHandTrajectory !== 'function') return;
-            if (Number.isFinite(this.ticksPerBeat) && this.ticksPerBeat > 0
-                    && Number.isFinite(this.bpm) && this.bpm > 0
-                    && typeof this.fretboard.setTicksPerSec === 'function') {
-                this.fretboard.setTicksPerSec(this.ticksPerBeat * (this.bpm / 60));
-            }
+            const tps = (Number.isFinite(this.ticksPerBeat) && this.ticksPerBeat > 0
+                    && Number.isFinite(this.bpm) && this.bpm > 0)
+                ? this.ticksPerBeat * (this.bpm / 60) : null;
             const handsArr = _hands(this.instrument);
             const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0];
-            if (!fretting) { this.fretboard.setHandTrajectory([]); return; }
             const map = this.engine.getHandTrajectories();
-            const points = map.get(fretting.id) || [];
-            this.fretboard.setHandTrajectory(points);
+            const points = fretting ? (map.get(fretting.id) || []) : [];
+
+            if (this.fretboard) {
+                if (tps != null && typeof this.fretboard.setTicksPerSec === 'function') {
+                    this.fretboard.setTicksPerSec(tps);
+                }
+                if (typeof this.fretboard.setHandTrajectory === 'function') {
+                    this.fretboard.setHandTrajectory(points);
+                }
+            }
+            if (this.fretboardLookahead) {
+                if (tps != null) this.fretboardLookahead.setTicksPerSec(tps);
+                this.fretboardLookahead.setHandTrajectory(points);
+            }
         }
 
         // -----------------------------------------------------------------
@@ -533,6 +554,10 @@
             if (this.keyboard) { this.keyboard.destroy(); this.keyboard = null; }
             if (this.lookahead) { this.lookahead.destroy(); this.lookahead = null; }
             if (this.fretboard) { this.fretboard.destroy?.(); this.fretboard = null; }
+            if (this.fretboardLookahead) {
+                this.fretboardLookahead.destroy?.();
+                this.fretboardLookahead = null;
+            }
             if (this.container) this.container.innerHTML = '';
         }
     }

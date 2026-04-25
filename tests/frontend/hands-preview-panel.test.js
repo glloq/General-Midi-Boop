@@ -16,6 +16,7 @@ const sources = [
   'public/js/features/auto-assign/KeyboardPreview.js',
   'public/js/features/auto-assign/HandsLookaheadStrip.js',
   'public/js/features/auto-assign/FretboardHandPreview.js',
+  'public/js/features/auto-assign/FretboardLookaheadStrip.js',
   'public/js/features/FretboardDiagram.js',
   'public/js/features/auto-assign/HandsPreviewPanel.js'
 ];
@@ -358,6 +359,41 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     } finally {
       window.FretboardHandPreview = origNew;
     }
+  });
+
+  it('mounts a FretboardLookaheadStrip and pushes the trajectory + tempo to it too', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      },
+      notes: [
+        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 480, note: 47, fret: 12, string: 1 }
+      ],
+      ticksPerBeat: 480, bpm: 60
+    });
+    expect(panel.fretboardLookahead).toBeDefined();
+    expect(panel.fretboardLookahead).not.toBeNull();
+    expect(panel.fretboardLookahead._ticksPerSec).toBe(480);
+    expect(panel.fretboardLookahead._trajectory.length).toBeGreaterThan(0);
+    panel.destroy();
+  });
+
+  it('forwards setCurrentTime to the lookahead strip on every tick', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      },
+      notes: [{ tick: 0, note: 45, fret: 5, string: 1 }]
+    });
+    const setTime = vi.spyOn(panel.fretboardLookahead, 'setCurrentTime');
+    panel.engine.dispatchEvent(new CustomEvent('tick', {
+      detail: { currentTick: 240, currentSec: 0.5, totalTicks: 960 }
+    }));
+    expect(setTime).toHaveBeenCalledWith(0.5);
+    panel.destroy();
   });
 
   it('forwards setCurrentTime to the fretboard on every tick (drives band animation)', () => {

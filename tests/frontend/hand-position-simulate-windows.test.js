@@ -654,6 +654,34 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note50.string).toBe(3);
   });
 
+  it('lookahead biases the FORCED shift target toward the next chord', () => {
+    // Hand at fret 5. Chord 2 forces a shift (fret 12, range
+    // [8, 12]). Chord 3 ALSO needs anchor 12+ (fret 14, range
+    // [10, 14]). Without lookahead, the picker would clamp to 8
+    // (closest to prev). With lookahead it should land at 10 — a
+    // tad further but the next forced shift is smaller (10 → 10
+    // vs 8 → 10).
+    const fallbackOnly = {
+      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 480, note: 52, fret: 12, string: 1 },
+        { tick: 960, note: 54, fret: 14, string: 1 }
+      ],
+      { hands_config: fallbackOnly }
+    );
+    const shifts = out.filter(e => e.type === 'shift');
+    expect(shifts[0].toAnchor).toBe(5);
+    // Chord 2 forces a shift; lookahead biases toward chord 3's
+    // range [10, 14] so the shift target lands inside the
+    // intersection of [8, 12] and [10, 14] = [10, 12].
+    expect(shifts[1].toAnchor).toBeGreaterThanOrEqual(10);
+    expect(shifts[1].toAnchor).toBeLessThanOrEqual(12);
+  });
+
   it('shift target is clamped INTO the valid anchor range (min hand movement)', () => {
     // The hand has span 4 frets (default). After playing fret 5,
     // the next chord requires fret 12. The minimum anchor that
