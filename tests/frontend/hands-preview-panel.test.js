@@ -262,6 +262,114 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     });
     panel.destroy();
   });
+
+  it('chord event with too_many_fingers flips the hand band to infeasible', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      }
+    });
+    panel.engine.dispatchEvent(new CustomEvent('shift', {
+      detail: { handId: 'fretting', toAnchor: 5 }
+    }));
+    const setHand = vi.spyOn(panel.fretboard, 'setHandWindow');
+    panel.engine.dispatchEvent(new CustomEvent('chord', {
+      detail: {
+        tick: 0,
+        notes: [],
+        unplayable: [
+          { note: null, reason: 'too_many_fingers', handId: 'fretting' }
+        ]
+      }
+    }));
+    expect(setHand).toHaveBeenCalledWith(expect.objectContaining({ level: 'infeasible' }));
+    panel.destroy();
+  });
+
+  it('shift event with motion.feasible=false flips the hand band to infeasible', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      }
+    });
+    const setHand = vi.spyOn(panel.fretboard, 'setHandWindow');
+    panel.engine.dispatchEvent(new CustomEvent('shift', {
+      detail: {
+        handId: 'fretting', toAnchor: 12,
+        motion: { requiredSec: 1, availableSec: 0.1, feasible: false }
+      }
+    }));
+    expect(setHand).toHaveBeenCalledWith(expect.objectContaining({ level: 'infeasible' }));
+    panel.destroy();
+  });
+
+  it('chord event with unplayable string × fret entries paints them red on the fretboard', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      }
+    });
+    const setUnplayable = vi.spyOn(panel.fretboard, 'setUnplayablePositions');
+    panel.engine.dispatchEvent(new CustomEvent('chord', {
+      detail: {
+        tick: 0,
+        notes: [],
+        unplayable: [
+          { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' },
+          { note: null, reason: 'too_many_fingers', handId: 'fretting' } // chord-level marker — filtered out
+        ]
+      }
+    }));
+    expect(setUnplayable).toHaveBeenCalledWith([
+      expect.objectContaining({ fret: 12, string: 3 })
+    ]);
+    panel.destroy();
+  });
+
+  it('tick event triggers a ghost anchor refresh for the next planned shift', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      },
+      notes: [
+        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 480, note: 47, fret: 12, string: 1 }
+      ]
+    });
+    const setGhost = vi.spyOn(panel.fretboard, 'setGhostAnchor');
+    // Tick at 0 — next shift is at 480 with anchor 12.
+    panel.engine.dispatchEvent(new CustomEvent('tick', {
+      detail: { currentTick: 0, currentSec: 0, totalTicks: 960 }
+    }));
+    expect(setGhost).toHaveBeenCalled();
+    const arg = setGhost.mock.calls[setGhost.mock.calls.length - 1][0];
+    expect(arg).not.toBeNull();
+    expect(arg.anchorFret).toBe(12);
+    panel.destroy();
+  });
+
+  it('ghost anchor is cleared once the playhead passes every shift', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      },
+      notes: [
+        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 480, note: 47, fret: 12, string: 1 }
+      ]
+    });
+    const setGhost = vi.spyOn(panel.fretboard, 'setGhostAnchor');
+    panel.engine.dispatchEvent(new CustomEvent('tick', {
+      detail: { currentTick: 9999, currentSec: 99, totalTicks: 960 }
+    }));
+    expect(setGhost).toHaveBeenLastCalledWith(null);
+    panel.destroy();
+  });
 });
 
 describe('HandsPreviewPanel — edit mode (E.6.8)', () => {

@@ -228,6 +228,83 @@ describe('FretboardHandPreview — active positions', () => {
   });
 });
 
+describe('FretboardHandPreview — unplayable positions', () => {
+  it('setUnplayablePositions paints a red disc on top of the fret cell', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    calls.length = 0;
+    fb.setUnplayablePositions([{ string: 3, fret: 7, reason: 'too_many_fingers' }]);
+    const fillStyles = calls
+      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
+      .map(c => c.value);
+    expect(fillStyles.some(v => /rgba\(239, 68, 68, 0\.55\)/.test(v))).toBe(true);
+    // Plus a stroke at the same position with the dark red border.
+    const strokeStyles = calls
+      .filter(c => c.method === 'set' && c.prop === 'strokeStyle')
+      .map(c => c.value);
+    expect(strokeStyles).toContain('#dc2626');
+  });
+
+  it('filters malformed entries (missing string or fret)', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
+    fb.setUnplayablePositions([
+      { string: 3, fret: 5 },
+      { string: 'bad' },             // dropped
+      { fret: 7 },                   // dropped
+      null,                          // dropped
+      { string: 1, fret: 0 }
+    ]);
+    expect(fb.unplayablePositions).toHaveLength(2);
+  });
+
+  it('passing [] clears the overlay', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
+    fb.setUnplayablePositions([{ string: 3, fret: 5 }]);
+    expect(fb.unplayablePositions).toHaveLength(1);
+    fb.setUnplayablePositions([]);
+    expect(fb.unplayablePositions).toHaveLength(0);
+  });
+});
+
+describe('FretboardHandPreview — ghost anchor', () => {
+  it('setGhostAnchor renders a faint translucent rectangle', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setGhostAnchor({ anchorFret: 5, spanFrets: 4, level: 'ok' });
+    const fillStyles = calls
+      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
+      .map(c => c.value);
+    // Ghost ok fill is rgba(34, 197, 94, 0.10) — distinct from the
+    // active hand window's 0.22.
+    expect(fillStyles.some(v => /rgba\(34, 197, 94, 0\.10\)/.test(v))).toBe(true);
+  });
+
+  it('ghost anchor uses warning/infeasible tints when its motion is at risk', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
+    fb.setGhostAnchor({ anchorFret: 5, spanFrets: 4, level: 'infeasible' });
+    expect(calls.some(c => c.method === 'set' && c.prop === 'fillStyle'
+        && /rgba\(239, 68, 68, 0\.14\)/.test(c.value))).toBe(true);
+  });
+
+  it('null ghost anchor clears the overlay', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
+    fb.setGhostAnchor({ anchorFret: 5, spanFrets: 4 });
+    expect(fb.ghostAnchor).not.toBeNull();
+    fb.setGhostAnchor(null);
+    expect(fb.ghostAnchor).toBeNull();
+  });
+
+  it('rejects malformed ghost anchor input', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
+    fb.setGhostAnchor({ anchorFret: 'bad', spanFrets: 4 });
+    expect(fb.ghostAnchor).toBeNull();
+    fb.setGhostAnchor({ anchorFret: 5, spanFrets: -1 });
+    expect(fb.ghostAnchor).toBeNull();
+  });
+});
+
 describe('FretboardHandPreview — lifecycle', () => {
   it('destroy() drops state but does not throw on a follow-up draw', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });

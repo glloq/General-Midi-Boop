@@ -49,7 +49,9 @@
                 ? opts.handSpanFrets : 4;
 
             this.activePositions = [];
+            this.unplayablePositions = [];
             this.handWindow = null;
+            this.ghostAnchor = null;
 
             this.margin = { top: 14, right: 12, bottom: 24, left: 24 };
 
@@ -62,6 +64,50 @@
 
         setActivePositions(positions) {
             this.activePositions = Array.isArray(positions) ? positions.slice() : [];
+            this.draw();
+        }
+
+        /**
+         * Mark string × fret positions as UNPLAYABLE — currently
+         * triggered by `outside_window` and `too_many_fingers`. Each
+         * entry: `{string, fret, reason?}`. Painted as a translucent
+         * red disc on top of the existing finger dot, plus a thin
+         * red border, so the operator sees at a glance which notes
+         * the simulator considers at risk.
+         */
+        setUnplayablePositions(positions) {
+            this.unplayablePositions = Array.isArray(positions)
+                ? positions.filter(p => p
+                    && Number.isFinite(p.string) && Number.isFinite(p.fret)).slice()
+                : [];
+            this.draw();
+        }
+
+        /**
+         * Set a translucent "ghost" rectangle showing where the hand
+         * is GOING for the next planned shift. Same shape as the
+         * regular `setHandWindow` payload but rendered with a more
+         * faded fill + dashed outline so the eye reads "future
+         * position, not current". Pass `null` to clear.
+         */
+        setGhostAnchor(window) {
+            if (window == null) {
+                this.ghostAnchor = null;
+                this.draw();
+                return;
+            }
+            const anchor = parseInt(window.anchorFret, 10);
+            const spanFrets = parseInt(window.spanFrets, 10);
+            if (!Number.isFinite(anchor) || !Number.isFinite(spanFrets) || spanFrets <= 0) {
+                this.ghostAnchor = null;
+                this.draw();
+                return;
+            }
+            this.ghostAnchor = {
+                anchorFret: Math.max(0, anchor),
+                spanFrets,
+                level: window.level || 'ok'
+            };
             this.draw();
         }
 
@@ -157,7 +203,10 @@
             ctx.fillStyle = '#c8b898';
             ctx.fillRect(fbX, fbY, fbW, fbH);
 
-            // Hand window first (under strings/dots so finger dots stay legible).
+            // Ghost anchor (= upcoming planned position) drawn first
+            // so the live hand window paints on top.
+            if (this.ghostAnchor) this._drawGhostAnchor(fbY, fbH);
+            // Hand window (under strings/dots so finger dots stay legible).
             if (this.handWindow) this._drawHandWindow(fbX, fbY, fbW, fbH, w);
 
             // Inlay dots.
@@ -174,6 +223,74 @@
 
             // Active note positions.
             this._drawActivePositions();
+            // Unplayable overlay (red discs on top of the active dots).
+            this._drawUnplayablePositions();
+        }
+
+        _drawGhostAnchor(fbY, fbH) {
+            const { anchorFret, spanFrets, level } = this.ghostAnchor;
+            const x0 = this._fretX(anchorFret);
+            let x1;
+            if (this.scaleLengthMm && this.handSpanMm) {
+                const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -anchorFret / 12));
+                const rightMm = anchorMm + this.handSpanMm;
+                if (rightMm >= this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12))) {
+                    x1 = this._fretX(this.numFrets);
+                } else {
+                    x1 = this._xFromMm(rightMm);
+                }
+            } else {
+                x1 = this._fretX(Math.min(this.numFrets, anchorFret + (spanFrets || this.handSpanFrets)));
+            }
+            if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
+
+            // Faded fills (≈ 40 % of handWindow alpha) so the ghost
+            // never out-shouts the live band but is still readable.
+            const fills = {
+                ok:         'rgba(34, 197, 94, 0.10)',
+                warning:    'rgba(245, 158, 11, 0.12)',
+                infeasible: 'rgba(239, 68, 68, 0.14)'
+            };
+            const strokes = {
+                ok:         'rgba(34, 197, 94, 0.55)',
+                warning:    'rgba(245, 158, 11, 0.65)',
+                infeasible: 'rgba(239, 68, 68, 0.65)'
+            };
+            const ctx = this.ctx;
+            ctx.fillStyle = fills[level] || fills.ok;
+            ctx.fillRect(x0, fbY, x1 - x0, fbH);
+            ctx.strokeStyle = strokes[level] || strokes.ok;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.strokeRect(x0, fbY, x1 - x0, fbH);
+            ctx.setLineDash([]);
+        }
+
+        _drawUnplayablePositions() {
+            if (this.unplayablePositions.length === 0) return;
+            const ctx = this.ctx;
+            for (const pos of this.unplayablePositions) {
+                const y = this._stringY(pos.string);
+                let x;
+                if (pos.fret === 0) {
+                    x = this._fretX(0) - 8;
+                } else {
+                    x = (this._fretX(pos.fret - 1) + this._fretX(pos.fret)) / 2;
+                }
+                const fretW = pos.fret > 0
+                    ? this._fretX(pos.fret) - this._fretX(pos.fret - 1)
+                    : 16;
+                const r = Math.max(4, Math.min(7, fretW * 0.36));
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.55)';
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         }
 
         _drawHandWindow(fbX, fbY, fbW, fbH, _canvasW) {
@@ -327,7 +444,9 @@
 
         destroy() {
             this.activePositions = [];
+            this.unplayablePositions = [];
             this.handWindow = null;
+            this.ghostAnchor = null;
         }
     }
 

@@ -77,9 +77,21 @@
             this.lookahead = null;
             this.fretboard = null;
             this._currentHandWindows = new Map(); // handId → anchor
+            // Feasibility level tracking (frets mode only). Combined
+            // with `_lastMotionLevel` to colour the live hand band.
+            this._currentChordLevel = 'ok';
+            this._lastMotionLevel   = 'ok';
+            this._currentTick = 0;
 
             this._render();
             this._wireEngine();
+        }
+
+        /** Compare two level strings with the order
+         *  ok < warning < infeasible. @private */
+        static _worseLevel(a, b) {
+            const order = { ok: 0, warning: 1, infeasible: 2 };
+            return (order[a] ?? 0) >= (order[b] ?? 0) ? a : b;
         }
 
         // -----------------------------------------------------------------
@@ -233,8 +245,18 @@
             });
 
             this.engine.on('shift', (e) => {
-                const { handId, toAnchor } = e.detail;
+                const { handId, toAnchor, motion } = e.detail;
                 this._currentHandWindows.set(handId, toAnchor);
+                // Track speed-limit feasibility so the frets hand band
+                // can flip to red when the hand can't physically make
+                // the shift in time. Same field name lives on the
+                // semitones path; harmless when the lookahead drives
+                // its own visual signal there.
+                if (motion && motion.feasible === false) {
+                    this._lastMotionLevel = 'infeasible';
+                } else {
+                    this._lastMotionLevel = 'ok';
+                }
                 this._refreshHandsView();
             });
             this.engine.on('chord', (e) => {
@@ -252,10 +274,25 @@
                     this.fretboard.setActivePositions(notes
                         .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string))
                         .map(n => ({ string: n.string, fret: n.fret, velocity: n.velocity || 100 })));
+                    // Surface unplayable notes (`outside_window`,
+                    // `too_many_fingers`) as a red overlay on the
+                    // fretboard. Only entries with a defined string
+                    // and fret reach the preview.
+                    this.fretboard.setUnplayablePositions(unplayable
+                        .filter(u => Number.isFinite(u.string) && Number.isFinite(u.fret)));
+                    // Chord-level marker (note=null) drives the band
+                    // colour. Reset on every chord so a clean chord
+                    // turns the band back to green.
+                    this._currentChordLevel =
+                        unplayable.some(u => u.note == null && u.reason === 'too_many_fingers')
+                            ? 'infeasible' : 'ok';
                 }
+                this._refreshHandsView();
             });
             this.engine.on('tick', (e) => {
+                this._currentTick = e.detail.currentTick;
                 if (this.lookahead) this.lookahead.setCurrentTime(e.detail.currentSec);
+                if (this.fretboard) this._refreshGhostAnchor();
                 if (typeof this.onSeek === 'function') {
                     this.onSeek(e.detail.currentTick, e.detail.totalTicks);
                 }
@@ -405,13 +442,46 @@
                 const fretting = hands.find(h => h && h.id === 'fretting') || hands[0];
                 const anchor = this._currentHandWindows.get(fretting?.id);
                 if (Number.isFinite(anchor) && Number.isFinite(fretting?.hand_span_frets)) {
+                    // Worst of the two recent levels — chord-level
+                    // (too_many_fingers) wins over a stale motion
+                    // signal, but a fresh motion infeasible can also
+                    // raise an otherwise-green chord.
+                    const level = HandsPreviewPanel._worseLevel(
+                        this._currentChordLevel, this._lastMotionLevel);
                     this.fretboard.setHandWindow({
                         anchorFret: anchor,
                         spanFrets: fretting.hand_span_frets,
-                        level: 'ok'
+                        level
                     });
                 }
             }
+        }
+
+        /**
+         * Find the FIRST upcoming shift for the fretting hand and
+         * push its anchor into the fretboard as a ghost rectangle.
+         * Called on every tick so the ghost tracks the playhead;
+         * cheap because the trajectory is precomputed at the engine
+         * level.
+         * @private
+         */
+        _refreshGhostAnchor() {
+            if (this.mode !== 'frets' || !this.fretboard || !this.engine) return;
+            if (typeof this.engine.getHandTrajectories !== 'function') return;
+            const trajectories = this.engine.getHandTrajectories();
+            const handsArr = _hands(this.instrument);
+            const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0];
+            if (!fretting) { this.fretboard.setGhostAnchor(null); return; }
+            const points = trajectories.get(fretting.id) || [];
+            const next = points.find(p => p.tick > this._currentTick);
+            if (!next) { this.fretboard.setGhostAnchor(null); return; }
+            const span = Number.isFinite(fretting.hand_span_frets)
+                ? fretting.hand_span_frets : 4;
+            this.fretboard.setGhostAnchor({
+                anchorFret: next.anchor,
+                spanFrets: span,
+                level: next.motion?.feasible === false ? 'infeasible' : 'ok'
+            });
         }
 
         _onKeyClick(midi) {

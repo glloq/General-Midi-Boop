@@ -498,6 +498,127 @@ describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () 
   });
 });
 
+describe('simulateHandWindows — frets parity (handId + releaseByHand + motion + max_fingers)', () => {
+  it('tags every playable note with handId="fretting"', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45, fret: 5, string: 1 },
+        { tick: 0, note: 50, fret: 7, string: 2 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.notes.length).toBe(2);
+    for (const n of chord.notes) expect(n.handId).toBe('fretting');
+  });
+
+  it('emits releaseByHand with the chord\'s last note-off tick', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45, fret: 5, string: 1, duration: 240 },
+        { tick: 0, note: 50, fret: 7, string: 2, duration: 360 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.releaseByHand).toBeDefined();
+    expect(chord.releaseByHand.fretting).toBe(360);
+  });
+
+  it('attaches motion = { requiredSec, availableSec, feasible } to every shift', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 45, fret: 5,  string: 1, duration: 100 },
+        { tick: 240, note: 47, fret: 12, string: 1 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const shifts = out.filter(e => e.type === 'shift');
+    expect(shifts.length).toBeGreaterThan(0);
+    for (const s of shifts) {
+      expect(s.motion).toBeDefined();
+      expect(typeof s.motion.requiredSec).toBe('number');
+      expect(typeof s.motion.feasible).toBe('boolean');
+    }
+  });
+
+  it('motion.feasible=false when the fret travel exceeds hand_move_mm_per_sec', () => {
+    // Slow hand: 50 mm/s on a 650 mm scale with 100 ms gap.
+    // Travel 1→12 ≈ scale * (1 − 2^(−12/12)) − scale * (1 − 2^(−1/12))
+    //          ≈ 650 * (0.5 − 0.0561) ≈ 288 mm.
+    // Required = 288 / 50 = 5.77 s; available ≈ 0.5 s → infeasible.
+    const slowHands = {
+      enabled: true, mode: 'frets',
+      hand_move_mm_per_sec: 50,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 41, fret: 1,  string: 1, duration: 100 },
+        { tick: 240, note: 52, fret: 12, string: 1 }
+      ],
+      { hands_config: slowHands, scale_length_mm: 650 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const shift = out.find(e => e.type === 'shift' && e.tick === 240);
+    expect(shift).toBeDefined();
+    expect(shift.motion.feasible).toBe(false);
+  });
+
+  it('flags too_many_fingers when chord polyphony exceeds max_fingers (chord-level + per-note)', () => {
+    // max_fingers: 4 (from fretsHands above). A 5-note fretted chord
+    // should be flagged.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45, fret: 5, string: 1 },
+        { tick: 0, note: 47, fret: 7, string: 2 },
+        { tick: 0, note: 49, fret: 5, string: 3 },
+        { tick: 0, note: 51, fret: 6, string: 4 },
+        { tick: 0, note: 53, fret: 8, string: 5 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    // Chord-level marker.
+    const chordMarker = chord.unplayable.find(u => u.note === null && u.reason === 'too_many_fingers');
+    expect(chordMarker).toBeDefined();
+    // Per-note tagging on every fretted note.
+    const perNote = chord.unplayable.filter(u => u.reason === 'too_many_fingers' && u.note !== null);
+    expect(perNote.length).toBe(5);
+  });
+
+  it('does NOT flag too_many_fingers when polyphony is within max_fingers', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45, fret: 5, string: 1 },
+        { tick: 0, note: 47, fret: 7, string: 2 },
+        { tick: 0, note: 49, fret: 5, string: 3 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const tooMany = chord.unplayable.find(u => u.reason === 'too_many_fingers');
+    expect(tooMany).toBeUndefined();
+  });
+
+  it('open strings (fret 0) do not count toward max_fingers', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 40, fret: 0, string: 1 }, // open
+        { tick: 0, note: 45, fret: 5, string: 1 },
+        { tick: 0, note: 47, fret: 7, string: 2 },
+        { tick: 0, note: 49, fret: 5, string: 3 },
+        { tick: 0, note: 51, fret: 6, string: 4 } // 4 fretted, max=4 → ok
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const tooMany = chord.unplayable.find(u => u.reason === 'too_many_fingers');
+    expect(tooMany).toBeUndefined();
+  });
+});
+
 describe('simulateHandWindows — chord release ticks (note-off propagation)', () => {
   it('chord events carry releaseTick = tick + max(duration)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(

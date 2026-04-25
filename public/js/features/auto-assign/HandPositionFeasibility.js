@@ -180,7 +180,7 @@
         const groups = _groupByTick(notes);
 
         if (mode === 'frets') {
-            return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes);
+            return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec);
         }
         return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
     }
@@ -782,7 +782,7 @@
         return { lowAnchor: Math.max(0, targetLowFromHigh), highAnchor: high };
     }
 
-    function _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes) {
+    function _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec) {
         const out = [];
         const fretting = hands.hands.find(h => h && h.id === 'fretting') || hands.hands[0];
         const handId = fretting.id || 'fretting';
@@ -793,6 +793,13 @@
         const scaleLengthMm = Number.isFinite(instrument.scale_length_mm) && instrument.scale_length_mm > 0
             ? instrument.scale_length_mm : null;
         const usePhysical = handSpanMm != null && scaleLengthMm != null;
+        const maxFingers = Number.isFinite(fretting.max_fingers) && fretting.max_fingers > 0
+            ? fretting.max_fingers : null;
+        // Speed limits — physical mm/s preferred, fret/s fallback.
+        const speedMmPerSec = Number.isFinite(hands.hand_move_mm_per_sec) && hands.hand_move_mm_per_sec > 0
+            ? hands.hand_move_mm_per_sec : null;
+        const speedFretsPerSec = Number.isFinite(hands.hand_move_frets_per_sec) && hands.hand_move_frets_per_sec > 0
+            ? hands.hand_move_frets_per_sec : null;
 
         // Fret reach as a function of anchor — physical or fixed.
         function maxReach(anchor) {
@@ -804,7 +811,37 @@
             return -12 * Math.log2(t);
         }
 
+        // Travel time between two fret anchors. Physical mm if scale
+        // length is configured, fret-count otherwise. Returns null
+        // when no speed limit is available (= no constraint).
+        function computeMotion(fromAnchor, toAnchor, prevReleaseTick, currentTick) {
+            if (!Number.isFinite(fromAnchor) || !Number.isFinite(toAnchor)
+                    || !Number.isFinite(ticksPerSec) || ticksPerSec <= 0) {
+                return { requiredSec: 0, availableSec: Infinity, feasible: true };
+            }
+            let requiredSec;
+            if (scaleLengthMm != null && speedMmPerSec != null) {
+                const fromMm = scaleLengthMm * (1 - Math.pow(2, -fromAnchor / 12));
+                const toMm   = scaleLengthMm * (1 - Math.pow(2, -toAnchor   / 12));
+                requiredSec = Math.abs(toMm - fromMm) / speedMmPerSec;
+            } else if (speedFretsPerSec != null) {
+                requiredSec = Math.abs(toAnchor - fromAnchor) / speedFretsPerSec;
+            } else {
+                return { requiredSec: 0, availableSec: Infinity, feasible: true };
+            }
+            const prevTick = Number.isFinite(prevReleaseTick) ? prevReleaseTick : null;
+            const availableTicks = prevTick != null
+                ? Math.max(0, currentTick - prevTick) : Infinity;
+            const availableSec = availableTicks === Infinity
+                ? Infinity : availableTicks / ticksPerSec;
+            const feasible = availableSec + 1e-6 >= requiredSec;
+            return { requiredSec, availableSec, feasible };
+        }
+
         let anchor = null;
+        // Per-hand last release tick (always the same hand here, but
+        // we keep the structure consistent with semitones).
+        const prevReleaseByHand = Object.create(null);
 
         for (const g of groups) {
             // Override pin first.
@@ -812,7 +849,11 @@
             if (overrideAnchors.has(ovKey)) {
                 const newAnchor = overrideAnchors.get(ovKey);
                 if (anchor !== newAnchor) {
-                    out.push({ type: 'shift', tick: g.tick, handId, fromAnchor: anchor, toAnchor: newAnchor, source: 'override' });
+                    const motion = computeMotion(anchor, newAnchor,
+                                                  prevReleaseByHand[handId], g.tick);
+                    out.push({ type: 'shift', tick: g.tick, handId,
+                                fromAnchor: anchor, toAnchor: newAnchor,
+                                source: 'override', motion });
                     anchor = newAnchor;
                 }
             }
@@ -828,24 +869,51 @@
                     || lo < anchor
                     || hi > maxReach(anchor)) {
                     const newAnchor = lo;
-                    out.push({ type: 'shift', tick: g.tick, handId, fromAnchor: anchor, toAnchor: newAnchor, source: 'auto' });
+                    const motion = computeMotion(anchor, newAnchor,
+                                                  prevReleaseByHand[handId], g.tick);
+                    out.push({ type: 'shift', tick: g.tick, handId,
+                                fromAnchor: anchor, toAnchor: newAnchor,
+                                source: 'auto', motion });
                     anchor = newAnchor;
                 }
                 const top = maxReach(anchor);
                 for (const n of fretted) {
                     if (n.fret < anchor || n.fret > top) {
-                        unplayable.push({ note: n.note, fret: n.fret, reason: 'outside_window', handId });
+                        unplayable.push({ note: n.note, fret: n.fret, string: n.string,
+                                          reason: 'outside_window', handId });
                     }
                 }
             }
+
+            // max_fingers enforcement: when the chord has more
+            // fretted notes than the hand can press, flag every
+            // fretted note + emit a chord-level marker so the band
+            // can turn red.
+            if (maxFingers != null && fretted.length > maxFingers) {
+                for (const n of fretted) {
+                    unplayable.push({ note: n.note, fret: n.fret, string: n.string,
+                                       reason: 'too_many_fingers', handId });
+                }
+                unplayable.push({ note: null, reason: 'too_many_fingers',
+                                  handId,
+                                  message: `${fretted.length}/${maxFingers} fingers required` });
+            }
+
+            // Tag every playable note with its hand id (single hand
+            // here, but parity with semitones: the panel + lookahead
+            // strip can rely on the field being present).
+            const taggedNotes = liveNotes.map(n => ({ ...n, handId }));
+            const releaseByHand = _releaseByHand(taggedNotes, [handId], g.tick);
 
             out.push({
                 type: 'chord',
                 tick: g.tick,
                 releaseTick: g.releaseTick,
-                notes: liveNotes.map(n => ({ ...n })),
+                releaseByHand,
+                notes: taggedNotes,
                 unplayable
             });
+            _updatePrevRelease(prevReleaseByHand, releaseByHand);
         }
         return out;
     }
