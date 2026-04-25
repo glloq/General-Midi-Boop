@@ -43,42 +43,41 @@ class InstrumentManagementPage {
         <div class="modal-container inst-mgmt-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
 
           <!-- Header -->
-          <div class="modal-header" style="padding: 14px 48px 14px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative; display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-              <h2 style="margin: 0; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
-              <label class="inst-mgmt-virtual-toggle" title="${i18n.t('settings.virtualInstrument.description') || ''}"
-                     style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; height: 32px; padding: 0 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.15); color: white; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; white-space: nowrap;">
-                <span>🖥️ ${i18n.t('settings.virtualInstrument.title') || 'Instrument virtuel'}</span>
-                <span style="position: relative; display: inline-block; width: 32px; height: 18px;">
-                  <input type="checkbox" id="virtualInstrumentHeaderToggle" ${this._isVirtualEnabled() ? 'checked' : ''}
-                         onchange="instrumentManagementPageInstance.toggleVirtualInstrument(this.checked)"
-                         style="opacity: 0; width: 0; height: 0; position: absolute;">
-                  <span class="inst-mgmt-virt-slider" aria-hidden="true"
-                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: ${this._isVirtualEnabled() ? '#10b981' : 'rgba(0,0,0,0.35)'}; border-radius: 18px; transition: background 0.2s;">
-                    <span style="position: absolute; top: 2px; left: ${this._isVirtualEnabled() ? '16px' : '2px'}; width: 14px; height: 14px; background: white; border-radius: 50%; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
-                  </span>
-                </span>
-              </label>
-            </div>
+          <div class="modal-header" style="padding: 12px 48px 12px 20px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+              <h2 style="margin: 0; font-size: 20px; white-space: nowrap; flex-shrink: 0;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
               <input type="text"
                      id="instrumentSearch"
-                     placeholder="🔍 ${i18n.t('instrumentManagement.searchPlaceholder') || 'Rechercher un instrument...'}"
+                     placeholder="🔍 ${i18n.t('instrumentManagement.searchPlaceholder') || 'Rechercher...'}"
                      onkeyup="instrumentManagementPageInstance.handleSearch(this.value)"
-                     style="flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 8px 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; outline: none;"
+                     style="flex: 1; min-width: 0; height: 34px; box-sizing: border-box; padding: 6px 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; outline: none;"
                      onfocus="this.style.borderColor='rgba(255,255,255,0.6)';this.style.background='rgba(255,255,255,0.25)'"
                      onblur="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='rgba(255,255,255,0.15)'">
               <select id="instrumentFilter"
                       onchange="instrumentManagementPageInstance.handleFilter(this.value)"
-                      style="flex-shrink: 0; min-width: 130px; max-width: 160px; height: 36px; box-sizing: border-box; padding: 8px 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; cursor: pointer; line-height: normal;">
+                      style="flex-shrink: 0; width: 120px; height: 34px; box-sizing: border-box; padding: 6px 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; cursor: pointer; line-height: normal;">
                 <option value="all" style="background: #2d2d2d; color: #e0e0e0;">${i18n.t('instrumentManagement.filterAll') || 'Tous'}</option>
                 <option value="complete" style="background: #2d2d2d; color: #e0e0e0;">✓ ${i18n.t('instrumentManagement.filterComplete') || 'Complets'}</option>
                 <option value="incomplete" style="background: #2d2d2d; color: #e0e0e0;">⚠ ${i18n.t('instrumentManagement.filterIncomplete') || 'Incomplets'}</option>
                 <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
                 <option value="virtual" id="instrumentFilterVirtualOption" style="background: #2d2d2d; color: #e0e0e0; ${this._isVirtualEnabled() ? '' : 'display:none;'}">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
               </select>
+              <label class="inst-mgmt-virtual-toggle"
+                     title="${i18n.t('settings.virtualInstrument.title') || 'Instrument virtuel'} — ${i18n.t('settings.virtualInstrument.description') || ''}"
+                     style="display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 34px; padding: 0 8px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.15); color: white; cursor: pointer; user-select: none; font-size: 14px; line-height: 1;">
+                <span aria-hidden="true">🖥️</span>
+                <span style="position: relative; display: inline-block; width: 30px; height: 16px;">
+                  <input type="checkbox" id="virtualInstrumentHeaderToggle" ${this._isVirtualEnabled() ? 'checked' : ''}
+                         onchange="instrumentManagementPageInstance.toggleVirtualInstrument(this.checked)"
+                         style="opacity: 0; width: 0; height: 0; position: absolute;">
+                  <span class="inst-mgmt-virt-slider" aria-hidden="true"
+                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: ${this._isVirtualEnabled() ? '#10b981' : 'rgba(0,0,0,0.35)'}; border-radius: 16px; transition: background 0.2s;">
+                    <span style="position: absolute; top: 2px; left: ${this._isVirtualEnabled() ? '16px' : '2px'}; width: 12px; height: 12px; background: white; border-radius: 50%; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+                  </span>
+                </span>
+              </label>
             </div>
-            <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 10px; right: 10px; z-index: 1;">
+            <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 8px; right: 10px; z-index: 1;">
                 ×
             </button>
           </div>
