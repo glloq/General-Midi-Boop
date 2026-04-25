@@ -651,6 +651,65 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note50.string).toBe(3);
   });
 
+  it('chord-level: NEVER assigns two notes to the same string in one chord', () => {
+    // A simple two-note chord where both notes have an obvious
+    // candidate on the same string (e.g. D3=50 and D#3=51 both prefer
+    // string 3 fret 0 / 1). The chord-level resolver should split
+    // them across distinct strings.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 50 },
+        { tick: 0, note: 51 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const stringsUsed = new Set();
+    for (const n of chord.notes) {
+      if (Number.isFinite(n.string)) {
+        expect(stringsUsed.has(n.string)).toBe(false);
+        stringsUsed.add(n.string);
+      }
+    }
+  });
+
+  it('chord-level: low-pitch note lands on a lower string than the high-pitch note', () => {
+    // Two notes in a chord — the resolver processes low → high so
+    // the lower MIDI lands on the lower string when it can.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45 }, // A2 → string 2 fret 0
+        { tick: 0, note: 50 }  // D3 → string 3 fret 0 (or fret 5 on string 2)
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const note45 = chord.notes.find(n => n.note === 45);
+    const note50 = chord.notes.find(n => n.note === 50);
+    expect(note45.string).toBeLessThan(note50.string);
+  });
+
+  it('chord-level: pre-tagged notes reserve their string before unresolved ones', () => {
+    // Note 50 explicitly tagged on string 3 fret 0; note 45 left
+    // unresolved should land elsewhere (string 2 fret 0) instead of
+    // colliding on string 3.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 45 },
+        { tick: 0, note: 50, fret: 0, string: 3 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const note45 = chord.notes.find(n => n.note === 45);
+    const note50 = chord.notes.find(n => n.note === 50);
+    expect(note50.string).toBe(3); // pre-tagged kept
+    expect(note45.string).not.toBe(3);
+  });
+
   it('hand-aware: notes that fit inside the window are NOT flagged as unplayable', () => {
     // Same setup as above — chord 2 at fret 6 (string 2) sits
     // inside [5..9], so no shift is emitted and the note is NOT
