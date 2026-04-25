@@ -16,7 +16,7 @@ function installCanvasStub() {
   const ctx = new Proxy({}, {
     get(_t, prop) {
       if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
+      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
         return (...args) => calls.push({ method: prop, args });
       }
       return undefined;
@@ -347,6 +347,80 @@ describe('FretboardHandPreview — unplayable positions', () => {
     expect(fb.unplayablePositions).toHaveLength(1);
     fb.setUnplayablePositions([]);
     expect(fb.unplayablePositions).toHaveLength(0);
+  });
+});
+
+describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
+  it('N1 — paints a bright string segment from the nut to the pressed fret', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setActivePositions([{ string: 3, fret: 5, velocity: 100 }]);
+    // The N1 helper sets a yellow stroke + draws a line from xNut to
+    // the centre of fret 5's slot, on the y of string 3.
+    const yString3 = fb._stringY(3);
+    const xCentreF5 = (fb._fretX(4) + fb._fretX(5)) / 2;
+    const moves = calls.filter(c => c.method === 'moveTo' && Math.abs(c.args[1] - yString3) < 0.5);
+    const lines = calls.filter(c => c.method === 'lineTo'
+        && Math.abs(c.args[1] - yString3) < 0.5
+        && Math.abs(c.args[0] - xCentreF5) < 1);
+    expect(moves.length).toBeGreaterThan(0);
+    expect(lines.length).toBeGreaterThan(0);
+    const strokeStyles = calls
+      .filter(c => c.method === 'set' && c.prop === 'strokeStyle')
+      .map(c => c.value);
+    expect(strokeStyles.some(v => /rgba\(255, 215, 64/.test(v))).toBe(true);
+  });
+
+  it('N1 — open string (fret=0) lights up the entire string length', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setActivePositions([{ string: 6, fret: 0 }]);
+    const yString6 = fb._stringY(6);
+    const xRight = fb._fretX(fb.numFrets);
+    const lines = calls.filter(c => c.method === 'lineTo'
+        && Math.abs(c.args[1] - yString6) < 0.5
+        && Math.abs(c.args[0] - xRight) < 1);
+    expect(lines.length).toBeGreaterThan(0);
+  });
+
+  it('N2 — paints "1" / "2" / "3" / "4" inside the hand band', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(800, 200), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setHandWindow({ anchorFret: 5, spanFrets: 4 });
+    const fillTexts = calls.filter(c => c.method === 'fillText').map(c => c.args[0]);
+    expect(fillTexts).toContain('1');
+    expect(fillTexts).toContain('2');
+    expect(fillTexts).toContain('3');
+    expect(fillTexts).toContain('4');
+  });
+
+  it('N3 — paints a green "O" left of the nut for active open strings', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setActivePositions([{ string: 6, fret: 0 }]);
+    const fillStyles = calls
+      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
+      .map(c => c.value);
+    expect(fillStyles).toContain('#06d6a0');
+    const oTexts = calls.filter(c => c.method === 'fillText' && c.args[0] === 'O');
+    expect(oTexts.length).toBeGreaterThan(0);
+    // Plotted left of the nut.
+    expect(oTexts[0].args[1]).toBeLessThan(fb._fretX(0));
+  });
+
+  it('N3 — paints a red "X" left of the nut for muted (unplayable) strings', () => {
+    const fb = new window.FretboardHandPreview(makeCanvas(), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+    });
+    fb.setUnplayablePositions([{ string: 5, fret: 12, reason: 'outside_window' }]);
+    const xTexts = calls.filter(c => c.method === 'fillText' && c.args[0] === 'X');
+    expect(xTexts.length).toBeGreaterThan(0);
+    // Centred on string 5's y.
+    expect(Math.abs(xTexts[0].args[2] - fb._stringY(5))).toBeLessThan(1);
   });
 });
 

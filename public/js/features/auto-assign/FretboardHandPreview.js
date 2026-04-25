@@ -59,9 +59,10 @@
             this.handWindow = null;
             this.ghostAnchor = null;
 
-            // Wider left margin holds the tuning labels (D1); wider
-            // right margin holds the body sketch (B1).
-            this.margin = { top: 14, right: 56, bottom: 24, left: 38 };
+            // Wider left margin holds the tuning labels (D1) plus
+            // the O / X glyph column (N3); wider right margin holds
+            // the body sketch (B1).
+            this.margin = { top: 14, right: 56, bottom: 24, left: 56 };
 
             this._dprSyncedSize = { w: 0, h: 0 };
         }
@@ -230,8 +231,18 @@
             // Strings (horizontal lines).
             this._drawStrings();
 
+            // N1 — Bright segments on active strings, drawn ON the
+            // strings so they read as "lit-up portions of the cord".
+            this._drawActiveStringSegments();
+
+            // N2 — Finger numbers inside the hand band.
+            this._drawFingerNumbers(fbY, fbH);
+
             // Tuning labels left of the nut (D1).
             this._drawTuningLabels();
+
+            // N3 — Open / muted glyphs left of the tuning labels.
+            this._drawOpenMutedIndicators();
 
             // Fret numbers below the board.
             this._drawFretNumbers(fbY, fbH);
@@ -471,6 +482,114 @@
             ctx.beginPath();
             ctx.arc(cx, midY, r + 3, 0, Math.PI * 2);
             ctx.stroke();
+        }
+
+        /** N1 — Bright segment on the string of each active note,
+         *  from the nut up to the pressed fret. Shows the "vibrating"
+         *  portion of the string at a glance. Open notes (fret 0)
+         *  paint the whole string. */
+        _drawActiveStringSegments() {
+            if (!this.activePositions || this.activePositions.length === 0) return;
+            const ctx = this.ctx;
+            const xL = this._fretX(0);
+            for (const pos of this.activePositions) {
+                if (!Number.isFinite(pos.string) || !Number.isFinite(pos.fret)) continue;
+                const y = this._stringY(pos.string);
+                let xR;
+                if (pos.fret === 0) {
+                    // Open string sounds end-to-end.
+                    xR = this._fretX(this.numFrets);
+                } else {
+                    // Pressed fret: segment runs to the centre of the
+                    // pressed slot (= where the finger sits).
+                    xR = (this._fretX(pos.fret - 1) + this._fretX(pos.fret)) / 2;
+                }
+                const thickness = 4 + (this.numStrings - pos.string) * 0.4;
+                ctx.strokeStyle = 'rgba(255, 215, 64, 0.9)'; // amber, easy on the wood tone
+                ctx.lineWidth = thickness;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(xL, y);
+                ctx.lineTo(xR, y);
+                ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+        }
+
+        /** N2 — Ghost-text "1" / "2" / "3" / "4" inside the hand
+         *  band so the operator can see which finger plays which
+         *  fret. Centered on each slot vertically + horizontally. */
+        _drawFingerNumbers(fbY, fbH) {
+            if (!this.handWindow) return;
+            const { anchorFret, spanFrets } = this.handWindow;
+            const span = spanFrets || this.handSpanFrets;
+            if (!Number.isFinite(anchorFret) || !Number.isFinite(span) || span <= 0) return;
+            const ctx = this.ctx;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const midY = fbY + fbH / 2;
+            for (let i = 0; i < span; i++) {
+                const f = anchorFret + i;
+                if (f < 1 || f > this.numFrets) continue;
+                const fretW = this._fretX(f) - this._fretX(f - 1);
+                if (fretW < 12) continue; // too cramped for a number
+                const cx = (this._fretX(f - 1) + this._fretX(f)) / 2;
+                const label = String(i + 1);
+                ctx.strokeText(label, cx, midY);
+                ctx.fillText(label, cx, midY);
+            }
+        }
+
+        /** N3 — O / X indicators left of the nut. Open strings get
+         *  a green circle ("O"), unplayable / muted strings get a
+         *  red cross ("X"). Conventional chord-diagram glyphs. */
+        _drawOpenMutedIndicators() {
+            const ctx = this.ctx;
+            const x = this._fretX(0) - 18; // sits left of the tuning labels
+            const seen = new Set();
+
+            // Open strings — drawn from currently active positions
+            // with fret === 0. Use the string number as the dedupe key.
+            for (const pos of this.activePositions || []) {
+                if (!Number.isFinite(pos.string) || pos.fret !== 0) continue;
+                const key = `O:${pos.string}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const y = this._stringY(pos.string);
+                ctx.fillStyle = '#06d6a0';
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('O', x, y);
+            }
+
+            // Muted strings — derived from unplayablePositions (any
+            // string that has at least one unplayable entry).
+            const mutedStrings = new Set();
+            for (const pos of this.unplayablePositions || []) {
+                if (Number.isFinite(pos.string)) mutedStrings.add(pos.string);
+            }
+            ctx.fillStyle = '#dc2626';
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2;
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (const s of mutedStrings) {
+                const key = `X:${s}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const y = this._stringY(s);
+                ctx.fillText('X', x, y);
+            }
         }
 
         _drawFretNumbers(fbY, fbH) {
