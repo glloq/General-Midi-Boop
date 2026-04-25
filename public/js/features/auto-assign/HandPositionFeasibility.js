@@ -984,14 +984,19 @@
 
     /**
      * Hand-aware variant of `_resolveStringFret`. When the simulator
-     * already knows where the hand sits, the resolver prefers a fret
-     * inside the hand's reach `[anchor, anchor + spanFrets]` so a
-     * note that COULD be played on a different string lands inside
-     * the band instead of being flagged outside_window. Open strings
-     * (fret 0) are always preferred — they never need a finger.
+     * already knows where the hand sits, the resolver prefers a
+     * fret INSIDE the hand's reach `[anchor, anchor + spanFrets]`
+     * over open strings or out-of-window options — keeping the
+     * hand actually following the music instead of drifting on a
+     * long string of open notes and then making a huge jump.
      *
-     * Falls back to the lowest-fret heuristic when `anchor` is null
-     * (= first chord, no context yet).
+     * Score order (highest wins):
+     *   1. In-window fretted (1000 − distance-from-anchor)
+     *   2. Open string                                    (500)
+     *   3. Out-of-window fretted (100 − distance-to-window)
+     *
+     * Tie-break: lower fret wins. Falls back to the lowest-fret
+     * heuristic when `anchor` is null (= first chord).
      * @private
      */
     function _resolveStringFretWithContext(midi, tuning, numFrets, capoFret,
@@ -1006,13 +1011,14 @@
             const fret = midi - open;
             if (fret < 0 || fret > numFrets) continue;
             let score;
-            if (fret === 0) {
-                // Open string — always cheapest (no finger needed).
-                score = 1000;
-            } else if (useContext && fret >= anchor && fret <= anchor + spanFrets) {
-                // In-window: rank by closeness to anchor (lower fret
-                // within window = lower-numbered finger).
-                score = 500 - (fret - anchor);
+            if (useContext && fret > 0 && fret >= anchor && fret <= anchor + spanFrets) {
+                // In-window fretted — top priority. Closer to anchor
+                // = lower-numbered finger = preferred.
+                score = 1000 - (fret - anchor);
+            } else if (fret === 0) {
+                // Open string — cheap (no finger) but only when no
+                // in-window option beat it.
+                score = 500;
             } else if (useContext) {
                 // Outside the current window — penalty proportional
                 // to how far we'd have to shift the hand.

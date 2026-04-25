@@ -606,10 +606,13 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note51.string).toBe(2);
   });
 
-  it('hand-aware: still prefers an OPEN string over an in-window fret', () => {
-    // Even with hand at fret 5, note 50 has an open option (string
-    // 3 fret 0). Open strings are always cheapest — they sound
-    // without a finger.
+  it('hand-aware: prefers an in-window FRETTED option OVER an open-string alternative', () => {
+    // When the hand is at fret 5 and a note has both an in-window
+    // fretted alternative AND an open option, we now pick the
+    // fretted one — keeps the hand following the music instead of
+    // drifting on opens. (Tested with note 50 = D3: string 3 fret 0
+    // vs string 2 fret 5; with anchor at fret 5, string 2 fret 5
+    // wins.)
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0,   note: 49, fret: 4, string: 2, duration: 100 }, // hand → 4
@@ -622,7 +625,29 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     const chord2 = out.filter(e => e.type === 'chord')[1];
     const note50 = chord2.notes.find(n => n.note === 50);
     expect(note50).toBeDefined();
-    expect(note50.fret).toBe(0); // open string
+    // Anchor 4, span 4 → window [4..8]. String 2 fret 5 is in
+    // window; preferred over string 3 fret 0 (open).
+    expect(note50.fret).toBe(5);
+    expect(note50.string).toBe(2);
+  });
+
+  it('hand-aware: falls back to OPEN when no in-window fretted option exists', () => {
+    // Hand at fret 15 (way up the neck). Note 50 (D3) options:
+    // string 3 fret 0, string 2 fret 5, string 1 fret 10. None are
+    // in [15..19] → open string wins (cheaper than out-of-window).
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 64, fret: 15, string: 1, duration: 100 }, // hand → 15
+        { tick: 480, note: 50 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const chord2 = out.filter(e => e.type === 'chord')[1];
+    const note50 = chord2.notes.find(n => n.note === 50);
+    expect(note50).toBeDefined();
+    expect(note50.fret).toBe(0); // open
     expect(note50.string).toBe(3);
   });
 
