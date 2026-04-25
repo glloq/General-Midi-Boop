@@ -158,6 +158,29 @@ const ScoringConfig = {
   },
 
   /**
+   * Hand-position feasibility weights. Applied on top of the existing
+   * 0-100 score by AutoAssigner via the structured `handPositionFeasibility`
+   * payload produced in InstrumentMatcher (A.1). Values express how
+   * strongly the matcher should prefer instruments whose mechanical
+   * hand can play the channel comfortably.
+   *
+   *   level=ok          → +okBonus
+   *   level=warning     → +warningPenalty (negative)
+   *   level=infeasible  → +infeasiblePenalty (negative; large enough to
+   *                       dethrone otherwise-good matches)
+   *   level=unknown     → 0 (no instrument-side data)
+   *
+   * `enabled=false` short-circuits the contribution entirely so the
+   * legacy ranking is preserved when an operator wants to opt out.
+   */
+  handPosition: {
+    enabled: true,
+    okBonus: 4,
+    warningPenalty: -8,
+    infeasiblePenalty: -20
+  },
+
+  /**
    * Score thresholds
    */
   scoreThresholds: {
@@ -202,6 +225,21 @@ const ScoringConfig = {
    */
   getBonus(bonus) {
     return this.bonuses[bonus] || 0;
+  },
+
+  /**
+   * Get the hand-position score contribution for a feasibility level.
+   * Returns 0 when the section is disabled or the level is unknown so
+   * the matcher's existing balance is preserved.
+   * @param {'unknown'|'ok'|'warning'|'infeasible'} level
+   * @returns {number}
+   */
+  getHandPositionDelta(level) {
+    if (!this.handPosition || this.handPosition.enabled === false) return 0;
+    if (level === 'ok')        return this.handPosition.okBonus || 0;
+    if (level === 'warning')   return this.handPosition.warningPenalty || 0;
+    if (level === 'infeasible')return this.handPosition.infeasiblePenalty || 0;
+    return 0;
   },
 
   /**

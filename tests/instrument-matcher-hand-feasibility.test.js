@@ -8,6 +8,7 @@
 
 import { describe, test, expect } from '@jest/globals';
 import InstrumentMatcher from '../src/midi/adaptation/InstrumentMatcher.js';
+import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
 
 const silentLogger = { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} };
 
@@ -188,28 +189,80 @@ describe('InstrumentMatcher.handPositionFeasibility — frets mode', () => {
   });
 });
 
-describe('InstrumentMatcher.handPositionFeasibility — score isolation', () => {
-  test('A.1 alone does not change the existing 0-100 score', () => {
-    const m = new InstrumentMatcher(silentLogger);
+describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution', () => {
+  // A throwaway config that overrides one section without mutating the
+  // global ScoringConfig (which would leak into the rest of the suite).
+  function makeConfig(overrides) {
+    return Object.assign(Object.create(ScoringConfig), overrides);
+  }
+
+  const semitonesHands = {
+    enabled: true,
+    mode: 'semitones',
+    hand_move_semitones_per_sec: 60,
+    hands: [
+      { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+      { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+    ]
+  };
+
+  test('hands_config with enabled=false does not move the score (opt-out)', () => {
+    const cfg = makeConfig({ handPosition: { enabled: false } });
+    const m = new InstrumentMatcher(silentLogger, cfg);
     const analysis = baseAnalysis();
     const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
-
-    // Adding a hands_config that flags warning/infeasible MUST not move
-    // the score in A.1 — A.2 is the one that ties feasibility into the
-    // ranking. This guards against accidentally bleeding the heuristic
-    // into the score before the weights are wired.
-    const withHands = m.calculateCompatibility(analysis, pianoInstrument({
-      hands_config: {
-        enabled: true,
-        mode: 'semitones',
-        hand_move_semitones_per_sec: 60,
-        hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
-          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
-        ]
-      }
-    })).score;
-
+    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
     expect(withHands).toBe(baseline);
+  });
+
+  test('level=ok adds the configured bonus', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    const analysis = baseAnalysis({ polyphonyMax: 4, rangeMin: 60, rangeMax: 72 });
+    const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
+    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    // Default config: okBonus = +4 (clamped to 100 ceiling).
+    expect(withHands).toBeGreaterThanOrEqual(baseline);
+    expect(withHands - baseline).toBeLessThanOrEqual(4);
+  });
+
+  test('level=warning subtracts the configured penalty', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    // Wide pitch span → warning.
+    const analysis = baseAnalysis({ polyphonyMax: 4, rangeMin: 30, rangeMax: 95 });
+    const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
+    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    expect(withHands).toBeLessThan(baseline);
+  });
+
+  test('level=infeasible subtracts the larger penalty', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    const analysis = baseAnalysis({ polyphonyMax: 12, rangeMin: 60, rangeMax: 72 });
+    const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
+    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    expect(baseline - withHands).toBeGreaterThanOrEqual(15);
+  });
+
+  test('level=unknown (no hands_config) leaves the score unchanged', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    const analysis = baseAnalysis();
+    const a = m.calculateCompatibility(analysis, pianoInstrument()).score;
+    const b = m.calculateCompatibility(analysis, pianoInstrument()).score;
+    expect(a).toBe(b);
+    // And that score is still the un-bonused baseline.
+    const handPositionFeasibility = m.calculateCompatibility(analysis, pianoInstrument()).handPositionFeasibility;
+    expect(handPositionFeasibility.level).toBe('unknown');
+  });
+
+  test('per-mode penalties produce a strict ordering: infeasible < warning < ok', () => {
+    const m = new InstrumentMatcher(silentLogger);
+
+    // Same instrument config, three different channel analyses spanning
+    // the three feasibility levels.
+    const ok       = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 4, rangeMin: 60, rangeMax: 72 }), pianoInstrument({ hands_config: semitonesHands })).score;
+    const warning  = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 4, rangeMin: 30, rangeMax: 95 }), pianoInstrument({ hands_config: semitonesHands })).score;
+    const infeas   = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 12, rangeMin: 60, rangeMax: 72 }), pianoInstrument({ hands_config: semitonesHands })).score;
+
+    expect(ok).toBeGreaterThan(warning);
+    expect(warning).toBeGreaterThan(infeas);
   });
 });

@@ -260,16 +260,19 @@ class InstrumentMatcher {
       };
     }
 
-    // Hand-position feasibility heuristic. When the instrument has a
-    // hands_config we score how comfortably its mechanical hand can
-    // play the channel from the aggregated analysis (pitch range +
-    // polyphony) — true planner dry-runs would need per-note timing
-    // which the analyzer doesn't propagate this far. The result is
-    // attached to the return so A.2 can fold its qualityScore into
-    // the final ranking and the UI (C.3) can show a feasibility
-    // badge. A.1 itself does not modify `score` — it only produces
-    // the structured payload.
+    // Hand-position feasibility heuristic + scoring contribution.
+    // A.1 produced the structured payload from the aggregated analysis
+    // (pitch range + polyphony); A.2 turns the level into a bonus or
+    // penalty applied to the matcher's main score so the auto-assigner
+    // prefers instruments whose mechanical hand can comfortably play
+    // the channel. The contribution is gated on
+    // ScoringConfig.handPosition.enabled, so an operator can revert
+    // to the pre-feature ranking by toggling the flag.
     const handPositionFeasibility = this._scoreHandPositionFeasibility(channelAnalysis, instrument);
+    const handDelta = this.config.getHandPositionDelta
+      ? this.config.getHandPositionDelta(handPositionFeasibility.level)
+      : 0;
+    if (handDelta !== 0) score += handDelta;
     if (handPositionFeasibility.info) info.push(handPositionFeasibility.info);
     if (handPositionFeasibility.issue) issues.push(handPositionFeasibility.issue);
 
