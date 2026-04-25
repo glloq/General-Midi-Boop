@@ -315,6 +315,86 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
   });
 });
 
+describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () => {
+  it('tags each playable note with its assigned hand (semitones, two-hand)', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 40 }, // low → left
+        { tick: 0, note: 45 }, // low → left
+        { tick: 0, note: 70 }, // high → right
+        { tick: 0, note: 75 }  // high → right
+      ],
+      { hands_config: semitonesHands }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const byNote = new Map(chord.notes.map(n => [n.note, n.handId]));
+    expect(byNote.get(40)).toBe('left');
+    expect(byNote.get(45)).toBe('left');
+    expect(byNote.get(70)).toBe('right');
+    expect(byNote.get(75)).toBe('right');
+  });
+
+  it('single-hand keyboard tags every note with the only hand', () => {
+    const oneHand = {
+      enabled: true, mode: 'semitones', hand_move_semitones_per_sec: 60,
+      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 60 }, { tick: 480, note: 67 }],
+      { hands_config: oneHand }
+    );
+    const chords = out.filter(e => e.type === 'chord');
+    for (const c of chords) for (const n of c.notes) {
+      expect(n.handId).toBe('left');
+    }
+  });
+
+  it('emits releaseByHand per chord with each hand\'s last note-off', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 40, duration: 240 }, // left releases at 240
+        { tick: 0, note: 45, duration: 360 }, // left releases at 360 (later)
+        { tick: 0, note: 70, duration: 120 }, // right releases at 120
+        { tick: 0, note: 75, duration: 480 }  // right releases at 480 (later)
+      ],
+      { hands_config: semitonesHands }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.releaseByHand).toBeDefined();
+    expect(chord.releaseByHand.left).toBe(360);
+    expect(chord.releaseByHand.right).toBe(480);
+  });
+
+  it('right hand can leave early when its notes release before left\'s', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0, note: 40, duration: 1000 }, // left holds long
+        { tick: 0, note: 80, duration: 100 }   // right releases fast
+      ],
+      { hands_config: semitonesHands }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.releaseByHand.left).toBe(1000);
+    expect(chord.releaseByHand.right).toBe(100);
+    // Hand-wide release is now strictly less than chord-wide release
+    // for at least one hand → the visualization can react earlier.
+    expect(Math.min(chord.releaseByHand.left, chord.releaseByHand.right))
+      .toBeLessThan(chord.releaseTick);
+  });
+
+  it('idle hand defaults to releaseByHand[id] = chord.tick (free immediately)', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 480, note: 50, duration: 240 } // single low note → left only
+      ],
+      { hands_config: semitonesHands }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    // Left has the note; right is idle → its release equals the chord tick.
+    expect(chord.releaseByHand.right).toBe(480);
+  });
+});
+
 describe('simulateHandWindows — chord release ticks (note-off propagation)', () => {
   it('chord events carry releaseTick = tick + max(duration)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
