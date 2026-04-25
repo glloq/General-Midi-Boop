@@ -351,19 +351,23 @@ describe('FretboardHandPreview — unplayable positions', () => {
 });
 
 describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
-  it('N1 — paints a bright string segment from the nut to the pressed fret', () => {
+  it('N1 — paints the VIBRATING portion of the string (fret → bridge side)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
     });
     fb.setActivePositions([{ string: 3, fret: 5, velocity: 100 }]);
-    // The N1 helper sets a yellow stroke + draws a line from xNut to
-    // the centre of fret 5's slot, on the y of string 3.
+    // The N1 helper sets an amber stroke + draws a line FROM the
+    // centre of fret 5's slot (where the finger presses) TO the end
+    // of the neck (= bridge side), on the y of string 3.
     const yString3 = fb._stringY(3);
     const xCentreF5 = (fb._fretX(4) + fb._fretX(5)) / 2;
-    const moves = calls.filter(c => c.method === 'moveTo' && Math.abs(c.args[1] - yString3) < 0.5);
-    const lines = calls.filter(c => c.method === 'lineTo'
+    const xEnd      = fb._fretX(fb.numFrets);
+    const moves = calls.filter(c => c.method === 'moveTo'
         && Math.abs(c.args[1] - yString3) < 0.5
         && Math.abs(c.args[0] - xCentreF5) < 1);
+    const lines = calls.filter(c => c.method === 'lineTo'
+        && Math.abs(c.args[1] - yString3) < 0.5
+        && Math.abs(c.args[0] - xEnd) < 1);
     expect(moves.length).toBeGreaterThan(0);
     expect(lines.length).toBeGreaterThan(0);
     const strokeStyles = calls

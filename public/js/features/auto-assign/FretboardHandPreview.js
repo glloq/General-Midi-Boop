@@ -555,33 +555,35 @@
             ctx.stroke();
         }
 
-        /** N1 — Bright segment on the string of each active note,
-         *  from the nut up to the pressed fret. Shows the "vibrating"
-         *  portion of the string at a glance. Open notes (fret 0)
-         *  paint the whole string. */
+        /** N1 — Bright segment over the VIBRATING portion of each
+         *  active string. For pressed notes that's from the centre
+         *  of the pressed slot (where the finger sits) to the end of
+         *  the fretboard (= the bridge side); the muted segment
+         *  between the nut and the finger is left untouched. Open
+         *  strings (fret 0) light up end-to-end. */
         _drawActiveStringSegments() {
             if (!this.activePositions || this.activePositions.length === 0) return;
             const ctx = this.ctx;
-            const xL = this._fretX(0);
+            const xEnd = this._fretX(this.numFrets);
             for (const pos of this.activePositions) {
                 if (!Number.isFinite(pos.string) || !Number.isFinite(pos.fret)) continue;
                 const y = this._stringY(pos.string);
-                let xR;
+                let xStart;
                 if (pos.fret === 0) {
                     // Open string sounds end-to-end.
-                    xR = this._fretX(this.numFrets);
+                    xStart = this._fretX(0);
                 } else {
-                    // Pressed fret: segment runs to the centre of the
-                    // pressed slot (= where the finger sits).
-                    xR = (this._fretX(pos.fret - 1) + this._fretX(pos.fret)) / 2;
+                    // Pressed fret: only the segment from the finger
+                    // to the bridge actually vibrates.
+                    xStart = (this._fretX(pos.fret - 1) + this._fretX(pos.fret)) / 2;
                 }
                 const thickness = 4 + (this.numStrings - pos.string) * 0.4;
                 ctx.strokeStyle = 'rgba(255, 215, 64, 0.9)'; // amber, easy on the wood tone
                 ctx.lineWidth = thickness;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
-                ctx.moveTo(xL, y);
-                ctx.lineTo(xR, y);
+                ctx.moveTo(xStart, y);
+                ctx.lineTo(xEnd, y);
                 ctx.stroke();
             }
             ctx.lineCap = 'butt';
