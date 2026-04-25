@@ -571,6 +571,79 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note.fret).toBeUndefined();
   });
 
+  it('hand-aware: prefers a fret inside the current hand window over a lower fret on another string', () => {
+    // Setup: chord 1 anchors the hand at fret 5 via a sequence that
+    // includes a 5-only fret note. Chord 2's note has multiple
+    // resolutions; the in-window option should be picked.
+    // String 1 (open=40): D3=50 → fret 10.
+    // String 2 (open=45): D3=50 → fret 5.   ← in window [5..9]
+    // String 3 (open=50): D3=50 → fret 0.   (open)
+    // Open is always preferred over in-window per the heuristic, but
+    // ALL fretted alternatives are dominated by string 2 fret 5.
+    // Use a note with NO open option (= no string tuned exactly to
+    // it) to force the in-window pick: 51 (D#3) — string 2 fret 6,
+    // string 3 fret 1, string 1 fret 11. With anchor=5 span=4 the
+    // window is [5..9]; string 2 fret 6 sits inside and is preferred
+    // over string 3 fret 1.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        // Chord 1: forces hand to fret 5 (note 49 = string 2 fret 4
+        // → no, that's fret 4 on string 2 ... let me use note 50 =
+        // string 2 fret 5, in standard tuning).
+        { tick: 0,   note: 50, fret: 5, string: 2, duration: 100 }, // hand → 5
+        { tick: 480, note: 51 }                                      // unresolved
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const chord2 = out.filter(e => e.type === 'chord')[1];
+    const note51 = chord2.notes.find(n => n.note === 51);
+    expect(note51).toBeDefined();
+    // Should be picked on string 2 fret 6 (inside [5..9]), NOT
+    // string 3 fret 1 (lower fret but outside the window).
+    expect(note51.fret).toBe(6);
+    expect(note51.string).toBe(2);
+  });
+
+  it('hand-aware: still prefers an OPEN string over an in-window fret', () => {
+    // Even with hand at fret 5, note 50 has an open option (string
+    // 3 fret 0). Open strings are always cheapest — they sound
+    // without a finger.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 49, fret: 4, string: 2, duration: 100 }, // hand → 4
+        { tick: 480, note: 50 }                                      // unresolved
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const chord2 = out.filter(e => e.type === 'chord')[1];
+    const note50 = chord2.notes.find(n => n.note === 50);
+    expect(note50).toBeDefined();
+    expect(note50.fret).toBe(0); // open string
+    expect(note50.string).toBe(3);
+  });
+
+  it('hand-aware: notes that fit inside the window are NOT flagged as unplayable', () => {
+    // Same setup as above — chord 2 at fret 6 (string 2) sits
+    // inside [5..9], so no shift is emitted and the note is NOT
+    // outside_window.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 50, fret: 5, string: 2, duration: 100 },
+        { tick: 480, note: 51 }
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    const chord2 = out.filter(e => e.type === 'chord')[1];
+    const outOfWindow = chord2.unplayable.find(u => u.reason === 'outside_window');
+    expect(outOfWindow).toBeUndefined();
+  });
+
   it('respects the capo offset when resolving', () => {
     // Capo on fret 5 → open D (50) is no longer string 3 fret 0;
     // it's now string 4 fret 0 (G open + capo = D open) … wait no.

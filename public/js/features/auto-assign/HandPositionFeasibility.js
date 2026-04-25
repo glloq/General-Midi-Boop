@@ -803,23 +803,17 @@
 
         // Notes coming straight from MIDI rarely have `fret` / `string`
         // pre-resolved (full tablature conversion only happens at apply
-        // time on the server). For the preview we resolve a sensible
-        // open-position pick on the fly using the instrument's tuning
-        // — best effort, but enough to drive the simulator + display.
+        // time on the server). The simulator resolves them on the fly
+        // INSIDE the per-group loop below using the current hand
+        // anchor as a hint — picking a fret near where the hand
+        // already sits avoids spurious "outside_window" flags. The
+        // resolver is also re-applied per chord so a shift earlier
+        // in the song carries through to later chords.
         const tuning = Array.isArray(instrument.tuning) ? instrument.tuning : null;
         const numFrets = Number.isFinite(instrument.num_frets) && instrument.num_frets > 0
             ? instrument.num_frets : 24;
         const capoFret = Number.isFinite(instrument.capo_fret) && instrument.capo_fret > 0
             ? instrument.capo_fret : 0;
-        if (tuning && tuning.length > 0) {
-            for (const g of groups) {
-                g.notes = g.notes.map(n => {
-                    if (Number.isFinite(n.fret) && Number.isFinite(n.string)) return n;
-                    const resolved = _resolveStringFret(n.note, tuning, numFrets, capoFret);
-                    return resolved ? { ...n, fret: resolved.fret, string: resolved.string } : n;
-                });
-            }
-        }
 
         // Fret reach as a function of anchor — physical or fixed.
         function maxReach(anchor) {
@@ -876,6 +870,23 @@
                                 source: 'override', motion });
                     anchor = newAnchor;
                 }
+            }
+
+            // Resolve unannotated notes WITH the current hand
+            // anchor in mind. Open strings (fret 0) are always
+            // preferred (free finger); otherwise prefer frets
+            // within the hand's reach so the simulator doesn't
+            // flag a note as outside_window when a different
+            // string would have placed it inside the band.
+            if (tuning && tuning.length > 0) {
+                g.notes = g.notes.map(n => {
+                    if (Number.isFinite(n.fret) && Number.isFinite(n.string)) return n;
+                    const resolved = _resolveStringFretWithContext(
+                        n.note, tuning, numFrets, capoFret, anchor, spanFrets);
+                    return resolved
+                        ? { ...n, fret: resolved.fret, string: resolved.string }
+                        : n;
+                });
             }
 
             const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
@@ -965,6 +976,57 @@
             const fret = midi - open;
             if (fret < 0 || fret > numFrets) continue;
             if (!best || fret < best.fret) {
+                best = { string: i + 1, fret };
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Hand-aware variant of `_resolveStringFret`. When the simulator
+     * already knows where the hand sits, the resolver prefers a fret
+     * inside the hand's reach `[anchor, anchor + spanFrets]` so a
+     * note that COULD be played on a different string lands inside
+     * the band instead of being flagged outside_window. Open strings
+     * (fret 0) are always preferred — they never need a finger.
+     *
+     * Falls back to the lowest-fret heuristic when `anchor` is null
+     * (= first chord, no context yet).
+     * @private
+     */
+    function _resolveStringFretWithContext(midi, tuning, numFrets, capoFret,
+                                              anchor, spanFrets) {
+        if (!Array.isArray(tuning) || tuning.length === 0) return null;
+        if (!Number.isFinite(midi)) return null;
+        const useContext = Number.isFinite(anchor) && Number.isFinite(spanFrets) && spanFrets > 0;
+        let best = null;
+        let bestScore = -Infinity;
+        for (let i = 0; i < tuning.length; i++) {
+            const open = tuning[i] + (capoFret || 0);
+            const fret = midi - open;
+            if (fret < 0 || fret > numFrets) continue;
+            let score;
+            if (fret === 0) {
+                // Open string — always cheapest (no finger needed).
+                score = 1000;
+            } else if (useContext && fret >= anchor && fret <= anchor + spanFrets) {
+                // In-window: rank by closeness to anchor (lower fret
+                // within window = lower-numbered finger).
+                score = 500 - (fret - anchor);
+            } else if (useContext) {
+                // Outside the current window — penalty proportional
+                // to how far we'd have to shift the hand.
+                const dist = Math.min(
+                    Math.abs(fret - anchor),
+                    Math.abs(fret - (anchor + spanFrets))
+                );
+                score = 100 - dist;
+            } else {
+                // No anchor yet — prefer lowest fret (open position).
+                score = 100 - fret;
+            }
+            if (score > bestScore || (score === bestScore && (!best || fret < best.fret))) {
+                bestScore = score;
                 best = { string: i + 1, fret };
             }
         }
