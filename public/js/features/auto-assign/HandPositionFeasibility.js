@@ -163,6 +163,18 @@
         const overrideAnchors = _indexOverrideAnchors(overrides);
         const disabledNotes = _indexDisabledNotes(overrides);
 
+        // Tempo info — required to convert tick distances into seconds
+        // for the speed-limit feasibility check on shift events. When
+        // not provided, motion checks fall back to feasible=true (the
+        // visualization simply doesn't flag any speed warning).
+        let ticksPerSec = null;
+        if (Number.isFinite(options.ticksPerSec) && options.ticksPerSec > 0) {
+            ticksPerSec = options.ticksPerSec;
+        } else if (Number.isFinite(options.ticksPerBeat) && options.ticksPerBeat > 0
+                && Number.isFinite(options.bpm) && options.bpm > 0) {
+            ticksPerSec = options.ticksPerBeat * (options.bpm / 60);
+        }
+
         // Group notes per tick (chord). Same tolerance as the backend
         // planner so a doubled chord doesn't desynchronize the windows.
         const groups = _groupByTick(notes);
@@ -170,7 +182,7 @@
         if (mode === 'frets') {
             return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes);
         }
-        return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes);
+        return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
     }
 
     function _groupByTick(notes) {
@@ -233,7 +245,7 @@
     // single chord that doesn't reflect what's just behind it.
     const LOOKAHEAD_K = 4;
 
-    function _simulateSemitones(groups, hands, overrideAnchors, disabledNotes) {
+    function _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec) {
         const out = [];
         const handIds = hands.hands.map(h => h.id);
         const handById = new Map(hands.hands.map(h => [h.id, h]));
@@ -256,9 +268,19 @@
             state.set(id, { anchor: null, span: handById.get(id).hand_span_semitones ?? 14 });
         }
 
+        // Per-hand tick at which the hand last "let go" — used to
+        // compute the available travel time on each shift. Initially
+        // null → first shift is unconstrained (the hand was at rest).
+        const prevReleaseByHand = Object.create(null);
+
         function _emitShift(g, id, fromAnchor, toAnchor, source) {
             if (fromAnchor === toAnchor) return;
-            out.push({ type: 'shift', tick: g.tick, handId: id, fromAnchor, toAnchor, source });
+            const motion = _computeMotion(fromAnchor, toAnchor, hands,
+                                            prevReleaseByHand[id], g.tick, ticksPerSec);
+            out.push({
+                type: 'shift', tick: g.tick, handId: id,
+                fromAnchor, toAnchor, source, motion
+            });
             state.get(id).anchor = toAnchor;
         }
 
@@ -356,6 +378,7 @@
                            releaseByHand,
                            notes: taggedNotes,
                            unplayable });
+                _updatePrevRelease(prevReleaseByHand, releaseByHand);
                 continue;
             }
 
@@ -418,8 +441,55 @@
                 notes: taggedNotes,
                 unplayable
             });
+            _updatePrevRelease(prevReleaseByHand, releaseByHand);
         }
         return out;
+    }
+
+    /** Replace per-hand previous-release entries with the latest
+     *  chord's `releaseByHand`. Hands not in the new map keep their
+     *  prior value (so an idle chord doesn't reset the timer).
+     *  @private */
+    function _updatePrevRelease(prev, releaseByHand) {
+        if (!releaseByHand) return;
+        for (const id of Object.keys(releaseByHand)) {
+            const v = releaseByHand[id];
+            if (Number.isFinite(v)) prev[id] = v;
+        }
+    }
+
+    /**
+     * Compute the motion envelope for a shift: the time required to
+     * travel `|to − from|` semitones at `hand_move_semitones_per_sec`,
+     * the time available since the hand's previous release, and a
+     * boolean `feasible` flag (= `availableSec >= requiredSec`).
+     *
+     * Returns `{ requiredSec: 0, availableSec: Infinity, feasible: true }`
+     * when tempo info or speed limit isn't available — the visualization
+     * then doesn't flag any speed warning, matching the previous
+     * "no constraint" behaviour.
+     * @private
+     */
+    function _computeMotion(fromAnchor, toAnchor, hands, prevReleaseTick,
+                              currentTick, ticksPerSec) {
+        if (!Number.isFinite(fromAnchor) || !Number.isFinite(toAnchor)
+                || !Number.isFinite(ticksPerSec) || ticksPerSec <= 0) {
+            return { requiredSec: 0, availableSec: Infinity, feasible: true };
+        }
+        const speed = Number.isFinite(hands.hand_move_semitones_per_sec)
+                && hands.hand_move_semitones_per_sec > 0
+            ? hands.hand_move_semitones_per_sec
+            : null;
+        const distance = Math.abs(toAnchor - fromAnchor);
+        if (speed == null) {
+            return { requiredSec: 0, availableSec: Infinity, feasible: true };
+        }
+        const requiredSec = distance / speed;
+        const prevTick = Number.isFinite(prevReleaseTick) ? prevReleaseTick : null;
+        const availableTicks = prevTick != null ? Math.max(0, currentTick - prevTick) : Infinity;
+        const availableSec = availableTicks === Infinity ? Infinity : availableTicks / ticksPerSec;
+        const feasible = availableSec + 1e-6 >= requiredSec;
+        return { requiredSec, availableSec, feasible };
     }
 
     /**

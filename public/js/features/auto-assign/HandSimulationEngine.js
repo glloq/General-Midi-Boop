@@ -71,7 +71,11 @@
             const simulator = opts.simulator
                 || (typeof window !== 'undefined' ? window.HandPositionFeasibility : null);
             this._timeline = simulator?.simulateHandWindows
-                ? simulator.simulateHandWindows(this.notes, this.instrument || {}, { overrides: this.overrides })
+                ? simulator.simulateHandWindows(this.notes, this.instrument || {}, {
+                    overrides: this.overrides,
+                    ticksPerBeat: this.ticksPerBeat,
+                    bpm: this.bpm
+                  })
                 : this.notes
                     .slice()
                     .sort((a, b) => a.tick - b.tick)
