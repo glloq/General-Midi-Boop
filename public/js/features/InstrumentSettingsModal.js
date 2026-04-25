@@ -421,7 +421,10 @@ class InstrumentSettingsModal extends BaseModal {
     }
 
     onOpen() {
+        this._isDirty = false;
+        this._forceClose = false;
         this._attachListeners();
+        this._installDirtyTracker();
     }
 
     onClose() {
@@ -431,6 +434,86 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram = null;
         }
         this._previewAllNotesOff();
+        this._isDirty = false;
+        this._forceClose = false;
+        this._dirtyTrackerInstalled = false;
+        this._dirtyHandler = null;
+    }
+
+    /**
+     * Mark the modal as having unsaved changes. Called by every section
+     * listener (and exposed for ad-hoc state mutations like adding a tab
+     * or toggling Hands movement).
+     */
+    _markDirty() {
+        this._isDirty = true;
+    }
+
+    /**
+     * Wire a single delegated input/change/click listener on the modal
+     * body so any user edit flips the dirty flag without each section
+     * having to call _markDirty individually. Click is included to catch
+     * piano-key taps and identity-picker clicks that mutate hidden inputs
+     * silently (no native input/change event fires for `el.value = …`).
+     */
+    _installDirtyTracker() {
+        if (!this.dialog || this._dirtyTrackerInstalled) return;
+        const self = this;
+        // Clicks on these targets are not real edits and must not flip dirty:
+        //  - footer Save/Cancel buttons (Save persists, Cancel discards)
+        //  - the modal close button (handled by the close() guard itself)
+        //  - the sidebar nav (just navigates between sections)
+        //  - the section-tab bar (channel switching is its own flow)
+        //  - the preview keyboard (audio-only preview, no setting change)
+        //  - the notation toggle (cosmetic display preference)
+        const SKIP = '.ism-save-btn, .ism-cancel-btn, .modal-close, .ism-nav-item, .ism-tab, .ism-prv-key, .ism-prv-pad, #pianoNotationToggle';
+        const handler = function(e) {
+            const t = e.target;
+            if (t && t.closest && t.closest(SKIP)) return;
+            self._markDirty();
+        };
+        this.dialog.addEventListener('input', handler, true);
+        this.dialog.addEventListener('change', handler, true);
+        this.dialog.addEventListener('click', handler, true);
+        this._dirtyTrackerInstalled = true;
+        this._dirtyHandler = handler;
+    }
+
+    /**
+     * Override BaseModal.close: when the modal has unsaved changes and the
+     * close was not initiated by Save (which sets `_forceClose = true`),
+     * ask the user to confirm. Cancel button also bypasses the prompt
+     * because clicking Cancel is itself an explicit "discard changes".
+     */
+    async close() {
+        if (!this.isOpen) return;
+        if (this._isDirty && !this._forceClose) {
+            const proceed = await this._confirmDiscardChanges();
+            if (!proceed) return;
+        }
+        super.close();
+    }
+
+    /**
+     * Show the existing showConfirm dialog asking whether to discard
+     * unsaved edits. Falls back to window.confirm in environments where
+     * the styled dialog isn't available.
+     */
+    async _confirmDiscardChanges() {
+        const message = this.t('instrumentSettings.discardChangesMessage')
+            || 'Vous avez des modifications non enregistrées. Quitter sans enregistrer ?';
+        const opts = {
+            title: this.t('instrumentSettings.discardChangesTitle') || 'Modifications non enregistrées',
+            icon: '⚠️',
+            okText: this.t('instrumentSettings.discardChangesOk') || 'Quitter sans enregistrer',
+            cancelText: this.t('common.cancel') || 'Annuler',
+            danger: true
+        };
+        if (typeof window.showConfirm === 'function') {
+            try { return await window.showConfirm(message, opts); }
+            catch (e) { /* fall through */ }
+        }
+        return window.confirm(message);
     }
 
     // ========== PREVIEW KEYBOARD (in header) ==========

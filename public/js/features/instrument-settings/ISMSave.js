@@ -221,6 +221,15 @@
                 const modalEl = this.$('.modal-content') || document;
                 handsConfigPayload = window.ISMSections._collectHandsConfig(modalEl);
             }
+            // The Mains section is hidden when the "Gestion du déplacement
+            // des mains" toggle is off, so the collector returns undefined
+            // and the disable would not reach the DB. Detect that case and
+            // send the stored config explicitly with enabled=false so the
+            // disable persists.
+            if (handsConfigPayload === undefined && primaryTab.settings.hands_config
+                && primaryTab.settings.hands_config.enabled === false) {
+                handsConfigPayload = primaryTab.settings.hands_config;
+            }
 
             // ALL writes go through one atomic backend command. A failure
             // anywhere rolls back the whole save, so the row can never be
@@ -286,7 +295,9 @@
                 delete primaryTab._stringInstrumentDeleted;
             }
 
-            // Close and refresh
+            // Close and refresh — Save just persisted the changes, so the
+            // unsaved-changes guard must not pop up.
+            this._forceClose = true;
             this.close();
             if (typeof loadDevices === 'function') await loadDevices();
             if (window.instrumentManagementPageInstance) window.instrumentManagementPageInstance.refresh();

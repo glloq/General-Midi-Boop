@@ -3496,6 +3496,29 @@
             font-size: 10px;
             color: #888;
             font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .piano-notation-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 8px;
+            padding: 2px 10px;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 14px;
+            background: var(--bg-secondary, #f9fafb);
+            color: var(--text-secondary, #4b5563);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .piano-notation-toggle:hover {
+            background: var(--bg-tertiary, #f3f4f6);
+            border-color: var(--accent-color, #6366f1);
+            color: var(--accent-color, #6366f1);
         }
 
         .piano-key {
@@ -10484,6 +10507,28 @@
 
         // Noms des notes
         const NOTE_NAMES = (typeof MidiConstants !== 'undefined') ? MidiConstants.NOTE_NAMES : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        // Latin / Italian-French note names (used in many European music
+        // schools). The accidentals follow the same '#' convention as the
+        // US set so the array is index-aligned with NOTE_NAMES.
+        const NOTE_NAMES_LATIN = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+
+        // User's preferred note notation: 'us' (default, e.g. C4) or
+        // 'latin' (e.g. Do4). Persisted in localStorage so the choice
+        // sticks across sessions and shared by every piano renderer.
+        function getPianoNoteNotation() {
+            try {
+                const v = localStorage.getItem('gmboop_piano_notation');
+                return v === 'latin' ? 'latin' : 'us';
+            } catch (e) { return 'us'; }
+        }
+        function setPianoNoteNotation(notation) {
+            const v = notation === 'latin' ? 'latin' : 'us';
+            try { localStorage.setItem('gmboop_piano_notation', v); } catch (e) { /* ignore */ }
+        }
+        function getPianoNoteName(midi) {
+            const arr = getPianoNoteNotation() === 'latin' ? NOTE_NAMES_LATIN : NOTE_NAMES;
+            return arr[midi % 12];
+        }
 
         // Variables pour la sélection
         let pianoRangeSelectionMode = 'start'; // 'start' ou 'end' (pour mode range)
@@ -10506,10 +10551,11 @@
             return Math.min(octaves, 11); // Max 11 octaves (toute la plage MIDI)
         }
 
-        // Convertir un numéro MIDI en nom de note avec octave
+        // Convertir un numéro MIDI en nom de note avec octave (respecte la
+        // notation choisie par l'utilisateur : US 'C4' ou latine 'Do4').
         function getNoteNameWithOctave(midiNote) {
             if (midiNote === null || midiNote === undefined) return '?';
-            const noteName = NOTE_NAMES[midiNote % 12];
+            const noteName = getPianoNoteName(midiNote);
             const octave = Math.floor(midiNote / 12) - 1;
             return noteName + octave;
         }
@@ -10769,12 +10815,17 @@
                     currentOctave = octave;
                     octaveWhiteKeyIndex = 0;
 
-                    // Label d'octave (seulement si on commence sur un C)
+                    // Label d'octave : intervalle complet (ex. "C4 → B4" ou
+                    // "Do4 → Si4") affiché sous chaque octave qui commence
+                    // par un C. Respecte la notation choisie par
+                    // l'utilisateur (US/latine).
                     const firstNoteInOctave = note % 12;
                     if (firstNoteInOctave === 0) {
                         const label = document.createElement('span');
                         label.className = 'piano-octave-label';
-                        label.textContent = 'C' + octave;
+                        const startName = getPianoNoteName(note) + octave;
+                        const endName = getPianoNoteName(note + 11) + octave;
+                        label.textContent = startName + ' → ' + endName;
                         octaveDiv.appendChild(label);
                     }
                 }

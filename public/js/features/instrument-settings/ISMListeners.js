@@ -768,7 +768,68 @@
         this._wireCCAccordionListeners();
         this._wireApplyRecommendedCCs();
         this._wireActiveCCTagRemoval();
+        this._wireHandsMovementToggle();
+        this._wirePianoNotationToggle();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
+    };
+
+    /**
+     * Toggle between US ('C, D, E…') and latin ('Do, Ré, Mi…') note names
+     * shown under each octave of the piano. The choice is persisted in
+     * localStorage and shared by every piano renderer.
+     */
+    ISMListeners._wirePianoNotationToggle = function() {
+        const btn = this.$('#pianoNotationToggle');
+        if (!btn) return;
+        const label = this.$('#pianoNotationLabel');
+        const refreshLabel = function() {
+            if (!label) return;
+            const cur = (typeof getPianoNoteNotation === 'function') ? getPianoNoteNotation() : 'us';
+            label.textContent = cur === 'latin' ? 'Do → C' : 'C → Do';
+        };
+        refreshLabel();
+        btn.addEventListener('click', function() {
+            if (typeof getPianoNoteNotation !== 'function' || typeof setPianoNoteNotation !== 'function') return;
+            const next = getPianoNoteNotation() === 'latin' ? 'us' : 'latin';
+            setPianoNoteNotation(next);
+            refreshLabel();
+            if (typeof renderPianoKeyboard === 'function') {
+                renderPianoKeyboard();
+            }
+            if (typeof updatePianoOctaveIndicator === 'function') {
+                updatePianoOctaveIndicator();
+            }
+        });
+    };
+
+    /**
+     * Persist the "Gestion du déplacement des mains" toggle on the active
+     * tab and rebuild the sidebar / hands section in place so the Mains
+     * tab appears (or disappears, falling back to Notes) immediately.
+     * The flag is stored on `hands_config.enabled` to keep one source of
+     * truth shared with the existing payload shape.
+     */
+    ISMListeners._wireHandsMovementToggle = function() {
+        const cb = this.$('#handsMovementEnabled');
+        if (!cb) return;
+        const self = this;
+        cb.addEventListener('change', function() {
+            const tab = self._getActiveTab();
+            if (!tab) return;
+            const mode = (window.ISMSections && window.ISMSections._handsModeForTab)
+                ? window.ISMSections._handsModeForTab(tab)
+                : 'semitones';
+            const defaults = (window.ISMSections && window.ISMSections._defaultHandsConfig)
+                ? window.ISMSections._defaultHandsConfig(mode, tab)
+                : { enabled: true, mode: 'semitones', hands: [] };
+            const existing = tab.settings.hands_config && typeof tab.settings.hands_config === 'object'
+                ? tab.settings.hands_config
+                : defaults;
+            tab.settings.hands_config = Object.assign({}, defaults, existing, { enabled: !!cb.checked });
+            if (typeof self._refreshHandsSectionForProgram === 'function') {
+                self._refreshHandsSectionForProgram();
+            }
+        });
     };
 
     // ===== Grouped CC picker (accordion + active-CC tags + recommended) =====
@@ -1320,7 +1381,12 @@
         const saveBtn = this.$('.ism-save-btn');
         if (saveBtn) saveBtn.addEventListener('click', function() { this._save(); }.bind(this));
         const cancelBtn = this.$('.ism-cancel-btn');
-        if (cancelBtn) cancelBtn.addEventListener('click', function() { this.close(); }.bind(this));
+        // Cancel is itself an explicit "discard changes" action — skip the
+        // unsaved-changes confirmation so the user isn't prompted twice.
+        if (cancelBtn) cancelBtn.addEventListener('click', function() {
+            this._forceClose = true;
+            this.close();
+        }.bind(this));
         const deleteBtn = this.$('.ism-delete-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', function() { this._deleteTab(); }.bind(this));
 

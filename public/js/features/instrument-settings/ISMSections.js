@@ -23,12 +23,12 @@
     };
 
     /**
-     * Hand-position control is meaningful only for instruments where the
-     * pitch comes from a spatial actuator. Keyboard-family instruments
-     * use the semitone mode (two hands, pitch split). Plucked and bowed
-     * strings use the frets mode (single fretting hand, fret window).
+     * Whether this instrument family is eligible for hand-position control.
+     * Keyboard-family instruments use the semitone mode (two hands, pitch
+     * split); plucked and bowed strings use the frets mode (single fretting
+     * hand). Drum kits are excluded.
      */
-    ISMSections._shouldShowHandsSection = function(tab) {
+    ISMSections._handsTabEligible = function(tab) {
         if (!tab) return false;
         const gmProgram = tab.settings?.gm_program;
         const channel = tab.channel;
@@ -41,6 +41,16 @@
             || fam.slug === 'organs'
             || fam.slug === 'plucked_strings'
             || fam.slug === 'bowed_strings';
+    };
+
+    /**
+     * The Mains sidebar tab is shown only when the family is eligible AND
+     * the user opted in via the "Gestion du déplacement des mains" toggle
+     * in the Notes section (hands_config.enabled === true).
+     */
+    ISMSections._shouldShowHandsSection = function(tab) {
+        if (!ISMSections._handsTabEligible(tab)) return false;
+        return tab.settings?.hands_config?.enabled === true;
     };
 
     /**
@@ -596,6 +606,12 @@
                                 <span id="pianoModeHelp">${noteMode === 'discrete'
                                     ? (this.t('instrumentSettings.clickToToggle') || 'Cliquez pour sélectionner/désélectionner')
                                     : (this.t('instrumentSettings.clickToSelect') || 'Cliquez sur les touches pour définir la plage')}</span>
+                                <button type="button"
+                                        id="pianoNotationToggle"
+                                        class="piano-notation-toggle"
+                                        title="${this.t('instrumentSettings.toggleNotationHelp') || 'Basculer entre la notation US (C, D, E…) et la notation latine (Do, Ré, Mi…)'}">
+                                    <span id="pianoNotationLabel">C / Do</span>
+                                </button>
                                 <span class="range-display" id="pianoRangeDisplay"></span>
                             </div>
                             <div class="piano-nav-wrapper">
@@ -643,6 +659,22 @@
             ${isDrum ? `<div class="ism-subsection" id="drumsSubsection">
                 <h4 class="ism-subsection-title">🥁 ${this.t('instrumentSettings.sectionDrums') || 'Percussions'}</h4>
                 ${this._renderDrumsContent()}
+            </div>` : ''}
+
+            ${ISMSections._handsTabEligible(tab) ? `
+            <div class="ism-subsection" id="handsMovementSubsection">
+                <h4 class="ism-subsection-title">🫱 ${this.t('instrumentSettings.handsMovementTitle') || 'Gestion du déplacement des mains'}</h4>
+                <label class="ism-form-group" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="handsMovementEnabled" ${settings.hands_config?.enabled === true ? 'checked' : ''} style="margin-top: 3px;">
+                    <span>
+                        <span style="display:block;font-weight:600;color:var(--text-primary,#1f2937);">
+                            ${this.t('instrumentSettings.handsMovementEnable') || 'Activer le déplacement des mains'}
+                        </span>
+                        <span class="ism-form-hint" style="display:block;margin-top:4px;">
+                            ${this.t('instrumentSettings.handsMovementHint') || 'Active l\'onglet "Mains" pour configurer la position et l\'écart maximal de chaque main. L\'affectation se fait automatiquement à la lecture.'}
+                        </span>
+                    </span>
+                </label>
             </div>` : ''}
 
             <div class="ism-subsection" id="timingsSubsection">
@@ -1020,8 +1052,6 @@
 
     ISMSections._renderHandsSectionSemitones = function(cfg) {
         const defaults = ISMSections._defaultHandsConfig('semitones');
-        const enabled = cfg.enabled !== false;
-        const assignment = cfg.assignment || { mode: 'auto' };
         const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
             ? cfg.hands
             : defaults.hands;
@@ -1054,36 +1084,10 @@
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> Mains</h3>
             <input type="hidden" id="handsMode" value="semitones">
-            <div class="ism-form-group">
-                <label>
-                    <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
-                    Activer le contrôle de position des mains
-                </label>
-                <span class="ism-form-hint">
-                    Si activé, le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main,
-                    dès que la main doit se déplacer. Les notes atteignables sont dérivées de la plage de l'instrument.
-                </span>
-            </div>
-
-            <div class="ism-form-group">
-                <label>Affectation des notes aux mains</label>
-                <select id="handsAssignmentMode">
-                    <option value="auto" ${assignment.mode === 'auto' ? 'selected' : ''}>Auto (tracks si possibles, sinon split par hauteur)</option>
-                    <option value="track" ${assignment.mode === 'track' ? 'selected' : ''}>Par piste (track map)</option>
-                    <option value="pitch_split" ${assignment.mode === 'pitch_split' ? 'selected' : ''}>Split par hauteur</option>
-                </select>
-            </div>
-
-            <div class="ism-form-group ism-form-grid-2">
-                <div>
-                    <label>Note de split (par hauteur)</label>
-                    <input type="number" id="handsPitchSplitNote" value="${assignment.pitch_split_note ?? 60}" min="0" max="127">
-                </div>
-                <div>
-                    <label>Hystérésis (demi-tons)</label>
-                    <input type="number" id="handsPitchSplitHysteresis" value="${assignment.pitch_split_hysteresis ?? 2}" min="0" max="12">
-                </div>
-            </div>
+            <input type="hidden" id="handsEnabled" value="1">
+            <p class="ism-form-hint" style="margin: 0 0 16px 0;">
+                Le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main, dès que la main doit se déplacer.
+            </p>
 
             <div class="ism-form-group">
                 <label>Vitesse de déplacement (demi-tons/s)</label>
@@ -1095,6 +1099,10 @@
                 ${handRow(hands.find(h => h.id === 'left') || defaults.hands[0])}
                 ${handRow(hands.find(h => h.id === 'right') || defaults.hands[1])}
             </div>
+
+            <p class="ism-form-hint" style="margin-top: 12px; padding: 10px 12px; background: rgba(99,102,241,0.06); border-left: 3px solid #6366f1; border-radius: 4px;">
+                ℹ️ L'affectation des notes aux mains se fait automatiquement en fonction des pistes et de l'écart maximal — la note de split et l'hystérésis sont calculées au moment de la lecture. Vous pourrez ajuster manuellement chaque note via l'éditeur.
+            </p>
         `;
     };
 
@@ -1349,7 +1357,7 @@
             enabled: true,
             mode: 'semitones',
             hand_move_semitones_per_sec: 60,
-            assignment: { mode: 'auto', pitch_split_note: 60, pitch_split_hysteresis: 2 },
+            assignment: { mode: 'auto' },
             hands: [
                 { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
                 { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
@@ -1371,7 +1379,11 @@
         const mode = rootEl.querySelector('#handsMode')?.value === 'frets'
             ? 'frets'
             : 'semitones';
-        const enabled = !!rootEl.querySelector('#handsEnabled')?.checked;
+        // The Mains section is only rendered when the Notes-section "Gestion
+        // du déplacement des mains" toggle is on, so reaching the collector
+        // implies enabled = true. The off path is handled in ISMSave by
+        // sending the stored config with enabled=false.
+        const enabled = true;
         const moveSpeed = parseInt(rootEl.querySelector('#handsMoveSpeed')?.value, 10);
 
         if (mode === 'frets') {
@@ -1412,10 +1424,6 @@
             return out;
         }
 
-        const assignmentMode = rootEl.querySelector('#handsAssignmentMode')?.value || 'auto';
-        const pitchSplitNote = parseInt(rootEl.querySelector('#handsPitchSplitNote')?.value, 10);
-        const hysteresis = parseInt(rootEl.querySelector('#handsPitchSplitHysteresis')?.value, 10);
-
         const readHand = (id) => {
             const row = section.querySelector(`.ism-hand-row[data-hand="${id}"]`);
             if (!row) return null;
@@ -1431,15 +1439,13 @@
         };
 
         const hands = [readHand('left'), readHand('right')].filter(Boolean);
+        // Assignment is always automatic now — the planner derives the split
+        // note and hysteresis from the live stream at playback time.
         return {
             enabled,
             mode: 'semitones',
             hand_move_semitones_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 60,
-            assignment: {
-                mode: assignmentMode,
-                pitch_split_note: Number.isFinite(pitchSplitNote) ? pitchSplitNote : 60,
-                pitch_split_hysteresis: Number.isFinite(hysteresis) ? hysteresis : 2
-            },
+            assignment: { mode: 'auto' },
             hands
         };
     };
