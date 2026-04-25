@@ -277,25 +277,24 @@
         }
 
         /**
-         * Paint each hand's trajectory in three subtle passes so the
-         * falling notes stay perfectly readable on top:
+         * Paint each hand's trajectory in three passes — the HOLD
+         * background covers the WHOLE timeline so the operator can
+         * read at a glance which keys each hand currently reaches:
          *
-         *   1. HOLD background — for each segment, a faint span-wide
-         *      rectangle (alpha ≈ 0.06) covers the period the hand
-         *      stays steady on the old anchor. Shows "the hand is
-         *      here" without competing visually with the notes.
-         *   2. TRANSITION sweep — between `releaseSec` (last note-off)
-         *      and the next point's `sec`, a mid-alpha trapezoid
-         *      sweeps from old anchor to new anchor — the actual
-         *      displacement happening in the inter-note gap. Painted
-         *      RED when `motion.feasible === false` and extended
-         *      beyond `next.sec` by `(requiredSec − availableSec)`
-         *      seconds so the operator sees the hand bite into the
-         *      next note's region.
-         *   3. ANCHOR centre stroke — a 1.5 px line tracking the
-         *      anchor's column centre. Vertical during HOLD, diagonal
-         *      during TRANSITION. Provides a precise read of the
-         *      hand's intended path.
+         *   1. HOLD background — for each segment, a span-wide
+         *      rectangle at alpha 0.15 covers the period the hand
+         *      stays steady on its anchor. Visible as a clear
+         *      "playable band" running through the lookahead.
+         *   2. TRANSITION sweep — between releaseSec (last per-hand
+         *      note-off) and the time the hand finishes travelling,
+         *      a same-alpha trapezoid sweeps from the old anchor's
+         *      column to the new one. RED at alpha 0.28 when
+         *      `motion.feasible === false` and extended past the
+         *      chord tick to show the hand "biting" into the next
+         *      note.
+         *   3. ANCHOR centre stroke — a 1.5 px line at each anchor's
+         *      column centre. Vertical during HOLD, diagonal during
+         *      TRANSITION.
          *
          * @private
          */
@@ -382,7 +381,10 @@
                 // (a) hold at the OLD anchor between a.sec and releaseA;
                 // (b) EARLY-ARRIVAL hold at the NEW anchor between
                 //     arrivalSec and b.sec when the move was fast.
-                ctx.fillStyle = _alpha(tr.color, 0.06);
+                // Same alpha (0.15) for both so the band reads as a
+                // continuous "playable range" running through the
+                // entire lookahead.
+                ctx.fillStyle = _alpha(tr.color, 0.15);
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
                     const env = motionEnvelopes[i];
