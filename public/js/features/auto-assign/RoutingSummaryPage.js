@@ -976,7 +976,7 @@ class RoutingSummaryPage {
    * leaks listeners or canvas memory.
    * @private
    */
-  _mountHandsPreview(channel) {
+  async _mountHandsPreview(channel) {
     if (!window.HandsPreviewPanel) return;
     const host = this.modal?.querySelector(`#rsHandsPreview-${channel}`);
     if (!host) return;
@@ -1004,10 +1004,41 @@ class RoutingSummaryPage {
     const bpm = this._estimateBpm() || 120;
     const initialOverrides = this._extractInitialOverrides(assignment);
 
+    // The capabilities catalog (`allInstruments`) doesn't include the
+    // fretboard geometry (tuning, num_frets, capo_fret, scale length)
+    // — that data lives in the separate `string_instruments` table.
+    // For fretted previews we fetch it on demand and merge it into the
+    // instrument record passed to the panel; without it, the simulator
+    // can't resolve MIDI → (string, fret) and the manche stays blank.
+    let enrichedInstrument = instrumentRecord;
+    const handsCfg = instrumentRecord.hands_config;
+    const isFretted = handsCfg && handsCfg.mode === 'frets';
+    if (isFretted && instrumentRecord.device_id != null
+            && instrumentRecord.channel != null) {
+      const apiClient = this._rawApiClient || this.apiClient?.backend || this.apiClient;
+      try {
+        const resp = await apiClient.sendCommand('string_instrument_get', {
+          device_id: instrumentRecord.device_id,
+          channel: instrumentRecord.channel
+        });
+        const si = resp?.instrument;
+        if (si) {
+          enrichedInstrument = {
+            ...instrumentRecord,
+            tuning: Array.isArray(si.tuning) ? si.tuning.slice() : instrumentRecord.tuning,
+            num_frets: si.num_frets || instrumentRecord.num_frets,
+            capo_fret: si.capo_fret || instrumentRecord.capo_fret || 0,
+            scale_length_mm: si.scale_length_mm ?? instrumentRecord.scale_length_mm,
+            is_fretless: si.is_fretless ?? instrumentRecord.is_fretless
+          };
+        }
+      } catch (_) { /* fall back to defaults; preview may stay blank */ }
+    }
+
     this._handsPreviewPanel = new window.HandsPreviewPanel(host, {
       channel,
       notes,
-      instrument: instrumentRecord,
+      instrument: enrichedInstrument,
       ticksPerBeat,
       bpm,
       overrides: initialOverrides,
