@@ -72,9 +72,28 @@
 
             // Click handler (set by caller). Only fires when within key area.
             this.onKeyClick = opts.onKeyClick || null;
-            this._clickHandler = (e) => this._handleClick(e);
+            // Band-drag callback (id, newAnchor) → user repositions a
+            // hand by dragging its band under the keys.
+            this.onBandDrag = opts.onBandDrag || null;
+
+            // Drag state for the hand-band interaction. Set on
+            // mousedown over a band, cleared on mouseup.
+            this._drag = null;
+
+            this._clickHandler     = (e) => this._handleClick(e);
+            this._mouseDownHandler = (e) => this._handleMouseDown(e);
+            this._mouseMoveHandler = (e) => this._handleMouseMove(e);
+            this._mouseUpHandler   = (e) => this._handleMouseUp(e);
+
             if (this.canvas && typeof this.canvas.addEventListener === 'function') {
-                this.canvas.addEventListener('click', this._clickHandler);
+                this.canvas.addEventListener('click',     this._clickHandler);
+                this.canvas.addEventListener('mousedown', this._mouseDownHandler);
+                this.canvas.addEventListener('mousemove', this._mouseMoveHandler);
+                // Listen on the document for mouseup so a drag that
+                // ends outside the canvas still releases cleanly.
+                if (typeof document !== 'undefined') {
+                    document.addEventListener('mouseup', this._mouseUpHandler);
+                }
             }
         }
 
@@ -157,11 +176,102 @@
 
         _handleClick(e) {
             if (!this.onKeyClick) return;
+            // Suppress the click that closes a drag — it would
+            // otherwise toggle the underlying key as a side-effect.
+            if (this._suppressNextClick) {
+                this._suppressNextClick = false;
+                return;
+            }
             const rect = this.canvas.getBoundingClientRect
                 ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
             const x = (e.clientX || 0) - rect.left;
+            const y = (e.clientY || 0) - rect.top;
+            // Don't toggle a key when the click landed on a band.
+            if (this._bandIndexAt(y) != null) return;
             const midi = this._midiAtX(x);
             if (midi != null) this.onKeyClick(midi);
+        }
+
+        // -----------------------------------------------------------------
+        //  Band drag (E.6.8 follow-up)
+        // -----------------------------------------------------------------
+
+        /** Y-zone of band index `i` (0-based, top-to-bottom). */
+        _bandRect(i) {
+            const h = (this.canvas?.clientHeight || this.canvas?.height) || 0;
+            const bandsH = this.bandHeight * Math.max(1, this.handBands.length);
+            const keysH = h - bandsH;
+            return { yTop: keysH + i * this.bandHeight, yBot: keysH + (i + 1) * this.bandHeight };
+        }
+
+        _bandIndexAt(y) {
+            if (!this.handBands || this.handBands.length === 0) return null;
+            for (let i = 0; i < this.handBands.length; i++) {
+                const r = this._bandRect(i);
+                if (y >= r.yTop && y < r.yBot) return i;
+            }
+            return null;
+        }
+
+        _handleMouseDown(e) {
+            if (!this.onBandDrag) return;
+            const rect = this.canvas.getBoundingClientRect
+                ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
+            const x = (e.clientX || 0) - rect.left;
+            const y = (e.clientY || 0) - rect.top;
+            const i = this._bandIndexAt(y);
+            if (i == null) return;
+            const band = this.handBands[i];
+            const span = Math.max(0, band.high - band.low);
+            const anchorMidi = this._midiAtX(x);
+            // Offset between the click and the band's left edge — keeps
+            // the band visually under the cursor while dragging.
+            const offset = anchorMidi != null ? (anchorMidi - band.low) : 0;
+            this._drag = {
+                bandIndex: i,
+                bandId: band.id,
+                span,
+                offset,
+                moved: false
+            };
+            if (e.preventDefault) e.preventDefault();
+        }
+
+        _handleMouseMove(e) {
+            if (!this._drag) return;
+            const rect = this.canvas.getBoundingClientRect
+                ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
+            const cssWidth = (this.canvas?.clientWidth || this.canvas?.width) || 0;
+            const xRaw = (e.clientX || 0) - rect.left;
+            // Clamp to the canvas's drawable area so a drag past the
+            // right edge still pins the anchor at the upper boundary
+            // (rangeMax − span) instead of silently doing nothing.
+            const x = Math.max(0, Math.min(cssWidth - 1, xRaw));
+            let midi = this._midiAtX(x);
+            if (midi == null) {
+                midi = xRaw <= 0 ? this.rangeMin : this.rangeMax;
+            }
+            const newAnchor = Math.max(this.rangeMin,
+                Math.min(this.rangeMax - this._drag.span, midi - this._drag.offset));
+            const band = this.handBands[this._drag.bandIndex];
+            if (newAnchor !== band.low) {
+                band.low  = newAnchor;
+                band.high = newAnchor + this._drag.span;
+                this._drag.moved = true;
+                this.draw();
+            }
+        }
+
+        _handleMouseUp() {
+            if (!this._drag) return;
+            const drag = this._drag;
+            this._drag = null;
+            if (!drag.moved) return;
+            this._suppressNextClick = true;
+            const band = this.handBands[drag.bandIndex];
+            if (band && this.onBandDrag) {
+                this.onBandDrag(drag.bandId, band.low);
+            }
         }
 
         // -----------------------------------------------------------------
@@ -244,11 +354,17 @@
 
         destroy() {
             if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
-                this.canvas.removeEventListener('click', this._clickHandler);
+                this.canvas.removeEventListener('click',     this._clickHandler);
+                this.canvas.removeEventListener('mousedown', this._mouseDownHandler);
+                this.canvas.removeEventListener('mousemove', this._mouseMoveHandler);
+            }
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('mouseup', this._mouseUpHandler);
             }
             this.activeNotes.clear();
             this.unplayableNotes.clear();
             this.handBands = [];
+            this._drag = null;
         }
     }
 

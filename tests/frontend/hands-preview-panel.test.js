@@ -101,15 +101,43 @@ describe('HandsPreviewPanel — layout dispatch', () => {
   });
 });
 
-describe('HandsPreviewPanel — header buttons', () => {
-  it('play/pause/reset buttons are present and clickable', () => {
+describe('HandsPreviewPanel — header (no panel-local transport)', () => {
+  it('has NO play / pause / reset buttons — transport is driven externally', () => {
     const panel = makePanel();
-    expect(document.querySelector('.hpp-play')).not.toBeNull();
-    expect(document.querySelector('.hpp-pause')).not.toBeNull();
-    expect(document.querySelector('.hpp-reset')).not.toBeNull();
-    expect(() => document.querySelector('.hpp-play').click()).not.toThrow();
-    expect(() => document.querySelector('.hpp-pause').click()).not.toThrow();
-    expect(() => document.querySelector('.hpp-reset').click()).not.toThrow();
+    expect(document.querySelector('.hpp-play')).toBeNull();
+    expect(document.querySelector('.hpp-pause')).toBeNull();
+    expect(document.querySelector('.hpp-reset')).toBeNull();
+    panel.destroy();
+  });
+
+  it('still exposes the override-edit buttons (Save + Reset overrides)', () => {
+    const panel = makePanel();
+    expect(document.querySelector('.hpp-save')).not.toBeNull();
+    expect(document.querySelector('.hpp-reset-overrides')).not.toBeNull();
+    panel.destroy();
+  });
+
+  it('shows a hint pointing the operator at the channel preview button', () => {
+    const panel = makePanel();
+    expect(document.querySelector('.hpp-hint').textContent.length).toBeGreaterThan(0);
+    panel.destroy();
+  });
+});
+
+describe('HandsPreviewPanel — setCurrentTime drives the engine', () => {
+  it('calls engine.advanceToSec on every setCurrentTime', () => {
+    const panel = makePanel();
+    const advance = vi.spyOn(panel.engine, 'advanceToSec');
+    panel.setCurrentTime(1.5);
+    expect(advance).toHaveBeenCalledWith(1.5);
+    panel.destroy();
+  });
+
+  it('coerces non-finite inputs to 0', () => {
+    const panel = makePanel();
+    const advance = vi.spyOn(panel.engine, 'advanceToSec');
+    panel.setCurrentTime(undefined);
+    expect(advance).toHaveBeenCalledWith(0);
     panel.destroy();
   });
 });

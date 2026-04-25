@@ -406,16 +406,18 @@
                 cost += Math.abs((highAnchor ?? highLo ?? 0) - (highPrev ?? highLo ?? 0));
             }
 
-            // Initial-state bias: penalise placing low-pitch notes on
-            // the high hand and high-pitch notes on the low hand.
-            // Heavier weight than the movement scale so tie-breaks
-            // prefer a musically natural opening.
-            if (isInitial) {
-                let penalty = 0;
-                for (const n of lowSet)  if (n.note >= SPLIT_REF) penalty += 10;
-                for (const n of highSet) if (n.note <  SPLIT_REF) penalty += 10;
-                cost += penalty;
-            }
+            // Permanent pitch bias — the low hand should always
+            // prefer low-pitch notes and the high hand should always
+            // prefer high-pitch notes. Heavy weight on the very
+            // first chord (when no movement cost competes), light
+            // weight afterwards so a music-driven shift can still
+            // override it but ties always favour the natural
+            // assignment.
+            const biasWeight = isInitial ? 10 : 1;
+            let pitchPenalty = 0;
+            for (const n of lowSet)  if (n.note >= SPLIT_REF) pitchPenalty += biasWeight;
+            for (const n of highSet) if (n.note <  SPLIT_REF) pitchPenalty += biasWeight;
+            cost += pitchPenalty;
 
             if (!best || cost < best.cost) {
                 best = { lowAnchor, highAnchor, unplayable: [], overlap: false, cost };

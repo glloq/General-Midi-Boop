@@ -238,6 +238,51 @@ describe('HandSimulationEngine — seek', () => {
   });
 });
 
+describe('HandSimulationEngine — advanceTo / advanceToSec (external clock)', () => {
+  it('emits chord events as advanceTo crosses note ticks', () => {
+    const { engine } = makeEngine({
+      notes: [{ tick: 0, note: 60 }, { tick: 240, note: 64 }, { tick: 480, note: 67 }]
+    });
+    const chords = [];
+    engine.on('chord', (e) => chords.push(e.detail));
+    engine.advanceTo(480);
+    expect(chords.map(c => c.tick)).toEqual([0, 240, 480]);
+  });
+
+  it('backward advanceTo falls back to silent seek', () => {
+    const { engine } = makeEngine({
+      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 64 }]
+    });
+    const chords = [];
+    engine.on('chord', (e) => chords.push(e.detail));
+    engine.advanceTo(720);
+    chords.length = 0;
+    engine.advanceTo(100); // backward
+    expect(chords).toEqual([]);
+    expect(engine.currentTick()).toBe(100);
+  });
+
+  it('emits an end event when advanceTo reaches totalTicks', () => {
+    const { engine } = makeEngine({ notes: [{ tick: 200, note: 60 }] });
+    let endCount = 0;
+    engine.on('end', () => endCount++);
+    engine.advanceTo(200);
+    expect(endCount).toBe(1);
+  });
+
+  it('advanceToSec converts seconds to ticks at the configured tempo', () => {
+    const { engine } = makeEngine({
+      notes: [{ tick: 480, note: 60 }],
+      bpm: 60, ticksPerBeat: 480
+    });
+    // 0.5s at 60 bpm / 480 ppq → 240 ticks (one beat = 1s, 0.5s = half a beat).
+    let ticks = 0;
+    engine.on('tick', (e) => { ticks = e.detail.currentTick; });
+    engine.advanceToSec(0.5);
+    expect(ticks).toBe(240);
+  });
+});
+
 describe('HandSimulationEngine — fallback when simulator absent', () => {
   it('falls back to a chord-per-note timeline when no simulator is wired', () => {
     const Eng = window.HandSimulationEngine;

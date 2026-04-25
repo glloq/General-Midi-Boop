@@ -2498,7 +2498,7 @@ class RoutingSummaryPage {
     });
     modal.querySelector('#rsPreviewStopBtn')?.addEventListener('click', () => this._stopPreview());
 
-    // Minimap click → seek
+    // Minimap click → seek (audio + hands-preview panel together).
     const container = modal.querySelector('#rsMinimapContainer');
     if (container) {
       container.addEventListener('click', (e) => {
@@ -2507,6 +2507,12 @@ class RoutingSummaryPage {
         const totalSec = this.audioPreview?.totalDuration || 0;
         if (totalSec > 0 && this.audioPreview?.seek) {
           this.audioPreview.seek(pct * totalSec);
+        }
+        // Mirror the seek into the hands preview panel — onProgress
+        // would catch up eventually, but this avoids a one-frame lag
+        // when the audio preview isn't actively playing.
+        if (this._handsPreviewPanel && typeof this._handsPreviewPanel.setCurrentTime === 'function') {
+          this._handsPreviewPanel.setCurrentTime(pct * totalSec);
         }
       });
     }
@@ -2935,11 +2941,23 @@ class RoutingSummaryPage {
       // Update minimap playhead
       const pct = totalTicks > 0 ? currentTick / totalTicks : 0;
       this._drawMinimapFrame(pct);
+      // Drive the hands preview panel from the same clock the audio
+      // preview uses — the panel has no transport buttons of its
+      // own (per the unified-navigation spec), so this is what
+      // makes its keyboard / look-ahead / fretboard tick.
+      if (this._handsPreviewPanel && typeof this._handsPreviewPanel.setCurrentTime === 'function') {
+        this._handsPreviewPanel.setCurrentTime(currentSec);
+      }
     };
     this.audioPreview.onPlaybackEnd = () => {
       this._previewState = 'stopped';
       this._updatePreviewUI();
       this._drawMinimapFrame(0);
+      // Reset the panel back to tick 0 so the next preview starts
+      // with clean hand bands instead of the last tick's state.
+      if (this._handsPreviewPanel && typeof this._handsPreviewPanel.reset === 'function') {
+        this._handsPreviewPanel.reset();
+      }
     };
   }
 

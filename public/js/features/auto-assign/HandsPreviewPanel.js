@@ -94,12 +94,16 @@
             const header = document.createElement('div');
             header.className = 'hpp-header';
             header.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #e5e7eb;';
+            // Transport (play/pause/seek) is intentionally NOT in the
+            // panel header — the operator drives playback from the
+            // existing per-channel preview button (or "Preview all")
+            // and the minimap; the page calls `setCurrentTime` on us
+            // every progress callback so the visualization stays in
+            // sync with whatever's actually being played.
             header.innerHTML = `
                 <strong style="font-size:13px;">${_t('handsPreview.title', 'Aperçu des mains')}</strong>
                 <span style="flex:1;"></span>
-                <button class="hpp-play"  type="button">${_t('handsPreview.play',  'Lecture')}</button>
-                <button class="hpp-pause" type="button">${_t('handsPreview.pause', 'Pause')}</button>
-                <button class="hpp-reset" type="button">${_t('handsPreview.reset', 'Rembobiner')}</button>
+                <span class="hpp-hint" style="font-size:11px;color:#6b7280;">${_t('handsPreview.transportHint', 'Lecture pilotée par le bouton Aperçu du canal et la minimap')}</span>
                 <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;margin:0 4px;"></span>
                 <button class="hpp-reset-overrides" type="button"
                         title="${_t('handsPreview.resetOverrides', 'Annuler les overrides')}">↺</button>
@@ -108,14 +112,8 @@
             `;
             this.container.appendChild(header);
 
-            this._playBtn  = header.querySelector('.hpp-play');
-            this._pauseBtn = header.querySelector('.hpp-pause');
-            this._resetBtn = header.querySelector('.hpp-reset');
             this._resetOverridesBtn = header.querySelector('.hpp-reset-overrides');
             this._saveBtn = header.querySelector('.hpp-save');
-            this._playBtn.addEventListener('click',  () => this.play());
-            this._pauseBtn.addEventListener('click', () => this.pause());
-            this._resetBtn.addEventListener('click', () => this.reset());
             this._resetOverridesBtn.addEventListener('click', () => this.resetOverrides());
             this._saveBtn.addEventListener('click', () => {
                 this.saveOverrides()
@@ -182,7 +180,11 @@
             this.keyboard = new window.KeyboardPreview(kbCanvas, {
                 rangeMin, rangeMax,
                 bandHeight: 8,
-                onKeyClick: (midi) => this._onKeyClick(midi)
+                onKeyClick: (midi) => this._onKeyClick(midi),
+                // Drag a hand band to repin its anchor at the
+                // current playhead. The simulator picks up the new
+                // override on the very next chord.
+                onBandDrag: (handId, newAnchor) => this.pinHandAnchor(handId, newAnchor)
             });
             // Initial paint with empty bands.
             this.keyboard.draw();
@@ -381,15 +383,26 @@
         }
 
         // -----------------------------------------------------------------
-        //  Public play/pause/reset
+        //  External transport (driven by RoutingSummaryPage's preview
+        //  callbacks + minimap, NOT by panel-local buttons).
         // -----------------------------------------------------------------
 
-        play() {
-            this.engine?.play();
+        /**
+         * Drive the visualization to `currentSec`. The host (e.g.
+         * audio preview onProgress) calls this on every tick so the
+         * keyboard / fretboard / look-ahead stay in sync. Forward
+         * jumps emit chord/shift events, backward jumps fast-forward
+         * silently to keep hand-state consistent.
+         */
+        setCurrentTime(currentSec) {
+            this.engine?.advanceToSec(Number.isFinite(currentSec) ? currentSec : 0);
+            // The lookahead listens to its own setCurrentTime via the
+            // engine's tick event; nothing else to do here.
         }
-        pause() {
-            this.engine?.pause();
-        }
+
+        /** Force an immediate jump back to tick 0 (used when the
+         *  preview is stopped externally so the next play starts
+         *  from a clean state). */
         reset() {
             this.engine?.reset();
             this._currentHandWindows.clear();
@@ -405,6 +418,7 @@
             }
         }
 
+        /** Direct seek (in ticks). Used by the minimap callback. */
         seek(tick) {
             this.engine?.seek(tick);
         }

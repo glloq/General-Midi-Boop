@@ -189,6 +189,128 @@ describe('KeyboardPreview — click handler', () => {
   });
 });
 
+describe('KeyboardPreview — band drag', () => {
+  function dispatchOn(canvas, type, x, y) {
+    const evt = new MouseEvent(type, {
+      bubbles: true, cancelable: true,
+      clientX: x, clientY: y
+    });
+    canvas.dispatchEvent(evt);
+  }
+  function dispatchDocumentUp() {
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  }
+
+  it('mousedown on a band starts a drag (no callback yet)', () => {
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+
+    // Band sits in the bottom 8px of the canvas (bandHeight default).
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    expect(kb._drag).not.toBeNull();
+    expect(kb._drag.bandId).toBe('left');
+    expect(onBandDrag).not.toHaveBeenCalled();
+  });
+
+  it('mousemove updates the band low/high and triggers a redraw', () => {
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71,
+      onBandDrag: () => {}
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    // Move 200 px to the right — that's two whites (200/100 = 2 white
+    // keys). Two whites starting at C5 reach E5 (64); since the click
+    // started at C5 (offset 0), the band should now anchor at E5 (64).
+    dispatchOn(canvas, 'mousemove', 230, 116);
+    expect(kb.handBands[0].low).toBeGreaterThan(60);
+  });
+
+  it('mouseup fires onBandDrag with the new anchor', () => {
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    dispatchOn(canvas, 'mousemove', 230, 116);
+    dispatchDocumentUp();
+    expect(onBandDrag).toHaveBeenCalled();
+    const [handId, anchor] = onBandDrag.mock.calls[0];
+    expect(handId).toBe('left');
+    expect(anchor).toBeGreaterThan(60);
+  });
+
+  it('a click without drag does NOT fire onBandDrag', () => {
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    dispatchDocumentUp(); // no movement in between
+    expect(onBandDrag).not.toHaveBeenCalled();
+  });
+
+  it('clamps the anchor so the band stays inside [rangeMin, rangeMax]', () => {
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    // Drag way past the right edge.
+    dispatchOn(canvas, 'mousemove', 9999, 116);
+    dispatchDocumentUp();
+    // span = 4; rangeMax = 71 → max anchor = 71 - 4 = 67.
+    const anchor = onBandDrag.mock.calls[0][1];
+    expect(anchor).toBeLessThanOrEqual(67);
+  });
+
+  it('does not start a drag when mousedown lands on a key (above the band zone)', () => {
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 50); // mid-canvas → on the keys
+    expect(kb._drag).toBeNull();
+  });
+
+  it('a drag ending on the band suppresses the next key click', () => {
+    const onKeyClick = vi.fn();
+    const onBandDrag = vi.fn();
+    const canvas = makeCanvas(700, 120);
+    const kb = new window.KeyboardPreview(canvas, {
+      rangeMin: 60, rangeMax: 71, onKeyClick, onBandDrag
+    });
+    kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
+    kb.draw();
+    dispatchOn(canvas, 'mousedown', 30, 116);
+    dispatchOn(canvas, 'mousemove', 230, 116);
+    dispatchDocumentUp();
+    // The browser then dispatches a click — make sure we don't
+    // accidentally interpret it as a key-click.
+    canvas.dispatchEvent(new MouseEvent('click', { clientX: 230, clientY: 116 }));
+    expect(onKeyClick).not.toHaveBeenCalled();
+  });
+});
+
 describe('KeyboardPreview — destroy', () => {
   it('clears caches and removes the click listener', () => {
     const onKeyClick = vi.fn();

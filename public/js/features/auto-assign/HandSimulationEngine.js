@@ -169,6 +169,37 @@
             });
         }
 
+        /**
+         * Externally-driven advance. Walks from current to `tick`
+         * EMITTING every chord/shift event in between so a host that
+         * already owns a clock (e.g. RoutingSummaryPage's audio
+         * preview) can drive the visualization without spinning our
+         * own rAF loop. Backward jumps fall back to silent seek.
+         */
+        advanceTo(tick) {
+            const safe = Math.max(0, Math.min(this.totalTicks, Math.round(tick) || 0));
+            if (safe < this._currentTick) {
+                this.seek(safe);
+                return;
+            }
+            this._currentTick = safe;
+            this._drainUpTo(safe, { silent: false });
+            this._emit('tick', {
+                currentTick: this._currentTick,
+                currentSec: this.currentSec(),
+                totalTicks: this.totalTicks
+            });
+            if (safe >= this.totalTicks && this.totalTicks > 0) {
+                this._emit('end', { totalTicks: this.totalTicks });
+            }
+        }
+
+        /** Convenience wrapper for callers that work in seconds. */
+        advanceToSec(sec) {
+            const ticksPerSec = this.ticksPerBeat * (this.bpm / 60);
+            this.advanceTo(sec * ticksPerSec);
+        }
+
         /** Return to tick 0 and clear cursor state. */
         reset() {
             this.pause();
