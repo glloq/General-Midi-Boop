@@ -43,7 +43,7 @@ class InstrumentManagementPage {
         <div class="modal-container inst-mgmt-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
 
           <!-- Header -->
-          <div class="modal-header" style="padding: 12px 48px 12px 20px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative;">
+          <div class="modal-header" style="padding: 12px 48px 12px 20px; border-bottom: none; background: #764ba2; color: white; flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
               <h2 style="margin: 0; font-size: 20px; white-space: nowrap; flex-shrink: 0;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
               <input type="text"
@@ -944,7 +944,7 @@ class InstrumentManagementPage {
 
     overlay.innerHTML = `
       <div class="inst-virt-dialog" style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px 16px 0 0;color:white;">
+        <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#764ba2;border-radius:16px 16px 0 0;color:white;">
           <h3 style="margin:0;font-size:18px;">➕ ${esc(i18n.t('instrumentManagement.addVirtualTitle') || 'Ajouter un instrument virtuel')}</h3>
           <button class="modal-close" onclick="this.closest('div[style*=fixed]').remove()">×</button>
         </div>

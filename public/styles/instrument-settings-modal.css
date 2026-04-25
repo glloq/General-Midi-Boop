@@ -18,7 +18,7 @@
 
 .ism-modal .modal-header {
   margin-bottom: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #764ba2;
   color: #fff;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
@@ -2149,7 +2149,7 @@ body.dark-mode .ism-delete-instrument:hover {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.15);
+  background: #fff;
   border-radius: 8px;
   padding: 4px;
   box-sizing: border-box;
@@ -2160,9 +2160,6 @@ body.dark-mode .ism-delete-instrument:hover {
   height: 100%;
   object-fit: contain;
   display: block;
-  /* SVGs in /assets/instruments are designed dark — invert on the purple
-     gradient header so they stay legible. */
-  filter: brightness(0) invert(1);
 }
 
 .ism-header-emoji {
