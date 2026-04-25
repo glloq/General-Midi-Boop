@@ -1080,6 +1080,81 @@
     };
 
     /**
+     * Map an approximate-fret-coverage value to a CSS color. Red means
+     * tight coverage (≤ ~2 frets, common at the nut), green means
+     * comfortable (> ~5 frets, far up the neck). Tuned for an 80 mm
+     * hand on a 650 mm scale; the gradient still reads correctly on
+     * shorter or longer scales because the scale only changes the
+     * absolute number of frets, not their relative comfort.
+     */
+    ISMSections._coverageColor = function(approxFrets) {
+        if (!Number.isFinite(approxFrets)) return '#6b7280'; // gray when unknown
+        // Soft gradient: ≤2 → red, 3 → orange, 4 → amber, ≥5 → green.
+        if (approxFrets >= 6) return '#16a34a';
+        if (approxFrets >= 5) return '#65a30d';
+        if (approxFrets >= 4) return '#ca8a04';
+        if (approxFrets >= 3) return '#ea580c';
+        return '#dc2626';
+    };
+
+    /**
+     * Paint a fret-coverage heat-map onto a `<canvas>` already in the
+     * DOM. Each column corresponds to a fret position; its colour
+     * encodes how many frets the configured hand can reach when
+     * anchored there. Re-callable: clears the canvas first so an
+     * input change just yields a fresh paint.
+     *
+     * @param {HTMLCanvasElement} canvas
+     * @param {number} scaleLengthMm
+     * @param {number} handSpanMm
+     * @param {number} [maxFrets=22]
+     */
+    ISMSections._drawCoverageHeatmap = function(canvas, scaleLengthMm, handSpanMm, maxFrets) {
+        if (!canvas || typeof canvas.getContext !== 'function') return;
+        if (!Number.isFinite(scaleLengthMm) || !Number.isFinite(handSpanMm)) return;
+        if (scaleLengthMm <= 0 || handSpanMm <= 0) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const cssWidth = canvas.clientWidth || canvas.width;
+        const cssHeight = canvas.clientHeight || canvas.height;
+        const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+        if (canvas.width !== Math.round(cssWidth * dpr) || canvas.height !== Math.round(cssHeight * dpr)) {
+            canvas.width = Math.round(cssWidth * dpr);
+            canvas.height = Math.round(cssHeight * dpr);
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const N = Math.max(1, maxFrets || 22);
+        const w = cssWidth;
+        const h = cssHeight;
+        const cellW = w / N;
+
+        // Background.
+        ctx.fillStyle = '#f3f4f6';
+        ctx.fillRect(0, 0, w, h);
+
+        // One column per anchor fret (1..N). Fret 0 (open) doesn't
+        // anchor a hand window so we skip it visually but keep the
+        // x-axis aligned with fret-number labels.
+        for (let p = 1; p <= N; p++) {
+            const reach = ISMSections._approxFretsAt(scaleLengthMm, handSpanMm, p);
+            ctx.fillStyle = ISMSections._coverageColor(reach);
+            ctx.fillRect((p - 1) * cellW, 4, cellW - 1, h - 18);
+        }
+
+        // Fret-number labels every 5 frets.
+        ctx.fillStyle = '#374151';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        for (let p = 0; p <= N; p++) {
+            if (p % 5 !== 0) continue;
+            const x = p * cellW;
+            ctx.fillText(String(p), x, h - 2);
+        }
+    };
+
+    /**
      * Build the live coverage hint shown alongside the mm input. Three
      * positions (1, 7, 14) give a feel for how the same physical hand
      * width covers more frets up the neck — this is the property that
@@ -1119,6 +1194,10 @@
             ? ISMSections._fretCoverageHint(scaleLengthMm, handSpanMm)
             : '';
 
+        const maxFretsPreview = Number.isFinite(tab?.stringInstrumentConfig?.num_frets) && tab.stringInstrumentConfig.num_frets > 0
+            ? Math.min(24, tab.stringInstrumentConfig.num_frets)
+            : 22;
+
         const physicalSpanRow = physicalAvailable ? `
                     <div class="ism-form-group ism-form-grid-2">
                         <div>
@@ -1137,6 +1216,14 @@
                         <span class="ism-form-hint" id="handsCoverageHint" data-scale-length="${scaleLengthMm}">
                             Couverture : ${coverageHint || '<em>renseignez la largeur pour voir la couverture estimée</em>'}
                         </span>
+                    </div>
+                    <div class="ism-form-group ism-hands-coverage-preview">
+                        <canvas id="handsCoveragePreview"
+                                width="600" height="60"
+                                data-scale-length="${scaleLengthMm}"
+                                data-max-frets="${maxFretsPreview}"
+                                style="width:100%; max-width:600px; height:60px; display:block; border:1px solid #e5e7eb; border-radius:4px;"></canvas>
+                        <span class="ism-form-hint">Carte de chaleur : chaque colonne représente la frette d'ancrage de la main, la couleur indique le nombre de frettes couvertes (rouge = peu, vert = beaucoup).</span>
                     </div>
         ` : '';
 

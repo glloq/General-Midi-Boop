@@ -260,9 +260,26 @@ class InstrumentMatcher {
       };
     }
 
+    // Hand-position feasibility heuristic + scoring contribution.
+    // A.1 produced the structured payload from the aggregated analysis
+    // (pitch range + polyphony); A.2 turns the level into a bonus or
+    // penalty applied to the matcher's main score so the auto-assigner
+    // prefers instruments whose mechanical hand can comfortably play
+    // the channel. The contribution is gated on
+    // ScoringConfig.handPosition.enabled, so an operator can revert
+    // to the pre-feature ranking by toggling the flag.
+    const handPositionFeasibility = this._scoreHandPositionFeasibility(channelAnalysis, instrument);
+    const handDelta = this.config.getHandPositionDelta
+      ? this.config.getHandPositionDelta(handPositionFeasibility.level)
+      : 0;
+    if (handDelta !== 0) score += handDelta;
+    if (handPositionFeasibility.info) info.push(handPositionFeasibility.info);
+    if (handPositionFeasibility.issue) issues.push(handPositionFeasibility.issue);
+
     return {
       score: Math.min(100, Math.max(0, Math.round(score))),
       compatible: isCompatible,
+      handPositionFeasibility,
       transposition: noteScore.transposition || null,
       noteRemapping: noteScore.noteRemapping || null,
       octaveWrapping: noteScore.octaveWrapping || null,
@@ -1126,6 +1143,126 @@ class InstrumentMatcher {
 
     // 3. Compatible types but not the same family -> low score
     return { score: 0 };
+  }
+
+  /**
+   * Heuristic feasibility scoring for the instrument's mechanical hand.
+   * Runs without per-note timing (which would require a full planner
+   * dry-run) by reasoning on the aggregated `channelAnalysis`:
+   *
+   *  - polyphony.max compared against the per-mode capacity
+   *    (sum of `hand_span_semitones` across hands for keyboards;
+   *    `max_fingers` or `num_strings` proxy for frets mode).
+   *  - pitch span (noteRange.max − noteRange.min) compared against the
+   *    span the hand(s) can cover without a shift.
+   *
+   * Returns a structured payload — A.2 turns `qualityScore` into a
+   * weighted bonus/penalty, C.3 renders the badge. When the instrument
+   * has no `hands_config` (or is disabled, or the analysis is
+   * incomplete), the helper returns `level: 'unknown'` with no info /
+   * issue so the matcher's existing behaviour is unchanged.
+   *
+   * @param {Object} channelAnalysis
+   * @param {Object} instrument - Capabilities row including hands_config.
+   * @returns {{
+   *   level: 'unknown'|'ok'|'warning'|'infeasible',
+   *   qualityScore: number,
+   *   summary: Object,
+   *   info: ?string,
+   *   issue: ?{type:string, message:string}
+   * }}
+   */
+  _scoreHandPositionFeasibility(channelAnalysis, instrument) {
+    const unknown = { level: 'unknown', qualityScore: 0, summary: {}, info: null, issue: null };
+
+    if (!instrument) return unknown;
+    let hands = instrument.hands_config;
+    if (typeof hands === 'string') {
+      try { hands = JSON.parse(hands); } catch (_) { return unknown; }
+    }
+    if (!hands || hands.enabled === false) return unknown;
+    if (!Array.isArray(hands.hands) || hands.hands.length === 0) return unknown;
+
+    const polyphonyMax = channelAnalysis?.polyphony?.max ?? null;
+    const noteRange = channelAnalysis?.noteRange ?? null;
+    const rangeSpan = (noteRange && noteRange.min != null && noteRange.max != null)
+      ? noteRange.max - noteRange.min
+      : null;
+
+    const mode = hands.mode === 'frets' ? 'frets' : 'semitones';
+    const summary = { mode };
+    let level = 'ok';
+    let info = null;
+    let issue = null;
+    let qualityScore = 100;
+
+    if (mode === 'frets') {
+      const fretting = hands.hands.find(h => h && h.id === 'fretting') || hands.hands[0];
+      const maxFingers = Number.isFinite(fretting?.max_fingers) && fretting.max_fingers > 0
+        ? fretting.max_fingers
+        : null;
+      const handSpanFrets = Number.isFinite(fretting?.hand_span_frets) && fretting.hand_span_frets > 0
+        ? fretting.hand_span_frets
+        : null;
+      summary.maxFingers = maxFingers;
+      summary.handSpanFrets = handSpanFrets;
+      summary.polyphonyMax = polyphonyMax;
+      summary.pitchSpan = rangeSpan;
+
+      // Polyphony cap: open strings don't consume a finger but we have
+      // no way to know the fingering distribution at scoring time. The
+      // safe bound is "polyphony ≤ max_fingers" — over that, the
+      // converter will start dropping notes (B.1).
+      if (maxFingers != null && polyphonyMax != null && polyphonyMax > maxFingers) {
+        const excess = polyphonyMax - maxFingers;
+        level = 'infeasible';
+        qualityScore = Math.max(0, 60 - excess * 20);
+        issue = {
+          type: 'warning',
+          message: `Hand has ${maxFingers} finger(s) but the channel needs ${polyphonyMax} simultaneous notes — some notes will drop.`
+        };
+        info = `Hand-position: polyphony ${polyphonyMax} > max_fingers ${maxFingers}`;
+      } else if (handSpanFrets != null && rangeSpan != null && rangeSpan > handSpanFrets * 3) {
+        // Pitch range much wider than what the hand reaches without
+        // shift → many shifts will be needed. Heuristic threshold: if
+        // the channel covers more than 3 hand-spans, the planner will
+        // produce frequent move_too_fast warnings.
+        level = 'warning';
+        qualityScore = 70;
+        info = `Hand-position: pitch span ${rangeSpan} ≫ hand_span_frets ${handSpanFrets} (frequent shifts)`;
+      } else {
+        info = `Hand-position: ok (mode=frets)`;
+      }
+    } else {
+      // Semitones mode: capacity is the sum of hand_span_semitones over
+      // all hands (typically 2 × 14 = 28 semitones reachable without
+      // crossing hands). Polyphony cap is sum of polyphony per hand,
+      // which we approximate as 5 fingers × hands.length.
+      const totalSpan = hands.hands.reduce((s, h) => s + (Number.isFinite(h?.hand_span_semitones) ? h.hand_span_semitones : 14), 0);
+      const totalFingers = hands.hands.length * 5;
+      summary.totalSpanSemitones = totalSpan;
+      summary.totalFingers = totalFingers;
+      summary.polyphonyMax = polyphonyMax;
+      summary.pitchSpan = rangeSpan;
+
+      if (polyphonyMax != null && polyphonyMax > totalFingers) {
+        level = 'infeasible';
+        qualityScore = Math.max(0, 60 - (polyphonyMax - totalFingers) * 15);
+        issue = {
+          type: 'warning',
+          message: `Channel polyphony ${polyphonyMax} exceeds available fingers (${totalFingers}).`
+        };
+        info = `Hand-position: polyphony ${polyphonyMax} > fingers ${totalFingers}`;
+      } else if (rangeSpan != null && rangeSpan > totalSpan * 2) {
+        level = 'warning';
+        qualityScore = 70;
+        info = `Hand-position: pitch span ${rangeSpan} > 2 × total hand span ${totalSpan} (frequent shifts)`;
+      } else {
+        info = `Hand-position: ok (mode=semitones)`;
+      }
+    }
+
+    return { level, qualityScore, summary, info, issue };
   }
 
   /**

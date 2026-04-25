@@ -6,12 +6,17 @@
  *   - Free-channel discovery so a split can be materialised without
  *     stomping on existing channels.
  *
+ * Also exposes `suggestTranspositionForFeasibility` (B.3): a pure
+ * advisory search that picks the semitone offset most likely to
+ * improve the routed instrument's hand-position feasibility.
+ *
  * Operates on a deep-cloned copy of the input — original `midiData`
  * objects are never mutated, which keeps the file editor safe.
  *
  * The file is large (~760 LOC); only public entry points carry full
  * JSDoc.
  */
+import InstrumentMatcher from './InstrumentMatcher.js';
 
 /** Lower MIDI note bound. */
 const MIDI_NOTE_MIN = 0;
@@ -762,6 +767,103 @@ class MidiTransposer {
       }
     }
     return inverse;
+  }
+
+  /**
+   * Suggest a per-channel transposition that maximises the routed
+   * instrument's hand-position feasibility. Tests every semitone
+   * offset within ±maxSemitones (default ±12) and returns the best
+   * candidate by `qualityScore`. Search is purely advisory — the
+   * caller decides whether to apply.
+   *
+   * Tie-break order:
+   *   1. Higher projected feasibility level (ok > warning > infeasible).
+   *   2. Higher qualityScore.
+   *   3. Smaller |semitones| (prefers a less invasive shift).
+   *   4. Octave shifts before non-octave (musically friendlier).
+   *
+   * Returns null when no shift improves the baseline classification,
+   * so the caller can fall back to the existing routing without a
+   * useless suggestion.
+   *
+   * @param {Object} channelAnalysis - From ChannelAnalyzer.
+   * @param {Object} instrument      - Capabilities row including hands_config.
+   * @param {Object} [options]
+   * @param {Object} [options.matcher] - InstrumentMatcher instance (DI for tests).
+   * @param {number} [options.maxSemitones=12] - Half-window of the search.
+   * @param {boolean} [options.allowNonOctave=true] - Include non-octave shifts.
+   * @returns {?{semitones:number, projectedLevel:string,
+   *            projectedQualityScore:number, baselineLevel:string,
+   *            improvement:number, rationale:string}}
+   */
+  suggestTranspositionForFeasibility(channelAnalysis, instrument, options = {}) {
+    if (!channelAnalysis?.noteRange || channelAnalysis.noteRange.min == null) return null;
+    if (!instrument) return null;
+    const matcher = options.matcher || this._defaultMatcher();
+    if (!matcher) return null;
+
+    const maxSemitones = Number.isFinite(options.maxSemitones) ? options.maxSemitones : 12;
+    const allowNonOctave = options.allowNonOctave !== false;
+    const order = { unknown: 0, ok: 3, warning: 2, infeasible: 1 };
+
+    const baseline = matcher._scoreHandPositionFeasibility(channelAnalysis, instrument);
+    let best = null;
+
+    for (let s = -maxSemitones; s <= maxSemitones; s++) {
+      if (s === 0) continue;
+      if (!allowNonOctave && s % 12 !== 0) continue;
+      const shifted = this._shiftAnalysis(channelAnalysis, s);
+      if (!shifted) continue;
+      const r = matcher._scoreHandPositionFeasibility(shifted, instrument);
+      if (order[r.level] <= order[baseline.level]) continue;
+
+      const candidate = {
+        semitones: s,
+        projectedLevel: r.level,
+        projectedQualityScore: r.qualityScore,
+        baselineLevel: baseline.level,
+        improvement: order[r.level] - order[baseline.level],
+        isOctave: s % 12 === 0
+      };
+
+      if (best == null
+        || candidate.improvement > best.improvement
+        || (candidate.improvement === best.improvement
+            && candidate.projectedQualityScore > best.projectedQualityScore)
+        || (candidate.improvement === best.improvement
+            && candidate.projectedQualityScore === best.projectedQualityScore
+            && Math.abs(candidate.semitones) < Math.abs(best.semitones))
+        || (candidate.improvement === best.improvement
+            && candidate.projectedQualityScore === best.projectedQualityScore
+            && Math.abs(candidate.semitones) === Math.abs(best.semitones)
+            && candidate.isOctave && !best.isOctave)
+      ) {
+        best = candidate;
+      }
+    }
+
+    if (!best) return null;
+    best.rationale = `Transposing ${best.semitones > 0 ? '+' : ''}${best.semitones} semitones lifts feasibility ${best.baselineLevel} → ${best.projectedLevel}.`;
+    delete best.isOctave;
+    return best;
+  }
+
+  /** @private — same shape AdaptationService uses for its own dry-run. */
+  _shiftAnalysis(analysis, semitones) {
+    if (!analysis?.noteRange || analysis.noteRange.min == null || analysis.noteRange.max == null) return null;
+    return {
+      ...analysis,
+      noteRange: {
+        min: Math.max(0, analysis.noteRange.min + semitones),
+        max: Math.min(127, analysis.noteRange.max + semitones)
+      }
+    };
+  }
+
+  /** @private — lazy-initialised so a single transposer is shared across calls. */
+  _defaultMatcher() {
+    if (!this._matcher) this._matcher = new InstrumentMatcher(this.logger);
+    return this._matcher;
   }
 }
 

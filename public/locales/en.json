@@ -581,6 +581,21 @@
         "messageRateLimitDescription": "Maximum MIDI messages per second (0 = unlimited)",
         "messageRateLimitUnit": "msgs/sec"
     },
+    "handPosition": {
+        "toastPrefix": "Hand feasibility",
+        "warnMoveTooFast": "moves too fast",
+        "warnChordSpan": "chords wider than hand",
+        "warnTooManyFingers": "too many fingers required",
+        "warnOutOfRange": "notes out of range",
+        "warnFingerInterval": "fingers too close in time",
+        "badgeOk": "Hand-position OK",
+        "badgeWarning": "Hand-position warning",
+        "badgeInfeasible": "Hand-position infeasible",
+        "column": {
+            "title": "Hand-position feasibility",
+            "short": "Hand"
+        }
+    },
     "instrumentSettings": {
         "title": "Instrument Settings",
         "settingsButton": "Instrument settings",
@@ -638,6 +653,7 @@
         "polyphonyAutoString": "auto-set from number of strings",
         "sectionIdentity": "Identity",
         "sectionNotes": "Notes & Capabilities",
+        "sectionHands": "Hands",
         "sectionStrings": "Strings",
         "sectionDrums": "Percussion",
         "sectionAdvanced": "Advanced",

@@ -27,6 +27,8 @@
  * channel_map and monitor_* commands.
  */
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';
+import InstrumentMatcher from '../../midi/adaptation/InstrumentMatcher.js';
+import { parseMidi } from 'midi-file';
 
 /**
  * @param {Object} app
@@ -322,6 +324,92 @@ async function fileRoutingBulkSync(app, data) {
  * @param {Object} app
  * @returns {void}
  */
+/**
+ * Pre-validate the hand-position feasibility of routing one MIDI
+ * channel to a given instrument *before* the operator commits the
+ * routing. Returns the same `{level, summary, message}` shape the
+ * apply path persists in `handPositionWarnings` (D.2) so the UI can
+ * render an early-warning banner without waiting for an apply round-
+ * trip. Pure read — never mutates state.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number), channel:number,
+ *          deviceId:string, targetChannel?:number}} data
+ * @returns {Promise<{level:string, summary:Object,
+ *                    message:?string, qualityScore:number}>}
+ * @throws {ValidationError|NotFoundError}
+ */
+async function validateRoutingFeasibility(app, data) {
+  if (data.fileId === undefined || data.fileId === null) {
+    throw new ValidationError('fileId is required', 'fileId');
+  }
+  if (!data.deviceId) {
+    throw new ValidationError('deviceId is required', 'deviceId');
+  }
+  if (data.channel === undefined || data.channel === null) {
+    throw new ValidationError('channel is required', 'channel');
+  }
+  const channel = parseInt(data.channel, 10);
+  if (!Number.isFinite(channel) || channel < 0 || channel > 15) {
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
+  }
+  const targetChannel = data.targetChannel != null ? parseInt(data.targetChannel, 10) : channel;
+
+  // Resolve the routed instrument's capabilities (carries hands_config,
+  // scale_length when wired, etc.).
+  let capabilities = null;
+  if (app.instrumentRepository?.getCapabilities) {
+    try {
+      capabilities = app.instrumentRepository.getCapabilities(data.deviceId, targetChannel);
+    } catch (_) { /* fall through to unknown */ }
+  }
+  if (!capabilities) {
+    return {
+      level: 'unknown',
+      qualityScore: 0,
+      summary: {},
+      message: `No capabilities found for ${data.deviceId} ch ${targetChannel}`
+    };
+  }
+
+  // Resolve the channel analysis. Prefer the adaptation service
+  // (matches the apply path); load the file directly only when the
+  // service can't run (e.g. test contexts without the full app).
+  let analysis = null;
+  if (app.adaptationService?.analyzeChannel) {
+    let midiData = null;
+    try {
+      const file = app.fileRepository?.findById?.(data.fileId);
+      if (file && app.blobStore?.read) {
+        const buffer = app.blobStore.read(file.blob_path);
+        midiData = parseMidi(buffer);
+      }
+    } catch (_) { /* surface unknown below */ }
+    if (midiData) {
+      try {
+        analysis = app.adaptationService.analyzeChannel(midiData, channel, data.fileId);
+      } catch (_) { /* surface unknown below */ }
+    }
+  }
+  if (!analysis) {
+    return {
+      level: 'unknown',
+      qualityScore: 0,
+      summary: {},
+      message: 'Could not analyze the channel — file or analyzer unavailable'
+    };
+  }
+
+  const matcher = new InstrumentMatcher(app.logger);
+  const r = matcher._scoreHandPositionFeasibility(analysis, capabilities);
+  return {
+    level: r.level,
+    qualityScore: r.qualityScore,
+    summary: r.summary || {},
+    message: r.issue?.message || r.info || null
+  };
+}
+
 export function register(registry, app) {
   registry.register('route_create', (data) => routeCreate(app, data));
   registry.register('route_delete', (data) => routeDelete(app, data));
@@ -342,4 +430,9 @@ export function register(registry, app) {
   registry.register('route_clear_all', () => routeClearAll(app));
   registry.register('file_routing_sync', (data) => fileRoutingSync(app, data));
   registry.register('file_routing_bulk_sync', (data) => fileRoutingBulkSync(app, data));
+  registry.register('validate_routing_feasibility', (data) => validateRoutingFeasibility(app, data));
 }
+
+// Exported for unit tests so a stub `app` can drive the helper without
+// going through the registry (which requires the full DI bag).
+export { validateRoutingFeasibility };

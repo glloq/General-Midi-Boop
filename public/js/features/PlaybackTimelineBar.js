@@ -45,6 +45,12 @@ class PlaybackTimelineBar {
         this.rangeStart = 0;
         this.rangeEnd = 0;
 
+        // Hand-position warnings to overlay on the timeline. Each entry
+        // carries `{tick, level, message}` — the level drives the
+        // marker colour (warning / infeasible) and a single click on
+        // a marker seeks the playhead to that tick.
+        this.handWarnings = [];
+
         // Total ticks in the sequence
         this.totalTicks = 0;
 
@@ -212,6 +218,32 @@ class PlaybackTimelineBar {
         this._dirty = true; this._scheduleRender();
     }
 
+    /**
+     * Replace the hand-position warning marker list. Each entry must
+     * carry `{tick, level}`; an optional `message` is shown as the
+     * marker's tooltip (handled by the host via `data-` attributes —
+     * the canvas itself can't host title attributes). Pass `[]` or
+     * `null` to clear the overlay. Levels other than 'warning' /
+     * 'infeasible' are filtered out so the overlay never paints
+     * informational entries.
+     */
+    setHandWarnings(warnings) {
+        if (!Array.isArray(warnings)) {
+            this.handWarnings = [];
+        } else {
+            this.handWarnings = warnings.filter(w =>
+                w && Number.isFinite(w.tick)
+                  && (w.level === 'warning' || w.level === 'infeasible')
+            ).map(w => ({
+                tick: Math.max(0, Math.round(w.tick)),
+                level: w.level,
+                message: w.message || null,
+                channel: w.channel ?? null
+            }));
+        }
+        this._dirty = true; this._scheduleRender();
+    }
+
     resize() {
         const dpr = window.devicePixelRatio || 1;
         const rect = this.container.getBoundingClientRect();
@@ -290,7 +322,35 @@ class PlaybackTimelineBar {
             return 'rangeEnd';
         }
 
+        // Hand-warning markers (top-anchored, ~10px tall). Reported as
+        // a string so the standard hit consumers see "not a drag
+        // target", but `_hitTestHandWarning` exposes the actual marker
+        // for click-to-seek.
+        if (this._hitTestHandWarning(x, y)) return 'handWarning';
+
         return null;
+    }
+
+    /**
+     * Find the hand-warning marker at the given canvas coords, or null.
+     * Slightly more permissive than the visual triangle (touch-friendly).
+     * @private
+     */
+    _hitTestHandWarning(x, y) {
+        if (!this.handWarnings || this.handWarnings.length === 0) return null;
+        if (y > 12) return null;
+        const tolerance = 6;
+        let best = null;
+        let bestDx = Infinity;
+        for (const w of this.handWarnings) {
+            const mx = this._tickToX(w.tick);
+            const dx = Math.abs(x - mx);
+            if (dx <= tolerance && dx < bestDx) {
+                best = w;
+                bestDx = dx;
+            }
+        }
+        return best;
     }
 
     // ========================================================================
@@ -412,12 +472,23 @@ class PlaybackTimelineBar {
         e.preventDefault();
     }
 
-    // Triple-click (mouse) → move the range-start marker to clicked position
+    // Single-click on a hand-warning marker → seek playhead to it.
+    // Triple-click on empty area → move the range-start marker.
     _handleClick(e) {
-        if (e.detail !== 3) return;
         const pos = this._getCanvasPos(e);
         if (pos.x < this.leftOffset) return;
 
+        // First-priority: hand-warning markers respond to single click.
+        const warning = this._hitTestHandWarning(pos.x, pos.y);
+        if (warning) {
+            this.playheadTick = warning.tick;
+            this._dirty = true; this._scheduleRender();
+            if (this.onSeek) this.onSeek(this.playheadTick);
+            e.preventDefault();
+            return;
+        }
+
+        if (e.detail !== 3) return;
         const target = this._hitTest(pos.x, pos.y);
         if (target) return;
 
@@ -645,10 +716,39 @@ class PlaybackTimelineBar {
         // Draw range markers
         this._drawRangeMarkers(ctx, h);
 
+        // Draw hand-position warning markers (under the playhead so
+        // dragging the playhead doesn't visually wipe them).
+        this._drawHandWarningMarkers(ctx, h);
+
         // Draw playhead
         this._drawPlayhead(ctx, h);
 
         ctx.restore();
+    }
+
+    /**
+     * Render the hand-position warning markers stored by
+     * {@link PlaybackTimelineBar#setHandWarnings}. Each marker is a
+     * small triangle anchored at its tick, coloured by level
+     * (warning = amber, infeasible = red). Designed to be discrete:
+     * 6 px high so it stays out of the way of the playhead.
+     * @private
+     */
+    _drawHandWarningMarkers(ctx, h) {
+        if (!this.handWarnings || this.handWarnings.length === 0) return;
+        const size = 5;
+        for (const w of this.handWarnings) {
+            const x = this._tickToX(w.tick);
+            // Skip markers off-screen to avoid wasted strokes.
+            if (x < this.leftOffset - size || x > (this.canvas.width / (window.devicePixelRatio || 1)) + size) continue;
+            ctx.fillStyle = (w.level === 'infeasible') ? '#ef4444' : '#f59e0b';
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x - size, size * 1.6);
+            ctx.lineTo(x + size, size * 1.6);
+            ctx.closePath();
+            ctx.fill();
+        }
     }
 
     _drawRuler(ctx, w, h) {

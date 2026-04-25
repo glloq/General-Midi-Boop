@@ -28,6 +28,12 @@ class TablatureRenderer {
         // Tablature data: array of { tick, string, fret, velocity, duration, midiNote, channel, selected }
         this.tabEvents = [];
 
+        // Hand-position warnings overlay (C.5). Each entry carries
+        // { tick, string?, code, level }. Stored raw; the matching
+        // logic lives in `_eventWarningLevel` so callers don't need
+        // to maintain a parallel Set keyed on event index.
+        this.handWarnings = [];
+
         // Selection
         this.selectedEvents = new Set();  // Set of event indices
         this.selectionRect = null;        // { x1, y1, x2, y2 } in canvas coords during drag
@@ -136,6 +142,51 @@ class TablatureRenderer {
     setTabEvents(events) {
         this.tabEvents = events || [];
         this.requestRedraw();
+    }
+
+    /**
+     * Replace the hand-position warning list. Each entry: `{tick,
+     * string?, code, level}` — `level` must be 'warning' or
+     * 'infeasible' (other values are filtered out so 'ok' / 'unknown'
+     * never paints a border). Pass null/[] to clear.
+     */
+    setHandWarnings(warnings) {
+        if (!Array.isArray(warnings)) {
+            this.handWarnings = [];
+        } else {
+            this.handWarnings = warnings.filter(w =>
+                w && Number.isFinite(w.tick) && (w.level === 'warning' || w.level === 'infeasible')
+            ).map(w => ({
+                tick: Math.round(w.tick),
+                string: Number.isFinite(w.string) ? w.string : null,
+                code: w.code || null,
+                level: w.level
+            }));
+        }
+        this.requestRedraw();
+    }
+
+    /**
+     * Resolve the worst warning level for a given tab event. Match
+     * rule: same tick within ±30 ticks; if `warning.string` is set,
+     * match the event's string too; otherwise the warning applies to
+     * every event at that tick (chord-wide warnings like
+     * `too_many_fingers` / `chord_span_exceeded`). Returns null when
+     * no warning applies.
+     * @private
+     */
+    _eventWarningLevel(event) {
+        if (!this.handWarnings || this.handWarnings.length === 0) return null;
+        const order = { unknown: 0, ok: 1, warning: 2, infeasible: 3 };
+        let worst = null;
+        for (const w of this.handWarnings) {
+            if (Math.abs(w.tick - event.tick) > 30) continue;
+            if (w.string != null && w.string !== event.string) continue;
+            if (worst == null || (order[w.level] || 0) > (order[worst] || 0)) {
+                worst = w.level;
+            }
+        }
+        return worst;
     }
 
     setInstrumentConfig(config) {
@@ -469,6 +520,24 @@ class TablatureRenderer {
                 ctx.fillStyle = this.colors.background;
             }
             ctx.fillRect(x - textWidth / 2 - padding, y - 8, textWidth + padding * 2, 16);
+
+            // Hand-position warning border (C.5). Drawn around the
+            // background rectangle with a colour matching the level.
+            // Stays subtle (1.5 px) so it doesn't clash with the
+            // existing selection / hover treatments.
+            const warnLevel = this._eventWarningLevel(event);
+            if (warnLevel) {
+                const stroke = warnLevel === 'infeasible' ? '#ef4444' : '#f59e0b';
+                ctx.strokeStyle = stroke;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(
+                    x - textWidth / 2 - padding - 1,
+                    y - 9,
+                    textWidth + padding * 2 + 2,
+                    18
+                );
+                ctx.lineWidth = 1;
+            }
 
             // Fret number text
             if (isUnplayable && !isSelected) {

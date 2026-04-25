@@ -632,6 +632,7 @@
         "polyphonyAutoString": "auto-set from number of strings",
         "sectionIdentity": "Identity",
         "sectionNotes": "Notes & Capabilities",
+        "sectionHands": "Bàn tay",
         "sectionStrings": "Strings",
         "sectionDrums": "Percussion",
         "sectionAdvanced": "Advanced",

@@ -47,7 +47,14 @@ class TablatureConverter {
     min_movement: 'min_movement',
     lowest_fret: 'lowest_fret',
     highest_fret: 'highest_fret',
-    zone: 'zone'
+    zone: 'zone',
+    // Same Viterbi structure as min_movement, but emission/transition
+    // costs are expressed in physical millimetres derived from the
+    // instrument's scale_length_mm and hand_span_mm. The hand position
+    // shifts that cost the most are the ones that don't fit in the
+    // physical span at the *anchor* fret — which is correct for
+    // string instruments because frets are geometrically spaced.
+    hand_aware: 'hand_aware'
   };
 
   // Viterbi algorithm configuration for min_movement
@@ -82,6 +89,33 @@ class TablatureConverter {
 
     // Per-string fret counts (null = use numFrets for all)
     this.fretsPerString = instrumentConfig.frets_per_string || null;
+
+    // Optional upper bound on simultaneously fretted strings. Source is
+    // `hands_config.hands[0].max_fingers`; the caller flattens it onto
+    // instrumentConfig so this module doesn't need to know about the
+    // wider instrument capability shape. Open strings (fret 0) are not
+    // counted against this cap — they don't press a finger against the
+    // fretboard. `null`/`undefined` disables the filter entirely.
+    this.maxFingers = Number.isFinite(instrumentConfig.max_fingers) && instrumentConfig.max_fingers > 0
+      ? instrumentConfig.max_fingers
+      : null;
+
+    // Physical-model inputs for the optional `hand_aware` algorithm.
+    // scale_length_mm lives natively on the string_instruments row;
+    // hand_span_mm + hand_move_mm_per_sec are flattened by the caller
+    // from `hands_config.hands[0]`. When any input is missing we fall
+    // back to the existing semitone-based costs (still safe because
+    // hand_aware then degrades to min_movement-equivalent behaviour).
+    this.scaleLengthMm = Number.isFinite(instrumentConfig.scale_length_mm) && instrumentConfig.scale_length_mm > 0
+      ? instrumentConfig.scale_length_mm
+      : null;
+    this.handSpanMm = Number.isFinite(instrumentConfig.hand_span_mm) && instrumentConfig.hand_span_mm > 0
+      ? instrumentConfig.hand_span_mm
+      : null;
+    this.handMoveMmPerSec = Number.isFinite(instrumentConfig.hand_move_mm_per_sec) && instrumentConfig.hand_move_mm_per_sec > 0
+      ? instrumentConfig.hand_move_mm_per_sec
+      : null;
+    this._handAwareReady = !!(this.scaleLengthMm && this.handSpanMm);
 
     // Effective open-string notes with capo applied
     this.effectiveTuning = this.tuning.map(note => note + this.capoFret);
@@ -131,6 +165,17 @@ class TablatureConverter {
         break;
       case 'zone':
         result = this._convertZone(deduped);
+        break;
+      case 'hand_aware':
+        // Same Viterbi engine, swap in the physical cost functions.
+        // _convertMinMovement reads `this._useHandAwareCosts` — toggle it
+        // around the call so the rest of the file stays untouched.
+        this._useHandAwareCosts = true;
+        try {
+          result = this._convertMinMovement(deduped);
+        } finally {
+          this._useHandAwareCosts = false;
+        }
         break;
       case 'min_movement':
       default:
@@ -1071,6 +1116,7 @@ class TablatureConverter {
     const assignedFrets = current
       .filter(a => a.fret > 0)
       .map(a => a.fret);
+    const assignedFingerCount = assignedFrets.length;
 
     for (const pos of positions) {
       if (usedStrings[pos.string]) continue;
@@ -1080,6 +1126,15 @@ class TablatureConverter {
         const allFrets = [...assignedFrets, pos.fret];
         const span = Math.max(...allFrets) - Math.min(...allFrets);
         if (span > maxFretSpan) continue;
+      }
+
+      // Enforce max_fingers when configured. Only fretted positions
+      // consume a finger — open strings (fret 0) are skipped. The check
+      // prunes aggressively in the recursion rather than filtering
+      // post-hoc so we never enumerate assignments that would later be
+      // discarded.
+      if (this.maxFingers != null && pos.fret > 0) {
+        if (assignedFingerCount + 1 > this.maxFingers) continue;
       }
 
       usedStrings[pos.string] = true;
@@ -1102,6 +1157,9 @@ class TablatureConverter {
    * @returns {number} Cost (lower is better)
    */
   _emissionCost(assignment) {
+    if (this._useHandAwareCosts && this._handAwareReady) {
+      return this._emissionCostMm(assignment);
+    }
     if (assignment.length === 0) return 0;
 
     const { COMFORTABLE_SPAN } = TablatureConverter.VITERBI_CONFIG;
@@ -1134,6 +1192,52 @@ class TablatureConverter {
   }
 
   /**
+   * Hand-aware emission cost. The chord's physical span (in mm at the
+   * fingerboard) is compared against the configured `hand_span_mm`;
+   * cost scales quadratically once the span exceeds the hand. Frets
+   * are geometrically spaced, so a 5-fret chord at the nut is roughly
+   * twice as wide in mm as a 5-fret chord at fret 12 — the physical
+   * model captures that without a position-dependent constant.
+   * @private
+   */
+  _emissionCostMm(assignment) {
+    if (assignment.length === 0) return 0;
+    const frettedNotes = assignment.filter(a => a.fret > 0);
+    if (frettedNotes.length === 0) return 0.5;
+
+    let cost = 0;
+
+    // 1. Physical chord span vs hand width.
+    const minFret = Math.min(...frettedNotes.map(a => a.fret));
+    const maxFret = Math.max(...frettedNotes.map(a => a.fret));
+    const chordMm = this._fretDistanceMm(minFret, maxFret);
+    if (chordMm > this.handSpanMm) {
+      const overshootMm = chordMm - this.handSpanMm;
+      // Quadratic in mm, then normalized by handSpanMm so a 50% overshoot
+      // produces a ~0.5 cost — comparable in magnitude to the
+      // semitone-based emission cost so the Viterbi beam doesn't
+      // over-prefer hand_aware paths just because of unit scaling.
+      cost += (overshootMm / this.handSpanMm) * (overshootMm / this.handSpanMm) * 2;
+    }
+
+    // 2. Open string within fretted chord — same logic as semitones,
+    // physical reach amplifies the cost when the chord sits high.
+    const hasOpen = assignment.some(a => a.fret === 0);
+    if (hasOpen && frettedNotes.length > 0 && minFret > 4) {
+      cost += 1.5;
+    }
+
+    return cost;
+  }
+
+  /** Physical distance (mm) between two fret positions on this scale. */
+  _fretDistanceMm(a, b) {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    return this.scaleLengthMm * (Math.pow(2, -lo / 12) - Math.pow(2, -hi / 12));
+  }
+
+  /**
    * Transition cost — smooth movement cost between hand positions.
    * No discontinuities, models realistic hand movement ergonomics.
    * @private
@@ -1142,6 +1246,9 @@ class TablatureConverter {
    * @returns {number} Cost (lower is better)
    */
   _transitionCost(prevHandPos, currHandPos) {
+    if (this._useHandAwareCosts && this._handAwareReady) {
+      return this._transitionCostMm(prevHandPos, currHandPos);
+    }
     const { MOVE_THRESHOLD_STRETCH, MOVE_THRESHOLD_SHIFT } = TablatureConverter.VITERBI_CONFIG;
     const distance = Math.abs(currHandPos - prevHandPos);
 
@@ -1162,6 +1269,39 @@ class TablatureConverter {
     }
 
     return moveCost;
+  }
+
+  /**
+   * Hand-aware transition cost. Travel is measured in physical
+   * millimetres; the cost is non-linear so a 30 mm shift near the nut
+   * (≈ frets 1→2) is the same as a 30 mm shift up the neck (≈ frets
+   * 12→17). Movements of less than ~6 mm are essentially free
+   * (finger stretch), beyond that the cost grows quadratically until
+   * the configured shift speed becomes unrealistic.
+   * @private
+   */
+  _transitionCostMm(prevHandPos, currHandPos) {
+    if (prevHandPos === currHandPos) return 0;
+    const distMm = this._fretDistanceMm(prevHandPos, currHandPos);
+
+    // 6 mm ~ a finger stretch on a 650 mm scale around fret 7. Below
+    // that, free.
+    const STRETCH_MM = 6;
+    const SHIFT_MM = 25;
+    let cost;
+    if (distMm <= STRETCH_MM) {
+      cost = distMm / STRETCH_MM * 0.3;
+    } else if (distMm <= SHIFT_MM) {
+      cost = 0.3 + ((distMm - STRETCH_MM) / (SHIFT_MM - STRETCH_MM)) * 0.5;
+    } else {
+      cost = 0.8 + ((distMm - SHIFT_MM) / SHIFT_MM) * 0.6;
+    }
+
+    // Nut-friendly bonus, mirroring the semitones model.
+    if (currHandPos === 0 && prevHandPos <= 5) {
+      cost *= 0.5;
+    }
+    return cost;
   }
 
   /**

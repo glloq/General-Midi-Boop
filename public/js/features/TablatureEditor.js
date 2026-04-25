@@ -592,6 +592,9 @@ class TablatureEditor {
         if (this.fretboard) {
             const currentPositions = this._getPositionsAtTick(tick);
             this.fretboard.setActivePositions(currentPositions);
+            // C.4: also update the hand-window overlay so the operator
+            // sees where the mechanical hand sits at the current tick.
+            this._updateFretboardHandWindow(tick);
         }
     }
 
@@ -604,6 +607,62 @@ class TablatureEditor {
         return this.tabEvents
             .filter(e => tick >= e.tick - tolerance && tick <= e.tick + (e.duration || 480))
             .map(e => ({ string: e.string, fret: e.fret, velocity: e.velocity }));
+    }
+
+    /**
+     * Compute the current hand-position window from the tab events
+     * around `tick` and push it to the FretboardDiagram. Falls back to
+     * clearing the window when no fretted note sits in the lookback
+     * period (open strings don't anchor the hand).
+     * @private
+     */
+    _updateFretboardHandWindow(tick) {
+        if (!this.fretboard || typeof this.fretboard.setHandWindow !== 'function') return;
+        const span = Number.isFinite(this._handSpanFrets) && this._handSpanFrets > 0
+            ? this._handSpanFrets
+            : 4;
+        // Sliding window — last ~2 beats of fretted notes feed the anchor.
+        const lookbackTicks = (this.renderer?.ticksPerBeat || 480) * 2;
+        const recentFretted = this.tabEvents
+            .filter(e => e.fret > 0 && e.tick <= tick && e.tick >= tick - lookbackTicks)
+            .map(e => e.fret);
+        if (recentFretted.length === 0) {
+            this.fretboard.setHandWindow(null);
+            return;
+        }
+        const anchorFret = Math.min(...recentFretted);
+        const topFret = Math.max(...recentFretted);
+        const level = (topFret - anchorFret) > span ? 'warning' : 'ok';
+        this.fretboard.setHandWindow({ anchorFret, spanFrets: span, level });
+    }
+
+    /**
+     * Push hand-position warnings to the renderer so problematic events
+     * (too many fingers, move-too-fast, chord-span-exceeded) get an
+     * amber/red border around their fret number. Pass `[]` or null to
+     * clear the highlights.
+     * @param {Array<{tick:number, string?:number, code:string, level:string}>} warnings
+     */
+    setHandWarnings(warnings) {
+        if (this.renderer && typeof this.renderer.setHandWarnings === 'function') {
+            this.renderer.setHandWarnings(warnings || []);
+        }
+    }
+
+    /**
+     * Configure the hand-span (in frets) used by the FretboardDiagram
+     * overlay. Typically wired from the instrument's hands_config.
+     * @param {number} spanFrets
+     */
+    setHandSpanFrets(spanFrets) {
+        if (Number.isFinite(spanFrets) && spanFrets > 0) {
+            this._handSpanFrets = spanFrets;
+            // Repaint with the new span on the next playhead update; for
+            // an immediate visual effect, redraw at the current tick.
+            if (this.renderer && this.fretboard) {
+                this._updateFretboardHandWindow(this.renderer.playheadTick || 0);
+            }
+        }
     }
 
     // ========================================================================

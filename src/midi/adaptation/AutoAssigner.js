@@ -250,7 +250,12 @@ class AutoAssigner {
       supported_ccs: inst.supported_ccs,
       capabilities_source: inst.capabilities_source,
       mac_address: inst.mac_address,
-      usb_serial_number: inst.usb_serial_number
+      usb_serial_number: inst.usb_serial_number,
+      // Carry hands_config + min_note_interval through to the frontend
+      // so the routing-summary page can compute hand-position
+      // feasibility badges client-side without a separate round-trip.
+      hands_config: inst.hands_config ?? null,
+      min_note_interval: inst.min_note_interval ?? null
     }));
   }
 

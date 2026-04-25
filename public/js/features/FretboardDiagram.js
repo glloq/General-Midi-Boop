@@ -31,6 +31,12 @@ class FretboardDiagram {
         // Active positions: array of { string (1-based), fret, velocity }
         this.activePositions = [];
 
+        // Hand window overlay (C.4). Optional band drawn between
+        // anchorFret and anchorFret+spanFrets to show where the
+        // mechanical hand is currently positioned. Set via
+        // setHandWindow(); cleared by passing null.
+        this.handWindow = null;
+
         // Colors
         this.colors = {};
         this.updateTheme();
@@ -280,6 +286,11 @@ class FretboardDiagram {
 
         // Draw fret markers (dots)
         this._drawFretMarkers(w, h);
+
+        // Hand-position window — drawn under the frets so the band sits
+        // behind the active fingers but on top of the fretboard
+        // background, giving a clear "the hand is here" visual cue.
+        if (this.handWindow) this._drawHandWindow(w, h);
 
         // Draw frets
         this._drawFrets(w, h);
@@ -536,11 +547,73 @@ class FretboardDiagram {
     }
 
     // ========================================================================
+    // HAND WINDOW OVERLAY (C.4)
+    // ========================================================================
+
+    /**
+     * Set the current hand-position window. Pass null to clear.
+     *
+     *   setHandWindow({ anchorFret: 5, spanFrets: 4, level: 'ok' })
+     *
+     * `level` is the same taxonomy the rest of the hand-position
+     * pipeline uses ('ok' | 'warning' | 'infeasible'); it picks the
+     * tint of the band so the operator sees at a glance whether the
+     * window is comfortable or not.
+     */
+    setHandWindow(window) {
+        if (window == null) {
+            this.handWindow = null;
+            return;
+        }
+        const anchorFret = parseInt(window.anchorFret, 10);
+        const spanFrets = parseInt(window.spanFrets, 10);
+        if (!Number.isFinite(anchorFret) || !Number.isFinite(spanFrets) || spanFrets <= 0) {
+            this.handWindow = null;
+            return;
+        }
+        this.handWindow = {
+            anchorFret: Math.max(0, anchorFret),
+            spanFrets,
+            level: window.level || 'ok'
+        };
+    }
+
+    _drawHandWindow(w, _h) {
+        const { anchorFret, spanFrets, level } = this.handWindow;
+        const top = this._getFretY(anchorFret);
+        const bottom = this._getFretY(anchorFret + spanFrets);
+        if (!Number.isFinite(top) || !Number.isFinite(bottom)) return;
+        // Map level → tint. Use translucent fills so the markers/strings
+        // stay visible through the band.
+        const fills = {
+            ok:         'rgba(34, 197, 94, 0.18)',  // green
+            warning:    'rgba(245, 158, 11, 0.20)', // amber
+            infeasible: 'rgba(239, 68, 68, 0.22)'   // red
+        };
+        const strokes = {
+            ok:         'rgba(34, 197, 94, 0.6)',
+            warning:    'rgba(245, 158, 11, 0.7)',
+            infeasible: 'rgba(239, 68, 68, 0.7)'
+        };
+        const fill = fills[level] || fills.ok;
+        const stroke = strokes[level] || strokes.ok;
+        const ctx = this.ctx;
+        ctx.fillStyle = fill;
+        ctx.fillRect(this.leftMargin, top, w - this.leftMargin - this.rightMargin, bottom - top);
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(this.leftMargin, top, w - this.leftMargin - this.rightMargin, bottom - top);
+        ctx.setLineDash([]);
+    }
+
+    // ========================================================================
     // CLEANUP
     // ========================================================================
 
     destroy() {
         this.activePositions = [];
+        this.handWindow = null;
     }
 }
 

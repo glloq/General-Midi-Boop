@@ -289,13 +289,66 @@ class LatencyCompensator {
    * Used by the playback scheduler when it can re-time events ahead of
    * playback (unlike the router, which can only delay).
    *
+   * The optional `extraLatencyMs` lets the caller add a one-off delay
+   * that isn't part of the device's static profile — typically the
+   * time needed for a mechanical actuator to complete a gesture before
+   * the note sounds. The primary use case is a fretting-hand position
+   * shift reported by {@link HandPositionPlanner} as a `move_too_fast`
+   * warning: passing the shift's `requiredMs` anticipates the event's
+   * departure so the hand is in place when the note fires.
+   *
    * @param {string} deviceId
    * @param {number} timestamp - Seconds.
+   * @param {number} [extraLatencyMs=0] - Additional compensation in ms
+   *   (e.g. hand-shift travel time). Clamped to >= 0 to prevent a
+   *   bogus caller from scheduling events in the future.
    * @returns {number} Adjusted timestamp.
    */
-  compensateTimestamp(deviceId, timestamp) {
+  compensateTimestamp(deviceId, timestamp, extraLatencyMs = 0) {
     const latency = this.getLatency(deviceId);
-    return timestamp - (latency / 1000);
+    const extra = Number.isFinite(extraLatencyMs) && extraLatencyMs > 0 ? extraLatencyMs : 0;
+    return timestamp - (latency + extra) / 1000;
+  }
+
+  /**
+   * Compute the extra compensation (in ms) a given event should claim
+   * from the list of `move_too_fast` warnings emitted by the hand-
+   * position planner. Picks the warning whose note time matches the
+   * event and applies the shortfall between the shift's `requiredMs`
+   * and the available playing time, so only shifts that are actually
+   * impossible to complete naturally bleed into the scheduler budget.
+   *
+   * When no warning matches (typical case: the hand has time to move
+   * on its own), returns 0 and {@link LatencyCompensator#compensateTimestamp}
+   * behaves exactly as before.
+   *
+   * @param {Array<{code:string, time:number, channel?:number,
+   *                requiredMs?:number, availableMs?:number}>} warnings
+   *   Flat list of planner warnings, e.g. from the
+   *   `playback_hand_position_warnings` WS event payload.
+   * @param {number} eventTimeSec - Absolute timestamp of the event
+   *   we're about to schedule.
+   * @param {number} [channel] - Optional filter so we ignore shifts
+   *   routed to a different source channel.
+   * @returns {number} Extra latency in ms to pass to
+   *   {@link LatencyCompensator#compensateTimestamp}. Always >= 0.
+   */
+  shiftExtraMs(warnings, eventTimeSec, channel) {
+    if (!Array.isArray(warnings) || warnings.length === 0) return 0;
+    let best = 0;
+    for (const w of warnings) {
+      if (!w || w.code !== 'move_too_fast') continue;
+      if (channel != null && w.channel != null && w.channel !== channel) continue;
+      // The warning fires at the planned CC time, which is a tick before
+      // the first note of the new window. Match on the event's own time
+      // with the small epsilon the planner itself uses.
+      if (Math.abs((w.time ?? 0) - eventTimeSec) > 0.01) continue;
+      const required = Number.isFinite(w.requiredMs) ? w.requiredMs : 0;
+      const available = Number.isFinite(w.availableMs) ? w.availableMs : 0;
+      const shortfall = Math.max(0, required - available);
+      if (shortfall > best) best = shortfall;
+    }
+    return best;
   }
 
   /**

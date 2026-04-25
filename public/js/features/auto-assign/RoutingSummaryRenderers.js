@@ -1083,6 +1083,7 @@
       getDisplayName, buildInstrumentOptions,
       getChannelPolyphony, getInstrumentPolyphony,
       computePlayableNotes, renderVolumeSlider,
+      getHandFeasibilityBadge,
       escape
     } = opts;
     const {
@@ -1195,6 +1196,13 @@
         }
       }
 
+      // Hand-position feasibility badge — empty when unknown so the
+      // column stays compact when no instrument-side data is set.
+      let handHTML = '';
+      if (!isSkipped && typeof getHandFeasibilityBadge === 'function') {
+        handHTML = getHandFeasibilityBadge(channel) || '';
+      }
+
       return `
         <tr class="rs-row ${isSkipped ? 'skipped' : ''} ${statusClass} ${isSelected ? 'selected' : ''}"
             tabindex="0" role="button" data-channel="${channel}"
@@ -1210,6 +1218,7 @@
           <td class="rs-col-score">${scoreHTML}</td>
           <td class="rs-col-poly">${polyHTML}</td>
           <td class="rs-col-playable">${playableHTML}</td>
+          <td class="rs-col-hand">${handHTML}</td>
           <td class="rs-col-actions">
             ${!isSkipped ? `<button class="btn btn-sm rs-btn-skip rs-btn-mute" data-channel="${channel}" title="${_t('routingSummary.skip')}">🔊</button>` : `<button class="btn btn-sm rs-btn-unskip rs-btn-unmute" data-channel="${channel}" title="${_t('routingSummary.unskip')}">🔇</button>`}
           </td>
@@ -1250,6 +1259,7 @@
               <th>${_t('routingSummary.score') || 'Score'}</th>
               <th class="rs-th-compact">${_t('autoAssign.polyphony') || 'Polyphonie'}<br><span class="rs-th-sub">${_t('autoAssign.polyphonyHint') || 'canal / instru.'}</span></th>
               <th class="rs-th-compact">Notes<br><span class="rs-th-sub">${_t('autoAssign.channelNotesHint') || 'total / jouables'}</span></th>
+              <th class="rs-th-compact" title="${_t('handPosition.column.title') || 'Hand-position feasibility'}">${_t('handPosition.column.short') || 'Main'}</th>
               <th></th>
             </tr>
           </thead>

@@ -337,7 +337,15 @@ async function tablatureConvertFromMidi(app, data) {
     if (!config) throw new NotFoundError('StringInstrument', data.string_instrument_id);
   }
 
-  const converter = new TablatureConverter(config);
+  // Augment the config with max_fingers pulled from the instrument's
+  // hands_config when present, so the converter can prune fingerings
+  // that would require more simultaneously-pressed strings than the
+  // physical hand (or a reduced-actuator robot) can handle. The key
+  // is (device_id, channel) — shared between string_instruments and
+  // instruments_latency.
+  const resolvedConfig = _withMaxFingersFromHandsConfig(app, config);
+
+  const converter = new TablatureConverter(resolvedConfig);
   const tabEvents = converter.convertMidiToTablature(data.notes);
   const range = converter.getPlayableRange();
 
@@ -346,6 +354,51 @@ async function tablatureConvertFromMidi(app, data) {
     playable_range: range,
     stats: converter.lastConversionStats
   };
+}
+
+/**
+ * Flatten the hand-position fields the TablatureConverter needs onto a
+ * shallow clone of the string-instrument config. The converter's API
+ * stays narrow (one config object) while still seeing data that lives
+ * on the separate `instruments_latency.hands_config` JSON. Returns
+ * the input unchanged when no capabilities row or no `hands_config`
+ * is present.
+ *
+ * Fields propagated (any may be missing — TablatureConverter handles
+ * each independently):
+ *   - max_fingers          (B.1, prunes fingerings)
+ *   - hand_span_mm         (B.2, hand_aware emission cost)
+ *   - hand_move_mm_per_sec (B.2, hand_aware transition cost)
+ *
+ * @private
+ */
+function _withMaxFingersFromHandsConfig(app, config) {
+  if (!config || !app?.instrumentRepository?.getCapabilities) return config;
+  if (!config.device_id || config.channel == null) return config;
+  let caps;
+  try {
+    caps = app.instrumentRepository.getCapabilities(config.device_id, config.channel);
+  } catch (_) {
+    return config;
+  }
+  let hands = caps?.hands_config;
+  if (typeof hands === 'string') {
+    try { hands = JSON.parse(hands); } catch (_) { return config; }
+  }
+  const fretting = Array.isArray(hands?.hands) ? hands.hands.find(h => h?.id === 'fretting') : null;
+  if (!fretting) return config;
+
+  const out = { ...config };
+  if (Number.isFinite(fretting.max_fingers) && fretting.max_fingers > 0) {
+    out.max_fingers = fretting.max_fingers;
+  }
+  if (Number.isFinite(fretting.hand_span_mm) && fretting.hand_span_mm > 0) {
+    out.hand_span_mm = fretting.hand_span_mm;
+  }
+  if (Number.isFinite(hands?.hand_move_mm_per_sec) && hands.hand_move_mm_per_sec > 0) {
+    out.hand_move_mm_per_sec = hands.hand_move_mm_per_sec;
+  }
+  return out;
 }
 
 /**

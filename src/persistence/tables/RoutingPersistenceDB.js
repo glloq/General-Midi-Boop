@@ -47,6 +47,16 @@ class RoutingPersistenceDB {
       // gone).
       const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
 
+      // hand_position_feasibility lives in a JSON column (migration 008).
+      // Accept either a plain object the caller assembled or an
+      // already-stringified payload — be defensive against both.
+      let feasibilityJson = null;
+      if (routing.hand_position_feasibility != null) {
+        feasibilityJson = typeof routing.hand_position_feasibility === 'string'
+          ? routing.hand_position_feasibility
+          : JSON.stringify(routing.hand_position_feasibility);
+      }
+
       // For split routings, use a different INSERT (no ON CONFLICT since multiple rows per channel)
       if (routing.split_mode) {
         const stmt = this.db.prepare(`
@@ -55,8 +65,8 @@ class RoutingPersistenceDB {
              compatibility_score, transposition_applied, auto_assigned,
              assignment_reason, note_remapping, enabled, created_at,
              split_mode, split_note_min, split_note_max, split_polyphony_share,
-             overlap_strategy, behavior_mode)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             overlap_strategy, behavior_mode, hand_position_feasibility)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = stmt.run(
@@ -77,7 +87,8 @@ class RoutingPersistenceDB {
           routing.split_note_max ?? null,
           routing.split_polyphony_share ?? null,
           routing.overlap_strategy || null,
-          routing.behavior_mode || null
+          routing.behavior_mode || null,
+          feasibilityJson
         );
 
         return result.lastInsertRowid;
@@ -88,8 +99,9 @@ class RoutingPersistenceDB {
         INSERT INTO midi_instrument_routings
           (midi_file_id, channel, target_channel, device_id, instrument_name,
            compatibility_score, transposition_applied, auto_assigned,
-           assignment_reason, note_remapping, enabled, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           assignment_reason, note_remapping, enabled, created_at,
+           hand_position_feasibility)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(midi_file_id, channel) WHERE split_mode IS NULL
         DO UPDATE SET
           target_channel = excluded.target_channel,
@@ -101,7 +113,8 @@ class RoutingPersistenceDB {
           assignment_reason = excluded.assignment_reason,
           note_remapping = excluded.note_remapping,
           enabled = excluded.enabled,
-          created_at = excluded.created_at
+          created_at = excluded.created_at,
+          hand_position_feasibility = excluded.hand_position_feasibility
       `);
 
       const result = stmt.run(
@@ -116,7 +129,8 @@ class RoutingPersistenceDB {
         routing.assignment_reason || null,
         routing.note_remapping || null,
         routing.enabled !== false ? 1 : 0,
-        routing.created_at || Date.now()
+        routing.created_at || Date.now(),
+        feasibilityJson
       );
 
       return result.lastInsertRowid;
@@ -183,8 +197,24 @@ class RoutingPersistenceDB {
       split_note_max: row.split_note_max ?? null,
       split_polyphony_share: row.split_polyphony_share ?? null,
       overlap_strategy: row.overlap_strategy || null,
-      behavior_mode: row.behavior_mode || null
+      behavior_mode: row.behavior_mode || null,
+      hand_position_feasibility: row.hand_position_feasibility
+        ? this._safeParseFeasibility(row.hand_position_feasibility, row.id)
+        : null
     }));
+  }
+
+  /**
+   * @private — never throws on a bad JSON blob; logs and returns null
+   * so a corrupted row doesn't break the routing list view.
+   */
+  _safeParseFeasibility(raw, rowId) {
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      this.logger?.warn?.(`Routing ${rowId}: invalid hand_position_feasibility JSON (${e.message})`);
+      return null;
+    }
   }
 
   /**
