@@ -343,65 +343,108 @@
                     motion: { feasible: true, requiredSec: 0, availableSec: Infinity }
                 });
 
-                // -------- Pass 1: HOLD backgrounds -----------------
-                ctx.fillStyle = _alpha(tr.color, 0.06);
+                // For every consecutive pair (a → b) compute the
+                // physical motion envelope shared by all three passes:
+                //   - releaseA: when this hand's chord-A notes release.
+                //   - arrivalSec: when the hand reaches chord B's anchor.
+                //     Feasible: releaseA + requiredSec (often EARLIER
+                //       than b.sec → the hand waits at B until then).
+                //     Infeasible: b.sec + (required − available) >
+                //       b.sec → the ribbon overflows the next chord.
+                //     No motion data: spread over the whole gap (=
+                //       legacy behaviour, arrivalSec = b.sec).
+                // The trapezoid + diagonal stop at arrivalSec, and an
+                // EARLY-ARRIVAL hold rectangle covers
+                // [arrivalSec, b.sec] at anchor B so the eye reads
+                // "moves now, then waits" instead of "drags slowly
+                // across the entire gap".
+                const motionEnvelopes = new Array(series.length - 1);
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
                     const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
-                    if (releaseA <= a.sec + 1e-9) continue; // no hold
-                    const yA = this._yAt(a.sec, h, start);
-                    const yRel = this._yAt(releaseA, h, start);
-                    const colA  = this._columnFor(a.anchor);
-                    const colAR = this._columnFor(a.anchor + tr.span);
-                    const xLeft  = colA.x;
-                    const xRight = colAR.x + colAR.width;
-                    ctx.fillRect(xLeft, yRel, xRight - xLeft, yA - yRel);
-                }
-
-                // -------- Pass 2: TRANSITION sweep -----------------
-                for (let i = 0; i + 1 < series.length; i++) {
-                    const a = series[i], b = series[i + 1];
-                    const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
-                    if (releaseA >= b.sec - 1e-9) continue; // no transition
-                    if (a.anchor === b.anchor) continue;    // no actual motion
-                    const motion = b.motion || { feasible: true };
+                    const motion = b.motion || { feasible: true, requiredSec: 0, availableSec: Infinity };
                     const isInfeasible = motion.feasible === false;
-                    const fillColor = isInfeasible ? RED : tr.color;
-                    const yRelA = this._yAt(releaseA, h, start);
-                    let yArrival = this._yAt(b.sec, h, start);
-                    // Infeasible → arrival is past b.sec; extend the
-                    // ribbon up to b.sec + (required − available).
+                    const useMotion = Number.isFinite(motion.requiredSec) && motion.requiredSec > 0;
+                    let arrivalSec;
                     if (isInfeasible
                             && Number.isFinite(motion.requiredSec)
                             && Number.isFinite(motion.availableSec)) {
-                        const overflowSec = Math.max(0, motion.requiredSec - motion.availableSec);
-                        if (overflowSec > 0) {
-                            yArrival = this._yAt(b.sec + overflowSec, h, start);
-                        }
+                        arrivalSec = b.sec + Math.max(0, motion.requiredSec - motion.availableSec);
+                    } else if (useMotion && a.anchor !== b.anchor) {
+                        arrivalSec = Math.min(b.sec, releaseA + motion.requiredSec);
+                    } else {
+                        arrivalSec = b.sec;
                     }
+                    motionEnvelopes[i] = { releaseA, arrivalSec, isInfeasible };
+                }
+
+                // -------- Pass 1: HOLD backgrounds -----------------
+                // (a) hold at the OLD anchor between a.sec and releaseA;
+                // (b) EARLY-ARRIVAL hold at the NEW anchor between
+                //     arrivalSec and b.sec when the move was fast.
+                ctx.fillStyle = _alpha(tr.color, 0.06);
+                for (let i = 0; i + 1 < series.length; i++) {
+                    const a = series[i], b = series[i + 1];
+                    const env = motionEnvelopes[i];
+                    if (env.releaseA > a.sec + 1e-9) {
+                        const yA = this._yAt(a.sec, h, start);
+                        const yRel = this._yAt(env.releaseA, h, start);
+                        const colA  = this._columnFor(a.anchor);
+                        const colAR = this._columnFor(a.anchor + tr.span);
+                        ctx.fillRect(colA.x, yRel,
+                                      colAR.x + colAR.width - colA.x,
+                                      yA - yRel);
+                    }
+                    if (!env.isInfeasible
+                            && a.anchor !== b.anchor
+                            && env.arrivalSec < b.sec - 1e-9) {
+                        const yArr = this._yAt(env.arrivalSec, h, start);
+                        const yB   = this._yAt(b.sec, h, start);
+                        const colB  = this._columnFor(b.anchor);
+                        const colBR = this._columnFor(b.anchor + tr.span);
+                        ctx.fillRect(colB.x, yB,
+                                      colBR.x + colBR.width - colB.x,
+                                      yArr - yB);
+                    }
+                }
+
+                // -------- Pass 2: TRANSITION sweep -----------------
+                // Trapezoid from releaseA → arrivalSec (NOT b.sec when
+                // the hand arrives early). Red on infeasible.
+                for (let i = 0; i + 1 < series.length; i++) {
+                    const a = series[i], b = series[i + 1];
+                    const env = motionEnvelopes[i];
+                    if (env.releaseA >= env.arrivalSec - 1e-9) continue;
+                    if (a.anchor === b.anchor) continue;
+                    const fillColor = env.isInfeasible ? RED : tr.color;
+                    const yRelA = this._yAt(env.releaseA, h, start);
+                    const yArr  = this._yAt(env.arrivalSec, h, start);
                     const colA  = this._columnFor(a.anchor);
                     const colAR = this._columnFor(a.anchor + tr.span);
                     const colB  = this._columnFor(b.anchor);
                     const colBR = this._columnFor(b.anchor + tr.span);
-                    ctx.fillStyle = _alpha(fillColor, isInfeasible ? 0.28 : 0.18);
+                    ctx.fillStyle = _alpha(fillColor, env.isInfeasible ? 0.28 : 0.18);
                     ctx.beginPath();
                     ctx.moveTo(colA.x, yRelA);
                     ctx.lineTo(colAR.x + colAR.width, yRelA);
-                    ctx.lineTo(colBR.x + colBR.width, yArrival);
-                    ctx.lineTo(colB.x, yArrival);
+                    ctx.lineTo(colBR.x + colBR.width, yArr);
+                    ctx.lineTo(colB.x, yArr);
                     ctx.closePath();
                     ctx.fill();
                 }
 
                 // -------- Pass 3: ANCHOR centre stroke -------------
+                // (a) vertical at A from yA to yRelA (HOLD A);
+                // (b) diagonal from (xCenA, yRelA) to (xCenB, yArr);
+                // (c) vertical at B from yArr to yB (EARLY-ARRIVAL hold).
                 ctx.lineWidth = 1.5;
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
-                    const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
+                    const env = motionEnvelopes[i];
                     const yA   = this._yAt(a.sec, h, start);
-                    const yRel = this._yAt(releaseA, h, start);
-                    const motion = b.motion || { feasible: true };
-                    const isInfeasible = motion.feasible === false;
+                    const yRel = this._yAt(env.releaseA, h, start);
+                    const yArr = this._yAt(env.arrivalSec, h, start);
+                    const yB   = this._yAt(b.sec, h, start);
                     const colA  = this._columnFor(a.anchor);
                     const colAR = this._columnFor(a.anchor + tr.span);
                     const colB  = this._columnFor(b.anchor);
@@ -409,7 +452,6 @@
                     const xCenA = (colA.x + colAR.x + colAR.width) / 2;
                     const xCenB = (colB.x + colBR.x + colBR.width) / 2;
 
-                    // HOLD vertical line.
                     ctx.strokeStyle = _alpha(tr.color, 0.7);
                     if (yRel < yA - 1e-3) {
                         ctx.beginPath();
@@ -417,24 +459,24 @@
                         ctx.lineTo(xCenA, yRel);
                         ctx.stroke();
                     }
-                    // TRANSITION diagonal — skip same-anchor segments.
-                    if (releaseA < b.sec - 1e-9 && a.anchor !== b.anchor) {
-                        let yArrival = this._yAt(b.sec, h, start);
-                        if (isInfeasible
-                                && Number.isFinite(motion.requiredSec)
-                                && Number.isFinite(motion.availableSec)) {
-                            const overflowSec = Math.max(0, motion.requiredSec - motion.availableSec);
-                            if (overflowSec > 0) {
-                                yArrival = this._yAt(b.sec + overflowSec, h, start);
-                            }
-                        }
-                        ctx.strokeStyle = _alpha(isInfeasible ? RED : tr.color, 0.85);
-                        ctx.lineWidth = isInfeasible ? 2 : 1.5;
+                    if (env.releaseA < env.arrivalSec - 1e-9 && a.anchor !== b.anchor) {
+                        ctx.strokeStyle = _alpha(env.isInfeasible ? RED : tr.color, 0.85);
+                        ctx.lineWidth = env.isInfeasible ? 2 : 1.5;
                         ctx.beginPath();
                         ctx.moveTo(xCenA, yRel);
-                        ctx.lineTo(xCenB, yArrival);
+                        ctx.lineTo(xCenB, yArr);
                         ctx.stroke();
                         ctx.lineWidth = 1.5;
+                    }
+                    // Early-arrival hold centerline at B.
+                    if (!env.isInfeasible
+                            && a.anchor !== b.anchor
+                            && env.arrivalSec < b.sec - 1e-9) {
+                        ctx.strokeStyle = _alpha(tr.color, 0.7);
+                        ctx.beginPath();
+                        ctx.moveTo(xCenB, yArr);
+                        ctx.lineTo(xCenB, yB);
+                        ctx.stroke();
                     }
                 }
             }
