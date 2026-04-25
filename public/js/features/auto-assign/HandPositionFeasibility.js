@@ -218,77 +218,112 @@
         const handIds = hands.hands.map(h => h.id);
         const handById = new Map(hands.hands.map(h => [h.id, h]));
 
+        // Two-hand keyboards share one physical axis. We label one hand
+        // 'low' and the other 'high' (by id when 'left'/'right'
+        // present, else by source order) and enforce
+        //   low.anchor + low.span < high.anchor
+        // throughout the simulation. This means the assignment can no
+        // longer be a simple closest-anchor pick: a partition step is
+        // needed so that low's notes are strictly below high's notes.
+        const lowId  = handIds.includes('left')  ? 'left'  : handIds[0];
+        const highId = handIds.includes('right') ? 'right' : (handIds[1] || handIds[0]);
+        const sameHand = lowId === highId;
+
         // Per-hand state: anchor (lowest note in its current window) +
-        // last assigned tick (used to break ties).
+        // span. Anchor stays null until the hand is first assigned.
         const state = new Map();
         for (const id of handIds) {
             state.set(id, { anchor: null, span: handById.get(id).hand_span_semitones ?? 14 });
         }
 
+        function _emitShift(g, id, fromAnchor, toAnchor, source) {
+            if (fromAnchor === toAnchor) return;
+            out.push({ type: 'shift', tick: g.tick, handId: id, fromAnchor, toAnchor, source });
+            state.get(id).anchor = toAnchor;
+        }
+
         for (const g of groups) {
-            // Apply pinned overrides at this tick before processing notes.
+            // 1. Apply pinned overrides first so the partition step
+            //    sees the intended anchors.
             for (const id of handIds) {
                 const ovKey = `${id}:${g.tick}`;
                 if (overrideAnchors.has(ovKey)) {
-                    const newAnchor = overrideAnchors.get(ovKey);
-                    const old = state.get(id).anchor;
-                    if (old !== newAnchor) {
-                        out.push({ type: 'shift', tick: g.tick, handId: id, fromAnchor: old, toAnchor: newAnchor, source: 'override' });
-                        state.get(id).anchor = newAnchor;
-                    }
+                    _emitShift(g, id, state.get(id).anchor, overrideAnchors.get(ovKey), 'override');
                 }
             }
 
-            // Filter disabled notes upfront.
+            // 2. Filter disabled notes upfront.
             const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
             const unplayable = [];
+            const sortedNotes = liveNotes.slice().sort((a, b) => a.note - b.note);
 
-            // Assign each note to the closer hand by current anchor.
-            // For uninitialized hands we use a name-based bias (left
-            // prefers low pitches, right prefers high) so the very
-            // first chord populates BOTH hands instead of stacking on
-            // whichever id iterates first.
-            const noteOrder = liveNotes.slice().sort((a, b) => a.note - b.note);
-            const assignmentByHand = new Map(handIds.map(id => [id, []]));
-            for (const n of noteOrder) {
-                let bestId = null;
-                let bestCost = Infinity;
-                for (const id of handIds) {
-                    const s = state.get(id);
-                    const cost = s.anchor != null
-                        ? Math.abs(n.note - s.anchor)
-                        // Initial pass: 'right' wants high pitches, 'left' wants low,
-                        // anything else falls back to a neutral cost.
-                        : (id === 'right' ? (127 - n.note)
-                          : id === 'left' ? n.note
-                          : 64);
-                    if (cost < bestCost) { bestCost = cost; bestId = id; }
-                }
-                assignmentByHand.get(bestId).push(n);
-            }
-
-            // For each hand, compute the necessary window; emit a shift
-            // when the new anchor differs from the old.
-            for (const id of handIds) {
-                const list = assignmentByHand.get(id);
-                if (list.length === 0) continue;
-                const lo = Math.min(...list.map(n => n.note));
-                const hi = Math.max(...list.map(n => n.note));
-                const span = state.get(id).span;
-                let newAnchor = state.get(id).anchor;
-                if (newAnchor == null
-                    || lo < newAnchor
-                    || hi > newAnchor + span) {
-                    newAnchor = lo;
-                    out.push({ type: 'shift', tick: g.tick, handId: id, fromAnchor: state.get(id).anchor, toAnchor: newAnchor, source: 'auto' });
-                    state.get(id).anchor = newAnchor;
-                }
-                // Anything outside [anchor, anchor+span] is unplayable.
-                for (const n of list) {
-                    if (n.note < newAnchor || n.note > newAnchor + span) {
-                        unplayable.push({ note: n.note, reason: 'outside_window', handId: id });
+            // 3. Single-hand mode: trivial — same logic as the previous
+            //    implementation, no partition needed.
+            if (sameHand) {
+                if (sortedNotes.length > 0) {
+                    const lo = sortedNotes[0].note;
+                    const hi = sortedNotes[sortedNotes.length - 1].note;
+                    const span = state.get(lowId).span;
+                    let newAnchor = state.get(lowId).anchor;
+                    if (newAnchor == null || lo < newAnchor || hi > newAnchor + span) {
+                        _emitShift(g, lowId, newAnchor, lo, 'auto');
+                        newAnchor = lo;
+                    }
+                    for (const n of sortedNotes) {
+                        if (n.note < newAnchor || n.note > newAnchor + span) {
+                            unplayable.push({ note: n.note, reason: 'outside_window', handId: lowId });
+                        }
                     }
                 }
+                out.push({ type: 'chord', tick: g.tick, notes: liveNotes.map(n => ({ ...n })), unplayable });
+                continue;
+            }
+
+            // 4. Two-hand mode: pick the partition split that minimises
+            //    movement under the no-overlap constraint.
+            const lowSpan  = state.get(lowId).span;
+            const highSpan = state.get(highId).span;
+            const lowPrev  = state.get(lowId).anchor;
+            const highPrev = state.get(highId).anchor;
+
+            const partition = _bestPartition(sortedNotes, lowSpan, highSpan, lowPrev, highPrev, lowId, highId);
+
+            // 5. Apply the chosen partition. Hands without notes don't
+            //    move on their own, but if the moving hand's window
+            //    would now collide with the idle hand's window, push
+            //    the idle hand away — operators can pin it back via an
+            //    override if they don't want that.
+            const lowAnchor  = partition.lowAnchor;
+            const highAnchor = partition.highAnchor;
+
+            if (lowAnchor != null && lowAnchor !== state.get(lowId).anchor) {
+                _emitShift(g, lowId, state.get(lowId).anchor, lowAnchor, 'auto');
+            }
+            if (highAnchor != null && highAnchor !== state.get(highId).anchor) {
+                _emitShift(g, highId, state.get(highId).anchor, highAnchor, 'auto');
+            }
+
+            // 6. Resolve a pending collision when only one hand moved.
+            //    Walk the idle hand away by the smallest amount that
+            //    restores the invariant low.high < high.anchor.
+            const settled = _resolveOverlap(state, lowId, highId, lowSpan, highSpan);
+            if (settled) {
+                if (settled.lowAnchor !== state.get(lowId).anchor) {
+                    _emitShift(g, lowId, state.get(lowId).anchor, settled.lowAnchor, 'collision');
+                }
+                if (settled.highAnchor !== state.get(highId).anchor) {
+                    _emitShift(g, highId, state.get(highId).anchor, settled.highAnchor, 'collision');
+                }
+            }
+
+            // 7. Per-note unplayable detection for the chord.
+            for (const n of partition.unplayable) {
+                unplayable.push(n);
+            }
+            // Hand-overlap notice when the partition couldn't avoid it.
+            if (partition.overlap) {
+                unplayable.push({ note: null, reason: 'hand_overlap', handId: null,
+                                  message: 'Notes too close to split between hands without overlap' });
             }
 
             out.push({
@@ -299,6 +334,153 @@
             });
         }
         return out;
+    }
+
+    /**
+     * Find the partition of `sortedNotes` (split into low / high
+     * subsets) that fits each side in its respective hand span AND
+     * keeps low.high < high.anchor. Falls back to the least-bad
+     * option (with `overlap=true` flag) when no partition satisfies
+     * the no-overlap invariant.
+     *
+     * Tie-break: minimise total |new − prev| anchor movement so the
+     * planner doesn't bounce hands around between consecutive chords.
+     * @private
+     */
+    function _bestPartition(sortedNotes, lowSpan, highSpan, lowPrev, highPrev, lowId, highId) {
+        const N = sortedNotes.length;
+        const empty = { lowAnchor: lowPrev, highAnchor: highPrev, unplayable: [], overlap: false };
+        if (N === 0) return empty;
+
+        // Reference midpoint used by the initial-state bias below.
+        // Notes below SPLIT_REF "want" the low hand; notes at/above
+        // it "want" the high hand. The bias only kicks in when no
+        // prior anchors exist; once both hands have moved, movement
+        // cost dominates the tie-break.
+        const SPLIT_REF = 60;
+        const isInitial = (lowPrev == null && highPrev == null);
+
+        let best = null;
+        // Split index k: low gets notes[0..k-1], high gets notes[k..N-1].
+        // k=0 → all on high; k=N → all on low.
+        for (let k = 0; k <= N; k++) {
+            const lowSet  = sortedNotes.slice(0, k);
+            const highSet = sortedNotes.slice(k);
+            const lowLo  = lowSet.length  ? lowSet[0].note  : null;
+            const lowHi  = lowSet.length  ? lowSet[k - 1].note : null;
+            const highLo = highSet.length ? highSet[0].note : null;
+            const highHi = highSet.length ? highSet[highSet.length - 1].note : null;
+
+            // Each side must fit its span.
+            const lowFits  = lowSet.length  === 0 || (lowHi  - lowLo)  <= lowSpan;
+            const highFits = highSet.length === 0 || (highHi - highLo) <= highSpan;
+            if (!lowFits || !highFits) continue;
+
+            let lowAnchor  = lowSet.length  ? lowLo  : lowPrev;
+            let highAnchor = highSet.length ? highLo : highPrev;
+
+            // When a hand stays idle on the very first chord, give it
+            // a parking spot beyond the moving hand's reach so the UI
+            // always renders both bands. The parking is conservative
+            // (1 semitone beyond the reach) so a small future shift
+            // doesn't immediately retrigger a collision.
+            if (isInitial) {
+                if (lowAnchor == null && highAnchor != null) {
+                    lowAnchor = Math.max(0, highAnchor - lowSpan - 1);
+                } else if (highAnchor == null && lowAnchor != null) {
+                    highAnchor = lowAnchor + lowSpan + 1;
+                }
+            }
+
+            // No-overlap constraint: low's reachable top must stay
+            // strictly below high's anchor.
+            const overlaps = (lowAnchor != null && highAnchor != null)
+                && (lowAnchor + lowSpan >= highAnchor);
+            if (overlaps) continue;
+
+            // Movement cost — driven by music continuity once anchors
+            // exist; null on first chord.
+            let cost = 0;
+            if (!isInitial) {
+                cost += Math.abs((lowAnchor  ?? lowLo  ?? 0) - (lowPrev  ?? lowLo  ?? 0));
+                cost += Math.abs((highAnchor ?? highLo ?? 0) - (highPrev ?? highLo ?? 0));
+            }
+
+            // Initial-state bias: penalise placing low-pitch notes on
+            // the high hand and high-pitch notes on the low hand.
+            // Heavier weight than the movement scale so tie-breaks
+            // prefer a musically natural opening.
+            if (isInitial) {
+                let penalty = 0;
+                for (const n of lowSet)  if (n.note >= SPLIT_REF) penalty += 10;
+                for (const n of highSet) if (n.note <  SPLIT_REF) penalty += 10;
+                cost += penalty;
+            }
+
+            if (!best || cost < best.cost) {
+                best = { lowAnchor, highAnchor, unplayable: [], overlap: false, cost };
+            }
+        }
+
+        if (best) return best;
+
+        // No partition met every constraint. Pick the closest to a
+        // fits-the-spans-but-overlaps option; tag the chord as
+        // `hand_overlap` so the UI can flag it.
+        for (let k = 0; k <= N; k++) {
+            const lowSet  = sortedNotes.slice(0, k);
+            const highSet = sortedNotes.slice(k);
+            const lowLo  = lowSet.length  ? lowSet[0].note  : null;
+            const lowHi  = lowSet.length  ? lowSet[k - 1].note : null;
+            const highLo = highSet.length ? highSet[0].note : null;
+            const highHi = highSet.length ? highSet[highSet.length - 1].note : null;
+
+            const lowFits  = lowSet.length  === 0 || (lowHi  - lowLo)  <= lowSpan;
+            const highFits = highSet.length === 0 || (highHi - highLo) <= highSpan;
+            if (!lowFits || !highFits) continue;
+
+            const lowAnchor  = lowSet.length  ? lowLo  : lowPrev;
+            const highAnchor = highSet.length ? highLo : highPrev;
+            return { lowAnchor, highAnchor, unplayable: [], overlap: true };
+        }
+
+        // The chord exceeds even the per-hand span on both sides — every
+        // note that doesn't fit lands in `unplayable`. Anchor each hand
+        // at its previous position (or the first/last note if undefined).
+        const unplayable = [];
+        for (const n of sortedNotes) {
+            unplayable.push({ note: n.note, reason: 'outside_window', handId: null });
+        }
+        return {
+            lowAnchor: lowPrev ?? sortedNotes[0].note,
+            highAnchor: highPrev ?? sortedNotes[sortedNotes.length - 1].note,
+            unplayable,
+            overlap: true
+        };
+    }
+
+    /**
+     * Push the idle hand away when the moving hand's new window would
+     * collide with it. Returns null when no adjustment is needed.
+     * @private
+     */
+    function _resolveOverlap(state, lowId, highId, lowSpan, highSpan) {
+        const low  = state.get(lowId).anchor;
+        const high = state.get(highId).anchor;
+        if (low == null || high == null) return null;
+        if (low + lowSpan < high) return null; // already disjoint
+
+        // Two strategies; pick the one that moves the smaller
+        // distance: push high upward, or push low downward.
+        const targetHighFromLow = low + lowSpan + 1;
+        const targetLowFromHigh = high - lowSpan - 1;
+        const distHigh = Math.abs(targetHighFromLow - high);
+        const distLow  = Math.abs(targetLowFromHigh - low);
+
+        if (distHigh <= distLow) {
+            return { lowAnchor: low, highAnchor: targetHighFromLow };
+        }
+        return { lowAnchor: Math.max(0, targetLowFromHigh), highAnchor: high };
     }
 
     function _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes) {

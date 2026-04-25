@@ -209,3 +209,108 @@ describe('simulateHandWindows — overrides', () => {
     expect(chord.notes.map(n => n.note).sort()).toEqual([60, 67]);
   });
 });
+
+describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
+  function getAnchors(out) {
+    const last = new Map();
+    for (const e of out) {
+      if (e.type === 'shift') last.set(e.handId, e.toAnchor);
+    }
+    return last;
+  }
+
+  it('two-note opening chord puts left below right (no overlap)', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 80)],
+      { hands_config: semitonesHands }
+    );
+    const a = getAnchors(out);
+    expect(a.get('left')).toBeLessThan(a.get('right'));
+    // No-overlap invariant: left.anchor + left.span < right.anchor.
+    expect(a.get('left') + 14).toBeLessThan(a.get('right'));
+  });
+
+  it('multi-note chord splits cleanly between low and high subsets', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 45), note(0, 70), note(0, 75)],
+      { hands_config: semitonesHands }
+    );
+    const a = getAnchors(out);
+    expect(a.get('left')).toBe(40);
+    expect(a.get('right')).toBe(70);
+    expect(a.get('left') + 14).toBeLessThan(a.get('right'));
+  });
+
+  it('initial chord whose notes fit one hand parks the idle hand without overlap', () => {
+    // All 3 notes within left's 14-semitone span and clearly low
+    // (≤ 60). The bias places them on left; right gets parked one
+    // semitone beyond left's reach so its band still renders.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 45), note(0, 50)],
+      { hands_config: semitonesHands }
+    );
+    const a = getAnchors(out);
+    expect(a.get('left')).toBe(40);
+    expect(a.has('right')).toBe(true);
+    expect(a.get('left') + 14).toBeLessThan(a.get('right'));
+  });
+
+  it('flags a hand_overlap when no partition fits both spans', () => {
+    // Three notes spanning 40 semitones (40..80). Every partition
+    // leaves at least one side with a span > 14 → the second pass
+    // taggs the chord overlap=true and reports the notes as
+    // outside their respective hand window.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 60), note(0, 80)],
+      { hands_config: semitonesHands }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.unplayable.some(u => u.reason === 'hand_overlap'
+                                  || u.reason === 'outside_window')).toBe(true);
+  });
+
+  it('honours an override that anchors left HIGH and forces right to push up', () => {
+    // Override pins left to 60. Right has been auto-anchored to 80.
+    // 60 + 14 = 74, 80 > 74 → no collision; right keeps its anchor.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 80), note(480, 60)],
+      { hands_config: semitonesHands },
+      { overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 60 }], disabled_notes: [] } }
+    );
+    const a = getAnchors(out);
+    expect(a.get('left')).toBe(60);
+    expect(a.get('left') + 14).toBeLessThan(a.get('right'));
+  });
+
+  it('shifts the idle hand when an override forces a collision', () => {
+    // Setup: chord 1 anchors left=40, right=80. At chord 2 an
+    // override pins LEFT to 70 → left's reach now spans 70..84,
+    // which collides with right at 80. The simulator must push
+    // right up to keep the no-overlap invariant.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 40), note(0, 80), note(480, 75)],
+      { hands_config: semitonesHands },
+      { overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 70 }], disabled_notes: [] } }
+    );
+    const a = getAnchors(out);
+    expect(a.get('left')).toBe(70);
+    expect(a.get('left') + 14).toBeLessThan(a.get('right'));
+    const collisions = out.filter(e => e.type === 'shift' && e.source === 'collision');
+    expect(collisions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('single-hand keyboard configs are not constrained', () => {
+    const oneHand = {
+      enabled: true, mode: 'semitones', hand_move_semitones_per_sec: 60,
+      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [note(0, 60), note(480, 80)],
+      { hands_config: oneHand }
+    );
+    // A single-hand instrument doesn't even attempt the partition;
+    // it just shifts the single hand as needed.
+    const shifts = out.filter(e => e.type === 'shift');
+    expect(shifts.every(s => s.handId === 'left')).toBe(true);
+  });
+});
