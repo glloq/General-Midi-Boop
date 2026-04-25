@@ -19,8 +19,28 @@
  */
 import InstrumentDatabase from '../../persistence/tables/InstrumentDatabase.js';
 import InstrumentTypeConfig from '../../midi/adaptation/InstrumentTypeConfig.js';
+import InstrumentCapabilitiesValidator from '../../midi/adaptation/InstrumentCapabilitiesValidator.js';
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 import { validateVoicePayload } from './InstrumentVoiceCommands.js';
+
+/**
+ * Run the hand-position config payload through the shared validator so a
+ * malformed structure (wrong mode, cross-unit fields, bad bounds…) is
+ * rejected at save time rather than ending up in the DB and tripping the
+ * planner at playback. `null` / `undefined` / explicit `{enabled: false}`
+ * are accepted — they mean "disable the feature". Exported for tests.
+ */
+export function validateHandsConfigPayload(handsConfig) {
+  if (handsConfig === null || handsConfig === undefined) return;
+  const validator = new InstrumentCapabilitiesValidator();
+  const issues = validator._validateHandsConfig(handsConfig);
+  if (issues.length === 0) return;
+  const first = issues[0];
+  throw new ValidationError(
+    first.reason || `Invalid hands_config (${first.field})`,
+    first.field || 'hands_config'
+  );
+}
 
 /**
  * Persist per-channel instrument settings (custom name, sync delay,
@@ -226,6 +246,7 @@ async function instrumentUpdateCapabilities(app, data) {
   // update that does not touch the Hands section preserves the existing
   // value (pass `null` to clear the feature).
   if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
+    validateHandsConfigPayload(data.hands_config);
     updatePayload.hands_config = data.hands_config;
   }
   const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, updatePayload);
@@ -639,6 +660,7 @@ async function instrumentSaveAll(app, data) {
     // omitted key preserves the existing DB value (same contract as
     // `instrument_update_capabilities`).
     if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
+      validateHandsConfigPayload(data.hands_config);
       capPayload.hands_config = data.hands_config;
     }
     app.instrumentRepository.updateCapabilities(data.deviceId, channel, capPayload);
