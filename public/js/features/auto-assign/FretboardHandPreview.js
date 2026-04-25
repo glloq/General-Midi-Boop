@@ -288,13 +288,18 @@
             // HOLD the prev anchor while prev's chord is still
             // ringing — the hand can't physically move yet.
             if (currentSec <= prevReleaseSec) return prev.anchor;
-            // After release, lerp toward the next anchor over the
-            // physical travel time when known. Outside [prevRelease,
-            // arrival] we hold prev / next.
+            // After release, lerp toward the next anchor at the
+            // PHYSICAL travel speed (`motion.requiredSec`). When the
+            // move is infeasible (= requiredSec > gap), the band
+            // visually lags BEHIND the music: it's still in transit
+            // when the next chord starts. That's the correct visual
+            // signal — "the hand wasn't fast enough" — and far more
+            // legible than the previous "spread the move over the
+            // whole gap" behaviour.
             let toSec = nextSec;
             if (next.motion && Number.isFinite(next.motion.requiredSec)
-                    && next.motion.feasible !== false) {
-                toSec = Math.min(nextSec, prevReleaseSec + next.motion.requiredSec);
+                    && next.motion.requiredSec > 0) {
+                toSec = prevReleaseSec + next.motion.requiredSec;
             }
             if (toSec <= prevReleaseSec) return next.anchor;
             if (currentSec >= toSec) return next.anchor;

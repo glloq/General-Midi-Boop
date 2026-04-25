@@ -568,6 +568,25 @@ describe('FretboardHandPreview — trajectory-driven animation', () => {
     expect(fb._displayedAnchor).toBe(5);
   });
 
+  it('always animates at physical requiredSec, even when motion.feasible=false (band lags behind)', () => {
+    // Infeasible: an 11-fret jump in a 1-sec gap with requiredSec=2.
+    // The band must STILL animate at the physical speed — not spread
+    // the move across the whole gap. So at sec 0.5 the band is at
+    // ~25 % of the move; only at sec 2 (well after the next chord's
+    // tick at sec 1) does it finally arrive.
+    const fb = makeFb();
+    fb.setHandTrajectory([
+      { tick: 0,   anchor: 1,  releaseTick: 0 },
+      { tick: 480, anchor: 12, releaseTick: 480, // 1-sec gap
+        motion: { requiredSec: 2, availableSec: 1, feasible: false } }
+    ]);
+    fb.setCurrentTime(0.5);  // 25 % through the physical move
+    expect(fb._displayedAnchor).toBeGreaterThan(2);
+    expect(fb._displayedAnchor).toBeLessThan(7);
+    fb.setCurrentTime(2.1);  // past the full physical duration
+    expect(fb._displayedAnchor).toBe(12);
+  });
+
   it('falls back to the legacy single-shot animation when no trajectory is set', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
     fb.setHandWindow({ anchorFret: 1, spanFrets: 4 });

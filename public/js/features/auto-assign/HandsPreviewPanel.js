@@ -306,11 +306,18 @@
                     // and fret reach the preview.
                     this.fretboard.setUnplayablePositions(unplayable
                         .filter(u => Number.isFinite(u.string) && Number.isFinite(u.fret)));
-                    // Chord-level marker (note=null) drives the band
-                    // colour. Reset on every chord so a clean chord
-                    // turns the band back to green.
+                    // Reachability drives the band colour. The band
+                    // turns red when the simulator says the chord
+                    // can't be played at this position — i.e. some
+                    // note is `outside_window` (= beyond the hand's
+                    // reach) or the chord exceeds `max_fingers`.
+                    // Speed-related infeasibility (`move_too_fast`)
+                    // is communicated by the band visually LAGGING
+                    // behind the music, NOT by the colour, since
+                    // "too slow" isn't an unreachable position.
                     this._currentChordLevel =
-                        unplayable.some(u => u.note == null && u.reason === 'too_many_fingers')
+                        unplayable.some(u => u.reason === 'too_many_fingers'
+                                          || u.reason === 'outside_window')
                             ? 'infeasible' : 'ok';
                 }
                 this._refreshHandsView();
@@ -504,12 +511,12 @@
                 const fretting = hands.find(h => h && h.id === 'fretting') || hands[0];
                 const anchor = this._currentHandWindows.get(fretting?.id);
                 if (Number.isFinite(anchor) && Number.isFinite(fretting?.hand_span_frets)) {
-                    // Worst of the two recent levels — chord-level
-                    // (too_many_fingers) wins over a stale motion
-                    // signal, but a fresh motion infeasible can also
-                    // raise an otherwise-green chord.
-                    const level = HandsPreviewPanel._worseLevel(
-                        this._currentChordLevel, this._lastMotionLevel);
+                    // Band colour reflects the CURRENT chord's
+                    // reachability only. Speed infeasibility
+                    // (`move_too_fast`) doesn't turn the band red —
+                    // the trajectory animation already shows the
+                    // hand visually lagging behind the music.
+                    const level = this._currentChordLevel;
                     this.fretboard.setHandWindow({
                         anchorFret: anchor,
                         spanFrets: fretting.hand_span_frets,

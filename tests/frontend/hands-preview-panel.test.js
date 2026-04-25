@@ -287,7 +287,11 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     panel.destroy();
   });
 
-  it('shift event with motion.feasible=false flips the hand band to infeasible', () => {
+  it('shift event with motion.feasible=false does NOT turn the band red', () => {
+    // Speed infeasibility ("move_too_fast") is not the same as an
+    // unreachable position. The band stays the colour of the chord
+    // itself — the visual lag of the trajectory animation is what
+    // signals the speed problem.
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
@@ -299,6 +303,35 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
       detail: {
         handId: 'fretting', toAnchor: 12,
         motion: { requiredSec: 1, availableSec: 0.1, feasible: false }
+      }
+    }));
+    // After this shift, no chord event has fired, so the band level
+    // is whatever the most recent chord said — defaults to 'ok'.
+    const lastCall = setHand.mock.calls[setHand.mock.calls.length - 1][0];
+    expect(lastCall.level).toBe('ok');
+    panel.destroy();
+  });
+
+  it('chord with outside_window unplayable note flips the hand band to infeasible', () => {
+    const panel = makePanel({
+      instrument: {
+        hands_config: fretsHands,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+      }
+    });
+    // Anchor the hand first so `_refreshHandsView` has something
+    // to push to the fretboard.
+    panel.engine.dispatchEvent(new CustomEvent('shift', {
+      detail: { handId: 'fretting', toAnchor: 5 }
+    }));
+    const setHand = vi.spyOn(panel.fretboard, 'setHandWindow');
+    panel.engine.dispatchEvent(new CustomEvent('chord', {
+      detail: {
+        tick: 0,
+        notes: [],
+        unplayable: [
+          { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' }
+        ]
       }
     }));
     expect(setHand).toHaveBeenCalledWith(expect.objectContaining({ level: 'infeasible' }));
