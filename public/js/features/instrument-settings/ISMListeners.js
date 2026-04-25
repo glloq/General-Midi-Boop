@@ -469,6 +469,70 @@
                 this._initPianoForActiveTab();
             }
         }
+        // Hands section + sidebar also depend on the GM program:
+        //  - family change (piano → guitar) flips the hands mode
+        //    semitones → frets; without this refresh the DOM still
+        //    carries the old layout, so save sends a mismatched payload
+        //    and the new server-side validator rejects it.
+        //  - family change out of a supported family (→ flute) must hide
+        //    the hands sidebar entry.
+        this._refreshHandsSectionForProgram();
+    };
+
+    /**
+     * Re-render the hands section and the sidebar entry driving it so
+     * they stay in sync with the current `gm_program`. Safe no-op when
+     * the hands section is not rendered.
+     */
+    ISMListeners._refreshHandsSectionForProgram = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return;
+
+        const showHands = typeof window.ISMSections?._shouldShowHandsSection === 'function'
+            && window.ISMSections._shouldShowHandsSection(tab);
+
+        // Sidebar: re-render in place so the hands nav item appears /
+        // disappears according to the new family. Re-attach the nav click
+        // listeners inline — they're the only listeners bound to
+        // .ism-nav-item and replacing outerHTML drops the originals.
+        const sidebar = this.$('.ism-sidebar');
+        if (sidebar && typeof this._renderSidebar === 'function') {
+            sidebar.outerHTML = this._renderSidebar();
+            const self = this;
+            this.$$('.ism-nav-item').forEach(function(btn) {
+                btn.addEventListener('click', function() { self._switchSection(btn.dataset.section); });
+            });
+        }
+
+        // Content section: when visible, swap its HTML; when hidden now,
+        // drop it; when newly visible, inject it next to the other sections.
+        const existing = this.$('.ism-section[data-section="hands"]');
+        if (showHands) {
+            const html = typeof window.ISMSections?._renderHandsSection === 'function'
+                ? window.ISMSections._renderHandsSection.call(this)
+                : '';
+            if (existing) {
+                existing.innerHTML = html;
+            } else {
+                const notes = this.$('.ism-section[data-section="notes"]');
+                if (notes && notes.parentNode) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'ism-section' + (this.activeSection === 'hands' ? ' active' : '');
+                    wrapper.setAttribute('data-section', 'hands');
+                    wrapper.innerHTML = html;
+                    notes.parentNode.insertBefore(wrapper, notes.nextSibling);
+                }
+            }
+            if (typeof this._attachHandsSectionListeners === 'function') {
+                this._attachHandsSectionListeners();
+            }
+        } else if (existing) {
+            existing.remove();
+            // If the user was viewing the hands section, fall back to notes.
+            if (this.activeSection === 'hands' && typeof this._switchSection === 'function') {
+                this._switchSection('notes');
+            }
+        }
     };
 
     ISMListeners._wireIdentityPickerListeners = function() {
