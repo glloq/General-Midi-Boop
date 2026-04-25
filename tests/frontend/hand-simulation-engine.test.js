@@ -283,6 +283,38 @@ describe('HandSimulationEngine — advanceTo / advanceToSec (external clock)', (
   });
 });
 
+describe('HandSimulationEngine — getHandTrajectories with note-off propagation', () => {
+  it('attaches releaseTick from the matching chord to each shift point', () => {
+    const { engine } = makeEngine({
+      notes: [
+        { tick: 0,   note: 60, duration: 240 },
+        { tick: 480, note: 80, duration: 120 }
+      ]
+    });
+    const trajectories = engine.getHandTrajectories();
+    // Both hands emit at least one shift on the first chord.
+    for (const points of trajectories.values()) {
+      for (const p of points) {
+        expect(Number.isFinite(p.releaseTick)).toBe(true);
+        expect(p.releaseTick).toBeGreaterThanOrEqual(p.tick);
+      }
+    }
+    const hands = [...trajectories.values()];
+    const first = hands.flatMap(h => h.filter(p => p.tick === 0));
+    expect(first[0].releaseTick).toBe(240);
+  });
+
+  it('falls back to releaseTick = tick when notes have no duration', () => {
+    const { engine } = makeEngine({
+      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 80 }]
+    });
+    const trajectories = engine.getHandTrajectories();
+    for (const points of trajectories.values()) {
+      for (const p of points) expect(p.releaseTick).toBe(p.tick);
+    }
+  });
+});
+
 describe('HandSimulationEngine — fallback when simulator absent', () => {
   it('falls back to a chord-per-note timeline when no simulator is wired', () => {
     const Eng = window.HandSimulationEngine;

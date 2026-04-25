@@ -118,7 +118,16 @@
 
         /**
          * Replace the per-hand trajectory list. Each entry:
-         *   { id, span, color, points: [{tick, anchor}, ...] }
+         *   { id, span, color, points: [{tick, anchor, releaseTick?}, ...] }
+         *
+         * `releaseTick` (optional) is when the chord that put the
+         * hand at this anchor stops ringing. If provided, the ribbon
+         * holds the previous anchor until that release tick and only
+         * then linearly slides to the next anchor — matching how a
+         * real player keeps fingers down through the chord and only
+         * starts moving once they can lift their hand. When absent
+         * the segment defaults to a continuous slope.
+         *
          * Pass `[]` or `null` to hide the ribbons.
          */
         setHandTrajectories(trajectories) {
@@ -129,7 +138,13 @@
                 const pts = Array.isArray(tr.points)
                     ? tr.points
                         .filter(p => p && Number.isFinite(p.tick) && Number.isFinite(p.anchor))
-                        .map(p => ({ sec: p.tick / this.ticksPerSecond, anchor: p.anchor }))
+                        .map(p => {
+                            const sec = p.tick / this.ticksPerSecond;
+                            const releaseSec = Number.isFinite(p.releaseTick)
+                                ? p.releaseTick / this.ticksPerSecond
+                                : sec;
+                            return { sec, anchor: p.anchor, releaseSec };
+                        })
                         .sort((a, b) => a.sec - b.sec)
                     : [];
                 this.handTrajectories.push({
@@ -193,13 +208,23 @@
         }
 
         /**
-         * Paint each hand's trajectory as a translucent ribbon. The
-         * ribbon's left/right edges are STRAIGHT diagonals between
-         * consecutive trajectory points so the hand reads as moving
-         * continuously from the previous shift to the next, starting
-         * as soon as physically possible. No curves — a straight
-         * slope from (anchor_A, sec_A) to (anchor_B, sec_B) reflects
-         * the actuator's real travel pattern.
+         * Paint each hand's trajectory as a translucent ribbon.
+         *
+         * Each segment between two consecutive trajectory points is
+         * split into two regions:
+         *   - HOLD: from the older point's `sec` up to its
+         *     `releaseSec` — the band stays at the old anchor while
+         *     the chord is still ringing.
+         *   - TRANSITION: from `releaseSec` to the newer point's
+         *     `sec` — the band slides linearly to the next anchor.
+         *
+         * That mirrors what a player does in real life: keep fingers
+         * on the chord through its sustain, then move the hand as
+         * soon as the last note releases.
+         *
+         * When `releaseSec === sec` (no duration info) the hold
+         * region collapses and the segment becomes a single straight
+         * slope — i.e. the previous behaviour.
          * @private
          */
         _drawHandTrajectories(w, h, start, end) {
@@ -221,38 +246,54 @@
                     else if (p.sec <= end) series.push(p);
                     else break;
                 }
-                if (lastBefore) series.unshift({ sec: start, anchor: lastBefore.anchor });
+                if (lastBefore) series.unshift({ sec: start, anchor: lastBefore.anchor, releaseSec: Math.max(lastBefore.releaseSec ?? start, start) });
                 else if (series.length === 0) continue;
-                else series.unshift({ sec: start, anchor: series[0].anchor });
-                series.push({ sec: end, anchor: series[series.length - 1].anchor });
+                else series.unshift({ sec: start, anchor: series[0].anchor, releaseSec: start });
+                const last = series[series.length - 1];
+                series.push({ sec: end, anchor: last.anchor, releaseSec: end });
 
                 ctx.fillStyle = _alpha(tr.color, 0.18);
                 ctx.strokeStyle = _alpha(tr.color, 0.55);
                 ctx.lineWidth = 1;
 
-                // Each segment is a quadrilateral: two horizontal
-                // edges at sec_A and sec_B, two STRAIGHT diagonal
-                // sides connecting (anchor_A) ↔ (anchor_B). Drawing
-                // segments separately keeps overlapping alphas
-                // visible at transition points.
+                // Walk consecutive pairs. We emit ONE polygon per
+                // pair, with up to 6 vertices (4 = pure transition,
+                // 6 = explicit hold + transition).
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
-                    const yA = this._yAt(a.sec, h, start);
-                    const yB = this._yAt(b.sec, h, start);
-                    const colA = this._columnFor(a.anchor);
-                    const colArightCol = this._columnFor(a.anchor + tr.span);
-                    const colB = this._columnFor(b.anchor);
-                    const colBrightCol = this._columnFor(b.anchor + tr.span);
+                    // Clamp the hold-end to the next point's sec so
+                    // a sustained chord that overlaps the next
+                    // shift still produces a valid polygon.
+                    const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
+                    const yA       = this._yAt(a.sec, h, start);
+                    const yRelease = this._yAt(releaseA, h, start);
+                    const yB       = this._yAt(b.sec, h, start);
+                    const colA  = this._columnFor(a.anchor);
+                    const colAR = this._columnFor(a.anchor + tr.span);
+                    const colB  = this._columnFor(b.anchor);
+                    const colBR = this._columnFor(b.anchor + tr.span);
                     const xLeftA  = colA.x;
-                    const xRightA = colArightCol.x + colArightCol.width;
+                    const xRightA = colAR.x + colAR.width;
                     const xLeftB  = colB.x;
-                    const xRightB = colBrightCol.x + colBrightCol.width;
+                    const xRightB = colBR.x + colBR.width;
 
                     ctx.beginPath();
-                    ctx.moveTo(xLeftB, yB);
-                    ctx.lineTo(xLeftA, yA);
-                    ctx.lineTo(xRightA, yA);
-                    ctx.lineTo(xRightB, yB);
+                    if (releaseA > a.sec + 1e-9 && releaseA < b.sec - 1e-9) {
+                        // hold + transition — 6 vertices
+                        ctx.moveTo(xLeftB,  yB);
+                        ctx.lineTo(xLeftA,  yRelease); // top of transition
+                        ctx.lineTo(xLeftA,  yA);       // hold left
+                        ctx.lineTo(xRightA, yA);       // hold right
+                        ctx.lineTo(xRightA, yRelease); // top of transition right
+                        ctx.lineTo(xRightB, yB);
+                    } else {
+                        // pure slope (no hold info, or hold extends
+                        // through the whole inter-shift interval).
+                        ctx.moveTo(xLeftB,  yB);
+                        ctx.lineTo(xLeftA,  yA);
+                        ctx.lineTo(xRightA, yA);
+                        ctx.lineTo(xRightB, yB);
+                    }
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();

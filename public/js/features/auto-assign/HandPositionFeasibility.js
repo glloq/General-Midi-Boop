@@ -188,6 +188,20 @@
             }
         }
         if (current) groups.push(current);
+        // Annotate each group with `releaseTick` = max(tick + duration)
+        // across its notes. Used downstream by the trajectory ribbon
+        // so the visualization holds the previous anchor until the
+        // chord actually releases, then transitions to the next.
+        // Falls back to `tick` when no duration info is present
+        // (instant transition — same as before).
+        for (const g of groups) {
+            let maxEnd = g.tick;
+            for (const n of g.notes) {
+                const d = Number.isFinite(n.duration) && n.duration > 0 ? n.duration : 0;
+                if (g.tick + d > maxEnd) maxEnd = g.tick + d;
+            }
+            g.releaseTick = maxEnd;
+        }
         return groups;
     }
 
@@ -273,13 +287,15 @@
             const sortedNotes = liveNotes.slice().sort((a, b) => a.note - b.note);
 
             if (sameHand) {
-                plans.push({ tick: g.tick, liveNotes, sortedNotes, sameHand: true, lowOv, highOv });
+                plans.push({ tick: g.tick, releaseTick: g.releaseTick,
+                              liveNotes, sortedNotes, sameHand: true, lowOv, highOv });
                 continue;
             }
 
             const partition = _bestPartition(sortedNotes, lowSpan, highSpan, lowSim, highSim, lowId, highId);
             plans.push({
                 tick: g.tick,
+                releaseTick: g.releaseTick,
                 liveNotes,
                 sortedNotes,
                 sameHand: false,
@@ -332,6 +348,7 @@
                     }
                 }
                 out.push({ type: 'chord', tick: plan.tick,
+                           releaseTick: plan.releaseTick,
                            notes: plan.liveNotes.map(n => ({ ...n })), unplayable });
                 continue;
             }
@@ -381,6 +398,7 @@
             out.push({
                 type: 'chord',
                 tick: plan.tick,
+                releaseTick: plan.releaseTick,
                 notes: plan.liveNotes.map(n => ({ ...n })),
                 unplayable
             });
@@ -699,6 +717,7 @@
             out.push({
                 type: 'chord',
                 tick: g.tick,
+                releaseTick: g.releaseTick,
                 notes: liveNotes.map(n => ({ ...n })),
                 unplayable
             });
