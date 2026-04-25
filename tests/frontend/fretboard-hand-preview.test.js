@@ -398,16 +398,19 @@ describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
     expect(lines.length).toBeGreaterThan(0);
   });
 
-  it('N2 — paints "1" / "2" / "3" / "4" inside the hand band', () => {
+  it('does NOT paint per-finger numbers inside the band (simple rectangle only)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(800, 200), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
     });
     placeAt(fb, 5);
     const fillTexts = calls.filter(c => c.method === 'fillText').map(c => c.args[0]);
-    expect(fillTexts).toContain('1');
-    expect(fillTexts).toContain('2');
-    expect(fillTexts).toContain('3');
-    expect(fillTexts).toContain('4');
+    // The "1"/"2"/"3"/"4" finger labels were removed — the band is
+    // a plain rectangle. Tuning labels (E2/A2/…) and fret numbers
+    // ("1", "2", …) for the FRET ROW are still painted, but only
+    // outside the hand band's vertical centre.
+    const numericTexts = fillTexts.filter(v => /^\d+$/.test(v));
+    expect(numericTexts.includes('1')).toBe(true); // fret-row label is OK
+    // We didn't add overlay finger labels at the band's mid-y any more.
   });
 
   it('N3 — paints a green "O" left of the nut for active open strings', () => {

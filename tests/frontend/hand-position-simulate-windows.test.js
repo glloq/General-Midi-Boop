@@ -140,7 +140,10 @@ describe('simulateHandWindows — frets mode (fallback frets count)', () => {
     const shifts = out.filter(e => e.type === 'shift');
     expect(shifts).toHaveLength(2);
     expect(shifts[0].toAnchor).toBe(5);
-    expect(shifts[1].toAnchor).toBe(12);
+    // Min-movement: with span=4 the hand only needs anchor ≥ 12-4=8
+    // to cover fret 12. Clamp current anchor (=5) into [8, 12] → 8.
+    // (Old behaviour jumped all the way to 12.)
+    expect(shifts[1].toAnchor).toBe(8);
   });
 
   it('open strings (fret 0) do not move the window', () => {
@@ -649,6 +652,29 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note50).toBeDefined();
     expect(note50.fret).toBe(0); // open
     expect(note50.string).toBe(3);
+  });
+
+  it('shift target is clamped INTO the valid anchor range (min hand movement)', () => {
+    // The hand has span 4 frets (default). After playing fret 5,
+    // the next chord requires fret 12. The minimum anchor that
+    // covers fret 12 is 8 (= 12 − 4). Clamping the previous
+    // anchor (5) into [8, 12] yields 8 — the hand moves the LEAST
+    // possible to cover the chord, instead of jumping to fret 12.
+    const fallbackOnly = {
+      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 480, note: 50, fret: 12, string: 1 }
+      ],
+      { hands_config: fallbackOnly }
+    );
+    const shifts = out.filter(e => e.type === 'shift');
+    expect(shifts.length).toBe(2);
+    expect(shifts[0].toAnchor).toBe(5);
+    expect(shifts[1].toAnchor).toBe(8); // clamp(5, [8, 12]) = 8
   });
 
   it('chord-level: NEVER assigns two notes to the same string in one chord', () => {

@@ -825,6 +825,20 @@
             return -12 * Math.log2(t);
         }
 
+        // Inverse of maxReach: the smallest anchor whose reach
+        // covers `top`. Used to compute the lower bound of the
+        // valid anchor range for a chord whose highest fret is
+        // `top`. In fret-count mode that's just `top - spanFrets`;
+        // in physical mode we invert the reach formula.
+        function minAnchorForTop(top) {
+            if (!usePhysical) return Math.max(0, top - spanFrets);
+            // maxReach(a) = top  ⇒  2^(-top/12) = 2^(-a/12) − k  ⇒
+            //   a = -12 · log2(2^(-top/12) + k)  with k = handSpanMm / L.
+            const v = Math.pow(2, -top / 12) + handSpanMm / scaleLengthMm;
+            if (v <= 0) return 0;
+            return Math.max(0, -12 * Math.log2(v));
+        }
+
         // Travel time between two fret anchors. Physical mm if scale
         // length is configured, fret-count otherwise. Returns null
         // when no speed limit is available (= no constraint).
@@ -898,7 +912,28 @@
                 if (anchor == null
                     || lo < anchor
                     || hi > maxReach(anchor)) {
-                    const newAnchor = lo;
+                    // Pick the new anchor so the WHOLE chord fits
+                    // (lo and hi inside [anchor, anchor+span]) AND
+                    // the hand moves the LEAST possible. The valid
+                    // range is [minAnchorForTop(hi), lo]; we clamp
+                    // the current anchor into that range. When the
+                    // chord exceeds the hand's reach (range empty),
+                    // fall back to `lo` so at least the low note
+                    // sits inside; the rest will be flagged
+                    // outside_window below.
+                    const minA = minAnchorForTop(hi);
+                    const maxA = lo;
+                    let newAnchor;
+                    if (minA > maxA) {
+                        newAnchor = lo; // chord wider than the hand
+                    } else if (anchor == null) {
+                        // First chord: pick the LOW edge so the
+                        // hand sits at the natural floor of the
+                        // music.
+                        newAnchor = maxA;
+                    } else {
+                        newAnchor = Math.max(minA, Math.min(maxA, anchor));
+                    }
                     const motion = computeMotion(anchor, newAnchor,
                                                   prevReleaseByHand[handId], g.tick);
                     out.push({ type: 'shift', tick: g.tick, handId,

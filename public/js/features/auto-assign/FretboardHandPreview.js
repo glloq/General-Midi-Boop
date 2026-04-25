@@ -320,9 +320,6 @@
             // strings so they read as "lit-up portions of the cord".
             this._drawActiveStringSegments();
 
-            // N2 — Finger numbers inside the hand band.
-            this._drawFingerNumbers(fbY, fbH);
-
             // Tuning labels left of the nut (D1).
             this._drawTuningLabels();
 
@@ -596,36 +593,6 @@
                 ctx.stroke();
             }
             ctx.lineCap = 'butt';
-        }
-
-        /** N2 — Ghost-text "1" / "2" / "3" / "4" inside the hand
-         *  band so the operator can see which finger plays which
-         *  fret. Anchored on the LIVE displayed anchor (rounded so
-         *  the labels stay legible during animation). */
-        _drawFingerNumbers(fbY, fbH) {
-            const liveAnchor = this._currentDisplayedAnchor();
-            if (!Number.isFinite(liveAnchor)) return;
-            const anchorFret = Math.round(liveAnchor);
-            const span = this.handSpanFrets;
-            if (!Number.isFinite(anchorFret) || !Number.isFinite(span) || span <= 0) return;
-            const ctx = this.ctx;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-            ctx.lineWidth = 2;
-            ctx.font = 'bold 14px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const midY = fbY + fbH / 2;
-            for (let i = 0; i < span; i++) {
-                const f = anchorFret + i;
-                if (f < 1 || f > this.numFrets) continue;
-                const fretW = this._fretX(f) - this._fretX(f - 1);
-                if (fretW < 12) continue; // too cramped for a number
-                const cx = (this._fretX(f - 1) + this._fretX(f)) / 2;
-                const label = String(i + 1);
-                ctx.strokeText(label, cx, midY);
-                ctx.fillText(label, cx, midY);
-            }
         }
 
         /** N3 — O / X indicators left of the nut. Open strings get
