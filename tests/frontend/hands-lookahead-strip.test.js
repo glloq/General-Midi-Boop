@@ -467,6 +467,105 @@ describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () 
     expect(s.currentSec).toBe(0.5001);
   });
 
+  it('the transition trapezoid arrives at releaseSec + requiredSec, NOT at the next chord tick', () => {
+    // ticksPerSecond = 480 → tick 0 = 0 s, tick 480 = 1 s, tick 960 = 2 s.
+    // Hand at anchor 60 holds until releaseSec = 0.2 s; needs to reach
+    // anchor 80 by tick 960 (2 s). With requiredSec = 0.4 s the hand
+    // arrives at 0.2 + 0.4 = 0.6 s, then HOLDS at 80 from 0.6 s to 2 s.
+    // The trapezoid's top edge must be at y(0.6 s), NOT y(2 s).
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(600, 140), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 96 }, // releaseSec = 0.2
+        { tick: 960, anchor: 80, releaseTick: 960,
+          motion: { requiredSec: 0.4, availableSec: 1.8, feasible: true } }
+      ]
+    }]);
+    // Find the lineTo Ys emitted by the BLUE transition trapezoid
+    // (alpha 0.18). The TOP edge is the smallest y inside that path.
+    let inPath = false;
+    const ys = [];
+    for (const c of ctx.calls) {
+      if (c.method === 'set' && c.prop === 'fillStyle'
+              && /rgba\(59, 130, 246, 0\.18\)/.test(c.value)) {
+        inPath = true; continue;
+      }
+      if (!inPath) continue;
+      if (c.method === 'fill' || c.method === 'closePath') { inPath = false; continue; }
+      if (c.method === 'lineTo') ys.push(c.args[1]);
+    }
+    const topY = Math.min(...ys);
+    // h = 140, windowSeconds = 4 → yAt(0.6) = 140 * (1 - 0.15) = 119.
+    // yAt(2.0) = 140 * (1 - 0.5) = 70.
+    // We want topY ≈ 119 (compressed transition), NOT 70 (whole-gap drag).
+    expect(topY).toBeGreaterThan(110);
+    expect(topY).toBeLessThan(125);
+  });
+
+  it('paints an EARLY-ARRIVAL hold rectangle at the new anchor between arrival and the next chord', () => {
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(600, 140), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 96 },
+        { tick: 960, anchor: 80, releaseTick: 960,
+          motion: { requiredSec: 0.4, availableSec: 1.8, feasible: true } }
+      ]
+    }]);
+    // The HOLD background pass paints at alpha 0.06. Count the
+    // fillRects emitted while that fillStyle is active.
+    let inHold = false;
+    const holdRects = [];
+    for (const c of ctx.calls) {
+      if (c.method === 'set' && c.prop === 'fillStyle') {
+        inHold = /rgba\(59, 130, 246, 0\.06\)/.test(c.value);
+        continue;
+      }
+      if (inHold && c.method === 'fillRect') holdRects.push(c.args);
+    }
+    // We expect AT LEAST two HOLD rects in this segment:
+    //   - HOLD at anchor 60 between sec 0 and sec 0.2,
+    //   - EARLY-ARRIVAL HOLD at anchor 80 between sec 0.6 and sec 2.0.
+    expect(holdRects.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('falls back to whole-gap transition when motion data is missing (legacy)', () => {
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(600, 140), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 96 },
+        { tick: 960, anchor: 80, releaseTick: 960 } // no motion
+      ]
+    }]);
+    let inPath = false;
+    const ys = [];
+    for (const c of ctx.calls) {
+      if (c.method === 'set' && c.prop === 'fillStyle'
+              && /rgba\(59, 130, 246, 0\.18\)/.test(c.value)) {
+        inPath = true; continue;
+      }
+      if (!inPath) continue;
+      if (c.method === 'fill' || c.method === 'closePath') { inPath = false; continue; }
+      if (c.method === 'lineTo') ys.push(c.args[1]);
+    }
+    // With no motion data, arrivalSec = b.sec = 2.0 → yAt(2.0) = 70.
+    expect(Math.min(...ys)).toBeLessThan(75);
+  });
+
   it('emits MORE fillRect calls when chords hold (background hold rectangles) than when they don\'t', () => {
     function fillRectCount(points) {
       const ctx = installCanvasStub();
