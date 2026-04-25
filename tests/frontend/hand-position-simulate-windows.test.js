@@ -315,6 +315,41 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
   });
 });
 
+describe('simulateHandWindows — chord release ticks (note-off propagation)', () => {
+  it('chord events carry releaseTick = tick + max(duration)', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 60, duration: 240 },
+        { tick: 0,   note: 64, duration: 480 }, // longer note dictates release
+        { tick: 960, note: 67, duration: 240 }
+      ],
+      { hands_config: semitonesHands }
+    );
+    const chords = out.filter(e => e.type === 'chord');
+    expect(chords[0].releaseTick).toBe(480); // 0 + 480
+    expect(chords[1].releaseTick).toBe(1200); // 960 + 240
+  });
+
+  it('falls back to releaseTick = tick when notes have no duration', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 60 }, { tick: 480, note: 64 }],
+      { hands_config: semitonesHands }
+    );
+    const chords = out.filter(e => e.type === 'chord');
+    expect(chords[0].releaseTick).toBe(0);
+    expect(chords[1].releaseTick).toBe(480);
+  });
+
+  it('frets mode also propagates releaseTick on chord events', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 45, fret: 5, string: 1, duration: 360 }],
+      { hands_config: fretsHands, scale_length_mm: 650 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    expect(chord.releaseTick).toBe(360);
+  });
+});
+
 describe('simulateHandWindows — semitones lookahead-aware anchor placement', () => {
   function shiftsByHand(out, handId) {
     return out.filter(e => e.type === 'shift' && e.handId === handId);

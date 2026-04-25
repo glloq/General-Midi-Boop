@@ -203,21 +203,38 @@
         /**
          * Build a per-hand trajectory from the precomputed timeline:
          *
-         *   Map<handId, [{tick, anchor}]>
+         *   Map<handId, [{tick, anchor, releaseTick}]>
          *
          * Each trajectory is the sequence of anchor positions emitted
-         * by the simulator's shift events. Used by the lookahead
-         * strip to paint a translucent ribbon showing where each
-         * hand will be over the next few seconds.
+         * by the simulator's shift events. `releaseTick` is the
+         * matching chord's last note-off time (= when the chord stops
+         * sounding and the hand can leave for the next anchor). Used
+         * by the lookahead strip to hold the band at the current
+         * anchor while the chord rings, then transition straight to
+         * the next anchor as soon as the chord releases — mirroring
+         * what a real player would do.
          *
-         * @returns {Map<string, Array<{tick:number, anchor:number}>>}
+         * @returns {Map<string, Array<{tick:number, anchor:number, releaseTick:number}>>}
          */
         getHandTrajectories() {
+            // Index chords by tick so each shift can look up its
+            // matching chord's release time in O(1).
+            const releaseByTick = new Map();
+            for (const ev of this._timeline) {
+                if (ev.type === 'chord' && Number.isFinite(ev.releaseTick)) {
+                    releaseByTick.set(ev.tick, ev.releaseTick);
+                }
+            }
             const out = new Map();
             for (const ev of this._timeline) {
                 if (ev.type !== 'shift' || ev.handId == null || !Number.isFinite(ev.toAnchor)) continue;
                 if (!out.has(ev.handId)) out.set(ev.handId, []);
-                out.get(ev.handId).push({ tick: ev.tick, anchor: ev.toAnchor });
+                const releaseTick = releaseByTick.has(ev.tick) ? releaseByTick.get(ev.tick) : ev.tick;
+                out.get(ev.handId).push({
+                    tick: ev.tick,
+                    anchor: ev.toAnchor,
+                    releaseTick
+                });
             }
             // Sort defensively — the timeline is already ordered but
             // a future caller might inject extra entries.

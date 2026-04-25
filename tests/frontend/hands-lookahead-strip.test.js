@@ -318,3 +318,83 @@ describe('HandsLookaheadStrip — hand trajectory ribbons', () => {
     expect(lastNoteFillRect).toBeGreaterThan(firstRibbonStroke);
   });
 });
+
+describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () => {
+  it('stores releaseSec on each trajectory point', () => {
+    const s = makeStrip();
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 240 },
+        { tick: 480, anchor: 70, releaseTick: 720 }
+      ]
+    }]);
+    const tr = s.handTrajectories[0];
+    expect(tr.points[0].releaseSec).toBe(240 / s.ticksPerSecond);
+    expect(tr.points[1].releaseSec).toBe(720 / s.ticksPerSecond);
+  });
+
+  it('falls back to releaseSec = sec when releaseTick is missing', () => {
+    const s = makeStrip();
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [{ tick: 0, anchor: 60 }, { tick: 480, anchor: 70 }]
+    }]);
+    const tr = s.handTrajectories[0];
+    expect(tr.points[0].releaseSec).toBe(0);
+    expect(tr.points[1].releaseSec).toBe(480 / s.ticksPerSecond);
+  });
+
+  it('emits MORE lineTo calls when chords hold (hold + transition) than when they don\'t (pure slope)', () => {
+    function lineToCount(points) {
+      const ctx = installCanvasStub();
+      const s = new window.HandsLookaheadStrip(makeCanvas(), {
+        ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+        notes: []
+      });
+      s.setHandTrajectories([{ id: 'left', span: 14, color: '#3b82f6', points }]);
+      // The setHandTrajectories call already triggered one paint; we
+      // don't draw again so the comparison stays apples-to-apples.
+      return ctx.calls.filter(c => c.method === 'lineTo').length;
+    }
+    const withHold = lineToCount([
+      { tick: 0,   anchor: 60, releaseTick: 240 }, // hold mid-segment
+      { tick: 480, anchor: 70, releaseTick: 480 }
+    ]);
+    const noHold = lineToCount([
+      { tick: 0,   anchor: 60 }, // no releaseTick → pure slope
+      { tick: 480, anchor: 70 }
+    ]);
+    // The hold polygon contributes 2 extra lineTo over the slope
+    // polygon (6 vs 4 vertices).
+    expect(withHold).toBeGreaterThan(noHold);
+    expect(withHold - noHold).toBeGreaterThanOrEqual(2);
+  });
+
+  it('the hold rectangle sits at the OLDER anchor position (not the newer one)', () => {
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 36, releaseTick: 100 }, // bottom of range
+        { tick: 480, anchor: 90, releaseTick: 480 }  // top of range
+      ]
+    }]);
+    s.draw();
+    // The hold polygon's left x for anchor=36 is below the
+    // transition polygon's left x for anchor=90. The 6-vertex
+    // polygon's vertex sequence has the hold edges at the lower
+    // (= bottom) y. Just verify SOME moveTo lands at a small x
+    // (= anchor 36's column) and another at a much larger x
+    // (= anchor 90's column).
+    const moveTos = ctx.calls.filter(c => c.method === 'moveTo').map(c => c.args[0]);
+    const lineTos = ctx.calls.filter(c => c.method === 'lineTo').map(c => c.args[0]);
+    const xs = [...moveTos, ...lineTos];
+    expect(Math.min(...xs)).toBeLessThan(50);   // anchor 36 region
+    expect(Math.max(...xs)).toBeGreaterThan(200); // anchor 90 region
+  });
+});

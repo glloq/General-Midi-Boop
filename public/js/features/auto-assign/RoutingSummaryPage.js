@@ -1024,34 +1024,39 @@ class RoutingSummaryPage {
   }
 
   /**
-   * Extract the channel's notes for the preview engine. Reuses the
-   * minimap helper when available so the slice is consistent with
-   * the navigation bar; falls back to a direct walk of midiData.
+   * Extract the channel's notes for the preview engine. Walks the
+   * MIDI tracks to pair noteOn/noteOff events so each entry carries
+   * a `duration` (in ticks) — the trajectory ribbon needs it to
+   * know when the previous chord releases and the hand can start
+   * travelling to the next anchor.
    * @private
    */
   _getChannelNotesForPreview(channel) {
-    if (typeof this._extractNotesForMinimap === 'function') {
-      try {
-        const out = this._extractNotesForMinimap(channel);
-        if (Array.isArray(out) && out.length > 0) {
-          // Minimap shape is [{t, n, ch}], normalize to the engine's
-          // expected {tick, note, channel}.
-          return out.map(e => ({ tick: e.t, note: e.n, channel: e.ch }));
-        }
-      } catch (_) { /* fall through */ }
-    }
     if (!this.midiData?.tracks) return [];
     const notes = [];
-    let absoluteTick = 0;
     for (const track of this.midiData.tracks) {
-      absoluteTick = 0;
+      let absoluteTick = 0;
+      const pending = new Map(); // note → { tick, channel, indexInOutput }
       for (const ev of (track.events || track)) {
         absoluteTick += ev.deltaTime || 0;
-        if (ev.type === 'noteOn' && (ev.velocity ?? 0) > 0 && ev.channel === channel) {
-          notes.push({ tick: absoluteTick, note: ev.noteNumber, channel });
+        const evCh = ev.channel ?? 0;
+        if (evCh !== channel) continue;
+        const noteNumber = ev.note ?? ev.noteNumber;
+        if (!Number.isFinite(noteNumber)) continue;
+        if (ev.type === 'noteOn' && (ev.velocity ?? 0) > 0) {
+          const idx = notes.length;
+          notes.push({ tick: absoluteTick, note: noteNumber, channel, duration: 0 });
+          pending.set(noteNumber, idx);
+        } else if (ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0)) {
+          if (pending.has(noteNumber)) {
+            const idx = pending.get(noteNumber);
+            notes[idx].duration = Math.max(0, absoluteTick - notes[idx].tick);
+            pending.delete(noteNumber);
+          }
         }
       }
     }
+    notes.sort((a, b) => a.tick - b.tick);
     return notes;
   }
 
