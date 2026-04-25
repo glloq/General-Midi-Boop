@@ -255,7 +255,7 @@ describe('HandsLookaheadStrip — hand trajectory ribbons', () => {
     expect(s.handTrajectories).toHaveLength(0);
   });
 
-  it('paints a quadratic-bezier trajectory ribbon under the notes', () => {
+  it('paints a straight-diagonal trajectory ribbon under the notes', () => {
     const ctx = installCanvasStub();
     const s = new window.HandsLookaheadStrip(makeCanvas(), {
       ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
@@ -266,10 +266,16 @@ describe('HandsLookaheadStrip — hand trajectory ribbons', () => {
       points: [{ tick: 0, anchor: 40 }, { tick: 480, anchor: 50 }] // shift mid-window
     }]);
     s.draw();
-    // Ribbon paints with bezier curves; we just check at least one
-    // bezierCurveTo call landed.
+    // Ribbon now paints with straight lines (no bezier) so the hand
+    // reads as moving continuously between shift events.
     const beziers = ctx.calls.filter(c => c.method === 'bezierCurveTo');
-    expect(beziers.length).toBeGreaterThan(0);
+    expect(beziers).toHaveLength(0);
+    // A trajectory segment is a closed quadrilateral: moveTo + 3
+    // lineTo + closePath. With one shift in the visible window we
+    // get at least 2 segments (start→shift, shift→end) → ≥ 6
+    // lineTo calls.
+    const lineTos = ctx.calls.filter(c => c.method === 'lineTo');
+    expect(lineTos.length).toBeGreaterThanOrEqual(6);
   });
 
   it('uses the configured hand color (translucent) for the ribbon fill', () => {
@@ -299,17 +305,16 @@ describe('HandsLookaheadStrip — hand trajectory ribbons', () => {
       points: [{ tick: 0, anchor: 50 }, { tick: 480, anchor: 60 }]
     }]);
     s.draw();
-    // Ribbon paint emits stroke/fill via bezierCurveTo; notes paint via
-    // fillRect. Order check: first bezier appears before the last note
-    // fillRect. (Background fillRect happens first, so we check the
-    // last fillRect comes after the first bezier.)
+    // Ribbon paint emits stroke/fill via straight lines; notes paint
+    // via fillRect. Order check: the first ribbon stroke must
+    // happen before the last note fillRect.
     const calls = ctx.calls;
-    const firstBezier = calls.findIndex(c => c.method === 'bezierCurveTo');
+    const firstRibbonStroke = calls.findIndex(c => c.method === 'stroke');
     let lastNoteFillRect = -1;
     for (let i = calls.length - 1; i >= 0; i--) {
       if (calls[i].method === 'fillRect') { lastNoteFillRect = i; break; }
     }
-    expect(firstBezier).toBeGreaterThan(0);
-    expect(lastNoteFillRect).toBeGreaterThan(firstBezier);
+    expect(firstRibbonStroke).toBeGreaterThan(0);
+    expect(lastNoteFillRect).toBeGreaterThan(firstRibbonStroke);
   });
 });

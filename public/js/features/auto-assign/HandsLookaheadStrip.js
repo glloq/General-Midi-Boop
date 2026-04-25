@@ -193,13 +193,13 @@
         }
 
         /**
-         * Paint each hand's trajectory as a translucent ribbon. Each
-         * segment between two consecutive trajectory points is drawn
-         * as a quadratic-bezier "S" so a shift looks like a wave
-         * sliding from one anchor to the next instead of a step.
-         * The ribbon stretches from the last visible point down to
-         * the now line (so the operator can see where the hand sits
-         * right now, not just where it goes).
+         * Paint each hand's trajectory as a translucent ribbon. The
+         * ribbon's left/right edges are STRAIGHT diagonals between
+         * consecutive trajectory points so the hand reads as moving
+         * continuously from the previous shift to the next, starting
+         * as soon as physically possible. No curves — a straight
+         * slope from (anchor_A, sec_A) to (anchor_B, sec_B) reflects
+         * the actuator's real travel pattern.
          * @private
          */
         _drawHandTrajectories(w, h, start, end) {
@@ -230,11 +230,11 @@
                 ctx.strokeStyle = _alpha(tr.color, 0.55);
                 ctx.lineWidth = 1;
 
-                // Walk consecutive segments; each segment is a single
-                // closed path filled + outlined. Drawing them
-                // separately (instead of one big path) lets the
-                // alpha overlap on transitions stack so the operator
-                // sees the wave clearly even on small shifts.
+                // Each segment is a quadrilateral: two horizontal
+                // edges at sec_A and sec_B, two STRAIGHT diagonal
+                // sides connecting (anchor_A) ↔ (anchor_B). Drawing
+                // segments separately keeps overlapping alphas
+                // visible at transition points.
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
                     const yA = this._yAt(a.sec, h, start);
@@ -248,16 +248,11 @@
                     const xLeftB  = colB.x;
                     const xRightB = colBrightCol.x + colBrightCol.width;
 
-                    // Mid-y control points for a smooth S-shaped
-                    // transition between two anchors.
-                    const ctrlY = (yA + yB) / 2;
                     ctx.beginPath();
-                    // Top edge (yB) → bottom edge (yA), filled in
-                    // between. We use two cubic bezier sides.
                     ctx.moveTo(xLeftB, yB);
-                    ctx.bezierCurveTo(xLeftB, ctrlY, xLeftA, ctrlY, xLeftA, yA);
+                    ctx.lineTo(xLeftA, yA);
                     ctx.lineTo(xRightA, yA);
-                    ctx.bezierCurveTo(xRightA, ctrlY, xRightB, ctrlY, xRightB, yB);
+                    ctx.lineTo(xRightB, yB);
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
