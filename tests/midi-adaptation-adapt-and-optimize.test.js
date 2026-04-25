@@ -181,6 +181,83 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
   });
 });
 
+describe('MidiAdaptationService.applyCapoSuggestion', () => {
+  // Real (not stubbed) MidiTransposer is used here so we exercise the
+  // full pipeline; the input fixture is a minimal MIDI shape with a
+  // single noteOn the transposer can shift.
+  function makeMidiFixture() {
+    return {
+      header: { format: 1, ticksPerBeat: 480 },
+      tracks: [{
+        events: [
+          { deltaTime: 0,   type: 'noteOn',  channel: 0, noteNumber: 60, velocity: 80 },
+          { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }
+        ]
+      }]
+    };
+  }
+
+  test('throws on missing midiData', () => {
+    const svc = makeService();
+    expect(() => svc.applyCapoSuggestion(null, 0, 3)).toThrow();
+  });
+
+  test('throws on invalid channel', () => {
+    const svc = makeService();
+    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), -1, 3)).toThrow(/channel/);
+    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 16, 3)).toThrow(/channel/);
+  });
+
+  test('throws on invalid capoFret', () => {
+    const svc = makeService();
+    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 0, 0)).toThrow(/capoFret/);
+    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 0, 25)).toThrow(/capoFret/);
+  });
+
+  test('returns the instrumentPatch with the requested capo position', () => {
+    const svc = makeService();
+    const r = svc.applyCapoSuggestion(makeMidiFixture(), 0, 5);
+    expect(r.instrumentPatch).toEqual({ capo_fret: 5 });
+  });
+
+  test('transposes the channel DOWN by capoFret semitones (preserves audible pitch)', () => {
+    const svc = makeService();
+    const r = svc.applyCapoSuggestion(makeMidiFixture(), 0, 3);
+    // Find the noteOn in the result — note number should be 60 - 3 = 57.
+    const events = r.midiData.tracks?.[0]?.events || [];
+    const noteOn = events.find(e => e.type === 'noteOn');
+    expect(noteOn?.noteNumber).toBe(57);
+  });
+
+  test('does not mutate the input midiData (deep clone)', () => {
+    const svc = makeService();
+    const input = makeMidiFixture();
+    svc.applyCapoSuggestion(input, 0, 3);
+    expect(input.tracks[0].events[0].noteNumber).toBe(60);
+  });
+});
+
+describe('MidiAdaptationService.adaptAndOptimize — B.6 expanded capo search', () => {
+  test('proposes a smaller capo (1..7) when one suffices', () => {
+    // Force the matcher to accept fret-based instruments and only
+    // approve a +1 shift. That's a capo=1 win — the broadened search
+    // should now return that instead of the original 3/5/7-only set.
+    const svc = makeService({ '0': analysis({ rangeMin: 40, rangeMax: 75 }) });
+    // Override matcher so that any pitch shift of +1 lifts to ok.
+    svc._matcher._scoreHandPositionFeasibility = (an) => {
+      const min = an.noteRange.min;
+      if (min === 41) return { level: 'ok', qualityScore: 100, summary: { mode: 'frets' } };
+      return { level: 'warning', qualityScore: 70, summary: { mode: 'frets' } };
+    };
+    const out = svc.adaptAndOptimize({}, {
+      0: { instrument: guitar({ hands_config: fretsHands }) }
+    });
+    const capo = out[0].recommendations.find(r => r.type === 'capo');
+    expect(capo).toBeDefined();
+    expect(capo.params.fret).toBe(1);
+  });
+});
+
 describe('MidiAdaptationService._shiftAnalysis', () => {
   const svc = makeService();
 
