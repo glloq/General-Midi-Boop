@@ -587,7 +587,14 @@
         "warnChordSpan": "accords trop larges",
         "warnTooManyFingers": "trop de doigts requis",
         "warnOutOfRange": "notes hors plage",
-        "warnFingerInterval": "doigts trop rapprochés"
+        "warnFingerInterval": "doigts trop rapprochés",
+        "badgeOk": "Faisabilité main : OK",
+        "badgeWarning": "Faisabilité main : avertissement",
+        "badgeInfeasible": "Faisabilité main : infaisable",
+        "column": {
+            "title": "Faisabilité de la position de main",
+            "short": "Main"
+        }
     },
     "instrumentSettings": {
         "title": "Réglages de l'instrument",

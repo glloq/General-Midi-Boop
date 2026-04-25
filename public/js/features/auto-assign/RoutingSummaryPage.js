@@ -708,8 +708,53 @@ class RoutingSummaryPage {
       getInstrumentPolyphony: (channel) => this._getInstrumentPolyphony(channel),
       computePlayableNotes: (ch) => this._computePlayableNotes(ch),
       renderVolumeSlider: (channel) => this._renderVolumeSlider(channel),
+      getHandFeasibilityBadge: (channel) => this._getHandFeasibilityBadge(channel),
       escape: escapeHtml
     });
+  }
+
+  /**
+   * Render the hand-position feasibility badge for a channel. Looks up
+   * the routed instrument's `hands_config` (from the allInstruments
+   * catalog) and runs the client-side classifier mirroring the
+   * backend matcher heuristic. Returns an empty string when no badge
+   * should appear (channel skipped, no instrument, no hands_config).
+   * @private
+   */
+  _getHandFeasibilityBadge(channel) {
+    const helper = window.HandPositionFeasibility;
+    if (!helper) return '';
+
+    const isSplit = this.splitChannels && this.splitChannels.has(channel);
+    const analysis = this.channelAnalyses?.[channel] || null;
+    if (!analysis) return '';
+
+    // For split routings, classify each segment and surface the worst level.
+    const classifyForInstrument = (instrument) => helper.classify(analysis, instrument).level;
+    const order = { unknown: 0, ok: 1, warning: 2, infeasible: 3 };
+    let worst = 'unknown';
+    const promote = (level) => { if ((order[level] || 0) > (order[worst] || 0)) worst = level; };
+
+    if (isSplit && this.splitAssignments?.[channel]) {
+      const segments = this.splitAssignments[channel].segments || [];
+      for (const seg of segments) {
+        const inst = seg.instrumentId
+          ? (this.allInstruments || []).find(i => i.id === seg.instrumentId)
+          : null;
+        if (!inst) continue;
+        promote(classifyForInstrument(inst));
+      }
+    } else {
+      const assignment = this.selectedAssignments?.[String(channel)];
+      if (!assignment) return '';
+      const inst = assignment.instrumentId
+        ? (this.allInstruments || []).find(i => i.id === assignment.instrumentId)
+        : null;
+      if (!inst) return '';
+      promote(classifyForInstrument(inst));
+    }
+
+    return helper.renderBadge(worst);
   }
 
   /**
