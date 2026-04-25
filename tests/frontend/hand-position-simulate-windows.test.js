@@ -498,6 +498,98 @@ describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () 
   });
 });
 
+describe('simulateHandWindows — auto-resolves string/fret from MIDI when missing', () => {
+  // Standard guitar tuning: E2 A2 D3 G3 B3 E4 (40, 45, 50, 55, 59, 64)
+  // — string 1 is the LOW E (40), string 6 is the HIGH E (64).
+
+  it('resolves a MIDI note to the lowest viable fret on its string', () => {
+    // 50 = D3 → string 3 fret 0 (open D), but 50 is also string 1
+    // fret 10. The resolver should pick the LOWEST fret → string 3
+    // fret 0.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 50 }], // no fret/string supplied
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const chord = out.find(e => e.type === 'chord');
+    const note = chord.notes[0];
+    expect(note.string).toBe(3);
+    expect(note.fret).toBe(0);
+  });
+
+  it('preserves notes that already carry fret/string', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 50, fret: 10, string: 1 }],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const note = out.find(e => e.type === 'chord').notes[0];
+    expect(note.string).toBe(1);
+    expect(note.fret).toBe(10);
+  });
+
+  it('emits a shift + active fret position when only MIDI numbers are supplied', () => {
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [
+        { tick: 0,   note: 56, duration: 100 }, // G#3 → string 1 fret 16
+        { tick: 480, note: 64 }                  // E4 → string 1 fret 24 (out
+                                                  // of range), string 2 fret
+                                                  // 19, … lowest = string 6
+                                                  // fret 0 (open E)
+      ],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      { ticksPerBeat: 480, bpm: 60 }
+    );
+    // The chord events should carry resolved string + fret on each
+    // note. With note 56 the lowest fret is 1 on string 5 (B3 open
+    // + 1 fret = C4? no — 59+1=60). Let me re-check: string 5 open
+    // = 59. 56 − 59 = -3 invalid. String 4 open = 55. 56 − 55 = 1.
+    // → resolved as string 4 fret 1.
+    // Note 64 = E4 = string 6 open → fret 0.
+    const chords = out.filter(e => e.type === 'chord');
+    const note0 = chords[0].notes[0];
+    expect(Number.isFinite(note0.fret)).toBe(true);
+    expect(Number.isFinite(note0.string)).toBe(true);
+    expect(note0.fret).toBeGreaterThan(0); // fretted, not open
+    // At least one shift event is emitted (anchor moves to the
+    // first fretted note's fret).
+    const shifts = out.filter(e => e.type === 'shift');
+    expect(shifts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('falls back to an unresolved note when no string fits in the fret range', () => {
+    // Note way too high for any string: 120 (C9). On standard tuning
+    // (highest open is E4=64 + 22 frets = 86), 120 is unreachable.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 120 }],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+    );
+    const note = out.find(e => e.type === 'chord').notes[0];
+    expect(note.string).toBeUndefined();
+    expect(note.fret).toBeUndefined();
+  });
+
+  it('respects the capo offset when resolving', () => {
+    // Capo on fret 5 → open D (50) is no longer string 3 fret 0;
+    // it's now string 4 fret 0 (G open + capo = D open) … wait no.
+    // With capo 5, string 3 (open D=50) sounds at fret 0 but the
+    // RESOLVED fret should be 0 since (midi − open − capo) = 0.
+    // Pick: 50 = string 3 fret 0 still (50 − 50 − 5 = -5 invalid),
+    // try string 1: 50 − 40 − 5 = 5, valid. String 2: 50 − 45 − 5 =
+    // 0, valid. Picks the lowest → string 2 fret 0.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 50 }],
+      { hands_config: fretsHands, scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22, capo_fret: 5 }
+    );
+    const note = out.find(e => e.type === 'chord').notes[0];
+    expect(note.string).toBe(2);
+    expect(note.fret).toBe(0);
+  });
+});
+
 describe('simulateHandWindows — frets parity (handId + releaseByHand + motion + max_fingers)', () => {
   it('tags every playable note with handId="fretting"', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(

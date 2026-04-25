@@ -801,6 +801,26 @@
         const speedFretsPerSec = Number.isFinite(hands.hand_move_frets_per_sec) && hands.hand_move_frets_per_sec > 0
             ? hands.hand_move_frets_per_sec : null;
 
+        // Notes coming straight from MIDI rarely have `fret` / `string`
+        // pre-resolved (full tablature conversion only happens at apply
+        // time on the server). For the preview we resolve a sensible
+        // open-position pick on the fly using the instrument's tuning
+        // — best effort, but enough to drive the simulator + display.
+        const tuning = Array.isArray(instrument.tuning) ? instrument.tuning : null;
+        const numFrets = Number.isFinite(instrument.num_frets) && instrument.num_frets > 0
+            ? instrument.num_frets : 24;
+        const capoFret = Number.isFinite(instrument.capo_fret) && instrument.capo_fret > 0
+            ? instrument.capo_fret : 0;
+        if (tuning && tuning.length > 0) {
+            for (const g of groups) {
+                g.notes = g.notes.map(n => {
+                    if (Number.isFinite(n.fret) && Number.isFinite(n.string)) return n;
+                    const resolved = _resolveStringFret(n.note, tuning, numFrets, capoFret);
+                    return resolved ? { ...n, fret: resolved.fret, string: resolved.string } : n;
+                });
+            }
+        }
+
         // Fret reach as a function of anchor — physical or fixed.
         function maxReach(anchor) {
             if (!usePhysical) return anchor + spanFrets;
@@ -916,6 +936,39 @@
             _updatePrevRelease(prevReleaseByHand, releaseByHand);
         }
         return out;
+    }
+
+    /**
+     * Resolve a MIDI note to (string, fret) on the given tuning by
+     * picking the string that yields the LOWEST fret ≥ 0 — a simple
+     * "open position" approximation. Returns `null` when the note
+     * doesn't fit on any string within the available fret range.
+     *
+     * Used as a best-effort fallback for the preview when notes
+     * arrive without tablature data (full tab conversion only runs
+     * on apply-routing in the backend).
+     *
+     * @param {number} midi - MIDI note number
+     * @param {number[]} tuning - open-string MIDI numbers, indexed
+     *                            from low (1) to high (N)
+     * @param {number} numFrets - max fret on the neck
+     * @param {number} capoFret - capo offset (0 = no capo)
+     * @returns {{string:number, fret:number}|null}
+     * @private
+     */
+    function _resolveStringFret(midi, tuning, numFrets, capoFret) {
+        if (!Array.isArray(tuning) || tuning.length === 0) return null;
+        if (!Number.isFinite(midi)) return null;
+        let best = null;
+        for (let i = 0; i < tuning.length; i++) {
+            const open = tuning[i] + (capoFret || 0);
+            const fret = midi - open;
+            if (fret < 0 || fret > numFrets) continue;
+            if (!best || fret < best.fret) {
+                best = { string: i + 1, fret };
+            }
+        }
+        return best;
     }
 
     if (typeof window !== 'undefined') {
