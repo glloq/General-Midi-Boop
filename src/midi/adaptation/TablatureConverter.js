@@ -705,10 +705,12 @@ class TablatureConverter {
     for (const pos of positions) {
       const zoneCenter = stringZones[pos.string - 1];
       const halfZone = Math.floor(zoneSize / 2);
-      // Cost: distance from zone center, with strong penalty for being outside the zone
+      // Cost: distance from zone center, with strong penalty for being outside the zone.
+      // Open strings beat any fretted alternative when the zone sits low
+      // enough on the neck — they are free to play and stay at the nut.
       let cost;
       if (pos.fret === 0) {
-        cost = 0.5; // Open strings are always OK
+        cost = zoneCenter <= halfZone ? -0.5 : zoneCenter * 0.2;
       } else {
         const dist = Math.abs(pos.fret - zoneCenter);
         cost = dist <= halfZone ? dist * 0.5 : dist * 3;
@@ -746,12 +748,14 @@ class TablatureConverter {
         continue;
       }
 
-      // Score by zone proximity
+      // Score by zone proximity. Same open-string preference as in
+      // _pickBestInZone: an open string beats any fretted alternative
+      // when the zone is near the nut.
       const scored = positions.map(pos => {
         const zoneCenter = stringZones[pos.string - 1];
         let cost;
         if (pos.fret === 0) {
-          cost = 0.5;
+          cost = zoneCenter <= halfZone ? -0.5 : zoneCenter * 0.2;
         } else {
           const dist = Math.abs(pos.fret - zoneCenter);
           cost = dist <= halfZone ? dist * 0.5 : dist * 3;
@@ -1118,14 +1122,30 @@ class TablatureConverter {
       .map(a => a.fret);
     const assignedFingerCount = assignedFrets.length;
 
+    // When hand_aware is active and the physical inputs are wired up,
+    // the maximum chord span is no longer a constant — it is the actual
+    // hand width at the chord's anchor fret. Geometric fret spacing means
+    // 5 frets near the nut is much wider than 5 frets at fret 12, so a
+    // small hand legitimately can't reach 5 frets in first position. The
+    // ratio (1.5 ×) leaves room for a quadratic emission penalty above
+    // the comfortable span without an upfront veto on still-playable
+    // stretches.
+    const useHandAwareSpan = this._useHandAwareCosts && this._handAwareReady;
+
     for (const pos of positions) {
       if (usedStrings[pos.string]) continue;
 
       // Enforce max fret span
       if (pos.fret > 0 && assignedFrets.length > 0) {
         const allFrets = [...assignedFrets, pos.fret];
-        const span = Math.max(...allFrets) - Math.min(...allFrets);
-        if (span > maxFretSpan) continue;
+        const lo = Math.min(...allFrets);
+        const hi = Math.max(...allFrets);
+        if (useHandAwareSpan) {
+          const chordMm = this._fretDistanceMm(lo, hi);
+          if (chordMm > this.handSpanMm * 1.5) continue;
+        } else if (hi - lo > maxFretSpan) {
+          continue;
+        }
       }
 
       // Enforce max_fingers when configured. Only fretted positions
@@ -1164,9 +1184,14 @@ class TablatureConverter {
 
     const { COMFORTABLE_SPAN } = TablatureConverter.VITERBI_CONFIG;
     const frettedNotes = assignment.filter(a => a.fret > 0);
+    const openCount = assignment.length - frettedNotes.length;
 
-    // All open strings — very cheap
-    if (frettedNotes.length === 0) return 0.5;
+    // All open strings — cheapest possible: no finger pressed, no shift.
+    // Was 0.5 (worse than a single-fret assignment with cost ~0); fixed so
+    // that open-string voicings outrank fretted voicings of the same pitch
+    // — this is what "privilégier une corde à vide quand c'est possible"
+    // requires.
+    if (frettedNotes.length === 0) return -0.2 * openCount;
 
     let cost = 0;
 
@@ -1182,10 +1207,17 @@ class TablatureConverter {
     const avgFret = frettedNotes.reduce((s, a) => s + a.fret, 0) / frettedNotes.length;
     cost += Math.log1p(Math.max(0, avgFret - 7)) * 0.3;
 
-    // 3. Open string within fretted chord penalty
-    const hasOpen = assignment.some(a => a.fret === 0);
-    if (hasOpen && frettedNotes.length > 0 && minFret > 4) {
+    // 3a. Open string within HIGH-position fretted chord — penalty (the
+    //     hand can't easily reach back to the nut while held up the neck).
+    if (openCount > 0 && minFret > 4) {
       cost += 1.5;
+    }
+
+    // 3b. Open string within LOW-position fretted chord — small bonus per
+    //     open string. They free a finger and produce a richer voicing,
+    //     which is what guitarists naturally play in first position.
+    if (openCount > 0 && minFret <= 4) {
+      cost -= 0.2 * openCount;
     }
 
     return cost;
@@ -1203,7 +1235,11 @@ class TablatureConverter {
   _emissionCostMm(assignment) {
     if (assignment.length === 0) return 0;
     const frettedNotes = assignment.filter(a => a.fret > 0);
-    if (frettedNotes.length === 0) return 0.5;
+    const openCount = assignment.length - frettedNotes.length;
+
+    // All open: cheapest possible, scales with the number of free
+    // strings used (mirrors the semitone path).
+    if (frettedNotes.length === 0) return -0.2 * openCount;
 
     let cost = 0;
 
@@ -1220,11 +1256,13 @@ class TablatureConverter {
       cost += (overshootMm / this.handSpanMm) * (overshootMm / this.handSpanMm) * 2;
     }
 
-    // 2. Open string within fretted chord — same logic as semitones,
-    // physical reach amplifies the cost when the chord sits high.
-    const hasOpen = assignment.some(a => a.fret === 0);
-    if (hasOpen && frettedNotes.length > 0 && minFret > 4) {
+    // 2. Open strings: penalty when high up the neck, bonus when
+    //    voicing sits in the open positions — same logic as the
+    //    semitone path so hand_aware doesn't behave inconsistently.
+    if (openCount > 0 && minFret > 4) {
       cost += 1.5;
+    } else if (openCount > 0) {
+      cost -= 0.2 * openCount;
     }
 
     return cost;

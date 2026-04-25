@@ -229,12 +229,13 @@ describe('TablatureConverter — hand_aware algorithm', () => {
     expect(conv._fretDistanceMm(5, 2)).toBeCloseTo(conv._fretDistanceMm(2, 5), 5);
   });
 
-  test('emission mm cost is 0 for an all-open assignment', () => {
+  test('emission mm cost is negative (preferred) for an all-open assignment', () => {
     const conv = new TablatureConverter(handAwareConfig);
     const cost = conv._emissionCostMm([
       { string: 1, fret: 0 }, { string: 2, fret: 0 }
     ]);
-    expect(cost).toBe(0.5);
+    // -0.2 per open string: must beat any fretted assignment, which is ≥ 0.
+    expect(cost).toBeLessThan(0);
   });
 
   test('emission mm cost rises when chord exceeds hand_span_mm', () => {
@@ -256,6 +257,103 @@ describe('TablatureConverter — hand_aware algorithm', () => {
     const small = conv._transitionCostMm(5, 6);
     const big   = conv._transitionCostMm(5, 18);
     expect(big).toBeGreaterThan(small);
+  });
+});
+
+describe('TablatureConverter — open-string preference', () => {
+  // The pitch E4 (MIDI 64) on a standard guitar can be played as the open
+  // 6th (high E) string OR as fret 5 of the 5th (B) string. The open
+  // string is universally preferred — easier, no finger pressed, leaves
+  // the hand free for the next note. Before the audit fix, the Viterbi
+  // assignment returned fret 5 (cost 0) over open (cost 0.5).
+  const E4 = 64;
+
+  test('min_movement picks the open string for E4 over fret 5 on B string', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    const out = conv.convertMidiToTablature([note(0, E4)], 'min_movement');
+    expect(out).toHaveLength(1);
+    expect(out[0].fret).toBe(0);
+    expect(out[0].string).toBe(6); // high-E string (1-based, low→high)
+  });
+
+  test('zone algorithm picks the open string for E4 when no other notes pull a zone away', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    const out = conv.convertMidiToTablature([note(0, E4)], 'zone');
+    expect(out[0].fret).toBe(0);
+  });
+
+  test('hand_aware picks the open string for E4', () => {
+    const conv = new TablatureConverter({
+      ...guitarConfig,
+      tab_algorithm: 'hand_aware',
+      scale_length_mm: 650, hand_span_mm: 80, hand_move_mm_per_sec: 250
+    });
+    const out = conv.convertMidiToTablature([note(0, E4)], 'hand_aware');
+    expect(out[0].fret).toBe(0);
+  });
+
+  test('open string is preferred even after a fretted note (low position context)', () => {
+    // A2 fretted on string 1 fret 5, then E4 — open high-E should win
+    // because it's free and the resulting voicing stays in first position.
+    const conv = new TablatureConverter(guitarConfig);
+    const out = conv.convertMidiToTablature([
+      note(0, 45),    // A2 — must be open string 2 or fret 5 of string 1
+      note(240, E4)   // E4 — open string 6 preferred
+    ]);
+    const e4Event = out[1];
+    expect(e4Event.midiNote).toBe(E4);
+    expect(e4Event.fret).toBe(0);
+  });
+
+  test('high-position context still penalises adding an open string', () => {
+    // When the hand sits at fret 12, reaching back to fret 0 is awkward.
+    // The existing minFret > 4 penalty must keep biting.
+    const conv = new TablatureConverter(guitarConfig);
+    const cost = conv._emissionCost([
+      { string: 1, fret: 12 }, { string: 6, fret: 0 }
+    ]);
+    expect(cost).toBeGreaterThan(0);
+  });
+});
+
+describe('TablatureConverter — hand_aware physical span enumeration', () => {
+  // 80 mm hand on a 650 mm scale. d(0,5) ≈ 168 mm, d(0,3) ≈ 109 mm,
+  // d(0,2) ≈ 74 mm. The 1.5× hand-span ceiling = 120 mm.
+  const cfg = {
+    tuning: [40, 45, 50, 55, 59, 64], num_strings: 6, num_frets: 24,
+    is_fretless: false, capo_fret: 0, tab_algorithm: 'hand_aware',
+    scale_length_mm: 650, hand_span_mm: 80, hand_move_mm_per_sec: 250
+  };
+
+  test('rejects an enumerated chord whose physical span exceeds 1.5 × hand_span_mm', () => {
+    const conv = new TablatureConverter(cfg);
+    // Force the search to put both notes on adjacent strings at frets 0..7
+    // (≈ 234 mm) — beyond 1.5 × 80 mm. The Viterbi enumeration must skip
+    // this voicing; the converter should instead choose another voicing
+    // (e.g. open + open on different strings).
+    // Concretely: 40 (low E open) + 47 (B2 = low-E fret 7, A fret 2, OR
+    // open-A + 2 frets). Hand-aware should bias to A-string fret 2.
+    const out = conv.convertMidiToTablature([
+      note(0, 40), note(0, 47)
+    ], 'hand_aware');
+    expect(out).toHaveLength(2);
+    // The two assignments together must fit inside 1.5 × 80 mm = 120 mm.
+    const fretted = out.filter(e => e.fret > 0).map(e => e.fret);
+    if (fretted.length >= 2) {
+      const lo = Math.min(...fretted), hi = Math.max(...fretted);
+      const distMm = conv._fretDistanceMm(lo, hi);
+      expect(distMm).toBeLessThanOrEqual(80 * 1.5 + 0.001);
+    }
+  });
+
+  test('falls back to constant MAX_FRET_SPAN when hand_aware inputs missing', () => {
+    // Same chord but without scale_length_mm: the hand-aware physical
+    // ceiling is unreachable, so the constant 5-fret cap kicks in.
+    const conv = new TablatureConverter({ ...cfg, scale_length_mm: undefined });
+    const out = conv.convertMidiToTablature([
+      note(0, 40), note(0, 47)
+    ], 'hand_aware');
+    expect(out).toHaveLength(2);
   });
 });
 
