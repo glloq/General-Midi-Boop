@@ -118,15 +118,23 @@
 
         /**
          * Replace the per-hand trajectory list. Each entry:
-         *   { id, span, color, points: [{tick, anchor, releaseTick?}, ...] }
+         *   {
+         *     id, span, color,
+         *     points: [{
+         *       tick, anchor,
+         *       prevAnchor?,    // anchor the hand came from (for transitions)
+         *       releaseTick?,   // when THIS hand's notes release in the chord
+         *       motion?: {      // speed-limit envelope of the shift
+         *         requiredSec, availableSec, feasible
+         *       }
+         *     }, ...]
+         *   }
          *
-         * `releaseTick` (optional) is when the chord that put the
-         * hand at this anchor stops ringing. If provided, the ribbon
-         * holds the previous anchor until that release tick and only
-         * then linearly slides to the next anchor — matching how a
-         * real player keeps fingers down through the chord and only
-         * starts moving once they can lift their hand. When absent
-         * the segment defaults to a continuous slope.
+         * The ribbon holds the previous anchor until `releaseSec`,
+         * then slides linearly to the new anchor. When `motion.feasible`
+         * is false, the transition is painted in red and extended past
+         * the chord tick by `(requiredSec − availableSec)` so the
+         * operator sees the band "biting" into the next note.
          *
          * Pass `[]` or `null` to hide the ribbons.
          */
@@ -143,7 +151,13 @@
                             const releaseSec = Number.isFinite(p.releaseTick)
                                 ? p.releaseTick / this.ticksPerSecond
                                 : sec;
-                            return { sec, anchor: p.anchor, releaseSec };
+                            return {
+                                sec,
+                                anchor: p.anchor,
+                                prevAnchor: Number.isFinite(p.prevAnchor) ? p.prevAnchor : p.anchor,
+                                releaseSec,
+                                motion: p.motion || { requiredSec: 0, availableSec: Infinity, feasible: true }
+                            };
                         })
                         .sort((a, b) => a.sec - b.sec)
                     : [];
@@ -208,37 +222,37 @@
         }
 
         /**
-         * Paint each hand's trajectory as a translucent ribbon.
+         * Paint each hand's trajectory in three subtle passes so the
+         * falling notes stay perfectly readable on top:
          *
-         * Each segment between two consecutive trajectory points is
-         * split into two regions:
-         *   - HOLD: from the older point's `sec` up to its
-         *     `releaseSec` — the band stays at the old anchor while
-         *     the chord is still ringing.
-         *   - TRANSITION: from `releaseSec` to the newer point's
-         *     `sec` — the band slides linearly to the next anchor.
+         *   1. HOLD background — for each segment, a faint span-wide
+         *      rectangle (alpha ≈ 0.06) covers the period the hand
+         *      stays steady on the old anchor. Shows "the hand is
+         *      here" without competing visually with the notes.
+         *   2. TRANSITION sweep — between `releaseSec` (last note-off)
+         *      and the next point's `sec`, a mid-alpha trapezoid
+         *      sweeps from old anchor to new anchor — the actual
+         *      displacement happening in the inter-note gap. Painted
+         *      RED when `motion.feasible === false` and extended
+         *      beyond `next.sec` by `(requiredSec − availableSec)`
+         *      seconds so the operator sees the hand bite into the
+         *      next note's region.
+         *   3. ANCHOR centre stroke — a 1.5 px line tracking the
+         *      anchor's column centre. Vertical during HOLD, diagonal
+         *      during TRANSITION. Provides a precise read of the
+         *      hand's intended path.
          *
-         * That mirrors what a player does in real life: keep fingers
-         * on the chord through its sustain, then move the hand as
-         * soon as the last note releases.
-         *
-         * When `releaseSec === sec` (no duration info) the hold
-         * region collapses and the segment becomes a single straight
-         * slope — i.e. the previous behaviour.
          * @private
          */
         _drawHandTrajectories(w, h, start, end) {
             if (!this.handTrajectories || this.handTrajectories.length === 0) return;
             const ctx = this.ctx;
+            const RED = '#ef4444';
 
             for (const tr of this.handTrajectories) {
                 if (tr.points.length === 0) continue;
 
-                // Build a synthetic series that covers the visible
-                // window: prepend the last point at or before `start`
-                // (so the ribbon fills the bottom even when no shift
-                // is happening yet), append a sentinel at `end` so the
-                // ribbon reaches the top.
+                // Build a synthetic series covering the visible window.
                 let series = [];
                 let lastBefore = null;
                 for (const p of tr.points) {
@@ -246,57 +260,127 @@
                     else if (p.sec <= end) series.push(p);
                     else break;
                 }
-                if (lastBefore) series.unshift({ sec: start, anchor: lastBefore.anchor, releaseSec: Math.max(lastBefore.releaseSec ?? start, start) });
-                else if (series.length === 0) continue;
-                else series.unshift({ sec: start, anchor: series[0].anchor, releaseSec: start });
+                if (lastBefore) {
+                    series.unshift({
+                        sec: start,
+                        anchor: lastBefore.anchor,
+                        prevAnchor: lastBefore.prevAnchor ?? lastBefore.anchor,
+                        releaseSec: Math.max(lastBefore.releaseSec ?? start, start),
+                        motion: lastBefore.motion || { feasible: true, requiredSec: 0, availableSec: Infinity }
+                    });
+                } else if (series.length === 0) {
+                    continue;
+                } else {
+                    series.unshift({
+                        sec: start,
+                        anchor: series[0].anchor,
+                        prevAnchor: series[0].anchor,
+                        releaseSec: start,
+                        motion: { feasible: true, requiredSec: 0, availableSec: Infinity }
+                    });
+                }
                 const last = series[series.length - 1];
-                series.push({ sec: end, anchor: last.anchor, releaseSec: end });
+                series.push({
+                    sec: end,
+                    anchor: last.anchor,
+                    prevAnchor: last.anchor,
+                    releaseSec: end,
+                    motion: { feasible: true, requiredSec: 0, availableSec: Infinity }
+                });
 
-                ctx.fillStyle = _alpha(tr.color, 0.18);
-                ctx.strokeStyle = _alpha(tr.color, 0.55);
-                ctx.lineWidth = 1;
-
-                // Walk consecutive pairs. We emit ONE polygon per
-                // pair, with up to 6 vertices (4 = pure transition,
-                // 6 = explicit hold + transition).
+                // -------- Pass 1: HOLD backgrounds -----------------
+                ctx.fillStyle = _alpha(tr.color, 0.06);
                 for (let i = 0; i + 1 < series.length; i++) {
                     const a = series[i], b = series[i + 1];
-                    // Clamp the hold-end to the next point's sec so
-                    // a sustained chord that overlaps the next
-                    // shift still produces a valid polygon.
                     const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
-                    const yA       = this._yAt(a.sec, h, start);
-                    const yRelease = this._yAt(releaseA, h, start);
-                    const yB       = this._yAt(b.sec, h, start);
+                    if (releaseA <= a.sec + 1e-9) continue; // no hold
+                    const yA = this._yAt(a.sec, h, start);
+                    const yRel = this._yAt(releaseA, h, start);
+                    const colA  = this._columnFor(a.anchor);
+                    const colAR = this._columnFor(a.anchor + tr.span);
+                    const xLeft  = colA.x;
+                    const xRight = colAR.x + colAR.width;
+                    ctx.fillRect(xLeft, yRel, xRight - xLeft, yA - yRel);
+                }
+
+                // -------- Pass 2: TRANSITION sweep -----------------
+                for (let i = 0; i + 1 < series.length; i++) {
+                    const a = series[i], b = series[i + 1];
+                    const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
+                    if (releaseA >= b.sec - 1e-9) continue; // no transition
+                    if (a.anchor === b.anchor) continue;    // no actual motion
+                    const motion = b.motion || { feasible: true };
+                    const isInfeasible = motion.feasible === false;
+                    const fillColor = isInfeasible ? RED : tr.color;
+                    const yRelA = this._yAt(releaseA, h, start);
+                    let yArrival = this._yAt(b.sec, h, start);
+                    // Infeasible → arrival is past b.sec; extend the
+                    // ribbon up to b.sec + (required − available).
+                    if (isInfeasible
+                            && Number.isFinite(motion.requiredSec)
+                            && Number.isFinite(motion.availableSec)) {
+                        const overflowSec = Math.max(0, motion.requiredSec - motion.availableSec);
+                        if (overflowSec > 0) {
+                            yArrival = this._yAt(b.sec + overflowSec, h, start);
+                        }
+                    }
                     const colA  = this._columnFor(a.anchor);
                     const colAR = this._columnFor(a.anchor + tr.span);
                     const colB  = this._columnFor(b.anchor);
                     const colBR = this._columnFor(b.anchor + tr.span);
-                    const xLeftA  = colA.x;
-                    const xRightA = colAR.x + colAR.width;
-                    const xLeftB  = colB.x;
-                    const xRightB = colBR.x + colBR.width;
-
+                    ctx.fillStyle = _alpha(fillColor, isInfeasible ? 0.28 : 0.18);
                     ctx.beginPath();
-                    if (releaseA > a.sec + 1e-9 && releaseA < b.sec - 1e-9) {
-                        // hold + transition — 6 vertices
-                        ctx.moveTo(xLeftB,  yB);
-                        ctx.lineTo(xLeftA,  yRelease); // top of transition
-                        ctx.lineTo(xLeftA,  yA);       // hold left
-                        ctx.lineTo(xRightA, yA);       // hold right
-                        ctx.lineTo(xRightA, yRelease); // top of transition right
-                        ctx.lineTo(xRightB, yB);
-                    } else {
-                        // pure slope (no hold info, or hold extends
-                        // through the whole inter-shift interval).
-                        ctx.moveTo(xLeftB,  yB);
-                        ctx.lineTo(xLeftA,  yA);
-                        ctx.lineTo(xRightA, yA);
-                        ctx.lineTo(xRightB, yB);
-                    }
+                    ctx.moveTo(colA.x, yRelA);
+                    ctx.lineTo(colAR.x + colAR.width, yRelA);
+                    ctx.lineTo(colBR.x + colBR.width, yArrival);
+                    ctx.lineTo(colB.x, yArrival);
                     ctx.closePath();
                     ctx.fill();
-                    ctx.stroke();
+                }
+
+                // -------- Pass 3: ANCHOR centre stroke -------------
+                ctx.lineWidth = 1.5;
+                for (let i = 0; i + 1 < series.length; i++) {
+                    const a = series[i], b = series[i + 1];
+                    const releaseA = Math.max(a.sec, Math.min(a.releaseSec ?? a.sec, b.sec));
+                    const yA   = this._yAt(a.sec, h, start);
+                    const yRel = this._yAt(releaseA, h, start);
+                    const motion = b.motion || { feasible: true };
+                    const isInfeasible = motion.feasible === false;
+                    const colA  = this._columnFor(a.anchor);
+                    const colAR = this._columnFor(a.anchor + tr.span);
+                    const colB  = this._columnFor(b.anchor);
+                    const colBR = this._columnFor(b.anchor + tr.span);
+                    const xCenA = (colA.x + colAR.x + colAR.width) / 2;
+                    const xCenB = (colB.x + colBR.x + colBR.width) / 2;
+
+                    // HOLD vertical line.
+                    ctx.strokeStyle = _alpha(tr.color, 0.7);
+                    if (yRel < yA - 1e-3) {
+                        ctx.beginPath();
+                        ctx.moveTo(xCenA, yA);
+                        ctx.lineTo(xCenA, yRel);
+                        ctx.stroke();
+                    }
+                    // TRANSITION diagonal — skip same-anchor segments.
+                    if (releaseA < b.sec - 1e-9 && a.anchor !== b.anchor) {
+                        let yArrival = this._yAt(b.sec, h, start);
+                        if (isInfeasible
+                                && Number.isFinite(motion.requiredSec)
+                                && Number.isFinite(motion.availableSec)) {
+                            const overflowSec = Math.max(0, motion.requiredSec - motion.availableSec);
+                            if (overflowSec > 0) {
+                                yArrival = this._yAt(b.sec + overflowSec, h, start);
+                            }
+                        }
+                        ctx.strokeStyle = _alpha(isInfeasible ? RED : tr.color, 0.85);
+                        ctx.lineWidth = isInfeasible ? 2 : 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(xCenA, yRel);
+                        ctx.lineTo(xCenB, yArrival);
+                        ctx.stroke();
+                        ctx.lineWidth = 1.5;
+                    }
                 }
             }
         }

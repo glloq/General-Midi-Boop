@@ -345,30 +345,127 @@ describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () 
     expect(tr.points[1].releaseSec).toBe(480 / s.ticksPerSecond);
   });
 
-  it('emits MORE lineTo calls when chords hold (hold + transition) than when they don\'t (pure slope)', () => {
-    function lineToCount(points) {
+  it('emits a LOW-ALPHA background fill (≈ 0.06) for the hand span during HOLD periods', () => {
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 240 }, // hold present
+        { tick: 480, anchor: 70, releaseTick: 480 }
+      ]
+    }]);
+    // The first fillStyle assignment in _drawHandTrajectories sets
+    // the HOLD background to alpha 0.06.
+    const fillStyles = ctx.calls
+      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
+      .map(c => c.value);
+    expect(fillStyles.some(v => /rgba\(59, 130, 246, 0\.06\)/.test(v))).toBe(true);
+  });
+
+  it('paints the transition in RED when motion.feasible === false', () => {
+    const ctx = installCanvasStub();
+    const s = new window.HandsLookaheadStrip(makeCanvas(), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 100 },
+        { tick: 240, anchor: 80, releaseTick: 240,
+          motion: { requiredSec: 1.0, availableSec: 0.3, feasible: false } }
+      ]
+    }]);
+    const fillStyles = ctx.calls
+      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
+      .map(c => c.value);
+    // Red transition fill at alpha 0.28 (the infeasible variant).
+    expect(fillStyles.some(v => /rgba\(239, 68, 68, 0\.28\)/.test(v))).toBe(true);
+  });
+
+  it('infeasible transition extends past the chord tick by (requiredSec − availableSec)', () => {
+    // Capture the lineTos emitted by the trapezoid path that follows
+    // a specific fillStyle assignment.
+    function transitionTopY(calls, rePattern) {
+      let inPath = false;
+      const ys = [];
+      for (const c of calls) {
+        if (c.method === 'set' && c.prop === 'fillStyle' && rePattern.test(c.value)) {
+          inPath = true;
+          continue;
+        }
+        if (!inPath) continue;
+        if (c.method === 'fill' || c.method === 'closePath') { inPath = false; continue; }
+        if (c.method === 'lineTo') ys.push(c.args[1]);
+      }
+      return Math.min(...ys);
+    }
+
+    // Feasible — alpha 0.18 BLUE transition fill.
+    const ctxA = installCanvasStub();
+    let s = new window.HandsLookaheadStrip(makeCanvas(), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 100 },
+        { tick: 240, anchor: 80, releaseTick: 240,
+          motion: { requiredSec: 0.1, availableSec: 1, feasible: true } }
+      ]
+    }]);
+    const feasibleTopY = transitionTopY(ctxA.calls, /rgba\(59, 130, 246, 0\.18\)/);
+
+    // Infeasible — alpha 0.28 RED transition fill with overflow.
+    const ctxB = installCanvasStub();
+    s = new window.HandsLookaheadStrip(makeCanvas(), {
+      ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
+      notes: []
+    });
+    s.setHandTrajectories([{
+      id: 'left', span: 14, color: '#3b82f6',
+      points: [
+        { tick: 0,   anchor: 60, releaseTick: 100 },
+        { tick: 240, anchor: 80, releaseTick: 240,
+          motion: { requiredSec: 1.0, availableSec: 0.3, feasible: false } }
+      ]
+    }]);
+    const infeasibleTopY = transitionTopY(ctxB.calls, /rgba\(239, 68, 68, 0\.28\)/);
+
+    // Both finite (transitions actually rendered).
+    expect(feasibleTopY).toBeLessThan(140);
+    expect(infeasibleTopY).toBeLessThan(140);
+    // Y goes UP (smaller) for points further in the future. Overflow
+    // extends the trapezoid beyond b.sec → smaller y on canvas.
+    expect(infeasibleTopY).toBeLessThan(feasibleTopY);
+  });
+
+  it('emits MORE fillRect calls when chords hold (background hold rectangles) than when they don\'t', () => {
+    function fillRectCount(points) {
       const ctx = installCanvasStub();
       const s = new window.HandsLookaheadStrip(makeCanvas(), {
         ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
         notes: []
       });
       s.setHandTrajectories([{ id: 'left', span: 14, color: '#3b82f6', points }]);
-      // The setHandTrajectories call already triggered one paint; we
-      // don't draw again so the comparison stays apples-to-apples.
-      return ctx.calls.filter(c => c.method === 'lineTo').length;
+      // setHandTrajectories already triggered one paint.
+      return ctx.calls.filter(c => c.method === 'fillRect').length;
     }
-    const withHold = lineToCount([
-      { tick: 0,   anchor: 60, releaseTick: 240 }, // hold mid-segment
-      { tick: 480, anchor: 70, releaseTick: 480 }
+    const withHold = fillRectCount([
+      { tick: 0,   anchor: 60, releaseTick: 240 }, // hold for 240 ticks
+      { tick: 480, anchor: 70, releaseTick: 480 }  // no hold (release == sec)
     ]);
-    const noHold = lineToCount([
-      { tick: 0,   anchor: 60 }, // no releaseTick → pure slope
+    const noHold = fillRectCount([
+      { tick: 0,   anchor: 60 }, // no release → no hold rectangle
       { tick: 480, anchor: 70 }
     ]);
-    // The hold polygon contributes 2 extra lineTo over the slope
-    // polygon (6 vs 4 vertices).
+    // The hold case adds one extra hold rectangle (Pass 1).
     expect(withHold).toBeGreaterThan(noHold);
-    expect(withHold - noHold).toBeGreaterThanOrEqual(2);
   });
 
   it('the hold rectangle sits at the OLDER anchor position (not the newer one)', () => {
