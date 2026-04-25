@@ -345,7 +345,7 @@ describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () 
     expect(tr.points[1].releaseSec).toBe(480 / s.ticksPerSecond);
   });
 
-  it('emits a LOW-ALPHA background fill (≈ 0.06) for the hand span during HOLD periods', () => {
+  it('emits a visible HOLD background fill (alpha ≈ 0.15) for the hand span', () => {
     const ctx = installCanvasStub();
     const s = new window.HandsLookaheadStrip(makeCanvas(), {
       ticksPerSecond: 480, rangeMin: 36, rangeMax: 96, windowSeconds: 4,
@@ -358,12 +358,12 @@ describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () 
         { tick: 480, anchor: 70, releaseTick: 480 }
       ]
     }]);
-    // The first fillStyle assignment in _drawHandTrajectories sets
-    // the HOLD background to alpha 0.06.
+    // HOLD background uses the hand colour at alpha 0.15 — clearly
+    // visible against the falling notes painted on top.
     const fillStyles = ctx.calls
       .filter(c => c.method === 'set' && c.prop === 'fillStyle')
       .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(59, 130, 246, 0\.06\)/.test(v))).toBe(true);
+    expect(fillStyles.some(v => /rgba\(59, 130, 246, 0\.15\)/.test(v))).toBe(true);
   });
 
   it('paints the transition in RED when motion.feasible === false', () => {
@@ -521,13 +521,13 @@ describe('HandsLookaheadStrip — hold-then-transition (note-off anchored)', () 
           motion: { requiredSec: 0.4, availableSec: 1.8, feasible: true } }
       ]
     }]);
-    // The HOLD background pass paints at alpha 0.06. Count the
+    // The HOLD background pass paints at alpha 0.15. Count the
     // fillRects emitted while that fillStyle is active.
     let inHold = false;
     const holdRects = [];
     for (const c of ctx.calls) {
       if (c.method === 'set' && c.prop === 'fillStyle') {
-        inHold = /rgba\(59, 130, 246, 0\.06\)/.test(c.value);
+        inHold = /rgba\(59, 130, 246, 0\.15\)/.test(c.value);
         continue;
       }
       if (inHold && c.method === 'fillRect') holdRects.push(c.args);
