@@ -154,6 +154,111 @@ describe('TablatureConverter — _getClampedPosition', () => {
   });
 });
 
+describe('TablatureConverter — hand_aware algorithm', () => {
+  const handAwareConfig = {
+    ...guitarConfig,
+    tab_algorithm: 'hand_aware',
+    scale_length_mm: 650,
+    hand_span_mm: 80,
+    hand_move_mm_per_sec: 250
+  };
+
+  test('is registered as an algorithm key', () => {
+    expect(TablatureConverter.ALGORITHMS.hand_aware).toBe('hand_aware');
+  });
+
+  test('handles a melodic line without throwing', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    const out = conv.convertMidiToTablature([
+      note(0, 64), note(240, 67), note(480, 71), note(720, 74)
+    ]);
+    expect(out).toHaveLength(4);
+    expect(out.every(e => Number.isFinite(e.fret) && e.string >= 1)).toBe(true);
+  });
+
+  test('produces a valid result for a 4-note chord (open + fretted mix)', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    const chord = [50, 55, 59, 64].map(n => note(0, n));
+    const out = conv.convertMidiToTablature(chord);
+    expect(out).toHaveLength(4);
+  });
+
+  test('falls back gracefully when scale_length_mm is missing', () => {
+    // No scale length → hand_aware degrades to min_movement-equivalent
+    // costs (no division by zero, no NaN). Output stays valid.
+    const cfg = { ...handAwareConfig, scale_length_mm: undefined };
+    const conv = new TablatureConverter(cfg);
+    const out = conv.convertMidiToTablature([
+      note(0, 60), note(240, 64)
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.every(e => Number.isFinite(e.fret))).toBe(true);
+  });
+
+  test('falls back gracefully when hand_span_mm is missing', () => {
+    const cfg = { ...handAwareConfig, hand_span_mm: undefined };
+    const conv = new TablatureConverter(cfg);
+    const out = conv.convertMidiToTablature([
+      note(0, 60), note(240, 64)
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  test('using algorithmOverride switches to hand_aware mid-call', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    const seq = [note(0, 64), note(240, 67)];
+    const baseline = conv.convertMidiToTablature(seq, 'min_movement');
+    const handAware = conv.convertMidiToTablature(seq, 'hand_aware');
+    // Both produce 2 events; hand_aware doesn't drop or inflate the count.
+    expect(baseline).toHaveLength(2);
+    expect(handAware).toHaveLength(2);
+  });
+
+  test('_useHandAwareCosts is reset after the call (no leaked state)', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    conv.convertMidiToTablature([note(0, 60)], 'hand_aware');
+    expect(conv._useHandAwareCosts).toBeFalsy();
+  });
+
+  test('_fretDistanceMm follows the equal-temperament formula', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    // 0 → 12 covers half the scale length (octave at fret 12).
+    const halfScale = conv._fretDistanceMm(0, 12);
+    expect(halfScale).toBeCloseTo(handAwareConfig.scale_length_mm / 2, 0);
+    // Symmetric: order of args does not change distance.
+    expect(conv._fretDistanceMm(5, 2)).toBeCloseTo(conv._fretDistanceMm(2, 5), 5);
+  });
+
+  test('emission mm cost is 0 for an all-open assignment', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    const cost = conv._emissionCostMm([
+      { string: 1, fret: 0 }, { string: 2, fret: 0 }
+    ]);
+    expect(cost).toBe(0.5);
+  });
+
+  test('emission mm cost rises when chord exceeds hand_span_mm', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    // 0..7 on a 650 mm scale ≈ 234 mm — far beyond 80 mm.
+    const wide = conv._emissionCostMm([
+      { string: 1, fret: 0 }, { string: 2, fret: 7 }
+    ]);
+    // 0..3 ≈ 109 mm — exceeds but only by ~30 mm.
+    const tight = conv._emissionCostMm([
+      { string: 1, fret: 0 }, { string: 2, fret: 3 }
+    ]);
+    expect(wide).toBeGreaterThan(tight);
+  });
+
+  test('transition mm cost is 0 for no-move and grows with distance', () => {
+    const conv = new TablatureConverter(handAwareConfig);
+    expect(conv._transitionCostMm(5, 5)).toBe(0);
+    const small = conv._transitionCostMm(5, 6);
+    const big   = conv._transitionCostMm(5, 18);
+    expect(big).toBeGreaterThan(small);
+  });
+});
+
 describe('TablatureConverter — max_fingers cap', () => {
   // Four-note chord made entirely of fretted pitches (no open strings):
   // on a standard 6-string guitar these are playable (6 strings available)

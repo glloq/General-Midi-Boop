@@ -357,10 +357,19 @@ async function tablatureConvertFromMidi(app, data) {
 }
 
 /**
- * If the instrument has a `hands_config` with `max_fingers` set on the
- * fretting hand, copy it onto a shallow clone of the string-instrument
- * config so `TablatureConverter` can read it. Returns the input
- * unchanged when no capabilities row or no `hands_config` is present.
+ * Flatten the hand-position fields the TablatureConverter needs onto a
+ * shallow clone of the string-instrument config. The converter's API
+ * stays narrow (one config object) while still seeing data that lives
+ * on the separate `instruments_latency.hands_config` JSON. Returns
+ * the input unchanged when no capabilities row or no `hands_config`
+ * is present.
+ *
+ * Fields propagated (any may be missing — TablatureConverter handles
+ * each independently):
+ *   - max_fingers          (B.1, prunes fingerings)
+ *   - hand_span_mm         (B.2, hand_aware emission cost)
+ *   - hand_move_mm_per_sec (B.2, hand_aware transition cost)
+ *
  * @private
  */
 function _withMaxFingersFromHandsConfig(app, config) {
@@ -377,10 +386,19 @@ function _withMaxFingersFromHandsConfig(app, config) {
     try { hands = JSON.parse(hands); } catch (_) { return config; }
   }
   const fretting = Array.isArray(hands?.hands) ? hands.hands.find(h => h?.id === 'fretting') : null;
-  if (!fretting || !Number.isFinite(fretting.max_fingers) || fretting.max_fingers <= 0) {
-    return config;
+  if (!fretting) return config;
+
+  const out = { ...config };
+  if (Number.isFinite(fretting.max_fingers) && fretting.max_fingers > 0) {
+    out.max_fingers = fretting.max_fingers;
   }
-  return { ...config, max_fingers: fretting.max_fingers };
+  if (Number.isFinite(fretting.hand_span_mm) && fretting.hand_span_mm > 0) {
+    out.hand_span_mm = fretting.hand_span_mm;
+  }
+  if (Number.isFinite(hands?.hand_move_mm_per_sec) && hands.hand_move_mm_per_sec > 0) {
+    out.hand_move_mm_per_sec = hands.hand_move_mm_per_sec;
+  }
+  return out;
 }
 
 /**
