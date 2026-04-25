@@ -33,6 +33,21 @@ export default class RoutingRepository {
   }
 
   /**
+   * Patch only the hand_position_overrides JSON of a single routing
+   * row identified by (fileId, channel, deviceId). Used by the
+   * routing-summary HandsPreviewPanel to persist user edits without
+   * re-applying the whole routing. Returns the number of rows updated.
+   * @param {(string|number)} fileId
+   * @param {number} channel
+   * @param {string} deviceId
+   * @param {?Object|string} overrides
+   * @returns {number}
+   */
+  saveHandOverrides(fileId, channel, deviceId, overrides) {
+    return this.database.updateHandOverrides(fileId, channel, deviceId, overrides);
+  }
+
+  /**
    * @param {(string|number)} fileId
    * @param {boolean} [includeDisabled=false]
    * @returns {Object[]}

@@ -149,6 +149,7 @@ class InstrumentDatabase {
 
   insertRouting(...args) { return this._routing.insertRouting(...args); }
   insertSplitRoutings(...args) { return this._routing.insertSplitRoutings(...args); }
+  updateHandOverrides(...args) { return this._routing.updateHandOverrides(...args); }
   getRoutingsByFile(...args) { return this._routing.getRoutingsByFile(...args); }
   getRoutingCountsByFiles(...args) { return this._routing.getRoutingCountsByFiles(...args); }
   deleteRoutingsByFile(...args) { return this._routing.deleteRoutingsByFile(...args); }

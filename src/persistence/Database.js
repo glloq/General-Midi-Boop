@@ -702,6 +702,9 @@ class DatabaseManager {
   insertSplitRoutings(...args) {
     return this.instrumentDB.insertSplitRoutings(...args);
   }
+  updateHandOverrides(...args) {
+    return this.instrumentDB.updateHandOverrides(...args);
+  }
   getRoutingsByFile(fileId, includeDisabled) {
     return this.instrumentDB.getRoutingsByFile(fileId, includeDisabled);
   }

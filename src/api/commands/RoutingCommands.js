@@ -410,6 +410,83 @@ async function validateRoutingFeasibility(app, data) {
   };
 }
 
+/**
+ * Persist hand-position overrides authored in the
+ * RoutingSummaryPage HandsPreviewPanel onto a single routing row.
+ * The payload is opaque JSON but must declare {hand_anchors,
+ * disabled_notes, version} to be accepted; anything else is rejected
+ * so a stale client can't store an unparseable shape that would trip
+ * the future MidiPlayer consumer. Pass `overrides: null` to clear.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number), channel:number, deviceId:string,
+ *          overrides:?(Object|null)}} data
+ * @returns {Promise<{success:true, updated:number}>}
+ * @throws {ValidationError}
+ */
+async function routingSaveHandOverrides(app, data) {
+  if (data.fileId === undefined || data.fileId === null) {
+    throw new ValidationError('fileId is required', 'fileId');
+  }
+  if (!data.deviceId) {
+    throw new ValidationError('deviceId is required', 'deviceId');
+  }
+  if (data.channel === undefined || data.channel === null) {
+    throw new ValidationError('channel is required', 'channel');
+  }
+  const channel = parseInt(data.channel, 10);
+  if (!Number.isFinite(channel) || channel < 0 || channel > 15) {
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
+  }
+
+  // Shape gate. `null` clears the field; otherwise must be an object
+  // with the documented top-level keys (extra keys are tolerated).
+  const overrides = data.overrides;
+  if (overrides !== null && overrides !== undefined) {
+    if (typeof overrides !== 'object' || Array.isArray(overrides)) {
+      throw new ValidationError('overrides must be an object or null', 'overrides');
+    }
+    if (!Array.isArray(overrides.hand_anchors) && !Array.isArray(overrides.disabled_notes)) {
+      throw new ValidationError(
+        'overrides must declare hand_anchors and/or disabled_notes arrays',
+        'overrides'
+      );
+    }
+    if (Array.isArray(overrides.hand_anchors)) {
+      for (const a of overrides.hand_anchors) {
+        if (!a || typeof a !== 'object'
+            || !Number.isFinite(a.tick) || !Number.isFinite(a.anchor)
+            || typeof a.handId !== 'string') {
+          throw new ValidationError(
+            'each hand_anchors entry must carry {tick, handId, anchor}',
+            'overrides.hand_anchors'
+          );
+        }
+      }
+    }
+    if (Array.isArray(overrides.disabled_notes)) {
+      for (const n of overrides.disabled_notes) {
+        if (!n || typeof n !== 'object'
+            || !Number.isFinite(n.tick) || !Number.isFinite(n.note)) {
+          throw new ValidationError(
+            'each disabled_notes entry must carry {tick, note}',
+            'overrides.disabled_notes'
+          );
+        }
+      }
+    }
+  }
+
+  if (!app.routingRepository?.saveHandOverrides) {
+    throw new ValidationError('routing repository is not wired', 'routingRepository');
+  }
+  const updated = app.routingRepository.saveHandOverrides(
+    data.fileId, channel, data.deviceId,
+    overrides == null ? null : overrides
+  );
+  return { success: true, updated };
+}
+
 export function register(registry, app) {
   registry.register('route_create', (data) => routeCreate(app, data));
   registry.register('route_delete', (data) => routeDelete(app, data));
@@ -431,8 +508,9 @@ export function register(registry, app) {
   registry.register('file_routing_sync', (data) => fileRoutingSync(app, data));
   registry.register('file_routing_bulk_sync', (data) => fileRoutingBulkSync(app, data));
   registry.register('validate_routing_feasibility', (data) => validateRoutingFeasibility(app, data));
+  registry.register('routing_save_hand_overrides', (data) => routingSaveHandOverrides(app, data));
 }
 
 // Exported for unit tests so a stub `app` can drive the helper without
 // going through the registry (which requires the full DI bag).
-export { validateRoutingFeasibility };
+export { validateRoutingFeasibility, routingSaveHandOverrides };

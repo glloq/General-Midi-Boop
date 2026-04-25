@@ -57,6 +57,14 @@ class RoutingPersistenceDB {
           : JSON.stringify(routing.hand_position_feasibility);
       }
 
+      // hand_position_overrides — Feature E. Same dual-shape acceptance.
+      let overridesJson = null;
+      if (routing.hand_position_overrides != null) {
+        overridesJson = typeof routing.hand_position_overrides === 'string'
+          ? routing.hand_position_overrides
+          : JSON.stringify(routing.hand_position_overrides);
+      }
+
       // For split routings, use a different INSERT (no ON CONFLICT since multiple rows per channel)
       if (routing.split_mode) {
         const stmt = this.db.prepare(`
@@ -65,8 +73,9 @@ class RoutingPersistenceDB {
              compatibility_score, transposition_applied, auto_assigned,
              assignment_reason, note_remapping, enabled, created_at,
              split_mode, split_note_min, split_note_max, split_polyphony_share,
-             overlap_strategy, behavior_mode, hand_position_feasibility)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             overlap_strategy, behavior_mode, hand_position_feasibility,
+             hand_position_overrides)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = stmt.run(
@@ -88,7 +97,8 @@ class RoutingPersistenceDB {
           routing.split_polyphony_share ?? null,
           routing.overlap_strategy || null,
           routing.behavior_mode || null,
-          feasibilityJson
+          feasibilityJson,
+          overridesJson
         );
 
         return result.lastInsertRowid;
@@ -100,8 +110,8 @@ class RoutingPersistenceDB {
           (midi_file_id, channel, target_channel, device_id, instrument_name,
            compatibility_score, transposition_applied, auto_assigned,
            assignment_reason, note_remapping, enabled, created_at,
-           hand_position_feasibility)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           hand_position_feasibility, hand_position_overrides)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(midi_file_id, channel) WHERE split_mode IS NULL
         DO UPDATE SET
           target_channel = excluded.target_channel,
@@ -114,7 +124,8 @@ class RoutingPersistenceDB {
           note_remapping = excluded.note_remapping,
           enabled = excluded.enabled,
           created_at = excluded.created_at,
-          hand_position_feasibility = excluded.hand_position_feasibility
+          hand_position_feasibility = excluded.hand_position_feasibility,
+          hand_position_overrides = excluded.hand_position_overrides
       `);
 
       const result = stmt.run(
@@ -130,12 +141,46 @@ class RoutingPersistenceDB {
         routing.note_remapping || null,
         routing.enabled !== false ? 1 : 0,
         routing.created_at || Date.now(),
-        feasibilityJson
+        feasibilityJson,
+        overridesJson
       );
 
       return result.lastInsertRowid;
     } catch (error) {
       this.logger.error(`Failed to insert routing: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Patch ONLY the hand_position_overrides JSON of an existing routing.
+   * Used by the routing-summary HandsPreviewPanel to persist user
+   * edits without re-running the full apply path. Targets the
+   * (fileId, channel, deviceId) tuple — both the standard and the
+   * split-routing variant are matched. Pass `overrides = null` to
+   * clear the field. Returns the number of rows updated.
+   *
+   * @param {(string|number)} fileId
+   * @param {number} channel
+   * @param {string} deviceId
+   * @param {?Object|string} overrides
+   * @returns {number}
+   */
+  updateHandOverrides(fileId, channel, deviceId, overrides) {
+    let payload = null;
+    if (overrides != null) {
+      payload = typeof overrides === 'string' ? overrides : JSON.stringify(overrides);
+    }
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE midi_instrument_routings
+           SET hand_position_overrides = ?
+         WHERE midi_file_id = ? AND channel = ? AND device_id = ?
+      `);
+      const result = stmt.run(payload, fileId, channel, deviceId);
+      return result.changes || 0;
+    } catch (error) {
+      this.logger.error(`Failed to update hand overrides: ${error.message}`);
       throw error;
     }
   }
@@ -199,22 +244,31 @@ class RoutingPersistenceDB {
       overlap_strategy: row.overlap_strategy || null,
       behavior_mode: row.behavior_mode || null,
       hand_position_feasibility: row.hand_position_feasibility
-        ? this._safeParseFeasibility(row.hand_position_feasibility, row.id)
+        ? this._safeParseJson(row.hand_position_feasibility, row.id, 'hand_position_feasibility')
+        : null,
+      hand_position_overrides: row.hand_position_overrides
+        ? this._safeParseJson(row.hand_position_overrides, row.id, 'hand_position_overrides')
         : null
     }));
   }
 
   /**
    * @private — never throws on a bad JSON blob; logs and returns null
-   * so a corrupted row doesn't break the routing list view.
+   * so a corrupted row doesn't break the routing list view. Shared by
+   * every JSON column on the row.
    */
-  _safeParseFeasibility(raw, rowId) {
+  _safeParseJson(raw, rowId, label) {
     try {
       return JSON.parse(raw);
     } catch (e) {
-      this.logger?.warn?.(`Routing ${rowId}: invalid hand_position_feasibility JSON (${e.message})`);
+      this.logger?.warn?.(`Routing ${rowId}: invalid ${label} JSON (${e.message})`);
       return null;
     }
+  }
+
+  /** @deprecated kept as a compat alias for the previous internal name. */
+  _safeParseFeasibility(raw, rowId) {
+    return this._safeParseJson(raw, rowId, 'hand_position_feasibility');
   }
 
   /**
