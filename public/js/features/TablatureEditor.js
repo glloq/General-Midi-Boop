@@ -637,6 +637,19 @@ class TablatureEditor {
     }
 
     /**
+     * Push hand-position warnings to the renderer so problematic events
+     * (too many fingers, move-too-fast, chord-span-exceeded) get an
+     * amber/red border around their fret number. Pass `[]` or null to
+     * clear the highlights.
+     * @param {Array<{tick:number, string?:number, code:string, level:string}>} warnings
+     */
+    setHandWarnings(warnings) {
+        if (this.renderer && typeof this.renderer.setHandWarnings === 'function') {
+            this.renderer.setHandWarnings(warnings || []);
+        }
+    }
+
+    /**
      * Configure the hand-span (in frets) used by the FretboardDiagram
      * overlay. Typically wired from the instrument's hands_config.
      * @param {number} spanFrets
