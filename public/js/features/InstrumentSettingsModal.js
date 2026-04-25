@@ -844,9 +844,36 @@ class InstrumentSettingsModal extends BaseModal {
         const instrumentName = tab
             ? (tab.settings.custom_name || tab.settings.name || (this.device && this.device.displayName) || (this.device && this.device.name) || `Ch ${tab.channel + 1}`)
             : ((this.device && this.device.displayName) || (this.device && this.device.name) || '');
+
+        // Resolve the SVG of the main voice (gm_program of the active tab).
+        // Drum-channel programs are encoded with the GM_DRUM_KIT_OFFSET so the
+        // resolver can pick the matching `drum_kit_<n>.svg`.
+        let iconHtml = '<span class="ism-header-gear">⚙️</span>';
+        if (tab && window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon) {
+            const gmProgram = tab.settings ? tab.settings.gm_program : null;
+            const channel = tab.channel;
+            const isDrumChannel = channel === 9;
+            const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+            const resolverProgram = (isDrumChannel && gmProgram != null && gmProgram < offset)
+                ? (gmProgram + offset) : gmProgram;
+            const icon = window.InstrumentFamilies.resolveInstrumentIcon({
+                gmProgram: resolverProgram,
+                channel: channel
+            });
+            if (icon && icon.slug) {
+                iconHtml = `<span class="ism-header-icon">
+                    <img class="ism-header-svg" src="${icon.svgUrl}" alt=""
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                    <span class="ism-header-emoji" style="display:none">${icon.emoji}</span>
+                </span>`;
+            } else if (icon && icon.emoji) {
+                iconHtml = `<span class="ism-header-icon"><span class="ism-header-emoji">${icon.emoji}</span></span>`;
+            }
+        }
+
         headerEl.innerHTML = `
             <span class="ism-header-main">
-                <span class="ism-header-gear">⚙️</span>
+                ${iconHtml}
                 <span class="ism-header-name">${this.escape(instrumentName)}</span>
             </span>
         `;

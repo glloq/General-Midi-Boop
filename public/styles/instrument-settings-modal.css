@@ -230,6 +230,22 @@
   color: initial;
 }
 
+.ism-section-title-icon-img {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.ism-section-title-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 /* ========== Form Groups ========== */
 .ism-form-group {
   margin-bottom: 20px;
@@ -2121,6 +2137,37 @@ body.dark-mode .ism-delete-instrument:hover {
      without Noto Color Emoji), the gear falls back to a thin monochrome
      outline that reads as "grayed out" on the purple gradient. Force the
      color-emoji font stack explicitly. */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+               "EmojiOne Color", "Twemoji Mozilla", sans-serif;
+  font-variant-emoji: emoji;
+}
+
+.ism-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.ism-header-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* SVGs in /assets/instruments are designed dark — invert on the purple
+     gradient header so they stay legible. */
+  filter: brightness(0) invert(1);
+}
+
+.ism-header-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
                "EmojiOne Color", "Twemoji Mozilla", sans-serif;
   font-variant-emoji: emoji;

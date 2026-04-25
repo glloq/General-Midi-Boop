@@ -43,7 +43,7 @@ class InstrumentManagementPage {
         <div class="modal-container inst-mgmt-container" style="background: white; border-radius: 12px; width: 95%; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
 
           <!-- Header -->
-          <div class="modal-header" style="padding: 16px 24px 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative;">
+          <div class="modal-header" style="padding: 16px 48px 16px 24px; border-bottom: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; flex-shrink: 0; position: relative;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
               <h2 style="margin: 0; font-size: 22px; white-space: nowrap;">🎹 ${i18n.t('instrumentManagement.title') || 'Gestion des instruments'}</h2>
               <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
@@ -63,6 +63,19 @@ class InstrumentManagementPage {
                   <option value="connected" style="background: #2d2d2d; color: #e0e0e0;">🔌 ${i18n.t('instrumentManagement.filterConnected') || 'Connectés'}</option>
                   <option value="virtual" id="instrumentFilterVirtualOption" style="background: #2d2d2d; color: #e0e0e0; ${this._isVirtualEnabled() ? '' : 'display:none;'}">🖥️ ${i18n.t('instrumentManagement.filterVirtual') || 'Virtuels'}</option>
                 </select>
+                <label class="inst-mgmt-virtual-toggle" title="${i18n.t('settings.virtualInstrument.description') || ''}"
+                       style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; height: 38px; padding: 0 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.15); color: white; cursor: pointer; user-select: none; font-size: 13px; font-weight: 600; white-space: nowrap;">
+                  <span>🖥️ ${i18n.t('settings.virtualInstrument.title') || 'Instrument virtuel'}</span>
+                  <span style="position: relative; display: inline-block; width: 36px; height: 20px;">
+                    <input type="checkbox" id="virtualInstrumentHeaderToggle" ${this._isVirtualEnabled() ? 'checked' : ''}
+                           onchange="instrumentManagementPageInstance.toggleVirtualInstrument(this.checked)"
+                           style="opacity: 0; width: 0; height: 0; position: absolute;">
+                    <span class="inst-mgmt-virt-slider" aria-hidden="true"
+                          style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: ${this._isVirtualEnabled() ? '#10b981' : 'rgba(0,0,0,0.35)'}; border-radius: 20px; transition: background 0.2s;">
+                      <span style="position: absolute; top: 2px; left: ${this._isVirtualEnabled() ? '18px' : '2px'}; width: 16px; height: 16px; background: white; border-radius: 50%; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
             <button class="modal-close" onclick="instrumentManagementPageInstance.close()" style="position: absolute; top: 10px; right: 10px; z-index: 1;">
@@ -339,6 +352,46 @@ class InstrumentManagementPage {
   }
 
   /**
+   * Toggle virtual instrument support — persists to localStorage, broadcasts
+   * the change so the rest of the app stays in sync, and refreshes the list.
+   */
+  toggleVirtualInstrument(enabled) {
+    try {
+      const saved = localStorage.getItem('gmboop_settings');
+      const parsed = saved ? JSON.parse(saved) : {};
+      parsed.virtualInstrument = !!enabled;
+      localStorage.setItem('gmboop_settings', JSON.stringify(parsed));
+    } catch (e) { /* ignore */ }
+
+    // Update the slider visuals without a full re-render
+    const slider = this.modal && this.modal.querySelector('.inst-mgmt-virt-slider');
+    if (slider) {
+      slider.style.background = enabled ? '#10b981' : 'rgba(0,0,0,0.35)';
+      const knob = slider.querySelector('span');
+      if (knob) knob.style.left = enabled ? '18px' : '2px';
+    }
+
+    // Show/hide the "Virtuels" filter option and the "Add virtual" button
+    const filterOpt = this.modal && this.modal.querySelector('#instrumentFilterVirtualOption');
+    if (filterOpt) filterOpt.style.display = enabled ? '' : 'none';
+    const addBtn = this.modal && this.modal.querySelector('#addVirtualInstrumentBtn');
+    if (addBtn) addBtn.style.display = enabled ? '' : 'none';
+
+    // Reset filter if user was on the virtual filter and just disabled it
+    if (!enabled && this.filterStatus === 'virtual') {
+      this.filterStatus = 'all';
+      const filterSelect = this.modal && this.modal.querySelector('#instrumentFilter');
+      if (filterSelect) filterSelect.value = 'all';
+    }
+
+    if (window.eventBus && typeof window.eventBus.emit === 'function') {
+      window.eventBus.emit('settings:virtual_instrument_changed', { enabled: !!enabled });
+    }
+
+    this.loadInstruments();
+  }
+
+  /**
    * Check whether an instrument is virtual
    */
   isVirtualInstrument(instrument) {
@@ -533,6 +586,25 @@ class InstrumentManagementPage {
     const displayName = instrument.custom_name || instrument.displayName || instrument.name;
     const safeId = esc(instrument.id);
 
+    // Resolve the SVG of the main voice (gm_program) for this channel.
+    // Drum kit programs are encoded with the GM_DRUM_KIT_OFFSET so the
+    // resolver can look up the matching `drum_kit_<n>.svg`.
+    const gmProgram = instrument.gm_program;
+    const isDrumChannel = channel === 9;
+    const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+    const resolverProgram = (isDrumChannel && gmProgram != null && gmProgram < offset)
+      ? (gmProgram + offset) : gmProgram;
+    const icon = (window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon)
+      ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: resolverProgram, channel })
+      : { svgUrl: null, emoji: '🎵', slug: null };
+
+    const iconHtml = icon.slug
+      ? `<img src="${icon.svgUrl}" alt=""
+              style="width: 100%; height: 100%; max-width: 56px; max-height: 56px; object-fit: contain; display: block;"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+         <span style="display:none; align-items:center; justify-content:center; font-size:32px; line-height:1;">${icon.emoji}</span>`
+      : `<span style="display:flex; align-items:center; justify-content:center; font-size:32px; line-height:1;">${icon.emoji}</span>`;
+
     return `
       <div class="instrument-sub-card" style="
         padding: 10px 12px;
@@ -541,42 +613,58 @@ class InstrumentManagementPage {
         border-radius: 6px;
         background: var(--card-bg, #fafbfc);
         display: flex;
-        align-items: center;
-        gap: 10px;
+        align-items: stretch;
+        gap: 12px;
         font-size: 13px;
+        min-height: 64px;
       ">
-        <!-- Channel badge -->
-        <span style="display: inline-flex; align-items: center; padding: 2px 7px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 36px; justify-content: center; flex-shrink: 0;">Ch ${channel + 1}</span>
+        <!-- Main-voice SVG: full card height, on the left -->
+        <div class="instrument-sub-card-icon" style="
+          flex-shrink: 0;
+          width: 56px;
+          align-self: stretch;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0,0,0,0.03);
+          border-radius: 6px;
+          padding: 4px;
+        ">
+          ${iconHtml}
+        </div>
 
-        <!-- Info -->
-        <div style="flex: 1; min-width: 0;">
+        <!-- Name (top) + channel tag (below) + secondary info -->
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            ${instrument.gm_program !== null && instrument.gm_program !== undefined
-              ? `<span style="color: var(--text-primary, #374151); font-weight: 500;">${esc(displayName)}</span>`
+            ${gmProgram !== null && gmProgram !== undefined
+              ? `<span style="color: var(--text-primary, #374151); font-weight: 600; font-size: 14px;">${esc(displayName)}</span>`
               : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
             ${isComplete
               ? `<span style="display:inline-block;padding:1px 6px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:600;">✓</span>`
               : `<span style="display:inline-block;padding:1px 6px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:600;">⚠</span>`}
           </div>
-          <div style="display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
-            ${instrument.note_range_min != null && instrument.note_range_max != null
-              ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
-              : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
-                ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
-                : '')}
-            ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="display: inline-flex; align-items: center; padding: 2px 8px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 36px; justify-content: center;">Ch ${channel + 1}</span>
+            <span style="display: flex; gap: 8px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
+              ${instrument.note_range_min != null && instrument.note_range_max != null
+                ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
+                : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
+                  ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
+                  : '')}
+              ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
+            </span>
           </div>
         </div>
 
         <!-- Edit -->
-        <button class="btn btn-primary" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0;"
+        <button class="btn btn-primary" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; align-self: center;"
                 onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
                 title="${i18n.t('instrumentManagement.edit') || 'Modifier'}">
           ⚙️
         </button>
 
         <!-- Delete -->
-        <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0;"
+        <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; align-self: center;"
                 onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
                 title="${i18n.t('common.delete') || 'Supprimer'}">
           🗑️

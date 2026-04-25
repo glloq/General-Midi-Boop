@@ -63,10 +63,26 @@
         const settings = tab.settings;
         const channel = tab.channel;
 
-        // GM category emoji (section-title icon)
+        // GM category emoji (fallback when no SVG is available)
         const gmProgram = settings.gm_program;
         const catKey = this._getGmCategoryKey(gmProgram);
         const gmEmoji = catKey ? (InstrumentSettingsModal.GM_CATEGORY_EMOJIS[catKey] || '🎵') : '🎵';
+
+        // Section-title icon: SVG of the main voice when available.
+        const isIdDrumChannel = channel === 9;
+        const idOffset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+        const idResolverProgram = (isIdDrumChannel && gmProgram != null && gmProgram < idOffset)
+            ? (gmProgram + idOffset) : gmProgram;
+        const idIcon = (window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon)
+            ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: idResolverProgram, channel })
+            : null;
+        const idIconHtml = (idIcon && idIcon.slug)
+            ? `<span class="ism-section-title-icon ism-section-title-icon-img">
+                   <img class="ism-section-title-svg" src="${idIcon.svgUrl}" alt=""
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                   <span style="display:none">${(idIcon && idIcon.emoji) || gmEmoji}</span>
+               </span>`
+            : `<span class="ism-section-title-icon">${(idIcon && idIcon.emoji) || gmEmoji}</span>`;
 
         // Identity picker state: always derived from the current tab on a full
         // render. Preservation of 'instruments' step across interactions is
@@ -136,7 +152,7 @@
         const sysexCardHtml = this._renderSysexIdentityCard(sysexIdentity);
 
         return `
-            <h3 class="ism-section-title"><span class="ism-section-title-icon">${gmEmoji}</span> ${this.t('instrumentSettings.sectionIdentity') || 'Identité'}</h3>
+            <h3 class="ism-section-title">${idIconHtml} ${this.t('instrumentSettings.sectionIdentity') || 'Identité'}</h3>
 
             <div class="ism-form-group ism-identity-picker-wrap">
                 <div class="ism-identity-header-row">
@@ -534,8 +550,24 @@
             </div>`
             : '';
 
+        // Resolve the SVG of the main voice for the section title icon.
+        const isDrumChannel = tab.channel === 9;
+        const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+        const titleResolverProgram = (isDrumChannel && gmProgram != null && gmProgram < offset)
+            ? (gmProgram + offset) : gmProgram;
+        const titleIcon = (window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon)
+            ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: titleResolverProgram, channel: tab.channel })
+            : null;
+        const titleIconHtml = (titleIcon && titleIcon.slug)
+            ? `<span class="ism-section-title-icon ism-section-title-icon-img">
+                   <img class="ism-section-title-svg" src="${titleIcon.svgUrl}" alt=""
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                   <span style="display:none">${titleIcon.emoji}</span>
+               </span>`
+            : `<span class="ism-section-title-icon">${(titleIcon && titleIcon.emoji) || '🎹'}</span>`;
+
         return `
-            <h3 class="ism-section-title"><span class="ism-section-title-icon">🎹</span> ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
+            <h3 class="ism-section-title">${titleIconHtml} ${this.t('instrumentSettings.sectionNotes') || 'Notes & Capacités'}</h3>
 
             ${shareToggleHtml}
             ${voiceTabsHtml}
