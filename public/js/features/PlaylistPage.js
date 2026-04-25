@@ -378,19 +378,63 @@ class PlaylistPage {
 
     const routingChecks = this.playlistItems.map(item =>
       this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
-        .then(res => ({ midi_id: item.midi_id, count: (res.routings || []).length }))
-        .catch(() => ({ midi_id: item.midi_id, count: 0 }))
+        .then(res => {
+          const routings = res.routings || [];
+          // C.8: aggregate the worst hand-position feasibility across
+          // every routing of the file so the playlist can show a
+          // single badge per file. Levels are persisted per-routing
+          // by D.1; rows from before that migration carry null and
+          // are reported as 'unknown'.
+          const order = { unknown: 0, ok: 1, warning: 2, infeasible: 3 };
+          let worst = null;
+          for (const r of routings) {
+            const lvl = r?.hand_position_feasibility?.level;
+            if (!lvl) continue;
+            if (worst == null || (order[lvl] || 0) > (order[worst] || 0)) worst = lvl;
+          }
+          return { midi_id: item.midi_id, count: routings.length, handLevel: worst };
+        })
+        .catch(() => ({ midi_id: item.midi_id, count: 0, handLevel: null }))
     );
 
     Promise.all(routingChecks).then(results => {
-      const routingMap = new Map(results.map(r => [r.midi_id, r.count]));
+      const routingMap = new Map(results.map(r => [r.midi_id, { count: r.count, handLevel: r.handLevel }]));
       this._renderPlaylistItemsWithRouting(container, routingMap);
     });
   }
 
+  /**
+   * Render the small hand-position feasibility badge used in the
+   * playlist row. Returns an empty string when the level is null /
+   * unknown so undecorated files don't acquire a bogus mark.
+   * @private
+   */
+  _renderHandFeasibilityBadge(level) {
+    if (!level || level === 'unknown' || level === 'ok') {
+      // 'ok' intentionally renders nothing — green dots would compete
+      // with the existing green routing dot. Keep the column quiet
+      // unless something is actually wrong.
+      return '';
+    }
+    const t = (k, fb) => (window.i18n?.t ? (window.i18n.t(k) || fb) : fb);
+    const colors = { warning: '#f59e0b', infeasible: '#ef4444' };
+    const titles = {
+      warning:    t('handPosition.badgeWarning',    'Hand-position warning'),
+      infeasible: t('handPosition.badgeInfeasible', 'Hand-position infeasible')
+    };
+    const glyph = level === 'infeasible' ? '✗' : '⚠';
+    return `<span class="playlist-hand-badge" data-level="${level}"
+      title="${titles[level] || ''}"
+      style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;background:${colors[level]};color:white;font-size:10px;font-weight:bold;flex-shrink:0;">${glyph}</span>`;
+  }
+
   _renderPlaylistItemsWithRouting(container, routingMap) {
     container.innerHTML = this.playlistItems.map((item, index) => {
-      const routingCount = routingMap.get(item.midi_id);
+      const entry = routingMap.get(item.midi_id);
+      // Backward compat: older callers stored a bare count number.
+      const routingCount = (entry && typeof entry === 'object') ? entry.count : entry;
+      const handLevel = (entry && typeof entry === 'object') ? entry.handLevel : null;
+
       let routingDot = '';
       if (routingCount === undefined) {
         routingDot = '<span title="Checking..." style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#adb5bd;flex-shrink:0;"></span>';
@@ -399,6 +443,7 @@ class PlaylistPage {
       } else {
         routingDot = '<span title="Not routed" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;flex-shrink:0;"></span>';
       }
+      const handBadge = this._renderHandFeasibilityBadge(handLevel);
 
       return `
         <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
@@ -407,6 +452,7 @@ class PlaylistPage {
           <span class="file-drag-handle" style="cursor:grab;opacity:0.4;">⠿</span>
           <span style="background:var(--accent-primary, #667eea);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
           ${routingDot}
+          ${handBadge}
           <div style="flex:1;min-width:0;">
             <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this._escapeHtml(item.filename)}</div>
             <div style="font-size:0.8rem;color:var(--text-muted, #6c757d);">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
