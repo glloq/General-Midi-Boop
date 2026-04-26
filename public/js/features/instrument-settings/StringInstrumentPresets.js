@@ -1,0 +1,127 @@
+/**
+ * StringInstrumentPresets
+ * Liste de presets géométriques pour les instruments à cordes (cordes,
+ * échelle en mm, frettes, mécanisme de main recommandé) utilisée par
+ * l'onglet "Main" du modal Réglages d'instrument.
+ *
+ * Source de vérité : `shared/string-instrument-presets.json`. Ce fichier
+ * miroir inline les données pour permettre un chargement synchrone côté
+ * navigateur (pas de fetch nécessaire à l'ouverture du modal). Un test
+ * Vitest doit s'assurer que les deux restent synchronisés.
+ *
+ * Exposé via `window.StringInstrumentPresets` :
+ *   - PRESETS : tableau ordonné de presets
+ *   - MECHANISMS : 3 mécanismes (string_sliding_fingers, fret_sliding_fingers, independent_fingers)
+ *   - getPresetById(id)
+ *   - getMechanismById(id)
+ *   - filterPresetsByFamily(slug)
+ *   - filterPresetsByGmProgram(gmProgram)
+ *   - getDefaultPresetForGmProgram(gmProgram, channel)
+ */
+(function() {
+    'use strict';
+
+    const PRESETS = [
+        { id: 'acoustic_guitar_nylon',  label: 'Guitare classique (nylon)',     family_slug: 'plucked_strings', gm_programs: [24],                     num_strings: 6,  scale_length_mm: 650,  num_frets: 19, default_mechanism: 'string_sliding_fingers' },
+        { id: 'acoustic_guitar_steel',  label: 'Guitare acoustique (steel)',    family_slug: 'plucked_strings', gm_programs: [25],                     num_strings: 6,  scale_length_mm: 648,  num_frets: 20, default_mechanism: 'string_sliding_fingers' },
+        { id: 'electric_guitar',        label: 'Guitare électrique',            family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], num_strings: 6,  scale_length_mm: 648,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'electric_guitar_gibson', label: 'Guitare électrique (Gibson)',   family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], num_strings: 6,  scale_length_mm: 628,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'guitar_baritone',        label: 'Guitare baryton',               family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], num_strings: 6,  scale_length_mm: 686,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'guitar_7string',         label: 'Guitare 7 cordes',              family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], num_strings: 7,  scale_length_mm: 648,  num_frets: 24, default_mechanism: 'string_sliding_fingers' },
+        { id: 'guitar_12string',        label: 'Guitare 12 cordes',             family_slug: 'plucked_strings', gm_programs: [25],                     num_strings: 12, scale_length_mm: 648,  num_frets: 20, default_mechanism: 'string_sliding_fingers' },
+        { id: 'bass_acoustic',          label: 'Basse acoustique',              family_slug: 'plucked_strings', gm_programs: [32],                     num_strings: 4,  scale_length_mm: 864,  num_frets: 20, default_mechanism: 'string_sliding_fingers' },
+        { id: 'bass_long',              label: 'Basse électrique (long 34")',   family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], num_strings: 4, scale_length_mm: 864,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'bass_short',             label: 'Basse électrique (short 30")',  family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], num_strings: 4, scale_length_mm: 762,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'bass_5string',           label: 'Basse 5 cordes (35")',          family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], num_strings: 5, scale_length_mm: 889,  num_frets: 24, default_mechanism: 'string_sliding_fingers' },
+        { id: 'harp',                   label: 'Harpe',                         family_slug: 'plucked_strings', gm_programs: [46],                     num_strings: 47, scale_length_mm: 1700, num_frets: 0,  default_mechanism: 'fret_sliding_fingers' },
+        { id: 'sitar',                  label: 'Sitar',                         family_slug: 'plucked_strings', gm_programs: [104],                    num_strings: 7,  scale_length_mm: 870,  num_frets: 20, default_mechanism: 'string_sliding_fingers' },
+        { id: 'banjo',                  label: 'Banjo (5 cordes)',              family_slug: 'plucked_strings', gm_programs: [105],                    num_strings: 5,  scale_length_mm: 660,  num_frets: 22, default_mechanism: 'string_sliding_fingers' },
+        { id: 'shamisen',               label: 'Shamisen',                      family_slug: 'plucked_strings', gm_programs: [106],                    num_strings: 3,  scale_length_mm: 615,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' },
+        { id: 'koto',                   label: 'Koto',                          family_slug: 'plucked_strings', gm_programs: [107],                    num_strings: 13, scale_length_mm: 1820, num_frets: 0,  default_mechanism: 'fret_sliding_fingers' },
+        { id: 'ukulele_soprano',        label: 'Ukulélé (soprano)',             family_slug: 'plucked_strings', gm_programs: [24, 25],                 num_strings: 4,  scale_length_mm: 350,  num_frets: 12, default_mechanism: 'string_sliding_fingers' },
+        { id: 'ukulele_concert',        label: 'Ukulélé (concert)',             family_slug: 'plucked_strings', gm_programs: [24, 25],                 num_strings: 4,  scale_length_mm: 380,  num_frets: 15, default_mechanism: 'string_sliding_fingers' },
+        { id: 'ukulele_tenor',          label: 'Ukulélé (tenor)',               family_slug: 'plucked_strings', gm_programs: [24, 25],                 num_strings: 4,  scale_length_mm: 430,  num_frets: 17, default_mechanism: 'string_sliding_fingers' },
+        { id: 'ukulele_baritone',       label: 'Ukulélé (baritone)',            family_slug: 'plucked_strings', gm_programs: [24, 25],                 num_strings: 4,  scale_length_mm: 510,  num_frets: 18, default_mechanism: 'string_sliding_fingers' },
+        { id: 'mandolin',               label: 'Mandoline',                     family_slug: 'plucked_strings', gm_programs: [25, 26],                 num_strings: 8,  scale_length_mm: 350,  num_frets: 20, default_mechanism: 'string_sliding_fingers' },
+        { id: 'violin',                 label: 'Violon',                        family_slug: 'bowed_strings',   gm_programs: [40],                     num_strings: 4,  scale_length_mm: 328,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' },
+        { id: 'viola',                  label: 'Alto',                          family_slug: 'bowed_strings',   gm_programs: [41],                     num_strings: 4,  scale_length_mm: 380,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' },
+        { id: 'cello',                  label: 'Violoncelle',                   family_slug: 'bowed_strings',   gm_programs: [42],                     num_strings: 4,  scale_length_mm: 690,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' },
+        { id: 'contrabass',             label: 'Contrebasse',                   family_slug: 'bowed_strings',   gm_programs: [43],                     num_strings: 4,  scale_length_mm: 1050, num_frets: 0,  default_mechanism: 'string_sliding_fingers' },
+        { id: 'fiddle',                 label: 'Fiddle (folk)',                 family_slug: 'bowed_strings',   gm_programs: [110],                    num_strings: 4,  scale_length_mm: 328,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' }
+    ];
+
+    const MECHANISMS = [
+        {
+            id: 'string_sliding_fingers',
+            label: 'Doigts qui glissent le long des cordes',
+            description: 'Chaque doigt est fixé à une corde et glisse le long de celle-ci sur la largeur de la main (plusieurs frettes accessibles par doigt).',
+            v2: false
+        },
+        {
+            id: 'fret_sliding_fingers',
+            label: 'Doigts qui glissent entre les cordes',
+            description: 'Chaque doigt est fixé à un offset de frette de la main et traverse les cordes pour sélectionner laquelle presser. Option « doigts à hauteur variable » pour 2 ou 3 doigts.',
+            v2: false
+        },
+        {
+            id: 'independent_fingers',
+            label: 'Doigts indépendants (humanoïde)',
+            description: '4 doigts à 2 axes chacun (corde × frette). Permet barrés, accords arbitraires, jeu humain. Mécanisme prévu pour la V2 du projet.',
+            v2: true
+        }
+    ];
+
+    function getPresetById(id) {
+        return PRESETS.find(p => p.id === id) || null;
+    }
+
+    function getMechanismById(id) {
+        return MECHANISMS.find(m => m.id === id) || null;
+    }
+
+    /**
+     * All presets attached to a given family slug (e.g. 'plucked_strings').
+     * Used by the modal to filter the dropdown to relevant entries only.
+     */
+    function filterPresetsByFamily(slug) {
+        if (!slug) return [];
+        return PRESETS.filter(p => p.family_slug === slug);
+    }
+
+    /**
+     * All presets that mention `gmProgram` in their `gm_programs` list.
+     * Order is preserved so the picker can highlight the canonical entry
+     * first. Returns an empty array when nothing matches (caller can fall
+     * back to filterPresetsByFamily).
+     */
+    function filterPresetsByGmProgram(gmProgram) {
+        if (!Number.isFinite(gmProgram)) return [];
+        return PRESETS.filter(p => Array.isArray(p.gm_programs) && p.gm_programs.includes(gmProgram));
+    }
+
+    /**
+     * Best preset to seed an instrument's geometry when its identity
+     * changes. Returns the first GM-program-matching preset, or null
+     * when the program isn't a string instrument.
+     *
+     * Channel is accepted for parity with `InstrumentFamilies.getFamilyForProgram`
+     * but currently unused — drum kits never resolve to a string preset.
+     */
+    function getDefaultPresetForGmProgram(gmProgram, _channel) {
+        const matches = filterPresetsByGmProgram(gmProgram);
+        return matches.length > 0 ? matches[0] : null;
+    }
+
+    const api = {
+        PRESETS: PRESETS,
+        MECHANISMS: MECHANISMS,
+        getPresetById: getPresetById,
+        getMechanismById: getMechanismById,
+        filterPresetsByFamily: filterPresetsByFamily,
+        filterPresetsByGmProgram: filterPresetsByGmProgram,
+        getDefaultPresetForGmProgram: getDefaultPresetForGmProgram
+    };
+
+    if (typeof window !== 'undefined') window.StringInstrumentPresets = api;
+    if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})();

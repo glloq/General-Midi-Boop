@@ -101,6 +101,23 @@ class HandPositionPlanner {
       this.handById.set(h.id, h);
     }
 
+    // Mechanism discriminator (frets-mode only). The window-based
+    // planning logic is shared between `string_sliding_fingers` and
+    // `fret_sliding_fingers` for V1 — both produce the same CC22
+    // sequence (lowest fret of the reachable window). The difference
+    // is in how the hardware interprets the CC: the same value is sent,
+    // the actuators react differently. `independent_fingers` is V2 and
+    // explicitly rejected here so a config that slipped past validation
+    // never produces a nonsense CC stream.
+    this.mechanism = this.unit === 'frets'
+      ? (this.config.mechanism || 'string_sliding_fingers')
+      : null;
+    if (this.mechanism === 'independent_fingers') {
+      throw new Error(
+        'HandPositionPlanner: mechanism "independent_fingers" is reserved for V2 and not yet implemented'
+      );
+    }
+
     // Physical mode is active when frets-unit AND both scale length and
     // hand width (mm) are known. It supersedes the constant-frets-window
     // model with a position-dependent reach derived from equal-temperament
@@ -319,25 +336,33 @@ class HandPositionPlanner {
         }
       }
 
-      // max_fingers check (frets mode only). Open strings (fret 0) don't
-      // press a string against the fretboard, so they don't consume a
-      // finger — exclude them from the count. The check is non-blocking,
+      // Per-mechanism finger-count check (frets mode only). Open strings
+      // (fret 0) don't press a string against the fretboard so they don't
+      // consume a finger — exclude them from the count. Non-blocking:
       // the planner still emits a CC even when too many fingers are
-      // demanded.
-      if (this.unit === 'frets' && Number.isFinite(hand.max_fingers) && hand.max_fingers > 0) {
-        let frettedCount = 0;
-        for (const nIdx of g.notes) {
-          const f = notes[nIdx].fretPosition;
-          if (Number.isFinite(f) && f > 0) frettedCount++;
-        }
-        if (frettedCount > hand.max_fingers) {
-          warnings.push({
-            time: g.time, hand: g.hand, note: null,
-            code: 'too_many_fingers',
-            count: frettedCount,
-            limit: hand.max_fingers,
-            message: `Chord requires ${frettedCount} fingers, hand has ${hand.max_fingers}`
-          });
+      // demanded, but it surfaces a warning.
+      //
+      //   - string_sliding_fingers: 1 finger per string → cap is `max_fingers`.
+      //   - fret_sliding_fingers:   1 finger per fret-offset → cap is `num_fingers`.
+      if (this.unit === 'frets') {
+        const fingerCap = this.mechanism === 'fret_sliding_fingers'
+          ? (Number.isFinite(hand.num_fingers) && hand.num_fingers > 0 ? hand.num_fingers : null)
+          : (Number.isFinite(hand.max_fingers) && hand.max_fingers > 0 ? hand.max_fingers : null);
+        if (fingerCap != null) {
+          let frettedCount = 0;
+          for (const nIdx of g.notes) {
+            const f = notes[nIdx].fretPosition;
+            if (Number.isFinite(f) && f > 0) frettedCount++;
+          }
+          if (frettedCount > fingerCap) {
+            warnings.push({
+              time: g.time, hand: g.hand, note: null,
+              code: 'too_many_fingers',
+              count: frettedCount,
+              limit: fingerCap,
+              message: `Chord requires ${frettedCount} fingers, hand has ${fingerCap}`
+            });
+          }
         }
       }
 

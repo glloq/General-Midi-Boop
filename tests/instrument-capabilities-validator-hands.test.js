@@ -159,6 +159,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
         hands: [
           { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }
@@ -175,6 +176,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
         hands: [
           { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 },
@@ -193,6 +195,8 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
+        hand_move_frets_per_sec: 12,
         hands: [{ id: 'left', cc_position_number: 22, hand_span_frets: 4 }]
       }
     });
@@ -207,6 +211,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
         hands: [{ id: 'fretting', cc_position_number: 22 }]
       }
@@ -222,6 +227,8 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
+        hand_move_frets_per_sec: 12,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4, hand_span_semitones: 14 }]
       }
     });
@@ -236,6 +243,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_semitones_per_sec: 60,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
       }
@@ -251,12 +259,152 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
+        hand_move_frets_per_sec: 12,
         assignment: { mode: 'auto' },
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
       }
     });
     expect(r.isValid).toBe(false);
     expect(r.missing.some(m => m.field === 'hands_config.assignment')).toBe(true);
+  });
+
+  test('frets mode without mechanism is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+  });
+
+  test('mechanism = independent_fingers is rejected (V2 stub)', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'independent_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m =>
+      m.field === 'hands_config.mechanism' && /V2/.test(m.reason || '')
+    )).toBe(true);
+  });
+
+  test('unknown mechanism value is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'bogus',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+  });
+
+  test('fret_sliding_fingers requires num_fingers', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'fret_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+  });
+
+  test('fret_sliding_fingers num_fingers in [1,8] is accepted', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'fret_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, num_fingers: 4 }]
+      }
+    });
+    expect(r.isValid).toBe(true);
+  });
+
+  test('fret_sliding_fingers num_fingers > 8 is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'fret_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, num_fingers: 12 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+  });
+
+  test('fret_sliding_fingers variable_height_fingers_count > num_fingers is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'fret_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{
+          id: 'fretting', cc_position_number: 22, hand_span_mm: 80,
+          num_fingers: 3, variable_height_fingers_count: 5
+        }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m =>
+      m.field === 'hands_config.hands[0].variable_height_fingers_count'
+    )).toBe(true);
+  });
+
+  test('string_sliding_fingers rejects fret_sliding-only fields', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...guitar(),
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'string_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{
+          id: 'fretting', cc_position_number: 22, hand_span_mm: 80,
+          num_fingers: 4
+        }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m =>
+      m.field === 'hands_config.hands[0].num_fingers'
+    )).toBe(true);
   });
 
   test('semitones mode rejects stray hand_span_frets', () => {
@@ -311,6 +459,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
       }
@@ -325,6 +474,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
       }
@@ -339,6 +489,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hand_move_frets_per_sec: 12,
         hands: [{
@@ -357,6 +508,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 250 }]
       }
@@ -372,6 +524,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 5000,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
       }
@@ -387,6 +540,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
       }
     });
@@ -401,6 +555,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, max_fingers: 6 }]
       }
@@ -415,6 +570,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       hands_config: {
         enabled: true,
         mode: 'frets',
+        mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, max_fingers: 0 }]
       }

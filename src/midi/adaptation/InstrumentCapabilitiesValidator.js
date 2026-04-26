@@ -131,8 +131,11 @@ class InstrumentCapabilitiesValidator {
    *     (left/right), per-hand `hand_span_semitones`, shared
    *     `hand_move_semitones_per_sec`, optional `assignment` block.
    *   - `'frets'`: string-family. A single hand whose id is `'fretting'`,
-   *     per-hand `hand_span_frets`, shared `hand_move_frets_per_sec`, no
-   *     assignment block.
+   *     per-hand `hand_span_mm`, shared `hand_move_mm_per_sec`, no
+   *     assignment block. The `mechanism` field discriminates between
+   *     the two V1 implementations (`string_sliding_fingers`,
+   *     `fret_sliding_fingers`); `independent_fingers` is V2 and
+   *     rejected at save time so the planner is never asked to run it.
    *
    * Cross-unit fields are rejected (a frets-mode config carrying
    * `hand_span_semitones`, or vice versa) so misconfigurations surface
@@ -259,20 +262,49 @@ class InstrumentCapabilitiesValidator {
   }
 
   /**
-   * Frets mode: single fretting hand, no assignment block. Two parallel
-   * unit pairs are accepted, each independently validated:
-   *   - millimetres (`hand_span_mm` + `hand_move_mm_per_sec`) — physical
-   *     model when the instrument provides `scale_length_mm`.
-   *   - frets (`hand_span_frets` + `hand_move_frets_per_sec`) — fallback
-   *     when no scale length is known.
-   * At least one complete pair (span + speed in the same unit) is
-   * required so the planner has a coherent input regardless of which
-   * mode wins at runtime. `max_fingers` is optional; capped at 12 (the
-   * num_strings DB cap) since the validator can't see the instrument's
-   * own num_strings.
+   * Frets mode: single fretting hand, no assignment block.
+   *
+   * Required:
+   *   - `mechanism`: discriminator selecting the V1 planner variant
+   *     (`string_sliding_fingers` or `fret_sliding_fingers`).
+   *     `independent_fingers` is reserved for V2 and rejected here so
+   *     the planner is never asked to run it.
+   *   - hand span: `hand_span_mm` (preferred) or `hand_span_frets`
+   *     (legacy fallback for rows that pre-date the mm refactor; new
+   *     UI never writes it but downstream code still reads it as a
+   *     summary value).
+   *   - travel speed: `hand_move_mm_per_sec` or `hand_move_frets_per_sec`
+   *     under the same legacy/new split.
+   *
+   * For `fret_sliding_fingers` we additionally validate the per-finger
+   * count (`num_fingers`) and the optional variable-height sub-count
+   * (`variable_height_fingers_count`).
    * @private
    */
   _validateFretsHandsConfig(cfg, issues) {
+    // Mechanism — required for frets mode. V2 entries are saved-rejected.
+    const VALID_MECHANISMS = new Set(['string_sliding_fingers', 'fret_sliding_fingers']);
+    const V2_MECHANISMS = new Set(['independent_fingers']);
+    if (cfg.mechanism == null || cfg.mechanism === '') {
+      issues.push({
+        field: 'hands_config.mechanism', label: 'Hand mechanism',
+        type: 'select', required: true,
+        reason: "mechanism is required in frets mode (one of: 'string_sliding_fingers', 'fret_sliding_fingers')."
+      });
+    } else if (V2_MECHANISMS.has(cfg.mechanism)) {
+      issues.push({
+        field: 'hands_config.mechanism', label: 'Hand mechanism',
+        type: 'select', required: true,
+        reason: `mechanism '${cfg.mechanism}' is reserved for V2 and not yet implemented.`
+      });
+    } else if (!VALID_MECHANISMS.has(cfg.mechanism)) {
+      issues.push({
+        field: 'hands_config.mechanism', label: 'Hand mechanism',
+        type: 'select', required: true,
+        reason: `Unknown mechanism '${cfg.mechanism}'. Must be 'string_sliding_fingers' or 'fret_sliding_fingers'.`
+      });
+    }
+
     if (cfg.hands.length !== 1) {
       issues.push({
         field: 'hands_config.hands', label: 'Hands list',
@@ -293,6 +325,8 @@ class InstrumentCapabilitiesValidator {
     }
 
     // Hand span — at least one of (mm, frets) must be present and valid.
+    // `hand_span_mm` is the canonical unit; `hand_span_frets` is kept
+    // accepted for legacy rows but no longer written by the UI.
     const mmSpanValid = Number.isFinite(h.hand_span_mm) && h.hand_span_mm > 0;
     const fretsSpanValid = Number.isFinite(h.hand_span_frets) && h.hand_span_frets > 0;
     if (h.hand_span_mm != null && (!Number.isFinite(h.hand_span_mm) || h.hand_span_mm < 30 || h.hand_span_mm > 200)) {
@@ -305,7 +339,7 @@ class InstrumentCapabilitiesValidator {
       issues.push({
         field: 'hands_config.hands[0].hand_span_mm', label: 'Hand span',
         type: 'number', required: true,
-        reason: 'frets mode requires hand_span_mm OR hand_span_frets (one is enough).'
+        reason: 'frets mode requires hand_span_mm (preferred) or hand_span_frets (legacy).'
       });
     }
     if (h.hand_span_semitones != null) {
@@ -319,6 +353,53 @@ class InstrumentCapabilitiesValidator {
           field: 'hands_config.hands[0].max_fingers', label: 'Max fingers',
           type: 'number', required: true,
           reason: 'max_fingers must be a positive integer between 1 and 12.'
+        });
+      }
+    }
+
+    // fret_sliding_fingers-specific fields. `num_fingers` is the count
+    // of fret-anchored fingers spread across the hand width;
+    // `variable_height_fingers_count` is how many of those fingers have
+    // an adjustable fret offset (0 = all fixed, max = all variable).
+    if (cfg.mechanism === 'fret_sliding_fingers') {
+      if (h.num_fingers == null
+          || !Number.isFinite(h.num_fingers)
+          || h.num_fingers < 1
+          || h.num_fingers > 8) {
+        issues.push({
+          field: 'hands_config.hands[0].num_fingers', label: 'Number of fingers',
+          type: 'number', required: true,
+          reason: 'fret_sliding_fingers requires num_fingers in [1,8].'
+        });
+      }
+      if (h.variable_height_fingers_count != null) {
+        const max = Number.isFinite(h.num_fingers) ? h.num_fingers : 8;
+        if (!Number.isFinite(h.variable_height_fingers_count)
+            || h.variable_height_fingers_count < 0
+            || h.variable_height_fingers_count > max) {
+          issues.push({
+            field: 'hands_config.hands[0].variable_height_fingers_count',
+            label: 'Variable-height fingers',
+            type: 'number', required: true,
+            reason: `variable_height_fingers_count must be between 0 and num_fingers (${max}).`
+          });
+        }
+      }
+    } else if (cfg.mechanism === 'string_sliding_fingers') {
+      // string_sliding_fingers must NOT carry the fret-sliding-only fields.
+      if (h.num_fingers != null) {
+        issues.push({
+          field: 'hands_config.hands[0].num_fingers', label: 'Number of fingers',
+          type: 'number', required: true,
+          reason: 'num_fingers is only valid for fret_sliding_fingers.'
+        });
+      }
+      if (h.variable_height_fingers_count != null) {
+        issues.push({
+          field: 'hands_config.hands[0].variable_height_fingers_count',
+          label: 'Variable-height fingers',
+          type: 'number', required: true,
+          reason: 'variable_height_fingers_count is only valid for fret_sliding_fingers.'
         });
       }
     }
@@ -346,7 +427,7 @@ class InstrumentCapabilitiesValidator {
       issues.push({
         field: 'hands_config.hand_move_mm_per_sec', label: 'Travel speed',
         type: 'number', required: true,
-        reason: 'frets mode requires hand_move_mm_per_sec OR hand_move_frets_per_sec.'
+        reason: 'frets mode requires hand_move_mm_per_sec (preferred) or hand_move_frets_per_sec (legacy).'
       });
     }
     if (cfg.hand_move_semitones_per_sec != null) {

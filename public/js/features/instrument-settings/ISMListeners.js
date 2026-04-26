@@ -1404,51 +1404,151 @@
     };
 
     /**
-     * Wire live behaviours for the Hands section. Today this is limited
-     * to refreshing the physical-model coverage hint when the user types
-     * a new `hand_span_mm`; saving still happens via _collectHandsConfig
-     * reading the DOM. When the section is not rendered (instrument
-     * family without hand-position support) this is a no-op.
+     * Wire live behaviours for the Hands section:
+     *   - mechanism cards: click to switch the active mechanism, which
+     *     re-renders the per-mechanism form below.
+     *   - geometry preset dropdown: auto-fill scale_length_mm,
+     *     num_strings, num_frets when a preset is picked.
+     *   - geometry inputs: write changes back to tab.stringInstrumentConfig
+     *     so a save persists them alongside hands_config.
+     *
+     * When the section is not rendered (instrument family without
+     * hand-position support, or the toggle in Notes & Capacités is
+     * off) this is a no-op.
      */
     ISMListeners._attachHandsSectionListeners = function() {
         const handsSection = this.$('.ism-section[data-section="hands"]');
         if (!handsSection) return;
 
-        const spanMmInput = handsSection.querySelector('[data-field="hand_span_mm"]');
-        const hint = handsSection.querySelector('#handsCoverageHint');
-        const canvas = handsSection.querySelector('#handsCoveragePreview');
-        if (!spanMmInput || !window.ISMSections?._fretCoverageHint) return;
+        this._attachMechanismCardListeners(handsSection);
+        this._attachHandsGeometryListeners(handsSection);
+    };
 
-        const scaleLengthMm = parseInt(
-            (hint && hint.dataset.scaleLength) || (canvas && canvas.dataset.scaleLength),
-            10
-        );
-        if (!Number.isFinite(scaleLengthMm) || scaleLengthMm <= 0) return;
-
-        const maxFrets = canvas
-            ? parseInt(canvas.dataset.maxFrets, 10) || 22
-            : 22;
-
-        const refresh = () => {
-            const mm = parseInt(spanMmInput.value, 10);
-            if (hint) {
-                if (!Number.isFinite(mm) || mm <= 0) {
-                    hint.innerHTML = 'Couverture : <em>renseignez la largeur pour voir la couverture estimée</em>';
-                } else {
-                    const text = window.ISMSections._fretCoverageHint(scaleLengthMm, mm);
-                    hint.textContent = `Couverture : ${text}`;
+    /**
+     * Click handler for the 3 mechanism cards. Sets the hidden
+     * `#handsMechanismInput`, marks the active card visually, and
+     * re-renders the section so the per-mechanism form (which fields
+     * are shown) reflects the new choice. The V2 (`independent_fingers`)
+     * card is `disabled`, so clicks are ignored by the browser; we
+     * still defensively check the data attribute.
+     * @private
+     */
+    ISMListeners._attachMechanismCardListeners = function(handsSection) {
+        const cards = handsSection.querySelectorAll('.ism-mech-card[data-mechanism]');
+        if (!cards.length) return;
+        const self = this;
+        cards.forEach(function(card) {
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+                const id = card.dataset.mechanism;
+                if (!id) return;
+                const hidden = handsSection.querySelector('#handsMechanismInput');
+                if (hidden) hidden.value = id;
+                // Update the in-memory cfg so the re-render uses it.
+                const tab = self._getActiveTab();
+                if (tab && tab.settings) {
+                    if (!tab.settings.hands_config) tab.settings.hands_config = {};
+                    tab.settings.hands_config.mechanism = id;
                 }
-            }
-            if (canvas && Number.isFinite(mm) && mm > 0
-                && typeof window.ISMSections._drawCoverageHeatmap === 'function') {
-                window.ISMSections._drawCoverageHeatmap(canvas, scaleLengthMm, mm, maxFrets);
-            }
-        };
-        spanMmInput.addEventListener('input', refresh);
+                self._refreshHandsSection();
+            });
+        });
+    };
 
-        // Initial paint so the canvas has content the moment the modal
-        // opens (the user might never edit hand_span_mm).
-        refresh();
+    /**
+     * Geometry preset + manual inputs. Picking a preset fills the
+     * three numeric fields (scale_length_mm, num_strings, num_frets)
+     * and mirrors them into `tab.stringInstrumentConfig` so the live
+     * mechanism form (e.g. mm-based reach) reads coherent values.
+     * Manual edits to any of the three inputs also propagate to
+     * `stringInstrumentConfig` so a save persists them.
+     * @private
+     */
+    ISMListeners._attachHandsGeometryListeners = function(handsSection) {
+        const presetSelect = handsSection.querySelector('#handsGeometryPreset');
+        const scaleInput = handsSection.querySelector('#handsGeometryScaleLength');
+        const stringsInput = handsSection.querySelector('#handsGeometryNumStrings');
+        const fretsInput = handsSection.querySelector('#handsGeometryNumFrets');
+        const self = this;
+
+        const ensureCfg = (tab) => {
+            if (!tab) return null;
+            if (!tab.stringInstrumentConfig) {
+                tab.stringInstrumentConfig = {};
+            }
+            return tab.stringInstrumentConfig;
+        };
+
+        if (presetSelect) {
+            presetSelect.addEventListener('change', function() {
+                const opt = presetSelect.selectedOptions && presetSelect.selectedOptions[0];
+                if (!opt || !opt.value) return; // "Personnalisé"
+                const tab = self._getActiveTab();
+                const cfg = ensureCfg(tab);
+                if (!cfg) return;
+
+                const scaleMm = parseInt(opt.dataset.scaleLengthMm, 10);
+                const numStrings = parseInt(opt.dataset.numStrings, 10);
+                const numFrets = parseInt(opt.dataset.numFrets, 10);
+                const defaultMechanism = opt.dataset.defaultMechanism;
+
+                if (Number.isFinite(scaleMm)) {
+                    cfg.scale_length_mm = scaleMm;
+                    if (scaleInput) scaleInput.value = String(scaleMm);
+                }
+                if (Number.isFinite(numStrings)) {
+                    cfg.num_strings = numStrings;
+                    if (stringsInput) stringsInput.value = String(numStrings);
+                }
+                if (Number.isFinite(numFrets)) {
+                    cfg.num_frets = numFrets;
+                    if (fretsInput) fretsInput.value = String(numFrets);
+                }
+
+                // Apply the recommended mechanism only when the user
+                // hasn't already explicitly picked one (i.e. when the
+                // current value is the default).
+                const VALID = new Set(['string_sliding_fingers', 'fret_sliding_fingers']);
+                if (defaultMechanism && VALID.has(defaultMechanism)
+                        && tab.settings?.hands_config) {
+                    tab.settings.hands_config.mechanism = defaultMechanism;
+                    const hidden = handsSection.querySelector('#handsMechanismInput');
+                    if (hidden) hidden.value = defaultMechanism;
+                }
+
+                self._refreshHandsSection();
+            });
+        }
+
+        const wireNumericInput = (input, key) => {
+            if (!input) return;
+            input.addEventListener('change', function() {
+                const tab = self._getActiveTab();
+                const cfg = ensureCfg(tab);
+                if (!cfg) return;
+                const v = parseInt(input.value, 10);
+                cfg[key] = Number.isFinite(v) ? v : null;
+            });
+        };
+        wireNumericInput(scaleInput, 'scale_length_mm');
+        wireNumericInput(stringsInput, 'num_strings');
+        wireNumericInput(fretsInput, 'num_frets');
+    };
+
+    /**
+     * Re-render just the Hands section in place — used when a user
+     * action (mechanism switch, preset pick) changes which fields
+     * should appear without affecting any other section.
+     * @private
+     */
+    ISMListeners._refreshHandsSection = function() {
+        const sectionEl = this.$('.ism-section[data-section="hands"]');
+        if (!sectionEl) return;
+        if (typeof window.ISMSections?._renderHandsSection !== 'function') return;
+        sectionEl.innerHTML = window.ISMSections._renderHandsSection.call(this);
+        if (typeof this._attachHandsSectionListeners === 'function') {
+            this._attachHandsSectionListeners();
+        }
     };
 
     if (typeof window !== 'undefined') window.ISMListeners = ISMListeners;

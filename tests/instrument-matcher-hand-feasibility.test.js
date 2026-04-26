@@ -149,6 +149,7 @@ describe('InstrumentMatcher.handPositionFeasibility — frets mode', () => {
   const fretsHands = {
     enabled: true,
     mode: 'frets',
+    mechanism: 'string_sliding_fingers',
     hand_move_mm_per_sec: 250,
     hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
   };

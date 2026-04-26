@@ -1199,6 +1199,10 @@
      * positions (1, 7, 14) give a feel for how the same physical hand
      * width covers more frets up the neck — this is the property that
      * motivated the physical model in the first place.
+     *
+     * Kept as a helper for downstream consumers that still want the
+     * raw text (e.g. tooltips), even though the Main tab no longer
+     * displays the line — it was deemed not easily understandable.
      */
     ISMSections._fretCoverageHint = function(L, handSpanMm) {
         const fmt = (n) => Number.isFinite(n) ? n.toFixed(1) : '∞';
@@ -1207,71 +1211,255 @@
             .join(' · ');
     };
 
-    ISMSections._renderHandsSectionFrets = function(cfg, tab) {
+    /**
+     * Render the 3 mechanism cards at the top of the Main tab.
+     *   - `string_sliding_fingers` (V1, default)
+     *   - `fret_sliding_fingers`   (V1)
+     *   - `independent_fingers`    (V2, greyed, not clickable)
+     *
+     * `selectedId` is the currently active mechanism. The user must
+     * pick a mechanism before any per-mechanism form is rendered, so
+     * it must always be defined when the section is mounted.
+     *
+     * @private
+     */
+    ISMSections._renderMechanismCards = function(selectedId) {
+        const mechanisms = (window.StringInstrumentPresets && window.StringInstrumentPresets.MECHANISMS) || [];
+        if (mechanisms.length === 0) return '';
+
+        const cardHtml = (m) => {
+            const isSelected = m.id === selectedId;
+            const disabled = !!m.v2;
+            const stateClass = disabled ? 'ism-mech-card-disabled' : (isSelected ? 'ism-mech-card-active' : '');
+            const dataAttr = disabled
+                ? 'data-mechanism-disabled="1"'
+                : `data-mechanism="${m.id}"`;
+            const badge = disabled
+                ? `<span class="ism-mech-card-badge">V2</span>`
+                : '';
+            return `
+                <button type="button" class="ism-mech-card ${stateClass}" ${dataAttr}
+                        ${disabled ? 'disabled aria-disabled="true"' : ''}>
+                    <span class="ism-mech-card-title">${m.label}</span>
+                    ${badge}
+                    <span class="ism-mech-card-desc">${m.description}</span>
+                </button>
+            `;
+        };
+
+        return `
+            <div class="ism-form-group">
+                <h4 class="ism-subsection-title" style="margin-top:0">🛠️ Type de mécanisme</h4>
+                <p class="ism-form-hint" style="margin-bottom:8px">
+                    À choisir en premier — détermine la logique de sélection des frettes et les paramètres affichés ci-dessous.
+                </p>
+                <div class="ism-mech-cards" role="radiogroup" aria-label="Type de mécanisme de main">
+                    ${mechanisms.map(cardHtml).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Geometry block: preset picker (filtered by the instrument's
+     * family) plus the three editable fields scale_length_mm,
+     * num_strings, num_frets. These mirror tab.stringInstrumentConfig
+     * (which is the source of truth in the DB) so the user can refine
+     * the preset for non-standard instruments.
+     *
+     * @private
+     */
+    ISMSections._renderGeometrySection = function(tab) {
+        const cfg = tab?.stringInstrumentConfig || {};
+        const scaleLengthMm = Number.isFinite(cfg.scale_length_mm) ? cfg.scale_length_mm : '';
+        const numStrings = Number.isFinite(cfg.num_strings) ? cfg.num_strings : '';
+        const numFrets = Number.isFinite(cfg.num_frets) ? cfg.num_frets : '';
+
+        const gmProgram = tab?.settings?.gm_program;
+        const channel = tab?.channel;
+        const family = window.InstrumentFamilies?.getFamilyForProgram?.(gmProgram, channel);
+        const familySlug = family?.slug || null;
+
+        let presets = [];
+        const SIP = window.StringInstrumentPresets;
+        if (SIP) {
+            // Prefer the GM-program-specific presets (most accurate);
+            // fall back to family-wide so the dropdown is never empty.
+            const byProgram = SIP.filterPresetsByGmProgram(gmProgram);
+            presets = byProgram.length > 0 ? byProgram : SIP.filterPresetsByFamily(familySlug);
+        }
+
+        const presetOptions = ['<option value="">— Personnalisé —</option>']
+            .concat(presets.map(p =>
+                `<option value="${p.id}"
+                         data-num-strings="${p.num_strings}"
+                         data-scale-length-mm="${p.scale_length_mm}"
+                         data-num-frets="${p.num_frets}"
+                         data-default-mechanism="${p.default_mechanism}">${p.label}</option>`
+            ))
+            .join('');
+
+        return `
+            <div class="ism-form-group">
+                <h4 class="ism-subsection-title" style="margin-top:0">📏 Géométrie de l'instrument</h4>
+                <p class="ism-form-hint" style="margin-bottom:8px">
+                    Sélectionnez un preset proche de votre instrument pour pré-remplir la géométrie. Tous les champs restent éditables.
+                </p>
+                <div class="ism-form-group">
+                    <label for="handsGeometryPreset">Preset</label>
+                    <select id="handsGeometryPreset">${presetOptions}</select>
+                </div>
+                <div class="ism-form-group ism-form-grid-3">
+                    <div>
+                        <label for="handsGeometryScaleLength">Longueur de corde (mm)</label>
+                        <input type="number" id="handsGeometryScaleLength"
+                               value="${scaleLengthMm}" min="100" max="2000">
+                    </div>
+                    <div>
+                        <label for="handsGeometryNumStrings">Nombre de cordes</label>
+                        <input type="number" id="handsGeometryNumStrings"
+                               value="${numStrings}" min="1" max="64">
+                    </div>
+                    <div>
+                        <label for="handsGeometryNumFrets">Nombre de frettes</label>
+                        <input type="number" id="handsGeometryNumFrets"
+                               value="${numFrets}" min="0" max="36">
+                        <span class="ism-form-hint">0 pour les instruments sans frettes (violon, alto, …).</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Per-mechanism form. The shape of the inputs depends on the
+     * selected mechanism — string_sliding_fingers exposes the existing
+     * mm-based reach + max_fingers; fret_sliding_fingers replaces
+     * max_fingers with num_fingers + variable_height_fingers_count.
+     *
+     * Legacy fret-fallback fields (hand_span_frets, hand_move_frets_per_sec)
+     * are written as hidden inputs so the round-trip still preserves
+     * any pre-migration value — the new UI never lets the user edit
+     * them, per the "no fallbacks, force the user or pre-fill" UX rule.
+     *
+     * @private
+     */
+    ISMSections._renderMechanismForm = function(mechanism, cfg, tab) {
         const defaults = ISMSections._defaultHandsConfig('frets', tab);
-        const enabled = cfg.enabled !== false;
         const hand = (Array.isArray(cfg.hands) && cfg.hands[0])
             ? cfg.hands[0]
             : defaults.hands[0];
 
-        const scaleLengthMm = tab?.stringInstrumentConfig?.scale_length_mm ?? null;
         const numStrings = tab?.stringInstrumentConfig?.num_strings ?? null;
-        const physicalAvailable = Number.isFinite(scaleLengthMm) && scaleLengthMm > 0;
-
-        // mm-mode values fall back to defaults when not yet set.
-        const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : (physicalAvailable ? 80 : '');
-        const moveMmPerSec = Number.isFinite(cfg.hand_move_mm_per_sec) ? cfg.hand_move_mm_per_sec : (physicalAvailable ? 250 : '');
-        // frets fallback values — always rendered so the user can save a
-        // fret-mode config even when no scale length is known.
-        const handSpanFrets = Number.isFinite(hand.hand_span_frets) ? hand.hand_span_frets : 4;
-        const moveFretsPerSec = Number.isFinite(cfg.hand_move_frets_per_sec) ? cfg.hand_move_frets_per_sec : 12;
+        const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : 80;
+        const moveMmPerSec = Number.isFinite(cfg.hand_move_mm_per_sec) ? cfg.hand_move_mm_per_sec : 250;
 
         const maxFingersDefault = Number.isFinite(numStrings) ? numStrings : 6;
         const maxFingers = Number.isFinite(hand.max_fingers) ? hand.max_fingers : maxFingersDefault;
         const maxFingersUpper = Number.isFinite(numStrings) ? numStrings : 12;
 
-        const coverageHint = physicalAvailable && Number.isFinite(handSpanMm) && handSpanMm > 0
-            ? ISMSections._fretCoverageHint(scaleLengthMm, handSpanMm)
-            : '';
+        const numFingers = Number.isFinite(hand.num_fingers) ? hand.num_fingers : 4;
+        const variableHeightFingers = Number.isFinite(hand.variable_height_fingers_count)
+            ? hand.variable_height_fingers_count
+            : 0;
 
-        const maxFretsPreview = Number.isFinite(tab?.stringInstrumentConfig?.num_frets) && tab.stringInstrumentConfig.num_frets > 0
-            ? Math.min(24, tab.stringInstrumentConfig.num_frets)
-            : 22;
+        // Legacy fret-fallback values preserved as hidden inputs only.
+        const handSpanFrets = Number.isFinite(hand.hand_span_frets) ? hand.hand_span_frets : 4;
+        const moveFretsPerSec = Number.isFinite(cfg.hand_move_frets_per_sec) ? cfg.hand_move_frets_per_sec : 12;
 
-        const physicalSpanRow = physicalAvailable ? `
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>Largeur de la main (mm)</label>
-                            <input type="number" data-hand="fretting" data-field="hand_span_mm"
-                                   value="${handSpanMm}" min="30" max="200">
-                            <span class="ism-form-hint">Empan physique entre l'index et le petit doigt en position normale.</span>
-                        </div>
-                        <div>
-                            <label>Vitesse (mm/s)</label>
-                            <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
-                            <span class="ism-form-hint">Vitesse mécanique le long du manche.</span>
-                        </div>
+        const ccRow = `
+            <div class="ism-form-group ism-form-grid-2">
+                <div>
+                    <label>CC position</label>
+                    <input type="number" class="ism-hand-cc" data-hand="fretting" data-field="cc_position_number"
+                           value="${hand.cc_position_number}" min="0" max="127">
+                    <span class="ism-form-hint">CC envoyé. Valeur = frette absolue la plus basse (capo inclus).</span>
+                </div>
+                <div>
+                    <label>Largeur de la main (mm)</label>
+                    <input type="number" data-hand="fretting" data-field="hand_span_mm"
+                           value="${handSpanMm}" min="30" max="200">
+                    <span class="ism-form-hint">Empan physique total couvert par la main.</span>
+                </div>
+            </div>
+            <div class="ism-form-group ism-form-grid-2">
+                <div>
+                    <label>Vitesse (mm/s)</label>
+                    <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
+                    <span class="ism-form-hint">Vitesse mécanique le long du manche.</span>
+                </div>
+                <div></div>
+            </div>
+        `;
+
+        let mechanismFields = '';
+        if (mechanism === 'string_sliding_fingers') {
+            mechanismFields = `
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>Doigts disponibles</label>
+                        <input type="number" class="ism-hand-fingers" data-hand="fretting" data-field="max_fingers"
+                               value="${maxFingers}" min="1" max="${maxFingersUpper}">
+                        <span class="ism-form-hint">Nombre maximal de cordes pressées en même temps. Par défaut = nombre de cordes.</span>
                     </div>
-                    <div class="ism-form-group">
-                        <span class="ism-form-hint" id="handsCoverageHint" data-scale-length="${scaleLengthMm}">
-                            Couverture : ${coverageHint || '<em>renseignez la largeur pour voir la couverture estimée</em>'}
-                        </span>
+                    <div></div>
+                </div>
+            `;
+        } else if (mechanism === 'fret_sliding_fingers') {
+            mechanismFields = `
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>Nombre de doigts (frettes couvertes)</label>
+                        <input type="number" data-hand="fretting" data-field="num_fingers"
+                               value="${numFingers}" min="1" max="8">
+                        <span class="ism-form-hint">Chaque doigt est positionné à un offset de frette fixe et glisse entre les cordes.</span>
                     </div>
-                    <div class="ism-form-group ism-hands-coverage-preview">
-                        <canvas id="handsCoveragePreview"
-                                width="600" height="60"
-                                data-scale-length="${scaleLengthMm}"
-                                data-max-frets="${maxFretsPreview}"
-                                style="width:100%; max-width:600px; height:60px; display:block; border:1px solid #e5e7eb; border-radius:4px;"></canvas>
-                        <span class="ism-form-hint">Carte de chaleur : chaque colonne représente la frette d'ancrage de la main, la couleur indique le nombre de frettes couvertes (rouge = peu, vert = beaucoup).</span>
+                    <div>
+                        <label>Doigts à hauteur variable</label>
+                        <input type="number" data-hand="fretting" data-field="variable_height_fingers_count"
+                               value="${variableHeightFingers}" min="0" max="${numFingers}">
+                        <span class="ism-form-hint">Parmi les doigts ci-dessus, combien ont un offset de frette ajustable (0 = tous fixes).</span>
                     </div>
-        ` : '';
+                </div>
+            `;
+        }
+
+        return `
+            <div class="ism-hands-list">
+                <div class="ism-hand-row" data-hand="fretting">
+                    <h4 class="ism-hand-title">🎸 Main de jeu</h4>
+                    ${ccRow}
+                    ${mechanismFields}
+                    <input type="hidden" data-hand="fretting" data-field="hand_span_frets" value="${handSpanFrets}">
+                    <input type="hidden" id="handsMoveSpeed" value="${moveFretsPerSec}">
+                </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Resolve the active mechanism for a frets-mode hands_config.
+     * Defaults to `string_sliding_fingers` when missing so legacy rows
+     * keep their pre-migration behaviour exactly.
+     * @private
+     */
+    ISMSections._resolveMechanism = function(cfg) {
+        const VALID = new Set(['string_sliding_fingers', 'fret_sliding_fingers']);
+        if (cfg && VALID.has(cfg.mechanism)) return cfg.mechanism;
+        return 'string_sliding_fingers';
+    };
+
+    ISMSections._renderHandsSectionFrets = function(cfg, tab) {
+        const enabled = cfg.enabled !== false;
+        const mechanism = ISMSections._resolveMechanism(cfg);
+
+        const scaleLengthMm = tab?.stringInstrumentConfig?.scale_length_mm ?? null;
+        const physicalAvailable = Number.isFinite(scaleLengthMm) && scaleLengthMm > 0;
 
         const physicalBanner = physicalAvailable ? '' : `
             <div class="ism-form-group">
                 <span class="ism-form-hint" style="background:#fff8e1;padding:8px;border-radius:4px;display:block">
-                    ⚠ Aucune longueur de corde renseignée pour cet instrument. Le modèle physique (mm) est désactivé.
-                    Renseignez <code>scale_length_mm</code> dans la section "Notes &amp; Capacités" pour activer la couverture variable selon la position.
+                    ⚠ Aucune longueur de corde renseignée. Choisissez un preset ci-dessous ou saisissez la longueur manuellement pour activer le modèle physique (mm).
                 </span>
             </div>
         `;
@@ -1279,6 +1467,7 @@
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> Main de jeu</h3>
             <input type="hidden" id="handsMode" value="frets">
+            <input type="hidden" id="handsMechanismInput" value="${mechanism}">
             <input type="hidden" id="handsPhysicalAvailable" value="${physicalAvailable ? '1' : '0'}">
             <div class="ism-form-group">
                 <label>
@@ -1290,43 +1479,13 @@
                 </span>
             </div>
 
+            ${ISMSections._renderMechanismCards(mechanism)}
+
+            ${ISMSections._renderGeometrySection(tab)}
+
             ${physicalBanner}
 
-            <div class="ism-hands-list">
-                <div class="ism-hand-row" data-hand="fretting">
-                    <h4 class="ism-hand-title">🎸 Main de jeu (frettage)</h4>
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>CC position</label>
-                            <input type="number" class="ism-hand-cc" data-hand="fretting" data-field="cc_position_number"
-                                   value="${hand.cc_position_number}" min="0" max="127">
-                            <span class="ism-form-hint">CC envoyé. Valeur = frette absolue la plus basse (capo inclus).</span>
-                        </div>
-                        <div>
-                            <label>Doigts disponibles</label>
-                            <input type="number" class="ism-hand-fingers" data-hand="fretting" data-field="max_fingers"
-                                   value="${maxFingers}" min="1" max="${maxFingersUpper}">
-                            <span class="ism-form-hint">Nombre maximal de cordes pressées en même temps. Par défaut = nombre de cordes.</span>
-                        </div>
-                    </div>
-
-                    ${physicalSpanRow}
-
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>Écart max (frettes) — fallback</label>
-                            <input type="number" class="ism-hand-span" data-hand="fretting" data-field="hand_span_frets"
-                                   value="${handSpanFrets}" min="1" max="24">
-                            <span class="ism-form-hint">Utilisé si aucune longueur de corde n'est connue.</span>
-                        </div>
-                        <div>
-                            <label>Vitesse (frettes/s) — fallback</label>
-                            <input type="number" id="handsMoveSpeed" value="${moveFretsPerSec}" min="1" max="120">
-                            <span class="ism-form-hint">Utilisé si aucune longueur de corde n'est connue.</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            ${ISMSections._renderMechanismForm(mechanism, cfg, tab)}
         `;
     };
 
@@ -1337,19 +1496,23 @@
             const out = {
                 enabled: true,
                 mode: 'frets',
+                mechanism: 'string_sliding_fingers',
                 hand_move_frets_per_sec: 12,
+                hand_move_mm_per_sec: 250,
                 hands: [{
                     id: 'fretting',
                     cc_position_number: 22,
+                    hand_span_mm: 80,
                     hand_span_frets: 4,
                     max_fingers: Number.isFinite(numStrings) ? numStrings : 6
                 }]
             };
-            // When scale_length_mm is known, prefer the physical model and
-            // seed sensible defaults so the user only has to confirm.
+            // When scale_length_mm isn't known yet, the mm fields are
+            // still populated with sensible defaults so the validator
+            // accepts the payload without forcing the user to fill them
+            // before saving — picking a preset later refines them.
             if (Number.isFinite(scaleLengthMm) && scaleLengthMm > 0) {
-                out.hand_move_mm_per_sec = 250;
-                out.hands[0].hand_span_mm = 80;
+                // Already mm-mode by default; nothing extra to seed.
             }
             return out;
         }
@@ -1396,13 +1559,20 @@
                 const v = parseInt(row?.querySelector(`[data-field="${field}"]`)?.value, 10);
                 return Number.isFinite(v) ? v : null;
             };
-            // The physical-model inputs are only rendered when the linked
-            // string_instrument has a scale_length_mm. When omitted we
-            // simply don't include the *_mm fields; the planner keeps
-            // falling back to the *_frets ones.
             const moveMmPerSecRaw = parseInt(rootEl.querySelector('#handsMoveMmPerSec')?.value, 10);
             const handSpanMmOpt = readOptInt('hand_span_mm');
             const maxFingersOpt = readOptInt('max_fingers');
+            const numFingersOpt = readOptInt('num_fingers');
+            const variableHeightFingersOpt = readOptInt('variable_height_fingers_count');
+
+            // Mechanism: read from the hidden input set by card clicks.
+            // Defaults to string_sliding_fingers so legacy DOM (without
+            // the cards mounted) still produces a valid payload.
+            const VALID_MECHANISMS = new Set(['string_sliding_fingers', 'fret_sliding_fingers']);
+            const rawMechanism = rootEl.querySelector('#handsMechanismInput')?.value;
+            const mechanism = VALID_MECHANISMS.has(rawMechanism)
+                ? rawMechanism
+                : 'string_sliding_fingers';
 
             const hand = {
                 id: 'fretting',
@@ -1410,11 +1580,23 @@
                 hand_span_frets: readInt('hand_span_frets', 4)
             };
             if (handSpanMmOpt != null) hand.hand_span_mm = handSpanMmOpt;
-            if (maxFingersOpt != null) hand.max_fingers = maxFingersOpt;
+
+            // Per-mechanism extras. string_sliding_fingers accepts
+            // max_fingers; fret_sliding_fingers accepts num_fingers and
+            // the optional variable_height_fingers_count.
+            if (mechanism === 'string_sliding_fingers') {
+                if (maxFingersOpt != null) hand.max_fingers = maxFingersOpt;
+            } else if (mechanism === 'fret_sliding_fingers') {
+                if (numFingersOpt != null) hand.num_fingers = numFingersOpt;
+                if (variableHeightFingersOpt != null) {
+                    hand.variable_height_fingers_count = variableHeightFingersOpt;
+                }
+            }
 
             const out = {
                 enabled,
                 mode: 'frets',
+                mechanism,
                 hand_move_frets_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 12,
                 hands: [hand]
             };
