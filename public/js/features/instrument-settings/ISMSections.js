@@ -1394,9 +1394,46 @@
      *
      * @private
      */
-    ISMSections._renderMechanismCards = function(selectedId) {
+    /**
+     * Build the strings-family mechanism list with translated label
+     * + description. The raw MECHANISMS array in StringInstrumentPresets
+     * carries French copy by historical accident; this layer overrides
+     * label/description through i18n so every locale gets the right
+     * text without touching the data file.
+     * @private
+     */
+    ISMSections._getStringMechanisms = function(ctx) {
         const mechanisms = (window.StringInstrumentPresets && window.StringInstrumentPresets.MECHANISMS) || [];
+        const t = ISMSections._tHelper(ctx);
+        const overrides = {
+            string_sliding_fingers: {
+                labelKey: 'instrumentSettings.handsStringMechStringSlidingLabel',
+                descKey: 'instrumentSettings.handsStringMechStringSlidingDesc'
+            },
+            fret_sliding_fingers: {
+                labelKey: 'instrumentSettings.handsStringMechFretSlidingLabel',
+                descKey: 'instrumentSettings.handsStringMechFretSlidingDesc'
+            },
+            independent_fingers: {
+                labelKey: 'instrumentSettings.handsStringMechIndependentLabel',
+                descKey: 'instrumentSettings.handsStringMechIndependentDesc'
+            }
+        };
+        return mechanisms.map(m => {
+            const ov = overrides[m.id];
+            if (!ov) return m;
+            return {
+                ...m,
+                label: t(ov.labelKey, m.label),
+                description: t(ov.descKey, m.description)
+            };
+        });
+    };
+
+    ISMSections._renderMechanismCards = function(selectedId) {
+        const mechanisms = ISMSections._getStringMechanisms(this);
         if (mechanisms.length === 0) return '';
+        const t = ISMSections._tHelper(this);
 
         const cardHtml = (m) => {
             const isSelected = m.id === selectedId;
@@ -1420,13 +1457,14 @@
             `;
         };
 
+        const title = t('instrumentSettings.handsMechanismTitle', 'Type de mécanisme');
+        const hint = t('instrumentSettings.handsStringMechanismHint',
+            'À choisir en premier — détermine la logique de sélection des frettes et les paramètres affichés ci-dessous.');
         return `
             <div class="ism-form-group">
-                <h4 class="ism-subsection-title" style="margin-top:0">🛠️ Type de mécanisme</h4>
-                <p class="ism-form-hint" style="margin-bottom:8px">
-                    À choisir en premier — détermine la logique de sélection des frettes et les paramètres affichés ci-dessous.
-                </p>
-                <div class="ism-mech-cards" role="radiogroup" aria-label="Type de mécanisme de main">
+                <h4 class="ism-subsection-title" style="margin-top:0">🛠️ ${title}</h4>
+                <p class="ism-form-hint" style="margin-bottom:8px">${hint}</p>
+                <div class="ism-mech-cards" role="radiogroup" aria-label="${title}">
                     ${mechanisms.map(cardHtml).join('')}
                 </div>
             </div>
@@ -1462,7 +1500,9 @@
             presets = byProgram.length > 0 ? byProgram : SIP.filterPresetsByFamily(familySlug);
         }
 
-        const presetOptions = ['<option value="">— Personnalisé —</option>']
+        const t = ISMSections._tHelper(this);
+        const customLabel = t('instrumentSettings.handsGeometryPresetCustom', '— Personnalisé —');
+        const presetOptions = [`<option value="">${customLabel}</option>`]
             .concat(presets.map(p =>
                 `<option value="${p.id}"
                          data-num-strings="${p.num_strings}"
@@ -1474,30 +1514,30 @@
 
         return `
             <div class="ism-form-group">
-                <h4 class="ism-subsection-title" style="margin-top:0">📏 Géométrie de l'instrument</h4>
+                <h4 class="ism-subsection-title" style="margin-top:0">📏 ${t('instrumentSettings.handsGeometryTitle', "Géométrie de l'instrument")}</h4>
                 <p class="ism-form-hint" style="margin-bottom:8px">
-                    Sélectionnez un preset proche de votre instrument pour pré-remplir la géométrie. Tous les champs restent éditables.
+                    ${t('instrumentSettings.handsGeometryHint', 'Sélectionnez un preset proche de votre instrument pour pré-remplir la géométrie. Tous les champs restent éditables.')}
                 </p>
                 <div class="ism-form-group">
-                    <label for="handsGeometryPreset">Preset</label>
+                    <label for="handsGeometryPreset">${t('instrumentSettings.handsGeometryPresetLabel', 'Preset')}</label>
                     <select id="handsGeometryPreset">${presetOptions}</select>
                 </div>
                 <div class="ism-form-group ism-form-grid-3">
                     <div>
-                        <label for="handsGeometryScaleLength">Longueur de corde (mm)</label>
+                        <label for="handsGeometryScaleLength">${t('instrumentSettings.handsGeometryScaleLengthLabel', 'Longueur de corde (mm)')}</label>
                         <input type="number" id="handsGeometryScaleLength"
                                value="${scaleLengthMm}" min="100" max="2000">
                     </div>
                     <div>
-                        <label for="handsGeometryNumStrings">Nombre de cordes</label>
+                        <label for="handsGeometryNumStrings">${t('instrumentSettings.handsGeometryNumStringsLabel', 'Nombre de cordes')}</label>
                         <input type="number" id="handsGeometryNumStrings"
                                value="${numStrings}" min="1" max="64">
                     </div>
                     <div>
-                        <label for="handsGeometryNumFrets">Nombre de frettes</label>
+                        <label for="handsGeometryNumFrets">${t('instrumentSettings.handsGeometryNumFretsLabel', 'Nombre de frettes')}</label>
                         <input type="number" id="handsGeometryNumFrets"
                                value="${numFrets}" min="0" max="36">
-                        <span class="ism-form-hint">0 pour les instruments sans frettes (violon, alto, …).</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsGeometryNumFretsHint', '0 pour les instruments sans frettes (violon, alto, …).')}</span>
                     </div>
                 </div>
             </div>
@@ -1540,26 +1580,28 @@
         const handSpanFrets = Number.isFinite(hand.hand_span_frets) ? hand.hand_span_frets : 4;
         const moveFretsPerSec = Number.isFinite(cfg.hand_move_frets_per_sec) ? cfg.hand_move_frets_per_sec : 12;
 
+        const t = ISMSections._tHelper(this);
+
         const ccRow = `
             <div class="ism-form-group ism-form-grid-2">
                 <div>
-                    <label>CC position</label>
+                    <label>${t('instrumentSettings.handsCcPosition', 'CC position')}</label>
                     <input type="number" class="ism-hand-cc" data-hand="fretting" data-field="cc_position_number"
                            value="${hand.cc_position_number}" min="0" max="127">
-                    <span class="ism-form-hint">CC envoyé. Valeur = frette absolue la plus basse (capo inclus).</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsFretsCcPositionHint', 'CC envoyé. Valeur = frette absolue la plus basse (capo inclus).')}</span>
                 </div>
                 <div>
-                    <label>Largeur de la main (mm)</label>
+                    <label>${t('instrumentSettings.handsHandSpanMm', 'Largeur de la main (mm)')}</label>
                     <input type="number" data-hand="fretting" data-field="hand_span_mm"
                            value="${handSpanMm}" min="30" max="200">
-                    <span class="ism-form-hint">Empan physique total couvert par la main.</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsHandSpanMmHint', 'Empan physique total couvert par la main.')}</span>
                 </div>
             </div>
             <div class="ism-form-group ism-form-grid-2">
                 <div>
-                    <label>Vitesse (mm/s)</label>
+                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse (mm/s)')}</label>
                     <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
-                    <span class="ism-form-hint">Vitesse mécanique le long du manche.</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique le long du manche.')}</span>
                 </div>
                 <div></div>
             </div>
@@ -1570,10 +1612,10 @@
             mechanismFields = `
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>Doigts disponibles</label>
+                        <label>${t('instrumentSettings.handsMaxFingers', 'Doigts disponibles')}</label>
                         <input type="number" class="ism-hand-fingers" data-hand="fretting" data-field="max_fingers"
                                value="${maxFingers}" min="1" max="${maxFingersUpper}">
-                        <span class="ism-form-hint">Nombre maximal de cordes pressées en même temps. Par défaut = nombre de cordes.</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsMaxFingersHint', 'Nombre maximal de cordes pressées en même temps. Par défaut = nombre de cordes.')}</span>
                     </div>
                     <div></div>
                 </div>
@@ -1582,16 +1624,16 @@
             mechanismFields = `
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>Nombre de doigts (frettes couvertes)</label>
+                        <label>${t('instrumentSettings.handsFretSlidingNumFingers', 'Nombre de doigts (frettes couvertes)')}</label>
                         <input type="number" data-hand="fretting" data-field="num_fingers"
                                value="${numFingers}" min="1" max="8">
-                        <span class="ism-form-hint">Chaque doigt est positionné à un offset de frette fixe et glisse entre les cordes.</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsFretSlidingNumFingersHint', 'Chaque doigt est positionné à un offset de frette fixe et glisse entre les cordes.')}</span>
                     </div>
                     <div>
-                        <label>Doigts à hauteur variable</label>
+                        <label>${t('instrumentSettings.handsVariableHeightFingers', 'Doigts à hauteur variable')}</label>
                         <input type="number" data-hand="fretting" data-field="variable_height_fingers_count"
                                value="${variableHeightFingers}" min="0" max="${numFingers}">
-                        <span class="ism-form-hint">Parmi les doigts ci-dessus, combien ont un offset de frette ajustable (0 = tous fixes).</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsVariableHeightFingersHint', 'Parmi les doigts ci-dessus, combien ont un offset de frette ajustable (0 = tous fixes).')}</span>
                     </div>
                 </div>
             `;
@@ -1600,7 +1642,7 @@
         return `
             <div class="ism-hands-list">
                 <div class="ism-hand-row" data-hand="fretting">
-                    <h4 class="ism-hand-title">🎸 Main de jeu</h4>
+                    <h4 class="ism-hand-title">🎸 ${t('instrumentSettings.handsFrettingHandTitle', 'Main de jeu')}</h4>
                     ${ccRow}
                     ${mechanismFields}
                     <input type="hidden" data-hand="fretting" data-field="hand_span_frets" value="${handSpanFrets}">
@@ -1625,6 +1667,7 @@
     ISMSections._renderHandsSectionFrets = function(cfg, tab) {
         const enabled = cfg.enabled !== false;
         const mechanism = ISMSections._resolveMechanism(cfg);
+        const t = ISMSections._tHelper(this);
 
         const scaleLengthMm = tab?.stringInstrumentConfig?.scale_length_mm ?? null;
         const physicalAvailable = Number.isFinite(scaleLengthMm) && scaleLengthMm > 0;
@@ -1632,33 +1675,33 @@
         const physicalBanner = physicalAvailable ? '' : `
             <div class="ism-form-group">
                 <span class="ism-form-hint" style="background:#fff8e1;padding:8px;border-radius:4px;display:block">
-                    ⚠ Aucune longueur de corde renseignée. Choisissez un preset ci-dessous ou saisissez la longueur manuellement pour activer le modèle physique (mm).
+                    ⚠ ${t('instrumentSettings.handsFretsNoScaleWarning', 'Aucune longueur de corde renseignée. Choisissez un preset ci-dessous ou saisissez la longueur manuellement pour activer le modèle physique (mm).')}
                 </span>
             </div>
         `;
 
         return `
-            <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> Main de jeu</h3>
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">🎸</span> ${t('instrumentSettings.handsFrettingHandTitle', 'Main de jeu')}</h3>
             <input type="hidden" id="handsMode" value="frets">
             <input type="hidden" id="handsMechanismInput" value="${mechanism}">
             <input type="hidden" id="handsPhysicalAvailable" value="${physicalAvailable ? '1' : '0'}">
             <div class="ism-form-group">
                 <label>
                     <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
-                    Activer le contrôle de position de la main
+                    ${t('instrumentSettings.handsFretsEnableLabel', 'Activer le contrôle de position de la main')}
                 </label>
                 <span class="ism-form-hint">
-                    Si activé, le lecteur envoie un CC avec la frette absolue la plus basse de la fenêtre dès que la main doit se déplacer.
+                    ${t('instrumentSettings.handsFretsEnableHint', 'Si activé, le lecteur envoie un CC avec la frette absolue la plus basse de la fenêtre dès que la main doit se déplacer.')}
                 </span>
             </div>
 
-            ${ISMSections._renderMechanismCards(mechanism)}
+            ${ISMSections._renderMechanismCards.call(this, mechanism)}
 
-            ${ISMSections._renderGeometrySection(tab)}
+            ${ISMSections._renderGeometrySection.call(this, tab)}
 
             ${physicalBanner}
 
-            ${ISMSections._renderMechanismForm(mechanism, cfg, tab)}
+            ${ISMSections._renderMechanismForm.call(this, mechanism, cfg, tab)}
         `;
     };
 
