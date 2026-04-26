@@ -102,11 +102,26 @@
             // and the minimap; the page calls `setCurrentTime` on us
             // every progress callback so the visualization stays in
             // sync with whatever's actually being played.
+            // The "Open editor" button is rendered conditionally (only
+            // in frets mode AND when the editor module is loaded). Even
+            // if the script load order changes, the lookup is lazy so a
+            // missing module just hides the button instead of erroring.
+            const showEditorBtn = this.mode === 'frets'
+                && typeof window !== 'undefined'
+                && typeof window.HandPositionEditorModal === 'function';
+            const editorBtnHtml = showEditorBtn
+                ? `<button class="hpp-open-editor" type="button"
+                          title="${_t('handPositionEditor.openButtonTitle',
+                                       'Éditer la position de main sur toute la durée')}">
+                       ${_t('handPositionEditor.openButton', 'Éditeur')}
+                   </button>`
+                : '';
             header.innerHTML = `
                 <strong style="font-size:13px;">${_t('handsPreview.title', 'Aperçu des mains')}</strong>
                 <span style="flex:1;"></span>
                 <span class="hpp-hint" style="font-size:11px;color:#6b7280;">${_t('handsPreview.transportHint', 'Lecture pilotée par le bouton Aperçu du canal et la minimap')}</span>
                 <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;margin:0 4px;"></span>
+                ${editorBtnHtml}
                 <button class="hpp-reset-overrides" type="button"
                         title="${_t('handsPreview.resetOverrides', 'Annuler les overrides')}">↺</button>
                 <button class="hpp-save" type="button" disabled
@@ -116,6 +131,10 @@
 
             this._resetOverridesBtn = header.querySelector('.hpp-reset-overrides');
             this._saveBtn = header.querySelector('.hpp-save');
+            this._openEditorBtn = header.querySelector('.hpp-open-editor');
+            if (this._openEditorBtn) {
+                this._openEditorBtn.addEventListener('click', () => this._openFullLengthEditor());
+            }
             this._resetOverridesBtn.addEventListener('click', () => this.resetOverrides());
             this._saveBtn.addEventListener('click', () => {
                 this.saveOverrides()
@@ -556,6 +575,29 @@
             this._wireEngine();
             // _wireEngine refreshes the trajectories at the end so
             // the lookahead reflects the new overrides immediately.
+        }
+
+        /**
+         * Open the full-length editor modal (PR4). Caller must have
+         * provided `saveCtx` (fileId + deviceId + apiClient) for the
+         * future save flow; we surface a short warning if it's missing
+         * so the operator knows the data won't persist yet.
+         */
+        _openFullLengthEditor() {
+            const Modal = window.HandPositionEditorModal;
+            if (typeof Modal !== 'function') return;
+            const ctx = this.opts.saveCtx || {};
+            const modal = new Modal({
+                fileId: ctx.fileId,
+                channel: this.channel,
+                deviceId: ctx.deviceId,
+                midiData: this.opts.midiData || null,
+                instrument: this.instrument,
+                hands_config: this.instrument?.hands_config || null,
+                initialOverrides: this.overrides,
+                apiClient: ctx.apiClient || null
+            });
+            modal.open();
         }
 
         destroy() {

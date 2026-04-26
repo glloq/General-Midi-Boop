@@ -613,6 +613,15 @@
         "resetOverrides": "Annuler les overrides",
         "noHandsConfig": "Aucune configuration des mains pour cet instrument — la pré-visualisation est désactivée."
     },
+    "handPositionEditor": {
+        "title": "Édition position de main",
+        "openButton": "Éditeur",
+        "openButtonTitle": "Éditer la position de main sur toute la durée",
+        "zoomIn": "Zoom",
+        "zoomOut": "Dézoom",
+        "gotoStart": "Retour au début",
+        "hint": "Faites défiler la timeline (molette = défilement, Ctrl+molette = zoom, clic = aller au temps). Glissez la bande de la main sur l'aperçu en haut pour épingler une nouvelle position."
+    },
     "instrumentSettings": {
         "title": "Réglages de l'instrument",
         "settingsButton": "Réglages de l'instrument",

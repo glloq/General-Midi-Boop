@@ -1013,6 +1013,9 @@ class RoutingSummaryPage {
     this._handsPreviewPanel = new window.HandsPreviewPanel(host, {
       channel,
       notes,
+      // PR4 — passed through so the full-length editor modal can
+      // re-extract the channel's events without re-fetching the file.
+      midiData: this.midiData,
       instrument: enrichedInstrument,
       ticksPerBeat,
       bpm,

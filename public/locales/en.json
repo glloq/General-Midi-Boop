@@ -613,6 +613,15 @@
         "resetOverrides": "Discard overrides",
         "noHandsConfig": "No hands configuration on this instrument — preview is disabled."
     },
+    "handPositionEditor": {
+        "title": "Hand position editor",
+        "openButton": "Editor",
+        "openButtonTitle": "Edit hand position over the whole file",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "gotoStart": "Back to start",
+        "hint": "Scroll the timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). Drag the hand band on the preview above to pin a new position."
+    },
     "instrumentSettings": {
         "title": "Instrument Settings",
         "settingsButton": "Instrument settings",
