@@ -2895,37 +2895,45 @@
          * RESPONSIVE ADJUSTMENTS FOR DISPLAY MODES
          * ======================================================================== */
 
-        /* Responsive - tablette */
+        /* Responsive - tablette : la barre wrap, search bar prend toute la largeur d'une ligne */
         @media (max-width: 900px) {
-            .midi-files-header {
+            .file-toolbar-main-row {
                 flex-wrap: wrap;
             }
-            .midi-files-header .upload-drop-zone {
-                order: 2;
-                flex-basis: 100%;
+            .file-toolbar-main-row .upload-drop-zone {
+                flex: 1 1 200px;
+                max-width: none;
             }
-            .search-bar-container > div:first-child {
-                flex-wrap: wrap;
-            }
-            .search-bar-container .search-bar {
-                flex: 1 1 100% !important;
+            .file-toolbar-main-row .search-bar {
+                flex: 1 1 100%;
             }
         }
 
-        /* Responsive - mobile */
+        /* Responsive - mobile : drop-zone réduite à l'icône, contrôles compactés */
         @media (max-width: 600px) {
             .file-toolbar {
                 padding: 6px 8px 4px;
             }
-            .midi-files-header .upload-drop-zone-text {
-                display: none;
-            }
-            .search-bar-container > div:first-child {
-                flex-wrap: wrap;
+            .file-toolbar-main-row {
                 gap: 4px;
             }
-            .search-bar-container .search-bar {
-                flex: 1 1 100% !important;
+            .file-toolbar-main-row .upload-drop-zone {
+                flex: 0 0 auto;
+                min-width: 44px;
+                padding: 4px 10px;
+            }
+            .file-toolbar-main-row .upload-drop-zone-text {
+                display: none;
+            }
+            .file-toolbar-main-row #createFolderBtn span[data-i18n] {
+                display: none;
+            }
+            .file-toolbar-main-row #openFiltersBtn span[data-i18n] {
+                display: none;
+            }
+            .file-toolbar-main-row .search-bar {
+                flex: 1 1 100%;
+                order: 10;
             }
             .file-list.view-grid {
                 grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -4242,13 +4250,19 @@
         .upload-drop-zone {
             border: 2px dashed #d1d5db;
             border-radius: 8px;
-            padding: 6px 16px;
+            padding: 4px 12px;
             text-align: center;
             cursor: pointer;
             transition: all 0.25s ease;
             background: #f9fafb;
-            flex: 1;
-            min-width: 180px;
+            flex: 1 1 200px;
+            min-width: 140px;
+            max-width: 320px;
+            height: 36px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .upload-drop-zone:hover {
@@ -4324,7 +4338,97 @@
             color: #b0b0b0;
         }
 
-        /* Header actions row */
+        /* ========================================================================
+         * GLOBAL DRAG-AND-DROP OVERLAY (full page)
+         * ======================================================================== */
+        .global-drop-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(102, 126, 234, 0.22);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .global-drop-overlay.visible {
+            display: flex;
+            animation: global-overlay-fade-in 0.18s ease-out;
+        }
+
+        .global-drop-overlay-content {
+            background: rgba(255, 255, 255, 0.97);
+            border: 4px dashed #667eea;
+            border-radius: 18px;
+            padding: 48px 64px;
+            text-align: center;
+            max-width: min(90vw, 520px);
+            box-shadow: 0 24px 64px rgba(102, 126, 234, 0.35);
+            animation: global-overlay-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .global-drop-overlay-icon {
+            font-size: 72px;
+            line-height: 1;
+            margin-bottom: 16px;
+            animation: bounce-icon 0.6s ease-in-out infinite alternate;
+        }
+
+        .global-drop-overlay-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .global-drop-overlay-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        @keyframes global-overlay-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes global-overlay-pop {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        body.theme-dark .global-drop-overlay {
+            background: rgba(102, 126, 234, 0.28);
+        }
+
+        body.theme-dark .global-drop-overlay-content {
+            background: rgba(40, 40, 50, 0.97);
+        }
+
+        body.theme-dark .global-drop-overlay-subtitle {
+            color: #b0b0b0;
+        }
+
+        @media (max-width: 600px) {
+            .global-drop-overlay-content {
+                padding: 32px 24px;
+            }
+            .global-drop-overlay-icon {
+                font-size: 56px;
+            }
+            .global-drop-overlay-title {
+                font-size: 18px;
+            }
+            .global-drop-overlay-subtitle {
+                font-size: 13px;
+            }
+        }
+
+        /* Header actions row (legacy, kept for backwards-compat) */
         .midi-files-header {
             display: flex;
             align-items: center;
@@ -4336,6 +4440,42 @@
         .midi-files-header h2 {
             margin: 0;
             white-space: nowrap;
+        }
+
+        /* Unified toolbar : drop-zone + new folder + search + sort + filters + display, all on one row */
+        .file-toolbar-main-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 100%;
+        }
+
+        .file-toolbar-main-row .search-bar {
+            flex: 2 1 220px;
+            min-width: 180px;
+            height: 36px;
+            box-sizing: border-box;
+        }
+
+        .file-toolbar-main-row #createFolderBtn {
+            flex-shrink: 0;
+            white-space: nowrap;
+            height: 36px;
+            box-sizing: border-box;
+        }
+
+        .file-toolbar-main-row #openFiltersBtn {
+            flex-shrink: 0;
+            white-space: nowrap;
+            padding: 0 12px;
+            height: 36px;
+            box-sizing: border-box;
+        }
+
+        .file-toolbar-main-row .sort-controls,
+        .file-toolbar-main-row .display-mode-toggle {
+            flex-shrink: 0;
         }
 
         /* Calibration modal styles: moved to styles/calibration-modal.css */
@@ -4891,6 +5031,15 @@
     <!-- Skip Navigation Link (Accessibility) -->
     <a href="#app" class="sr-only sr-only-focusable" id="skipNav">Skip to main content</a>
 
+    <!-- Overlay plein écran affiché lorsqu'on glisse des fichiers MIDI sur la page -->
+    <div class="global-drop-overlay" id="globalDropOverlay" aria-hidden="true">
+        <div class="global-drop-overlay-content">
+            <div class="global-drop-overlay-icon">📥</div>
+            <div class="global-drop-overlay-title" data-i18n="ui.dropAnywhere">Déposez vos fichiers MIDI ici</div>
+            <div class="global-drop-overlay-subtitle" data-i18n="ui.dropAnywhereSubtitle">Relâchez n'importe où sur la page pour les uploader</div>
+        </div>
+    </div>
+
     <!-- Modal de confirmation personnalisée -->
     <div class="confirm-modal-overlay" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <div class="confirm-modal">
@@ -5054,27 +5203,27 @@
             <div class="main-grid">
                 <!-- Fichiers MIDI -->
                 <section class="card" aria-label="MIDI files">
-                    <!-- Barre unifiee gestion fichiers -->
+                    <!-- Barre unifiee gestion fichiers : drop-zone + nouveau dossier + recherche + outils, tout sur une seule ligne -->
                     <div class="file-toolbar">
                         <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
-                        <div class="midi-files-header">
-                            <div class="upload-drop-zone" id="uploadDropZone" role="button" tabindex="0" aria-describedby="dropZoneDesc">
-                                <div class="upload-drop-zone-content">
-                                    <span class="upload-drop-zone-icon">📥</span>
-                                    <div class="upload-drop-zone-text">
-                                        <span data-i18n="ui.dropFilesHere">Glissez-déposez ou</span>
-                                        <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
-                                    </div>
-                                </div>
-                                <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi. Taille max : 10 MB. Raccourci : Ctrl+O</span>
-                            </div>
-                            <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
-                            <button class="btn btn-secondary" id="createFolderBtn" style="flex-shrink: 0;">📁&nbsp;&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
-                        </div>
 
                         <div class="search-bar-container">
-                            <div style="display: flex; gap: 8px; align-items: center; max-width: 100%;">
-                                <div class="search-bar" style="flex: 1;">
+                            <div class="file-toolbar-main-row">
+                                <div class="upload-drop-zone" id="uploadDropZone" role="button" tabindex="0" aria-describedby="dropZoneDesc">
+                                    <div class="upload-drop-zone-content">
+                                        <span class="upload-drop-zone-icon">📥</span>
+                                        <div class="upload-drop-zone-text">
+                                            <span data-i18n="ui.dropFilesHere">Glissez-déposez ou</span>
+                                            <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
+                                        </div>
+                                    </div>
+                                    <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi. Taille max : 10 MB. Raccourci : Ctrl+O</span>
+                                </div>
+                                <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
+
+                                <button class="btn btn-secondary" id="createFolderBtn">📁&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
+
+                                <div class="search-bar">
                                     <span class="search-icon">🔍</span>
                                     <input
                                         type="text"
@@ -5101,7 +5250,7 @@
                                     </button>
                                 </div>
 
-                                <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés" style="padding: 0 12px; height: 36px; box-sizing: border-box;">
+                                <button id="openFiltersBtn" class="btn" data-i18n-title="ui.advancedFilters" title="Filtres avancés">
                                     🔍 <span data-i18n="filters.filtersButton">Filtres</span>
                                 </button>
 
@@ -11704,33 +11853,66 @@
             uploadFile();
         });
 
-        // Drop de fichiers MIDI sur toute la page
+        // Drop de fichiers MIDI sur toute la page (overlay plein écran + zone inline)
+        const globalDropOverlay = document.getElementById('globalDropOverlay');
         let pageDragCounter = 0;
+
+        // Détecte si le drag transporte des fichiers externes (par opposition à un drag interne d'item)
+        function dragHasExternalFiles(e) {
+            if (!e.dataTransfer || !e.dataTransfer.types) return false;
+            const types = e.dataTransfer.types;
+            // DataTransferItemList ou Array selon le navigateur
+            for (let i = 0; i < types.length; i++) {
+                if (types[i] === 'Files') return true;
+            }
+            return false;
+        }
+
+        function showGlobalDropOverlay() {
+            if (globalDropOverlay && !globalDropOverlay.classList.contains('visible')) {
+                globalDropOverlay.classList.add('visible');
+                globalDropOverlay.setAttribute('aria-hidden', 'false');
+            }
+            uploadDropZone.classList.add('drag-over');
+            setDropZoneDragText(true);
+        }
+
+        function hideGlobalDropOverlay() {
+            if (globalDropOverlay) {
+                globalDropOverlay.classList.remove('visible');
+                globalDropOverlay.setAttribute('aria-hidden', 'true');
+            }
+            uploadDropZone.classList.remove('drag-over');
+            setDropZoneDragText(false);
+        }
+
         document.addEventListener('dragenter', (e) => {
+            if (!dragHasExternalFiles(e)) return;
             e.preventDefault();
             pageDragCounter++;
             if (pageDragCounter === 1) {
-                uploadDropZone.classList.add('drag-over');
-                setDropZoneDragText(true);
+                showGlobalDropOverlay();
             }
         });
         document.addEventListener('dragleave', (e) => {
+            if (!dragHasExternalFiles(e)) return;
             e.preventDefault();
             pageDragCounter--;
             if (pageDragCounter <= 0) {
                 pageDragCounter = 0;
-                uploadDropZone.classList.remove('drag-over');
-                setDropZoneDragText(false);
+                hideGlobalDropOverlay();
             }
         });
-        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('dragover', (e) => {
+            if (dragHasExternalFiles(e)) e.preventDefault();
+        });
         document.addEventListener('drop', (e) => {
+            if (!dragHasExternalFiles(e)) return;
             e.preventDefault();
             pageDragCounter = 0;
-            uploadDropZone.classList.remove('drag-over');
-            setDropZoneDragText(false);
+            hideGlobalDropOverlay();
 
-            // Ignorer si le drop vient de la zone inline (déjà géré)
+            // Ignorer si le drop vient de la zone inline (déjà géré par son propre handler)
             if (uploadDropZone.contains(e.target)) return;
 
             const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
