@@ -637,6 +637,8 @@
         "noBackend": "Sauvegarde impossible : API non câblée.",
         "missingCtx": "Sauvegarde impossible : contexte de routage manquant.",
         "playFailed": "Lecture impossible",
+        "preparing": "Préparation de la timeline…",
+        "engineFailed": "Impossible de préparer la simulation",
         "pickString": "Choisir une corde pour cette note :",
         "string": "Corde",
         "fret": "frette",

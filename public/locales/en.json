@@ -637,6 +637,8 @@
         "noBackend": "Cannot save: API not wired.",
         "missingCtx": "Cannot save: missing routing context.",
         "playFailed": "Playback failed",
+        "preparing": "Preparing the timeline…",
+        "engineFailed": "Could not prepare the simulation",
         "pickString": "Pick a string for this note:",
         "string": "String",
         "fret": "fret",

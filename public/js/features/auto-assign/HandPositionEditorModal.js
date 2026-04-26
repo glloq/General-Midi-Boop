@@ -192,7 +192,25 @@
             this._mountSticky();
             this._mountTimeline();
             this._wireToolbar();
-            this._wireEngine();
+            // Defer the engine build to a second rAF so the modal's
+            // shell paints first. simulateHandWindows() inside the
+            // engine constructor can take 100-300 ms on dense channels
+            // — we don't want that to block the open animation.
+            const raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
+                ? window.requestAnimationFrame.bind(window)
+                : (cb) => setTimeout(cb, 16);
+            this._setStatus(_t('handPositionEditor.preparing', 'Préparation de la timeline…'));
+            raf(() => raf(() => {
+                if (!this.isOpen) return; // closed before we got around to it
+                try {
+                    this._wireEngine();
+                    this._setStatus('');
+                } catch (e) {
+                    console.error('[HandPositionEditor] engine setup failed:', e);
+                    this._setStatus(`${_t('handPositionEditor.engineFailed',
+                        'Impossible de préparer la simulation')}: ${e.message || e}`, 'err');
+                }
+            }));
             this._refreshTimeDisplay();
         }
 
