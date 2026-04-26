@@ -467,7 +467,7 @@ async function routingSaveHandOverrides(app, data) {
       }
     }
     if (Array.isArray(overrides.note_assignments)) {
-      // PR6 — operator-pinned (string, fret) for a specific note at a
+      // Operator-pinned (string, fret) for a specific note at a
       // specific tick. The simulator looks this up before its automatic
       // string/fret resolution so the operator's choice always wins.
       for (const a of overrides.note_assignments) {

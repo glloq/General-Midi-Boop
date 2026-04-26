@@ -578,30 +578,29 @@
         }
 
         /**
-         * Open the full-length editor modal (PR4). Caller must have
-         * provided `saveCtx` (fileId + deviceId + apiClient) for the
-         * future save flow; we surface a short warning if it's missing
-         * so the operator knows the data won't persist yet.
+         * Open the full-length editor modal. Forwards saveCtx
+         * (fileId, deviceId, apiClient, audioPreview) so the modal can
+         * persist overrides and reuse the page's synthesizer.
          */
         _openFullLengthEditor() {
             const Modal = window.HandPositionEditorModal;
             if (typeof Modal !== 'function') return;
             const ctx = this.opts.saveCtx || {};
-            const modal = new Modal({
+            new Modal({
                 fileId: ctx.fileId,
                 channel: this.channel,
                 deviceId: ctx.deviceId,
                 midiData: this.opts.midiData || null,
                 instrument: this.instrument,
-                hands_config: this.instrument?.hands_config || null,
+                notes: this.notes,
+                ticksPerBeat: this.ticksPerBeat,
+                bpm: this.bpm,
                 initialOverrides: this.overrides,
                 apiClient: ctx.apiClient || null,
-                // Reuse the host's AudioPreview instance so a single
-                // synthesizer is shared across the page (no double
-                // instantiation, no double resource use).
+                // Reuse the host's AudioPreview so a single synthesizer
+                // is shared across the page.
                 audioPreview: ctx.audioPreview || null
-            });
-            modal.open();
+            }).open();
         }
 
         destroy() {

@@ -112,70 +112,77 @@ describe('HandPositionEditorModal — history layer', () => {
     expect(m._historyIndex).toBe(0);
   });
 
+  it('deep-clones the caller initialOverrides so mutations stay scoped', () => {
+    const callerOverrides = { hand_anchors: [], disabled_notes: [], version: 1 };
+    const m = makeModal(callerOverrides);
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    expect(callerOverrides.hand_anchors).toEqual([]);
+  });
+
   it('pushHistory snapshots the current overrides', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
     expect(m._history.length).toBe(1);
-    m.initialOverrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
     m._pushHistory();
     expect(m._history.length).toBe(2);
     expect(m._historyIndex).toBe(1);
-    expect(m._dirty).toBe(true);
+    expect(m.isDirty).toBe(true);
   });
 
   it('undo reverts to the previous snapshot', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
-    m.initialOverrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
     m._pushHistory();
-    // To make undo testable without rebuilding a real engine, swap in
-    // the noop after the constructor's history was created.
-    m._rebuildEngineKeepingPlayhead = () => {};
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._undo();
-    expect(m.initialOverrides.hand_anchors).toEqual([]);
+    expect(m.overrides.hand_anchors).toEqual([]);
     expect(m._historyIndex).toBe(0);
   });
 
   it('redo replays the next snapshot', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
-    m._rebuildEngineKeepingPlayhead = () => {};
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
-    m.initialOverrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
     m._pushHistory();
     m._undo();
     m._redo();
-    expect(m.initialOverrides.hand_anchors).toEqual([
+    expect(m.overrides.hand_anchors).toEqual([
       { tick: 0, handId: 'fretting', anchor: 5 }
     ]);
     expect(m._historyIndex).toBe(1);
   });
 
-  it('save calls apiClient.sendCommand with the overrides payload', async () => {
+  it('save records _savedIndex so subsequent undo re-dirties', async () => {
     const sendCommand = vi.fn(async () => ({ success: true, updated: 1 }));
-    const m = makeModal({ hand_anchors: [{ tick: 0, handId: 'fretting', anchor: 5 }],
-                          disabled_notes: [], version: 1 });
+    const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
     m.apiClient = { sendCommand };
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._setStatus = () => {};
-    m._dirty = true;
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    m._pushHistory();
+    expect(m.isDirty).toBe(true);
     await m._save();
-    expect(sendCommand).toHaveBeenCalledTimes(1);
     expect(sendCommand).toHaveBeenCalledWith('routing_save_hand_overrides', expect.objectContaining({
       fileId: 42, channel: 0, deviceId: 'guitar-1'
     }));
-    expect(m._dirty).toBe(false);
+    expect(m.isDirty).toBe(false);
+    m._undo();
+    expect(m.isDirty).toBe(true);
   });
 
   it('pinNoteAssignment pushes a note_assignments entry', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
-    m._rebuildEngineKeepingPlayhead = () => {};
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._pinNoteAssignment(480, 64, 5, 5);
-    expect(m.initialOverrides.note_assignments).toEqual([
+    expect(m.overrides.note_assignments).toEqual([
       { tick: 480, note: 64, string: 5, fret: 5 }
     ]);
-    // Re-pin same (tick, note) → replace, not append.
     m._pinNoteAssignment(480, 64, 4, 9);
-    expect(m.initialOverrides.note_assignments).toEqual([
+    expect(m.overrides.note_assignments).toEqual([
       { tick: 480, note: 64, string: 4, fret: 9 }
     ]);
   });
@@ -186,10 +193,10 @@ describe('HandPositionEditorModal — history layer', () => {
                             { tick: 0, note: 60, string: 1, fret: 0 },
                             { tick: 480, note: 64, string: 5, fret: 5 }
                           ], version: 1 });
-    m._rebuildEngineKeepingPlayhead = () => {};
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._clearNoteAssignment(480, 64);
-    expect(m.initialOverrides.note_assignments).toEqual([
+    expect(m.overrides.note_assignments).toEqual([
       { tick: 0, note: 60, string: 1, fret: 0 }
     ]);
   });
@@ -201,11 +208,11 @@ describe('HandPositionEditorModal — history layer', () => {
       note_assignments:  [{ tick: 0, note: 60, string: 1, fret: 0 }],
       version: 1
     });
-    m._rebuildEngineKeepingPlayhead = () => {};
+    m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._resetOverrides();
-    expect(m.initialOverrides.hand_anchors).toEqual([]);
-    expect(m.initialOverrides.disabled_notes).toEqual([]);
-    expect(m.initialOverrides.note_assignments).toBeUndefined();
+    expect(m.overrides.hand_anchors).toEqual([]);
+    expect(m.overrides.disabled_notes).toEqual([]);
+    expect(m.overrides.note_assignments).toEqual([]);
   });
 });

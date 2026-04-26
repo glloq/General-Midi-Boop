@@ -108,6 +108,16 @@
             this._shifts = list.filter(e => e && e.type === 'shift' && Number.isFinite(e.tick));
             this._chords.sort((a, b) => a.tick - b.tick);
             this._shifts.sort((a, b) => a.tick - b.tick);
+            // Precompute the per-chord unplayable note set so the draw
+            // loop doesn't allocate a fresh Set every frame for every
+            // visible chord.
+            for (const ch of this._chords) {
+                ch._unplayableNotes = Array.isArray(ch.unplayable)
+                    ? new Set(ch.unplayable
+                        .filter(u => Number.isFinite(u.note))
+                        .map(u => u.note))
+                    : null;
+            }
             this._scheduleDraw();
         }
 
@@ -122,13 +132,17 @@
         }
 
         setPlayhead(currentSec) {
-            this.playheadSec = Number.isFinite(currentSec) ? Math.max(0, currentSec) : 0;
+            const next = Number.isFinite(currentSec) ? Math.max(0, currentSec) : 0;
+            if (next === this.playheadSec) return;
+            this.playheadSec = next;
             this._scheduleDraw();
         }
 
         setScrollSec(sec) {
             const max = Math.max(0, this.totalSec - this._viewportSec());
-            this.scrollSec = Math.max(0, Math.min(max, Number.isFinite(sec) ? sec : 0));
+            const next = Math.max(0, Math.min(max, Number.isFinite(sec) ? sec : 0));
+            if (next === this.scrollSec) return;
+            this.scrollSec = next;
             this._scheduleDraw();
         }
 
@@ -239,21 +253,18 @@
             // Hit-test note dots first — clicking on a note opens the
             // string-alternative menu; clicking elsewhere just seeks.
             if (this.onNoteClick) {
-                for (const hit of this._noteHits) {
-                    const dx = x - hit.x;
-                    const dy = y - hit.y;
-                    if (dx * dx + dy * dy <= hit.r * hit.r) {
-                        try { this.onNoteClick(hit, { clientX: e.clientX, clientY: e.clientY }); }
-                        catch (err) { console.warn('[FretboardTimelineRenderer] onNoteClick failed:', err); }
-                        return;
-                    }
+                const hit = this._noteHits.find(h => {
+                    const dx = x - h.x; const dy = y - h.y;
+                    return dx * dx + dy * dy <= h.r * h.r;
+                });
+                if (hit) {
+                    this.onNoteClick(hit, { clientX: e.clientX, clientY: e.clientY });
+                    return;
                 }
             }
             if (!this.onSeek) return;
             const sec = Math.max(0, Math.min(this.totalSec, this._yToSec(y)));
-            try { this.onSeek(sec); } catch (err) {
-                console.warn('[FretboardTimelineRenderer] onSeek failed:', err);
-            }
+            this.onSeek(sec);
         }
 
         // ----------------------------------------------------------------
@@ -263,10 +274,7 @@
         _scheduleDraw() {
             this._dirty = true;
             if (this._rafHandle != null) return;
-            const raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
-                ? window.requestAnimationFrame.bind(window)
-                : (cb) => setTimeout(cb, 16);
-            this._rafHandle = raf(() => {
+            this._rafHandle = window.requestAnimationFrame(() => {
                 this._rafHandle = null;
                 if (this._dirty) this.draw();
             });
@@ -295,11 +303,21 @@
             ctx.fillStyle = '#f5f7fb';
             ctx.fillRect(0, 0, w, h);
 
+            // Cache geometry once per frame: _viewportSec and
+            // _usableWidth read clientHeight/clientWidth which can flush
+            // layout. The draw helpers used to re-call them inside
+            // tight loops (5–10× per frame).
+            const viewportSec = this._viewportSec();
+            const lo = this.scrollSec - VIEWPORT_MARGIN_SEC;
+            const hi = this.scrollSec + viewportSec + VIEWPORT_MARGIN_SEC;
+            this._frame = { w, h, viewportSec, lo, hi };
+
             this._drawFretGrid(w, h);
             this._drawHandRibbon();
             this._drawInfeasibleCurves();
             this._drawChords();
             this._drawPlayhead(w);
+            this._frame = null;
         }
 
         _drawFretGrid(w, h) {
@@ -331,8 +349,9 @@
         _drawHandRibbon() {
             if (!this._trajectory.length) return;
             const ctx = this.ctx;
-            const yTop = this._secToY(Math.max(0, this.scrollSec - VIEWPORT_MARGIN_SEC));
-            const yBot = this._secToY(this.scrollSec + this._viewportSec() + VIEWPORT_MARGIN_SEC);
+            const { lo, hi } = this._frame;
+            const yTop = this._secToY(Math.max(0, lo));
+            const yBot = this._secToY(hi);
             ctx.fillStyle = 'rgba(34, 197, 94, 0.18)';
             ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
             ctx.lineWidth = 1;
@@ -342,8 +361,8 @@
                 const next = this._trajectory[i + 1];
                 const startSec = this._tickToSec(cur.tick);
                 const endSec = next ? this._tickToSec(next.tick) : this.totalSec;
-                if (endSec < this.scrollSec - VIEWPORT_MARGIN_SEC) continue;
-                if (startSec > this.scrollSec + this._viewportSec() + VIEWPORT_MARGIN_SEC) break;
+                if (endSec < lo) continue;
+                if (startSec > hi) break;
 
                 const { x0, x1 } = this._handWindowX(cur.anchor);
                 if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) continue;
@@ -356,11 +375,12 @@
         }
 
         /** Yellow dashed Bézier between two consecutive ribbon segments
-         *  whose `motion.feasible === false`. Mirrors PR2's behaviour
-         *  on the static fretboard. */
+         *  whose `motion.feasible === false` — speed-limit warning
+         *  matching FretboardHandPreview's static cue. */
         _drawInfeasibleCurves() {
             if (this._trajectory.length < 2) return;
             const ctx = this.ctx;
+            const { lo, hi } = this._frame;
             ctx.save();
             ctx.strokeStyle = '#f5c518';
             ctx.lineWidth = 2.5;
@@ -372,8 +392,8 @@
                 if (!motion || motion.feasible !== false) continue;
                 const startSec = this._tickToSec(prev.tick);
                 const endSec = this._tickToSec(curr.tick);
-                if (endSec < this.scrollSec - VIEWPORT_MARGIN_SEC) continue;
-                if (startSec > this.scrollSec + this._viewportSec() + VIEWPORT_MARGIN_SEC) break;
+                if (endSec < lo) continue;
+                if (startSec > hi) break;
                 const x1 = this._anchorCenterX(prev.anchor);
                 const x2 = this._anchorCenterX(curr.anchor);
                 if (!Number.isFinite(x1) || !Number.isFinite(x2)) continue;
@@ -400,40 +420,32 @@
         }
 
         _drawChords() {
-            this._noteHits = [];
+            this._noteHits.length = 0;
             if (!this._chords.length) return;
             const ctx = this.ctx;
-            const lo = this.scrollSec - VIEWPORT_MARGIN_SEC;
-            const hi = this.scrollSec + this._viewportSec() + VIEWPORT_MARGIN_SEC;
+            const { lo, hi } = this._frame;
             const loTick = lo * this.ticksPerSec;
             const hiTick = hi * this.ticksPerSec;
 
-            // Binary-search the first chord with tick >= loTick.
             let i = this._lowerBoundChord(loTick);
             for (; i < this._chords.length; i++) {
                 const ch = this._chords[i];
                 if (ch.tick > hiTick) break;
                 const y = this._secToY(this._tickToSec(ch.tick));
                 const notes = Array.isArray(ch.notes) ? ch.notes : [];
-                const unplayable = Array.isArray(ch.unplayable)
-                    ? new Set(ch.unplayable
-                        .filter(u => Number.isFinite(u.note))
-                        .map(u => u.note)) : new Set();
+                const unplayableSet = ch._unplayableNotes;
                 for (const n of notes) {
                     if (!Number.isFinite(n.fret)) continue;
                     const xCol = n.fret === 0
                         ? this._fretX(0) - 6
                         : (this._fretX(n.fret - 1) + this._fretX(n.fret)) / 2;
-                    const isUnplayable = unplayable.has(n.note);
+                    const isUnplayable = unplayableSet ? unplayableSet.has(n.note) : false;
                     ctx.fillStyle = isUnplayable
                         ? 'rgba(239, 68, 68, 0.55)'
                         : 'rgba(37, 99, 235, 0.85)';
                     ctx.beginPath();
                     ctx.arc(xCol, y, 4, 0, Math.PI * 2);
                     ctx.fill();
-                    // Record a hit-zone for onNoteClick (PR6). 8 px is
-                    // generous enough to give the operator a usable
-                    // click target even when zoomed out.
                     this._noteHits.push({
                         x: xCol, y, r: 8,
                         tick: ch.tick,

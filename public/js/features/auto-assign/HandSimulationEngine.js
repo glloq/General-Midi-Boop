@@ -230,6 +230,11 @@
          *                                      availableSec:number,
          *                                      feasible:boolean}}>>}
          */
+        /** Read-only access to the precomputed event timeline. */
+        getTimeline() {
+            return this._timeline || [];
+        }
+
         getHandTrajectories() {
             // Index chords by tick so each shift can look up its
             // matching chord's per-hand release time in O(1).

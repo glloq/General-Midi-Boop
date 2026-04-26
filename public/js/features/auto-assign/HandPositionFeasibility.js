@@ -241,7 +241,7 @@
     }
 
     /**
-     * PR6 — index operator-pinned (string, fret) assignments by
+     * Index operator-pinned (string, fret) assignments by
      * `(tick, midi)`. Lookups happen for every note inside
      * `_simulateFrets` BEFORE the auto-resolver runs so the operator's
      * choice always wins (and can be undone via the editor's history).
@@ -260,8 +260,8 @@
     }
 
     /**
-     * PR6 — list every plausible (string, fret) pair that produces a
-     * given MIDI pitch on a given instrument. Used by the editor's
+     * List every plausible (string, fret) pair that produces a given
+     * MIDI pitch on a given instrument. Used by the editor's
      * note-edit menu to populate the chips of cordes alternatives.
      *
      * Returns an array of `{string, fret}` ordered by ascending fret
@@ -1044,9 +1044,9 @@
                 }
             }
 
-            // PR6 — apply operator-pinned (string, fret) overrides
-            // BEFORE the auto-resolver so the resolver treats them as
-            // already-tagged (and won't reassign their string).
+            // Apply operator-pinned (string, fret) overrides BEFORE
+            // the auto-resolver so the resolver treats them as
+            // already-tagged and won't reassign their string.
             if (noteAssignments && noteAssignments.size > 0) {
                 g.notes = g.notes.map(n => {
                     const pinned = noteAssignments.get(`${g.tick}:${n.note}`);

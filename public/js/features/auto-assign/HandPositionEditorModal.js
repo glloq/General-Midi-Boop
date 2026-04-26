@@ -1,22 +1,20 @@
 /**
  * @file HandPositionEditorModal.js
- * @description Full-length tablature & hand-position editor (PR4
- * scaffolding). Extends BaseModal in 'full' size and stitches three
- * widgets together:
+ * @description Full-length tablature & hand-position editor.
+ *
+ * Stitches three widgets together inside a BaseModal in 'full' size:
  *   - a sticky FretboardHandPreview at the top (live snapshot of the
- *     current playhead — same widget used in HandsPreviewPanel),
+ *     current playhead),
  *   - a FretboardTimelineRenderer below it (the whole file scrollable
  *     in time, virtualised),
- *   - a toolbar (zoom in/out, scroll buttons, close).
- *
- * No audio playback yet (PR5) and no per-note edition (PR6); the
- * scaffolding only enables navigation + visualisation. The drag-to-pin
- * already shipped in PR3 stays available on the sticky preview.
+ *   - a toolbar (transport, zoom, follow, undo/redo, save).
  *
  * Public API:
  *   const modal = new HandPositionEditorModal({
- *     fileId, channel, deviceId, midiData, instrument, hands_config,
- *     initialOverrides, apiClient
+ *     fileId, channel, deviceId, instrument,
+ *     notes, ticksPerBeat, bpm,         // forwarded by HandsPreviewPanel
+ *     midiData,                          // for AudioPreview only
+ *     initialOverrides, apiClient, audioPreview
  *   });
  *   modal.open();
  *   modal.close();
@@ -24,15 +22,18 @@
 (function() {
     'use strict';
 
+    const HAND_REBUILD_DEBOUNCE_MS = 150;
+    const FRETTING_HAND_ID = 'fretting';
+
     function _t(key, fallback) {
-        if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function') {
+        if (window.i18n && typeof window.i18n.t === 'function') {
             const v = window.i18n.t(key);
             if (v && v !== key) return v;
         }
         return fallback;
     }
 
-    function _hands(instrument) {
+    function _parseHands(instrument) {
         let cfg = instrument?.hands_config;
         if (typeof cfg === 'string') {
             try { cfg = JSON.parse(cfg); } catch (_) { return []; }
@@ -40,51 +41,9 @@
         return Array.isArray(cfg?.hands) ? cfg.hands : [];
     }
 
-    /**
-     * Walk the parsed MIDI tracks once to extract `[{tick, note,
-     * duration, channel}]` for the requested channel. Mirrors
-     * `RoutingSummaryPage._getChannelNotesForPreview` so the editor
-     * is self-contained and can be opened from anywhere later.
-     */
-    function _extractChannelNotes(midiData, channel) {
-        const out = [];
-        const tracks = midiData?.tracks || [];
-        for (const track of tracks) {
-            let tick = 0;
-            const pending = new Map();
-            for (const ev of (track.events || track)) {
-                tick += ev.deltaTime || 0;
-                const evCh = ev.channel ?? 0;
-                if (evCh !== channel) continue;
-                const noteNumber = ev.note ?? ev.noteNumber;
-                if (!Number.isFinite(noteNumber)) continue;
-                if (ev.type === 'noteOn' && (ev.velocity ?? 0) > 0) {
-                    const idx = out.length;
-                    out.push({ tick, note: noteNumber, channel, duration: 0 });
-                    pending.set(noteNumber, idx);
-                } else if (ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0)) {
-                    if (pending.has(noteNumber)) {
-                        const idx = pending.get(noteNumber);
-                        out[idx].duration = Math.max(0, tick - out[idx].tick);
-                        pending.delete(noteNumber);
-                    }
-                }
-            }
-        }
-        out.sort((a, b) => a.tick - b.tick);
-        return out;
-    }
-
-    function _estimateBpm(midiData) {
-        const tracks = midiData?.tracks || [];
-        for (const track of tracks) {
-            for (const ev of (track.events || track)) {
-                if (ev.type === 'setTempo' && Number.isFinite(ev.microsecondsPerBeat)) {
-                    return 60_000_000 / ev.microsecondsPerBeat;
-                }
-            }
-        }
-        return 120;
+    function _frettingHand(instrument) {
+        const hands = _parseHands(instrument);
+        return hands.find(h => h && h.id === FRETTING_HAND_ID) || hands[0] || {};
     }
 
     class HandPositionEditorModal extends window.BaseModal {
@@ -101,20 +60,18 @@
             this.deviceId = opts.deviceId;
             this.midiData = opts.midiData || null;
             this.instrument = opts.instrument || null;
-            this.handsConfig = opts.hands_config || this.instrument?.hands_config || null;
-            this.initialOverrides = opts.initialOverrides || null;
             this.apiClient = opts.apiClient || null;
+            this.audioPreview = opts.audioPreview || null;
 
-            this.notes = this.midiData
-                ? _extractChannelNotes(this.midiData, this.channel) : [];
-            this.ticksPerBeat = this.midiData?.header?.ticksPerBeat
-                || this.midiData?.ticksPerBeat || 480;
-            this.bpm = _estimateBpm(this.midiData);
+            this.notes = Array.isArray(opts.notes) ? opts.notes : [];
+            this.ticksPerBeat = Number.isFinite(opts.ticksPerBeat) && opts.ticksPerBeat > 0
+                ? opts.ticksPerBeat : 480;
+            this.bpm = Number.isFinite(opts.bpm) && opts.bpm > 0 ? opts.bpm : 120;
             this.ticksPerSec = this.ticksPerBeat * (this.bpm / 60);
 
             this.engine = null;
-            this.sticky = null;       // FretboardHandPreview
-            this.timeline = null;     // FretboardTimelineRenderer
+            this.sticky = null;
+            this.timeline = null;
 
             this._totalTicks = this.notes.length
                 ? Math.max(...this.notes.map(n => n.tick + (n.duration || 0))) : 0;
@@ -123,16 +80,24 @@
             this._tickHandler = null;
             this._chordHandler = null;
 
-            // PR5 — embedded audio preview, follow-the-playhead toggle,
-            // history stack for undo/redo, dirty flag for the Save button.
-            this.audioPreview = opts.audioPreview || null;
+            // Deep-clone so mutations stay scoped to the modal — the
+            // caller's overrides object stays pristine until _save()
+            // succeeds and the host gets the response.
+            this.overrides = this._cloneOverrides(opts.initialOverrides) || {
+                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
+            };
             this._followPlayhead = true;
-            this._playState = 'stopped'; // 'stopped' | 'playing' | 'paused'
-            this._history = [this._cloneOverrides(this.initialOverrides)];
+            this._history = [this._cloneOverrides(this.overrides)];
             this._historyIndex = 0;
-            this._dirty = false;
+            // Save bookkeeping: dirty when the live index differs from
+            // the index that was persisted last. Avoids the latent bug
+            // where _save followed by undo silently re-dirties.
+            this._savedIndex = 0;
             this._maxHistory = 50;
+            this._rebuildTimer = null;
         }
+
+        get isDirty() { return this._historyIndex !== this._savedIndex; }
 
         renderBody() {
             return `
@@ -192,16 +157,12 @@
             this._mountSticky();
             this._mountTimeline();
             this._wireToolbar();
-            // Defer the engine build to a second rAF so the modal's
-            // shell paints first. simulateHandWindows() inside the
-            // engine constructor can take 100-300 ms on dense channels
-            // — we don't want that to block the open animation.
-            const raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
-                ? window.requestAnimationFrame.bind(window)
-                : (cb) => setTimeout(cb, 16);
+            // simulateHandWindows() inside the engine constructor takes
+            // 100-300 ms on dense channels — defer one frame so the
+            // modal shell paints first.
             this._setStatus(_t('handPositionEditor.preparing', 'Préparation de la timeline…'));
-            raf(() => raf(() => {
-                if (!this.isOpen) return; // closed before we got around to it
+            window.requestAnimationFrame(() => {
+                if (!this.isOpen) return;
                 try {
                     this._wireEngine();
                     this._setStatus('');
@@ -210,26 +171,31 @@
                     this._setStatus(`${_t('handPositionEditor.engineFailed',
                         'Impossible de préparer la simulation')}: ${e.message || e}`, 'err');
                 }
-            }));
+            });
             this._refreshTimeDisplay();
         }
 
         onClose() {
-            if (this._tickHandler && this.engine) this.engine.removeEventListener('tick', this._tickHandler);
-            if (this._chordHandler && this.engine) this.engine.removeEventListener('chord', this._chordHandler);
+            if (this._rebuildTimer != null) {
+                clearTimeout(this._rebuildTimer);
+                this._rebuildTimer = null;
+            }
+            if (this.engine) {
+                if (this._tickHandler) this.engine.removeEventListener('tick', this._tickHandler);
+                if (this._chordHandler) this.engine.removeEventListener('chord', this._chordHandler);
+                this.engine.dispose();
+                this.engine = null;
+            }
             this._tickHandler = null;
             this._chordHandler = null;
-            if (this.engine?.dispose) try { this.engine.dispose(); } catch (_) {}
-            this.engine = null;
-            if (this.sticky?.destroy) try { this.sticky.destroy(); } catch (_) {}
+            this.sticky?.destroy();
             this.sticky = null;
-            if (this.timeline?.destroy) try { this.timeline.destroy(); } catch (_) {}
+            this.timeline?.destroy();
             this.timeline = null;
-            // Stop any in-flight playback we initiated. The host's
-            // AudioPreview instance is shared with the routing summary
-            // page, so we never destroy it ourselves — just stop.
-            if (this.audioPreview && (this.audioPreview.isPlaying || this.audioPreview.isPreviewing)) {
-                try { this.audioPreview.stop(); } catch (_) {}
+            // The AudioPreview instance is shared with the routing
+            // summary page; only stop our in-flight playback.
+            if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
+                this.audioPreview.stop();
             }
             if (this._keyHandler) {
                 document.removeEventListener('keydown', this._keyHandler);
@@ -244,36 +210,34 @@
 
         _mountSticky() {
             const host = this.$('.hpe-sticky-host');
-            if (!host || !window.FretboardHandPreview) return;
+            if (!host) return;
             const canvas = document.createElement('canvas');
             canvas.className = 'hpe-sticky-canvas';
             canvas.style.cssText = 'width:100%;height:170px;display:block;';
             host.appendChild(canvas);
 
-            const handsArr = _hands(this.instrument);
-            const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0] || {};
+            const fretting = _frettingHand(this.instrument);
             this.sticky = new window.FretboardHandPreview(canvas, {
                 tuning: this.instrument?.tuning || [40, 45, 50, 55, 59, 64],
                 numFrets: this.instrument?.num_frets || 24,
                 scaleLengthMm: this.instrument?.scale_length_mm,
                 handSpanMm: fretting.hand_span_mm,
                 handSpanFrets: fretting.hand_span_frets || 4,
-                handId: fretting.id || 'fretting',
+                handId: fretting.id || FRETTING_HAND_ID,
                 onBandDrag: (handId, anchor) => this._onStickyBandDrag(handId, anchor)
             });
-            this.sticky.draw && this.sticky.draw();
+            this.sticky.draw();
         }
 
         _mountTimeline() {
             const host = this.$('.hpe-timeline-host');
-            if (!host || !window.FretboardTimelineRenderer) return;
+            if (!host) return;
             const canvas = document.createElement('canvas');
             canvas.className = 'hpe-timeline-canvas';
             canvas.style.cssText = 'width:100%;height:100%;display:block;';
             host.appendChild(canvas);
 
-            const handsArr = _hands(this.instrument);
-            const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0] || {};
+            const fretting = _frettingHand(this.instrument);
             this.timeline = new window.FretboardTimelineRenderer(canvas, {
                 tuning: this.instrument?.tuning || [40, 45, 50, 55, 59, 64],
                 numFrets: this.instrument?.num_frets || 24,
@@ -289,8 +253,8 @@
         }
 
         /**
-         * PR6 — open a small popover with the alternative (string,
-         * fret) candidates for the clicked note. Picking one pushes a
+         * Open a small popover with the alternative (string, fret)
+         * candidates for the clicked note. Picking one pushes a
          * `note_assignments` entry into the overrides and rebuilds the
          * engine so the change is reflected immediately on the manche
          * + the audio simulation.
@@ -340,20 +304,27 @@
                     this._closeNotePopover();
                 }
             });
-            // Click anywhere else closes the popover. Defer the listener
-            // attach to the next tick so the click that opened the
-            // popover doesn't immediately close it.
-            setTimeout(() => {
-                this._popoverDismissHandler = (e) => {
-                    if (!this._notePopover) return;
-                    if (this._notePopover.contains(e.target)) return;
-                    this._closeNotePopover();
+            // Defer attaching the document-level dismiss listener so the
+            // click that opened the popover doesn't immediately close it.
+            // Track the timer so a fast modal close cancels the pending
+            // attachment (otherwise the listener leaks on document).
+            this._popoverDeferTimer = setTimeout(() => {
+                this._popoverDeferTimer = null;
+                if (!this._notePopover) return;
+                this._popoverDismissHandler = (ev) => {
+                    if (this._notePopover && !this._notePopover.contains(ev.target)) {
+                        this._closeNotePopover();
+                    }
                 };
                 document.addEventListener('mousedown', this._popoverDismissHandler);
             }, 0);
         }
 
         _closeNotePopover() {
+            if (this._popoverDeferTimer != null) {
+                clearTimeout(this._popoverDeferTimer);
+                this._popoverDeferTimer = null;
+            }
             if (this._popoverDismissHandler) {
                 document.removeEventListener('mousedown', this._popoverDismissHandler);
                 this._popoverDismissHandler = null;
@@ -365,28 +336,28 @@
         }
 
         _pinNoteAssignment(tick, note, string, fret) {
-            this.initialOverrides = this.initialOverrides
+            this.overrides = this.overrides
                 || { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
-            if (!Array.isArray(this.initialOverrides.note_assignments)) {
-                this.initialOverrides.note_assignments = [];
+            if (!Array.isArray(this.overrides.note_assignments)) {
+                this.overrides.note_assignments = [];
             }
-            const list = this.initialOverrides.note_assignments;
+            const list = this.overrides.note_assignments;
             const idx = list.findIndex(a => a.tick === tick && a.note === note);
             const entry = { tick, note, string, fret };
             if (idx >= 0) list[idx] = entry;
             else list.push(entry);
             this._pushHistory();
-            this._rebuildEngineKeepingPlayhead();
+            this._scheduleEngineRebuild();
         }
 
         _clearNoteAssignment(tick, note) {
-            const list = this.initialOverrides?.note_assignments;
+            const list = this.overrides?.note_assignments;
             if (!Array.isArray(list)) return;
             const idx = list.findIndex(a => a.tick === tick && a.note === note);
             if (idx < 0) return;
             list.splice(idx, 1);
             this._pushHistory();
-            this._rebuildEngineKeepingPlayhead();
+            this._scheduleEngineRebuild();
         }
 
         _wireToolbar() {
@@ -433,7 +404,7 @@
                 if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
                 if (e.key === ' ') {
                     e.preventDefault();
-                    this._playState === 'playing' ? this._pause() : this._play();
+                    this._isPlaying() ? this._pause() : this._play();
                 } else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
                     e.preventDefault();
                     this._undo();
@@ -470,18 +441,10 @@
                 this.audioPreview.onProgress = (currentTick, totalTicks, currentSec) => {
                     this._onAudioProgress(currentSec);
                 };
-                this.audioPreview.onPlaybackEnd = () => this._onAudioEnd();
+                this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
                 const startSec = this.engine?.currentSec ? this.engine.currentSec() : 0;
                 await this.audioPreview.previewSingleChannel(
-                    this.midiData,
-                    this.channel,
-                    {},               // transposition — preview as authored
-                    {},               // instrument constraints — open
-                    startSec,
-                    0,                // duration ignored when fullFile=true
-                    true              // fullFile
-                );
-                this._playState = 'playing';
+                    this.midiData, this.channel, {}, {}, startSec, 0, true);
                 this._refreshTransport();
             } catch (err) {
                 console.error('[HandPositionEditor] play failed:', err);
@@ -490,39 +453,28 @@
         }
 
         _pause() {
-            if (!this.audioPreview) return;
-            try { this.audioPreview.pause(); } catch (_) {}
-            this._playState = 'paused';
+            this.audioPreview?.pause();
             this._refreshTransport();
         }
 
         _stop() {
-            if (!this.audioPreview) return;
-            try { this.audioPreview.stop(); } catch (_) {}
-            this._playState = 'stopped';
+            this.audioPreview?.stop();
             this._refreshTransport();
         }
+
+        _isPlaying() { return !!this.audioPreview?.isPlaying; }
 
         _onAudioProgress(currentSec) {
-            if (this.engine?.advanceToSec) this.engine.advanceToSec(currentSec);
-            // The engine emits a 'tick' event which is already wired to
-            // the sticky preview + timeline playhead update in PR4.
+            this.engine?.advanceToSec?.(currentSec);
             this._maybeFollowPlayhead(currentSec);
-        }
-
-        _onAudioEnd() {
-            this._playState = 'stopped';
-            this._refreshTransport();
         }
 
         _maybeFollowPlayhead(currentSec) {
             if (!this._followPlayhead || !this.timeline) return;
             const viewportSec = this.timeline._viewportSec();
             const top = this.timeline.scrollSec;
-            const bot = top + viewportSec;
             // Re-center when the playhead leaves the comfortable middle
-            // band ([20%, 80%] of the viewport) — avoids twitchy resets
-            // for tiny sub-pixel updates.
+            // band ([20%, 80%] of the viewport) — avoids twitchy resets.
             if (currentSec < top + viewportSec * 0.2 || currentSec > top + viewportSec * 0.8) {
                 this.timeline.setScrollSec(currentSec - viewportSec * 0.4);
             }
@@ -532,11 +484,10 @@
             const playBtn = this.$('[data-action="play"]');
             const pauseBtn = this.$('[data-action="pause"]');
             const stopBtn = this.$('[data-action="stop"]');
-            const playing = this._playState === 'playing';
-            const paused = this._playState === 'paused';
+            const playing = this._isPlaying();
             if (playBtn) playBtn.disabled = playing;
             if (pauseBtn) pauseBtn.disabled = !playing;
-            if (stopBtn) stopBtn.disabled = !(playing || paused);
+            if (stopBtn) stopBtn.disabled = !playing && !this.audioPreview?.isPreviewing;
         }
 
         // ----------------------------------------------------------------
@@ -544,49 +495,45 @@
         // ----------------------------------------------------------------
 
         _cloneOverrides(o) {
-            if (!o) return null;
-            try { return JSON.parse(JSON.stringify(o)); } catch (_) { return null; }
+            return o ? JSON.parse(JSON.stringify(o)) : null;
         }
 
         _pushHistory() {
-            // Drop any redo branch beyond the current index, append the
-            // new snapshot, cap the stack at _maxHistory.
             this._history = this._history.slice(0, this._historyIndex + 1);
-            this._history.push(this._cloneOverrides(this.initialOverrides));
+            this._history.push(this._cloneOverrides(this.overrides));
             if (this._history.length > this._maxHistory) {
                 this._history.shift();
+                // Saved snapshot fell off the bottom — anything goes
+                // forward of here is dirty.
+                this._savedIndex = Math.max(0, this._savedIndex - 1);
             } else {
                 this._historyIndex++;
             }
-            this._dirty = true;
             this._refreshHistoryButtons();
         }
 
         _undo() {
             if (this._historyIndex <= 0) return;
             this._historyIndex--;
-            this.initialOverrides = this._cloneOverrides(this._history[this._historyIndex]);
-            this._dirty = this._historyIndex !== 0;
-            this._rebuildEngineKeepingPlayhead();
+            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._scheduleEngineRebuild();
             this._refreshHistoryButtons();
         }
 
         _redo() {
             if (this._historyIndex >= this._history.length - 1) return;
             this._historyIndex++;
-            this.initialOverrides = this._cloneOverrides(this._history[this._historyIndex]);
-            this._dirty = this._historyIndex !== 0;
-            this._rebuildEngineKeepingPlayhead();
+            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._scheduleEngineRebuild();
             this._refreshHistoryButtons();
         }
 
         _resetOverrides() {
-            // Clear all overrides + push a snapshot so the operator can
-            // undo back to whatever they had before. No confirmation
-            // dialog yet — that's a polish item for PR7.
-            this.initialOverrides = { hand_anchors: [], disabled_notes: [], version: 1 };
+            this.overrides = {
+                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
+            };
             this._pushHistory();
-            this._rebuildEngineKeepingPlayhead();
+            this._scheduleEngineRebuild();
         }
 
         async _save() {
@@ -606,9 +553,12 @@
                     fileId: this.fileId,
                     channel: this.channel,
                     deviceId: this.deviceId,
-                    overrides: this.initialOverrides
+                    overrides: this.overrides
                 });
-                this._dirty = false;
+                // The persisted state matches our current snapshot. A
+                // subsequent undo correctly re-dirties because the index
+                // moves away from _savedIndex.
+                this._savedIndex = this._historyIndex;
                 this._refreshHistoryButtons();
                 this._setStatus(_t('handPositionEditor.saved', 'Modifications enregistrées.'), 'ok');
             } catch (err) {
@@ -624,8 +574,9 @@
             if (undoBtn) undoBtn.disabled = this._historyIndex <= 0;
             if (redoBtn) redoBtn.disabled = this._historyIndex >= this._history.length - 1;
             if (saveBtn) {
-                saveBtn.disabled = !this._dirty;
-                saveBtn.title = this._dirty
+                const dirty = this.isDirty;
+                saveBtn.disabled = !dirty;
+                saveBtn.title = dirty
                     ? _t('handPositionEditor.saveDirty', 'Modifications non enregistrées')
                     : _t('handPositionEditor.saveClean', 'Aucune modification');
             }
@@ -638,35 +589,45 @@
             el.dataset.level = level;
         }
 
-        _rebuildEngineKeepingPlayhead() {
+        /**
+         * Debounce engine rebuilds so a flurry of mutations (e.g. fast
+         * undo/redo, repeated note pins) collapses into a single
+         * `simulateHandWindows()` call. simulateHandWindows is O(n_chords)
+         * — 100-300 ms on dense files — so coalescing is critical.
+         */
+        _scheduleEngineRebuild() {
+            if (!this.engine) return;
+            if (this._rebuildTimer != null) clearTimeout(this._rebuildTimer);
+            this._rebuildTimer = setTimeout(() => {
+                this._rebuildTimer = null;
+                this._rebuildEngineNow();
+            }, HAND_REBUILD_DEBOUNCE_MS);
+        }
+
+        _rebuildEngineNow() {
             if (!this.engine) return;
             const sec = this.engine.currentSec ? this.engine.currentSec() : 0;
-            try { this.engine.dispose(); } catch (_) {}
-            if (this._tickHandler) this.engine?.removeEventListener?.('tick', this._tickHandler);
-            if (this._chordHandler) this.engine?.removeEventListener?.('chord', this._chordHandler);
+            if (this._tickHandler) this.engine.removeEventListener('tick', this._tickHandler);
+            if (this._chordHandler) this.engine.removeEventListener('chord', this._chordHandler);
+            this.engine.dispose();
             this.engine = null;
             this._wireEngine();
             if (this.engine?.advanceToSec) this.engine.advanceToSec(sec);
         }
 
         _wireEngine() {
-            if (!window.HandSimulationEngine) return;
             this.engine = new window.HandSimulationEngine({
                 notes: this.notes,
                 instrument: this.instrument,
                 ticksPerBeat: this.ticksPerBeat,
                 bpm: this.bpm,
-                overrides: this.initialOverrides
+                overrides: this.overrides
             });
 
-            // Push the precomputed timeline + trajectory into the
-            // timeline renderer so it can virtualise its draw.
-            this.timeline?.setTimeline(this.engine._timeline || []);
-            const trajectories = this.engine.getHandTrajectories
-                ? this.engine.getHandTrajectories() : new Map();
-            const handsArr = _hands(this.instrument);
-            const fretting = handsArr.find(h => h && h.id === 'fretting') || handsArr[0];
-            const traj = (fretting && trajectories.get && trajectories.get(fretting.id)) || [];
+            this.timeline?.setTimeline(this.engine.getTimeline());
+            const trajectories = this.engine.getHandTrajectories();
+            const fretting = _frettingHand(this.instrument);
+            const traj = trajectories.get(fretting.id) || [];
             this.timeline?.setTrajectory(traj);
             // Push the same trajectory into the sticky aperçu so its
             // band animates with the playhead just like the existing
@@ -708,22 +669,19 @@
             // uses: append a {tick, handId, anchor} entry at the current
             // playhead and rebuild the engine so the trajectory follows.
             if (!this.engine) return;
-            this.initialOverrides = this.initialOverrides
+            this.overrides = this.overrides
                 || { hand_anchors: [], disabled_notes: [], version: 1 };
-            if (!Array.isArray(this.initialOverrides.hand_anchors)) {
-                this.initialOverrides.hand_anchors = [];
+            if (!Array.isArray(this.overrides.hand_anchors)) {
+                this.overrides.hand_anchors = [];
             }
             const tick = Math.round(this.engine.currentTick ? this.engine.currentTick() : 0);
-            const idx = this.initialOverrides.hand_anchors.findIndex(
+            const idx = this.overrides.hand_anchors.findIndex(
                 a => a.tick === tick && a.handId === handId);
             const entry = { tick, handId, anchor };
-            if (idx >= 0) this.initialOverrides.hand_anchors[idx] = entry;
-            else this.initialOverrides.hand_anchors.push(entry);
-            // Push history snapshot so the operator can undo this pin
-            // (PR5). The mutation already happened above; the snapshot
-            // captures the post-mutation state.
+            if (idx >= 0) this.overrides.hand_anchors[idx] = entry;
+            else this.overrides.hand_anchors.push(entry);
             this._pushHistory();
-            this._rebuildEngineKeepingPlayhead();
+            this._scheduleEngineRebuild();
         }
 
         _seekToSec(sec) {

@@ -91,14 +91,12 @@
 
             this._dprSyncedSize = { w: 0, h: 0 };
 
-            // Drag-to-pin (PR3). When `onBandDrag` is provided the
-            // operator can grab the live band and slide it to a new
-            // anchor. The callback is invoked on mouseup with the new
-            // (integer) fret anchor; the host typically funnels it to
-            // `pinHandAnchor(handId, anchor)` which appends to the
-            // overrides and rebuilds the engine. Until that rebuild
-            // lands (= a new `setHandTrajectory` call clears
-            // `_dragAnchor`), the band sits where the operator left it.
+            // Drag-to-pin: when `onBandDrag` is provided the operator
+            // can grab the live band and slide it to a new anchor. The
+            // callback fires on mouseup with the new (integer) fret;
+            // the host typically funnels it to `pinHandAnchor`. Until
+            // a fresh trajectory arrives via `setHandTrajectory`, the
+            // band sits where the operator left it.
             this.onBandDrag = typeof opts.onBandDrag === 'function' ? opts.onBandDrag : null;
             this.handId = typeof opts.handId === 'string' ? opts.handId : 'fretting';
             this._drag = null;
@@ -206,9 +204,9 @@
         /** @private — Anchor for the CURRENT playhead. Returns
          *  `null` when no trajectory is loaded so the caller can
          *  decide what to do. Stable: callable from any code path.
-         *  When the operator is currently dragging the band (PR3),
-         *  the drag anchor wins so the band visually tracks the cursor
-         *  without waiting for the engine rebuild round-trip. */
+         *  While the operator drags the band, the drag anchor wins so
+         *  the band visually tracks the cursor without waiting for the
+         *  engine rebuild round-trip. */
         _currentDisplayedAnchor() {
             if (Number.isFinite(this._dragAnchor)) return this._dragAnchor;
             return this._anchorFromTrajectory(this._currentSec);
@@ -879,7 +877,7 @@
         }
 
         // -----------------------------------------------------------------
-        //  Drag-to-pin (PR3)
+        //  Drag-to-pin
         // -----------------------------------------------------------------
 
         /**
@@ -967,18 +965,10 @@
                 return;
             }
             const finalAnchor = this._dragAnchor;
-            // Notify the host. The host typically calls
-            // `pinHandAnchor(handId, anchor)` which rebuilds the engine
-            // and pushes a fresh trajectory back into us — that
-            // `setHandTrajectory` clears `_dragAnchor`. If the host
-            // doesn't push a new trajectory we still clear the override
-            // ourselves so the band doesn't stay frozen on the next
-            // play cycle.
-            if (this.onBandDrag) {
-                try { this.onBandDrag(this.handId, finalAnchor); } catch (err) {
-                    console.warn('[FretboardHandPreview] onBandDrag failed:', err);
-                }
-            }
+            // Host typically funnels this through `pinHandAnchor`,
+            // which rebuilds the engine and pushes a fresh trajectory
+            // back via `setHandTrajectory`, clearing `_dragAnchor`.
+            this.onBandDrag?.(this.handId, finalAnchor);
         }
 
         // -----------------------------------------------------------------
