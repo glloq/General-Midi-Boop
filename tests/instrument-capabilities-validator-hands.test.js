@@ -615,3 +615,124 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
     expect(r.missing.some(m => m.field === 'hands_config.hand_move_mm_per_sec')).toBe(true);
   });
 });
+
+describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fingers', () => {
+  const piano = () => ({
+    gm_program: 0,
+    polyphony: 32,
+    note_selection_mode: 'range',
+    note_range_min: 21,
+    note_range_max: 108
+  });
+
+  test('mechanism = aligned_fingers is accepted', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        mechanism: 'aligned_fingers',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 5 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 5 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(true);
+  });
+
+  test('mechanism = independent_fingers_5 (V2) is rejected', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        mechanism: 'independent_fingers_5',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m =>
+      m.field === 'hands_config.mechanism' && /V2/.test(m.reason || '')
+    )).toBe(true);
+  });
+
+  test('unknown semitones mechanism is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        mechanism: 'bogus',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+  });
+
+  test('num_fingers in [1,10] is accepted', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 1 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 10 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(true);
+  });
+
+  test('num_fingers out of bounds is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 12 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+  });
+
+  test('legacy semitones config without mechanism still validates', () => {
+    // Pre-mechanism rows must keep validating so a DB rollout that
+    // pre-dates the mechanism field doesn't suddenly break instruments.
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...piano(),
+      hands_config: {
+        enabled: true,
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+        ]
+      }
+    });
+    expect(r.isValid).toBe(true);
+  });
+});

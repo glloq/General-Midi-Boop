@@ -201,6 +201,28 @@ class InstrumentCapabilitiesValidator {
 
   /** @private Semitones mode: two hands (left/right), assignment block allowed. */
   _validateSemitonesHandsConfig(cfg, issues) {
+    // Mechanism: optional in semitones mode for backward compat (legacy
+    // rows without a mechanism field default to `aligned_fingers`). When
+    // present it must be one of the V1 keyboard mechanisms; V2 stubs are
+    // rejected so the save never produces a config the planner can't run.
+    const VALID_KB_MECHANISMS = new Set(['aligned_fingers']);
+    const V2_KB_MECHANISMS = new Set(['independent_fingers_5']);
+    if (cfg.mechanism != null && cfg.mechanism !== '') {
+      if (V2_KB_MECHANISMS.has(cfg.mechanism)) {
+        issues.push({
+          field: 'hands_config.mechanism', label: 'Hand mechanism',
+          type: 'select', required: true,
+          reason: `mechanism '${cfg.mechanism}' is reserved for V2 and not yet implemented.`
+        });
+      } else if (!VALID_KB_MECHANISMS.has(cfg.mechanism)) {
+        issues.push({
+          field: 'hands_config.mechanism', label: 'Hand mechanism',
+          type: 'select', required: true,
+          reason: `Unknown mechanism '${cfg.mechanism}'. Must be 'aligned_fingers'.`
+        });
+      }
+    }
+
     const seenIds = new Set();
     for (let i = 0; i < cfg.hands.length; i++) {
       const h = cfg.hands[i];
@@ -229,6 +251,18 @@ class InstrumentCapabilitiesValidator {
       }
       if (h.max_fingers != null) {
         issues.push({ field: `hands_config.hands[${i}].max_fingers`, label: 'Max fingers', type: 'number', required: true, reason: 'max_fingers is only valid in frets mode.' });
+      }
+      // num_fingers — optional, capped at 10 (one per human finger). The
+      // value bounds the polyphony of this hand (used for feasibility
+      // warnings; the planner already respects per-hand limits).
+      if (h.num_fingers != null) {
+        if (!Number.isFinite(h.num_fingers) || h.num_fingers < 1 || h.num_fingers > 10) {
+          issues.push({
+            field: `hands_config.hands[${i}].num_fingers`, label: 'Number of fingers',
+            type: 'number', required: true,
+            reason: 'num_fingers must be a positive integer between 1 and 10.'
+          });
+        }
       }
     }
 

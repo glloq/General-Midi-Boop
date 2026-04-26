@@ -1032,6 +1032,139 @@
         return ISMSections._renderHandsSectionSemitones(effectiveCfg);
     };
 
+    /**
+     * Keyboard-family mechanism cards. Two choices, mirroring the
+     * strings UI:
+     *   - `aligned_fingers` (V1, default): one actuator per playable
+     *     key inside the hand window. The mechanical hand slides as a
+     *     block; per-finger control is implicit.
+     *   - `independent_fingers_5` (V2, greyed): a 5-finger humanoid
+     *     hand with independent finger reach. Reserved for V2.
+     */
+    const KEYBOARD_MECHANISM_SVG = {
+        aligned_fingers: `
+            <svg viewBox="0 0 120 80" class="ism-mech-svg" aria-hidden="true">
+                <rect x="5" y="22" width="110" height="42" fill="#fafafa" stroke="#9ca3af" stroke-width="1"/>
+                <line x1="20" y1="22" x2="20" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="35" y1="22" x2="35" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="50" y1="22" x2="50" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="65" y1="22" x2="65" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="80" y1="22" x2="80" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="95" y1="22" x2="95" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <rect x="22" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="52" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="67" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="82" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="14" y="14" width="92" height="10" fill="#22c55e" fill-opacity="0.28" stroke="#16a34a" stroke-width="1.5" rx="2"/>
+                <line x1="22" y1="50" x2="22" y2="60" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+                <line x1="42" y1="50" x2="42" y2="60" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+                <line x1="58" y1="50" x2="58" y2="60" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+                <line x1="78" y1="50" x2="78" y2="60" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+                <line x1="98" y1="50" x2="98" y2="60" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+        `,
+        independent_fingers_5: `
+            <svg viewBox="0 0 120 80" class="ism-mech-svg" aria-hidden="true">
+                <rect x="5" y="22" width="110" height="42" fill="#fafafa" stroke="#9ca3af" stroke-width="1"/>
+                <line x1="20" y1="22" x2="20" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="35" y1="22" x2="35" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="50" y1="22" x2="50" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="65" y1="22" x2="65" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="80" y1="22" x2="80" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <line x1="95" y1="22" x2="95" y2="64" stroke="#9ca3af" stroke-width="0.7"/>
+                <rect x="22" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="52" y="22" width="11" height="24" fill="#1f2937"/>
+                <rect x="67" y="22" width="11" height="24" fill="#1f2937"/>
+                <line x1="60" y1="6" x2="22" y2="50" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="6" x2="42" y2="55" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="6" x2="60" y2="58" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="6" x2="78" y2="55" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+                <line x1="60" y1="6" x2="98" y2="50" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="22" cy="50" r="3" fill="#15803d"/>
+                <circle cx="42" cy="55" r="3" fill="#15803d"/>
+                <circle cx="60" cy="58" r="3" fill="#15803d"/>
+                <circle cx="78" cy="55" r="3" fill="#15803d"/>
+                <circle cx="98" cy="50" r="3" fill="#15803d"/>
+            </svg>
+        `
+    };
+
+    ISMSections._getKeyboardMechanisms = function() {
+        const t = (k, fb) => (typeof window.i18n?.t === 'function' ? window.i18n.t(k) : k) === k ? fb : window.i18n.t(k);
+        return [
+            {
+                id: 'aligned_fingers',
+                label: t('instrumentSettings.handsKeyboardMechAlignedLabel', 'Doigts alignés sur les touches'),
+                description: t('instrumentSettings.handsKeyboardMechAlignedDesc',
+                    "Un actionneur par touche dans la fenêtre de la main. La main glisse en bloc, l'écart configuré ci-dessous fixe le nombre de touches couvertes."),
+                svg: KEYBOARD_MECHANISM_SVG.aligned_fingers,
+                v2: false
+            },
+            {
+                id: 'independent_fingers_5',
+                label: t('instrumentSettings.handsKeyboardMech5FingersLabel', '5 doigts robotiques indépendants'),
+                description: t('instrumentSettings.handsKeyboardMech5FingersDesc',
+                    "Main humanoïde avec 5 doigts à course indépendante (accords arbitraires, doigts non adjacents). Mécanisme prévu pour la V2."),
+                svg: KEYBOARD_MECHANISM_SVG.independent_fingers_5,
+                v2: true
+            }
+        ];
+    };
+
+    /**
+     * Render the keyboard mechanism cards (V1 aligned, V2 grayed).
+     * Mirrors `_renderMechanismCards` for strings; the listener at
+     * ISMListeners._attachMechanismCardListeners drives the click
+     * behaviour via `[data-mechanism]` attributes.
+     */
+    ISMSections._renderKeyboardMechanismCards = function(selectedId) {
+        const mechanisms = ISMSections._getKeyboardMechanisms();
+        const t = this.t ? this.t.bind(this) : ((k) => k);
+        const cardHtml = (m) => {
+            const isSelected = m.id === selectedId;
+            const disabled = !!m.v2;
+            const stateClass = disabled ? 'ism-mech-card-disabled' : (isSelected ? 'ism-mech-card-active' : '');
+            const dataAttr = disabled
+                ? 'data-mechanism-disabled="1"'
+                : `data-mechanism="${m.id}"`;
+            const badge = disabled
+                ? `<span class="ism-mech-card-badge">V2</span>`
+                : '';
+            return `
+                <button type="button" class="ism-mech-card ${stateClass}" ${dataAttr}
+                        ${disabled ? 'disabled aria-disabled="true"' : ''}>
+                    ${badge}
+                    <span class="ism-mech-card-illu">${m.svg || ''}</span>
+                    <span class="ism-mech-card-title">${m.label}</span>
+                    <span class="ism-mech-card-desc">${m.description}</span>
+                </button>
+            `;
+        };
+        return `
+            <div class="ism-form-group">
+                <h4 class="ism-subsection-title" style="margin-top:0">🛠️ ${t('instrumentSettings.handsMechanismTitle') || 'Type de mécanisme'}</h4>
+                <p class="ism-form-hint" style="margin-bottom:8px">
+                    ${t('instrumentSettings.handsKeyboardMechanismHint') || 'Choisissez la mécanique des mains du clavier — détermine les paramètres de doigts affichés ci-dessous.'}
+                </p>
+                <div class="ism-mech-cards" role="radiogroup" aria-label="${t('instrumentSettings.handsMechanismTitle') || 'Type de mécanisme'}">
+                    ${mechanisms.map(cardHtml).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Resolve the active mechanism for a semitones-mode hands_config.
+     * Defaults to `aligned_fingers` when missing or set to a V2 value
+     * so the rendered form always corresponds to a runnable mechanism.
+     * @private
+     */
+    ISMSections._resolveKeyboardMechanism = function(cfg) {
+        const VALID = new Set(['aligned_fingers']);
+        if (cfg && VALID.has(cfg.mechanism)) return cfg.mechanism;
+        return 'aligned_fingers';
+    };
+
     ISMSections._renderHandsSectionSemitones = function(cfg) {
         const defaults = ISMSections._defaultHandsConfig('semitones');
         const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
@@ -1040,41 +1173,60 @@
         const commonSpeed = Number.isFinite(cfg.hand_move_semitones_per_sec)
             ? cfg.hand_move_semitones_per_sec
             : 60;
+        const mechanism = ISMSections._resolveKeyboardMechanism(cfg);
+        const t = this.t ? this.t.bind(this) : ((k, fb) => fb || k);
 
         const handRow = (h) => {
-            const idLabel = h.id === 'left' ? '🫲 Gauche' : '🫱 Droite';
+            const idLabel = h.id === 'left'
+                ? '🫲 ' + (t('instrumentSettings.handsLeft') || 'Gauche')
+                : '🫱 ' + (t('instrumentSettings.handsRight') || 'Droite');
+            const numFingers = Number.isFinite(h.num_fingers)
+                ? h.num_fingers
+                : (h.id === 'left' ? defaults.hands[0].num_fingers : defaults.hands[1].num_fingers);
             return `
             <div class="ism-hand-row" data-hand="${h.id}">
                 <h4 class="ism-hand-title">${idLabel}</h4>
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>CC position</label>
+                        <label>${t('instrumentSettings.handsCcPosition') || 'CC position'}</label>
                         <input type="number" class="ism-hand-cc" data-hand="${h.id}" data-field="cc_position_number"
                                value="${h.cc_position_number}" min="0" max="127">
-                        <span class="ism-form-hint">Numéro de CC envoyé pour la position de main (valeur = note MIDI la plus grave).</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsCcPositionHint') || "Numéro de CC envoyé pour la position de main (valeur = note MIDI la plus grave)."}</span>
                     </div>
                     <div>
-                        <label>Écart max sans bouger (demi-tons)</label>
+                        <label>${t('instrumentSettings.handsSpanSemitones') || 'Écart max sans bouger (demi-tons)'}</label>
                         <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
                                value="${h.hand_span_semitones}" min="1" max="48">
-                        <span class="ism-form-hint">Intervalle de notes jouables sans déplacer la main.</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsSpanSemitonesHint') || 'Intervalle de notes jouables sans déplacer la main.'}</span>
                     </div>
+                </div>
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>${t('instrumentSettings.handsNumFingers') || 'Nombre de doigts'}</label>
+                        <input type="number" class="ism-hand-fingers" data-hand="${h.id}" data-field="num_fingers"
+                               value="${numFingers}" min="1" max="10">
+                        <span class="ism-form-hint">${t('instrumentSettings.handsNumFingersHint') || 'Nombre de touches simultanément actionnables par cette main (limite la polyphonie côté main).'}</span>
+                    </div>
+                    <div></div>
                 </div>
             </div>`;
         };
 
         return `
-            <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> Mains</h3>
+            <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> ${t('instrumentSettings.sectionHands') || 'Mains'}</h3>
             <input type="hidden" id="handsMode" value="semitones">
             <input type="hidden" id="handsEnabled" value="1">
+            <input type="hidden" id="handsMechanismInput" value="${mechanism}">
             <p class="ism-form-hint" style="margin: 0 0 16px 0;">
-                Le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main, dès que la main doit se déplacer.
+                ${t('instrumentSettings.handsSemitonesIntro') || 'Le lecteur envoie un CC avec la note la plus grave de la fenêtre courante de chaque main, dès que la main doit se déplacer.'}
             </p>
 
+            ${ISMSections._renderKeyboardMechanismCards.call(this, mechanism)}
+
             <div class="ism-form-group">
-                <label>Vitesse de déplacement (demi-tons/s)</label>
+                <label>${t('instrumentSettings.handsMoveSpeedSemitones') || 'Vitesse de déplacement (demi-tons/s)'}</label>
                 <input type="number" id="handsMoveSpeed" value="${commonSpeed}" min="1" max="500">
-                <span class="ism-form-hint">Vitesse commune aux deux mains, utilisée pour signaler les déplacements trop rapides.</span>
+                <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedHint') || 'Vitesse commune aux deux mains, utilisée pour signaler les déplacements trop rapides.'}</span>
             </div>
 
             <div class="ism-hands-list">
@@ -1083,7 +1235,7 @@
             </div>
 
             <p class="ism-form-hint" style="margin-top: 12px; padding: 10px 12px; background: rgba(99,102,241,0.06); border-left: 3px solid #6366f1; border-radius: 4px;">
-                ℹ️ L'affectation des notes aux mains se fait automatiquement en fonction des pistes et de l'écart maximal — la note de split et l'hystérésis sont calculées au moment de la lecture. Vous pourrez ajuster manuellement chaque note via l'éditeur.
+                ℹ️ ${t('instrumentSettings.handsAutoAssignmentInfo') || "L'affectation des notes aux mains se fait automatiquement en fonction des pistes et de l'écart maximal — la note de split et l'hystérésis sont calculées au moment de la lecture. Vous pourrez ajuster manuellement chaque note via l'éditeur."}
             </p>
         `;
     };
@@ -1503,11 +1655,12 @@
         return {
             enabled: true,
             mode: 'semitones',
+            mechanism: 'aligned_fingers',
             hand_move_semitones_per_sec: 60,
             assignment: { mode: 'auto' },
             hands: [
-                { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
-                { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+                { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 5 },
+                { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 5 }
             ]
         };
     };
@@ -1597,12 +1750,30 @@
                 const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
                 return Number.isFinite(v) ? v : dflt;
             };
-            return {
+            const readOptInt = (field) => {
+                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
+                return Number.isFinite(v) ? v : null;
+            };
+            const numFingersOpt = readOptInt('num_fingers');
+            const out = {
                 id,
                 cc_position_number: readInt('cc_position_number', id === 'left' ? 23 : 24),
                 hand_span_semitones: readInt('hand_span_semitones', 14)
             };
+            if (numFingersOpt != null) out.num_fingers = numFingersOpt;
+            return out;
         };
+
+        // Mechanism: V1 keyboard mechanism is `aligned_fingers`. The
+        // V2 (`independent_fingers_5`) card is non-clickable, so the
+        // hidden field can never carry a V2 value coming from the UI;
+        // we still defensively fall back so a stale config never
+        // produces a save that the validator would reject.
+        const VALID_KB_MECHANISMS = new Set(['aligned_fingers']);
+        const rawKbMechanism = rootEl.querySelector('#handsMechanismInput')?.value;
+        const kbMechanism = VALID_KB_MECHANISMS.has(rawKbMechanism)
+            ? rawKbMechanism
+            : 'aligned_fingers';
 
         const hands = [readHand('left'), readHand('right')].filter(Boolean);
         // Assignment is always automatic now — the planner derives the split
@@ -1610,6 +1781,7 @@
         return {
             enabled,
             mode: 'semitones',
+            mechanism: kbMechanism,
             hand_move_semitones_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 60,
             assignment: { mode: 'auto' },
             hands
