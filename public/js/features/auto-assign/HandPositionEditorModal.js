@@ -217,6 +217,7 @@
                 document.removeEventListener('keydown', this._keyHandler);
                 this._keyHandler = null;
             }
+            this._closeNotePopover();
         }
 
         // ----------------------------------------------------------------
@@ -263,9 +264,111 @@
                 handSpanFrets: fretting.hand_span_frets || 4,
                 ticksPerSec: this.ticksPerSec,
                 totalSec: this._totalSec,
-                onSeek: (sec) => this._seekToSec(sec)
+                onSeek: (sec) => this._seekToSec(sec),
+                onNoteClick: (hit, evt) => this._openNoteEditPopover(hit, evt)
             });
             this.timeline.draw();
+        }
+
+        /**
+         * PR6 — open a small popover with the alternative (string,
+         * fret) candidates for the clicked note. Picking one pushes a
+         * `note_assignments` entry into the overrides and rebuilds the
+         * engine so the change is reflected immediately on the manche
+         * + the audio simulation.
+         */
+        _openNoteEditPopover(hit, evt) {
+            this._closeNotePopover();
+            if (!window.HandPositionFeasibility?.findStringCandidates) return;
+            const candidates = window.HandPositionFeasibility
+                .findStringCandidates(hit.note, this.instrument);
+            if (!candidates.length) return;
+
+            const popover = document.createElement('div');
+            popover.className = 'hpe-note-popover';
+            const title = _t('handPositionEditor.pickString',
+                'Choisir une corde pour cette note :');
+            const chipsHtml = candidates.map(c => {
+                const isCurrent = c.string === hit.string && c.fret === hit.fret;
+                return `<button type="button" class="hpe-chip${isCurrent ? ' hpe-chip-active' : ''}"
+                              data-string="${c.string}" data-fret="${c.fret}">
+                          ${_t('handPositionEditor.string', 'Corde')} ${c.string} · ${_t('handPositionEditor.fret', 'frette')} ${c.fret}
+                      </button>`;
+            }).join('');
+            popover.innerHTML = `
+                <div class="hpe-popover-title">${title}</div>
+                <div class="hpe-popover-chips">${chipsHtml}</div>
+                <button type="button" class="hpe-popover-clear" data-action="clear">
+                    ${_t('handPositionEditor.clearAssignment', 'Réinitialiser ce choix')}
+                </button>
+            `;
+            const x = (evt?.clientX || 0) + 8;
+            const y = (evt?.clientY || 0) + 8;
+            popover.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:100000;`;
+            document.body.appendChild(popover);
+            this._notePopover = popover;
+
+            popover.addEventListener('click', (e) => {
+                const chip = e.target.closest('.hpe-chip');
+                if (chip) {
+                    const string = parseInt(chip.dataset.string, 10);
+                    const fret = parseInt(chip.dataset.fret, 10);
+                    this._pinNoteAssignment(hit.tick, hit.note, string, fret);
+                    this._closeNotePopover();
+                    return;
+                }
+                if (e.target.matches('[data-action="clear"]')) {
+                    this._clearNoteAssignment(hit.tick, hit.note);
+                    this._closeNotePopover();
+                }
+            });
+            // Click anywhere else closes the popover. Defer the listener
+            // attach to the next tick so the click that opened the
+            // popover doesn't immediately close it.
+            setTimeout(() => {
+                this._popoverDismissHandler = (e) => {
+                    if (!this._notePopover) return;
+                    if (this._notePopover.contains(e.target)) return;
+                    this._closeNotePopover();
+                };
+                document.addEventListener('mousedown', this._popoverDismissHandler);
+            }, 0);
+        }
+
+        _closeNotePopover() {
+            if (this._popoverDismissHandler) {
+                document.removeEventListener('mousedown', this._popoverDismissHandler);
+                this._popoverDismissHandler = null;
+            }
+            if (this._notePopover) {
+                this._notePopover.remove();
+                this._notePopover = null;
+            }
+        }
+
+        _pinNoteAssignment(tick, note, string, fret) {
+            this.initialOverrides = this.initialOverrides
+                || { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
+            if (!Array.isArray(this.initialOverrides.note_assignments)) {
+                this.initialOverrides.note_assignments = [];
+            }
+            const list = this.initialOverrides.note_assignments;
+            const idx = list.findIndex(a => a.tick === tick && a.note === note);
+            const entry = { tick, note, string, fret };
+            if (idx >= 0) list[idx] = entry;
+            else list.push(entry);
+            this._pushHistory();
+            this._rebuildEngineKeepingPlayhead();
+        }
+
+        _clearNoteAssignment(tick, note) {
+            const list = this.initialOverrides?.note_assignments;
+            if (!Array.isArray(list)) return;
+            const idx = list.findIndex(a => a.tick === tick && a.note === note);
+            if (idx < 0) return;
+            list.splice(idx, 1);
+            this._pushHistory();
+            this._rebuildEngineKeepingPlayhead();
         }
 
         _wireToolbar() {
@@ -665,6 +768,32 @@
                 }
                 .hpe-status[data-level="ok"] { color: #047857; }
                 .hpe-status[data-level="err"] { color: #b91c1c; }
+                .hpe-note-popover {
+                    background: #fff; border: 1px solid #d1d5db;
+                    border-radius: 6px; padding: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    font-size: 12px; max-width: 240px;
+                }
+                .hpe-popover-title { color: #374151; margin-bottom: 6px; }
+                .hpe-popover-chips {
+                    display: flex; flex-wrap: wrap; gap: 4px;
+                    margin-bottom: 6px;
+                }
+                .hpe-chip {
+                    border: 1px solid #d1d5db; background: #f9fafb;
+                    border-radius: 4px; padding: 3px 8px; cursor: pointer;
+                    font-size: 11px;
+                }
+                .hpe-chip:hover { background: #e5e7eb; }
+                .hpe-chip.hpe-chip-active {
+                    background: #2563eb; color: #fff; border-color: #2563eb;
+                }
+                .hpe-popover-clear {
+                    border: none; background: transparent;
+                    color: #6b7280; font-size: 11px; cursor: pointer;
+                    text-decoration: underline; padding: 0;
+                }
+                .hpe-popover-clear:hover { color: #b91c1c; }
                 .hpe-sticky-host {
                     border-bottom: 1px solid #e5e7eb;
                     background: #f5f7fb;

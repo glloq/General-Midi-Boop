@@ -446,9 +446,11 @@ async function routingSaveHandOverrides(app, data) {
     if (typeof overrides !== 'object' || Array.isArray(overrides)) {
       throw new ValidationError('overrides must be an object or null', 'overrides');
     }
-    if (!Array.isArray(overrides.hand_anchors) && !Array.isArray(overrides.disabled_notes)) {
+    if (!Array.isArray(overrides.hand_anchors)
+        && !Array.isArray(overrides.disabled_notes)
+        && !Array.isArray(overrides.note_assignments)) {
       throw new ValidationError(
-        'overrides must declare hand_anchors and/or disabled_notes arrays',
+        'overrides must declare hand_anchors, disabled_notes and/or note_assignments arrays',
         'overrides'
       );
     }
@@ -460,6 +462,21 @@ async function routingSaveHandOverrides(app, data) {
           throw new ValidationError(
             'each hand_anchors entry must carry {tick, handId, anchor}',
             'overrides.hand_anchors'
+          );
+        }
+      }
+    }
+    if (Array.isArray(overrides.note_assignments)) {
+      // PR6 — operator-pinned (string, fret) for a specific note at a
+      // specific tick. The simulator looks this up before its automatic
+      // string/fret resolution so the operator's choice always wins.
+      for (const a of overrides.note_assignments) {
+        if (!a || typeof a !== 'object'
+            || !Number.isFinite(a.tick) || !Number.isFinite(a.note)
+            || !Number.isFinite(a.string) || !Number.isFinite(a.fret)) {
+          throw new ValidationError(
+            'each note_assignments entry must carry {tick, note, string, fret}',
+            'overrides.note_assignments'
           );
         }
       }

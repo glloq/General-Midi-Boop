@@ -637,7 +637,11 @@
         "noBackend": "Cannot save: API not wired.",
         "missingCtx": "Cannot save: missing routing context.",
         "playFailed": "Playback failed",
-        "hint": "Scroll the timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). Drag the hand band on the preview above to pin a new position."
+        "pickString": "Pick a string for this note:",
+        "string": "String",
+        "fret": "fret",
+        "clearAssignment": "Reset this choice",
+        "hint": "Scroll the timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). Click a note to change its string. Drag the hand band on the preview above to pin a new position."
     },
     "instrumentSettings": {
         "title": "Instrument Settings",

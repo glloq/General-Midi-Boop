@@ -54,10 +54,33 @@ describe('routing_save_hand_overrides — input validation', () => {
     })).rejects.toThrow(/object or null/);
   });
 
-  test('throws when overrides has neither hand_anchors nor disabled_notes', async () => {
+  test('throws when overrides has neither hand_anchors, disabled_notes nor note_assignments', async () => {
     await expect(routingSaveHandOverrides(makeApp(), {
       fileId: 1, deviceId: 'p', channel: 0, overrides: { version: 1 }
-    })).rejects.toThrow(/hand_anchors and\/or disabled_notes/);
+    })).rejects.toThrow(/hand_anchors,\s*disabled_notes\s*and\/or\s*note_assignments/);
+  });
+
+  test('throws when a note_assignments entry is malformed', async () => {
+    await expect(routingSaveHandOverrides(makeApp(), {
+      fileId: 1, deviceId: 'p', channel: 0,
+      overrides: {
+        hand_anchors: [],
+        note_assignments: [{ tick: 0, note: 60, string: 'low' /* fret missing */ }]
+      }
+    })).rejects.toThrow(/tick, note, string, fret/);
+  });
+
+  test('accepts a valid note_assignments entry', async () => {
+    const app = makeApp({ savedRowCount: 1 });
+    const res = await routingSaveHandOverrides(app, {
+      fileId: 1, deviceId: 'p', channel: 0,
+      overrides: {
+        hand_anchors: [],
+        note_assignments: [{ tick: 480, note: 64, string: 3, fret: 4 }]
+      }
+    });
+    expect(res).toEqual({ success: true, updated: 1 });
+    expect(app.routingRepository.saveHandOverrides).toHaveBeenCalledTimes(1);
   });
 
   test('throws when a hand_anchor entry is malformed', async () => {

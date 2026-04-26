@@ -637,7 +637,11 @@
         "noBackend": "Sauvegarde impossible : API non câblée.",
         "missingCtx": "Sauvegarde impossible : contexte de routage manquant.",
         "playFailed": "Lecture impossible",
-        "hint": "Faites défiler la timeline (molette = défilement, Ctrl+molette = zoom, clic = aller au temps). Glissez la bande de la main sur l'aperçu en haut pour épingler une nouvelle position."
+        "pickString": "Choisir une corde pour cette note :",
+        "string": "Corde",
+        "fret": "frette",
+        "clearAssignment": "Réinitialiser ce choix",
+        "hint": "Faites défiler la timeline (molette = défilement, Ctrl+molette = zoom, clic = aller au temps). Cliquez une note pour changer sa corde. Glissez la bande de la main sur l'aperçu en haut pour épingler une nouvelle position."
     },
     "instrumentSettings": {
         "title": "Réglages de l'instrument",

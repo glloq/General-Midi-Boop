@@ -81,6 +81,11 @@
             this.margin = { top: 0, right: 56, bottom: 0, left: 56 };
 
             this.onSeek = typeof opts.onSeek === 'function' ? opts.onSeek : null;
+            this.onNoteClick = typeof opts.onNoteClick === 'function' ? opts.onNoteClick : null;
+            // Per-note hit-zones rebuilt on each draw so onNoteClick can
+            // identify the (chord, note) under the cursor without
+            // re-running geometry from scratch.
+            this._noteHits = [];
 
             this._dirty = true;
             this._rafHandle = null;
@@ -227,10 +232,24 @@
         }
 
         _handleClick(e) {
-            if (!this.onSeek) return;
             const rect = this.canvas?.getBoundingClientRect
                 ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
+            const x = (e.clientX || 0) - rect.left;
             const y = (e.clientY || 0) - rect.top;
+            // Hit-test note dots first — clicking on a note opens the
+            // string-alternative menu; clicking elsewhere just seeks.
+            if (this.onNoteClick) {
+                for (const hit of this._noteHits) {
+                    const dx = x - hit.x;
+                    const dy = y - hit.y;
+                    if (dx * dx + dy * dy <= hit.r * hit.r) {
+                        try { this.onNoteClick(hit, { clientX: e.clientX, clientY: e.clientY }); }
+                        catch (err) { console.warn('[FretboardTimelineRenderer] onNoteClick failed:', err); }
+                        return;
+                    }
+                }
+            }
+            if (!this.onSeek) return;
             const sec = Math.max(0, Math.min(this.totalSec, this._yToSec(y)));
             try { this.onSeek(sec); } catch (err) {
                 console.warn('[FretboardTimelineRenderer] onSeek failed:', err);
@@ -381,6 +400,7 @@
         }
 
         _drawChords() {
+            this._noteHits = [];
             if (!this._chords.length) return;
             const ctx = this.ctx;
             const lo = this.scrollSec - VIEWPORT_MARGIN_SEC;
@@ -411,6 +431,16 @@
                     ctx.beginPath();
                     ctx.arc(xCol, y, 4, 0, Math.PI * 2);
                     ctx.fill();
+                    // Record a hit-zone for onNoteClick (PR6). 8 px is
+                    // generous enough to give the operator a usable
+                    // click target even when zoomed out.
+                    this._noteHits.push({
+                        x: xCol, y, r: 8,
+                        tick: ch.tick,
+                        note: n.note,
+                        string: n.string,
+                        fret: n.fret
+                    });
                 }
             }
         }

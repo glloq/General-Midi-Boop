@@ -162,6 +162,7 @@
         const overrides = options.overrides || null;
         const overrideAnchors = _indexOverrideAnchors(overrides);
         const disabledNotes = _indexDisabledNotes(overrides);
+        const noteAssignments = _indexNoteAssignments(overrides);
 
         // Tempo info — required to convert tick distances into seconds
         // for the speed-limit feasibility check on shift events. When
@@ -180,7 +181,7 @@
         const groups = _groupByTick(notes);
 
         if (mode === 'frets') {
-            return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec);
+            return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments);
         }
         return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
     }
@@ -237,6 +238,59 @@
             }
         }
         return map;
+    }
+
+    /**
+     * PR6 — index operator-pinned (string, fret) assignments by
+     * `(tick, midi)`. Lookups happen for every note inside
+     * `_simulateFrets` BEFORE the auto-resolver runs so the operator's
+     * choice always wins (and can be undone via the editor's history).
+     * @private
+     */
+    function _indexNoteAssignments(overrides) {
+        const map = new Map(); // key: `${tick}:${note}` → {string, fret}
+        if (!overrides || !Array.isArray(overrides.note_assignments)) return map;
+        for (const a of overrides.note_assignments) {
+            if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
+                && Number.isFinite(a.string) && Number.isFinite(a.fret)) {
+                map.set(`${a.tick}:${a.note}`, { string: a.string, fret: a.fret });
+            }
+        }
+        return map;
+    }
+
+    /**
+     * PR6 — list every plausible (string, fret) pair that produces a
+     * given MIDI pitch on a given instrument. Used by the editor's
+     * note-edit menu to populate the chips of cordes alternatives.
+     *
+     * Returns an array of `{string, fret}` ordered by ascending fret
+     * so the menu lists the lowest-fret options first.
+     *
+     * @param {number} midi
+     * @param {{tuning:number[], num_frets?:number}} instrument
+     * @param {{maxFret?:number}} [opts]
+     * @returns {Array<{string:number, fret:number}>}
+     */
+    function findStringCandidates(midi, instrument, opts = {}) {
+        if (!Number.isFinite(midi) || !instrument) return [];
+        const tuning = Array.isArray(instrument.tuning) ? instrument.tuning : null;
+        if (!tuning || tuning.length === 0) return [];
+        const numFrets = Number.isFinite(opts.maxFret) ? opts.maxFret
+            : (Number.isFinite(instrument.num_frets) ? instrument.num_frets : 24);
+        const out = [];
+        for (let s = 0; s < tuning.length; s++) {
+            const open = tuning[s];
+            const fret = midi - open;
+            if (fret < 0 || fret > numFrets) continue;
+            // tuning array is conventionally low → high pitch; the rest
+            // of the renderer treats string indices as 1-based with 1 =
+            // lowest pitch (FretboardHandPreview.js:_stringY). Match
+            // that convention so caller can plug the result straight in.
+            out.push({ string: s + 1, fret });
+        }
+        out.sort((a, b) => a.fret - b.fret);
+        return out;
     }
 
     // K-step look-ahead window used by the two-hand anchor refiner.
@@ -782,7 +836,7 @@
         return { lowAnchor: Math.max(0, targetLowFromHigh), highAnchor: high };
     }
 
-    function _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec) {
+    function _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments) {
         const out = [];
         const fretting = hands.hands.find(h => h && h.id === 'fretting') || hands.hands[0];
         const handId = fretting.id || 'fretting';
@@ -990,6 +1044,16 @@
                 }
             }
 
+            // PR6 — apply operator-pinned (string, fret) overrides
+            // BEFORE the auto-resolver so the resolver treats them as
+            // already-tagged (and won't reassign their string).
+            if (noteAssignments && noteAssignments.size > 0) {
+                g.notes = g.notes.map(n => {
+                    const pinned = noteAssignments.get(`${g.tick}:${n.note}`);
+                    if (!pinned) return n;
+                    return { ...n, string: pinned.string, fret: pinned.fret };
+                });
+            }
             // Resolve unannotated notes WITH the current hand
             // anchor in mind. Done at the CHORD level so that no two
             // notes get assigned to the same string — physically a
@@ -1263,6 +1327,9 @@
     }
 
     if (typeof window !== 'undefined') {
-        window.HandPositionFeasibility = { classify, renderBadge, aggregateByChannel, simulateHandWindows };
+        window.HandPositionFeasibility = {
+            classify, renderBadge, aggregateByChannel,
+            simulateHandWindows, findStringCandidates
+        };
     }
 })();
