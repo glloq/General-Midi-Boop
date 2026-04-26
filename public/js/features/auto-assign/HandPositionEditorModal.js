@@ -99,6 +99,29 @@
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
 
+        /**
+         * Veto the close when there are unsaved changes — confirm with
+         * the operator first. We override BaseModal.close (rather than
+         * onClose) so the native ESC key, the close button and the
+         * footer Fermer all funnel through the same gate.
+         */
+        close() {
+            if (!this.isOpen || this._closeConfirmed) {
+                this._closeConfirmed = false;
+                super.close();
+                return;
+            }
+            if (!this.isDirty) {
+                super.close();
+                return;
+            }
+            const ok = window.confirm(_t('handPositionEditor.confirmDiscard',
+                'Modifications non enregistrées. Quitter sans sauvegarder ?'));
+            if (!ok) return;
+            this._closeConfirmed = true;
+            super.close();
+        }
+
         renderBody() {
             return `
                 <div class="hpe-toolbar">
@@ -165,8 +188,11 @@
         }
 
         onOpen() {
-            // Inject minimal styles once. Avoids a build-time CSS dep
-            // for this PR; later PRs can move this into a stylesheet.
+            // BaseModal applies `customClass` to the inner .modal-dialog,
+            // not to the overlay — tag the overlay explicitly so the
+            // z-index override actually wins over the routing summary
+            // modal (10005).
+            this.container?.classList.add('hpe-modal-overlay');
             this._injectStyles();
             this._mountMinimap();
             this._mountSticky();
@@ -294,10 +320,37 @@
                 totalSec: this._totalSec,
                 onSeek: (sec) => this._seekToSec(sec),
                 onNoteClick: (hit, evt) => this._openNoteEditPopover(hit, evt),
+                onNoteDrag: (hit, info) => this._onTimelineNoteDrag(hit, info),
                 onViewportChange: (scrollSec, viewportSec) =>
                     this.minimap?.setViewport(scrollSec, viewportSec)
             });
             this.timeline.draw();
+        }
+
+        /**
+         * Called when the operator drags a note dot vertically in the
+         * timeline. Picks the candidate (string, fret) closest to the
+         * cursor's fret-Y for the same MIDI pitch and pins it. The
+         * simulator's rebuild then surfaces any feasibility issue (red
+         * dot for out-of-reach assignments, etc.).
+         */
+        _onTimelineNoteDrag(hit, info) {
+            if (!window.HandPositionFeasibility?.findStringCandidates) return;
+            const candidates = window.HandPositionFeasibility
+                .findStringCandidates(hit.note, this.instrument);
+            if (!candidates.length) return;
+            const targetFret = Number.isFinite(info?.fretY) ? info.fretY : hit.fret;
+            // Pick the candidate whose fret is closest to where the
+            // operator dropped the dot.
+            let best = candidates[0];
+            let bestDist = Math.abs(best.fret - targetFret);
+            for (let i = 1; i < candidates.length; i++) {
+                const d = Math.abs(candidates[i].fret - targetFret);
+                if (d < bestDist) { best = candidates[i]; bestDist = d; }
+            }
+            // No-op if the snap landed back on the existing assignment.
+            if (best.string === hit.string && best.fret === hit.fret) return;
+            this._pinNoteAssignment(hit.tick, hit.note, best.string, best.fret);
         }
 
         /**
@@ -490,13 +543,27 @@
             if (!this.midiData) return;
             try {
                 this._setStatus('');
+                // AudioPreview's `createPreviewSequence` rebases the
+                // sequence so its first event sits at tick 0; the
+                // synthesizer's currentSec therefore starts from 0
+                // even when we asked it to skip ahead. Remember the
+                // start offset so `_onAudioProgress` can re-add it.
+                const startSec = this.engine?.currentSec ? this.engine.currentSec() : 0;
+                this._playStartSec = startSec;
                 this.audioPreview.onProgress = (currentTick, totalTicks, currentSec) => {
-                    this._onAudioProgress(currentSec);
+                    this._onAudioProgress(this._playStartSec + currentSec);
                 };
                 this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
-                const startSec = this.engine?.currentSec ? this.engine.currentSec() : 0;
+                // Use the routed instrument's GM program so the audio
+                // matches what the operator hears at performance time
+                // (not the source file's channel program). Falls back
+                // gracefully when the instrument doesn't carry a
+                // gm_program field — synth keeps the channel default.
+                const constraints = Number.isFinite(this.instrument?.gm_program)
+                    ? { gmProgram: this.instrument.gm_program }
+                    : {};
                 await this.audioPreview.previewSingleChannel(
-                    this.midiData, this.channel, {}, {}, startSec, 0, true);
+                    this.midiData, this.channel, {}, constraints, startSec, 0, true);
                 this._refreshTransport();
             } catch (err) {
                 console.error('[HandPositionEditor] play failed:', err);
@@ -811,8 +878,9 @@
         }
 
         _seekToSec(sec) {
-            if (this.engine?.advanceToSec) this.engine.advanceToSec(sec);
+            this.engine?.advanceToSec?.(sec);
             this.timeline?.setPlayhead(sec);
+            this.minimap?.setPlayhead(sec);
         }
 
         _refreshTimeDisplay(currentSec = 0) {
@@ -832,7 +900,7 @@
             const style = document.createElement('style');
             style.id = 'hpe-modal-styles';
             style.textContent = `
-                .modal-overlay.hpe-modal {
+                .modal-overlay.hpe-modal-overlay {
                     /* Routing summary modal sits at 10005; stay above
                        it so the editor doesn't get covered when opened
                        from inside the routing flow. */

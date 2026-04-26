@@ -632,6 +632,7 @@
         "saveClean": "No changes",
         "saved": "Changes saved.",
         "saveFailed": "Save failed",
+        "confirmDiscard": "Unsaved changes. Quit without saving?",
         "resetOverrides": "Reset all",
         "noAudio": "Audio preview not available.",
         "noBackend": "Cannot save: API not wired.",

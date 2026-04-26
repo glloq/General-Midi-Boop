@@ -221,6 +221,78 @@ describe('HandPositionEditorModal — history layer', () => {
   });
 });
 
+describe('HandPositionEditorModal — close + audio offset + note drag', () => {
+  it('close() prompts to discard when there are unsaved changes', () => {
+    const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
+    m._scheduleEngineRebuild = () => {};
+    m._refreshHistoryButtons = () => {};
+    m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
+    m._pushHistory();
+    expect(m.isDirty).toBe(true);
+    // Simulate opening so isOpen is true and `super.close()` runs.
+    m.open();
+    let prompted = 0, accepted = false;
+    const realConfirm = window.confirm;
+    window.confirm = () => { prompted++; return accepted; };
+    m.close();
+    expect(prompted).toBe(1);
+    expect(m.isOpen).toBe(true); // declined → still open
+    accepted = true;
+    m.close();
+    expect(prompted).toBe(2);
+    expect(m.isOpen).toBe(false); // accepted → closed
+    window.confirm = realConfirm;
+  });
+
+  it('close() does NOT prompt when overrides are clean', () => {
+    const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
+    m.open();
+    let prompted = 0;
+    const realConfirm = window.confirm;
+    window.confirm = () => { prompted++; return true; };
+    m.close();
+    expect(prompted).toBe(0);
+    expect(m.isOpen).toBe(false);
+    window.confirm = realConfirm;
+  });
+
+  it('_onAudioProgress re-bases progress against _playStartSec', () => {
+    const m = makeModal();
+    let advanced = null;
+    m.engine = { advanceToSec: (s) => { advanced = s; } };
+    m._maybeFollowPlayhead = () => {};
+    m._playStartSec = 12; // simulate previously seeked + played
+    m._onAudioProgress(12 + 3); // synth reports 3s into its own frame
+    expect(advanced).toBeCloseTo(15, 5);
+  });
+
+  it('_onTimelineNoteDrag picks the candidate closest to the cursor fret', () => {
+    // Stub the feasibility helper for this test only — full coverage
+    // lives in hand-position-feasibility-note-assignments.test.js.
+    const realF = window.HandPositionFeasibility;
+    window.HandPositionFeasibility = {
+      findStringCandidates: () => [
+        { string: 6, fret: 0 },
+        { string: 5, fret: 5 },
+        { string: 4, fret: 9 },
+        { string: 3, fret: 14 },
+        { string: 2, fret: 19 }
+      ]
+    };
+    const m = makeModal();
+    m._scheduleEngineRebuild = () => {};
+    m._refreshHistoryButtons = () => {};
+    let pinned = null;
+    m._pinNoteAssignment = (tick, note, string, fret) => {
+      pinned = { tick, note, string, fret };
+    };
+    const hit = { tick: 480, note: 64, string: 6, fret: 0 };
+    m._onTimelineNoteDrag(hit, { fretY: 8.6 }); // closest = fret 9
+    expect(pinned).toEqual({ tick: 480, note: 64, string: 4, fret: 9 });
+    window.HandPositionFeasibility = realF;
+  });
+});
+
 describe('HandPositionEditorModal — problem navigation', () => {
   it('builds a sorted problem list from chord + shift events', () => {
     const m = makeModal();

@@ -81,9 +81,14 @@
 
             this.onSeek = typeof opts.onSeek === 'function' ? opts.onSeek : null;
             this.onNoteClick = typeof opts.onNoteClick === 'function' ? opts.onNoteClick : null;
+            this.onNoteDrag = typeof opts.onNoteDrag === 'function' ? opts.onNoteDrag : null;
             this.onViewportChange = typeof opts.onViewportChange === 'function'
                 ? opts.onViewportChange : null;
             this._noteHits = [];
+            // Drag state for the note-edit interaction. While set, the
+            // dragged note's dot is drawn at the cursor's snapped Y so
+            // the operator gets immediate visual feedback.
+            this._noteDrag = null;
 
             this._dirty = true;
             this._rafHandle = null;
@@ -92,9 +97,15 @@
             if (this.canvas?.addEventListener) {
                 this._wheelHandler = (e) => this._handleWheel(e);
                 this._clickHandler = (e) => this._handleClick(e);
+                this._mouseDownHandler = (e) => this._handleMouseDown(e);
+                this._mouseMoveHandler = (e) => this._handleMouseMove(e);
+                this._mouseUpHandler = (e) => this._handleMouseUp(e);
                 this._wheelOpts = { passive: false };
                 this.canvas.addEventListener('wheel', this._wheelHandler, this._wheelOpts);
                 this.canvas.addEventListener('click', this._clickHandler);
+                this.canvas.addEventListener('mousedown', this._mouseDownHandler);
+                document.addEventListener('mousemove', this._mouseMoveHandler);
+                document.addEventListener('mouseup', this._mouseUpHandler);
             }
         }
 
@@ -235,16 +246,19 @@
         }
 
         _handleClick(e) {
+            // A drag that ended just now gets the click event too —
+            // skip it so the popover doesn't open over the just-dropped
+            // note. `_lastDragEndAt` is set by `_handleMouseUp`.
+            if (this._lastDragEndAt && performance.now() - this._lastDragEndAt < 200) {
+                this._lastDragEndAt = 0;
+                return;
+            }
             const rect = this.canvas?.getBoundingClientRect
                 ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
             const x = (e.clientX || 0) - rect.left;
             const y = (e.clientY || 0) - rect.top;
             if (this.onNoteClick) {
-                const hit = this._noteHits.find(h => {
-                    const dx = x - h.x;
-                    const dy = y - h.y;
-                    return dx * dx + dy * dy <= h.r * h.r;
-                });
+                const hit = this._hitTestNote(x, y);
                 if (hit) {
                     this.onNoteClick(hit, { clientX: e.clientX, clientY: e.clientY });
                     return;
@@ -253,6 +267,79 @@
             if (!this.onSeek) return;
             const sec = Math.max(0, Math.min(this.totalSec, this._xToSec(x)));
             this.onSeek(sec);
+        }
+
+        _hitTestNote(x, y) {
+            return this._noteHits.find(h => {
+                const dx = x - h.x;
+                const dy = y - h.y;
+                return dx * dx + dy * dy <= h.r * h.r;
+            });
+        }
+
+        _pointerXY(e) {
+            const rect = this.canvas?.getBoundingClientRect
+                ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
+            return {
+                x: (e.clientX || 0) - rect.left,
+                y: (e.clientY || 0) - rect.top
+            };
+        }
+
+        /** Inverse of `_fretY` — converts a pixel Y back to a (fractional)
+         *  fret index. Used by the note-drag hit-tests. */
+        _fretAtY(py) {
+            if (!Number.isFinite(py)) return null;
+            const y0 = this._fretY(0);
+            const yN = this._fretY(this.numFrets);
+            if (py <= y0) return 0;
+            if (py >= yN) return this.numFrets;
+            for (let f = 1; f <= this.numFrets; f++) {
+                const a = this._fretY(f - 1);
+                const b = this._fretY(f);
+                if (py <= b) {
+                    const t = (py - a) / Math.max(1e-6, b - a);
+                    return (f - 1) + t;
+                }
+            }
+            return this.numFrets;
+        }
+
+        _handleMouseDown(e) {
+            if (!this.onNoteDrag) return;
+            const { x, y } = this._pointerXY(e);
+            const hit = this._hitTestNote(x, y);
+            if (!hit) return;
+            this._noteDrag = {
+                hit,
+                startX: x,
+                startY: y,
+                draggedY: y,
+                moved: false
+            };
+            if (e.preventDefault) e.preventDefault();
+        }
+
+        _handleMouseMove(e) {
+            if (!this._noteDrag) return;
+            const { y } = this._pointerXY(e);
+            const dy = y - this._noteDrag.startY;
+            // Tiny jitters shouldn't open a drag — wait for ≥4 px.
+            if (!this._noteDrag.moved && Math.abs(dy) < 4) return;
+            this._noteDrag.moved = true;
+            this._noteDrag.draggedY = y;
+            this._scheduleDraw();
+        }
+
+        _handleMouseUp(e) {
+            if (!this._noteDrag) return;
+            const drag = this._noteDrag;
+            this._noteDrag = null;
+            this._scheduleDraw();
+            if (!drag.moved) return;
+            this._lastDragEndAt = performance.now();
+            const { y } = this._pointerXY(e);
+            this.onNoteDrag(drag.hit, { y, fretY: this._fretAtY(y) });
         }
 
         // ----------------------------------------------------------------
@@ -409,18 +496,27 @@
                 const unplayableSet = ch._unplayableNotes;
                 for (const n of notes) {
                     if (!Number.isFinite(n.fret)) continue;
-                    const yRow = n.fret === 0
+                    const yRowDefault = n.fret === 0
                         ? this._fretY(0) - 6
                         : (this._fretY(n.fret - 1) + this._fretY(n.fret)) / 2;
+                    // While dragged, this note follows the cursor so the
+                    // operator gets immediate visual feedback before the
+                    // engine rebuild lands.
+                    const isDragged = this._noteDrag?.moved
+                        && this._noteDrag.hit.tick === ch.tick
+                        && this._noteDrag.hit.note === n.note;
+                    const yRow = isDragged ? this._noteDrag.draggedY : yRowDefault;
                     const isUnplayable = unplayableSet ? unplayableSet.has(n.note) : false;
-                    ctx.fillStyle = isUnplayable
-                        ? 'rgba(239, 68, 68, 0.55)'
-                        : 'rgba(37, 99, 235, 0.85)';
+                    ctx.fillStyle = isDragged
+                        ? 'rgba(245, 158, 11, 0.95)'
+                        : (isUnplayable
+                            ? 'rgba(239, 68, 68, 0.55)'
+                            : 'rgba(37, 99, 235, 0.85)');
                     ctx.beginPath();
-                    ctx.arc(x, yRow, 4, 0, Math.PI * 2);
+                    ctx.arc(x, yRow, isDragged ? 6 : 4, 0, Math.PI * 2);
                     ctx.fill();
                     this._noteHits.push({
-                        x, y: yRow, r: 8,
+                        x, y: yRowDefault, r: 8,
                         tick: ch.tick,
                         note: n.note,
                         string: n.string,
@@ -464,12 +560,19 @@
             this._chords = [];
             this._shifts = [];
             this._trajectory = [];
+            this._noteDrag = null;
             if (this.canvas?.removeEventListener) {
                 if (this._wheelHandler) this.canvas.removeEventListener('wheel', this._wheelHandler, this._wheelOpts);
                 if (this._clickHandler) this.canvas.removeEventListener('click', this._clickHandler);
+                if (this._mouseDownHandler) this.canvas.removeEventListener('mousedown', this._mouseDownHandler);
             }
+            if (this._mouseMoveHandler) document.removeEventListener('mousemove', this._mouseMoveHandler);
+            if (this._mouseUpHandler) document.removeEventListener('mouseup', this._mouseUpHandler);
             this._wheelHandler = null;
             this._clickHandler = null;
+            this._mouseDownHandler = null;
+            this._mouseMoveHandler = null;
+            this._mouseUpHandler = null;
         }
     }
 

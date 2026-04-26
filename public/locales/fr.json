@@ -632,6 +632,7 @@
         "saveClean": "Aucune modification",
         "saved": "Modifications enregistrées.",
         "saveFailed": "Sauvegarde échouée",
+        "confirmDiscard": "Modifications non enregistrées. Quitter sans sauvegarder ?",
         "resetOverrides": "Tout réinitialiser",
         "noAudio": "Aperçu audio indisponible.",
         "noBackend": "Sauvegarde impossible : API non câblée.",

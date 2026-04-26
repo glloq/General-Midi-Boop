@@ -139,4 +139,48 @@ describe('FretboardTimelineRenderer — smoke', () => {
     tr._handleClick({ clientX: 160, clientY: 100 });
     expect(received).toBeCloseTo(12, 5);
   });
+
+  it('vertical drag on a note dot fires onNoteDrag with the snapped fret', () => {
+    let received = null;
+    const tr = new window.FretboardTimelineRenderer(makeCanvas(600, 400), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
+      ticksPerSec: 480, totalSec: 60,
+      onNoteDrag: (hit, info) => { received = { hit, info }; }
+    });
+    tr.setTimeline([
+      { type: 'chord', tick: 0, notes: [{ note: 64, string: 6, fret: 0 }], unplayable: [] }
+    ]);
+    tr.draw();
+    const hit = tr._noteHits[0];
+    expect(hit).toBeDefined();
+    // Press exactly on the note, then drag down by 60 px.
+    tr._handleMouseDown({ clientX: hit.x, clientY: hit.y, preventDefault() {} });
+    tr._handleMouseMove({ clientX: hit.x, clientY: hit.y + 60 });
+    tr._handleMouseUp({ clientX: hit.x, clientY: hit.y + 60 });
+    expect(received).not.toBeNull();
+    expect(received.hit.note).toBe(64);
+    expect(Number.isFinite(received.info.fretY)).toBe(true);
+    expect(received.info.fretY).toBeGreaterThan(hit.fret);
+  });
+
+  it('a click immediately following a drag does NOT open onNoteClick', () => {
+    let clicks = 0;
+    const tr = new window.FretboardTimelineRenderer(makeCanvas(600, 400), {
+      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
+      ticksPerSec: 480, totalSec: 60,
+      onNoteClick: () => { clicks++; },
+      onNoteDrag: () => {}
+    });
+    tr.setTimeline([
+      { type: 'chord', tick: 0, notes: [{ note: 64, string: 6, fret: 0 }], unplayable: [] }
+    ]);
+    tr.draw();
+    const hit = tr._noteHits[0];
+    tr._handleMouseDown({ clientX: hit.x, clientY: hit.y, preventDefault() {} });
+    tr._handleMouseMove({ clientX: hit.x, clientY: hit.y + 30 });
+    tr._handleMouseUp({ clientX: hit.x, clientY: hit.y + 30 });
+    // Browser fires a `click` right after the synthetic mouseup.
+    tr._handleClick({ clientX: hit.x, clientY: hit.y + 30 });
+    expect(clicks).toBe(0);
+  });
 });
