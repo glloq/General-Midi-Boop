@@ -565,6 +565,8 @@
         "fileTooLarge": "File too large ({size}). Limit: {max}",
         "duplicateFileWarning": "⚠️ File already exists - will be overwritten",
         "releaseToUpload": "Release to upload",
+        "dropAnywhere": "Drop your MIDI files here",
+        "dropAnywhereSubtitle": "Release anywhere on the page to upload",
         "errorFileTooLarge": "File too large. Check the file size.",
         "errorInvalidMidi": "This file does not appear to be a valid MIDI file. Check the format.",
         "errorUploadTimeout": "Upload took too long. Please try again.",
