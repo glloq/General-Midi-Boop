@@ -533,6 +533,69 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
   });
 });
 
+// -----------------------------------------------------------------------------
+// Anchor floor: in the physical (mm) frets-mode model, the leftmost finger
+// cannot sit more than 10 mm behind fret 1. This widens the high-fret reach
+// for a fixed hand width while still letting fret 1 be played.
+// -----------------------------------------------------------------------------
+
+describe('HandPositionPlanner — physical anchor floor (10 mm before fret 1)', () => {
+  const cfg = {
+    enabled: true,
+    mode: 'frets',
+    hand_move_mm_per_sec: 250,
+    hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+  };
+  const ctx = { unit: 'frets', scaleLengthMm: 650, noteRangeMin: 0, noteRangeMax: 22 };
+
+  test('exposes the floor as a fret-equivalent value > 0', () => {
+    const p = new HandPositionPlanner(cfg, ctx);
+    // For L=650 mm: fret 1 ≈ 36.5 mm from nut. 10 mm before fret 1 ≈
+    // 26.5 mm → ~0.72 frets. The floor must be strictly positive but
+    // less than 1 fret so fret 1 stays reachable.
+    expect(p._physical).not.toBeNull();
+    expect(p._physical.minAnchorFret).toBeGreaterThan(0);
+    expect(p._physical.minAnchorFret).toBeLessThan(1);
+  });
+
+  test('forces an open-string-only chord to anchor at the floor, never below it', () => {
+    const p = new HandPositionPlanner(cfg, ctx);
+    // A note at fret 0 (open). The planner used to anchor at 0; with
+    // the floor it lifts the anchor forward.
+    const { ccEvents } = p.plan([fretNote(0, 0)]);
+    expect(ccEvents).toHaveLength(1);
+    const floor = p._physical.minAnchorFret;
+    // CC value is rounded; at L=650 the floor rounds to 1 (≈ 0.72).
+    expect(ccEvents[0].value).toBe(Math.max(0, Math.round(floor)));
+  });
+
+  test('floor still allows fret 1 to be played in the same window', () => {
+    const p = new HandPositionPlanner(cfg, ctx);
+    // Anchor at the floor (~0.72 fret); reach with a 80 mm hand on a
+    // 650 mm scale extends well past fret 1.
+    const { ccEvents, warnings } = p.plan([fretNote(0, 1)]);
+    expect(ccEvents).toHaveLength(1);
+    // No out_of_range / chord_span_exceeded — fret 1 fits the window.
+    expect(warnings.filter(w => w.code === 'out_of_range')).toHaveLength(0);
+    expect(warnings.filter(w => w.code === 'chord_span_exceeded')).toHaveLength(0);
+  });
+
+  test('floor is not applied in non-physical (constant-fret) mode', () => {
+    // No scale length → physical model not built → no floor.
+    const cfgFallback = {
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
+    };
+    const p = new HandPositionPlanner(cfgFallback, { unit: 'frets', noteRangeMin: 0, noteRangeMax: 22 });
+    expect(p._physical).toBeNull();
+    const { ccEvents } = p.plan([fretNote(0, 0)]);
+    // Anchor stays at 0 (the chord's lowest fret), no implicit floor.
+    expect(ccEvents[0].value).toBe(0);
+  });
+});
+
 describe('HandPositionPlanner — edge cases', () => {
   test('empty notes list returns empty plan', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);

@@ -2,8 +2,9 @@
 // B.5: MidiAdaptationService.adaptAndOptimize runs the matcher's
 // hand-position heuristic on each channel-to-instrument pair and, when
 // the level is sub-optimal, proposes non-destructive remediations
-// (transpose / capo / split flag). Tests stub out the autoAssigner so
-// no real MIDI parsing is required.
+// (transpose / split flag). Capo support was removed in 2026-04;
+// tests guard that no `capo` recommendation is ever emitted.
+// Tests stub out the autoAssigner so no real MIDI parsing is required.
 
 import { describe, test, expect, jest } from '@jest/globals';
 import MidiAdaptationService from '../src/midi/adaptation/MidiAdaptationService.js';
@@ -114,7 +115,7 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
       0: { instrument: piano({ hands_config: semitonesHands }) }
     });
     for (const rec of out[0].recommendations) {
-      expect(['transpose', 'capo', 'split']).toContain(rec.type);
+      expect(['transpose', 'split']).toContain(rec.type);
     }
   });
 
@@ -132,26 +133,21 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
     });
   });
 
-  test('proposes a capo only in frets mode + when scale_length_mm is set', () => {
+  test('never proposes a capo (feature removed)', () => {
+    // Both frets and semitones instruments. Capo suggestions used to
+    // fire for fretted instruments only; after the feature removal the
+    // recommendation set is restricted to `transpose` / `split`.
     const svc = makeService({ '0': analysis({ rangeMin: 40, rangeMax: 75 }) });
     const out = svc.adaptAndOptimize({}, {
       0: { instrument: guitar({ hands_config: fretsHands }) }
     });
-    expect(out[0].level).toBe('warning');
-    // We don't assert the capo always fires (depends on heuristic
-    // interaction); but if it does, it's a frets-mode proposal with a
-    // sensible fret number.
-    for (const rec of out[0].recommendations.filter(r => r.type === 'capo')) {
-      expect([3, 5, 7]).toContain(rec.params.fret);
-    }
-  });
+    expect(out[0].recommendations.some(r => r.type === 'capo')).toBe(false);
 
-  test('does not propose a capo for semitones-mode instruments', () => {
-    const svc = makeService({ '0': analysis({ rangeMin: 30, rangeMax: 95 }) });
-    const out = svc.adaptAndOptimize({}, {
+    const svc2 = makeService({ '0': analysis({ rangeMin: 30, rangeMax: 95 }) });
+    const out2 = svc2.adaptAndOptimize({}, {
       0: { instrument: piano({ hands_config: semitonesHands }) }
     });
-    expect(out[0].recommendations.some(r => r.type === 'capo')).toBe(false);
+    expect(out2[0].recommendations.some(r => r.type === 'capo')).toBe(false);
   });
 
   test('handles malformed assignment entries without throwing', () => {
@@ -181,69 +177,18 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
   });
 });
 
-describe('MidiAdaptationService.applyCapoSuggestion', () => {
-  // Real (not stubbed) MidiTransposer is used here so we exercise the
-  // full pipeline; the input fixture is a minimal MIDI shape with a
-  // single noteOn the transposer can shift.
-  function makeMidiFixture() {
-    return {
-      header: { format: 1, ticksPerBeat: 480 },
-      tracks: [{
-        events: [
-          { deltaTime: 0,   type: 'noteOn',  channel: 0, noteNumber: 60, velocity: 80 },
-          { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }
-        ]
-      }]
-    };
-  }
-
-  test('throws on missing midiData', () => {
+describe('MidiAdaptationService — capo feature removal', () => {
+  test('applyCapoSuggestion is no longer exposed', () => {
     const svc = makeService();
-    expect(() => svc.applyCapoSuggestion(null, 0, 3)).toThrow();
+    expect(svc.applyCapoSuggestion).toBeUndefined();
   });
 
-  test('throws on invalid channel', () => {
-    const svc = makeService();
-    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), -1, 3)).toThrow(/channel/);
-    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 16, 3)).toThrow(/channel/);
-  });
-
-  test('throws on invalid capoFret', () => {
-    const svc = makeService();
-    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 0, 0)).toThrow(/capoFret/);
-    expect(() => svc.applyCapoSuggestion(makeMidiFixture(), 0, 25)).toThrow(/capoFret/);
-  });
-
-  test('returns the instrumentPatch with the requested capo position', () => {
-    const svc = makeService();
-    const r = svc.applyCapoSuggestion(makeMidiFixture(), 0, 5);
-    expect(r.instrumentPatch).toEqual({ capo_fret: 5 });
-  });
-
-  test('transposes the channel DOWN by capoFret semitones (preserves audible pitch)', () => {
-    const svc = makeService();
-    const r = svc.applyCapoSuggestion(makeMidiFixture(), 0, 3);
-    // Find the noteOn in the result — note number should be 60 - 3 = 57.
-    const events = r.midiData.tracks?.[0]?.events || [];
-    const noteOn = events.find(e => e.type === 'noteOn');
-    expect(noteOn?.noteNumber).toBe(57);
-  });
-
-  test('does not mutate the input midiData (deep clone)', () => {
-    const svc = makeService();
-    const input = makeMidiFixture();
-    svc.applyCapoSuggestion(input, 0, 3);
-    expect(input.tracks[0].events[0].noteNumber).toBe(60);
-  });
-});
-
-describe('MidiAdaptationService.adaptAndOptimize — B.6 expanded capo search', () => {
-  test('proposes a smaller capo (1..7) when one suffices', () => {
-    // Force the matcher to accept fret-based instruments and only
-    // approve a +1 shift. That's a capo=1 win — the broadened search
-    // should now return that instead of the original 3/5/7-only set.
+  test('adaptAndOptimize never proposes a capo even when a +1 shift would help', () => {
+    // Same setup the old "expanded capo search" test used: only a +1
+    // shift lifts the level. Before the removal the service would
+    // emit a `{type:'capo', params:{fret:1}}` recommendation; after
+    // the removal it must not.
     const svc = makeService({ '0': analysis({ rangeMin: 40, rangeMax: 75 }) });
-    // Override matcher so that any pitch shift of +1 lifts to ok.
     svc._matcher._scoreHandPositionFeasibility = (an) => {
       const min = an.noteRange.min;
       if (min === 41) return { level: 'ok', qualityScore: 100, summary: { mode: 'frets' } };
@@ -252,9 +197,7 @@ describe('MidiAdaptationService.adaptAndOptimize — B.6 expanded capo search', 
     const out = svc.adaptAndOptimize({}, {
       0: { instrument: guitar({ hands_config: fretsHands }) }
     });
-    const capo = out[0].recommendations.find(r => r.type === 'capo');
-    expect(capo).toBeDefined();
-    expect(capo.params.fret).toBe(1);
+    expect(out[0].recommendations.some(r => r.type === 'capo')).toBe(false);
   });
 });
 

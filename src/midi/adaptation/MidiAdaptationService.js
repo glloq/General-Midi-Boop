@@ -7,8 +7,10 @@
  *
  * Mostly delegates verbatim. The exception is `adaptAndOptimize`,
  * which runs a hand-position feasibility dry-run (B.5) and proposes
- * non-destructive remediations (transpose, capo, split) the caller
- * can apply if desired.
+ * non-destructive remediations (transpose, split) the caller can apply
+ * if desired. Capo suggestions were removed in 2026-04 along with the
+ * rest of the capo feature; transposition (octave shifts) covers the
+ * same use case without altering the instrument hardware state.
  */
 import MidiTransposer from './MidiTransposer.js';
 import InstrumentMatcher from './InstrumentMatcher.js';
@@ -92,9 +94,9 @@ export default class MidiAdaptationService {
    * For each channel routed to a hands_config-equipped instrument we
    * classify feasibility (matcher heuristic from A.1) and, when the
    * level is `warning` or `infeasible`, search a small set of
-   * candidate fixes — octave transpositions and capo positions — for
-   * one that would lift the level back to `ok`. Output is purely
-   * advisory: the caller decides whether to apply.
+   * candidate fixes — octave transpositions — for one that would lift
+   * the level back to `ok`. Output is purely advisory: the caller
+   * decides whether to apply.
    *
    * @param {Object} midiData
    * @param {Object<number|string, {instrument:Object}>} channelToInstrument
@@ -173,35 +175,12 @@ export default class MidiAdaptationService {
       }
     }
 
-    // Capo suggestion (frets mode only): physically raising the
-    // effective nut shifts the comfortable zone up the neck. We test
-    // a few common capo positions and pick the smallest one that
-    // improves the level.
-    if (baseline.summary?.mode === 'frets' && instrument.scale_length_mm) {
-      // Expanded capo search (B.6): a finer-grained scan than the
-      // initial three-position pass. We still prefer the smallest
-      // capo that lifts the level (less invasive on tone), so the
-      // loop returns on the first hit.
-      for (const capoFret of [1, 2, 3, 4, 5, 6, 7]) {
-        // Capo lifts pitches by `capoFret` semitones; mirror that on the
-        // analysis range so the matcher sees the post-capo pitch span.
-        const shifted = this._shiftAnalysis(analysis, capoFret);
-        if (!shifted) continue;
-        const r = this._matcher._scoreHandPositionFeasibility(shifted, instrument);
-        if (isImprovement(r.level)) {
-          recs.push({
-            type: 'capo',
-            params: { fret: capoFret },
-            projectedLevel: r.level,
-            rationale: `Capo at fret ${capoFret} lifts feasibility ${baseline.level} → ${r.level}.`
-          });
-          break; // smallest capo wins
-        }
-      }
-    }
+    // (Capo suggestions removed — see file header. Octave transposes
+    // above already cover the "shift the comfortable zone" use case
+    // without altering instrument hardware state.)
 
     // Split: when polyphony exceeds the hand's finger budget, no
-    // single-instrument transpose / capo can recover. Surface a flag
+    // single-instrument transpose can recover. Surface a flag
     // so the caller can decide whether to invoke a multi-instrument
     // split (B.7 ambitious feature).
     if (baseline.level === 'infeasible' && baseline.summary?.polyphonyMax != null) {
@@ -217,39 +196,6 @@ export default class MidiAdaptationService {
     }
 
     return recs;
-  }
-
-  /**
-   * Apply a capo suggestion produced by `adaptAndOptimize`. A capo at
-   * fret `f` raises every fingered note by `f` semitones, so to keep
-   * the audible pitch unchanged we transpose the source channel DOWN
-   * by `f` semitones. The string_instrument's `capo_fret` is bumped
-   * in lock-step via the returned patch — the caller is responsible
-   * for persisting it (we don't reach into the repository here so the
-   * service stays a pure transformer).
-   *
-   * @param {Object} midiData
-   * @param {number} channel
-   * @param {number} capoFret - Target capo position (1..24).
-   * @returns {{midiData:Object,
-   *            instrumentPatch:{capo_fret:number},
-   *            stats:Object}}
-   */
-  applyCapoSuggestion(midiData, channel, capoFret) {
-    if (!midiData) throw new Error('midiData is required');
-    if (!Number.isFinite(channel) || channel < 0 || channel > 15) {
-      throw new Error('channel must be between 0 and 15');
-    }
-    if (!Number.isFinite(capoFret) || capoFret < 1 || capoFret > 24) {
-      throw new Error('capoFret must be between 1 and 24');
-    }
-
-    const result = this.transposer.transposeChannel(midiData, channel, -capoFret);
-    return {
-      midiData: result.midiData || result,
-      instrumentPatch: { capo_fret: capoFret },
-      stats: result.stats || null
-    };
   }
 
   /**

@@ -4,15 +4,20 @@
  * converter.
  *
  * MIDI → Tab: given a string-instrument config (tuning, fret count,
- * capo, fretless flag) and a sequence of MIDI notes, assigns each note
- * to a `(string, fret)` position. The optimiser minimises hand
- * movement, refuses to place simultaneous notes on the same string,
- * and supports several algorithms (`greedy`, `look-ahead`, `optimal`).
+ * fretless flag) and a sequence of MIDI notes, assigns each note to a
+ * `(string, fret)` position. The optimiser minimises hand movement,
+ * refuses to place simultaneous notes on the same string, and supports
+ * several algorithms (`greedy`, `look-ahead`, `optimal`).
  *
  * Tab → MIDI: converts `(string, fret)` events back into MIDI note
  * numbers and emits CC20 (string select) + CC21 (fret select) right
  * before each note-on so the receiving instrument can pre-position its
  * mechanical fingers.
+ *
+ * Capo support was removed in 2026-04: the column survives on
+ * `string_instruments` for backward compatibility but the converter no
+ * longer applies any offset. Pieces that previously depended on a
+ * capo are expected to be transposed at the source instead.
  *
  * The file is large (~1250 LOC); only public entry points carry full
  * JSDoc — algorithm-specific helpers retain their inline comments.
@@ -31,7 +36,6 @@ class TablatureConverter {
    * @param {number} instrumentConfig.num_strings - Number of strings (1-6)
    * @param {number} instrumentConfig.num_frets - Number of frets (0 = fretless)
    * @param {boolean} instrumentConfig.is_fretless - Whether the instrument has no frets
-   * @param {number} instrumentConfig.capo_fret - Capo position (shifts all open strings up)
    * @param {number} [instrumentConfig.cc_string_number] - CC number for string select (default 20)
    * @param {number} [instrumentConfig.cc_string_min] - Min value for string CC (default 1)
    * @param {number} [instrumentConfig.cc_string_max] - Max value for string CC (default 12)
@@ -73,7 +77,6 @@ class TablatureConverter {
     this.numStrings = instrumentConfig.tuning?.length || instrumentConfig.num_strings;
     this.numFrets = instrumentConfig.num_frets;
     this.isFretless = instrumentConfig.is_fretless;
-    this.capoFret = instrumentConfig.capo_fret || 0;
     this.ccEnabled = instrumentConfig.cc_enabled !== undefined ? !!instrumentConfig.cc_enabled : true;
     this.algorithm = instrumentConfig.tab_algorithm || 'min_movement';
 
@@ -117,8 +120,10 @@ class TablatureConverter {
       : null;
     this._handAwareReady = !!(this.scaleLengthMm && this.handSpanMm);
 
-    // Effective open-string notes with capo applied
-    this.effectiveTuning = this.tuning.map(note => note + this.capoFret);
+    // Open-string MIDI notes per string (kept as a separate field so
+    // tests and downstream readers don't need to dereference `tuning`).
+    // Capo support was removed; this is simply a snapshot of `tuning`.
+    this.effectiveTuning = this.tuning.slice();
 
     // Precompute the playable range per string (using per-string frets if available)
     this.stringRanges = this.effectiveTuning.map((openNote, i) => {

@@ -6,13 +6,14 @@
 import { describe, test, expect } from '@jest/globals';
 import TablatureConverter from '../src/midi/adaptation/TablatureConverter.js';
 
-// Standard 6-string guitar (E2 A2 D3 G3 B3 E4), 24 frets.
+// Standard 6-string guitar (E2 A2 D3 G3 B3 E4), 24 frets. Capo support
+// was removed in 2026-04 — even passing `capo_fret` in this fixture
+// would now be a no-op.
 const guitarConfig = {
   tuning: [40, 45, 50, 55, 59, 64],
   num_strings: 6,
   num_frets: 24,
   is_fretless: false,
-  capo_fret: 0,
   tab_algorithm: 'min_movement'
 };
 

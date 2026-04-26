@@ -17,7 +17,6 @@ class FretboardDiagram {
         this.numStrings = this.tuning.length;
         this.numFrets = options.numFrets || 24;
         this.isFretless = options.isFretless || false;
-        this.capoFret = options.capoFret || 0;
 
         // Layout
         this.topMargin = 30;     // Space for nut and open string labels
@@ -154,7 +153,7 @@ class FretboardDiagram {
         }
 
         // Calculate MIDI note
-        const openNote = this.tuning[closestString - 1] + this.capoFret;
+        const openNote = this.tuning[closestString - 1];
         const midiNote = openNote + clickedFret;
 
         if (midiNote >= 0 && midiNote <= 127) {
@@ -421,7 +420,7 @@ class FretboardDiagram {
 
         for (let s = 1; s <= this.numStrings; s++) {
             const x = this._getStringX(s);
-            const midiNote = this.tuning[s - 1] + this.capoFret;
+            const midiNote = this.tuning[s - 1];
             const name = noteNames[midiNote % 12];
 
             if (activeStringSet.has(s)) {

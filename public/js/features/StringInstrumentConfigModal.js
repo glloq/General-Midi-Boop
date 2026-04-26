@@ -2,7 +2,7 @@
 // Fichier: public/js/features/StringInstrumentConfigModal.js
 // Description: Modal for configuring string instruments (guitar, bass, etc.)
 //   Allows selecting tuning presets or custom tuning, number of strings/frets,
-//   fretless mode, and capo position. Saves via WebSocket API.
+//   and fretless mode. Saves via WebSocket API.
 //   Features a visual mini-piano for tuning each string.
 // ============================================================================
 
@@ -33,7 +33,6 @@ class StringInstrumentConfigModal extends BaseModal {
             num_frets: 24,
             tuning: [40, 45, 50, 55, 59, 64],
             is_fretless: false,
-            capo_fret: 0,
             cc_enabled: true,
             tab_algorithm: 'min_movement',
             // CC configuration
@@ -95,7 +94,6 @@ class StringInstrumentConfigModal extends BaseModal {
                     num_frets: inst.num_frets || 24,
                     tuning: inst.tuning || [40, 45, 50, 55, 59, 64],
                     is_fretless: !!inst.is_fretless,
-                    capo_fret: inst.capo_fret || 0,
                     cc_enabled: inst.cc_enabled !== undefined ? !!inst.cc_enabled : true,
                     tab_algorithm: inst.tab_algorithm || 'min_movement',
                     cc_string_number: inst.cc_string_number !== undefined ? inst.cc_string_number : 20,
@@ -266,10 +264,6 @@ class StringInstrumentConfigModal extends BaseModal {
                             <input type="checkbox" id="si-fretless" ${c.is_fretless ? 'checked' : ''}>
                             <label for="si-fretless">${this.t('stringInstrument.isFretless')}</label>
                         </div>
-                        <div class="si-field">
-                            <label for="si-capo">${this.t('stringInstrument.capoFret')}</label>
-                            <input type="number" id="si-capo" class="si-input si-input-sm" value="${c.capo_fret}" min="0" max="36">
-                        </div>
                     </div>
 
                     <div class="si-neck-section" ${c.is_fretless ? 'style="display:none"' : ''}>
@@ -412,9 +406,6 @@ class StringInstrumentConfigModal extends BaseModal {
             } else if (e.target.id === 'si-frets') {
                 const v = parseInt(e.target.value);
                 if (!isNaN(v) && v >= 0 && v <= 36) this.config.num_frets = v;
-            } else if (e.target.id === 'si-capo') {
-                const v = parseInt(e.target.value);
-                if (!isNaN(v) && v >= 0 && v <= 36) this.config.capo_fret = v;
             }
         });
 
@@ -682,7 +673,6 @@ class StringInstrumentConfigModal extends BaseModal {
                 num_frets: this.config.num_frets,
                 tuning: this.config.tuning,
                 is_fretless: this.config.is_fretless,
-                capo_fret: this.config.capo_fret,
                 cc_enabled: this.config.cc_enabled,
                 tab_algorithm: this.config.tab_algorithm,
                 cc_string_number: this.config.cc_string_number,

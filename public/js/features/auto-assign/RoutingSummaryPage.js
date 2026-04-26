@@ -1005,11 +1005,11 @@ class RoutingSummaryPage {
     const initialOverrides = this._extractInitialOverrides(assignment);
 
     // The capabilities catalog (`allInstruments`) doesn't include the
-    // fretboard geometry (tuning, num_frets, capo_fret, scale length)
-    // — that data lives in the separate `string_instruments` table.
-    // For fretted previews we fetch it on demand and merge it into the
-    // instrument record passed to the panel; without it, the simulator
-    // can't resolve MIDI → (string, fret) and the manche stays blank.
+    // fretboard geometry (tuning, num_frets, scale length) — that data
+    // lives in the separate `string_instruments` table. For fretted
+    // previews we fetch it on demand and merge it into the instrument
+    // record passed to the panel; without it, the simulator can't
+    // resolve MIDI → (string, fret) and the manche stays blank.
     let enrichedInstrument = instrumentRecord;
     const handsCfg = instrumentRecord.hands_config;
     const isFretted = handsCfg && handsCfg.mode === 'frets';
@@ -1027,7 +1027,6 @@ class RoutingSummaryPage {
             ...instrumentRecord,
             tuning: Array.isArray(si.tuning) ? si.tuning.slice() : instrumentRecord.tuning,
             num_frets: si.num_frets || instrumentRecord.num_frets,
-            capo_fret: si.capo_fret || instrumentRecord.capo_fret || 0,
             scale_length_mm: si.scale_length_mm ?? instrumentRecord.scale_length_mm,
             is_fretless: si.is_fretless ?? instrumentRecord.is_fretless
           };

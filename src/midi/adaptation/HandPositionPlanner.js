@@ -124,7 +124,17 @@ class HandPositionPlanner {
       // frets-speed which would give nonsense move_too_fast warnings.
       return null;
     }
-    return { L, moveMmPerSec };
+    // Anchor floor: the leftmost finger cannot sit more than
+    // ANCHOR_BACK_OFF_MM behind fret 1 (the fingertip would otherwise
+    // hang off the nut, no string contact). Anchoring SLIGHTLY behind
+    // fret 1 — instead of at the nut — also widens the high-fret reach
+    // because the band shifts forward by ~the same distance.
+    const ANCHOR_BACK_OFF_MM = 10;
+    const fret1Mm = L * (1 - Math.pow(2, -1 / 12));
+    const floorMm = Math.max(0, fret1Mm - ANCHOR_BACK_OFF_MM);
+    // Solve fret-equivalent: L·(1 − 2^(−x/12)) = floorMm.
+    const minAnchorFret = -12 * Math.log2(1 - floorMm / L);
+    return { L, moveMmPerSec, minAnchorFret };
   }
 
   /**
@@ -345,15 +355,25 @@ class HandPositionPlanner {
         // we send is always a position the hand can actually reach. The
         // note itself may still be out-of-range (reported separately).
         const newSpan = this._spanAt(hand, newLow);
-        if (instrumentMin != null && newLow < instrumentMin) {
-          newLow = instrumentMin;
+        // Physical-model floor: in frets mode with a known scale length,
+        // the leftmost finger cannot be placed more than 10 mm behind
+        // fret 1 (ANCHOR_BACK_OFF_MM). Anchoring slightly forward
+        // widens the high-fret reach for a fixed hand width while still
+        // allowing fret 1 to be played.
+        let effectiveMin = instrumentMin ?? null;
+        if (this._physical && Number.isFinite(this._physical.minAnchorFret)) {
+          effectiveMin = Math.max(effectiveMin ?? 0, this._physical.minAnchorFret);
+        }
+        if (effectiveMin != null && newLow < effectiveMin) {
+          newLow = effectiveMin;
         }
         if (instrumentMax != null && newLow + newSpan > instrumentMax) {
-          // Slide the window down so its top fits the range max.
+          // Slide the window down so its top fits the range max, but
+          // never below the physical floor.
           if (this._physical && Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0) {
-            newLow = Math.max(instrumentMin ?? 0, this._minAnchorForTopMm(instrumentMax, hand.hand_span_mm));
+            newLow = Math.max(effectiveMin ?? 0, this._minAnchorForTopMm(instrumentMax, hand.hand_span_mm));
           } else {
-            newLow = Math.max(instrumentMin ?? 0, instrumentMax - newSpan);
+            newLow = Math.max(effectiveMin ?? 0, instrumentMax - newSpan);
           }
         }
 

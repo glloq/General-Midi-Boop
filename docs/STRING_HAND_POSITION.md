@@ -68,7 +68,7 @@ Définie dans [`migrations/001_baseline.sql`](../migrations/001_baseline.sql)
 | `num_strings` | int 1..12 | Nombre de cordes (= longueur de `tuning`) |
 | `num_frets` | int 0..36 | 0 = fretless |
 | `is_fretless` | bool | Active la résolution flottante des frettes |
-| `capo_fret` | int 0..36 | Capodastre virtuel, décale toutes les cordes à vide |
+| `capo_fret` | int 0..36 | **Désactivé (2026-04)** — la colonne survit pour la compatibilité ascendante mais n'est plus appliquée par le convertisseur ni les vues. Pour décaler la tonalité, transposer le canal source à la place. |
 | `frets_per_string` | JSON `[int]?` | Cap individuel par corde, sinon `num_frets` partout |
 | `scale_length_mm` | int 100..2000 | Longueur de diapason, pour le modèle physique |
 | `tab_algorithm` | text | `min_movement` \| `lowest_fret` \| `highest_fret` \| `zone` \| `hand_aware` |
@@ -228,7 +228,27 @@ main physique :
    - shift vers le haut → `newLow = minAnchorForTopMm(chordHigh, span)`
      (modèle physique) ou `newLow = chordHigh − span` (fallback).
    - shift vers le bas → `newLow = chordLow`.
-   - L'ancrage est ensuite clampé à `[noteRangeMin, noteRangeMax]`.
+   - L'ancrage est ensuite clampé à `[max(noteRangeMin, plancher
+     physique), noteRangeMax]`.
+
+#### Plancher d'ancrage physique (2026-04)
+
+En mode physique (mm), le doigt index ne peut pas se placer plus de
+**10 mm derrière la frette 1**. Au lieu d'ancrer la main au sillet
+(fret 0) — ce qui mettrait l'index "dans le vide" sur le bois nu — le
+planificateur calcule un plancher en frettes équivalent à
+`fret1Mm − 10 mm`, ce qui donne ≈ 0,72 frette pour un diapason de
+650 mm. Conséquences :
+
+- la frette 1 reste atteignable (le doigt est juste avant elle) ;
+- la frette terminale de la main est décalée d'autant vers l'aigu, ce
+  qui rapproche les positions hautes sans changer la largeur physique
+  de la main ;
+- en mode `frets` constant (sans `scale_length_mm`), aucun plancher
+  n'est appliqué — l'ancrage peut toujours descendre à 0.
+
+Implémenté dans `HandPositionPlanner._maybeBuildPhysical()`
+(`minAnchorFret = -12 · log2(1 − floorMm / L)`).
 7. **Émission CC** :
    - 1er CC d'une main : `time − ε` avant la 1ère note.
    - shifts suivants : `lastNoteOnTime + ε` (dès que la note précédente
@@ -271,6 +291,27 @@ Tous diffusés via WebSocket (`playback_hand_position_warnings`)
 | `move_too_fast` | Le shift demande plus de temps que disponible | `travelMm`, `requiredMs`, `availableMs` |
 | `finger_interval_violated` | Deux notes consécutives séparées par moins de `min_note_interval` | `deltaMs`, `minIntervalMs` |
 | `too_many_fingers` | Accord avec plus de frets > 0 que `max_fingers` | `count`, `limit` |
+
+### 4.3 Représentation graphique de la main *(2026-04)*
+
+La bande qui matérialise la main sur le manche dans le panneau
+« Hands preview » ([`FretboardHandPreview`](../public/js/features/auto-assign/FretboardHandPreview.js))
+reflète **strictement** la largeur configurée dans `hands_config` :
+
+- mode physique : largeur de la bande = `hands[0].hand_span_mm`,
+  positionnée selon la géométrie tempérée (la bande rétrécit visuellement
+  à mesure qu'on monte sur le manche, alors que sa largeur en mm reste
+  constante) ;
+- mode constant : largeur = `hands[0].hand_span_frets` (par défaut 4).
+
+Aucune entrée externe ne peut écraser cette largeur — le contrat est
+documenté dans l'en-tête de `FretboardHandPreview.js`. Pour modifier
+la largeur affichée, ajuster `hand_span_mm` (ou `hand_span_frets`)
+dans les réglages de l'instrument et relancer la prévisualisation.
+
+Le même contrat s'applique à la
+[`FretboardLookaheadStrip`](../public/js/features/auto-assign/FretboardLookaheadStrip.js)
+qui affiche la trajectoire prévue sur 4 secondes.
 
 ---
 

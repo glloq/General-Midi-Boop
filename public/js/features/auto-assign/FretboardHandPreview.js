@@ -24,9 +24,16 @@
  *     tuning, numFrets, scaleLengthMm?, handSpanMm?, handSpanFrets?
  *   });
  *   fb.setActivePositions([{ string, fret, velocity }, …]);
- *   fb.setHandWindow({ anchorFret, spanFrets, level }); // null clears
+ *   fb.setHandTrajectory(points);
  *   fb.draw();
  *   fb.destroy();
+ *
+ * Hand-width contract: the painted band ALWAYS reflects the
+ * configured `handSpanMm` (physical mode) or `handSpanFrets`
+ * (fallback) — never a chord-derived span. The configured value comes
+ * from `hands_config.hands[0].hand_span_mm` (or `hand_span_frets`)
+ * via {@link HandsPreviewPanel}, so what the operator sees on the
+ * fretboard is exactly what they set in the instrument settings.
  */
 (function() {
     'use strict';
@@ -343,12 +350,15 @@
 
         /**
          * Compute the [x0, x1] horizontal extent of a hand band on
-         * the fretboard. The band aligns with the SLOT of each fret
-         * — for anchor=1 (= index finger on fret 1) the band starts
-         * at the nut wire (`_fretX(0)`), NOT at fret 1's wire.
+         * the fretboard. The band width is ALWAYS the configured hand
+         * size (`handSpanMm` in physical mode, `handSpanFrets` in
+         * fallback) — no caller can shrink/grow it. The band aligns
+         * with the SLOT of each fret: for anchor=1 (= index finger on
+         * fret 1) the band starts at the nut wire (`_fretX(0)`), NOT
+         * at fret 1's wire.
          * @private
          */
-        _handWindowX(anchorFret, spanFrets) {
+        _handWindowX(anchorFret) {
             const slotLeft = Math.max(0, anchorFret - 1);
             const x0 = this._fretX(slotLeft);
             let x1;
@@ -362,8 +372,7 @@
                     x1 = this._xFromMm(rightMm);
                 }
             } else {
-                const span = spanFrets || this.handSpanFrets;
-                x1 = this._fretX(Math.min(this.numFrets, slotLeft + span));
+                x1 = this._fretX(Math.min(this.numFrets, slotLeft + this.handSpanFrets));
             }
             return { x0, x1 };
         }
@@ -375,7 +384,7 @@
          * is shared with the live band.
          */
         _drawGhostAnchor(fbY, fbH, anchorFret) {
-            const { x0, x1 } = this._handWindowX(anchorFret, this.handSpanFrets);
+            const { x0, x1 } = this._handWindowX(anchorFret);
             if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
             const ctx = this.ctx;
             const yOverflow = HAND_BAND_Y_OVERFLOW;
@@ -418,7 +427,7 @@
         }
 
         _drawHandWindow(fbX, fbY, fbW, fbH, _canvasW, anchor, level) {
-            const { x0, x1 } = this._handWindowX(anchor, this.handSpanFrets);
+            const { x0, x1 } = this._handWindowX(anchor);
             if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
 
             const fills = {
