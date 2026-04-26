@@ -170,7 +170,9 @@
             "checking": "Vérification des mises à jour...",
             "upToDate": "Le système est à jour",
             "updateAvailable": "Mise à jour disponible",
-            "checkFailed": "Impossible de vérifier les mises à jour"
+            "checkFailed": "Impossible de vérifier les mises à jour",
+            "complete": "Mise à jour terminée !",
+            "manualReload": "Recharger manuellement"
         }
     },
     "bluetooth": {
@@ -264,6 +266,7 @@
         "loadingSoundBank": "Chargement de la banque de son…",
         "instrument": "Instrument:",
         "selectInstrument": "Sélectionnez un instrument",
+        "selectAll": "Tout sélectionner",
         "noInstrument": "Aucun instrument sélectionné",
         "pianoRoll": "Piano Roll",
         "velocity": "Vélocité",
@@ -581,7 +584,8 @@
         "midiClockDescription": "Envoyer le signal d'horloge MIDI à ce périphérique pour synchroniser arpégiateurs, LFOs et séquenceurs",
         "messageRateLimit": "Limite de messages",
         "messageRateLimitDescription": "Nombre maximum de messages MIDI par seconde (0 = illimité)",
-        "messageRateLimitUnit": "msgs/sec"
+        "messageRateLimitUnit": "msgs/sec",
+        "sysexHelp": "Interroge le périphérique pour obtenir son identité SysEx"
     },
     "handPosition": {
         "toastPrefix": "Faisabilité main",
@@ -749,7 +753,12 @@
         "handsKeyboardMechAlignedLabel": "Doigts alignés sur les touches",
         "handsKeyboardMechAlignedDesc": "Un actionneur par touche dans la fenêtre de la main. La main glisse en bloc, l'écart configuré ci-dessous fixe le nombre de touches couvertes.",
         "handsKeyboardMech5FingersLabel": "5 doigts robotiques indépendants",
-        "handsKeyboardMech5FingersDesc": "Main humanoïde avec 5 doigts à course indépendante (accords arbitraires, doigts non adjacents). Mécanisme prévu pour la V2."
+        "handsKeyboardMech5FingersDesc": "Main humanoïde avec 5 doigts à course indépendante (accords arbitraires, doigts non adjacents). Mécanisme prévu pour la V2.",
+        "discardChangesTitle": "Modifications non enregistrées",
+        "discardChangesMessage": "Vous avez des modifications non enregistrées. Quitter sans enregistrer ?",
+        "discardChangesOk": "Quitter sans enregistrer",
+        "noActiveCcs": "Aucun CC actif",
+        "toggleNotationHelp": "Basculer entre la notation US (C, D, E…) et la notation latine (Do, Ré, Mi…)"
     },
     "playlist": {
         "title": "Playlists",
@@ -786,6 +795,7 @@
         "devices": "Dispositifs",
         "addDevice": "Ajouter un dispositif",
         "deviceName": "Nom du dispositif",
+        "sceneName": "Nom de la scène",
         "deviceType": "Type de connexion",
         "ledCount": "Nombre de LEDs",
         "noDevices": "Aucun dispositif configuré",
@@ -1613,6 +1623,8 @@
         "selectAll": "Tout sélectionner",
         "enterFret": "Entrer le numéro de frette",
         "noStringInstrument": "Aucun instrument à cordes configuré pour ce canal",
+        "openFailed": "Impossible d'ouvrir l'éditeur de tablature",
+        "requiresOneChannel": "Sélectionnez exactement un canal pour ouvrir l'éditeur de tablature.",
         "selectDeviceFirst": "Sélectionnez d'abord un appareil connecté",
         "singleChannelRequired": "Sélectionnez un seul canal pour utiliser la tablature",
         "converting": "Conversion MIDI vers tablature...",

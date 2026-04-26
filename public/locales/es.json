@@ -170,7 +170,9 @@
             "checking": "Comprobando actualizaciones...",
             "upToDate": "El sistema está actualizado",
             "updateAvailable": "Actualización disponible",
-            "checkFailed": "No se pudo comprobar actualizaciones"
+            "checkFailed": "No se pudo comprobar actualizaciones",
+            "complete": "Update complete!",
+            "manualReload": "Reload manually"
         }
     },
     "bluetooth": {
@@ -264,6 +266,7 @@
         "loadingSoundBank": "Loading sound bank…",
         "instrument": "Instrumento:",
         "selectInstrument": "Seleccione un instrumento",
+        "selectAll": "Select all",
         "noInstrument": "Ningún instrumento seleccionado",
         "pianoRoll": "Piano Roll",
         "velocity": "Velocidad",
@@ -581,7 +584,8 @@
         "midiClockDescription": "Enviar señal de reloj MIDI a este dispositivo",
         "messageRateLimit": "Límite de tasa de mensajes",
         "messageRateLimitDescription": "Número máximo de mensajes MIDI por segundo",
-        "messageRateLimitUnit": "mensajes/seg."
+        "messageRateLimitUnit": "mensajes/seg.",
+        "sysexHelp": "Query the device for its SysEx identity"
     },
     "handPosition": {
         "toastPrefix": "Hand feasibility",
@@ -749,7 +753,12 @@
         "handsKeyboardMechAlignedLabel": "Fingers aligned with keys",
         "handsKeyboardMechAlignedDesc": "One actuator per key inside the hand window. The hand slides as a block; the span configured below sets how many keys it covers.",
         "handsKeyboardMech5FingersLabel": "5 independent robotic fingers",
-        "handsKeyboardMech5FingersDesc": "Humanoid hand with 5 independently-actuated fingers (arbitrary chords, non-adjacent fingers). Reserved for the V2 of the project."
+        "handsKeyboardMech5FingersDesc": "Humanoid hand with 5 independently-actuated fingers (arbitrary chords, non-adjacent fingers). Reserved for the V2 of the project.",
+        "discardChangesTitle": "Unsaved changes",
+        "discardChangesMessage": "You have unsaved changes. Discard and close?",
+        "discardChangesOk": "Discard and close",
+        "noActiveCcs": "No active CC",
+        "toggleNotationHelp": "Toggle between US notation (C, D, E…) and Latin notation (Do, Ré, Mi…)"
     },
     "playlist": {
         "title": "Listas de reproducción",
@@ -786,6 +795,7 @@
         "devices": "Dispositivos",
         "addDevice": "Añadir dispositivo de iluminación",
         "deviceName": "Nombre del dispositivo",
+        "sceneName": "Scene name",
         "deviceType": "Tipo de conexión",
         "ledCount": "Número de LEDs",
         "noDevices": "Ningún dispositivo configurado",
@@ -1613,6 +1623,8 @@
         "selectAll": "Seleccionar todo",
         "enterFret": "Introduzca número de traste",
         "noStringInstrument": "Ningún instrumento de cuerda configurado para este canal",
+        "openFailed": "Failed to open tablature editor",
+        "requiresOneChannel": "Select exactly one channel to open the tablature editor.",
         "selectDeviceFirst": "Seleccione primero un dispositivo conectado",
         "singleChannelRequired": "Seleccione un solo canal para usar la tablatura",
         "converting": "Convirtiendo MIDI a tablatura...",
