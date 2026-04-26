@@ -317,56 +317,82 @@
         }
 
         /**
-         * A small dashed rectangle inside the hand band representing
-         * the global per-finger reach — its orientation depends on
-         * the chosen mechanism:
-         *   - `string_sliding_fingers`: each finger is locked to a
-         *     string and slides along the frets. The rectangle is
-         *     thus VERTICAL (along Y, the neck axis), height =
-         *     `handSpanMm / max_fingers`.
+         * Per-finger reach rectangles inside the hand band.
+         *
+         *   - `string_sliding_fingers`: each finger is locked to ONE
+         *     string and slides along the band. We draw one slim
+         *     dashed vertical rectangle per finger, centered on a
+         *     different string column, spanning the full band height,
+         *     plus a small dot marking the active finger position.
          *   - `fret_sliding_fingers`: each finger is locked to a
-         *     fret offset and slides across strings. The rectangle
-         *     is HORIZONTAL (along X, across strings), width = the
-         *     mean inter-string distance.
-         * The rectangle is centered inside the band so the operator
-         * can see the relative reach at a glance.
+         *     fret offset and slides across strings. We draw a single
+         *     dashed rectangle covering the band width with a center
+         *     dot marking the active position.
          */
         _drawFingerRange(fbX, fbW, anchor) {
             if (!this.mechanism) return;
             const { y0, y1 } = this._handWindowY(anchor);
             if (!Number.isFinite(y0) || !Number.isFinite(y1)) return;
             const ctx = this.ctx;
-            const cx = fbX + fbW / 2;
-            const cy = (y0 + y1) / 2;
             ctx.save();
             ctx.strokeStyle = 'rgba(37, 99, 235, 0.8)';
             ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
             ctx.lineWidth = 1.2;
             ctx.setLineDash([4, 3]);
             if (this.mechanism === 'string_sliding_fingers') {
-                // Each finger covers `handSpanMm / max_fingers` of the
-                // neck. Convert to pixels via a fret-formula projection
-                // around the anchor.
-                const totalDistMm = this.scaleLengthMm
-                    * (1 - Math.pow(2, -this.numFrets / 12));
-                const usableH = this._usableHeight();
-                const fingerHeightPx = (this.handSpanMm / Math.max(1, this.maxFingers))
-                    * (usableH / totalDistMm);
-                const rectW = Math.min(fbW * 0.6, 22);
-                ctx.fillRect(cx - rectW / 2, cy - fingerHeightPx / 2, rectW, fingerHeightPx);
-                ctx.strokeRect(cx - rectW / 2, cy - fingerHeightPx / 2, rectW, fingerHeightPx);
+                this._drawStringSlidingFingerRanges(y0, y1);
             } else if (this.mechanism === 'fret_sliding_fingers') {
-                // Mean inter-string pixel distance × ~1 to bracket the
-                // reach across one string slot.
-                const stringStep = this.numStrings > 1
-                    ? fbW / (this.numStrings - 1)
-                    : fbW * 0.6;
-                const rectW = Math.min(fbW * 0.85, stringStep * 1.2);
-                const rectH = Math.min(y1 - y0, 16);
-                ctx.fillRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
-                ctx.strokeRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
+                this._drawFretSlidingFingerRange(fbX, fbW, y0, y1);
             }
             ctx.setLineDash([]);
+            ctx.restore();
+        }
+
+        _drawStringSlidingFingerRanges(y0, y1) {
+            const ctx = this.ctx;
+            const numF = Math.max(1, Math.min(this.maxFingers, this.numStrings));
+            // Pick `numF` string indices evenly spread across the
+            // available strings — fingers can be placed on any string
+            // depending on the chord, so we hint at the multiplicity
+            // rather than committing to one per string.
+            const used = [];
+            if (numF === 1) {
+                used.push(Math.ceil(this.numStrings / 2));
+            } else {
+                for (let i = 0; i < numF; i++) {
+                    const t = i / (numF - 1);
+                    used.push(1 + Math.round(t * (this.numStrings - 1)));
+                }
+            }
+            const rectW = 8;
+            for (const s of used) {
+                const cx = this._stringX(s);
+                ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
+                ctx.strokeRect(cx - rectW / 2, y0, rectW, y1 - y0);
+                ctx.save();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+                ctx.beginPath();
+                ctx.arc(cx, (y0 + y1) / 2, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        _drawFretSlidingFingerRange(fbX, fbW, y0, y1) {
+            const ctx = this.ctx;
+            const cx = fbX + fbW / 2;
+            const cy = (y0 + y1) / 2;
+            const rectW = fbW * 0.9;
+            const rectH = Math.min(y1 - y0, 14);
+            ctx.fillRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
+            ctx.strokeRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
+            ctx.save();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
 

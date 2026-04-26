@@ -1291,6 +1291,12 @@
         unresolved.sort((a, b) => notes[a].note - notes[b].note);
 
         const useContext = Number.isFinite(anchor) && Number.isFinite(spanFrets) && spanFrets > 0;
+        // Track frets already assigned in this resolve pass so the
+        // greedy picker keeps fretted notes clustered. Without this,
+        // a high pitch with multiple candidates can land far from the
+        // already-placed low pitches and force a wider hand span than
+        // necessary.
+        const placedFrets = [];
         for (const i of unresolved) {
             const midi = notes[i].note;
             let best = null;
@@ -1300,10 +1306,14 @@
                 const fret = midi - tuning[s - 1];
                 if (fret < 0 || fret > numFrets) continue;
                 let score;
-                if (useContext && fret > 0 && fret >= anchor && fret <= anchor + spanFrets) {
+                // Open strings are FREE — they don't consume a finger.
+                // Prefer them over any fretted alternative on a
+                // different string so the simulator never burns a
+                // finger on a note that could ring open.
+                if (fret === 0) {
+                    score = 1500;
+                } else if (useContext && fret >= anchor && fret <= anchor + spanFrets) {
                     score = 1000 - (fret - anchor);
-                } else if (fret === 0) {
-                    score = 500;
                 } else if (useContext) {
                     const dist = Math.min(
                         Math.abs(fret - anchor),
@@ -1313,6 +1323,16 @@
                 } else {
                     score = 100 - fret;
                 }
+                // Cluster bias: prefer a fret that sits near the ones
+                // already placed for this chord. Helps the resolver
+                // pick a string-change over forcing a wider hand span.
+                if (fret > 0 && placedFrets.length > 0) {
+                    const minPlaced = Math.min(...placedFrets);
+                    const maxPlaced = Math.max(...placedFrets);
+                    const span = Math.max(0,
+                        Math.max(fret, maxPlaced) - Math.min(fret, minPlaced));
+                    score -= span * 8;
+                }
                 if (score > bestScore || (score === bestScore && (!best || fret < best.fret))) {
                     bestScore = score;
                     best = { string: s, fret };
@@ -1321,6 +1341,7 @@
             if (best) {
                 result[i] = best;
                 usedStrings.add(best.string);
+                if (best.fret > 0) placedFrets.push(best.fret);
             }
         }
         return result;

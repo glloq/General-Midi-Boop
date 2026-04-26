@@ -222,38 +222,38 @@ describe('HandPositionEditorModal — history layer', () => {
 });
 
 describe('HandPositionEditorModal — close + audio offset + note drag', () => {
-  it('close() prompts to discard when there are unsaved changes', () => {
+  it('close() prompts via the project-styled discard dialog when dirty', async () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
     m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
     m._pushHistory();
     expect(m.isDirty).toBe(true);
-    // Simulate opening so isOpen is true and `super.close()` runs.
     m.open();
-    let prompted = 0, accepted = false;
-    const realConfirm = window.confirm;
-    window.confirm = () => { prompted++; return accepted; };
+    // Stub the discard-confirm so it resolves synchronously without
+    // touching real DOM timers.
+    let prompted = 0;
+    let accept = false;
+    m._showDiscardConfirm = () => { prompted++; return Promise.resolve(accept); };
     m.close();
+    await Promise.resolve();
     expect(prompted).toBe(1);
-    expect(m.isOpen).toBe(true); // declined → still open
-    accepted = true;
+    expect(m.isOpen).toBe(true);
+    accept = true;
     m.close();
+    await Promise.resolve();
     expect(prompted).toBe(2);
-    expect(m.isOpen).toBe(false); // accepted → closed
-    window.confirm = realConfirm;
+    expect(m.isOpen).toBe(false);
   });
 
   it('close() does NOT prompt when overrides are clean', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
     m.open();
     let prompted = 0;
-    const realConfirm = window.confirm;
-    window.confirm = () => { prompted++; return true; };
+    m._showDiscardConfirm = () => { prompted++; return Promise.resolve(true); };
     m.close();
     expect(prompted).toBe(0);
     expect(m.isOpen).toBe(false);
-    window.confirm = realConfirm;
   });
 
   it('_onAudioProgress re-bases progress against _playStartSec', () => {

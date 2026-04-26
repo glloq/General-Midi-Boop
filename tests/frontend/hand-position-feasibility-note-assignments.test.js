@@ -83,6 +83,28 @@ describe('HandPositionFeasibility.simulateHandWindows — note_assignments', () 
     expect(tagged.fret).toBe(5);
   });
 
+  it('prefers an open string over a fretted alternative on a different string', () => {
+    // E4 (MIDI 64) can be played:
+    //   - open on string 6 (high E open = 64) — fret 0
+    //   - fret 5 on string 5 (B3 + 5 = E4)
+    //   - fret 9 on string 4 (G3 + 9 = E4)
+    // With anchor=5, the in-band candidate fret 5 used to win. Open
+    // strings are now boosted so they don't burn a finger when one
+    // could ring open instead.
+    const notes = [{ tick: 0, note: 64, duration: 240 }];
+    const overrides = {
+      hand_anchors: [{ tick: 0, handId: 'fretting', anchor: 5 }],
+      version: 1
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(notes, guitar, {
+      overrides, ticksPerBeat: 480, bpm: 120
+    });
+    const chord = out.find(e => e.type === 'chord');
+    const tagged = chord.notes.find(n => n.note === 64);
+    expect(tagged.fret).toBe(0);
+    expect(tagged.string).toBe(6);
+  });
+
   it('does NOT touch other notes when only one is pinned', () => {
     // Two simultaneous notes; pin only the lower one. The other should
     // still be auto-resolved.

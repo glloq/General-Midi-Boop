@@ -101,11 +101,13 @@
 
         /**
          * Veto the close when there are unsaved changes — confirm with
-         * the operator first. We override BaseModal.close (rather than
-         * onClose) so the native ESC key, the close button and the
-         * footer Fermer all funnel through the same gate.
+         * the operator first via a project-styled modal (reuses the
+         * `.confirm-modal-overlay` CSS from editor.css). We override
+         * BaseModal.close so ESC, the close button and the footer
+         * Fermer all funnel through one gate.
          */
         close() {
+            if (this._closing) return;
             if (!this.isOpen || this._closeConfirmed) {
                 this._closeConfirmed = false;
                 super.close();
@@ -115,11 +117,73 @@
                 super.close();
                 return;
             }
-            const ok = window.confirm(_t('handPositionEditor.confirmDiscard',
-                'Modifications non enregistrées. Quitter sans sauvegarder ?'));
-            if (!ok) return;
-            this._closeConfirmed = true;
-            super.close();
+            this._closing = true;
+            this._showDiscardConfirm().then((ok) => {
+                this._closing = false;
+                if (!ok) return;
+                this._closeConfirmed = true;
+                super.close();
+            });
+        }
+
+        _showDiscardConfirm() {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'confirm-modal-overlay hpe-discard-confirm';
+                overlay.innerHTML = `
+                    <div class="confirm-modal" role="dialog" aria-modal="true">
+                        <div class="confirm-modal-header">
+                            <span class="confirm-modal-icon">⚠️</span>
+                            <h3 class="confirm-modal-title">${
+                                _t('handPositionEditor.confirmDiscardTitle',
+                                   'Modifications non enregistrées')}</h3>
+                        </div>
+                        <div class="confirm-modal-body">
+                            <p class="confirm-modal-message">${
+                                _t('handPositionEditor.confirmDiscard',
+                                   'Voulez-vous quitter sans sauvegarder ?')}</p>
+                        </div>
+                        <div class="confirm-modal-footer">
+                            <button class="confirm-modal-btn cancel" data-action="cancel">${
+                                _t('common.cancel', 'Annuler')}</button>
+                            <button class="confirm-modal-btn danger" data-action="confirm">${
+                                _t('handPositionEditor.discardConfirmBtn',
+                                   'Quitter sans sauvegarder')}</button>
+                        </div>
+                    </div>
+                `;
+                // The base modal sits at z-index 10010; the confirm
+                // dialog must beat it. editor.css's stock 10003 isn't
+                // enough — bump per-instance.
+                overlay.style.zIndex = '10025';
+                document.body.appendChild(overlay);
+
+                const close = (result) => {
+                    overlay.removeEventListener('click', onClick);
+                    document.removeEventListener('keydown', onKey);
+                    overlay.classList.remove('visible');
+                    setTimeout(() => {
+                        if (overlay.parentNode) overlay.remove();
+                        resolve(result);
+                    }, 200);
+                };
+                const onClick = (e) => {
+                    if (e.target === overlay) { close(false); return; }
+                    const btn = e.target.closest('.confirm-modal-btn');
+                    if (!btn) return;
+                    close(btn.dataset.action === 'confirm');
+                };
+                const onKey = (e) => {
+                    if (e.key === 'Escape') close(false);
+                    else if (e.key === 'Enter') close(true);
+                };
+                overlay.addEventListener('click', onClick);
+                document.addEventListener('keydown', onKey);
+                requestAnimationFrame(() => overlay.classList.add('visible'));
+                setTimeout(() => {
+                    overlay.querySelector('.confirm-modal-btn.cancel')?.focus();
+                }, 50);
+            });
         }
 
         renderBody() {

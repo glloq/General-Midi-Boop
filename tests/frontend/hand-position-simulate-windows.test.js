@@ -609,13 +609,12 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(note51.string).toBe(2);
   });
 
-  it('hand-aware: prefers an in-window FRETTED option OVER an open-string alternative', () => {
-    // When the hand is at fret 5 and a note has both an in-window
-    // fretted alternative AND an open option, we now pick the
-    // fretted one — keeps the hand following the music instead of
-    // drifting on opens. (Tested with note 50 = D3: string 3 fret 0
-    // vs string 2 fret 5; with anchor at fret 5, string 2 fret 5
-    // wins.)
+  it('prefers an OPEN string over a fretted in-window alternative', () => {
+    // Open strings don't burn a finger — the resolver now prefers
+    // them whenever they exist, even when an in-window fretted
+    // option is available. Saves fingers for the rest of the chord
+    // (and avoids the "fingers used on a note that could ring open"
+    // case the operator flagged).
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0,   note: 49, fret: 4, string: 2, duration: 100 }, // hand → 4
@@ -628,10 +627,9 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     const chord2 = out.filter(e => e.type === 'chord')[1];
     const note50 = chord2.notes.find(n => n.note === 50);
     expect(note50).toBeDefined();
-    // Anchor 4, span 4 → window [4..8]. String 2 fret 5 is in
-    // window; preferred over string 3 fret 0 (open).
-    expect(note50.fret).toBe(5);
-    expect(note50.string).toBe(2);
+    // String 3 (D3) fret 0 wins over string 2 fret 5.
+    expect(note50.fret).toBe(0);
+    expect(note50.string).toBe(3);
   });
 
   it('hand-aware: falls back to OPEN when no in-window fretted option exists', () => {
