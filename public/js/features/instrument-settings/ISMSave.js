@@ -161,11 +161,38 @@
                 // scale_length_mm is optional. An empty input means "no
                 // physical model" — we send null so the backend stores NULL
                 // and the planner falls back to constant-fret reach.
-                const scaleLengthRaw = this.$('#siScaleLengthMm')?.value;
-                const scaleLengthParsed = scaleLengthRaw === '' || scaleLengthRaw == null
-                    ? null
-                    : parseInt(scaleLengthRaw, 10);
-                const scaleLengthMm = Number.isFinite(scaleLengthParsed) ? scaleLengthParsed : null;
+                //
+                // The user can edit this value in two places: the Notes
+                // section (#siScaleLengthMm) and the Hands geometry section
+                // (#handsGeometryScaleLength). Both inputs' change listeners
+                // sync into tab.stringInstrumentConfig.scale_length_mm, so
+                // the in-memory state is the up-to-date source of truth
+                // regardless of which input was last edited. Reading the
+                // Notes input alone would silently drop edits made from
+                // the Hands tab.
+                const readScaleFromDom = (selector) => {
+                    const raw = this.$(selector)?.value;
+                    if (raw === undefined) return undefined;
+                    if (raw === '' || raw == null) return null;
+                    const n = parseInt(raw, 10);
+                    return Number.isFinite(n) ? n : null;
+                };
+                let scaleLengthMm = null;
+                const inMemScale = tab?.stringInstrumentConfig?.scale_length_mm;
+                if (Number.isFinite(inMemScale)) {
+                    scaleLengthMm = inMemScale;
+                } else if (inMemScale === null) {
+                    scaleLengthMm = null;
+                } else {
+                    // Fallback for the rare case where stringInstrumentConfig
+                    // wasn't initialised (legacy DB rows). Prefer the Hands
+                    // geometry input when it's mounted, otherwise the Notes
+                    // input.
+                    const handsDom = readScaleFromDom('#handsGeometryScaleLength');
+                    const notesDom = readScaleFromDom('#siScaleLengthMm');
+                    if (handsDom !== undefined) scaleLengthMm = handsDom;
+                    else if (notesDom !== undefined) scaleLengthMm = notesDom;
+                }
                 stringInstrumentPayload = {
                     instrument_name: instrumentName,
                     num_strings: numStrings,

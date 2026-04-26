@@ -167,6 +167,13 @@
                 if (!tab?.stringInstrumentConfig) return;
                 const v = parseInt(siScaleInput.value, 10);
                 tab.stringInstrumentConfig.scale_length_mm = Number.isFinite(v) ? v : null;
+                // Mirror into the Hands-section geometry input so the
+                // two stay visually consistent when the user switches
+                // tabs after editing.
+                const handsScale = this.$('#handsGeometryScaleLength');
+                if (handsScale) {
+                    handsScale.value = Number.isFinite(v) ? String(v) : '';
+                }
             }.bind(this));
         }
 
@@ -1534,7 +1541,13 @@
                 if (typeof onChange === 'function') onChange(cfg[key]);
             });
         };
-        wireNumericInput(scaleInput, 'scale_length_mm');
+        wireNumericInput(scaleInput, 'scale_length_mm', function(v) {
+            // Mirror the new scale length into the Notes-section input
+            // (#siScaleLengthMm) so the two stay visually consistent
+            // when the user switches tabs after editing.
+            const notesScale = self.$('#siScaleLengthMm');
+            if (notesScale) notesScale.value = (v == null) ? '' : String(v);
+        });
         wireNumericInput(stringsInput, 'num_strings', function(v) {
             // Polyphony tracks num_strings on string instruments, even
             // when the user edits it from the Main tab.
