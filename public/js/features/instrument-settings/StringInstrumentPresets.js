@@ -112,12 +112,14 @@
                 <line x1="51" y1="10" x2="51" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
                 <line x1="74" y1="10" x2="74" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
                 <line x1="97" y1="10" x2="97" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
-                <path d="M 45 18 Q 42 22 44 30 L 44 52 Q 44 60 50 62 L 80 62 Q 88 62 88 54 L 88 30 Q 88 22 82 22 L 78 22 L 78 16 Q 78 12 74 12 Q 70 12 70 16 L 70 22 L 66 22 L 66 14 Q 66 10 62 10 Q 58 10 58 14 L 58 22 L 54 22 L 54 16 Q 54 12 50 12 Q 46 12 46 16 Z"
-                      fill="#22c55e" fill-opacity="0.28" stroke="#16a34a" stroke-width="1.5" stroke-linejoin="round"/>
-                <circle cx="50" cy="22" r="2.4" fill="#15803d"/>
-                <circle cx="62" cy="20" r="2.4" fill="#15803d"/>
-                <circle cx="74" cy="22" r="2.4" fill="#15803d"/>
-                <circle cx="84" cy="28" r="2.4" fill="#15803d"/>
+                <line x1="58" y1="10" x2="32" y2="55" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+                <line x1="60" y1="10" x2="52" y2="60" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+                <line x1="62" y1="10" x2="72" y2="60" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+                <line x1="64" y1="10" x2="92" y2="55" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+                <circle cx="32" cy="55" r="3" fill="#15803d"/>
+                <circle cx="52" cy="60" r="3" fill="#15803d"/>
+                <circle cx="72" cy="60" r="3" fill="#15803d"/>
+                <circle cx="92" cy="55" r="3" fill="#15803d"/>
             </svg>
         `
     };
