@@ -41,8 +41,7 @@ const {
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
   renderScoreDetail, renderSummaryTable, renderAdaptationBlock,
-  renderSplitSection, renderContentShell, renderDetailContainer,
-  renderStrategyChips
+  renderSplitSection, renderContentShell, renderDetailContainer
 } = window.RoutingSummaryRenderers;
 
 // ============================================================================
@@ -156,25 +155,6 @@ class RoutingSummaryPage {
     // Ignore _preset key (UI-only, not a scoring parameter)
     const clean = (obj) => { const c = { ...obj }; delete c._preset; return c; };
     return JSON.stringify(clean(this.scoringOverrides)) !== JSON.stringify(clean(defaults));
-  }
-
-  // Effective active state of a strategy flag, honouring per-key defaults
-  // (allowInstrumentReuse, preferSingleInstrument, preferSimilarGMType default true ;
-  // autoSplitAvoidTransposition defaults false).
-  _isStrategyActive(key) {
-    const routing = this.scoringOverrides && this.scoringOverrides.routing;
-    const v = routing ? routing[key] : undefined;
-    if (v === undefined) return key !== 'autoSplitAvoidTransposition';
-    return v !== false;
-  }
-
-  // Debounced wrapper around _recalculate() — coalesces rapid chip toggles.
-  _debouncedRecalculate() {
-    if (this._recalcTimer) clearTimeout(this._recalcTimer);
-    this._recalcTimer = setTimeout(() => {
-      this._recalcTimer = null;
-      this._recalculate();
-    }, 250);
   }
 
   /**
@@ -418,7 +398,6 @@ class RoutingSummaryPage {
         const savedSummaryScroll = summaryPanel?.scrollTop || 0;
         const savedDetailScroll = detailPanel?.scrollTop || 0;
 
-        const activeCount = channelKeys.length - this.skippedChannels.size;
         const displayScore = this._getDisplayScore();
         const scoreLabel = this.selectedChannel !== null
           ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
@@ -432,15 +411,12 @@ class RoutingSummaryPage {
           displayScore,
           selectedChannel: this.selectedChannel,
           scoreLabel,
-          activeCount,
-          totalCount: channelKeys.length,
           headerButtonsHTML: this._renderHeaderButtons(),
           scoreDetailHTML: this._renderScoreDetail(),
           summaryTableHTML: this._renderSummaryTable(channelKeys),
           detailPanelHTML: this.selectedChannel !== null
             ? this._safeRenderDetailPanel(this.selectedChannel)
-            : this._renderDetailPlaceholder(),
-          strategyChipsHTML: renderStrategyChips(this.scoringOverrides && this.scoringOverrides.routing)
+            : this._renderDetailPlaceholder()
         });
 
         this._bindGlobalEvents(channelKeys);
@@ -454,14 +430,20 @@ class RoutingSummaryPage {
         if (newDetail) newDetail.scrollTop = savedDetailScroll;
 
         // E.6.7 — mount the HandsPreviewPanel after the detail panel
-        // is in the DOM so its canvases attach to live elements.
+        // is in the DOM so its canvases attach to live elements. The
+        // simulator runs synchronously inside the constructor so we
+        // defer it to the next frame; otherwise the user sees a 1-10s
+        // freeze when the channel has many notes.
         if (this.selectedChannel !== null) {
-          this._mountHandsPreview(this.selectedChannel);
+          this._scheduleHandsPreviewMount(this.selectedChannel);
         } else if (this._handsPreviewPanel) {
           this._handsPreviewPanel.destroy();
           this._handsPreviewPanel = null;
           this._handsPreviewChannel = null;
         }
+        // Refresh the minimap so it reflects the current selection
+        // immediately (no need to press Play first).
+        this._scheduleMinimapRefresh();
       } else {
         // Partial update — only rebuild the affected panel(s)
         if (hint === 'summary' || hint === 'both-panels') {
@@ -477,21 +459,22 @@ class RoutingSummaryPage {
           const panel = this.modal.querySelector('#rsDetailPanel');
           if (panel) {
             const saved = panel.scrollTop;
+            // The previous hands-preview panel's container will be
+            // wiped by the innerHTML assignment below. Tear it down
+            // explicitly so we don't keep a panel pointing at orphan
+            // DOM (which led to a blank preview after every refresh).
+            if (this._handsPreviewPanel) {
+              this._handsPreviewPanel.destroy();
+              this._handsPreviewPanel = null;
+              this._handsPreviewChannel = null;
+            }
             panel.innerHTML = this.selectedChannel !== null
               ? this._safeRenderDetailPanel(this.selectedChannel)
               : this._renderDetailPlaceholder();
             panel.scrollTop = saved;
             this._bindDetailEvents(channelKeys);
-            // E.6.7 — re-mount the preview panel on detail re-render
-            // (channel switch, override apply…). The mount call is
-            // idempotent: it destroys the previous instance if the
-            // channel changed, otherwise it's a no-op.
             if (this.selectedChannel !== null) {
-              this._mountHandsPreview(this.selectedChannel);
-            } else if (this._handsPreviewPanel) {
-              this._handsPreviewPanel.destroy();
-              this._handsPreviewPanel = null;
-              this._handsPreviewChannel = null;
+              this._scheduleHandsPreviewMount(this.selectedChannel);
             }
           }
         }
@@ -500,6 +483,7 @@ class RoutingSummaryPage {
         if (container) container.classList.toggle('rs-with-detail', this.selectedChannel !== null);
         // Update header (score, channel count, preview buttons)
         this._updateHeaderState();
+        this._scheduleMinimapRefresh();
       }
     } catch (error) {
       console.error('[RoutingSummary] Render failed:', error);
@@ -537,14 +521,6 @@ class RoutingSummaryPage {
       } else {
         scorePopup.dataset.stale = '1';
       }
-    }
-
-    // Channel count
-    const channelKeys = Object.keys(this.suggestions);
-    const activeCount = channelKeys.length - this.skippedChannels.size;
-    const countEl = modal.querySelector('.rs-channel-count');
-    if (countEl) {
-      countEl.textContent = _t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: channelKeys.length });
     }
 
     // Preview channel button: update disabled state and label
@@ -1353,21 +1329,6 @@ class RoutingSummaryPage {
       });
     }
 
-    // Inline strategy chips — toggle routing flags without opening the settings modal
-    modal.querySelectorAll('.rs-strategy-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const key = chip.dataset.strategyKey;
-        if (!key) return;
-        if (!this.scoringOverrides.routing) this.scoringOverrides.routing = {};
-        const nextValue = !this._isStrategyActive(key);
-        this.scoringOverrides.routing[key] = nextValue;
-        chip.classList.toggle('active', nextValue);
-        chip.setAttribute('aria-pressed', nextValue ? 'true' : 'false');
-        this._saveScoringOverrides();
-        this._debouncedRecalculate();
-      });
-    });
-
     // Score detail popup toggle
     const scoreEl = modal.querySelector('#rsScoreBtn');
     const popupEl = modal.querySelector('#rsScorePopup');
@@ -1420,6 +1381,7 @@ class RoutingSummaryPage {
         const ch = parseInt(skipBtn.dataset.channel);
         this.skippedChannels.add(ch);
         this._refreshUI(channelKeys, 'both-panels');
+        this._scheduleMinimapRefresh();
         return;
       }
 
@@ -1429,6 +1391,7 @@ class RoutingSummaryPage {
         const ch = parseInt(unskipBtn.dataset.channel);
         this.skippedChannels.delete(ch);
         this._refreshUI(channelKeys, 'both-panels');
+        this._scheduleMinimapRefresh();
         return;
       }
 
@@ -1582,9 +1545,13 @@ class RoutingSummaryPage {
           if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
           const oldSemi = this.adaptationSettings[ch].transpositionSemitones || 0;
           const newSemi = Math.max(-36, Math.min(36, oldSemi + delta));
+          if (newSemi === oldSemi) return; // hit clamp; nothing to do
           this.adaptationSettings[ch].transpositionSemitones = newSemi;
           this._reclampSplitRanges(parseInt(ch), oldSemi, newSemi);
-          this._refreshUI(channelKeys, 'both-panels');
+          // Targeted partial refresh — keeps the hands-preview panel
+          // mounted (no expensive simulator re-run) and avoids the
+          // multi-second freeze the full-panel rebuild caused.
+          this._refreshAfterTransposition(parseInt(ch));
         }
         return;
       }
@@ -2165,6 +2132,7 @@ class RoutingSummaryPage {
 
     this.skippedChannels.delete(parseInt(ch));
     this._refreshUI(channelKeys, 'both-panels');
+    this._scheduleMinimapRefresh();
   }
 
   _acceptSplit(channel, channelKeys) {
@@ -2283,6 +2251,100 @@ class RoutingSummaryPage {
    */
   _mergeHints(a, b) {
     return window.RoutingSummaryHelpers.mergeHints(a, b);
+  }
+
+  /**
+   * Defer the (expensive) hands-preview mount to a separate frame so
+   * the detail panel HTML paints first. The HandSimulationEngine
+   * constructor runs `simulateHandWindows()` synchronously which can
+   * take seconds on dense channels, freezing the click feedback when
+   * called inline. Coalesces back-to-back calls for the same channel.
+   */
+  _scheduleHandsPreviewMount(channel) {
+    this._pendingHandsMountChannel = channel;
+    if (this._handsMountPending) return;
+    this._handsMountPending = true;
+    const run = () => {
+      this._handsMountPending = false;
+      const ch = this._pendingHandsMountChannel;
+      this._pendingHandsMountChannel = null;
+      if (ch == null || this.selectedChannel !== ch) return;
+      try { this._mountHandsPreview(ch); } catch (e) {
+        console.warn('[RoutingSummary] mount hands preview failed:', e);
+      }
+    };
+    // Two rAFs so the browser actually paints the new detail panel
+    // before we burn the main thread on the simulator.
+    requestAnimationFrame(() => requestAnimationFrame(run));
+  }
+
+  /**
+   * Refresh the minimap on the next frame, debounced. The minimap
+   * depends on the current channel selection, the routing per channel,
+   * the transposition, the split state and the drum mapping, so any
+   * routing-state change schedules a redraw.
+   */
+  _scheduleMinimapRefresh() {
+    if (!this.modal || !this.midiData) return;
+    if (this._minimapRefreshPending) return;
+    this._minimapRefreshPending = true;
+    requestAnimationFrame(() => {
+      this._minimapRefreshPending = false;
+      try { this._renderMinimap(); } catch (e) {
+        console.warn('[RoutingSummary] minimap refresh failed:', e);
+      }
+    });
+  }
+
+  /**
+   * Targeted partial refresh used by the transpose buttons. Updates
+   * only the parts of the detail panel that actually depend on the
+   * transposition value (adaptation block + range bars), refreshes the
+   * matching summary row, and redraws the minimap. Avoids the full
+   * detail rebuild that would tear down the hands-preview panel and
+   * trigger a multi-second simulator re-run on every +/- press.
+   */
+  _refreshAfterTransposition(channel) {
+    const ch = String(channel);
+    const panel = this.modal?.querySelector('#rsDetailPanel');
+    if (panel) {
+      // Adaptation block (shows the new semitones value + playable list).
+      this._refreshAdaptationBlock(channel);
+      // Range bars (channel range overlay shifts with the transposition).
+      const rangeHost = panel.querySelector('.rs-range-full');
+      if (rangeHost) {
+        const analysis = this.channelAnalyses[channel] || this.selectedAssignments[ch]?.channelAnalysis;
+        const assignment = this.selectedAssignments[ch];
+        const isDrumChannel = channel === 9 || analysis?.estimatedType === 'drums';
+        if (!isDrumChannel && (assignment?.noteRangeMin != null || this.splitChannels.has(channel))) {
+          const html = this._renderRangeBars(channel, analysis, assignment);
+          const wrap = document.createElement('div');
+          wrap.innerHTML = html;
+          const fresh = wrap.firstElementChild;
+          if (fresh) rangeHost.replaceWith(fresh);
+        }
+      }
+    }
+    // Refresh just the matching summary row (badges + playable count).
+    this._refreshSummaryRow(channel);
+    // Minimap reflects which notes fit the instrument range after transpose.
+    this._scheduleMinimapRefresh();
+  }
+
+  /**
+   * Replace a single summary row in place. Falls back to a partial
+   * summary refresh when the row isn't found (rare).
+   */
+  _refreshSummaryRow(channel) {
+    const summaryPanel = this.modal?.querySelector('#rsSummaryPanel');
+    if (!summaryPanel) return;
+    const row = summaryPanel.querySelector(`.rs-row[data-channel="${channel}"]`);
+    if (!row) return;
+    const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+    const wrap = document.createElement('div');
+    wrap.innerHTML = this._renderSummaryTable(channelKeys);
+    const fresh = wrap.querySelector(`.rs-row[data-channel="${channel}"]`);
+    if (fresh) row.replaceWith(fresh);
   }
 
   /**

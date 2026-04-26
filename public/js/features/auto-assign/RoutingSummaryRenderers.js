@@ -1561,14 +1561,11 @@
     const {
       hasDetail, hasMidiData, autoAdaptation, isOverrideModified,
       displayScore, selectedChannel, scoreLabel,
-      activeCount, totalCount,
       headerButtonsHTML, scoreDetailHTML,
-      summaryTableHTML, detailPanelHTML,
-      strategyChipsHTML
+      summaryTableHTML, detailPanelHTML
     } = opts;
     const { getScoreBgClass } = window.RoutingSummaryConstants;
 
-    const channelsLabel = _t('autoAssign.channelsWillBeAssigned', { active: activeCount, total: totalCount });
     const scoreTooltip = _t('routingSummary.clickForDetails') || 'Cliquer pour voir le détail';
     const settingsTooltip = _t('routingSummary.settings');
     const autoTooltip = _t('routingSummary.autoAdaptation') || 'Adaptation automatique canal MIDI';
@@ -1592,10 +1589,8 @@
               <button class="rs-adapt-toggle ${autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${autoTooltip}">
                 ${autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
               </button>
-              <span class="rs-channel-count">${channelsLabel}</span>
             </div>
             <div class="rs-header-right">
-              ${strategyChipsHTML || ''}
               <button class="rs-settings-btn ${isOverrideModified ? 'modified' : ''}" id="rsSettingsBtn" title="${settingsTooltip}">&#9881;</button>
               <button class="modal-close" id="rsSummaryClose">&times;</button>
             </div>

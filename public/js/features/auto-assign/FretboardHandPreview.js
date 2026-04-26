@@ -151,11 +151,14 @@
         setCurrentTime(currentSec) {
             this._currentSec = Number.isFinite(currentSec) ? currentSec : 0;
             const newAnchor = this._currentDisplayedAnchor();
+            // Skip the redraw only when the band literally hasn't moved
+            // a visible amount since the last paint. The previous
+            // 33 ms time gate added on top of this caused the band to
+            // visibly lag the lookahead trajectory during fast pans —
+            // the host's onProgress already tops out near 60 Hz so the
+            // delta gate alone is enough to keep work bounded.
             if (this._lastDrawnAnchor != null && newAnchor != null) {
-                const delta = Math.abs(newAnchor - this._lastDrawnAnchor);
-                const now = (typeof performance !== 'undefined' && performance.now)
-                    ? performance.now() : Date.now();
-                if (delta < 0.05 && (now - this._lastDrawnAt) < 33) return;
+                if (Math.abs(newAnchor - this._lastDrawnAnchor) < 0.02) return;
             }
             this.draw();
         }
