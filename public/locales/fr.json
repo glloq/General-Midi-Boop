@@ -1911,7 +1911,15 @@
             "cello": "Violoncelle (CGDA)",
             "ukulele": "Ukulélé (GCEA)"
         },
-        "displayFormat": "Affichage des notes"
+        "displayFormat": "Affichage des notes",
+        "format": {
+            "letters": "C, D, E",
+            "solfege": "Do, Ré, Mi",
+            "midi": "MIDI",
+            "lettersTitle": "Notation anglaise (C, D, E…)",
+            "solfegeTitle": "Notation solfège (Do, Ré, Mi…)",
+            "midiTitle": "Numéro de note MIDI"
+        }
     },
     "calibration": {
         "title": "Calibration des délais (Microphone)",

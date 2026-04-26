@@ -157,11 +157,11 @@
                     </div>
                     <div class="tuner-format-selector" role="tablist" aria-label="${this.t('tuner.displayFormat')}">
                         <button type="button" role="tab" class="tuner-format-btn ${fmt === 'us' ? 'active' : ''}"
-                                data-format="us" title="C D E…">US</button>
+                                data-format="us" title="${this.escape(this.t('tuner.format.lettersTitle'))}">${this.escape(this.t('tuner.format.letters'))}</button>
                         <button type="button" role="tab" class="tuner-format-btn ${fmt === 'fr' ? 'active' : ''}"
-                                data-format="fr" title="Do Ré Mi…">FR</button>
+                                data-format="fr" title="${this.escape(this.t('tuner.format.solfegeTitle'))}">${this.escape(this.t('tuner.format.solfege'))}</button>
                         <button type="button" role="tab" class="tuner-format-btn ${fmt === 'midi' ? 'active' : ''}"
-                                data-format="midi" title="MIDI #">MIDI</button>
+                                data-format="midi" title="${this.escape(this.t('tuner.format.midiTitle'))}">${this.escape(this.t('tuner.format.midi'))}</button>
                     </div>
                 </div>
 
