@@ -1499,6 +1499,9 @@
                 if (Number.isFinite(numStrings)) {
                     cfg.num_strings = numStrings;
                     if (stringsInput) stringsInput.value = String(numStrings);
+                    // String instruments pin polyphony to the string count
+                    // — keep the hidden Notes-tab field in sync.
+                    self._syncPolyphonyToNumStrings(numStrings);
                 }
                 if (Number.isFinite(numFrets)) {
                     cfg.num_frets = numFrets;
@@ -1520,7 +1523,7 @@
             });
         }
 
-        const wireNumericInput = (input, key) => {
+        const wireNumericInput = (input, key, onChange) => {
             if (!input) return;
             input.addEventListener('change', function() {
                 const tab = self._getActiveTab();
@@ -1528,10 +1531,15 @@
                 if (!cfg) return;
                 const v = parseInt(input.value, 10);
                 cfg[key] = Number.isFinite(v) ? v : null;
+                if (typeof onChange === 'function') onChange(cfg[key]);
             });
         };
         wireNumericInput(scaleInput, 'scale_length_mm');
-        wireNumericInput(stringsInput, 'num_strings');
+        wireNumericInput(stringsInput, 'num_strings', function(v) {
+            // Polyphony tracks num_strings on string instruments, even
+            // when the user edits it from the Main tab.
+            if (Number.isFinite(v) && v > 0) self._syncPolyphonyToNumStrings(v);
+        });
         wireNumericInput(fretsInput, 'num_frets');
     };
 

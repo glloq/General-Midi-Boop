@@ -489,15 +489,15 @@
         const recommendedCCs = catKeyForCC ? (InstrumentSettingsModal.GM_RECOMMENDED_CCS[catKeyForCC] || []) : [];
         const ccAccordionHtml = this._renderCCAccordion(currentCCs, recommendedCCs);
 
-        // Polyphony default: for string instruments, a sensible default is
-        // the number of strings (one voice per string). Falls back to the
-        // stored polyphony when the user has set one explicitly.
+        // Polyphony for string instruments is always pinned to the
+        // number of strings (one voice per string), never user-editable
+        // — the field is hidden in the Notes tab and we surface the
+        // value only as a hidden input. For other families the user
+        // sets it manually.
         let polyphonyVal;
         if (isString) {
             const cfgStrings = tab.stringInstrumentConfig?.num_strings;
-            polyphonyVal = settings.polyphony != null
-                ? settings.polyphony
-                : (cfgStrings || 6);
+            polyphonyVal = Number.isFinite(cfgStrings) && cfgStrings > 0 ? cfgStrings : 6;
         } else {
             polyphonyVal = settings.polyphony || '';
         }
@@ -645,11 +645,15 @@
             <input type="hidden" id="playableNotesInput" value="[]">
             `}
 
+            ${isString ? `
+            <input type="hidden" id="polyphonyInput" value="${polyphonyVal}">
+            ` : `
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.polyphony') || 'Polyphonie'}</label>
                 <input type="number" id="polyphonyInput" value="${polyphonyVal}" min="1" max="128" placeholder="16">
                 <span class="ism-form-hint">${this.t('instrumentSettings.polyphonyHelp') || 'Nombre maximum de notes simultanées (1-128)'}</span>
             </div>
+            `}
 
             ${(isString && !isDrum) ? `<div class="ism-subsection" id="stringsSubsection">
                 <h4 class="ism-subsection-title">🎸 ${this.t('instrumentSettings.sectionStrings') || 'Instrument à cordes'}</h4>
@@ -783,15 +787,6 @@
         const isFretless = config?.is_fretless || false;
         const numFrets = config?.num_frets ?? 24;
 
-        // Scale length (mm) for the physical hand-position model. Optional;
-        // null means the planner falls back to constant-fret reach.
-        const scaleLengthMm = config?.scale_length_mm ?? '';
-        const scaleLengthPresets = this.scaleLengthPresets || {};
-        let scaleLengthOptions = '<option value="">—</option>';
-        for (const [key, preset] of Object.entries(scaleLengthPresets)) {
-            scaleLengthOptions += `<option value="${key}" data-mm="${preset.scale_length_mm}">${preset.name} (${preset.scale_length_mm} mm)</option>`;
-        }
-
         // Build horizontal header rows (string numbers, note badges,
         // MIDI tuning inputs). Per-string fret / position values ride
         // along in hidden inputs — the interactive editor is the neck
@@ -823,19 +818,6 @@
                     <div class="ism-form-group ism-narrow">
                         <label>${this.t('stringInstrument.numStrings') || 'Cordes'}</label>
                         <input type="number" id="siNumStrings" value="${numStrings}" min="1" max="12">
-                    </div>
-                </div>
-
-                <div class="ism-form-row">
-                    <div class="ism-form-group">
-                        <label>${this.t('stringInstrument.scaleLengthPreset') || 'Preset de longueur de corde'}</label>
-                        <select id="siScaleLengthPreset">${scaleLengthOptions}</select>
-                        <span class="ism-form-hint">Choisir un preset remplit le champ ci-contre. Vous pouvez ensuite ajuster la valeur exacte.</span>
-                    </div>
-                    <div class="ism-form-group ism-narrow">
-                        <label>${this.t('stringInstrument.scaleLengthMm') || 'Longueur (mm)'}</label>
-                        <input type="number" id="siScaleLengthMm" value="${scaleLengthMm}" min="100" max="2000" placeholder="—">
-                        <span class="ism-form-hint">Distance sillet → chevalet. Active le modèle physique de main.</span>
                     </div>
                 </div>
 
