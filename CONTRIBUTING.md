@@ -1,142 +1,43 @@
 # Contributing to Général Midi Boop
 
-## Getting Started
+**Every contribution is welcome.** Bug reports, typo fixes, doc clarifications, translations, feature ideas, screenshots, hardware tests on a Pi you happen to have lying around — it all helps and it's all appreciated.
 
-### Prerequisites
+You don't need to be a Node.js expert, an embedded engineer, or a MIDI specialist to take part. If you have an idea to make the system better, a question that turned out to be a missing piece of documentation, or just a use case we haven't thought of, please open it up. We'd rather hear about it than not.
 
-- Node.js >= 20.0.0
-- npm
+## Ways to Help
 
-### Setup
+- **Try it and tell us how it went.** What worked, what didn't, what was confusing — that's already valuable feedback.
+- **Open an issue** for bugs, ideas, or questions: [GitHub Issues](https://github.com/glloq/General-Midi-Boop/issues). No template required, just describe what you saw or what you'd like.
+- **Suggest improvements** — UX, performance, hardware support, accessibility, anything. Half-formed ideas welcome; we can shape them together in the issue.
+- **Translate the UI** into your language, or fix existing translations. The locale files live in [`public/locales/`](./public/locales) (28 languages and counting).
+- **Improve the docs or the wiki**. The wiki sources are in [`wiki/`](./wiki) and auto-publish on merge to `main`.
+- **Write code** — see the practical guide on the wiki below.
+
+## Practical How-To
+
+For setup, code style, tests, branching, commit conventions, and the workflow for adding commands or drivers, see the **[Contributing page on the wiki](https://github.com/glloq/General-Midi-Boop/wiki/Contributing)**. It's the maintained reference and stays in sync with the codebase.
+
+A short pointer for the impatient:
 
 ```bash
 git clone https://github.com/glloq/General-Midi-Boop.git
 cd General-Midi-Boop
 npm install
-cp .env.example .env  # Configure local settings
-npm run dev            # Start with hot-reload
+npm run dev
 ```
 
-### Docker Development
+Then open `http://localhost:8080`.
 
-```bash
-docker-compose up -d
-```
+## Where Help Is Especially Useful Right Now
 
-See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for full setup instructions including Bluetooth and Network MIDI configuration.
+Concrete pickup-able items — bugs, refactors, accessibility fixes, performance work — are tracked in [`TODO.md`](./TODO.md). Anything in there is fair game and you don't need to ask before tackling something. If you start on one, leaving a note in an issue helps avoid duplicate work.
 
-## Development Workflow
+## Code of Conduct
 
-1. Create a feature branch from `main`
-2. Make your changes
-3. Ensure lint passes: `npm run lint`
-4. Ensure tests pass: `npm test`
-5. Commit with a descriptive message (see below)
-6. Push and open a Pull Request
+Be kind, be patient, assume good intent. We're all here to make this better. Disagreements about technical direction are normal and healthy; personal attacks are not.
 
-## Code Style
+## Questions?
 
-- **Linter**: ESLint (`npm run lint` / `npm run lint:fix`)
-- **Formatter**: Prettier (`npm run format`)
-- **Pre-commit hooks**: Husky + lint-staged run automatically on `git commit`
-- **Language**: Comments and code in English
+Open an issue with the `question` label, or if you'd rather start a conversation than report a bug, the [GitHub Discussions](https://github.com/glloq/General-Midi-Boop/discussions) tab works too.
 
-## Commit Messages
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat: add BLE device pairing
-fix: prevent crash on missing MIDI device
-test: add ServiceContainer unit tests
-docs: update API reference
-refactor: extract dynamic update helper
-chore: update dependencies
-```
-
-## Testing
-
-```bash
-npm test                # Run backend tests (Jest)
-npm run test:coverage   # Run with coverage report
-npm run test:frontend   # Run frontend tests (Vitest)
-```
-
-- Backend tests use Jest with ESM support (`--experimental-vm-modules`)
-- Import from `@jest/globals`: `import { jest, describe, test, expect } from '@jest/globals'`
-- Use in-memory SQLite for database tests
-- Mock the logger: `{ info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() }`
-- Frontend tests use Vitest
-
-## Environment Variables
-
-Configuration can be overridden via environment variables (highest priority) or a `.env` file. See `.env.example` for all supported variables.
-
-Key variables:
-- `GMBOOP_SERVER_PORT` - HTTP/WebSocket port (default: 8080)
-- `GMBOOP_DATABASE_PATH` - SQLite file path
-- `GMBOOP_LOG_LEVEL` - Log level (debug, info, warn, error)
-- `GMBOOP_BLE_ENABLED` - Enable Bluetooth LE MIDI
-- `GMBOOP_SERIAL_ENABLED` - Enable Serial/GPIO MIDI
-- `GMBOOP_API_TOKEN` - Optional authentication token
-
-## Database Migrations
-
-- Add new migrations in `migrations/` with numbered prefix: `030_description.sql`
-- Add corresponding down migration in `migrations/down/` with matching filename
-- Migrations run automatically on startup (29 migrations currently)
-- Rollback: `npm run migrate:rollback` (rolls back 1 step)
-
-## Project Structure
-
-See [ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full architecture overview.
-
-## API
-
-See [docs/API.md](./docs/API.md) for the complete API reference (146 commands).
-
-## Known Issues & Improvement Areas
-
-The following areas have been identified through code audits as needing attention. Contributions in these areas are especially welcome.
-
-### Security (High Priority)
-
-- **MidiMessage property injection**: `MidiMessage.parseObject()` lacks a property whitelist.
-
-### MIDI Core (High Priority)
-
-- ~~**Note 0 bug**: Fixed — `ChannelAnalyzer`, `DrumNoteMapper`, `MidiTransposer`, and `AudioPreview` now use `??` (nullish coalescing).~~
-- ~~**Drum counting doubled**: Fixed — `classifyDrumNotes()` now filters `noteOn` events only.~~
-- **Scoring weights sum**: ScoringConfig type detection weights sum to 130 instead of 100.
-- **Octave wrapping duplicates**: Multiple source notes can wrap to the same target note.
-
-### Architecture (High Priority)
-
-- **God Object `Application`**: ~10 services still use `this.app` instead of explicit dependency injection via `deps`. See AUDIT.md section 3.1.
-- **Database facade**: ~960 lines of passthrough wrappers. Should register sub-modules directly in ServiceContainer. See AUDIT.md section 3.2.
-- **Large files**: 11 backend files and 3 frontend files exceed 700 lines. See AUDIT.md section 3.8.
-
-### UI/Editors (Medium Priority)
-
-- **Drum editor**: Quantize selector is not connected to DrumGridRenderer.
-- **Wind editor**: Edit mode is hardcoded to 'pan', preventing note dragging.
-- **Tablature editor**: Missing Delete/Backspace and Ctrl+A keyboard shortcuts.
-- **Keyboard shortcut inconsistency**: Piano Roll has full shortcuts; other editors are missing Ctrl+Shift+Z (redo).
-
-### CSS/Accessibility (Medium Priority)
-
-- 362 `!important` declarations causing specificity issues.
-- CSS variables (`:root`) defined in 4+ files with unpredictable override order.
-- 23 `outline: none` without focus alternatives (WCAG violation).
-
-### Performance (Low Priority)
-
-- `MidiRouter` iterates all routes for every MIDI message. Needs source-based indexing.
-- `getAllFiles()` loads entire BLOB data column even when metadata-only queries suffice.
-- `FilterManager` debounce timers are never cleared on component unmount.
-
-### Infrastructure (Low Priority)
-
-- **ALSA parsing**: `DelayCalibrator` regex uses French keyword `carte` which fails on English systems. Needs multilingual support.
-- **Double migration tracking**: Both a `migrations` table and `schema_version` are used. Should unify.
-- **Outdated dependencies**: Express 4.x (5.x available), better-sqlite3 9.x (12.x available). See AUDIT.md section 3.13.
+Thank you for being here.

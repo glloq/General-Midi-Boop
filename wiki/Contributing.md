@@ -1,6 +1,8 @@
 # Contributing
 
-Full guide: [`CONTRIBUTING.md`](https://github.com/glloq/General-Midi-Boop/blob/main/CONTRIBUTING.md). This page is the wiki summary.
+The welcome message and the spirit of the project live in [`CONTRIBUTING.md`](https://github.com/glloq/General-Midi-Boop/blob/main/CONTRIBUTING.md) — **every contribution is welcome, technical or not**. This page is the practical how-to: setup, code style, tests, and the workflows for common changes.
+
+If you're looking for something concrete to pick up, [`TODO.md`](https://github.com/glloq/General-Midi-Boop/blob/main/TODO.md) lists open items grouped by area (security, MIDI core, architecture, UI, accessibility, performance, infrastructure). Nothing in there is reserved — grab whatever interests you.
 
 ## Getting Set Up
 

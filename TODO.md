@@ -89,3 +89,84 @@ se multiplient en pratique.
   embarqué accepte.
 
 ---
+
+## Points relevés par les audits passés
+
+Issus de l'ancienne section "Known Issues & Improvement Areas" de
+`CONTRIBUTING.md`. Items courts, sans analyse approfondie — à traiter à
+l'occasion ou à promouvoir en entrée détaillée ci-dessus quand
+quelqu'un attaque le sujet.
+
+### Sécurité
+
+- **`MidiMessage.parseObject()` sans whitelist de propriétés**
+  (`src/midi/messages/`). Risque d'injection de propriétés arbitraires
+  via un payload JSON malveillant.
+
+### MIDI core
+
+- **Somme des poids `ScoringConfig`** : la détection de type d'instrument
+  somme à 130 au lieu de 100. Soit normaliser, soit assumer et
+  documenter.
+- **Wrapping d'octave doublonnant** : plusieurs notes source peuvent
+  wrapper sur la même note cible, créant des collisions silencieuses.
+  Voir `src/midi/adaptation/MidiTransposer.js`.
+
+### Architecture
+
+- **God Object `Application`** : ~10 services utilisent encore `this.app`
+  au lieu d'une DI explicite via `deps`. Migrer vers le pattern
+  `ServiceContainer` déjà utilisé ailleurs. Voir AUDIT.md §3.1.
+- **Façade `Database`** : ~960 lignes de wrappers passthrough.
+  Enregistrer les sous-modules directement dans `ServiceContainer` plutôt
+  que de les ré-exporter. Voir AUDIT.md §3.2.
+- **Fichiers volumineux** : 11 fichiers backend et 3 frontend dépassent
+  700 lignes. Candidats à la découpe par responsabilité. Voir
+  AUDIT.md §3.8.
+
+### Éditeurs / UI
+
+- **Drum editor** : le sélecteur Quantize n'est pas branché à
+  `DrumGridRenderer`. Le réglage est lu mais ignoré.
+- **Wind editor** : le mode d'édition est figé sur `'pan'`, ce qui
+  empêche le drag des notes.
+- **Tablature editor** : raccourcis `Delete` / `Backspace` et `Ctrl+A`
+  manquants. Le Piano Roll a la liste complète et sert de référence.
+- **Cohérence raccourcis clavier** : Piano Roll a tout, les autres
+  éditeurs n'ont pas `Ctrl+Shift+Z` (redo). Mutualiser le registre de
+  raccourcis.
+
+### CSS / accessibilité
+
+- **362 `!important`** : factoriser via la cascade et les variables
+  plutôt que de surcharger.
+- **Variables CSS dispersées** : `:root` redéfini dans 4+ fichiers, ordre
+  d'application imprévisible. Centraliser dans un seul fichier de
+  tokens.
+- **23 `outline: none`** sans alternative de focus visible — violation
+  WCAG. Toujours fournir un focus alternatif (border, box-shadow…).
+
+### Performance
+
+- **`MidiRouter`** : itère toutes les routes pour chaque message MIDI.
+  Ajouter une indexation par source pour ramener le coût à O(1) par
+  message.
+- **`getAllFiles()`** : charge la colonne BLOB entière même quand seules
+  les métadonnées sont demandées. Ajouter une variante `getAllMetadata()`
+  ou colonnes sélectionnées.
+- **`FilterManager`** : les timers de debounce ne sont pas annulés au
+  démontage du composant — fuite mémoire possible sur navigation
+  intensive.
+
+### Infrastructure
+
+- **`DelayCalibrator`** : la regex de parsing ALSA utilise le mot-clé
+  français `carte` qui échoue sur un système anglais. Multilinguer
+  ou parser la sortie machine plutôt que humaine.
+- **Double tracking de migrations** : table `migrations` ET
+  `schema_version` cohabitent. Unifier sur une seule source de vérité.
+- **Dépendances datées** : Express 4.x (5.x dispo), `better-sqlite3` 9.x
+  (12.x dispo). Vérifier les breaking changes avant l'upgrade. Voir
+  AUDIT.md §3.13.
+
+---
