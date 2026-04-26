@@ -226,7 +226,17 @@
             const PreviewClass = (typeof window !== 'undefined' && window.FretboardHandPreview)
                 ? window.FretboardHandPreview
                 : window.FretboardDiagram;
-            this.fretboard = new PreviewClass(fbCanvas, fbCommonOpts);
+            // Drag the live band to repin the fretting hand at the
+            // current playhead — same UX as the keyboard's onBandDrag,
+            // ported in PR3. The callback is wired to `pinHandAnchor`
+            // which the HandsPreviewPanel already exposes for keyboards
+            // (line ~189 / `KeyboardPreview` setup).
+            const frettingId = (handsArr.find(h => h && h.id === 'fretting') || handsArr[0])?.id || 'fretting';
+            this.fretboard = new PreviewClass(fbCanvas, {
+                ...fbCommonOpts,
+                handId: frettingId,
+                onBandDrag: (handId, newAnchor) => this.pinHandAnchor(handId, newAnchor)
+            });
             // Initial paint so the empty board is visible before the
             // first engine event lands.
             this.fretboard.draw && this.fretboard.draw();
