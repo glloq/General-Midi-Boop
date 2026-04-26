@@ -1,0 +1,27 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Publish wiki/ to GitHub Wiki
+    if: github.repository == 'glloq/General-Midi-Boop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      - name: Push wiki/ to wiki repository
+        uses: Andrew-Chen-Wang/github-wiki-action@v4
+        with:
+          path: wiki/
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -228,6 +228,7 @@ See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed instructions on 
 
 ## Documentation
 
+- **[Project Wiki](https://github.com/glloq/General-Midi-Boop/wiki)** — guided tour, usage, troubleshooting (sources tracked in [`wiki/`](./wiki))
 - [Installation Guide](./docs/INSTALLATION.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [API Reference](./docs/API.md)
