@@ -66,7 +66,7 @@ beforeAll(() => {
     get pxPerSec() { return 80; }
     _viewportSec() { return 5; }
   }
-  window.FretboardHandPreview = NoopWidget;
+  window.VerticalFretboardPreview = NoopWidget;
   window.FretboardTimelineRenderer = NoopWidget;
 
   // Lightweight engine stub — emits no events but exposes the few

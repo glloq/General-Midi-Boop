@@ -1,10 +1,6 @@
 // tests/frontend/fretboard-timeline-renderer.test.js
-// PR4 — smoke tests for the new full-length renderer:
-//   - it draws once with empty data without throwing
-//   - setTimeline / setTrajectory / setPlayhead trigger redraws
-//   - chord dots only render inside the viewport (virtualization)
-//   - infeasible motion segments emit yellow quadraticCurveTo
-//   - wheel + ctrl+wheel update scroll / zoom respectively
+// Smoke tests for the horizontal-orientation renderer (time on X,
+// frets on Y).
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
@@ -92,12 +88,11 @@ describe('FretboardTimelineRenderer — smoke', () => {
     }
     tr.setTimeline(events);
     tr.setScrollSec(100);
-    tr.setPxPerSec(80); // viewport = 400 px / 80 = 5 sec
+    tr.setPxPerSec(80); // viewport = 600 px / 80 = 7.5 sec
     calls.length = 0;
     tr.draw();
     const arcCount = calls.filter(c => c.method === 'arc').length;
-    // Viewport ≈ 5 s + 1 s margin top + 1 s margin bottom = 7 s of chords
-    // → at most ~10 arcs (one per chord). Definitely < 100.
+    // Viewport ≈ 7.5 s + 2 s margin = ~10 chords. Definitely < 100.
     expect(arcCount).toBeLessThan(100);
     expect(arcCount).toBeGreaterThan(0);
   });
@@ -140,8 +135,8 @@ describe('FretboardTimelineRenderer — smoke', () => {
     });
     tr.setScrollSec(10);
     tr.setPxPerSec(80);
-    // y=160 → sec = scrollSec + 160/80 = 10 + 2 = 12
-    tr._handleClick({ clientY: 160, clientX: 100 });
+    // x=160 → sec = scrollSec + 160/80 = 10 + 2 = 12
+    tr._handleClick({ clientX: 160, clientY: 100 });
     expect(received).toBeCloseTo(12, 5);
   });
 });

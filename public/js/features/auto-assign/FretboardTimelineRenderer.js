@@ -2,48 +2,41 @@
  * @file FretboardTimelineRenderer.js
  * @description Full-length tablature & hand-position timeline.
  *
- * Layout:
- *   - X axis: fret index (0 = nut, numFrets at the right). Same
- *     geometric spacing as `FretboardHandPreview` so the live aperçu
- *     above the timeline lines up with the columns below.
- *   - Y axis: time, descending (now at the top of the viewport,
- *     future below). Scroll wheel pans, Ctrl/Cmd + wheel zooms.
+ * Layout (horizontal):
+ *   - X axis: time, ascending left → right. The playhead's row is
+ *     `playheadSec * pxPerSec`. Mouse wheel pans, Ctrl/Cmd + wheel
+ *     zooms.
+ *   - Y axis: fret index — fret 0 (nut) at the top, last fret at the
+ *     bottom. Same fret math as VerticalFretboardPreview so the two
+ *     widgets line up when stacked / placed side by side.
  *
- * Each chord is rendered as a row of small dots at
- * `(fretCenter[note.fret], secToY(chord.tick))`. The fretting hand's
- * trajectory is drawn as a translucent vertical ribbon spanning
- * `[handWindowX(anchor).x0 .. .x1]` between consecutive trajectory
- * points (with the warm yellow speed-warning curve carried over from
- * `FretboardHandPreview` PR2).
- *
- * Virtualization: only chords whose tick falls inside the viewport
- * (with a small margin) are drawn. Cost stays bounded even on
- * multi-thousand-chord tracks.
+ * Each chord is rendered as a small dot at `(secToX(chord.tick), fretCenter[note.fret])`.
+ * The fretting hand's trajectory is drawn as a translucent horizontal
+ * ribbon spanning `[handWindowY(anchor).y0 .. .y1]` between consecutive
+ * trajectory points. A yellow dashed Bézier links two ribbon segments
+ * whose `motion.feasible === false`.
  *
  * Public API:
  *   const tr = new FretboardTimelineRenderer(canvas, {
  *     tuning, numFrets, scaleLengthMm?, handSpanMm?, handSpanFrets?,
  *     ticksPerSec, totalSec
  *   });
- *   tr.setTimeline(timelineEvents);     // [{type, tick, ...}] from engine
- *   tr.setTrajectory(trajectoryPoints); // fretting hand only
- *   tr.setPlayhead(currentSec);         // drive the now-line
- *   tr.setScrollSec(sec);               // pan
- *   tr.setPxPerSec(px);                 // zoom
+ *   tr.setTimeline(events);
+ *   tr.setTrajectory(points);
+ *   tr.setPlayhead(currentSec);
+ *   tr.setScrollSec(sec);
+ *   tr.setPxPerSec(px);
  *   tr.draw();
  *   tr.destroy();
  */
 (function() {
     'use strict';
 
-    // Match FretboardHandPreview / FretboardLookaheadStrip so columns line up.
     const FINGER_BEFORE_FRET_MM = 10;
     const DEFAULT_PX_PER_SEC = 80;
     const MIN_PX_PER_SEC = 20;
     const MAX_PX_PER_SEC = 400;
-    const VIEWPORT_MARGIN_SEC = 1; // extra render slack above/below viewport
-
-    function _hex(c) { return `#${c.toString(16).padStart(6, '0')}`; }
+    const VIEWPORT_MARGIN_SEC = 1;
 
     class FretboardTimelineRenderer {
         constructor(canvas, opts = {}) {
@@ -73,9 +66,6 @@
             this.totalSec = Number.isFinite(opts.totalSec) && opts.totalSec > 0
                 ? opts.totalSec : 0;
 
-            // Pre-indexed chord/shift events by ascending tick. Updated
-            // via setTimeline so virtualised draws can binary-search
-            // the visible window in O(log n).
             this._chords = [];
             this._shifts = [];
             this._trajectory = [];
@@ -85,23 +75,23 @@
             this.scrollSec = 0;
             this.playheadSec = 0;
 
-            // Match FretboardHandPreview margins so columns align.
-            this.margin = { top: 0, right: 56, bottom: 0, left: 56 };
+            // Top margin matches VerticalFretboardPreview so the two
+            // widgets align when placed side by side.
+            this.margin = { top: 24, right: 0, bottom: 14, left: 0 };
 
             this.onSeek = typeof opts.onSeek === 'function' ? opts.onSeek : null;
             this.onNoteClick = typeof opts.onNoteClick === 'function' ? opts.onNoteClick : null;
-            // Per-note hit-zones rebuilt on each draw so onNoteClick can
-            // identify the (chord, note) under the cursor without
-            // re-running geometry from scratch.
             this._noteHits = [];
 
             this._dirty = true;
             this._rafHandle = null;
+            this._frame = null;
 
-            if (this.canvas && typeof this.canvas.addEventListener === 'function') {
+            if (this.canvas?.addEventListener) {
                 this._wheelHandler = (e) => this._handleWheel(e);
                 this._clickHandler = (e) => this._handleClick(e);
-                this.canvas.addEventListener('wheel', this._wheelHandler, { passive: false });
+                this._wheelOpts = { passive: false };
+                this.canvas.addEventListener('wheel', this._wheelHandler, this._wheelOpts);
                 this.canvas.addEventListener('click', this._clickHandler);
             }
         }
@@ -117,8 +107,7 @@
             this._chords.sort((a, b) => a.tick - b.tick);
             this._shifts.sort((a, b) => a.tick - b.tick);
             // Precompute the per-chord unplayable note set so the draw
-            // loop doesn't allocate a fresh Set every frame for every
-            // visible chord.
+            // loop doesn't allocate a fresh Set every frame.
             for (const ch of this._chords) {
                 ch._unplayableNotes = Array.isArray(ch.unplayable)
                     ? new Set(ch.unplayable
@@ -158,12 +147,11 @@
             const next = Math.max(MIN_PX_PER_SEC, Math.min(MAX_PX_PER_SEC,
                 Number.isFinite(px) ? px : this.pxPerSec));
             if (next === this.pxPerSec) return;
-            // Keep the playhead row stable when zooming (anchor the
-            // visible center on the playhead if it's on screen).
+            // Keep the playhead column stable when zooming.
             const oldPxPerSec = this.pxPerSec;
-            const playheadY = (this.playheadSec - this.scrollSec) * oldPxPerSec;
+            const playheadX = (this.playheadSec - this.scrollSec) * oldPxPerSec;
             this.pxPerSec = next;
-            const newScroll = this.playheadSec - playheadY / next;
+            const newScroll = this.playheadSec - playheadX / next;
             const max = Math.max(0, this.totalSec - this._viewportSec());
             this.scrollSec = Math.max(0, Math.min(max, newScroll));
             this._scheduleDraw();
@@ -171,58 +159,54 @@
 
         setTotalSec(totalSec) {
             this.totalSec = Number.isFinite(totalSec) && totalSec > 0 ? totalSec : 0;
-            this.setScrollSec(this.scrollSec); // re-clamp
+            this.setScrollSec(this.scrollSec);
         }
 
         // ----------------------------------------------------------------
-        //  Geometry
+        //  Geometry — frets on Y, time on X
         // ----------------------------------------------------------------
 
-        _usableWidth() {
-            const w = this.canvas?.clientWidth || this.canvas?.width || 0;
-            return Math.max(0, w - this.margin.left - this.margin.right);
+        _usableHeight() {
+            const h = this.canvas?.clientHeight || this.canvas?.height || 0;
+            return Math.max(1, h - this.margin.top - this.margin.bottom);
         }
 
         _viewportSec() {
-            const h = this.canvas?.clientHeight || this.canvas?.height || 0;
-            const usable = Math.max(0, h - this.margin.top - this.margin.bottom);
+            const w = this.canvas?.clientWidth || this.canvas?.width || 0;
+            const usable = Math.max(0, w - this.margin.left - this.margin.right);
             return usable / Math.max(1, this.pxPerSec);
         }
 
-        _fretX(n) {
-            const usableW = this._usableWidth();
+        _fretY(n) {
             const totalDist = 1 - Math.pow(2, -this.numFrets / 12);
-            if (totalDist <= 0) return this.margin.left;
             const frac = (1 - Math.pow(2, -n / 12)) / totalDist;
-            return this.margin.left + frac * usableW;
+            return this.margin.top + frac * this._usableHeight();
         }
 
-        _xFromMm(mm) {
-            if (!this.scaleLengthMm) return null;
+        _yFromMm(mm) {
             const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
-            if (totalDistMm <= 0) return this.margin.left;
-            return this.margin.left + (mm / totalDistMm) * this._usableWidth();
+            return this.margin.top + (mm / totalDistMm) * this._usableHeight();
         }
 
-        _handWindowX(anchor) {
+        _handWindowY(anchor) {
             const safe = Math.max(0, anchor);
             const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -safe / 12));
-            const leftMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
-            const x0 = this._xFromMm(leftMm);
-            const rightMm = leftMm + this.handSpanMm;
+            const topMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
+            const y0 = this._yFromMm(topMm);
+            const bottomMm = topMm + this.handSpanMm;
             const lastFretMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
-            const x1 = rightMm > lastFretMm
-                ? this._fretX(this.numFrets)
-                : this._xFromMm(rightMm);
-            return { x0, x1 };
+            const y1 = bottomMm > lastFretMm
+                ? this._fretY(this.numFrets)
+                : this._yFromMm(bottomMm);
+            return { y0, y1 };
         }
 
-        _secToY(sec) {
-            return this.margin.top + (sec - this.scrollSec) * this.pxPerSec;
+        _secToX(sec) {
+            return this.margin.left + (sec - this.scrollSec) * this.pxPerSec;
         }
 
-        _yToSec(y) {
-            return this.scrollSec + (y - this.margin.top) / this.pxPerSec;
+        _xToSec(x) {
+            return this.scrollSec + (x - this.margin.left) / this.pxPerSec;
         }
 
         _tickToSec(tick) {
@@ -234,17 +218,16 @@
         // ----------------------------------------------------------------
 
         _handleWheel(e) {
-            if (!e) return;
             if (e.preventDefault) e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
-                // Zoom: deltaY > 0 → zoom out, deltaY < 0 → zoom in.
                 const factor = Math.pow(1.0015, -(e.deltaY || 0));
                 this.setPxPerSec(this.pxPerSec * factor);
                 return;
             }
-            // Pan: convert the deltaY pixels into seconds at the current zoom.
-            const dySec = (e.deltaY || 0) / Math.max(1, this.pxPerSec);
-            this.setScrollSec(this.scrollSec + dySec);
+            // Shift+wheel and trackpad horizontal swipes ship deltaX —
+            // honor it; otherwise use deltaY for vertical-wheel pans.
+            const dxPx = e.deltaX || e.deltaY || 0;
+            this.setScrollSec(this.scrollSec + dxPx / Math.max(1, this.pxPerSec));
         }
 
         _handleClick(e) {
@@ -252,11 +235,10 @@
                 ? this.canvas.getBoundingClientRect() : { left: 0, top: 0 };
             const x = (e.clientX || 0) - rect.left;
             const y = (e.clientY || 0) - rect.top;
-            // Hit-test note dots first — clicking on a note opens the
-            // string-alternative menu; clicking elsewhere just seeks.
             if (this.onNoteClick) {
                 const hit = this._noteHits.find(h => {
-                    const dx = x - h.x; const dy = y - h.y;
+                    const dx = x - h.x;
+                    const dy = y - h.y;
                     return dx * dx + dy * dy <= h.r * h.r;
                 });
                 if (hit) {
@@ -265,7 +247,7 @@
                 }
             }
             if (!this.onSeek) return;
-            const sec = Math.max(0, Math.min(this.totalSec, this._yToSec(y)));
+            const sec = Math.max(0, Math.min(this.totalSec, this._xToSec(x)));
             this.onSeek(sec);
         }
 
@@ -293,7 +275,7 @@
             const h = this.canvas.clientHeight || this.canvas.height || 0;
             if (w <= 0 || h <= 0) return;
 
-            const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+            const dpr = window.devicePixelRatio || 1;
             if (this.canvas.width !== Math.round(w * dpr)
                     || this.canvas.height !== Math.round(h * dpr)) {
                 this.canvas.width = Math.round(w * dpr);
@@ -305,55 +287,45 @@
             ctx.fillStyle = '#f5f7fb';
             ctx.fillRect(0, 0, w, h);
 
-            // Cache geometry once per frame: _viewportSec and
-            // _usableWidth read clientHeight/clientWidth which can flush
-            // layout. The draw helpers used to re-call them inside
-            // tight loops (5–10× per frame).
             const viewportSec = this._viewportSec();
             const lo = this.scrollSec - VIEWPORT_MARGIN_SEC;
             const hi = this.scrollSec + viewportSec + VIEWPORT_MARGIN_SEC;
             this._frame = { w, h, viewportSec, lo, hi };
 
             this._drawFretGrid(w, h);
-            this._drawHandRibbon();
-            this._drawInfeasibleCurves();
+            this._drawHandRibbon(w);
+            this._drawInfeasibleCurves(w);
             this._drawChords();
-            this._drawPlayhead(w);
+            this._drawPlayhead(h);
             this._frame = null;
         }
 
         _drawFretGrid(w, h) {
             const ctx = this.ctx;
-            // Faint vertical lines for each fret (skip 0 = nut, drawn heavier).
             ctx.strokeStyle = 'rgba(120, 120, 120, 0.18)';
             ctx.lineWidth = 1;
             for (let f = 1; f <= this.numFrets; f++) {
-                const x = this._fretX(f);
+                const y = this._fretY(f);
                 ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, h);
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
                 ctx.stroke();
             }
-            // Nut line (slightly thicker)
             ctx.strokeStyle = 'rgba(60, 60, 60, 0.5)';
             ctx.lineWidth = 1.5;
-            const xNut = this._fretX(0);
+            const yNut = this._fretY(0);
             ctx.beginPath();
-            ctx.moveTo(xNut, 0);
-            ctx.lineTo(xNut, h);
+            ctx.moveTo(0, yNut);
+            ctx.lineTo(w, yNut);
             ctx.stroke();
         }
 
-        /** Translucent vertical ribbon following the fretting hand
-         *  anchor over time. Only the trajectory points whose
-         *  [tick, releaseTick] interval intersects the viewport are
-         *  rendered (virtualisation). */
-        _drawHandRibbon() {
+        _drawHandRibbon(w) {
             if (!this._trajectory.length) return;
             const ctx = this.ctx;
             const { lo, hi } = this._frame;
-            const yTop = this._secToY(Math.max(0, lo));
-            const yBot = this._secToY(hi);
+            const xLeft = this._secToX(Math.max(0, lo));
+            const xRight = this._secToX(hi);
             ctx.fillStyle = 'rgba(34, 197, 94, 0.18)';
             ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
             ctx.lineWidth = 1;
@@ -366,20 +338,17 @@
                 if (endSec < lo) continue;
                 if (startSec > hi) break;
 
-                const { x0, x1 } = this._handWindowX(cur.anchor);
-                if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) continue;
-                const yStart = Math.max(yTop, this._secToY(startSec));
-                const yEnd = Math.min(yBot, this._secToY(endSec));
-                if (yEnd <= yStart) continue;
-                ctx.fillRect(x0, yStart, x1 - x0, yEnd - yStart);
-                ctx.strokeRect(x0, yStart, x1 - x0, yEnd - yStart);
+                const { y0, y1 } = this._handWindowY(cur.anchor);
+                if (!Number.isFinite(y0) || !Number.isFinite(y1) || y1 <= y0) continue;
+                const xStart = Math.max(xLeft, this._secToX(startSec));
+                const xEnd = Math.min(xRight, this._secToX(endSec));
+                if (xEnd <= xStart) continue;
+                ctx.fillRect(xStart, y0, xEnd - xStart, y1 - y0);
+                ctx.strokeRect(xStart, y0, xEnd - xStart, y1 - y0);
             }
         }
 
-        /** Yellow dashed Bézier between two consecutive ribbon segments
-         *  whose `motion.feasible === false` — speed-limit warning
-         *  matching FretboardHandPreview's static cue. */
-        _drawInfeasibleCurves() {
+        _drawInfeasibleCurves(w) {
             if (this._trajectory.length < 2) return;
             const ctx = this.ctx;
             const { lo, hi } = this._frame;
@@ -396,29 +365,27 @@
                 const endSec = this._tickToSec(curr.tick);
                 if (endSec < lo) continue;
                 if (startSec > hi) break;
-                const x1 = this._anchorCenterX(prev.anchor);
-                const x2 = this._anchorCenterX(curr.anchor);
-                if (!Number.isFinite(x1) || !Number.isFinite(x2)) continue;
-                const y1 = this._secToY(startSec);
-                const y2 = this._secToY(endSec);
+                const y1 = this._anchorCenterY(prev.anchor);
+                const y2 = this._anchorCenterY(curr.anchor);
+                if (!Number.isFinite(y1) || !Number.isFinite(y2)) continue;
+                const x1 = this._secToX(startSec);
+                const x2 = this._secToX(endSec);
                 const xMid = (x1 + x2) / 2;
                 const yMid = (y1 + y2) / 2;
-                const offset = Math.max(20, Math.min(60, Math.abs(x2 - x1) * 0.2));
+                const offset = Math.max(20, Math.min(60, Math.abs(y2 - y1) * 0.2));
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
-                ctx.quadraticCurveTo(xMid + offset, yMid, x2, y2);
+                ctx.quadraticCurveTo(xMid, yMid - offset, x2, y2);
                 ctx.stroke();
             }
             ctx.setLineDash([]);
             ctx.restore();
         }
 
-        _anchorCenterX(anchor) {
-            const bracket = this._handWindowX(anchor);
-            if (!bracket || !Number.isFinite(bracket.x0) || !Number.isFinite(bracket.x1)) {
-                return null;
-            }
-            return (bracket.x0 + bracket.x1) / 2;
+        _anchorCenterY(anchor) {
+            const { y0, y1 } = this._handWindowY(anchor);
+            if (!Number.isFinite(y0) || !Number.isFinite(y1)) return null;
+            return (y0 + y1) / 2;
         }
 
         _drawChords() {
@@ -433,23 +400,23 @@
             for (; i < this._chords.length; i++) {
                 const ch = this._chords[i];
                 if (ch.tick > hiTick) break;
-                const y = this._secToY(this._tickToSec(ch.tick));
+                const x = this._secToX(this._tickToSec(ch.tick));
                 const notes = Array.isArray(ch.notes) ? ch.notes : [];
                 const unplayableSet = ch._unplayableNotes;
                 for (const n of notes) {
                     if (!Number.isFinite(n.fret)) continue;
-                    const xCol = n.fret === 0
-                        ? this._fretX(0) - 6
-                        : (this._fretX(n.fret - 1) + this._fretX(n.fret)) / 2;
+                    const yRow = n.fret === 0
+                        ? this._fretY(0) - 6
+                        : (this._fretY(n.fret - 1) + this._fretY(n.fret)) / 2;
                     const isUnplayable = unplayableSet ? unplayableSet.has(n.note) : false;
                     ctx.fillStyle = isUnplayable
                         ? 'rgba(239, 68, 68, 0.55)'
                         : 'rgba(37, 99, 235, 0.85)';
                     ctx.beginPath();
-                    ctx.arc(xCol, y, 4, 0, Math.PI * 2);
+                    ctx.arc(x, yRow, 4, 0, Math.PI * 2);
                     ctx.fill();
                     this._noteHits.push({
-                        x: xCol, y, r: 8,
+                        x, y: yRow, r: 8,
                         tick: ch.tick,
                         note: n.note,
                         string: n.string,
@@ -459,18 +426,18 @@
             }
         }
 
-        _drawPlayhead(w) {
+        _drawPlayhead(h) {
             if (!Number.isFinite(this.playheadSec)) return;
-            const y = this._secToY(this.playheadSec);
-            const h = this.canvas.clientHeight || this.canvas.height || 0;
-            if (y < -2 || y > h + 2) return;
+            const x = this._secToX(this.playheadSec);
+            const w = this.canvas.clientWidth || this.canvas.width || 0;
+            if (x < -2 || x > w + 2) return;
             const ctx = this.ctx;
             ctx.save();
             ctx.strokeStyle = '#dc2626';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
             ctx.stroke();
             ctx.restore();
         }
@@ -493,8 +460,8 @@
             this._chords = [];
             this._shifts = [];
             this._trajectory = [];
-            if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
-                if (this._wheelHandler) this.canvas.removeEventListener('wheel', this._wheelHandler);
+            if (this.canvas?.removeEventListener) {
+                if (this._wheelHandler) this.canvas.removeEventListener('wheel', this._wheelHandler, this._wheelOpts);
                 if (this._clickHandler) this.canvas.removeEventListener('click', this._clickHandler);
             }
             this._wheelHandler = null;

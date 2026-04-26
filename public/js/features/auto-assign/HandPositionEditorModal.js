@@ -132,12 +132,14 @@
                     <button type="button" data-action="save" disabled
                             title="${_t('handPositionEditor.saveClean', 'Aucune modification')}">${_t('handPositionEditor.save', 'Enregistrer')}</button>
                 </div>
-                <div class="hpe-sticky-host"></div>
-                <div class="hpe-timeline-host"></div>
+                <div class="hpe-main">
+                    <div class="hpe-sticky-host"></div>
+                    <div class="hpe-timeline-host"></div>
+                </div>
                 <div class="hpe-status" data-role="status"></div>
                 <div class="hpe-hint">
                     ${_t('handPositionEditor.hint',
-                         'Faites défiler la timeline. Glissez la bande de la main sur l’aperçu en haut pour épingler une nouvelle position.')}
+                         'Manche à gauche, lecture à droite. Molette = défilement horizontal, Ctrl+molette = zoom. Glissez la bande de la main pour épingler une nouvelle position.')}
                 </div>
             `;
         }
@@ -213,11 +215,11 @@
             if (!host) return;
             const canvas = document.createElement('canvas');
             canvas.className = 'hpe-sticky-canvas';
-            canvas.style.cssText = 'width:100%;height:170px;display:block;';
+            canvas.style.cssText = 'width:100%;height:100%;display:block;';
             host.appendChild(canvas);
 
             const fretting = _frettingHand(this.instrument);
-            this.sticky = new window.FretboardHandPreview(canvas, {
+            this.sticky = new window.VerticalFretboardPreview(canvas, {
                 tuning: this.instrument?.tuning || [40, 45, 50, 55, 59, 64],
                 numFrets: this.instrument?.num_frets || 24,
                 scaleLengthMm: this.instrument?.scale_length_mm,
@@ -776,12 +778,17 @@
                     text-decoration: underline; padding: 0;
                 }
                 .hpe-popover-clear:hover { color: #b91c1c; }
+                .hpe-main {
+                    flex: 1; display: flex; flex-direction: row;
+                    overflow: hidden; min-height: 0;
+                }
                 .hpe-sticky-host {
-                    border-bottom: 1px solid #e5e7eb;
+                    width: 140px; flex-shrink: 0;
+                    border-right: 1px solid #e5e7eb;
                     background: #f5f7fb;
                 }
                 .hpe-timeline-host {
-                    flex: 1; min-height: 240px;
+                    flex: 1; min-width: 0;
                     overflow: hidden; background: #f5f7fb;
                 }
                 .hpe-hint {
