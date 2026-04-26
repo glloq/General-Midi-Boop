@@ -44,6 +44,12 @@
     // band read as "the hand", not "the fret slot" — it brackets
     // the strings rather than sitting flush with the wood-tone fill.
     const HAND_BAND_Y_OVERFLOW   = 6;
+    // A finger pressing fret n actually rests just *behind* the fret
+    // wire (toward the nut), not on top of it. Shift the band's left
+    // edge by this much so the hand reads as physically realistic
+    // instead of "glued to" the fret. Physical-mode only; the fret-
+    // based fallback has no mm scale to anchor the offset.
+    const FINGER_BEFORE_FRET_MM  = 10;
     const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F',
                          'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -375,8 +381,13 @@
             let x0, x1;
             if (this.scaleLengthMm && this.handSpanMm) {
                 const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -safeAnchor / 12));
-                x0 = this._xFromMm(anchorMm);
-                const rightMm = anchorMm + this.handSpanMm;
+                // Shift the whole band toward the nut by FINGER_BEFORE_FRET_MM
+                // so the index finger reads as resting *behind* the target
+                // fret wire rather than on top of it. Clamped at 0 so the
+                // band never starts before the nut.
+                const leftMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
+                x0 = this._xFromMm(leftMm);
+                const rightMm = leftMm + this.handSpanMm;
                 const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
                 if (rightMm >= totalDistMm) {
                     x1 = this._fretX(this.numFrets);

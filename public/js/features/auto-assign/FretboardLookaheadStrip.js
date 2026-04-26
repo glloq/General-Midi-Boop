@@ -27,6 +27,10 @@
 (function() {
     'use strict';
 
+    // Must match FretboardHandPreview's FINGER_BEFORE_FRET_MM so the
+    // lookahead trajectories line up with the live band on the manche.
+    const FINGER_BEFORE_FRET_MM = 10;
+
     class FretboardLookaheadStrip {
         constructor(canvas, opts = {}) {
             this.canvas = canvas;
@@ -121,8 +125,11 @@
             let x0, x1;
             if (this.scaleLengthMm && this.handSpanMm) {
                 const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -safeAnchor / 12));
-                x0 = this._xFromMm(anchorMm);
-                const rightMm = anchorMm + this.handSpanMm;
+                // Same finger-before-fret offset as FretboardHandPreview so
+                // the lookahead trapezoids line up with the live band.
+                const leftMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
+                x0 = this._xFromMm(leftMm);
+                const rightMm = leftMm + this.handSpanMm;
                 const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
                 x1 = rightMm >= totalDistMm
                     ? this._fretX(this.numFrets)
