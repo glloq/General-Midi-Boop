@@ -323,6 +323,15 @@
                 this._drawHandWindow(fbX, fbY, fbW, fbH, w, liveAnchor, this._level);
             }
 
+            // Yellow curve for shift transitions the simulator considers
+            // infeasible (motion.feasible === false). Painted between
+            // the band and the inlay markers so it reads ON the
+            // fretboard, on top of the wood-tone fill.
+            const infeasible = this._currentMotionTransition();
+            if (infeasible) {
+                this._drawInfeasibleMotionCurve(fbY, fbH, infeasible.prevAnchor, infeasible.nextAnchor);
+            }
+
             // Inlay dots.
             this._drawInlayMarkers(fbY, fbH);
 
@@ -483,6 +492,85 @@
                     ctx.stroke();
                 }
             }
+        }
+
+        /**
+         * Inspect the trajectory around the current playhead to find
+         * the imminent (or just-passed, while the band still lags
+         * toward it) shift transition. Returns `{prevAnchor, nextAnchor,
+         * motion}` when that transition's motion is flagged
+         * infeasible by the simulator, else `null`.
+         *
+         * The visual cue: a yellow curve between the two anchors. We
+         * intentionally show it for the upcoming / ongoing shift only —
+         * past infeasible moves shouldn't keep nagging the operator.
+         * @private
+         */
+        _currentMotionTransition() {
+            const traj = this._trajectory;
+            const tps  = this._ticksPerSec;
+            if (!traj || traj.length === 0 || !tps) return null;
+            // Walk to the first point strictly after the playhead — its
+            // motion describes the prev→this travel. Hold-window logic
+            // is handled by `_anchorFromTrajectory`; here we only need
+            // the bracket to draw between.
+            let prev = null;
+            for (const p of traj) {
+                const pSec = p.tick / tps;
+                if (pSec <= this._currentSec) {
+                    prev = p;
+                    continue;
+                }
+                if (!prev) return null; // first shift hasn't happened yet
+                if (!p.motion || p.motion.feasible !== false) return null;
+                if (!Number.isFinite(prev.anchor) || !Number.isFinite(p.anchor)) return null;
+                return { prevAnchor: prev.anchor, nextAnchor: p.anchor, motion: p.motion };
+            }
+            return null;
+        }
+
+        /**
+         * Paint a dashed yellow Bézier curve between the two anchors.
+         * The arc bows upward (toward the top of the board) so it
+         * reads as "the hand has to fly over here too fast" without
+         * obscuring the active note dots. Width / colour kept warm
+         * (#f5c518) so it doesn't compete with the red infeasible
+         * band fill — speed cues stay distinct from reachability cues.
+         * @private
+         */
+        _drawInfeasibleMotionCurve(fbY, fbH, prevAnchor, nextAnchor) {
+            const ctx = this.ctx;
+            const x1 = this._anchorBandCenterX(prevAnchor);
+            const x2 = this._anchorBandCenterX(nextAnchor);
+            if (!Number.isFinite(x1) || !Number.isFinite(x2)) return;
+            const yBase = fbY + Math.min(14, fbH * 0.18);
+            const arcHeight = Math.max(16, fbH * 0.32);
+            const xMid = (x1 + x2) / 2;
+            const yPeak = yBase - arcHeight;
+            ctx.save();
+            ctx.strokeStyle = '#f5c518';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(x1, yBase);
+            ctx.quadraticCurveTo(xMid, yPeak, x2, yBase);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+
+        /**
+         * Pixel x-center of the hand band placed at `anchor`. Used by
+         * the infeasible-motion curve to anchor its endpoints in the
+         * same coordinate space as the live band.
+         * @private
+         */
+        _anchorBandCenterX(anchor) {
+            const bracket = this._handWindowX(anchor);
+            if (!bracket || !Number.isFinite(bracket.x0) || !Number.isFinite(bracket.x1)) {
+                return null;
+            }
+            return (bracket.x0 + bracket.x1) / 2;
         }
 
         _drawHandWindow(fbX, fbY, fbW, fbH, _canvasW, anchor, level) {
