@@ -50,23 +50,98 @@
         { id: 'fiddle',                 label: 'Fiddle (folk)',                 family_slug: 'bowed_strings',   gm_programs: [110],                    num_strings: 4,  scale_length_mm: 328,  num_frets: 0,  default_mechanism: 'string_sliding_fingers' }
     ];
 
+    // Inline SVGs used as the picture on each mechanism card. Same
+    // viewBox (120 × 80) so the cards stay aligned. Visual convention:
+    //   - light beige rectangle = fretboard
+    //   - 5 horizontal grey lines = strings (left = nut, right = bridge)
+    //   - 4 vertical darker lines = frets
+    //   - green semi-opaque rectangle = the hand
+    //   - inside the hand:
+    //       * horizontal bars in `string_sliding_fingers` = each finger
+    //         slides along its string within the hand width.
+    //       * vertical bars in `fret_sliding_fingers` = each finger
+    //         slides between the strings at its fret offset.
+    //       * 4 small dots in `independent_fingers` = a stylised hand
+    //         on the fretboard, no directional hint (each finger moves
+    //         in 2D independently).
+    const MECHANISM_SVG = {
+        string_sliding_fingers: `
+            <svg viewBox="0 0 120 80" class="ism-mech-svg" aria-hidden="true">
+                <rect x="5" y="10" width="110" height="60" fill="#f5e6c8" stroke="#8b6f47" stroke-width="1"/>
+                <line x1="5" y1="22" x2="115" y2="22" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="34" x2="115" y2="34" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="46" x2="115" y2="46" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="58" x2="115" y2="58" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="28" y1="10" x2="28" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="51" y1="10" x2="51" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="74" y1="10" x2="74" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="97" y1="10" x2="97" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <rect x="40" y="13" width="50" height="54" fill="#22c55e" fill-opacity="0.28" stroke="#16a34a" stroke-width="1.5" rx="3"/>
+                <line x1="46" y1="22" x2="84" y2="22" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="46" y1="34" x2="84" y2="34" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="46" y1="46" x2="84" y2="46" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="46" y1="58" x2="84" y2="58" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        `,
+        fret_sliding_fingers: `
+            <svg viewBox="0 0 120 80" class="ism-mech-svg" aria-hidden="true">
+                <rect x="5" y="10" width="110" height="60" fill="#f5e6c8" stroke="#8b6f47" stroke-width="1"/>
+                <line x1="5" y1="22" x2="115" y2="22" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="34" x2="115" y2="34" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="46" x2="115" y2="46" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="58" x2="115" y2="58" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="28" y1="10" x2="28" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="51" y1="10" x2="51" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="74" y1="10" x2="74" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="97" y1="10" x2="97" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <rect x="40" y="13" width="50" height="54" fill="#22c55e" fill-opacity="0.28" stroke="#16a34a" stroke-width="1.5" rx="3"/>
+                <line x1="51" y1="17" x2="51" y2="63" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="63" y1="17" x2="63" y2="63" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="74" y1="17" x2="74" y2="63" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+                <line x1="86" y1="17" x2="86" y2="63" stroke="#15803d" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        `,
+        independent_fingers: `
+            <svg viewBox="0 0 120 80" class="ism-mech-svg" aria-hidden="true">
+                <rect x="5" y="10" width="110" height="60" fill="#f5e6c8" stroke="#8b6f47" stroke-width="1"/>
+                <line x1="5" y1="22" x2="115" y2="22" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="34" x2="115" y2="34" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="46" x2="115" y2="46" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="5" y1="58" x2="115" y2="58" stroke="#8b8b8b" stroke-width="0.7"/>
+                <line x1="28" y1="10" x2="28" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="51" y1="10" x2="51" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="74" y1="10" x2="74" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <line x1="97" y1="10" x2="97" y2="70" stroke="#5a4a32" stroke-width="0.8"/>
+                <path d="M 45 18 Q 42 22 44 30 L 44 52 Q 44 60 50 62 L 80 62 Q 88 62 88 54 L 88 30 Q 88 22 82 22 L 78 22 L 78 16 Q 78 12 74 12 Q 70 12 70 16 L 70 22 L 66 22 L 66 14 Q 66 10 62 10 Q 58 10 58 14 L 58 22 L 54 22 L 54 16 Q 54 12 50 12 Q 46 12 46 16 Z"
+                      fill="#22c55e" fill-opacity="0.28" stroke="#16a34a" stroke-width="1.5" stroke-linejoin="round"/>
+                <circle cx="50" cy="22" r="2.4" fill="#15803d"/>
+                <circle cx="62" cy="20" r="2.4" fill="#15803d"/>
+                <circle cx="74" cy="22" r="2.4" fill="#15803d"/>
+                <circle cx="84" cy="28" r="2.4" fill="#15803d"/>
+            </svg>
+        `
+    };
+
     const MECHANISMS = [
         {
             id: 'string_sliding_fingers',
             label: 'Doigts qui glissent le long des cordes',
             description: 'Chaque doigt est fixé à une corde et glisse le long de celle-ci sur la largeur de la main (plusieurs frettes accessibles par doigt).',
+            svg: MECHANISM_SVG.string_sliding_fingers,
             v2: false
         },
         {
             id: 'fret_sliding_fingers',
             label: 'Doigts qui glissent entre les cordes',
             description: 'Chaque doigt est fixé à un offset de frette de la main et traverse les cordes pour sélectionner laquelle presser. Option « doigts à hauteur variable » pour 2 ou 3 doigts.',
+            svg: MECHANISM_SVG.fret_sliding_fingers,
             v2: false
         },
         {
             id: 'independent_fingers',
             label: 'Doigts indépendants (humanoïde)',
             description: '4 doigts à 2 axes chacun (corde × frette). Permet barrés, accords arbitraires, jeu humain. Mécanisme prévu pour la V2 du projet.',
+            svg: MECHANISM_SVG.independent_fingers,
             v2: true
         }
     ];

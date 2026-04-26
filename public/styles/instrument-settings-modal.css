@@ -2764,6 +2764,22 @@ body.dark-mode .ism-voice-add-btn:hover {
   background: #f9fafb;
 }
 
+.ism-mech-card-illu {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fafaf6;
+}
+
+.ism-mech-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 90px;
+}
+
 .ism-mech-card-title {
   font-weight: 600;
   font-size: 14px;
@@ -2833,4 +2849,8 @@ body.dark-mode .ism-mech-card-title {
 
 body.dark-mode .ism-mech-card-desc {
   color: rgba(255, 255, 255, 0.6);
+}
+
+body.dark-mode .ism-mech-card-illu {
+  background: rgba(255, 255, 255, 0.04);
 }

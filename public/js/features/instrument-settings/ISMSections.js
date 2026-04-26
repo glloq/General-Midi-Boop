@@ -1237,11 +1237,13 @@
             const badge = disabled
                 ? `<span class="ism-mech-card-badge">V2</span>`
                 : '';
+            const svg = m.svg || '';
             return `
                 <button type="button" class="ism-mech-card ${stateClass}" ${dataAttr}
                         ${disabled ? 'disabled aria-disabled="true"' : ''}>
-                    <span class="ism-mech-card-title">${m.label}</span>
                     ${badge}
+                    <span class="ism-mech-card-illu">${svg}</span>
+                    <span class="ism-mech-card-title">${m.label}</span>
                     <span class="ism-mech-card-desc">${m.description}</span>
                 </button>
             `;
