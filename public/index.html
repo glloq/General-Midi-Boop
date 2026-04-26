@@ -4485,6 +4485,20 @@
             white-space: nowrap;
             height: 36px;
             box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 14px;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .file-toolbar-main-row #createFolderBtn .btn-icon {
+            font-size: 16px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
         }
 
         .file-toolbar-main-row #openFiltersBtn {
@@ -5448,7 +5462,7 @@
                                 </div>
                                 <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
 
-                                <button class="btn btn-secondary" id="createFolderBtn">📁&nbsp;<span data-i18n="ui.newFolder">Nouveau dossier</span></button>
+                                <button class="btn btn-secondary" id="createFolderBtn"><span class="btn-icon" aria-hidden="true">📁</span><span data-i18n="ui.newFolder">Nouveau dossier</span></button>
 
                                 <div class="search-bar">
                                     <span class="search-icon">🔍</span>
