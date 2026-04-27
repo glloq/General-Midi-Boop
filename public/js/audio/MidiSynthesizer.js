@@ -89,11 +89,13 @@ class MidiSynthesizer {
         // Format: [file, variable] for each GM program (0-127)
         this.gmInstrumentMap = this.createGMInstrumentMap(this.currentBankSuffix);
 
-        // Drums (channel 9) — per-note presets from JCLive (better cymbals)
-        // Fallback to SBLive for notes not in JCLive
+        // Drums (channel 9) — per-(kit, note) presets from FluidR3_GM, which
+        // ships every GM drum kit (Standard, Room, Power, Electronic, TR-808,
+        // Jazz, Brush, Orchestra, SFX). Falls back to kit 0 then to JCLive
+        // bank 12 when a specific (kit, note) is missing on the CDN.
         this.drumKit = null; // Legacy single-kit (unused, kept for compat)
-        this.drumPresets = new Map(); // note → loaded preset
-        this.drumPresetMap = this._createDrumPresetMap();
+        this.drumPresets = new Map(); // "kitProgram:note" → loaded preset
+        this._drumLoading = new Map(); // "kitProgram:note" → in-flight Promise
 
         // Drum audio processing
         this.drumReverbNode = null;     // ConvolverNode for cymbal reverb
@@ -138,34 +140,48 @@ class MidiSynthesizer {
     }
 
     /**
-     * Create per-note drum preset map
-     * Uses JCLive (bank 12) for most notes — superior cymbal samples
-     * Falls back to SBLive (bank 0) where JCLive is unavailable
+     * Build the WebAudioFont URL/variable for a (kitProgram, note) pair.
+     * Uses FluidR3_GM, which is the only WAF soundfont that ships every GM
+     * drum kit (programs 0, 8, 16, 24, 25, 32, 40, 48, 56). The kit program
+     * is the bank index in WAF's `128{note}_{bank}_{soundfont}_sf2_file.js`
+     * filename convention.
      */
-    _createDrumPresetMap() {
+    _buildDrumPresetEntry(kitProgram, note) {
         const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const key = `${note}_${kitProgram}_FluidR3_GM_sf2_file`;
+        return {
+            url: `${base}128${key}.js`,
+            variable: `_drum_${key}`
+        };
+    }
 
-        // GM percussion notes we need (35-81)
-        // Format: note -> { file: '128XX_bank_soundfont.js', variable: '_drum_XX_bank_soundfont' }
-        const map = {};
+    /**
+     * Legacy per-note JCLive entry — used as a final fallback for any
+     * (kit, note) combo missing on the CDN. This preserves the original
+     * sound when nothing else is available.
+     */
+    _legacyJCLiveEntry(note) {
+        const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const key = `${note}_12_JCLive_sf2_file`;
+        return {
+            url: `${base}128${key}.js`,
+            variable: `_drum_${key}`
+        };
+    }
 
-        // JCLive bank 12 — best quality for cymbals and general percussion
-        const jcLiveNotes = [
-            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-            49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-            63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
-            77, 78, 79, 80, 81
-        ];
-
-        for (const note of jcLiveNotes) {
-            const key = `${note}_12_JCLive_sf2_file`;
-            map[note] = {
-                url: `${base}128${key}.js`,
-                variable: `_drum_${key}`
-            };
-        }
-
-        return map;
+    /**
+     * Decode a stored channel-9 program. Drum kit programs may be stored
+     * raw (0–127) or offset-encoded (≥128, see DRUM_KIT_OFFSET in
+     * shared/instrument-families.json). Returns the raw GM kit program.
+     */
+    _decodeKitProgram(stored) {
+        const offset = (typeof window !== 'undefined'
+            && window.InstrumentFamilies
+            && typeof window.InstrumentFamilies.DRUM_KIT_OFFSET === 'number')
+            ? window.InstrumentFamilies.DRUM_KIT_OFFSET
+            : 128;
+        const v = (stored | 0);
+        return v >= offset ? v - offset : v;
     }
 
     /**
@@ -378,44 +394,77 @@ class MidiSynthesizer {
     }
 
     /**
-     * Load a single drum preset for a specific note
+     * Load a single drum preset for a (kitProgram, note) pair.
+     * Falls back to kit 0 (Standard) and then to the legacy JCLive bank 12
+     * preset when a specific (kit, note) file is missing on the CDN.
      */
-    _loadDrumPreset(note) {
-        if (this.drumPresets.has(note)) {
-            return Promise.resolve(this.drumPresets.get(note));
+    _loadDrumPreset(note, kitProgram = 0) {
+        if (note < 35 || note > 81) return Promise.resolve(null);
+        const kit = kitProgram | 0;
+        const cacheKey = `${kit}:${note}`;
+
+        if (this.drumPresets.has(cacheKey)) {
+            return Promise.resolve(this.drumPresets.get(cacheKey));
+        }
+        if (this._drumLoading.has(cacheKey)) {
+            return this._drumLoading.get(cacheKey);
         }
 
-        const presetInfo = this.drumPresetMap[note];
-        if (!presetInfo) {
-            return Promise.resolve(null);
+        // Try in order: requested kit → Standard Kit (0) → legacy JCLive
+        const candidates = [this._buildDrumPresetEntry(kit, note)];
+        if (kit !== 0) {
+            candidates.push(this._buildDrumPresetEntry(0, note));
         }
+        candidates.push(this._legacyJCLiveEntry(note));
 
-        return new Promise((resolve, _reject) => {
+        const tryLoad = (idx) => new Promise((resolve) => {
+            if (idx >= candidates.length) {
+                this.log('warn', `No drum preset available for kit ${kit} note ${note}`);
+                resolve(null);
+                return;
+            }
+            const info = candidates[idx];
+            // If the variable is already on window (a previous load), reuse it.
+            if (window[info.variable]) {
+                const preset = window[info.variable];
+                this.player.adjustPreset(this.audioContext, preset);
+                resolve(preset);
+                return;
+            }
             const script = document.createElement('script');
-            script.src = presetInfo.url;
+            script.src = info.url;
             script.onload = () => {
-                const preset = window[presetInfo.variable];
+                const preset = window[info.variable];
                 if (preset) {
                     this.player.adjustPreset(this.audioContext, preset);
-                    this.drumPresets.set(note, preset);
                     resolve(preset);
                 } else {
-                    this.log('warn', `Drum preset variable ${presetInfo.variable} not found`);
-                    resolve(null);
+                    tryLoad(idx + 1).then(resolve);
                 }
             };
             script.onerror = () => {
-                this.log('warn', `Failed to load drum preset for note ${note}`);
-                resolve(null); // Don't reject — graceful degradation
+                tryLoad(idx + 1).then(resolve);
             };
             document.head.appendChild(script);
         });
+
+        const loadPromise = tryLoad(0).then((preset) => {
+            this._drumLoading.delete(cacheKey);
+            if (preset) this.drumPresets.set(cacheKey, preset);
+            return preset;
+        });
+        this._drumLoading.set(cacheKey, loadPromise);
+        return loadPromise;
     }
 
     /**
-     * Load the drum kit — loads per-note presets for all notes used in sequence
+     * Load the drum kit — loads per-(kit, note) presets for all drum notes
+     * used in the sequence. The kit program comes from
+     * `channelInstruments[9]` (decoded if offset-encoded).
      */
     async loadDrumKit() {
+        const kit = this._decodeKitProgram(this.channelInstruments[9] ?? 0);
+
         // Collect which drum notes are actually used in the sequence
         const usedNotes = new Set();
         if (this.sequence) {
@@ -431,13 +480,11 @@ class MidiSynthesizer {
             [35, 36, 38, 42, 44, 46, 49, 51].forEach(n => usedNotes.add(n));
         }
 
-        this.log('info', `Loading ${usedNotes.size} individual drum presets (JCLive)`);
+        this.log('info', `Loading ${usedNotes.size} drum presets for kit ${kit} (FluidR3_GM)`);
 
         const promises = [];
         for (const note of usedNotes) {
-            if (this.drumPresetMap[note]) {
-                promises.push(this._loadDrumPreset(note));
-            }
+            promises.push(this._loadDrumPreset(note, kit));
         }
 
         await Promise.all(promises);
@@ -844,7 +891,12 @@ class MidiSynthesizer {
 
         let instrument;
         if (channel === 9) {
-            instrument = this.drumPresets.get(note);
+            const kit = this._decodeKitProgram(this.channelInstruments[9] ?? 0);
+            instrument = this.drumPresets.get(`${kit}:${note}`);
+            // Race fallback: kit not yet loaded but Standard might be
+            if (!instrument && kit !== 0) {
+                instrument = this.drumPresets.get(`0:${note}`);
+            }
         } else {
             const program = this.channelInstruments[channel] || 0;
             instrument = this.loadedInstruments.get(program);

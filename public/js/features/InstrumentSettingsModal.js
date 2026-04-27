@@ -695,9 +695,10 @@ class InstrumentSettingsModal extends BaseModal {
         let needsLoad = false;
         let loadPromise = null;
         if (isDrumKit) {
-            if (synth.drumPresetMap && synth.drumPresetMap[note] && !synth.drumPresets.has(note)) {
+            const kit = (gmProgram != null) ? (gmProgram | 0) : 0;
+            if (note >= 35 && note <= 81 && !synth.drumPresets.has(`${kit}:${note}`)) {
                 needsLoad = true;
-                loadPromise = synth._loadDrumPreset(note);
+                loadPromise = synth._loadDrumPreset(note, kit);
             }
         } else {
             const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
@@ -799,7 +800,11 @@ class InstrumentSettingsModal extends BaseModal {
         const active = this._getActivePreviewVoice();
         const isDrumKit = active.isDrumKit;
         const synthChannel = isDrumKit ? 9 : 0;
-        const program = (active.program != null && !isDrumKit) ? (active.program & 0x7f) : 0;
+        // For drums, `program` is the GM drum kit number (0/8/16/24/25/32/40/48/56);
+        // for melodic, it's the GM program (0–127).
+        const program = isDrumKit
+            ? (active.program | 0)
+            : ((active.program != null) ? (active.program & 0x7f) : 0);
 
         const self = this;
         (async () => {
@@ -813,7 +818,9 @@ class InstrumentSettingsModal extends BaseModal {
             await self._ensurePreviewLoaded(synth, isDrumKit, program, note);
             // User already released the key before loading finished — don't play
             if (!self._previewActive.has(note)) return;
-            if (!isDrumKit && typeof synth.setChannelInstrument === 'function') {
+            if (typeof synth.setChannelInstrument === 'function') {
+                // For drums, `program` is the GM kit number; playNote() uses
+                // channelInstruments[9] to pick the right per-kit preset.
                 synth.setChannelInstrument(synthChannel, program);
             }
             // Long duration (30 s) acts as a safety net — the envelope is
@@ -898,13 +905,15 @@ class InstrumentSettingsModal extends BaseModal {
             if (!synth) return;
             self._syncPreviewBank(synth);
             if (isDrum) {
+                const kit = (program >= 128) ? (program - 128) : (program | 0);
+                if (typeof synth.setChannelInstrument === 'function') {
+                    synth.setChannelInstrument(9, kit);
+                }
                 const padNotes = [36, 38, 42, 46, 50, 45, 49, 51];
-                const missing = padNotes.filter(n =>
-                    synth.drumPresetMap && synth.drumPresetMap[n] && !synth.drumPresets.has(n)
-                );
+                const missing = padNotes.filter(n => !synth.drumPresets.has(`${kit}:${n}`));
                 if (missing.length === 0) return;
                 self._showPreviewLoading();
-                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n))); }
+                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n, kit))); }
                 catch (e) { /* ignore */ }
                 finally { self._hidePreviewLoading(); }
             } else {
