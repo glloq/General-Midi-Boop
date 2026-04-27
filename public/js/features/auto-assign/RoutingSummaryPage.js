@@ -937,6 +937,21 @@ class RoutingSummaryPage {
    */
   _renderHandsPreviewSection(channel) {
     if (!window.HandsPreviewPanel) return '';
+
+    // Only render when the routed instrument actually has a
+    // hands_config enabled — otherwise the empty section just adds
+    // noise to the detail panel.
+    const assignment = this.selectedAssignments?.[String(channel)];
+    if (!assignment) return '';
+    const instrumentRecord = (this.allInstruments || [])
+      .find(i => i.id === assignment.instrumentId);
+    if (!instrumentRecord) return '';
+    let cfg = instrumentRecord.hands_config;
+    if (typeof cfg === 'string') {
+      try { cfg = JSON.parse(cfg); } catch (_) { cfg = null; }
+    }
+    if (!cfg || cfg.enabled === false) return '';
+
     return `
       <section class="rs-section rs-hands-preview-section" id="rsHandsPreview-${channel}"
                data-channel="${channel}"

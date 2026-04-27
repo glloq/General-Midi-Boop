@@ -666,17 +666,16 @@
             </div>` : ''}
 
             ${ISMSections._handsTabEligible(tab) ? `
-            <div class="ism-subsection" id="handsMovementSubsection">
-                <h4 class="ism-subsection-title">🫱 ${this.t('instrumentSettings.handsMovementTitle') || 'Gestion du déplacement des mains'}</h4>
-                <label class="ism-form-group" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-                    <input type="checkbox" id="handsMovementEnabled" ${settings.hands_config?.enabled === true ? 'checked' : ''} style="margin-top: 3px;">
-                    <span>
-                        <span style="display:block;font-weight:600;color:var(--text-primary,#1f2937);">
-                            ${this.t('instrumentSettings.handsMovementEnable') || 'Activer le déplacement des mains'}
-                        </span>
-                        <span class="ism-form-hint" style="display:block;margin-top:4px;">
-                            ${this.t('instrumentSettings.handsMovementHint') || 'Active l\'onglet "Mains" pour configurer la position et l\'écart maximal de chaque main. L\'affectation se fait automatiquement à la lecture.'}
-                        </span>
+            <div class="ism-subsection ism-hands-movement-card" id="handsMovementSubsection">
+                <label class="ism-hands-movement-toggle" for="handsMovementEnabled">
+                    <div class="ism-hands-movement-info">
+                        <h4 class="ism-subsection-title" style="margin:0 0 6px 0;">🫱 ${this.t('instrumentSettings.handsMovementTitle') || 'Gestion du déplacement des mains'}</h4>
+                        <p class="ism-hands-movement-desc">${this.t('instrumentSettings.handsMovementEnable') || 'Activer le déplacement des mains'}</p>
+                        <p class="ism-form-hint" style="margin:4px 0 0 0;">${this.t('instrumentSettings.handsMovementHint') || 'Active l\'onglet "Mains" pour configurer la position et l\'écart maximal de chaque main. L\'affectation se fait automatiquement à la lecture.'}</p>
+                    </div>
+                    <span class="ism-toggle-switch">
+                        <input type="checkbox" id="handsMovementEnabled" ${settings.hands_config?.enabled === true ? 'checked' : ''}>
+                        <span class="ism-toggle-slider" aria-hidden="true"></span>
                     </span>
                 </label>
             </div>` : ''}
