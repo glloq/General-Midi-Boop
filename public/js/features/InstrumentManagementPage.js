@@ -651,6 +651,15 @@ class InstrumentManagementPage {
                   ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
                   : '')}
               ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
+              ${(() => {
+                let cfg = instrument.hands_config;
+                if (typeof cfg === 'string') {
+                  try { cfg = JSON.parse(cfg); } catch (_) { cfg = null; }
+                }
+                if (!cfg || cfg.enabled !== true) return '';
+                const count = Array.isArray(cfg.hands) ? cfg.hands.length : 0;
+                return `<span>🫱 ${count} ${count > 1 ? 'mains' : 'main'}</span>`;
+              })()}
             </span>
           </div>
         </div>

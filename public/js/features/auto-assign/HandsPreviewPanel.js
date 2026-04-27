@@ -93,9 +93,16 @@
             this.container.innerHTML = '';
             this.container.classList.add('hands-preview-panel');
 
+            // The detail panel only mounts this widget when the routed
+            // instrument actually has a hands_config enabled, so a
+            // 'unknown' mode here means the upstream check changed but
+            // the geometry isn't ready — bail without rendering an
+            // empty/clutter section.
+            if (this.mode === 'unknown') return;
+
             const header = document.createElement('div');
             header.className = 'hpp-header';
-            header.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #e5e7eb;';
+            header.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #e5e7eb;cursor:pointer;user-select:none;';
             // Transport (play/pause/seek) is intentionally NOT in the
             // panel header — the operator drives playback from the
             // existing per-channel preview button (or "Preview all")
@@ -117,6 +124,8 @@
                    </button>`
                 : '';
             header.innerHTML = `
+                <span class="hpp-collapse-toggle" aria-hidden="true"
+                      style="display:inline-block;width:14px;text-align:center;font-size:11px;color:#6b7280;transition:transform 0.2s;">▶</span>
                 <strong style="font-size:13px;">${_t('handsPreview.title', 'Aperçu des mains')}</strong>
                 <span style="flex:1;"></span>
                 <span class="hpp-hint" style="font-size:11px;color:#6b7280;">${_t('handsPreview.transportHint', 'Lecture pilotée par le bouton Aperçu du canal et la minimap')}</span>
@@ -129,14 +138,22 @@
             `;
             this.container.appendChild(header);
 
+            this._collapseToggle = header.querySelector('.hpp-collapse-toggle');
             this._resetOverridesBtn = header.querySelector('.hpp-reset-overrides');
             this._saveBtn = header.querySelector('.hpp-save');
             this._openEditorBtn = header.querySelector('.hpp-open-editor');
             if (this._openEditorBtn) {
-                this._openEditorBtn.addEventListener('click', () => this._openFullLengthEditor());
+                this._openEditorBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._openFullLengthEditor();
+                });
             }
-            this._resetOverridesBtn.addEventListener('click', () => this.resetOverrides());
-            this._saveBtn.addEventListener('click', () => {
+            this._resetOverridesBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.resetOverrides();
+            });
+            this._saveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 this.saveOverrides()
                     .then(() => this._refreshSaveButton())
                     .catch(err => {
@@ -150,23 +167,37 @@
 
             const body = document.createElement('div');
             body.className = 'hpp-body';
-            body.style.cssText = 'padding:8px;';
+            // Collapsed by default — the operator expands the panel
+            // when they actually want to look at the hand geometry.
+            body.style.cssText = 'padding:8px;display:none;';
             this.container.appendChild(body);
+            this._body = body;
 
-            if (this.mode === 'unknown') {
-                body.innerHTML = `
-                    <p style="color:#6b7280;font-size:12px;text-align:center;padding:16px;">
-                        ${_t('handsPreview.noHandsConfig',
-                             'Aucune configuration des mains pour cet instrument — la pré-visualisation est désactivée.')}
-                    </p>
-                `;
-                return;
-            }
+            header.addEventListener('click', () => this._toggleCollapsed());
 
             if (this.mode === 'semitones') {
                 this._renderKeyboardLayout(body);
             } else {
                 this._renderFretsLayout(body);
+            }
+        }
+
+        _toggleCollapsed() {
+            if (!this._body) return;
+            const isCollapsed = this._body.style.display === 'none';
+            this._body.style.display = isCollapsed ? '' : 'none';
+            if (this._collapseToggle) {
+                this._collapseToggle.style.transform = isCollapsed ? 'rotate(90deg)' : '';
+            }
+            // Force a redraw on expand: the canvases were measured at
+            // width 0 while hidden, so the next paint must remeasure
+            // before the next setCurrentTime tick to avoid a flash of
+            // empty content.
+            if (isCollapsed) {
+                try { this.lookahead?.draw?.(); } catch (_) {}
+                try { this.keyboard?.draw?.(); } catch (_) {}
+                try { this.fretboardLookahead?.draw?.(); } catch (_) {}
+                try { this.fretboard?.draw?.(); } catch (_) {}
             }
         }
 
