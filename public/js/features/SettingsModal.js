@@ -53,6 +53,7 @@ class SettingsModal {
             showLightingButton: false,
             showPlaylistButton: true,
             showKeyboardButton: true,
+            showInstrumentsButton: true,
             midiClockEnabled: false,
             serialMidiEnabled: false,
             showLoadingAnimation: true,
@@ -269,6 +270,9 @@ class SettingsModal {
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
         if (keyboardButtonToggle) keyboardButtonToggle.checked = this.settings.showKeyboardButton;
 
+        const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
+        if (instrumentsButtonToggle) instrumentsButtonToggle.checked = this.settings.showInstrumentsButton;
+
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         if (midiClockToggle) midiClockToggle.checked = this.settings.midiClockEnabled;
 
@@ -325,6 +329,7 @@ class SettingsModal {
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
         const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
+        const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
@@ -353,6 +358,7 @@ class SettingsModal {
             showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
             showPlaylistButton: playlistButtonToggle ? playlistButtonToggle.checked : this.settings.showPlaylistButton,
             showKeyboardButton: keyboardButtonToggle ? keyboardButtonToggle.checked : this.settings.showKeyboardButton,
+            showInstrumentsButton: instrumentsButtonToggle ? instrumentsButtonToggle.checked : this.settings.showInstrumentsButton,
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,
             showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation,
@@ -367,6 +373,7 @@ class SettingsModal {
         const lightingButtonChanged = newSettings.showLightingButton !== this.settings.showLightingButton;
         const playlistButtonChanged = newSettings.showPlaylistButton !== this.settings.showPlaylistButton;
         const keyboardButtonChanged = newSettings.showKeyboardButton !== this.settings.showKeyboardButton;
+        const instrumentsButtonChanged = newSettings.showInstrumentsButton !== this.settings.showInstrumentsButton;
         const midiClockChanged = newSettings.midiClockEnabled !== this.settings.midiClockEnabled;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
         const soundBankChanged = newSettings.soundBank !== this.settings.soundBank;
@@ -401,6 +408,10 @@ class SettingsModal {
             this.eventBus?.emit('settings:keyboard_button_changed', { enabled: newSettings.showKeyboardButton });
             this.applyKeyboardButton(newSettings.showKeyboardButton);
         }
+        if (instrumentsButtonChanged) {
+            this.eventBus?.emit('settings:instruments_button_changed', { enabled: newSettings.showInstrumentsButton });
+            this.applyInstrumentsButton(newSettings.showInstrumentsButton);
+        }
         if (midiClockChanged) this.eventBus?.emit('settings:midi_clock_changed', { enabled: newSettings.midiClockEnabled });
         if (serialMidiChanged) this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
         if (soundBankChanged) {
@@ -422,6 +433,7 @@ class SettingsModal {
         this.applyLightingButton(this.settings.showLightingButton);
         this.applyPlaylistButton(this.settings.showPlaylistButton);
         this.applyKeyboardButton(this.settings.showKeyboardButton);
+        this.applyInstrumentsButton(this.settings.showInstrumentsButton);
     }
 
     applyDebugButton(show) {
@@ -447,6 +459,11 @@ class SettingsModal {
     applyKeyboardButton(show) {
         const keyboardBtn = document.getElementById('openKeyboardBtn');
         if (keyboardBtn) keyboardBtn.style.display = show ? 'flex' : 'none';
+    }
+
+    applyInstrumentsButton(show) {
+        const instrumentsBtn = document.getElementById('instrumentsBtn');
+        if (instrumentsBtn) instrumentsBtn.style.display = show ? 'flex' : 'none';
     }
 
     /**

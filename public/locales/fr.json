@@ -92,6 +92,11 @@
             "enable": "Afficher le bouton du clavier virtuel",
             "description": "Affiche le bouton du clavier MIDI virtuel dans la barre de navigation"
         },
+        "instrumentsButton": {
+            "title": "Bouton Instruments",
+            "enable": "Afficher le bouton instruments",
+            "description": "Affiche le bouton de gestion des instruments dans la barre de navigation"
+        },
         "groups": {
             "appearance": "Apparence",
             "playback": "Lecture & Affichage",
