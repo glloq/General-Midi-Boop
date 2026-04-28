@@ -1,5 +1,5 @@
 // tests/frontend/instrument-families.test.js
-// Validates the 13-family taxonomy and the icon resolver fallback logic.
+// Validates the 11-family taxonomy and the icon resolver fallback logic.
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
@@ -16,9 +16,9 @@ beforeAll(() => {
 const GM_DRUM_KIT_OFFSET = 128;
 
 describe('InstrumentFamilies taxonomy', () => {
-  it('defines 13 families', () => {
+  it('defines 11 families', () => {
     const families = window.InstrumentFamilies.getAllFamilies();
-    expect(families).toHaveLength(13);
+    expect(families).toHaveLength(11);
   });
 
   it('every GM program 0-127 maps to exactly one family', () => {
@@ -119,18 +119,18 @@ describe('InstrumentFamilies taxonomy', () => {
     }
   });
 
-  it('synths (80-103) are all in synths', () => {
+  it('synths (80-103) and sound effects (120-127) are merged into synths', () => {
     for (let p = 80; p <= 103; p++) {
+      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('synths');
+    }
+    for (let p = 120; p <= 127; p++) {
       expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('synths');
     }
   });
 
-  it('percussive (112-119) and sfx (120-127)', () => {
+  it('various percussion (112-119) merged into chromatic_percussion', () => {
     for (let p = 112; p <= 119; p++) {
-      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('percussive');
-    }
-    for (let p = 120; p <= 127; p++) {
-      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('sfx');
+      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('chromatic_percussion');
     }
   });
 

@@ -2271,7 +2271,7 @@
     },
     "instrumentFamilies": {
         "keyboards": "Keyboards",
-        "chromaticPercussion": "Chromatic Percussion",
+        "chromaticPercussion": "Chromatic & Other Percussion",
         "organs": "Organs",
         "pluckedStrings": "Plucked Strings",
         "bowedStrings": "Bowed Strings",
@@ -2279,7 +2279,7 @@
         "brass": "Brass",
         "reeds": "Reeds",
         "winds": "Winds (flutes)",
-        "synths": "Synths",
+        "synths": "Synths & Sound Effects",
         "percussive": "Percussion",
         "sfx": "Sound Effects",
         "drumKits": "Drum Kits (GM)"

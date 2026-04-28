@@ -2271,7 +2271,7 @@
     },
     "instrumentFamilies": {
         "keyboards": "Instruments à touches",
-        "chromaticPercussion": "Percussions chromatiques",
+        "chromaticPercussion": "Percussions chromatiques & diverses",
         "organs": "Orgues",
         "pluckedStrings": "Cordes grattées",
         "bowedStrings": "Cordes frottées",
@@ -2279,7 +2279,7 @@
         "brass": "Cuivres",
         "reeds": "Anches",
         "winds": "Vents (flûtes)",
-        "synths": "Synthétiseurs",
+        "synths": "Synthétiseurs & Effets sonores",
         "percussive": "Percussions diverses",
         "sfx": "Effets sonores",
         "drumKits": "Batteries (kits GM)"
