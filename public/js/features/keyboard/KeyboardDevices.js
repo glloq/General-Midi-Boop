@@ -219,7 +219,7 @@
 
         // Center of playable range
         const rangeCenter = (effectiveMin + effectiveMax) / 2;
-        const totalNotes = this.octaves * 12;
+        const totalNotes = this.visibleNoteCount;
 
         // Ideal startNote to center view on playable range
         const idealStart = Math.round(rangeCenter - totalNotes / 2);

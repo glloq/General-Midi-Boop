@@ -13,7 +13,7 @@
         document.getElementById('keyboard-close-btn')?.addEventListener('click', () => this.close());
 
         document.getElementById('keyboard-octave-up')?.addEventListener('click', () => {
-            const totalNotes = this.octaves * 12;
+            const totalNotes = this.visibleNoteCount;
             this.startNote = Math.min(127 - totalNotes, this.startNote + 12);
             this._updateOctaveDisplay();
             this.regeneratePianoKeys();
@@ -25,18 +25,22 @@
             this.regeneratePianoKeys();
         });
 
-        // Zoom in/out (changes the number of visible octaves)
+        // Zoom in/out — step by `this.zoomStep` notes (4 by default).
         document.getElementById('keyboard-zoom-in')?.addEventListener('click', () => {
-            if (this.octaves > this.minOctaves) {
-                this.setOctaves(this.octaves - 1);
+            const next = this.visibleNoteCount - this.zoomStep;
+            if (next >= this.minVisibleNotes) {
+                this.setVisibleNotes(next);
                 this.saveOctavesToSettings();
+                this._updateOctaveDisplay();
                 this.regeneratePianoKeys();
             }
         });
         document.getElementById('keyboard-zoom-out')?.addEventListener('click', () => {
-            if (this.octaves < this.maxOctaves) {
-                this.setOctaves(this.octaves + 1);
+            const next = this.visibleNoteCount + this.zoomStep;
+            if (next <= this.maxVisibleNotes) {
+                this.setVisibleNotes(next);
                 this.saveOctavesToSettings();
+                this._updateOctaveDisplay();
                 this.regeneratePianoKeys();
             }
         });
@@ -48,29 +52,37 @@
                 if (this.viewMode !== 'piano') return;
                 e.preventDefault();
                 const delta = Math.sign(e.deltaY);
-                if (delta < 0 && this.octaves > this.minOctaves) {
-                    this.setOctaves(this.octaves - 1);
-                    this.saveOctavesToSettings();
-                    this.regeneratePianoKeys();
-                } else if (delta > 0 && this.octaves < this.maxOctaves) {
-                    this.setOctaves(this.octaves + 1);
-                    this.saveOctavesToSettings();
-                    this.regeneratePianoKeys();
+                if (delta < 0) {
+                    const next = this.visibleNoteCount - this.zoomStep;
+                    if (next >= this.minVisibleNotes) {
+                        this.setVisibleNotes(next);
+                        this.saveOctavesToSettings();
+                        this._updateOctaveDisplay();
+                        this.regeneratePianoKeys();
+                    }
+                } else if (delta > 0) {
+                    const next = this.visibleNoteCount + this.zoomStep;
+                    if (next <= this.maxVisibleNotes) {
+                        this.setVisibleNotes(next);
+                        this.saveOctavesToSettings();
+                        this._updateOctaveDisplay();
+                        this.regeneratePianoKeys();
+                    }
                 }
             };
             canvasContainer.addEventListener('wheel', this._canvasWheelHandler, { passive: false });
         }
 
-        // Minimap navigation
+        // Minimap navigation — the minimap shows the full MIDI range (0-127).
         const minimapTrack = document.getElementById('keyboard-minimap-track');
         if (minimapTrack) {
-            const minMidi = 21;
-            const maxMidi = 108;
-            const totalRange = maxMidi - minMidi;
+            const minMidi = 0;
+            const maxMidi = 127;
+            const totalRange = maxMidi - minMidi + 1;
             const moveTo = (clientX) => {
                 const rect = minimapTrack.getBoundingClientRect();
                 const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                const totalNotes = this.octaves * 12;
+                const totalNotes = this.visibleNoteCount;
                 // Center the viewport on the click position
                 const centerMidi = minMidi + ratio * totalRange;
                 let newStart = Math.round(centerMidi - totalNotes / 2);
@@ -93,20 +105,33 @@
             document.addEventListener('mouseup', this._minimapMouseUp);
         }
 
-        // Notation selector
-        document.getElementById('keyboard-notation-select')?.addEventListener('change', (e) => {
-            this.noteLabelFormat = e.target.value;
-            try {
-                const saved = localStorage.getItem('gmboop_settings');
-                const settings = saved ? JSON.parse(saved) : {};
-                settings.keyboardNotation = this.noteLabelFormat;
-                localStorage.setItem('gmboop_settings', JSON.stringify(settings));
-            } catch (err) { /* ignore */ }
-            this._updateOctaveDisplay();
-            this.regeneratePianoKeys();
-            if (this.viewMode === 'fretboard') this.renderFretboard();
-            if (this.viewMode === 'drumpad') this.renderDrumPad();
-        });
+        // Notation selector (radio-style group of buttons)
+        const notationToggle = document.getElementById('keyboard-notation-toggle');
+        if (notationToggle) {
+            notationToggle.addEventListener('click', (e) => {
+                const btn = e.target.closest('.notation-btn');
+                if (!btn) return;
+                const value = btn.dataset.notation;
+                if (!['english', 'solfege', 'midi'].includes(value)) return;
+                this.noteLabelFormat = value;
+                // Update active state on all buttons
+                notationToggle.querySelectorAll('.notation-btn').forEach(b => {
+                    const isActive = b.dataset.notation === value;
+                    b.classList.toggle('active', isActive);
+                    b.setAttribute('aria-checked', isActive ? 'true' : 'false');
+                });
+                try {
+                    const saved = localStorage.getItem('gmboop_settings');
+                    const settings = saved ? JSON.parse(saved) : {};
+                    settings.keyboardNotation = this.noteLabelFormat;
+                    localStorage.setItem('gmboop_settings', JSON.stringify(settings));
+                } catch (err) { /* ignore */ }
+                this._updateOctaveDisplay();
+                this.regeneratePianoKeys();
+                if (this.viewMode === 'fretboard') this.renderFretboard();
+                if (this.viewMode === 'drumpad') this.renderDrumPad();
+            });
+        }
 
         // View mode toggle (piano <-> fretboard / drumpad)
         document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
@@ -188,16 +213,6 @@
 
         // Modulation wheel (custom drag)
         this.initModWheel();
-
-        // Octave count selector (number of octaves displayed)
-        document.getElementById('keyboard-octaves-count-select')?.addEventListener('change', (e) => {
-            const octaves = parseInt(e.target.value);
-            this.setOctaves(octaves);
-            this.saveOctavesToSettings();
-            // Re-center the keyboard for the newly selected size
-            this.autoCenterKeyboard();
-            this.regeneratePianoKeys();
-        });
 
         // Layout
         document.getElementById('keyboard-layout-select')?.addEventListener('change', (e) => {

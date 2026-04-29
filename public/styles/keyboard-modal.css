@@ -160,6 +160,43 @@
     color: rgba(255, 255, 255, 0.5);
 }
 
+/* Notation toggle (US / FR / MIDI radio-style buttons) */
+.keyboard-header-controls .notation-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+}
+.keyboard-header-controls .notation-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.15s, color 0.15s;
+}
+.keyboard-header-controls .notation-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+}
+.keyboard-header-controls .notation-btn.active {
+    background: white;
+    color: #047857;
+}
+.keyboard-header-controls .notation-sep {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+    font-size: 12px;
+    user-select: none;
+}
+
 /* View-mode toggle button */
 .keyboard-header-controls .btn-view-toggle {
     padding: 4px 10px;
@@ -182,7 +219,8 @@
     text-align: center;
 }
 
-.keyboard-header-controls .octaves-count-group {
+.keyboard-header-controls .octaves-count-group,
+.keyboard-header-controls .notation-group {
     margin-left: auto;
 }
 
@@ -719,7 +757,7 @@
 .minimap-wrapper {
     flex: 1;
     min-width: 0;
-    height: 28px;
+    height: 32px;
     cursor: pointer;
 }
 
@@ -727,32 +765,55 @@
     position: relative;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to bottom, #1f2937, #111827);
+    background: #2c2c2c;
     border-radius: 4px;
     box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
     overflow: hidden;
     user-select: none;
+    padding: 1px;
+    box-sizing: border-box;
 }
 
-.minimap-tick {
+/* Piano keyboard rendered as the minimap background */
+.minimap-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.minimap-whites {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+.minimap-wkey {
+    flex: 1;
+    background: linear-gradient(to bottom, #ffffff, #e5e7eb);
+    border-right: 1px solid rgba(0, 0, 0, 0.35);
+}
+.minimap-wkey:last-child { border-right: none; }
+.minimap-wkey.octave-c {
+    border-right-color: rgba(0, 0, 0, 0.6);
+}
+.minimap-bkey {
     position: absolute;
     top: 0;
-    bottom: 0;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.12);
-    pointer-events: none;
+    height: 60%;
+    background: linear-gradient(to bottom, #1f1f1f, #0f0f0f);
+    border-radius: 0 0 2px 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .minimap-viewport {
     position: absolute;
-    top: 2px;
-    bottom: 2px;
-    background: linear-gradient(to bottom, rgba(16, 185, 129, 0.55), rgba(5, 150, 105, 0.55));
-    border: 1px solid #10b981;
+    top: 0;
+    bottom: 0;
+    background: rgba(16, 185, 129, 0.28);
+    border: 2px solid #10b981;
     border-radius: 3px;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.6), inset 0 0 8px rgba(16, 185, 129, 0.25);
     pointer-events: none;
     transition: left 0.1s ease, width 0.1s ease;
+    z-index: 2;
 }
 
 /* ============================================================================
@@ -919,6 +980,7 @@
 .drumpad-container.hidden { display: none; }
 
 .drumpad-container .drum-pad {
+    position: relative;
     aspect-ratio: 1;
     background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
     border: 1px solid #4b5563;
@@ -928,12 +990,13 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 8px;
+    padding: 10px 8px 14px;
     cursor: pointer;
     user-select: none;
     color: #e5e7eb;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition: transform 0.05s, background 0.05s, box-shadow 0.05s;
+    overflow: hidden;
 }
 .drumpad-container .drum-pad:hover {
     background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
@@ -949,20 +1012,54 @@
     opacity: 0.35;
     cursor: not-allowed;
 }
-.drumpad-container .drum-pad-number {
-    font-family: 'Courier New', monospace;
-    font-size: 18px;
-    font-weight: 700;
-    color: #10b981;
+
+.drumpad-container .drum-pad-icon {
+    width: 65%;
+    height: 65%;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+    flex-shrink: 0;
 }
-.drumpad-container .drum-pad.active .drum-pad-number { color: white; }
+.drumpad-container .drum-pad.active .drum-pad-icon {
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+}
+
 .drumpad-container .drum-pad-name {
     font-size: 10px;
     margin-top: 4px;
-    color: rgba(229, 231, 235, 0.75);
-    line-height: 1.2;
+    color: rgba(229, 231, 235, 0.85);
+    line-height: 1.15;
+    max-width: 100%;
+    word-break: break-word;
+    pointer-events: none;
 }
 .drumpad-container .drum-pad.active .drum-pad-name { color: rgba(255, 255, 255, 0.95); }
+
+/* Note badge in the corner of every drum pad */
+.drumpad-container .drum-pad-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #10b981;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    line-height: 1.1;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+.drumpad-container .drum-pad.active .drum-pad-badge {
+    background: white;
+    color: #047857;
+    border-color: white;
+    text-shadow: none;
+}
 
 /* Footer removed - controls are now in header */
 

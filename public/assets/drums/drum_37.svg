@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Side Stick / Rim Shot - Note 37 -->
+
+    <!-- Caisse claire simplifiee (vue de dessus) -->
+    <ellipse cx="64" cy="72" rx="42" ry="16" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+    <ellipse cx="64" cy="72" rx="38" ry="13" fill="#F5E6C8" stroke="#D4A843" stroke-width="1.5"/>
+
+    <!-- Cercle -->
+    <ellipse cx="64" cy="72" rx="42" ry="16" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Baguette posee sur le bord (rim) -->
+    <line x1="28" y1="32" x2="88" y2="76" stroke="#D4934A" stroke-width="4" stroke-linecap="round"/>
+    <!-- Pointe de la baguette sur le rim -->
+    <circle cx="88" cy="76" r="2" fill="#D4934A"/>
+
+    <!-- Indication du point de frappe (sur le cercle) -->
+    <circle cx="96" cy="68" r="4" fill="none" stroke="#E87D1E" stroke-width="2" opacity="0.6"/>
+
+</svg>

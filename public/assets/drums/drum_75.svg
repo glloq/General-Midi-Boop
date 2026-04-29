@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Claves - Note 75 -->
+
+    <!-- Clave 1 (horizontale) -->
+    <rect x="14" y="50" width="100" height="12" rx="6" fill="#A0652F" stroke="#7A4E24" stroke-width="2"/>
+
+    <!-- Clave 2 (legerement inclinee en dessous) -->
+    <rect x="24" y="70" width="90" height="12" rx="6" fill="#8B6914" stroke="#5C4A0E" stroke-width="2" transform="rotate(-8, 69, 76)"/>
+
+    <!-- Grain du bois -->
+    <line x1="20" y1="56" x2="108" y2="56" stroke="#8B6914" stroke-width="0.5" opacity="0.3"/>
+    <line x1="30" y1="76" x2="110" y2="74" stroke="#5C4A0E" stroke-width="0.5" opacity="0.3"/>
+
+</svg>

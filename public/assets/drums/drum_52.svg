@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Chinese Cymbal - Note 52 -->
+
+    <!-- Cymbale (bords retournes vers le haut) -->
+    <path d="
+      M 16 56 C 20 48, 32 40, 64 40 C 96 40, 108 48, 112 56
+      C 108 52, 96 46, 64 46 C 32 46, 20 52, 16 56
+    " fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+
+    <ellipse cx="64" cy="56" rx="48" ry="16" fill="#D4A843" stroke="#B8960F" stroke-width="2"/>
+
+    <!-- Bords retournes (flanges) -->
+    <path d="M 16 56 C 18 50, 20 48, 22 52" fill="none" stroke="#B8960F" stroke-width="2"/>
+    <path d="M 112 56 C 110 50, 108 48, 106 52" fill="none" stroke="#B8960F" stroke-width="2"/>
+
+    <!-- Dome -->
+    <ellipse cx="64" cy="52" rx="10" ry="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1.5"/>
+
+    <!-- Tige -->
+    <line x1="64" y1="60" x2="64" y2="110" stroke="#888" stroke-width="3"/>
+
+    <!-- Trepied -->
+    <line x1="64" y1="110" x2="42" y2="122" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="110" x2="86" y2="122" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="110" x2="64" y2="124" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+
+</svg>

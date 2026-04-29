@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Guiro - Notes 73/74 -->
+
+    <!-- Corps (calebasse allongee avec rainures) -->
+    <path d="
+      M 24 54
+      C 20 54, 16 58, 16 64
+      C 16 70, 20 74, 24 74
+      L 100 74
+      C 108 74, 114 70, 114 64
+      C 114 58, 108 54, 100 54
+      Z
+    " fill="#228B22" stroke="#1A6B1A" stroke-width="2"/>
+
+    <!-- Rainures (striures sur le dessus) -->
+    <line x1="32" y1="56" x2="32" y2="72" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="38" y1="56" x2="38" y2="72" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="44" y1="55" x2="44" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="50" y1="55" x2="50" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="56" y1="55" x2="56" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="62" y1="55" x2="62" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="68" y1="55" x2="68" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="74" y1="55" x2="74" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="80" y1="55" x2="80" y2="73" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="86" y1="56" x2="86" y2="72" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="92" y1="56" x2="92" y2="72" stroke="#1A6B1A" stroke-width="1.5"/>
+    <line x1="98" y1="56" x2="98" y2="72" stroke="#1A6B1A" stroke-width="1.5"/>
+
+    <!-- Baguette de raclage -->
+    <line x1="50" y1="30" x2="62" y2="54" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Trou pour le pouce -->
+    <ellipse cx="26" cy="64" rx="4" ry="3" fill="#1A6B1A"/>
+
+</svg>
