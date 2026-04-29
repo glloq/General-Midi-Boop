@@ -263,35 +263,6 @@ describe('LongitudinalPlanner — out-of-range and missing-finger warnings', () 
   });
 });
 
-describe('LongitudinalPlanner — densification', () => {
-  test('emits intermediate samples between distant note-ons when cc_sample_rate_hz > 0', () => {
-    const cfg = makeConfig({ cc_sample_rate_hz: 50 });
-    const p = new LongitudinalPlanner(cfg, ctx());
-    const notes = [
-      note(0.0, 3,  1, 0.05),
-      note(1.0, 12, 1, 0.05) // 1-second gap → ~50 interpolated steps possible
-    ];
-    const { ccEvents } = p.plan(notes);
-    const interp = ccEvents.filter(e => e._interpolated);
-    expect(interp.length).toBeGreaterThan(2);
-    // All interpolated samples lie strictly between the two key events.
-    for (const e of interp) {
-      expect(e.time).toBeGreaterThan(0);
-      expect(e.time).toBeLessThan(1.0);
-    }
-  });
-
-  test('no interpolation when cc_sample_rate_hz is omitted', () => {
-    const p = new LongitudinalPlanner(makeConfig(), ctx());
-    const notes = [
-      note(0.0, 3,  1, 0.05),
-      note(1.0, 12, 1, 0.05)
-    ];
-    const { ccEvents } = p.plan(notes);
-    expect(ccEvents.find(e => e._interpolated)).toBeUndefined();
-  });
-});
-
 describe('LongitudinalPlanner — chord (T5) two anchored fingers', () => {
   test('two simultaneous long notes anchor both fingers', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
