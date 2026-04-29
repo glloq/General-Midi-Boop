@@ -84,11 +84,24 @@
         // ----------------------------------------------------------------
 
         setActivePositions(positions) {
-            this.activePositions = Array.isArray(positions)
-                ? positions
-                    .filter(p => p && Number.isFinite(p.string) && Number.isFinite(p.fret))
-                    .slice()
-                : [];
+            // Longitudinal model invariant: one finger per string ⇒ at
+            // most one active note per string at any instant. Dedup by
+            // string, keeping the entry with the highest velocity (or
+            // the last one as a stable fallback) so a chord with two
+            // events on the same string never draws two finger dots.
+            const byString = new Map();
+            if (Array.isArray(positions)) {
+                for (const p of positions) {
+                    if (!p || !Number.isFinite(p.string) || !Number.isFinite(p.fret)) continue;
+                    const prev = byString.get(p.string);
+                    if (!prev || (p.velocity ?? 0) >= (prev.velocity ?? 0)) {
+                        byString.set(p.string, p);
+                    }
+                }
+            }
+            this.activePositions = [...byString.values()];
+            this._activeFretByString = new Map();
+            for (const p of this.activePositions) this._activeFretByString.set(p.string, p.fret);
             this.draw();
         }
 
@@ -290,15 +303,24 @@
             const liveAnchor = this._currentDisplayedAnchor();
             if (Number.isFinite(liveAnchor)) {
                 this._drawHandBand(fbX, fbW, liveAnchor);
-                if (this.showFingerRange) {
-                    this._drawFingerRange(fbX, fbW, liveAnchor);
-                }
+                // The finger displacement zones + per-finger markers are
+                // always rendered (no longer gated on showFingerRange):
+                // the longitudinal anchored model needs them visible at
+                // all times so the operator can see which fingers are
+                // pressed, anchored, or hovering at rest.
+                this._drawFingerRange(fbX, fbW, liveAnchor);
             }
 
             this._drawFretLines(fbX, fbW);
             this._drawStringLines(fbY, fbH);
             this._drawTuningLabels();
-            this._drawActivePositions();
+            // For string_sliding_fingers the active positions are
+            // already drawn as filled circles inside _drawFingerRange,
+            // so we skip the redundant overlay. fret_sliding_fingers
+            // and other mechanisms still get the legacy markers.
+            if (this.mechanism !== 'string_sliding_fingers') {
+                this._drawActivePositions();
+            }
             this._drawUnplayablePositions();
         }
 
@@ -359,34 +381,64 @@
             const numF = Math.max(1, Math.min(this.maxFingers, this.numStrings));
             // Longitudinal anchored model: one finger per string, indexed
             // 1..numF. Each finger can move freely within the hand's
-            // reach band (y0..y1) along its own string. When a finger is
-            // currently anchored on a held note, we overlay a larger
-            // filled circle as an anchor marker so the user can see
-            // which fingers are pinned in place.
+            // reach band (y0..y1) along its own string. We draw, for
+            // every string:
+            //   1. the per-string displacement zone (slim dashed rectangle)
+            //      so the user always sees how far the finger could move,
+            //   2. the finger marker, whose shape encodes the state:
+            //        - inactive          → outline-only (hollow) circle
+            //                               at the resting position
+            //                               (centre of the band),
+            //        - active note-on    → solid filled circle at the
+            //                               played fret,
+            //        - anchored (held)   → larger filled circle at the
+            //                               anchored fret (the finger
+            //                               sticks to the fret as the
+            //                               band slides — see commit C).
             const rectW = 8;
-            const cy = (y0 + y1) / 2;
+            const restY = (y0 + y1) / 2;
             const anchored = this._anchoredStrings || null;
+            const activeFret = this._activeFretByString || new Map();
             for (let s = 1; s <= numF; s++) {
                 const cx = this._stringX(s);
                 ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
                 ctx.strokeRect(cx - rectW / 2, y0, rectW, y1 - y0);
+
                 ctx.save();
                 ctx.setLineDash([]);
-                if (anchored && anchored.has(s)) {
-                    // Anchor marker: filled circle, larger and slightly
-                    // brighter than the regular finger dot.
+                const isAnchored = anchored && anchored.has(s);
+                const activeFretOnString = activeFret.get(s);
+                const isActive = Number.isFinite(activeFretOnString) && activeFretOnString > 0;
+
+                let cy = restY;
+                if (isActive) {
+                    // Place the marker at the actual fret on this string.
+                    cy = (this._fretY(activeFretOnString - 1) + this._fretY(activeFretOnString)) / 2;
+                }
+
+                if (isAnchored) {
                     ctx.fillStyle = 'rgba(37, 99, 235, 1)';
                     ctx.beginPath();
-                    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.lineWidth = 1.2;
                     ctx.stroke();
-                } else {
-                    ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+                } else if (isActive) {
+                    ctx.fillStyle = 'rgba(37, 99, 235, 0.95)';
                     ctx.beginPath();
-                    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
                     ctx.fill();
+                } else {
+                    // Hollow circle: the finger is hovering at its
+                    // resting position, nothing pressed.
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
                 }
                 ctx.restore();
             }
