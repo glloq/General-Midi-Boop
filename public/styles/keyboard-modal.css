@@ -936,6 +936,16 @@
 .fretboard-container .fret-cell.fret-open {
     border-right: 3px solid #d1d5db;
 }
+/* Fretless variant: hide the fret divider lines but keep the nut. */
+.fretboard-container.fretless .fret-cell {
+    border-right-color: transparent;
+}
+.fretboard-container.fretless .fret-cell.fret-open {
+    border-right: 3px solid #d1d5db;
+}
+.fretboard-container.fretless .fret-number:not(.nut)::before {
+    content: '';
+}
 
 .fretboard-container .fret-dot {
     width: 28px;

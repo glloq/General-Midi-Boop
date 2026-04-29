@@ -396,8 +396,16 @@
         // Tuning convention: index 0 = lowest pitch. Display lowest at the bottom.
         const stringsTopDown = [...tuning].reverse();
 
+        // Render at least 12 frets even for fretless instruments — the user
+        // still needs a clickable surface and the labels make sliding intent
+        // clear. The `is_fretless` flag drives a CSS class that hides fret bars.
+        const isFretless = !!cfg.is_fretless || numFrets === 0;
+        const fretCount = Math.max(12, numFrets || 0);
+
+        if (isFretless) container.classList.add('fretless');
+        else container.classList.remove('fretless');
+
         // Header row: fret numbers
-        const fretCount = Math.max(1, numFrets);
         const header = document.createElement('div');
         header.className = 'fret-header';
         // Open (nut) cell
