@@ -507,6 +507,30 @@
                         && this._noteDrag.hit.note === n.note;
                     const yRow = isDragged ? this._noteDrag.draggedY : yRowDefault;
                     const isUnplayable = unplayableSet ? unplayableSet.has(n.note) : false;
+                    // Anchor segment: any non-open held note longer than
+                    // ANCHOR_MIN_DURATION_MS pins its finger on the
+                    // string. Draw a horizontal segment along the
+                    // played fret for the duration of the note so the
+                    // operator sees which fingers stay anchored across
+                    // hand shifts.
+                    const ANCHOR_MIN_DURATION_MS = 60;
+                    if (Number.isFinite(n.duration)
+                            && this.ticksPerSec > 0
+                            && (n.duration / this.ticksPerSec) * 1000 >= ANCHOR_MIN_DURATION_MS
+                            && n.fret > 0
+                            && !isDragged
+                            && !isUnplayable) {
+                        const xEnd = this._secToX(this._tickToSec(ch.tick + n.duration));
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
+                        ctx.lineWidth = 3;
+                        ctx.lineCap = 'round';
+                        ctx.beginPath();
+                        ctx.moveTo(x + 4, yRowDefault);
+                        ctx.lineTo(Math.max(x + 4, xEnd - 2), yRowDefault);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
                     ctx.fillStyle = isDragged
                         ? 'rgba(245, 158, 11, 0.95)'
                         : (isUnplayable

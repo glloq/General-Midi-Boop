@@ -887,9 +887,10 @@
 
             this._chordHandler = (e) => {
                 const detail = e.detail || {};
+                const playedNotes = (detail.notes || [])
+                    .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string));
                 if (this.sticky?.setActivePositions) {
-                    this.sticky.setActivePositions((detail.notes || [])
-                        .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string))
+                    this.sticky.setActivePositions(playedNotes
                         .map(n => ({ string: n.string, fret: n.fret, velocity: n.velocity || 100 })));
                 }
                 if (this.sticky?.setUnplayablePositions) {
@@ -900,6 +901,17 @@
                     const infeasible = (detail.unplayable || []).some(u =>
                         u.reason === 'too_many_fingers' || u.reason === 'outside_window');
                     this.sticky.setLevel(infeasible ? 'infeasible' : 'ok');
+                }
+                // Longitudinal-mode marker: any played note longer than
+                // ANCHOR_MIN_DURATION_MS pins its finger on the string.
+                // We mirror the planner's MIN_ANCHOR_MS internal default
+                // (60 ms) so the UI matches the audible behaviour.
+                if (this.sticky?.setAnchoredStrings) {
+                    const ANCHOR_MIN_DURATION_SEC = 0.06;
+                    const anchoredStrings = playedNotes
+                        .filter(n => Number.isFinite(n.duration) && n.duration >= ANCHOR_MIN_DURATION_SEC)
+                        .map(n => n.string);
+                    this.sticky.setAnchoredStrings(anchoredStrings);
                 }
             };
             this._tickHandler = (e) => {

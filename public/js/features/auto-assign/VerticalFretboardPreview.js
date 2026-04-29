@@ -92,6 +92,25 @@
             this.draw();
         }
 
+        /**
+         * Mark a set of strings as currently carrying an anchored finger
+         * (held note above the anchor-min duration threshold). Used by
+         * the longitudinal model to overlay an anchor marker on the
+         * relevant per-string finger range. Pass an Iterable<number>
+         * (Set, Array of string indices) or null to clear.
+         */
+        setAnchoredStrings(strings) {
+            if (strings == null) {
+                this._anchoredStrings = null;
+            } else {
+                this._anchoredStrings = new Set();
+                for (const s of strings) {
+                    if (Number.isInteger(s) && s >= 1) this._anchoredStrings.add(s);
+                }
+            }
+            this.draw();
+        }
+
         setUnplayablePositions(positions) {
             this.unplayablePositions = Array.isArray(positions)
                 ? positions
@@ -351,30 +370,37 @@
         _drawStringSlidingFingerRanges(y0, y1) {
             const ctx = this.ctx;
             const numF = Math.max(1, Math.min(this.maxFingers, this.numStrings));
-            // Pick `numF` string indices evenly spread across the
-            // available strings — fingers can be placed on any string
-            // depending on the chord, so we hint at the multiplicity
-            // rather than committing to one per string.
-            const used = [];
-            if (numF === 1) {
-                used.push(Math.ceil(this.numStrings / 2));
-            } else {
-                for (let i = 0; i < numF; i++) {
-                    const t = i / (numF - 1);
-                    used.push(1 + Math.round(t * (this.numStrings - 1)));
-                }
-            }
+            // Longitudinal anchored model: one finger per string, indexed
+            // 1..numF. Each finger can move freely within the hand's
+            // reach band (y0..y1) along its own string. When a finger is
+            // currently anchored on a held note, we overlay a larger
+            // filled circle as an anchor marker so the user can see
+            // which fingers are pinned in place.
             const rectW = 8;
-            for (const s of used) {
+            const cy = (y0 + y1) / 2;
+            const anchored = this._anchoredStrings || null;
+            for (let s = 1; s <= numF; s++) {
                 const cx = this._stringX(s);
                 ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
                 ctx.strokeRect(cx - rectW / 2, y0, rectW, y1 - y0);
                 ctx.save();
                 ctx.setLineDash([]);
-                ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
-                ctx.beginPath();
-                ctx.arc(cx, (y0 + y1) / 2, 2.5, 0, Math.PI * 2);
-                ctx.fill();
+                if (anchored && anchored.has(s)) {
+                    // Anchor marker: filled circle, larger and slightly
+                    // brighter than the regular finger dot.
+                    ctx.fillStyle = 'rgba(37, 99, 235, 1)';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 ctx.restore();
             }
         }
