@@ -1422,6 +1422,33 @@
 
         this._attachMechanismCardListeners(handsSection);
         this._attachHandsGeometryListeners(handsSection);
+        this._attachLongitudinalToggleListener(handsSection);
+    };
+
+    /**
+     * Toggle the visual state of the longitudinal-mode section when the
+     * "Mode longitudinal ancré" checkbox flips. Greys the body out (and
+     * disables interaction) when the toggle is off so the user can see
+     * the V2-only fields without thinking they will be saved while the
+     * mode is disabled.
+     * @private
+     */
+    ISMListeners._attachLongitudinalToggleListener = function(handsSection) {
+        const toggle = handsSection.querySelector('#handsLongitudinalEnabled');
+        if (!toggle) return;
+        const body = handsSection.querySelector('.ism-longitudinal-body');
+        if (!body) return;
+        toggle.addEventListener('change', function() {
+            const on = !!toggle.checked;
+            body.dataset.enabled = on ? '1' : '0';
+            if (on) {
+                body.style.opacity = '';
+                body.style.pointerEvents = '';
+            } else {
+                body.style.opacity = '0.5';
+                body.style.pointerEvents = 'none';
+            }
+        });
     };
 
     /**
