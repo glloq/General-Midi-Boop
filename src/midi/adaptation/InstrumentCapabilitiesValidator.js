@@ -451,6 +451,21 @@ class InstrumentCapabilitiesValidator {
       this._validateAnchorBlock(cfg.anchor, issues);
     }
 
+    // Optional dense CC stream rate. Ignored by V1, consumed by
+    // LongitudinalPlanner to insert interpolated samples between
+    // shifts so the hardware sees a continuous trajectory.
+    if (cfg.cc_sample_rate_hz != null) {
+      if (!Number.isFinite(cfg.cc_sample_rate_hz)
+          || cfg.cc_sample_rate_hz < 0
+          || cfg.cc_sample_rate_hz > 200) {
+        issues.push({
+          field: 'hands_config.cc_sample_rate_hz', label: 'CC sample rate (Hz)',
+          type: 'number', required: true,
+          reason: 'cc_sample_rate_hz must be in [0, 200]; 0 disables densification.'
+        });
+      }
+    }
+
     // Travel speed — same dual-unit logic as span.
     const mmSpeedValid = Number.isFinite(cfg.hand_move_mm_per_sec) && cfg.hand_move_mm_per_sec > 0;
     const fretsSpeedValid = Number.isFinite(cfg.hand_move_frets_per_sec) && cfg.hand_move_frets_per_sec > 0;
