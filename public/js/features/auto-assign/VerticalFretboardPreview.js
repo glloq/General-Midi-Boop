@@ -84,11 +84,24 @@
         // ----------------------------------------------------------------
 
         setActivePositions(positions) {
-            this.activePositions = Array.isArray(positions)
-                ? positions
-                    .filter(p => p && Number.isFinite(p.string) && Number.isFinite(p.fret))
-                    .slice()
-                : [];
+            // Longitudinal model invariant: one finger per string ⇒ at
+            // most one active note per string at any instant. Dedup by
+            // string, keeping the entry with the highest velocity (or
+            // the last one as a stable fallback) so a chord with two
+            // events on the same string never draws two finger dots.
+            const byString = new Map();
+            if (Array.isArray(positions)) {
+                for (const p of positions) {
+                    if (!p || !Number.isFinite(p.string) || !Number.isFinite(p.fret)) continue;
+                    const prev = byString.get(p.string);
+                    if (!prev || (p.velocity ?? 0) >= (prev.velocity ?? 0)) {
+                        byString.set(p.string, p);
+                    }
+                }
+            }
+            this.activePositions = [...byString.values()];
+            this._activeFretByString = new Map();
+            for (const p of this.activePositions) this._activeFretByString.set(p.string, p.fret);
             this.draw();
         }
 
@@ -106,6 +119,34 @@
                 this._anchoredStrings = new Set();
                 for (const s of strings) {
                     if (Number.isInteger(s) && s >= 1) this._anchoredStrings.add(s);
+                }
+            }
+            this.draw();
+        }
+
+        /**
+         * Set the set of currently-sounding notes (note-on already
+         * happened, note-off not yet). Unlike setActivePositions which
+         * only carries the chord that just started, this list keeps
+         * sustaining notes alive so the per-string finger marker stays
+         * pinned to the held fret while the hand band slides around it
+         * — the visual translation of the planner's anchoring rule
+         * (the operator sees the finger stretching to the band's edge
+         * instead of jumping back to the rest position).
+         *
+         * Pass an array of { string, fret, anchored?:boolean } or null
+         * to clear. The renderer applies the same rule as setActivePositions
+         * (one entry per string max, dedup by velocity).
+         */
+        setSustainingFingers(list) {
+            this._sustainingByString = new Map();
+            this._sustainingAnchored = new Set();
+            if (Array.isArray(list)) {
+                for (const item of list) {
+                    if (!item || !Number.isInteger(item.string) || !Number.isFinite(item.fret)) continue;
+                    if (item.fret <= 0) continue; // open strings: no fretting finger
+                    this._sustainingByString.set(item.string, item.fret);
+                    if (item.anchored) this._sustainingAnchored.add(item.string);
                 }
             }
             this.draw();
@@ -230,33 +271,31 @@
         _anchorFromTrajectory(sec) {
             if (!this._trajectory.length || !this._ticksPerSec) return null;
             const tps = this._ticksPerSec;
-            let cur = null;
+            // Find the bracketing waypoints around `sec` so we can lerp
+            // the anchor instead of stepping. The planner already
+            // saturates motion at hand_move_mm_per_sec, so a simple
+            // linear interpolation between two consecutive feasible
+            // waypoints yields a smooth, speed-respecting hand glide.
+            let prev = null;
+            let next = null;
             for (const p of this._trajectory) {
-                if (p.tick / tps <= sec) cur = p;
-                else break;
+                const pSec = p.tick / tps;
+                if (pSec <= sec) prev = p;
+                else { next = p; break; }
             }
-            return cur ? cur.anchor : this._trajectory[0].anchor;
+            if (!prev) return this._trajectory[0].anchor;
+            if (!next) return prev.anchor;
+            const tA = prev.tick / tps;
+            const tB = next.tick / tps;
+            const span = tB - tA;
+            if (span <= 0) return next.anchor;
+            const u = Math.max(0, Math.min(1, (sec - tA) / span));
+            return prev.anchor + (next.anchor - prev.anchor) * u;
         }
 
         _currentDisplayedAnchor() {
             if (Number.isFinite(this._dragAnchor)) return this._dragAnchor;
             return this._anchorFromTrajectory(this._currentSec);
-        }
-
-        _currentMotionTransition() {
-            const traj = this._trajectory;
-            const tps = this._ticksPerSec;
-            if (!traj.length || !tps) return null;
-            let prev = null;
-            for (const p of traj) {
-                const pSec = p.tick / tps;
-                if (pSec <= this._currentSec) { prev = p; continue; }
-                if (!prev) return null;
-                if (!p.motion || p.motion.feasible !== false) return null;
-                if (!Number.isFinite(prev.anchor) || !Number.isFinite(p.anchor)) return null;
-                return { prevAnchor: prev.anchor, nextAnchor: p.anchor, motion: p.motion };
-            }
-            return null;
         }
 
         // ----------------------------------------------------------------
@@ -292,43 +331,41 @@
             const liveAnchor = this._currentDisplayedAnchor();
             if (Number.isFinite(liveAnchor)) {
                 this._drawHandBand(fbX, fbW, liveAnchor);
-                if (this.showFingerRange) {
-                    this._drawFingerRange(fbX, fbW, liveAnchor);
-                }
-            }
-
-            const infeasible = this._currentMotionTransition();
-            if (infeasible) {
-                this._drawInfeasibleMotionCurve(fbX, fbW,
-                    infeasible.prevAnchor, infeasible.nextAnchor);
+                // The finger displacement zones + per-finger markers are
+                // always rendered (no longer gated on showFingerRange):
+                // the longitudinal anchored model needs them visible at
+                // all times so the operator can see which fingers are
+                // pressed, anchored, or hovering at rest.
+                this._drawFingerRange(fbX, fbW, liveAnchor);
             }
 
             this._drawFretLines(fbX, fbW);
             this._drawStringLines(fbY, fbH);
             this._drawTuningLabels();
-            this._drawActivePositions();
+            // For string_sliding_fingers the active positions are
+            // already drawn as filled circles inside _drawFingerRange,
+            // so we skip the redundant overlay. fret_sliding_fingers
+            // and other mechanisms still get the legacy markers.
+            if (this.mechanism !== 'string_sliding_fingers') {
+                this._drawActivePositions();
+            }
             this._drawUnplayablePositions();
         }
 
         _drawHandBand(fbX, fbW, anchor) {
             const { y0, y1 } = this._handWindowY(anchor);
             if (!Number.isFinite(y0) || !Number.isFinite(y1) || y1 <= y0) return;
-            const fills = {
-                ok:         'rgba(34, 197, 94, 0.22)',
-                warning:    'rgba(245, 158, 11, 0.24)',
-                infeasible: 'rgba(239, 68, 68, 0.26)'
-            };
-            const strokes = {
-                ok:         'rgba(34, 197, 94, 0.65)',
-                warning:    'rgba(245, 158, 11, 0.75)',
-                infeasible: 'rgba(239, 68, 68, 0.75)'
-            };
+            // Always-on anchored model: the band is the hand's reachable
+            // window. Infeasible chords are now expressed by speed
+            // saturation in the planner (warnings) rather than a visual
+            // overlay, so we keep a single green tint and let the smooth
+            // band motion convey the displacement itself.
             const ctx = this.ctx;
             const xLeft = fbX - HAND_BAND_X_OVERFLOW;
             const bandW = fbW + 2 * HAND_BAND_X_OVERFLOW;
-            ctx.fillStyle = fills[this._level] || fills.ok;
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.22)';
             ctx.fillRect(xLeft, y0, bandW, y1 - y0);
-            ctx.strokeStyle = strokes[this._level] || strokes.ok;
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.65)';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 3]);
             ctx.strokeRect(xLeft, y0, bandW, y1 - y0);
@@ -372,34 +409,75 @@
             const numF = Math.max(1, Math.min(this.maxFingers, this.numStrings));
             // Longitudinal anchored model: one finger per string, indexed
             // 1..numF. Each finger can move freely within the hand's
-            // reach band (y0..y1) along its own string. When a finger is
-            // currently anchored on a held note, we overlay a larger
-            // filled circle as an anchor marker so the user can see
-            // which fingers are pinned in place.
+            // reach band (y0..y1) along its own string. We draw, for
+            // every string:
+            //   1. the per-string displacement zone (slim dashed rectangle)
+            //      so the user always sees how far the finger could move,
+            //   2. the finger marker, whose shape encodes the state:
+            //        - inactive          → outline-only (hollow) circle
+            //                               at the resting position
+            //                               (centre of the band),
+            //        - active note-on    → solid filled circle at the
+            //                               played fret,
+            //        - anchored (held)   → larger filled circle at the
+            //                               anchored fret (the finger
+            //                               sticks to the fret as the
+            //                               band slides — see commit C).
             const rectW = 8;
-            const cy = (y0 + y1) / 2;
-            const anchored = this._anchoredStrings || null;
+            const restY = (y0 + y1) / 2;
+            // Source of truth for finger state: the sustaining map
+            // (notes currently sounding, anchored or not). The
+            // chord-event activeFret map is used as a fallback for
+            // mechanisms that don't have a sustaining feed yet, but the
+            // longitudinal pipeline pumps `setSustainingFingers` from
+            // the modal's tick handler so anchored fingers stay pinned
+            // to their fret as the band slides.
+            const sustainingMap = this._sustainingByString || new Map();
+            const sustainingAnchored = this._sustainingAnchored || new Set();
+            const fallbackActive = this._activeFretByString || new Map();
+            const anchoredFallback = this._anchoredStrings || null;
             for (let s = 1; s <= numF; s++) {
                 const cx = this._stringX(s);
                 ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
                 ctx.strokeRect(cx - rectW / 2, y0, rectW, y1 - y0);
+
                 ctx.save();
                 ctx.setLineDash([]);
-                if (anchored && anchored.has(s)) {
-                    // Anchor marker: filled circle, larger and slightly
-                    // brighter than the regular finger dot.
+                let activeFretOnString = sustainingMap.get(s);
+                if (!Number.isFinite(activeFretOnString)) activeFretOnString = fallbackActive.get(s);
+                const isActive = Number.isFinite(activeFretOnString) && activeFretOnString > 0;
+                const isAnchored = sustainingAnchored.has(s)
+                    || (anchoredFallback && anchoredFallback.has(s));
+
+                let cy = restY;
+                if (isActive) {
+                    // Place the marker at the actual fret on this string.
+                    cy = (this._fretY(activeFretOnString - 1) + this._fretY(activeFretOnString)) / 2;
+                }
+
+                if (isAnchored) {
                     ctx.fillStyle = 'rgba(37, 99, 235, 1)';
                     ctx.beginPath();
-                    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.lineWidth = 1.2;
                     ctx.stroke();
-                } else {
-                    ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+                } else if (isActive) {
+                    ctx.fillStyle = 'rgba(37, 99, 235, 0.95)';
                     ctx.beginPath();
-                    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
                     ctx.fill();
+                } else {
+                    // Hollow circle: the finger is hovering at its
+                    // resting position, nothing pressed.
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
                 }
                 ctx.restore();
             }
@@ -420,33 +498,6 @@
             ctx.arc(cx, cy, 3, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-        }
-
-        _drawInfeasibleMotionCurve(fbX, fbW, prevAnchor, nextAnchor) {
-            const ctx = this.ctx;
-            const y1 = this._anchorBandCenterY(prevAnchor);
-            const y2 = this._anchorBandCenterY(nextAnchor);
-            if (!Number.isFinite(y1) || !Number.isFinite(y2)) return;
-            const xBase = fbX + Math.min(14, fbW * 0.18);
-            const arcWidth = Math.max(16, fbW * 0.32);
-            const yMid = (y1 + y2) / 2;
-            const xPeak = xBase - arcWidth;
-            ctx.save();
-            ctx.strokeStyle = '#f5c518';
-            ctx.lineWidth = 2.5;
-            ctx.setLineDash([6, 4]);
-            ctx.beginPath();
-            ctx.moveTo(xBase, y1);
-            ctx.quadraticCurveTo(xPeak, yMid, xBase, y2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-        }
-
-        _anchorBandCenterY(anchor) {
-            const { y0, y1 } = this._handWindowY(anchor);
-            if (!Number.isFinite(y0) || !Number.isFinite(y1)) return null;
-            return (y0 + y1) / 2;
         }
 
         _drawFretLines(fbX, fbW) {
