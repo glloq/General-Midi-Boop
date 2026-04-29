@@ -26,6 +26,7 @@ import { performance } from 'perf_hooks';
 import PlaybackScheduler from './PlaybackScheduler.js';
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
+import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
 
 /** Used to convert MIDI `microsecondsPerBeat` into BPM. */
 const MICROSECONDS_PER_MINUTE = 60000000;
@@ -663,12 +664,17 @@ class MidiPlayer {
       if (ev.fret <= 0) continue; // open string: no fretting-hand constraint
       if (segmentFilter && ev.midiNote != null && !segmentFilter(ev.midiNote)) continue;
       const time = this._ticksToSecondsWithTempoMap(ev.tick, tempoMap);
+      const endTime = Number.isFinite(ev.duration) && ev.duration > 0
+        ? this._ticksToSecondsWithTempoMap(ev.tick + ev.duration, tempoMap)
+        : null;
       notes.push({
         time,
         note: ev.midiNote,
         fretPosition: ev.fret,
+        string: ev.string,
+        duration: endTime != null ? Math.max(0, endTime - time) : undefined,
         channel: srcChannel,
-        velocity: 80,
+        velocity: ev.velocity ?? 80,
         hand: 'fretting'
       });
     }
@@ -684,13 +690,28 @@ class MidiPlayer {
       ? stringInstrument.scale_length_mm
       : null;
 
-    const planner = new HandPositionPlanner(handsCfg, {
+    // Planner selection: LongitudinalPlanner is picked when the config
+    // opts in by providing the per-finger model AND the geometric inputs
+    // it requires. Otherwise we fall back to the V1 window planner. See
+    // docs/LONGITUDINAL_MODEL.md.
+    const fretHand = (handsCfg?.hands || [])[0];
+    const useLongitudinal = handsCfg
+      && handsCfg.mechanism === 'string_sliding_fingers'
+      && Array.isArray(fretHand?.fingers)
+      && fretHand.fingers.length > 0
+      && Number.isFinite(scaleLengthMm)
+      && scaleLengthMm > 0;
+
+    const plannerCtx = {
       unit: 'frets',
       noteRangeMin: 0,
       noteRangeMax: maxFret,
       minNoteIntervalMs: capabilities?.min_note_interval ?? 0,
       scaleLengthMm
-    });
+    };
+    const planner = useLongitudinal
+      ? new LongitudinalPlanner(handsCfg, plannerCtx)
+      : new HandPositionPlanner(handsCfg, plannerCtx);
     const { ccEvents, warnings: planWarnings } = planner.plan(notes);
     for (const w of planWarnings) {
       allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
@@ -704,7 +725,8 @@ class MidiPlayer {
     if (ccEvents.length > 0) markHadAny();
 
     this.logger.debug(
-      `Hand planner [frets] (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
+      `Hand planner [frets/${useLongitudinal ? 'longitudinal' : 'window'}] ` +
+      `(ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
       `device ${device}): ${ccEvents.length} CC events, ${planWarnings.length} warnings, ` +
       `maxFret=${maxFret}, scaleLengthMm=${scaleLengthMm ?? 'n/a'}`
     );
