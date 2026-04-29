@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Floor Tom - Notes 41/43 -->
+
+    <!-- Fut (plus grand et plus profond) -->
+    <rect x="20" y="24" width="88" height="64" rx="2" fill="#CC3333" stroke="#A52828" stroke-width="2"/>
+
+    <!-- Cercle haut -->
+    <ellipse cx="64" cy="24" rx="46" ry="16" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau -->
+    <ellipse cx="64" cy="24" rx="44" ry="14" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Cercle bas -->
+    <ellipse cx="64" cy="88" rx="46" ry="16" fill="none" stroke="#D4A843" stroke-width="2"/>
+
+    <!-- Tirants -->
+    <line x1="22" y1="30" x2="22" y2="82" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="42" y1="36" x2="42" y2="86" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="86" y1="36" x2="86" y2="86" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="106" y1="30" x2="106" y2="82" stroke="#D4A843" stroke-width="1.5"/>
+
+    <!-- 3 pieds -->
+    <line x1="30" y1="96" x2="24" y2="120" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="104" x2="64" y2="122" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="98" y1="96" x2="104" y2="120" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+
+</svg>

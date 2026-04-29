@@ -214,16 +214,6 @@
         // Modulation wheel (custom drag)
         this.initModWheel();
 
-        // Octave count selector (number of octaves displayed)
-        document.getElementById('keyboard-octaves-count-select')?.addEventListener('change', (e) => {
-            const octaves = parseInt(e.target.value);
-            this.setOctaves(octaves);
-            this.saveOctavesToSettings();
-            // Re-center the keyboard for the newly selected size
-            this.autoCenterKeyboard();
-            this.regeneratePianoKeys();
-        });
-
         // Layout
         document.getElementById('keyboard-layout-select')?.addEventListener('change', (e) => {
             this.keyboardLayout = e.target.value;

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Timbale (latin) - Notes 65/66 -->
+
+    <!-- Fut metal (bol peu profond) -->
+    <path d="M 18 52 C 18 72, 36 82, 64 82 C 92 82, 110 72, 110 52" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+
+    <!-- Cercle de tension -->
+    <ellipse cx="64" cy="52" rx="48" ry="16" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau -->
+    <ellipse cx="64" cy="52" rx="46" ry="14" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Support -->
+    <line x1="64" y1="82" x2="64" y2="116" stroke="#888" stroke-width="3"/>
+    <line x1="44" y1="116" x2="84" y2="116" stroke="#888" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Baguettes -->
+    <line x1="36" y1="16" x2="52" y2="48" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="92" y1="16" x2="76" y2="48" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
+
+</svg>

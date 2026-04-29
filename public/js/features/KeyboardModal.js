@@ -95,11 +95,17 @@ class KeyboardModalNew {
         const modulationLabel = this.container.querySelector('#modulation-control-panel .velocity-label-vertical');
         if (modulationLabel) modulationLabel.textContent = this.t('keyboard.modulation');
 
-        // Instrument / layout / octaves labels
-        const labels = this.container.querySelectorAll('.keyboard-header-controls .control-group label');
-        if (labels[0]) labels[0].textContent = this.t('keyboard.instrument');
-        if (labels[1]) labels[1].textContent = this.t('keyboard.layout');
-        if (labels[2]) labels[2].textContent = this.t('settings.keyboard.octaveCount');
+        // Header group labels (resolved by their wrapping group classes)
+        const setLabel = (selector, key) => {
+            const el = this.container.querySelector(selector);
+            if (el) el.textContent = this.t(key);
+        };
+        setLabel('.keyboard-header-controls .control-group:not([class*="-group"]) label', 'keyboard.instrument');
+        setLabel('.keyboard-header-controls .latency-group label', 'keyboard.latency');
+        setLabel('.keyboard-header-controls .view-mode-group label', 'keyboard.view');
+        setLabel('.keyboard-header-controls .notation-group label', 'keyboard.notation');
+        const layoutLabel = this.container.querySelector('#keyboard-layout-select')?.parentElement?.querySelector('label');
+        if (layoutLabel) layoutLabel.textContent = this.t('keyboard.layout');
 
         // Note range display
         this._updateOctaveDisplay();

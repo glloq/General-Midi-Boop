@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Grosse caisse (Bass Drum) - Notes 35/36 -->
+
+    <!-- Fut (cylindre vu de face) -->
+    <ellipse cx="64" cy="64" rx="48" ry="48" fill="#1A1A1A" stroke="#333" stroke-width="2"/>
+
+    <!-- Cercle de tension -->
+    <ellipse cx="64" cy="64" rx="44" ry="44" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau -->
+    <ellipse cx="64" cy="64" rx="40" ry="40" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Logo/decoration au centre -->
+    <circle cx="64" cy="64" r="16" fill="none" stroke="#D4A843" stroke-width="1.5" opacity="0.4"/>
+
+    <!-- Pieds -->
+    <rect x="28" y="110" width="8" height="10" rx="2" fill="#888" stroke="#666" stroke-width="1"/>
+    <rect x="92" y="110" width="8" height="10" rx="2" fill="#888" stroke="#666" stroke-width="1"/>
+
+    <!-- Pedale de grosse caisse (en bas) -->
+    <rect x="52" y="112" width="24" height="8" rx="2" fill="#888" stroke="#666" stroke-width="1"/>
+    <rect x="60" y="108" width="8" height="6" rx="1" fill="#999"/>
+
+</svg>

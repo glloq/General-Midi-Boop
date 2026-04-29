@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Tom (rack tom) - Notes 45/47/48/50 -->
+
+    <!-- Fut -->
+    <rect x="24" y="36" width="80" height="48" rx="2" fill="#CC3333" stroke="#A52828" stroke-width="2"/>
+
+    <!-- Cercle de tension haut -->
+    <ellipse cx="64" cy="36" rx="42" ry="16" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau -->
+    <ellipse cx="64" cy="36" rx="40" ry="14" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Cercle bas -->
+    <ellipse cx="64" cy="84" rx="42" ry="16" fill="none" stroke="#D4A843" stroke-width="2"/>
+
+    <!-- Tirants -->
+    <line x1="26" y1="42" x2="26" y2="78" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="44" y1="48" x2="44" y2="82" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="84" y1="48" x2="84" y2="82" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="102" y1="42" x2="102" y2="78" stroke="#D4A843" stroke-width="1.5"/>
+
+    <!-- Support -->
+    <line x1="64" y1="84" x2="64" y2="120" stroke="#888" stroke-width="3" stroke-linecap="round"/>
+    <line x1="48" y1="120" x2="80" y2="120" stroke="#888" stroke-width="3" stroke-linecap="round"/>
+
+</svg>

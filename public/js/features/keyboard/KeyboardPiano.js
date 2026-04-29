@@ -8,12 +8,6 @@
         const endNote = this.startNote + this.visibleNoteCount - 1;
         const display = `${this.getNoteLabel(this.startNote)} - ${this.getNoteLabel(endNote)}`;
 
-        // Build octaves count options dynamically from min/max.
-        let octaveOptions = '';
-        for (let i = this.minOctaves; i <= this.maxOctaves; i++) {
-            octaveOptions += `<option value="${i}" ${this.octaves === i ? 'selected' : ''}>${i}</option>`;
-        }
-
         this.container = document.createElement('div');
         this.container.className = 'keyboard-modal';
         this.container.innerHTML = `
@@ -46,7 +40,7 @@
                                 </select>
                             </div>
 
-                            <div class="control-group">
+                            <div class="control-group notation-group">
                                 <label>${this.t('keyboard.notation') || 'Notation'}</label>
                                 <div class="notation-toggle" id="keyboard-notation-toggle" role="radiogroup">
                                     <button type="button" class="notation-btn ${this.noteLabelFormat === 'english' ? 'active' : ''}" data-notation="english" role="radio" aria-checked="${this.noteLabelFormat === 'english'}">US</button>
@@ -55,13 +49,6 @@
                                     <span class="notation-sep">/</span>
                                     <button type="button" class="notation-btn ${this.noteLabelFormat === 'midi' ? 'active' : ''}" data-notation="midi" role="radio" aria-checked="${this.noteLabelFormat === 'midi'}">MIDI</button>
                                 </div>
-                            </div>
-
-                            <div class="control-group octaves-count-group">
-                                <label>${this.t('settings.keyboard.octaveCount')}</label>
-                                <select class="octaves-count-select" id="keyboard-octaves-count-select">
-                                    ${octaveOptions}
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -454,7 +441,73 @@
     }
 
     /**
+     * Resolve the SVG asset path for a given GM drum MIDI note.
+     * Returns null when no specific SVG is available (caller falls back to
+     * the kit_standard placeholder).
+     */
+    KeyboardPianoMixin._getDrumSvgPath = function(midi) {
+        // Direct match (drum_<midi>.svg)
+        const direct = new Set([35, 37, 38, 40, 41, 42, 45, 49, 52, 58, 65, 73, 75, 78]);
+        if (direct.has(midi)) return `assets/drums/drum_${midi}.svg`;
+
+        // Aliases for notes that share an SVG with a sibling drum.
+        const alias = {
+            36: 'drum_35',  // Bass Drum 1 ↔ Acoustic Bass Drum
+            39: 'Hand-Clap',
+            44: 'drum_42', // Pedal Hi-Hat ↔ Closed Hi-Hat
+            46: 'Open-Hi-Hat',
+            43: 'drum_41', // High Floor Tom ↔ Low Floor Tom
+            47: 'drum_45', // Low-Mid Tom ↔ Low Tom
+            48: 'drum_45', // Hi-Mid Tom ↔ Low Tom
+            50: 'drum_45', // High Tom ↔ Low Tom
+            51: 'drum_49', // Ride Cymbal 1 ↔ Crash Cymbal 1
+            53: 'drum_49', // Ride Bell
+            55: 'drum_49', // Splash Cymbal
+            57: 'drum_49', // Crash Cymbal 2
+            59: 'drum_49', // Ride Cymbal 2
+            54: 'Tambourine',
+            56: 'Cowbell',
+            60: 'Bongos', 61: 'Bongos',
+            62: 'Conga', 63: 'Conga', 64: 'Conga',
+            66: 'drum_65', // Low Timbale ↔ High Timbale
+            69: 'Cabasa',
+            70: 'Maracas',
+            71: 'whistle', 72: 'whistle',
+            74: 'drum_73', // Long Guiro
+            76: 'drum_75', 77: 'drum_75', // Wood Blocks
+            79: 'drum_78', // Open Cuica
+            80: 'Triangle', 81: 'Triangle'
+        };
+        if (alias[midi]) return `assets/drums/${alias[midi]}.svg`;
+        return 'assets/drums/kit_standard.svg';
+    }
+
+    /**
+     * Standard GM drum names (channel 10) for the pad title.
+     */
+    KeyboardPianoMixin._getDrumName = function(midi) {
+        const gmDrumNames = {
+            27: 'High Q', 28: 'Slap', 29: 'Scratch Push', 30: 'Scratch Pull',
+            31: 'Sticks', 32: 'Square Click', 33: 'Metronome', 34: 'Metronome Bell',
+            35: 'Acoustic Bass', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare',
+            39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat',
+            43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
+            47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash Cymbal 1', 50: 'High Tom',
+            51: 'Ride Cymbal 1', 52: 'Chinese Cymbal', 53: 'Ride Bell', 54: 'Tambourine',
+            55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 58: 'Vibraslap',
+            59: 'Ride Cymbal 2', 60: 'Hi Bongo', 61: 'Low Bongo', 62: 'Mute Hi Conga',
+            63: 'Open Hi Conga', 64: 'Low Conga', 65: 'High Timbale', 66: 'Low Timbale',
+            67: 'High Agogo', 68: 'Low Agogo', 69: 'Cabasa', 70: 'Maracas',
+            71: 'Short Whistle', 72: 'Long Whistle', 73: 'Short Guiro', 74: 'Long Guiro',
+            75: 'Claves', 76: 'Hi Wood Block', 77: 'Low Wood Block', 78: 'Mute Cuica',
+            79: 'Open Cuica', 80: 'Mute Triangle', 81: 'Open Triangle'
+        };
+        return gmDrumNames[midi] || '';
+    }
+
+    /**
      * Render a drum pad grid using the instrument's selected_notes (discrete).
+     * Each pad shows the SVG of the drum element + a note badge (US/FR/MIDI).
      */
     KeyboardPianoMixin.renderDrumPad = function() {
         const container = document.getElementById('drumpad-container');
@@ -476,40 +529,38 @@
             notes = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
         }
 
-        // Standard GM drum names (channel 10) for quick labels.
-        const gmDrumNames = {
-            27: 'High Q', 28: 'Slap', 29: 'Scratch Push', 30: 'Scratch Pull',
-            31: 'Sticks', 32: 'Square Click', 33: 'Metronome', 34: 'Metronome Bell',
-            35: 'Acoustic Bass', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare',
-            39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat',
-            43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
-            47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash Cymbal 1', 50: 'High Tom',
-            51: 'Ride Cymbal 1', 52: 'Chinese Cymbal', 53: 'Ride Bell', 54: 'Tambourine',
-            55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 58: 'Vibraslap',
-            59: 'Ride Cymbal 2', 60: 'Hi Bongo', 61: 'Low Bongo', 62: 'Mute Hi Conga',
-            63: 'Open Hi Conga', 64: 'Low Conga', 65: 'High Timbale', 66: 'Low Timbale',
-            67: 'High Agogo', 68: 'Low Agogo', 69: 'Cabasa', 70: 'Maracas',
-            71: 'Short Whistle', 72: 'Long Whistle', 73: 'Short Guiro', 74: 'Long Guiro',
-            75: 'Claves', 76: 'Hi Wood Block', 77: 'Low Wood Block', 78: 'Mute Cuica',
-            79: 'Open Cuica', 80: 'Mute Triangle', 81: 'Open Triangle'
-        };
-
         const sorted = [...new Set(notes)].sort((a, b) => a - b);
         for (const midi of sorted) {
             const pad = document.createElement('div');
             pad.className = 'drum-pad piano-key';
             pad.dataset.note = midi;
+            const name = this._getDrumName(midi);
+            pad.title = name ? `${name} (${this.getNoteLabel(midi)})` : this.getNoteLabel(midi);
             if (!this.isNotePlayable(midi)) pad.classList.add('disabled');
 
-            const number = document.createElement('span');
-            number.className = 'drum-pad-number';
-            number.textContent = this.getNoteLabel(midi);
-            pad.appendChild(number);
+            // SVG icon (uses <img> so the file is fetched as a static asset)
+            const icon = document.createElement('img');
+            icon.className = 'drum-pad-icon';
+            icon.src = this._getDrumSvgPath(midi);
+            icon.alt = name || `MIDI ${midi}`;
+            icon.draggable = false;
+            // If the SVG is missing, hide the broken-image icon and keep the badge.
+            icon.onerror = () => { icon.style.visibility = 'hidden'; };
+            pad.appendChild(icon);
 
-            const name = document.createElement('span');
-            name.className = 'drum-pad-name';
-            name.textContent = gmDrumNames[midi] || '';
-            pad.appendChild(name);
+            // Drum element name (small caption under the icon)
+            if (name) {
+                const caption = document.createElement('span');
+                caption.className = 'drum-pad-name';
+                caption.textContent = name;
+                pad.appendChild(caption);
+            }
+
+            // Note badge (US/FR/MIDI per the user's notation choice)
+            const badge = document.createElement('span');
+            badge.className = 'drum-pad-badge';
+            badge.textContent = this.getNoteLabel(midi);
+            pad.appendChild(badge);
 
             container.appendChild(pad);
         }

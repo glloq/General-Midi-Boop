@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Cuica - Notes 78/79 -->
+
+    <!-- Fut -->
+    <path d="
+      M 36 30 C 36 28, 40 26, 64 26 C 88 26, 92 28, 92 30
+      L 92 92 C 92 94, 88 96, 64 96 C 40 96, 36 94, 36 92 Z
+    " fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+
+    <!-- Cercle de tension -->
+    <ellipse cx="64" cy="28" rx="30" ry="10" fill="none" stroke="#D4A843" stroke-width="2.5"/>
+
+    <!-- Peau -->
+    <ellipse cx="64" cy="28" rx="28" ry="8" fill="#F5E6C8" stroke="#D4A843" stroke-width="1"/>
+
+    <!-- Tige interne (sort par la peau) -->
+    <line x1="64" y1="20" x2="64" y2="8" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Main qui frotte (symbole) -->
+    <rect x="58" y="4" width="12" height="8" rx="3" fill="#D4934A" stroke="#8B6914" stroke-width="1"/>
+
+    <!-- Cercle bas -->
+    <ellipse cx="64" cy="94" rx="30" ry="10" fill="none" stroke="#999" stroke-width="1.5"/>
+
+    <!-- Tirants -->
+    <line x1="38" y1="34" x2="38" y2="88" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="56" y1="36" x2="56" y2="92" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="72" y1="36" x2="72" y2="92" stroke="#D4A843" stroke-width="1.5"/>
+    <line x1="90" y1="34" x2="90" y2="88" stroke="#D4A843" stroke-width="1.5"/>
+
+</svg>

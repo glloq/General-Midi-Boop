@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Hi-Hat - Notes 42/44/46 -->
+
+    <!-- Cymbale superieure -->
+    <ellipse cx="64" cy="36" rx="40" ry="14" fill="#D4A843" stroke="#B8960F" stroke-width="1.5"/>
+    <ellipse cx="64" cy="34" rx="10" ry="4" fill="#E8C84A" stroke="#B8960F" stroke-width="1"/>
+
+    <!-- Cymbale inferieure -->
+    <ellipse cx="64" cy="42" rx="40" ry="14" fill="#B8960F" stroke="#8B6914" stroke-width="1.5"/>
+
+    <!-- Tige centrale -->
+    <line x1="64" y1="22" x2="64" y2="110" stroke="#888" stroke-width="3"/>
+
+    <!-- Ecrou papillon en haut -->
+    <path d="M 60 24 L 64 20 L 68 24 L 64 28 Z" fill="#888" stroke="#666" stroke-width="1"/>
+
+    <!-- Trepied -->
+    <line x1="64" y1="110" x2="40" y2="122" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="110" x2="88" y2="122" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="64" y1="110" x2="64" y2="124" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Pedale -->
+    <rect x="52" y="118" width="24" height="6" rx="2" fill="#888" stroke="#666" stroke-width="1"/>
+
+</svg>
