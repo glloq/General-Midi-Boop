@@ -99,6 +99,14 @@ class LongitudinalPlanner {
 
     const speed = this.config.hand_move_mm_per_sec;
     this.handSpeedMmPerSec = Number.isFinite(speed) && speed > 0 ? speed : 250;
+    // Per-finger speed cap (mm/s). Bounds how fast a finger's offset
+    // relative to the hand can change. When at least one finger is
+    // anchored on a held note, the hand's effective travel speed
+    // becomes `min(handSpeedMmPerSec, fingerSpeedMmPerSec)` because
+    // moving the hand faster than the anchored finger can keep up
+    // would tear the finger off its target fret.
+    const fSpeed = this.config.finger_move_mm_per_sec;
+    this.fingerSpeedMmPerSec = Number.isFinite(fSpeed) && fSpeed > 0 ? fSpeed : 800;
 
     const a = this.config.anchor || {};
     this.minAnchorMs = Number.isFinite(a.min_duration_ms) ? a.min_duration_ms : DEFAULT_ANCHOR_MIN_DURATION_MS;
@@ -294,11 +302,18 @@ class LongitudinalPlanner {
       }
       if (band == null) continue;
 
-      // 5. Hand-speed constraint relative to previous P.
+      // 5. Speed constraint relative to previous P. With at least one
+      // finger anchored, the hand can move no faster than the slowest
+      // of (hand speed, finger speed) — because each anchored finger's
+      // offset changes by exactly `−ΔP`, so |ΔP| > V_finger · Δt would
+      // tear the finger off its anchored fret.
       let feasible = band;
       if (P != null && firstCCEmitted) {
         const dt = Math.max(0, g.time - (lastNoteOnTime ?? g.time));
-        const reach = this.handSpeedMmPerSec * dt;
+        const effectiveSpeed = anchors.size > 0
+          ? Math.min(this.handSpeedMmPerSec, this.fingerSpeedMmPerSec)
+          : this.handSpeedMmPerSec;
+        const reach = effectiveSpeed * dt;
         const speedBand = [P - reach, P + reach];
         const next = intersect(feasible, speedBand);
         if (next == null) {
@@ -306,13 +321,20 @@ class LongitudinalPlanner {
           // outside `[P − reach, P + reach]`. The hand cannot reach it
           // in time; saturate to the closest *reachable* point (which is
           // P + sign·reach, NOT clampToInterval(P, feasible) — that
-          // would silently jump to the unreachable target).
+          // would silently jump to the unreachable target). The warning
+          // code distinguishes which side dominated: `finger_speed_saturation`
+          // when the per-finger cap was the binding constraint (an anchor
+          // is active and the finger speed is the slower of the two);
+          // `speed_saturation` for the general hand-speed case.
           const requested = clampToInterval(P, feasible);
           const direction = requested >= P ? 1 : -1;
           const reachableP = P + direction * reach;
+          const fingerLimited = anchors.size > 0
+            && this.fingerSpeedMmPerSec < this.handSpeedMmPerSec;
           warnings.push({
-            time: g.time, code: 'speed_saturation',
-            message: `Hand speed ${this.handSpeedMmPerSec.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (target ${requested.toFixed(1)} mm from ${P.toFixed(1)} mm; reachable ${reachableP.toFixed(1)} mm).`
+            time: g.time,
+            code: fingerLimited ? 'finger_speed_saturation' : 'speed_saturation',
+            message: `${fingerLimited ? 'Finger' : 'Hand'} speed ${effectiveSpeed.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (target ${requested.toFixed(1)} mm from ${P.toFixed(1)} mm; reachable ${reachableP.toFixed(1)} mm).`
           });
           feasible = [reachableP, reachableP];
         } else {

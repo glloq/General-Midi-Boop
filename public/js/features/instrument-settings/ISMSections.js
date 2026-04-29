@@ -1565,6 +1565,7 @@
         const numStrings = tab?.stringInstrumentConfig?.num_strings ?? null;
         const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : 80;
         const moveMmPerSec = Number.isFinite(cfg.hand_move_mm_per_sec) ? cfg.hand_move_mm_per_sec : 250;
+        const fingerMoveMmPerSec = Number.isFinite(cfg.finger_move_mm_per_sec) ? cfg.finger_move_mm_per_sec : 800;
 
         const maxFingersDefault = Number.isFinite(numStrings) ? numStrings : 6;
         const maxFingers = Number.isFinite(hand.max_fingers) ? hand.max_fingers : maxFingersDefault;
@@ -1598,11 +1599,15 @@
             </div>
             <div class="ism-form-group ism-form-grid-2">
                 <div>
-                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse (mm/s)')}</label>
+                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse main (mm/s)')}</label>
                     <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique le long du manche.')}</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique de la main le long du manche.')}</span>
                 </div>
-                <div></div>
+                <div>
+                    <label>${t('instrumentSettings.handsFingerMoveSpeedMm', 'Vitesse doigt sur la main (mm/s)')}</label>
+                    <input type="number" id="handsFingerMoveMmPerSec" value="${fingerMoveMmPerSec}" min="50" max="5000">
+                    <span class="ism-form-hint">${t('instrumentSettings.handsFingerMoveSpeedMmHint', "Vitesse maximale d'un doigt par rapport à la main. Limite la vitesse effective de la main quand un doigt est ancré sur une note tenue.")}</span>
+                </div>
             </div>
         `;
 
@@ -1714,6 +1719,7 @@
                 mechanism: 'string_sliding_fingers',
                 hand_move_frets_per_sec: 12,
                 hand_move_mm_per_sec: 250,
+                finger_move_mm_per_sec: 800,
                 hands: [{
                     id: 'fretting',
                     cc_position_number: 22,
@@ -1776,6 +1782,7 @@
                 return Number.isFinite(v) ? v : null;
             };
             const moveMmPerSecRaw = parseInt(rootEl.querySelector('#handsMoveMmPerSec')?.value, 10);
+            const fingerMoveMmPerSecRaw = parseInt(rootEl.querySelector('#handsFingerMoveMmPerSec')?.value, 10);
             const handSpanMmOpt = readOptInt('hand_span_mm');
             const maxFingersOpt = readOptInt('max_fingers');
             const numFingersOpt = readOptInt('num_fingers');
@@ -1818,6 +1825,9 @@
             };
             if (Number.isFinite(moveMmPerSecRaw) && moveMmPerSecRaw > 0) {
                 out.hand_move_mm_per_sec = moveMmPerSecRaw;
+            }
+            if (Number.isFinite(fingerMoveMmPerSecRaw) && fingerMoveMmPerSecRaw > 0) {
+                out.finger_move_mm_per_sec = fingerMoveMmPerSecRaw;
             }
             return out;
         }

@@ -288,6 +288,13 @@ class InstrumentCapabilitiesValidator {
         reason: 'hand_move_mm_per_sec is only valid in frets mode.'
       });
     }
+    if (cfg.finger_move_mm_per_sec != null) {
+      issues.push({
+        field: 'hands_config.finger_move_mm_per_sec', label: 'Finger speed',
+        type: 'number', required: true,
+        reason: 'finger_move_mm_per_sec is only valid in frets mode.'
+      });
+    }
 
     const mode = cfg.assignment?.mode;
     if (mode && mode !== 'auto' && mode !== 'track' && mode !== 'pitch_split') {
@@ -480,6 +487,24 @@ class InstrumentCapabilitiesValidator {
         type: 'number', required: true,
         reason: 'hand_move_semitones_per_sec is only valid in semitones mode.'
       });
+    }
+
+    // Per-finger speed cap. The longitudinal anchored planner uses this
+    // to limit how fast a finger's offset relative to the hand can
+    // change — when at least one finger is anchored on a held note, the
+    // hand's effective travel speed becomes
+    // `min(hand_move_mm_per_sec, finger_move_mm_per_sec)`. Optional;
+    // the planner falls back to a sane internal default when absent.
+    if (cfg.finger_move_mm_per_sec != null) {
+      if (!Number.isFinite(cfg.finger_move_mm_per_sec)
+          || cfg.finger_move_mm_per_sec < 50
+          || cfg.finger_move_mm_per_sec > 5000) {
+        issues.push({
+          field: 'hands_config.finger_move_mm_per_sec', label: 'Finger speed (mm/s)',
+          type: 'number', required: true,
+          reason: 'finger_move_mm_per_sec must be between 50 and 5000.'
+        });
+      }
     }
 
     if (cfg.assignment != null) {

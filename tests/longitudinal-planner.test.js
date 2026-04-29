@@ -178,6 +178,34 @@ describe('LongitudinalPlanner — T8 speed_saturation warning on fast slides', (
     expect(warnings.find(w => w.code === 'speed_saturation')).toBeDefined();
   });
 
+  test('finger_speed_saturation fires when a finger is anchored and the per-finger speed is the binding constraint', () => {
+    // hand can move at 1000 mm/s but the finger can only do 100 mm/s.
+    // Anchored finger 1 on a long note keeps anchor alive (the bands
+    // overlap thanks to the wide span). Then a note on string 2 at
+    // fret 6 only 10 ms later forces the hand to shift ~50 mm, more
+    // than the finger speed can deliver in 10 ms (1 mm of reach).
+    // Lookahead is disabled so P_prev sits in the centre of the first
+    // band rather than being biased toward the second note (otherwise
+    // P_prev would already be inside the new band and no saturation
+    // would happen).
+    const cfg = makeConfig({
+      hand_move_mm_per_sec: 1000,
+      finger_move_mm_per_sec: 100,
+      anchor: { lookahead_events: 0 }
+    });
+    delete cfg.hands[0].fingers; // use auto-fingers, [0, span] per finger
+    cfg.hands[0].max_fingers = 4;
+    cfg.hands[0].hand_span_mm = 200;
+    const p = new LongitudinalPlanner(cfg, ctx());
+    const notes = [
+      note(0.0, 1, 1, 1.0),   // anchored on string 1, fret 1 (low)
+      note(0.01, 6, 2, 0.05)  // string 2 fret 6, only 10 ms later
+    ];
+    const { warnings } = p.plan(notes);
+    expect(warnings.find(w => w.code === 'finger_speed_saturation')).toBeDefined();
+    expect(warnings.find(w => w.code === 'release_forced')).toBeUndefined();
+  });
+
   test('saturated emission lands on the reachable position, not the unreachable target', () => {
     // 50 mm/s × 0.1 s = 5 mm of reach; jumping from fret 1 to fret 15 is
     // about 215 mm, vastly out of reach. The saturated CC must reflect a
