@@ -232,6 +232,7 @@
             for (const n of whiteNotes) {
                 const wk = document.createElement('div');
                 wk.className = 'minimap-wkey';
+                wk.dataset.note = n;
                 if (n % 12 === 0) wk.classList.add('octave-c'); // bolder line at every C
                 whiteRow.appendChild(wk);
             }
@@ -246,6 +247,7 @@
                 if (whiteBelow < 0) continue;
                 const bk = document.createElement('div');
                 bk.className = 'minimap-bkey';
+                bk.dataset.note = n;
                 bk.style.width = `${wPct * 0.6}%`;
                 bk.style.left = `${wPct * (whiteBelow + 0.7)}%`;
                 bg.appendChild(bk);
@@ -254,6 +256,15 @@
             // Insert bg before the viewport so the viewport overlays it.
             track.insertBefore(bg, viewport);
         }
+
+        // Refresh the playable/disabled state of every minimap key based on
+        // the current instrument's capabilities.
+        const keys = track.querySelectorAll('.minimap-wkey, .minimap-bkey');
+        keys.forEach(k => {
+            const midi = parseInt(k.dataset.note, 10);
+            const playable = this.isNotePlayable(midi);
+            k.classList.toggle('disabled', !playable);
+        });
 
         // Update viewport position/width using semitone-based units so it lines
         // up tightly with the visible keyboard range.
