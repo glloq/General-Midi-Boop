@@ -41,9 +41,11 @@
     background: white;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 1200px;
-    width: 95%;
-    max-height: 90vh;
+    /* Take nearly the full viewport width so the keys are as large as possible. */
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    height: calc(100vh - 24px);
     display: flex !important;
     flex-direction: column !important;
     animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -52,19 +54,12 @@
 
 @keyframes slideUp {
     from {
-        transform: translateY(30px) scale(0.95);
+        transform: translateY(30px) scale(0.97);
         opacity: 0;
     }
     to {
         transform: translateY(0) scale(1);
         opacity: 1;
-    }
-}
-
-/* Ajustement pour très grands écrans */
-@media (min-width: 1400px) {
-    .keyboard-modal .modal-dialog {
-        max-width: 1400px;
     }
 }
 
@@ -875,9 +870,12 @@
     background: linear-gradient(to bottom, #6b3e1a 0%, #4a2912 100%);
     border-radius: 8px;
     padding: 12px 8px;
-    overflow: auto;
+    overflow: hidden;
     box-sizing: border-box;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .fretboard-container.hidden { display: none; }
@@ -885,14 +883,23 @@
 .fretboard-container .fret-header,
 .fretboard-container .fret-string {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(36px, 1fr);
+    /* grid-template-columns is set inline at render time using realistic
+       equal-tempered fret spacing (open-string column + computed widths). */
     gap: 0;
     align-items: stretch;
 }
 
 .fretboard-container .fret-header {
+    height: 22px;
+    flex-shrink: 0;
     margin-bottom: 6px;
+}
+
+/* Each string row stretches to fill the remaining height so the fretboard
+   adapts to any number of strings (4 for a bass, 47 for a harp). */
+.fretboard-container .fret-string {
+    flex: 1;
+    min-height: 22px;
 }
 
 .fretboard-container .fret-number {
@@ -920,10 +927,17 @@
     font-size: 12px;
 }
 
+/* Visual string: single white horizontal line through the middle of the row. */
 .fretboard-container .fret-string {
-    height: 38px;
     border-top: 1px solid rgba(0, 0, 0, 0.4);
-    background: linear-gradient(to bottom, transparent 49%, rgba(220, 220, 220, 0.7) 49%, rgba(220, 220, 220, 0.7) 51%, transparent 51%);
+    background:
+        linear-gradient(
+            to bottom,
+            transparent calc(50% - 1px),
+            rgba(220, 220, 220, 0.85) calc(50% - 1px),
+            rgba(220, 220, 220, 0.85) calc(50% + 1px),
+            transparent calc(50% + 1px)
+        );
 }
 
 .fretboard-container .fret-cell {
@@ -948,8 +962,11 @@
 }
 
 .fretboard-container .fret-dot {
-    width: 28px;
-    height: 28px;
+    /* Scale the dot to roughly fit the row height; capped so it doesn't
+       grow ridiculous when there are only a few strings. */
+    height: min(80%, 32px);
+    aspect-ratio: 1;
+    max-width: 90%;
     border-radius: 50%;
     background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
     border: 1px solid #333;
@@ -990,14 +1007,34 @@
     border-radius: 8px;
     padding: 16px;
     box-sizing: border-box;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
     overflow: auto;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .drumpad-container.hidden { display: none; }
+
+.drumpad-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.drumpad-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: rgba(229, 231, 235, 0.55);
+    border-bottom: 1px solid rgba(229, 231, 235, 0.12);
+    padding-bottom: 4px;
+}
+.drumpad-group-pads {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+}
 
 .drumpad-container .drum-pad {
     position: relative;

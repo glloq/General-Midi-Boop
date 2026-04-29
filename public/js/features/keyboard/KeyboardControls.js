@@ -199,6 +199,12 @@
                 if (settings.keyboardNotation && ['english', 'solfege', 'midi'].includes(settings.keyboardNotation)) {
                     this.noteLabelFormat = settings.keyboardNotation;
                 }
+
+                // Physical keyboard layout (AZERTY / QWERTY) is owned by the
+                // global settings modal — re-read it every time the modal opens.
+                if (settings.keyboardLayout && ['azerty', 'qwerty'].includes(settings.keyboardLayout)) {
+                    this.keyboardLayout = settings.keyboardLayout;
+                }
             }
         } catch (error) {
             this.logger.error('[KeyboardModal] Failed to load settings:', error);

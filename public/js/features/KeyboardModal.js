@@ -104,23 +104,9 @@ class KeyboardModalNew {
         setLabel('.keyboard-header-controls .latency-group label', 'keyboard.latency');
         setLabel('.keyboard-header-controls .view-mode-group label', 'keyboard.view');
         setLabel('.keyboard-header-controls .notation-group label', 'keyboard.notation');
-        const layoutLabel = this.container.querySelector('#keyboard-layout-select')?.parentElement?.querySelector('label');
-        if (layoutLabel) layoutLabel.textContent = this.t('keyboard.layout');
 
         // Note range display
         this._updateOctaveDisplay();
-
-        // PC Keys label
-        const pcKeysLabel = this.container.querySelector('.keyboard-help-bar .info-label');
-        if (pcKeysLabel) pcKeysLabel.textContent = this.t('keyboard.pcKeys');
-
-        // Keyboard help text
-        const helpText = document.getElementById('keyboard-help-text');
-        if (helpText) {
-            helpText.textContent = this.keyboardLayout === 'azerty'
-                ? this.t('keyboard.azertyHelp')
-                : this.t('keyboard.qwertyHelp');
-        }
 
         // Default select
         const deviceSelect = document.getElementById('keyboard-device-select');
