@@ -4,6 +4,31 @@ All notable changes to Général Midi Boop are documented in this file.
 
 ## [Unreleased]
 
+### Changed — Longitudinal anchored model is now always-on
+
+- `string_sliding_fingers` instruments automatically use the
+  `LongitudinalPlanner` whenever `scale_length_mm` is set. The toggle
+  and the per-finger / anchor / dense-CC panel that briefly shipped in
+  the V1.5 iteration are gone — the model is config-less from the user's
+  point of view (1 finger per string, derived from `max_fingers`, each
+  free to move within `[0, hand_span_mm]`).
+- New `hands_config.finger_move_mm_per_sec` (50–5000 mm/s) sits next to
+  `hand_move_mm_per_sec` in the instrument settings modal. When a finger
+  is anchored on a held note, the hand's effective travel speed becomes
+  `min(hand_speed, finger_speed)`; the `finger_speed_saturation` warning
+  is surfaced when the per-finger cap is the binding constraint.
+- The hand-position editor now draws one finger per string (instead of
+  spreading them) and overlays an anchor marker on each finger pinned by
+  a held note. The timeline draws a horizontal segment along the played
+  fret for any note ≥ 60 ms, so anchored fingers stay visually pinned
+  across hand shifts.
+- Migration `011_strip_legacy_longitudinal_fields.sql` purges the legacy
+  V1.5 fields (`hands[0].fingers[]`, `anchor.*`, `cc_sample_rate_hz`)
+  from persisted `hands_config` payloads. The validator silently
+  tolerates them on read until the migration runs.
+- Docs reorganized: see `docs/LONGITUDINAL_MODEL.md` (spec) and
+  `docs/STRING_HAND_POSITION.md` §2.3 (pipeline integration).
+
 ### Added — Hand-position control (Phase 1: keyboards)
 
 - New per-instrument `hands_config` (optional JSON column on

@@ -48,9 +48,9 @@
  *      band within `hysteresis_mm`, keep it.
  *   6. Promote the new note to anchored if `duration ≥ min_duration_ms`.
  *
- * Sparse output by default (one CC per shift). When
- * `cc_sample_rate_hz > 0` the planner additionally emits intermediate
- * CCs interpolated linearly in mm between the trajectory key points.
+ * Sparse output: one CC per shift. The hardware controller is expected
+ * to interpolate between successive CC values according to its own
+ * mechanical profile.
  */
 
 const EPSILON_SECONDS = 0.0001;
@@ -76,13 +76,21 @@ class LongitudinalPlanner {
     if (!hand) throw new Error('LongitudinalPlanner: missing fretting hand.');
     this.hand = hand;
 
-    const fingers = Array.isArray(hand.fingers) ? hand.fingers : null;
-    if (!fingers || fingers.length === 0) {
-      throw new Error('LongitudinalPlanner: hand.fingers[] is required.');
-    }
-    this.fingers = fingers;
+    // Finger model. Two paths:
+    //
+    //   - Legacy: `hand.fingers[]` is supplied (V1.5 opt-in panel). The
+    //     planner respects the per-finger offset bands as authored.
+    //   - Default (always-on simplified model): no `fingers[]` is given.
+    //     The planner auto-derives one finger per string up to
+    //     `max_fingers`, with each finger free to move anywhere within
+    //     the hand width (`offset ∈ [0, hand_span_mm]`). This matches
+    //     the simplified spec in docs/LONGITUDINAL_MODEL.md.
+    const explicitFingers = Array.isArray(hand.fingers) && hand.fingers.length > 0
+      ? hand.fingers
+      : null;
+    this.fingers = explicitFingers || this._deriveAutoFingers(hand);
     this.fingerByString = new Map();
-    for (const f of fingers) this.fingerByString.set(f.string, f);
+    for (const f of this.fingers) this.fingerByString.set(f.string, f);
 
     this.scaleLengthMm = this.ctx.scaleLengthMm;
     if (!Number.isFinite(this.scaleLengthMm) || this.scaleLengthMm <= 0) {
@@ -91,15 +99,23 @@ class LongitudinalPlanner {
 
     const speed = this.config.hand_move_mm_per_sec;
     this.handSpeedMmPerSec = Number.isFinite(speed) && speed > 0 ? speed : 250;
+    // Per-finger speed cap (mm/s). Bounds how fast a finger's offset
+    // relative to the hand can change. When at least one finger is
+    // anchored on a held note, the hand's effective travel speed
+    // becomes `min(handSpeedMmPerSec, fingerSpeedMmPerSec)` because
+    // moving the hand faster than the anchored finger can keep up
+    // would tear the finger off its target fret.
+    const fSpeed = this.config.finger_move_mm_per_sec;
+    this.fingerSpeedMmPerSec = Number.isFinite(fSpeed) && fSpeed > 0 ? fSpeed : 800;
 
+    // Anchor lifecycle constants. The first iteration exposed these
+    // through `hands_config.anchor.{min_duration_ms, hysteresis_mm,
+    // lookahead_events}`; the simplified always-on model uses fixed
+    // defaults so the user has no extra knob to set. The optional
+    // legacy block is still read for tests and tooling that need to
+    // override the defaults, but it is not part of the public schema.
     const a = this.config.anchor || {};
     this.minAnchorMs = Number.isFinite(a.min_duration_ms) ? a.min_duration_ms : DEFAULT_ANCHOR_MIN_DURATION_MS;
-    // Reserved: budget (ms) for forced anchor releases that happen close
-    // to a note's natural t_off — used by a future cost-aware release
-    // ranker to distinguish "barely-shortened" from "significantly-cut"
-    // notes. Currently parsed and validated but not yet consumed by
-    // `_tryReleaseConflict`, which releases unconditionally.
-    this.earlyReleaseMs = Number.isFinite(a.early_release_ms) ? a.early_release_ms : DEFAULT_ANCHOR_EARLY_RELEASE_MS;
     this.hysteresisMm = Number.isFinite(a.hysteresis_mm) ? a.hysteresis_mm : DEFAULT_HYSTERESIS_MM;
     this.lookahead = Number.isInteger(a.lookahead_events) ? a.lookahead_events : DEFAULT_LOOKAHEAD;
 
@@ -107,20 +123,42 @@ class LongitudinalPlanner {
     this.noteRangeMin = this.ctx.noteRangeMin ?? 0;
     this.noteRangeMax = this.ctx.noteRangeMax ?? 24;
 
-    // Optional dense CC stream. When > 0, the planner emits intermediate
-    // samples between consecutive shift events at the configured rate so
-    // the hardware sees a continuous trajectory rather than discrete
-    // jumps. Interpolation is linear in millimetres, then mapped back to
-    // fret for the CC value (so the rate of change in mm/s is constant
-    // between key events). 0 (default) reproduces the V1 sparse stream.
-    const rate = this.config.cc_sample_rate_hz;
-    this.ccSampleRateHz = Number.isFinite(rate) && rate > 0 ? rate : 0;
-
     // Pre-compute the global mm-window the hand must stay within so the
     // emitted CC value (a fret number) is always in [noteRangeMin,
     // noteRangeMax]. The CC encodes the leftmost-finger fret = fret(P + minOff).
-    this.minOffsetMm = Math.min(...fingers.map((f) => f.offset_min_mm));
-    this.maxOffsetMm = Math.max(...fingers.map((f) => f.offset_max_mm));
+    this.minOffsetMm = Math.min(...this.fingers.map((f) => f.offset_min_mm));
+    this.maxOffsetMm = Math.max(...this.fingers.map((f) => f.offset_max_mm));
+  }
+
+  /**
+   * Auto-derive a finger list when `hand.fingers[]` is not supplied.
+   * One finger per string, indexed 1..N where N = clamp(max_fingers, 1, 12).
+   * Each finger shares the same offset band `[0, hand_span_mm]`: a finger
+   * can be anywhere within the hand's reach. The simplification trades
+   * per-finger ergonomic bounds (which the V1.5 panel exposed) for a
+   * config-less default that matches the always-on anchored spec.
+   * @private
+   */
+  _deriveAutoFingers(hand) {
+    const span = Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0
+      ? hand.hand_span_mm
+      : 80;
+    const requested = Number.isInteger(hand.max_fingers) && hand.max_fingers > 0
+      ? hand.max_fingers
+      : 4;
+    const N = Math.min(12, Math.max(1, requested));
+    const out = [];
+    for (let i = 1; i <= N; i++) {
+      out.push({
+        id: i,
+        string: i,
+        offset_min_mm: 0,
+        offset_max_mm: span,
+        rest_offset_mm: span / 2,
+        _autoDerived: true
+      });
+    }
+    return out;
   }
 
   /** Convert fret number to position in mm (equal-temperament geometry). */
@@ -168,12 +206,6 @@ class LongitudinalPlanner {
     let lastNoteOnTime = null;
     let lastSingleNoteOnTime = null;
     let firstCCEmitted = false;
-    // Trajectory log: P_mm value the hand should be at at each group's
-    // note-on time. Used by `_densifyTrajectory` to interpolate at the
-    // configured sample rate. Always recorded, even when no CC is emitted
-    // (rounded fret unchanged), so the dense stream still moves smoothly
-    // through small mm-level adjustments.
-    const trajectory = [];
 
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi];
@@ -255,11 +287,18 @@ class LongitudinalPlanner {
       }
       if (band == null) continue;
 
-      // 5. Hand-speed constraint relative to previous P.
+      // 5. Speed constraint relative to previous P. With at least one
+      // finger anchored, the hand can move no faster than the slowest
+      // of (hand speed, finger speed) — because each anchored finger's
+      // offset changes by exactly `−ΔP`, so |ΔP| > V_finger · Δt would
+      // tear the finger off its anchored fret.
       let feasible = band;
       if (P != null && firstCCEmitted) {
         const dt = Math.max(0, g.time - (lastNoteOnTime ?? g.time));
-        const reach = this.handSpeedMmPerSec * dt;
+        const effectiveSpeed = anchors.size > 0
+          ? Math.min(this.handSpeedMmPerSec, this.fingerSpeedMmPerSec)
+          : this.handSpeedMmPerSec;
+        const reach = effectiveSpeed * dt;
         const speedBand = [P - reach, P + reach];
         const next = intersect(feasible, speedBand);
         if (next == null) {
@@ -267,13 +306,20 @@ class LongitudinalPlanner {
           // outside `[P − reach, P + reach]`. The hand cannot reach it
           // in time; saturate to the closest *reachable* point (which is
           // P + sign·reach, NOT clampToInterval(P, feasible) — that
-          // would silently jump to the unreachable target).
+          // would silently jump to the unreachable target). The warning
+          // code distinguishes which side dominated: `finger_speed_saturation`
+          // when the per-finger cap was the binding constraint (an anchor
+          // is active and the finger speed is the slower of the two);
+          // `speed_saturation` for the general hand-speed case.
           const requested = clampToInterval(P, feasible);
           const direction = requested >= P ? 1 : -1;
           const reachableP = P + direction * reach;
+          const fingerLimited = anchors.size > 0
+            && this.fingerSpeedMmPerSec < this.handSpeedMmPerSec;
           warnings.push({
-            time: g.time, code: 'speed_saturation',
-            message: `Hand speed ${this.handSpeedMmPerSec.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (target ${requested.toFixed(1)} mm from ${P.toFixed(1)} mm; reachable ${reachableP.toFixed(1)} mm).`
+            time: g.time,
+            code: fingerLimited ? 'finger_speed_saturation' : 'speed_saturation',
+            message: `${fingerLimited ? 'Finger' : 'Hand'} speed ${effectiveSpeed.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (target ${requested.toFixed(1)} mm from ${P.toFixed(1)} mm; reachable ${reachableP.toFixed(1)} mm).`
           });
           feasible = [reachableP, reachableP];
         } else {
@@ -331,37 +377,26 @@ class LongitudinalPlanner {
       const prevFret = P != null ? Math.round(this.mmToFret(P + this.minOffsetMm)) : null;
       const needEmit = !firstCCEmitted || prevFret !== fretValue;
       if (needEmit) {
-        let ccTime;
-        if (!firstCCEmitted) {
-          ccTime = g.time - EPSILON_SECONDS;
-        } else if (this.ccSampleRateHz > 0) {
-          // Dense mode: the explicit trajectory ramp drives the hand
-          // between note-ons, so the sparse CC must land just before
-          // its own note rather than right after the previous one.
-          // Otherwise the early jump fights the interpolated samples.
-          ccTime = g.time - EPSILON_SECONDS;
-        } else {
-          ccTime = (lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
-        }
+        // CC timing follows the V1 "as early as possible" rule: emit
+        // just before the first note (initial placement), and right
+        // after the previous note-on for subsequent shifts so the hand
+        // has the maximum mechanical travel time available.
+        const ccTime = !firstCCEmitted
+          ? g.time - EPSILON_SECONDS
+          : (lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
         ccEvents.push({
           time: ccTime,
           type: 'controller',
           channel: notes[g.notes[0]].channel,
           controller: this.hand.cc_position_number,
           value: clamp7bit(fretValue),
-          hand: this.hand.id,
-          _pMm: P_new
+          hand: this.hand.id
         });
         firstCCEmitted = true;
         if (P != null) stats.shifts++;
       }
 
       P = P_new;
-      trajectory.push({
-        time: g.time,
-        P_mm: P_new,
-        channel: notes[g.notes[0]].channel
-      });
 
       // Finger-interval (single-note) check for hardware comfort.
       if (g.notes.length === 1 && this.minNoteIntervalMs > 0 && lastSingleNoteOnTime != null) {
@@ -377,60 +412,7 @@ class LongitudinalPlanner {
       lastNoteOnTime = g.time;
     }
 
-    const finalEvents = this.ccSampleRateHz > 0
-      ? this._densifyFromTrajectory(ccEvents, trajectory)
-      : ccEvents;
-    // Strip internal trajectory metadata before returning.
-    for (const e of finalEvents) delete e._pMm;
-    return { ccEvents: finalEvents, warnings, stats };
-  }
-
-  /**
-   * Insert intermediate CC samples between consecutive trajectory key
-   * points (one per note-on group) so the hand position P(t) varies
-   * linearly between them at `cc_sample_rate_hz`. The original sparse
-   * shift events are kept (their timing follows the V1 "as early as
-   * possible" semantics) and the dense interpolated samples are placed
-   * strictly inside `[trajectory_k.time, trajectory_{k+1}.time)`.
-   *
-   * Linear in millimetres, then converted to fret for the CC value.
-   * Duplicate consecutive values are dropped so the bus is not flooded
-   * with identical CCs.
-   * @private
-   */
-  _densifyFromTrajectory(events, trajectory) {
-    if (this.ccSampleRateHz <= 0 || trajectory.length < 2) return events;
-    const period = 1 / this.ccSampleRateHz;
-    const interpolated = [];
-    let lastValue = null;
-    for (let i = 0; i < trajectory.length - 1; i++) {
-      const a = trajectory[i];
-      const b = trajectory[i + 1];
-      const dt = b.time - a.time;
-      if (dt <= period) continue;
-      const steps = Math.floor(dt / period);
-      for (let k = 1; k <= steps; k++) {
-        const u = k / (steps + 1);
-        const t = a.time + u * dt;
-        if (t >= b.time) break;
-        const pMm = a.P_mm + (b.P_mm - a.P_mm) * u;
-        const value = clamp7bit(Math.round(this.mmToFret(pMm + this.minOffsetMm)));
-        if (lastValue === value) continue;
-        interpolated.push({
-          time: t,
-          type: 'controller',
-          channel: a.channel,
-          controller: this.hand.cc_position_number,
-          value,
-          hand: this.hand.id,
-          _interpolated: true
-        });
-        lastValue = value;
-      }
-    }
-    if (interpolated.length === 0) return events;
-    const merged = events.concat(interpolated).sort((x, y) => x.time - y.time);
-    return merged;
+    return { ccEvents, warnings, stats };
   }
 
   /** @private */

@@ -1544,135 +1544,6 @@
     };
 
     /**
-     * Render the optional "longitudinal anchored mode" section. Visible
-     * only under `string_sliding_fingers`. When the toggle is on, the
-     * MidiPlayer picks the LongitudinalPlanner (per-finger explicit
-     * model with anchored-finger semantics) instead of the V1 window
-     * planner. See docs/LONGITUDINAL_MODEL.md for the spec.
-     *
-     * Fields exposed:
-     *   - fingers[]: per-finger offset bands (min/max/rest in mm)
-     *   - anchor.{min_duration_ms, early_release_ms, hysteresis_mm,
-     *     lookahead_events}
-     *   - cc_sample_rate_hz: dense CC stream rate (0 disables)
-     *
-     * @private
-     */
-    ISMSections._renderLongitudinalSection = function(cfg, hand, numStrings, maxFingers, t) {
-        const fingers = Array.isArray(hand.fingers) ? hand.fingers : null;
-        const enabled = !!fingers && fingers.length > 0;
-        const anchor = cfg.anchor || {};
-        const minDurationMs = Number.isFinite(anchor.min_duration_ms) ? anchor.min_duration_ms : 60;
-        const earlyReleaseMs = Number.isFinite(anchor.early_release_ms) ? anchor.early_release_ms : 20;
-        const hysteresisMm = Number.isFinite(anchor.hysteresis_mm) ? anchor.hysteresis_mm : 3;
-        const lookaheadEvents = Number.isInteger(anchor.lookahead_events) ? anchor.lookahead_events : 2;
-        const ccSampleRateHz = Number.isFinite(cfg.cc_sample_rate_hz) ? cfg.cc_sample_rate_hz : 0;
-
-        // Default finger layout: one finger per string, evenly spaced
-        // bands across the hand width. Used to seed the table when the
-        // user enables the mode for the first time.
-        const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : 80;
-        const rowCount = enabled
-            ? fingers.length
-            : Math.min(maxFingers, Number.isFinite(numStrings) ? numStrings : 4);
-        const defaults = [];
-        for (let i = 0; i < rowCount; i++) {
-            const stride = handSpanMm / Math.max(1, rowCount - 1);
-            const center = i * stride;
-            defaults.push({
-                id: i + 1,
-                string: i + 1,
-                offset_min_mm: Math.round(center - 20),
-                offset_max_mm: Math.round(center + 30),
-                rest_offset_mm: Math.round(center)
-            });
-        }
-        const rows = enabled ? fingers : defaults;
-
-        const fingerRows = rows.map((f, i) => {
-            const id = Number.isInteger(f.id) ? f.id : i + 1;
-            const str = Number.isInteger(f.string) ? f.string : i + 1;
-            const offMin = Number.isFinite(f.offset_min_mm) ? f.offset_min_mm : 0;
-            const offMax = Number.isFinite(f.offset_max_mm) ? f.offset_max_mm : 30;
-            const offRest = Number.isFinite(f.rest_offset_mm) ? f.rest_offset_mm : Math.round((offMin + offMax) / 2);
-            return `
-                <tr class="ism-longi-finger-row" data-finger-index="${i}">
-                    <td><input type="number" class="ism-longi-finger-id" min="1" max="12" value="${id}"></td>
-                    <td><input type="number" class="ism-longi-finger-string" min="1" max="12" value="${str}"></td>
-                    <td><input type="number" class="ism-longi-finger-offmin" step="1" value="${offMin}"></td>
-                    <td><input type="number" class="ism-longi-finger-offmax" step="1" value="${offMax}"></td>
-                    <td><input type="number" class="ism-longi-finger-rest" step="1" value="${offRest}"></td>
-                </tr>
-            `;
-        }).join('');
-
-        return `
-            <div class="ism-longitudinal-section" style="margin-top:16px;padding:12px;border:1px solid #d6d6d6;border-radius:6px;background:#fafafa">
-                <div class="ism-form-group">
-                    <label style="font-weight:600">
-                        <input type="checkbox" id="handsLongitudinalEnabled" ${enabled ? 'checked' : ''}>
-                        ${t('instrumentSettings.handsLongitudinalEnabled', 'Mode longitudinal ancré (planner V2)')}
-                    </label>
-                    <span class="ism-form-hint">
-                        ${t('instrumentSettings.handsLongitudinalHint', 'Modèle explicite par doigt (un doigt fixé par corde) avec ancrage des notes tenues. Voir docs/LONGITUDINAL_MODEL.md.')}
-                    </span>
-                </div>
-                <div class="ism-longitudinal-body" data-enabled="${enabled ? '1' : '0'}" ${enabled ? '' : 'style="opacity:0.5;pointer-events:none"'}>
-                    <h5 style="margin:8px 0 4px">${t('instrumentSettings.handsLongitudinalFingersTitle', 'Doigts (un par corde)')}</h5>
-                    <table class="ism-longi-fingers-table" style="width:100%;border-collapse:collapse;font-size:12px">
-                        <thead>
-                            <tr style="text-align:left">
-                                <th>${t('instrumentSettings.handsLongiColId', 'id')}</th>
-                                <th>${t('instrumentSettings.handsLongiColString', 'corde')}</th>
-                                <th>${t('instrumentSettings.handsLongiColOffMin', 'offset min (mm)')}</th>
-                                <th>${t('instrumentSettings.handsLongiColOffMax', 'offset max (mm)')}</th>
-                                <th>${t('instrumentSettings.handsLongiColRest', 'rest (mm)')}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="ism-longi-fingers-body">${fingerRows}</tbody>
-                    </table>
-
-                    <h5 style="margin:12px 0 4px">${t('instrumentSettings.handsLongitudinalAnchorTitle', 'Ancrage')}</h5>
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>${t('instrumentSettings.handsLongiMinDuration', 'Durée min. ancrage (ms)')}</label>
-                            <input type="number" id="handsLongiMinDuration" min="0" max="5000" step="10" value="${minDurationMs}">
-                            <span class="ism-form-hint">${t('instrumentSettings.handsLongiMinDurationHint', "Une note plus courte que ce seuil n'est pas ancrée.")}</span>
-                        </div>
-                        <div>
-                            <label>${t('instrumentSettings.handsLongiEarlyRelease', 'Libération anticipée (ms)')}</label>
-                            <input type="number" id="handsLongiEarlyRelease" min="0" max="1000" step="5" value="${earlyReleaseMs}">
-                            <span class="ism-form-hint">${t('instrumentSettings.handsLongiEarlyReleaseHint', 'Marge accordée pour libérer une ancre avant la fin de la note (réservé pour le coût futur).')}</span>
-                        </div>
-                    </div>
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>${t('instrumentSettings.handsLongiHysteresis', 'Hystérésis (mm)')}</label>
-                            <input type="number" id="handsLongiHysteresis" min="0" max="50" step="0.5" value="${hysteresisMm}">
-                            <span class="ism-form-hint">${t('instrumentSettings.handsLongiHysteresisHint', 'La main ne bouge pas tant que la cible reste à moins de cette distance.')}</span>
-                        </div>
-                        <div>
-                            <label>${t('instrumentSettings.handsLongiLookahead', 'Lookahead (événements)')}</label>
-                            <input type="number" id="handsLongiLookahead" min="0" max="32" step="1" value="${lookaheadEvents}">
-                            <span class="ism-form-hint">${t('instrumentSettings.handsLongiLookaheadHint', 'Nombre de notes futures considérées pour anticiper le déplacement.')}</span>
-                        </div>
-                    </div>
-
-                    <h5 style="margin:12px 0 4px">${t('instrumentSettings.handsLongitudinalCCTitle', 'Stream CC')}</h5>
-                    <div class="ism-form-group ism-form-grid-2">
-                        <div>
-                            <label>${t('instrumentSettings.handsLongiCCRate', 'Densité CC (Hz)')}</label>
-                            <input type="number" id="handsLongiCCRate" min="0" max="200" step="1" value="${ccSampleRateHz}">
-                            <span class="ism-form-hint">${t('instrumentSettings.handsLongiCCRateHint', '0 = un CC par shift (V1). >0 = rampe interpolée à cette fréquence entre les notes-clés.')}</span>
-                        </div>
-                        <div></div>
-                    </div>
-                </div>
-            </div>
-        `;
-    };
-
-    /**
      * Per-mechanism form. The shape of the inputs depends on the
      * selected mechanism — string_sliding_fingers exposes the existing
      * mm-based reach + max_fingers; fret_sliding_fingers replaces
@@ -1694,6 +1565,7 @@
         const numStrings = tab?.stringInstrumentConfig?.num_strings ?? null;
         const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : 80;
         const moveMmPerSec = Number.isFinite(cfg.hand_move_mm_per_sec) ? cfg.hand_move_mm_per_sec : 250;
+        const fingerMoveMmPerSec = Number.isFinite(cfg.finger_move_mm_per_sec) ? cfg.finger_move_mm_per_sec : 800;
 
         const maxFingersDefault = Number.isFinite(numStrings) ? numStrings : 6;
         const maxFingers = Number.isFinite(hand.max_fingers) ? hand.max_fingers : maxFingersDefault;
@@ -1727,11 +1599,15 @@
             </div>
             <div class="ism-form-group ism-form-grid-2">
                 <div>
-                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse (mm/s)')}</label>
+                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse main (mm/s)')}</label>
                     <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique le long du manche.')}</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique de la main le long du manche.')}</span>
                 </div>
-                <div></div>
+                <div>
+                    <label>${t('instrumentSettings.handsFingerMoveSpeedMm', 'Vitesse doigt sur la main (mm/s)')}</label>
+                    <input type="number" id="handsFingerMoveMmPerSec" value="${fingerMoveMmPerSec}" min="50" max="5000">
+                    <span class="ism-form-hint">${t('instrumentSettings.handsFingerMoveSpeedMmHint', "Vitesse maximale d'un doigt par rapport à la main. Limite la vitesse effective de la main quand un doigt est ancré sur une note tenue.")}</span>
+                </div>
             </div>
         `;
 
@@ -1747,7 +1623,6 @@
                     </div>
                     <div></div>
                 </div>
-                ${ISMSections._renderLongitudinalSection(cfg, hand, numStrings, maxFingers, t)}
             `;
         } else if (mechanism === 'fret_sliding_fingers') {
             mechanismFields = `
@@ -1844,6 +1719,7 @@
                 mechanism: 'string_sliding_fingers',
                 hand_move_frets_per_sec: 12,
                 hand_move_mm_per_sec: 250,
+                finger_move_mm_per_sec: 800,
                 hands: [{
                     id: 'fretting',
                     cc_position_number: 22,
@@ -1906,6 +1782,7 @@
                 return Number.isFinite(v) ? v : null;
             };
             const moveMmPerSecRaw = parseInt(rootEl.querySelector('#handsMoveMmPerSec')?.value, 10);
+            const fingerMoveMmPerSecRaw = parseInt(rootEl.querySelector('#handsFingerMoveMmPerSec')?.value, 10);
             const handSpanMmOpt = readOptInt('hand_span_mm');
             const maxFingersOpt = readOptInt('max_fingers');
             const numFingersOpt = readOptInt('num_fingers');
@@ -1932,35 +1809,6 @@
             // the optional variable_height_fingers_count.
             if (mechanism === 'string_sliding_fingers') {
                 if (maxFingersOpt != null) hand.max_fingers = maxFingersOpt;
-
-                // Longitudinal anchored mode (opt-in). Only emit the
-                // fingers[] array when the toggle is on so legacy rows
-                // stay on the V1 window planner. Schema validated by
-                // _validateFingersArray (see InstrumentCapabilitiesValidator).
-                const longiEnabled = !!rootEl.querySelector('#handsLongitudinalEnabled')?.checked;
-                if (longiEnabled) {
-                    const fingers = [];
-                    const rows = rootEl.querySelectorAll('.ism-longi-finger-row');
-                    rows.forEach((tr) => {
-                        const id = parseInt(tr.querySelector('.ism-longi-finger-id')?.value, 10);
-                        const str = parseInt(tr.querySelector('.ism-longi-finger-string')?.value, 10);
-                        const offMin = parseFloat(tr.querySelector('.ism-longi-finger-offmin')?.value);
-                        const offMax = parseFloat(tr.querySelector('.ism-longi-finger-offmax')?.value);
-                        const restRaw = parseFloat(tr.querySelector('.ism-longi-finger-rest')?.value);
-                        if (!Number.isInteger(id) || !Number.isInteger(str)
-                                || !Number.isFinite(offMin) || !Number.isFinite(offMax)) {
-                            return; // skip malformed row; backend validator will surface the issue
-                        }
-                        const entry = {
-                            id, string: str,
-                            offset_min_mm: offMin,
-                            offset_max_mm: offMax
-                        };
-                        if (Number.isFinite(restRaw)) entry.rest_offset_mm = restRaw;
-                        fingers.push(entry);
-                    });
-                    if (fingers.length > 0) hand.fingers = fingers;
-                }
             } else if (mechanism === 'fret_sliding_fingers') {
                 if (numFingersOpt != null) hand.num_fingers = numFingersOpt;
                 if (variableHeightFingersOpt != null) {
@@ -1978,24 +1826,8 @@
             if (Number.isFinite(moveMmPerSecRaw) && moveMmPerSecRaw > 0) {
                 out.hand_move_mm_per_sec = moveMmPerSecRaw;
             }
-
-            // Longitudinal anchor block + dense-CC rate. Always read; only
-            // attach when the longitudinal toggle is enabled (the planner
-            // only consumes them in V2 mode anyway).
-            if (mechanism === 'string_sliding_fingers'
-                && !!rootEl.querySelector('#handsLongitudinalEnabled')?.checked) {
-                const minDur = parseFloat(rootEl.querySelector('#handsLongiMinDuration')?.value);
-                const earlyRel = parseFloat(rootEl.querySelector('#handsLongiEarlyRelease')?.value);
-                const hyst = parseFloat(rootEl.querySelector('#handsLongiHysteresis')?.value);
-                const look = parseInt(rootEl.querySelector('#handsLongiLookahead')?.value, 10);
-                const ccRate = parseFloat(rootEl.querySelector('#handsLongiCCRate')?.value);
-                const anchor = {};
-                if (Number.isFinite(minDur)) anchor.min_duration_ms = minDur;
-                if (Number.isFinite(earlyRel)) anchor.early_release_ms = earlyRel;
-                if (Number.isFinite(hyst)) anchor.hysteresis_mm = hyst;
-                if (Number.isInteger(look)) anchor.lookahead_events = look;
-                if (Object.keys(anchor).length > 0) out.anchor = anchor;
-                if (Number.isFinite(ccRate) && ccRate >= 0) out.cc_sample_rate_hz = ccRate;
+            if (Number.isFinite(fingerMoveMmPerSecRaw) && fingerMoveMmPerSecRaw > 0) {
+                out.finger_move_mm_per_sec = fingerMoveMmPerSecRaw;
             }
             return out;
         }
