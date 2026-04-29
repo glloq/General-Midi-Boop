@@ -92,6 +92,10 @@
             "enable": "Show virtual keyboard button",
             "description": "Shows the virtual MIDI keyboard button in the navigation bar"
         },
+        "keyboardLayout": {
+            "title": "Physical keyboard layout",
+            "description": "Layout used by the virtual MIDI keyboard to map PC keys."
+        },
         "instrumentsButton": {
             "title": "Instruments Button",
             "enable": "Show instruments button",

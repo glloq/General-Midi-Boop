@@ -45,6 +45,7 @@ class SettingsModal {
         const defaults = {
             theme: 'colored',
             keyboardOctaves: 2, // 2 octaves by default (24 keys)
+            keyboardLayout: 'azerty', // azerty | qwerty
             noteDisplayTime: 20, // seconds
             virtualInstrument: false,
             showPianoRoll: false,
@@ -270,6 +271,9 @@ class SettingsModal {
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
         if (keyboardButtonToggle) keyboardButtonToggle.checked = this.settings.showKeyboardButton;
 
+        const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
+        if (keyboardLayoutSelect) keyboardLayoutSelect.value = this.settings.keyboardLayout || 'azerty';
+
         const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
         if (instrumentsButtonToggle) instrumentsButtonToggle.checked = this.settings.showInstrumentsButton;
 
@@ -329,6 +333,7 @@ class SettingsModal {
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
         const playlistButtonToggle = this.modal.querySelector('#showPlaylistButtonToggle');
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
+        const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
         const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
@@ -358,6 +363,7 @@ class SettingsModal {
             showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
             showPlaylistButton: playlistButtonToggle ? playlistButtonToggle.checked : this.settings.showPlaylistButton,
             showKeyboardButton: keyboardButtonToggle ? keyboardButtonToggle.checked : this.settings.showKeyboardButton,
+            keyboardLayout: keyboardLayoutSelect ? keyboardLayoutSelect.value : (this.settings.keyboardLayout || 'azerty'),
             showInstrumentsButton: instrumentsButtonToggle ? instrumentsButtonToggle.checked : this.settings.showInstrumentsButton,
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,

@@ -92,6 +92,10 @@
             "enable": "Afficher le bouton du clavier virtuel",
             "description": "Affiche le bouton du clavier MIDI virtuel dans la barre de navigation"
         },
+        "keyboardLayout": {
+            "title": "Layout du clavier physique",
+            "description": "Disposition utilisée par le clavier MIDI virtuel pour mapper les touches PC."
+        },
         "instrumentsButton": {
             "title": "Bouton Instruments",
             "enable": "Afficher le bouton instruments",

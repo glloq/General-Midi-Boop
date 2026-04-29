@@ -32,14 +32,6 @@
                                 <button class="btn-view-toggle" id="keyboard-view-toggle" title="${this.t('keyboard.toggleView') || 'Toggle view'}">🎹</button>
                             </div>
 
-                            <div class="control-group">
-                                <label>${this.t('keyboard.layout')}</label>
-                                <select class="layout-select" id="keyboard-layout-select">
-                                    <option value="azerty">${this.t('keyboard.layoutAzerty')}</option>
-                                    <option value="qwerty">${this.t('keyboard.layoutQwerty')}</option>
-                                </select>
-                            </div>
-
                             <div class="control-group notation-group">
                                 <label>${this.t('keyboard.notation') || 'Notation'}</label>
                                 <div class="notation-toggle" id="keyboard-notation-toggle" role="radiogroup">
@@ -109,10 +101,6 @@
                                 <div id="drumpad-container" class="drumpad-container hidden"></div>
                             </div>
                             <div class="octave-bar" id="keyboard-octave-bar"></div>
-                            <div class="keyboard-help-bar">
-                                <span class="info-label">${this.t('keyboard.pcKeys')}</span>
-                                <span class="info-value" id="keyboard-help-text">${this.t('keyboard.azertyHelp')}</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -405,9 +393,27 @@
         if (isFretless) container.classList.add('fretless');
         else container.classList.remove('fretless');
 
+        // Compute realistic fret-cell widths using the standard equal-tempered
+        // scale: position(f) / scale_length = 1 - 1/2^(f/12). Each cell f
+        // occupies the space between fret f-1 (nut for f=1) and fret f. We
+        // express widths as `fr` units so CSS distributes them automatically
+        // across whatever width the row has.
+        const cellSpans = [];
+        for (let f = 1; f <= fretCount; f++) {
+            const prev = 1 - Math.pow(2, -(f - 1) / 12);
+            const curr = 1 - Math.pow(2, -f / 12);
+            cellSpans.push(curr - prev);
+        }
+        // Round to 4 decimals so the inline style stays compact.
+        const fretCols = cellSpans.map(s => `${(s * 1000).toFixed(0)}fr`).join(' ');
+        // Open-string column: fixed width sized roughly like one fret but a
+        // bit wider so the nut + open-string label remain comfortable.
+        const gridCols = `48px ${fretCols}`;
+
         // Header row: fret numbers
         const header = document.createElement('div');
         header.className = 'fret-header';
+        header.style.gridTemplateColumns = gridCols;
         // Open (nut) cell
         const openLbl = document.createElement('div');
         openLbl.className = 'fret-number nut';
@@ -429,6 +435,7 @@
             const openMidi = stringsTopDown[s];
             const row = document.createElement('div');
             row.className = 'fret-string';
+            row.style.gridTemplateColumns = gridCols;
             // Open string cell (the nut)
             const openCell = this._buildFretCell(openMidi, true);
             row.appendChild(openCell);
@@ -525,8 +532,67 @@
     }
 
     /**
+     * GM drum categories — used to group the drum pad layout. Each note maps
+     * to a category id; the categories themselves are rendered in the order
+     * defined by `_getDrumCategoryOrder()` and notes are kept in MIDI order
+     * inside their group.
+     */
+    KeyboardPianoMixin._getDrumCategory = function(midi) {
+        if (midi === 35 || midi === 36) return 'kick';
+        if (midi === 37 || midi === 38 || midi === 40) return 'snare';
+        if (midi === 39) return 'clap';
+        if ([41, 43, 45, 47, 48, 50].includes(midi)) return 'tom';
+        if ([42, 44, 46].includes(midi)) return 'hihat';
+        if ([49, 51, 52, 53, 55, 57, 59].includes(midi)) return 'cymbal';
+        if (midi === 54) return 'tambourine';
+        if (midi === 56) return 'cowbell';
+        if (midi === 58) return 'vibraslap';
+        if ([60, 61].includes(midi)) return 'bongos';
+        if ([62, 63, 64].includes(midi)) return 'congas';
+        if ([65, 66].includes(midi)) return 'timbales';
+        if ([67, 68].includes(midi)) return 'agogo';
+        if (midi === 69) return 'cabasa';
+        if (midi === 70) return 'maracas';
+        if ([71, 72].includes(midi)) return 'whistle';
+        if ([73, 74].includes(midi)) return 'guiro';
+        if (midi === 75) return 'claves';
+        if ([76, 77].includes(midi)) return 'woodblock';
+        if ([78, 79].includes(midi)) return 'cuica';
+        if ([80, 81].includes(midi)) return 'triangle';
+        return 'other';
+    }
+
+    KeyboardPianoMixin._getDrumCategoryOrder = function() {
+        return [
+            { id: 'kick', label: 'Kick' },
+            { id: 'snare', label: 'Snare' },
+            { id: 'clap', label: 'Clap' },
+            { id: 'tom', label: 'Toms' },
+            { id: 'hihat', label: 'Hi-Hat' },
+            { id: 'cymbal', label: 'Cymbals' },
+            { id: 'tambourine', label: 'Tambourine' },
+            { id: 'cowbell', label: 'Cowbell' },
+            { id: 'vibraslap', label: 'Vibraslap' },
+            { id: 'bongos', label: 'Bongos' },
+            { id: 'congas', label: 'Congas' },
+            { id: 'timbales', label: 'Timbales' },
+            { id: 'agogo', label: 'Agogo' },
+            { id: 'cabasa', label: 'Cabasa' },
+            { id: 'maracas', label: 'Maracas' },
+            { id: 'whistle', label: 'Whistle' },
+            { id: 'guiro', label: 'Guiro' },
+            { id: 'claves', label: 'Claves' },
+            { id: 'woodblock', label: 'Wood Block' },
+            { id: 'cuica', label: 'Cuica' },
+            { id: 'triangle', label: 'Triangle' },
+            { id: 'other', label: 'Other' }
+        ];
+    }
+
+    /**
      * Render a drum pad grid using the instrument's selected_notes (discrete).
-     * Each pad shows the SVG of the drum element + a note badge (US/FR/MIDI).
+     * Pads are grouped by drum-kit category (kick → snare → toms → cymbals…)
+     * and each group keeps MIDI order internally.
      */
     KeyboardPianoMixin.renderDrumPad = function() {
         const container = document.getElementById('drumpad-container');
@@ -549,7 +615,16 @@
         }
 
         const sorted = [...new Set(notes)].sort((a, b) => a - b);
+
+        // Bucket the notes by category, keeping MIDI order within each bucket.
+        const buckets = new Map();
         for (const midi of sorted) {
+            const cat = this._getDrumCategory(midi);
+            if (!buckets.has(cat)) buckets.set(cat, []);
+            buckets.get(cat).push(midi);
+        }
+
+        const buildPad = (midi) => {
             const pad = document.createElement('div');
             pad.className = 'drum-pad piano-key';
             pad.dataset.note = midi;
@@ -557,17 +632,14 @@
             pad.title = name ? `${name} (${this.getNoteLabel(midi)})` : this.getNoteLabel(midi);
             if (!this.isNotePlayable(midi)) pad.classList.add('disabled');
 
-            // SVG icon (uses <img> so the file is fetched as a static asset)
             const icon = document.createElement('img');
             icon.className = 'drum-pad-icon';
             icon.src = this._getDrumSvgPath(midi);
             icon.alt = name || `MIDI ${midi}`;
             icon.draggable = false;
-            // If the SVG is missing, hide the broken-image icon and keep the badge.
             icon.onerror = () => { icon.style.visibility = 'hidden'; };
             pad.appendChild(icon);
 
-            // Drum element name (small caption under the icon)
             if (name) {
                 const caption = document.createElement('span');
                 caption.className = 'drum-pad-name';
@@ -575,13 +647,33 @@
                 pad.appendChild(caption);
             }
 
-            // Note badge (US/FR/MIDI per the user's notation choice)
             const badge = document.createElement('span');
             badge.className = 'drum-pad-badge';
             badge.textContent = this.getNoteLabel(midi);
             pad.appendChild(badge);
+            return pad;
+        };
 
-            container.appendChild(pad);
+        // Render groups in the canonical category order, skipping empty ones.
+        const order = this._getDrumCategoryOrder();
+        for (const { id, label } of order) {
+            const groupNotes = buckets.get(id);
+            if (!groupNotes || groupNotes.length === 0) continue;
+            const group = document.createElement('div');
+            group.className = 'drumpad-group';
+            group.dataset.category = id;
+
+            const heading = document.createElement('div');
+            heading.className = 'drumpad-group-label';
+            heading.textContent = label;
+            group.appendChild(heading);
+
+            const pads = document.createElement('div');
+            pads.className = 'drumpad-group-pads';
+            for (const midi of groupNotes) pads.appendChild(buildPad(midi));
+            group.appendChild(pads);
+
+            container.appendChild(group);
         }
     }
 

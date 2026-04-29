@@ -214,18 +214,6 @@
         // Modulation wheel (custom drag)
         this.initModWheel();
 
-        // Layout
-        document.getElementById('keyboard-layout-select')?.addEventListener('change', (e) => {
-            this.keyboardLayout = e.target.value;
-            // Update the help text
-            const helpText = document.getElementById('keyboard-help-text');
-            if (helpText) {
-                helpText.textContent = this.keyboardLayout === 'azerty'
-                    ? this.t('keyboard.azertyHelp')
-                    : this.t('keyboard.qwertyHelp');
-            }
-        });
-
         // Piano keys - use delegated listeners on the container (not individual per key)
         this._setupPianoDelegation();
 

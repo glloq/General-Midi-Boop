@@ -403,6 +403,20 @@
                     </div>
                 </div>
 
+                <!-- Layout du clavier physique (AZERTY / QWERTY) -->
+                <div class="settings-section" style="margin-top: 16px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">⌨️ ${i18n.t('settings.keyboardLayout.title') || 'Layout du clavier physique'}</h3>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div style="flex: 1;">
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.keyboardLayout.description') || 'Disposition utilisée par le clavier MIDI virtuel pour mapper les touches PC.'}</p>
+                        </div>
+                        <select id="keyboardLayoutSelect" style="padding: 6px 10px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; font-size: 13px; background: var(--bg-secondary, white); color: var(--text-primary, #1f2937); min-width: 110px;">
+                            <option value="azerty" ${this.settings.keyboardLayout === 'azerty' ? 'selected' : ''}>${i18n.t('keyboard.layoutAzerty') || 'AZERTY'}</option>
+                            <option value="qwerty" ${this.settings.keyboardLayout === 'qwerty' ? 'selected' : ''}>${i18n.t('keyboard.layoutQwerty') || 'QWERTY'}</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Bouton Debug -->
                 <div class="settings-section" style="margin-top: 16px;">
                     <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🐞 ${i18n.t('settings.debugButton.title')}</h3>
