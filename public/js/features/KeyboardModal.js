@@ -29,6 +29,12 @@ class KeyboardModalNew {
         this.octaves = 3; // 3 octaves by default (range: 1-8 octaves)
         this.minOctaves = 1;
         this.maxOctaves = 8;
+        // Internal: number of visible notes (not always a multiple of 12 once
+        // the user zooms by 4-note increments).
+        this.visibleNoteCount = this.octaves * 12;
+        this.minVisibleNotes = 12;
+        this.maxVisibleNotes = 96;
+        this.zoomStep = 4; // semitones added/removed per zoom click/wheel tick
         this.startNote = 48; // First MIDI note displayed (C3 by default)
         this.defaultStartNote = 48; // Default value for reset
         // White notes: relative semitones within an octave
@@ -299,8 +305,9 @@ class KeyboardModalNew {
     setOctaves(octaves) {
         // Clamp between min and max octaves
         this.octaves = Math.max(this.minOctaves, Math.min(this.maxOctaves, octaves));
+        this.visibleNoteCount = this.octaves * 12;
 
-        this.logger.info(`[KeyboardModal] Nombre d'octaves changé: ${this.octaves} (${this.octaves * 12} touches)`);
+        this.logger.info(`[KeyboardModal] Nombre d'octaves changé: ${this.octaves} (${this.visibleNoteCount} touches)`);
 
         // Keep header select in sync
         const select = document.getElementById('keyboard-octaves-count-select');
@@ -311,6 +318,30 @@ class KeyboardModalNew {
         // Regenerate the keyboard if the modal is open
         if (this.isOpen) {
             this.regeneratePianoKeys();
+        }
+    }
+
+    /**
+     * Set the raw number of visible notes (not necessarily a multiple of 12).
+     * Used by the zoom buttons / wheel which step by `this.zoomStep` semitones.
+     */
+    setVisibleNotes(count) {
+        const clamped = Math.max(this.minVisibleNotes, Math.min(this.maxVisibleNotes, count));
+        this.visibleNoteCount = clamped;
+        // Keep `this.octaves` loosely in sync for downstream code that still
+        // reads it (header dropdown, persisted settings).
+        this.octaves = Math.max(this.minOctaves, Math.min(this.maxOctaves, Math.round(clamped / 12)));
+        // Keep startNote within bounds for the new visible count.
+        this.startNote = Math.max(0, Math.min(127 - this.visibleNoteCount, this.startNote));
+
+        const select = document.getElementById('keyboard-octaves-count-select');
+        if (select) {
+            // Only reflect on the dropdown when the count matches a clean octave.
+            if (clamped % 12 === 0) {
+                select.value = String(this.octaves);
+            } else {
+                select.value = '';
+            }
         }
     }
 
@@ -467,7 +498,7 @@ class KeyboardModalNew {
     _updateOctaveDisplay() {
         const octaveDisplayEl = document.getElementById('keyboard-octave-display');
         if (octaveDisplayEl) {
-            const endNote = this.startNote + this.octaves * 12 - 1;
+            const endNote = this.startNote + this.visibleNoteCount - 1;
             const startName = this.getNoteLabel(this.startNote);
             const endName = this.getNoteLabel(endNote);
             octaveDisplayEl.textContent = `${startName} - ${endName}`;

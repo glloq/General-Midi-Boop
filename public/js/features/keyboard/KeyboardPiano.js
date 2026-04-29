@@ -5,7 +5,7 @@
 
 
     KeyboardPianoMixin.createModal = function() {
-        const endNote = this.startNote + this.octaves * 12 - 1;
+        const endNote = this.startNote + this.visibleNoteCount - 1;
         const display = `${this.getNoteLabel(this.startNote)} - ${this.getNoteLabel(endNote)}`;
 
         // Build octaves count options dynamically from min/max.
@@ -48,11 +48,13 @@
 
                             <div class="control-group">
                                 <label>${this.t('keyboard.notation') || 'Notation'}</label>
-                                <select class="notation-select" id="keyboard-notation-select">
-                                    <option value="english" ${this.noteLabelFormat === 'english' ? 'selected' : ''}>C D E</option>
-                                    <option value="solfege" ${this.noteLabelFormat === 'solfege' ? 'selected' : ''}>Do Ré Mi</option>
-                                    <option value="midi" ${this.noteLabelFormat === 'midi' ? 'selected' : ''}>MIDI #</option>
-                                </select>
+                                <div class="notation-toggle" id="keyboard-notation-toggle" role="radiogroup">
+                                    <button type="button" class="notation-btn ${this.noteLabelFormat === 'english' ? 'active' : ''}" data-notation="english" role="radio" aria-checked="${this.noteLabelFormat === 'english'}">US</button>
+                                    <span class="notation-sep">/</span>
+                                    <button type="button" class="notation-btn ${this.noteLabelFormat === 'solfege' ? 'active' : ''}" data-notation="solfege" role="radio" aria-checked="${this.noteLabelFormat === 'solfege'}">FR</button>
+                                    <span class="notation-sep">/</span>
+                                    <button type="button" class="notation-btn ${this.noteLabelFormat === 'midi' ? 'active' : ''}" data-notation="midi" role="radio" aria-checked="${this.noteLabelFormat === 'midi'}">MIDI</button>
+                                </div>
                             </div>
 
                             <div class="control-group octaves-count-group">
@@ -149,7 +151,7 @@
 
         pianoContainer.innerHTML = ''; // Clear
 
-        const totalNotes = this.octaves * 12;
+        const totalNotes = this.visibleNoteCount;
         const endNote = this.startNote + totalNotes;
 
         // Collect the white and black keys
@@ -223,31 +225,58 @@
         const viewport = document.getElementById('keyboard-minimap-viewport');
         if (!track || !viewport) return;
 
-        // Total MIDI keyboard reference: 88-key piano (A0=21 → C8=108)
-        const minMidi = 21;
-        const maxMidi = 108;
-        const totalRange = maxMidi - minMidi;
+        // Show all 128 MIDI notes (0-127) so the minimap covers the full range.
+        const minMidi = 0;
+        const maxMidi = 127;
+        const blackSemis = this.blackNoteSemitones;
 
-        // Build octave tick marks once
-        if (!track.querySelector('.minimap-tick')) {
-            // Generate "C" lines for each octave inside the reference range
+        // Build the piano background once (white + black keys).
+        if (!track.querySelector('.minimap-bg')) {
+            const bg = document.createElement('div');
+            bg.className = 'minimap-bg';
+
+            // White keys laid out as a flex row.
+            const whiteRow = document.createElement('div');
+            whiteRow.className = 'minimap-whites';
+            const whiteNotes = [];
             for (let n = minMidi; n <= maxMidi; n++) {
-                if (n % 12 === 0) {
-                    const tick = document.createElement('div');
-                    tick.className = 'minimap-tick';
-                    tick.style.left = `${((n - minMidi) / totalRange) * 100}%`;
-                    track.appendChild(tick);
-                }
+                if (!blackSemis.has(n % 12)) whiteNotes.push(n);
             }
+            for (const n of whiteNotes) {
+                const wk = document.createElement('div');
+                wk.className = 'minimap-wkey';
+                if (n % 12 === 0) wk.classList.add('octave-c'); // bolder line at every C
+                whiteRow.appendChild(wk);
+            }
+            bg.appendChild(whiteRow);
+
+            // Black keys absolutely positioned over the white-key row.
+            const totalWhites = whiteNotes.length;
+            const wPct = 100 / totalWhites;
+            for (let n = minMidi; n <= maxMidi; n++) {
+                if (!blackSemis.has(n % 12)) continue;
+                const whiteBelow = whiteNotes.indexOf(n - 1);
+                if (whiteBelow < 0) continue;
+                const bk = document.createElement('div');
+                bk.className = 'minimap-bkey';
+                bk.style.width = `${wPct * 0.6}%`;
+                bk.style.left = `${wPct * (whiteBelow + 0.7)}%`;
+                bg.appendChild(bk);
+            }
+
+            // Insert bg before the viewport so the viewport overlays it.
+            track.insertBefore(bg, viewport);
         }
 
-        // Update viewport position/width
-        const startClamped = Math.max(minMidi, this.startNote);
-        const endClamped = Math.min(maxMidi, this.startNote + this.octaves * 12);
-        const leftPct = ((startClamped - minMidi) / totalRange) * 100;
-        const widthPct = ((endClamped - startClamped) / totalRange) * 100;
+        // Update viewport position/width using semitone-based units so it lines
+        // up tightly with the visible keyboard range.
+        const totalRange = maxMidi - minMidi + 1;
+        const start = Math.max(minMidi, this.startNote);
+        const end = Math.min(maxMidi + 1, this.startNote + this.visibleNoteCount);
+        const leftPct = ((start - minMidi) / totalRange) * 100;
+        const widthPct = ((end - start) / totalRange) * 100;
         viewport.style.left = `${Math.max(0, leftPct)}%`;
-        viewport.style.width = `${Math.max(2, widthPct)}%`;
+        viewport.style.width = `${Math.max(1.5, widthPct)}%`;
     }
 
     /**
@@ -258,7 +287,7 @@
         if (!bar) return;
         bar.innerHTML = '';
 
-        const totalNotes = this.octaves * 12;
+        const totalNotes = this.visibleNoteCount;
         const totalWhiteKeys = this.visibleWhiteNotes.length || (this.octaves * 7);
         if (totalWhiteKeys === 0) return;
 
@@ -646,7 +675,7 @@
 
         // Center of the playable range
         const rangeCenter = (effectiveMin + effectiveMax) / 2;
-        const totalNotes = this.octaves * 12;
+        const totalNotes = this.visibleNoteCount;
 
         // Ideal startNote to center the view on the playable range
         const idealStart = Math.round(rangeCenter - totalNotes / 2);
