@@ -25,6 +25,102 @@
             this.regeneratePianoKeys();
         });
 
+        // Zoom in/out (changes the number of visible octaves)
+        document.getElementById('keyboard-zoom-in')?.addEventListener('click', () => {
+            if (this.octaves > this.minOctaves) {
+                this.setOctaves(this.octaves - 1);
+                this.saveOctavesToSettings();
+                this.regeneratePianoKeys();
+            }
+        });
+        document.getElementById('keyboard-zoom-out')?.addEventListener('click', () => {
+            if (this.octaves < this.maxOctaves) {
+                this.setOctaves(this.octaves + 1);
+                this.saveOctavesToSettings();
+                this.regeneratePianoKeys();
+            }
+        });
+
+        // Wheel zoom over the canvas (only while hovering it)
+        const canvasContainer = document.getElementById('keyboard-canvas-container');
+        if (canvasContainer) {
+            this._canvasWheelHandler = (e) => {
+                if (this.viewMode !== 'piano') return;
+                e.preventDefault();
+                const delta = Math.sign(e.deltaY);
+                if (delta < 0 && this.octaves > this.minOctaves) {
+                    this.setOctaves(this.octaves - 1);
+                    this.saveOctavesToSettings();
+                    this.regeneratePianoKeys();
+                } else if (delta > 0 && this.octaves < this.maxOctaves) {
+                    this.setOctaves(this.octaves + 1);
+                    this.saveOctavesToSettings();
+                    this.regeneratePianoKeys();
+                }
+            };
+            canvasContainer.addEventListener('wheel', this._canvasWheelHandler, { passive: false });
+        }
+
+        // Minimap navigation
+        const minimapTrack = document.getElementById('keyboard-minimap-track');
+        if (minimapTrack) {
+            const minMidi = 21;
+            const maxMidi = 108;
+            const totalRange = maxMidi - minMidi;
+            const moveTo = (clientX) => {
+                const rect = minimapTrack.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                const totalNotes = this.octaves * 12;
+                // Center the viewport on the click position
+                const centerMidi = minMidi + ratio * totalRange;
+                let newStart = Math.round(centerMidi - totalNotes / 2);
+                newStart = Math.max(0, Math.min(127 - totalNotes, newStart));
+                this.startNote = newStart;
+                this._updateOctaveDisplay();
+                this.regeneratePianoKeys();
+            };
+            this._minimapMouseDown = (e) => {
+                e.preventDefault();
+                this._minimapDragging = true;
+                moveTo(e.clientX);
+            };
+            this._minimapMouseMove = (e) => {
+                if (this._minimapDragging) moveTo(e.clientX);
+            };
+            this._minimapMouseUp = () => { this._minimapDragging = false; };
+            minimapTrack.addEventListener('mousedown', this._minimapMouseDown);
+            document.addEventListener('mousemove', this._minimapMouseMove);
+            document.addEventListener('mouseup', this._minimapMouseUp);
+        }
+
+        // Notation selector
+        document.getElementById('keyboard-notation-select')?.addEventListener('change', (e) => {
+            this.noteLabelFormat = e.target.value;
+            try {
+                const saved = localStorage.getItem('gmboop_settings');
+                const settings = saved ? JSON.parse(saved) : {};
+                settings.keyboardNotation = this.noteLabelFormat;
+                localStorage.setItem('gmboop_settings', JSON.stringify(settings));
+            } catch (err) { /* ignore */ }
+            this._updateOctaveDisplay();
+            this.regeneratePianoKeys();
+            if (this.viewMode === 'fretboard') this.renderFretboard();
+            if (this.viewMode === 'drumpad') this.renderDrumPad();
+        });
+
+        // View mode toggle (piano <-> fretboard / drumpad)
+        document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
+            const info = this.getInstrumentViewInfo();
+            // Cycle: piano -> fretboard (if string) or drumpad (if drum) -> piano
+            if (info.isDrum) {
+                this.setViewMode(this.viewMode === 'drumpad' ? 'piano' : 'drumpad');
+            } else if (info.canFretboard) {
+                this.setViewMode(this.viewMode === 'fretboard' ? 'piano' : 'fretboard');
+            } else {
+                this.setViewMode('piano');
+            }
+        });
+
         // Device select
         document.getElementById('keyboard-device-select')?.addEventListener('change', async (e) => {
             const rawValue = e.target.value;
@@ -59,6 +155,26 @@
             this._updateModWheelPosition(64);
             const modDisplay = document.getElementById('keyboard-modulation-display');
             if (modDisplay) modDisplay.textContent = '64';
+
+            // Refresh header latency display (depends on the instrument's sync_delay)
+            this.updateLatencyDisplay();
+
+            // Detect drum/string and toggle the view-mode button + auto-switch view
+            const info = this.getInstrumentViewInfo();
+            const viewGroup = document.getElementById('keyboard-view-mode-group');
+            if (info.isDrum) {
+                if (viewGroup) viewGroup.classList.remove('hidden');
+                this.stringInstrumentConfig = null;
+                this.setViewMode('drumpad');
+            } else if (info.instrumentType === 'string') {
+                await this.loadStringInstrumentConfig();
+                if (viewGroup) viewGroup.classList.remove('hidden');
+                this.setViewMode('fretboard');
+            } else {
+                this.stringInstrumentConfig = null;
+                if (viewGroup) viewGroup.classList.add('hidden');
+                this.setViewMode('piano');
+            }
 
             // Regenerate the keyboard to apply the restrictions
             this.regeneratePianoKeys();
@@ -110,6 +226,22 @@
         document.removeEventListener('mouseup', this.handleGlobalMouseUp);
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
+
+        // Remove canvas wheel zoom
+        const canvasContainer = document.getElementById('keyboard-canvas-container');
+        if (canvasContainer && this._canvasWheelHandler) {
+            canvasContainer.removeEventListener('wheel', this._canvasWheelHandler);
+            this._canvasWheelHandler = null;
+        }
+
+        // Remove minimap listeners
+        if (this._minimapMouseMove) {
+            document.removeEventListener('mousemove', this._minimapMouseMove);
+            document.removeEventListener('mouseup', this._minimapMouseUp);
+            this._minimapMouseMove = null;
+            this._minimapMouseUp = null;
+            this._minimapMouseDown = null;
+        }
 
         // Remove delegated piano container listeners
         this._removePianoDelegation();

@@ -26,7 +26,9 @@ class KeyboardModalNew {
         this.isMouseDown = false; // For dragging on the keyboard
 
         // Piano config
-        this.octaves = 3; // 3 octaves by default (range: 1-4 octaves)
+        this.octaves = 3; // 3 octaves by default (range: 1-8 octaves)
+        this.minOctaves = 1;
+        this.maxOctaves = 8;
         this.startNote = 48; // First MIDI note displayed (C3 by default)
         this.defaultStartNote = 48; // Default value for reset
         // White notes: relative semitones within an octave
@@ -36,6 +38,15 @@ class KeyboardModalNew {
         // Mapping tables for PC keys (generated dynamically)
         this.visibleWhiteNotes = [];
         this.visibleBlackNotes = [];
+
+        // Note label format: 'english' (C/D/E), 'solfege' (Do/Ré/Mi), 'midi' (60)
+        this.noteLabelFormat = 'english';
+        // View mode: 'piano' (default), 'fretboard' (string instr.), 'drumpad' (drum)
+        this.viewMode = 'piano';
+        // String instrument config (loaded when fretboard mode is enabled)
+        this.stringInstrumentConfig = null;
+        // Minimap drag state
+        this._minimapDragging = false;
 
         // The PC keyboard mapping is dynamic (see _resolveKeyToNote)
 
@@ -251,6 +262,10 @@ class KeyboardModalNew {
         // Event delegation: a single listener on the container instead of 6 per key
         this._setupPianoDelegation();
 
+        // Refresh the navigation aids that depend on visible notes.
+        if (typeof this.renderMinimap === 'function') this.renderMinimap();
+        if (typeof this.renderOctaveBar === 'function') this.renderOctaveBar();
+
         this.updatePianoDisplay();
     }
 
@@ -258,7 +273,8 @@ class KeyboardModalNew {
      * Remove delegated piano container listeners
      */
     _removePianoDelegation() {
-        const container = document.getElementById('piano-container');
+        const container = document.getElementById('keyboard-canvas-container')
+                       || document.getElementById('piano-container');
         if (!container || !this._pianoMouseDown) return;
 
         container.removeEventListener('mousedown', this._pianoMouseDown);
@@ -281,8 +297,8 @@ class KeyboardModalNew {
      * @param {number} octaves - Number of octaves (1-4)
      */
     setOctaves(octaves) {
-        // Clamp between 1 and 4 octaves
-        this.octaves = Math.max(1, Math.min(4, octaves));
+        // Clamp between min and max octaves
+        this.octaves = Math.max(this.minOctaves, Math.min(this.maxOctaves, octaves));
 
         this.logger.info(`[KeyboardModal] Nombre d'octaves changé: ${this.octaves} (${this.octaves * 12} touches)`);
 
@@ -452,9 +468,13 @@ class KeyboardModalNew {
         const octaveDisplayEl = document.getElementById('keyboard-octave-display');
         if (octaveDisplayEl) {
             const endNote = this.startNote + this.octaves * 12 - 1;
-            const startName = this.getNoteNameFromNumber(this.startNote);
-            const endName = this.getNoteNameFromNumber(endNote);
+            const startName = this.getNoteLabel(this.startNote);
+            const endName = this.getNoteLabel(endNote);
             octaveDisplayEl.textContent = `${startName} - ${endName}`;
+        }
+        // Keep the minimap viewport in sync with the visible range.
+        if (typeof this.renderMinimap === 'function') {
+            this.renderMinimap();
         }
     }
 
@@ -468,6 +488,103 @@ class KeyboardModalNew {
         const octave = Math.floor(noteNumber / 12) - 1;
         const noteName = noteNames[noteNumber % 12];
         return `${noteName}${octave}`;
+    }
+
+    /**
+     * Format a note label according to the user-selected note format.
+     * @param {number} noteNumber - MIDI number
+     * @returns {string}
+     */
+    getNoteLabel(noteNumber) {
+        const englishNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const solfegeNames = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+        const octave = Math.floor(noteNumber / 12) - 1;
+        const idx = noteNumber % 12;
+        if (this.noteLabelFormat === 'midi') {
+            return String(noteNumber);
+        }
+        if (this.noteLabelFormat === 'solfege') {
+            return `${solfegeNames[idx]}${octave}`;
+        }
+        return `${englishNames[idx]}${octave}`;
+    }
+
+    /**
+     * Detect whether the selected instrument should switch to a special view.
+     * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
+     */
+    getInstrumentViewInfo() {
+        const caps = this.selectedDeviceCapabilities;
+        const type = (caps && caps.instrument_type) || 'unknown';
+        const subtype = (caps && caps.instrument_subtype) || '';
+        // Drum: explicit type "drum", or MIDI channel 9, or GM program ≥ 128
+        const channel = caps && caps.channel !== undefined ? caps.channel
+                      : (this.selectedDevice && this.selectedDevice.channel !== undefined
+                            ? this.selectedDevice.channel : null);
+        const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
+        const isDrum = type === 'drum' || channel === 9 || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
+        // String: explicit type "string", or stringInstrumentConfig is loaded
+        const canFretboard = type === 'string' || !!this.stringInstrumentConfig;
+        return { canFretboard, isDrum, instrumentType: type, instrumentSubtype: subtype };
+    }
+
+    /**
+     * Refresh the latency display in the header from the selected instrument.
+     */
+    updateLatencyDisplay() {
+        const el = document.getElementById('keyboard-latency-display');
+        if (!el) return;
+        const caps = this.selectedDeviceCapabilities;
+        const delay = caps && typeof caps.sync_delay === 'number' ? caps.sync_delay : null;
+        if (delay === null || !this.selectedDevice) {
+            el.classList.add('latency-empty');
+            el.textContent = '—';
+        } else {
+            el.classList.remove('latency-empty');
+            const sign = delay > 0 ? '+' : '';
+            el.textContent = `${sign}${delay} ms`;
+        }
+    }
+
+    /**
+     * Try to load string-instrument config (num_strings, num_frets, tuning) for
+     * the selected instrument. Falls back to a preset matching gm_program.
+     */
+    async loadStringInstrumentConfig() {
+        this.stringInstrumentConfig = null;
+        if (!this.selectedDevice) return;
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+        const channel = this.getSelectedChannel();
+        try {
+            const resp = await this.backend.sendCommand('string_instrument_get', {
+                device_id: deviceId,
+                channel: channel
+            });
+            if (resp && resp.instrument) {
+                this.stringInstrumentConfig = resp.instrument;
+                return;
+            }
+        } catch (e) { /* ignore — fallback below */ }
+
+        // Fallback: try matching a preset by gm_program
+        const caps = this.selectedDeviceCapabilities;
+        const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
+        if (gmProgram === undefined || gmProgram === null) return;
+        try {
+            const presetsResp = await this.backend.sendCommand('string_instrument_get_presets');
+            const presets = (presetsResp && presetsResp.presets) || [];
+            // Some backends return geometry presets, others return tuning presets.
+            // Look for an entry that lists the gm_program in `gm_programs`.
+            const match = presets.find(p => Array.isArray(p.gm_programs) && p.gm_programs.includes(gmProgram));
+            if (match) {
+                this.stringInstrumentConfig = {
+                    num_strings: match.num_strings || 6,
+                    num_frets: match.num_frets ?? 22,
+                    tuning: match.tuning || null,
+                    is_fretless: (match.num_frets === 0)
+                };
+            }
+        } catch (e) { /* ignore */ }
     }
 
     populateDeviceSelect() {

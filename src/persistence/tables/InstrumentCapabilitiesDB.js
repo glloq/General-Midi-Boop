@@ -185,7 +185,8 @@ class InstrumentCapabilitiesDB {
       if (channel !== undefined && channel !== null) {
         const stmt = this.db.prepare(`
           SELECT
-            channel, gm_program,
+            channel, gm_program, sync_delay,
+            instrument_type, instrument_subtype,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
@@ -197,7 +198,8 @@ class InstrumentCapabilitiesDB {
       } else {
         const stmt = this.db.prepare(`
           SELECT
-            channel, gm_program,
+            channel, gm_program, sync_delay,
+            instrument_type, instrument_subtype,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
@@ -244,6 +246,9 @@ class InstrumentCapabilitiesDB {
       return {
         channel: result.channel !== undefined && result.channel !== null ? result.channel : 0,
         gm_program: result.gm_program !== undefined ? result.gm_program : null,
+        sync_delay: result.sync_delay || 0,
+        instrument_type: result.instrument_type || 'unknown',
+        instrument_subtype: result.instrument_subtype || null,
         note_range_min: result.note_range_min,
         note_range_max: result.note_range_max,
         supported_ccs: supportedCcs,

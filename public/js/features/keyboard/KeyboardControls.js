@@ -195,6 +195,10 @@
                     this.setNumberOfKeys(settings.keyboardKeys);
                     this.logger.info(`[KeyboardModal] Settings loaded (legacy): ${settings.keyboardKeys} keys`);
                 }
+
+                if (settings.keyboardNotation && ['english', 'solfege', 'midi'].includes(settings.keyboardNotation)) {
+                    this.noteLabelFormat = settings.keyboardNotation;
+                }
             }
         } catch (error) {
             this.logger.error('[KeyboardModal] Failed to load settings:', error);

@@ -127,7 +127,8 @@
 
 .keyboard-header-controls .device-select,
 .keyboard-header-controls .layout-select,
-.keyboard-header-controls .octaves-count-select {
+.keyboard-header-controls .octaves-count-select,
+.keyboard-header-controls .notation-select {
     padding: 6px 10px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
@@ -137,6 +138,44 @@
     cursor: pointer;
     min-width: 160px;
 }
+
+.keyboard-header-controls .notation-select {
+    min-width: 110px;
+}
+
+/* Latency display in header */
+.keyboard-header-controls .latency-display {
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 70px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.keyboard-header-controls .latency-display.latency-empty {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* View-mode toggle button */
+.keyboard-header-controls .btn-view-toggle {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.keyboard-header-controls .btn-view-toggle:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.hidden { display: none !important; }
 
 .keyboard-header-controls .octaves-count-select {
     min-width: 60px;
@@ -149,14 +188,16 @@
 
 .keyboard-header-controls .device-select:hover,
 .keyboard-header-controls .layout-select:hover,
-.keyboard-header-controls .octaves-count-select:hover {
+.keyboard-header-controls .octaves-count-select:hover,
+.keyboard-header-controls .notation-select:hover {
     border-color: rgba(255, 255, 255, 0.6);
     background: white;
 }
 
 .keyboard-header-controls .device-select:focus,
 .keyboard-header-controls .layout-select:focus,
-.keyboard-header-controls .octaves-count-select:focus {
+.keyboard-header-controls .octaves-count-select:focus,
+.keyboard-header-controls .notation-select:focus {
     outline: none;
     border-color: white;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
@@ -619,6 +660,309 @@
     font-size: 13px;
     font-weight: 500;
 }
+
+/* ============================================================================
+   MINIMAP NAVIGATION ROW
+   ============================================================================ */
+
+.keyboard-minimap-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
+    border-bottom: 1px solid #d1d5db;
+    flex-shrink: 0;
+}
+
+.keyboard-minimap-row .minimap-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.keyboard-minimap-row .btn-octave-up,
+.keyboard-minimap-row .btn-octave-down,
+.keyboard-minimap-row .btn-zoom {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.keyboard-minimap-row .btn-octave-up:hover,
+.keyboard-minimap-row .btn-octave-down:hover,
+.keyboard-minimap-row .btn-zoom:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.keyboard-minimap-row .octave-display {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #1f2937;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 100px;
+    text-align: center;
+}
+
+.minimap-wrapper {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    cursor: pointer;
+}
+
+.minimap-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, #1f2937, #111827);
+    border-radius: 4px;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    user-select: none;
+}
+
+.minimap-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+}
+
+.minimap-viewport {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    background: linear-gradient(to bottom, rgba(16, 185, 129, 0.55), rgba(5, 150, 105, 0.55));
+    border: 1px solid #10b981;
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    pointer-events: none;
+    transition: left 0.1s ease, width 0.1s ease;
+}
+
+/* ============================================================================
+   OCTAVE BAR (below the keyboard)
+   ============================================================================ */
+
+.octave-bar {
+    position: relative;
+    height: 22px;
+    background: #1f2937;
+    border-top: 1px solid #374151;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.octave-bar.hidden { display: none; }
+
+.octave-separator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.6));
+    pointer-events: none;
+}
+
+.octave-label {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   FRETBOARD VIEW
+   ============================================================================ */
+
+.fretboard-container {
+    flex: 1;
+    width: 100%;
+    background: linear-gradient(to bottom, #6b3e1a 0%, #4a2912 100%);
+    border-radius: 8px;
+    padding: 12px 8px;
+    overflow: auto;
+    box-sizing: border-box;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.fretboard-container.hidden { display: none; }
+
+.fretboard-container .fret-header,
+.fretboard-container .fret-string {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(36px, 1fr);
+    gap: 0;
+    align-items: stretch;
+}
+
+.fretboard-container .fret-header {
+    margin-bottom: 6px;
+}
+
+.fretboard-container .fret-number {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    font-weight: 600;
+    border-right: 1px solid rgba(0, 0, 0, 0.3);
+    padding: 2px 0;
+}
+.fretboard-container .fret-number.nut {
+    border-right: 3px solid #d1d5db;
+    color: #fff;
+}
+.fretboard-container .fret-number.inlay::after {
+    content: '•';
+    display: block;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+.fretboard-container .fret-number.inlay-double::after {
+    content: '••';
+    display: block;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 12px;
+}
+
+.fretboard-container .fret-string {
+    height: 38px;
+    border-top: 1px solid rgba(0, 0, 0, 0.4);
+    background: linear-gradient(to bottom, transparent 49%, rgba(220, 220, 220, 0.7) 49%, rgba(220, 220, 220, 0.7) 51%, transparent 51%);
+}
+
+.fretboard-container .fret-cell {
+    position: relative;
+    border-right: 1px solid rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fretboard-container .fret-cell.fret-open {
+    border-right: 3px solid #d1d5db;
+}
+
+.fretboard-container .fret-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: transform 0.05s, background 0.05s;
+}
+.fretboard-container .fret-dot:hover {
+    background: linear-gradient(to bottom, #ffffff, #d8d8d8);
+}
+.fretboard-container .fret-dot.active {
+    background: linear-gradient(to bottom, #34d399, #059669);
+    border-color: #047857;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+}
+.fretboard-container .fret-dot.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.fretboard-container .fret-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #1f2937;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   DRUM PAD VIEW
+   ============================================================================ */
+
+.drumpad-container {
+    flex: 1;
+    width: 100%;
+    background: linear-gradient(to bottom, #18181b, #0a0a14);
+    border-radius: 8px;
+    padding: 16px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    overflow: auto;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.drumpad-container.hidden { display: none; }
+
+.drumpad-container .drum-pad {
+    aspect-ratio: 1;
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+    cursor: pointer;
+    user-select: none;
+    color: #e5e7eb;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.05s, background 0.05s, box-shadow 0.05s;
+}
+.drumpad-container .drum-pad:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+.drumpad-container .drum-pad.active {
+    background: linear-gradient(135deg, #34d399, #059669);
+    border-color: #047857;
+    color: white;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.7);
+    transform: translateY(1px);
+}
+.drumpad-container .drum-pad.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.drumpad-container .drum-pad-number {
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #10b981;
+}
+.drumpad-container .drum-pad.active .drum-pad-number { color: white; }
+.drumpad-container .drum-pad-name {
+    font-size: 10px;
+    margin-top: 4px;
+    color: rgba(229, 231, 235, 0.75);
+    line-height: 1.2;
+}
+.drumpad-container .drum-pad.active .drum-pad-name { color: rgba(255, 255, 255, 0.95); }
 
 /* Footer removed - controls are now in header */
 
