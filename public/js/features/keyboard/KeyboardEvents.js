@@ -191,7 +191,7 @@
                 if (viewGroup) viewGroup.classList.remove('hidden');
                 this.stringInstrumentConfig = null;
                 this.setViewMode('drumpad');
-            } else if (info.instrumentType === 'string') {
+            } else if (info.canFretboard) {
                 await this.loadStringInstrumentConfig();
                 if (viewGroup) viewGroup.classList.remove('hidden');
                 this.setViewMode('fretboard');

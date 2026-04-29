@@ -560,9 +560,20 @@ class KeyboardModalNew {
                             ? this.selectedDevice.channel : null);
         const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
         const isDrum = type === 'drum' || channel === 9 || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
-        // String: explicit type "string", or stringInstrumentConfig is loaded
-        const canFretboard = type === 'string' || !!this.stringInstrumentConfig;
-        return { canFretboard, isDrum, instrumentType: type, instrumentSubtype: subtype };
+        // String: explicit "string" type, an active stringInstrumentConfig, or
+        // a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
+        const stringByGm = !isDrum
+            && gmProgram !== undefined && gmProgram !== null
+            && (
+                (gmProgram >= 24 && gmProgram <= 47) ||  // guitar, bass, orchestral strings
+                gmProgram === 104 || // sitar
+                gmProgram === 105 || // banjo
+                gmProgram === 106 || // shamisen
+                gmProgram === 107 || // koto
+                gmProgram === 110    // fiddle
+            );
+        const canFretboard = type === 'string' || !!this.stringInstrumentConfig || stringByGm;
+        return { canFretboard, isDrum, instrumentType: type, instrumentSubtype: subtype, gmProgram };
     }
 
     /**
@@ -584,8 +595,47 @@ class KeyboardModalNew {
     }
 
     /**
+     * GM-program → default string-instrument geometry (num_strings, num_frets,
+     * tuning in MIDI). Used as a fallback when the database has no per-channel
+     * string-instrument config for the selected device.
+     */
+    _getStringPresetForGmProgram(gmProgram) {
+        if (gmProgram === undefined || gmProgram === null) return null;
+        // Acoustic Guitar (nylon)
+        if (gmProgram === 24) return { num_strings: 6, num_frets: 19, tuning: [40, 45, 50, 55, 59, 64], is_fretless: false };
+        // Acoustic Guitar (steel)
+        if (gmProgram === 25) return { num_strings: 6, num_frets: 20, tuning: [40, 45, 50, 55, 59, 64], is_fretless: false };
+        // Electric guitars (jazz, clean, muted, overdriven, distortion, harmonics)
+        if (gmProgram >= 26 && gmProgram <= 31) return { num_strings: 6, num_frets: 22, tuning: [40, 45, 50, 55, 59, 64], is_fretless: false };
+        // Acoustic Bass
+        if (gmProgram === 32) return { num_strings: 4, num_frets: 20, tuning: [28, 33, 38, 43], is_fretless: false };
+        // Electric basses (finger, pick, fretless, slap×2, synth×2)
+        if (gmProgram === 35) return { num_strings: 4, num_frets: 0, tuning: [28, 33, 38, 43], is_fretless: true };
+        if (gmProgram >= 33 && gmProgram <= 39) return { num_strings: 4, num_frets: 22, tuning: [28, 33, 38, 43], is_fretless: false };
+        // Orchestral strings (violin, viola, cello, contrabass, tremolo, pizzicato, ensemble1, ensemble2)
+        if (gmProgram === 40 || gmProgram === 110) return { num_strings: 4, num_frets: 0, tuning: [55, 62, 69, 76], is_fretless: true }; // violin / fiddle
+        if (gmProgram === 41) return { num_strings: 4, num_frets: 0, tuning: [48, 55, 62, 69], is_fretless: true }; // viola
+        if (gmProgram === 42) return { num_strings: 4, num_frets: 0, tuning: [36, 43, 50, 57], is_fretless: true }; // cello
+        if (gmProgram === 43) return { num_strings: 4, num_frets: 0, tuning: [28, 33, 38, 43], is_fretless: true }; // contrabass
+        if (gmProgram >= 44 && gmProgram <= 45) return { num_strings: 4, num_frets: 0, tuning: [55, 62, 69, 76], is_fretless: true }; // tremolo / pizzicato (default to violin)
+        // Harp (special: many strings, no frets)
+        if (gmProgram === 46) return { num_strings: 22, num_frets: 0, tuning: null, is_fretless: true };
+        // Timpani — not a string instrument; fall through.
+        // Sitar
+        if (gmProgram === 104) return { num_strings: 7, num_frets: 20, tuning: [36, 43, 50, 55, 62, 69, 76], is_fretless: false };
+        // Banjo
+        if (gmProgram === 105) return { num_strings: 5, num_frets: 22, tuning: [62, 67, 50, 55, 50], is_fretless: false };
+        // Shamisen (3 strings)
+        if (gmProgram === 106) return { num_strings: 3, num_frets: 0, tuning: [50, 57, 62], is_fretless: true };
+        // Koto (13 strings, traditional tuning approximate)
+        if (gmProgram === 107) return { num_strings: 13, num_frets: 0, tuning: null, is_fretless: true };
+        return null;
+    }
+
+    /**
      * Try to load string-instrument config (num_strings, num_frets, tuning) for
-     * the selected instrument. Falls back to a preset matching gm_program.
+     * the selected instrument. Falls back to a GM-program preset when the
+     * database has no per-channel config.
      */
     async loadStringInstrumentConfig() {
         this.stringInstrumentConfig = null;
@@ -603,25 +653,13 @@ class KeyboardModalNew {
             }
         } catch (e) { /* ignore — fallback below */ }
 
-        // Fallback: try matching a preset by gm_program
+        // Fallback: GM-program-based defaults bundled in the frontend.
         const caps = this.selectedDeviceCapabilities;
         const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
-        if (gmProgram === undefined || gmProgram === null) return;
-        try {
-            const presetsResp = await this.backend.sendCommand('string_instrument_get_presets');
-            const presets = (presetsResp && presetsResp.presets) || [];
-            // Some backends return geometry presets, others return tuning presets.
-            // Look for an entry that lists the gm_program in `gm_programs`.
-            const match = presets.find(p => Array.isArray(p.gm_programs) && p.gm_programs.includes(gmProgram));
-            if (match) {
-                this.stringInstrumentConfig = {
-                    num_strings: match.num_strings || 6,
-                    num_frets: match.num_frets ?? 22,
-                    tuning: match.tuning || null,
-                    is_fretless: (match.num_frets === 0)
-                };
-            }
-        } catch (e) { /* ignore */ }
+        const preset = this._getStringPresetForGmProgram(gmProgram);
+        if (preset) {
+            this.stringInstrumentConfig = preset;
+        }
     }
 
     populateDeviceSelect() {
