@@ -264,7 +264,16 @@
         "virtualInstrument": "Instrument Virtuel",
         "virtualNoteOn": "[Virtual] Note ON: {note} ({number}) velocity={velocity}",
         "virtualNoteOff": "[Virtual] Note OFF: {note} ({number})",
-        "modulation": "Modulation"
+        "modulation": "Modulation",
+        "latency": "Latence:",
+        "view": "Vue:",
+        "toggleView": "Changer la vue",
+        "notation": "Notation:",
+        "scrollLeft": "Défiler à gauche",
+        "scrollRight": "Défiler à droite",
+        "zoomIn": "Zoomer (moins d'octaves)",
+        "zoomOut": "Dézoomer (plus d'octaves)",
+        "minimapHint": "Cliquer ou glisser pour naviguer"
     },
     "midiEditor": {
         "title": "Éditeur MIDI",
