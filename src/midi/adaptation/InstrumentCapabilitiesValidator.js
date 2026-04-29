@@ -436,6 +436,19 @@ class InstrumentCapabilitiesValidator {
           reason: 'variable_height_fingers_count is only valid for fret_sliding_fingers.'
         });
       }
+      // Optional explicit per-finger model (longitudinal anchored mode).
+      // When absent the V1 window-based planner is used; when present it
+      // unlocks LongitudinalPlanner with anchored-finger semantics.
+      // See docs/LONGITUDINAL_MODEL.md §4.
+      if (h.fingers != null) {
+        this._validateFingersArray(h.fingers, issues);
+      }
+    }
+
+    // Optional anchor block (hands_config.anchor) — tunes the
+    // longitudinal planner. Ignored by V1, consumed by LongitudinalPlanner.
+    if (cfg.anchor != null) {
+      this._validateAnchorBlock(cfg.anchor, issues);
     }
 
     // Travel speed — same dual-unit logic as span.
@@ -477,6 +490,139 @@ class InstrumentCapabilitiesValidator {
         field: 'hands_config.assignment', label: 'Assignment mode',
         type: 'object', required: true,
         reason: 'assignment is not used in frets mode (single hand).'
+      });
+    }
+  }
+
+  /**
+   * Validate the optional `fingers[]` list of a string_sliding_fingers
+   * hand. One entry per finger, each pinned to a single string in the
+   * longitudinal model (one finger ↔ one string, never changes).
+   *
+   * Required per entry: `id`, `string`, `offset_min_mm`, `offset_max_mm`.
+   * Optional: `rest_offset_mm` (defaults to mid-range),
+   * `v_finger_mm_per_sec` (defaults to the hand travel speed).
+   * Cross-entry: `id` and `string` must be unique.
+   * @private
+   */
+  _validateFingersArray(fingers, issues) {
+    if (!Array.isArray(fingers)) {
+      issues.push({
+        field: 'hands_config.hands[0].fingers', label: 'Fingers',
+        type: 'array', required: true,
+        reason: 'fingers must be an array of finger entries.'
+      });
+      return;
+    }
+    if (fingers.length === 0) {
+      issues.push({
+        field: 'hands_config.hands[0].fingers', label: 'Fingers',
+        type: 'array', required: true,
+        reason: 'fingers must contain at least one entry.'
+      });
+      return;
+    }
+    if (fingers.length > 12) {
+      issues.push({
+        field: 'hands_config.hands[0].fingers', label: 'Fingers',
+        type: 'array', required: true,
+        reason: 'fingers cannot exceed 12 entries (matches num_strings cap).'
+      });
+    }
+    const seenIds = new Set();
+    const seenStrings = new Set();
+    fingers.forEach((f, i) => {
+      const path = `hands_config.hands[0].fingers[${i}]`;
+      if (!f || typeof f !== 'object') {
+        issues.push({ field: path, label: 'Finger entry', type: 'object', required: true, reason: 'Must be an object.' });
+        return;
+      }
+      if (!Number.isInteger(f.id) || f.id < 1 || f.id > 12) {
+        issues.push({ field: `${path}.id`, label: 'Finger id', type: 'number', required: true, reason: 'id must be an integer in [1,12].' });
+      } else if (seenIds.has(f.id)) {
+        issues.push({ field: `${path}.id`, label: 'Finger id', type: 'number', required: true, reason: `Duplicate finger id ${f.id}.` });
+      } else {
+        seenIds.add(f.id);
+      }
+      if (!Number.isInteger(f.string) || f.string < 1 || f.string > 12) {
+        issues.push({ field: `${path}.string`, label: 'Finger string', type: 'number', required: true, reason: 'string must be an integer in [1,12].' });
+      } else if (seenStrings.has(f.string)) {
+        issues.push({ field: `${path}.string`, label: 'Finger string', type: 'number', required: true, reason: `Duplicate finger.string ${f.string} (longitudinal mode allows at most one finger per string).` });
+      } else {
+        seenStrings.add(f.string);
+      }
+      const minOk = Number.isFinite(f.offset_min_mm);
+      const maxOk = Number.isFinite(f.offset_max_mm);
+      if (!minOk) {
+        issues.push({ field: `${path}.offset_min_mm`, label: 'Offset min (mm)', type: 'number', required: true, reason: 'offset_min_mm is required and must be finite.' });
+      }
+      if (!maxOk) {
+        issues.push({ field: `${path}.offset_max_mm`, label: 'Offset max (mm)', type: 'number', required: true, reason: 'offset_max_mm is required and must be finite.' });
+      }
+      if (minOk && maxOk && f.offset_min_mm >= f.offset_max_mm) {
+        issues.push({ field: `${path}.offset_max_mm`, label: 'Offset max (mm)', type: 'number', required: true, reason: 'offset_max_mm must be strictly greater than offset_min_mm.' });
+      }
+      if (f.rest_offset_mm != null) {
+        if (!Number.isFinite(f.rest_offset_mm)) {
+          issues.push({ field: `${path}.rest_offset_mm`, label: 'Rest offset (mm)', type: 'number', required: true, reason: 'rest_offset_mm must be finite.' });
+        } else if (minOk && maxOk
+            && (f.rest_offset_mm < f.offset_min_mm || f.rest_offset_mm > f.offset_max_mm)) {
+          issues.push({ field: `${path}.rest_offset_mm`, label: 'Rest offset (mm)', type: 'number', required: true, reason: 'rest_offset_mm must lie within [offset_min_mm, offset_max_mm].' });
+        }
+      }
+      if (f.v_finger_mm_per_sec != null) {
+        if (!Number.isFinite(f.v_finger_mm_per_sec) || f.v_finger_mm_per_sec <= 0 || f.v_finger_mm_per_sec > 5000) {
+          issues.push({ field: `${path}.v_finger_mm_per_sec`, label: 'Finger speed (mm/s)', type: 'number', required: true, reason: 'v_finger_mm_per_sec must be a positive number ≤ 5000.' });
+        }
+      }
+    });
+  }
+
+  /**
+   * Validate the optional `hands_config.anchor` block. Tunables for
+   * the longitudinal anchored-finger planner. All fields optional —
+   * the planner falls back to documented defaults.
+   * @private
+   */
+  _validateAnchorBlock(anchor, issues) {
+    if (typeof anchor !== 'object' || Array.isArray(anchor)) {
+      issues.push({
+        field: 'hands_config.anchor', label: 'Anchor settings',
+        type: 'object', required: true,
+        reason: 'anchor must be an object (or omitted).'
+      });
+      return;
+    }
+    if (anchor.min_duration_ms != null
+        && (!Number.isFinite(anchor.min_duration_ms) || anchor.min_duration_ms < 0 || anchor.min_duration_ms > 5000)) {
+      issues.push({
+        field: 'hands_config.anchor.min_duration_ms', label: 'Anchor min duration (ms)',
+        type: 'number', required: true,
+        reason: 'min_duration_ms must be in [0, 5000].'
+      });
+    }
+    if (anchor.early_release_ms != null
+        && (!Number.isFinite(anchor.early_release_ms) || anchor.early_release_ms < 0 || anchor.early_release_ms > 1000)) {
+      issues.push({
+        field: 'hands_config.anchor.early_release_ms', label: 'Early release (ms)',
+        type: 'number', required: true,
+        reason: 'early_release_ms must be in [0, 1000].'
+      });
+    }
+    if (anchor.hysteresis_mm != null
+        && (!Number.isFinite(anchor.hysteresis_mm) || anchor.hysteresis_mm < 0 || anchor.hysteresis_mm > 50)) {
+      issues.push({
+        field: 'hands_config.anchor.hysteresis_mm', label: 'Hysteresis (mm)',
+        type: 'number', required: true,
+        reason: 'hysteresis_mm must be in [0, 50].'
+      });
+    }
+    if (anchor.lookahead_events != null
+        && (!Number.isInteger(anchor.lookahead_events) || anchor.lookahead_events < 0 || anchor.lookahead_events > 32)) {
+      issues.push({
+        field: 'hands_config.anchor.lookahead_events', label: 'Lookahead events',
+        type: 'number', required: true,
+        reason: 'lookahead_events must be an integer in [0, 32].'
       });
     }
   }
