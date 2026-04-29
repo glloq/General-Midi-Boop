@@ -436,35 +436,17 @@ class InstrumentCapabilitiesValidator {
           reason: 'variable_height_fingers_count is only valid for fret_sliding_fingers.'
         });
       }
-      // Optional explicit per-finger model (longitudinal anchored mode).
-      // When absent the V1 window-based planner is used; when present it
-      // unlocks LongitudinalPlanner with anchored-finger semantics.
-      // See docs/LONGITUDINAL_MODEL.md §4.
-      if (h.fingers != null) {
-        this._validateFingersArray(h.fingers, issues);
-      }
+      // Legacy V1.5 opt-in fingers[] payload — silently ignored by the
+      // always-on simplified longitudinal model. The planner now derives
+      // fingers automatically from `max_fingers` + `hand_span_mm`. The
+      // validator keeps tolerating the field on read (existing rows in
+      // DB may still carry it until the migration runs) but does not
+      // enforce its shape anymore.
     }
 
-    // Optional anchor block (hands_config.anchor) — tunes the
-    // longitudinal planner. Ignored by V1, consumed by LongitudinalPlanner.
-    if (cfg.anchor != null) {
-      this._validateAnchorBlock(cfg.anchor, issues);
-    }
-
-    // Optional dense CC stream rate. Ignored by V1, consumed by
-    // LongitudinalPlanner to insert interpolated samples between
-    // shifts so the hardware sees a continuous trajectory.
-    if (cfg.cc_sample_rate_hz != null) {
-      if (!Number.isFinite(cfg.cc_sample_rate_hz)
-          || cfg.cc_sample_rate_hz < 0
-          || cfg.cc_sample_rate_hz > 200) {
-        issues.push({
-          field: 'hands_config.cc_sample_rate_hz', label: 'CC sample rate (Hz)',
-          type: 'number', required: true,
-          reason: 'cc_sample_rate_hz must be in [0, 200]; 0 disables densification.'
-        });
-      }
-    }
+    // Legacy V1.5 anchor block and dense-CC rate — silently ignored by
+    // the always-on simplified longitudinal model. Hardcoded internal
+    // defaults govern anchoring behaviour now.
 
     // Travel speed — same dual-unit logic as span.
     const mmSpeedValid = Number.isFinite(cfg.hand_move_mm_per_sec) && cfg.hand_move_mm_per_sec > 0;

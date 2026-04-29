@@ -76,13 +76,21 @@ class LongitudinalPlanner {
     if (!hand) throw new Error('LongitudinalPlanner: missing fretting hand.');
     this.hand = hand;
 
-    const fingers = Array.isArray(hand.fingers) ? hand.fingers : null;
-    if (!fingers || fingers.length === 0) {
-      throw new Error('LongitudinalPlanner: hand.fingers[] is required.');
-    }
-    this.fingers = fingers;
+    // Finger model. Two paths:
+    //
+    //   - Legacy: `hand.fingers[]` is supplied (V1.5 opt-in panel). The
+    //     planner respects the per-finger offset bands as authored.
+    //   - Default (always-on simplified model): no `fingers[]` is given.
+    //     The planner auto-derives one finger per string up to
+    //     `max_fingers`, with each finger free to move anywhere within
+    //     the hand width (`offset ∈ [0, hand_span_mm]`). This matches
+    //     the simplified spec in docs/LONGITUDINAL_MODEL.md.
+    const explicitFingers = Array.isArray(hand.fingers) && hand.fingers.length > 0
+      ? hand.fingers
+      : null;
+    this.fingers = explicitFingers || this._deriveAutoFingers(hand);
     this.fingerByString = new Map();
-    for (const f of fingers) this.fingerByString.set(f.string, f);
+    for (const f of this.fingers) this.fingerByString.set(f.string, f);
 
     this.scaleLengthMm = this.ctx.scaleLengthMm;
     if (!Number.isFinite(this.scaleLengthMm) || this.scaleLengthMm <= 0) {
@@ -119,8 +127,39 @@ class LongitudinalPlanner {
     // Pre-compute the global mm-window the hand must stay within so the
     // emitted CC value (a fret number) is always in [noteRangeMin,
     // noteRangeMax]. The CC encodes the leftmost-finger fret = fret(P + minOff).
-    this.minOffsetMm = Math.min(...fingers.map((f) => f.offset_min_mm));
-    this.maxOffsetMm = Math.max(...fingers.map((f) => f.offset_max_mm));
+    this.minOffsetMm = Math.min(...this.fingers.map((f) => f.offset_min_mm));
+    this.maxOffsetMm = Math.max(...this.fingers.map((f) => f.offset_max_mm));
+  }
+
+  /**
+   * Auto-derive a finger list when `hand.fingers[]` is not supplied.
+   * One finger per string, indexed 1..N where N = clamp(max_fingers, 1, 12).
+   * Each finger shares the same offset band `[0, hand_span_mm]`: a finger
+   * can be anywhere within the hand's reach. The simplification trades
+   * per-finger ergonomic bounds (which the V1.5 panel exposed) for a
+   * config-less default that matches the always-on anchored spec.
+   * @private
+   */
+  _deriveAutoFingers(hand) {
+    const span = Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0
+      ? hand.hand_span_mm
+      : 80;
+    const requested = Number.isInteger(hand.max_fingers) && hand.max_fingers > 0
+      ? hand.max_fingers
+      : 4;
+    const N = Math.min(12, Math.max(1, requested));
+    const out = [];
+    for (let i = 1; i <= N; i++) {
+      out.push({
+        id: i,
+        string: i,
+        offset_min_mm: 0,
+        offset_max_mm: span,
+        rest_offset_mm: span / 2,
+        _autoDerived: true
+      });
+    }
+    return out;
   }
 
   /** Convert fret number to position in mm (equal-temperament geometry). */

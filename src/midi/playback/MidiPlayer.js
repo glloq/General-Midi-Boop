@@ -690,15 +690,15 @@ class MidiPlayer {
       ? stringInstrument.scale_length_mm
       : null;
 
-    // Planner selection: LongitudinalPlanner is picked when the config
-    // opts in by providing the per-finger model AND the geometric inputs
-    // it requires. Otherwise we fall back to the V1 window planner. See
-    // docs/LONGITUDINAL_MODEL.md.
-    const fretHand = (handsCfg?.hands || [])[0];
+    // Planner selection: LongitudinalPlanner is now the default for
+    // `string_sliding_fingers` whenever the geometric input is present.
+    // It auto-derives its finger model from `max_fingers` + `hand_span_mm`
+    // when no explicit `fingers[]` is given, so the V1.5 opt-in toggle is
+    // gone. The V1 window planner stays as the fallback for
+    // `fret_sliding_fingers` and for string instruments that lack a
+    // scale length.
     const useLongitudinal = handsCfg
       && handsCfg.mechanism === 'string_sliding_fingers'
-      && Array.isArray(fretHand?.fingers)
-      && fretHand.fingers.length > 0
       && Number.isFinite(scaleLengthMm)
       && scaleLengthMm > 0;
 

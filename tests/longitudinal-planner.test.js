@@ -60,11 +60,24 @@ describe('LongitudinalPlanner — construction guards', () => {
       .toThrow(/unit must be 'frets'/);
   });
 
-  test('requires fingers[]', () => {
+  test('auto-derives fingers when hand.fingers[] is omitted', () => {
     const cfg = makeConfig();
     delete cfg.hands[0].fingers;
-    expect(() => new LongitudinalPlanner(cfg, ctx()))
-      .toThrow(/fingers\[\] is required/);
+    cfg.hands[0].max_fingers = 4;
+    cfg.hands[0].hand_span_mm = 80;
+    const p = new LongitudinalPlanner(cfg, ctx());
+    expect(p.fingers).toHaveLength(4);
+    expect(p.fingers[0]).toMatchObject({ id: 1, string: 1, offset_min_mm: 0, offset_max_mm: 80 });
+    expect(p.fingers[3]).toMatchObject({ id: 4, string: 4, offset_min_mm: 0, offset_max_mm: 80 });
+  });
+
+  test('plays a note on string 3 with auto-derived fingers', () => {
+    const cfg = makeConfig();
+    delete cfg.hands[0].fingers;
+    const p = new LongitudinalPlanner(cfg, ctx());
+    const { ccEvents, warnings } = p.plan([note(0.0, 5, 3, 0.05)]);
+    expect(ccEvents.length).toBeGreaterThanOrEqual(1);
+    expect(warnings.find(w => w.code === 'no_finger_for_string')).toBeUndefined();
   });
 
   test('requires scaleLengthMm', () => {
