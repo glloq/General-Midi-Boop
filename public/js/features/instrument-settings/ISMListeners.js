@@ -141,35 +141,6 @@
             }.bind(this));
         }
 
-        // Scale-length preset → fill the mm input. The preset is purely a
-        // shortcut: the user is free to overwrite the value afterwards (we
-        // do NOT lock the input) so a non-standard scale length is allowed.
-        const siScalePreset = this.$('#siScaleLengthPreset');
-        const siScaleInput = this.$('#siScaleLengthMm');
-        if (siScalePreset && siScaleInput) {
-            siScalePreset.addEventListener('change', function() {
-                if (!siScalePreset.value || !this.scaleLengthPresets) return;
-                const preset = this.scaleLengthPresets[siScalePreset.value];
-                if (!preset || !Number.isFinite(preset.scale_length_mm)) return;
-                siScaleInput.value = String(preset.scale_length_mm);
-                // Mirror into the in-memory tab config so other live computations
-                // (eg. the hands section coverage hint) see the new value without
-                // waiting for a re-render.
-                const tab = this._getActiveTab();
-                if (tab?.stringInstrumentConfig) {
-                    tab.stringInstrumentConfig.scale_length_mm = preset.scale_length_mm;
-                }
-            }.bind(this));
-        }
-        if (siScaleInput) {
-            siScaleInput.addEventListener('change', function() {
-                const tab = this._getActiveTab();
-                if (!tab?.stringInstrumentConfig) return;
-                const v = parseInt(siScaleInput.value, 10);
-                tab.stringInstrumentConfig.scale_length_mm = Number.isFinite(v) ? v : null;
-            }.bind(this));
-        }
-
         // Init neck diagram
         this._initNeckDiagram();
     };
