@@ -925,12 +925,60 @@
                         this.timeline._viewportSec()
                     );
                 }
+                // Push the set of currently-sounding notes to the
+                // sticky preview so each per-string finger marker stays
+                // pinned to the held fret while the hand band glides
+                // around it. Anchored = duration above the planner's
+                // MIN_ANCHOR_MS internal threshold (60 ms).
+                if (this.sticky?.setSustainingFingers) {
+                    const tick = Math.max(0, detail.currentTick ?? 0);
+                    const sustaining = this._buildSustainingFingers(tick);
+                    this.sticky.setSustainingFingers(sustaining);
+                }
                 this._refreshTimeDisplay(detail.currentSec);
             };
             this.engine.addEventListener('chord', this._chordHandler);
             this.engine.addEventListener('tick', this._tickHandler);
             // Force a tick at 0 so the sticky paints initial state.
             if (this.engine.advanceToSec) this.engine.advanceToSec(0);
+        }
+
+        /**
+         * Build the list of sustaining fingers (notes whose note-on has
+         * fired but whose note-off has not yet) at a given tick.
+         *
+         * Returns [{string, fret, anchored}]:
+         *   - one entry per (string, fret) pair currently sounding,
+         *   - `anchored` true when the original note duration crosses
+         *     the planner's anchor threshold (≥ 60 ms),
+         *   - open strings (fret 0) are excluded — they don't pin a
+         *     fretting finger.
+         *
+         * Naive O(N) scan. With typical tablatures (≤ 1000 notes) and a
+         * 30–60 Hz tick rate this stays well under the rendering budget.
+         * @private
+         */
+        _buildSustainingFingers(tick) {
+            if (!Array.isArray(this.notes) || this.notes.length === 0) return [];
+            const tps = this.ticksPerSec;
+            const ANCHOR_MIN_TICKS = tps > 0 ? 0.06 * tps : 0;
+            const out = [];
+            const seen = new Map(); // string -> entry, dedup if multiple held notes overlap
+            for (const n of this.notes) {
+                if (!n || !Number.isFinite(n.tick) || !Number.isFinite(n.fret)) continue;
+                if (n.fret <= 0) continue;
+                const dur = Number.isFinite(n.duration) ? n.duration : 0;
+                if (n.tick > tick) continue;
+                if (n.tick + dur <= tick) continue;
+                const entry = {
+                    string: n.string,
+                    fret: n.fret,
+                    anchored: dur >= ANCHOR_MIN_TICKS
+                };
+                seen.set(n.string, entry);
+            }
+            for (const e of seen.values()) out.push(e);
+            return out;
         }
 
         _onStickyBandDrag(handId, anchor) {

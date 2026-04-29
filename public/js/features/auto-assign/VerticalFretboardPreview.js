@@ -124,6 +124,34 @@
             this.draw();
         }
 
+        /**
+         * Set the set of currently-sounding notes (note-on already
+         * happened, note-off not yet). Unlike setActivePositions which
+         * only carries the chord that just started, this list keeps
+         * sustaining notes alive so the per-string finger marker stays
+         * pinned to the held fret while the hand band slides around it
+         * — the visual translation of the planner's anchoring rule
+         * (the operator sees the finger stretching to the band's edge
+         * instead of jumping back to the rest position).
+         *
+         * Pass an array of { string, fret, anchored?:boolean } or null
+         * to clear. The renderer applies the same rule as setActivePositions
+         * (one entry per string max, dedup by velocity).
+         */
+        setSustainingFingers(list) {
+            this._sustainingByString = new Map();
+            this._sustainingAnchored = new Set();
+            if (Array.isArray(list)) {
+                for (const item of list) {
+                    if (!item || !Number.isInteger(item.string) || !Number.isFinite(item.fret)) continue;
+                    if (item.fret <= 0) continue; // open strings: no fretting finger
+                    this._sustainingByString.set(item.string, item.fret);
+                    if (item.anchored) this._sustainingAnchored.add(item.string);
+                }
+            }
+            this.draw();
+        }
+
         setUnplayablePositions(positions) {
             this.unplayablePositions = Array.isArray(positions)
                 ? positions
@@ -397,8 +425,17 @@
             //                               band slides — see commit C).
             const rectW = 8;
             const restY = (y0 + y1) / 2;
-            const anchored = this._anchoredStrings || null;
-            const activeFret = this._activeFretByString || new Map();
+            // Source of truth for finger state: the sustaining map
+            // (notes currently sounding, anchored or not). The
+            // chord-event activeFret map is used as a fallback for
+            // mechanisms that don't have a sustaining feed yet, but the
+            // longitudinal pipeline pumps `setSustainingFingers` from
+            // the modal's tick handler so anchored fingers stay pinned
+            // to their fret as the band slides.
+            const sustainingMap = this._sustainingByString || new Map();
+            const sustainingAnchored = this._sustainingAnchored || new Set();
+            const fallbackActive = this._activeFretByString || new Map();
+            const anchoredFallback = this._anchoredStrings || null;
             for (let s = 1; s <= numF; s++) {
                 const cx = this._stringX(s);
                 ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
@@ -406,9 +443,11 @@
 
                 ctx.save();
                 ctx.setLineDash([]);
-                const isAnchored = anchored && anchored.has(s);
-                const activeFretOnString = activeFret.get(s);
+                let activeFretOnString = sustainingMap.get(s);
+                if (!Number.isFinite(activeFretOnString)) activeFretOnString = fallbackActive.get(s);
                 const isActive = Number.isFinite(activeFretOnString) && activeFretOnString > 0;
+                const isAnchored = sustainingAnchored.has(s)
+                    || (anchoredFallback && anchoredFallback.has(s));
 
                 let cy = restY;
                 if (isActive) {
