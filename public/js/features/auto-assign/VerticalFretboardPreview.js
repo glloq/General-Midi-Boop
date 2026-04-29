@@ -230,33 +230,31 @@
         _anchorFromTrajectory(sec) {
             if (!this._trajectory.length || !this._ticksPerSec) return null;
             const tps = this._ticksPerSec;
-            let cur = null;
+            // Find the bracketing waypoints around `sec` so we can lerp
+            // the anchor instead of stepping. The planner already
+            // saturates motion at hand_move_mm_per_sec, so a simple
+            // linear interpolation between two consecutive feasible
+            // waypoints yields a smooth, speed-respecting hand glide.
+            let prev = null;
+            let next = null;
             for (const p of this._trajectory) {
-                if (p.tick / tps <= sec) cur = p;
-                else break;
+                const pSec = p.tick / tps;
+                if (pSec <= sec) prev = p;
+                else { next = p; break; }
             }
-            return cur ? cur.anchor : this._trajectory[0].anchor;
+            if (!prev) return this._trajectory[0].anchor;
+            if (!next) return prev.anchor;
+            const tA = prev.tick / tps;
+            const tB = next.tick / tps;
+            const span = tB - tA;
+            if (span <= 0) return next.anchor;
+            const u = Math.max(0, Math.min(1, (sec - tA) / span));
+            return prev.anchor + (next.anchor - prev.anchor) * u;
         }
 
         _currentDisplayedAnchor() {
             if (Number.isFinite(this._dragAnchor)) return this._dragAnchor;
             return this._anchorFromTrajectory(this._currentSec);
-        }
-
-        _currentMotionTransition() {
-            const traj = this._trajectory;
-            const tps = this._ticksPerSec;
-            if (!traj.length || !tps) return null;
-            let prev = null;
-            for (const p of traj) {
-                const pSec = p.tick / tps;
-                if (pSec <= this._currentSec) { prev = p; continue; }
-                if (!prev) return null;
-                if (!p.motion || p.motion.feasible !== false) return null;
-                if (!Number.isFinite(prev.anchor) || !Number.isFinite(p.anchor)) return null;
-                return { prevAnchor: prev.anchor, nextAnchor: p.anchor, motion: p.motion };
-            }
-            return null;
         }
 
         // ----------------------------------------------------------------
@@ -297,12 +295,6 @@
                 }
             }
 
-            const infeasible = this._currentMotionTransition();
-            if (infeasible) {
-                this._drawInfeasibleMotionCurve(fbX, fbW,
-                    infeasible.prevAnchor, infeasible.nextAnchor);
-            }
-
             this._drawFretLines(fbX, fbW);
             this._drawStringLines(fbY, fbH);
             this._drawTuningLabels();
@@ -313,22 +305,17 @@
         _drawHandBand(fbX, fbW, anchor) {
             const { y0, y1 } = this._handWindowY(anchor);
             if (!Number.isFinite(y0) || !Number.isFinite(y1) || y1 <= y0) return;
-            const fills = {
-                ok:         'rgba(34, 197, 94, 0.22)',
-                warning:    'rgba(245, 158, 11, 0.24)',
-                infeasible: 'rgba(239, 68, 68, 0.26)'
-            };
-            const strokes = {
-                ok:         'rgba(34, 197, 94, 0.65)',
-                warning:    'rgba(245, 158, 11, 0.75)',
-                infeasible: 'rgba(239, 68, 68, 0.75)'
-            };
+            // Always-on anchored model: the band is the hand's reachable
+            // window. Infeasible chords are now expressed by speed
+            // saturation in the planner (warnings) rather than a visual
+            // overlay, so we keep a single green tint and let the smooth
+            // band motion convey the displacement itself.
             const ctx = this.ctx;
             const xLeft = fbX - HAND_BAND_X_OVERFLOW;
             const bandW = fbW + 2 * HAND_BAND_X_OVERFLOW;
-            ctx.fillStyle = fills[this._level] || fills.ok;
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.22)';
             ctx.fillRect(xLeft, y0, bandW, y1 - y0);
-            ctx.strokeStyle = strokes[this._level] || strokes.ok;
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.65)';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 3]);
             ctx.strokeRect(xLeft, y0, bandW, y1 - y0);
@@ -420,33 +407,6 @@
             ctx.arc(cx, cy, 3, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-        }
-
-        _drawInfeasibleMotionCurve(fbX, fbW, prevAnchor, nextAnchor) {
-            const ctx = this.ctx;
-            const y1 = this._anchorBandCenterY(prevAnchor);
-            const y2 = this._anchorBandCenterY(nextAnchor);
-            if (!Number.isFinite(y1) || !Number.isFinite(y2)) return;
-            const xBase = fbX + Math.min(14, fbW * 0.18);
-            const arcWidth = Math.max(16, fbW * 0.32);
-            const yMid = (y1 + y2) / 2;
-            const xPeak = xBase - arcWidth;
-            ctx.save();
-            ctx.strokeStyle = '#f5c518';
-            ctx.lineWidth = 2.5;
-            ctx.setLineDash([6, 4]);
-            ctx.beginPath();
-            ctx.moveTo(xBase, y1);
-            ctx.quadraticCurveTo(xPeak, yMid, xBase, y2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-        }
-
-        _anchorBandCenterY(anchor) {
-            const { y0, y1 } = this._handWindowY(anchor);
-            if (!Number.isFinite(y0) || !Number.isFinite(y1)) return null;
-            return (y0 + y1) / 2;
         }
 
         _drawFretLines(fbX, fbW) {
