@@ -158,14 +158,27 @@
                 const fretsPerStringData = this._neckDiagram
                     ? this._neckDiagram.getFretsPerString()
                     : (tab?.stringInstrumentConfig?.frets_per_string || null);
-                // scale_length_mm is optional. An empty input means "no
-                // physical model" — we send null so the backend stores NULL
-                // and the planner falls back to constant-fret reach.
-                const scaleLengthRaw = this.$('#siScaleLengthMm')?.value;
-                const scaleLengthParsed = scaleLengthRaw === '' || scaleLengthRaw == null
-                    ? null
-                    : parseInt(scaleLengthRaw, 10);
-                const scaleLengthMm = Number.isFinite(scaleLengthParsed) ? scaleLengthParsed : null;
+                // scale_length_mm is optional. The canonical source is
+                // the in-memory `tab.stringInstrumentConfig.scale_length_mm`
+                // — every input that touches this value (the Mains-tab
+                // geometry input, preset selectors) mirrors itself there
+                // synchronously. We fall back to the live DOM input
+                // (`#handsGeometryScaleLength`, the only one still
+                // rendered after the geometry refactor) so a freshly
+                // typed value is captured even before the change event
+                // has had a chance to fire. An empty result becomes
+                // `null` so the backend stores NULL and the planner
+                // falls back to constant-fret reach.
+                let scaleLengthMm = Number.isFinite(tab?.stringInstrumentConfig?.scale_length_mm)
+                    ? tab.stringInstrumentConfig.scale_length_mm
+                    : null;
+                if (scaleLengthMm == null) {
+                    const liveRaw = this.$('#handsGeometryScaleLength')?.value;
+                    if (liveRaw != null && liveRaw !== '') {
+                        const parsed = parseInt(liveRaw, 10);
+                        if (Number.isFinite(parsed)) scaleLengthMm = parsed;
+                    }
+                }
                 stringInstrumentPayload = {
                     instrument_name: instrumentName,
                     num_strings: numStrings,
