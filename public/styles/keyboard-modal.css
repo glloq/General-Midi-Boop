@@ -789,10 +789,15 @@
     flex: 1;
     background: linear-gradient(to bottom, #ffffff, #e5e7eb);
     border-right: 1px solid rgba(0, 0, 0, 0.35);
+    transition: background 0.15s, opacity 0.15s;
 }
 .minimap-wkey:last-child { border-right: none; }
 .minimap-wkey.octave-c {
     border-right-color: rgba(0, 0, 0, 0.6);
+}
+.minimap-wkey.disabled {
+    background: linear-gradient(to bottom, #6b7280, #4b5563);
+    opacity: 0.55;
 }
 .minimap-bkey {
     position: absolute;
@@ -801,6 +806,11 @@
     background: linear-gradient(to bottom, #1f1f1f, #0f0f0f);
     border-radius: 0 0 2px 2px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    transition: background 0.15s, opacity 0.15s;
+}
+.minimap-bkey.disabled {
+    background: linear-gradient(to bottom, #4b5563, #374151);
+    opacity: 0.55;
 }
 
 .minimap-viewport {
