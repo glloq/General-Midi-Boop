@@ -42,14 +42,15 @@
  *      shortest remaining duration; if that does not help, warn and
  *      drop the conflict-causing anchor.
  *   4. Hand speed: P_new must lie within `[P_prev ± V·Δt]`. If not,
- *      warn `speed_saturation` and saturate.
+ *      warn `speed_saturation` and saturate to the closest reachable
+ *      point.
  *   5. Hysteresis: if the previous P already lies in the feasible
  *      band within `hysteresis_mm`, keep it.
  *   6. Promote the new note to anchored if `duration ≥ min_duration_ms`.
  *
- * This module emits one CC per shift (same density as V1). Trajectory
- * densification (rampe trapézoïdale) is a follow-up step that wraps
- * the output of this planner.
+ * Sparse output by default (one CC per shift). When
+ * `cc_sample_rate_hz > 0` the planner additionally emits intermediate
+ * CCs interpolated linearly in mm between the trajectory key points.
  */
 
 const EPSILON_SECONDS = 0.0001;
@@ -93,6 +94,11 @@ class LongitudinalPlanner {
 
     const a = this.config.anchor || {};
     this.minAnchorMs = Number.isFinite(a.min_duration_ms) ? a.min_duration_ms : DEFAULT_ANCHOR_MIN_DURATION_MS;
+    // Reserved: budget (ms) for forced anchor releases that happen close
+    // to a note's natural t_off — used by a future cost-aware release
+    // ranker to distinguish "barely-shortened" from "significantly-cut"
+    // notes. Currently parsed and validated but not yet consumed by
+    // `_tryReleaseConflict`, which releases unconditionally.
     this.earlyReleaseMs = Number.isFinite(a.early_release_ms) ? a.early_release_ms : DEFAULT_ANCHOR_EARLY_RELEASE_MS;
     this.hysteresisMm = Number.isFinite(a.hysteresis_mm) ? a.hysteresis_mm : DEFAULT_HYSTERESIS_MM;
     this.lookahead = Number.isInteger(a.lookahead_events) ? a.lookahead_events : DEFAULT_LOOKAHEAD;
@@ -182,8 +188,7 @@ class LongitudinalPlanner {
 
       // 2. Build per-note interval requirement and compute their joint
       //    intersection with the current anchor band.
-      const reqs = []; // { fingerId, note, posMm, interval:[lo,hi] }
-      const groupWarnings = [];
+      const reqs = []; // { fingerId, finger, note, posMm, interval:[lo,hi] }
       for (const idx of g.notes) {
         const n = notes[idx];
         if (!Number.isFinite(n.fretPosition) || n.fretPosition <= 0) continue;
@@ -258,13 +263,19 @@ class LongitudinalPlanner {
         const speedBand = [P - reach, P + reach];
         const next = intersect(feasible, speedBand);
         if (next == null) {
-          // Saturate towards the closer end of the requested band.
-          const target = clampToInterval(P, feasible);
+          // Speed is insufficient. The note's required band is entirely
+          // outside `[P − reach, P + reach]`. The hand cannot reach it
+          // in time; saturate to the closest *reachable* point (which is
+          // P + sign·reach, NOT clampToInterval(P, feasible) — that
+          // would silently jump to the unreachable target).
+          const requested = clampToInterval(P, feasible);
+          const direction = requested >= P ? 1 : -1;
+          const reachableP = P + direction * reach;
           warnings.push({
             time: g.time, code: 'speed_saturation',
-            message: `Hand speed ${this.handSpeedMmPerSec.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (need to reach ${target.toFixed(1)} mm from ${P.toFixed(1)} mm).`
+            message: `Hand speed ${this.handSpeedMmPerSec.toFixed(0)} mm/s insufficient over ${(dt * 1000).toFixed(0)} ms (target ${requested.toFixed(1)} mm from ${P.toFixed(1)} mm; reachable ${reachableP.toFixed(1)} mm).`
           });
-          feasible = [target, target];
+          feasible = [reachableP, reachableP];
         } else {
           feasible = next;
         }
@@ -291,15 +302,20 @@ class LongitudinalPlanner {
         P_new = clampToInterval(target, feasible);
       }
 
-      // 7. Promote sufficiently long notes to anchored.
+      // 7. Promote sufficiently long notes to anchored. The anchor's
+      //    natural release time is the actual note-off (t_on + duration);
+      //    `early_release_ms` is consumed only by the conflict path
+      //    (`_tryReleaseConflict`), which may release the anchor before
+      //    its natural end to make room for an incoming note.
       for (const r of reqs) {
         const durMs = (r.note.duration ?? 0) * 1000;
         if (durMs >= this.minAnchorMs) {
           const t_off = r.note.duration != null
-            ? r.note.time + Math.max(0, r.note.duration - this.earlyReleaseMs / 1000)
+            ? r.note.time + r.note.duration
             : null;
           anchors.set(r.fingerId, {
             fingerId: r.fingerId,
+            finger: r.finger,
             note: r.note,
             posMm: r.posMm,
             t_on: r.note.time,
@@ -429,7 +445,9 @@ class LongitudinalPlanner {
   _anchorBand(anchors) {
     let band = [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
     for (const a of anchors.values()) {
-      const f = this.fingers.find((fi) => fi.id === a.fingerId);
+      // Anchors carry their finger reference directly so we avoid an
+      // O(n) lookup against `this.fingers` on every band recomputation.
+      const f = a.finger;
       if (!f) continue;
       const I = [a.posMm - f.offset_max_mm, a.posMm - f.offset_min_mm];
       band = intersect(band, I);
@@ -503,9 +521,19 @@ class LongitudinalPlanner {
 
   /** @private */
   _groupByTime(notes) {
+    // Filter:
+    //  - notes whose hand differs from this planner's hand (defensive;
+    //    callers currently pass a single hand but multi-hand routing
+    //    upstream could change),
+    //  - logical note-offs (velocity 0),
+    //  - notes without a usable fret position.
+    const handId = this.hand.id;
     const indexed = notes
       .map((n, i) => ({ n, i }))
-      .filter(({ n }) => n && n.velocity !== 0 && Number.isFinite(n.fretPosition))
+      .filter(({ n }) => n
+        && (n.hand == null || n.hand === handId)
+        && n.velocity !== 0
+        && Number.isFinite(n.fretPosition))
       .sort((a, b) => a.n.time - b.n.time);
     const groups = [];
     let current = null;

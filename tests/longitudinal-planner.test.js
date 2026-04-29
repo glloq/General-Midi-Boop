@@ -164,6 +164,48 @@ describe('LongitudinalPlanner — T8 speed_saturation warning on fast slides', (
     const { warnings } = p.plan(notes);
     expect(warnings.find(w => w.code === 'speed_saturation')).toBeDefined();
   });
+
+  test('saturated emission lands on the reachable position, not the unreachable target', () => {
+    // 50 mm/s × 0.1 s = 5 mm of reach; jumping from fret 1 to fret 15 is
+    // about 215 mm, vastly out of reach. The saturated CC must reflect a
+    // position close to the starting fret, not a snap to the unreachable
+    // target.
+    const cfg = makeConfig({ hand_move_mm_per_sec: 50 });
+    const p = new LongitudinalPlanner(cfg, ctx());
+    const notes = [
+      note(0.0, 1,  1, 0.05),
+      note(0.1, 15, 1, 0.05)
+    ];
+    const { ccEvents } = p.plan(notes);
+    // The second event (the saturated one) should be much closer to the
+    // first than to fret 15.
+    const second = ccEvents[ccEvents.length - 1];
+    expect(second.value).toBeLessThan(5);
+  });
+});
+
+describe('LongitudinalPlanner — anchor lifecycle', () => {
+  test('natural release happens at full note duration (no built-in early shortening)', () => {
+    // 0.5 s anchor on string 1 — the next note on string 2 lands AFTER
+    // the anchor's natural t_off, so no release_forced is needed.
+    const p = new LongitudinalPlanner(makeConfig(), ctx());
+    const notes = [
+      note(0.0, 5, 1, 0.5),
+      note(0.6, 8, 2, 0.05) // strictly after t_on + duration
+    ];
+    const { warnings } = p.plan(notes);
+    expect(warnings.find(w => w.code === 'release_forced')).toBeUndefined();
+  });
+
+  test('ignores notes whose hand differs from the planner hand', () => {
+    const p = new LongitudinalPlanner(makeConfig(), ctx());
+    const notes = [
+      note(0.0, 5, 1, 0.05),
+      { ...note(0.5, 7, 1, 0.05), hand: 'other' }
+    ];
+    const { ccEvents } = p.plan(notes);
+    expect(ccEvents).toHaveLength(1);
+  });
 });
 
 describe('LongitudinalPlanner — out-of-range and missing-finger warnings', () => {

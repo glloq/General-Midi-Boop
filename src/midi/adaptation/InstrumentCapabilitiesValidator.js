@@ -600,7 +600,7 @@ class InstrumentCapabilitiesValidator {
    * @private
    */
   _validateAnchorBlock(anchor, issues) {
-    if (typeof anchor !== 'object' || Array.isArray(anchor)) {
+    if (anchor === null || typeof anchor !== 'object' || Array.isArray(anchor)) {
       issues.push({
         field: 'hands_config.anchor', label: 'Anchor settings',
         type: 'object', required: true,
