@@ -33,11 +33,20 @@ MIDI file
 [ HandAssigner (single hand) ]  ─►  toutes les notes → hand 'fretting'
    │
    ▼
-[ HandPositionPlanner (mode 'frets') ]
+[ HandPositionPlanner (mode 'frets', V1 par défaut) ]
    │   maintient une fenêtre [low, low+span] sur le manche
    │   émet CC22 (configurable) à chaque shift, le plus tôt possible
    │   produit des warnings non-bloquants (chord_span_exceeded,
    │   move_too_fast, out_of_range, too_many_fingers)
+   │
+   │   OU, si hands_config.hands[0].fingers[] et scale_length_mm
+   │   sont fournis et mechanism = string_sliding_fingers :
+   │
+[ LongitudinalPlanner ]
+   │   modèle explicite par doigt (1 doigt ↔ 1 corde fixe)
+   │   doigts ancrés (offset compense le déplacement de main)
+   │   anti-jitter (hystérésis + lookahead)
+   │   trajectoire dense optionnelle (cc_sample_rate_hz)
    │
    ▼
 flux MIDI augmenté : note-on/off + CC20 (corde) + CC21 (frette) + CC22 (position main)
@@ -49,9 +58,10 @@ Modules concernés :
 | --- | --- |
 | [`TablatureConverter`](../src/midi/adaptation/TablatureConverter.js) | MIDI → (corde, frette), 5 algorithmes |
 | [`HandAssigner`](../src/midi/adaptation/HandAssigner.js) | tag `hand: 'fretting'` (mode `single_hand` côté cordes) |
-| [`HandPositionPlanner`](../src/midi/adaptation/HandPositionPlanner.js) | shifts de main + warnings, en frets ou en mm |
+| [`HandPositionPlanner`](../src/midi/adaptation/HandPositionPlanner.js) | V1 — shifts de main + warnings, fenêtre glissante |
+| [`LongitudinalPlanner`](../src/midi/adaptation/LongitudinalPlanner.js) | mode longitudinal ancré ; voir [`LONGITUDINAL_MODEL.md`](LONGITUDINAL_MODEL.md) |
 | [`InstrumentCapabilitiesValidator`](../src/midi/adaptation/InstrumentCapabilitiesValidator.js) | valide `hands_config` à la sauvegarde |
-| [`MidiPlayer`](../src/midi/playback/MidiPlayer.js) | `_planFretsForDestination()` orchestre l'injection des CC |
+| [`MidiPlayer`](../src/midi/playback/MidiPlayer.js) | `_planFretsForDestination()` orchestre l'injection des CC, sélectionne le planner |
 
 ---
 
@@ -103,6 +113,57 @@ Règles :
   - **fallback** : `hand_span_frets` + `hand_move_frets_per_sec` (span constant en nombre de frettes).
 - Champs croisés (`hand_span_semitones`, `hand_move_semitones_per_sec`) → erreur de validation.
 - `max_fingers` est optionnel, plafonné à 12 par cohérence avec `num_strings`.
+
+### 2.3 Mode longitudinal ancré (opt-in)
+
+Le `LongitudinalPlanner` remplace le `HandPositionPlanner` lorsque la
+configuration fournit un modèle explicite par doigt **et** que le
+mécanisme est `string_sliding_fingers` **et** que `scale_length_mm`
+est défini sur l'instrument. Spec complète :
+[`LONGITUDINAL_MODEL.md`](LONGITUDINAL_MODEL.md).
+
+Champs additionnels :
+
+```json
+{
+  "mode": "frets",
+  "mechanism": "string_sliding_fingers",
+  "hands": [{
+    "id": "fretting",
+    "cc_position_number": 22,
+    "hand_span_mm": 80,
+    "fingers": [
+      { "id": 1, "string": 1, "offset_min_mm": -10, "offset_max_mm": 30  },
+      { "id": 2, "string": 2, "offset_min_mm": 10,  "offset_max_mm": 65  },
+      { "id": 3, "string": 3, "offset_min_mm": 25,  "offset_max_mm": 95  },
+      { "id": 4, "string": 4, "offset_min_mm": 40,  "offset_max_mm": 120 }
+    ]
+  }],
+  "anchor": {
+    "min_duration_ms": 60,
+    "early_release_ms": 20,
+    "hysteresis_mm": 3,
+    "lookahead_events": 2
+  },
+  "cc_sample_rate_hz": 50,
+  "hand_move_mm_per_sec": 250
+}
+```
+
+Règles complémentaires :
+
+- `hands[0].fingers[]` (optionnel) : un doigt par corde, `string`
+  unique, `offset_min_mm < offset_max_mm`. La présence du tableau
+  active le LongitudinalPlanner.
+- `anchor` (optionnel) : tunables du modèle ancré
+  (`min_duration_ms` ∈ [0, 5000], `early_release_ms` ∈ [0, 1000],
+  `hysteresis_mm` ∈ [0, 50], `lookahead_events` ∈ [0, 32]).
+- `cc_sample_rate_hz` (optionnel) ∈ [0, 200] : 0 désactive la
+  densification ; > 0 émet des CC22 intermédiaires interpolés en mm
+  entre les notes-clés.
+- Les warnings additionnels du LongitudinalPlanner :
+  `release_forced`, `anchor_conflict`, `speed_saturation`,
+  `no_finger_for_string`.
 
 ---
 
