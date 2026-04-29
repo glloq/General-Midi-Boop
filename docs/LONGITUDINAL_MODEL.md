@@ -82,45 +82,44 @@ Libération : naturelle à `t_off(n)`, ou anticipée de `Δ_release`
 
 ## 4. Configuration
 
-Extension de `hands_config` (mode `frets`, mécanisme
-`string_sliding_fingers`) :
+Le modèle est **toujours actif** dès qu'un instrument à cordes est en
+mécanisme `string_sliding_fingers` avec une `scale_length_mm` connue.
+Aucun toggle, aucune table de doigts à remplir : la planificateur
+auto-dérive les doigts depuis `max_fingers` + `hand_span_mm`.
+
+Schéma cible :
 
 ```json
 {
   "mode": "frets",
   "mechanism": "string_sliding_fingers",
+  "hand_move_mm_per_sec": 250,
+  "finger_move_mm_per_sec": 800,
   "hands": [{
     "id": "fretting",
     "cc_position_number": 22,
     "hand_span_mm": 80,
-    "fingers": [
-      { "id": 1, "string": 1, "offset_min_mm": -5, "offset_max_mm": 30,
-        "rest_offset_mm": 0,  "v_finger_mm_per_sec": 200 },
-      { "id": 2, "string": 2, "offset_min_mm": -5, "offset_max_mm": 30,
-        "rest_offset_mm": 12, "v_finger_mm_per_sec": 200 },
-      { "id": 3, "string": 3, "offset_min_mm": -5, "offset_max_mm": 30,
-        "rest_offset_mm": 24, "v_finger_mm_per_sec": 200 },
-      { "id": 4, "string": 4, "offset_min_mm": -5, "offset_max_mm": 30,
-        "rest_offset_mm": 36, "v_finger_mm_per_sec": 200 }
-    ]
-  }],
-  "anchor": {
-    "min_duration_ms": 60,
-    "early_release_ms": 20,
-    "hysteresis_mm": 3,
-    "lookahead_events": 2
-  },
-  "hand_move_mm_per_sec": 250
+    "max_fingers": 4
+  }]
 }
 ```
 
-Règles de validation supplémentaires (en sus du schéma V1) :
+Règles :
 
-- `fingers[].string` ∈ `[1, num_strings]`, **unique** par doigt.
-- `fingers[].offset_min_mm < fingers[].offset_max_mm`.
-- `fingers[].rest_offset_mm` ∈ `[offset_min_mm, offset_max_mm]`.
-- `fingers[].v_finger_mm_per_sec > 0`.
-- En `string_sliding_fingers` longitudinal : au plus un doigt par corde.
+- `max_fingers` détermine le nombre de doigts auto-dérivés (1..N).
+  Chaque doigt est attaché à la corde de même indice (`string_i = i`)
+  et peut se déplacer dans la bande `offset ∈ [0, hand_span_mm]`.
+- `finger_move_mm_per_sec` ∈ [50, 5000] : vitesse maximale d'un doigt
+  par rapport à la main. Quand au moins un doigt est ancré, la vitesse
+  effective de la main devient `min(hand_move_mm_per_sec, finger_move_mm_per_sec)`.
+- Constantes internes (non exposées) : `MIN_ANCHOR_MS = 60`,
+  `HYSTERESIS_MM = 3`, `LOOKAHEAD = 2`.
+
+> **Historique** : la première itération (V1.5) exposait une table
+> `fingers[]`, un bloc `anchor.*` et un champ `cc_sample_rate_hz` derrière
+> un toggle UI opt-in. Ces champs ont été retirés du schéma exposé (le
+> validator les ignore désormais en lecture, et la migration 011 les
+> purge des rows persistés). Voir l'annexe « Champs supprimés » plus bas.
 
 ---
 
@@ -298,15 +297,18 @@ Trois mécanismes complémentaires :
 
 ---
 
-## 13. Étapes d'implémentation
+## 13. Annexe — Champs supprimés (V1.5 historique)
 
-1. Étendre le schéma `hands_config` avec `fingers[]` et `anchor.*` +
-   validation dans `InstrumentCapabilitiesValidator.js`.
-2. Créer `LongitudinalPlanner.js` à côté de `HandPositionPlanner.js`
-   (le V1 reste actif par défaut).
-3. Sélecteur dans `MidiPlayer._planFretsForDestination` selon
-   `mechanism` + flag `enable_anchored_fingers`.
-4. Densification CC22 (rampe trapézoïdale).
-5. Tests unitaires couvrant T1–T8.
-6. Mise à jour de [`STRING_HAND_POSITION.md`](STRING_HAND_POSITION.md)
-   avec une section « Mode longitudinal ancré ».
+La première itération du planner ancré exposait à l'utilisateur trois
+blocs de configuration qui ont été retirés au profit du modèle simplifié
+décrit dans ce document. Ces champs sont **silencieusement ignorés en
+lecture** par le validator et le planner, et la migration 011
+(`011_strip_legacy_longitudinal_fields.sql`) les retire des rows
+persistés.
+
+| Champ | Remplacement |
+| --- | --- |
+| `hands[0].fingers[]` (table par doigt) | Auto-dérivés : 1 doigt par corde, `offset ∈ [0, hand_span_mm]` |
+| `anchor.min_duration_ms`, `anchor.early_release_ms`, `anchor.hysteresis_mm`, `anchor.lookahead_events` | Constantes internes : 60 / réservé / 3 / 2 |
+| `cc_sample_rate_hz` (densification CC) | Supprimé ; le hardware interpole entre les CC sparses |
+| `fingers[].v_finger_mm_per_sec` (vitesse par doigt) | Remplacé par `hands_config.finger_move_mm_per_sec` global |

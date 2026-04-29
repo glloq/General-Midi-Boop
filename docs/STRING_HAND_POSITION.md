@@ -114,56 +114,49 @@ Règles :
 - Champs croisés (`hand_span_semitones`, `hand_move_semitones_per_sec`) → erreur de validation.
 - `max_fingers` est optionnel, plafonné à 12 par cohérence avec `num_strings`.
 
-### 2.3 Mode longitudinal ancré (opt-in)
+### 2.3 Mode longitudinal ancré (toujours actif)
 
-Le `LongitudinalPlanner` remplace le `HandPositionPlanner` lorsque la
-configuration fournit un modèle explicite par doigt **et** que le
-mécanisme est `string_sliding_fingers` **et** que `scale_length_mm`
-est défini sur l'instrument. Spec complète :
+Le `LongitudinalPlanner` est sélectionné automatiquement chaque fois que
+le mécanisme est `string_sliding_fingers` **et** que `scale_length_mm`
+est défini sur l'instrument. Aucun toggle, aucune configuration
+supplémentaire requise. Spec complète :
 [`LONGITUDINAL_MODEL.md`](LONGITUDINAL_MODEL.md).
 
-Champs additionnels :
+Champ additionnel exposé :
 
 ```json
 {
   "mode": "frets",
   "mechanism": "string_sliding_fingers",
+  "hand_move_mm_per_sec": 250,
+  "finger_move_mm_per_sec": 800,
   "hands": [{
     "id": "fretting",
     "cc_position_number": 22,
     "hand_span_mm": 80,
-    "fingers": [
-      { "id": 1, "string": 1, "offset_min_mm": -10, "offset_max_mm": 30  },
-      { "id": 2, "string": 2, "offset_min_mm": 10,  "offset_max_mm": 65  },
-      { "id": 3, "string": 3, "offset_min_mm": 25,  "offset_max_mm": 95  },
-      { "id": 4, "string": 4, "offset_min_mm": 40,  "offset_max_mm": 120 }
-    ]
-  }],
-  "anchor": {
-    "min_duration_ms": 60,
-    "early_release_ms": 20,
-    "hysteresis_mm": 3,
-    "lookahead_events": 2
-  },
-  "cc_sample_rate_hz": 50,
-  "hand_move_mm_per_sec": 250
+    "max_fingers": 4
+  }]
 }
 ```
 
-Règles complémentaires :
+Règles :
 
-- `hands[0].fingers[]` (optionnel) : un doigt par corde, `string`
-  unique, `offset_min_mm < offset_max_mm`. La présence du tableau
-  active le LongitudinalPlanner.
-- `anchor` (optionnel) : tunables du modèle ancré
-  (`min_duration_ms` ∈ [0, 5000], `early_release_ms` ∈ [0, 1000],
-  `hysteresis_mm` ∈ [0, 50], `lookahead_events` ∈ [0, 32]).
-- `cc_sample_rate_hz` (optionnel) ∈ [0, 200] : 0 désactive la
-  densification ; > 0 émet des CC22 intermédiaires interpolés en mm
-  entre les notes-clés.
-- Les warnings additionnels du LongitudinalPlanner :
+- `finger_move_mm_per_sec` ∈ [50, 5000] (mm/s) : vitesse maximale d'un
+  doigt par rapport à la main. Quand un doigt est ancré sur une note
+  tenue, la vitesse effective de la main devient
+  `min(hand_move_mm_per_sec, finger_move_mm_per_sec)`.
+- Doigts dérivés : un doigt par corde (`string_i = i`), pour
+  `i ∈ [1, max_fingers]`. Chacun se déplace dans la bande
+  `offset ∈ [0, hand_span_mm]`.
+- Constantes internes (non exposées) : durée min ancrage 60 ms,
+  hystérésis 3 mm, lookahead 2 événements.
+- Warnings du LongitudinalPlanner :
   `release_forced`, `anchor_conflict`, `speed_saturation`,
-  `no_finger_for_string`.
+  `finger_speed_saturation`, `no_finger_for_string`.
+
+Les anciens champs `hands[0].fingers[]`, `anchor.*` et
+`cc_sample_rate_hz` (V1.5 opt-in) sont silencieusement ignorés en
+lecture et purgés des rows persistés par la migration 011.
 
 ---
 
