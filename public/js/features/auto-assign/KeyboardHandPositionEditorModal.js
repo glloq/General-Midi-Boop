@@ -165,8 +165,9 @@
                     <div class="khpe-kb-mini-host" style="background:#0f172a;height:22px;flex:none;border-top:1px solid #334155;cursor:pointer;position:relative;">
                         <canvas class="khpe-kb-mini-canvas" style="display:block;width:100%;height:100%;"></canvas>
                     </div>
-                    <div class="khpe-keyboard-host" style="background:#1e293b;padding:6px;height:140px;flex:none;">
+                    <div class="khpe-keyboard-host" style="position:relative;background:#1e293b;padding:6px;height:140px;flex:none;">
                         <canvas class="khpe-keyboard-canvas" style="display:block;width:100%;height:100%;"></canvas>
+                        <canvas class="khpe-fingers-overlay" style="position:absolute;inset:6px;pointer-events:none;"></canvas>
                     </div>
                 </div>
                 <div class="khpe-hint" style="padding:6px 10px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;background:#fff;">
@@ -186,6 +187,7 @@
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
+            this.fingersCanvas = this.$('.khpe-fingers-overlay');
             this.kbMiniCanvas = this.$('.khpe-kb-mini-canvas');
             this.kbMiniHost = this.$('.khpe-kb-mini-host');
             this.minimapCanvas = this.$('.khpe-minimap-canvas');
@@ -203,6 +205,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
+                this._drawFingers();
             });
             this._refreshTransport();
         }
@@ -412,6 +415,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
+                this._drawFingers();
 
                 const playing = this._audioPlayingSec != null;
                 if (moving || playing) this._animRaf = requestAnimationFrame(tick);
@@ -865,6 +869,7 @@
                     this._drawKbMini();
                     this._fitKeyboardCanvas();
                     this.keyboard?.draw();
+                    this._drawFingers();
                 });
             });
             this._resizeObserver.observe(this.rollHost);
@@ -877,6 +882,110 @@
         // ----------------------------------------------------------------
         //  Minimap — file overview, viewport rect, hand-anchor trajectories
         // ----------------------------------------------------------------
+
+        // ----------------------------------------------------------------
+        //  Fingers overlay — vertical bars from the hand band down to
+        //  each playable key, coloured grey when the finger is lifted
+        //  and blue when it currently presses a sounding note.
+        // ----------------------------------------------------------------
+
+        /** Whether this instrument's hands_config explicitly sets the
+         *  piano layout. Used to decide whether to drop a finger on
+         *  every semitone (chromatic) or one per key (piano = white +
+         *  black). Defaults to chromatic when absent so legacy rows
+         *  keep their semantics. */
+        _keyboardLayoutType() {
+            const cfg = _parseHandsCfg(this.instrument);
+            return cfg?.keyboard_type === 'piano' ? 'piano' : 'chromatic';
+        }
+
+        /** Set of MIDI notes currently sounding at `_currentSec` —
+         *  rebuilt every frame because the playhead moves. We keep it
+         *  cheap by short-circuiting the duration check on negative
+         *  results. */
+        _activeNotesAtPlayhead() {
+            const out = new Set();
+            const t = this._currentSec * this.ticksPerSec;
+            for (const n of this.notes) {
+                if (n.tick > t) continue;
+                const dur = Number.isFinite(n.duration) ? n.duration : 0;
+                if (n.tick + dur > t) out.add(n.note);
+            }
+            return out;
+        }
+
+        /** Paint the fingers overlay. Each hand drops one rectangle per
+         *  playable key inside its window. For chromatic instruments
+         *  every semitone gets one rectangle. For piano instruments we
+         *  drop one rectangle on every white key AND one on every black
+         *  key so all 12 chromatic positions are individually
+         *  highlightable. The rectangle is ~⅓ as wide as the underlying
+         *  key so the operator sees both the finger AND the key — the
+         *  finger origin sits flush against the band on the keyboard,
+         *  the tip stops short of the key's bottom. */
+        _drawFingers() {
+            const c = this.fingersCanvas;
+            const host = c?.parentElement;
+            if (!c || !host) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = c.clientWidth;
+            const H = c.clientHeight;
+            if (W <= 0 || H <= 0) return;
+            const wantW = W * dpr;
+            const wantH = H * dpr;
+            if (c.width !== wantW || c.height !== wantH) {
+                c.width = wantW;
+                c.height = wantH;
+            }
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
+
+            const view = this._visibleExtent();
+            const pxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
+            const layout = this._keyboardLayoutType();
+            const active = this._activeNotesAtPlayhead();
+            // Geometry: bands sit at the bottom of the keyboard widget
+            // (single-row layout, height ~22px per the constructor). The
+            // overlay covers the same area, so:
+            //   handY  = H - bandH   (top of the band = where fingers hang from)
+            //   tipY   = ~ keyMidH   (just inside the keyboard body)
+            const bandH = 22;
+            const handY = Math.max(0, H - bandH);
+            const tipY = handY * 0.55; // tip stops in the upper-half of the keyboard area
+            for (const hand of this._hands) {
+                const a = this._displayedAnchor.has(hand.id)
+                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
+                const aInt = Math.round(a);
+                const stop = aInt + hand.span;
+                ctx.fillStyle = '#1e3a8a';   // pressed (blue)
+                const liftedFill = '#94a3b8'; // lifted (grey)
+                for (let m = Math.max(view.lo, aInt); m <= Math.min(view.hi, stop); m++) {
+                    if (layout === 'piano') {
+                        // Piano: every chromatic position is a finger
+                        // slot — same as chromatic. The visual gain
+                        // comes from the underlying keyboard (already
+                        // black/white) showing through, not from the
+                        // finger spacing itself.
+                    }
+                    const isPressed = active.has(m);
+                    const x = (m - view.lo) * pxPerPitch;
+                    // Finger rectangle: ~⅓ of the key width, centred on
+                    // the key so it doesn't visually steal the whole
+                    // key and the operator still reads the keyboard
+                    // underneath.
+                    const fingerW = Math.max(2, pxPerPitch * 0.33);
+                    const fx = x + (pxPerPitch - fingerW) / 2;
+                    ctx.fillStyle = isPressed ? '#3b82f6' : liftedFill;
+                    ctx.fillRect(fx, tipY, fingerW, handY - tipY);
+                    // Hand-coloured cap at the top so the operator can
+                    // tell which hand owns the finger at a glance.
+                    ctx.fillStyle = hand.color;
+                    ctx.fillRect(fx, handY - 3, fingerW, 3);
+                }
+            }
+        }
 
         // ----------------------------------------------------------------
         //  Keyboard mini-strip — full instrument range with viewport rect
