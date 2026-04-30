@@ -643,7 +643,9 @@
         "hint": "Click a note to reassign it to a different hand. Wheel = scroll, Ctrl+wheel = zoom.",
         "pickHand": "Assign to hand:",
         "clearAssignment": "Clear this choice",
-        "confirmDiscard": "Unsaved changes. Leave without saving?"
+        "confirmDiscardTitle": "Unsaved changes",
+        "confirmDiscard": "Leave without saving?",
+        "discardConfirmBtn": "Leave without saving"
     },
     "handPositionEditor": {
         "title": "Hand position editor",

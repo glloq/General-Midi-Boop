@@ -410,12 +410,86 @@
         }
 
         close() {
-            if (!this.isOpen) { super.close(); return; }
-            if (this.isDirty) {
-                if (!window.confirm(_t('keyboardHandEditor.confirmDiscard',
-                        'Modifications non enregistrées. Quitter sans sauvegarder ?'))) return;
+            if (this._closing) return;
+            if (!this.isOpen || this._closeConfirmed) {
+                this._closeConfirmed = false;
+                super.close();
+                return;
             }
-            super.close();
+            if (!this.isDirty) {
+                super.close();
+                return;
+            }
+            this._closing = true;
+            this._showDiscardConfirm().then((ok) => {
+                this._closing = false;
+                if (!ok) return;
+                this._closeConfirmed = true;
+                super.close();
+            });
+        }
+
+        /** Project-styled confirmation modal (mirrors the strings editor
+         *  pattern). Reuses `.confirm-modal-overlay` CSS from editor.css
+         *  so the look matches the rest of the app. Resolves to true
+         *  when the operator confirms the discard, false otherwise.
+         *  Esc cancels, Enter confirms. */
+        _showDiscardConfirm() {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'confirm-modal-overlay khpe-discard-confirm';
+                overlay.innerHTML = `
+                    <div class="confirm-modal" role="dialog" aria-modal="true">
+                        <div class="confirm-modal-header">
+                            <span class="confirm-modal-icon">⚠️</span>
+                            <h3 class="confirm-modal-title">${
+                                _t('keyboardHandEditor.confirmDiscardTitle',
+                                   'Modifications non enregistrées')}</h3>
+                        </div>
+                        <div class="confirm-modal-body">
+                            <p class="confirm-modal-message">${
+                                _t('keyboardHandEditor.confirmDiscard',
+                                   'Voulez-vous quitter sans sauvegarder ?')}</p>
+                        </div>
+                        <div class="confirm-modal-footer">
+                            <button class="confirm-modal-btn cancel" data-action="cancel">${
+                                _t('common.cancel', 'Annuler')}</button>
+                            <button class="confirm-modal-btn danger" data-action="confirm">${
+                                _t('keyboardHandEditor.discardConfirmBtn',
+                                   'Quitter sans sauvegarder')}</button>
+                        </div>
+                    </div>
+                `;
+                // Editor sits at 10010; confirm dialog must beat it.
+                overlay.style.zIndex = '10025';
+                document.body.appendChild(overlay);
+
+                const close = (result) => {
+                    overlay.removeEventListener('click', onClick);
+                    document.removeEventListener('keydown', onKey);
+                    overlay.classList.remove('visible');
+                    setTimeout(() => {
+                        if (overlay.parentNode) overlay.remove();
+                        resolve(result);
+                    }, 200);
+                };
+                const onClick = (e) => {
+                    if (e.target === overlay) { close(false); return; }
+                    const btn = e.target.closest('.confirm-modal-btn');
+                    if (!btn) return;
+                    close(btn.dataset.action === 'confirm');
+                };
+                const onKey = (e) => {
+                    if (e.key === 'Escape') close(false);
+                    else if (e.key === 'Enter') close(true);
+                };
+                overlay.addEventListener('click', onClick);
+                document.addEventListener('keydown', onKey);
+                requestAnimationFrame(() => overlay.classList.add('visible'));
+                setTimeout(() => {
+                    overlay.querySelector('.confirm-modal-btn.cancel')?.focus();
+                }, 50);
+            });
         }
 
         // ----------------------------------------------------------------

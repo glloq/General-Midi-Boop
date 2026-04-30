@@ -643,7 +643,9 @@
         "hint": "Cliquez sur une note pour la réaffecter à une main différente. Molette = défilement, Ctrl+molette = zoom.",
         "pickHand": "Affecter à la main :",
         "clearAssignment": "Réinitialiser ce choix",
-        "confirmDiscard": "Modifications non enregistrées. Quitter sans sauvegarder ?"
+        "confirmDiscardTitle": "Modifications non enregistrées",
+        "confirmDiscard": "Voulez-vous quitter sans sauvegarder ?",
+        "discardConfirmBtn": "Quitter sans sauvegarder"
     },
     "handPositionEditor": {
         "title": "Édition position de main",
