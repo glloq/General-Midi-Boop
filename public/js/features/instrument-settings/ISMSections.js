@@ -1209,8 +1209,42 @@
         const mechanism = ISMSections._resolveKeyboardMechanism(cfg);
 
         const handRow = (h, index) => {
-            const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
             const idLabel = ISMSections._handLabel(index, count, t);
+            // V1 'aligned_fingers': fingers are evenly mapped onto
+            // consecutive semitones, so num_fingers fully determines
+            // the playable window (span = num_fingers − 1). We expose
+            // a single 'Number of fingers' input here; hand_span_semitones
+            // is recomputed from it at save time.
+            // V2 'independent_fingers_5' (not yet released) exposes
+            // num_fingers AND hand_span_semitones separately because
+            // the fingers can stretch within a wider window.
+            const isAligned = mechanism === 'aligned_fingers';
+            const numFingers = Number.isFinite(h.num_fingers)
+                ? h.num_fingers
+                : (Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones + 1 : 5);
+            const span = Number.isFinite(h.hand_span_semitones)
+                ? h.hand_span_semitones
+                : Math.max(0, numFingers - 1);
+            const fingersField = `
+                <div>
+                    <label>${t('instrumentSettings.handsNumFingers') || 'Nombre de doigts'}</label>
+                    <input type="number" class="ism-hand-fingers" data-hand="${h.id}" data-field="num_fingers"
+                           value="${numFingers}" min="1" max="10">
+                    <span class="ism-form-hint">${
+                        isAligned
+                            ? (t('instrumentSettings.handsNumFingersAlignedHint')
+                               || 'Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.')
+                            : (t('instrumentSettings.handsNumFingersHint')
+                               || 'Nombre de touches simultanément actionnables par cette main (limite la polyphonie côté main).')
+                    }</span>
+                </div>`;
+            const spanField = isAligned ? '' : `
+                <div>
+                    <label>${t('instrumentSettings.handsSpanSemitones') || 'Écart max sans bouger (demi-tons)'}</label>
+                    <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
+                           value="${span}" min="1" max="48">
+                    <span class="ism-form-hint">${t('instrumentSettings.handsSpanSemitonesHint') || 'Intervalle de notes jouables sans déplacer la main.'}</span>
+                </div>`;
             return `
             <div class="ism-hand-row" data-hand="${h.id}" data-hand-index="${index}">
                 <h4 class="ism-hand-title">${idLabel}</h4>
@@ -1221,22 +1255,9 @@
                                value="${h.cc_position_number}" min="0" max="127">
                         <span class="ism-form-hint">${t('instrumentSettings.handsCcPositionHint') || "Numéro de CC envoyé pour la position de main (valeur = note MIDI la plus grave)."}</span>
                     </div>
-                    <div>
-                        <label>${t('instrumentSettings.handsSpanSemitones') || 'Écart max sans bouger (demi-tons)'}</label>
-                        <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
-                               value="${h.hand_span_semitones}" min="1" max="48">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsSpanSemitonesHint') || 'Intervalle de notes jouables sans déplacer la main.'}</span>
-                    </div>
+                    ${fingersField}
                 </div>
-                <div class="ism-form-group ism-form-grid-2">
-                    <div>
-                        <label>${t('instrumentSettings.handsNumFingers') || 'Nombre de doigts'}</label>
-                        <input type="number" class="ism-hand-fingers" data-hand="${h.id}" data-field="num_fingers"
-                               value="${numFingers}" min="1" max="10">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsNumFingersHint') || 'Nombre de touches simultanément actionnables par cette main (limite la polyphonie côté main).'}</span>
-                    </div>
-                    <div></div>
-                </div>
+                ${spanField ? `<div class="ism-form-group ism-form-grid-2">${spanField}<div></div></div>` : ''}
             </div>`;
         };
 
@@ -1726,11 +1747,15 @@
      * can override per-hand in the form.
      */
     ISMSections._defaultSemitonesHand = function(index) {
+        // V1 default mechanism is `aligned_fingers`: 5 fingers on 5
+        // consecutive semitones, so span = num_fingers − 1 = 4. The
+        // V2 form (independent_fingers_5) overrides span via its own
+        // input, so this default is harmless when the user picks V2.
         return {
             id: ISMSections._handIdAt(index),
             cc_position_number: 23 + index,
-            hand_span_semitones: 14,
-            num_fingers: 5
+            num_fingers: 5,
+            hand_span_semitones: 4
         };
     };
 
@@ -1921,6 +1946,7 @@
         // `left`/`right` is also picked up and renamed to `h1`/`h2` here so
         // the persisted payload converges to the new id scheme.
         const rows = Array.from(section.querySelectorAll('.ism-hand-row'));
+        const isAligned = kbMechanism === 'aligned_fingers';
         const hands = rows.map((row, idx) => {
             const id = ISMSections._handIdAt(idx);
             const readInt = (field, dflt) => {
@@ -1932,10 +1958,21 @@
                 return Number.isFinite(v) ? v : null;
             };
             const numFingersOpt = readOptInt('num_fingers');
+            // V1 'aligned_fingers' UI hides hand_span_semitones because
+            // span = num_fingers − 1 by design; we derive the persisted
+            // span from the fingers count to keep the payload coherent.
+            // V2 reads both fields directly.
+            let span;
+            if (isAligned) {
+                const f = numFingersOpt != null ? numFingersOpt : 5;
+                span = Math.max(1, f - 1);
+            } else {
+                span = readInt('hand_span_semitones', 14);
+            }
             const out = {
                 id,
                 cc_position_number: readInt('cc_position_number', 23 + idx),
-                hand_span_semitones: readInt('hand_span_semitones', 14)
+                hand_span_semitones: span
             };
             if (numFingersOpt != null) out.num_fingers = numFingersOpt;
             return out;

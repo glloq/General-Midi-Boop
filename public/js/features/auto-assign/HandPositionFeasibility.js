@@ -243,26 +243,60 @@
                 }
             }
 
-            // Even partition over the sorted note list: hand 0 takes the
-            // bottom slice, hand N-1 the top. Operator-pinned `note_assignments`
-            // override the bucket — a note carrying a `handId` is dropped
-            // straight into that hand's slice so the user's choice survives
-            // the automatic re-balancing.
+            // Greedy "no-move-first" assignment:
+            // 1. Pinned notes → their target bucket (skipped if it would
+            //    violate the lowest-used-so-far rule, which would cross
+            //    hands).
+            // 2. For the rest (note list is already pitch-ascending),
+            //    walk the hands from `lastHandUsed` upward and pick the
+            //    first whose CURRENT anchor already covers the note —
+            //    no shift needed, the most common case in long held
+            //    sections of a piece.
+            // 3. If no hand covers the note without moving, pick the
+            //    closest-by-anchor hand that still respects ordering
+            //    (lowest cumulative shift for this chord).
+            // This replaces the previous even-bucket partition which
+            // re-balanced on every chord regardless of where the hands
+            // already sat, producing visible back-and-forth shifts in
+            // multi-hand keyboards.
             const buckets = handIds.map(() => []);
             const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
-            const remaining = [];
+            let lastHandUsed = 0;
             for (const n of sortedNotes) {
                 const pinned = handAssignments.get(`${g.tick}:${n.note}`);
                 const pinnedIdx = pinned != null ? handIdToIdx.get(pinned) : undefined;
-                if (pinnedIdx !== undefined) {
+                if (pinnedIdx !== undefined && pinnedIdx >= lastHandUsed) {
                     buckets[pinnedIdx].push(n);
-                } else {
-                    remaining.push(n);
+                    lastHandUsed = pinnedIdx;
+                    continue;
                 }
-            }
-            for (let i = 0; i < remaining.length; i++) {
-                const idx = Math.min(N - 1, Math.floor(i * N / Math.max(1, remaining.length)));
-                buckets[idx].push(remaining[i]);
+                // Pass 1: hand whose current window already covers the note.
+                let chosen = -1;
+                for (let h = lastHandUsed; h < N; h++) {
+                    const st = state.get(handIds[h]);
+                    if (!st || st.anchor == null) continue;
+                    if (n.note >= st.anchor && n.note <= st.anchor + st.span) {
+                        chosen = h;
+                        break;
+                    }
+                }
+                // Pass 2: closest-by-anchor (will shift, but respects ordering).
+                if (chosen < 0) {
+                    let bestDist = Infinity;
+                    for (let h = lastHandUsed; h < N; h++) {
+                        const st = state.get(handIds[h]);
+                        // Anchor we'd target so the note sits at the
+                        // bottom of this hand's window — minimises the
+                        // travel for the hand at hand[h] vs the next.
+                        const target = Math.max(0, n.note - st.span);
+                        const cur = st.anchor != null ? st.anchor : target;
+                        const d = Math.abs(cur - target);
+                        if (d < bestDist) { bestDist = d; chosen = h; }
+                    }
+                }
+                if (chosen < 0) chosen = Math.min(N - 1, lastHandUsed);
+                buckets[chosen].push(n);
+                lastHandUsed = chosen;
             }
 
             const taggedNotes = [];
@@ -428,10 +462,13 @@
     }
 
     // K-step look-ahead window used by the two-hand anchor refiner.
-    // 4 chords keeps the cost bounded while letting the planner park
-    // each hand near upcoming material rather than over-shifting on a
-    // single chord that doesn't reflect what's just behind it.
-    const LOOKAHEAD_K = 4;
+    // 12 chords (was 4) gives the planner a longer horizon when deciding
+    // where to park each hand, which avoids the back-and-forth shift
+    // pattern observed when a single nearby chord pulled a hand against
+    // the broader trend of the upcoming passage. Cost is still bounded:
+    // _pickAnchorWithLookahead uses an exponentially-decayed weight so
+    // chords past ~6 steps barely influence the decision.
+    const LOOKAHEAD_K = 12;
 
     function _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments = new Map()) {
         const out = [];
