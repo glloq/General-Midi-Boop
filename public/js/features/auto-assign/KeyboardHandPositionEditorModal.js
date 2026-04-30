@@ -88,6 +88,12 @@
             this._noteHits = [];
             this._notePopover = null;
             this._mutedBeforePlay = null;
+
+            // Problem tracking — populated by `_rebuildProblems()` whenever
+            // the overrides or the hand state change.
+            this._problems = [];          // [{sec, kind:'chord'|'speed', message}]
+            this._unplayableSet = new Set(); // "tick:note"
+            this._problemRebuildTimer = null;
         }
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
@@ -102,6 +108,10 @@
                     <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
                     <button type="button" data-action="zoom-out" title="${_t('keyboardHandEditor.zoomOut','Dézoom')}">−</button>
                     <button type="button" data-action="zoom-in" title="${_t('keyboardHandEditor.zoomIn','Zoom')}">+</button>
+                    <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
+                    <button type="button" data-action="prev-problem" disabled title="${_t('keyboardHandEditor.prevProblem','Problème précédent')}">◄!</button>
+                    <button type="button" data-action="next-problem" disabled title="${_t('keyboardHandEditor.nextProblem','Problème suivant')}">!►</button>
+                    <span class="khpe-problem-count" data-role="problem-count" style="font-size:12px;color:#b91c1c;font-weight:600;min-width:20px;"></span>
                     <span style="flex:1"></span>
                     <span class="khpe-status" data-role="status" style="color:#6b7280;font-size:12px;"></span>
                     <button type="button" data-action="undo" disabled>↶</button>
@@ -147,10 +157,101 @@
             // Defer first draw so the layout has settled (clientWidth/Height
             // would otherwise read 0 inside the BaseModal mount handler).
             requestAnimationFrame(() => {
+                this._rebuildProblems();
                 this._draw();
                 this._drawMinimap();
             });
             this._refreshTransport();
+        }
+
+        // ----------------------------------------------------------------
+        //  Feasibility simulation — pulls problems from HandPositionFeasibility
+        // ----------------------------------------------------------------
+
+        /**
+         * Re-run the simulation against the current overrides + hand state
+         * and rebuild the problem list. Cheap enough on typical channels;
+         * we still debounce a little so a fast drag doesn't run it on
+         * every mouse-move frame.
+         * @private
+         */
+        _rebuildProblems() {
+            if (this._problemRebuildTimer != null) return; // already pending
+            this._problemRebuildTimer = setTimeout(() => {
+                this._problemRebuildTimer = null;
+                this._runFeasibility();
+                this._refreshProblemUI();
+                this._draw();
+                this._drawMinimap();
+            }, 80);
+        }
+
+        _runFeasibility() {
+            const Feas = window.HandPositionFeasibility;
+            if (!Feas || typeof Feas.simulateHandWindows !== 'function') return;
+            // Reflect the current operator-tweaked anchors so the
+            // simulator's per-tick window logic agrees with the bands
+            // the user sees on the keyboard.
+            const overridesForSim = this._cloneOverrides(this.overrides) || {
+                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
+            };
+            let timeline;
+            try {
+                timeline = Feas.simulateHandWindows(this.notes, this.instrument, {
+                    overrides: overridesForSim,
+                    ticksPerBeat: this.ticksPerBeat,
+                    bpm: this.bpm
+                }) || [];
+            } catch (e) {
+                console.warn('[KeyboardHandPositionEditor] simulate failed:', e);
+                timeline = [];
+            }
+            const problems = [];
+            const unplayable = new Set();
+            const tps = this.ticksPerSec;
+            for (const ev of timeline) {
+                if (ev.type === 'chord' && Array.isArray(ev.unplayable) && ev.unplayable.length > 0) {
+                    problems.push({ sec: ev.tick / tps, kind: 'chord' });
+                    for (const u of ev.unplayable) {
+                        if (Number.isFinite(u.note)) unplayable.add(`${ev.tick}:${u.note}`);
+                    }
+                } else if (ev.type === 'shift' && ev.motion && ev.motion.feasible === false) {
+                    problems.push({ sec: ev.tick / tps, kind: 'speed' });
+                }
+            }
+            problems.sort((a, b) => a.sec - b.sec);
+            this._problems = problems;
+            this._unplayableSet = unplayable;
+        }
+
+        _refreshProblemUI() {
+            const total = this._problems?.length || 0;
+            const prevBtn = this.$('[data-action="prev-problem"]');
+            const nextBtn = this.$('[data-action="next-problem"]');
+            const counter = this.$('[data-role="problem-count"]');
+            if (prevBtn) prevBtn.disabled = total === 0;
+            if (nextBtn) nextBtn.disabled = total === 0;
+            if (counter) counter.textContent = total > 0 ? `${total}` : '';
+        }
+
+        _jumpToProblem(direction) {
+            const list = this._problems || [];
+            if (list.length === 0) return;
+            const EPS = 0.05;
+            let idx;
+            if (direction > 0) {
+                idx = list.findIndex(p => p.sec > this._currentSec + EPS);
+                if (idx < 0) idx = 0; // wrap
+            } else {
+                idx = -1;
+                for (let i = list.length - 1; i >= 0; i--) {
+                    if (list[i].sec < this._currentSec - EPS) { idx = i; break; }
+                }
+                if (idx < 0) idx = list.length - 1; // wrap
+            }
+            this._currentSec = list[idx].sec;
+            this._draw();
+            this._drawMinimap();
         }
 
         _injectStyles() {
@@ -307,6 +408,7 @@
             else list.push(entry);
             this._pushHistory();
             this.keyboard?.setHandBands(this._currentHandBands());
+            this._rebuildProblems();
             this._draw();
             this._drawMinimap();
         }
@@ -407,6 +509,21 @@
                     else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
+            }
+
+            // Problem markers — red triangle for unplayable chords,
+            // amber for too-fast shifts. Drawn before the viewport rect
+            // so the rect translucent fill desaturates them slightly
+            // when they fall inside the current view (still readable).
+            for (const p of (this._problems || [])) {
+                const x = p.sec * xPerSec;
+                ctx.fillStyle = p.kind === 'speed' ? '#f59e0b' : '#dc2626';
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x - 3, 6);
+                ctx.lineTo(x + 3, 6);
+                ctx.closePath();
+                ctx.fill();
             }
 
             // Lookahead viewport rectangle (= the slice currently shown
@@ -517,10 +634,22 @@
                 const x = (n.note - ext.lo) * pxPerPitch;
                 const w = Math.max(2, pxPerPitch - 1);
                 const handId = assignments.get(`${n.tick}:${n.note}`) || null;
-                ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
-                ctx.fillRect(x, y, w, h);
-                ctx.strokeStyle = 'rgba(15,23,42,0.6)';
-                ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                const isUnplayable = this._unplayableSet.has(`${n.tick}:${n.note}`);
+                if (isUnplayable) {
+                    // Red fill + thicker red border so unplayable notes
+                    // pop visually even when assigned to a hand colour.
+                    ctx.fillStyle = '#dc2626';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = '#fecaca';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                    ctx.lineWidth = 1;
+                } else {
+                    ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = 'rgba(15,23,42,0.6)';
+                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                }
                 hits.push({ x, y, w, h, note: n });
             }
             this._noteHits = hits;
@@ -650,7 +779,9 @@
             if (idx >= 0) list[idx] = entry;
             else list.push(entry);
             this._pushHistory();
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
         }
 
         _clearNoteAssignment(tick, note) {
@@ -660,7 +791,9 @@
             if (idx < 0) return;
             list.splice(idx, 1);
             this._pushHistory();
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
         }
 
         // ----------------------------------------------------------------
@@ -689,7 +822,11 @@
                     case 'redo': this._redo(); return;
                     case 'reset-overrides':
                         this.overrides = { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
-                        this._pushHistory(); this._draw(); this._drawMinimap(); return;
+                        this._pushHistory();
+                        this._rebuildProblems();
+                        this._draw(); this._drawMinimap(); return;
+                    case 'prev-problem': this._jumpToProblem(-1); return;
+                    case 'next-problem': this._jumpToProblem(+1); return;
                     case 'save': this._save(); return;
                 }
             });
@@ -795,6 +932,7 @@
             if (this._historyIndex <= 0) return;
             this._historyIndex--;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._rebuildProblems();
             this._draw();
             this._drawMinimap();
             this._refreshButtons();
@@ -804,6 +942,7 @@
             if (this._historyIndex >= this._history.length - 1) return;
             this._historyIndex++;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._rebuildProblems();
             this._draw();
             this._drawMinimap();
             this._refreshButtons();
