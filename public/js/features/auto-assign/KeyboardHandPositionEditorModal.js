@@ -260,11 +260,13 @@
             this._buildHandAnchorTimeline(timeline);
         }
 
-        /** Per-hand `[{sec, anchor}]` series, derived from the simulation
-         *  output. `chord` events carry the hand window (lo of `notes`
-         *  for that hand), `shift` events carry the explicit `toAnchor`
-         *  the simulator picked. We stitch them in time order so a
-         *  step lookup at any `sec` returns the most recent anchor. */
+        /** Per-hand `[{sec, anchor, fromSec?, fromAnchor?}]` series.
+         *  `fromSec` and `fromAnchor` are populated for `shift` events:
+         *  they describe the moving leg of the trajectory — the hand
+         *  travelled from `fromAnchor` at `fromSec` to `anchor` at
+         *  `sec`. Without them we'd only know the destination and the
+         *  background lane would render as a step instead of the
+         *  diagonal slide a real hand performs. */
         _buildHandAnchorTimeline(timeline) {
             const tps = this.ticksPerSec;
             const seriesBy = new Map();
@@ -274,7 +276,28 @@
             };
             for (const ev of timeline || []) {
                 if (ev.type === 'shift' && ev.handId && Number.isFinite(ev.toAnchor)) {
-                    ensure(ev.handId).push({ sec: ev.tick / tps, anchor: ev.toAnchor });
+                    // The simulator's motion.availableSec carries how
+                    // long the hand had since its previous release. We
+                    // use it to back-date the start of the shift so the
+                    // background lane renders the actual slide instead
+                    // of a teleport. Falls back to motion.requiredSec
+                    // (the minimum travel time given the configured
+                    // hand_move speed) when the simulator didn't have
+                    // tempo info, and to a small default when neither
+                    // is finite (first shift, hand at rest).
+                    const sec = ev.tick / tps;
+                    let dur = Number.NaN;
+                    if (ev.motion) {
+                        if (Number.isFinite(ev.motion.availableSec)) dur = ev.motion.availableSec;
+                        else if (Number.isFinite(ev.motion.requiredSec)) dur = ev.motion.requiredSec;
+                    }
+                    if (!Number.isFinite(dur) || dur <= 0) dur = 0.15; // sensible fallback
+                    ensure(ev.handId).push({
+                        sec,
+                        anchor: ev.toAnchor,
+                        fromSec: Math.max(0, sec - dur),
+                        fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor
+                    });
                 } else if (ev.type === 'chord' && Array.isArray(ev.notes)) {
                     const lowestByHand = new Map();
                     for (const n of ev.notes) {
@@ -869,21 +892,61 @@
         _drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H) {
             if (!Array.isArray(this._hands) || this._hands.length === 0) return;
             const endSec = startSec + lookaheadSec;
+            const yOf = (sec) => H - ((sec - startSec) / lookaheadSec) * H;
             for (const hand of this._hands) {
                 const samples = this._laneSamplesFor(hand, startSec, endSec);
                 if (samples.length === 0) continue;
                 const fill = _bandFill(hand.color);
+                ctx.fillStyle = fill;
+                const w = hand.span * pxPerPitch;
                 for (let i = 0; i < samples.length - 1; i++) {
-                    const segStart = samples[i].sec;
-                    const segEnd = samples[i + 1].sec;
-                    const anchor = samples[i].anchor;
-                    if (segEnd <= startSec || segStart >= endSec) continue;
-                    const yBottom = H - ((Math.max(segStart, startSec) - startSec) / lookaheadSec) * H;
-                    const yTop = H - ((Math.min(segEnd, endSec) - startSec) / lookaheadSec) * H;
-                    const x = (anchor - ext.lo) * pxPerPitch;
-                    const w = hand.span * pxPerPitch;
-                    ctx.fillStyle = fill;
-                    ctx.fillRect(x, yTop, w, yBottom - yTop);
+                    const cur = samples[i];
+                    const next = samples[i + 1];
+                    if (next.sec <= startSec || cur.sec >= endSec) continue;
+                    // Stable segment between this sample and the start
+                    // of the next shift (or the next sample if that
+                    // sample isn't a shift). Drawn as a vertical
+                    // rectangle — the anchor stays put while the hand
+                    // plays the chords sitting on it.
+                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
+                    if (stableEndSec > cur.sec) {
+                        const a = Math.max(cur.sec, startSec);
+                        const b = Math.min(stableEndSec, endSec);
+                        if (b > a) {
+                            const x = (cur.anchor - ext.lo) * pxPerPitch;
+                            ctx.fillRect(x, yOf(b), w, yOf(a) - yOf(b));
+                        }
+                    }
+                    // Sliding segment — only present when the next
+                    // sample is a shift and carries explicit fromSec /
+                    // fromAnchor. Drawn as a parallelogram interpolating
+                    // both edges between (fromSec, fromAnchor) and
+                    // (sec, toAnchor): the 4 vertices are
+                    //   (fromSec, fromAnchor), (fromSec, fromAnchor+span),
+                    //   (sec,     anchor+span), (sec,     anchor).
+                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)) {
+                        const a = Math.max(next.fromSec, startSec);
+                        const b = Math.min(next.sec, endSec);
+                        if (b > a) {
+                            // Linear interpolation of the anchor at the
+                            // clipped boundaries so a slide partially
+                            // outside the viewport is rendered correctly.
+                            const slope = (next.anchor - next.fromAnchor) / (next.sec - next.fromSec);
+                            const aAnchor = next.fromAnchor + slope * (a - next.fromSec);
+                            const bAnchor = next.fromAnchor + slope * (b - next.fromSec);
+                            const xA = (aAnchor - ext.lo) * pxPerPitch;
+                            const xB = (bAnchor - ext.lo) * pxPerPitch;
+                            const yA = yOf(a);
+                            const yB = yOf(b);
+                            ctx.beginPath();
+                            ctx.moveTo(xA, yA);
+                            ctx.lineTo(xA + w, yA);
+                            ctx.lineTo(xB + w, yB);
+                            ctx.lineTo(xB, yB);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
                 }
             }
         }
