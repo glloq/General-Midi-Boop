@@ -98,6 +98,43 @@ async function hotspotDisable(app) {
   return { success: true, ...res };
 }
 
+async function wifiScan(app) {
+  _requireDeps(app);
+  const res = await app.hotspotManager.scan();
+  return { success: true, ...res };
+}
+
+async function wifiConnect(app, data) {
+  _requireDeps(app);
+  const ssid = String(data.ssid || '').trim();
+  if (!ssid) throw new ValidationError('ssid is required');
+  const password = data.password ? String(data.password) : undefined;
+  const res = await app.hotspotManager.wifiConnect({ ssid, password });
+  app.eventBus?.emit('wifi:connected', { ssid });
+  return { success: true, ...res };
+}
+
+async function wifiDisconnect(app) {
+  _requireDeps(app);
+  const res = await app.hotspotManager.wifiDisconnect();
+  app.eventBus?.emit('wifi:disconnected', {});
+  return { success: true, ...res };
+}
+
+async function wifiForget(app, data) {
+  _requireDeps(app);
+  const ssid = String(data.ssid || '').trim();
+  if (!ssid) throw new ValidationError('ssid is required');
+  const res = await app.hotspotManager.wifiForget(ssid);
+  return { success: true, ...res };
+}
+
+async function wifiListSaved(app) {
+  _requireDeps(app);
+  const res = await app.hotspotManager.wifiSaved();
+  return { success: true, ...res };
+}
+
 /**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app
@@ -109,4 +146,9 @@ export function register(registry, app) {
   registry.register('hotspot_status', () => hotspotStatus(app));
   registry.register('hotspot_enable', () => hotspotEnable(app));
   registry.register('hotspot_disable', () => hotspotDisable(app));
+  registry.register('wifi_scan', () => wifiScan(app));
+  registry.register('wifi_connect', (data) => wifiConnect(app, data));
+  registry.register('wifi_disconnect', () => wifiDisconnect(app));
+  registry.register('wifi_forget', (data) => wifiForget(app, data));
+  registry.register('wifi_list_saved', () => wifiListSaved(app));
 }

@@ -38,8 +38,42 @@ export const hotspot_update_config = {
   }
 };
 
+/**
+ * `wifi_connect`: ssid required (1..32), password optional (8..63 when
+ * present — open networks omit it entirely).
+ */
+export const wifi_connect = {
+  custom: (data) => {
+    if (!data || typeof data !== 'object') return 'payload must be an object';
+    if (typeof data.ssid !== 'string' || data.ssid.length < 1 || data.ssid.length > 32) {
+      return 'ssid must be a string of 1..32 characters';
+    }
+    if (data.password !== undefined && data.password !== null && data.password !== '') {
+      if (typeof data.password !== 'string' || data.password.length < 8 || data.password.length > 63) {
+        return 'password must be a string of 8..63 characters when provided';
+      }
+    }
+    return null;
+  }
+};
+
+/**
+ * `wifi_forget`: requires the SSID/connection name to delete.
+ */
+export const wifi_forget = {
+  custom: (data) => {
+    if (!data || typeof data !== 'object') return 'payload must be an object';
+    if (typeof data.ssid !== 'string' || data.ssid.length < 1) {
+      return 'ssid is required';
+    }
+    return null;
+  }
+};
+
 const schemas = {
-  hotspot_update_config
+  hotspot_update_config,
+  wifi_connect,
+  wifi_forget
 };
 
 export default schemas;

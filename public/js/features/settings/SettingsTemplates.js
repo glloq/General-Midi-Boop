@@ -557,8 +557,46 @@
                     </div>
                 </div>
 
-                <!-- Hotspot WiFi -->
+                <!-- Mise à jour -->
                 <div class="settings-section" style="margin-top: 16px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
+                    <div id="versionStatus" style="margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                        <span style="animation: pulse 1.5s infinite;">⏳</span>
+                        <span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div style="flex: 1;">
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
+                        </div>
+                        <button id="systemUpdateBtn" style="
+                            padding: 12px 24px;
+                            border: none;
+                            border-radius: 8px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 600;
+                            transition: all 0.2s;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                        ">🔄 ${i18n.t('settings.update.button') || 'Installer la mise à jour'}</button>
+                    </div>
+                    <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- GROUPE F : Gestion WiFi                  -->
+            <!-- ═══════════════════════════════════════ -->
+            <div class="settings-group" id="wifiManagementGroup" style="margin-top: 20px;">
+                <h2 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; border-bottom: 2px solid var(--border-color, #e5e7eb); padding-bottom: 6px;">
+                    ${i18n.t('settings.groups.wifi') || 'Gestion WiFi'}
+                </h2>
+
+                <!-- Hotspot WiFi -->
+                <div class="settings-section">
                     <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">📡 ${i18n.t('settings.hotspot.title') || 'Point d\'accès WiFi'}</h3>
                     <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-secondary, #666);">
                         ${i18n.t('settings.hotspot.description') || 'Transforme le Raspberry Pi en point d\'accès WiFi. Active : déconnecte du WiFi puis démarre le hotspot. Désactive : revient en mode client WiFi.'}
@@ -617,33 +655,47 @@
                     <div id="hotspotMessage" style="display:none;margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;"></div>
                 </div>
 
-                <!-- Mise à jour -->
-                <div class="settings-section" style="margin-top: 16px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
-                    <div id="versionStatus" style="margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 13px; display: flex; align-items: center; gap: 10px;">
-                        <span style="animation: pulse 1.5s infinite;">⏳</span>
-                        <span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>
+                <!-- Réseau WiFi (client) -->
+                <div class="settings-section" style="margin-top: 20px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">📶 ${i18n.t('settings.wifi.title') || 'Réseau WiFi'}</h3>
+                    <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-secondary, #666);">
+                        ${i18n.t('settings.wifi.description') || 'Scanner les réseaux WiFi disponibles et se connecter. La connexion sera coupée si le hotspot est actif.'}
+                    </p>
+
+                    <!-- Current connection -->
+                    <div id="wifiCurrent" style="margin-bottom: 10px; padding: 10px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); font-size: 13px; color: var(--text-primary, #333); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <span id="wifiCurrentLabel">${i18n.t('settings.wifi.currentNone') || 'Non connecté'}</span>
+                        <button id="wifiDisconnectBtn" style="display:none;padding: 6px 12px; border: 1px solid var(--border-color,#d1d5db); border-radius: 6px; background: var(--bg-secondary, white); color: var(--text-primary, #374151); cursor: pointer; font-size: 12px;">
+                            ${i18n.t('settings.wifi.disconnect') || 'Déconnecter'}
+                        </button>
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                        <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
-                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
+
+                    <!-- Scan controls -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px;">
+                        <span style="font-size: 13px; color: var(--text-primary, #333); font-weight: 500;">${i18n.t('settings.wifi.available') || 'Réseaux disponibles'}</span>
+                        <button id="wifiScanBtn" style="padding: 6px 14px; border: 1px solid #667eea; border-radius: 6px; background: var(--bg-secondary, white); color: #667eea; cursor: pointer; font-size: 13px;">
+                            ${i18n.t('settings.wifi.scan') || 'Scanner'}
+                        </button>
+                    </div>
+                    <div id="wifiNetworksList" style="border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; overflow: hidden; min-height: 60px;">
+                        <div style="padding: 14px; text-align: center; color: var(--text-muted, #999); font-size: 13px;">
+                            ${i18n.t('settings.wifi.clickScan') || 'Cliquez sur "Scanner" pour découvrir les réseaux'}
                         </div>
-                        <button id="systemUpdateBtn" style="
-                            padding: 12px 24px;
-                            border: none;
-                            border-radius: 8px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 600;
-                            transition: all 0.2s;
-                            white-space: nowrap;
-                            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-                        ">🔄 ${i18n.t('settings.update.button') || 'Installer la mise à jour'}</button>
                     </div>
-                    <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
+
+                    <!-- Saved networks -->
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor: pointer; font-size: 13px; color: var(--text-primary, #333); font-weight: 500; padding: 6px 0;">
+                            ${i18n.t('settings.wifi.saved') || 'Réseaux enregistrés'}
+                        </summary>
+                        <div id="wifiSavedList" style="margin-top: 8px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; overflow: hidden; min-height: 40px;">
+                            <div style="padding: 12px; text-align: center; color: var(--text-muted, #999); font-size: 12px;">
+                                ${i18n.t('settings.wifi.savedLoading') || 'Chargement...'}
+                            </div>
+                        </div>
+                    </details>
+
+                    <div id="wifiMessage" style="display:none;margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;"></div>
                 </div>
             </div>
             </div><!-- /column 2 -->

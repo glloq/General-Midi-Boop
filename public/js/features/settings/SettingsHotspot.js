@@ -242,6 +242,278 @@
         if (bandEl) bandEl.addEventListener('change', () => this._persistHotspotForm());
         if (channelEl) channelEl.addEventListener('change', () => this._persistHotspotForm());
         if (btnEl) btnEl.addEventListener('click', () => this.onHotspotToggle());
+
+        const scanBtn = this.modal.querySelector('#wifiScanBtn');
+        const disconnectBtn = this.modal.querySelector('#wifiDisconnectBtn');
+        if (scanBtn) scanBtn.addEventListener('click', () => this.scanWifi());
+        if (disconnectBtn) disconnectBtn.addEventListener('click', () => this.disconnectWifi());
+    };
+
+    // ────────────────────────────────────────────────────────────────
+    // WiFi-client controls (shares the Gestion WiFi group with the
+    // hotspot panel, but talks to a separate set of WS commands).
+    // ────────────────────────────────────────────────────────────────
+
+    SettingsHotspot._escapeHtml = function(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+
+    SettingsHotspot._signalIcon = function(signal) {
+        const s = Number(signal) || 0;
+        if (s >= 70) return '📶';
+        if (s >= 40) return '📶';
+        return '📶';
+    };
+
+    SettingsHotspot._signalLabel = function(signal) {
+        const s = Number(signal) || 0;
+        const bars = s >= 75 ? 4 : s >= 50 ? 3 : s >= 25 ? 2 : 1;
+        return '▮'.repeat(bars) + '▯'.repeat(4 - bars);
+    };
+
+    SettingsHotspot._showWifiMessage = function(kind, text) {
+        const el = this.modal.querySelector('#wifiMessage');
+        if (!el) return;
+        el.style.display = 'block';
+        if (kind === 'error')      { el.style.background = '#fee2e2'; el.style.color = '#991b1b'; }
+        else if (kind === 'warn')  { el.style.background = '#fef3c7'; el.style.color = '#92400e'; }
+        else                       { el.style.background = '#dcfce7'; el.style.color = '#14532d'; }
+        el.textContent = text;
+    };
+
+    SettingsHotspot._hideWifiMessage = function() {
+        const el = this.modal.querySelector('#wifiMessage');
+        if (el) el.style.display = 'none';
+    };
+
+    /**
+     * Refresh the "currently connected" line and the disconnect button.
+     * Reuses hotspot_status which already returns wifiActive.
+     */
+    SettingsHotspot.refreshWifiCurrent = async function() {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand) return;
+        const labelEl = this.modal.querySelector('#wifiCurrentLabel');
+        const disconnectBtn = this.modal.querySelector('#wifiDisconnectBtn');
+        if (!labelEl) return;
+
+        try {
+            const resp = await api.sendCommand('hotspot_status', {}, 8000);
+            const wifi = (resp && resp.wifiActive) || '';
+            if (wifi) {
+                labelEl.innerHTML = '✅ ' + (i18n.t('settings.wifi.currentConnected') || 'Connecté à') + ' <strong>' + this._escapeHtml(wifi) + '</strong>';
+                if (disconnectBtn) disconnectBtn.style.display = '';
+            } else {
+                labelEl.textContent = i18n.t('settings.wifi.currentNone') || 'Non connecté';
+                if (disconnectBtn) disconnectBtn.style.display = 'none';
+            }
+        } catch { /* status failure already surfaced by the hotspot panel */ }
+    };
+
+    /**
+     * Trigger a WiFi rescan and render the resulting list.
+     */
+    SettingsHotspot.scanWifi = async function() {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand) return;
+        const listEl = this.modal.querySelector('#wifiNetworksList');
+        const scanBtn = this.modal.querySelector('#wifiScanBtn');
+        if (!listEl) return;
+
+        listEl.innerHTML = `<div style="padding: 14px; text-align: center; color: #667eea; font-size: 13px;">${i18n.t('settings.wifi.scanning') || 'Scan en cours...'}</div>`;
+        if (scanBtn) scanBtn.disabled = true;
+        this._hideWifiMessage();
+
+        try {
+            const resp = await api.sendCommand('wifi_scan', {}, 15000);
+            const nets = (resp && resp.networks) || [];
+            // Dedupe by SSID, prefer strongest signal.
+            const seen = new Map();
+            for (const n of nets) {
+                const key = n.ssid || '';
+                if (!key) continue;
+                const prev = seen.get(key);
+                if (!prev || (n.signal || 0) > (prev.signal || 0)) seen.set(key, n);
+            }
+            const list = Array.from(seen.values()).sort((a, b) => (b.signal || 0) - (a.signal || 0));
+
+            if (list.length === 0) {
+                listEl.innerHTML = `<div style="padding: 14px; text-align: center; color: #999; font-size: 13px;">${i18n.t('settings.wifi.noNetworks') || 'Aucun réseau trouvé'}</div>`;
+                return;
+            }
+
+            listEl.innerHTML = list.map((n) => {
+                const isOpen = !n.security || n.security === '' || n.security === '--';
+                const lock = isOpen ? '🔓' : '🔒';
+                const bars = this._signalLabel(n.signal);
+                const active = n.active ? ' <span style="color:#10b981;font-weight:600;">●</span>' : '';
+                return `
+                    <div class="wifi-net-row" data-ssid="${this._escapeHtml(n.ssid)}" data-secured="${isOpen ? '0' : '1'}"
+                         style="padding: 10px 14px; border-bottom: 1px solid var(--border-color,#f0f0f0); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 13px; color: var(--text-primary,#333); font-weight: 500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                ${lock} ${this._escapeHtml(n.ssid)}${active}
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary,#999); margin-top: 2px;">
+                                ${bars} &nbsp; ${this._escapeHtml(n.security || (i18n.t('settings.wifi.open') || 'Ouvert'))} &nbsp; ${n.signal || 0}%
+                            </div>
+                        </div>
+                        <button class="wifi-connect-btn" data-ssid="${this._escapeHtml(n.ssid)}" data-secured="${isOpen ? '0' : '1'}"
+                            style="padding: 6px 12px; border: 1px solid #667eea; border-radius: 6px; background: var(--bg-secondary,white); color: #667eea; cursor: pointer; font-size: 12px; white-space: nowrap;">
+                            ${i18n.t('settings.wifi.connect') || 'Connecter'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            listEl.querySelectorAll('.wifi-connect-btn').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.connectWifi(btn.dataset.ssid, btn.dataset.secured === '1');
+                });
+            });
+        } catch (err) {
+            listEl.innerHTML = `<div style="padding: 14px; text-align: center; color: #e53e3e; font-size: 13px;">${this._escapeHtml(err.message || String(err))}</div>`;
+        } finally {
+            if (scanBtn) scanBtn.disabled = false;
+        }
+    };
+
+    /**
+     * Connect to a network. Asks for password (via showPrompt or window.prompt
+     * fallback) when the network is secured.
+     */
+    SettingsHotspot.connectWifi = async function(ssid, secured) {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand || !ssid) return;
+
+        let password;
+        if (secured) {
+            const ask = (typeof window.showPrompt === 'function')
+                ? window.showPrompt(
+                    (i18n.t('settings.wifi.passwordPromptMessage') || 'Mot de passe pour') + ' "' + ssid + '"',
+                    {
+                        title: i18n.t('settings.wifi.passwordPromptTitle') || 'Mot de passe WiFi',
+                        icon: '🔒',
+                        type: 'password',
+                        okText: i18n.t('settings.wifi.connect') || 'Connecter',
+                        cancelText: i18n.t('common.cancel') || 'Annuler'
+                    })
+                : Promise.resolve(window.prompt((i18n.t('settings.wifi.passwordPromptMessage') || 'Mot de passe pour') + ' "' + ssid + '"'));
+            password = await ask;
+            if (password === null || password === undefined) return;
+            password = String(password);
+            if (password.length === 0) return;
+        }
+
+        this._hideWifiMessage();
+        this._showWifiMessage('warn', '⏳ ' + (i18n.t('settings.wifi.connecting') || 'Connexion en cours à') + ' "' + ssid + '"...');
+
+        try {
+            await api.sendCommand('wifi_connect', { ssid, password }, 45000);
+            this._showWifiMessage('ok', '✅ ' + (i18n.t('settings.wifi.connectedOk') || 'Connecté à') + ' "' + ssid + '"');
+            await this.refreshWifiCurrent();
+            await this.refreshHotspotStatus();
+            await this.refreshWifiSaved();
+        } catch (err) {
+            this._showWifiMessage('error', err.message || String(err));
+        }
+    };
+
+    /**
+     * Disconnect from the current WiFi-client profile (no hotspot toggle).
+     */
+    SettingsHotspot.disconnectWifi = async function() {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand) return;
+        const confirmed = await window.showConfirm(
+            i18n.t('settings.wifi.confirmDisconnect') || 'Déconnecter le WiFi ? Si vous accédez à cette page via WiFi, vous perdrez la connexion.',
+            {
+                title: i18n.t('settings.wifi.disconnect') || 'Déconnecter',
+                icon: '📵',
+                okText: i18n.t('settings.wifi.disconnect') || 'Déconnecter',
+                cancelText: i18n.t('common.cancel') || 'Annuler',
+                danger: true
+            }
+        );
+        if (!confirmed) return;
+
+        try {
+            await api.sendCommand('wifi_disconnect', {}, 15000);
+            this._showWifiMessage('ok', i18n.t('settings.wifi.disconnectedOk') || 'WiFi déconnecté.');
+            await this.refreshWifiCurrent();
+        } catch (err) {
+            this._showWifiMessage('error', err.message || String(err));
+        }
+    };
+
+    /**
+     * Render the saved-networks list (delete button per row).
+     */
+    SettingsHotspot.refreshWifiSaved = async function() {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand) return;
+        const listEl = this.modal.querySelector('#wifiSavedList');
+        if (!listEl) return;
+
+        try {
+            const resp = await api.sendCommand('wifi_list_saved', {}, 8000);
+            const profiles = (resp && resp.profiles) || [];
+            if (profiles.length === 0) {
+                listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: #999; font-size: 12px;">${i18n.t('settings.wifi.noSaved') || 'Aucun réseau enregistré'}</div>`;
+                return;
+            }
+            listEl.innerHTML = profiles.map((p) => `
+                <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color,#f0f0f0); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size: 13px; color: var(--text-primary,#333); flex: 1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        ${this._escapeHtml(p.name)}${p.autoconnect ? ' <span style="color:#9ca3af;font-size:10px;">(auto)</span>' : ''}
+                    </span>
+                    <button class="wifi-forget-btn" data-name="${this._escapeHtml(p.name)}"
+                        style="padding: 4px 10px; border: 1px solid #e53e3e; border-radius: 6px; background: var(--bg-secondary,white); color: #e53e3e; cursor: pointer; font-size: 11px;">
+                        ${i18n.t('settings.wifi.forget') || 'Oublier'}
+                    </button>
+                </div>
+            `).join('');
+
+            listEl.querySelectorAll('.wifi-forget-btn').forEach((btn) => {
+                btn.addEventListener('click', () => this.forgetWifi(btn.dataset.name));
+            });
+        } catch (err) {
+            listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: #e53e3e; font-size: 12px;">${this._escapeHtml(err.message || String(err))}</div>`;
+        }
+    };
+
+    SettingsHotspot.forgetWifi = async function(name) {
+        const api = this._getHotspotApi();
+        if (!api || !api.sendCommand || !name) return;
+        const confirmed = await window.showConfirm(
+            (i18n.t('settings.wifi.confirmForget') || 'Oublier le réseau') + ' "' + name + '" ?',
+            {
+                title: i18n.t('settings.wifi.forget') || 'Oublier',
+                icon: '🗑️',
+                okText: i18n.t('settings.wifi.forget') || 'Oublier',
+                cancelText: i18n.t('common.cancel') || 'Annuler',
+                danger: true
+            }
+        );
+        if (!confirmed) return;
+        try {
+            await api.sendCommand('wifi_forget', { ssid: name }, 8000);
+            await this.refreshWifiSaved();
+        } catch (err) {
+            this._showWifiMessage('error', err.message || String(err));
+        }
+    };
+
+    // Hook the WiFi-client refresh into the existing hydration so opening
+    // the modal populates everything in one shot.
+    const _origHydrateHotspot = SettingsHotspot.hydrateHotspot;
+    SettingsHotspot.hydrateHotspot = async function() {
+        await _origHydrateHotspot.call(this);
+        this.refreshWifiCurrent();
+        this.refreshWifiSaved();
     };
 
     if (typeof window !== 'undefined') window.SettingsHotspot = SettingsHotspot;
