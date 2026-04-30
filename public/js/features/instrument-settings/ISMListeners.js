@@ -1393,6 +1393,40 @@
 
         this._attachMechanismCardListeners(handsSection);
         this._attachHandsGeometryListeners(handsSection);
+        this._attachHandsCountListener(handsSection);
+    };
+
+    /**
+     * Wire the semitones-mode "Nombre de mains" selector. Changes resize
+     * the in-memory `hands_config.hands` array (preserving overlap so the
+     * operator's tweaks survive a count change) then re-render the section
+     * so the right number of hand cards appear.
+     * @private
+     */
+    ISMListeners._attachHandsCountListener = function(handsSection) {
+        const select = handsSection.querySelector('#handsCount');
+        if (!select) return;
+        const self = this;
+        select.addEventListener('change', function() {
+            const n = parseInt(select.value, 10);
+            if (!Number.isFinite(n) || n < 1 || n > 4) return;
+            const tab = self._getActiveTab();
+            if (!tab || !tab.settings) return;
+            if (!tab.settings.hands_config || typeof tab.settings.hands_config !== 'object') {
+                const mode = (window.ISMSections && window.ISMSections._handsModeForTab)
+                    ? window.ISMSections._handsModeForTab(tab) : 'semitones';
+                tab.settings.hands_config = (window.ISMSections && window.ISMSections._defaultHandsConfig)
+                    ? window.ISMSections._defaultHandsConfig(mode, tab, n)
+                    : { enabled: true, mode: 'semitones', hands: [] };
+            } else {
+                const cfg = tab.settings.hands_config;
+                const resizer = window.ISMSections && window.ISMSections._resizeSemitonesHands;
+                cfg.hands = typeof resizer === 'function'
+                    ? resizer(cfg.hands, n)
+                    : (cfg.hands || []).slice(0, n);
+            }
+            self._refreshHandsSection();
+        });
     };
 
     /**

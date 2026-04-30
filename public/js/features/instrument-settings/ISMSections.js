@@ -1195,32 +1195,24 @@
     };
 
     ISMSections._renderHandsSectionSemitones = function(cfg) {
-        const defaults = ISMSections._defaultHandsConfig('semitones');
-        const hands = Array.isArray(cfg.hands) && cfg.hands.length >= 2
-            ? cfg.hands
-            : defaults.hands;
+        const t = ISMSections._tHelper(this);
+        // Resolve the active hand count from the persisted config; default
+        // to 2 (legacy two-hand keyboards). New configs may carry 1, 3 or 4
+        // hands; we cap at 4 so a malformed payload can never blow up the
+        // form into an unbounded list.
+        const rawHands = Array.isArray(cfg.hands) ? cfg.hands : [];
+        const count = Math.max(1, Math.min(4, rawHands.length || 2));
+        const hands = ISMSections._resizeSemitonesHands(rawHands, count);
         const commonSpeed = Number.isFinite(cfg.hand_move_semitones_per_sec)
             ? cfg.hand_move_semitones_per_sec
             : 60;
         const mechanism = ISMSections._resolveKeyboardMechanism(cfg);
-        // The dispatcher binds `this` to the modal so this.t() resolves
-        // through BaseModal → window.i18n. We still gracefully degrade
-        // when the section is rendered standalone (e.g. unit tests):
-        // call window.i18n directly when this.t is unavailable, and
-        // fall back to the supplied default string when neither finds
-        // the key. Returning the raw dot-path is never acceptable —
-        // that's what we used to do before this fix.
-        const t = ISMSections._tHelper(this);
 
-        const handRow = (h) => {
-            const idLabel = h.id === 'left'
-                ? '🫲 ' + (t('instrumentSettings.handsLeft') || 'Gauche')
-                : '🫱 ' + (t('instrumentSettings.handsRight') || 'Droite');
-            const numFingers = Number.isFinite(h.num_fingers)
-                ? h.num_fingers
-                : (h.id === 'left' ? defaults.hands[0].num_fingers : defaults.hands[1].num_fingers);
+        const handRow = (h, index) => {
+            const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
+            const idLabel = ISMSections._handLabel(index, count, t);
             return `
-            <div class="ism-hand-row" data-hand="${h.id}">
+            <div class="ism-hand-row" data-hand="${h.id}" data-hand-index="${index}">
                 <h4 class="ism-hand-title">${idLabel}</h4>
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
@@ -1248,6 +1240,10 @@
             </div>`;
         };
 
+        const countOptions = [1, 2, 3, 4]
+            .map(n => `<option value="${n}" ${n === count ? 'selected' : ''}>${n}</option>`)
+            .join('');
+
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> ${t('instrumentSettings.sectionHands') || 'Mains'}</h3>
             <input type="hidden" id="handsMode" value="semitones">
@@ -1260,14 +1256,19 @@
             ${ISMSections._renderKeyboardMechanismCards.call(this, mechanism)}
 
             <div class="ism-form-group">
+                <label>${t('instrumentSettings.handsCount') || 'Nombre de mains'}</label>
+                <select id="handsCount">${countOptions}</select>
+                <span class="ism-form-hint">${t('instrumentSettings.handsCountHint') || "1 à 4 mains. Par défaut 2 (piano à 4 mains : choisir 4 pour deux pianistes)."}</span>
+            </div>
+
+            <div class="ism-form-group">
                 <label>${t('instrumentSettings.handsMoveSpeedSemitones') || 'Vitesse de déplacement (demi-tons/s)'}</label>
                 <input type="number" id="handsMoveSpeed" value="${commonSpeed}" min="1" max="500">
-                <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedHint') || 'Vitesse commune aux deux mains, utilisée pour signaler les déplacements trop rapides.'}</span>
+                <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedHint') || 'Vitesse commune à toutes les mains, utilisée pour signaler les déplacements trop rapides.'}</span>
             </div>
 
             <div class="ism-hands-list">
-                ${handRow(hands.find(h => h.id === 'left') || defaults.hands[0])}
-                ${handRow(hands.find(h => h.id === 'right') || defaults.hands[1])}
+                ${hands.map((h, i) => handRow(h, i)).join('')}
             </div>
 
             <p class="ism-form-hint" style="margin-top: 12px; padding: 10px 12px; background: rgba(99,102,241,0.06); border-left: 3px solid #6366f1; border-radius: 4px;">
@@ -1709,7 +1710,35 @@
         `;
     };
 
-    ISMSections._defaultHandsConfig = function(mode, tab) {
+    /**
+     * Build the canonical hand id for a given index in the new scheme:
+     * `h1`, `h2`, `h3`, `h4`. Legacy configs may still carry `left`/`right`
+     * — readers tolerate them but new payloads use the numbered scheme so
+     * 1‑hand and 3‑/4‑hand configs have a coherent id space.
+     */
+    ISMSections._handIdAt = function(index) {
+        return `h${index + 1}`;
+    };
+
+    /**
+     * Compute a default semitones hand entry. CC numbers are spread starting
+     * at 23 so a 4‑hand piano consumes 23/24/25/26 by default — operators
+     * can override per-hand in the form.
+     */
+    ISMSections._defaultSemitonesHand = function(index) {
+        return {
+            id: ISMSections._handIdAt(index),
+            cc_position_number: 23 + index,
+            hand_span_semitones: 14,
+            num_fingers: 5
+        };
+    };
+
+    /**
+     * Default `hands_config` payload. `count` is honoured only in semitones
+     * mode (1–4); frets mode always returns a single fretting hand.
+     */
+    ISMSections._defaultHandsConfig = function(mode, tab, count) {
         if (mode === 'frets') {
             const numStrings = tab?.stringInstrumentConfig?.num_strings;
             const scaleLengthMm = tab?.stringInstrumentConfig?.scale_length_mm;
@@ -1737,17 +1766,60 @@
             }
             return out;
         }
+        const N = Math.max(1, Math.min(4, Number.isFinite(count) ? count : 2));
+        const hands = [];
+        for (let i = 0; i < N; i++) hands.push(ISMSections._defaultSemitonesHand(i));
         return {
             enabled: true,
             mode: 'semitones',
             mechanism: 'aligned_fingers',
             hand_move_semitones_per_sec: 60,
             assignment: { mode: 'auto' },
-            hands: [
-                { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 5 },
-                { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 5 }
-            ]
+            hands
         };
+    };
+
+    /**
+     * Resize an existing semitones hands array to the requested count,
+     * preserving overlap between the two arrays so the operator's tweaks
+     * survive a count change. Legacy ids `left`/`right` are renamed to
+     * `h1`/`h2` on the first resize so the persisted payload converges to
+     * the canonical scheme.
+     */
+    ISMSections._resizeSemitonesHands = function(hands, count) {
+        const N = Math.max(1, Math.min(4, count | 0));
+        const out = [];
+        for (let i = 0; i < N; i++) {
+            const existing = Array.isArray(hands) ? hands[i] : null;
+            if (existing && typeof existing === 'object') {
+                out.push({
+                    ...existing,
+                    id: ISMSections._handIdAt(i)
+                });
+            } else {
+                out.push(ISMSections._defaultSemitonesHand(i));
+            }
+        }
+        return out;
+    };
+
+    /**
+     * Localised label for a hand at `index` given the total `count`.
+     *   1 → « Main »
+     *   2 → « Gauche / Droite » (preserves the historical UI for pianos)
+     *   3‑4 → « Main 1 … Main N »
+     */
+    ISMSections._handLabel = function(index, count, t) {
+        if (count === 1) {
+            return '🫱 ' + (t('instrumentSettings.handsSingle') || 'Main');
+        }
+        if (count === 2) {
+            return index === 0
+                ? '🫲 ' + (t('instrumentSettings.handsLeft') || 'Gauche')
+                : '🫱 ' + (t('instrumentSettings.handsRight') || 'Droite');
+        }
+        return '🫱 ' + (t('instrumentSettings.handsNumbered', { n: index + 1 })
+            || `Main ${index + 1}`);
     };
 
     /**
@@ -1832,27 +1904,6 @@
             return out;
         }
 
-        const readHand = (id) => {
-            const row = section.querySelector(`.ism-hand-row[data-hand="${id}"]`);
-            if (!row) return null;
-            const readInt = (field, dflt) => {
-                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
-                return Number.isFinite(v) ? v : dflt;
-            };
-            const readOptInt = (field) => {
-                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
-                return Number.isFinite(v) ? v : null;
-            };
-            const numFingersOpt = readOptInt('num_fingers');
-            const out = {
-                id,
-                cc_position_number: readInt('cc_position_number', id === 'left' ? 23 : 24),
-                hand_span_semitones: readInt('hand_span_semitones', 14)
-            };
-            if (numFingersOpt != null) out.num_fingers = numFingersOpt;
-            return out;
-        };
-
         // Mechanism: V1 keyboard mechanism is `aligned_fingers`. The
         // V2 (`independent_fingers_5`) card is non-clickable, so the
         // hidden field can never carry a V2 value coming from the UI;
@@ -1864,7 +1915,32 @@
             ? rawKbMechanism
             : 'aligned_fingers';
 
-        const hands = [readHand('left'), readHand('right')].filter(Boolean);
+        // Read each hand row in DOM order. The renderer guarantees rows are
+        // emitted with sequential `data-hand-index` attributes (0..N‑1) and
+        // a canonical `data-hand` id (`h1..h4`). Legacy DOM that still uses
+        // `left`/`right` is also picked up and renamed to `h1`/`h2` here so
+        // the persisted payload converges to the new id scheme.
+        const rows = Array.from(section.querySelectorAll('.ism-hand-row'));
+        const hands = rows.map((row, idx) => {
+            const id = ISMSections._handIdAt(idx);
+            const readInt = (field, dflt) => {
+                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
+                return Number.isFinite(v) ? v : dflt;
+            };
+            const readOptInt = (field) => {
+                const v = parseInt(row.querySelector(`[data-field="${field}"]`)?.value, 10);
+                return Number.isFinite(v) ? v : null;
+            };
+            const numFingersOpt = readOptInt('num_fingers');
+            const out = {
+                id,
+                cc_position_number: readInt('cc_position_number', 23 + idx),
+                hand_span_semitones: readInt('hand_span_semitones', 14)
+            };
+            if (numFingersOpt != null) out.num_fingers = numFingersOpt;
+            return out;
+        });
+
         // Assignment is always automatic now — the planner derives the split
         // note and hysteresis from the live stream at playback time.
         return {

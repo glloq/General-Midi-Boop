@@ -43,11 +43,19 @@
         return Array.isArray(cfg?.hands) ? cfg.hands : [];
     }
 
-    /** Pick a colour per hand id — left=blue, right=green, fretting=amber. */
+    /**
+     * Pick a colour per hand id. Legacy `left`/`right` keep their historical
+     * blue/green so existing two-hand piano UIs are unchanged. Numbered
+     * `h1..h4` ids cycle through a four-colour palette (blue, green, amber,
+     * violet) so 3- and 4-hand keyboards each get a distinct band.
+     */
+    const _NUMBERED_HAND_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
     function _handColor(id) {
-        if (id === 'left') return '#3b82f6';
-        if (id === 'right') return '#10b981';
+        if (id === 'left') return _NUMBERED_HAND_COLORS[0];
+        if (id === 'right') return _NUMBERED_HAND_COLORS[1];
         if (id === 'fretting') return '#f59e0b';
+        const m = typeof id === 'string' && id.match(/^h([1-4])$/);
+        if (m) return _NUMBERED_HAND_COLORS[parseInt(m[1], 10) - 1];
         return '#6b7280';
     }
 
@@ -170,13 +178,16 @@
             // and the minimap; the page calls `setCurrentTime` on us
             // every progress callback so the visualization stays in
             // sync with whatever's actually being played.
-            // The "Open editor" button is rendered conditionally (only
-            // in frets mode AND when the editor module is loaded). Even
-            // if the script load order changes, the lookup is lazy so a
-            // missing module just hides the button instead of erroring.
-            const showEditorBtn = this.mode === 'frets'
+            // The "Open editor" button is rendered when the matching
+            // editor modal class is loaded for this instrument family.
+            // Frets → HandPositionEditorModal (string instruments).
+            // Semitones → KeyboardHandPositionEditorModal (keyboards).
+            const editorClassName = this.mode === 'frets'
+                ? 'HandPositionEditorModal'
+                : (this.mode === 'semitones' ? 'KeyboardHandPositionEditorModal' : null);
+            const showEditorBtn = editorClassName != null
                 && typeof window !== 'undefined'
-                && typeof window.HandPositionEditorModal === 'function';
+                && typeof window[editorClassName] === 'function';
             // Prominent CTA: filled accent button with icon + label
             // so the operator notices the "edit hands across the
             // entire file" entry-point even with the panel collapsed.
@@ -744,7 +755,9 @@
          * persist overrides and reuse the page's synthesizer.
          */
         _openFullLengthEditor() {
-            const Modal = window.HandPositionEditorModal;
+            const Modal = this.mode === 'frets'
+                ? window.HandPositionEditorModal
+                : window.KeyboardHandPositionEditorModal;
             if (typeof Modal !== 'function') return;
             const ctx = this.opts.saveCtx || {};
             new Modal({

@@ -199,7 +199,13 @@ class InstrumentCapabilitiesValidator {
     return issues;
   }
 
-  /** @private Semitones mode: two hands (left/right), assignment block allowed. */
+  /**
+   * @private Semitones mode: 1–4 hands, assignment block allowed.
+   *
+   * Hand id scheme: canonical ids are `h1..h4`; legacy `left` and `right`
+   * are still accepted on read so existing rows keep validating after the
+   * single-/multi-hand refactor.
+   */
   _validateSemitonesHandsConfig(cfg, issues) {
     // Mechanism: optional in semitones mode for backward compat (legacy
     // rows without a mechanism field default to `aligned_fingers`). When
@@ -223,6 +229,15 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
+    if (cfg.hands.length > 4) {
+      issues.push({
+        field: 'hands_config.hands', label: 'Hands list',
+        type: 'array', required: true,
+        reason: 'semitones mode supports at most 4 hands.'
+      });
+    }
+
+    const VALID_LEGACY_IDS = new Set(['left', 'right']);
     const seenIds = new Set();
     for (let i = 0; i < cfg.hands.length; i++) {
       const h = cfg.hands[i];
@@ -230,8 +245,10 @@ class InstrumentCapabilitiesValidator {
         issues.push({ field: `hands_config.hands[${i}]`, label: 'Hand entry', type: 'object', required: true, reason: 'Must be an object.' });
         continue;
       }
-      if (!h.id || (h.id !== 'left' && h.id !== 'right')) {
-        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: "id must be 'left' or 'right'." });
+      const idOk = typeof h.id === 'string'
+        && (/^h[1-4]$/.test(h.id) || VALID_LEGACY_IDS.has(h.id));
+      if (!idOk) {
+        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: "id must be 'h1'..'h4' (or legacy 'left'/'right')." });
       }
       if (h.id && seenIds.has(h.id)) {
         issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: `Duplicate hand id '${h.id}'.` });
@@ -296,9 +313,73 @@ class InstrumentCapabilitiesValidator {
       });
     }
 
-    const mode = cfg.assignment?.mode;
-    if (mode && mode !== 'auto' && mode !== 'track' && mode !== 'pitch_split') {
-      issues.push({ field: 'hands_config.assignment.mode', label: 'Assignment mode', type: 'select', required: true, reason: `Unknown mode '${mode}'.` });
+    const a = cfg.assignment;
+    if (a) {
+      const mode = a.mode;
+      if (mode && mode !== 'auto' && mode !== 'track' && mode !== 'pitch_split') {
+        issues.push({ field: 'hands_config.assignment.mode', label: 'Assignment mode', type: 'select', required: true, reason: `Unknown mode '${mode}'.` });
+      }
+      // pitch_split_notes: optional array of N-1 ascending split points.
+      // Coexists with the legacy scalar pitch_split_note (which becomes the
+      // unique split when there are exactly 2 hands).
+      if (a.pitch_split_notes != null) {
+        if (!Array.isArray(a.pitch_split_notes)
+            || a.pitch_split_notes.some(n => !Number.isFinite(n) || n < 0 || n > 127)) {
+          issues.push({
+            field: 'hands_config.assignment.pitch_split_notes',
+            label: 'Pitch split notes', type: 'array', required: true,
+            reason: 'pitch_split_notes must be an array of MIDI notes in [0,127].'
+          });
+        } else {
+          for (let i = 1; i < a.pitch_split_notes.length; i++) {
+            if (a.pitch_split_notes[i] <= a.pitch_split_notes[i - 1]) {
+              issues.push({
+                field: 'hands_config.assignment.pitch_split_notes',
+                label: 'Pitch split notes', type: 'array', required: true,
+                reason: 'pitch_split_notes must be strictly ascending.'
+              });
+              break;
+            }
+          }
+          if (cfg.hands.length > 1
+              && a.pitch_split_notes.length !== cfg.hands.length - 1) {
+            issues.push({
+              field: 'hands_config.assignment.pitch_split_notes',
+              label: 'Pitch split notes', type: 'array', required: true,
+              reason: `pitch_split_notes must have ${cfg.hands.length - 1} entries (hands - 1).`
+            });
+          }
+        }
+      }
+      // track_map: optional `{ handId: number[] }`. Every key must match a
+      // declared hand id so an obsolete mapping (after the operator removed
+      // a hand) surfaces at save time rather than silently dropping notes.
+      if (a.track_map != null) {
+        if (typeof a.track_map !== 'object' || Array.isArray(a.track_map)) {
+          issues.push({
+            field: 'hands_config.assignment.track_map',
+            label: 'Track map', type: 'object', required: true,
+            reason: 'track_map must be an object keyed by hand id.'
+          });
+        } else {
+          for (const [key, val] of Object.entries(a.track_map)) {
+            if (!seenIds.has(key)) {
+              issues.push({
+                field: `hands_config.assignment.track_map.${key}`,
+                label: 'Track map', type: 'object', required: true,
+                reason: `track_map key '${key}' does not match any declared hand id.`
+              });
+            }
+            if (!Array.isArray(val) || val.some(v => !Number.isInteger(v) || v < 0)) {
+              issues.push({
+                field: `hands_config.assignment.track_map.${key}`,
+                label: 'Track map', type: 'array', required: true,
+                reason: 'track_map values must be arrays of non-negative integers.'
+              });
+            }
+          }
+        }
+      }
     }
   }
 

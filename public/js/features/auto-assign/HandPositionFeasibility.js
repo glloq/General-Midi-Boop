@@ -183,7 +183,108 @@
         if (mode === 'frets') {
             return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments);
         }
+        // The optimised low/high partition only handles 1 or 2 hands. For
+        // 3- and 4-hand keyboards we fall back to a simpler per-hand bucket
+        // simulator that picks the closest hand by current anchor — good
+        // enough for the preview panel, and avoids a large rewrite of the
+        // 2-hand path.
+        if (Array.isArray(hands.hands) && hands.hands.length >= 3) {
+            return _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
+        }
         return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
+    }
+
+    /**
+     * N‑hand fallback simulator (N ≥ 3). Each hand keeps its own anchor;
+     * notes in a chord are sorted by pitch and partitioned across hands by
+     * even buckets (one slice per hand). Each hand then plays its slice
+     * independently with the same window/shift logic as the single-hand
+     * branch of `_simulateSemitones`. This is intentionally simpler than
+     * the 2-hand cost-based partition — multi-hand keyboards are rare and
+     * the operator can refine via the editor's pinned anchors.
+     * @private
+     */
+    function _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec) {
+        const out = [];
+        const handIds = hands.hands.map(h => h.id);
+        const handById = new Map(hands.hands.map(h => [h.id, h]));
+        const state = new Map();
+        for (const id of handIds) {
+            state.set(id, {
+                anchor: null,
+                span: handById.get(id).hand_span_semitones ?? 14
+            });
+        }
+        const prevReleaseByHand = Object.create(null);
+
+        function _emitShift(g, id, fromAnchor, toAnchor, source) {
+            if (fromAnchor === toAnchor) return;
+            const motion = _computeMotion(fromAnchor, toAnchor, hands,
+                                            prevReleaseByHand[id], g.tick, ticksPerSec);
+            out.push({
+                type: 'shift', tick: g.tick, handId: id,
+                fromAnchor, toAnchor, source, motion
+            });
+            state.get(id).anchor = toAnchor;
+        }
+
+        for (const g of groups) {
+            const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
+            const sortedNotes = liveNotes.slice().sort((a, b) => a.note - b.note);
+            const N = handIds.length;
+
+            // Apply pinned anchor overrides first so subsequent picks see
+            // the operator's intent in the prev-anchor slot.
+            for (const id of handIds) {
+                const ovKey = `${id}:${g.tick}`;
+                if (overrideAnchors.has(ovKey)) {
+                    _emitShift(g, id, state.get(id).anchor, overrideAnchors.get(ovKey), 'override');
+                }
+            }
+
+            // Even partition over the sorted note list: hand 0 takes the
+            // bottom slice, hand N-1 the top.
+            const buckets = handIds.map(() => []);
+            if (sortedNotes.length > 0) {
+                for (let i = 0; i < sortedNotes.length; i++) {
+                    const idx = Math.min(N - 1, Math.floor(i * N / sortedNotes.length));
+                    buckets[idx].push(sortedNotes[i]);
+                }
+            }
+
+            const taggedNotes = [];
+            const unplayable = [];
+            for (let h = 0; h < N; h++) {
+                const id = handIds[h];
+                const slice = buckets[h];
+                if (slice.length === 0) continue;
+                const lo = slice[0].note;
+                const hi = slice[slice.length - 1].note;
+                const span = state.get(id).span;
+                let anchor = state.get(id).anchor;
+                if (anchor == null || lo < anchor || hi > anchor + span) {
+                    _emitShift(g, id, anchor, lo, 'auto');
+                    anchor = lo;
+                }
+                for (const n of slice) {
+                    if (n.note < anchor || n.note > anchor + span) {
+                        unplayable.push({ note: n.note, reason: 'outside_window', handId: id });
+                    }
+                    taggedNotes.push({ ...n, handId: id });
+                }
+            }
+
+            const releaseByHand = _releaseByHand(taggedNotes, handIds, g.tick);
+            out.push({
+                type: 'chord', tick: g.tick,
+                releaseTick: g.releaseTick,
+                releaseByHand,
+                notes: taggedNotes,
+                unplayable
+            });
+            _updatePrevRelease(prevReleaseByHand, releaseByHand);
+        }
+        return out;
     }
 
     function _groupByTick(notes) {
