@@ -65,6 +65,36 @@ describe('HandAssigner — N hands (h1..h4 ids)', () => {
     expect(assignments.find(x => notes[x.idx].track === 3).hand).toBe('h4');
   });
 
+  test('noteAssignments override the resolved-mode decision', () => {
+    const cfg = {
+      enabled: true,
+      assignment: { mode: 'pitch_split', pitch_split_notes: [50, 70] },
+      hands: [{ id: 'h1' }, { id: 'h2' }, { id: 'h3' }]
+    };
+    const a = new HandAssigner(cfg);
+    // 60 would normally go to h2 (between 50 and 70); pin it to h3.
+    const notes = [{ time: 0, tick: 0, note: 60 }];
+    const { assignments } = a.assign(notes, {
+      noteAssignments: [{ tick: 0, note: 60, handId: 'h3' }]
+    });
+    expect(assignments[0].hand).toBe('h3');
+  });
+
+  test('noteAssignments with a stale (unknown) handId falls back to auto', () => {
+    const cfg = {
+      enabled: true,
+      assignment: { mode: 'pitch_split', pitch_split_notes: [60] },
+      hands: [{ id: 'h1' }, { id: 'h2' }]
+    };
+    const a = new HandAssigner(cfg);
+    const { assignments } = a.assign(
+      [{ time: 0, tick: 0, note: 40 }],
+      { noteAssignments: [{ tick: 0, note: 40, handId: 'h9' }] }
+    );
+    // h9 isn't declared → fall back to the resolved pitch-split decision.
+    expect(assignments[0].hand).toBe('h1');
+  });
+
   test('legacy left/right ids still work alongside the new scheme', () => {
     const a = new HandAssigner({
       enabled: true,
