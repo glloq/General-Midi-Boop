@@ -288,42 +288,74 @@
         }
 
         /** Interpolation step: pull `_displayedAnchor[id]` toward the
-         *  target anchor at the current playhead. Returns true when at
-         *  least one band is still moving so the caller can keep the
-         *  RAF loop running. */
-        _stepAnchorAnimation() {
+         *  target anchor at the current playhead. Decay is computed from
+         *  the wall-clock delta so the animation stays cross-monitor
+         *  consistent (a 144 Hz screen does not run 2× faster than 60 Hz).
+         *  Returns true when at least one band is still moving so the
+         *  caller can keep the RAF loop running. */
+        _stepAnchorAnimation(dtSec) {
             if (!Array.isArray(this._hands) || this._hands.length === 0) return false;
             // Look slightly AHEAD of the playhead so the hands anticipate
             // upcoming notes (matches a real player who looks ahead at the
             // score) — half the lookahead window is a good visual default.
             const lookSec = this._currentSec + (this._lookaheadSec || 4) * 0.5;
+            // Critically-damped exponential ease. `1 - e^(-k·dt)` produces
+            // a half-life of ln(2)/k seconds (here ~85 ms) regardless of
+            // the frame rate.
+            const k = 8;
+            const blend = 1 - Math.exp(-k * Math.max(0, dtSec));
             let stillMoving = false;
             for (const hand of this._hands) {
                 const target = this._targetAnchorAt(hand.id, lookSec);
                 if (!Number.isFinite(target)) continue;
                 const cur = this._displayedAnchor.get(hand.id);
                 const start = Number.isFinite(cur) ? cur : hand.anchor;
-                // Critically-damped style ease: take ~25% of the gap each
-                // tick. Snaps for sub-semitone gaps so we don't draw forever.
                 const gap = target - start;
                 if (Math.abs(gap) < 0.05) {
                     this._displayedAnchor.set(hand.id, target);
                     continue;
                 }
-                this._displayedAnchor.set(hand.id, start + gap * 0.25);
+                this._displayedAnchor.set(hand.id, start + gap * blend);
                 stillMoving = true;
             }
             return stillMoving;
         }
 
+        /**
+         * Single RAF loop driving every animated piece — bands lerp,
+         * roll redraw, minimap redraw — so they share a budget and stay
+         * frame-aligned. Keeps spinning while:
+         *   - bands are still moving toward their target, OR
+         *   - audio is playing (roll needs to scroll between ticks).
+         * Otherwise it stops; any UI event (drag, seek, rebuild,
+         * progress) re-arms it via `_ensureAnimLoop()`.
+         */
         _ensureAnimLoop() {
             if (this._animRaf != null) return;
-            const tick = () => {
+            this._lastAnimTime = null;
+            const tick = (now) => {
                 this._animRaf = null;
                 if (!this.isOpen) return;
-                const moving = this._stepAnchorAnimation();
+                const dt = this._lastAnimTime != null
+                    ? Math.min(0.1, (now - this._lastAnimTime) / 1000) : 0;
+                this._lastAnimTime = now;
+
+                // Interpolate the playhead between audio progress callbacks
+                // so the roll scrolls smoothly even when the synth fires
+                // onProgress at a low rate (~20-30 Hz). When paused/stopped
+                // _audioPlayingSec is null and the playhead stays put.
+                if (this._audioPlayingSec != null) {
+                    this._currentSec = Math.min(this._totalSec,
+                        this._audioPlayingSec + (now - this._audioPlayingWall) / 1000);
+                }
+
+                const moving = this._stepAnchorAnimation(dt);
                 this.keyboard?.setHandBands(this._currentHandBands());
-                if (moving) this._animRaf = requestAnimationFrame(tick);
+                this._draw();
+                this._drawMinimap();
+
+                const playing = this._audioPlayingSec != null;
+                if (moving || playing) this._animRaf = requestAnimationFrame(tick);
             };
             this._animRaf = requestAnimationFrame(tick);
         }
@@ -370,7 +402,16 @@
                     z-index: 10010 !important;
                 }
                 .khpe-modal .modal-dialog {
-                    width: 100vw; height: 100vh;
+                    /* Override .modal-dialog defaults (max-width:800px,
+                       border-radius, margin auto) so the editor uses the
+                       full viewport — multi-hand keyboards need the
+                       horizontal real estate. */
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    max-width: 100vw !important;
+                    max-height: 100vh !important;
+                    margin: 0 !important;
+                    border-radius: 0 !important;
                     display: flex; flex-direction: column;
                     background: #fff;
                 }
@@ -398,6 +439,10 @@
             if (this._animRaf != null) {
                 cancelAnimationFrame(this._animRaf);
                 this._animRaf = null;
+            }
+            if (this._resizeRaf != null) {
+                cancelAnimationFrame(this._resizeRaf);
+                this._resizeRaf = null;
             }
             if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
             if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
@@ -636,11 +681,19 @@
 
         _wireResizeObserver() {
             if (!this.rollHost || typeof ResizeObserver !== 'function') return;
+            // Coalesce resize bursts into one RAF — a window-edge drag
+            // fires `resize` per pixel; without batching we'd run 3 full
+            // canvas redraws + a keyboard redraw per pixel.
             this._resizeObserver = new ResizeObserver(() => {
-                this._draw();
-                this._drawMinimap();
-                this._fitKeyboardCanvas();
-                this.keyboard?.draw();
+                if (this._resizeRaf != null) return;
+                this._resizeRaf = requestAnimationFrame(() => {
+                    this._resizeRaf = null;
+                    if (!this.isOpen) return;
+                    this._draw();
+                    this._drawMinimap();
+                    this._fitKeyboardCanvas();
+                    this.keyboard?.draw();
+                });
             });
             this._resizeObserver.observe(this.rollHost);
             const kbHost = this.$('.khpe-keyboard-host');
@@ -674,10 +727,14 @@
             const W = host.clientWidth;
             const H = host.clientHeight;
             if (W <= 0 || H <= 0) return;
-            c.width = W * dpr;
-            c.height = H * dpr;
-            c.style.width = W + 'px';
-            c.style.height = H + 'px';
+            const wantW = W * dpr;
+            const wantH = H * dpr;
+            if (c.width !== wantW || c.height !== wantH) {
+                c.width = wantW;
+                c.height = wantH;
+                c.style.width = W + 'px';
+                c.style.height = H + 'px';
+            }
             const ctx = c.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = '#1e293b';
@@ -780,10 +837,18 @@
             const H = this.rollHost.clientHeight;
             if (W <= 0 || H <= 0) return;
 
-            this.rollCanvas.width = W * dpr;
-            this.rollCanvas.height = H * dpr;
-            this.rollCanvas.style.width = W + 'px';
-            this.rollCanvas.style.height = H + 'px';
+            // Reallocating canvas.width/height invalidates the backing
+            // store (forces a fresh GPU buffer + resets the context),
+            // so only do it when the size actually changes. Without this
+            // guard a 60 Hz redraw triggers ~120 buffer reallocs/second.
+            const wantW = W * dpr;
+            const wantH = H * dpr;
+            if (this.rollCanvas.width !== wantW || this.rollCanvas.height !== wantH) {
+                this.rollCanvas.width = wantW;
+                this.rollCanvas.height = wantH;
+                this.rollCanvas.style.width = W + 'px';
+                this.rollCanvas.style.height = H + 'px';
+            }
             const ctx = this.rollCanvas.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = '#0f172a';
@@ -1051,10 +1116,12 @@
             }
             try {
                 this.audioPreview.onProgress = (tick, totalTicks, currentSec) => {
-                    this._currentSec = currentSec || 0;
+                    // Re-anchor the smooth-playhead interpolation to the
+                    // freshly reported tick — the RAF loop then advances
+                    // the playhead at frame rate until the next callback.
+                    this._audioPlayingSec = currentSec || 0;
+                    this._audioPlayingWall = performance.now();
                     this._ensureAnimLoop();
-                    this._draw();
-                    this._drawMinimap();
                 };
                 this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
                 const constraints = Number.isFinite(this.instrument?.gm_program)
@@ -1070,15 +1137,19 @@
 
         _pause() {
             this.audioPreview?.pause();
+            // Freeze the smooth-playhead interpolator on the last reported
+            // value; the RAF loop will see _audioPlayingSec === null and
+            // stop spinning once the bands settle.
+            this._audioPlayingSec = null;
             this._refreshTransport();
         }
 
         _stop() {
             this.audioPreview?.stop();
+            this._audioPlayingSec = null;
             this._currentSec = 0;
             this._refreshTransport();
-            this._draw();
-            this._drawMinimap();
+            this._ensureAnimLoop();
         }
 
         _toggleMute(btn) {
