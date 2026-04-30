@@ -32,6 +32,32 @@ class HotspotManager {
   constructor(deps) {
     this.logger = deps.logger;
     this._busy = false;
+    // In-memory flag mirroring the AP profile state. Updated on every
+    // enable/disable and at startup via _bootstrapState(). Read by the
+    // captive-portal middleware in HttpServer to skip its work when the
+    // hotspot is off.
+    this._active = false;
+    this._bootstrapState();
+  }
+
+  /**
+   * Best-effort initial state read so `isActive()` is correct after a
+   * server restart while the hotspot was already up.
+   * @returns {void}
+   * @private
+   */
+  _bootstrapState() {
+    this.status()
+      .then((s) => { this._active = !!s.hotspotActive; })
+      .catch(() => { /* nmcli unavailable, leave default false */ });
+  }
+
+  /**
+   * Whether the AP profile is currently up. Synchronous (in-memory).
+   * @returns {boolean}
+   */
+  isActive() {
+    return this._active;
   }
 
   /**
@@ -89,8 +115,10 @@ class HotspotManager {
    */
   async status() {
     const res = await this._runScript(['status']);
+    const active = !!res.hotspotActive;
+    this._active = active;
     return {
-      hotspotActive: !!res.hotspotActive,
+      hotspotActive: active,
       wifiActive: res.wifiActive || '',
       interface: res.interface || 'wlan0'
     };
@@ -110,6 +138,7 @@ class HotspotManager {
       const args = ['enable', cfg.ssid, cfg.password, cfg.band || 'bg'];
       if (cfg.channel) args.push(String(cfg.channel));
       const res = await this._runScript(args);
+      this._active = true;
       this.logger?.info(`Hotspot enabled (ssid="${cfg.ssid}")`);
       return res;
     } finally {
@@ -127,6 +156,7 @@ class HotspotManager {
     this._busy = true;
     try {
       const res = await this._runScript(['disable']);
+      this._active = false;
       this.logger?.info(`Hotspot disabled (wifi reactivated="${res.wifiActive || ''}")`);
       return res;
     } finally {

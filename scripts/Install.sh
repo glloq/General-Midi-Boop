@@ -362,6 +362,27 @@ if [ "$OS" == "linux" ]; then
         else
             print_info "Existing hotspot sudoers rule found at $SUDOERS_FILE — leaving in place"
         fi
+
+        # Captive-portal DNS hijack. NetworkManager loads
+        # /etc/NetworkManager/dnsmasq-shared.d/* into the dnsmasq it spawns
+        # for `ipv4.method=shared` connections (i.e. our hotspot only).
+        DNSMASQ_DIR="/etc/NetworkManager/dnsmasq-shared.d"
+        DNSMASQ_TARGET="$DNSMASQ_DIR/gmboop-captive.conf"
+        DNSMASQ_SOURCE="$APP_DIR/scripts/captive-portal-dnsmasq.conf"
+
+        if [ -f "$DNSMASQ_SOURCE" ]; then
+            print_info "Installing captive-portal DNS hijack..."
+            sudo mkdir -p "$DNSMASQ_DIR"
+            if sudo cp "$DNSMASQ_SOURCE" "$DNSMASQ_TARGET"; then
+                sudo chmod 0644 "$DNSMASQ_TARGET"
+                print_success "Captive portal DNS configured at $DNSMASQ_TARGET"
+                # Tell NetworkManager to reload its config so a hotspot
+                # already up picks up the new dnsmasq snippet.
+                sudo nmcli general reload conf 2>/dev/null || true
+            else
+                print_warning "Failed to install captive-portal DNS config (sudo cp)"
+            fi
+        fi
     fi
 fi
 
