@@ -108,6 +108,7 @@ class MidiPlayer {
     this.loadedFileId = null; // ID of currently loaded file
     this.channels = []; // MIDI channels found in file
     this.channelRouting = new Map(); // channel -> { device, targetChannel } mapping
+    this.channelTransposition = new Map(); // channel -> semitones (signed integer)
     this.mutedChannels = new Set(); // Muted channels
 
     // Queue / Playlist state
@@ -905,6 +906,7 @@ class MidiPlayer {
       playbackRate: this.playbackRate,
       loop: this.loop,
       channelRouting: this.channelRouting,
+      channelTransposition: this.channelTransposition,
       mutedChannels: this.mutedChannels,
       disconnectedPolicy: this.disconnectedPolicy,
       _lastBroadcastPosition: this._lastBroadcastPosition
@@ -1271,6 +1273,26 @@ class MidiPlayer {
   }
 
   /**
+   * Set per-channel transposition applied at runtime to noteOn/noteOff
+   * events (in semitones). Replaces any previous value. A zero value
+   * clears the entry. The transposition is layered on top of routing
+   * decisions: split routing still consults the source note (matches
+   * the UI), but the device receives the shifted pitch.
+   *
+   * @param {number} channel
+   * @param {number} semitones - signed integer; passing 0 clears.
+   * @returns {void}
+   */
+  setChannelTransposition(channel, semitones) {
+    const semi = Number.isFinite(semitones) ? Math.trunc(semitones) : 0;
+    if (semi === 0) {
+      this.channelTransposition.delete(channel);
+    } else {
+      this.channelTransposition.set(channel, semi);
+    }
+  }
+
+  /**
    * Set split routing: one channel → multiple instruments based on note ranges
    * @param {number} channel - Source MIDI channel
    * @param {Array<Object>} segments - [{ device_id, target_channel, split_note_min, split_note_max, overlap_strategy }]
@@ -1319,6 +1341,7 @@ class MidiPlayer {
    */
   clearChannelRouting() {
     this.channelRouting.clear();
+    this.channelTransposition.clear();
     this.scheduler.invalidateCompensationCache();
     this.invalidateOmniFallback();
     this.channels.forEach(c => c.assignedDevice = null);
@@ -1970,6 +1993,10 @@ class MidiPlayer {
           if (routing.channel !== null && routing.channel !== undefined && routing.device_id) {
             const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
             this.setChannelRouting(routing.channel, routing.device_id, targetChannel);
+            // Per-channel transposition is applied at runtime so the
+            // operator's choice in the routing modal survives a reload
+            // even when no adapted file was generated.
+            this.setChannelTransposition(routing.channel, routing.transposition_applied || 0);
             loadedCount++;
           }
         }

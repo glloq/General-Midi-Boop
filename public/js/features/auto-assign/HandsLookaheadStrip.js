@@ -77,13 +77,7 @@
             // anchors at each shift point.
             this.handTrajectories = [];
 
-            // Pre-compute tick→sec for each note so we can binary-search by sec.
-            this._noteTimes = this.notes.map(n => ({
-                start: n.tick / this.ticksPerSecond,
-                duration: (n.duration || 0) / this.ticksPerSecond,
-                note: n.note,
-                channel: n.channel
-            }));
+            this._rebuildNoteTimes();
 
             // Geometry cache. Re-built lazily inside `_geo()` whenever
             // the canvas size or the range changes — column lookups
@@ -92,6 +86,28 @@
             // Last paint marker so sub-pixel `setCurrentTime` updates
             // skip the heavy redraw.
             this._lastDrawSec = -Infinity;
+        }
+
+        /** Recompute the tick→sec table from `this.notes`. */
+        _rebuildNoteTimes() {
+            this._noteTimes = this.notes.map(n => ({
+                start: n.tick / this.ticksPerSecond,
+                duration: (n.duration || 0) / this.ticksPerSecond,
+                note: n.note,
+                channel: n.channel
+            }));
+        }
+
+        /**
+         * Replace the notes feed (used when the channel transposition
+         * changes — the falling-note column must reflect the shifted
+         * pitches without having to remount the panel).
+         */
+        setNotes(notes) {
+            this.notes = Array.isArray(notes) ? notes.slice().sort((a, b) => a.tick - b.tick) : [];
+            this._rebuildNoteTimes();
+            this._lastDrawSec = -Infinity;
+            this.draw();
         }
 
         /** @private — return a cached geometry table built once per
