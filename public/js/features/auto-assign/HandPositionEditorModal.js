@@ -887,14 +887,30 @@
 
             this._chordHandler = (e) => {
                 const detail = e.detail || {};
+                const unplayableList = detail.unplayable || [];
+                // A note flagged as outside_window or too_many_fingers is
+                // shown via setUnplayablePositions (red disc parked at the
+                // band edge). It must NOT also feed setActivePositions —
+                // otherwise the operator sees a blue active dot drawn at
+                // the actual fret position outside the hand band, which
+                // contradicts the hand contract ("fingers always sit on
+                // the hand"). Build a Set of unplayable (string,fret)
+                // pairs and subtract them from the active list.
+                const unplayableKeys = new Set();
+                for (const u of unplayableList) {
+                    if (Number.isFinite(u.string) && Number.isFinite(u.fret)) {
+                        unplayableKeys.add(`${u.string}:${u.fret}`);
+                    }
+                }
                 const playedNotes = (detail.notes || [])
-                    .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string));
+                    .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string))
+                    .filter(n => !unplayableKeys.has(`${n.string}:${n.fret}`));
                 if (this.sticky?.setActivePositions) {
                     this.sticky.setActivePositions(playedNotes
                         .map(n => ({ string: n.string, fret: n.fret, velocity: n.velocity || 100 })));
                 }
                 if (this.sticky?.setUnplayablePositions) {
-                    this.sticky.setUnplayablePositions((detail.unplayable || [])
+                    this.sticky.setUnplayablePositions(unplayableList
                         .filter(u => Number.isFinite(u.string) && Number.isFinite(u.fret)));
                 }
                 if (this.sticky?.setLevel) {
