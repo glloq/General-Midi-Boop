@@ -122,6 +122,14 @@
             this._handAnchorTimeline = new Map();
             this._displayedAnchor = new Map();
             this._animRaf = null;
+
+            // Keyboard zoom: `_kbView` is the [lo, hi] pitch range
+            // currently shown by the bottom keyboard + the roll axis.
+            // Initialised to the full instrument range on open, then
+            // narrowed by Ctrl+wheel or the mini-strip drag. The
+            // mini-strip itself always shows the full range with a
+            // viewport rectangle marking the live `_kbView`.
+            this._kbView = null;
         }
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
@@ -154,6 +162,9 @@
                     <div class="khpe-roll-host" style="position:relative;flex:1;background:#0f172a;overflow:hidden;">
                         <canvas class="khpe-roll-canvas" style="position:absolute;inset:0;display:block;"></canvas>
                     </div>
+                    <div class="khpe-kb-mini-host" style="background:#0f172a;height:22px;flex:none;border-top:1px solid #334155;cursor:pointer;position:relative;">
+                        <canvas class="khpe-kb-mini-canvas" style="display:block;width:100%;height:100%;"></canvas>
+                    </div>
                     <div class="khpe-keyboard-host" style="background:#1e293b;padding:6px;height:140px;flex:none;">
                         <canvas class="khpe-keyboard-canvas" style="display:block;width:100%;height:100%;"></canvas>
                     </div>
@@ -175,12 +186,15 @@
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
+            this.kbMiniCanvas = this.$('.khpe-kb-mini-canvas');
+            this.kbMiniHost = this.$('.khpe-kb-mini-host');
             this.minimapCanvas = this.$('.khpe-minimap-canvas');
             this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
             this._wireToolbar();
             this._wireRollCanvas();
             this._wireMinimap();
+            this._wireKbMini();
             this._wireResizeObserver();
             // Defer first draw so the layout has settled (clientWidth/Height
             // would otherwise read 0 inside the BaseModal mount handler).
@@ -188,6 +202,7 @@
                 this._rebuildProblems();
                 this._draw();
                 this._drawMinimap();
+                this._drawKbMini();
             });
             this._refreshTransport();
         }
@@ -396,6 +411,7 @@
                 this.keyboard?.setHandBands(this._currentHandBands());
                 this._draw();
                 this._drawMinimap();
+                this._drawKbMini();
 
                 const playing = this._audioPlayingSec != null;
                 if (moving || playing) this._animRaf = requestAnimationFrame(tick);
@@ -644,6 +660,19 @@
                 this.keyboard.setHandBands(this._currentHandBands());
                 this.keyboard.draw();
             });
+
+            // Wheel on the keyboard zooms the visible range. Centre on
+            // the cursor so zooming-in into a specific octave keeps
+            // that octave under the mouse, like a map app.
+            this.keyboardCanvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = this.keyboardCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const view = this._visibleExtent();
+                const center = view.lo + (x / rect.width) * (view.hi - view.lo);
+                const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+                this._zoomKeyboard(factor, center);
+            }, { passive: false });
         }
 
         /** Resize the keyboard canvas backing store to match its CSS
@@ -762,6 +791,65 @@
             return { lo: Math.max(0, mn - 2), hi: Math.min(127, mx + 2) };
         }
 
+        /**
+         * Visible pitch extent — the slice currently shown by the
+         * keyboard + the piano-roll. Defaults to the full instrument
+         * range (`_pitchExtent`) and narrows as the operator zooms in.
+         * Always clamped within the full range to prevent the view
+         * scrolling off the keyboard.
+         */
+        _visibleExtent() {
+            const full = this._pitchExtent();
+            if (!this._kbView) return full;
+            const lo = Math.max(full.lo, Math.min(full.hi - 1, this._kbView.lo));
+            const hi = Math.max(lo + 1, Math.min(full.hi, this._kbView.hi));
+            return { lo, hi };
+        }
+
+        /** Apply a zoom factor centred on a pitch. `factor > 1` zooms in
+         *  (smaller visible range), `factor < 1` zooms out. The new
+         *  range is clamped to a minimum of 12 semitones so the keys
+         *  stay legible, and to the full instrument range as the
+         *  outer limit. */
+        _zoomKeyboard(factor, centerPitch) {
+            const full = this._pitchExtent();
+            const cur = this._kbView || full;
+            const span = cur.hi - cur.lo;
+            const newSpan = Math.max(12, Math.min(full.hi - full.lo, span / factor));
+            if (newSpan === span) return;
+            const c = Number.isFinite(centerPitch) ? centerPitch : (cur.lo + span / 2);
+            const t = (c - cur.lo) / span;
+            let lo = Math.round(c - t * newSpan);
+            let hi = Math.round(lo + newSpan);
+            if (lo < full.lo) { hi += full.lo - lo; lo = full.lo; }
+            if (hi > full.hi) { lo -= hi - full.hi; hi = full.hi; }
+            lo = Math.max(full.lo, lo);
+            hi = Math.min(full.hi, hi);
+            this._kbView = { lo, hi };
+            this.keyboard?.setRange(lo, hi);
+            this.keyboard?.draw();
+            this._draw();
+            this._drawKbMini();
+        }
+
+        /** Pan the keyboard view so its centre lands on `centerPitch`,
+         *  preserving the current zoom level. Used by the mini-strip
+         *  click handler. */
+        _panKeyboard(centerPitch) {
+            const full = this._pitchExtent();
+            const cur = this._kbView || full;
+            const span = cur.hi - cur.lo;
+            let lo = Math.round(centerPitch - span / 2);
+            let hi = lo + span;
+            if (lo < full.lo) { hi += full.lo - lo; lo = full.lo; }
+            if (hi > full.hi) { lo -= hi - full.hi; hi = full.hi; }
+            this._kbView = { lo, hi };
+            this.keyboard?.setRange(lo, hi);
+            this.keyboard?.draw();
+            this._draw();
+            this._drawKbMini();
+        }
+
         _wireResizeObserver() {
             if (!this.rollHost || typeof ResizeObserver !== 'function') return;
             // Coalesce resize bursts into one RAF — a window-edge drag
@@ -774,6 +862,7 @@
                     if (!this.isOpen) return;
                     this._draw();
                     this._drawMinimap();
+                    this._drawKbMini();
                     this._fitKeyboardCanvas();
                     this.keyboard?.draw();
                 });
@@ -782,11 +871,107 @@
             const kbHost = this.$('.khpe-keyboard-host');
             if (kbHost) this._resizeObserver.observe(kbHost);
             if (this.minimapHost) this._resizeObserver.observe(this.minimapHost);
+            if (this.kbMiniHost) this._resizeObserver.observe(this.kbMiniHost);
         }
 
         // ----------------------------------------------------------------
         //  Minimap — file overview, viewport rect, hand-anchor trajectories
         // ----------------------------------------------------------------
+
+        // ----------------------------------------------------------------
+        //  Keyboard mini-strip — full instrument range with viewport rect
+        // ----------------------------------------------------------------
+
+        _wireKbMini() {
+            if (!this.kbMiniCanvas) return;
+            // Click + drag to pan: map x → pitch and centre the keyboard
+            // view on it. We also accept a plain click for one-shot pan.
+            const handle = (e) => {
+                const rect = this.kbMiniCanvas.getBoundingClientRect();
+                const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+                const full = this._pitchExtent();
+                const pitch = full.lo + (x / rect.width) * (full.hi - full.lo);
+                this._panKeyboard(pitch);
+            };
+            this.kbMiniCanvas.addEventListener('mousedown', (e) => {
+                handle(e);
+                this._kbMiniDragging = true;
+                const onMove = (ev) => { if (this._kbMiniDragging) handle(ev); };
+                const onUp = () => {
+                    this._kbMiniDragging = false;
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+
+        /** Paint the full keyboard range as a flat strip with a viewport
+         *  rectangle marking `_kbView`. Octave separators help the
+         *  operator find C-positions without rendering full keys. */
+        _drawKbMini() {
+            const c = this.kbMiniCanvas;
+            const host = this.kbMiniHost;
+            if (!c || !host) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = host.clientWidth;
+            const H = host.clientHeight;
+            if (W <= 0 || H <= 0) return;
+            const wantW = W * dpr;
+            const wantH = H * dpr;
+            if (c.width !== wantW || c.height !== wantH) {
+                c.width = wantW;
+                c.height = wantH;
+                c.style.width = W + 'px';
+                c.style.height = H + 'px';
+            }
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, W, H);
+
+            const full = this._pitchExtent();
+            const range = Math.max(1, full.hi - full.lo);
+            const pxPerPitch = W / range;
+
+            // Octave grid + C labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+            for (let p = full.lo; p <= full.hi; p++) {
+                if (p % 12 === 0) {
+                    const x = (p - full.lo) * pxPerPitch + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, H);
+                    ctx.stroke();
+                    if (W > 200) ctx.fillText(`C${(p / 12) - 1}`, x + 2, H / 2);
+                }
+            }
+
+            // Viewport rect (= live `_kbView`)
+            const view = this._visibleExtent();
+            const xLo = (view.lo - full.lo) * pxPerPitch;
+            const xHi = (view.hi - full.lo) * pxPerPitch;
+            ctx.fillStyle = 'rgba(248,250,252,0.12)';
+            ctx.fillRect(xLo, 0, xHi - xLo, H);
+            ctx.strokeStyle = 'rgba(248,250,252,0.6)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(xLo + 0.5, 0.5, xHi - xLo - 1, H - 1);
+
+            // Hand bands marker — translucent stripes so the operator
+            // sees where the hands sit on the full keyboard at a glance.
+            for (const hand of (this._hands || [])) {
+                const a = this._displayedAnchor.has(hand.id)
+                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
+                const x = (a - full.lo) * pxPerPitch;
+                const w = hand.span * pxPerPitch;
+                ctx.fillStyle = _bandFill(hand.color);
+                ctx.fillRect(x, 0, w, H);
+            }
+        }
 
         _wireMinimap() {
             if (!this.minimapCanvas) return;
@@ -1034,7 +1219,10 @@
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, W, H);
 
-            const ext = this._pitchExtent();
+            // Roll axis follows the live keyboard view so zooming the
+            // keyboard also zooms the falling-note column on the same
+            // X mapping — operator never has to mentally remap.
+            const ext = this._visibleExtent();
             // Same X-mapping as a piano: white-key uniform width, black
             // keys narrower. We reuse a simple linear pitch→x mapping
             // here (proportional to semitones) since the on-screen
