@@ -150,6 +150,35 @@ describe('InstrumentCapabilitiesValidator — N-hand semitones', () => {
     expect(r.missing.some(m => /track_map\.hX/.test(m.field || ''))).toBe(true);
   });
 
+  test('keyboard_type chromatic + piano accepted', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    for (const kt of ['chromatic', 'piano']) {
+      const r = v.validateInstrument({
+        ...baseInstrument(),
+        hands_config: {
+          enabled: true, mode: 'semitones', keyboard_type: kt,
+          hand_move_semitones_per_sec: 60,
+          hands: [{ id: 'h1', cc_position_number: 23, hand_span_semitones: 4 }]
+        }
+      });
+      expect(r.isValid).toBe(true);
+    }
+  });
+
+  test('unknown keyboard_type is flagged', () => {
+    const v = new InstrumentCapabilitiesValidator();
+    const r = v.validateInstrument({
+      ...baseInstrument(),
+      hands_config: {
+        enabled: true, mode: 'semitones', keyboard_type: 'bogus',
+        hand_move_semitones_per_sec: 60,
+        hands: [{ id: 'h1', cc_position_number: 23, hand_span_semitones: 4 }]
+      }
+    });
+    expect(r.isValid).toBe(false);
+    expect(r.missing.some(m => m.field === 'hands_config.keyboard_type')).toBe(true);
+  });
+
   test('legacy left/right ids still validate (backward compat)', () => {
     const v = new InstrumentCapabilitiesValidator();
     const r = v.validateInstrument({

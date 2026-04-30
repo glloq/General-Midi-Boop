@@ -1394,6 +1394,30 @@
         this._attachMechanismCardListeners(handsSection);
         this._attachHandsGeometryListeners(handsSection);
         this._attachHandsCountListener(handsSection);
+        this._attachHandsKeyboardTypeListener(handsSection);
+    };
+
+    /**
+     * Wire the 'Type de clavier' selector. Switching between chromatic
+     * and piano flips the per-hand row layout (chromatic hides the
+     * hand-span input, piano shows it), so we update the in-memory
+     * cfg and re-render the section in place.
+     * @private
+     */
+    ISMListeners._attachHandsKeyboardTypeListener = function(handsSection) {
+        const select = handsSection.querySelector('#handsKeyboardType');
+        if (!select) return;
+        const self = this;
+        select.addEventListener('change', function() {
+            const v = select.value === 'piano' ? 'piano' : 'chromatic';
+            const tab = self._getActiveTab();
+            if (!tab || !tab.settings) return;
+            if (!tab.settings.hands_config || typeof tab.settings.hands_config !== 'object') {
+                tab.settings.hands_config = { enabled: true, mode: 'semitones', hands: [] };
+            }
+            tab.settings.hands_config.keyboard_type = v;
+            self._refreshHandsSection();
+        });
     };
 
     /**

@@ -229,6 +229,23 @@ class InstrumentCapabilitiesValidator {
       }
     }
 
+    // keyboard_type — physical layout discriminator. `chromatic` means
+    // every semitone is its own key (xylophone-like) so a finger maps
+    // exactly to one note: span = num_fingers - 1. `piano` means white
+    // + black keys, so a hand covering N fingers can stretch across
+    // more semitones than fingers (typically ~7 for 5 fingers C..G).
+    // The save UI shows num_fingers alone for chromatic and exposes
+    // the span separately for piano. Defaults to chromatic when absent.
+    const VALID_KB_TYPES = new Set(['chromatic', 'piano']);
+    if (cfg.keyboard_type != null && cfg.keyboard_type !== ''
+        && !VALID_KB_TYPES.has(cfg.keyboard_type)) {
+      issues.push({
+        field: 'hands_config.keyboard_type', label: 'Keyboard type',
+        type: 'select', required: true,
+        reason: `Unknown keyboard_type '${cfg.keyboard_type}'. Must be 'chromatic' or 'piano'.`
+      });
+    }
+
     if (cfg.hands.length > 4) {
       issues.push({
         field: 'hands_config.hands', label: 'Hands list',
