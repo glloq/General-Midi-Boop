@@ -130,7 +130,7 @@
 
         onOpen() {
             this.container?.classList.add('khpe-modal-overlay');
-            this._hideRoutingModal();
+            this._injectStyles();
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
@@ -138,8 +138,41 @@
             this._wireToolbar();
             this._wireRollCanvas();
             this._wireResizeObserver();
-            this._draw();
+            // Defer first draw so the layout has settled (clientWidth/Height
+            // would otherwise read 0 inside the BaseModal mount handler).
+            requestAnimationFrame(() => this._draw());
             this._refreshTransport();
+        }
+
+        _injectStyles() {
+            if (document.getElementById('khpe-modal-styles')) return;
+            const style = document.createElement('style');
+            style.id = 'khpe-modal-styles';
+            style.textContent = `
+                .modal-overlay.khpe-modal-overlay {
+                    /* Routing summary modal sits at 10005; stay above so
+                       the editor isn't covered when opened from there. */
+                    z-index: 10010 !important;
+                }
+                .khpe-modal .modal-dialog {
+                    width: 100vw; height: 100vh;
+                    display: flex; flex-direction: column;
+                    background: #fff;
+                }
+                .khpe-modal .modal-body {
+                    flex: 1; display: flex; flex-direction: column;
+                    overflow: hidden; padding: 0; min-height: 0;
+                }
+                .khpe-toolbar button[data-action] {
+                    padding: 4px 10px; border: 1px solid #d1d5db;
+                    background: #fff; border-radius: 4px; cursor: pointer;
+                    font-size: 14px;
+                }
+                .khpe-toolbar button[data-action]:hover:not([disabled]) { background: #f3f4f6; }
+                .khpe-toolbar button[data-action][disabled] { opacity: 0.45; cursor: not-allowed; }
+                .khpe-roll-host { min-height: 200px; }
+            `;
+            document.head.appendChild(style);
         }
 
         onClose() {
@@ -152,7 +185,6 @@
             this._closeNotePopover();
             this.keyboard?.destroy?.();
             this.keyboard = null;
-            this._restoreRoutingModal();
         }
 
         close() {
@@ -165,60 +197,108 @@
         }
 
         // ----------------------------------------------------------------
-        //  Drill-down: hide the routing summary modal underneath so the
-        //  editor takes over the screen, then restore it on close.
-        // ----------------------------------------------------------------
-
-        _hideRoutingModal() {
-            const overlays = document.querySelectorAll(
-                '.routing-summary-modal-overlay, .routing-summary-modal'
-            );
-            this._hiddenOverlays = [];
-            overlays.forEach((el) => {
-                if (el === this.container) return;
-                this._hiddenOverlays.push({ el, prev: el.style.display });
-                el.style.display = 'none';
-            });
-        }
-
-        _restoreRoutingModal() {
-            if (!Array.isArray(this._hiddenOverlays)) return;
-            for (const { el, prev } of this._hiddenOverlays) {
-                el.style.display = prev || '';
-            }
-            this._hiddenOverlays = null;
-        }
-
-        // ----------------------------------------------------------------
-        //  Keyboard widget at the bottom (with hand bands)
+        //  Keyboard widget at the bottom (with draggable hand bands)
         // ----------------------------------------------------------------
 
         _mountKeyboard() {
             if (!window.KeyboardPreview || !this.keyboardCanvas) return;
             const ext = this._pitchExtent();
-            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
-                rangeMin: ext.lo,
-                rangeMax: ext.hi
-            });
-            this.keyboard.setHandBands(this._handBandsForKeyboard());
-            this.keyboard.draw();
-        }
-
-        _handBandsForKeyboard() {
+            // Per-hand state: anchor (lowest playable note) is the
+            // operator-controlled value; span is read from hands_config.
+            // Anchors initialise from `hand_anchors` overrides at the
+            // current playhead, falling back to a deterministic seed
+            // (low pitch, mid pitch, ...) so 1- and 4-hand keyboards
+            // both render with non-overlapping bands at startup.
             const cfg = _parseHandsCfg(this.instrument);
-            if (!cfg) return [];
-            return cfg.hands.map((h, i) => {
-                const span = Number.isFinite(h.hand_span_semitones)
-                    ? h.hand_span_semitones : 14;
-                const anchor = Number.isFinite(h.cc_position_number) && h.cc_position_number >= 21
-                    ? h.cc_position_number : 48 + i * 12;
+            this._hands = (cfg?.hands || []).map((h, i) => {
+                const span = Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones : 14;
+                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
+                    * (ext.hi - ext.lo - span));
+                const id = h.id || `h${i + 1}`;
+                const overrideAnchor = this._latestAnchorOverride(id);
                 return {
-                    id: h.id || `h${i + 1}`,
-                    low: anchor,
-                    high: anchor + span,
-                    color: _handColor(h.id)
+                    id,
+                    span,
+                    anchor: Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor,
+                    color: _handColor(id)
                 };
             });
+            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
+                rangeMin: ext.lo,
+                rangeMax: ext.hi,
+                bandHeight: 18,
+                onBandDrag: (handId, newAnchor) => this._onHandBandDrag(handId, newAnchor)
+            });
+            this.keyboard.setHandBands(this._currentHandBands());
+            // Force one canvas re-fit + draw on the next frame so the
+            // KeyboardPreview's geometry cache picks up the actual host
+            // size rather than the 0×0 it sees during initial mount.
+            requestAnimationFrame(() => {
+                this._fitKeyboardCanvas();
+                this.keyboard.setHandBands(this._currentHandBands());
+                this.keyboard.draw();
+            });
+        }
+
+        /** Resize the keyboard canvas backing store to match its CSS
+         *  size (the parent has flex height). KeyboardPreview's geo
+         *  cache keys off width/height so we wipe it on resize. */
+        _fitKeyboardCanvas() {
+            const c = this.keyboardCanvas;
+            if (!c) return;
+            const dpr = window.devicePixelRatio || 1;
+            const w = c.clientWidth;
+            const h = c.clientHeight;
+            if (w <= 0 || h <= 0) return;
+            c.width = w * dpr;
+            c.height = h * dpr;
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // KeyboardPreview rebuilds its geo cache lazily — invalidate.
+            if (this.keyboard) this.keyboard._geoCache = null;
+        }
+
+        _currentHandBands() {
+            return (this._hands || []).map(h => ({
+                id: h.id, low: h.anchor, high: h.anchor + h.span, color: h.color
+            }));
+        }
+
+        /** Look up the most recent hand_anchors override for `handId`
+         *  (the entry with the largest tick ≤ current playhead). */
+        _latestAnchorOverride(handId) {
+            const list = this.overrides?.hand_anchors;
+            if (!Array.isArray(list)) return null;
+            let best = null;
+            const currentTick = this._currentSec * this.ticksPerSec;
+            for (const a of list) {
+                if (a?.handId !== handId || !Number.isFinite(a.tick)) continue;
+                if (a.tick > currentTick) continue;
+                if (!best || a.tick > best.tick) best = a;
+            }
+            return best ? best.anchor : null;
+        }
+
+        /** User dragged a hand band on the keyboard. Update the in-memory
+         *  state, push a `hand_anchors` override entry at the current
+         *  playhead, and redraw both the keyboard and the piano-roll. */
+        _onHandBandDrag(handId, newAnchor) {
+            const hand = (this._hands || []).find(h => h.id === handId);
+            if (!hand) return;
+            hand.anchor = newAnchor;
+            if (!Array.isArray(this.overrides.hand_anchors)) {
+                this.overrides.hand_anchors = [];
+            }
+            const tick = Math.round(this._currentSec * this.ticksPerSec);
+            const list = this.overrides.hand_anchors;
+            // Replace the entry at the same tick / hand or append.
+            const idx = list.findIndex(a => a?.handId === handId && a?.tick === tick);
+            const entry = { tick, handId, anchor: newAnchor };
+            if (idx >= 0) list[idx] = entry;
+            else list.push(entry);
+            this._pushHistory();
+            this.keyboard?.setHandBands(this._currentHandBands());
+            this._draw();
         }
 
         // ----------------------------------------------------------------
@@ -237,8 +317,14 @@
 
         _wireResizeObserver() {
             if (!this.rollHost || typeof ResizeObserver !== 'function') return;
-            this._resizeObserver = new ResizeObserver(() => this._draw());
+            this._resizeObserver = new ResizeObserver(() => {
+                this._draw();
+                this._fitKeyboardCanvas();
+                this.keyboard?.draw();
+            });
             this._resizeObserver.observe(this.rollHost);
+            const kbHost = this.$('.khpe-keyboard-host');
+            if (kbHost) this._resizeObserver.observe(kbHost);
         }
 
         _draw() {
