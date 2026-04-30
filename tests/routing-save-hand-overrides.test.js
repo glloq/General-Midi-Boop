@@ -65,12 +65,12 @@ describe('routing_save_hand_overrides — input validation', () => {
       fileId: 1, deviceId: 'p', channel: 0,
       overrides: {
         hand_anchors: [],
-        note_assignments: [{ tick: 0, note: 60, string: 'low' /* fret missing */ }]
+        note_assignments: [{ tick: 0, note: 60, string: 'low' /* fret missing, no handId */ }]
       }
-    })).rejects.toThrow(/tick, note, string, fret/);
+    })).rejects.toThrow(/string,fret.*handId/);
   });
 
-  test('accepts a valid note_assignments entry', async () => {
+  test('accepts a valid note_assignments entry (frets shape)', async () => {
     const app = makeApp({ savedRowCount: 1 });
     const res = await routingSaveHandOverrides(app, {
       fileId: 1, deviceId: 'p', channel: 0,
@@ -81,6 +81,29 @@ describe('routing_save_hand_overrides — input validation', () => {
     });
     expect(res).toEqual({ success: true, updated: 1 });
     expect(app.routingRepository.saveHandOverrides).toHaveBeenCalledTimes(1);
+  });
+
+  test('accepts a valid note_assignments entry (semitones shape with handId)', async () => {
+    const app = makeApp({ savedRowCount: 1 });
+    const res = await routingSaveHandOverrides(app, {
+      fileId: 1, deviceId: 'p', channel: 0,
+      overrides: {
+        hand_anchors: [],
+        note_assignments: [{ tick: 480, note: 64, handId: 'h2' }]
+      }
+    });
+    expect(res).toEqual({ success: true, updated: 1 });
+    expect(app.routingRepository.saveHandOverrides).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects a note_assignments entry mixing both shapes', async () => {
+    await expect(routingSaveHandOverrides(makeApp(), {
+      fileId: 1, deviceId: 'p', channel: 0,
+      overrides: {
+        hand_anchors: [],
+        note_assignments: [{ tick: 480, note: 64, string: 3, fret: 4, handId: 'h2' }]
+      }
+    })).rejects.toThrow(/cannot carry both/);
   });
 
   test('throws when a hand_anchor entry is malformed', async () => {
