@@ -1155,6 +1155,11 @@
                     return { ...n, string: pinned.string, fret: pinned.fret };
                 });
             }
+            // Track which notes were operator-pinned (string, fret already
+            // present at this point) so the second-pass resolver below
+            // never overwrites them — the operator's choice is sacred.
+            const operatorPinned = g.notes.map(n =>
+                Number.isFinite(n.fret) && Number.isFinite(n.string));
             // Resolve unannotated notes WITH the current hand
             // anchor in mind. Done at the CHORD level so that no two
             // notes get assigned to the same string — physically a
@@ -1171,7 +1176,7 @@
                 });
             }
 
-            const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
+            let liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
             const fretted = liveNotes.filter(n => Number.isFinite(n.fret) && n.fret > 0);
             const unplayable = [];
 
@@ -1209,7 +1214,39 @@
                     out.push({ type: 'shift', tick: g.tick, handId,
                                 fromAnchor: anchor, toAnchor: newAnchor,
                                 source: 'auto', motion });
+                    const prevAnchorBeforeShift = anchor;
                     anchor = newAnchor;
+                    // Second-pass resolver: now that the hand has
+                    // shifted, give auto-resolved notes a chance to
+                    // land on a DIFFERENT string whose fret falls
+                    // inside the new window. The first pass used the
+                    // OLD anchor as context, so it may have picked a
+                    // (string, fret) pair that's now outside the
+                    // band even though another string would fit.
+                    // Operator-pinned notes are preserved verbatim.
+                    if (prevAnchorBeforeShift !== anchor && tuning && tuning.length > 0) {
+                        const stripped = g.notes.map((n, i) => operatorPinned[i]
+                            ? n
+                            : { ...n, string: undefined, fret: undefined });
+                        const resolutions = _resolveChordStringFret(
+                            stripped, tuning, numFrets, anchor, spanFrets);
+                        g.notes = g.notes.map((n, i) => {
+                            if (operatorPinned[i]) return n;
+                            const r = resolutions[i];
+                            return r ? { ...n, fret: r.fret, string: r.string } : n;
+                        });
+                        // The second pass may have changed which notes
+                        // are fretted (if it picked an open-string
+                        // alternative). Refresh BOTH the live list (used
+                        // later to build taggedNotes for the chord event)
+                        // and the fretted list (used by the unplayable
+                        // check below) so they reflect the new resolution.
+                        liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
+                        fretted.length = 0;
+                        for (const n of liveNotes) {
+                            if (Number.isFinite(n.fret) && n.fret > 0) fretted.push(n);
+                        }
+                    }
                 }
                 const top = maxReach(anchor);
                 for (const n of fretted) {

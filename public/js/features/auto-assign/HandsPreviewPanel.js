@@ -471,8 +471,22 @@
                     this.lookahead.setUnplayableNotes(unplayable.map(u => u.note));
                 }
                 if (this.fretboard) {
+                    // Build a key set of unplayable (string,fret) pairs so
+                    // we can subtract them from the active list. A finger
+                    // that the simulator flagged as outside the hand
+                    // window must NOT also appear as a blue active dot —
+                    // otherwise the operator sees a finger drawn outside
+                    // the hand band, contradicting the hand contract
+                    // ("fingers always sit on the hand").
+                    const unplayableKeys = new Set();
+                    for (const u of unplayable) {
+                        if (Number.isFinite(u.string) && Number.isFinite(u.fret)) {
+                            unplayableKeys.add(`${u.string}:${u.fret}`);
+                        }
+                    }
                     this.fretboard.setActivePositions(notes
                         .filter(n => Number.isFinite(n.fret) && Number.isFinite(n.string))
+                        .filter(n => !unplayableKeys.has(`${n.string}:${n.fret}`))
                         .map(n => ({ string: n.string, fret: n.fret, velocity: n.velocity || 100 })));
                     // Surface unplayable notes (`outside_window`,
                     // `too_many_fingers`) as a red overlay on the
