@@ -178,13 +178,16 @@
             // and the minimap; the page calls `setCurrentTime` on us
             // every progress callback so the visualization stays in
             // sync with whatever's actually being played.
-            // The "Open editor" button is rendered conditionally (only
-            // in frets mode AND when the editor module is loaded). Even
-            // if the script load order changes, the lookup is lazy so a
-            // missing module just hides the button instead of erroring.
-            const showEditorBtn = this.mode === 'frets'
+            // The "Open editor" button is rendered when the matching
+            // editor modal class is loaded for this instrument family.
+            // Frets → HandPositionEditorModal (string instruments).
+            // Semitones → KeyboardHandPositionEditorModal (keyboards).
+            const editorClassName = this.mode === 'frets'
+                ? 'HandPositionEditorModal'
+                : (this.mode === 'semitones' ? 'KeyboardHandPositionEditorModal' : null);
+            const showEditorBtn = editorClassName != null
                 && typeof window !== 'undefined'
-                && typeof window.HandPositionEditorModal === 'function';
+                && typeof window[editorClassName] === 'function';
             // Prominent CTA: filled accent button with icon + label
             // so the operator notices the "edit hands across the
             // entire file" entry-point even with the panel collapsed.
@@ -752,7 +755,9 @@
          * persist overrides and reuse the page's synthesizer.
          */
         _openFullLengthEditor() {
-            const Modal = window.HandPositionEditorModal;
+            const Modal = this.mode === 'frets'
+                ? window.HandPositionEditorModal
+                : window.KeyboardHandPositionEditorModal;
             if (typeof Modal !== 'function') return;
             const ctx = this.opts.saveCtx || {};
             new Modal({
