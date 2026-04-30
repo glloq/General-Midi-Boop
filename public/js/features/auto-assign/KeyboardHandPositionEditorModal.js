@@ -605,7 +605,7 @@
         // ----------------------------------------------------------------
 
         _mountKeyboard() {
-            if (!window.KeyboardPreview || !this.keyboardCanvas) return;
+            if (!this.keyboardCanvas) return;
             const ext = this._pitchExtent();
             // Per-hand state: anchor (lowest playable note) is the
             // operator-controlled value; span is read from hands_config.
@@ -615,19 +615,13 @@
             // both render with non-overlapping bands at startup.
             const cfg = _parseHandsCfg(this.instrument);
             this._hands = (cfg?.hands || []).map((h, i) => {
-                // Resolve the playable window. For V1 'aligned_fingers'
-                // the two fields are equivalent (span = num_fingers−1)
-                // so we tolerate either being absent. Persisted configs
-                // saved through the new instrument-settings UI always
-                // carry `hand_span_semitones`; older payloads (or V2
-                // configs in the future) may carry only `num_fingers`.
                 let span;
                 if (Number.isFinite(h.hand_span_semitones)) {
                     span = h.hand_span_semitones;
                 } else if (Number.isFinite(h.num_fingers)) {
                     span = Math.max(1, h.num_fingers - 1);
                 } else {
-                    span = 4; // sane default for a 5-finger aligned hand
+                    span = 4;
                 }
                 const numFingers = Number.isFinite(h.num_fingers)
                     ? h.num_fingers : span + 1;
@@ -643,26 +637,30 @@
                     color: _handColor(id)
                 };
             });
-            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
-                rangeMin: ext.lo,
-                rangeMax: ext.hi,
-                bandHeight: 22,
-                // The drag clamp guarantees no two bands overlap on the
-                // keyboard axis (low_h{i+1} >= low_hi + span_hi), so we
-                // can safely render every hand on the same horizontal
-                // row — they read as side-by-side regions of a single
-                // shared "playable surface".
-                bandsOnSingleRow: true,
-                onBandDrag: (handId, newAnchor) => this._onHandBandDrag(handId, newAnchor)
-            });
-            this.keyboard.setHandBands(this._currentHandBands());
-            // Force one canvas re-fit + draw on the next frame so the
-            // KeyboardPreview's geometry cache picks up the actual host
-            // size rather than the 0×0 it sees during initial mount.
+            // Pick the renderer based on the instrument's declared
+            // layout. Piano-style instruments use the existing
+            // KeyboardPreview (black + white keys); chromatic
+            // instruments get a flat 'line of notes' rendering where
+            // every semitone is the same width (xylophone, hangdrum,
+            // marimba…). Each branch shares the band drag callback.
+            this._destroyKeyboardWidget();
+            const layout = this._keyboardLayoutType();
+            if (layout === 'chromatic') {
+                this.keyboard = this._buildChromaticKeyboard(ext);
+            } else if (window.KeyboardPreview) {
+                this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
+                    rangeMin: ext.lo,
+                    rangeMax: ext.hi,
+                    bandHeight: 22,
+                    bandsOnSingleRow: true,
+                    onBandDrag: (handId, newAnchor) => this._onHandBandDrag(handId, newAnchor)
+                });
+            }
+            this.keyboard?.setHandBands(this._currentHandBands());
             requestAnimationFrame(() => {
                 this._fitKeyboardCanvas();
-                this.keyboard.setHandBands(this._currentHandBands());
-                this.keyboard.draw();
+                this.keyboard?.setHandBands(this._currentHandBands());
+                this.keyboard?.draw();
             });
 
             // Wheel on the keyboard zooms the visible range. Centre on
@@ -677,6 +675,132 @@
                 const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
                 this._zoomKeyboard(factor, center);
             }, { passive: false });
+        }
+
+        _destroyKeyboardWidget() {
+            if (this.keyboard?.destroy) this.keyboard.destroy();
+            this.keyboard = null;
+        }
+
+        /**
+         * Build a minimal chromatic-line widget that mimics enough of
+         * the KeyboardPreview public API (`setRange`, `setHandBands`,
+         * `draw`, `destroy`) for the editor to drive it the same way.
+         * Visual: every semitone is rendered as an identical rectangle
+         * with a 1 px gap, tinted by hand-band overlay underneath. No
+         * black/white distinction since chromatic instruments don't
+         * have one (xylophone, hangdrum…).
+         */
+        _buildChromaticKeyboard(ext) {
+            const canvas = this.keyboardCanvas;
+            const self = this;
+            let rangeMin = ext.lo;
+            let rangeMax = ext.hi;
+            let bands = [];
+            let drag = null;
+
+            const noteAtX = (x, w) => {
+                const range = Math.max(1, rangeMax - rangeMin + 1);
+                const pxPerNote = w / range;
+                if (pxPerNote <= 0) return null;
+                return rangeMin + Math.floor(x / pxPerNote);
+            };
+
+            const draw = () => {
+                const dpr = window.devicePixelRatio || 1;
+                const W = canvas.clientWidth;
+                const H = canvas.clientHeight;
+                if (W <= 0 || H <= 0) return;
+                const wantW = W * dpr;
+                const wantH = H * dpr;
+                if (canvas.width !== wantW || canvas.height !== wantH) {
+                    canvas.width = wantW;
+                    canvas.height = wantH;
+                }
+                const ctx = canvas.getContext('2d');
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, W, H);
+                const bandH = 22;
+                const keysH = H - bandH;
+                const range = Math.max(1, rangeMax - rangeMin + 1);
+                const pxPerNote = W / range;
+                // Notes as identical cells. C of every octave gets a
+                // brighter tint so the operator finds the octave
+                // boundaries quickly.
+                for (let m = rangeMin; m <= rangeMax; m++) {
+                    const x = (m - rangeMin) * pxPerNote;
+                    ctx.fillStyle = (m % 12 === 0) ? '#f8fafc' : '#cbd5e1';
+                    ctx.fillRect(x + 0.5, 0, Math.max(1, pxPerNote - 1), keysH);
+                    if (m % 12 === 0 && pxPerNote > 18) {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.font = '10px sans-serif';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillText(`C${(m / 12) - 1}`, x + 3, keysH - 2);
+                    }
+                }
+                // Hand bands flush against the bottom of the strip,
+                // single row to match KeyboardPreview's bandsOnSingleRow.
+                for (const b of bands) {
+                    if (!Number.isFinite(b.low) || !Number.isFinite(b.high)) continue;
+                    const lo = Math.max(rangeMin, b.low);
+                    const hi = Math.min(rangeMax, b.high);
+                    if (hi < lo) continue;
+                    const x1 = (lo - rangeMin) * pxPerNote;
+                    const x2 = (hi - rangeMin + 1) * pxPerNote;
+                    ctx.fillStyle = _bandFill(b.color);
+                    ctx.fillRect(x1, keysH, x2 - x1, bandH);
+                    ctx.strokeStyle = b.color;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x1 + 0.5, keysH + 0.5, x2 - x1 - 1, bandH - 1);
+                }
+            };
+
+            // Drag a band to repin its anchor — same UX as KeyboardPreview.
+            const onMouseDown = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const W = rect.width, H = rect.height;
+                const bandH = 22;
+                if (y < H - bandH) return; // not in band area
+                const note = noteAtX(x, W);
+                if (note == null) return;
+                // Find the band whose [low, high] contains the click.
+                for (let i = 0; i < bands.length; i++) {
+                    const b = bands[i];
+                    if (note >= b.low && note <= b.high) {
+                        drag = { bandIdx: i, span: b.high - b.low, offset: note - b.low };
+                        break;
+                    }
+                }
+            };
+            const onMouseMove = (e) => {
+                if (!drag) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const note = noteAtX(x, rect.width);
+                if (note == null) return;
+                const newAnchor = note - drag.offset;
+                self._onHandBandDrag(bands[drag.bandIdx].id, newAnchor);
+            };
+            const onMouseUp = () => { drag = null; };
+            canvas.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+            return {
+                setRange(min, max) { rangeMin = min; rangeMax = max; draw(); },
+                setHandBands(b) { bands = Array.isArray(b) ? b : []; draw(); },
+                draw,
+                destroy() {
+                    canvas.removeEventListener('mousedown', onMouseDown);
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    drag = null;
+                    bands = [];
+                }
+            };
         }
 
         /** Resize the keyboard canvas backing store to match its CSS
