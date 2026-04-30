@@ -43,11 +43,19 @@
         return Array.isArray(cfg?.hands) ? cfg.hands : [];
     }
 
-    /** Pick a colour per hand id — left=blue, right=green, fretting=amber. */
+    /**
+     * Pick a colour per hand id. Legacy `left`/`right` keep their historical
+     * blue/green so existing two-hand piano UIs are unchanged. Numbered
+     * `h1..h4` ids cycle through a four-colour palette (blue, green, amber,
+     * violet) so 3- and 4-hand keyboards each get a distinct band.
+     */
+    const _NUMBERED_HAND_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
     function _handColor(id) {
-        if (id === 'left') return '#3b82f6';
-        if (id === 'right') return '#10b981';
+        if (id === 'left') return _NUMBERED_HAND_COLORS[0];
+        if (id === 'right') return _NUMBERED_HAND_COLORS[1];
         if (id === 'fretting') return '#f59e0b';
+        const m = typeof id === 'string' && id.match(/^h([1-4])$/);
+        if (m) return _NUMBERED_HAND_COLORS[parseInt(m[1], 10) - 1];
         return '#6b7280';
     }
 
