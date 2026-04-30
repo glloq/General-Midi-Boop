@@ -93,6 +93,15 @@
             this._problems = [];          // [{sec, kind:'chord'|'speed', message}]
             this._unplayableSet = new Set(); // "tick:note"
             this._problemRebuildTimer = null;
+
+            // Animated band positions. `_displayedAnchor[handId]` lerps
+            // toward `_targetAnchorAt(currentSec)` so the bands glide
+            // smoothly toward their next position rather than snapping.
+            // `_handAnchorTimeline[handId] = [{sec, anchor}]` is the
+            // per-hand trajectory derived from the simulation timeline.
+            this._handAnchorTimeline = new Map();
+            this._displayedAnchor = new Map();
+            this._animRaf = null;
         }
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
@@ -186,6 +195,7 @@
                 this._problemRebuildTimer = null;
                 this._runFeasibility();
                 this._refreshProblemUI();
+                this._ensureAnimLoop();
                 this._draw();
                 this._drawMinimap();
             }, 80);
@@ -227,6 +237,95 @@
             problems.sort((a, b) => a.sec - b.sec);
             this._problems = problems;
             this._unplayableSet = unplayable;
+            this._buildHandAnchorTimeline(timeline);
+        }
+
+        /** Per-hand `[{sec, anchor}]` series, derived from the simulation
+         *  output. `chord` events carry the hand window (lo of `notes`
+         *  for that hand), `shift` events carry the explicit `toAnchor`
+         *  the simulator picked. We stitch them in time order so a
+         *  step lookup at any `sec` returns the most recent anchor. */
+        _buildHandAnchorTimeline(timeline) {
+            const tps = this.ticksPerSec;
+            const seriesBy = new Map();
+            const ensure = (id) => {
+                if (!seriesBy.has(id)) seriesBy.set(id, []);
+                return seriesBy.get(id);
+            };
+            for (const ev of timeline || []) {
+                if (ev.type === 'shift' && ev.handId && Number.isFinite(ev.toAnchor)) {
+                    ensure(ev.handId).push({ sec: ev.tick / tps, anchor: ev.toAnchor });
+                } else if (ev.type === 'chord' && Array.isArray(ev.notes)) {
+                    const lowestByHand = new Map();
+                    for (const n of ev.notes) {
+                        if (!n.handId || !Number.isFinite(n.note)) continue;
+                        const cur = lowestByHand.get(n.handId);
+                        if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
+                    }
+                    for (const [id, lo] of lowestByHand) {
+                        ensure(id).push({ sec: ev.tick / tps, anchor: lo });
+                    }
+                }
+            }
+            for (const arr of seriesBy.values()) arr.sort((a, b) => a.sec - b.sec);
+            this._handAnchorTimeline = seriesBy;
+        }
+
+        /** Step lookup: latest `{sec, anchor}` whose sec ≤ `atSec`. */
+        _targetAnchorAt(handId, atSec) {
+            const series = this._handAnchorTimeline?.get(handId);
+            if (!series || series.length === 0) {
+                const hand = (this._hands || []).find(h => h.id === handId);
+                return hand ? hand.anchor : null;
+            }
+            // Binary-ish scan — series is small (one entry per chord/shift).
+            let best = series[0].anchor;
+            for (const s of series) {
+                if (s.sec > atSec) break;
+                best = s.anchor;
+            }
+            return best;
+        }
+
+        /** Interpolation step: pull `_displayedAnchor[id]` toward the
+         *  target anchor at the current playhead. Returns true when at
+         *  least one band is still moving so the caller can keep the
+         *  RAF loop running. */
+        _stepAnchorAnimation() {
+            if (!Array.isArray(this._hands) || this._hands.length === 0) return false;
+            // Look slightly AHEAD of the playhead so the hands anticipate
+            // upcoming notes (matches a real player who looks ahead at the
+            // score) — half the lookahead window is a good visual default.
+            const lookSec = this._currentSec + (this._lookaheadSec || 4) * 0.5;
+            let stillMoving = false;
+            for (const hand of this._hands) {
+                const target = this._targetAnchorAt(hand.id, lookSec);
+                if (!Number.isFinite(target)) continue;
+                const cur = this._displayedAnchor.get(hand.id);
+                const start = Number.isFinite(cur) ? cur : hand.anchor;
+                // Critically-damped style ease: take ~25% of the gap each
+                // tick. Snaps for sub-semitone gaps so we don't draw forever.
+                const gap = target - start;
+                if (Math.abs(gap) < 0.05) {
+                    this._displayedAnchor.set(hand.id, target);
+                    continue;
+                }
+                this._displayedAnchor.set(hand.id, start + gap * 0.25);
+                stillMoving = true;
+            }
+            return stillMoving;
+        }
+
+        _ensureAnimLoop() {
+            if (this._animRaf != null) return;
+            const tick = () => {
+                this._animRaf = null;
+                if (!this.isOpen) return;
+                const moving = this._stepAnchorAnimation();
+                this.keyboard?.setHandBands(this._currentHandBands());
+                if (moving) this._animRaf = requestAnimationFrame(tick);
+            };
+            this._animRaf = requestAnimationFrame(tick);
         }
 
         _refreshProblemUI() {
@@ -255,6 +354,7 @@
                 if (idx < 0) idx = list.length - 1; // wrap
             }
             this._currentSec = list[idx].sec;
+            this._ensureAnimLoop();
             this._draw();
             this._drawMinimap();
         }
@@ -294,6 +394,10 @@
             if (this._problemRebuildTimer != null) {
                 clearTimeout(this._problemRebuildTimer);
                 this._problemRebuildTimer = null;
+            }
+            if (this._animRaf != null) {
+                cancelAnimationFrame(this._animRaf);
+                this._animRaf = null;
             }
             if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
             if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
@@ -376,10 +480,18 @@
             if (this.keyboard) this.keyboard._geoCache = null;
         }
 
+        /** Bands rendered on the keyboard. `_displayedAnchor` carries
+         *  the animated value lerping toward the simulation's target
+         *  anchor (so the band glides toward where the next chord
+         *  needs the hand to be). When animation hasn't started yet
+         *  for a hand we fall back to its last drag/seed anchor. */
         _currentHandBands() {
-            return (this._hands || []).map(h => ({
-                id: h.id, low: h.anchor, high: h.anchor + h.span, color: h.color
-            }));
+            return (this._hands || []).map(h => {
+                const a = this._displayedAnchor.has(h.id)
+                    ? this._displayedAnchor.get(h.id)
+                    : h.anchor;
+                return { id: h.id, low: a, high: a + h.span, color: h.color };
+            });
         }
 
         /** Look up the most recent hand_anchors override for `handId`
@@ -474,6 +586,7 @@
                 const x = e.clientX - rect.left;
                 const sec = (x / rect.width) * this._totalSec;
                 this._currentSec = Math.max(0, Math.min(this._totalSec, sec));
+                this._ensureAnimLoop();
                 this._draw();
                 this._drawMinimap();
             });
@@ -865,6 +978,7 @@
             try {
                 this.audioPreview.onProgress = (tick, totalTicks, currentSec) => {
                     this._currentSec = currentSec || 0;
+                    this._ensureAnimLoop();
                     this._draw();
                     this._drawMinimap();
                 };
