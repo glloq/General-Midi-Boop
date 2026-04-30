@@ -69,17 +69,26 @@ class HandAssigner {
   /**
    * Assign each note of the sequence to a hand.
    *
-   * @param {Array<{time:number, note:number, channel?:number, track?:number}>} notes
+   * @param {Array<{time:number, note:number, tick?:number, channel?:number, track?:number}>} notes
    *   Sorted by time. `track` is optional — required only for track/auto modes.
+   * @param {Object} [opts]
+   * @param {Map<string,string>|Array<{tick:number,note:number,handId:string}>} [opts.noteAssignments]
+   *   Operator-pinned `(tick, note) → handId` overrides. When the lookup
+   *   matches a known hand id, that note is forced to that hand and skips
+   *   the resolved-mode decision. Foreign hand ids are silently ignored
+   *   so a stale override does not produce out-of-bounds tags.
    * @returns {{ assignments: Array<{idx:number, hand:string}>,
    *             warnings: Array<{time:number, note:number, code:string, message:string}>,
    *             resolvedMode: string }}
    */
-  assign(notes) {
+  assign(notes, opts = {}) {
     const warnings = [];
     if (!Array.isArray(notes) || notes.length === 0) {
       return { assignments: [], warnings, resolvedMode: this.mode };
     }
+
+    // Normalise noteAssignments into a `Map<"tick:note", handId>`.
+    const pins = this._indexNoteAssignments(opts.noteAssignments);
 
     // Single-hand instruments (Phase 2 strings, or a keyboard with one hand
     // configured): every note goes to that hand.
@@ -101,19 +110,44 @@ class HandAssigner {
       resolvedMode = this._resolveAutoMode(notes, warnings);
     }
 
+    let assignments;
     if (resolvedMode === 'track') {
-      return {
-        assignments: this._assignByTrack(notes, warnings),
-        warnings,
-        resolvedMode
-      };
+      assignments = this._assignByTrack(notes, warnings);
+    } else {
+      assignments = this._assignByPitchSplit(notes, warnings);
+      resolvedMode = 'pitch_split';
     }
 
-    return {
-      assignments: this._assignByPitchSplit(notes, warnings),
-      warnings,
-      resolvedMode: 'pitch_split'
-    };
+    // Apply operator pins last so they win against the resolved-mode
+    // decision regardless of which path produced it.
+    if (pins && pins.size > 0) {
+      const validIds = new Set(this.handIds);
+      for (let i = 0; i < notes.length; i++) {
+        const ev = notes[i];
+        const tick = Number.isFinite(ev.tick) ? ev.tick : ev.time;
+        const pinned = pins.get(`${tick}:${ev.note}`);
+        if (pinned && validIds.has(pinned)) {
+          assignments[i].hand = pinned;
+        }
+      }
+    }
+
+    return { assignments, warnings, resolvedMode };
+  }
+
+  /** @private */
+  _indexNoteAssignments(input) {
+    if (!input) return new Map();
+    if (input instanceof Map) return input;
+    if (!Array.isArray(input)) return new Map();
+    const map = new Map();
+    for (const a of input) {
+      if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
+          && typeof a.handId === 'string' && a.handId.length > 0) {
+        map.set(`${a.tick}:${a.note}`, a.handId);
+      }
+    }
+    return map;
   }
 
   /** @private */

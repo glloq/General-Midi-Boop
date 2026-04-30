@@ -467,15 +467,34 @@ async function routingSaveHandOverrides(app, data) {
       }
     }
     if (Array.isArray(overrides.note_assignments)) {
-      // Operator-pinned (string, fret) for a specific note at a
-      // specific tick. The simulator looks this up before its automatic
-      // string/fret resolution so the operator's choice always wins.
+      // Operator-pinned assignment for a specific note at a specific
+      // tick. Two flavours coexist:
+      //   - strings: `{tick, note, string, fret}` — the fret simulator
+      //     looks this up before its automatic string/fret resolution.
+      //   - keyboards: `{tick, note, handId}` — the assigner uses this
+      //     to override its automatic hand-pitch split for that note.
+      // The shape is discriminated by the presence of `handId` vs
+      // `string`/`fret`; mixing both is rejected so a copy-paste typo
+      // can't smuggle in an ambiguous entry.
       for (const a of overrides.note_assignments) {
         if (!a || typeof a !== 'object'
-            || !Number.isFinite(a.tick) || !Number.isFinite(a.note)
-            || !Number.isFinite(a.string) || !Number.isFinite(a.fret)) {
+            || !Number.isFinite(a.tick) || !Number.isFinite(a.note)) {
           throw new ValidationError(
-            'each note_assignments entry must carry {tick, note, string, fret}',
+            'each note_assignments entry must carry tick + note',
+            'overrides.note_assignments'
+          );
+        }
+        const hasFret = Number.isFinite(a.string) && Number.isFinite(a.fret);
+        const hasHand = typeof a.handId === 'string' && a.handId.length > 0;
+        if (hasFret && hasHand) {
+          throw new ValidationError(
+            'note_assignments entry cannot carry both {string,fret} and {handId}',
+            'overrides.note_assignments'
+          );
+        }
+        if (!hasFret && !hasHand) {
+          throw new ValidationError(
+            'each note_assignments entry must carry {string,fret} (frets) or {handId} (semitones)',
             'overrides.note_assignments'
           );
         }

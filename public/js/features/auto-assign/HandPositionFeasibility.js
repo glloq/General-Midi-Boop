@@ -183,15 +183,16 @@
         if (mode === 'frets') {
             return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments);
         }
+        const handAssignments = _indexHandAssignments(overrides);
         // The optimised low/high partition only handles 1 or 2 hands. For
         // 3- and 4-hand keyboards we fall back to a simpler per-hand bucket
         // simulator that picks the closest hand by current anchor — good
         // enough for the preview panel, and avoids a large rewrite of the
         // 2-hand path.
         if (Array.isArray(hands.hands) && hands.hands.length >= 3) {
-            return _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
+            return _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments);
         }
-        return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec);
+        return _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments);
     }
 
     /**
@@ -204,7 +205,7 @@
      * the operator can refine via the editor's pinned anchors.
      * @private
      */
-    function _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec) {
+    function _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments = new Map()) {
         const out = [];
         const handIds = hands.hands.map(h => h.id);
         const handById = new Map(hands.hands.map(h => [h.id, h]));
@@ -243,13 +244,25 @@
             }
 
             // Even partition over the sorted note list: hand 0 takes the
-            // bottom slice, hand N-1 the top.
+            // bottom slice, hand N-1 the top. Operator-pinned `note_assignments`
+            // override the bucket — a note carrying a `handId` is dropped
+            // straight into that hand's slice so the user's choice survives
+            // the automatic re-balancing.
             const buckets = handIds.map(() => []);
-            if (sortedNotes.length > 0) {
-                for (let i = 0; i < sortedNotes.length; i++) {
-                    const idx = Math.min(N - 1, Math.floor(i * N / sortedNotes.length));
-                    buckets[idx].push(sortedNotes[i]);
+            const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
+            const remaining = [];
+            for (const n of sortedNotes) {
+                const pinned = handAssignments.get(`${g.tick}:${n.note}`);
+                const pinnedIdx = pinned != null ? handIdToIdx.get(pinned) : undefined;
+                if (pinnedIdx !== undefined) {
+                    buckets[pinnedIdx].push(n);
+                } else {
+                    remaining.push(n);
                 }
+            }
+            for (let i = 0; i < remaining.length; i++) {
+                const idx = Math.min(N - 1, Math.floor(i * N / Math.max(1, remaining.length)));
+                buckets[idx].push(remaining[i]);
             }
 
             const taggedNotes = [];
@@ -361,6 +374,26 @@
     }
 
     /**
+     * Index operator-pinned hand assignments by `(tick, midi)` for
+     * keyboard-family instruments. Looks for the semitones-shape entry
+     * `{tick, note, handId}` in `overrides.note_assignments`; the
+     * mutually-exclusive `{string, fret}` shape is ignored here so the
+     * frets and semitones override paths stay independent.
+     * @private
+     */
+    function _indexHandAssignments(overrides) {
+        const map = new Map(); // key: `${tick}:${note}` → handId
+        if (!overrides || !Array.isArray(overrides.note_assignments)) return map;
+        for (const a of overrides.note_assignments) {
+            if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
+                && typeof a.handId === 'string' && a.handId.length > 0) {
+                map.set(`${a.tick}:${a.note}`, a.handId);
+            }
+        }
+        return map;
+    }
+
+    /**
      * List every plausible (string, fret) pair that produces a given
      * MIDI pitch on a given instrument. Used by the editor's
      * note-edit menu to populate the chips of cordes alternatives.
@@ -400,7 +433,7 @@
     // single chord that doesn't reflect what's just behind it.
     const LOOKAHEAD_K = 4;
 
-    function _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec) {
+    function _simulateSemitones(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments = new Map()) {
         const out = [];
         const handIds = hands.hands.map(h => h.id);
         const handById = new Map(hands.hands.map(h => [h.id, h]));
@@ -586,6 +619,17 @@
             // input order, not pitch-sorted) via reference identity.
             const taggedNotes = _tagNotesByPartition(plan.liveNotes, plan.sortedNotes,
                                                        plan.splitK, lowId, highId);
+            // Operator-pinned `note_assignments` override the partition's
+            // pick: a note carrying a `handId` matching either hand wins
+            // over the cost-based split. Foreign hand ids (e.g. `h3` on a
+            // 2-hand keyboard) are ignored so a stale override can't
+            // produce an out-of-bounds tag.
+            if (handAssignments.size > 0) {
+                for (const ev of taggedNotes) {
+                    const pin = handAssignments.get(`${plan.tick}:${ev.note}`);
+                    if (pin === lowId || pin === highId) ev.handId = pin;
+                }
+            }
             const releaseByHand = _releaseByHand(taggedNotes, [lowId, highId], plan.tick);
 
             out.push({

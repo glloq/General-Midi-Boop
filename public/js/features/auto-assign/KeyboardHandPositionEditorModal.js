@@ -80,7 +80,6 @@
 
             // Pixels per second on the falling-note axis. Larger = notes
             // span more vertical space (zoom-in).
-            this._pxPerSec = 120;
             // Lookahead window (seconds) shown above the keyboard. We only
             // draw notes whose start time is within `[currentSec, currentSec + lookaheadSec]`.
             this._lookaheadSec = 4;
@@ -88,6 +87,12 @@
             this._noteHits = [];
             this._notePopover = null;
             this._mutedBeforePlay = null;
+
+            // Problem tracking — populated by `_rebuildProblems()` whenever
+            // the overrides or the hand state change.
+            this._problems = [];          // [{sec, kind:'chord'|'speed', message}]
+            this._unplayableSet = new Set(); // "tick:note"
+            this._problemRebuildTimer = null;
         }
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
@@ -102,6 +107,10 @@
                     <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
                     <button type="button" data-action="zoom-out" title="${_t('keyboardHandEditor.zoomOut','Dézoom')}">−</button>
                     <button type="button" data-action="zoom-in" title="${_t('keyboardHandEditor.zoomIn','Zoom')}">+</button>
+                    <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
+                    <button type="button" data-action="prev-problem" disabled title="${_t('keyboardHandEditor.prevProblem','Problème précédent')}">◄!</button>
+                    <button type="button" data-action="next-problem" disabled title="${_t('keyboardHandEditor.nextProblem','Problème suivant')}">!►</button>
+                    <span class="khpe-problem-count" data-role="problem-count" style="font-size:12px;color:#b91c1c;font-weight:600;min-width:20px;"></span>
                     <span style="flex:1"></span>
                     <span class="khpe-status" data-role="status" style="color:#6b7280;font-size:12px;"></span>
                     <button type="button" data-action="undo" disabled>↶</button>
@@ -110,6 +119,9 @@
                     <button type="button" data-action="save" disabled>${_t('keyboardHandEditor.save','Enregistrer')}</button>
                 </div>
                 <div class="khpe-main" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div class="khpe-minimap-host" style="position:relative;height:54px;flex:none;background:#1e293b;border-bottom:1px solid #334155;">
+                        <canvas class="khpe-minimap-canvas" style="position:absolute;inset:0;display:block;cursor:crosshair;"></canvas>
+                    </div>
                     <div class="khpe-roll-host" style="position:relative;flex:1;background:#0f172a;overflow:hidden;">
                         <canvas class="khpe-roll-canvas" style="position:absolute;inset:0;display:block;"></canvas>
                     </div>
@@ -130,20 +142,159 @@
 
         onOpen() {
             this.container?.classList.add('khpe-modal-overlay');
-            this._hideRoutingModal();
+            this._injectStyles();
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
+            this.minimapCanvas = this.$('.khpe-minimap-canvas');
+            this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
             this._wireToolbar();
             this._wireRollCanvas();
+            this._wireMinimap();
             this._wireResizeObserver();
-            this._draw();
+            // Defer first draw so the layout has settled (clientWidth/Height
+            // would otherwise read 0 inside the BaseModal mount handler).
+            requestAnimationFrame(() => {
+                this._rebuildProblems();
+                this._draw();
+                this._drawMinimap();
+            });
             this._refreshTransport();
         }
 
+        // ----------------------------------------------------------------
+        //  Feasibility simulation — pulls problems from HandPositionFeasibility
+        // ----------------------------------------------------------------
+
+        /**
+         * Re-run the simulation against the current overrides + hand state
+         * and rebuild the problem list. Cheap enough on typical channels;
+         * we still debounce a little so a fast drag doesn't run it on
+         * every mouse-move frame.
+         * @private
+         */
+        _rebuildProblems() {
+            // Trailing-edge debounce: every call resets the timer so the
+            // last edit always wins. The earlier no-op-while-pending
+            // pattern silently dropped intermediate edits in a fast
+            // drag, leaving the problem list out of sync.
+            if (this._problemRebuildTimer != null) {
+                clearTimeout(this._problemRebuildTimer);
+            }
+            this._problemRebuildTimer = setTimeout(() => {
+                this._problemRebuildTimer = null;
+                this._runFeasibility();
+                this._refreshProblemUI();
+                this._draw();
+                this._drawMinimap();
+            }, 80);
+        }
+
+        _runFeasibility() {
+            const Feas = window.HandPositionFeasibility;
+            if (!Feas || typeof Feas.simulateHandWindows !== 'function') return;
+            // Reflect the current operator-tweaked anchors so the
+            // simulator's per-tick window logic agrees with the bands
+            // the user sees on the keyboard.
+            const overridesForSim = this._cloneOverrides(this.overrides) || {
+                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
+            };
+            let timeline;
+            try {
+                timeline = Feas.simulateHandWindows(this.notes, this.instrument, {
+                    overrides: overridesForSim,
+                    ticksPerBeat: this.ticksPerBeat,
+                    bpm: this.bpm
+                }) || [];
+            } catch (e) {
+                console.warn('[KeyboardHandPositionEditor] simulate failed:', e);
+                timeline = [];
+            }
+            const problems = [];
+            const unplayable = new Set();
+            const tps = this.ticksPerSec;
+            for (const ev of timeline) {
+                if (ev.type === 'chord' && Array.isArray(ev.unplayable) && ev.unplayable.length > 0) {
+                    problems.push({ sec: ev.tick / tps, kind: 'chord' });
+                    for (const u of ev.unplayable) {
+                        if (Number.isFinite(u.note)) unplayable.add(`${ev.tick}:${u.note}`);
+                    }
+                } else if (ev.type === 'shift' && ev.motion && ev.motion.feasible === false) {
+                    problems.push({ sec: ev.tick / tps, kind: 'speed' });
+                }
+            }
+            problems.sort((a, b) => a.sec - b.sec);
+            this._problems = problems;
+            this._unplayableSet = unplayable;
+        }
+
+        _refreshProblemUI() {
+            const total = this._problems?.length || 0;
+            const prevBtn = this.$('[data-action="prev-problem"]');
+            const nextBtn = this.$('[data-action="next-problem"]');
+            const counter = this.$('[data-role="problem-count"]');
+            if (prevBtn) prevBtn.disabled = total === 0;
+            if (nextBtn) nextBtn.disabled = total === 0;
+            if (counter) counter.textContent = total > 0 ? `${total}` : '';
+        }
+
+        _jumpToProblem(direction) {
+            const list = this._problems || [];
+            if (list.length === 0) return;
+            const EPS = 0.05;
+            let idx;
+            if (direction > 0) {
+                idx = list.findIndex(p => p.sec > this._currentSec + EPS);
+                if (idx < 0) idx = 0; // wrap
+            } else {
+                idx = -1;
+                for (let i = list.length - 1; i >= 0; i--) {
+                    if (list[i].sec < this._currentSec - EPS) { idx = i; break; }
+                }
+                if (idx < 0) idx = list.length - 1; // wrap
+            }
+            this._currentSec = list[idx].sec;
+            this._draw();
+            this._drawMinimap();
+        }
+
+        _injectStyles() {
+            if (document.getElementById('khpe-modal-styles')) return;
+            const style = document.createElement('style');
+            style.id = 'khpe-modal-styles';
+            style.textContent = `
+                .modal-overlay.khpe-modal-overlay {
+                    /* Routing summary modal sits at 10005; stay above so
+                       the editor isn't covered when opened from there. */
+                    z-index: 10010 !important;
+                }
+                .khpe-modal .modal-dialog {
+                    width: 100vw; height: 100vh;
+                    display: flex; flex-direction: column;
+                    background: #fff;
+                }
+                .khpe-modal .modal-body {
+                    flex: 1; display: flex; flex-direction: column;
+                    overflow: hidden; padding: 0; min-height: 0;
+                }
+                .khpe-toolbar button[data-action] {
+                    padding: 4px 10px; border: 1px solid #d1d5db;
+                    background: #fff; border-radius: 4px; cursor: pointer;
+                    font-size: 14px;
+                }
+                .khpe-toolbar button[data-action]:hover:not([disabled]) { background: #f3f4f6; }
+                .khpe-toolbar button[data-action][disabled] { opacity: 0.45; cursor: not-allowed; }
+                .khpe-roll-host { min-height: 200px; }
+            `;
+            document.head.appendChild(style);
+        }
+
         onClose() {
-            if (this._raf != null) { cancelAnimationFrame(this._raf); this._raf = null; }
+            if (this._problemRebuildTimer != null) {
+                clearTimeout(this._problemRebuildTimer);
+                this._problemRebuildTimer = null;
+            }
             if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
             if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
                 this.audioPreview.stop();
@@ -152,7 +303,6 @@
             this._closeNotePopover();
             this.keyboard?.destroy?.();
             this.keyboard = null;
-            this._restoreRoutingModal();
         }
 
         close() {
@@ -165,60 +315,110 @@
         }
 
         // ----------------------------------------------------------------
-        //  Drill-down: hide the routing summary modal underneath so the
-        //  editor takes over the screen, then restore it on close.
-        // ----------------------------------------------------------------
-
-        _hideRoutingModal() {
-            const overlays = document.querySelectorAll(
-                '.routing-summary-modal-overlay, .routing-summary-modal'
-            );
-            this._hiddenOverlays = [];
-            overlays.forEach((el) => {
-                if (el === this.container) return;
-                this._hiddenOverlays.push({ el, prev: el.style.display });
-                el.style.display = 'none';
-            });
-        }
-
-        _restoreRoutingModal() {
-            if (!Array.isArray(this._hiddenOverlays)) return;
-            for (const { el, prev } of this._hiddenOverlays) {
-                el.style.display = prev || '';
-            }
-            this._hiddenOverlays = null;
-        }
-
-        // ----------------------------------------------------------------
-        //  Keyboard widget at the bottom (with hand bands)
+        //  Keyboard widget at the bottom (with draggable hand bands)
         // ----------------------------------------------------------------
 
         _mountKeyboard() {
             if (!window.KeyboardPreview || !this.keyboardCanvas) return;
             const ext = this._pitchExtent();
-            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
-                rangeMin: ext.lo,
-                rangeMax: ext.hi
-            });
-            this.keyboard.setHandBands(this._handBandsForKeyboard());
-            this.keyboard.draw();
-        }
-
-        _handBandsForKeyboard() {
+            // Per-hand state: anchor (lowest playable note) is the
+            // operator-controlled value; span is read from hands_config.
+            // Anchors initialise from `hand_anchors` overrides at the
+            // current playhead, falling back to a deterministic seed
+            // (low pitch, mid pitch, ...) so 1- and 4-hand keyboards
+            // both render with non-overlapping bands at startup.
             const cfg = _parseHandsCfg(this.instrument);
-            if (!cfg) return [];
-            return cfg.hands.map((h, i) => {
-                const span = Number.isFinite(h.hand_span_semitones)
-                    ? h.hand_span_semitones : 14;
-                const anchor = Number.isFinite(h.cc_position_number) && h.cc_position_number >= 21
-                    ? h.cc_position_number : 48 + i * 12;
+            this._hands = (cfg?.hands || []).map((h, i) => {
+                const span = Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones : 14;
+                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
+                    * (ext.hi - ext.lo - span));
+                const id = h.id || `h${i + 1}`;
+                const overrideAnchor = this._latestAnchorOverride(id);
                 return {
-                    id: h.id || `h${i + 1}`,
-                    low: anchor,
-                    high: anchor + span,
-                    color: _handColor(h.id)
+                    id,
+                    span,
+                    anchor: Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor,
+                    color: _handColor(id)
                 };
             });
+            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
+                rangeMin: ext.lo,
+                rangeMax: ext.hi,
+                bandHeight: 18,
+                onBandDrag: (handId, newAnchor) => this._onHandBandDrag(handId, newAnchor)
+            });
+            this.keyboard.setHandBands(this._currentHandBands());
+            // Force one canvas re-fit + draw on the next frame so the
+            // KeyboardPreview's geometry cache picks up the actual host
+            // size rather than the 0×0 it sees during initial mount.
+            requestAnimationFrame(() => {
+                this._fitKeyboardCanvas();
+                this.keyboard.setHandBands(this._currentHandBands());
+                this.keyboard.draw();
+            });
+        }
+
+        /** Resize the keyboard canvas backing store to match its CSS
+         *  size (the parent has flex height). KeyboardPreview's geo
+         *  cache keys off width/height so we wipe it on resize. */
+        _fitKeyboardCanvas() {
+            const c = this.keyboardCanvas;
+            if (!c) return;
+            const dpr = window.devicePixelRatio || 1;
+            const w = c.clientWidth;
+            const h = c.clientHeight;
+            if (w <= 0 || h <= 0) return;
+            c.width = w * dpr;
+            c.height = h * dpr;
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // KeyboardPreview rebuilds its geo cache lazily — invalidate.
+            if (this.keyboard) this.keyboard._geoCache = null;
+        }
+
+        _currentHandBands() {
+            return (this._hands || []).map(h => ({
+                id: h.id, low: h.anchor, high: h.anchor + h.span, color: h.color
+            }));
+        }
+
+        /** Look up the most recent hand_anchors override for `handId`
+         *  (the entry with the largest tick ≤ current playhead). */
+        _latestAnchorOverride(handId) {
+            const list = this.overrides?.hand_anchors;
+            if (!Array.isArray(list)) return null;
+            let best = null;
+            const currentTick = this._currentSec * this.ticksPerSec;
+            for (const a of list) {
+                if (a?.handId !== handId || !Number.isFinite(a.tick)) continue;
+                if (a.tick > currentTick) continue;
+                if (!best || a.tick > best.tick) best = a;
+            }
+            return best ? best.anchor : null;
+        }
+
+        /** User dragged a hand band on the keyboard. Update the in-memory
+         *  state, push a `hand_anchors` override entry at the current
+         *  playhead, and redraw both the keyboard and the piano-roll. */
+        _onHandBandDrag(handId, newAnchor) {
+            const hand = (this._hands || []).find(h => h.id === handId);
+            if (!hand) return;
+            hand.anchor = newAnchor;
+            if (!Array.isArray(this.overrides.hand_anchors)) {
+                this.overrides.hand_anchors = [];
+            }
+            const tick = Math.round(this._currentSec * this.ticksPerSec);
+            const list = this.overrides.hand_anchors;
+            // Replace the entry at the same tick / hand or append.
+            const idx = list.findIndex(a => a?.handId === handId && a?.tick === tick);
+            const entry = { tick, handId, anchor: newAnchor };
+            if (idx >= 0) list[idx] = entry;
+            else list.push(entry);
+            this._pushHistory();
+            this.keyboard?.setHandBands(this._currentHandBands());
+            this._rebuildProblems();
+            this._draw();
+            this._drawMinimap();
         }
 
         // ----------------------------------------------------------------
@@ -237,8 +437,140 @@
 
         _wireResizeObserver() {
             if (!this.rollHost || typeof ResizeObserver !== 'function') return;
-            this._resizeObserver = new ResizeObserver(() => this._draw());
+            this._resizeObserver = new ResizeObserver(() => {
+                this._draw();
+                this._drawMinimap();
+                this._fitKeyboardCanvas();
+                this.keyboard?.draw();
+            });
             this._resizeObserver.observe(this.rollHost);
+            const kbHost = this.$('.khpe-keyboard-host');
+            if (kbHost) this._resizeObserver.observe(kbHost);
+            if (this.minimapHost) this._resizeObserver.observe(this.minimapHost);
+        }
+
+        // ----------------------------------------------------------------
+        //  Minimap — file overview, viewport rect, hand-anchor trajectories
+        // ----------------------------------------------------------------
+
+        _wireMinimap() {
+            if (!this.minimapCanvas) return;
+            this.minimapCanvas.addEventListener('click', (e) => {
+                if (!this._totalSec) return;
+                const rect = this.minimapCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const sec = (x / rect.width) * this._totalSec;
+                this._currentSec = Math.max(0, Math.min(this._totalSec, sec));
+                this._draw();
+                this._drawMinimap();
+            });
+        }
+
+        _drawMinimap() {
+            const c = this.minimapCanvas;
+            const host = this.minimapHost;
+            if (!c || !host) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = host.clientWidth;
+            const H = host.clientHeight;
+            if (W <= 0 || H <= 0) return;
+            c.width = W * dpr;
+            c.height = H * dpr;
+            c.style.width = W + 'px';
+            c.style.height = H + 'px';
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, W, H);
+            if (!this._totalSec) return;
+
+            const ext = this._pitchExtent();
+            const pitchRange = Math.max(1, ext.hi - ext.lo);
+            const xPerSec = W / this._totalSec;
+
+            // Note dots — one tiny rectangle per note, faint so the
+            // hand-anchor lines stay readable on top.
+            ctx.fillStyle = 'rgba(148,163,184,0.55)';
+            for (const n of this.notes) {
+                const sec = n.tick / this.ticksPerSec;
+                const x = sec * xPerSec;
+                const y = H - ((n.note - ext.lo) / pitchRange) * H;
+                ctx.fillRect(x, y - 0.5, Math.max(1, xPerSec * (n.duration || 0) / this.ticksPerSec), 1.5);
+            }
+
+            // Hand-anchor trajectories. We sample each hand's anchor at
+            // every override tick (sorted), with the seed/current value
+            // filling the gaps before the first override and after the
+            // last one. Drawn as a thicker coloured line so it dominates
+            // the note dots.
+            for (const hand of (this._hands || [])) {
+                const samples = this._anchorSamplesForHand(hand);
+                if (samples.length === 0) continue;
+                ctx.strokeStyle = hand.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < samples.length; i++) {
+                    const s = samples[i];
+                    const x = s.sec * xPerSec;
+                    const y = H - ((s.anchor - ext.lo) / pitchRange) * H;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            // Problem markers — red triangle for unplayable chords,
+            // amber for too-fast shifts. Drawn before the viewport rect
+            // so the rect translucent fill desaturates them slightly
+            // when they fall inside the current view (still readable).
+            for (const p of (this._problems || [])) {
+                const x = p.sec * xPerSec;
+                ctx.fillStyle = p.kind === 'speed' ? '#f59e0b' : '#dc2626';
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x - 3, 6);
+                ctx.lineTo(x + 3, 6);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Lookahead viewport rectangle (= the slice currently shown
+            // in the piano-roll above).
+            const vpX = this._currentSec * xPerSec;
+            const vpW = Math.max(2, this._lookaheadSec * xPerSec);
+            ctx.fillStyle = 'rgba(248,250,252,0.08)';
+            ctx.fillRect(vpX, 0, vpW, H);
+            ctx.strokeStyle = 'rgba(248,250,252,0.45)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(vpX + 0.5, 0.5, vpW - 1, H - 1);
+
+            // Playhead.
+            ctx.strokeStyle = 'rgba(248,113,113,0.95)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(vpX + 0.5, 0);
+            ctx.lineTo(vpX + 0.5, H);
+            ctx.stroke();
+        }
+
+        /**
+         * Build a sorted list of `{sec, anchor}` samples for one hand by
+         * walking the `hand_anchors` override entries (latest-wins per
+         * tick). The current in-memory anchor seeds the start and end so
+         * the trajectory has at least two points and renders as a flat
+         * line when no override exists yet.
+         * @private
+         */
+        _anchorSamplesForHand(hand) {
+            const list = (this.overrides?.hand_anchors || [])
+                .filter(a => a && a.handId === hand.id && Number.isFinite(a.tick) && Number.isFinite(a.anchor))
+                .sort((a, b) => a.tick - b.tick);
+            const out = [{ sec: 0, anchor: hand.anchor }];
+            for (const a of list) {
+                out.push({ sec: a.tick / this.ticksPerSec, anchor: a.anchor });
+            }
+            out.push({ sec: this._totalSec, anchor: list.length ? list[list.length - 1].anchor : hand.anchor });
+            return out;
         }
 
         _draw() {
@@ -310,10 +642,22 @@
                 const x = (n.note - ext.lo) * pxPerPitch;
                 const w = Math.max(2, pxPerPitch - 1);
                 const handId = assignments.get(`${n.tick}:${n.note}`) || null;
-                ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
-                ctx.fillRect(x, y, w, h);
-                ctx.strokeStyle = 'rgba(15,23,42,0.6)';
-                ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                const isUnplayable = this._unplayableSet.has(`${n.tick}:${n.note}`);
+                if (isUnplayable) {
+                    // Red fill + thicker red border so unplayable notes
+                    // pop visually even when assigned to a hand colour.
+                    ctx.fillStyle = '#dc2626';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = '#fecaca';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                    ctx.lineWidth = 1;
+                } else {
+                    ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = 'rgba(15,23,42,0.6)';
+                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                }
                 hits.push({ x, y, w, h, note: n });
             }
             this._noteHits = hits;
@@ -443,7 +787,9 @@
             if (idx >= 0) list[idx] = entry;
             else list.push(entry);
             this._pushHistory();
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
         }
 
         _clearNoteAssignment(tick, note) {
@@ -453,7 +799,9 @@
             if (idx < 0) return;
             list.splice(idx, 1);
             this._pushHistory();
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
         }
 
         // ----------------------------------------------------------------
@@ -474,15 +822,19 @@
                     case 'mute': this._toggleMute(btn); return;
                     case 'zoom-in':
                         this._lookaheadSec = Math.max(1, this._lookaheadSec / 1.25);
-                        this._draw(); return;
+                        this._draw(); this._drawMinimap(); return;
                     case 'zoom-out':
                         this._lookaheadSec = Math.min(30, this._lookaheadSec * 1.25);
-                        this._draw(); return;
+                        this._draw(); this._drawMinimap(); return;
                     case 'undo': this._undo(); return;
                     case 'redo': this._redo(); return;
                     case 'reset-overrides':
                         this.overrides = { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
-                        this._pushHistory(); this._draw(); return;
+                        this._pushHistory();
+                        this._rebuildProblems();
+                        this._draw(); this._drawMinimap(); return;
+                    case 'prev-problem': this._jumpToProblem(-1); return;
+                    case 'next-problem': this._jumpToProblem(+1); return;
                     case 'save': this._save(); return;
                 }
             });
@@ -501,6 +853,7 @@
                 this.audioPreview.onProgress = (tick, totalTicks, currentSec) => {
                     this._currentSec = currentSec || 0;
                     this._draw();
+                    this._drawMinimap();
                 };
                 this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
                 const constraints = Number.isFinite(this.instrument?.gm_program)
@@ -524,6 +877,7 @@
             this._currentSec = 0;
             this._refreshTransport();
             this._draw();
+            this._drawMinimap();
         }
 
         _toggleMute(btn) {
@@ -586,7 +940,9 @@
             if (this._historyIndex <= 0) return;
             this._historyIndex--;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
             this._refreshButtons();
         }
 
@@ -594,7 +950,9 @@
             if (this._historyIndex >= this._history.length - 1) return;
             this._historyIndex++;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            this._rebuildProblems();
             this._draw();
+            this._drawMinimap();
             this._refreshButtons();
         }
 
