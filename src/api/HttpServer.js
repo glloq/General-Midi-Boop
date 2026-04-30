@@ -27,6 +27,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { readFileSync, existsSync } from 'fs';
 import { createApiRouter } from './apiRoutes.js';
+import { createCaptivePortalMiddleware } from './middleware/captivePortal.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -63,6 +64,16 @@ class HttpServer {
    * @returns {void}
    */
   setupRoutes() {
+    // Captive-portal redirect (active only while the WiFi hotspot is up).
+    // Mounted before compression/helmet/CORS so probe requests issued by
+    // mobile OSes get a clean 302 untouched by the rest of the pipeline.
+    this.expressApp.use(
+      createCaptivePortalMiddleware({
+        hotspotManager: this._deps.hotspotManager,
+        logger: this.logger
+      })
+    );
+
     // Gzip compression for all responses
     this.expressApp.use(compression());
 
