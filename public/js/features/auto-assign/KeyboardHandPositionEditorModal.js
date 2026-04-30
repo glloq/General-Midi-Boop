@@ -44,6 +44,26 @@
     };
     function _handColor(id) { return HAND_COLORS[id] || '#6b7280'; }
 
+    /** Translucent fill of a hand colour for the roll-background lanes.
+     *  Cached so the per-frame draw doesn't re-parse the hex on every
+     *  segment. Alpha 0.18 is light enough that note rectangles drawn
+     *  on top remain readable. */
+    const _BAND_FILL_CACHE = new Map();
+    function _bandFill(hex) {
+        let v = _BAND_FILL_CACHE.get(hex);
+        if (v) return v;
+        if (typeof hex !== 'string' || hex.length !== 7 || hex[0] !== '#') {
+            v = 'rgba(107,114,128,0.18)';
+        } else {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            v = `rgba(${r}, ${g}, ${b}, 0.18)`;
+        }
+        _BAND_FILL_CACHE.set(hex, v);
+        return v;
+    }
+
     class KeyboardHandPositionEditorModal extends window.BaseModal {
         constructor(opts = {}) {
             super({
@@ -599,17 +619,20 @@
             if (this.keyboard) this.keyboard._geoCache = null;
         }
 
-        /** Bands rendered on the keyboard. `_displayedAnchor` carries
-         *  the animated value lerping toward the simulation's target
-         *  anchor (so the band glides toward where the next chord
-         *  needs the hand to be). When animation hasn't started yet
-         *  for a hand we fall back to its last drag/seed anchor. */
+        /** Bands rendered on the keyboard. Anchors are quantized to the
+         *  nearest semitone before being handed to KeyboardPreview —
+         *  its `_xOf(midi)` indexes a sparse integer array, so a
+         *  fractional anchor (mid-lerp) used to land on `undefined`
+         *  and the band would silently jump or disappear. The roll
+         *  itself keeps the floating-point value for sub-semitone
+         *  precision in the lane background. */
         _currentHandBands() {
             return (this._hands || []).map(h => {
                 const a = this._displayedAnchor.has(h.id)
                     ? this._displayedAnchor.get(h.id)
                     : h.anchor;
-                return { id: h.id, low: a, high: a + h.span, color: h.color };
+                const aInt = Math.round(a);
+                return { id: h.id, low: aInt, high: aInt + h.span, color: h.color };
             });
         }
 
@@ -830,6 +853,63 @@
             return out;
         }
 
+        /**
+         * Paint each hand's playable window across the visible time
+         * slice as a translucent vertical lane in the roll background.
+         * For every hand we walk the anchor timeline (`shift` and
+         * `chord` events) — between two consecutive samples the anchor
+         * is constant, so each segment is a coloured rectangle with
+         * X = [hand.anchor, hand.anchor + span] and
+         * Y = [seg.startSec, seg.endSec] mapped onto the lookahead
+         * window. The current displayed anchor is used for the
+         * boundary samples (start of view + extrapolation past the
+         * last simulator event) so the lane visibly leaves from where
+         * the live band sits.
+         */
+        _drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H) {
+            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
+            const endSec = startSec + lookaheadSec;
+            for (const hand of this._hands) {
+                const samples = this._laneSamplesFor(hand, startSec, endSec);
+                if (samples.length === 0) continue;
+                const fill = _bandFill(hand.color);
+                for (let i = 0; i < samples.length - 1; i++) {
+                    const segStart = samples[i].sec;
+                    const segEnd = samples[i + 1].sec;
+                    const anchor = samples[i].anchor;
+                    if (segEnd <= startSec || segStart >= endSec) continue;
+                    const yBottom = H - ((Math.max(segStart, startSec) - startSec) / lookaheadSec) * H;
+                    const yTop = H - ((Math.min(segEnd, endSec) - startSec) / lookaheadSec) * H;
+                    const x = (anchor - ext.lo) * pxPerPitch;
+                    const w = hand.span * pxPerPitch;
+                    ctx.fillStyle = fill;
+                    ctx.fillRect(x, yTop, w, yBottom - yTop);
+                }
+            }
+        }
+
+        /** Build `[{sec, anchor}]` samples covering [startSec, endSec]
+         *  from the simulation's per-hand timeline. The first sample
+         *  is clamped to startSec carrying the most recent anchor,
+         *  the last is clamped to endSec for the segment-pair walk. */
+        _laneSamplesFor(hand, startSec, endSec) {
+            const series = this._handAnchorTimeline?.get(hand.id) || [];
+            const out = [];
+            // Initial anchor at the start of the view: use the displayed
+            // value if known so the lane visibly meets the live band.
+            const first = this._displayedAnchor.has(hand.id)
+                ? this._displayedAnchor.get(hand.id)
+                : (this._targetAnchorAt(hand.id, startSec) ?? hand.anchor);
+            out.push({ sec: startSec, anchor: first });
+            for (const s of series) {
+                if (s.sec <= startSec) continue;
+                if (s.sec >= endSec) break;
+                out.push({ sec: s.sec, anchor: s.anchor });
+            }
+            out.push({ sec: endSec, anchor: out[out.length - 1].anchor });
+            return out;
+        }
+
         _draw() {
             if (!this.rollCanvas || !this.rollHost) return;
             const dpr = window.devicePixelRatio || 1;
@@ -881,6 +961,15 @@
                     ctx.stroke();
                 }
             }
+
+            // Hand position lanes — one translucent stripe per hand
+            // showing where the hand will be at every moment of the
+            // visible window. Drawn under the notes (background) so the
+            // operator can see at a glance which note is "covered" by
+            // which hand and which falls outside any window. Anchor
+            // segments come straight from the simulation timeline so a
+            // shift event produces a visible step in the lane.
+            this._drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H);
 
             // Playhead line at the bottom of the roll (= present moment).
             ctx.strokeStyle = 'rgba(248,113,113,0.7)';
