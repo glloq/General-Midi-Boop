@@ -80,7 +80,6 @@
 
             // Pixels per second on the falling-note axis. Larger = notes
             // span more vertical space (zoom-in).
-            this._pxPerSec = 120;
             // Lookahead window (seconds) shown above the keyboard. We only
             // draw notes whose start time is within `[currentSec, currentSec + lookaheadSec]`.
             this._lookaheadSec = 4;
@@ -176,7 +175,13 @@
          * @private
          */
         _rebuildProblems() {
-            if (this._problemRebuildTimer != null) return; // already pending
+            // Trailing-edge debounce: every call resets the timer so the
+            // last edit always wins. The earlier no-op-while-pending
+            // pattern silently dropped intermediate edits in a fast
+            // drag, leaving the problem list out of sync.
+            if (this._problemRebuildTimer != null) {
+                clearTimeout(this._problemRebuildTimer);
+            }
             this._problemRebuildTimer = setTimeout(() => {
                 this._problemRebuildTimer = null;
                 this._runFeasibility();
@@ -286,7 +291,10 @@
         }
 
         onClose() {
-            if (this._raf != null) { cancelAnimationFrame(this._raf); this._raf = null; }
+            if (this._problemRebuildTimer != null) {
+                clearTimeout(this._problemRebuildTimer);
+                this._problemRebuildTimer = null;
+            }
             if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
             if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
                 this.audioPreview.stop();
