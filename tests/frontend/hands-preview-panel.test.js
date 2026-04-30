@@ -64,11 +64,16 @@ const fretsHands = {
 
 function makePanel(overrideOpts = {}) {
   const container = document.getElementById('container');
+  // eagerEngine bypasses the lazy-on-expand gate so the test suite
+  // can inspect engine state immediately. Production paths leave
+  // the panel collapsed and never instantiate the simulator until
+  // the operator actually wants to look at hand geometry.
   return new window.HandsPreviewPanel(container, {
     channel: 0,
     notes: [{ tick: 0, note: 60 }, { tick: 480, note: 64 }],
     instrument: { hands_config: semitonesHands, note_range_min: 21, note_range_max: 108 },
     ticksPerBeat: 480, bpm: 120,
+    eagerEngine: true,
     ...overrideOpts
   });
 }

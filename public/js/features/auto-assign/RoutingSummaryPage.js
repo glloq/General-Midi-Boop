@@ -1025,9 +1025,20 @@ class RoutingSummaryPage {
       } catch (_) { /* fall back to defaults; preview may stay blank */ }
     }
 
+    // Forward the current transposition so the simulator works on
+    // the actually-played pitches (not the raw source notes). For
+    // string instruments this matters: a +5 transposition shifts
+    // every fret 5 semitones up the manche, and the preview must
+    // reflect that — otherwise the routing modal lies about what
+    // the player will see during playback.
+    const adapt = this.adaptationSettings?.[String(channel)] || {};
+    const transpositionSemitones = (this.autoAdaptation && adapt.pitchShift !== 'none')
+      ? (adapt.transpositionSemitones || 0) : 0;
+
     this._handsPreviewPanel = new window.HandsPreviewPanel(host, {
       channel,
       notes,
+      transpositionSemitones,
       // Forwarded so the full-length editor modal can drive
       // AudioPreview without re-fetching the file.
       midiData: this.midiData,
@@ -1560,19 +1571,30 @@ class RoutingSummaryPage {
       // Transposition buttons
       const transposeBtn = target.closest('.rs-transpose-btn');
       if (transposeBtn) {
-        const ch = transposeBtn.dataset.channel;
-        const delta = parseInt(transposeBtn.dataset.delta);
-        if (ch && !isNaN(delta)) {
-          if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
-          const oldSemi = this.adaptationSettings[ch].transpositionSemitones || 0;
-          const newSemi = Math.max(-36, Math.min(36, oldSemi + delta));
-          if (newSemi === oldSemi) return; // hit clamp; nothing to do
-          this.adaptationSettings[ch].transpositionSemitones = newSemi;
-          this._reclampSplitRanges(parseInt(ch), oldSemi, newSemi);
-          // Targeted partial refresh — keeps the hands-preview panel
-          // mounted (no expensive simulator re-run) and avoids the
-          // multi-second freeze the full-panel rebuild caused.
-          this._refreshAfterTransposition(parseInt(ch));
+        // Wrap the handler so any exception in the targeted refresh
+        // path (split reclamp, range bars, minimap) surfaces in the
+        // console + toast instead of leaving the modal in a half-
+        // updated state. Past regressions silently froze the page.
+        try {
+          const ch = transposeBtn.dataset.channel;
+          const delta = parseInt(transposeBtn.dataset.delta);
+          if (ch && !isNaN(delta)) {
+            if (!this.adaptationSettings[ch]) this.adaptationSettings[ch] = {};
+            const oldSemi = this.adaptationSettings[ch].transpositionSemitones || 0;
+            const newSemi = Math.max(-36, Math.min(36, oldSemi + delta));
+            if (newSemi === oldSemi) return; // hit clamp; nothing to do
+            this.adaptationSettings[ch].transpositionSemitones = newSemi;
+            this._reclampSplitRanges(parseInt(ch), oldSemi, newSemi);
+            // Targeted partial refresh — keeps the hands-preview panel
+            // mounted (no expensive simulator re-run) and avoids the
+            // multi-second freeze the full-panel rebuild caused.
+            this._refreshAfterTransposition(parseInt(ch));
+          }
+        } catch (err) {
+          console.error('[RoutingSummary] transpose handler failed:', err);
+          if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+            window.showToast(_t('autoAssign.transposeError', 'Erreur de transposition'), 'error');
+          }
         }
         return;
       }
@@ -2345,6 +2367,20 @@ class RoutingSummaryPage {
           if (fresh) rangeHost.replaceWith(fresh);
         }
       }
+    }
+    // Push the new transposition to the live hands-preview panel so
+    // the fretboard / keyboard reflect the shifted pitches. Cheap
+    // when the panel is collapsed (engine not yet wired); triggers
+    // a re-simulation when expanded — gated by setTransposition so
+    // a no-op delta doesn't restart the simulator.
+    if (this._handsPreviewPanel
+        && this._handsPreviewChannel === channel
+        && typeof this._handsPreviewPanel.setTransposition === 'function') {
+      const adapt = this.adaptationSettings?.[ch] || {};
+      const newSemi = (this.autoAdaptation && adapt.pitchShift !== 'none')
+        ? (adapt.transpositionSemitones || 0) : 0;
+      try { this._handsPreviewPanel.setTransposition(newSemi); }
+      catch (err) { console.warn('[RoutingSummary] hands preview retransposition failed:', err); }
     }
     // Refresh just the matching summary row (badges + playable count).
     this._refreshSummaryRow(channel);

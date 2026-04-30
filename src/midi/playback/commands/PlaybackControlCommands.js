@@ -67,6 +67,17 @@ async function playbackStart(app, data) {
           app.midiPlayer.setChannelRouting(channel, routing.device_id, targetChannel);
           loadedRoutings++;
         }
+
+        // Per-channel transposition: the routing modal lets the
+        // operator pick a manual semitone shift that isn't always
+        // baked into a derived adapted file (e.g. when keeping the
+        // original file). Forwarding it here makes that shift take
+        // effect during playback regardless of save mode.
+        const firstRouting = channelRoutings[0];
+        const transposition = firstRouting?.transposition_applied || 0;
+        if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+          app.midiPlayer.setChannelTransposition(channel, transposition);
+        }
       }
 
       app.logger.info(`Auto-loaded ${loadedRoutings} channel routings from database for file ${data.fileId}`);

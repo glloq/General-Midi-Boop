@@ -380,7 +380,10 @@ async function applyAssignments(app, data) {
             device_id: seg.deviceId,
             instrument_name: seg.instrumentName,
             compatibility_score: seg.score || null,
-            transposition_applied: 0,
+            // Persist channel-level transposition so playback applies
+            // it at runtime for the original file too (split segments
+            // share the source channel's transposition).
+            transposition_applied: assignment.transposition?.semitones || 0,
             auto_assigned: true,
             assignment_reason: `Split ${assignment.splitMode || 'range'} from ch ${channelNum}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
             note_remapping: null,
@@ -395,6 +398,9 @@ async function applyAssignments(app, data) {
           }
           if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
             app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
+            if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+              app.midiPlayer.setChannelTransposition(resolvedCh, assignment.transposition?.semitones || 0);
+            }
           }
           routings.push(routing);
         }
@@ -412,7 +418,10 @@ async function applyAssignments(app, data) {
             device_id: seg.deviceId,
             instrument_name: seg.instrumentName,
             compatibility_score: seg.score || null,
-            transposition_applied: 0,
+            // Channel-level transposition shared across split segments
+            // (same source channel → same shift) — persisted so the
+            // runtime player can apply it without an adapted file.
+            transposition_applied: assignment.transposition?.semitones || 0,
             auto_assigned: true,
             assignment_reason: `Split ${assignment.splitMode || 'range'}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
             note_remapping: null,
@@ -439,6 +448,9 @@ async function applyAssignments(app, data) {
 
         if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
           app.midiPlayer.setChannelSplitRouting(channelNum, segments);
+          if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+            app.midiPlayer.setChannelTransposition(channelNum, assignment.transposition?.semitones || 0);
+          }
         }
 
         routings.push(...segments.map(s => ({ ...s, midi_file_id: targetFileId, channel: channelNum })));
@@ -480,6 +492,9 @@ async function applyAssignments(app, data) {
 
     if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
       app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
+      if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+        app.midiPlayer.setChannelTransposition(channelNum, assignment.transposition?.semitones || 0);
+      }
     }
 
     app.logger.info(

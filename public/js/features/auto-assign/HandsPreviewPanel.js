@@ -65,7 +65,14 @@
             this.opts = opts;
             this.channel = Number.isFinite(opts.channel) ? opts.channel : 0;
             this.instrument = opts.instrument || null;
-            this.notes = Array.isArray(opts.notes) ? opts.notes.slice() : [];
+            this._rawNotes = Array.isArray(opts.notes) ? opts.notes.slice() : [];
+            // Source notes are stored untransposed; `notes` is the
+            // view applied to the engine + lookahead strips. Updating
+            // `transpositionSemitones` re-derives `notes` without the
+            // caller having to remount.
+            this.transpositionSemitones = Number.isFinite(opts.transpositionSemitones)
+                ? opts.transpositionSemitones : 0;
+            this.notes = this._applyTransposition(this._rawNotes, this.transpositionSemitones);
             this.ticksPerBeat = Number.isFinite(opts.ticksPerBeat) && opts.ticksPerBeat > 0 ? opts.ticksPerBeat : 480;
             this.bpm = Number.isFinite(opts.bpm) && opts.bpm > 0 ? opts.bpm : 120;
             this.overrides = opts.overrides || null;
@@ -79,9 +86,63 @@
             this.fretboardLookahead = null;
             this._currentHandWindows = new Map(); // handId → anchor (semitones only)
             this._currentTick = 0;
+            // Lazy init: the simulation engine is expensive on dense
+            // channels (synchronous walk over all chord windows), so
+            // we defer wiring it until the panel is actually expanded.
+            this._engineWired = false;
+            this._engineWiring = false;
 
             this._render();
-            this._wireEngine();
+            // Engine is only wired on the first expand — see
+            // _toggleCollapsed and _ensureEngine. Tests (and any
+            // caller that needs the engine immediately) can opt in
+            // via `eagerEngine: true` to skip the lazy gate.
+            if (opts.eagerEngine === true) {
+                try {
+                    this._wireEngine();
+                    this._engineWired = true;
+                } catch (err) {
+                    console.error('[HandsPreviewPanel] eager engine wiring failed:', err);
+                }
+            }
+        }
+
+        /**
+         * Pure helper: returns a shallow-copied note list with the
+         * pitch shifted by `semitones`. Notes that fall outside
+         * [0, 127] after the shift are kept (the simulator clamps),
+         * so callers don't lose count.
+         */
+        _applyTransposition(notes, semitones) {
+            if (!semitones || !Array.isArray(notes)) return notes ? notes.slice() : [];
+            return notes.map(n => ({ ...n, note: (n.note ?? 0) + semitones }));
+        }
+
+        /**
+         * Update the transposition applied to the source notes and
+         * propagate it to the engine + lookahead strips. Cheap when
+         * the panel is collapsed (the engine isn't wired yet), and
+         * triggers a re-simulation when it is.
+         */
+        setTransposition(semitones) {
+            const safe = Number.isFinite(semitones) ? semitones : 0;
+            if (safe === this.transpositionSemitones) return;
+            this.transpositionSemitones = safe;
+            this.notes = this._applyTransposition(this._rawNotes, safe);
+            // Push the new view to the lookahead strips immediately
+            // so the falling notes column reflects the shift even
+            // before the simulator runs again.
+            if (this.lookahead && typeof this.lookahead.setNotes === 'function') {
+                try { this.lookahead.setNotes(this.notes); } catch (_) { /* keep going */ }
+            }
+            // Re-simulate only if the engine has already been wired
+            // once — collapsed panels stay cheap.
+            if (this._engineWired) {
+                try { this.engine?.dispose?.(); } catch (_) {}
+                this.engine = null;
+                this._engineWired = false;
+                this._ensureEngine();
+            }
         }
 
         // -----------------------------------------------------------------
@@ -116,11 +177,22 @@
             const showEditorBtn = this.mode === 'frets'
                 && typeof window !== 'undefined'
                 && typeof window.HandPositionEditorModal === 'function';
+            // Prominent CTA: filled accent button with icon + label
+            // so the operator notices the "edit hands across the
+            // entire file" entry-point even with the panel collapsed.
+            // Inline styling keeps the change scoped to this widget
+            // (no cross-CSS theming concerns).
+            const editorBtnStyle = 'display:inline-flex;align-items:center;gap:6px;'
+                + 'padding:5px 10px;border:1px solid #2563eb;background:#3b82f6;color:#fff;'
+                + 'border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;'
+                + 'box-shadow:0 1px 2px rgba(37,99,235,0.25);';
             const editorBtnHtml = showEditorBtn
                 ? `<button class="hpp-open-editor" type="button"
+                          style="${editorBtnStyle}"
                           title="${_t('handPositionEditor.openButtonTitle',
                                        'Éditer la position de main sur toute la durée')}">
-                       ${_t('handPositionEditor.openButton', 'Éditeur')}
+                       <span aria-hidden="true">✏️</span>
+                       <span>${_t('handPositionEditor.openButtonFull', 'Éditer les positions de main')}</span>
                    </button>`
                 : '';
             header.innerHTML = `
@@ -194,10 +266,68 @@
             // before the next setCurrentTime tick to avoid a flash of
             // empty content.
             if (isCollapsed) {
+                // First expand → wire the simulation engine. Heavy
+                // (multi-second on dense channels), so we paint the
+                // expanded body first and defer the wiring to the
+                // next two animation frames so the spinner renders.
+                this._ensureEngine();
                 try { this.lookahead?.draw?.(); } catch (_) {}
                 try { this.keyboard?.draw?.(); } catch (_) {}
                 try { this.fretboardLookahead?.draw?.(); } catch (_) {}
                 try { this.fretboard?.draw?.(); } catch (_) {}
+            }
+        }
+
+        /**
+         * Lazily wire the simulation engine the first time the
+         * panel is expanded. The engine constructor is synchronous
+         * and CPU-bound (walks every chord through hand-position
+         * feasibility), so we paint a spinner first, then run the
+         * wiring on a deferred animation frame to keep the click
+         * feedback responsive.
+         */
+        _ensureEngine() {
+            if (this._engineWired || this._engineWiring) return;
+            if (this.mode === 'unknown' || !window.HandSimulationEngine) return;
+            this._engineWiring = true;
+            this._showSimulatingSpinner(true);
+            // Two rAFs: the first lets the browser paint the spinner,
+            // the second runs the heavy synchronous wiring.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                try {
+                    this._wireEngine();
+                    this._engineWired = true;
+                } catch (err) {
+                    console.error('[HandsPreviewPanel] engine wiring failed:', err);
+                } finally {
+                    this._engineWiring = false;
+                    this._showSimulatingSpinner(false);
+                }
+            }));
+        }
+
+        _showSimulatingSpinner(on) {
+            if (!this._body) return;
+            let spinner = this._body.querySelector('.hpp-simulating');
+            if (on) {
+                if (!spinner) {
+                    spinner = document.createElement('div');
+                    spinner.className = 'hpp-simulating';
+                    spinner.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.7);font-size:12px;color:#374151;gap:8px;z-index:10;';
+                    spinner.innerHTML = `<span class="hpp-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #d1d5db;border-top-color:#3b82f6;border-radius:50%;animation:hpp-spin 0.8s linear infinite;"></span><span>${_t('handsPreview.simulating', 'Calcul des positions de main…')}</span>`;
+                    if (getComputedStyle(this._body).position === 'static') {
+                        this._body.style.position = 'relative';
+                    }
+                    this._body.appendChild(spinner);
+                    if (!document.getElementById('hpp-spin-keyframes')) {
+                        const style = document.createElement('style');
+                        style.id = 'hpp-spin-keyframes';
+                        style.textContent = '@keyframes hpp-spin{to{transform:rotate(360deg)}}';
+                        document.head.appendChild(style);
+                    }
+                }
+            } else if (spinner) {
+                spinner.remove();
             }
         }
 

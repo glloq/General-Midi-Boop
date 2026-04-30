@@ -90,6 +90,11 @@
             this.modal.channelRouting.clear();
             if (!this.modal._splitChannelNames) this.modal._splitChannelNames = new Map();
             this.modal._splitChannelNames.clear();
+            // Per-channel transposition surfaced as a chip badge so the
+            // operator sees at a glance that a channel is shifted —
+            // edited in the routing modal, read-only here.
+            if (!this.modal._channelTranspositions) this.modal._channelTranspositions = new Map();
+            this.modal._channelTranspositions.clear();
 
             if (result && result.routings && result.routings.length > 0) {
     // Build a lookup of multi-instrument devices
@@ -123,6 +128,10 @@
                         ? `${routing.device_id}::${routing.target_channel != null ? routing.target_channel : routing.channel}`
                         : routing.device_id;
                     this.modal.channelRouting.set(routing.channel, routingKey);
+                    const semis = parseInt(routing.transposition_applied || 0) || 0;
+                    if (semis !== 0) {
+                        this.modal._channelTranspositions.set(routing.channel, semis);
+                    }
                 }
 
                 this.modal.log('info', `Restored ${this.modal.channelRouting.size} saved channel routing(s) from database`);
@@ -454,6 +463,23 @@
             routeEl.title = routedName;
         } else if (routeEl) {
             routeEl.remove();
+        }
+
+        // Transposition badge: read-only here (modify via routing
+        // modal). Hidden when 0 to keep chips compact.
+        const semis = this.modal._channelTranspositions?.get(channel) || 0;
+        let trEl = chip.querySelector('.chip-transpose-badge');
+        if (semis !== 0) {
+            if (!trEl) {
+                trEl = document.createElement('span');
+                trEl.className = 'chip-transpose-badge';
+                trEl.style.cssText = 'display:inline-block;margin-left:4px;padding:1px 5px;border-radius:8px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:600;line-height:1.4;border:1px solid #fcd34d;';
+                chip.appendChild(trEl);
+            }
+            trEl.textContent = `${semis > 0 ? '+' : ''}${semis}st`;
+            trEl.title = `Transposition: ${semis > 0 ? '+' : ''}${semis} demi-tons`;
+        } else if (trEl) {
+            trEl.remove();
         }
     }
 
