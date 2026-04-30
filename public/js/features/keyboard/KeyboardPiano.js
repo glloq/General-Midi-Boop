@@ -430,25 +430,29 @@
         }
         container.appendChild(header);
 
-        // Strings
-        for (let s = 0; s < stringsTopDown.length; s++) {
+        // Strings — `stringsTopDown` is reversed so the highest pitch is at the
+        // top. The 1-indexed string number used by the project's CC convention
+        // (string 1 = lowest pitch) is therefore `numStrings - s`.
+        const totalStrings = stringsTopDown.length;
+        for (let s = 0; s < totalStrings; s++) {
             const openMidi = stringsTopDown[s];
+            const stringNumber = totalStrings - s; // 1-based, lowest = 1
             const row = document.createElement('div');
             row.className = 'fret-string';
             row.style.gridTemplateColumns = gridCols;
-            // Open string cell (the nut)
-            const openCell = this._buildFretCell(openMidi, true);
+            // Open string cell (fret 0 = the nut)
+            const openCell = this._buildFretCell(openMidi, true, stringNumber, 0);
             row.appendChild(openCell);
             for (let f = 1; f <= fretCount; f++) {
                 const midi = openMidi + f;
-                const cell = this._buildFretCell(midi, false);
+                const cell = this._buildFretCell(midi, false, stringNumber, f);
                 row.appendChild(cell);
             }
             container.appendChild(row);
         }
     }
 
-    KeyboardPianoMixin._buildFretCell = function(midi, isOpen) {
+    KeyboardPianoMixin._buildFretCell = function(midi, isOpen, stringNumber, fret) {
         const cell = document.createElement('div');
         cell.className = 'fret-cell' + (isOpen ? ' fret-open' : '');
         cell.dataset.note = midi;
@@ -456,6 +460,11 @@
             const dot = document.createElement('div');
             dot.className = 'fret-dot piano-key';
             dot.dataset.note = midi;
+            // Tag the dot with its string + fret so the click handler can
+            // emit the configured "select string" / "select fret" CCs before
+            // the note-on message.
+            if (stringNumber !== undefined) dot.dataset.string = String(stringNumber);
+            if (fret !== undefined) dot.dataset.fret = String(fret);
             if (!this.isNotePlayable(midi)) dot.classList.add('disabled');
             const label = document.createElement('span');
             label.className = 'fret-label';
