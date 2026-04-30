@@ -166,6 +166,13 @@
                 return d.device_id === deviceId || d.id === deviceId;
             }) || null;
 
+            // Reset any string-instrument config from the previous selection.
+            // Without this, getInstrumentViewInfo() keeps reporting
+            // canFretboard=true via the leftover config and the fretboard
+            // view stays stuck after the user picks a non-string instrument
+            // or toggles back to piano.
+            this.stringInstrumentConfig = null;
+
             // Load the selected instrument's capabilities
             await this.loadDeviceCapabilities(deviceId, selectedChannel);
 
