@@ -595,7 +595,22 @@
             // both render with non-overlapping bands at startup.
             const cfg = _parseHandsCfg(this.instrument);
             this._hands = (cfg?.hands || []).map((h, i) => {
-                const span = Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones : 14;
+                // Resolve the playable window. For V1 'aligned_fingers'
+                // the two fields are equivalent (span = num_fingers−1)
+                // so we tolerate either being absent. Persisted configs
+                // saved through the new instrument-settings UI always
+                // carry `hand_span_semitones`; older payloads (or V2
+                // configs in the future) may carry only `num_fingers`.
+                let span;
+                if (Number.isFinite(h.hand_span_semitones)) {
+                    span = h.hand_span_semitones;
+                } else if (Number.isFinite(h.num_fingers)) {
+                    span = Math.max(1, h.num_fingers - 1);
+                } else {
+                    span = 4; // sane default for a 5-finger aligned hand
+                }
+                const numFingers = Number.isFinite(h.num_fingers)
+                    ? h.num_fingers : span + 1;
                 const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
                     * (ext.hi - ext.lo - span));
                 const id = h.id || `h${i + 1}`;
@@ -603,6 +618,7 @@
                 return {
                     id,
                     span,
+                    numFingers,
                     anchor: Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor,
                     color: _handColor(id)
                 };
@@ -610,7 +626,13 @@
             this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
                 rangeMin: ext.lo,
                 rangeMax: ext.hi,
-                bandHeight: 18,
+                bandHeight: 22,
+                // The drag clamp guarantees no two bands overlap on the
+                // keyboard axis (low_h{i+1} >= low_hi + span_hi), so we
+                // can safely render every hand on the same horizontal
+                // row — they read as side-by-side regions of a single
+                // shared "playable surface".
+                bandsOnSingleRow: true,
                 onBandDrag: (handId, newAnchor) => this._onHandBandDrag(handId, newAnchor)
             });
             this.keyboard.setHandBands(this._currentHandBands());
@@ -715,14 +737,29 @@
         //  Roll canvas — vertical piano-roll, notes fall toward the keyboard
         // ----------------------------------------------------------------
 
+        /**
+         * Pitch range covered by the on-screen keyboard and roll axis.
+         * The instrument's `note_range_min`/`max` capabilities take
+         * precedence so the operator sees ALL keys the device can
+         * actually play, not just the notes present in the channel.
+         * Falls back to the channel's note extrema (with 2-semitone
+         * padding) when the instrument doesn't advertise a range.
+         */
         _pitchExtent() {
-            if (this.notes.length === 0) return { lo: 21, hi: 108 };
-            let lo = 127, hi = 0;
-            for (const n of this.notes) {
-                if (n.note < lo) lo = n.note;
-                if (n.note > hi) hi = n.note;
+            const lo = Number.isFinite(this.instrument?.note_range_min)
+                ? this.instrument.note_range_min : null;
+            const hi = Number.isFinite(this.instrument?.note_range_max)
+                ? this.instrument.note_range_max : null;
+            if (lo != null && hi != null && hi > lo) {
+                return { lo: Math.max(0, lo), hi: Math.min(127, hi) };
             }
-            return { lo: Math.max(0, lo - 2), hi: Math.min(127, hi + 2) };
+            if (this.notes.length === 0) return { lo: 21, hi: 108 };
+            let mn = 127, mx = 0;
+            for (const n of this.notes) {
+                if (n.note < mn) mn = n.note;
+                if (n.note > mx) mx = n.note;
+            }
+            return { lo: Math.max(0, mn - 2), hi: Math.min(127, mx + 2) };
         }
 
         _wireResizeObserver() {
