@@ -52,6 +52,8 @@ import PlaylistRepository from '../repositories/PlaylistRepository.js';
 import DeviceSettingsRepository from '../repositories/DeviceSettingsRepository.js';
 import LightingRepository from '../repositories/LightingRepository.js';
 import StringInstrumentRepository from '../repositories/StringInstrumentRepository.js';
+import HotspotConfigRepository from '../repositories/HotspotConfigRepository.js';
+import HotspotManager from '../system/HotspotManager.js';
 import FileRoutingSyncService from '../midi/routing/FileRoutingSyncService.js';
 import DeviceReconciliationService from '../midi/devices/DeviceReconciliationService.js';
 import FileRoutingStatusService from '../midi/files/FileRoutingStatusService.js';
@@ -341,6 +343,11 @@ class Application {
         'stringInstrumentRepository',
         new StringInstrumentRepository(this.database)
       );
+      this._registerService(
+        'hotspotConfigRepository',
+        new HotspotConfigRepository(this.database.db)
+      );
+      this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 
       // Initialize domain services (Phase 4 — P1-4.1+)
       this._registerService(

@@ -326,6 +326,46 @@ if [ "$OS" == "linux" ]; then
 fi
 
 # =============================================================================
+# HOTSPOT PERMISSIONS (NetworkManager / nmcli)
+# =============================================================================
+#
+# The hotspot toggle in the Settings modal calls `scripts/hotspot.sh`
+# through `sudo -n`. We install a sudoers drop-in that authorises that
+# single binary without a password — the script is the only privileged
+# entry point and validates its arguments. NetworkManager is required:
+# we warn (and skip the rule) if it isn't installed.
+
+if [ "$OS" == "linux" ]; then
+    print_step "7c. Configuring Hotspot (WiFi AP) Permissions"
+
+    if ! command -v nmcli >/dev/null 2>&1; then
+        print_warning "nmcli not found — NetworkManager is required for the hotspot feature."
+        print_info "Install it with: sudo apt install network-manager"
+        print_info "Skipping sudoers setup; the hotspot button will report 'nmcli not installed'."
+    else
+        HOTSPOT_SCRIPT="$APP_DIR/scripts/hotspot.sh"
+        chmod +x "$HOTSPOT_SCRIPT" 2>/dev/null || true
+
+        SUDOERS_FILE="/etc/sudoers.d/gmboop-hotspot"
+        if [ ! -f "$SUDOERS_FILE" ]; then
+            print_info "Installing sudoers rule for hotspot control..."
+            echo "# Allow $USER to control the GMBoop WiFi hotspot without password" | sudo tee "$SUDOERS_FILE" > /dev/null
+            echo "$USER ALL=(root) NOPASSWD: $HOTSPOT_SCRIPT" | sudo tee -a "$SUDOERS_FILE" > /dev/null
+            sudo chmod 0440 "$SUDOERS_FILE"
+
+            if sudo visudo -c -f "$SUDOERS_FILE" > /dev/null 2>&1; then
+                print_success "sudoers configured for passwordless hotspot control"
+            else
+                sudo rm -f "$SUDOERS_FILE"
+                print_warning "sudoers validation failed — removed $SUDOERS_FILE"
+            fi
+        else
+            print_info "Existing hotspot sudoers rule found at $SUDOERS_FILE — leaving in place"
+        fi
+    fi
+fi
+
+# =============================================================================
 # SYSTEMD / PM2 SETUP
 # =============================================================================
 

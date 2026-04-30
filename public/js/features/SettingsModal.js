@@ -228,6 +228,10 @@ class SettingsModal {
         if (updateBtn) {
             updateBtn.addEventListener('click', () => this.triggerSystemUpdate());
         }
+
+        if (typeof this.attachHotspotListeners === 'function') {
+            this.attachHotspotListeners();
+        }
     }
 
     /**
@@ -298,6 +302,10 @@ class SettingsModal {
 
         this.logger?.info('Settings modal opened');
         this.checkForUpdates();
+
+        if (typeof this.hydrateHotspot === 'function') {
+            this.hydrateHotspot();
+        }
     }
 
     /**
@@ -487,6 +495,9 @@ Object.assign(SettingsModal.prototype, SettingsUpdate);
 Object.assign(SettingsModal.prototype, SettingsSerial);
 if (typeof SettingsBankEffects !== 'undefined') {
     Object.assign(SettingsModal.prototype, SettingsBankEffects);
+}
+if (typeof SettingsHotspot !== 'undefined') {
+    Object.assign(SettingsModal.prototype, SettingsHotspot);
 }
 
 // Export global
