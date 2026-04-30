@@ -110,6 +110,9 @@
                     <button type="button" data-action="save" disabled>${_t('keyboardHandEditor.save','Enregistrer')}</button>
                 </div>
                 <div class="khpe-main" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div class="khpe-minimap-host" style="position:relative;height:54px;flex:none;background:#1e293b;border-bottom:1px solid #334155;">
+                        <canvas class="khpe-minimap-canvas" style="position:absolute;inset:0;display:block;cursor:crosshair;"></canvas>
+                    </div>
                     <div class="khpe-roll-host" style="position:relative;flex:1;background:#0f172a;overflow:hidden;">
                         <canvas class="khpe-roll-canvas" style="position:absolute;inset:0;display:block;"></canvas>
                     </div>
@@ -134,13 +137,19 @@
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
+            this.minimapCanvas = this.$('.khpe-minimap-canvas');
+            this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
             this._wireToolbar();
             this._wireRollCanvas();
+            this._wireMinimap();
             this._wireResizeObserver();
             // Defer first draw so the layout has settled (clientWidth/Height
             // would otherwise read 0 inside the BaseModal mount handler).
-            requestAnimationFrame(() => this._draw());
+            requestAnimationFrame(() => {
+                this._draw();
+                this._drawMinimap();
+            });
             this._refreshTransport();
         }
 
@@ -299,6 +308,7 @@
             this._pushHistory();
             this.keyboard?.setHandBands(this._currentHandBands());
             this._draw();
+            this._drawMinimap();
         }
 
         // ----------------------------------------------------------------
@@ -319,12 +329,123 @@
             if (!this.rollHost || typeof ResizeObserver !== 'function') return;
             this._resizeObserver = new ResizeObserver(() => {
                 this._draw();
+                this._drawMinimap();
                 this._fitKeyboardCanvas();
                 this.keyboard?.draw();
             });
             this._resizeObserver.observe(this.rollHost);
             const kbHost = this.$('.khpe-keyboard-host');
             if (kbHost) this._resizeObserver.observe(kbHost);
+            if (this.minimapHost) this._resizeObserver.observe(this.minimapHost);
+        }
+
+        // ----------------------------------------------------------------
+        //  Minimap — file overview, viewport rect, hand-anchor trajectories
+        // ----------------------------------------------------------------
+
+        _wireMinimap() {
+            if (!this.minimapCanvas) return;
+            this.minimapCanvas.addEventListener('click', (e) => {
+                if (!this._totalSec) return;
+                const rect = this.minimapCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const sec = (x / rect.width) * this._totalSec;
+                this._currentSec = Math.max(0, Math.min(this._totalSec, sec));
+                this._draw();
+                this._drawMinimap();
+            });
+        }
+
+        _drawMinimap() {
+            const c = this.minimapCanvas;
+            const host = this.minimapHost;
+            if (!c || !host) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = host.clientWidth;
+            const H = host.clientHeight;
+            if (W <= 0 || H <= 0) return;
+            c.width = W * dpr;
+            c.height = H * dpr;
+            c.style.width = W + 'px';
+            c.style.height = H + 'px';
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, W, H);
+            if (!this._totalSec) return;
+
+            const ext = this._pitchExtent();
+            const pitchRange = Math.max(1, ext.hi - ext.lo);
+            const xPerSec = W / this._totalSec;
+
+            // Note dots — one tiny rectangle per note, faint so the
+            // hand-anchor lines stay readable on top.
+            ctx.fillStyle = 'rgba(148,163,184,0.55)';
+            for (const n of this.notes) {
+                const sec = n.tick / this.ticksPerSec;
+                const x = sec * xPerSec;
+                const y = H - ((n.note - ext.lo) / pitchRange) * H;
+                ctx.fillRect(x, y - 0.5, Math.max(1, xPerSec * (n.duration || 0) / this.ticksPerSec), 1.5);
+            }
+
+            // Hand-anchor trajectories. We sample each hand's anchor at
+            // every override tick (sorted), with the seed/current value
+            // filling the gaps before the first override and after the
+            // last one. Drawn as a thicker coloured line so it dominates
+            // the note dots.
+            for (const hand of (this._hands || [])) {
+                const samples = this._anchorSamplesForHand(hand);
+                if (samples.length === 0) continue;
+                ctx.strokeStyle = hand.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < samples.length; i++) {
+                    const s = samples[i];
+                    const x = s.sec * xPerSec;
+                    const y = H - ((s.anchor - ext.lo) / pitchRange) * H;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            // Lookahead viewport rectangle (= the slice currently shown
+            // in the piano-roll above).
+            const vpX = this._currentSec * xPerSec;
+            const vpW = Math.max(2, this._lookaheadSec * xPerSec);
+            ctx.fillStyle = 'rgba(248,250,252,0.08)';
+            ctx.fillRect(vpX, 0, vpW, H);
+            ctx.strokeStyle = 'rgba(248,250,252,0.45)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(vpX + 0.5, 0.5, vpW - 1, H - 1);
+
+            // Playhead.
+            ctx.strokeStyle = 'rgba(248,113,113,0.95)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(vpX + 0.5, 0);
+            ctx.lineTo(vpX + 0.5, H);
+            ctx.stroke();
+        }
+
+        /**
+         * Build a sorted list of `{sec, anchor}` samples for one hand by
+         * walking the `hand_anchors` override entries (latest-wins per
+         * tick). The current in-memory anchor seeds the start and end so
+         * the trajectory has at least two points and renders as a flat
+         * line when no override exists yet.
+         * @private
+         */
+        _anchorSamplesForHand(hand) {
+            const list = (this.overrides?.hand_anchors || [])
+                .filter(a => a && a.handId === hand.id && Number.isFinite(a.tick) && Number.isFinite(a.anchor))
+                .sort((a, b) => a.tick - b.tick);
+            const out = [{ sec: 0, anchor: hand.anchor }];
+            for (const a of list) {
+                out.push({ sec: a.tick / this.ticksPerSec, anchor: a.anchor });
+            }
+            out.push({ sec: this._totalSec, anchor: list.length ? list[list.length - 1].anchor : hand.anchor });
+            return out;
         }
 
         _draw() {
@@ -560,15 +681,15 @@
                     case 'mute': this._toggleMute(btn); return;
                     case 'zoom-in':
                         this._lookaheadSec = Math.max(1, this._lookaheadSec / 1.25);
-                        this._draw(); return;
+                        this._draw(); this._drawMinimap(); return;
                     case 'zoom-out':
                         this._lookaheadSec = Math.min(30, this._lookaheadSec * 1.25);
-                        this._draw(); return;
+                        this._draw(); this._drawMinimap(); return;
                     case 'undo': this._undo(); return;
                     case 'redo': this._redo(); return;
                     case 'reset-overrides':
                         this.overrides = { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
-                        this._pushHistory(); this._draw(); return;
+                        this._pushHistory(); this._draw(); this._drawMinimap(); return;
                     case 'save': this._save(); return;
                 }
             });
@@ -587,6 +708,7 @@
                 this.audioPreview.onProgress = (tick, totalTicks, currentSec) => {
                     this._currentSec = currentSec || 0;
                     this._draw();
+                    this._drawMinimap();
                 };
                 this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
                 const constraints = Number.isFinite(this.instrument?.gm_program)
@@ -610,6 +732,7 @@
             this._currentSec = 0;
             this._refreshTransport();
             this._draw();
+            this._drawMinimap();
         }
 
         _toggleMute(btn) {
@@ -673,6 +796,7 @@
             this._historyIndex--;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
             this._draw();
+            this._drawMinimap();
             this._refreshButtons();
         }
 
@@ -681,6 +805,7 @@
             this._historyIndex++;
             this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
             this._draw();
+            this._drawMinimap();
             this._refreshButtons();
         }
 
