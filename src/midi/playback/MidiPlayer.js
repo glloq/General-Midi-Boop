@@ -511,6 +511,10 @@ class MidiPlayer {
         if (segmentFilter && !segmentFilter(e.note)) continue;
         notes.push({
           time: e.time,
+          // Tick is preserved alongside `time` so the assigner can match
+          // operator pins keyed on (tick, note) — overrides are stored
+          // in MIDI ticks for tempo independence.
+          tick: e.tick,
           note: e.note,
           channel: e.channel,
           velocity: e.velocity,
@@ -520,7 +524,17 @@ class MidiPlayer {
       if (notes.length === 0) return;
 
       const assigner = new HandAssigner(handsCfg);
-      const { assignments, warnings: assignWarnings, resolvedMode } = assigner.assign(notes);
+      // Operator pins from the keyboard editor: `note_assignments` carrying
+      // a `handId` (vs the strings shape with `string`/`fret`). The
+      // assigner's optional `noteAssignments` arg honours them so the
+      // operator's choice survives the auto/track/pitch_split decision.
+      const routing = this.channelRouting.get(srcChannel);
+      const handPins = (routing?.handOverrides?.note_assignments || [])
+        .filter(a => a && typeof a.handId === 'string' && a.handId.length > 0);
+      const { assignments, warnings: assignWarnings, resolvedMode } = assigner.assign(
+        notes,
+        handPins.length > 0 ? { noteAssignments: handPins } : {}
+      );
       for (const w of assignWarnings) {
         allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
       }
@@ -1257,11 +1271,19 @@ class MidiPlayer {
    * @param {number} channel - Source channel (0-15).
    * @param {string} deviceId - Output device id; falsy clears the route.
    * @param {?number} [targetChannel] - Optional remapped destination channel.
+   * @param {?Object} [handOverrides] - Parsed `hand_position_overrides`
+   *   for this routing (operator-pinned hand-anchors and
+   *   note_assignments). Stored alongside the routing so the hand-
+   *   planning path can honour them at runtime.
    * @returns {void}
    */
-  setChannelRouting(channel, deviceId, targetChannel) {
+  setChannelRouting(channel, deviceId, targetChannel, handOverrides) {
     const target = (targetChannel !== undefined && targetChannel !== null) ? targetChannel : channel;
-    this.channelRouting.set(channel, { device: deviceId, targetChannel: target });
+    this.channelRouting.set(channel, {
+      device: deviceId,
+      targetChannel: target,
+      handOverrides: handOverrides || null
+    });
     this.logger.info(`Channel ${channel + 1} routed to ${deviceId} (target ch ${target + 1})`);
 
     this.scheduler.invalidateCompensationCache();
@@ -1992,7 +2014,20 @@ class MidiPlayer {
         for (const routing of savedRoutings) {
           if (routing.channel !== null && routing.channel !== undefined && routing.device_id) {
             const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
-            this.setChannelRouting(routing.channel, routing.device_id, targetChannel);
+            // Parse the JSON blob once on load — the hand-planning path
+            // then reads from the in-memory routing entry without
+            // re-parsing on every chord.
+            let handOverrides = null;
+            if (routing.hand_position_overrides != null) {
+              try {
+                handOverrides = typeof routing.hand_position_overrides === 'string'
+                  ? JSON.parse(routing.hand_position_overrides)
+                  : routing.hand_position_overrides;
+              } catch (e) {
+                this.logger.warn(`Invalid hand_position_overrides for ch ${routing.channel}: ${e.message}`);
+              }
+            }
+            this.setChannelRouting(routing.channel, routing.device_id, targetChannel, handOverrides);
             // Per-channel transposition is applied at runtime so the
             // operator's choice in the routing modal survives a reload
             // even when no adapted file was generated.
