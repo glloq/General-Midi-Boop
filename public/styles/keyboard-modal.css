@@ -41,11 +41,12 @@
     background: white;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    /* Take nearly the full viewport width so the keys are as large as possible. */
+    /* Use as much horizontal room as possible, but keep a sensible fixed
+       height so the keyboard / fretboard / drum-pad doesn't get stretched
+       awkwardly tall on big screens. */
     width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);
-    max-height: calc(100vh - 24px);
-    height: calc(100vh - 24px);
+    max-height: 90vh;
     display: flex !important;
     flex-direction: column !important;
     animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -875,6 +876,9 @@
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
+    /* Cluster the strings vertically so the fretboard stays a reasonable
+       block height (capped per-row) instead of stretching to fill the modal. */
+    justify-content: center;
     min-height: 0;
 }
 
@@ -895,11 +899,13 @@
     margin-bottom: 6px;
 }
 
-/* Each string row stretches to fill the remaining height so the fretboard
-   adapts to any number of strings (4 for a bass, 47 for a harp). */
+/* Each string row stretches to fill the remaining height up to a cap so
+   the fretboard adapts to any number of strings (4 for a bass, 47 for a
+   harp) without becoming awkwardly tall when there are only a few. */
 .fretboard-container .fret-string {
     flex: 1;
     min-height: 22px;
+    max-height: 48px;
 }
 
 .fretboard-container .fret-number {
