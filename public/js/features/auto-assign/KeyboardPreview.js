@@ -70,6 +70,13 @@
             this._geoCache = null; // built lazily on first draw / lookup
             this.handBands = [];              // [{id, low, high, color}]
             this.bandHeight = Number.isFinite(opts.bandHeight) ? opts.bandHeight : 8;
+            // When true, every hand band shares the same horizontal row
+            // (a single strip below the keys). Useful when the layout
+            // already guarantees no two bands overlap on the keyboard
+            // axis — the operator then sees them side-by-side as a
+            // single continuous "playable region" rather than as a
+            // stacked legend.
+            this._singleRow = !!opts.bandsOnSingleRow;
 
             // Click handler (set by caller). Only fires when within key area.
             this.onKeyClick = opts.onKeyClick || null;
@@ -237,11 +244,16 @@
         //  Band drag (E.6.8 follow-up)
         // -----------------------------------------------------------------
 
-        /** Y-zone of band index `i` (0-based, top-to-bottom). */
+        /** Y-zone of band index `i` (0-based, top-to-bottom). When
+         *  bandsOnSingleRow is on, every band shares the single row
+         *  so this returns the same rect for any `i`. */
         _bandRect(i) {
             const h = (this.canvas?.clientHeight || this.canvas?.height) || 0;
-            const bandsH = this.bandHeight * Math.max(1, this.handBands.length);
+            const bandsH = this._singleRow
+                ? this.bandHeight
+                : this.bandHeight * Math.max(1, this.handBands.length);
             const keysH = h - bandsH;
+            if (this._singleRow) return { yTop: keysH, yBot: keysH + this.bandHeight };
             return { yTop: keysH + i * this.bandHeight, yBot: keysH + (i + 1) * this.bandHeight };
         }
 
@@ -336,7 +348,12 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             const ww = this._whiteKeyWidth();
-            const bandsH = this.bandHeight * Math.max(1, this.handBands.length);
+            // Total height of the band strip below the keys: one row per
+            // hand by default, or a single shared row when configured
+            // (see this._singleRow).
+            const bandsH = this._singleRow
+                ? this.bandHeight
+                : this.bandHeight * Math.max(1, this.handBands.length);
             const keysH = h - bandsH;
 
             // Background
@@ -403,7 +420,7 @@
                 if (hi < lo) continue;
                 const x1 = this._xOf(lo);
                 const x2 = this._xOf(hi) + (isBlackKey(hi) ? blackW : ww);
-                const yTop = keysH + i * this.bandHeight;
+                const yTop = keysH + (this._singleRow ? 0 : i * this.bandHeight);
                 ctx.fillStyle = rgbaWithAlpha(band.color, 0.4);
                 ctx.fillRect(x1, yTop, Math.max(2, x2 - x1), this.bandHeight - 1);
                 ctx.strokeStyle = band.color;
