@@ -420,6 +420,66 @@
                     </div>
                 </div>
 
+                <!-- Hotspot WiFi -->
+                <div class="settings-section" style="margin-top: 24px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">📡 ${i18n.t('settings.hotspot.title') || 'Point d\'accès WiFi'}</h3>
+                    <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-secondary, #666);">
+                        ${i18n.t('settings.hotspot.description') || 'Transforme le Raspberry Pi en point d\'accès WiFi. Active : déconnecte du WiFi puis démarre le hotspot. Désactive : revient en mode client WiFi.'}
+                    </p>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                        <label style="font-size: 13px; color: var(--text-primary, #333);">
+                            ${i18n.t('settings.hotspot.ssid') || 'Nom du réseau (SSID)'}
+                            <input type="text" id="hotspotSsidInput" maxlength="32" placeholder="GMBoop"
+                                style="display:block;width:100%;margin-top:4px;padding:8px 12px;border:2px solid var(--border-color,#e5e7eb);border-radius:6px;background:var(--bg-secondary,white);color:var(--text-primary,#333);box-sizing:border-box;">
+                        </label>
+                        <label style="font-size: 13px; color: var(--text-primary, #333);">
+                            ${i18n.t('settings.hotspot.password') || 'Mot de passe (8 caractères min., WPA2)'}
+                            <input type="password" id="hotspotPasswordInput" maxlength="63" autocomplete="new-password"
+                                placeholder="${i18n.t('settings.hotspot.passwordPlaceholder') || 'Laisser vide pour conserver le mot de passe actuel'}"
+                                style="display:block;width:100%;margin-top:4px;padding:8px 12px;border:2px solid var(--border-color,#e5e7eb);border-radius:6px;background:var(--bg-secondary,white);color:var(--text-primary,#333);box-sizing:border-box;">
+                        </label>
+                        <div style="display:flex;gap:10px;">
+                            <label style="flex:1;font-size: 13px; color: var(--text-primary, #333);">
+                                ${i18n.t('settings.hotspot.band') || 'Bande'}
+                                <select id="hotspotBandSelect"
+                                    style="display:block;width:100%;margin-top:4px;padding:8px 12px;border:2px solid var(--border-color,#e5e7eb);border-radius:6px;background:var(--bg-secondary,white);color:var(--text-primary,#333);">
+                                    <option value="bg">2.4 GHz (b/g)</option>
+                                    <option value="a">5 GHz (a)</option>
+                                </select>
+                            </label>
+                            <label style="flex:1;font-size: 13px; color: var(--text-primary, #333);">
+                                ${i18n.t('settings.hotspot.channel') || 'Canal (0 = auto)'}
+                                <input type="number" id="hotspotChannelInput" min="0" max="196" step="1" value="0"
+                                    style="display:block;width:100%;margin-top:4px;padding:8px 12px;border:2px solid var(--border-color,#e5e7eb);border-radius:6px;background:var(--bg-secondary,white);color:var(--text-primary,#333);box-sizing:border-box;">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="hotspotWarning" style="margin: 0 0 12px 0; padding: 10px 12px; border-radius: 6px; background: #fef3c7; color: #92400e; font-size: 12px; line-height: 1.4;">
+                        ⚠️ ${i18n.t('settings.hotspot.warning') || 'Activer le hotspot va déconnecter le Raspberry Pi du WiFi. Si vous accédez à cette page via WiFi, vous perdrez la connexion et devrez rejoindre le nouveau SSID. L\'IP du Pi en mode hotspot est généralement 10.42.0.1.'}
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div id="hotspotStatusLabel" style="flex:1;font-size: 13px; color: var(--text-secondary, #666);">
+                            ${i18n.t('settings.hotspot.statusUnknown') || 'État : inconnu'}
+                        </div>
+                        <button id="hotspotToggleBtn" style="
+                            padding: 10px 20px;
+                            border: none;
+                            border-radius: 8px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 600;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                        ">📡 ${i18n.t('settings.hotspot.enable') || 'Activer le hotspot'}</button>
+                    </div>
+                    <div id="hotspotMessage" style="display:none;margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;"></div>
+                </div>
+
                 <!-- Mise à jour -->
                 <div class="settings-section" style="margin-top: 24px;">
                     <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>

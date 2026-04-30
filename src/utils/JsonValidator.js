@@ -23,6 +23,7 @@ import deviceSchemas from '../api/commands/schemas/device.schemas.js';
 import fileSchemas from '../api/commands/schemas/file.schemas.js';
 import latencySchemas from '../api/commands/schemas/latency.schemas.js';
 import systemSchemas from '../api/commands/schemas/system.schemas.js';
+import hotspotSchemas from '../api/commands/schemas/hotspot.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -37,7 +38,8 @@ for (const schemas of [
   deviceSchemas,
   fileSchemas,
   latencySchemas,
-  systemSchemas
+  systemSchemas,
+  hotspotSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);
