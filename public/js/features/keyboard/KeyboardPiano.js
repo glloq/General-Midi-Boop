@@ -430,25 +430,29 @@
         }
         container.appendChild(header);
 
-        // Strings
-        for (let s = 0; s < stringsTopDown.length; s++) {
+        // Strings — `stringsTopDown` is reversed so the highest pitch is at the
+        // top. The 1-indexed string number used by the project's CC convention
+        // (string 1 = lowest pitch) is therefore `numStrings - s`.
+        const totalStrings = stringsTopDown.length;
+        for (let s = 0; s < totalStrings; s++) {
             const openMidi = stringsTopDown[s];
+            const stringNumber = totalStrings - s; // 1-based, lowest = 1
             const row = document.createElement('div');
             row.className = 'fret-string';
             row.style.gridTemplateColumns = gridCols;
-            // Open string cell (the nut)
-            const openCell = this._buildFretCell(openMidi, true);
+            // Open string cell (fret 0 = the nut)
+            const openCell = this._buildFretCell(openMidi, true, stringNumber, 0);
             row.appendChild(openCell);
             for (let f = 1; f <= fretCount; f++) {
                 const midi = openMidi + f;
-                const cell = this._buildFretCell(midi, false);
+                const cell = this._buildFretCell(midi, false, stringNumber, f);
                 row.appendChild(cell);
             }
             container.appendChild(row);
         }
     }
 
-    KeyboardPianoMixin._buildFretCell = function(midi, isOpen) {
+    KeyboardPianoMixin._buildFretCell = function(midi, isOpen, stringNumber, fret) {
         const cell = document.createElement('div');
         cell.className = 'fret-cell' + (isOpen ? ' fret-open' : '');
         cell.dataset.note = midi;
@@ -456,6 +460,11 @@
             const dot = document.createElement('div');
             dot.className = 'fret-dot piano-key';
             dot.dataset.note = midi;
+            // Tag the dot with its string + fret so the click handler can
+            // emit the configured "select string" / "select fret" CCs before
+            // the note-on message.
+            if (stringNumber !== undefined) dot.dataset.string = String(stringNumber);
+            if (fret !== undefined) dot.dataset.fret = String(fret);
             if (!this.isNotePlayable(midi)) dot.classList.add('disabled');
             const label = document.createElement('span');
             label.className = 'fret-label';
@@ -591,8 +600,9 @@
 
     /**
      * Render a drum pad grid using the instrument's selected_notes (discrete).
-     * Pads are grouped by drum-kit category (kick → snare → toms → cymbals…)
-     * and each group keeps MIDI order internally.
+     * Pads are sorted by drum-kit category (kick → snare → toms → cymbals…)
+     * then by MIDI inside each category, but rendered as a single flat grid
+     * (no per-group label) so the layout stays compact.
      */
     KeyboardPianoMixin.renderDrumPad = function() {
         const container = document.getElementById('drumpad-container');
@@ -614,17 +624,19 @@
             notes = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
         }
 
-        const sorted = [...new Set(notes)].sort((a, b) => a - b);
+        // Build a category-ordered list of MIDI notes. We bucket by category,
+        // then concatenate in the canonical category order, keeping MIDI order
+        // inside each bucket.
+        const order = this._getDrumCategoryOrder();
+        const categoryIndex = new Map(order.map((c, i) => [c.id, i]));
+        const sortedByCategory = [...new Set(notes)].sort((a, b) => {
+            const ai = categoryIndex.get(this._getDrumCategory(a)) ?? 999;
+            const bi = categoryIndex.get(this._getDrumCategory(b)) ?? 999;
+            if (ai !== bi) return ai - bi;
+            return a - b;
+        });
 
-        // Bucket the notes by category, keeping MIDI order within each bucket.
-        const buckets = new Map();
-        for (const midi of sorted) {
-            const cat = this._getDrumCategory(midi);
-            if (!buckets.has(cat)) buckets.set(cat, []);
-            buckets.get(cat).push(midi);
-        }
-
-        const buildPad = (midi) => {
+        for (const midi of sortedByCategory) {
             const pad = document.createElement('div');
             pad.className = 'drum-pad piano-key';
             pad.dataset.note = midi;
@@ -651,29 +663,8 @@
             badge.className = 'drum-pad-badge';
             badge.textContent = this.getNoteLabel(midi);
             pad.appendChild(badge);
-            return pad;
-        };
 
-        // Render groups in the canonical category order, skipping empty ones.
-        const order = this._getDrumCategoryOrder();
-        for (const { id, label } of order) {
-            const groupNotes = buckets.get(id);
-            if (!groupNotes || groupNotes.length === 0) continue;
-            const group = document.createElement('div');
-            group.className = 'drumpad-group';
-            group.dataset.category = id;
-
-            const heading = document.createElement('div');
-            heading.className = 'drumpad-group-label';
-            heading.textContent = label;
-            group.appendChild(heading);
-
-            const pads = document.createElement('div');
-            pads.className = 'drumpad-group-pads';
-            for (const midi of groupNotes) pads.appendChild(buildPad(midi));
-            group.appendChild(pads);
-
-            container.appendChild(group);
+            container.appendChild(pad);
         }
     }
 

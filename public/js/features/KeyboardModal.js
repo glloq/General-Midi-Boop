@@ -387,6 +387,11 @@ class KeyboardModalNew {
 
         if (!this.activeNotes.has(note)) {
             this.mouseActiveNotes.add(note);
+            // Fretboard cells carry data-string + data-fret so the receiving
+            // instrument can pre-position its mechanical fingers before the
+            // note-on. Send them right before playNote so the order on the
+            // wire matches the playback path used elsewhere in the app.
+            this._maybeSendStringFretCC(key);
             this.playNote(note);
         }
     }
@@ -417,8 +422,59 @@ class KeyboardModalNew {
 
         if (!this.activeNotes.has(note)) {
             this.mouseActiveNotes.add(note);
+            this._maybeSendStringFretCC(key);
             this.playNote(note);
         }
+    }
+
+    /**
+     * If the clicked element belongs to the fretboard view, emit the
+     * configured "select string" + "select fret" CC messages so the
+     * instrument can pre-position its mechanical fingers before the note-on.
+     * Reads CC numbers / ranges / offsets from the active string-instrument
+     * config (or sensible defaults: CC20=string [1..12], CC21=fret [0..36]).
+     * @param {HTMLElement} keyEl - The key DOM node (.fret-dot)
+     */
+    _maybeSendStringFretCC(keyEl) {
+        if (!keyEl || !keyEl.dataset || keyEl.dataset.string === undefined || keyEl.dataset.fret === undefined) {
+            return;
+        }
+        if (!this.selectedDevice || !this.backend) return;
+
+        const cfg = this.stringInstrumentConfig || {};
+        if (cfg.cc_enabled === false) return; // explicitly disabled on this instrument
+
+        const stringIdx = parseInt(keyEl.dataset.string, 10);
+        const fret = parseInt(keyEl.dataset.fret, 10);
+        if (!Number.isFinite(stringIdx) || !Number.isFinite(fret)) return;
+
+        const ccStringNumber = cfg.cc_string_number !== undefined ? cfg.cc_string_number : 20;
+        const ccStringMin    = cfg.cc_string_min    !== undefined ? cfg.cc_string_min    : 1;
+        const ccStringMax    = cfg.cc_string_max    !== undefined ? cfg.cc_string_max    : 12;
+        const ccStringOffset = cfg.cc_string_offset || 0;
+        const ccFretNumber   = cfg.cc_fret_number   !== undefined ? cfg.cc_fret_number   : 21;
+        const ccFretMin      = cfg.cc_fret_min      !== undefined ? cfg.cc_fret_min      : 0;
+        const ccFretMax      = cfg.cc_fret_max      !== undefined ? cfg.cc_fret_max      : 36;
+        const ccFretOffset   = cfg.cc_fret_offset   || 0;
+
+        const clamp127 = (v, lo, hi) => Math.max(0, Math.min(127, Math.max(lo, Math.min(hi, v))));
+        const stringVal = clamp127(stringIdx + ccStringOffset, ccStringMin, ccStringMax);
+        const fretVal   = clamp127(fret + ccFretOffset, ccFretMin, ccFretMax);
+
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+
+        if (this.selectedDevice.isVirtual) {
+            this.logger?.info?.(`🎸 [Virtual] CC${ccStringNumber}=${stringVal} (string ${stringIdx}) CC${ccFretNumber}=${fretVal} (fret ${fret})`);
+            return;
+        }
+
+        const channel = this.getSelectedChannel();
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId, channel, controller: ccStringNumber, value: stringVal
+        }).catch(err => this.logger.error('[KeyboardModal] String CC send failed:', err));
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId, channel, controller: ccFretNumber, value: fretVal
+        }).catch(err => this.logger.error('[KeyboardModal] Fret CC send failed:', err));
     }
 
     handleKeyDown(e) {
