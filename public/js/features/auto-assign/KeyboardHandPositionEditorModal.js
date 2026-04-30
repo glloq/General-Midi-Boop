@@ -1,13 +1,13 @@
 /**
  * @file KeyboardHandPositionEditorModal.js
- * @description Full-length hand-position editor for keyboard-family
- * instruments (semitones mode). Mirrors HandPositionEditorModal (frets)
- * but renders a piano-roll style timeline (X = time, Y = MIDI pitch).
+ * @description Hand-position editor for keyboard-family instruments.
  *
- * Notes are coloured per hand. Clicking a note opens a popover where the
- * operator can reassign it to a different hand id (h1..h4); the override
- * is pushed to `note_assignments` and persisted via the same
- * `routing_save_hand_overrides` command used by the strings editor.
+ * Layout (top → bottom):
+ *   - toolbar: play/pause/stop, mute, zoom, undo/redo, reset, save
+ *   - vertical piano-roll: notes fall down toward the keyboard at the
+ *     bottom; X = pitch (aligned with the keyboard), Y = time.
+ *   - keyboard: small read-only piano with hand-position bands below
+ *     the keys (one band per hand, h1..h4).
  *
  * Public API:
  *   new KeyboardHandPositionEditorModal({
@@ -35,7 +35,9 @@
         return cfg && Array.isArray(cfg.hands) ? cfg : null;
     }
 
-    /** Same per-hand colour palette as HandsPreviewPanel. */
+    /** Per-hand colour palette — h1..h4 cycle through the same hues
+     *  used by HandsPreviewPanel so the editor matches the channel
+     *  preview. Legacy left/right keep their historical mapping. */
     const HAND_COLORS = {
         left: '#3b82f6', right: '#10b981', fretting: '#f59e0b',
         h1: '#3b82f6', h2: '#10b981', h3: '#f59e0b', h4: '#8b5cf6'
@@ -76,31 +78,48 @@
             this._savedIndex = 0;
             this._maxHistory = 50;
 
-            this._pxPerSec = 80;
-            this._scrollSec = 0;
+            // Pixels per second on the falling-note axis. Larger = notes
+            // span more vertical space (zoom-in).
+            this._pxPerSec = 120;
+            // Lookahead window (seconds) shown above the keyboard. We only
+            // draw notes whose start time is within `[currentSec, currentSec + lookaheadSec]`.
+            this._lookaheadSec = 4;
+            this._currentSec = 0;
+            this._noteHits = [];
             this._notePopover = null;
+            this._mutedBeforePlay = null;
         }
 
         get isDirty() { return this._historyIndex !== this._savedIndex; }
 
         renderBody() {
             return `
-                <div class="khpe-toolbar" style="display:flex;gap:6px;align-items:center;padding:8px;border-bottom:1px solid #e5e7eb;">
+                <div class="khpe-toolbar" style="display:flex;gap:6px;align-items:center;padding:8px;border-bottom:1px solid #e5e7eb;background:#fff;">
+                    <button type="button" data-action="play" title="${_t('keyboardHandEditor.play','Lecture')}">▶</button>
+                    <button type="button" data-action="pause" disabled title="${_t('keyboardHandEditor.pause','Pause')}">⏸</button>
+                    <button type="button" data-action="stop" disabled title="${_t('keyboardHandEditor.stop','Stop')}">⏹</button>
+                    <button type="button" data-action="mute" title="${_t('keyboardHandEditor.mute','Couper le son')}" data-muted="0">🔊</button>
+                    <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
                     <button type="button" data-action="zoom-out" title="${_t('keyboardHandEditor.zoomOut','Dézoom')}">−</button>
                     <button type="button" data-action="zoom-in" title="${_t('keyboardHandEditor.zoomIn','Zoom')}">+</button>
                     <span style="flex:1"></span>
                     <span class="khpe-status" data-role="status" style="color:#6b7280;font-size:12px;"></span>
                     <button type="button" data-action="undo" disabled>↶</button>
                     <button type="button" data-action="redo" disabled>↷</button>
-                    <button type="button" data-action="reset-overrides">⟲ ${_t('keyboardHandEditor.reset','Réinitialiser')}</button>
+                    <button type="button" data-action="reset-overrides">⟲</button>
                     <button type="button" data-action="save" disabled>${_t('keyboardHandEditor.save','Enregistrer')}</button>
                 </div>
-                <div class="khpe-canvas-host" style="position:relative;flex:1;overflow:auto;background:#f9fafb;">
-                    <canvas class="khpe-canvas" style="display:block;"></canvas>
+                <div class="khpe-main" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div class="khpe-roll-host" style="position:relative;flex:1;background:#0f172a;overflow:hidden;">
+                        <canvas class="khpe-roll-canvas" style="position:absolute;inset:0;display:block;"></canvas>
+                    </div>
+                    <div class="khpe-keyboard-host" style="background:#1e293b;padding:6px;height:140px;flex:none;">
+                        <canvas class="khpe-keyboard-canvas" style="display:block;width:100%;height:100%;"></canvas>
+                    </div>
                 </div>
-                <div class="khpe-hint" style="padding:8px;color:#6b7280;font-size:12px;">
+                <div class="khpe-hint" style="padding:6px 10px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;background:#fff;">
                     ${_t('keyboardHandEditor.hint',
-                         'Cliquez sur une note pour réaffecter à une main différente. Molette = défilement, Ctrl+molette = zoom.')}
+                         'Les notes descendent vers le clavier. Cliquez sur une note pour la réaffecter à une main différente.')}
                 </div>
             `;
         }
@@ -111,19 +130,29 @@
 
         onOpen() {
             this.container?.classList.add('khpe-modal-overlay');
-            this.canvas = this.$('.khpe-canvas');
-            this.host = this.$('.khpe-canvas-host');
+            this._hideRoutingModal();
+            this.rollCanvas = this.$('.khpe-roll-canvas');
+            this.rollHost = this.$('.khpe-roll-host');
+            this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
+            this._mountKeyboard();
             this._wireToolbar();
-            this._wireCanvas();
+            this._wireRollCanvas();
+            this._wireResizeObserver();
             this._draw();
+            this._refreshTransport();
         }
 
         onClose() {
-            this._closeNotePopover();
-            if (this._keyHandler) {
-                document.removeEventListener('keydown', this._keyHandler);
-                this._keyHandler = null;
+            if (this._raf != null) { cancelAnimationFrame(this._raf); this._raf = null; }
+            if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
+            if (this.audioPreview?.isPlaying || this.audioPreview?.isPreviewing) {
+                this.audioPreview.stop();
             }
+            this._restoreMute();
+            this._closeNotePopover();
+            this.keyboard?.destroy?.();
+            this.keyboard = null;
+            this._restoreRoutingModal();
         }
 
         close() {
@@ -136,7 +165,64 @@
         }
 
         // ----------------------------------------------------------------
-        //  Drawing — pitch on Y, time on X
+        //  Drill-down: hide the routing summary modal underneath so the
+        //  editor takes over the screen, then restore it on close.
+        // ----------------------------------------------------------------
+
+        _hideRoutingModal() {
+            const overlays = document.querySelectorAll(
+                '.routing-summary-modal-overlay, .routing-summary-modal'
+            );
+            this._hiddenOverlays = [];
+            overlays.forEach((el) => {
+                if (el === this.container) return;
+                this._hiddenOverlays.push({ el, prev: el.style.display });
+                el.style.display = 'none';
+            });
+        }
+
+        _restoreRoutingModal() {
+            if (!Array.isArray(this._hiddenOverlays)) return;
+            for (const { el, prev } of this._hiddenOverlays) {
+                el.style.display = prev || '';
+            }
+            this._hiddenOverlays = null;
+        }
+
+        // ----------------------------------------------------------------
+        //  Keyboard widget at the bottom (with hand bands)
+        // ----------------------------------------------------------------
+
+        _mountKeyboard() {
+            if (!window.KeyboardPreview || !this.keyboardCanvas) return;
+            const ext = this._pitchExtent();
+            this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
+                rangeMin: ext.lo,
+                rangeMax: ext.hi
+            });
+            this.keyboard.setHandBands(this._handBandsForKeyboard());
+            this.keyboard.draw();
+        }
+
+        _handBandsForKeyboard() {
+            const cfg = _parseHandsCfg(this.instrument);
+            if (!cfg) return [];
+            return cfg.hands.map((h, i) => {
+                const span = Number.isFinite(h.hand_span_semitones)
+                    ? h.hand_span_semitones : 14;
+                const anchor = Number.isFinite(h.cc_position_number) && h.cc_position_number >= 21
+                    ? h.cc_position_number : 48 + i * 12;
+                return {
+                    id: h.id || `h${i + 1}`,
+                    low: anchor,
+                    high: anchor + span,
+                    color: _handColor(h.id)
+                };
+            });
+        }
+
+        // ----------------------------------------------------------------
+        //  Roll canvas — vertical piano-roll, notes fall toward the keyboard
         // ----------------------------------------------------------------
 
         _pitchExtent() {
@@ -149,61 +235,91 @@
             return { lo: Math.max(0, lo - 2), hi: Math.min(127, hi + 2) };
         }
 
-        _draw() {
-            if (!this.canvas) return;
-            const dpr = window.devicePixelRatio || 1;
-            const ext = this._pitchExtent();
-            const pxPerPitch = 8;
-            const heightPx = (ext.hi - ext.lo + 1) * pxPerPitch + 30;
-            const widthPx = Math.max(800, Math.ceil(this._totalSec * this._pxPerSec) + 60);
-            this.canvas.style.width = widthPx + 'px';
-            this.canvas.style.height = heightPx + 'px';
-            this.canvas.width = widthPx * dpr;
-            this.canvas.height = heightPx * dpr;
-            const ctx = this.canvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, widthPx, heightPx);
+        _wireResizeObserver() {
+            if (!this.rollHost || typeof ResizeObserver !== 'function') return;
+            this._resizeObserver = new ResizeObserver(() => this._draw());
+            this._resizeObserver.observe(this.rollHost);
+        }
 
-            // Pitch grid (octave lines)
-            ctx.strokeStyle = '#e5e7eb';
+        _draw() {
+            if (!this.rollCanvas || !this.rollHost) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = this.rollHost.clientWidth;
+            const H = this.rollHost.clientHeight;
+            if (W <= 0 || H <= 0) return;
+
+            this.rollCanvas.width = W * dpr;
+            this.rollCanvas.height = H * dpr;
+            this.rollCanvas.style.width = W + 'px';
+            this.rollCanvas.style.height = H + 'px';
+            const ctx = this.rollCanvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, W, H);
+
+            const ext = this._pitchExtent();
+            // Same X-mapping as a piano: white-key uniform width, black
+            // keys narrower. We reuse a simple linear pitch→x mapping
+            // here (proportional to semitones) since the on-screen
+            // keyboard is a separate widget below — the alignment is
+            // close enough for a visualisation.
+            const semitoneCount = ext.hi - ext.lo + 1;
+            const pxPerPitch = W / semitoneCount;
+
+            // Vertical layout: present is at y = H (just above the keyboard),
+            // future is at y = 0 (top of the roll).
+            const lookaheadSec = this._lookaheadSec;
+            const startSec = this._currentSec;
+            const endSec = startSec + lookaheadSec;
+
+            // Light pitch grid lines (octaves).
+            ctx.strokeStyle = 'rgba(148,163,184,0.15)';
             ctx.lineWidth = 1;
             for (let p = ext.lo; p <= ext.hi; p++) {
                 if (p % 12 === 0) {
-                    const y = (ext.hi - p) * pxPerPitch + 0.5;
+                    const x = (p - ext.lo) * pxPerPitch + 0.5;
                     ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(widthPx, y);
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, H);
                     ctx.stroke();
-                    ctx.fillStyle = '#9ca3af';
-                    ctx.font = '10px sans-serif';
-                    ctx.textBaseline = 'top';
-                    ctx.fillText(`C${(p / 12) - 1}`, 4, y + 1);
                 }
             }
 
-            // Note rectangles (coloured per hand)
+            // Playhead line at the bottom of the roll (= present moment).
+            ctx.strokeStyle = 'rgba(248,113,113,0.7)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, H - 1);
+            ctx.lineTo(W, H - 1);
+            ctx.stroke();
+
             const assignments = this._currentAssignments();
-            const noteHits = [];
+            const hits = [];
             for (const n of this.notes) {
-                const x = (n.tick / this.ticksPerSec) * this._pxPerSec;
-                const w = Math.max(2, ((n.duration || 0) / this.ticksPerSec) * this._pxPerSec);
-                const y = (ext.hi - n.note) * pxPerPitch + 1;
-                const h = pxPerPitch - 2;
+                const noteSec = n.tick / this.ticksPerSec;
+                const dur = (n.duration || 0) / this.ticksPerSec;
+                if (noteSec + dur < startSec) continue; // already past
+                if (noteSec > endSec) continue;          // too far in future
+                // Note rectangle: top = future side (smaller noteSec → higher y),
+                // bottom = present side. We map [startSec, endSec] → [H, 0].
+                const yBottom = H - ((noteSec - startSec) / lookaheadSec) * H;
+                const yTop = H - ((noteSec + dur - startSec) / lookaheadSec) * H;
+                const y = Math.max(0, yTop);
+                const h = Math.min(H, yBottom) - y;
+                if (h <= 0) continue;
+                const x = (n.note - ext.lo) * pxPerPitch;
+                const w = Math.max(2, pxPerPitch - 1);
                 const handId = assignments.get(`${n.tick}:${n.note}`) || null;
-                ctx.fillStyle = handId ? _handColor(handId) : '#9ca3af';
+                ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
                 ctx.fillRect(x, y, w, h);
-                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.strokeStyle = 'rgba(15,23,42,0.6)';
                 ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                noteHits.push({ x, y, w, h, note: n });
+                hits.push({ x, y, w, h, note: n });
             }
-            this._noteHits = noteHits;
+            this._noteHits = hits;
         }
 
-        /**
-         * Build a Map<"tick:note", handId> using the current
-         * `note_assignments` overrides; notes without an explicit
-         * assignment get null so they are drawn in grey.
-         */
+        /** Map<"tick:note", handId> from current overrides. */
         _currentAssignments() {
             const out = new Map();
             const list = this.overrides?.note_assignments || [];
@@ -214,23 +330,23 @@
         }
 
         // ----------------------------------------------------------------
-        //  Interaction
+        //  Interaction — note-click popover, wheel zoom
         // ----------------------------------------------------------------
 
-        _wireCanvas() {
-            this.canvas.addEventListener('click', (e) => {
-                const rect = this.canvas.getBoundingClientRect();
+        _wireRollCanvas() {
+            this.rollCanvas.addEventListener('click', (e) => {
+                const rect = this.rollCanvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
                 const hit = this._hitNote(x, y);
                 if (!hit) { this._closeNotePopover(); return; }
                 this._openNotePopover(hit, e);
             });
-            this.host.addEventListener('wheel', (e) => {
+            this.rollHost.addEventListener('wheel', (e) => {
                 if (e.ctrlKey) {
                     e.preventDefault();
                     const factor = e.deltaY < 0 ? 1.25 : 0.8;
-                    this._pxPerSec = Math.max(20, Math.min(800, this._pxPerSec * factor));
+                    this._lookaheadSec = Math.max(1, Math.min(30, this._lookaheadSec / factor));
                     this._draw();
                 }
             }, { passive: false });
@@ -254,7 +370,7 @@
             const popover = document.createElement('div');
             popover.className = 'khpe-note-popover';
             popover.style.cssText = `position:fixed;left:${(evt.clientX || 0) + 8}px;top:${(evt.clientY || 0) + 8}px;`
-                + 'z-index:100000;background:#fff;border:1px solid #d1d5db;border-radius:6px;'
+                + 'z-index:100002;background:#fff;border:1px solid #d1d5db;border-radius:6px;'
                 + 'padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:12px;';
             popover.innerHTML = `
                 <div style="margin-bottom:6px;font-weight:600;">${
@@ -340,6 +456,10 @@
             this._draw();
         }
 
+        // ----------------------------------------------------------------
+        //  Toolbar — transport, mute, history, save
+        // ----------------------------------------------------------------
+
         _wireToolbar() {
             const root = this.dialog;
             if (!root) return;
@@ -348,8 +468,16 @@
                 if (!btn || btn.disabled) return;
                 switch (btn.dataset.action) {
                     case 'close': this.close(); return;
-                    case 'zoom-in': this._pxPerSec = Math.min(800, this._pxPerSec * 1.25); this._draw(); return;
-                    case 'zoom-out': this._pxPerSec = Math.max(20, this._pxPerSec / 1.25); this._draw(); return;
+                    case 'play': this._play(); return;
+                    case 'pause': this._pause(); return;
+                    case 'stop': this._stop(); return;
+                    case 'mute': this._toggleMute(btn); return;
+                    case 'zoom-in':
+                        this._lookaheadSec = Math.max(1, this._lookaheadSec / 1.25);
+                        this._draw(); return;
+                    case 'zoom-out':
+                        this._lookaheadSec = Math.min(30, this._lookaheadSec * 1.25);
+                        this._draw(); return;
                     case 'undo': this._undo(); return;
                     case 'redo': this._redo(); return;
                     case 'reset-overrides':
@@ -359,6 +487,86 @@
                 }
             });
         }
+
+        // ----------------------------------------------------------------
+        //  Transport — uses the host AudioPreview when available
+        // ----------------------------------------------------------------
+
+        async _play() {
+            if (!this.audioPreview || !this.midiData) {
+                this._setStatus(_t('keyboardHandEditor.noAudio','Aperçu audio indisponible.'));
+                return;
+            }
+            try {
+                this.audioPreview.onProgress = (tick, totalTicks, currentSec) => {
+                    this._currentSec = currentSec || 0;
+                    this._draw();
+                };
+                this.audioPreview.onPlaybackEnd = () => this._refreshTransport();
+                const constraints = Number.isFinite(this.instrument?.gm_program)
+                    ? { gmProgram: this.instrument.gm_program } : {};
+                await this.audioPreview.previewSingleChannel(
+                    this.midiData, this.channel, {}, constraints, 0, 0, true);
+                this._refreshTransport();
+            } catch (err) {
+                console.error('[KeyboardHandPositionEditor] play failed:', err);
+                this._setStatus(`${_t('keyboardHandEditor.playFailed','Lecture impossible')}: ${err.message || err}`);
+            }
+        }
+
+        _pause() {
+            this.audioPreview?.pause();
+            this._refreshTransport();
+        }
+
+        _stop() {
+            this.audioPreview?.stop();
+            this._currentSec = 0;
+            this._refreshTransport();
+            this._draw();
+        }
+
+        _toggleMute(btn) {
+            const synth = this.audioPreview?.synthesizer;
+            if (!synth || typeof synth.setMutedChannels !== 'function') return;
+            const isMuted = btn.dataset.muted === '1';
+            if (isMuted) {
+                synth.setMutedChannels(this._mutedBeforePlay || []);
+                btn.dataset.muted = '0';
+                btn.textContent = '🔊';
+            } else {
+                this._mutedBeforePlay = synth.mutedChannels
+                    ? Array.from(synth.mutedChannels) : [];
+                synth.setMutedChannels([this.channel]);
+                btn.dataset.muted = '1';
+                btn.textContent = '🔇';
+            }
+        }
+
+        /** Restore the previous mute set so leaving the editor doesn't
+         *  poison the routing summary's preview state. */
+        _restoreMute() {
+            const synth = this.audioPreview?.synthesizer;
+            if (!synth || typeof synth.setMutedChannels !== 'function') return;
+            if (this._mutedBeforePlay != null) {
+                synth.setMutedChannels(this._mutedBeforePlay);
+                this._mutedBeforePlay = null;
+            }
+        }
+
+        _refreshTransport() {
+            const playBtn = this.$('[data-action="play"]');
+            const pauseBtn = this.$('[data-action="pause"]');
+            const stopBtn = this.$('[data-action="stop"]');
+            const playing = !!this.audioPreview?.isPlaying;
+            if (playBtn) playBtn.disabled = playing;
+            if (pauseBtn) pauseBtn.disabled = !playing;
+            if (stopBtn) stopBtn.disabled = !playing && !this.audioPreview?.isPreviewing;
+        }
+
+        // ----------------------------------------------------------------
+        //  History + save
+        // ----------------------------------------------------------------
 
         _cloneOverrides(o) { return o ? JSON.parse(JSON.stringify(o)) : null; }
 
