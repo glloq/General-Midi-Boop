@@ -399,20 +399,33 @@
 
         /** User dragged a hand band on the keyboard. Update the in-memory
          *  state, push a `hand_anchors` override entry at the current
-         *  playhead, and redraw both the keyboard and the piano-roll. */
+         *  playhead, and redraw both the keyboard and the piano-roll.
+         *
+         *  Single-axis constraint: hands share one physical axis on the
+         *  keyboard so they cannot cross each other and must not overlap.
+         *  We clamp the new anchor against the immediate neighbours
+         *  (`h_{i-1}.anchor + h_{i-1}.span` from below, `h_{i+1}.anchor − span`
+         *  from above) so a drag that would invert the order or collide
+         *  produces a snug-against-neighbour position instead. */
         _onHandBandDrag(handId, newAnchor) {
-            const hand = (this._hands || []).find(h => h.id === handId);
-            if (!hand) return;
-            hand.anchor = newAnchor;
+            const idx = (this._hands || []).findIndex(h => h.id === handId);
+            if (idx < 0) return;
+            const hand = this._hands[idx];
+            const prev = idx > 0 ? this._hands[idx - 1] : null;
+            const next = idx < this._hands.length - 1 ? this._hands[idx + 1] : null;
+            const minAnchor = prev ? prev.anchor + prev.span : 0;
+            const maxAnchor = next ? next.anchor - hand.span : 127 - hand.span;
+            const clamped = Math.max(minAnchor, Math.min(maxAnchor, newAnchor));
+            hand.anchor = clamped;
             if (!Array.isArray(this.overrides.hand_anchors)) {
                 this.overrides.hand_anchors = [];
             }
             const tick = Math.round(this._currentSec * this.ticksPerSec);
             const list = this.overrides.hand_anchors;
             // Replace the entry at the same tick / hand or append.
-            const idx = list.findIndex(a => a?.handId === handId && a?.tick === tick);
-            const entry = { tick, handId, anchor: newAnchor };
-            if (idx >= 0) list[idx] = entry;
+            const i = list.findIndex(a => a?.handId === handId && a?.tick === tick);
+            const entry = { tick, handId, anchor: clamped };
+            if (i >= 0) list[i] = entry;
             else list.push(entry);
             this._pushHistory();
             this.keyboard?.setHandBands(this._currentHandBands());
