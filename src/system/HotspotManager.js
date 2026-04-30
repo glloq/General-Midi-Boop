@@ -147,6 +147,78 @@ class HotspotManager {
   }
 
   /**
+   * Trigger a WiFi rescan and return the visible APs.
+   *
+   * @returns {Promise<{networks:Array<{ssid:string, security:string, signal:number, active:boolean}>}>}
+   */
+  async scan() {
+    const res = await this._runScript(['wifi-scan']);
+    return { networks: Array.isArray(res.networks) ? res.networks : [] };
+  }
+
+  /**
+   * Connect to a WiFi network. Creates or reuses a saved profile. Stops
+   * the hotspot first if it's up — only one profile can own wlan0.
+   *
+   * @param {{ssid:string, password?:string}} cfg
+   * @returns {Promise<{wifiActive:string}>}
+   */
+  async wifiConnect(cfg) {
+    if (this._busy) throw new Error('wifi operation already in progress');
+    if (!cfg || !cfg.ssid) throw new Error('ssid is required');
+    this._busy = true;
+    try {
+      const args = ['wifi-connect', cfg.ssid];
+      if (cfg.password) args.push(cfg.password);
+      const res = await this._runScript(args);
+      this._active = false; // hotspot is necessarily off now
+      this.logger?.info(`Connected to WiFi "${cfg.ssid}"`);
+      return res;
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  /**
+   * Disconnect from the current WiFi-client profile (does not affect the
+   * hotspot — call disable() for that).
+   *
+   * @returns {Promise<{wifiActive:string}>}
+   */
+  async wifiDisconnect() {
+    if (this._busy) throw new Error('wifi operation already in progress');
+    this._busy = true;
+    try {
+      const res = await this._runScript(['wifi-disconnect']);
+      this.logger?.info('Disconnected from WiFi');
+      return res;
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  /**
+   * Forget (delete) a saved WiFi profile by SSID/connection name.
+   *
+   * @param {string} ssid
+   * @returns {Promise<{forgotten:string}>}
+   */
+  async wifiForget(ssid) {
+    if (!ssid) throw new Error('ssid is required');
+    return this._runScript(['wifi-forget', ssid]);
+  }
+
+  /**
+   * List saved WiFi profiles (excluding the hotspot profile).
+   *
+   * @returns {Promise<{profiles:Array<{name:string, autoconnect:boolean}>}>}
+   */
+  async wifiSaved() {
+    const res = await this._runScript(['wifi-saved']);
+    return { profiles: Array.isArray(res.profiles) ? res.profiles : [] };
+  }
+
+  /**
    * Stop the hotspot and let NetworkManager bring the WiFi client back.
    *
    * @returns {Promise<{hotspotActive:false, wifiActive:string}>}

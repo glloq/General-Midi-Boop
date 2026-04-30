@@ -654,6 +654,49 @@
                     </div>
                     <div id="hotspotMessage" style="display:none;margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;"></div>
                 </div>
+
+                <!-- Réseau WiFi (client) -->
+                <div class="settings-section" style="margin-top: 20px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">📶 ${i18n.t('settings.wifi.title') || 'Réseau WiFi'}</h3>
+                    <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-secondary, #666);">
+                        ${i18n.t('settings.wifi.description') || 'Scanner les réseaux WiFi disponibles et se connecter. La connexion sera coupée si le hotspot est actif.'}
+                    </p>
+
+                    <!-- Current connection -->
+                    <div id="wifiCurrent" style="margin-bottom: 10px; padding: 10px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); font-size: 13px; color: var(--text-primary, #333); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <span id="wifiCurrentLabel">${i18n.t('settings.wifi.currentNone') || 'Non connecté'}</span>
+                        <button id="wifiDisconnectBtn" style="display:none;padding: 6px 12px; border: 1px solid var(--border-color,#d1d5db); border-radius: 6px; background: var(--bg-secondary, white); color: var(--text-primary, #374151); cursor: pointer; font-size: 12px;">
+                            ${i18n.t('settings.wifi.disconnect') || 'Déconnecter'}
+                        </button>
+                    </div>
+
+                    <!-- Scan controls -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px;">
+                        <span style="font-size: 13px; color: var(--text-primary, #333); font-weight: 500;">${i18n.t('settings.wifi.available') || 'Réseaux disponibles'}</span>
+                        <button id="wifiScanBtn" style="padding: 6px 14px; border: 1px solid #667eea; border-radius: 6px; background: var(--bg-secondary, white); color: #667eea; cursor: pointer; font-size: 13px;">
+                            ${i18n.t('settings.wifi.scan') || 'Scanner'}
+                        </button>
+                    </div>
+                    <div id="wifiNetworksList" style="border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; overflow: hidden; min-height: 60px;">
+                        <div style="padding: 14px; text-align: center; color: var(--text-muted, #999); font-size: 13px;">
+                            ${i18n.t('settings.wifi.clickScan') || 'Cliquez sur "Scanner" pour découvrir les réseaux'}
+                        </div>
+                    </div>
+
+                    <!-- Saved networks -->
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor: pointer; font-size: 13px; color: var(--text-primary, #333); font-weight: 500; padding: 6px 0;">
+                            ${i18n.t('settings.wifi.saved') || 'Réseaux enregistrés'}
+                        </summary>
+                        <div id="wifiSavedList" style="margin-top: 8px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; overflow: hidden; min-height: 40px;">
+                            <div style="padding: 12px; text-align: center; color: var(--text-muted, #999); font-size: 12px;">
+                                ${i18n.t('settings.wifi.savedLoading') || 'Chargement...'}
+                            </div>
+                        </div>
+                    </details>
+
+                    <div id="wifiMessage" style="display:none;margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;"></div>
+                </div>
             </div>
             </div><!-- /column 2 -->
         `;
