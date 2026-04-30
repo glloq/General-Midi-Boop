@@ -1208,17 +1208,30 @@
             : 60;
         const mechanism = ISMSections._resolveKeyboardMechanism(cfg);
 
+        // Keyboard layout type. `chromatic` means every semitone is a
+        // playable key (xylophone-like): a finger maps to one note, so
+        // span = num_fingers − 1 and we hide the span input. `piano`
+        // means white + black keys, so a 5-finger hand on C..G already
+        // stretches across 7 semitones — the operator picks the span
+        // explicitly because it doesn't have a closed-form expression
+        // for arbitrary finger placements.
+        const keyboardType = cfg.keyboard_type === 'piano' ? 'piano' : 'chromatic';
+
         const handRow = (h, index) => {
             const idLabel = ISMSections._handLabel(index, count, t);
-            // V1 'aligned_fingers': fingers are evenly mapped onto
-            // consecutive semitones, so num_fingers fully determines
-            // the playable window (span = num_fingers − 1). We expose
-            // a single 'Number of fingers' input here; hand_span_semitones
+            // V1 'aligned_fingers' + chromatic keyboard: fingers map
+            // onto consecutive semitones, so num_fingers fully
+            // determines the playable window (span = num_fingers − 1).
+            // We expose only 'Number of fingers'; hand_span_semitones
             // is recomputed from it at save time.
-            // V2 'independent_fingers_5' (not yet released) exposes
-            // num_fingers AND hand_span_semitones separately because
-            // the fingers can stretch within a wider window.
+            // V1 'aligned_fingers' + piano keyboard: span is bigger
+            // than num_fingers - 1 (white-key stretch), so we expose
+            // both inputs.
+            // V2 'independent_fingers_5' (not yet released) always
+            // exposes both fields because the fingers can stretch
+            // within a wider window even on chromatic instruments.
             const isAligned = mechanism === 'aligned_fingers';
+            const hideSpanField = isAligned && keyboardType === 'chromatic';
             const numFingers = Number.isFinite(h.num_fingers)
                 ? h.num_fingers
                 : (Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones + 1 : 5);
@@ -1231,14 +1244,14 @@
                     <input type="number" class="ism-hand-fingers" data-hand="${h.id}" data-field="num_fingers"
                            value="${numFingers}" min="1" max="10">
                     <span class="ism-form-hint">${
-                        isAligned
+                        hideSpanField
                             ? (t('instrumentSettings.handsNumFingersAlignedHint')
                                || 'Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.')
                             : (t('instrumentSettings.handsNumFingersHint')
                                || 'Nombre de touches simultanément actionnables par cette main (limite la polyphonie côté main).')
                     }</span>
                 </div>`;
-            const spanField = isAligned ? '' : `
+            const spanField = hideSpanField ? '' : `
                 <div>
                     <label>${t('instrumentSettings.handsSpanSemitones') || 'Écart max sans bouger (demi-tons)'}</label>
                     <input type="number" class="ism-hand-span" data-hand="${h.id}" data-field="hand_span_semitones"
@@ -1275,6 +1288,17 @@
             </p>
 
             ${ISMSections._renderKeyboardMechanismCards.call(this, mechanism)}
+
+            <div class="ism-form-group">
+                <label>${t('instrumentSettings.keyboardType') || 'Type de clavier'}</label>
+                <select id="handsKeyboardType">
+                    <option value="chromatic" ${keyboardType === 'chromatic' ? 'selected' : ''}>${
+                        t('instrumentSettings.keyboardTypeChromatic') || 'Chromatique (notes contiguës)'}</option>
+                    <option value="piano" ${keyboardType === 'piano' ? 'selected' : ''}>${
+                        t('instrumentSettings.keyboardTypePiano') || 'Piano (touches blanches + noires)'}</option>
+                </select>
+                <span class="ism-form-hint">${t('instrumentSettings.keyboardTypeHint') || 'Chromatique : un doigt = une note (xylophone). Piano : la main couvre plus de demi-tons que de doigts (les noires entre les blanches).'}</span>
+            </div>
 
             <div class="ism-form-group">
                 <label>${t('instrumentSettings.handsCount') || 'Nombre de mains'}</label>
@@ -1945,8 +1969,21 @@
         // a canonical `data-hand` id (`h1..h4`). Legacy DOM that still uses
         // `left`/`right` is also picked up and renamed to `h1`/`h2` here so
         // the persisted payload converges to the new id scheme.
+        // Read the keyboard layout selector. Defaults to chromatic so a
+        // legacy DOM without the dropdown still produces a coherent
+        // payload (chromatic + aligned_fingers is what every existing
+        // row was implicitly using).
+        const VALID_KB_TYPES = new Set(['chromatic', 'piano']);
+        const rawKbType = rootEl.querySelector('#handsKeyboardType')?.value;
+        const keyboardType = VALID_KB_TYPES.has(rawKbType) ? rawKbType : 'chromatic';
+
         const rows = Array.from(section.querySelectorAll('.ism-hand-row'));
+        // Span is derived from finger count only when the layout is
+        // chromatic (one note per finger). On piano-style layouts the
+        // hand stretches across more semitones than fingers — the
+        // operator types the span explicitly.
         const isAligned = kbMechanism === 'aligned_fingers';
+        const deriveSpanFromFingers = isAligned && keyboardType === 'chromatic';
         const hands = rows.map((row, idx) => {
             const id = ISMSections._handIdAt(idx);
             const readInt = (field, dflt) => {
@@ -1958,12 +1995,11 @@
                 return Number.isFinite(v) ? v : null;
             };
             const numFingersOpt = readOptInt('num_fingers');
-            // V1 'aligned_fingers' UI hides hand_span_semitones because
-            // span = num_fingers − 1 by design; we derive the persisted
-            // span from the fingers count to keep the payload coherent.
-            // V2 reads both fields directly.
+            // span = num_fingers − 1 only on chromatic + aligned_fingers
+            // (one note per finger). Piano-style layouts and V2 mechanism
+            // both expose the span input, so we read it directly.
             let span;
-            if (isAligned) {
+            if (deriveSpanFromFingers) {
                 const f = numFingersOpt != null ? numFingersOpt : 5;
                 span = Math.max(1, f - 1);
             } else {
@@ -1984,6 +2020,7 @@
             enabled,
             mode: 'semitones',
             mechanism: kbMechanism,
+            keyboard_type: keyboardType,
             hand_move_semitones_per_sec: Number.isFinite(moveSpeed) ? moveSpeed : 60,
             assignment: { mode: 'auto' },
             hands
