@@ -413,6 +413,10 @@
         if (!container) return;
         container.innerHTML = '';
 
+        // Strings live in a flex-grow wrapper; the chord bar sits below it.
+        const stringsArea = document.createElement('div');
+        stringsArea.className = 'fretboard-strings-area';
+
         const cfg = this.stringInstrumentConfig || {};
         const numStrings = Math.max(1, cfg.num_strings || 6);
         const numFrets = Math.max(0, cfg.num_frets ?? 22);
@@ -488,7 +492,7 @@
             if (f === 12 || f === 24) cell.classList.add('inlay-double');
             header.appendChild(cell);
         }
-        container.appendChild(header);
+        stringsArea.appendChild(header);
 
         // Strings — `stringsTopDown` is reversed so the highest pitch is at the
         // top. The 1-indexed string number used by the project's CC convention
@@ -522,7 +526,14 @@
                     row.appendChild(cell);
                 }
             }
-            container.appendChild(row);
+            stringsArea.appendChild(row);
+        }
+
+        container.appendChild(stringsArea);
+
+        // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
+        if (typeof this.renderChordButtons === 'function') {
+            this.renderChordButtons();
         }
     }
 
