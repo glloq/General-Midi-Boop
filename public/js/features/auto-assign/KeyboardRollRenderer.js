@@ -594,7 +594,12 @@
                     this.onBandDragStart(drag.handId);
                 }
                 const pitchAtLeftEdge = drag.ext.lo + (x - drag.offsetPx) / drag.pxPerPitch;
-                this.onBandDragMove(drag.handId, Math.round(pitchAtLeftEdge));
+                // Pass the FRACTIONAL pitch so the editor can decide
+                // how to snap it (chromatic = round to nearest
+                // semitone, piano = round to nearest white key, etc.).
+                // Rounding here would lose the sub-semitone position
+                // and force every consumer into the same snap policy.
+                this.onBandDragMove(drag.handId, pitchAtLeftEdge);
             };
             const onUp = () => {
                 document.removeEventListener('mousemove', onMove);
