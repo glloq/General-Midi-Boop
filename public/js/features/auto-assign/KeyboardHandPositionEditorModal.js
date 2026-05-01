@@ -649,8 +649,19 @@
                 } else {
                     span = 4;
                 }
-                const numFingers = Number.isFinite(h.num_fingers)
-                    ? h.num_fingers : span + 1;
+                // Number of fingers comes straight from the
+                // instrument's hands_config. `num_fingers` is the
+                // schema's authoritative field (see
+                // InstrumentCapabilitiesValidator: chromatic keyboards
+                // use `span = num_fingers - 1`, piano keyboards keep
+                // span and num_fingers independent). Range 1..10 per
+                // hand. Falls back to `span + 1` when the config
+                // didn't set the field (= one finger per chromatic
+                // position, the chromatic-instrument convention) so
+                // legacy configs without `num_fingers` still draw
+                // sensibly.
+                const numFingers = Number.isFinite(h.num_fingers) && h.num_fingers > 0
+                    ? h.num_fingers : (span + 1);
                 const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
                     * (ext.hi - ext.lo - span));
                 const id = h.id || `h${i + 1}`;
@@ -1083,40 +1094,50 @@
         }
 
         /** Pick the semitone each finger of `hand` is currently over.
-         *  We draw exactly `numFingers` fingers per hand (typically 5
-         *  for keyboard instruments) and position them like a real
-         *  player:
+         *  We draw exactly `numFingers` fingers per hand (default 5)
+         *  numbered left-to-right.
          *
-         *    - Active notes that fall inside the hand window pin
-         *      individual fingers — leftmost active note → leftmost
-         *      finger of the hand, rightmost active note → rightmost
-         *      finger. With more active notes than fingers the
-         *      overflow gets stacked on the outer fingers (caller
-         *      flags `overflow` for visual marking).
-         *    - Idle fingers fan out evenly across the rest of the
-         *      window so the bunch reads as a coherent hand at rest.
-         *    - The first hand (lowest-pitched) is treated as a "left"
-         *      hand: index 0 → pinky (5), last → thumb (1). Hands at
-         *      higher indices are treated as "right" hands so their
-         *      thumb sits low and pinky high — natural pianist layout.
+         *    - Rest positions: fingers fan evenly across the window
+         *      `[anchor, anchor + span]`. They glide with the anchor
+         *      so the whole hand stays a coherent bunch when the
+         *      band moves.
+         *    - When a key is pressed inside the window, the closest
+         *      not-yet-snapped finger MOVES onto that key (so you
+         *      see a finger pressing the actual sounding note).
+         *      Other fingers stay at their rest positions, which is
+         *      why a pressed key never collapses every finger to the
+         *      same x — the previous code did, hiding all but one
+         *      finger when only a single note was pressed.
+         *    - With more active notes than fingers, the closest
+         *      finger to each note still snaps; the leftover notes
+         *      are flagged as overflow so the renderer can mark
+         *      them in red.
          *
-         *  Returns `[{semitone, fingerLabel, isActive, anchorIdx}]`
-         *  with one entry per finger. `semitone` may be a fractional
-         *  number (smooth animation between assignments). @private */
-        _fingerLayout(hand, handIndex, active) {
-            const numFingers = Math.max(1, hand.numFingers || 5);
+         *  Returns `[{semitone, isActive, overflow}]` with one entry
+         *  per finger. `semitone` may be a fractional number (smooth
+         *  animation between rest and snapped positions). @private */
+        _fingerLayout(hand, _handIndex, active) {
+            // numFingers comes straight from the hand's config (1..10).
+            // `_mountKeyboard` already validated and stored it; we
+            // clamp to ≥ 1 defensively so a malformed config can't
+            // produce a zero-finger hand.
+            const numFingers = Math.max(1, hand.numFingers);
             const a = this._displayedAnchor.has(hand.id)
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
             const span = hand.span;
-            // Treat the first hand of a multi-hand keyboard as the
-            // left hand, the rest as right hands. Single-hand
-            // keyboards default to right (thumb-low → pinky-high).
-            const totalHands = (this._hands || []).length;
-            const isLeftHand = (totalHands > 1) && (handIndex === 0);
 
-            // Active notes inside this hand's reachable window. Keep
-            // them sorted ascending so the leftmost active note maps
-            // to the leftmost finger of the hand.
+            // Rest positions — fingers evenly fanned across the window.
+            const fingers = new Array(numFingers);
+            for (let i = 0; i < numFingers; i++) {
+                const t = numFingers === 1 ? 0.5 : i / (numFingers - 1);
+                fingers[i] = {
+                    semitone: a + t * span,
+                    isActive: false,
+                    overflow: false
+                };
+            }
+
+            // Active notes inside this hand's reachable window.
             const aFloor = a;
             const aCeil  = a + span;
             const activeIn = [];
@@ -1127,78 +1148,28 @@
             }
             activeIn.sort((x, y) => x - y);
 
-            const fingers = new Array(numFingers);
-            for (let i = 0; i < numFingers; i++) {
-                // fingerLabel uses pianist convention: 1 = thumb, 5 = pinky.
-                //   Left hand: pinky (5) on the LOW side, thumb (1) HIGH.
-                //   Right hand: thumb (1) on the LOW side, pinky (5) HIGH.
-                const fingerLabel = isLeftHand ? (numFingers - i) : (i + 1);
-                fingers[i] = { semitone: null, fingerLabel,
-                                isActive: false, overflow: false };
-            }
-
-            // Map active notes onto finger slots. With ≤ numFingers
-            // active notes, each takes a distinct slot from the outside
-            // in (low-active → finger 0, high-active → finger N-1).
-            // With more active notes than fingers, the inner fingers
-            // double up and we flag the leftover note.
-            if (activeIn.length === 0) {
-                // Idle hand — fan fingers evenly across the window.
+            // Greedy nearest-finger snap: for each active note (in
+            // pitch-ascending order), move the closest non-snapped
+            // finger onto it. Other fingers keep their rest position.
+            const taken = new Array(numFingers).fill(false);
+            for (const note of activeIn) {
+                let bestIdx = -1, bestDist = Infinity;
                 for (let i = 0; i < numFingers; i++) {
-                    const t = numFingers === 1 ? 0.5 : i / (numFingers - 1);
-                    fingers[i].semitone = a + t * span;
+                    if (taken[i]) continue;
+                    const d = Math.abs(fingers[i].semitone - note);
+                    if (d < bestDist) { bestDist = d; bestIdx = i; }
                 }
-            } else if (activeIn.length <= numFingers) {
-                // Pin one finger per active note from the outside in.
-                // Idle fingers (when fewer notes than slots) interpolate
-                // between the pinned ones so the hand still looks
-                // coherent.
-                const slots = new Array(numFingers).fill(null);
-                // First active note → finger 0; last → finger N-1.
-                slots[0] = activeIn[0];
-                slots[numFingers - 1] = activeIn[activeIn.length - 1];
-                if (activeIn.length > 2) {
-                    // Spread interior notes evenly across interior slots.
-                    const inner = activeIn.slice(1, activeIn.length - 1);
-                    const innerSlots = numFingers - 2;
-                    for (let i = 0; i < inner.length && i < innerSlots; i++) {
-                        const slotIdx = 1 + Math.round((i + 0.5) / inner.length * (innerSlots - 1));
-                        slots[Math.min(numFingers - 2, Math.max(1, slotIdx))] = inner[i];
-                    }
+                if (bestIdx < 0) {
+                    // More active notes than fingers — every finger
+                    // already snapped. Mark this overflow on the
+                    // outermost finger so the operator sees a red cap.
+                    const fallback = note < a + span / 2 ? 0 : numFingers - 1;
+                    fingers[fallback].overflow = true;
+                    continue;
                 }
-                // Fill empty interior slots by linear interpolation
-                // between the nearest pinned slots so resting fingers
-                // sit between the active ones.
-                for (let i = 0; i < numFingers; i++) {
-                    if (slots[i] != null) continue;
-                    let prev = i, next = i;
-                    while (prev >= 0 && slots[prev] == null) prev--;
-                    while (next < numFingers && slots[next] == null) next++;
-                    if (prev < 0 && next >= numFingers) {
-                        slots[i] = a + (i / Math.max(1, numFingers - 1)) * span;
-                    } else if (prev < 0) {
-                        slots[i] = slots[next];
-                    } else if (next >= numFingers) {
-                        slots[i] = slots[prev];
-                    } else {
-                        const t = (i - prev) / (next - prev);
-                        slots[i] = slots[prev] + t * (slots[next] - slots[prev]);
-                    }
-                }
-                for (let i = 0; i < numFingers; i++) {
-                    fingers[i].semitone = slots[i];
-                    fingers[i].isActive = activeIn.includes(Math.round(slots[i]));
-                }
-            } else {
-                // More active notes than fingers — bucket the notes
-                // across the slots and flag the overflow.
-                for (let i = 0; i < numFingers; i++) {
-                    const t = i / (numFingers - 1);
-                    const idx = Math.round(t * (activeIn.length - 1));
-                    fingers[i].semitone = activeIn[idx];
-                    fingers[i].isActive = true;
-                    if (i === 0 || i === numFingers - 1) fingers[i].overflow = true;
-                }
+                fingers[bestIdx].semitone = note;
+                fingers[bestIdx].isActive = true;
+                taken[bestIdx] = true;
             }
             return fingers;
         }
@@ -1295,20 +1266,11 @@
                     ctx.lineWidth = 1;
                     ctx.strokeRect(fx + 0.5, tipY + 0.5, fingerW - 1, fingerH - 1);
                     // Hand-coloured cap at the top — anchors the
-                    // finger to its hand visually.
-                    ctx.fillStyle = hand.color;
+                    // finger to its hand visually. Overflow (more
+                    // active notes than fingers) flips the cap red
+                    // so the operator can spot the limit at a glance.
+                    ctx.fillStyle = f.overflow ? '#dc2626' : hand.color;
                     ctx.fillRect(fx, handY - 4, fingerW, 4);
-                    // Finger label (1..5) on the cap when there's room.
-                    if (fingerW >= 12) {
-                        ctx.fillStyle = '#fff';
-                        ctx.font = `bold ${Math.min(11, fingerW - 2)}px sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(String(f.fingerLabel),
-                                      fx + fingerW / 2, tipY + Math.min(11, fingerH / 2));
-                        ctx.textAlign = 'start';
-                        ctx.textBaseline = 'alphabetic';
-                    }
                 }
             }
         }
