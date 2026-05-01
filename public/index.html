@@ -3004,7 +3004,7 @@
 
         /* Debug resize handle */
         .debug-resize-handle {
-            height: 16px;
+            height: 20px;
             background: #d1d5db;
             cursor: ns-resize;
             display: none;
@@ -3013,31 +3013,50 @@
             flex-shrink: 0;
             position: relative;
             user-select: none;
-            border-top: 1px solid #9ca3af;
-            border-bottom: 1px solid #9ca3af;
+            border-top: 2px solid #9ca3af;
+            border-bottom: 2px solid #9ca3af;
+            gap: 6px;
         }
 
         .debug-resize-handle.visible {
             display: flex;
         }
 
+        /* Visible drag rectangle */
         .debug-resize-handle::before {
+            content: '⠿';
+            font-size: 14px;
+            line-height: 1;
+            color: #6b7280;
+            letter-spacing: 2px;
+        }
+
+        /* Central grip rect */
+        .debug-resize-handle::after {
             content: '';
-            width: 60px;
-            height: 5px;
+            width: 48px;
+            height: 8px;
             background: #6b7280;
-            border-radius: 3px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.15);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 
         .debug-resize-handle:hover,
         .debug-resize-handle.active {
-            background: #9ca3af;
+            background: #b5beca;
         }
 
         .debug-resize-handle:hover::before,
         .debug-resize-handle.active::before {
+            color: #667eea;
+        }
+
+        .debug-resize-handle:hover::after,
+        .debug-resize-handle.active::after {
             background: #667eea;
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: 0 1px 6px rgba(102, 126, 234, 0.4);
         }
 
         /* Dark theme resize handle */
@@ -3047,6 +3066,9 @@
             border-bottom-color: #6b7280;
         }
         body.theme-dark .debug-resize-handle::before {
+            color: #d1d5db;
+        }
+        body.theme-dark .debug-resize-handle::after {
             background: #d1d5db;
         }
         body.theme-dark .debug-resize-handle:hover,
@@ -3055,6 +3077,10 @@
         }
         body.theme-dark .debug-resize-handle:hover::before,
         body.theme-dark .debug-resize-handle.active::before {
+            color: #93c5fd;
+        }
+        body.theme-dark .debug-resize-handle:hover::after,
+        body.theme-dark .debug-resize-handle.active::after {
             background: #93c5fd;
         }
 
@@ -3063,15 +3089,25 @@
             background: rgba(118, 75, 162, 0.35);
         }
         .debug-resize-handle::before {
-            background: rgba(118, 75, 162, 0.3);
+            color: rgba(200, 160, 240, 0.8);
+        }
+        .debug-resize-handle::after {
+            background: rgba(118, 75, 162, 0.6);
+            border-color: rgba(118, 75, 162, 0.3);
         }
         .debug-resize-handle:hover,
         .debug-resize-handle.active {
-            background: rgba(118, 75, 162, 0.15);
+            background: rgba(118, 75, 162, 0.2);
         }
         .debug-resize-handle:hover::before,
         .debug-resize-handle.active::before {
+            color: #c084fc;
+        }
+        .debug-resize-handle:hover::after,
+        .debug-resize-handle.active::after {
             background: #764ba2;
+            border-color: rgba(118, 75, 162, 0.5);
+            box-shadow: 0 1px 6px rgba(118, 75, 162, 0.5);
         }
 
         .log-line {
@@ -3099,32 +3135,35 @@
         .debug-filter-bar {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
+            gap: 4px;
+            padding: 3px 8px;
             background: #111827;
             border-bottom: 1px solid #374151;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             flex-shrink: 0;
+            overflow-x: auto;
+            min-height: 0;
         }
 
         .debug-filter-group {
             display: flex;
-            gap: 3px;
+            gap: 2px;
         }
 
         .debug-filter-separator {
             width: 1px;
-            height: 22px;
+            height: 16px;
             background: #374151;
-            margin: 0 4px;
+            margin: 0 2px;
+            flex-shrink: 0;
         }
 
         .debug-filter-btn {
-            padding: 3px 8px;
-            font-size: 11px;
+            padding: 2px 6px;
+            font-size: 10px;
             font-weight: 600;
             border: 1px solid #4b5563;
-            border-radius: 4px;
+            border-radius: 3px;
             background: #1f2937;
             color: #9ca3af;
             cursor: pointer;
@@ -3150,11 +3189,11 @@
         }
 
         .debug-filter-pill {
-            padding: 2px 7px;
+            padding: 1px 6px;
             font-size: 10px;
             font-weight: 600;
             border: 1px solid #4b5563;
-            border-radius: 12px;
+            border-radius: 10px;
             background: #1f2937;
             color: #9ca3af;
             cursor: pointer;
@@ -3175,20 +3214,20 @@
         .debug-filter-pill.active[data-type="system"] { background: #7f1d1d; border-color: #f87171; color: #f87171; }
 
         .debug-filter-select {
-            padding: 3px 6px;
-            font-size: 11px;
+            padding: 2px 4px;
+            font-size: 10px;
             border: 1px solid #4b5563;
-            border-radius: 4px;
+            border-radius: 3px;
             background: #1f2937;
             color: #e5e7eb;
             cursor: pointer;
-            max-width: 120px;
+            max-width: 100px;
         }
 
         .debug-filter-checkbox {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
             font-size: 10px;
             color: #9ca3af;
             cursor: pointer;
@@ -3196,8 +3235,8 @@
         }
 
         .debug-filter-checkbox input[type="checkbox"] {
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             cursor: pointer;
             accent-color: #667eea;
         }
@@ -3206,12 +3245,12 @@
         .debug-instrument-bar {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 10px;
+            gap: 6px;
+            padding: 2px 8px;
             background: #0d1117;
             border-bottom: 1px solid #374151;
             flex-shrink: 0;
-            min-height: 28px;
+            min-height: 0;
         }
 
         .debug-instrument-label {
@@ -5563,16 +5602,16 @@
             </div>
 
             <!-- Debug Resize Handle -->
-            <div class="debug-resize-handle" id="debugResizeHandle" title="Glisser pour redimensionner" role="separator" aria-orientation="horizontal" aria-label="Redimensionner la console de débogage"></div>
+            <div class="debug-resize-handle" id="debugResizeHandle" title="Drag to resize" role="separator" aria-orientation="horizontal" aria-label="Resize debug console"></div>
 
             <!-- Console -->
-            <section class="card hidden" id="debugConsole" aria-label="Console de débogage">
+            <section class="card hidden" id="debugConsole" aria-label="Debug console">
                 <!-- Debug Filter Toolbar -->
                 <div id="debugFilterBar" class="debug-filter-bar">
                     <!-- Source toggles -->
                     <div class="debug-filter-group">
-                        <button class="debug-filter-btn active" data-source="app" title="Messages applicatifs">App</button>
-                        <button class="debug-filter-btn active" data-source="midi" title="Messages MIDI">MIDI</button>
+                        <button class="debug-filter-btn active" data-source="app" title="App messages">App</button>
+                        <button class="debug-filter-btn active" data-source="midi" title="MIDI messages">MIDI</button>
                     </div>
                     <div class="debug-filter-separator"></div>
                     <!-- MIDI Type filters -->
@@ -5586,8 +5625,8 @@
                     </div>
                     <div class="debug-filter-separator"></div>
                     <!-- Channel filter -->
-                    <select id="debugChannelFilter" class="debug-filter-select" title="Filtre par canal MIDI">
-                        <option value="all">Tous canaux</option>
+                    <select id="debugChannelFilter" class="debug-filter-select" title="Filter by MIDI channel">
+                        <option value="all">All channels</option>
                         <option value="0">Ch 1</option><option value="1">Ch 2</option>
                         <option value="2">Ch 3</option><option value="3">Ch 4</option>
                         <option value="4">Ch 5</option><option value="5">Ch 6</option>
@@ -5599,18 +5638,18 @@
                     </select>
                     <div class="debug-filter-separator"></div>
                     <!-- Options -->
-                    <label class="debug-filter-checkbox" title="Masquer les messages Clock et Active Sensing (haute fréquence)">
+                    <label class="debug-filter-checkbox" title="Hide Clock and Active Sensing messages (high frequency)">
                         <input type="checkbox" id="debugHideClock" checked>
-                        <span>Masquer Clock</span>
+                        <span>Hide Clock</span>
                     </label>
-                    <button id="debugPause" class="debug-filter-btn" title="Pause / Reprendre le défilement">⏸️</button>
-                    <button id="debugClear" class="debug-filter-btn" title="Vider la console">🗑️</button>
+                    <button id="debugPause" class="debug-filter-btn" title="Pause / Resume scrolling">⏸️</button>
+                    <button id="debugClear" class="debug-filter-btn" title="Clear console">🗑️</button>
                 </div>
                 <!-- Instrument filter grid -->
                 <div id="debugInstrumentBar" class="debug-instrument-bar">
-                    <span class="debug-instrument-label">Instruments :</span>
+                    <span class="debug-instrument-label">Instruments:</span>
                     <div id="debugInstrumentGrid" class="debug-instrument-grid">
-                        <span class="debug-instrument-empty">Aucun instrument connecté</span>
+                        <span class="debug-instrument-empty">No instrument connected</span>
                     </div>
                 </div>
                 <div class="log-console" id="logConsole" role="log" aria-live="polite" aria-label="Debug log output"></div>
@@ -7090,7 +7129,7 @@
                     debugFilters.paused = !debugFilters.paused;
                     pauseBtn.classList.toggle('paused', debugFilters.paused);
                     pauseBtn.textContent = debugFilters.paused ? '▶️' : '⏸️';
-                    pauseBtn.title = debugFilters.paused ? 'Reprendre le défilement' : 'Pause';
+                    pauseBtn.title = debugFilters.paused ? 'Resume scrolling' : 'Pause';
                     if (!debugFilters.paused) {
                         const logEl = document.getElementById('logConsole');
                         logEl.scrollTop = logEl.scrollHeight;
@@ -7220,7 +7259,7 @@
                 const port = window.location.port || '8080';
                 const wsUrl = `${protocol}//${host}:${port}`;
 
-                log(`Connexion à ${wsUrl}...`);
+                log(`Connecting to ${wsUrl}...`);
                 api = new BackendAPIClient(wsUrl);
                 window.api = api; // Expose api globally for components
 
@@ -7228,7 +7267,7 @@
                 api.on('connected', () => {
                     connectedCount++;
                     console.log(`🔌 'connected' event triggered (count: ${connectedCount})`);
-                    log('✅ Connecté au serveur', 'info');
+                    log('✅ Connected to server', 'info');
                     loadFiles();
                     loadDevices();
                     initFileSearch(); // Initialiser la recherche de fichiers
@@ -7253,11 +7292,11 @@
                 });
 
                 api.on('disconnected', () => {
-                    log('❌ Déconnecté du serveur', 'error');
+                    log('❌ Disconnected from server', 'error');
                 });
 
                 api.on('error', (error) => {
-                    log(`Erreur: ${error.message}`, 'error');
+                    log(`Error: ${error.message}`, 'error');
                 });
 
                 // Événement de statut de lecture (contient la durée et l'état)
@@ -7309,7 +7348,7 @@
                     isPaused = false;
                     updatePlaybackControls();
                     updateFileStateDots();
-                    log('▶️ Lecture démarrée');
+                    log('▶️ Playback started');
                     // Émettre pour le piano roll
                     if (window.eventBus) {
                         window.eventBus.emit('playback:play', { fileId: currentFileId });
@@ -7326,7 +7365,7 @@
                     document.getElementById('headerTime').textContent = '00:00 / 00:00';
                     // Afficher le fichier sélectionné s'il y en a un, sinon "aucun fichier"
                     updateHeaderSelectedFile();
-                    log('⏹️ Lecture arrêtée');
+                    log('⏹️ Playback stopped');
                     // Émettre pour le piano roll (HIGH priority pour arrêt immédiat)
                     if (window.eventBus) {
                         const priority = window.EventPriority ? window.EventPriority.HIGH : undefined;
@@ -7338,7 +7377,7 @@
                     isPlaying = false;
                     isPaused = true;
                     updatePlaybackControls();
-                    log('⏸️ Lecture en pause');
+                    log('⏸️ Playback paused');
                     // Émettre pour le piano roll (HIGH priority pour arrêt immédiat)
                     if (window.eventBus) {
                         const priority = window.EventPriority ? window.EventPriority.HIGH : undefined;
@@ -7350,7 +7389,7 @@
                     isPlaying = true;
                     isPaused = false;
                     updatePlaybackControls();
-                    log('▶️ Lecture reprise');
+                    log('▶️ Playback resumed');
                     // Émettre pour le piano roll
                     if (window.eventBus) {
                         window.eventBus.emit('playback:play', { fileId: currentFileId });
@@ -7377,22 +7416,22 @@
                     isPlaying = false;
                     isPaused = false;
                     updatePlaybackControls();
-                    log('🎶 Playlist terminée');
+                    log('🎶 Playlist ended');
                 });
 
                 api.on('playback_channel_skipped', (data) => {
-                    log(`⚠️ Canal ${data.channelDisplay} ignoré: ${data.reason || 'no routing'}`, 'warning');
+                    log(`⚠️ Channel ${data.channelDisplay} skipped: ${data.reason || 'no routing'}`, 'warning');
                 });
 
                 api.on('playback_device_error', (data) => {
-                    log(`⚠️ Device inaccessible: ${data.deviceId} (canal ${(data.channel || 0) + 1})`, 'warning');
+                    log(`⚠️ Device unreachable: ${data.deviceId} (channel ${(data.channel || 0) + 1})`, 'warning');
                 });
 
                 api.on('playback_device_disconnected', (data) => {
                     if (data.policy === 'pause') {
-                        log(`⏸ Lecture en pause: device ${data.deviceId} déconnecté`, 'warning');
+                        log(`⏸ Playback paused: device ${data.deviceId} disconnected`, 'warning');
                     } else if (data.policy === 'mute') {
-                        log(`🔇 Canaux mutés (device ${data.deviceId} déconnecté): ${(data.mutedChannels || []).map(c => c + 1).join(', ')}`, 'warning');
+                        log(`🔇 Channels muted (device ${data.deviceId} disconnected): ${(data.mutedChannels || []).map(c => c + 1).join(', ')}`, 'warning');
                     }
                 });
 
@@ -7413,7 +7452,7 @@
                 // Événement de réception d'identité SysEx
                 api.on('device_identity', (data) => {
                     if (data && data.identity) {
-                        log(`🔍 Identité reçue de ${data.device}: ${data.identity.manufacturerName || 'Unknown'}`, 'info');
+                        log(`🔍 Identity received from ${data.device}: ${data.identity.manufacturerName || 'Unknown'}`, 'info');
 
                         // Mettre à jour l'affichage dans la modale si elle est ouverte
                         const identityInfo = document.getElementById('identityInfo');
@@ -7435,9 +7474,9 @@
                                 deviceId: data.device,
                                 identity: data.identity
                             }).then(() => {
-                                log('✓ Identité SysEx sauvegardée', 'info');
+                                log('✓ SysEx identity saved', 'info');
                             }).catch(error => {
-                                log(`Erreur sauvegarde identité: ${error.message}`, 'error');
+                                log(`Error saving identity: ${error.message}`, 'error');
                             });
                         }
                     }
@@ -7476,7 +7515,7 @@
                 await api.connect();
 
             } catch (error) {
-                log(`Erreur de connexion: ${error.message}`, 'error');
+                log(`Connection error: ${error.message}`, 'error');
             }
         }
 
@@ -7602,7 +7641,7 @@
                     }
                 });
 
-                log(`${files.length} fichier(s) chargé(s)`);
+                log(`${files.length} file(s) loaded`);
 
                 // Re-apply display mode after rebuilding file list
                 applyDisplayMode(currentDisplayMode);
@@ -7611,7 +7650,7 @@
                 updateFileCountBadge(files);
 
             } catch (error) {
-                log(`Erreur chargement fichiers: ${error.message}`, 'error');
+                log(`Error loading files: ${error.message}`, 'error');
             }
         }
 
@@ -7825,9 +7864,9 @@
             }
 
             if (failed > 0) {
-                log(`⚠️ ${deleted} supprimé(s), ${failed} erreur(s)`, 'error');
+                log(`⚠️ ${deleted} deleted, ${failed} error(s)`, 'error');
             } else {
-                log(`✓ ${deleted} fichier${deleted > 1 ? 's' : ''} supprimé${deleted > 1 ? 's' : ''}`, 'info');
+                log(`✓ ${deleted} file(s) deleted`, 'info');
             }
 
             selectedFileIds.clear();
@@ -7909,7 +7948,7 @@
                 }
                 folderStructure[folderName] = { parent: null, files: [], open: true };
                 saveFolderStructure();
-                log(`📁 ${i18n.t('fileOperations.folderCreated', { folder: folderName })}`);
+                log(`📁 Folder "${folderName}" created`);
                 moveMultipleFiles(fileIds, folderName);
                 selectedFileIds.clear();
                 updateBatchActionsBar();
@@ -8616,7 +8655,7 @@
             };
 
             saveFolderStructure();
-            log(`📁 ${i18n.t('fileOperations.folderCreated', { folder: folderName })}`);
+            log(`📁 Folder "${folderName}" created`);
             loadFiles();
             hideFolderModal();
         }
@@ -8729,7 +8768,7 @@
                 });
 
                 if (response.success) {
-                    log(`✓ Fichier renommé: ${newFilename}`, 'info');
+                    log(`✓ File renamed: ${newFilename}`, 'info');
 
                     // Invalider le cache de métadonnées pour ce fichier
                     metadataCache.delete(currentRenameFileId);
@@ -8741,7 +8780,7 @@
                     throw new Error(response.error || 'Erreur de renommage');
                 }
             } catch (error) {
-                log(`Erreur lors du renommage: ${error.message}`, 'error');
+                log(`Error renaming: ${error.message}`, 'error');
                 await showAlert(`Impossible de renommer le fichier: ${error.message}`, {
                     title: 'Erreur de renommage',
                     icon: '❌'
@@ -8830,7 +8869,7 @@
             // Supprimer le dossier de la structure
             delete folderStructure[folderPath];
             saveFolderStructure();
-            log(`🗑️ Dossier "${folderPath}" supprimé${folderFiles.length > 0 ? ` avec ${folderFiles.length} fichier(s)` : ''}`);
+            log(`🗑️ Folder "${folderPath}" deleted${folderFiles.length > 0 ? ` with ${folderFiles.length} file(s)` : ''}`);
             loadFiles();
         }
 
@@ -8871,7 +8910,7 @@
             // Vider la liste des fichiers du dossier
             folderStructure[folderPath].files = [];
             saveFolderStructure();
-            log(`🗑️ Dossier "${folderPath}" vidé (${folderFiles.length} fichier(s) supprimé(s))`);
+            log(`🗑️ Folder "${folderPath}" cleared (${folderFiles.length} file(s) deleted)`);
             loadFiles();
         }
 
@@ -8957,7 +8996,7 @@
                 delete folderStructure[folderPath];
                 saveFolderStructure();
 
-                log(`✏️ Dossier renommé : "${folderPath}" → "${newFolderName}"`);
+                log(`✏️ Folder renamed: "${folderPath}" → "${newFolderName}"`);
                 closeModal();
                 loadFiles();
             });
@@ -9135,8 +9174,8 @@
             }
 
             saveFolderStructure();
-            const dest = targetFolder || i18n.t('fileOperations.root', 'racine');
-            log(`📦 ${fileIds.length} fichiers déplacés vers ${dest}`, 'info');
+            const dest = targetFolder || 'root';
+            log(`📦 ${fileIds.length} file(s) moved to ${dest}`, 'info');
             loadFiles();
         }
 
@@ -9165,7 +9204,7 @@
                 console.log(`Fichier ${fileIdStr} déplacé vers la racine`);
                 saveFolderStructure();
                 if (!skipReload) {
-                    log(`📦 ${i18n.t('fileOperations.movedToRoot')}`);
+                    log('📦 File moved to root');
                     loadFiles();
                 }
                 return;
@@ -9193,7 +9232,7 @@
 
             saveFolderStructure();
             if (!skipReload) {
-                log(`📦 ${i18n.t('fileOperations.movedToFolder', { folder: targetFolder })}`);
+                log(`📦 File moved to folder "${targetFolder}"`);
                 loadFiles();
             }
         }
@@ -9274,7 +9313,7 @@
                     // Sauvegarder tous les périphériques pour le routage
                     availableDevices = devices;
                     updateDebugInstrumentGrid(connectedDevices);
-                    log(`${devices.length} périphérique(s) trouvé(s), ${connectedDevices.length} connecté(s)`);
+                    log(`${devices.length} device(s) found, ${connectedDevices.length} connected`);
                     return;
                 }
 
@@ -9349,7 +9388,7 @@
                     }
                 }
 
-                log(`${devices.length} périphérique(s) trouvé(s), ${connectedDevices.length} connecté(s)`);
+                log(`${devices.length} device(s) found, ${connectedDevices.length} connected`);
 
                 // Enrichir tous les périphériques avec leur nom personnalisé pour le routage
                 const enrichedDevices = await Promise.all(devices.map(async (device) => {
@@ -9387,7 +9426,7 @@
                 updateDebugInstrumentGrid(connectedDevices);
 
             } catch (error) {
-                log(`Erreur chargement périphériques: ${error.message}`, 'error');
+                log(`Error loading devices: ${error.message}`, 'error');
             } finally {
                 isLoadingDevices = false;
             }
@@ -9480,13 +9519,13 @@
                     element.classList.remove('uploading');
                     element.classList.add('success');
                     element.querySelector('.upload-file-status').textContent = '✓';
-                    log(`✅ ${file.name} envoyé`);
+                    log(`✅ ${file.name} uploaded`);
                 } catch (error) {
                     element.classList.remove('uploading');
                     element.classList.add('error');
                     element.querySelector('.upload-file-status').textContent = '✗';
                     element.querySelector('.upload-file-size').textContent = getUploadErrorMessage(error, file);
-                    log(`❌ Erreur envoi ${file.name}: ${getUploadErrorMessage(error, file)}`, 'error');
+                    log(`❌ Upload error ${file.name}: ${getUploadErrorMessage(error, file)}`, 'error');
                     hasErrors = true;
                 }
 
@@ -9507,9 +9546,9 @@
 
             // Message de fin
             if (hasErrors) {
-                log(`⚠️ Upload terminé avec des erreurs`, 'warning');
+                log(`⚠️ Upload completed with errors`, 'warning');
             } else {
-                log(`✅ ${files.length} fichier${files.length > 1 ? 's' : ''} uploadé${files.length > 1 ? 's' : ''}`, 'success');
+                log(`✅ ${files.length} file(s) uploaded`, 'success');
             }
         }
 
@@ -9543,16 +9582,16 @@
 
                 loadFiles();
             } catch (error) {
-                log(`Erreur suppression: ${error.message}`, 'error');
+                log(`Delete error: ${error.message}`, 'error');
             }
         }
 
         // 🆕 Éditer un fichier avec le piano roll
         async function editFile(fileId, filename) {
-            log(`📝 Édition de ${filename}...`, 'info');
+            log(`📝 Editing ${filename}...`, 'info');
 
             if (!midiEditorModal) {
-                log('Initialisation de l\'éditeur MIDI...', 'info');
+                log('Initializing MIDI editor...', 'info');
                 midiEditorModal = new MidiEditorModal(window.eventBus, api);
             }
 
@@ -9560,7 +9599,7 @@
                 // Passer le fileId (et pas le filename) au modal
                 await midiEditorModal.show(fileId, filename);
             } catch (error) {
-                log(`Erreur ouverture éditeur: ${error.message}`, 'error');
+                log(`Error opening editor: ${error.message}`, 'error');
                 await showAlert(`Impossible d'ouvrir l'éditeur pour "${filename}": ${error.message}`, {
                     title: 'Erreur d\'ouverture',
                     icon: '❌'
@@ -9686,13 +9725,13 @@
                                     for (const fid of fileId) {
                                         await api.sendCommand('playlist_add_file', { playlistId: pl.id, midiId: fid });
                                     }
-                                    log(`${fileId.length} fichier(s) ajouté(s) à "${pl.name}"`, 'info');
+                                    log(`${fileId.length} file(s) added to "${pl.name}"`, 'info');
                                 } else {
                                     await api.sendCommand('playlist_add_file', { playlistId: pl.id, midiId: fileId });
-                                    log(`"${filename}" ajouté à "${pl.name}"`, 'info');
+                                    log(`"${filename}" added to "${pl.name}"`, 'info');
                                 }
                             } catch (err) {
-                                log(`Erreur: ${err.message}`, 'error');
+                                log(`Error: ${err.message}`, 'error');
                             }
                         });
                         menu.appendChild(item);
@@ -9717,13 +9756,13 @@
                             for (const fid of fileId) {
                                 await api.sendCommand('playlist_add_file', { playlistId: res.playlistId, midiId: fid });
                             }
-                            log(`${fileId.length} fichier(s) ajouté(s) à "${name.trim()}"`, 'info');
+                            log(`${fileId.length} file(s) added to "${name.trim()}"`, 'info');
                         } else {
                             await api.sendCommand('playlist_add_file', { playlistId: res.playlistId, midiId: fileId });
-                            log(`"${filename}" ajouté à "${name.trim()}"`, 'info');
+                            log(`"${filename}" added to "${name.trim()}"`, 'info');
                         }
                     } catch (err) {
-                        log(`Erreur: ${err.message}`, 'error');
+                        log(`Error: ${err.message}`, 'error');
                     }
                 });
                 menu.appendChild(newItem);
@@ -9751,7 +9790,7 @@
         // 🆕 Configurer le routage d'un fichier
         async function configureRouting(fileId, filename) {
             try {
-                log(`🔀 Configuration du routage pour ${filename}...`);
+                log(`🔀 Configuring routing for ${filename}...`);
 
                 // Sauvegarder l'état actuel avant de charger le fichier pour la configuration
                 const savedFileId = currentFileId;
@@ -9761,7 +9800,7 @@
 
                 // S'assurer que les devices sont chargés
                 if (!availableDevices || availableDevices.length === 0) {
-                    log('Chargement des périphériques...', 'info');
+                    log('Loading devices...', 'info');
                     await loadDevices();
                 }
 
@@ -9809,7 +9848,7 @@
                 // Charger le fichier et récupérer ses canaux (sans lancer la lecture)
                 // IMPORTANT: Toujours extraire les canaux directement du fichier MIDI
                 // pour éviter d'envoyer CC 123 (All Notes Off) via playback_stop
-                log('Extraction des canaux du fichier MIDI...', 'info');
+                log('Extracting MIDI file channels...', 'info');
 
                 let channels = [];
 
@@ -9822,7 +9861,7 @@
 
                         if (usedChannels.length > 0) {
                             channels = usedChannels;
-                            log(`${usedChannels.length} canal(aux) trouvé(s) dans le fichier`, 'info');
+                            log(`${usedChannels.length} channel(s) found in file`, 'info');
                         } else {
                             // Fallback si aucun canal trouvé
                             channels = Array.from({ length: 16 }, (_, i) => ({
@@ -9830,13 +9869,13 @@
                                 channelDisplay: i === 9 ? `${i + 1} (Drums)` : `${i + 1}`,
                                 tracks: [{ name: `Canal ${i + 1}` }]
                             }));
-                            log('Aucun canal trouvé dans le fichier, utilisation des 16 canaux par défaut', 'warning');
+                            log('No channel found in file, using 16 default channels', 'warning');
                         }
                     } else {
                         throw new Error('Données MIDI non disponibles');
                     }
                 } catch (fileError) {
-                    log(`Impossible de lire le fichier, utilisation des 16 canaux par défaut: ${fileError.message}`, 'warning');
+                    log(`Cannot read file, using 16 default channels: ${fileError.message}`, 'warning');
                     // Créer des canaux par défaut (0-15)
                     channels = Array.from({ length: 16 }, (_, i) => ({
                         channel: i,
@@ -9853,13 +9892,13 @@
                     return;
                 }
 
-                log(`Canaux trouvés: ${channels.length}`, 'info');
+                log(`Channels found: ${channels.length}`, 'info');
 
                 // Créer une modale simple pour le routage
                 showRoutingModal(fileId, filename, channels);
 
             } catch (error) {
-                log(`Erreur configuration routage: ${error.message}`, 'error');
+                log(`Routing config error: ${error.message}`, 'error');
                 await showAlert(`Erreur lors du chargement du fichier: ${error.message}`, {
                     title: 'Erreur de chargement',
                     icon: '❌'
@@ -9978,7 +10017,7 @@
                     window.eventBus.emit('playback:play', { fileId: fileId });
                 }
             } catch (error) {
-                log(`Erreur lecture: ${error.message}`, 'error');
+                log(`Playback error: ${error.message}`, 'error');
                 currentFileId = null;
                 document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
                 updatePlaybackControls();
@@ -10000,12 +10039,12 @@
                         }
                     }
                 }
-                log('Sélectionnez un fichier via la liste des fichiers', 'warning');
+                log('Select a file from the file list', 'warning');
                 return;
             }
 
             if (!currentFileId) {
-                log('Sélectionnez un fichier via la liste des fichiers', 'warning');
+                log('Select a file from the file list', 'warning');
                 return;
             }
 
@@ -10039,7 +10078,7 @@
                     }
                 }
             } catch (error) {
-                log(`Erreur lecture/pause: ${error.message}`, 'error');
+                log(`Playback/pause error: ${error.message}`, 'error');
             }
         }
 
@@ -10067,7 +10106,7 @@
                 updatePlaybackControls();
                 // Ne pas réinitialiser currentFileId pour permettre de relancer
             } catch (error) {
-                log(`Erreur stop: ${error.message}`, 'error');
+                log(`Stop error: ${error.message}`, 'error');
             }
         }
 
@@ -10946,7 +10985,7 @@
         }
 
         async function showInstrumentSettings(device) {
-            log(`⚙️ Ouverture des réglages pour ${device.name}...`);
+            log(`⚙️ Opening settings for ${device.name}...`);
 
             try {
                 const instrumentChannel = device.channel !== undefined ? device.channel : 0;
@@ -11038,7 +11077,7 @@
                 }
 
             } catch (error) {
-                log(`Erreur chargement réglages: ${error.message}`, 'error');
+                log(`Error loading settings: ${error.message}`, 'error');
                 await showAlert(`Impossible de charger les réglages: ${error.message}`, {
                     title: 'Erreur de chargement',
                     icon: '❌'
@@ -11682,14 +11721,14 @@
         // Envoyer une requête SysEx Identity Request
         async function requestIdentity(deviceId) {
             try {
-                log(`📡 Envoi de Identity Request à ${deviceId}...`);
+                log(`📡 Sending Identity Request to ${deviceId}...`);
 
                 const response = await api.sendCommand('device_identity_request', {
                     deviceName: deviceId,
                     deviceId: 0x7F // Broadcast to all devices
                 });
 
-                log('✓ Identity Request envoyée', 'info');
+                log('✓ Identity Request sent', 'info');
 
                 // La réponse sera reçue via WebSocket event 'device_identity'
                 // On affiche un message pour indiquer que la requête a été envoyée
@@ -11708,12 +11747,12 @@
                                 <small>Vérifiez que l'appareil supporte les messages SysEx Identity Request.</small>
                             </p>
                         `;
-                        log(`⚠️ Timeout: ${deviceId} n'a pas répondu à la requête Identity`, 'warning');
+                        log(`⚠️ Timeout: ${deviceId} did not respond to Identity Request`, 'warning');
                     }
                 }, 5000);
 
             } catch (error) {
-                log(`Erreur Identity Request: ${error.message}`, 'error');
+                log(`Identity Request error: ${error.message}`, 'error');
                 await showAlert(`Erreur lors de l'envoi de la requête: ${error.message}`, {
                     title: 'Erreur d\'envoi',
                     icon: '❌'
@@ -11796,7 +11835,7 @@
                     }
                 }
 
-                log(`💾 Sauvegarde des réglages pour ${currentDeviceSettings.device.name}...`);
+                log(`💾 Saving settings for ${currentDeviceSettings.device.name}...`);
 
                 // Détecter si un drum kit a été sélectionné
                 const isDrumKitSelected = gmDecoded.isDrumKit;
@@ -11897,7 +11936,7 @@
                     } else {
                         await api.sendCommand('string_instrument_create', siData);
                     }
-                    log('✓ Configuration instrument à cordes et capacités sauvegardées', 'info');
+                    log('✓ String instrument config and capabilities saved', 'info');
                 } else {
                     // === Instrument standard: use piano capabilities ===
                     await api.sendCommand('instrument_update_capabilities', {
@@ -11913,7 +11952,7 @@
                     });
                 }
 
-                log('✓ Réglages et capacités sauvegardés', 'info');
+                log('✓ Settings and capabilities saved', 'info');
                 closeInstrumentSettings();
 
                 // Rafraîchir la liste des périphériques pour afficher le nouveau nom
@@ -11925,7 +11964,7 @@
                 }
 
             } catch (error) {
-                log(`Erreur sauvegarde réglages: ${error.message}`, 'error');
+                log(`Error saving settings: ${error.message}`, 'error');
                 await showAlert(`Erreur lors de la sauvegarde: ${error.message}`, {
                     title: 'Erreur de sauvegarde',
                     icon: '❌'
@@ -12223,7 +12262,7 @@
             );
 
             if (droppedFiles.length === 0) {
-                log(i18n.t('ui.noMidiFilesDropped') || 'Aucun fichier MIDI détecté dans les fichiers déposés.', 'warning');
+                log('No MIDI file detected in dropped files.', 'warning');
                 return;
             }
 
@@ -12303,7 +12342,7 @@
 
             if (droppedFiles.length === 0) {
                 if (e.dataTransfer.files.length > 0) {
-                    log(i18n.t('ui.noMidiFilesDropped') || 'Aucun fichier MIDI détecté dans les fichiers déposés.', 'warning');
+                    log('No MIDI file detected in dropped files.', 'warning');
                 }
                 return;
             }
@@ -12356,12 +12395,12 @@
         // Playlist prev/next controls in header
         document.getElementById('headerPrevBtn').addEventListener('click', () => {
             if (activePlaylistId) {
-                api.sendCommand('playlist_previous').catch(err => log(`Erreur: ${err.message}`, 'error'));
+                api.sendCommand('playlist_previous').catch(err => log(`Error: ${err.message}`, 'error'));
             }
         });
         document.getElementById('headerNextBtn').addEventListener('click', () => {
             if (activePlaylistId) {
-                api.sendCommand('playlist_next').catch(err => log(`Erreur: ${err.message}`, 'error'));
+                api.sendCommand('playlist_next').catch(err => log(`Error: ${err.message}`, 'error'));
             }
         });
 
@@ -12440,7 +12479,7 @@
         document.getElementById('settingsToggle').addEventListener('click', () => {
             // Initialiser le modal si nécessaire
             if (!settingsModal) {
-                log('Initialisation du modal de réglages...', 'info');
+                log('Initializing settings modal...', 'info');
 
                 // Utiliser le EventBus global
                 settingsModal = new SettingsModal(window.eventBus, {
@@ -12490,13 +12529,13 @@
                 try {
                     const result = await api.sendCommand('virtual_instrument_toggle', { enabled: data.enabled });
                     if (result.disabledCount > 0) {
-                        log(`🔄 ${result.disabledCount} routage(s) virtuel(s) désactivé(s)`, 'info');
+                        log(`🔄 ${result.disabledCount} virtual routing(s) disabled`, 'info');
                     }
                     if (result.enabledCount > 0) {
-                        log(`🔄 ${result.enabledCount} routage(s) virtuel(s) réactivé(s)`, 'info');
+                        log(`🔄 ${result.enabledCount} virtual routing(s) re-enabled`, 'info');
                     }
                 } catch (error) {
-                    log(`Erreur lors de la mise à jour des routages virtuels: ${error.message}`, 'error');
+                    log(`Error updating virtual routings: ${error.message}`, 'error');
                 }
             });
 
@@ -13089,10 +13128,10 @@
             // Check on filter panel open
             checkReanalysisNeeded();
 
-            log('✓ Filtres avancés initialisés', 'info');
+            log('✓ Advanced filters initialized', 'info');
           } catch (error) {
             console.error('[Filters] Init failed:', error);
-            log('❌ Erreur initialisation filtres: ' + error.message, 'error');
+            log('❌ Filter init error: ' + error.message, 'error');
           }
         }
 
@@ -13305,14 +13344,14 @@
                     // Other filters still active — re-query the server
                     const filteredFiles = await filterManager.applyFilters(null);
                     await displayFilteredFiles(filteredFiles);
-                    log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
+                    log(`✓ ${filteredFiles.length} file(s) found`, 'info');
                     updateFileCountBadge(filteredFiles);
                     updateSearchStats(filteredFiles.length, false);
                     console.log('[removeFilter] filtered refresh completed, files:', filteredFiles.length);
                 }
             } catch (error) {
                 console.error('[removeFilter] refresh error:', error);
-                log(`❌ Erreur suppression filtre: ${error.message}`, 'error');
+                log(`❌ Filter removal error: ${error.message}`, 'error');
             }
         }
 
@@ -13351,10 +13390,10 @@
                 // Refresh display with filtered files
                 await displayFilteredFiles(filteredFiles);
 
-                log(`✓ ${filteredFiles.length} fichier(s) trouvé(s)`, 'info');
+                log(`✓ ${filteredFiles.length} file(s) found`, 'info');
                 updateFileCountBadge(filteredFiles);
             } catch (error) {
-                log(`❌ Erreur application filtres: ${error.message}`, 'error');
+                log(`❌ Filter apply error: ${error.message}`, 'error');
                 const fileList = document.getElementById('fileList');
                 if (fileList) {
                     fileList.innerHTML = `<li class="info-text">❌ Erreur: ${error.message}</li>`;
@@ -13407,7 +13446,7 @@
 
         // Initialisation
         window.addEventListener('load', async () => {
-            log('🚀 Démarrage de GeneralMidiBoop 5.0');
+            log('🚀 Starting GeneralMidiBoop 5.0');
 
             // 🎬 Déterminer si on affiche la mascotte du loading screen
             const CACHE_SENTINEL = 'gmboop_loaded';
@@ -13432,9 +13471,9 @@
             // 🌐 Initialiser le système d'internationalisation (i18n)
             try {
                 await i18n.init();
-                log(`✓ Langue chargée: ${i18n.getLocale()}`, 'info');
+                log(`✓ Language loaded: ${i18n.getLocale()}`, 'info');
             } catch (error) {
-                log(`⚠️ Erreur chargement langue: ${error.message}`, 'error');
+                log(`⚠️ Error loading language: ${error.message}`, 'error');
             }
 
             // 🆕 Initialiser le modal de réglages au chargement pour appliquer les préférences
@@ -13443,7 +13482,7 @@
                     info: (msg, data) => log(msg, 'info', data),
                     error: (msg, data) => log(msg, 'error', data)
                 });
-                log('✓ Modal réglages initialisé', 'info');
+                log('✓ Settings modal initialized', 'info');
             }
 
             // 🆕 Charger la configuration de routage
@@ -13559,7 +13598,7 @@
                         }
                     }
 
-                    log('✓ Filtres UI initialisés', 'info');
+                    log('✓ UI filters initialized', 'info');
                 }
             }
 
@@ -13574,7 +13613,7 @@
                     if (window.location.search.includes('_updated')) {
                         window.history.replaceState({}, '', window.location.pathname);
                     }
-                    log('✅ Mise à jour terminée avec succès !', 'info');
+                    log('✅ Update completed successfully!', 'info');
                     // Show a visible toast notification
                     const toast = document.createElement('div');
                     toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;background:#16a34a;color:white;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeInDown 0.3s ease;';
@@ -13588,12 +13627,12 @@
             if (typeof BluetoothScanModal !== 'undefined') {
                 bluetoothScanModal = new BluetoothScanModal(api);
                 window.showBluetoothScan = () => bluetoothScanModal.open();
-                log('✓ Modal Bluetooth initialisée', 'info');
+                log('✓ Bluetooth modal initialized', 'info');
 
                 // Handlers pour les requêtes de la modal vers le backend
                 api.on('bluetooth:scan_requested', async () => {
                     try {
-                        log('🔍 Lancement du scan Bluetooth...', 'info');
+                        log('🔍 Starting Bluetooth scan...', 'info');
                         const response = await api.sendCommand('ble_scan_start', { duration: 5, filter: '' });
 
                         // Le backend retourne { success: true, data: { devices: [...] } }
@@ -13601,9 +13640,9 @@
 
                         // Émettre les résultats pour la modal
                         api.emit('bluetooth:scanned', { devices: devices });
-                        log(`✓ Scan Bluetooth terminé: ${devices.length} périphériques trouvés`, 'info');
+                        log(`✓ Bluetooth scan completed: ${devices.length} device(s) found`, 'info');
                     } catch (error) {
-                        log(`❌ Erreur scan Bluetooth: ${error.message}`, 'error');
+                        log(`❌ Bluetooth scan error: ${error.message}`, 'error');
                         api.emit('bluetooth:scan_error', { error: error.message });
                     }
                 });
@@ -13618,7 +13657,7 @@
                         // Émettre la liste pour la modal
                         api.emit('bluetooth:paired_list', { devices: devices });
                     } catch (error) {
-                        log(`❌ Erreur récupération appareils appairés: ${error.message}`, 'error');
+                        log(`❌ Error fetching paired devices: ${error.message}`, 'error');
                         api.emit('bluetooth:paired_list', { devices: [] });
                     }
                 });
@@ -13628,12 +13667,12 @@
                         const address = data.address || data.device_id;
                         const name = data.name || 'Appareil Bluetooth';
 
-                        log(`🔗 Connexion à ${name}...`, 'info');
+                        log(`🔗 Connecting to ${name}...`, 'info');
                         const response = await api.sendCommand('ble_connect', { address: address });
 
                         if (response.success) {
                             api.emit('bluetooth:paired', { device_id: address, address: address });
-                            log(`✓ ${name} connecté avec succès`, 'info');
+                            log(`✓ ${name} connected successfully`, 'info');
 
                             // Rafraîchir immédiatement la liste (connexion rapide maintenant)
                             loadDevices();
@@ -13641,7 +13680,7 @@
                             throw new Error(response.error || 'Erreur de connexion');
                         }
                     } catch (error) {
-                        log(`❌ Erreur connexion: ${error.message}`, 'error');
+                        log(`❌ Connection error: ${error.message}`, 'error');
                     }
                 });
 
@@ -13649,18 +13688,18 @@
                     try {
                         const address = data.address || data.device_id;
 
-                        log(`🔓 Oubli de ${address}...`, 'info');
+                        log(`🔓 Forgetting ${address}...`, 'info');
                         const response = await api.sendCommand('ble_forget', { address: address });
 
                         if (response.success) {
                             api.emit('bluetooth:unpaired', { device_id: address });
-                            log(`✓ Appareil oublié`, 'info');
+                            log(`✓ Device forgotten`, 'info');
                             loadDevices(); // Rafraîchir la liste des périphériques
                         } else {
                             throw new Error(response.error || 'Erreur');
                         }
                     } catch (error) {
-                        log(`❌ Erreur: ${error.message}`, 'error');
+                        log(`❌ Error: ${error.message}`, 'error');
                     }
                 });
 
@@ -13668,12 +13707,12 @@
                     try {
                         const address = data.address || data.device_id;
 
-                        log(`🔌 Connexion à ${address}...`, 'info');
+                        log(`🔌 Connecting to ${address}...`, 'info');
                         const response = await api.sendCommand('ble_connect', { address: address });
 
                         if (response.success) {
                             api.emit('bluetooth:connected', { device_id: address });
-                            log(`✓ Connecté à ${address}`, 'info');
+                            log(`✓ Connected to ${address}`, 'info');
 
                             // Rafraîchir immédiatement la liste (connexion rapide maintenant)
                             loadDevices();
@@ -13681,7 +13720,7 @@
                             throw new Error(response.error || 'Erreur de connexion');
                         }
                     } catch (error) {
-                        log(`❌ Erreur connexion: ${error.message}`, 'error');
+                        log(`❌ Connection error: ${error.message}`, 'error');
                     }
                 });
 
@@ -13689,12 +13728,12 @@
                     try {
                         const address = data.address || data.device_id;
 
-                        log(`🔌 Déconnexion de ${address}...`, 'info');
+                        log(`🔌 Disconnecting from ${address}...`, 'info');
                         const response = await api.sendCommand('ble_disconnect', { address: address });
 
                         if (response.success) {
                             api.emit('bluetooth:disconnected', { device_id: address });
-                            log(`✓ Déconnecté de ${address}`, 'info');
+                            log(`✓ Disconnected from ${address}`, 'info');
 
                             // Rafraîchir immédiatement la liste
                             loadDevices();
@@ -13702,7 +13741,7 @@
                             throw new Error(response.error || 'Erreur de déconnexion');
                         }
                     } catch (error) {
-                        log(`❌ Erreur déconnexion: ${error.message}`, 'error');
+                        log(`❌ Disconnection error: ${error.message}`, 'error');
                     }
                 });
 
@@ -13712,72 +13751,72 @@
                         const response = await api.sendCommand('ble_status', {});
                         api.emit('bluetooth:status', response);
                     } catch (error) {
-                        log(`❌ Erreur récupération état Bluetooth: ${error.message}`, 'error');
+                        log(`❌ Error fetching Bluetooth status: ${error.message}`, 'error');
                     }
                 });
 
                 // Activation Bluetooth
                 api.on('bluetooth:power_on_requested', async () => {
                     try {
-                        log('🔌 Activation du Bluetooth...', 'info');
+                        log('🔌 Enabling Bluetooth...', 'info');
                         const response = await api.sendCommand('ble_power_on', {});
 
                         if (response.success) {
                             api.emit('bluetooth:powered_on', response.data);
-                            log('✓ Bluetooth activé avec succès', 'info');
+                            log('✓ Bluetooth enabled successfully', 'info');
                         } else {
                             throw new Error(response.error || 'Erreur d\'activation');
                         }
                     } catch (error) {
-                        log(`❌ Erreur activation Bluetooth: ${error.message}`, 'error');
-                        log('💡 Essayez: sudo hciconfig hci0 up', 'info');
+                        log(`❌ Error enabling Bluetooth: ${error.message}`, 'error');
+                        log('💡 Try: sudo hciconfig hci0 up', 'info');
                     }
                 });
 
                 // Désactivation Bluetooth
                 api.on('bluetooth:power_off_requested', async () => {
                     try {
-                        log('🔌 Désactivation du Bluetooth...', 'info');
+                        log('🔌 Disabling Bluetooth...', 'info');
                         const response = await api.sendCommand('ble_power_off', {});
 
                         if (response.success) {
                             api.emit('bluetooth:powered_off', response.data);
-                            log('✓ Bluetooth désactivé', 'info');
+                            log('✓ Bluetooth disabled', 'info');
                         } else {
                             throw new Error(response.error || 'Erreur de désactivation');
                         }
                     } catch (error) {
-                        log(`❌ Erreur désactivation Bluetooth: ${error.message}`, 'error');
+                        log(`❌ Error disabling Bluetooth: ${error.message}`, 'error');
                     }
                 });
 
                 // Gérer les événements de réponse Bluetooth
                 api.on('bluetooth:scanned', (data) => {
-                    log(`✓ Scan Bluetooth terminé: ${(data.devices || []).length} périphériques trouvés`, 'info');
+                    log(`✓ Bluetooth scan completed: ${(data.devices || []).length} device(s) found`, 'info');
                 });
 
                 api.on('bluetooth:paired', (data) => {
-                    log(`✓ Appareil Bluetooth appairé: ${data.device_id}`, 'info');
+                    log(`✓ Bluetooth device paired: ${data.device_id}`, 'info');
                 });
 
                 api.on('bluetooth:connected', (data) => {
-                    log(`✓ Appareil Bluetooth connecté: ${data.device_id}`, 'info');
+                    log(`✓ Bluetooth device connected: ${data.device_id}`, 'info');
                 });
             } else {
-                log('⚠️ BluetoothScanModal non disponible', 'warning');
+                log('⚠️ BluetoothScanModal not available', 'warning');
             }
 
             // 🆕 Initialiser la modal réseau après connexion WebSocket
             if (typeof NetworkScanModal !== 'undefined') {
                 networkScanModal = new NetworkScanModal(api);
                 window.showNetworkScan = () => networkScanModal.open();
-                log('✓ Modal réseau initialisée', 'info');
+                log('✓ Network modal initialized', 'info');
 
                 // Handlers pour les requêtes de la modal vers le backend
                 api.on('network:scan_requested', async (params) => {
                     try {
                         const fullScan = params?.fullScan || false;
-                        log(`🔍 Lancement du scan réseau... (fullScan: ${fullScan})`, 'info');
+                        log(`🔍 Starting network scan... (fullScan: ${fullScan})`, 'info');
                         const scanTimeout = fullScan ? 30000 : 15000;
                         const response = await api.sendCommand('network_scan', { timeout: 5, fullScan }, scanTimeout);
 
@@ -13786,9 +13825,9 @@
 
                         // Émettre les résultats pour la modal
                         api.emit('network:scanned', { devices: devices });
-                        log(`✓ Scan réseau terminé: ${devices.length} périphériques trouvés`, 'info');
+                        log(`✓ Network scan completed: ${devices.length} device(s) found`, 'info');
                     } catch (error) {
-                        log(`❌ Erreur scan réseau: ${error.message}`, 'error');
+                        log(`❌ Network scan error: ${error.message}`, 'error');
                         api.emit('network:scan_error', { error: error.message });
                     }
                 });
@@ -13803,7 +13842,7 @@
                         // Émettre la liste pour la modal
                         api.emit('network:connected_list', { devices: devices });
                     } catch (error) {
-                        log(`❌ Erreur récupération appareils connectés: ${error.message}`, 'error');
+                        log(`❌ Error fetching connected devices: ${error.message}`, 'error');
                         api.emit('network:connected_list', { devices: [] });
                     }
                 });
@@ -13814,7 +13853,7 @@
                         const port = data.port || '';
                         const name = data.name || 'Instrument réseau';
 
-                        log(`🔌 Connexion à ${name} (${ip}${port ? ':' + port : ''})...`, 'info');
+                        log(`🔌 Connecting to ${name} (${ip}${port ? ':' + port : ''})...`, 'info');
                         const response = await api.sendCommand('network_connect', {
                             ip: ip,
                             port: port,
@@ -13823,13 +13862,13 @@
 
                         if (response.success) {
                             api.emit('network:connected', { ip: ip, port: port, address: ip, name: name });
-                            log(`✓ ${name} connecté avec succès`, 'info');
+                            log(`✓ ${name} connected successfully`, 'info');
                             loadDevices(); // Rafraîchir la liste des périphériques
                         } else {
                             throw new Error(response.error || 'Erreur de connexion');
                         }
                     } catch (error) {
-                        log(`❌ Erreur connexion: ${error.message}`, 'error');
+                        log(`❌ Connection error: ${error.message}`, 'error');
                     }
                 });
 
@@ -13837,35 +13876,35 @@
                     try {
                         const ip = data.ip || data.address;
 
-                        log(`🔓 Déconnexion de ${ip}...`, 'info');
+                        log(`🔓 Disconnecting from ${ip}...`, 'info');
                         const response = await api.sendCommand('network_disconnect', { ip: ip, address: ip });
 
                         if (response.success) {
                             api.emit('network:disconnected', { ip: ip, address: ip });
-                            log(`✓ Appareil déconnecté`, 'info');
+                            log(`✓ Device disconnected`, 'info');
                             loadDevices(); // Rafraîchir la liste des périphériques
                         } else {
                             throw new Error(response.error || 'Erreur de déconnexion');
                         }
                     } catch (error) {
-                        log(`❌ Erreur déconnexion: ${error.message}`, 'error');
+                        log(`❌ Disconnection error: ${error.message}`, 'error');
                     }
                 });
 
                 // Gérer les événements de réponse réseau
                 api.on('network:scanned', (data) => {
-                    log(`✓ Scan réseau terminé: ${(data.devices || []).length} périphériques trouvés`, 'info');
+                    log(`✓ Network scan completed: ${(data.devices || []).length} device(s) found`, 'info');
                 });
 
                 api.on('network:connected', (data) => {
-                    log(`✓ Instrument réseau connecté: ${data.ip || data.address}`, 'info');
+                    log(`✓ Network instrument connected: ${data.ip || data.address}`, 'info');
                 });
 
                 api.on('network:disconnected', (data) => {
-                    log(`✓ Instrument réseau déconnecté: ${data.ip || data.address}`, 'info');
+                    log(`✓ Network instrument disconnected: ${data.ip || data.address}`, 'info');
                 });
             } else {
-                log('⚠️ NetworkScanModal non disponible', 'warning');
+                log('⚠️ NetworkScanModal not available', 'warning');
             }
 
             // 🆕 Initialiser la modal clavier MIDI après connexion WebSocket
@@ -13885,33 +13924,33 @@
                 };
 
                 keyboardModal = new KeyboardModalNew(keyboardLogger, api);
-                log('✓ Modal clavier MIDI initialisée (version simplifiée)', 'info');
+                log('✓ MIDI keyboard modal initialized', 'info');
             } else {
-                log('⚠️ KeyboardModalNew non disponible', 'warning');
+                log('⚠️ KeyboardModalNew not available', 'warning');
             }
 
             // 🆕 Initialiser la page de gestion des instruments
             if (typeof InstrumentManagementPage !== 'undefined') {
                 instrumentManagementPage = new InstrumentManagementPage(api);
-                log('✓ Page de gestion des instruments initialisée', 'info');
+                log('✓ Instrument management page initialized', 'info');
             } else {
-                log('⚠️ InstrumentManagementPage non disponible', 'warning');
+                log('⚠️ InstrumentManagementPage not available', 'warning');
             }
 
             // 💡 Initialiser la page de contrôle lumière
             if (typeof LightingControlPage !== 'undefined') {
                 lightingControlPage = new LightingControlPage(api);
-                log('✓ Page de contrôle lumière initialisée', 'info');
+                log('✓ Lighting control page initialized', 'info');
             } else {
-                log('⚠️ LightingControlPage non disponible', 'warning');
+                log('⚠️ LightingControlPage not available', 'warning');
             }
 
             // 🎶 Initialiser la page playlists
             if (typeof PlaylistPage !== 'undefined') {
                 playlistPage = new PlaylistPage(api);
-                log('✓ Page de gestion des playlists initialisée', 'info');
+                log('✓ Playlist management page initialized', 'info');
             } else {
-                log('⚠️ PlaylistPage non disponible', 'warning');
+                log('⚠️ PlaylistPage not available', 'warning');
             }
 
             // Charger et appliquer les paramètres sauvegardés
@@ -13956,11 +13995,11 @@
                                 root.style.setProperty('--info-color', '#118ab2');
                             }
 
-                            log(`✓ Thème "${settings.theme}" appliqué`, 'info');
+                            log(`✓ Theme "${settings.theme}" applied`, 'info');
                         }
                     }
                 } catch (error) {
-                    log(`⚠️ Erreur lors du chargement des paramètres: ${error.message}`, 'warning');
+                    log(`⚠️ Error loading settings: ${error.message}`, 'warning');
                 }
             };
 
@@ -13994,14 +14033,14 @@
                             }
                         }
                     });
-                    log('✓ Piano Roll View initialisé', 'info');
+                    log('✓ Piano Roll View initialized', 'info');
                 } catch (error) {
                     console.error('❌ Erreur création PianoRollView:', error);
-                    log(`❌ Erreur PianoRollView: ${error.message}`, 'error');
+                    log(`❌ PianoRollView error: ${error.message}`, 'error');
                 }
             } else {
                 console.warn('⚠️ PianoRollView non disponible - PianoRollView:', typeof PianoRollView, ', eventBus:', !!window.eventBus);
-                log('⚠️ PianoRollView non disponible', 'warning');
+                log('⚠️ PianoRollView not available', 'warning');
             }
 
         });
