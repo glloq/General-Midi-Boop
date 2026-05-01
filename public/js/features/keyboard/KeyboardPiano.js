@@ -29,15 +29,22 @@
         this.container.innerHTML = `
             <div class="modal-dialog">
                 <div class="modal-header">
+                    <!-- Instrument selector panel: full height, flush left -->
+                    <div class="header-instrument-selector" id="header-instrument-selector">
+                        <button class="instrument-trigger" id="instrument-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                            <div class="instrument-trigger-icon" id="instrument-trigger-icon">
+                                <img class="instrument-trigger-svg" id="instrument-trigger-svg" src="" alt="" style="display:none" />
+                                <span class="instrument-trigger-emoji" id="instrument-trigger-emoji">🎵</span>
+                            </div>
+                            <span class="instrument-trigger-name" id="instrument-trigger-name">— ${this.t('common.select')} —</span>
+                            <svg class="trigger-chevron" viewBox="0 0 10 6" width="10" height="6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="instrument-dropdown" id="instrument-dropdown" role="listbox">
+                        </div>
+                    </div>
+
                     <div class="keyboard-header-row">
                         <div class="keyboard-header-controls">
-                            <div class="control-group">
-                                <label>${this.t('keyboard.instrument')}</label>
-                                <select class="device-select" id="keyboard-device-select">
-                                    <option value="">${this.t('common.select')}</option>
-                                </select>
-                            </div>
-
                             <div class="control-group latency-group" id="keyboard-latency-group">
                                 <label>${this.t('keyboard.latency') || 'Latency'}</label>
                                 <span class="latency-display latency-empty" id="keyboard-latency-display">—</span>
