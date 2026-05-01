@@ -704,7 +704,7 @@
                 // schema's authoritative field (see
                 // InstrumentCapabilitiesValidator: chromatic keyboards
                 // use `span = num_fingers - 1`, piano keyboards keep
-                // span and num_fingers independent). Range 1..10 per
+                // span and num_fingers independent). Range 1..16 per
                 // hand. Falls back to `span + 1` when the config
                 // didn't set the field (= one finger per chromatic
                 // position, the chromatic-instrument convention) so

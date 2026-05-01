@@ -286,15 +286,19 @@ class InstrumentCapabilitiesValidator {
       if (h.max_fingers != null) {
         issues.push({ field: `hands_config.hands[${i}].max_fingers`, label: 'Max fingers', type: 'number', required: true, reason: 'max_fingers is only valid in frets mode.' });
       }
-      // num_fingers — optional, capped at 10 (one per human finger). The
-      // value bounds the polyphony of this hand (used for feasibility
-      // warnings; the planner already respects per-hand limits).
+      // num_fingers — optional, capped at 16. The keyboard hand-
+      // position editor lays out fingers as alternating white-key /
+      // between-whites slots, so a multi-actuator mechanism (servo
+      // bank, solenoid array) can advertise more than ten fingers
+      // per hand without tripping the validator. The value bounds
+      // the polyphony of this hand (used for feasibility warnings;
+      // the planner already respects per-hand limits).
       if (h.num_fingers != null) {
-        if (!Number.isFinite(h.num_fingers) || h.num_fingers < 1 || h.num_fingers > 10) {
+        if (!Number.isFinite(h.num_fingers) || h.num_fingers < 1 || h.num_fingers > 16) {
           issues.push({
             field: `hands_config.hands[${i}].num_fingers`, label: 'Number of fingers',
             type: 'number', required: true,
-            reason: 'num_fingers must be a positive integer between 1 and 10.'
+            reason: 'num_fingers must be a positive integer between 1 and 16.'
           });
         }
       }
