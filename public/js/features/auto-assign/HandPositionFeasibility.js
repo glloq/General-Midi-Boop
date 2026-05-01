@@ -182,11 +182,11 @@
         if (mode === 'frets') {
             return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments);
         }
-        // The optimised low/high partition only handles 1 or 2 hands. For
-        // 3- and 4-hand keyboards we fall back to a simpler per-hand bucket
-        // simulator that picks the closest hand by current anchor — good
-        // enough for the preview panel, and avoids a large rewrite of the
-        // 2-hand path.
+        // 1- and 2-hand keyboards go through the optimised low/high
+        // partition with K-chord look-ahead. 3+ hand keyboards use a
+        // generalised N-way partition simulator: same minimum-move
+        // guarantee per hand, slices kept contiguous in pitch-sorted
+        // order so the no-overlap invariant is automatic.
         if (Array.isArray(hands.hands) && hands.hands.length >= 3) {
             return _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments);
         }
@@ -194,13 +194,32 @@
     }
 
     /**
-     * N‑hand fallback simulator (N ≥ 3). Each hand keeps its own anchor;
-     * notes in a chord are sorted by pitch and partitioned across hands by
-     * even buckets (one slice per hand). Each hand then plays its slice
-     * independently with the same window/shift logic as the single-hand
-     * branch of `_simulateSemitones`. This is intentionally simpler than
-     * the 2-hand cost-based partition — multi-hand keyboards are rare and
-     * the operator can refine via the editor's pinned anchors.
+     * N-hand semitones simulator (N ≥ 3). Each chord is partitioned
+     * into K contiguous slices (one per hand, in pitch-sorted order)
+     * by brute-force enumeration of the C(N+K−1, K−1) possible
+     * sliceSize tuples. The per-partition cost mirrors the 2-hand
+     * `_bestPartition`:
+     *
+     *   total = overflow×1e6 + movement + sliceSpan×1e-3
+     *
+     * - overflow dominates so any feasible partition (every slice
+     *   fits its hand's span) wins over every unfeasible one.
+     * - movement = Σ |anchor_h − prev_h| using the bidirectional
+     *   `_minMoveAnchor` clamp, identical to the 2-hand path.
+     * - sliceSpan tie-breaks toward compact distributions, so the
+     *   initial chord spreads across all hands instead of piling on
+     *   the first one.
+     *
+     * Operator-pinned hand assignments (`note_assignments` carrying
+     * `handId`) restrict the partitions we consider — any partition
+     * placing a pinned note in the wrong bucket is skipped.
+     *
+     * The no-overlap invariant (anchor_h + span_h < anchor_{h+1})
+     * is checked per partition; partitions that produce a collision
+     * are rejected unless every option collides (rare; in that case
+     * we fall back to ignoring the invariant and the resulting
+     * collision surfaces as `outside_window` in the chord's
+     * unplayable list).
      * @private
      */
     function _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments = new Map()) {
@@ -227,10 +246,13 @@
             state.get(id).anchor = toAnchor;
         }
 
+        const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
+
         for (const g of groups) {
             const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
             const sortedNotes = liveNotes.slice().sort((a, b) => a.note - b.note);
             const N = handIds.length;
+            const Nnotes = sortedNotes.length;
 
             // Apply pinned anchor overrides first so subsequent picks see
             // the operator's intent in the prev-anchor slot.
@@ -241,77 +263,160 @@
                 }
             }
 
-            // Greedy "no-move-first" assignment:
-            // 1. Pinned notes → their target bucket (skipped if it would
-            //    violate the lowest-used-so-far rule, which would cross
-            //    hands).
-            // 2. For the rest (note list is already pitch-ascending),
-            //    walk the hands from `lastHandUsed` upward and pick the
-            //    first whose CURRENT anchor already covers the note —
-            //    no shift needed, the most common case in long held
-            //    sections of a piece.
-            // 3. If no hand covers the note without moving, pick the
-            //    closest-by-anchor hand that still respects ordering
-            //    (lowest cumulative shift for this chord).
-            // This replaces the previous even-bucket partition which
-            // re-balanced on every chord regardless of where the hands
-            // already sat, producing visible back-and-forth shifts in
-            // multi-hand keyboards.
-            const buckets = handIds.map(() => []);
-            const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
-            let lastHandUsed = 0;
-            for (const n of sortedNotes) {
-                const pinned = handAssignments.get(`${g.tick}:${n.note}`);
-                const pinnedIdx = pinned != null ? handIdToIdx.get(pinned) : undefined;
-                if (pinnedIdx !== undefined && pinnedIdx >= lastHandUsed) {
-                    buckets[pinnedIdx].push(n);
-                    lastHandUsed = pinnedIdx;
-                    continue;
+            // Build pin index: note position in sortedNotes -> hand index.
+            // A note carrying `handId` (semitones-shape `note_assignments`
+            // override) must land in that hand's bucket; partitions that
+            // violate this are skipped during enumeration. Foreign hand
+            // ids (e.g. 'h5' on a 3-hand keyboard) are silently dropped
+            // so a stale override can't crash the simulator.
+            const pinByIdx = new Map();
+            for (let i = 0; i < Nnotes; i++) {
+                const pinned = handAssignments.get(`${g.tick}:${sortedNotes[i].note}`);
+                if (pinned != null) {
+                    const idx = handIdToIdx.get(pinned);
+                    if (idx !== undefined) pinByIdx.set(i, idx);
                 }
-                // Pass 1: hand whose current window already covers the note.
-                let chosen = -1;
-                for (let h = lastHandUsed; h < N; h++) {
-                    const st = state.get(handIds[h]);
-                    if (!st || st.anchor == null) continue;
-                    if (n.note >= st.anchor && n.note <= st.anchor + st.span) {
-                        chosen = h;
-                        break;
+            }
+
+            // Generalised N-way partition — same shape as the 2-hand
+            // _bestPartition but extended to K hands. Slices are
+            // contiguous in pitch-sorted order so hand i always covers
+            // lower notes than hand i+1 (the lastHandUsed gymnastics
+            // the previous greedy did to maintain ordering disappear).
+            //
+            // Cost composition (highest weight wins → it dominates):
+            //   1. overflow  × 1e6   — slice wider than its hand's span
+            //                          (= unplayable notes outside the
+            //                          window). Any partition that fits
+            //                          beats every overflow partition.
+            //   2. movement  × 1     — Σ |anchor_h − prev_h|, the same
+            //                          metric the 2-hand path minimises.
+            //   3. tiebreak  × 1e-3  — Σ slice pitch span, prefers
+            //                          compact slices so the initial
+            //                          chord gets distributed across all
+            //                          hands instead of piling on one.
+            // For K hands and N notes the partition count is
+            // C(N+K−1, K−1); for typical chords (N ≤ 10, K ≤ 4) that's
+            // a few hundred — well within budget for a per-chord pass.
+            let best = null;
+            const partitions = _enumeratePartitions(Nnotes, N);
+            for (const sizes of partitions) {
+                const boundaries = new Array(N + 1);
+                boundaries[0] = 0;
+                for (let h = 0; h < N; h++) boundaries[h + 1] = boundaries[h] + sizes[h];
+
+                // Reject partitions that violate any pin.
+                let pinOk = true;
+                for (const [noteIdx, handIdx] of pinByIdx) {
+                    if (noteIdx < boundaries[handIdx] || noteIdx >= boundaries[handIdx + 1]) {
+                        pinOk = false; break;
                     }
                 }
-                // Pass 2: closest-by-anchor (will shift, but respects ordering).
-                if (chosen < 0) {
-                    let bestDist = Infinity;
-                    for (let h = lastHandUsed; h < N; h++) {
-                        const st = state.get(handIds[h]);
-                        // Anchor we'd target so the note sits at the
-                        // bottom of this hand's window — minimises the
-                        // travel for the hand at hand[h] vs the next.
-                        const target = Math.max(0, n.note - st.span);
-                        const cur = st.anchor != null ? st.anchor : target;
-                        const d = Math.abs(cur - target);
-                        if (d < bestDist) { bestDist = d; chosen = h; }
+                if (!pinOk) continue;
+
+                let movement = 0;
+                let overflow = 0;
+                let tiebreak = 0;
+                const anchors = new Array(N);
+                let bandsOk = true;
+                let lastTopReach = -Infinity;
+                for (let h = 0; h < N; h++) {
+                    const start = boundaries[h];
+                    const end   = boundaries[h + 1];
+                    if (start === end) {
+                        anchors[h] = state.get(handIds[h]).anchor;
+                        // Idle hand keeps its position; doesn't contribute
+                        // to movement / overflow / tiebreak.
+                        if (Number.isFinite(anchors[h]) && anchors[h] <= lastTopReach) {
+                            // The idle hand sits below the previous
+                            // hand's top reach — collision invariant
+                            // broken. Reject; another partition will
+                            // assign the slice differently.
+                            bandsOk = false; break;
+                        }
+                        if (Number.isFinite(anchors[h])) {
+                            lastTopReach = anchors[h] + state.get(handIds[h]).span;
+                        }
+                        continue;
+                    }
+                    const lo = sortedNotes[start].note;
+                    const hi = sortedNotes[end - 1].note;
+                    const span = state.get(handIds[h]).span;
+                    const prev = state.get(handIds[h]).anchor;
+                    const anchor = _minMoveAnchor(prev, lo, hi, span);
+                    anchors[h] = anchor;
+                    if (prev != null) movement += Math.abs(anchor - prev);
+                    if (hi - lo > span) overflow += (hi - lo - span);
+                    tiebreak += (hi - lo);
+                    // No-overlap with any hand below: this hand's anchor
+                    // must sit strictly above the previous hand's top
+                    // reach. Reject otherwise — another partition is
+                    // free to place the slice on a different hand.
+                    if (anchor <= lastTopReach) { bandsOk = false; break; }
+                    lastTopReach = anchor + span;
+                }
+                if (!bandsOk) continue;
+
+                const cost = overflow * 1e6 + movement + tiebreak * 1e-3;
+                if (best == null || cost < best.cost) {
+                    best = { boundaries, anchors, cost, overflow };
+                }
+            }
+
+            // Fallback when every partition collides (rare — happens
+            // only when hands are pinned so close together that no
+            // assignment of the chord respects the no-overlap
+            // invariant). Re-enumerate without the band-collision
+            // check and accept the cheapest. The collision will
+            // surface in the resulting unplayable list.
+            if (best == null) {
+                for (const sizes of partitions) {
+                    const boundaries = new Array(N + 1);
+                    boundaries[0] = 0;
+                    for (let h = 0; h < N; h++) boundaries[h + 1] = boundaries[h] + sizes[h];
+                    let movement = 0;
+                    let overflow = 0;
+                    let tiebreak = 0;
+                    const anchors = new Array(N);
+                    for (let h = 0; h < N; h++) {
+                        const start = boundaries[h];
+                        const end   = boundaries[h + 1];
+                        if (start === end) {
+                            anchors[h] = state.get(handIds[h]).anchor;
+                            continue;
+                        }
+                        const lo = sortedNotes[start].note;
+                        const hi = sortedNotes[end - 1].note;
+                        const span = state.get(handIds[h]).span;
+                        const prev = state.get(handIds[h]).anchor;
+                        const anchor = _minMoveAnchor(prev, lo, hi, span);
+                        anchors[h] = anchor;
+                        if (prev != null) movement += Math.abs(anchor - prev);
+                        if (hi - lo > span) overflow += (hi - lo - span);
+                        tiebreak += (hi - lo);
+                    }
+                    const cost = overflow * 1e6 + movement + tiebreak * 1e-3;
+                    if (best == null || cost < best.cost) {
+                        best = { boundaries, anchors, cost, overflow };
                     }
                 }
-                if (chosen < 0) chosen = Math.min(N - 1, lastHandUsed);
-                buckets[chosen].push(n);
-                lastHandUsed = chosen;
             }
 
             const taggedNotes = [];
             const unplayable = [];
             for (let h = 0; h < N; h++) {
                 const id = handIds[h];
-                const slice = buckets[h];
-                if (slice.length === 0) continue;
-                const lo = slice[0].note;
-                const hi = slice[slice.length - 1].note;
+                const start = best.boundaries[h];
+                const end   = best.boundaries[h + 1];
+                if (start === end) continue;
                 const span = state.get(id).span;
-                let anchor = state.get(id).anchor;
-                if (anchor == null || lo < anchor || hi > anchor + span) {
-                    _emitShift(g, id, anchor, lo, 'auto');
-                    anchor = lo;
+                const prev = state.get(id).anchor;
+                const anchor = best.anchors[h];
+                if (prev == null || anchor !== prev) {
+                    _emitShift(g, id, prev, anchor, 'auto');
                 }
-                for (const n of slice) {
+                for (let i = start; i < end; i++) {
+                    const n = sortedNotes[i];
                     if (n.note < anchor || n.note > anchor + span) {
                         unplayable.push({ note: n.note, reason: 'outside_window', handId: id });
                     }
@@ -329,6 +434,34 @@
             });
             _updatePrevRelease(prevReleaseByHand, releaseByHand);
         }
+        return out;
+    }
+
+    /**
+     * Enumerate every K-tuple `(s_0, s_1, …, s_{K−1})` of non-negative
+     * integers summing to N. Returns an array of arrays. Used by the
+     * N-hand semitones simulator to consider every contiguous slice
+     * partition of a chord across the available hands.
+     *
+     * Count is C(N+K−1, K−1). For K=4 hands and N=10 notes that's
+     * 286 partitions — comfortably small for a per-chord enumeration.
+     * @private
+     */
+    function _enumeratePartitions(N, K) {
+        const out = [];
+        const cur = new Array(K);
+        function recurse(h, remaining) {
+            if (h === K - 1) {
+                cur[h] = remaining;
+                out.push(cur.slice());
+                return;
+            }
+            for (let s = 0; s <= remaining; s++) {
+                cur[h] = s;
+                recurse(h + 1, remaining - s);
+            }
+        }
+        recurse(0, N);
         return out;
     }
 
@@ -573,10 +706,15 @@
                     const lo = plan.sortedNotes[0].note;
                     const hi = plan.sortedNotes[plan.sortedNotes.length - 1].note;
                     const span = state.get(lowId).span;
-                    let newAnchor = state.get(lowId).anchor;
-                    if (newAnchor == null || lo < newAnchor || hi > newAnchor + span) {
-                        _emitShift(g, lowId, newAnchor, lo, 'auto');
-                        newAnchor = lo;
+                    const prevAnchor = state.get(lowId).anchor;
+                    // Minimum-displacement anchor — same clamp the
+                    // 2-hand path uses via _bestPartition. Sets
+                    // anchor = hi − span on upward shifts (instead
+                    // of overshooting to lo) and stays put when the
+                    // chord already fits in the window.
+                    const newAnchor = _minMoveAnchor(prevAnchor, lo, hi, span);
+                    if (prevAnchor == null || newAnchor !== prevAnchor) {
+                        _emitShift(g, lowId, prevAnchor, newAnchor, 'auto');
                     }
                     for (const n of plan.sortedNotes) {
                         if (n.note < newAnchor || n.note > newAnchor + span) {
@@ -1008,6 +1146,35 @@
         const [lo, hi] = range;
         if (value == null) return fallback != null ? fallback : lo;
         return Math.max(lo, Math.min(hi, value));
+    }
+
+    /**
+     * Bidirectional minimum-displacement anchor for a hand of width
+     * `span` that must cover a chord whose extremes are `lo` and
+     * `hi`. The valid anchor range is `[hi − span, lo]` (anchor at
+     * `lo` puts the bass at the bottom of the window; anchor at
+     * `hi − span` puts the treble at the top). The minimum-move
+     * anchor is `prev` clamped into that range — keep `prev` if
+     * already in range, otherwise jump to the nearest bound.
+     *
+     * Without this, callers that simply set `anchor = lo` overshoot
+     * upward shifts by `(hi − lo)` semitones because they always
+     * place the chord at the bottom of the window even when the
+     * hand was approaching from below.
+     *
+     * Special cases:
+     *   - chord wider than `span` → return `lo` (best-effort,
+     *     overflow is reported as `outside_window` by the caller).
+     *   - `prev` null (first chord) → return `lo` so the band
+     *     starts at the music's natural floor.
+     * @private
+     */
+    function _minMoveAnchor(prev, lo, hi, span) {
+        if (hi - lo > span) return lo;
+        if (prev == null) return lo;
+        const minA = hi - span;
+        const maxA = lo;
+        return Math.max(minA, Math.min(maxA, prev));
     }
 
     /**
