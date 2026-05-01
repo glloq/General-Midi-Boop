@@ -694,6 +694,25 @@
     color: white;
 }
 
+/* ---- Note colors on the piano keyboard ---- */
+/* Uses CSS variables --note-bg / --note-text set inline by generatePianoKeys().
+   Three-class specificity beats the two-class !important active rules above. */
+.piano-key.note-colored {
+    background: var(--note-bg) !important;
+}
+.piano-key.note-colored .key-label {
+    color: var(--note-text) !important;
+}
+.piano-key.note-colored:not(.disabled):hover {
+    filter: brightness(1.12);
+}
+.piano-key.note-colored.active {
+    background: var(--note-bg) !important;
+    filter: brightness(1.35) saturate(1.15);
+    border-color: rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 14px var(--note-bg) !important;
+}
+
 /* Old canvas styles (kept for backward compatibility) */
 .keyboard-canvas {
     display: block;

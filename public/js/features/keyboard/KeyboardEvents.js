@@ -133,12 +133,13 @@
             });
         }
 
-        // Note-color toggle (fretboard/tablature mode only)
+        // Note-color toggle (piano and fretboard modes)
         document.getElementById('keyboard-note-colors-toggle')?.addEventListener('click', () => {
             this.showNoteColors = !this.showNoteColors;
             const btn = document.getElementById('keyboard-note-colors-toggle');
             if (btn) btn.classList.toggle('active', this.showNoteColors);
-            this.renderFretboard();
+            if (this.viewMode === 'fretboard') this.renderFretboard();
+            else if (this.viewMode === 'piano') this.regeneratePianoKeys();
         });
 
         // View mode toggle (piano <-> fretboard / drumpad)

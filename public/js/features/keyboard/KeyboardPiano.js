@@ -179,6 +179,13 @@
                 whiteKey.classList.add('disabled');
             }
 
+            if (this.showNoteColors) {
+                const c = FRET_NOTE_COLORS[noteNumber % 12];
+                whiteKey.style.setProperty('--note-bg', c.bg);
+                whiteKey.style.setProperty('--note-text', c.text);
+                whiteKey.classList.add('note-colored');
+            }
+
             const label = document.createElement('span');
             label.className = 'key-label';
             label.textContent = labelText;
@@ -201,6 +208,13 @@
 
             if (!this.isNotePlayable(blackNote)) {
                 blackKey.classList.add('disabled');
+            }
+
+            if (this.showNoteColors) {
+                const c = FRET_NOTE_COLORS[blackNote % 12];
+                blackKey.style.setProperty('--note-bg', c.bg);
+                blackKey.style.setProperty('--note-text', c.text);
+                blackKey.classList.add('note-colored');
             }
 
             // Width and position scaled relative to the number of white keys
@@ -363,9 +377,9 @@
         if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano');
         if (minimap) minimap.classList.toggle('hidden', mode !== 'piano');
 
-        // Note-color toggle is only relevant in fretboard (tablature) mode.
+        // Note-color toggle is relevant in piano and fretboard (tablature) modes.
         const noteColorGroup = document.getElementById('keyboard-note-color-group');
-        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode !== 'fretboard');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad');
 
         // Update toggle button label
         const btn = document.getElementById('keyboard-view-toggle');
