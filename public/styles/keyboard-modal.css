@@ -987,16 +987,7 @@
     position: relative; /* needed so string-vibe is positioned inside this row */
 }
 
-/* Vibration highlight: colored string line to the right of the pressed fret. */
-.fretboard-container .string-vibe {
-    display: none;
-    position: absolute;
-    top: calc(50% - 1px);
-    height: 2px;
-    pointer-events: none;
-    z-index: 2;
-    border-radius: 1px;
-}
+
 
 .fretboard-container .fret-cell {
     position: relative;
@@ -1051,21 +1042,35 @@
 .fretboard-container .fret-dot:hover {
     background: linear-gradient(to bottom, #ffffff, #d8d8d8);
 }
-.fretboard-container .fret-dot.active {
-    background: linear-gradient(to bottom, #34d399, #059669);
-    border-color: #047857;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+
+/* Active fret dot — very visible: scale up + multi-layer glow + pulse */
+@keyframes fret-active-pulse {
+    from { box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.55), 0 0 14px rgba(52, 211, 153, 0.75); }
+    to   { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.20), 0 0 28px rgba(52, 211, 153, 1.00); }
 }
-/* When note colors are enabled, preserve the note color and show a bright ring instead */
-.fretboard-container .fret-dot.note-colored.active {
-    background: inherit;
-    filter: brightness(1.35) saturate(1.2);
+@keyframes fret-active-pulse-colored {
+    from { box-shadow: 0 0 0 3px rgba(255,255,255,0.45), 0 0 14px var(--dot-color, #34d399); }
+    to   { box-shadow: 0 0 0 7px rgba(255,255,255,0.15), 0 0 30px var(--dot-color, #34d399); }
+}
+
+.fretboard-container .fret-dot.active {
+    background: linear-gradient(135deg, #34d399, #059669);
     border: 2px solid #fff;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 0 0 4px rgba(0, 0, 0, 0.5);
+    transform: scale(1.55);
+    z-index: 5;
+    animation: fret-active-pulse 0.7s ease-in-out infinite alternate;
 }
 .fretboard-container .fret-dot.note-colored:hover {
-    filter: brightness(1.15);
+    filter: brightness(1.12);
+}
+/* Note-colored active: keep the note color, use white ring + colored glow */
+.fretboard-container .fret-dot.note-colored.active {
     background: inherit;
+    border: 2px solid #fff;
+    filter: brightness(1.25) saturate(1.1);
+    transform: scale(1.55);
+    z-index: 5;
+    animation: fret-active-pulse-colored 0.7s ease-in-out infinite alternate;
 }
 .fretboard-container .fret-dot.disabled {
     opacity: 0.35;
@@ -1076,6 +1081,29 @@
     font-weight: 700;
     color: #1f2937;
     pointer-events: none;
+}
+
+/* Active string row: subtle white shimmer around the string line */
+.fretboard-container .fret-string.string-active {
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.10) calc(50% - 3px),
+        rgba(220, 220, 220, 0.95) calc(50% - 1px),
+        rgba(220, 220, 220, 0.95) calc(50% + 1px),
+        rgba(255, 255, 255, 0.10) calc(50% + 3px),
+        rgba(255, 255, 255, 0.05) 100%
+    );
+}
+
+/* String-vibe overlay: spans full row width, 4px tall */
+.fretboard-container .string-vibe {
+    display: none;
+    position: absolute;
+    top: calc(50% - 2px);
+    height: 4px;
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 2px;
 }
 
 /* ============================================================================
