@@ -105,7 +105,6 @@ class KeyboardModalNew {
             const el = this.container.querySelector(selector);
             if (el) el.textContent = this.t(key);
         };
-        setLabel('.keyboard-header-controls .control-group:not([class*="-group"]) label', 'keyboard.instrument');
         setLabel('.keyboard-header-controls .latency-group label', 'keyboard.latency');
         setLabel('.keyboard-header-controls .view-mode-group label', 'keyboard.view');
         setLabel('.keyboard-header-controls .notation-group label', 'keyboard.notation');
@@ -113,10 +112,9 @@ class KeyboardModalNew {
         // Note range display
         this._updateOctaveDisplay();
 
-        // Default select
-        const deviceSelect = document.getElementById('keyboard-device-select');
-        if (deviceSelect && deviceSelect.options.length > 0) {
-            deviceSelect.options[0].textContent = this.t('common.select');
+        // Refresh instrument trigger placeholder/name
+        if (typeof this._updateInstrumentTrigger === 'function') {
+            this._updateInstrumentTrigger();
         }
     }
 
@@ -741,24 +739,159 @@ class KeyboardModalNew {
     }
 
     populateDeviceSelect() {
-        const select = document.getElementById('keyboard-device-select');
-        if (!select) return;
+        this._buildInstrumentDropdown();
+        this._updateInstrumentTrigger();
+    }
 
-        select.innerHTML = `<option value="">${this.t('common.select')}</option>`;
+    _buildInstrumentDropdown() {
+        const dropdown = document.getElementById('instrument-dropdown');
+        if (!dropdown) return;
+
+        dropdown.innerHTML = '';
+
+        // "No selection" entry
+        const noneBtn = document.createElement('button');
+        noneBtn.type = 'button';
+        noneBtn.className = 'instrument-option' + (!this.selectedDevice ? ' selected' : '');
+        noneBtn.dataset.deviceId = '';
+        noneBtn.innerHTML = `
+            <div class="option-icon"><span class="option-emoji">🎵</span></div>
+            <span class="option-name">— ${this.t('common.select')} —</span>
+        `;
+        noneBtn.addEventListener('click', () => this._selectInstrumentOption(''));
+        dropdown.appendChild(noneBtn);
 
         this.devices.forEach(device => {
-            const option = document.createElement('option');
-            // For multi-instrument devices, include the channel in the value
-            if (device._multiInstrument) {
-                option.value = `${device.device_id}::${device.channel}`;
-                const chLabel = `Ch${(device.channel || 0) + 1}`;
-                option.textContent = `${device.displayName || device.name} [${chLabel}]`;
-            } else {
-                option.value = device.device_id;
-                option.textContent = device.displayName || device.name;
-            }
-            select.appendChild(option);
+            const deviceId = device.device_id || device.id;
+            const rawValue = device._multiInstrument ? `${deviceId}::${device.channel}` : deviceId;
+            const gmProgram = device.gm_program;
+            const channel = device.channel;
+
+            const icon = window.InstrumentFamilies
+                ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram, channel })
+                : { svgUrl: null, emoji: '🎵' };
+
+            const isSelected = this.selectedDevice
+                && (this.selectedDevice.device_id === deviceId || this.selectedDevice.id === deviceId)
+                && (!device._multiInstrument || device.channel === this.selectedDevice.channel);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'instrument-option' + (isSelected ? ' selected' : '');
+            btn.dataset.deviceId = rawValue;
+
+            const name = device.displayName || device.name;
+            const chLabel = device._multiInstrument
+                ? `<span class="option-ch">Ch${(channel || 0) + 1}</span>`
+                : '';
+
+            const imgHtml = icon.svgUrl
+                ? `<img class="option-svg" src="${icon.svgUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="option-emoji" style="display:none">${icon.emoji}</span>`
+                : `<span class="option-emoji">${icon.emoji}</span>`;
+
+            btn.innerHTML = `
+                <div class="option-icon">${imgHtml}</div>
+                <span class="option-name">${name}${chLabel}</span>
+            `;
+            btn.addEventListener('click', () => this._selectInstrumentOption(rawValue));
+            dropdown.appendChild(btn);
         });
+    }
+
+    _updateInstrumentTrigger() {
+        const triggerSvg = document.getElementById('instrument-trigger-svg');
+        const triggerEmoji = document.getElementById('instrument-trigger-emoji');
+        const triggerName = document.getElementById('instrument-trigger-name');
+        if (!triggerName) return;
+
+        if (!this.selectedDevice) {
+            if (triggerSvg) triggerSvg.style.display = 'none';
+            if (triggerEmoji) { triggerEmoji.textContent = '🎵'; triggerEmoji.style.display = 'inline'; }
+            triggerName.textContent = `— ${this.t('common.select')} —`;
+            return;
+        }
+
+        const gmProgram = this.selectedDevice.gm_program;
+        const channel = this.selectedDevice.channel;
+        const icon = window.InstrumentFamilies
+            ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram, channel })
+            : { svgUrl: null, emoji: '🎵' };
+
+        if (icon.svgUrl && triggerSvg) {
+            triggerSvg.src = icon.svgUrl;
+            triggerSvg.style.display = 'block';
+            triggerSvg.onerror = () => {
+                triggerSvg.style.display = 'none';
+                if (triggerEmoji) { triggerEmoji.textContent = icon.emoji; triggerEmoji.style.display = 'inline'; }
+            };
+            if (triggerEmoji) triggerEmoji.style.display = 'none';
+        } else {
+            if (triggerSvg) triggerSvg.style.display = 'none';
+            if (triggerEmoji) { triggerEmoji.textContent = icon.emoji; triggerEmoji.style.display = 'inline'; }
+        }
+
+        triggerName.textContent = this.selectedDevice.displayName || this.selectedDevice.name;
+    }
+
+    async _selectInstrumentOption(rawValue) {
+        // Close dropdown
+        const dropdown = document.getElementById('instrument-dropdown');
+        const selector = document.getElementById('header-instrument-selector');
+        const trigger = document.getElementById('instrument-trigger');
+        dropdown?.classList.remove('open');
+        selector?.classList.remove('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+
+        let deviceId = rawValue;
+        let selectedChannel = undefined;
+
+        if (rawValue.includes('::')) {
+            const parts = rawValue.split('::');
+            deviceId = parts[0];
+            selectedChannel = parseInt(parts[1]);
+        }
+
+        this.selectedDevice = rawValue
+            ? this.devices.find(d => {
+                if (d._multiInstrument && selectedChannel !== undefined) {
+                    return (d.device_id === deviceId || d.id === deviceId) && d.channel === selectedChannel;
+                }
+                return d.device_id === deviceId || d.id === deviceId;
+            }) || null
+            : null;
+
+        this.stringInstrumentConfig = null;
+
+        await this.loadDeviceCapabilities(deviceId || null, selectedChannel);
+        this.autoCenterKeyboard();
+        this.updateSlidersVisibility();
+
+        this.modulation = 64;
+        this._updateModWheelPosition(64);
+        const modDisplay = document.getElementById('keyboard-modulation-display');
+        if (modDisplay) modDisplay.textContent = '64';
+
+        this.updateLatencyDisplay();
+        this._updateInstrumentTrigger();
+        this._buildInstrumentDropdown(); // refresh selected state
+
+        const info = this.getInstrumentViewInfo();
+        const viewGroup = document.getElementById('keyboard-view-mode-group');
+        if (info.isDrum) {
+            if (viewGroup) viewGroup.classList.remove('hidden');
+            this.stringInstrumentConfig = null;
+            this.setViewMode('drumpad');
+        } else if (info.canFretboard) {
+            await this.loadStringInstrumentConfig();
+            if (viewGroup) viewGroup.classList.remove('hidden');
+            this.setViewMode('fretboard');
+        } else {
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            this.setViewMode('piano');
+        }
+
+        this.regeneratePianoKeys();
     }
 
     /**

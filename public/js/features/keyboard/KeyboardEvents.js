@@ -155,71 +155,34 @@
             }
         });
 
-        // Device select
-        document.getElementById('keyboard-device-select')?.addEventListener('change', async (e) => {
-            const rawValue = e.target.value;
-            let deviceId = rawValue;
-            let selectedChannel = undefined;
+        // Instrument trigger: open/close custom dropdown
+        const instrumentTrigger = document.getElementById('instrument-trigger');
+        if (instrumentTrigger) {
+            this._instrumentTriggerClick = (e) => {
+                e.stopPropagation();
+                const dropdown = document.getElementById('instrument-dropdown');
+                const selector = document.getElementById('header-instrument-selector');
+                if (!dropdown || !selector) return;
+                const isOpen = dropdown.classList.contains('open');
+                dropdown.classList.toggle('open', !isOpen);
+                selector.classList.toggle('open', !isOpen);
+                instrumentTrigger.setAttribute('aria-expanded', String(!isOpen));
+            };
+            instrumentTrigger.addEventListener('click', this._instrumentTriggerClick);
+        }
 
-            // Parse the "deviceId::channel" format for multi-instrument devices
-            if (rawValue.includes('::')) {
-                const parts = rawValue.split('::');
-                deviceId = parts[0];
-                selectedChannel = parseInt(parts[1]);
+        // Close dropdown when clicking outside
+        this._closeDropdownOnOutside = (e) => {
+            const selector = document.getElementById('header-instrument-selector');
+            if (selector && !selector.contains(e.target)) {
+                const dropdown = document.getElementById('instrument-dropdown');
+                const trigger = document.getElementById('instrument-trigger');
+                dropdown?.classList.remove('open');
+                selector.classList.remove('open');
+                if (trigger) trigger.setAttribute('aria-expanded', 'false');
             }
-
-            this.selectedDevice = this.devices.find(d => {
-                if (d._multiInstrument && selectedChannel !== undefined) {
-                    return (d.device_id === deviceId || d.id === deviceId) && d.channel === selectedChannel;
-                }
-                return d.device_id === deviceId || d.id === deviceId;
-            }) || null;
-
-            // Reset any string-instrument config from the previous selection.
-            // Without this, getInstrumentViewInfo() keeps reporting
-            // canFretboard=true via the leftover config and the fretboard
-            // view stays stuck after the user picks a non-string instrument
-            // or toggles back to piano.
-            this.stringInstrumentConfig = null;
-
-            // Load the selected instrument's capabilities
-            await this.loadDeviceCapabilities(deviceId, selectedChannel);
-
-            // Auto-center the keyboard on the instrument's note range
-            this.autoCenterKeyboard();
-
-            // Update the slider visibility
-            this.updateSlidersVisibility();
-
-            // Reset modulation wheel to center when changing instrument
-            this.modulation = 64;
-            this._updateModWheelPosition(64);
-            const modDisplay = document.getElementById('keyboard-modulation-display');
-            if (modDisplay) modDisplay.textContent = '64';
-
-            // Refresh header latency display (depends on the instrument's sync_delay)
-            this.updateLatencyDisplay();
-
-            // Detect drum/string and toggle the view-mode button + auto-switch view
-            const info = this.getInstrumentViewInfo();
-            const viewGroup = document.getElementById('keyboard-view-mode-group');
-            if (info.isDrum) {
-                if (viewGroup) viewGroup.classList.remove('hidden');
-                this.stringInstrumentConfig = null;
-                this.setViewMode('drumpad');
-            } else if (info.canFretboard) {
-                await this.loadStringInstrumentConfig();
-                if (viewGroup) viewGroup.classList.remove('hidden');
-                this.setViewMode('fretboard');
-            } else {
-                this.stringInstrumentConfig = null;
-                if (viewGroup) viewGroup.classList.add('hidden');
-                this.setViewMode('piano');
-            }
-
-            // Regenerate the keyboard to apply the restrictions
-            this.regeneratePianoKeys();
-        });
+        };
+        document.addEventListener('click', this._closeDropdownOnOutside);
 
         // Velocity
         document.getElementById('keyboard-velocity')?.addEventListener('input', (e) => {
@@ -245,6 +208,19 @@
         document.removeEventListener('mouseup', this.handleGlobalMouseUp);
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
+
+        // Instrument dropdown outside-click handler
+        if (this._closeDropdownOnOutside) {
+            document.removeEventListener('click', this._closeDropdownOnOutside);
+            this._closeDropdownOnOutside = null;
+        }
+
+        // Instrument trigger click handler
+        const instrumentTrigger = document.getElementById('instrument-trigger');
+        if (instrumentTrigger && this._instrumentTriggerClick) {
+            instrumentTrigger.removeEventListener('click', this._instrumentTriggerClick);
+            this._instrumentTriggerClick = null;
+        }
 
         // Remove canvas wheel zoom
         const canvasContainer = document.getElementById('keyboard-canvas-container');
