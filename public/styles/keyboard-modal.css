@@ -272,13 +272,21 @@
 
 .option-name {
     width: 100%;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.3;
 }
 
 .instrument-option.option-none .option-name {
     flex: 1;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
 }
 
 .option-ch {
