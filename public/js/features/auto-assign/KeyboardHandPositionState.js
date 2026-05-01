@@ -228,14 +228,23 @@
          *  actually cover, so two hands can play consecutive notes
          *  without their bands visually colliding.
          *
-         *    - piano: walk the white-key sequence the fingers
-         *      overlay draws and return `lastWhite − firstWhite`.
+         *    - piano:
+         *        ‣ Odd N: last slot is white at whites[(N−1)/2].
+         *          Band high = that white, so the band ends exactly
+         *          at the last finger's white-key right edge.
+         *        ‣ Even N: last slot is black between whites[N/2−1]
+         *          and whites[N/2]. Band high = the real black sitting
+         *          there, OR whites[N/2] when the gap is E–F or B–C
+         *          (no real black). This stops the band right next
+         *          to the last finger instead of extending it a
+         *          full white-key further (the bug the user
+         *          spotted with even fingerings).
          *    - chromatic: numFingers slots, one per semitone, so
          *      span = `numFingers − 1`.
          *
-         *  Falls back to the configured span when the white
-         *  walk runs short (anchor near the top of the MIDI range
-         *  with too few whites available — exotic instrument).
+         *  Falls back to the configured span when the white walk
+         *  runs short (anchor near the top of the MIDI range with
+         *  too few whites available — exotic instrument).
          *  @private */
         _displaySpanFor(hand, anchor) {
             const numFingers = Number.isFinite(hand.numFingers) && hand.numFingers > 0
@@ -244,10 +253,24 @@
             if (this.layout === 'piano') {
                 const numWhites = Math.floor(numFingers / 2) + 1;
                 const whites = this._whiteKeysFromAnchor(anchor, numWhites);
-                if (whites.length >= 2) {
-                    return whites[whites.length - 1] - whites[0];
+                if (whites.length < 2) return Math.max(1, numFingers - 1);
+                let highMidi;
+                if ((numFingers & 1) === 1) {
+                    // Odd N — last slot is the white at index (N-1)/2.
+                    highMidi = whites[(numFingers - 1) >> 1];
+                } else {
+                    // Even N — last slot is the black between
+                    // whites[N/2-1] and whites[N/2]. Use the real
+                    // black when the white pair is two semitones
+                    // apart, otherwise (E–F / B–C) fall through to
+                    // the higher white so the band still encloses
+                    // the virtual finger.
+                    const wLo = whites[(numFingers >> 1) - 1];
+                    const wHi = whites[numFingers >> 1];
+                    highMidi = (Number.isFinite(wLo) && Number.isFinite(wHi)
+                            && wHi - wLo === 2) ? wLo + 1 : wHi;
                 }
-                return Math.max(1, numFingers - 1);
+                return Math.max(1, highMidi - whites[0]);
             }
             return Math.max(1, numFingers - 1);
         }
