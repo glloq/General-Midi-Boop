@@ -142,11 +142,16 @@
     //   - options: { overrides? }    // see schema below
     //
     // Outputs an array of timeline events, each one of:
-    //   { type: 'shift',      tick, handId, fromAnchor, toAnchor }
-    //   { type: 'chord',      tick, notes:[{...}], unplayable:[{...}] }
+    //   { type: 'shift', tick, handId, fromAnchor, toAnchor, motion }
+    //   { type: 'chord', tick, notes, unplayable, releaseByHand,
+    //                    anchorByHand: { [handId]: anchor } }
     //
-    // Plus a `windowsAtEachChord(timeline)` helper to inspect the
-    // window state at a given chord without re-running the simulation.
+    // `anchorByHand` carries the post-shift anchor of every active
+    // hand at this chord. Consumers building visualization
+    // trajectories must read this rather than inferring the anchor
+    // from the chord's lowest note — when the simulator picks an
+    // upward min-move target (anchor = hi − span), the lowest note
+    // is NOT the anchor, and inferring would draw phantom shifts.
     function simulateHandWindows(notes, instrument, options = {}) {
         const out = [];
         if (!Array.isArray(notes) || notes.length === 0) return out;
@@ -425,10 +430,22 @@
             }
 
             const releaseByHand = _releaseByHand(taggedNotes, handIds, g.tick);
+            // Snapshot the post-shift anchor of every hand so
+            // downstream visualizations can render the actual hand
+            // window at this chord without re-deriving it from the
+            // note pitches (a chord's `lo` is NOT the anchor when the
+            // simulator picked an upward min-move target — using `lo`
+            // produced phantom shifts on the editor's lanes).
+            const anchorByHand = {};
+            for (const id of handIds) {
+                const a = state.get(id).anchor;
+                if (Number.isFinite(a)) anchorByHand[id] = a;
+            }
             out.push({
                 type: 'chord', tick: g.tick,
                 releaseTick: g.releaseTick,
                 releaseByHand,
+                anchorByHand,
                 notes: taggedNotes,
                 unplayable
             });
@@ -725,9 +742,13 @@
                 // Single-hand keyboard: every note belongs to that hand.
                 const taggedNotes = plan.liveNotes.map(n => ({ ...n, handId: lowId }));
                 const releaseByHand = _releaseByHand(taggedNotes, [lowId], plan.tick);
+                const anchorByHand = {};
+                const aLow = state.get(lowId).anchor;
+                if (Number.isFinite(aLow)) anchorByHand[lowId] = aLow;
                 out.push({ type: 'chord', tick: plan.tick,
                            releaseTick: plan.releaseTick,
                            releaseByHand,
+                           anchorByHand,
                            notes: taggedNotes,
                            unplayable });
                 _updatePrevRelease(prevReleaseByHand, releaseByHand);
@@ -795,12 +816,18 @@
                 }
             }
             const releaseByHand = _releaseByHand(taggedNotes, [lowId, highId], plan.tick);
+            const anchorByHand = {};
+            const aLow  = state.get(lowId).anchor;
+            const aHigh = state.get(highId).anchor;
+            if (Number.isFinite(aLow))  anchorByHand[lowId]  = aLow;
+            if (Number.isFinite(aHigh)) anchorByHand[highId] = aHigh;
 
             out.push({
                 type: 'chord',
                 tick: plan.tick,
                 releaseTick: plan.releaseTick,
                 releaseByHand,
+                anchorByHand,
                 notes: taggedNotes,
                 unplayable
             });
@@ -1510,12 +1537,14 @@
             // strip can rely on the field being present).
             const taggedNotes = liveNotes.map(n => ({ ...n, handId }));
             const releaseByHand = _releaseByHand(taggedNotes, [handId], g.tick);
+            const anchorByHand = Number.isFinite(anchor) ? { [handId]: anchor } : {};
 
             out.push({
                 type: 'chord',
                 tick: g.tick,
                 releaseTick: g.releaseTick,
                 releaseByHand,
+                anchorByHand,
                 notes: taggedNotes,
                 unplayable
             });

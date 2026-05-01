@@ -195,6 +195,77 @@ describe('4-hand semitones — partition + minimum-displacement', () => {
   });
 });
 
+describe('chord events carry anchorByHand for visualization', () => {
+  // Earlier code derived the per-hand anchor from the chord's
+  // lowest note. That created phantom shifts whenever the
+  // simulator picked an upward min-move anchor (= hi − span):
+  // the hand stayed put but the visualization band jumped to
+  // each chord's lowest note. Emitting `anchorByHand` directly
+  // from the simulator removes the inference step.
+
+  it('1-hand: every chord event reports the actual hand anchor', () => {
+    // Hand initially anchored at 60. All follow-up chords fall
+    // inside the window 60..74 → no shifts emitted, but the
+    // chord events should all report anchorByHand.left = 60
+    // (NOT the chord's lowest note, which would be 65, 70, 62).
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 60 }, { tick: 480, note: 65 },
+       { tick: 960, note: 70 }, { tick: 1440, note: 62 }],
+      { hands_config: oneHand() }
+    );
+    const chords = out.filter(e => e.type === 'chord');
+    expect(chords).toHaveLength(4);
+    for (const ch of chords) {
+      expect(ch.anchorByHand).toBeDefined();
+      expect(ch.anchorByHand.left).toBe(60);
+    }
+  });
+
+  it('2-hand: chord anchorByHand reflects post-shift state', () => {
+    // Right hand initially anchors at 80; new note 100 forces a
+    // shift. The min-move anchor is 86 (= 100 − 14), not 100.
+    // The chord event must carry anchorByHand.right = 86.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 50 }, { tick: 0, note: 80 }, { tick: 480, note: 100 }],
+      { hands_config: twoHand() }
+    );
+    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    expect(chord480.anchorByHand.right).toBe(86);
+  });
+
+  it('3-hand: idle hand keeps its previous anchor in anchorByHand', () => {
+    // Initial chord pins h1=30, h2=60, h3=90. Follow-up chord
+    // {30, 60} only uses h1 + h2 — h3 is idle but its anchor
+    // must still appear in the chord's anchorByHand so the
+    // visualization can keep drawing h3's band.
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 },
+       { tick: 480, note: 30 }, { tick: 480, note: 60 }],
+      { hands_config: nHand(3) }
+    );
+    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    expect(chord480.anchorByHand.h1).toBe(30);
+    expect(chord480.anchorByHand.h2).toBe(60);
+    expect(chord480.anchorByHand.h3).toBe(90); // unchanged from initial
+  });
+
+  it('frets: chord anchorByHand reflects the fretting hand position', () => {
+    const fretsHands = {
+      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
+    };
+    const out = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 45, fret: 5, string: 1 },
+       { tick: 480, note: 47, fret: 7, string: 1 }],
+      { hands_config: fretsHands }
+    );
+    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    expect(chord480.anchorByHand.fretting).toBeDefined();
+    // Fret 7 fits in window [5..9] → no shift; anchor stays 5.
+    expect(chord480.anchorByHand.fretting).toBe(5);
+  });
+});
+
 describe('2-hand semitones — preserved minimum-displacement (no regression)', () => {
   it('upward shift on right hand uses hi − span', () => {
     // Initial chord pins left=50, right=80. Then note 90 alone needs

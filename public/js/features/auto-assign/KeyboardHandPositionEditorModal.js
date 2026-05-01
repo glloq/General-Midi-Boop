@@ -328,15 +328,36 @@
                         fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor,
                         feasible: ev.motion ? ev.motion.feasible !== false : true
                     });
-                } else if (ev.type === 'chord' && Array.isArray(ev.notes)) {
-                    const lowestByHand = new Map();
-                    for (const n of ev.notes) {
-                        if (!n.handId || !Number.isFinite(n.note)) continue;
-                        const cur = lowestByHand.get(n.handId);
-                        if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
-                    }
-                    for (const [id, lo] of lowestByHand) {
-                        ensure(id).push({ sec: ev.tick / tps, anchor: lo });
+                } else if (ev.type === 'chord') {
+                    // Chord event carries the post-shift anchor of
+                    // every hand active at this chord. Reading
+                    // `anchorByHand` directly preserves the
+                    // simulator's min-move target — earlier code
+                    // inferred the anchor from the chord's lowest
+                    // note per hand, which produced phantom shifts
+                    // whenever the simulator picked an upward
+                    // min-move anchor (= hi − span). The fallback
+                    // (lowest note per hand) survives only for
+                    // legacy chord events that didn't carry the
+                    // field.
+                    const anchorByHand = ev.anchorByHand;
+                    if (anchorByHand && typeof anchorByHand === 'object') {
+                        for (const id of Object.keys(anchorByHand)) {
+                            const a = anchorByHand[id];
+                            if (Number.isFinite(a)) {
+                                ensure(id).push({ sec: ev.tick / tps, anchor: a });
+                            }
+                        }
+                    } else if (Array.isArray(ev.notes)) {
+                        const lowestByHand = new Map();
+                        for (const n of ev.notes) {
+                            if (!n.handId || !Number.isFinite(n.note)) continue;
+                            const cur = lowestByHand.get(n.handId);
+                            if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
+                        }
+                        for (const [id, lo] of lowestByHand) {
+                            ensure(id).push({ sec: ev.tick / tps, anchor: lo });
+                        }
                     }
                 }
             }
