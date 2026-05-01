@@ -48,7 +48,7 @@
                                 <button class="btn-view-toggle" id="keyboard-view-toggle" title="${this.t('keyboard.toggleView') || 'Toggle view'}">🎹</button>
                             </div>
 
-                            <div class="control-group note-color-group hidden" id="keyboard-note-color-group">
+                            <div class="control-group note-color-group" id="keyboard-note-color-group">
                                 <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
                                 <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
                             </div>
@@ -183,8 +183,14 @@
             const colorDot = document.createElement('div');
             colorDot.className = 'note-color-dot';
             if (this.showNoteColors) {
-                colorDot.style.background = FRET_NOTE_COLORS[noteNumber % 12].bg;
-                colorDot.style.display = 'block';
+                const c = FRET_NOTE_COLORS[noteNumber % 12];
+                colorDot.style.background = c.bg;
+                colorDot.style.display = 'flex';
+                const dotLabel = document.createElement('span');
+                dotLabel.className = 'note-dot-label';
+                dotLabel.style.color = c.text;
+                dotLabel.textContent = labelText.replace(/\d+$/, '');
+                colorDot.appendChild(dotLabel);
             }
             whiteKey.appendChild(colorDot);
 
