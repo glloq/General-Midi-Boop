@@ -96,6 +96,12 @@
             this._anchors = new Map();        // handId → anchor (animated)
             this._activeNotes = new Set();    // Set<midi>
             this._extent = { lo: 0, hi: 127 };
+            // Diagnostics: per-cycle log gates and per-frame skip
+            // tracking. Re-armed on every `setHands` call.
+            this._didLogFilter = false;
+            this._didLogRender = false;
+            this._renderedHands = new Set();
+            this._skipReasons = [];
         }
 
         // -----------------------------------------------------------------
@@ -122,11 +128,24 @@
         /** `[{ id, span, numFingers, color }, …]`. Hands without an id
          *  or with a non-finite span are silently dropped. */
         setHands(hands) {
-            this._hands = Array.isArray(hands)
-                ? hands.filter(h => h && h.id
-                    && Number.isFinite(h.span)
-                    && typeof h.color === 'string')
-                : [];
+            const incoming = Array.isArray(hands) ? hands : [];
+            const filtered = incoming.filter(h => h && h.id
+                && Number.isFinite(h.span)
+                && typeof h.color === 'string');
+            // Diagnostic: if any hand fails the filter, the editor
+            // will see one less hand on the overlay than configured.
+            // Surface the reason once per `setHands` cycle so an
+            // operator can paste it into a bug report.
+            if (filtered.length < incoming.length && !this._didLogFilter) {
+                this._didLogFilter = true;
+                const dropped = incoming.filter(h => !filtered.includes(h));
+                console.warn('[KeyboardFingersRenderer] dropped hands at filter',
+                    dropped.map(h => ({
+                        id: h && h.id, span: h && h.span,
+                        color: h && h.color, colorType: typeof (h && h.color)
+                    })));
+            }
+            this._hands = filtered;
         }
 
         /** Map from `handId` to the (live, animated) anchor in MIDI
@@ -190,10 +209,31 @@
 
             if (this._hands.length === 0) return;
 
+            // Reset the per-frame "rendered hands" tracker. Diagnostic
+            // logs at the end of `_drawPiano` / `_drawChromatic` use
+            // it to surface any hand that was silently skipped.
+            this._renderedHands = new Set();
+            this._skipReasons = [];
             if (this._layout === 'piano') {
                 this._drawPiano(ctx, W, H);
             } else {
                 this._drawChromatic(ctx, W, H);
+            }
+            // Log once per `setHands` cycle so the operator can see
+            // why a hand might be missing from the overlay.
+            if (!this._didLogRender && this._hands.length > 0) {
+                this._didLogRender = true;
+                if (this._renderedHands.size < this._hands.length) {
+                    const rendered = Array.from(this._renderedHands);
+                    console.info('[KeyboardFingersRenderer] some hands not rendered',
+                        { layout: this._layout,
+                          rendered,
+                          totalHands: this._hands.length,
+                          skips: this._skipReasons });
+                } else {
+                    console.info('[KeyboardFingersRenderer] all hands rendered',
+                        { layout: this._layout, count: this._hands.length });
+                }
             }
         }
 
@@ -235,11 +275,18 @@
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
                 const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) continue;
+                if (!Number.isFinite(a)) {
+                    this._noteSkip(hand.id, 'no-anchor');
+                    continue;
+                }
 
                 const lowMidi  = Math.round(a);
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) continue;
+                if (this._isOffScreen(lowMidi, highMidi)) {
+                    this._noteSkip(hand.id, 'off-screen',
+                        { lowMidi, highMidi, view: this._extent });
+                    continue;
+                }
 
                 // Strict white-key alignment: even slot i lands on
                 // the actual centre of the (i/2)-th white key above
@@ -253,7 +300,12 @@
                 // odd slot has a "next white" to be between).
                 const numWhites = Math.floor(numFingers / 2) + 1;
                 const whites = this._whiteKeysFromAnchor(lowMidi, numWhites);
-                if (whites.length < 2) continue;
+                if (whites.length < 2) {
+                    this._noteSkip(hand.id, 'whites-too-few',
+                        { lowMidi, numWhitesRequested: numWhites,
+                          whitesFound: whites.length });
+                    continue;
+                }
 
                 // Resolve each white's pixel centre from the
                 // keyboard widget. We tolerate the rightmost
@@ -275,7 +327,11 @@
                     if (last != null && Math.abs(centre - last) < 1) break;
                     whiteCenters.push(centre);
                 }
-                if (whiteCenters.length < 2) continue;
+                if (whiteCenters.length < 2) {
+                    this._noteSkip(hand.id, 'centers-too-few',
+                        { whitesFound: whites.length, centersFound: whiteCenters.length });
+                    continue;
+                }
 
                 const slotCenterX = (i) => {
                     if ((i & 1) === 0) return whiteCenters[i >> 1];
@@ -317,7 +373,11 @@
                         && (lastDrawableSlot >> 1) >= whiteCenters.length) {
                     lastDrawableSlot--;
                 }
-                if (lastDrawableSlot < 0) continue;
+                if (lastDrawableSlot < 0) {
+                    this._noteSkip(hand.id, 'no-drawable-slot');
+                    continue;
+                }
+                this._renderedHands.add(hand.id);
                 const leftX = slotCenterX(0) - fingerW / 2;
                 const rightX = slotCenterX(lastDrawableSlot) + fingerW / 2;
                 this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
@@ -382,20 +442,36 @@
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
                 const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) continue;
+                if (!Number.isFinite(a)) {
+                    this._noteSkip(hand.id, 'no-anchor');
+                    continue;
+                }
 
                 const lowMidi  = Math.round(a);
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) continue;
+                if (this._isOffScreen(lowMidi, highMidi)) {
+                    this._noteSkip(hand.id, 'off-screen',
+                        { lowMidi, highMidi, view: this._extent });
+                    continue;
+                }
 
                 const handLeftX  = keyLeftX(Math.floor(a));
                 const handRightX = keyRightX(Math.floor(a) + Math.round(hand.span));
-                if (!(handRightX > handLeftX)) continue;
-                if (handRightX <= 0 || handLeftX >= W) continue;
+                if (!(handRightX > handLeftX)) {
+                    this._noteSkip(hand.id, 'right-le-left',
+                        { handLeftX, handRightX });
+                    continue;
+                }
+                if (handRightX <= 0 || handLeftX >= W) {
+                    this._noteSkip(hand.id, 'pixel-off-screen',
+                        { handLeftX, handRightX, W });
+                    continue;
+                }
                 const handPxW = handRightX - handLeftX;
                 const slotW = handPxW / numFingers;
                 const fingerW = Math.max(3, slotW * opts.fingerWidthRatio);
 
+                this._renderedHands.add(hand.id);
                 this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
@@ -407,6 +483,17 @@
                                          fingerW, isActive, W);
                 }
             }
+        }
+
+        /** Record a hand-skip reason for the once-per-cycle log in
+         *  `draw()`. Keeps a small array of `{handId, reason, ...}`
+         *  entries so the operator can see exactly which hand was
+         *  dropped and why. */
+        _noteSkip(handId, reason, extra) {
+            if (!Array.isArray(this._skipReasons)) return;
+            const entry = { handId, reason };
+            if (extra) Object.assign(entry, extra);
+            this._skipReasons.push(entry);
         }
 
         // -----------------------------------------------------------------

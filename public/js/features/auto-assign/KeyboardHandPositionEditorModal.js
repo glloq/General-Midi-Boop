@@ -421,6 +421,7 @@
             this.keyboard = null;
             this.fingersRenderer?.destroy?.();
             this.fingersRenderer = null;
+            this._didLogFingerInputs = false;
             this.rollRenderer?.destroy?.();
             this.rollRenderer = null;
             this.minimapRenderer?.destroy?.();
@@ -775,6 +776,27 @@
             r.setAnchors(this._displayedAnchorMapForRender());
             r.setActiveNotes(this._activeNotesAtPlayhead());
             r.setVisibleExtent(this._visibleExtent());
+            // Diagnostic log: fires once per modal-open so the
+            // operator can copy the console line into a bug report
+            // when fingers go missing for a specific hand. Cheap
+            // (one console.info), gated by `_didLogFingerInputs` so
+            // it doesn't spam the log on every RAF tick.
+            if (!this._didLogFingerInputs && (this._hands || []).length > 0) {
+                this._didLogFingerInputs = true;
+                const handsDigest = (this._hands || []).map(h => ({
+                    id: h.id, span: h.span, numFingers: h.numFingers,
+                    color: h.color, anchor: h.anchor
+                }));
+                const anchorMap = this._displayedAnchorMapForRender();
+                const anchorEntries = Array.from(anchorMap.entries());
+                const view = this._visibleExtent();
+                console.info('[KeyboardHandPositionEditor] fingers inputs',
+                    { layout: this._keyboardLayoutType(),
+                      hands: handsDigest,
+                      anchors: anchorEntries,
+                      visibleExtent: view,
+                      keyboard: this.keyboard ? 'wired' : 'missing' });
+            }
             r.draw();
         }
 
