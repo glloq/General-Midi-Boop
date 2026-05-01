@@ -1151,6 +1151,74 @@
 }
 
 /* ============================================================================
+   HAND POSITION WIDGET  (above fretboard strings)
+   ============================================================================ */
+
+.fretboard-hand-widget {
+    flex-shrink: 0;
+    height: 32px;
+    display: flex;
+    background: linear-gradient(to bottom, #7a4e20, #5a3010);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    margin-bottom: 4px;
+    border-radius: 4px 4px 0 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.hand-nut-gap {
+    width: 48px;
+    flex-shrink: 0;
+    border-right: 3px solid #d1d5db;
+}
+
+.hand-frets-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.hand-fret-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.hand-band {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    background: rgba(16, 185, 129, 0.3);
+    border: 1.5px solid rgba(52, 211, 153, 0.75);
+    border-radius: 3px;
+    cursor: ew-resize;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 0 2px;
+    z-index: 2;
+    transition: background 0.1s;
+    touch-action: none;
+}
+
+.hand-band:hover {
+    background: rgba(16, 185, 129, 0.45);
+}
+
+.hand-finger-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+/* ============================================================================
    CHORD BUTTONS BAR  (fretboard view — string instruments only)
    ============================================================================ */
 
@@ -1331,6 +1399,50 @@
 
 .chord-type-btn.strum-active .chord-alt-name {
     color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Chord voicing highlights ───────────────────────────────────────────── */
+
+.fret-dot.chord-voicing {
+    outline: 2px solid rgba(16, 185, 129, 0.75);
+    outline-offset: 2px;
+    z-index: 3;
+}
+
+.fret-dot.chord-open {
+    outline: 2px dashed rgba(251, 191, 36, 0.85);
+    outline-offset: 2px;
+    z-index: 3;
+}
+
+/* ── Strum sweep animation ──────────────────────────────────────────────── */
+
+@keyframes strum-lr {
+    from { transform: scaleX(0); transform-origin: left center; }
+    to   { transform: scaleX(1); transform-origin: left center; }
+}
+
+@keyframes strum-rl {
+    from { transform: scaleX(0); transform-origin: right center; }
+    to   { transform: scaleX(1); transform-origin: right center; }
+}
+
+.chord-type-btn .strum-sweep-bar {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.05));
+    pointer-events: none;
+    border-radius: inherit;
+    transform: scaleX(0);
+    z-index: 0;
+}
+
+.chord-type-btn.strum-sweep-down .strum-sweep-bar {
+    animation: strum-lr var(--strum-dur, 200ms) ease-out forwards;
+}
+
+.chord-type-btn.strum-sweep-up .strum-sweep-bar {
+    animation: strum-rl var(--strum-dur, 200ms) ease-out forwards;
 }
 
 /* Dark-mode fine-tuning */

@@ -48,6 +48,9 @@
     // ── Per-instance state (patched onto KeyboardModalNew.prototype) ─────────
     KeyboardChordsMixin.chordRoot = 0;       // semitone class 0–11 (0 = C)
     KeyboardChordsMixin._strumTimeouts = []; // pending timeout handles
+    KeyboardChordsMixin.handAnchorFret = 0;  // leftmost fret of the hand window
+    KeyboardChordsMixin._handSpanFrets = 4;  // frets covered by the hand
+    KeyboardChordsMixin._cachedMaxFrets = 22;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -79,7 +82,7 @@
 
         const rootLabel = document.createElement('span');
         rootLabel.className = 'chord-root-label';
-        rootLabel.textContent = 'Root';
+        rootLabel.textContent = (typeof this.t === 'function') ? this.t('keyboard.chordRoot') : 'Root';
         rootRow.appendChild(rootLabel);
 
         const rootBtns = document.createElement('div');
@@ -107,6 +110,7 @@
             btn.title = `${this._chordRootName(this.chordRoot)} ${type} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[type]}`;
 
             btn.innerHTML = `
+                <span class="strum-sweep-bar" aria-hidden="true"></span>
                 <span class="chord-strum-l" aria-hidden="true">↓</span>
                 <span class="chord-type-label">
                     <span class="chord-name">${type}</span>
@@ -175,8 +179,14 @@
         const delayMs = Math.round(25 - dist * 20);            // 5–25 ms
 
         const chordType = btn.dataset.chordType;
-        btn.classList.add('strum-active');
-        setTimeout(() => btn.classList.remove('strum-active'), 380);
+
+        // Sweep animation
+        const numStrings = (this.stringInstrumentConfig && this.stringInstrumentConfig.num_strings) || 6;
+        const totalDur = (numStrings - 1) * delayMs + 350;
+        btn.style.setProperty('--strum-dur', totalDur + 'ms');
+        btn.classList.remove('strum-sweep-down', 'strum-sweep-up');
+        void btn.offsetWidth; // force reflow to restart animation
+        btn.classList.add(strumDown ? 'strum-sweep-down' : 'strum-sweep-up');
 
         this._playChordStrum(this.chordRoot, chordType, strumDown, delayMs, useAlt);
     };
@@ -239,10 +249,27 @@
                 }
             }
 
-            result.push({ string: s + 1, note, time: 0 });
+            result.push({ string: s + 1, note, fret: semiDiff, time: 0 });
         }
 
         return result;
+    };
+
+    // ── Chord voicing display ────────────────────────────────────────────────
+
+    KeyboardChordsMixin._showChordVoicing = function (stringNotes) {
+        const container = document.getElementById('fretboard-container');
+        if (!container) return;
+        container.querySelectorAll('.fret-dot.chord-voicing, .fret-dot.chord-open')
+            .forEach(d => d.classList.remove('chord-voicing', 'chord-open'));
+        stringNotes.forEach(item => {
+            const dot = container.querySelector(
+                `.fret-dot[data-string="${item.string}"][data-fret="${item.fret}"]`
+            );
+            if (dot) {
+                dot.classList.add(item.fret === 0 ? 'chord-open' : 'chord-voicing');
+            }
+        });
     };
 
     // ── Strum playback ───────────────────────────────────────────────────────
@@ -298,6 +325,9 @@
 
         const stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
 
+        // ── Highlight voicing on fretboard ──
+        this._showChordVoicing(stringNotes);
+
         // ── Sort by strum direction ──
         const ordered = strumDown
             ? [...stringNotes].sort((a, b) => a.note - b.note)  // low → high
@@ -341,6 +371,202 @@
             notesPlayed.forEach(n => this.stopNote(n));
         }, stopDelay);
         this._strumTimeouts.push(stopT);
+    };
+
+    // ── Hand position widget ─────────────────────────────────────────────────
+
+    /**
+     * Equal-tempered fret-to-percentage conversion (matches fretboard grid).
+     */
+    function fretPct(fret, maxFrets) {
+        if (!maxFrets) return fret / 24 * 100;
+        const total = 1 - Math.pow(2, -maxFrets / 12);
+        return (1 - Math.pow(2, -fret / 12)) / total * 100;
+    }
+
+    /**
+     * Render the hand position widget above the string rows.
+     * Called from KeyboardPiano.renderFretboard() before the string loop.
+     */
+    KeyboardChordsMixin.renderHandWidget = function (stringsArea, opts) {
+        const { maxFretCount = 22, isFretless = false } = opts || {};
+
+        this._cachedMaxFrets = maxFretCount;
+
+        // Read hand span from instrument config
+        const cfg = this.stringInstrumentConfig || {};
+        const handsConfig = cfg.hands_config;
+        if (handsConfig && handsConfig.hands && handsConfig.hands[0]) {
+            const span = handsConfig.hands[0].hand_span_frets;
+            if (span > 0) this._handSpanFrets = span;
+        }
+
+        const widget = document.createElement('div');
+        widget.className = 'fretboard-hand-widget';
+        widget.id = 'fretboard-hand-widget';
+
+        const nutGap = document.createElement('div');
+        nutGap.className = 'hand-nut-gap';
+        widget.appendChild(nutGap);
+
+        const fretsArea = document.createElement('div');
+        fretsArea.className = 'hand-frets-area';
+        fretsArea.id = 'hand-frets-area';
+
+        // Fret dividers
+        if (!isFretless) {
+            for (let f = 1; f <= maxFretCount; f++) {
+                const line = document.createElement('div');
+                line.className = 'hand-fret-line';
+                line.style.left = fretPct(f, maxFretCount) + '%';
+                fretsArea.appendChild(line);
+            }
+        }
+
+        const band = document.createElement('div');
+        band.className = 'hand-band';
+        band.id = 'fretboard-hand-band';
+        band.title = (typeof this.t === 'function') ? this.t('keyboard.chordHandDrag') : 'Drag to move hand';
+
+        // Finger dots (one per string, using num_strings)
+        const numStrings = Math.max(1, cfg.num_strings || 6);
+        for (let i = 0; i < numStrings; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'hand-finger-dot';
+            band.appendChild(dot);
+        }
+
+        fretsArea.appendChild(band);
+        widget.appendChild(fretsArea);
+        stringsArea.appendChild(widget);
+
+        this._updateHandWidgetPosition();
+        this._attachHandWidgetEvents(band, fretsArea);
+    };
+
+    /**
+     * Reposition the .hand-band according to handAnchorFret and _handSpanFrets.
+     */
+    KeyboardChordsMixin._updateHandWidgetPosition = function () {
+        const band = document.getElementById('fretboard-hand-band');
+        if (!band) return;
+        const maxFrets = this._cachedMaxFrets || 22;
+        const leftPct  = fretPct(this.handAnchorFret, maxFrets);
+        const rightPct = fretPct(this.handAnchorFret + this._handSpanFrets, maxFrets);
+        band.style.left  = leftPct + '%';
+        band.style.width = (rightPct - leftPct) + '%';
+    };
+
+    /**
+     * Wire up drag events on the hand band.
+     */
+    KeyboardChordsMixin._attachHandWidgetEvents = function (band, fretsArea) {
+        if (!band || !fretsArea) return;
+
+        band.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const startX     = e.clientX;
+            const startAnchor = this.handAnchorFret;
+            const maxFrets   = this._cachedMaxFrets || 22;
+
+            const onMove = (mv) => {
+                const dx       = mv.clientX - startX;
+                const areaW    = fretsArea.clientWidth || 1;
+                const fretDelta = Math.round(dx / (areaW / maxFrets));
+                const newAnchor = Math.max(0, Math.min(
+                    maxFrets - this._handSpanFrets,
+                    startAnchor + fretDelta
+                ));
+                if (newAnchor !== this.handAnchorFret) {
+                    this.handAnchorFret = newAnchor;
+                    this._updateHandWidgetPosition();
+                    this._sendHandPositionCC(newAnchor);
+                }
+            };
+
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+
+        // Touch support
+        band.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const startX     = e.touches[0].clientX;
+            const startAnchor = this.handAnchorFret;
+            const maxFrets   = this._cachedMaxFrets || 22;
+
+            const onMove = (mv) => {
+                const dx       = mv.touches[0].clientX - startX;
+                const areaW    = fretsArea.clientWidth || 1;
+                const fretDelta = Math.round(dx / (areaW / maxFrets));
+                const newAnchor = Math.max(0, Math.min(
+                    maxFrets - this._handSpanFrets,
+                    startAnchor + fretDelta
+                ));
+                if (newAnchor !== this.handAnchorFret) {
+                    this.handAnchorFret = newAnchor;
+                    this._updateHandWidgetPosition();
+                    this._sendHandPositionCC(newAnchor);
+                }
+            };
+
+            const onEnd = () => {
+                band.removeEventListener('touchmove', onMove);
+                band.removeEventListener('touchend', onEnd);
+            };
+
+            band.addEventListener('touchmove', onMove, { passive: false });
+            band.addEventListener('touchend', onEnd);
+        }, { passive: false });
+    };
+
+    /**
+     * Send CC for the hand anchor fret position.
+     */
+    KeyboardChordsMixin._sendHandPositionCC = function (anchorFret) {
+        if (!this.selectedDevice || !this.backend) return;
+        const cfg = this.stringInstrumentConfig || {};
+        if (cfg.cc_enabled === false) return;
+
+        const ccFretNumber = cfg.cc_fret_number !== undefined ? cfg.cc_fret_number : 21;
+        const ccFretOffset = cfg.cc_fret_offset || 0;
+        const ccFretMin    = cfg.cc_fret_min    !== undefined ? cfg.cc_fret_min    : 0;
+        const ccFretMax    = cfg.cc_fret_max    !== undefined ? cfg.cc_fret_max    : 36;
+
+        const val = Math.max(0, Math.min(127, Math.max(ccFretMin, Math.min(ccFretMax, anchorFret + ccFretOffset))));
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+
+        if (this.selectedDevice.isVirtual) {
+            this.logger && this.logger.info && this.logger.info(`[Hand] CC${ccFretNumber}=${val} (anchor fret ${anchorFret})`);
+            return;
+        }
+
+        const channel = this.getSelectedChannel();
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId, channel, controller: ccFretNumber, value: val
+        }).catch(err => this.logger && this.logger.error('[HandWidget] CC send failed:', err));
+    };
+
+    // ── Auto-move hand on out-of-range fret click ─────────────────────────────
+
+    /**
+     * If `fret` is outside the current hand window, recentre the hand and send CC.
+     */
+    KeyboardChordsMixin._maybeAutoMoveHand = function (fret) {
+        if (fret <= 0) return;
+        const span   = this._handSpanFrets || 4;
+        const max    = this._cachedMaxFrets || 22;
+        const anchor = this.handAnchorFret || 0;
+        if (fret >= anchor && fret <= anchor + span - 1) return; // already in range
+        const newAnchor = Math.max(0, Math.min(max - span, fret - Math.floor(span / 2)));
+        this.handAnchorFret = newAnchor;
+        this._updateHandWidgetPosition();
+        this._sendHandPositionCC(newAnchor);
     };
 
     if (typeof window !== 'undefined') window.KeyboardChordsMixin = KeyboardChordsMixin;
