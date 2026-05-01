@@ -215,8 +215,11 @@
         renderFooter() { return ''; }
 
         onOpen() {
+            // CSS lives in `public/styles/keyboard-hand-position-editor.css`
+            // (loaded once globally). The overlay class hook is kept
+            // so the stylesheet can hoist the editor above its caller
+            // (the routing-summary modal).
             this.container?.classList.add('khpe-modal-overlay');
-            this._injectStyles();
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
@@ -385,109 +388,6 @@
             this._drawMinimap();
         }
 
-        _injectStyles() {
-            if (document.getElementById('khpe-modal-styles')) return;
-            const style = document.createElement('style');
-            style.id = 'khpe-modal-styles';
-            style.textContent = `
-                .modal-overlay.khpe-modal-overlay {
-                    /* Routing summary modal sits at 10005; stay above so
-                       the editor isn't covered when opened from there. */
-                    z-index: 10010 !important;
-                }
-                .khpe-modal .modal-dialog {
-                    /* Almost full-page width but leaves a sliver of the
-                       overlay visible on the sides so the operator
-                       still feels they are "inside" a dialog rather
-                       than on a brand-new page. */
-                    width: 98vw !important;
-                    height: 96vh !important;
-                    max-width: 98vw !important;
-                    max-height: 96vh !important;
-                    margin: 2vh auto !important;
-                    border-radius: 6px !important;
-                    display: flex; flex-direction: column;
-                    background: #fff;
-                    overflow: hidden;
-                }
-                .khpe-modal .modal-body {
-                    flex: 1; display: flex; flex-direction: column;
-                    overflow: hidden; padding: 0; min-height: 0;
-                }
-                .khpe-modal .modal-footer { display: none; }
-                /* Header IS the toolbar — no h2/title here. */
-                .khpe-modal .khpe-header {
-                    padding: 0; background: #f9fafb;
-                    border-bottom: 1px solid #e5e7eb;
-                }
-                .khpe-toolbar {
-                    display: flex; gap: 6px; align-items: center;
-                    padding: 8px 10px; flex-wrap: wrap;
-                }
-                .khpe-toolbar button[data-action] {
-                    padding: 4px 10px; border: 1px solid #d1d5db;
-                    background: #fff; border-radius: 4px; cursor: pointer;
-                    font-size: 14px; line-height: 1;
-                }
-                .khpe-toolbar button[data-action]:hover:not([disabled]) { background: #f3f4f6; }
-                .khpe-toolbar button[data-action][disabled] { opacity: 0.45; cursor: not-allowed; }
-                .khpe-toolbar button[data-action="save"] { font-size: 16px; padding: 4px 10px; }
-                .khpe-toolbar button.modal-close {
-                    margin-left: 4px; font-size: 18px; line-height: 1;
-                    padding: 2px 10px; background: transparent; border: none;
-                    cursor: pointer; color: #6b7280;
-                }
-                .khpe-toolbar button.modal-close:hover { color: #111827; }
-                .khpe-toolbar .khpe-sep {
-                    display: inline-block; width: 1px; height: 18px; background: #d1d5db;
-                }
-                .khpe-toolbar .khpe-spacer { flex: 1; }
-                .khpe-toolbar .khpe-status { color: #6b7280; font-size: 12px; }
-                .khpe-toolbar .khpe-group-label {
-                    font-size: 11px; color: #6b7280; text-transform: uppercase;
-                    letter-spacing: 0.04em;
-                }
-                .khpe-toolbar .khpe-problem-count {
-                    font-size: 12px; color: #b91c1c; font-weight: 600; min-width: 20px;
-                }
-                .khpe-main {
-                    display: flex; flex-direction: column; flex: 1; min-height: 0;
-                }
-                .khpe-minimap-host {
-                    position: relative; height: 54px; flex: none;
-                    background: #1e293b; border-bottom: 1px solid #334155;
-                }
-                .khpe-minimap-canvas {
-                    position: absolute; inset: 0; display: block; cursor: pointer;
-                }
-                .khpe-roll-host {
-                    position: relative; flex: 1; background: #0f172a;
-                    overflow: hidden; min-height: 200px;
-                }
-                .khpe-roll-host.is-panning { cursor: grabbing; }
-                .khpe-roll-canvas { position: absolute; inset: 0; display: block; }
-                .khpe-kb-mini-host {
-                    background: #0f172a; height: 18px; flex: none;
-                    border-top: 1px solid #334155; cursor: pointer; position: relative;
-                }
-                .khpe-kb-mini-canvas { display: block; width: 100%; height: 100%; }
-                /* Keyboard preview area — purely informational, no
-                   interaction (every edit happens on the roll above).
-                   Tall enough to show keys, fingers and active-key
-                   tinting clearly. */
-                .khpe-keyboard-host {
-                    position: relative; background: #1e293b; padding: 4px;
-                    height: 120px; flex: none;
-                    pointer-events: none;
-                }
-                .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
-                .khpe-fingers-overlay {
-                    position: absolute; inset: 4px; pointer-events: none;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
         /** BaseModal's default `update()` re-renders body + footer
          *  HTML on every locale change, which would tear down our
          *  canvases and dangling-reference every cached widget. We
@@ -612,133 +512,20 @@
             this.keyboard = null;
         }
 
-        /**
-         * Build a minimal chromatic-line widget that mimics enough of
-         * the KeyboardPreview public API (`setRange`, `setHandBands`,
-         * `draw`, `destroy`) for the editor to drive it the same way.
-         * Visual: every semitone is rendered as an identical rectangle
-         * with a 1 px gap, tinted by hand-band overlay underneath. No
-         * black/white distinction since chromatic instruments don't
-         * have one (xylophone, hangdrum…).
-         */
+        /** Instantiate the chromatic preview widget for the bottom
+         *  strip. The widget exposes the same surface as
+         *  `KeyboardPreview` (setRange, setHandBands, setActiveNotes,
+         *  keyXAt, keyWidth, draw, destroy) so the rest of the modal
+         *  drives it without branching on instrument type. */
         _buildChromaticKeyboard(ext) {
-            const canvas = this.keyboardCanvas;
-            let rangeMin = ext.lo;
-            let rangeMax = ext.hi;
-            let bands = [];
-            // midi → handId | null. Populated by setActiveNotes so
-            // the chromatic widget can tint keys currently sounding
-            // at the playhead, the same way KeyboardPreview does for
-            // piano-style instruments.
-            const activeNotes = new Map();
-
-            const draw = () => {
-                const dpr = window.devicePixelRatio || 1;
-                const W = canvas.clientWidth;
-                const H = canvas.clientHeight;
-                if (W <= 0 || H <= 0) return;
-                const wantW = W * dpr;
-                const wantH = H * dpr;
-                if (canvas.width !== wantW || canvas.height !== wantH) {
-                    canvas.width = wantW;
-                    canvas.height = wantH;
-                }
-                const ctx = canvas.getContext('2d');
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.fillStyle = '#0f172a';
-                ctx.fillRect(0, 0, W, H);
-                const bandH = 22;
-                const keysH = H - bandH;
-                const range = Math.max(1, rangeMax - rangeMin + 1);
-                const pxPerNote = W / range;
-                // Build a quick id → colour map so active keys can be
-                // tinted with their assigned hand's colour (matches
-                // KeyboardPreview's behaviour).
-                const bandColorById = new Map();
-                for (const b of bands) bandColorById.set(b.id, b.color);
-                // Notes as identical cells. C of every octave gets a
-                // brighter tint so the operator finds the octave
-                // boundaries quickly. Active notes override the base
-                // tint with the assigned hand's colour (or a generic
-                // blue when no hand covers them).
-                for (let m = rangeMin; m <= rangeMax; m++) {
-                    const x = (m - rangeMin) * pxPerNote;
-                    let fill;
-                    if (activeNotes.has(m)) {
-                        const hid = activeNotes.get(m);
-                        fill = (hid && bandColorById.get(hid)) || '#3b82f6';
-                    } else {
-                        fill = (m % 12 === 0) ? '#f8fafc' : '#cbd5e1';
-                    }
-                    ctx.fillStyle = fill;
-                    ctx.fillRect(x + 0.5, 0, Math.max(1, pxPerNote - 1), keysH);
-                    if (m % 12 === 0 && pxPerNote > 18) {
-                        ctx.fillStyle = activeNotes.has(m) ? '#f8fafc' : '#0f172a';
-                        ctx.font = '10px sans-serif';
-                        ctx.textBaseline = 'bottom';
-                        ctx.fillText(`C${(m / 12) - 1}`, x + 3, keysH - 2);
-                    }
-                }
-                // Hand bands flush against the bottom of the strip,
-                // single row to match KeyboardPreview's bandsOnSingleRow.
-                for (const b of bands) {
-                    if (!Number.isFinite(b.low) || !Number.isFinite(b.high)) continue;
-                    const lo = Math.max(rangeMin, b.low);
-                    const hi = Math.min(rangeMax, b.high);
-                    if (hi < lo) continue;
-                    const x1 = (lo - rangeMin) * pxPerNote;
-                    const x2 = (hi - rangeMin + 1) * pxPerNote;
-                    ctx.fillStyle = _bandFill(b.color);
-                    ctx.fillRect(x1, keysH, x2 - x1, bandH);
-                    ctx.strokeStyle = b.color;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x1 + 0.5, keysH + 0.5, x2 - x1 - 1, bandH - 1);
-                }
-            };
-
-            // The chromatic widget is purely informational — every
-            // edit happens on the piano-roll above. Drag handlers are
-            // therefore omitted; the canvas reacts only to the public
-            // setters below.
-
-            // Public x-mapping helpers — same shape as KeyboardPreview's
-            // public counterparts so the fingers overlay can query
-            // either widget without branching on instrument type. The
-            // chromatic widget uses uniform key widths, so xOf is just
-            // the proportional offset.
-            const pxPerNote = () => {
-                const W = canvas.clientWidth || 0;
-                const range = Math.max(1, rangeMax - rangeMin + 1);
-                return W / range;
-            };
-            return {
-                setRange(min, max) { rangeMin = min; rangeMax = max; draw(); },
-                setHandBands(b) { bands = Array.isArray(b) ? b : []; draw(); },
-                /** Accept either `[midi, midi, …]` or `[{midi, handId}, …]`,
-                 *  same shape as KeyboardPreview.setActiveNotes. */
-                setActiveNotes(notes) {
-                    activeNotes.clear();
-                    if (Array.isArray(notes)) {
-                        for (const e of notes) {
-                            if (Number.isFinite(e)) activeNotes.set(e, null);
-                            else if (e && Number.isFinite(e.midi)) {
-                                activeNotes.set(e.midi, e.handId || null);
-                            }
-                        }
-                    }
-                    draw();
-                },
-                draw,
-                /** Pixel x of the LEFT edge of `midi`'s key. Accepts
-                 *  fractional MIDI values for smooth animation. */
-                keyXAt(midi) {
-                    if (!Number.isFinite(midi)) return 0;
-                    return (midi - rangeMin) * pxPerNote();
-                },
-                /** Pixel width of the key at `midi` (uniform here). */
-                keyWidth(/*midi*/) { return pxPerNote(); },
-                destroy() { bands = []; activeNotes.clear(); }
-            };
+            if (typeof window === 'undefined' || !window.KeyboardChromaticPreview) {
+                return null;
+            }
+            return new window.KeyboardChromaticPreview(this.keyboardCanvas, {
+                rangeMin: ext.lo,
+                rangeMax: ext.hi,
+                bandHeight: 22
+            });
         }
 
         /** Resize the keyboard canvas backing store to match its CSS
