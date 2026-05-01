@@ -199,10 +199,6 @@
                         <canvas class="khpe-fingers-overlay"></canvas>
                     </div>
                 </div>
-                <div class="khpe-hint">
-                    ${_t('keyboardHandEditor.hint',
-                         'Faites glisser une bande de main horizontalement sur le piano-roll pour repositionner cette main. Faites défiler la vue avec la molette ou un cliquer-glisser sur une zone vide.')}
-                </div>
             `;
         }
 
@@ -610,10 +606,6 @@
                 .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
                 .khpe-fingers-overlay {
                     position: absolute; inset: 4px; pointer-events: none;
-                }
-                .khpe-hint {
-                    padding: 6px 10px; color: #6b7280; font-size: 12px;
-                    border-top: 1px solid #e5e7eb; background: #fff;
                 }
             `;
             document.head.appendChild(style);
