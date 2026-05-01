@@ -477,6 +477,11 @@
             const row = document.createElement('div');
             row.className = 'fret-string';
             row.style.gridTemplateColumns = gridCols;
+            row.dataset.stringNumber = stringNumber;
+            // Vibration overlay — absolutely positioned, updated by _updateFretboardStringColors().
+            const vibe = document.createElement('div');
+            vibe.className = 'string-vibe';
+            row.appendChild(vibe);
             // Open string cell (fret 0 = the nut)
             const openCell = this._buildFretCell(openMidi, true, stringNumber, 0);
             row.appendChild(openCell);
@@ -533,6 +538,43 @@
             cell.appendChild(dot);
         }
         return cell;
+    }
+
+    /**
+     * Update the string-vibration overlay for each fretboard row.
+     * Called by updatePianoDisplay() when viewMode === 'fretboard'.
+     * Colors the string line to the RIGHT of the pressed fret dot.
+     */
+    KeyboardPianoMixin._updateFretboardStringColors = function() {
+        const rows = document.querySelectorAll('.fretboard-container .fret-string');
+        rows.forEach(row => {
+            const vibe = row.querySelector('.string-vibe');
+            if (!vibe) return;
+
+            const activeDot = row.querySelector('.fret-dot.active');
+            if (!activeDot) {
+                vibe.style.display = 'none';
+                return;
+            }
+
+            const cell = activeDot.closest('.fret-cell');
+            if (!cell) { vibe.style.display = 'none'; return; }
+
+            // Start the highlight at the center of the active fret cell.
+            const startPx = cell.offsetLeft + cell.offsetWidth / 2;
+            vibe.style.left = startPx + 'px';
+            vibe.style.right = '0';
+
+            // When note colors are on, use the note's chromatic color; otherwise gold.
+            if (this.showNoteColors) {
+                const note = parseInt(activeDot.dataset.note, 10);
+                const c = FRET_NOTE_COLORS[note % 12];
+                vibe.style.background = `linear-gradient(to right, ${c.bg}, ${c.bg}33)`;
+            } else {
+                vibe.style.background = 'linear-gradient(to right, #f59e0b, rgba(245,158,11,0.15))';
+            }
+            vibe.style.display = 'block';
+        });
     }
 
     /**
