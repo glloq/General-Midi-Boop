@@ -179,12 +179,14 @@
                 whiteKey.classList.add('disabled');
             }
 
+            // Colored dot (pastille) — always in the DOM, visible only when showNoteColors.
+            const colorDot = document.createElement('div');
+            colorDot.className = 'note-color-dot';
             if (this.showNoteColors) {
-                const c = FRET_NOTE_COLORS[noteNumber % 12];
-                whiteKey.style.setProperty('--note-bg', c.bg);
-                whiteKey.style.setProperty('--note-text', c.text);
-                whiteKey.classList.add('note-colored');
+                colorDot.style.background = FRET_NOTE_COLORS[noteNumber % 12].bg;
+                colorDot.style.display = 'block';
             }
+            whiteKey.appendChild(colorDot);
 
             const label = document.createElement('span');
             label.className = 'key-label';
@@ -210,12 +212,14 @@
                 blackKey.classList.add('disabled');
             }
 
+            // Colored dot (pastille) for black keys.
+            const colorDotB = document.createElement('div');
+            colorDotB.className = 'note-color-dot';
             if (this.showNoteColors) {
-                const c = FRET_NOTE_COLORS[blackNote % 12];
-                blackKey.style.setProperty('--note-bg', c.bg);
-                blackKey.style.setProperty('--note-text', c.text);
-                blackKey.classList.add('note-colored');
+                colorDotB.style.background = FRET_NOTE_COLORS[blackNote % 12].bg;
+                colorDotB.style.display = 'block';
             }
+            blackKey.appendChild(colorDotB);
 
             // Width and position scaled relative to the number of white keys
             // so black keys stay narrower than white keys regardless of octave count.
