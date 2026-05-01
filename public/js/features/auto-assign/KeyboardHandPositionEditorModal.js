@@ -199,10 +199,6 @@
                         <canvas class="khpe-fingers-overlay"></canvas>
                     </div>
                 </div>
-                <div class="khpe-hint">
-                    ${_t('keyboardHandEditor.hint',
-                         'Faites glisser une bande de main horizontalement sur le piano-roll pour repositionner cette main. Faites défiler la vue avec la molette ou un cliquer-glisser sur une zone vide.')}
-                </div>
             `;
         }
 
@@ -611,10 +607,6 @@
                 .khpe-fingers-overlay {
                     position: absolute; inset: 4px; pointer-events: none;
                 }
-                .khpe-hint {
-                    padding: 6px 10px; color: #6b7280; font-size: 12px;
-                    border-top: 1px solid #e5e7eb; background: #fff;
-                }
             `;
             document.head.appendChild(style);
         }
@@ -712,7 +704,7 @@
                 // schema's authoritative field (see
                 // InstrumentCapabilitiesValidator: chromatic keyboards
                 // use `span = num_fingers - 1`, piano keyboards keep
-                // span and num_fingers independent). Range 1..10 per
+                // span and num_fingers independent). Range 1..16 per
                 // hand. Falls back to `span + 1` when the config
                 // didn't set the field (= one finger per chromatic
                 // position, the chromatic-instrument convention) so

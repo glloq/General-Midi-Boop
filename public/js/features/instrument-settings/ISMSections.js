@@ -1242,7 +1242,7 @@
                 <div>
                     <label>${t('instrumentSettings.handsNumFingers') || 'Nombre de doigts'}</label>
                     <input type="number" class="ism-hand-fingers" data-hand="${h.id}" data-field="num_fingers"
-                           value="${numFingers}" min="1" max="10">
+                           value="${numFingers}" min="1" max="16">
                     <span class="ism-form-hint">${
                         hideSpanField
                             ? (t('instrumentSettings.handsNumFingersAlignedHint')

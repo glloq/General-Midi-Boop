@@ -683,7 +683,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
     expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
   });
 
-  test('num_fingers in [1,10] is accepted', () => {
+  test('num_fingers in [1,16] is accepted', () => {
     const v = new InstrumentCapabilitiesValidator();
     const r = v.validateInstrument({
       ...piano(),
@@ -693,7 +693,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         hand_move_semitones_per_sec: 60,
         hands: [
           { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 1 },
-          { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 10 }
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 16 }
         ]
       }
     });
@@ -709,7 +709,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mode: 'semitones',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 12 },
+          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 17 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
