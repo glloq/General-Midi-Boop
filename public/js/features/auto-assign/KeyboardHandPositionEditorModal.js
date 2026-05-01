@@ -73,6 +73,11 @@
                 // toolbar (see `_renderHeader`). Kept as empty string so
                 // BaseModal's locale `update()` no-ops cleanly.
                 title: '',
+                // We render our own × button inside the toolbar; tell
+                // BaseModal not to re-attach a click listener on a
+                // matching `[data-action="close"]` (it would fire
+                // alongside our delegated toolbar handler).
+                showCloseButton: false,
                 customClass: 'khpe-modal'
             });
 
@@ -612,6 +617,16 @@
             document.head.appendChild(style);
         }
 
+        /** BaseModal's default `update()` re-renders body + footer
+         *  HTML on every locale change, which would tear down our
+         *  canvases and dangling-reference every cached widget. We
+         *  override it to a no-op: this editor's strings are short
+         *  static labels (toolbar tooltips) and the cost of rebuilding
+         *  the entire piano-roll for them is not worth it. If real
+         *  locale-aware label refresh becomes needed, rebuild only
+         *  the toolbar in place rather than the whole body. */
+        update() {}
+
         onClose() {
             if (this._problemRebuildTimer != null) {
                 clearTimeout(this._problemRebuildTimer);
@@ -1023,13 +1038,11 @@
         }
 
         // ----------------------------------------------------------------
-        //  Minimap — file overview, viewport rect, hand-anchor trajectories
-        // ----------------------------------------------------------------
-
-        // ----------------------------------------------------------------
-        //  Fingers overlay — vertical bars from the hand band down to
-        //  each playable key, coloured grey when the finger is lifted
-        //  and blue when it currently presses a sounding note.
+        //  Fingers overlay — vertical bars from the hand band up to
+        //  the keys, with a hand-coloured knuckle bar that anchors
+        //  the bunch to the band so the fingers visually belong to
+        //  the hand. Grey while lifted, blue when pressing a
+        //  sounding note. Real minimap rendering lives further down.
         // ----------------------------------------------------------------
 
         /** Whether this instrument's hands_config explicitly sets the
@@ -1179,8 +1192,22 @@
             // width on a chromatic widget). 32 % of that gives a
             // comfortably narrow rectangle that fits inside a black
             // key while remaining clearly visible on a white key.
-            const refKeyW = (kb && typeof kb.keyWidth === 'function')
-                ? kb.keyWidth(60) : fallbackPxPerPitch;
+            //
+            // Pick a reference pitch INSIDE the visible range. The
+            // previous version hardcoded MIDI 60 (middle C); on
+            // instruments whose range excludes 60 (e.g. high-pitched
+            // marimba) `keyWidth(60)` returned 0 / NaN and the
+            // fingers shrank to the 3 px floor. Using the centre of
+            // the visible window also lets a white-key reference fall
+            // through naturally on piano widgets — the centre of any
+            // 12-semitone window is white in 7/12 cases and the
+            // remainder still resolve to a sensible width via the
+            // KeyboardPreview's geometry.
+            const refMidi = Math.round((view.lo + view.hi) / 2);
+            const probedKeyW = (kb && typeof kb.keyWidth === 'function')
+                ? kb.keyWidth(refMidi) : fallbackPxPerPitch;
+            const refKeyW = Number.isFinite(probedKeyW) && probedKeyW > 0
+                ? probedKeyW : fallbackPxPerPitch;
             const uniformFingerW = Math.max(3, refKeyW * 0.32);
 
             for (let h = 0; h < this._hands.length; h++) {
@@ -1241,11 +1268,14 @@
                 this._panKeyboard(pitch);
             };
             this.kbMiniCanvas.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
                 handle(e);
-                this._kbMiniDragging = true;
-                const onMove = (ev) => { if (this._kbMiniDragging) handle(ev); };
+                // The move handler is bound on mousedown and removed
+                // on mouseup, so it only fires while the button is
+                // held — no need for an additional `_dragging` flag.
+                const onMove = (ev) => handle(ev);
                 const onUp = () => {
-                    this._kbMiniDragging = false;
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);
                 };
@@ -1864,11 +1894,10 @@
             const HIT_BAND = 'band';
             const HIT_NOTE = 'note';
             const HIT_PAN  = 'pan';
-            const DRAG_THRESHOLD = 3; // px
 
             const localXY = (e) => {
                 const rect = this.rollCanvas.getBoundingClientRect();
-                return { x: e.clientX - rect.left, y: e.clientY - rect.top, rect };
+                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
             };
 
             const hitTest = (x, y) => {
@@ -1881,25 +1910,23 @@
 
             this.rollCanvas.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
-                const { x, y, rect } = localXY(e);
+                const { x, y } = localXY(e);
                 const hit = hitTest(x, y);
 
                 if (hit.kind === HIT_NOTE) {
-                    // Defer to mouseup → click handler so the popover
-                    // doesn't open if the user was actually trying to
-                    // start a drag from the same pixel column.
-                    this._pendingNoteClick = { hit: hit.note, evt: e };
+                    // Defer to mouseup → click so a drag started ON a
+                    // note doesn't open the popover. We track the
+                    // initial pointer position and cancel the pending
+                    // click if movement exceeds the threshold.
+                    this._armPendingNoteClick(hit.note, e);
                     return;
                 }
 
                 e.preventDefault();
                 this._closeNotePopover();
 
-                if (hit.kind === HIT_BAND) {
-                    this._startBandDrag(hit, x, rect);
-                } else {
-                    this._startTimePan(y);
-                }
+                if (hit.kind === HIT_BAND) this._startBandDrag(hit, x);
+                else                       this._startTimePan(y);
             });
 
             // Click handler kept only for the deferred note popover.
@@ -1911,12 +1938,16 @@
             });
 
             this.rollHost.addEventListener('wheel', (e) => {
+                // Horizontal-only wheel events (touchpad sideways
+                // scroll) carry deltaY === 0 and would otherwise be
+                // consumed for nothing. Skip them so the browser can
+                // fall back to its own behaviour.
+                if (e.deltaY === 0) return;
                 e.preventDefault();
                 if (e.ctrlKey) {
                     const factor = e.deltaY < 0 ? 1.25 : 0.8;
                     this._lookaheadSec = Math.max(1, Math.min(30, this._lookaheadSec / factor));
-                    this._draw();
-                    this._drawMinimap();
+                    this._redrawAll();
                     return;
                 }
                 // Wheel scrubs the timeline — one notch ≈ 10 % of the
@@ -1931,6 +1962,35 @@
                 this._draw();
                 this._drawMinimap();
             }, { passive: false });
+        }
+
+        /** Drag-vs-click threshold (CSS pixels). Movement under this
+         *  number of pixels still counts as a stationary click; above
+         *  it cancels the pending note-popover and confirms the drag. */
+        get _DRAG_THRESHOLD_PX() { return 3; }
+
+        /** Arm a deferred note popover. Mouseup with movement under the
+         *  threshold opens the popover; mouseup past the threshold (or
+         *  any further mousedown) cancels it. Without this guard a
+         *  user dragging across a note still got a popover on release. */
+        _armPendingNoteClick(noteHit, downEvt) {
+            this._pendingNoteClick = { hit: noteHit, evt: downEvt };
+            const startX = downEvt.clientX;
+            const startY = downEvt.clientY;
+            const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                if (dx * dx + dy * dy >= this._DRAG_THRESHOLD_PX * this._DRAG_THRESHOLD_PX) {
+                    this._pendingNoteClick = null;
+                    cleanup();
+                }
+            };
+            const cleanup = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', cleanup);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', cleanup);
         }
 
         /** Hit-test the hand-position lanes drawn on the roll. Returns
@@ -1980,7 +2040,8 @@
             return Number.isFinite(t) ? t : hand.anchor;
         }
 
-        _startBandDrag(hit, startX, rect) {
+        _startBandDrag(hit, startX) {
+            const threshold = this._DRAG_THRESHOLD_PX;
             const drag = {
                 kind: 'band',
                 handId: hit.handId,
@@ -1988,28 +2049,30 @@
                 pxPerPitch: hit.pxPerPitch,
                 ext: hit.ext,
                 started: false,
-                lastX: startX,
-                rect
+                startX
             };
             this._rollDrag = drag;
             const onMove = (ev) => {
+                // Re-fetch the canvas rect every move: a window resize
+                // or page scroll during the drag would otherwise leave
+                // the band stuck to the old viewport position.
+                const rect = this.rollCanvas.getBoundingClientRect();
                 const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
-                if (!drag.started && Math.abs(x - drag.lastX) < 1) return;
-                drag.started = true;
-                // x → pitch: subtract the click offset so the band
-                // tracks the cursor exactly.
+                if (!drag.started) {
+                    if (Math.abs(x - drag.startX) < threshold) return;
+                    drag.started = true;
+                }
                 const pitchAtLeftEdge = drag.ext.lo + (x - drag.offsetPx) / drag.pxPerPitch;
                 this._onHandBandDragLive(drag.handId, Math.round(pitchAtLeftEdge));
-                drag.lastX = x;
             };
             const onUp = () => {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
                 this._rollDrag = null;
                 if (drag.started) {
-                    // Single history entry per drag — the live moves
-                    // mutated `hand.anchor` in place; commit pushes the
-                    // override + history snapshot once.
+                    // One history entry per completed drag — the live
+                    // moves mutated `hand.anchor` in place; commit
+                    // pushes the override + snapshot once.
                     this._commitHandBandDrag(drag.handId);
                 }
             };
@@ -2018,18 +2081,26 @@
         }
 
         _startTimePan(startY) {
+            const threshold = this._DRAG_THRESHOLD_PX;
             const drag = {
                 kind: 'pan',
                 startY,
                 startSec: this._currentSec,
                 H: this.rollHost.clientHeight,
-                lookahead: this._lookaheadSec || 4
+                lookahead: this._lookaheadSec || 4,
+                started: false
             };
             this._rollDrag = drag;
-            this.rollHost?.classList.add('is-panning');
             const onMove = (ev) => {
+                // Re-fetch the rect every move (window resize / scroll
+                // during the drag would otherwise stale the geometry).
                 const rect = this.rollCanvas.getBoundingClientRect();
                 const y = ev.clientY - rect.top;
+                if (!drag.started) {
+                    if (Math.abs(y - drag.startY) < threshold) return;
+                    drag.started = true;
+                    this.rollHost?.classList.add('is-panning');
+                }
                 // Drag DOWN = travel back in time (the strip slides
                 // toward you), drag UP = travel forward — feels like
                 // grabbing the timeline strip itself.
@@ -2051,6 +2122,17 @@
             };
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onUp);
+        }
+
+        /** Single redraw helper used by every "view-affecting" toolbar
+         *  action (zoom in/out, kb-zoom, lookahead change). Calling
+         *  this from one place keeps the four canvases (roll, minimap,
+         *  kb-mini, fingers) in agreement after any view-state change. */
+        _redrawAll() {
+            this._draw();
+            this._drawMinimap();
+            this._drawKbMini();
+            this._drawFingers();
         }
 
         /** Live update during a band drag — clamps against neighbours,
@@ -2212,13 +2294,19 @@
             // toolbar button is now a one-line change in this map.
             const zoom = (factor) => {
                 this._lookaheadSec = Math.min(30, Math.max(1, this._lookaheadSec * factor));
-                this._draw(); this._drawMinimap();
+                this._redrawAll();
             };
             const reset = () => {
                 this.overrides = window.HandEditorShared.emptyOverrides();
+                // Bring `_hands[*].anchor` and `_displayedAnchor` back
+                // in line with the now-empty override set so the
+                // bands and finger overlay snap to their seed
+                // positions instead of staying on the pre-reset
+                // anchors until the next anim tick lerps them back.
+                this._reseedAnchorsFromOverrides();
                 this._pushHistory();
                 this._rebuildProblems();
-                this._draw(); this._drawMinimap();
+                this._redrawAll();
             };
             // Pitch (horizontal) zoom centred on the keyboard view's
             // current centre — equivalent to the keyboard's old
@@ -2360,9 +2448,36 @@
         }
 
         _afterHistoryStep() {
+            // The override set just changed under us. Re-seed the
+            // live band positions BEFORE the redraw so the visual
+            // jumps with the data instead of lagging behind until
+            // the lerp animation catches up.
+            this._reseedAnchorsFromOverrides();
             this._rebuildProblems();
-            this._draw();
-            this._drawMinimap();
+            this._redrawAll();
+        }
+
+        /** Rewrite each hand's `anchor` (and the matching displayed
+         *  position) from the latest `hand_anchors` override at the
+         *  current playhead, falling back to the deterministic seed
+         *  used at mount when no override is set for that hand.
+         *  Called after any external mutation of `this.overrides`
+         *  (undo, redo, reset) so the live state stays in sync.
+         *  @private */
+        _reseedAnchorsFromOverrides() {
+            if (!Array.isArray(this._hands)) return;
+            const ext = this._pitchExtent();
+            const cfg = _parseHandsCfg(this.instrument);
+            const total = cfg?.hands?.length || this._hands.length;
+            for (let i = 0; i < this._hands.length; i++) {
+                const h = this._hands[i];
+                const overrideAnchor = this._latestAnchorOverride(h.id);
+                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, total))
+                    * (ext.hi - ext.lo - h.span));
+                h.anchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
+                this._displayedAnchor.set(h.id, h.anchor);
+            }
+            this.keyboard?.setHandBands(this._currentHandBands());
         }
 
         _refreshHistoryButtons() {
