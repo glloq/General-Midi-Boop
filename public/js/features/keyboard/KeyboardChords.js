@@ -50,8 +50,10 @@
     KeyboardChordsMixin._activeChordType = 'Maj'; // last chord type used (for voicing refresh)
     KeyboardChordsMixin._strumTimeouts = [];    // pending timeout handles
     KeyboardChordsMixin.handAnchorFret = 0;     // leftmost fret of the hand window
-    KeyboardChordsMixin._handSpanFrets = 4;     // frets covered by the hand
+    KeyboardChordsMixin._handSpanFrets = 4;     // frets covered by the hand (fallback)
     KeyboardChordsMixin._cachedMaxFrets = 22;
+    KeyboardChordsMixin._handSpanMm = 0;        // physical hand span in mm (0 = not set)
+    KeyboardChordsMixin._scaleLengthMm = 0;     // instrument scale length in mm (0 = not set)
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -394,15 +396,23 @@
     KeyboardChordsMixin.renderHandWidget = function (stringsArea, opts) {
         const { maxFretCount = 22, isFretless = false } = opts || {};
 
-        this._cachedMaxFrets = maxFretCount;
-
-        // Read hand span from instrument config
         const cfg = this.stringInstrumentConfig || {};
         const handsConfig = cfg.hands_config;
-        if (handsConfig && handsConfig.hands && handsConfig.hands[0]) {
-            const span = handsConfig.hands[0].hand_span_frets;
-            if (span > 0) this._handSpanFrets = span;
-        }
+
+        // Show the hand widget only when explicitly enabled in instrument settings.
+        if (!handsConfig || handsConfig.enabled !== true) return;
+
+        this._cachedMaxFrets = maxFretCount;
+
+        // Read physical dimensions for mm-based width calculation.
+        const hand = (handsConfig.hands && handsConfig.hands[0]) || {};
+        const handSpanMm = Number.isFinite(hand.hand_span_mm) ? hand.hand_span_mm : 0;
+        const scaleLengthMm = Number.isFinite(cfg.scale_length_mm) ? cfg.scale_length_mm : 0;
+        this._handSpanMm = handSpanMm;
+        this._scaleLengthMm = scaleLengthMm;
+
+        // Fallback: fret-based span (legacy field).
+        if (hand.hand_span_frets > 0) this._handSpanFrets = hand.hand_span_frets;
 
         const widget = document.createElement('div');
         widget.className = 'fretboard-hand-widget';
@@ -448,16 +458,47 @@
     };
 
     /**
-     * Reposition the .hand-band according to handAnchorFret and _handSpanFrets.
+     * Reposition the .hand-band.
+     * When hand_span_mm and scale_length_mm are available the width is a fixed
+     * physical fraction of the fretboard (independent of fret position).
+     * Otherwise falls back to the legacy fret-count approach.
      */
     KeyboardChordsMixin._updateHandWidgetPosition = function () {
         const band = document.getElementById('fretboard-hand-band');
         if (!band) return;
+        const maxFrets  = this._cachedMaxFrets || 22;
+        const leftPct   = fretPct(this.handAnchorFret, maxFrets);
+
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            // Physical width: hand_span_mm as a fraction of the fretboard length.
+            // The rendered fretboard covers scaleLengthMm * (1 - 2^(-maxFrets/12)).
+            const fretboardFraction = 1 - Math.pow(2, -maxFrets / 12);
+            const widthPct = (this._handSpanMm / this._scaleLengthMm) / fretboardFraction * 100;
+            band.style.left  = leftPct + '%';
+            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
+        } else {
+            // Fallback: fret-based (non-physical, width varies with fret spacing).
+            const rightPct = fretPct(this.handAnchorFret + this._handSpanFrets, maxFrets);
+            band.style.left  = leftPct + '%';
+            band.style.width = (rightPct - leftPct) + '%';
+        }
+    };
+
+    /**
+     * Maximum fret the hand anchor can reach so the band stays inside the
+     * fretboard. In mm mode this is derived from physical dimensions; otherwise
+     * it falls back to the legacy fret-count formula.
+     */
+    KeyboardChordsMixin._maxHandAnchorFret = function () {
         const maxFrets = this._cachedMaxFrets || 22;
-        const leftPct  = fretPct(this.handAnchorFret, maxFrets);
-        const rightPct = fretPct(this.handAnchorFret + this._handSpanFrets, maxFrets);
-        band.style.left  = leftPct + '%';
-        band.style.width = (rightPct - leftPct) + '%';
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            // Physical end of fretboard in mm, then subtract hand span.
+            const fretboardMm = this._scaleLengthMm * (1 - Math.pow(2, -maxFrets / 12));
+            const maxStartMm  = fretboardMm - this._handSpanMm;
+            if (maxStartMm <= 0) return 0;
+            return -12 * Math.log2(1 - maxStartMm / this._scaleLengthMm);
+        }
+        return maxFrets - this._handSpanFrets;
     };
 
     /**
@@ -468,16 +509,16 @@
 
         band.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            const startX     = e.clientX;
+            const startX      = e.clientX;
             const startAnchor = this.handAnchorFret;
-            const maxFrets   = this._cachedMaxFrets || 22;
+            const maxFrets    = this._cachedMaxFrets || 22;
 
             const onMove = (mv) => {
-                const dx       = mv.clientX - startX;
-                const areaW    = fretsArea.clientWidth || 1;
+                const dx        = mv.clientX - startX;
+                const areaW     = fretsArea.clientWidth || 1;
                 const fretDelta = Math.round(dx / (areaW / maxFrets));
                 const newAnchor = Math.max(0, Math.min(
-                    maxFrets - this._handSpanFrets,
+                    this._maxHandAnchorFret(),
                     startAnchor + fretDelta
                 ));
                 if (newAnchor !== this.handAnchorFret) {
@@ -499,16 +540,16 @@
         // Touch support
         band.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const startX     = e.touches[0].clientX;
+            const startX      = e.touches[0].clientX;
             const startAnchor = this.handAnchorFret;
-            const maxFrets   = this._cachedMaxFrets || 22;
+            const maxFrets    = this._cachedMaxFrets || 22;
 
             const onMove = (mv) => {
-                const dx       = mv.touches[0].clientX - startX;
-                const areaW    = fretsArea.clientWidth || 1;
+                const dx        = mv.touches[0].clientX - startX;
+                const areaW     = fretsArea.clientWidth || 1;
                 const fretDelta = Math.round(dx / (areaW / maxFrets));
                 const newAnchor = Math.max(0, Math.min(
-                    maxFrets - this._handSpanFrets,
+                    this._maxHandAnchorFret(),
                     startAnchor + fretDelta
                 ));
                 if (newAnchor !== this.handAnchorFret) {
@@ -562,11 +603,27 @@
      */
     KeyboardChordsMixin._maybeAutoMoveHand = function (fret) {
         if (fret <= 0) return;
-        const span   = this._handSpanFrets || 4;
-        const max    = this._cachedMaxFrets || 22;
         const anchor = this.handAnchorFret || 0;
+
+        // Effective span in frets at the current anchor position.
+        let span;
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            const anchorMm = this._scaleLengthMm * (1 - Math.pow(2, -anchor / 12));
+            const endMm    = anchorMm + this._handSpanMm;
+            if (endMm < this._scaleLengthMm) {
+                span = -12 * Math.log2(1 - endMm / this._scaleLengthMm) - anchor;
+            } else {
+                span = (this._cachedMaxFrets || 22) - anchor;
+            }
+        } else {
+            span = this._handSpanFrets || 4;
+        }
+
         if (fret >= anchor && fret <= anchor + span - 1) return; // already in range
-        const newAnchor = Math.max(0, Math.min(max - span, fret - Math.floor(span / 2)));
+        const newAnchor = Math.max(0, Math.min(
+            this._maxHandAnchorFret(),
+            fret - Math.floor(span / 2)
+        ));
         this.handAnchorFret = newAnchor;
         this._updateHandWidgetPosition();
         this._sendHandPositionCC(newAnchor);
