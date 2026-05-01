@@ -179,6 +179,13 @@
                 whiteKey.classList.add('disabled');
             }
 
+            if (this.showNoteColors) {
+                const c = FRET_NOTE_COLORS[noteNumber % 12];
+                whiteKey.style.setProperty('--note-bg', c.bg);
+                whiteKey.style.setProperty('--note-text', c.text);
+                whiteKey.classList.add('note-colored');
+            }
+
             const label = document.createElement('span');
             label.className = 'key-label';
             label.textContent = labelText;
@@ -201,6 +208,13 @@
 
             if (!this.isNotePlayable(blackNote)) {
                 blackKey.classList.add('disabled');
+            }
+
+            if (this.showNoteColors) {
+                const c = FRET_NOTE_COLORS[blackNote % 12];
+                blackKey.style.setProperty('--note-bg', c.bg);
+                blackKey.style.setProperty('--note-text', c.text);
+                blackKey.classList.add('note-colored');
             }
 
             // Width and position scaled relative to the number of white keys
@@ -363,9 +377,9 @@
         if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano');
         if (minimap) minimap.classList.toggle('hidden', mode !== 'piano');
 
-        // Note-color toggle is only relevant in fretboard (tablature) mode.
+        // Note-color toggle is relevant in piano and fretboard (tablature) modes.
         const noteColorGroup = document.getElementById('keyboard-note-color-group');
-        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode !== 'fretboard');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad');
 
         // Update toggle button label
         const btn = document.getElementById('keyboard-view-toggle');
@@ -519,6 +533,7 @@
             // identical across octaves — makes same-pitch notes obvious on all strings).
             if (this.showNoteColors) {
                 const color = FRET_NOTE_COLORS[midi % 12];
+                dot.style.setProperty('--dot-color', color.bg);
                 dot.style.background = color.bg;
                 dot.style.borderColor = 'rgba(0,0,0,0.3)';
                 dot.classList.add('note-colored');
@@ -542,7 +557,12 @@
     /**
      * Update the string-vibration overlay for each fretboard row.
      * Called by updatePianoDisplay() when viewMode === 'fretboard'.
-     * Colors the string line to the RIGHT of the pressed fret dot.
+     *
+     * Visual metaphor:
+     *   • Left of the pressed fret  → corde étouffée (dim)
+     *   • Right of the pressed fret → corde vibrante (bright)
+     * The overlay spans the full row width; a CSS gradient marks the transition
+     * at the exact fret position.
      */
     KeyboardPianoMixin._updateFretboardStringColors = function() {
         const rows = document.querySelectorAll('.fretboard-container .fret-string');
@@ -553,26 +573,48 @@
             const activeDot = row.querySelector('.fret-dot.active');
             if (!activeDot) {
                 vibe.style.display = 'none';
+                row.classList.remove('string-active');
+                row.style.removeProperty('--string-color');
                 return;
             }
 
             const cell = activeDot.closest('.fret-cell');
             if (!cell) { vibe.style.display = 'none'; return; }
 
-            // Start the highlight at the center of the active fret cell.
-            const startPx = cell.offsetLeft + cell.offsetWidth / 2;
-            vibe.style.left = startPx + 'px';
-            vibe.style.right = '0';
+            // Percentage position of the active fret within the row.
+            const rowWidth = row.offsetWidth || 1;
+            const fretCenterPx = cell.offsetLeft + cell.offsetWidth / 2;
+            const pct = Math.max(0, Math.min(100, (fretCenterPx / rowWidth) * 100)).toFixed(2);
 
-            // When note colors are on, use the note's chromatic color; otherwise gold.
+            const note = parseInt(activeDot.dataset.note, 10);
+            let color, dimColor;
             if (this.showNoteColors) {
-                const note = parseInt(activeDot.dataset.note, 10);
-                const c = FRET_NOTE_COLORS[note % 12];
-                vibe.style.background = `linear-gradient(to right, ${c.bg}, ${c.bg}33)`;
+                color    = FRET_NOTE_COLORS[note % 12].bg;
+                dimColor = color + '55'; // 33% opacity for the stopped segment
             } else {
-                vibe.style.background = 'linear-gradient(to right, #f59e0b, rgba(245,158,11,0.15))';
+                color    = '#f59e0b';
+                dimColor = 'rgba(245,158,11,0.28)';
             }
+
+            // Full-string gradient: dim → sharp transition → bright → fade out.
+            vibe.style.left = '0';
+            vibe.style.right = '0';
+            vibe.style.background = [
+                `linear-gradient(to right,`,
+                `  ${dimColor} 0%,`,
+                `  ${dimColor} calc(${pct}% - 2px),`,
+                `  ${color}    calc(${pct}% - 2px),`,
+                `  ${color}    ${pct}%,`,
+                `  ${color}cc  calc(${pct}% + 30px),`,
+                `  ${color}44  calc(${pct}% + 80px),`,
+                `  ${color}11  100%`,
+                `)`,
+            ].join(' ');
             vibe.style.display = 'block';
+
+            // Row background tint so the active string stands out from its neighbors.
+            row.style.setProperty('--string-color', color);
+            row.classList.add('string-active');
         });
     }
 
