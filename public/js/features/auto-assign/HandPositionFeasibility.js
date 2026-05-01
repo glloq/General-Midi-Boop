@@ -913,12 +913,16 @@
             if (overlaps) continue;
 
             // Movement cost — driven by music continuity once anchors
-            // exist; null on first chord.
+            // exist; null on first chord. Weighted heavily so a
+            // partition that keeps both hands put unconditionally
+            // wins over one that moves either hand a single semitone
+            // (matches operator expectation: don't move what doesn't
+            // need to move).
             let cost = 0;
-            if (!isInitial) {
-                cost += Math.abs((lowAnchor  ?? lowLo  ?? 0) - (lowPrev  ?? lowLo  ?? 0));
-                cost += Math.abs((highAnchor ?? highLo ?? 0) - (highPrev ?? highLo ?? 0));
-            }
+            const lowMove  = !isInitial ? Math.abs((lowAnchor  ?? lowLo  ?? 0) - (lowPrev  ?? lowLo  ?? 0))  : 0;
+            const highMove = !isInitial ? Math.abs((highAnchor ?? highLo ?? 0) - (highPrev ?? highLo ?? 0)) : 0;
+            const MOVEMENT_WEIGHT = 100;
+            cost += MOVEMENT_WEIGHT * (lowMove + highMove);
 
             // Permanent pitch bias — the low hand should always
             // prefer low-pitch notes and the high hand should always

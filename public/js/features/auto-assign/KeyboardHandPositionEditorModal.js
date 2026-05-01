@@ -294,27 +294,38 @@
             };
             for (const ev of timeline || []) {
                 if (ev.type === 'shift' && ev.handId && Number.isFinite(ev.toAnchor)) {
-                    // The simulator's motion.availableSec carries how
-                    // long the hand had since its previous release. We
-                    // use it to back-date the start of the shift so the
-                    // background lane renders the actual slide instead
-                    // of a teleport. Falls back to motion.requiredSec
-                    // (the minimum travel time given the configured
-                    // hand_move speed) when the simulator didn't have
-                    // tempo info, and to a small default when neither
-                    // is finite (first shift, hand at rest).
+                    // The slide duration represents the REAL hand
+                    // travel time at the configured max speed:
+                    //   requiredSec = |toAnchor − fromAnchor| / hand_move_speed
+                    // Visually this draws a parallelogram whose slope
+                    // matches the maximum mechanical speed of the
+                    // hand. When the gap before the new chord is
+                    // larger than requiredSec, the hand moves "just-
+                    // in-time" — the parallelogram ends at the chord
+                    // and the band stays stable for the rest of the
+                    // gap. When it is shorter (infeasible shift),
+                    // requiredSec still wins so the slope stays at
+                    // max speed — the parallelogram visibly overlaps
+                    // the previous chord, signalling the impossible
+                    // transition. Falls back to a sensible default
+                    // when no tempo info is available.
                     const sec = ev.tick / tps;
                     let dur = Number.NaN;
-                    if (ev.motion) {
-                        if (Number.isFinite(ev.motion.availableSec)) dur = ev.motion.availableSec;
-                        else if (Number.isFinite(ev.motion.requiredSec)) dur = ev.motion.requiredSec;
+                    if (ev.motion && Number.isFinite(ev.motion.requiredSec)
+                            && ev.motion.requiredSec > 0) {
+                        dur = ev.motion.requiredSec;
+                    } else if (ev.motion && Number.isFinite(ev.motion.availableSec)
+                            && ev.motion.availableSec > 0
+                            && ev.motion.availableSec !== Infinity) {
+                        dur = ev.motion.availableSec;
                     }
                     if (!Number.isFinite(dur) || dur <= 0) dur = 0.15; // sensible fallback
                     ensure(ev.handId).push({
                         sec,
                         anchor: ev.toAnchor,
                         fromSec: Math.max(0, sec - dur),
-                        fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor
+                        fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor,
+                        feasible: ev.motion ? ev.motion.feasible !== false : true
                     });
                 } else if (ev.type === 'chord' && Array.isArray(ev.notes)) {
                     const lowestByHand = new Map();
@@ -1038,15 +1049,135 @@
             return out;
         }
 
-        /** Paint the fingers overlay. Each hand drops one rectangle per
-         *  playable key inside its window. For chromatic instruments
-         *  every semitone gets one rectangle. For piano instruments we
-         *  drop one rectangle on every white key AND one on every black
-         *  key so all 12 chromatic positions are individually
-         *  highlightable. The rectangle is ~⅓ as wide as the underlying
-         *  key so the operator sees both the finger AND the key — the
-         *  finger origin sits flush against the band on the keyboard,
-         *  the tip stops short of the key's bottom. */
+        /** Pick the semitone each finger of `hand` is currently over.
+         *  We draw exactly `numFingers` fingers per hand (typically 5
+         *  for keyboard instruments) and position them like a real
+         *  player:
+         *
+         *    - Active notes that fall inside the hand window pin
+         *      individual fingers — leftmost active note → leftmost
+         *      finger of the hand, rightmost active note → rightmost
+         *      finger. With more active notes than fingers the
+         *      overflow gets stacked on the outer fingers (caller
+         *      flags `overflow` for visual marking).
+         *    - Idle fingers fan out evenly across the rest of the
+         *      window so the bunch reads as a coherent hand at rest.
+         *    - The first hand (lowest-pitched) is treated as a "left"
+         *      hand: index 0 → pinky (5), last → thumb (1). Hands at
+         *      higher indices are treated as "right" hands so their
+         *      thumb sits low and pinky high — natural pianist layout.
+         *
+         *  Returns `[{semitone, fingerLabel, isActive, anchorIdx}]`
+         *  with one entry per finger. `semitone` may be a fractional
+         *  number (smooth animation between assignments). @private */
+        _fingerLayout(hand, handIndex, active) {
+            const numFingers = Math.max(1, hand.numFingers || 5);
+            const a = this._displayedAnchor.has(hand.id)
+                ? this._displayedAnchor.get(hand.id) : hand.anchor;
+            const span = hand.span;
+            // Treat the first hand of a multi-hand keyboard as the
+            // left hand, the rest as right hands. Single-hand
+            // keyboards default to right (thumb-low → pinky-high).
+            const totalHands = (this._hands || []).length;
+            const isLeftHand = (totalHands > 1) && (handIndex === 0);
+
+            // Active notes inside this hand's reachable window. Keep
+            // them sorted ascending so the leftmost active note maps
+            // to the leftmost finger of the hand.
+            const aFloor = a;
+            const aCeil  = a + span;
+            const activeIn = [];
+            for (const n of active) {
+                if (n >= Math.floor(aFloor) - 0.5 && n <= Math.ceil(aCeil) + 0.5) {
+                    activeIn.push(n);
+                }
+            }
+            activeIn.sort((x, y) => x - y);
+
+            const fingers = new Array(numFingers);
+            for (let i = 0; i < numFingers; i++) {
+                // fingerLabel uses pianist convention: 1 = thumb, 5 = pinky.
+                //   Left hand: pinky (5) on the LOW side, thumb (1) HIGH.
+                //   Right hand: thumb (1) on the LOW side, pinky (5) HIGH.
+                const fingerLabel = isLeftHand ? (numFingers - i) : (i + 1);
+                fingers[i] = { semitone: null, fingerLabel,
+                                isActive: false, overflow: false };
+            }
+
+            // Map active notes onto finger slots. With ≤ numFingers
+            // active notes, each takes a distinct slot from the outside
+            // in (low-active → finger 0, high-active → finger N-1).
+            // With more active notes than fingers, the inner fingers
+            // double up and we flag the leftover note.
+            if (activeIn.length === 0) {
+                // Idle hand — fan fingers evenly across the window.
+                for (let i = 0; i < numFingers; i++) {
+                    const t = numFingers === 1 ? 0.5 : i / (numFingers - 1);
+                    fingers[i].semitone = a + t * span;
+                }
+            } else if (activeIn.length <= numFingers) {
+                // Pin one finger per active note from the outside in.
+                // Idle fingers (when fewer notes than slots) interpolate
+                // between the pinned ones so the hand still looks
+                // coherent.
+                const slots = new Array(numFingers).fill(null);
+                // First active note → finger 0; last → finger N-1.
+                slots[0] = activeIn[0];
+                slots[numFingers - 1] = activeIn[activeIn.length - 1];
+                if (activeIn.length > 2) {
+                    // Spread interior notes evenly across interior slots.
+                    const inner = activeIn.slice(1, activeIn.length - 1);
+                    const innerSlots = numFingers - 2;
+                    for (let i = 0; i < inner.length && i < innerSlots; i++) {
+                        const slotIdx = 1 + Math.round((i + 0.5) / inner.length * (innerSlots - 1));
+                        slots[Math.min(numFingers - 2, Math.max(1, slotIdx))] = inner[i];
+                    }
+                }
+                // Fill empty interior slots by linear interpolation
+                // between the nearest pinned slots so resting fingers
+                // sit between the active ones.
+                for (let i = 0; i < numFingers; i++) {
+                    if (slots[i] != null) continue;
+                    let prev = i, next = i;
+                    while (prev >= 0 && slots[prev] == null) prev--;
+                    while (next < numFingers && slots[next] == null) next++;
+                    if (prev < 0 && next >= numFingers) {
+                        slots[i] = a + (i / Math.max(1, numFingers - 1)) * span;
+                    } else if (prev < 0) {
+                        slots[i] = slots[next];
+                    } else if (next >= numFingers) {
+                        slots[i] = slots[prev];
+                    } else {
+                        const t = (i - prev) / (next - prev);
+                        slots[i] = slots[prev] + t * (slots[next] - slots[prev]);
+                    }
+                }
+                for (let i = 0; i < numFingers; i++) {
+                    fingers[i].semitone = slots[i];
+                    fingers[i].isActive = activeIn.includes(Math.round(slots[i]));
+                }
+            } else {
+                // More active notes than fingers — bucket the notes
+                // across the slots and flag the overflow.
+                for (let i = 0; i < numFingers; i++) {
+                    const t = i / (numFingers - 1);
+                    const idx = Math.round(t * (activeIn.length - 1));
+                    fingers[i].semitone = activeIn[idx];
+                    fingers[i].isActive = true;
+                    if (i === 0 || i === numFingers - 1) fingers[i].overflow = true;
+                }
+            }
+            return fingers;
+        }
+
+        /** Paint the fingers overlay. We draw exactly `numFingers`
+         *  fingers per hand (5 for piano), positioned like a real
+         *  player's hand: outer fingers on the leftmost / rightmost
+         *  active notes, inner fingers fanned across the rest of the
+         *  window. Active fingers (currently pressing a sounding
+         *  note) light up; idle fingers stay grey. The whole bunch
+         *  glides with the hand because finger semitones derive from
+         *  the same animated `_displayedAnchor` the band uses. */
         _drawFingers() {
             const c = this.fingersCanvas;
             const host = c?.parentElement;
@@ -1068,7 +1199,6 @@
 
             const view = this._visibleExtent();
             const pxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
-            const layout = this._keyboardLayoutType();
             const active = this._activeNotesAtPlayhead();
             // Geometry: bands sit at the bottom of the keyboard widget
             // (single-row layout, height ~22px per the constructor). The
@@ -1078,35 +1208,47 @@
             const bandH = 22;
             const handY = Math.max(0, H - bandH);
             const tipY = handY * 0.55; // tip stops in the upper-half of the keyboard area
-            for (const hand of this._hands) {
-                const a = this._displayedAnchor.has(hand.id)
-                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
-                const aInt = Math.round(a);
-                const stop = aInt + hand.span;
-                ctx.fillStyle = '#1e3a8a';   // pressed (blue)
-                const liftedFill = '#94a3b8'; // lifted (grey)
-                for (let m = Math.max(view.lo, aInt); m <= Math.min(view.hi, stop); m++) {
-                    if (layout === 'piano') {
-                        // Piano: every chromatic position is a finger
-                        // slot — same as chromatic. The visual gain
-                        // comes from the underlying keyboard (already
-                        // black/white) showing through, not from the
-                        // finger spacing itself.
-                    }
-                    const isPressed = active.has(m);
-                    const x = (m - view.lo) * pxPerPitch;
-                    // Finger rectangle: ~⅓ of the key width, centred on
-                    // the key so it doesn't visually steal the whole
-                    // key and the operator still reads the keyboard
-                    // underneath.
-                    const fingerW = Math.max(2, pxPerPitch * 0.33);
-                    const fx = x + (pxPerPitch - fingerW) / 2;
-                    ctx.fillStyle = isPressed ? '#3b82f6' : liftedFill;
-                    ctx.fillRect(fx, tipY, fingerW, handY - tipY);
-                    // Hand-coloured cap at the top so the operator can
-                    // tell which hand owns the finger at a glance.
+            const fingerH = handY - tipY;
+
+            for (let h = 0; h < this._hands.length; h++) {
+                const hand = this._hands[h];
+                const fingers = this._fingerLayout(hand, h, active);
+                // Per-hand finger width: fixed fraction of the key
+                // width, narrowed slightly so 5 fingers in a 14-semitone
+                // window don't overlap visually.
+                const fingerW = Math.max(3, pxPerPitch * 0.55);
+
+                for (const f of fingers) {
+                    if (!Number.isFinite(f.semitone)) continue;
+                    if (f.semitone < view.lo - 0.5 || f.semitone > view.hi + 0.5) continue;
+                    // Centre the finger on its semitone (whole or
+                    // fractional during animation).
+                    const xCenter = (f.semitone - view.lo + 0.5) * pxPerPitch;
+                    const fx = xCenter - fingerW / 2;
+                    // Finger body: blue when pressing, grey when lifted.
+                    ctx.fillStyle = f.overflow ? '#dc2626'
+                                  : f.isActive ? '#3b82f6' : '#94a3b8';
+                    ctx.fillRect(fx, tipY, fingerW, fingerH);
+                    // Subtle outline so two fingers meeting at a key
+                    // boundary stay distinguishable.
+                    ctx.strokeStyle = 'rgba(15,23,42,0.65)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(fx + 0.5, tipY + 0.5, fingerW - 1, fingerH - 1);
+                    // Hand-coloured cap at the top — anchors the
+                    // finger to its hand visually.
                     ctx.fillStyle = hand.color;
-                    ctx.fillRect(fx, handY - 3, fingerW, 3);
+                    ctx.fillRect(fx, handY - 4, fingerW, 4);
+                    // Finger label (1..5) on the cap when there's room.
+                    if (fingerW >= 12) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = `bold ${Math.min(11, fingerW - 2)}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(String(f.fingerLabel),
+                                      fx + fingerW / 2, tipY + Math.min(11, fingerH / 2));
+                        ctx.textAlign = 'start';
+                        ctx.textBaseline = 'alphabetic';
+                    }
                 }
             }
         }
@@ -1247,7 +1389,7 @@
             const xPerSec = W / this._totalSec;
 
             // Note dots — one tiny rectangle per note, faint so the
-            // hand-anchor lines stay readable on top.
+            // hand-anchor bands stay readable on top.
             ctx.fillStyle = 'rgba(148,163,184,0.55)';
             for (const n of this.notes) {
                 const sec = n.tick / this.ticksPerSec;
@@ -1256,21 +1398,91 @@
                 ctx.fillRect(x, y - 0.5, Math.max(1, xPerSec * (n.duration || 0) / this.ticksPerSec), 1.5);
             }
 
-            // Hand-anchor trajectories. We sample each hand's anchor at
-            // every override tick (sorted), with the seed/current value
-            // filling the gaps before the first override and after the
-            // last one. Drawn as a thicker coloured line so it dominates
-            // the note dots.
+            // Hand-position bands — one translucent stripe per hand
+            // showing where the hand sits at every moment of the
+            // ENTIRE file. Stable spans render as filled rectangles
+            // (anchor → anchor + span); moving spans (= simulator
+            // shift events) render as parallelograms whose slope
+            // matches the configured max hand-move speed. Source data
+            // comes from `_handAnchorTimeline` — the same simulation
+            // the piano-roll lanes use, so the minimap and the roll
+            // agree by construction.
+            const yOfPitch = (p) => H - ((p - ext.lo) / pitchRange) * H;
             for (const hand of (this._hands || [])) {
-                const samples = this._anchorSamplesForHand(hand);
-                if (samples.length === 0) continue;
+                const samples = this._minimapSamplesFor(hand);
+                if (samples.length < 2) continue;
+                const fill = _bandFill(hand.color);
+                const infeasibleFill = 'rgba(220, 38, 38, 0.35)';
+                for (let i = 0; i < samples.length - 1; i++) {
+                    const cur = samples[i];
+                    const next = samples[i + 1];
+                    // Stable rectangle from cur.sec to the start of
+                    // the next slide (or to next.sec when next isn't
+                    // a shift). Width is the hand's span in pitch
+                    // units → covers the whole reachable window.
+                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
+                    if (stableEndSec > cur.sec) {
+                        const x0 = cur.sec * xPerSec;
+                        const x1 = stableEndSec * xPerSec;
+                        const yTop = yOfPitch(cur.anchor + hand.span);
+                        const yBot = yOfPitch(cur.anchor);
+                        ctx.fillStyle = fill;
+                        ctx.fillRect(x0, yTop, Math.max(1, x1 - x0), yBot - yTop);
+                    }
+                    // Slide parallelogram — only when next is a
+                    // shift carrying explicit fromSec / fromAnchor.
+                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
+                            && next.fromSec < next.sec) {
+                        const xA = next.fromSec * xPerSec;
+                        const xB = next.sec * xPerSec;
+                        const yA1 = yOfPitch(next.fromAnchor + hand.span);
+                        const yA2 = yOfPitch(next.fromAnchor);
+                        const yB1 = yOfPitch(next.anchor + hand.span);
+                        const yB2 = yOfPitch(next.anchor);
+                        ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
+                        ctx.beginPath();
+                        ctx.moveTo(xA, yA1);
+                        ctx.lineTo(xB, yB1);
+                        ctx.lineTo(xB, yB2);
+                        ctx.lineTo(xA, yA2);
+                        ctx.closePath();
+                        ctx.fill();
+                        // Outline the slide leg so it stands out from
+                        // surrounding stable spans. Dashed red when
+                        // infeasible.
+                        ctx.save();
+                        if (next.feasible === false) {
+                            ctx.strokeStyle = '#dc2626';
+                            ctx.setLineDash([3, 2]);
+                            ctx.lineWidth = 1;
+                        } else {
+                            ctx.strokeStyle = hand.color;
+                            ctx.lineWidth = 0.75;
+                        }
+                        ctx.beginPath();
+                        ctx.moveTo(xA, yA1);
+                        ctx.lineTo(xB, yB1);
+                        ctx.lineTo(xB, yB2);
+                        ctx.lineTo(xA, yA2);
+                        ctx.closePath();
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+                // Centerline through the band's anchor — the visual
+                // continuity of the trajectory at a glance.
                 ctx.strokeStyle = hand.color;
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1;
                 ctx.beginPath();
                 for (let i = 0; i < samples.length; i++) {
                     const s = samples[i];
+                    if (Number.isFinite(s.fromSec) && Number.isFinite(s.fromAnchor)) {
+                        const xF = s.fromSec * xPerSec;
+                        const yF = yOfPitch(s.fromAnchor + hand.span / 2);
+                        ctx.lineTo(xF, yF);
+                    }
                     const x = s.sec * xPerSec;
-                    const y = H - ((s.anchor - ext.lo) / pitchRange) * H;
+                    const y = yOfPitch(s.anchor + hand.span / 2);
                     if (i === 0) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
@@ -1309,6 +1521,43 @@
             ctx.moveTo(vpX + 0.5, 0);
             ctx.lineTo(vpX + 0.5, H);
             ctx.stroke();
+        }
+
+        /**
+         * Build the per-hand sample list used by the minimap to
+         * render hand-position bands across the WHOLE file. Pulls
+         * straight from the simulator's `_handAnchorTimeline` (which
+         * already includes every shift's fromSec/fromAnchor and
+         * feasibility flag) so the minimap and the piano-roll lanes
+         * agree by construction. Falls back to override-derived
+         * samples when the simulation hasn't run yet (e.g. before
+         * the first `_rebuildProblems()`).
+         * @private
+         */
+        _minimapSamplesFor(hand) {
+            const series = this._handAnchorTimeline?.get(hand.id);
+            const total = this._totalSec || 0;
+            if (Array.isArray(series) && series.length > 0) {
+                const out = [];
+                // Seed the first sample at sec=0 with the earliest
+                // anchor — either the slide's fromAnchor (so the
+                // pre-slide rectangle matches the initial anchor) or
+                // the first chord's anchor when the timeline starts
+                // with a chord event.
+                const first = series[0];
+                const seedAnchor = Number.isFinite(first.fromAnchor)
+                    ? first.fromAnchor : first.anchor;
+                out.push({ sec: 0, anchor: seedAnchor });
+                for (const s of series) out.push(s);
+                if (out[out.length - 1].sec < total) {
+                    out.push({ sec: total, anchor: out[out.length - 1].anchor });
+                }
+                return out;
+            }
+            // No simulation data — fall back to user-pinned overrides
+            // around the seed anchor. Same shape as the simulator
+            // output so the minimap renderer doesn't need a branch.
+            return this._anchorSamplesForHand(hand);
         }
 
         /**
@@ -1352,7 +1601,7 @@
                 const samples = this._laneSamplesFor(hand, startSec, endSec);
                 if (samples.length === 0) continue;
                 const fill = _bandFill(hand.color);
-                ctx.fillStyle = fill;
+                const infeasibleFill = 'rgba(220, 38, 38, 0.28)';
                 const w = hand.span * pxPerPitch;
                 for (let i = 0; i < samples.length - 1; i++) {
                     const cur = samples[i];
@@ -1368,6 +1617,7 @@
                         const a = Math.max(cur.sec, startSec);
                         const b = Math.min(stableEndSec, endSec);
                         if (b > a) {
+                            ctx.fillStyle = fill;
                             const x = (cur.anchor - ext.lo) * pxPerPitch;
                             ctx.fillRect(x, yOf(b), w, yOf(a) - yOf(b));
                         }
@@ -1379,7 +1629,13 @@
                     // (sec, toAnchor): the 4 vertices are
                     //   (fromSec, fromAnchor), (fromSec, fromAnchor+span),
                     //   (sec,     anchor+span), (sec,     anchor).
-                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)) {
+                    // The parallelogram's slope (Δanchor / Δsec) matches
+                    // the configured max hand-move speed when the shift
+                    // is feasible, or is steeper when infeasible — the
+                    // operator can read the speed limit straight off
+                    // the lane geometry.
+                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
+                            && next.fromSec < next.sec) {
                         const a = Math.max(next.fromSec, startSec);
                         const b = Math.min(next.sec, endSec);
                         if (b > a) {
@@ -1393,6 +1649,7 @@
                             const xB = (bAnchor - ext.lo) * pxPerPitch;
                             const yA = yOf(a);
                             const yB = yOf(b);
+                            ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
                             ctx.beginPath();
                             ctx.moveTo(xA, yA);
                             ctx.lineTo(xA + w, yA);
@@ -1400,6 +1657,28 @@
                             ctx.lineTo(xB, yB);
                             ctx.closePath();
                             ctx.fill();
+                            // Outline the parallelogram in the hand's
+                            // color so the slide leg pops against the
+                            // surrounding stable rectangles. Heavier
+                            // stroke + dashed pattern when infeasible
+                            // so it reads as a warning at a glance.
+                            if (next.feasible === false) {
+                                ctx.save();
+                                ctx.strokeStyle = '#dc2626';
+                                ctx.setLineDash([4, 3]);
+                                ctx.lineWidth = 1.5;
+                            } else {
+                                ctx.strokeStyle = hand.color;
+                                ctx.lineWidth = 1;
+                            }
+                            ctx.beginPath();
+                            ctx.moveTo(xA, yA);
+                            ctx.lineTo(xA + w, yA);
+                            ctx.lineTo(xB + w, yB);
+                            ctx.lineTo(xB, yB);
+                            ctx.closePath();
+                            ctx.stroke();
+                            if (next.feasible === false) ctx.restore();
                         }
                     }
                 }
@@ -1420,9 +1699,21 @@
                 : (this._targetAnchorAt(hand.id, startSec) ?? hand.anchor);
             out.push({ sec: startSec, anchor: first });
             for (const s of series) {
+                // Slide may overlap the visible window even when the
+                // shift's `sec` (= chord tick) falls past `endSec` —
+                // include the entry whenever its slide leg crosses the
+                // window, so a long shift drawn from `fromSec` inside
+                // the view to `sec` outside still renders.
+                const slideStart = Number.isFinite(s.fromSec) ? s.fromSec : s.sec;
                 if (s.sec <= startSec) continue;
-                if (s.sec >= endSec) break;
-                out.push({ sec: s.sec, anchor: s.anchor });
+                if (slideStart >= endSec) break;
+                out.push({
+                    sec: s.sec,
+                    anchor: s.anchor,
+                    fromSec: s.fromSec,
+                    fromAnchor: s.fromAnchor,
+                    feasible: s.feasible !== false
+                });
             }
             out.push({ sec: endSec, anchor: out[out.length - 1].anchor });
             return out;
