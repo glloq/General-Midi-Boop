@@ -1093,83 +1093,35 @@
             return out;
         }
 
-        /** Pick the semitone each finger of `hand` is currently over.
-         *  We draw exactly `numFingers` fingers per hand (default 5)
-         *  numbered left-to-right.
+        /** Per-hand finger layout — fixed positions on the hand.
+         *  Each finger sits at a permanent slot inside the
+         *  `[anchor, anchor + span]` window:
          *
-         *    - Rest positions: fingers fan evenly across the window
-         *      `[anchor, anchor + span]`. They glide with the anchor
-         *      so the whole hand stays a coherent bunch when the
-         *      band moves.
-         *    - When a key is pressed inside the window, the closest
-         *      not-yet-snapped finger MOVES onto that key (so you
-         *      see a finger pressing the actual sounding note).
-         *      Other fingers stay at their rest positions, which is
-         *      why a pressed key never collapses every finger to the
-         *      same x — the previous code did, hiding all but one
-         *      finger when only a single note was pressed.
-         *    - With more active notes than fingers, the closest
-         *      finger to each note still snaps; the leftover notes
-         *      are flagged as overflow so the renderer can mark
-         *      them in red.
+         *      slot_i = anchor + (i / (numFingers − 1)) · span
          *
-         *  Returns `[{semitone, isActive, overflow}]` with one entry
-         *  per finger. `semitone` may be a fractional number (smooth
-         *  animation between rest and snapped positions). @private */
+         *  The slots glide with the animated `_displayedAnchor` so
+         *  the bunch tracks the band, but they never move to chase
+         *  an active note — the position is fixed on the hand.
+         *  The active flag lights up when the slot's nearest
+         *  semitone matches a sounding pitch (purely a colour
+         *  change). v2 will introduce realistic anatomy (left vs
+         *  right thumb position, finger-to-key snapping, variable
+         *  finger heights). @private */
         _fingerLayout(hand, _handIndex, active) {
-            // numFingers comes straight from the hand's config (1..10).
-            // `_mountKeyboard` already validated and stored it; we
-            // clamp to ≥ 1 defensively so a malformed config can't
-            // produce a zero-finger hand.
             const numFingers = Math.max(1, hand.numFingers);
-            const a = this._displayedAnchor.has(hand.id)
+            let a = this._displayedAnchor.has(hand.id)
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
+            if (!Number.isFinite(a)) a = hand.anchor;
             const span = hand.span;
-
-            // Rest positions — fingers evenly fanned across the window.
+            if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
             const fingers = new Array(numFingers);
             for (let i = 0; i < numFingers; i++) {
                 const t = numFingers === 1 ? 0.5 : i / (numFingers - 1);
+                const slot = a + t * span;
                 fingers[i] = {
-                    semitone: a + t * span,
-                    isActive: false,
-                    overflow: false
+                    semitone: slot,
+                    isActive: active.has(Math.round(slot))
                 };
-            }
-
-            // Active notes inside this hand's reachable window.
-            const aFloor = a;
-            const aCeil  = a + span;
-            const activeIn = [];
-            for (const n of active) {
-                if (n >= Math.floor(aFloor) - 0.5 && n <= Math.ceil(aCeil) + 0.5) {
-                    activeIn.push(n);
-                }
-            }
-            activeIn.sort((x, y) => x - y);
-
-            // Greedy nearest-finger snap: for each active note (in
-            // pitch-ascending order), move the closest non-snapped
-            // finger onto it. Other fingers keep their rest position.
-            const taken = new Array(numFingers).fill(false);
-            for (const note of activeIn) {
-                let bestIdx = -1, bestDist = Infinity;
-                for (let i = 0; i < numFingers; i++) {
-                    if (taken[i]) continue;
-                    const d = Math.abs(fingers[i].semitone - note);
-                    if (d < bestDist) { bestDist = d; bestIdx = i; }
-                }
-                if (bestIdx < 0) {
-                    // More active notes than fingers — every finger
-                    // already snapped. Mark this overflow on the
-                    // outermost finger so the operator sees a red cap.
-                    const fallback = note < a + span / 2 ? 0 : numFingers - 1;
-                    fingers[fallback].overflow = true;
-                    continue;
-                }
-                fingers[bestIdx].semitone = note;
-                fingers[bestIdx].isActive = true;
-                taken[bestIdx] = true;
             }
             return fingers;
         }
@@ -1233,13 +1185,21 @@
             };
 
             // Geometry: bands sit at the bottom of the keyboard widget
-            // (single-row layout, height ~22px per the constructor). The
-            // overlay covers the same area, so:
-            //   handY  = H - bandH   (top of the band = where fingers hang from)
-            //   tipY   = ~ keyMidH   (just inside the keyboard body)
+            // (single-row layout, height ~22px per the constructor).
+            //   handY  = H − bandH      (top of the band = where the
+            //                            fingers' caps hang from)
+            //   tipY   = handY · 0.6    (the keyboard widget draws
+            //                            black keys with blackH =
+            //                            keysH · 0.6; placing the
+            //                            finger tips at the same Y
+            //                            lines them up with the
+            //                            black-key bottoms — fingers
+            //                            sit between white keys at
+            //                            the same height the user
+            //                            sees the black keys end.)
             const bandH = 22;
             const handY = Math.max(0, H - bandH);
-            const tipY = handY * 0.55; // tip stops in the upper-half of the keyboard area
+            const tipY = handY * 0.6;
             const fingerH = handY - tipY;
 
             for (let h = 0; h < this._hands.length; h++) {
@@ -1250,26 +1210,25 @@
                     if (!Number.isFinite(f.semitone)) continue;
                     if (f.semitone < view.lo - 0.5 || f.semitone > view.hi + 0.5) continue;
                     const xCenter = xCentreOf(f.semitone);
-                    // Finger width tracks the underlying key (narrower
-                    // on black keys, wider on white) so 5 fingers in a
-                    // 14-semitone window read as a coherent hand.
+                    // Narrow rectangle (~30 % of the underlying key
+                    // width) so a 5- or 10-finger bunch reads as
+                    // distinct fingers rather than a solid bar.
                     const keyW = widthOf(f.semitone);
-                    const fingerW = Math.max(3, keyW * 0.55);
+                    const fingerW = Math.max(2, keyW * 0.3);
                     const fx = xCenter - fingerW / 2;
                     // Finger body: blue when pressing, grey when lifted.
-                    ctx.fillStyle = f.overflow ? '#dc2626'
-                                  : f.isActive ? '#3b82f6' : '#94a3b8';
+                    ctx.fillStyle = f.isActive ? '#3b82f6' : '#94a3b8';
                     ctx.fillRect(fx, tipY, fingerW, fingerH);
-                    // Subtle outline so two fingers meeting at a key
-                    // boundary stay distinguishable.
+                    // Subtle outline so two adjacent fingers stay
+                    // distinguishable at narrow widths.
                     ctx.strokeStyle = 'rgba(15,23,42,0.65)';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tipY + 0.5, fingerW - 1, fingerH - 1);
+                    ctx.strokeRect(fx + 0.5, tipY + 0.5,
+                                    Math.max(1, fingerW - 1),
+                                    Math.max(1, fingerH - 1));
                     // Hand-coloured cap at the top — anchors the
-                    // finger to its hand visually. Overflow (more
-                    // active notes than fingers) flips the cap red
-                    // so the operator can spot the limit at a glance.
-                    ctx.fillStyle = f.overflow ? '#dc2626' : hand.color;
+                    // finger to its hand visually.
+                    ctx.fillStyle = hand.color;
                     ctx.fillRect(fx, handY - 4, fingerW, 4);
                 }
             }
