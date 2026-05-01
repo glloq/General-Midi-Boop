@@ -373,3 +373,68 @@ describe('KeyboardPreview — destroy', () => {
     expect(onKeyClick).not.toHaveBeenCalled();
   });
 });
+
+describe('KeyboardPreview — public key-position API (for fingers overlay)', () => {
+  it('keyXAt + keyWidth describe each key as the renderer draws it', () => {
+    // Single-octave window 60..71 (C4..B4) on a 700px canvas →
+    // 7 white keys + 5 black. White key width = 100px each.
+    const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
+      rangeMin: 60, rangeMax: 71
+    });
+    kb._geo();
+    // White keys: C, D, E, F, G, A, B at indices 0..6.
+    expect(kb.keyXAt(60)).toBe(0);          // C4 left edge
+    expect(kb.keyWidth(60)).toBeCloseTo(100, 1);
+    expect(kb.keyXAt(62)).toBeCloseTo(100, 1); // D4 left edge (after C4)
+    expect(kb.keyXAt(64)).toBeCloseTo(200, 1); // E4
+    expect(kb.keyXAt(71)).toBeCloseTo(600, 1); // B4 (7th white key, idx 6)
+    // Black key C#4 sits at 65% offset of C4's white-key width.
+    expect(kb.keyXAt(61)).toBeCloseTo(65, 1);
+    expect(kb.keyWidth(61)).toBeCloseTo(60, 1); // narrower than white
+  });
+
+  it('keyCenterAt interpolates between adjacent keys for smooth animation', () => {
+    const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
+      rangeMin: 60, rangeMax: 71
+    });
+    kb._geo();
+    const cC = kb.keyCenterAt(60); // C4 centre = 0 + 50 = 50
+    const cCs = kb.keyCenterAt(61); // C#4 centre = 65 + 30 = 95
+    expect(cC).toBeCloseTo(50, 1);
+    expect(cCs).toBeCloseTo(95, 1);
+    // Halfway through animation: should sit between the two centres.
+    const cMid = kb.keyCenterAt(60.5);
+    expect(cMid).toBeCloseTo((50 + 95) / 2, 1);
+  });
+
+  it('keyXAt clamps to the visible range so out-of-range queries are safe', () => {
+    const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
+      rangeMin: 60, rangeMax: 71
+    });
+    kb._geo();
+    // Below range — clamped to 60.
+    expect(kb.keyXAt(50)).toBe(kb.keyXAt(60));
+    // Above range — clamped to 71.
+    expect(kb.keyXAt(80)).toBe(kb.keyXAt(71));
+  });
+
+  it('every C in the 88-key range has its actual centre (not uniform)', () => {
+    // Regression: a uniform pxPerPitch mapping drifts visibly across
+    // the 88-key span. The fingers overlay used to use that and
+    // fingers slid off the keys at the extremes.
+    const kb = new window.KeyboardPreview(makeCanvas(800, 140), {
+      rangeMin: 21, rangeMax: 108
+    });
+    kb._geo();
+    const ww = kb._whiteKeyWidth();
+    // C4 is the 24th white key from A0 (idx 23).
+    expect(kb.keyCenterAt(60)).toBeCloseTo(23 * ww + ww / 2, 1);
+    // C8 (108) is the 52nd white key (idx 51) — last key of the range.
+    expect(kb.keyCenterAt(108)).toBeCloseTo(51 * ww + ww / 2, 1);
+    // Compare with the uniform-pxPerPitch fallback the modal used
+    // to use: those would diverge by several pixels at the extremes.
+    const uniformC8 = (108 - 21 + 0.5) * (800 / 88);
+    const realC8    = kb.keyCenterAt(108);
+    expect(Math.abs(realC8 - uniformC8)).toBeGreaterThan(2);
+  });
+});

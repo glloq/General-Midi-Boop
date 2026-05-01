@@ -328,15 +328,36 @@
                         fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor,
                         feasible: ev.motion ? ev.motion.feasible !== false : true
                     });
-                } else if (ev.type === 'chord' && Array.isArray(ev.notes)) {
-                    const lowestByHand = new Map();
-                    for (const n of ev.notes) {
-                        if (!n.handId || !Number.isFinite(n.note)) continue;
-                        const cur = lowestByHand.get(n.handId);
-                        if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
-                    }
-                    for (const [id, lo] of lowestByHand) {
-                        ensure(id).push({ sec: ev.tick / tps, anchor: lo });
+                } else if (ev.type === 'chord') {
+                    // Chord event carries the post-shift anchor of
+                    // every hand active at this chord. Reading
+                    // `anchorByHand` directly preserves the
+                    // simulator's min-move target — earlier code
+                    // inferred the anchor from the chord's lowest
+                    // note per hand, which produced phantom shifts
+                    // whenever the simulator picked an upward
+                    // min-move anchor (= hi − span). The fallback
+                    // (lowest note per hand) survives only for
+                    // legacy chord events that didn't carry the
+                    // field.
+                    const anchorByHand = ev.anchorByHand;
+                    if (anchorByHand && typeof anchorByHand === 'object') {
+                        for (const id of Object.keys(anchorByHand)) {
+                            const a = anchorByHand[id];
+                            if (Number.isFinite(a)) {
+                                ensure(id).push({ sec: ev.tick / tps, anchor: a });
+                            }
+                        }
+                    } else if (Array.isArray(ev.notes)) {
+                        const lowestByHand = new Map();
+                        for (const n of ev.notes) {
+                            if (!n.handId || !Number.isFinite(n.note)) continue;
+                            const cur = lowestByHand.get(n.handId);
+                            if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
+                        }
+                        for (const [id, lo] of lowestByHand) {
+                            ensure(id).push({ sec: ev.tick / tps, anchor: lo });
+                        }
                     }
                 }
             }
@@ -794,10 +815,28 @@
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
 
+            // Public x-mapping helpers — same shape as KeyboardPreview's
+            // public counterparts so the fingers overlay can query
+            // either widget without branching on instrument type. The
+            // chromatic widget uses uniform key widths, so xOf is just
+            // the proportional offset.
+            const pxPerNote = () => {
+                const W = canvas.clientWidth || 0;
+                const range = Math.max(1, rangeMax - rangeMin + 1);
+                return W / range;
+            };
             return {
                 setRange(min, max) { rangeMin = min; rangeMax = max; draw(); },
                 setHandBands(b) { bands = Array.isArray(b) ? b : []; draw(); },
                 draw,
+                /** Pixel x of the LEFT edge of `midi`'s key. Accepts
+                 *  fractional MIDI values for smooth animation. */
+                keyXAt(midi) {
+                    if (!Number.isFinite(midi)) return 0;
+                    return (midi - rangeMin) * pxPerNote();
+                },
+                /** Pixel width of the key at `midi` (uniform here). */
+                keyWidth(/*midi*/) { return pxPerNote(); },
                 destroy() {
                     canvas.removeEventListener('mousedown', onMouseDown);
                     document.removeEventListener('mousemove', onMouseMove);
@@ -1192,8 +1231,36 @@
             if (!Array.isArray(this._hands) || this._hands.length === 0) return;
 
             const view = this._visibleExtent();
-            const pxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
             const active = this._activeNotesAtPlayhead();
+            // Pixel x of `midi`'s key centre, querying the keyboard
+            // widget so the fingers line up with the actual keys.
+            // Piano widgets use white-key-based spacing (white keys
+            // wide, black keys narrow) which a uniform pxPerPitch
+            // mapping cannot reproduce — fingers would drift across
+            // the keyboard. Falls back to uniform spacing only when
+            // the keyboard widget is unavailable (defensive: every
+            // current widget exposes the API).
+            const kb = this.keyboard;
+            const fallbackPxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
+            const xCentreOf = (midi) => {
+                if (kb && typeof kb.keyXAt === 'function'
+                        && typeof kb.keyWidth === 'function') {
+                    const lo = Math.floor(midi);
+                    const t = midi - lo;
+                    const xL = kb.keyXAt(lo) + kb.keyWidth(lo) / 2;
+                    if (t <= 0) return xL;
+                    const xH = kb.keyXAt(lo + 1) + kb.keyWidth(lo + 1) / 2;
+                    return xL + (xH - xL) * t;
+                }
+                return (midi - view.lo + 0.5) * fallbackPxPerPitch;
+            };
+            // Per-key width — used to scale the finger rectangle so
+            // it roughly fits inside whatever key it lands on.
+            const widthOf = (midi) => {
+                if (kb && typeof kb.keyWidth === 'function') return kb.keyWidth(midi);
+                return fallbackPxPerPitch;
+            };
+
             // Geometry: bands sit at the bottom of the keyboard widget
             // (single-row layout, height ~22px per the constructor). The
             // overlay covers the same area, so:
@@ -1207,17 +1274,16 @@
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
                 const fingers = this._fingerLayout(hand, h, active);
-                // Per-hand finger width: fixed fraction of the key
-                // width, narrowed slightly so 5 fingers in a 14-semitone
-                // window don't overlap visually.
-                const fingerW = Math.max(3, pxPerPitch * 0.55);
 
                 for (const f of fingers) {
                     if (!Number.isFinite(f.semitone)) continue;
                     if (f.semitone < view.lo - 0.5 || f.semitone > view.hi + 0.5) continue;
-                    // Centre the finger on its semitone (whole or
-                    // fractional during animation).
-                    const xCenter = (f.semitone - view.lo + 0.5) * pxPerPitch;
+                    const xCenter = xCentreOf(f.semitone);
+                    // Finger width tracks the underlying key (narrower
+                    // on black keys, wider on white) so 5 fingers in a
+                    // 14-semitone window read as a coherent hand.
+                    const keyW = widthOf(f.semitone);
+                    const fingerW = Math.max(3, keyW * 0.55);
                     const fx = xCenter - fingerW / 2;
                     // Finger body: blue when pressing, grey when lifted.
                     ctx.fillStyle = f.overflow ? '#dc2626'
