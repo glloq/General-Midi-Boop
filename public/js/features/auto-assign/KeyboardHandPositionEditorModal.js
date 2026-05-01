@@ -1187,13 +1187,29 @@
             };
 
             // Geometry — knuckle bar overlaps the band's top, fingers
-            // grow upward toward the keys.
+            // extend upward onto the keys. We split the fingers into
+            // two heights to mimic real piano anatomy:
+            //   - WHITE-key fingers stop at the BOTTOM of the black-key
+            //     zone (Y = blackH), the same Y where a real player's
+            //     finger lands on the white-key front;
+            //   - BLACK-key fingers reach much further forward, up to
+            //     the TOP of the black keys (Y ≈ 0), so they visually
+            //     overlay the black keys themselves.
+            //
+            // The keyboard widget draws black keys from Y=0 to
+            // Y=keysH·0.6 (see KeyboardPreview.draw, "Pass 2"). We
+            // mirror that ratio here so the white/black split lines
+            // up exactly with the underlying keyboard.
             const bandH = 22;
-            const handY = Math.max(0, H - bandH);
+            const handY = Math.max(0, H - bandH);          // top of the band
+            const keysH = handY;                           // matches widget's keysH
+            const blackH = keysH * 0.6;                    // mirrors KeyboardPreview
             const knuckleH = 5;
-            const knuckleTop = handY - 1;
-            const tipY = handY * 0.55;
-            const fingerH = knuckleTop - tipY;
+            const knuckleTop = handY - 1;                  // overlap band by 1 px
+            const whiteTipY = Math.min(blackH + 4, knuckleTop - 4);
+            const blackTipY = 3;                           // near top of canvas
+            const whiteFingerH = Math.max(4, knuckleTop - whiteTipY);
+            const blackFingerH = Math.max(4, knuckleTop - blackTipY);
 
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
@@ -1228,19 +1244,38 @@
                 ctx.fillStyle = hand.color;
                 ctx.fillRect(handLeftX, knuckleTop, handPixelW, knuckleH);
 
-                // Fingers — body from knuckle base up to the tip.
-                for (let i = 0; i < fingers.length; i++) {
-                    const f = fingers[i];
-                    const xCenter = handLeftX + (i + 0.5) * slotW;
-                    if (xCenter < -fingerW || xCenter > W + fingerW) continue;
+                // Fingers — alternating white/black by slot index so
+                // the bunch reads as a clean W/B/W/B pattern across
+                // the whole hand, even where E–F or B–C have no real
+                // black key. Even slots = white fingers (short, lower
+                // tip), odd slots = black fingers (tall, reaching up
+                // through the black-key zone). Drawing black fingers
+                // FIRST puts them BEHIND the white ones at the
+                // overlap region, so the whites cleanly cap the
+                // bottom of each black finger — matches the visual
+                // logic of a real keyboard where white keys hide the
+                // bottom of the black keys behind them.
+                const drawFingerBar = (xCenter, tip, height, isActive) => {
+                    if (xCenter < -fingerW || xCenter > W + fingerW) return;
                     const fx = xCenter - fingerW / 2;
-                    ctx.fillStyle = f.isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tipY, fingerW, fingerH);
+                    ctx.fillStyle = isActive ? '#3b82f6' : '#94a3b8';
+                    ctx.fillRect(fx, tip, fingerW, height);
                     ctx.strokeStyle = 'rgba(15,23,42,0.65)';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tipY + 0.5,
+                    ctx.strokeRect(fx + 0.5, tip + 0.5,
                                     Math.max(1, fingerW - 1),
-                                    Math.max(1, fingerH - 1));
+                                    Math.max(1, height - 1));
+                };
+
+                // Pass 1 — black-key (odd-slot) fingers, drawn first.
+                for (let i = 1; i < fingers.length; i += 2) {
+                    const xCenter = handLeftX + (i + 0.5) * slotW;
+                    drawFingerBar(xCenter, blackTipY, blackFingerH, fingers[i].isActive);
+                }
+                // Pass 2 — white-key (even-slot) fingers on top.
+                for (let i = 0; i < fingers.length; i += 2) {
+                    const xCenter = handLeftX + (i + 0.5) * slotW;
+                    drawFingerBar(xCenter, whiteTipY, whiteFingerH, fingers[i].isActive);
                 }
             }
         }
