@@ -1100,14 +1100,25 @@
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
             if (!Number.isFinite(a)) a = hand.anchor;
             if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
-            // One finger per chromatic position in the window.
-            const numFingers = Math.max(1, Math.round(span) + 1);
+            // Honor the configured `num_fingers` from hands_config.
+            // Falls back to `span + 1` (the chromatic convention: one
+            // finger per semitone) when num_fingers wasn't set, so
+            // legacy configs keep their old shape.
+            const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
+                ? Math.round(hand.numFingers) : Math.round(span) + 1);
             const fingers = new Array(numFingers);
+            // Slot → semitone mapping: even when num_fingers exceeds
+            // `span + 1` (e.g. 10 fingers on a 9-semitone piano span),
+            // the rounded slot keeps `active.has(slot)` looking up an
+            // integer MIDI value. The drawing pass uses the slot
+            // INDEX, not the semitone, for visual placement so the
+            // alternating white/black look stays uniform across the
+            // whole hand (see `_drawFingers`).
             for (let i = 0; i < numFingers; i++) {
-                const slot = a + i; // step = 1 semitone, so slots are
-                                    // 60, 61, 62, … — every key in the
-                                    // window gets its own finger.
+                const slot = numFingers === 1 ? a
+                    : a + Math.round((i * span) / (numFingers - 1));
                 fingers[i] = {
+                    slotIndex: i,
                     semitone: slot,
                     isActive: active.has(slot)
                 };
@@ -1144,109 +1155,91 @@
 
             const view = this._visibleExtent();
             const active = this._activeNotesAtPlayhead();
-            // Pixel x of `midi`'s key centre, querying the keyboard
-            // widget so the fingers line up with the actual keys.
-            // Piano widgets use white-key-based spacing (white keys
-            // wide, black keys narrow) which a uniform pxPerPitch
-            // mapping cannot reproduce — fingers would drift across
-            // the keyboard. Falls back to uniform spacing only when
-            // the keyboard widget is unavailable (defensive: every
-            // current widget exposes the API).
             const kb = this.keyboard;
             const fallbackPxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
-            const xCentreOf = (midi) => {
+
+            // Pixel boundaries of one MIDI key on the underlying
+            // keyboard widget — used to compute each hand's TOTAL
+            // pixel span. We then divide that span uniformly across
+            // numFingers so the bunch alternates white/black/white/
+            // black at a STEADY rhythm regardless of where real
+            // black keys actually sit. On a piano keyboard the E–F
+            // and B–C transitions have no black key between them;
+            // querying `keyXAt` per semitone makes the fingers
+            // bunch oddly there. Uniform-per-hand spacing fixes
+            // that visually while still letting `active.has(slot)`
+            // light up the correct finger.
+            const keyLeftX = (midi) => {
+                if (kb && typeof kb.keyXAt === 'function') {
+                    const v = kb.keyXAt(midi);
+                    if (Number.isFinite(v)) return v;
+                }
+                return (midi - view.lo) * fallbackPxPerPitch;
+            };
+            const keyRightX = (midi) => {
                 if (kb && typeof kb.keyXAt === 'function'
                         && typeof kb.keyWidth === 'function') {
-                    const lo = Math.floor(midi);
-                    const t = midi - lo;
-                    const xL = kb.keyXAt(lo) + kb.keyWidth(lo) / 2;
-                    if (t <= 0) return xL;
-                    const xH = kb.keyXAt(lo + 1) + kb.keyWidth(lo + 1) / 2;
-                    return xL + (xH - xL) * t;
+                    const x = kb.keyXAt(midi);
+                    const w = kb.keyWidth(midi);
+                    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) return x + w;
                 }
-                return (midi - view.lo + 0.5) * fallbackPxPerPitch;
+                return (midi - view.lo + 1) * fallbackPxPerPitch;
             };
 
-            // Geometry. The keyboard widget draws its band at the
-            // BOTTOM of its canvas (height = bandH, single row). To
-            // make the fingers visually "belong" to that band we:
-            //   1. draw a knuckle bar in the hand colour that overlaps
-            //      the band's top edge (= visual continuity with the
-            //      hand);
-            //   2. draw each finger as a rectangle that STARTS at the
-            //      knuckle bar's bottom and extends UPWARD over the
-            //      keys (toward the keyboard's tipY).
-            //
-            // Effect: the hand band reads as a "palm" with fingers
-            // spreading up to the keys. Moving the band drags the
-            // knuckles (and therefore every finger) along with it.
+            // Geometry — knuckle bar overlaps the band's top, fingers
+            // grow upward toward the keys.
             const bandH = 22;
-            const handY = Math.max(0, H - bandH);   // top of the band
+            const handY = Math.max(0, H - bandH);
             const knuckleH = 5;
-            const knuckleTop = handY - 1;            // overlap by 1 px
-            const tipY = handY * 0.55;               // finger tip ≈ half-way
+            const knuckleTop = handY - 1;
+            const tipY = handY * 0.55;
             const fingerH = knuckleTop - tipY;
-
-            // UNIFORM finger width across every slot. Reference =
-            // current white-key width on a piano (or the uniform note
-            // width on a chromatic widget). 32 % of that gives a
-            // comfortably narrow rectangle that fits inside a black
-            // key while remaining clearly visible on a white key.
-            //
-            // Pick a reference pitch INSIDE the visible range. The
-            // previous version hardcoded MIDI 60 (middle C); on
-            // instruments whose range excludes 60 (e.g. high-pitched
-            // marimba) `keyWidth(60)` returned 0 / NaN and the
-            // fingers shrank to the 3 px floor. Using the centre of
-            // the visible window also lets a white-key reference fall
-            // through naturally on piano widgets — the centre of any
-            // 12-semitone window is white in 7/12 cases and the
-            // remainder still resolve to a sensible width via the
-            // KeyboardPreview's geometry.
-            const refMidi = Math.round((view.lo + view.hi) / 2);
-            const probedKeyW = (kb && typeof kb.keyWidth === 'function')
-                ? kb.keyWidth(refMidi) : fallbackPxPerPitch;
-            const refKeyW = Number.isFinite(probedKeyW) && probedKeyW > 0
-                ? probedKeyW : fallbackPxPerPitch;
-            const uniformFingerW = Math.max(3, refKeyW * 0.32);
 
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
                 const fingers = this._fingerLayout(hand, h, active);
                 if (fingers.length === 0) continue;
 
-                // Knuckle bar — spans from the leftmost to the
-                // rightmost finger so even narrow hands look like a
-                // single physical unit, not a row of disconnected
-                // sticks. Uses the hand colour at high opacity so it
-                // visually merges with the underlying band.
-                let knuckleX0 = Infinity, knuckleX1 = -Infinity;
-                for (const f of fingers) {
-                    if (!Number.isFinite(f.semitone)) continue;
-                    const xc = xCentreOf(f.semitone);
-                    knuckleX0 = Math.min(knuckleX0, xc - uniformFingerW / 2);
-                    knuckleX1 = Math.max(knuckleX1, xc + uniformFingerW / 2);
-                }
-                if (knuckleX1 > knuckleX0) {
-                    ctx.fillStyle = hand.color;
-                    ctx.fillRect(knuckleX0 - 1, knuckleTop,
-                                  knuckleX1 - knuckleX0 + 2, knuckleH);
-                }
+                // Hand pixel span on the actual keyboard widget. Uses
+                // the displayed (animated) anchor when available so
+                // the fingers track the live band during a drag /
+                // shift, falling back to the static anchor otherwise.
+                const a = this._displayedAnchor.has(hand.id)
+                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
+                if (!Number.isFinite(a)) continue;
+                const handLeftX  = keyLeftX(Math.floor(a));
+                const handRightX = keyRightX(Math.floor(a) + Math.round(hand.span));
+                if (!(handRightX > handLeftX)) continue;
+                const handPixelW = handRightX - handLeftX;
 
-                // Fingers — body grows from the knuckle bar UP to the
-                // tip. Active fingers (pressing a sounding note) light
-                // up; idle fingers stay grey.
-                for (const f of fingers) {
-                    if (!Number.isFinite(f.semitone)) continue;
-                    if (f.semitone < view.lo - 0.5 || f.semitone > view.hi + 0.5) continue;
-                    const xCenter = xCentreOf(f.semitone);
-                    const fx = xCenter - uniformFingerW / 2;
+                // Uniform slot width across the hand's pixel span. A
+                // 9-semitone span on a piano covers ≈ 6 white keys;
+                // 10 fingers / 6 white-key widths = 0.6 white-keys
+                // per finger. The visual is 10 evenly spaced fingers,
+                // alternating white-key-finger and black-key-finger
+                // even where E–F or B–C have no black key.
+                const slotW = handPixelW / fingers.length;
+                // Finger body width = ~70 % of a slot so two adjacent
+                // fingers stay clearly distinct without overlapping.
+                const fingerW = Math.max(3, slotW * 0.7);
+
+                // Knuckle bar — full hand width, hand colour, sits
+                // flush on top of the band.
+                ctx.fillStyle = hand.color;
+                ctx.fillRect(handLeftX, knuckleTop, handPixelW, knuckleH);
+
+                // Fingers — body from knuckle base up to the tip.
+                for (let i = 0; i < fingers.length; i++) {
+                    const f = fingers[i];
+                    const xCenter = handLeftX + (i + 0.5) * slotW;
+                    if (xCenter < -fingerW || xCenter > W + fingerW) continue;
+                    const fx = xCenter - fingerW / 2;
                     ctx.fillStyle = f.isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tipY, uniformFingerW, fingerH);
+                    ctx.fillRect(fx, tipY, fingerW, fingerH);
                     ctx.strokeStyle = 'rgba(15,23,42,0.65)';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(fx + 0.5, tipY + 0.5,
-                                    Math.max(1, uniformFingerW - 1),
+                                    Math.max(1, fingerW - 1),
                                     Math.max(1, fingerH - 1));
                 }
             }
