@@ -142,6 +142,13 @@
             else if (this.viewMode === 'piano') this.regeneratePianoKeys();
         });
 
+        // String slide mode toggle
+        document.getElementById('keyboard-slide-toggle')?.addEventListener('click', () => {
+            if (typeof this._toggleStringSlideMode === 'function') {
+                this._toggleStringSlideMode();
+            }
+        });
+
         // View mode toggle (piano <-> fretboard / drumpad)
         document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
             const info = this.getInstrumentViewInfo();

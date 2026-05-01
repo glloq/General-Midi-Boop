@@ -56,6 +56,8 @@ class KeyboardModalNew {
         this.showNoteColors = false;
         // String instrument config (loaded when fretboard mode is enabled)
         this.stringInstrumentConfig = null;
+        // Per-string pitch bend slide mode active
+        this._stringSlideActive = false;
         // Minimap drag state
         this._minimapDragging = false;
 
@@ -202,6 +204,9 @@ class KeyboardModalNew {
             this.localeUnsubscribe();
             this.localeUnsubscribe = null;
         }
+
+        // Clean up string slide mode
+        if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
 
         // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
@@ -727,6 +732,9 @@ class KeyboardModalNew {
             });
             if (resp && resp.instrument) {
                 this.stringInstrumentConfig = resp.instrument;
+                if (typeof this._updateSlideModeGroupVisibility === 'function') {
+                    this._updateSlideModeGroupVisibility();
+                }
                 return;
             }
         } catch (e) { /* ignore — fallback below */ }
@@ -737,6 +745,9 @@ class KeyboardModalNew {
         const preset = this._getStringPresetForGmProgram(gmProgram);
         if (preset) {
             this.stringInstrumentConfig = preset;
+        }
+        if (typeof this._updateSlideModeGroupVisibility === 'function') {
+            this._updateSlideModeGroupVisibility();
         }
     }
 

@@ -45,7 +45,8 @@ class StringInstrumentConfigModal extends BaseModal {
             cc_fret_max: 36,
             cc_fret_offset: 0,
             // Per-string fret count (null = uniform)
-            frets_per_string: null
+            frets_per_string: null,
+            string_slider_enabled: false
         };
 
         this.presets = {};
@@ -104,7 +105,8 @@ class StringInstrumentConfigModal extends BaseModal {
                     cc_fret_min: inst.cc_fret_min !== undefined ? inst.cc_fret_min : 0,
                     cc_fret_max: inst.cc_fret_max !== undefined ? inst.cc_fret_max : 36,
                     cc_fret_offset: inst.cc_fret_offset || 0,
-                    frets_per_string: inst.frets_per_string || null
+                    frets_per_string: inst.frets_per_string || null,
+                    string_slider_enabled: !!inst.string_slider_enabled
                 };
             }
         } catch (e) {
@@ -191,6 +193,10 @@ class StringInstrumentConfigModal extends BaseModal {
                     <div class="si-field si-checkbox-field">
                         <input type="checkbox" id="si-cc-enabled" ${c.cc_enabled ? 'checked' : ''}>
                         <label for="si-cc-enabled">${ccLabel}</label>
+                    </div>
+                    <div class="si-field si-checkbox-field">
+                        <input type="checkbox" id="si-string-slider-enabled" ${c.string_slider_enabled ? 'checked' : ''}>
+                        <label for="si-string-slider-enabled">${this.t('stringInstrument.sliderEnabled') || 'Glissement (pitch bend)'}</label>
                     </div>
                     <div class="si-field si-algo-field">
                         <label for="si-algorithm">${this.t('stringInstrument.algorithm')}</label>
@@ -373,6 +379,10 @@ class StringInstrumentConfigModal extends BaseModal {
             const ccSection = this.dialog?.querySelector('#si-cc-config-section');
             if (detailsSection) detailsSection.classList.toggle('si-collapsed', !e.target.checked);
             if (ccSection) ccSection.classList.toggle('si-collapsed', !e.target.checked);
+        });
+
+        this.$('#si-string-slider-enabled')?.addEventListener('change', (e) => {
+            this.config.string_slider_enabled = e.target.checked;
         });
 
         // Fretless toggle
@@ -683,7 +693,8 @@ class StringInstrumentConfigModal extends BaseModal {
                 cc_fret_min: this.config.cc_fret_min,
                 cc_fret_max: this.config.cc_fret_max,
                 cc_fret_offset: this.config.cc_fret_offset,
-                frets_per_string: this.config.frets_per_string
+                frets_per_string: this.config.frets_per_string,
+                string_slider_enabled: this.config.string_slider_enabled ? 1 : 0
             };
 
             if (this.existingId) {
