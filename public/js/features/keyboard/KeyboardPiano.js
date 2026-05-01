@@ -3,6 +3,23 @@
     'use strict';
     const KeyboardPianoMixin = {};
 
+    // 12 chromatic note colors (C to B). Evenly spread across the color wheel
+    // so every semitone is visually distinct across strings in tablature mode.
+    const FRET_NOTE_COLORS = [
+        { bg: '#e63333', text: '#fff' }, // C  - red
+        { bg: '#e66600', text: '#fff' }, // C# - orange
+        { bg: '#cc9900', text: '#1a1a1a' }, // D  - amber
+        { bg: '#88bb00', text: '#1a1a1a' }, // D# - yellow-green
+        { bg: '#22aa22', text: '#fff' }, // E  - green
+        { bg: '#00aa88', text: '#fff' }, // F  - teal
+        { bg: '#0099cc', text: '#fff' }, // F# - cyan-blue
+        { bg: '#1155dd', text: '#fff' }, // G  - blue
+        { bg: '#6633cc', text: '#fff' }, // G# - blue-violet
+        { bg: '#9922aa', text: '#fff' }, // A  - violet
+        { bg: '#cc1177', text: '#fff' }, // A# - magenta
+        { bg: '#dd2244', text: '#fff' }, // B  - rose
+    ];
+
 
     KeyboardPianoMixin.createModal = function() {
         const endNote = this.startNote + this.visibleNoteCount - 1;
@@ -30,6 +47,11 @@
                             <div class="control-group view-mode-group hidden" id="keyboard-view-mode-group">
                                 <label>${this.t('keyboard.view') || 'View'}</label>
                                 <button class="btn-view-toggle" id="keyboard-view-toggle" title="${this.t('keyboard.toggleView') || 'Toggle view'}">🎹</button>
+                            </div>
+
+                            <div class="control-group note-color-group hidden" id="keyboard-note-color-group">
+                                <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
+                                <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
                             </div>
 
                             <div class="control-group notation-group">
@@ -342,6 +364,10 @@
         if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano');
         if (minimap) minimap.classList.toggle('hidden', mode !== 'piano');
 
+        // Note-color toggle is only relevant in fretboard (tablature) mode.
+        const noteColorGroup = document.getElementById('keyboard-note-color-group');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode !== 'fretboard');
+
         // Update toggle button label
         const btn = document.getElementById('keyboard-view-toggle');
         if (btn) {
@@ -384,11 +410,20 @@
         // Tuning convention: index 0 = lowest pitch. Display lowest at the bottom.
         const stringsTopDown = [...tuning].reverse();
 
-        // Render at least 12 frets even for fretless instruments — the user
-        // still needs a clickable surface and the labels make sliding intent
-        // clear. The `is_fretless` flag drives a CSS class that hides fret bars.
+        // Per-string fret counts: frets_per_string is stored in tuning order
+        // (index 0 = lowest string). Reverse it to match stringsTopDown (highest first).
+        const fretsPerStringRaw = Array.isArray(cfg.frets_per_string) && cfg.frets_per_string.length === numStrings
+            ? cfg.frets_per_string
+            : null;
+        const stringFretCounts = fretsPerStringRaw ? [...fretsPerStringRaw].reverse() : null;
+
         const isFretless = !!cfg.is_fretless || numFrets === 0;
-        const fretCount = Math.max(12, numFrets || 0);
+
+        // The grid must accommodate the widest string. When frets differ per string,
+        // use the max; otherwise use the global numFrets.
+        const maxFretCount = stringFretCounts
+            ? Math.max(12, ...stringFretCounts)
+            : Math.max(12, numFrets || 0);
 
         if (isFretless) container.classList.add('fretless');
         else container.classList.remove('fretless');
@@ -399,7 +434,7 @@
         // express widths as `fr` units so CSS distributes them automatically
         // across whatever width the row has.
         const cellSpans = [];
-        for (let f = 1; f <= fretCount; f++) {
+        for (let f = 1; f <= maxFretCount; f++) {
             const prev = 1 - Math.pow(2, -(f - 1) / 12);
             const curr = 1 - Math.pow(2, -f / 12);
             cellSpans.push(curr - prev);
@@ -419,7 +454,7 @@
         openLbl.className = 'fret-number nut';
         openLbl.textContent = '0';
         header.appendChild(openLbl);
-        for (let f = 1; f <= fretCount; f++) {
+        for (let f = 1; f <= maxFretCount; f++) {
             const cell = document.createElement('div');
             cell.className = 'fret-number';
             cell.textContent = String(f);
@@ -437,16 +472,25 @@
         for (let s = 0; s < totalStrings; s++) {
             const openMidi = stringsTopDown[s];
             const stringNumber = totalStrings - s; // 1-based, lowest = 1
+            // How many frets this string actually has (may differ from maxFretCount).
+            const thisStringFrets = stringFretCounts ? stringFretCounts[s] : maxFretCount;
             const row = document.createElement('div');
             row.className = 'fret-string';
             row.style.gridTemplateColumns = gridCols;
             // Open string cell (fret 0 = the nut)
             const openCell = this._buildFretCell(openMidi, true, stringNumber, 0);
             row.appendChild(openCell);
-            for (let f = 1; f <= fretCount; f++) {
-                const midi = openMidi + f;
-                const cell = this._buildFretCell(midi, false, stringNumber, f);
-                row.appendChild(cell);
+            for (let f = 1; f <= maxFretCount; f++) {
+                if (f > thisStringFrets) {
+                    // This fret doesn't exist on this string — render a dead zone.
+                    const dead = document.createElement('div');
+                    dead.className = 'fret-cell fret-dead';
+                    row.appendChild(dead);
+                } else {
+                    const midi = openMidi + f;
+                    const cell = this._buildFretCell(midi, false, stringNumber, f);
+                    row.appendChild(cell);
+                }
             }
             container.appendChild(row);
         }
@@ -466,10 +510,26 @@
             if (stringNumber !== undefined) dot.dataset.string = String(stringNumber);
             if (fret !== undefined) dot.dataset.fret = String(fret);
             if (!this.isNotePlayable(midi)) dot.classList.add('disabled');
-            const label = document.createElement('span');
-            label.className = 'fret-label';
-            label.textContent = this.getNoteLabel(midi);
-            dot.appendChild(label);
+
+            // Apply chromatic note color when enabled (one color per semitone,
+            // identical across octaves — makes same-pitch notes obvious on all strings).
+            if (this.showNoteColors) {
+                const color = FRET_NOTE_COLORS[midi % 12];
+                dot.style.background = color.bg;
+                dot.style.borderColor = 'rgba(0,0,0,0.3)';
+                dot.classList.add('note-colored');
+                const label = document.createElement('span');
+                label.className = 'fret-label';
+                label.style.color = color.text;
+                label.textContent = this.getNoteLabel(midi);
+                dot.appendChild(label);
+            } else {
+                const label = document.createElement('span');
+                label.className = 'fret-label';
+                label.textContent = this.getNoteLabel(midi);
+                dot.appendChild(label);
+            }
+
             cell.appendChild(dot);
         }
         return cell;

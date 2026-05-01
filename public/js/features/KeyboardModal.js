@@ -49,6 +49,8 @@ class KeyboardModalNew {
         this.noteLabelFormat = 'english';
         // View mode: 'piano' (default), 'fretboard' (string instr.), 'drumpad' (drum)
         this.viewMode = 'piano';
+        // Fretboard: show chromatic note colors (12 colors, one per semitone)
+        this.showNoteColors = false;
         // String instrument config (loaded when fretboard mode is enabled)
         this.stringInstrumentConfig = null;
         // Minimap drag state
