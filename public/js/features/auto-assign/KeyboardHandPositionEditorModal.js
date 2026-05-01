@@ -216,6 +216,7 @@
             this.minimapCanvas = this.$('.khpe-minimap-canvas');
             this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
+            this._mountFingersRenderer();
             this._wireToolbar();
             this._wireRollCanvas();
             this._wireMinimap();
@@ -229,7 +230,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
-                this._drawFingers();
+                this._pushFingersState();
             });
             this._refreshTransport();
         }
@@ -471,7 +472,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
-                this._drawFingers();
+                this._pushFingersState();
 
                 const playing = this._audioPlayingSec != null;
                 if (moving || playing) this._animRaf = requestAnimationFrame(tick);
@@ -644,6 +645,8 @@
             this._closeNotePopover();
             this.keyboard?.destroy?.();
             this.keyboard = null;
+            this.fingersRenderer?.destroy?.();
+            this.fingersRenderer = null;
         }
 
         close() {
@@ -1051,7 +1054,7 @@
             this.keyboard?.draw();
             this._draw();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** Pan the keyboard view so its centre lands on `centerPitch`,
@@ -1070,7 +1073,7 @@
             this.keyboard?.draw();
             this._draw();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         _wireResizeObserver() {
@@ -1088,7 +1091,7 @@
                     this._drawKbMini();
                     this._fitKeyboardCanvas();
                     this.keyboard?.draw();
-                    this._drawFingers();
+                    this._pushFingersState();
                 });
             });
             this._resizeObserver.observe(this.rollHost);
@@ -1099,18 +1102,18 @@
         }
 
         // ----------------------------------------------------------------
-        //  Fingers overlay — vertical bars from the hand band up to
-        //  the keys, with a hand-coloured knuckle bar that anchors
-        //  the bunch to the band so the fingers visually belong to
-        //  the hand. Grey while lifted, blue when pressing a
-        //  sounding note. Real minimap rendering lives further down.
+        //  Fingers overlay — delegated to KeyboardFingersRenderer.
+        //  The modal owns no rendering logic for the bunch; it only
+        //  pushes the renderer-relevant state through `_pushFingersState`
+        //  on every change (RAF tick, drag, undo/redo, zoom, resize…).
         // ----------------------------------------------------------------
 
         /** Whether this instrument's hands_config explicitly sets the
-         *  piano layout. Used to decide whether to drop a finger on
-         *  every semitone (chromatic) or one per key (piano = white +
-         *  black). Defaults to chromatic when absent so legacy rows
-         *  keep their semantics. */
+         *  piano layout. Used both by `_mountKeyboard` (to pick
+         *  KeyboardPreview vs the chromatic in-line widget) and by
+         *  `_pushFingersState` (to pick the renderer's W/B-alternating
+         *  vs uniform layout). Defaults to chromatic when absent so
+         *  legacy rows keep their semantics. */
         _keyboardLayoutType() {
             const cfg = _parseHandsCfg(this.instrument);
             return cfg?.keyboard_type === 'piano' ? 'piano' : 'chromatic';
@@ -1119,7 +1122,8 @@
         /** Set of MIDI notes currently sounding at `_currentSec` —
          *  rebuilt every frame because the playhead moves. We keep it
          *  cheap by short-circuiting the duration check on negative
-         *  results. */
+         *  results. Fed to the keyboard widget (key tinting) and to
+         *  the fingers renderer (finger highlight). */
         _activeNotesAtPlayhead() {
             const out = new Set();
             const t = this._currentSec * this.ticksPerSec;
@@ -1131,331 +1135,54 @@
             return out;
         }
 
-        /** Per-hand finger layout — fixed positions on the hand,
-         *  one finger per chromatic position inside the
-         *  `[anchor, anchor + span]` window. The slot count is
-         *  always `span + 1` so the bunch alternates naturally
-         *  between white-key and black-key fingers wherever the
-         *  chromatic layout has a black key (C#, D#, F#, G#, A#),
-         *  and stays adjacent at the E–F / B–C transitions where
-         *  no black key sits between two white keys.
-         *
-         *  This holds for both layouts the editor supports:
-         *    - piano (KeyboardPreview): span+1 fingers spread on
-         *      every semitone, the keyboard widget's keyXAt /
-         *      keyWidth places each on the actual key the renderer
-         *      drew (white wide, black narrow).
-         *    - chromatic (xylophone-style): span+1 == num_fingers
-         *      because the schema enforces span = num_fingers − 1
-         *      for chromatic instruments. Keeping a single formula
-         *      avoids a layout branch.
-         *
-         *  Slots glide with the animated `_displayedAnchor`; their
-         *  position never moves to chase an active note (v2 will
-         *  add anatomy-aware snapping). The active flag lights up
-         *  when the slot's nearest semitone matches a sounding
-         *  pitch — purely a colour change. @private */
-        _fingerLayout(hand, _handIndex, active) {
-            const span = hand.span;
-            let a = this._displayedAnchor.has(hand.id)
-                ? this._displayedAnchor.get(hand.id) : hand.anchor;
-            if (!Number.isFinite(a)) a = hand.anchor;
-            if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
-            // Honor the configured `num_fingers` from hands_config.
-            // Falls back to `span + 1` (the chromatic convention: one
-            // finger per semitone) when num_fingers wasn't set, so
-            // legacy configs keep their old shape.
-            const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
-                ? Math.round(hand.numFingers) : Math.round(span) + 1);
-            const fingers = new Array(numFingers);
-            // Slot → semitone mapping: even when num_fingers exceeds
-            // `span + 1` (e.g. 10 fingers on a 9-semitone piano span),
-            // the rounded slot keeps `active.has(slot)` looking up an
-            // integer MIDI value. The drawing pass uses the slot
-            // INDEX, not the semitone, for visual placement so the
-            // alternating white/black look stays uniform across the
-            // whole hand (see `_drawFingers`).
-            for (let i = 0; i < numFingers; i++) {
-                const slot = numFingers === 1 ? a
-                    : a + Math.round((i * span) / (numFingers - 1));
-                fingers[i] = {
-                    slotIndex: i,
-                    semitone: slot,
-                    isActive: active.has(slot)
-                };
-            }
-            return fingers;
+        /** Mount the fingers-overlay widget once on `onOpen`. Subsequent
+         *  changes (keyboard widget swap, layout type change) are
+         *  pushed through the widget's setters in `_pushFingersState`.
+         *  No-op when `KeyboardFingersRenderer` isn't loaded so a
+         *  partial deploy fails gracefully (the editor stays usable;
+         *  only the overlay disappears).
+         *  @private */
+        _mountFingersRenderer() {
+            if (!this.fingersCanvas) return;
+            if (typeof window === 'undefined' || !window.KeyboardFingersRenderer) return;
+            this.fingersRenderer = new window.KeyboardFingersRenderer(this.fingersCanvas, {
+                bandHeight: 22
+            });
         }
 
-        /** Paint the fingers overlay. The placement model differs by
-         *  keyboard layout:
-         *    - Chromatic instruments (xylophone, marimba, hangdrum…)
-         *      → fingers are spaced uniformly across the hand's
-         *        pixel span and share the SAME height. There's no
-         *        white/black distinction on these instruments so we
-         *        don't fake one.
-         *    - Piano keyboards
-         *      → fingers alternate "on a white key" (centered on the
-         *        white-key body) and "between two adjacent whites"
-         *        (= over a black key, real or virtual). White-key
-         *        fingers are short and stop at the bottom of the
-         *        black-key zone; black-key fingers reach much
-         *        further forward, all the way up through the black
-         *        keys themselves. */
-        _drawFingers() {
-            const c = this.fingersCanvas;
-            const host = c?.parentElement;
-            if (!c || !host) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = c.clientWidth;
-            const H = c.clientHeight;
-            if (W <= 0 || H <= 0) return;
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (c.width !== wantW || c.height !== wantH) {
-                c.width = wantW;
-                c.height = wantH;
-            }
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, W, H);
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
-
-            const layout = this._keyboardLayoutType();
-            if (layout === 'piano') {
-                this._drawPianoFingers(ctx, W, H);
-            } else {
-                this._drawChromaticFingers(ctx, W, H);
-            }
-        }
-
-        /** Chromatic-instrument finger overlay — uniform spacing and
-         *  uniform height. Every slot is the same finger (same tip
-         *  Y, same body length); only the active flag changes the
-         *  fill colour. The hand's pixel span comes straight from
-         *  the keyboard widget's keyXAt / keyWidth so the bunch
-         *  starts and ends exactly at the band edges. */
-        _drawChromaticFingers(ctx, W, H) {
-            const view = this._visibleExtent();
-            const active = this._activeNotesAtPlayhead();
-            const kb = this.keyboard;
-            const fallbackPxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
-            const keyLeftX = (midi) => {
-                if (kb && typeof kb.keyXAt === 'function') {
-                    const v = kb.keyXAt(midi);
-                    if (Number.isFinite(v)) return v;
-                }
-                return (midi - view.lo) * fallbackPxPerPitch;
-            };
-            const keyRightX = (midi) => {
-                if (kb && typeof kb.keyXAt === 'function'
-                        && typeof kb.keyWidth === 'function') {
-                    const x = kb.keyXAt(midi);
-                    const w = kb.keyWidth(midi);
-                    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) return x + w;
-                }
-                return (midi - view.lo + 1) * fallbackPxPerPitch;
-            };
-
-            // Fingers start FROM the hand (band top) and extend
-            // upward into the keys. Knuckle bar sits inside the
-            // band's top edge so the bunch reads as one unit
-            // attached to the hand. Same uniform height for every
-            // slot — chromatic instruments don't have a white/black
-            // distinction to encode here.
-            const bandH = 22;
-            const handY = Math.max(0, H - bandH);
-            const knuckleH = 2;
-            const knuckleTop = handY;
-            const tipY = handY * 0.55;          // uniform tip
-            const fingerH = Math.max(2, handY - tipY);
-
-            for (let h = 0; h < this._hands.length; h++) {
-                const hand = this._hands[h];
-                const fingers = this._fingerLayout(hand, h, active);
-                if (fingers.length === 0) continue;
+        /** Snapshot of the per-hand displayed anchor in a fresh Map,
+         *  ready to hand to the fingers widget. Falls back to each
+         *  hand's static anchor when the animation loop hasn't
+         *  produced a value yet (early frames or hands the simulator
+         *  never visited).
+         *  @private */
+        _displayedAnchorMapForRender() {
+            const out = new Map();
+            for (const hand of (this._hands || [])) {
                 const a = this._displayedAnchor.has(hand.id)
                     ? this._displayedAnchor.get(hand.id) : hand.anchor;
-                if (!Number.isFinite(a)) continue;
-                const handLeftX  = keyLeftX(Math.floor(a));
-                const handRightX = keyRightX(Math.floor(a) + Math.round(hand.span));
-                if (!(handRightX > handLeftX)) continue;
-                const handPixelW = handRightX - handLeftX;
-                const slotW = handPixelW / fingers.length;
-                const fingerW = Math.max(3, slotW * 0.7);
-
-                ctx.fillStyle = hand.color;
-                ctx.fillRect(handLeftX, knuckleTop, handPixelW, knuckleH);
-
-                for (let i = 0; i < fingers.length; i++) {
-                    const xCenter = handLeftX + (i + 0.5) * slotW;
-                    if (xCenter < -fingerW || xCenter > W + fingerW) continue;
-                    const fx = xCenter - fingerW / 2;
-                    ctx.fillStyle = fingers[i].isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tipY, fingerW, fingerH);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.65)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tipY + 0.5,
-                                    Math.max(1, fingerW - 1),
-                                    Math.max(1, fingerH - 1));
-                }
+                if (Number.isFinite(a)) out.set(hand.id, a);
             }
+            return out;
         }
 
-        /** Piano-keyboard finger overlay — fingers strictly aligned
-         *  with the underlying white keys, with one finger BETWEEN
-         *  each pair of adjacent whites (= over the black key,
-         *  whether it actually exists or not — E–F and B–C still
-         *  get a "virtual" finger so the hand reads as a uniform
-         *  W/B/W/B/W/B…/W/B bunch).
-         *
-         *  Slot 0 sits on the first white key at or below the
-         *  hand's anchor. Each subsequent slot is half a white-key
-         *  width to the right, alternating between a white-key
-         *  centre (even slots) and a between-whites position (odd
-         *  slots). Heights mirror the keyboard widget's own black-
-         *  key zone (keysH·0.6) so:
-         *    - white fingers stop at the bottom of the black-key
-         *      zone (= the front edge of the white key);
-         *    - black fingers reach all the way through the black-
-         *      key zone, visually overlaying the black key.
-         *  Black fingers are painted FIRST so the white fingers
-         *  cap their bottoms — same logical layering as a real
-         *  keyboard where whites hide the lower part of blacks.
-         *
-         *  Active-state lookup walks real semitones: white slot N
-         *  → MIDI of the Nth white above the anchor; black slot N
-         *  → MIDI of the real black between the surrounding whites
-         *  (or null when no real black exists, in which case the
-         *  finger is a "virtual" placeholder that never lights up).
-         */
-        _drawPianoFingers(ctx, W, H) {
-            const kb = this.keyboard;
-            if (!kb || typeof kb.keyXAt !== 'function' || typeof kb.keyWidth !== 'function') {
-                // Defensive: fall back to chromatic layout when the
-                // keyboard widget hasn't wired its public API yet.
-                this._drawChromaticFingers(ctx, W, H);
-                return;
-            }
-            const active = this._activeNotesAtPlayhead();
-
-            // Geometry. Fingers START at the top of the hand band
-            // (Y = handY) and extend UPWARD onto the keys; their tip
-            // Y is given as fractions of the white-key / black-key
-            // heights:
-            //   - WHITE finger: tip at 1/2 of the white-key height
-            //     (Y = keysH / 2). Centered on a white key, it lands
-            //     halfway up the visible white-key body.
-            //   - BLACK finger: tip at 1/3 of the black-key height,
-            //     measured from the bottom of the black key going up
-            //     (Y = blackH × 2/3). Centered between two adjacent
-            //     whites, it visually pokes 1/3 of the way into the
-            //     black key.
-            //
-            // The knuckle bar is kept thin (2 px) and FLUSH with the
-            // band's top so the bunch reads as a single unit
-            // emerging from the hand without a gap.
-            const bandH = 22;
-            const handY = Math.max(0, H - bandH);  // top of the band
-            const keysH = handY;                   // mirrors widget's keysH
-            const blackH = keysH * 0.6;            // mirrors widget's blackH
-            const knuckleH = 2;
-            const knuckleTop = handY;              // flush with band top
-            const whiteTipY = Math.max(0, keysH * 0.5);
-            const blackTipY = Math.max(0, blackH * (2 / 3));
-            const whiteFingerH = Math.max(2, handY - whiteTipY);
-            const blackFingerH = Math.max(2, handY - blackTipY);
-
-            const view = this._visibleExtent();
-            for (let h = 0; h < this._hands.length; h++) {
-                const hand = this._hands[h];
-                const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
-                    ? Math.round(hand.numFingers)
-                    : Math.round(hand.span) + 1);
-                const a = this._displayedAnchor.has(hand.id)
-                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
-                if (!Number.isFinite(a)) continue;
-
-                // The hand's reachable window covers [anchor, anchor+span]
-                // in MIDI semitones. We render the fingers across the
-                // FULL pixel width of that window, so each hand always
-                // gets all its fingers regardless of where it sits and
-                // however many fingers it has.
-                const lowMidi  = Math.round(a);
-                const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                // MIDI-based off-screen check first. KeyboardPreview's
-                // keyXAt clamps to its rangeMin/rangeMax, so a hand
-                // entirely beyond the visible range would otherwise
-                // resolve to a finite x near the keyboard edge and
-                // render fingers in the wrong place. The chromatic
-                // widget extrapolates instead, but the same MIDI
-                // check works for both.
-                if (highMidi < view.lo || lowMidi > view.hi) continue;
-
-                const handLeftX  = kb.keyXAt(lowMidi);
-                const rightWidth = kb.keyWidth(highMidi);
-                const handRightX = kb.keyXAt(highMidi)
-                    + (Number.isFinite(rightWidth) && rightWidth > 0 ? rightWidth : 0);
-                if (!Number.isFinite(handLeftX) || !Number.isFinite(handRightX)) continue;
-                if (handRightX <= 0 || handLeftX >= W) continue;     // off-screen
-                const bandPxW = Math.max(1, handRightX - handLeftX);
-
-                // Even slots = white-finger style (short, low tip),
-                // odd slots = black-finger style (tall, reaching up
-                // through the black-key zone). Spacing fills the
-                // full band so every finger lands inside it, even
-                // for a 14-semitone hand with only 10 fingers.
-                const slotW = bandPxW / numFingers;
-                const slotCenterX = (i) => handLeftX + (i + 0.5) * slotW;
-                const fingerW = Math.max(3, slotW * 0.7);
-
-                // Active-state lookup: each slot's centre maps to
-                // the nearest MIDI semitone (= roughly anchor +
-                // i*span/numFingers). We use the same chromatic
-                // mapping the chromatic renderer uses so a sounding
-                // note still lights its closest finger.
-                const slotMidi = (i) => {
-                    if (numFingers === 1) return Math.round(a);
-                    return Math.round(a + (i * (hand.span || 0)) / (numFingers - 1));
-                };
-
-                // Knuckle bar — full hand pixel width, hand colour,
-                // sits inside the band's top edge. Clipped so a
-                // partially off-screen hand still draws cleanly.
-                const kx0 = Math.max(0, handLeftX);
-                const kx1 = Math.min(W, handRightX);
-                if (kx1 > kx0) {
-                    ctx.fillStyle = hand.color;
-                    ctx.fillRect(kx0, knuckleTop, kx1 - kx0, knuckleH);
-                }
-
-                const drawBar = (xCenter, tip, height, isActive) => {
-                    if (xCenter < -fingerW || xCenter > W + fingerW) return;
-                    const fx = xCenter - fingerW / 2;
-                    ctx.fillStyle = isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tip, fingerW, height);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.65)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tip + 0.5,
-                                    Math.max(1, fingerW - 1),
-                                    Math.max(1, height - 1));
-                };
-
-                // Pass 1 — black fingers (odd slot indices). Drawn
-                // first so the white fingers can cap their bottom.
-                for (let i = 1; i < numFingers; i += 2) {
-                    const midi = slotMidi(i);
-                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
-                    drawBar(slotCenterX(i), blackTipY, blackFingerH, isActiveSlot);
-                }
-                // Pass 2 — white fingers (even slot indices) on top.
-                for (let i = 0; i < numFingers; i += 2) {
-                    const midi = slotMidi(i);
-                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
-                    drawBar(slotCenterX(i), whiteTipY, whiteFingerH, isActiveSlot);
-                }
-            }
+        /** Push every renderer input the fingers widget needs, then
+         *  redraw. The widget reads ONLY what we hand it; we never
+         *  expose `this._hands` or `this._displayedAnchor` directly,
+         *  which keeps the renderer free of any modal coupling and
+         *  trivially testable in isolation. */
+        _pushFingersState() {
+            const r = this.fingersRenderer;
+            if (!r) return;
+            r.setKeyboardWidget(this.keyboard || null);
+            r.setLayout(this._keyboardLayoutType());
+            r.setHands(this._hands || []);
+            r.setAnchors(this._displayedAnchorMapForRender());
+            r.setActiveNotes(this._activeNotesAtPlayhead());
+            r.setVisibleExtent(this._visibleExtent());
+            r.draw();
         }
+
 
         // ----------------------------------------------------------------
         //  Keyboard mini-strip — full instrument range with viewport rect
@@ -2337,7 +2064,7 @@
             this._draw();
             this._drawMinimap();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** Live update during a band drag — clamps against neighbours
@@ -2347,9 +2074,9 @@
          *  which let the rightmost hand glide off the visible
          *  keyboard (e.g. anchor 113 + span 14 = 127 on an 88-key
          *  piano whose `note_range_max` is 108). When that happened
-         *  the fingers overlay's MIDI off-screen check (in
-         *  `_drawPianoFingers`) skipped the hand and the user saw
-         *  the band slip away with no fingers attached. Updates
+         *  the fingers overlay's MIDI off-screen check (now in
+         *  `KeyboardFingersRenderer`) skipped the hand and the user
+         *  saw the band slip away with no fingers attached. Updates
          *  `_displayedAnchor` for an immediate visual effect; does
          *  NOT push history (commit handles that). */
         _onHandBandDragLive(handId, newAnchor) {
@@ -2366,7 +2093,7 @@
             this._displayedAnchor.set(handId, clamped);
             this.keyboard?.setHandBands(this._currentHandBands());
             this._draw();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** End-of-drag: persist the new anchor as a `hand_anchors`

@@ -5912,6 +5912,11 @@
     <script src="js/features/auto-assign/HandEditorMinimap.js"></script>
     <script src="js/features/auto-assign/HandEditorShared.js"></script>
     <script src="js/features/auto-assign/HandPositionEditorModal.js"></script>
+    <!-- Keyboard hand-position editor stack. The renderer widgets must
+         be loaded BEFORE the modal so its `onOpen` finds them on
+         `window`. Today only the fingers overlay is split out; the
+         roll, minimap and state widgets follow in later phases. -->
+    <script src="js/features/auto-assign/KeyboardFingersRenderer.js"></script>
     <script src="js/features/auto-assign/KeyboardHandPositionEditorModal.js"></script>
     <script src="js/features/auto-assign/HandsPreviewPanel.js"></script>
     <script src="js/features/auto-assign/RoutingSummaryRenderers.js"></script>
