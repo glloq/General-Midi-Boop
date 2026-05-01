@@ -228,8 +228,8 @@
             this._mountKeyboard();
             this._mountFingersRenderer();
             this._mountRollRenderer();
+            this._mountMinimapRenderer();
             this._wireToolbar();
-            this._wireMinimap();
             this._wireKbMini();
             this._wireResizeObserver();
             // Defer first draw so the layout has settled (clientWidth/Height
@@ -523,6 +523,8 @@
             this.fingersRenderer = null;
             this.rollRenderer?.destroy?.();
             this.rollRenderer = null;
+            this.minimapRenderer?.destroy?.();
+            this.minimapRenderer = null;
         }
 
         close() {
@@ -1088,257 +1090,50 @@
             }
         }
 
-        /** Mousedown + drag on the minimap scrubs the timeline. The
-         *  initial mousedown moves the playhead immediately (so a
-         *  plain click still seeks), and any subsequent mousemove
-         *  while the button is held keeps the playhead under the
-         *  cursor. The piano-roll redraws on every step so the
-         *  operator sees the whole frame slide in real time. */
-        _wireMinimap() {
-            if (!this.minimapCanvas) return;
-            const seekFromEvent = (e) => {
-                if (!this._totalSec) return;
-                const rect = this.minimapCanvas.getBoundingClientRect();
-                const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-                const sec = (x / rect.width) * this._totalSec;
-                const next = Math.max(0, Math.min(this._totalSec, sec));
-                if (next === this._currentSec) return;
-                this._currentSec = next;
-                this._ensureAnimLoop();
-                this._draw();
-                this._drawMinimap();
-            };
-            this.minimapCanvas.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                e.preventDefault();
-                seekFromEvent(e);
-                const onMove = (ev) => seekFromEvent(ev);
-                const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                };
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-            });
-        }
+        // ----------------------------------------------------------------
+        //  Minimap widget — `KeyboardMinimapRenderer` owns the canvas
+        //  and the scrub interaction; the modal mounts it once on
+        //  `onOpen` and pushes inputs through `_pushMinimapState` on
+        //  every state change (problems, simulation timeline, hands,
+        //  playhead, lookahead).
+        // ----------------------------------------------------------------
 
-        _drawMinimap() {
-            const c = this.minimapCanvas;
-            const host = this.minimapHost;
-            if (!c || !host) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = host.clientWidth;
-            const H = host.clientHeight;
-            if (W <= 0 || H <= 0) return;
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (c.width !== wantW || c.height !== wantH) {
-                c.width = wantW;
-                c.height = wantH;
-                c.style.width = W + 'px';
-                c.style.height = H + 'px';
-            }
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, W, H);
-            if (!this._totalSec) return;
-
-            const ext = this._pitchExtent();
-            const pitchRange = Math.max(1, ext.hi - ext.lo);
-            const xPerSec = W / this._totalSec;
-
-            // Note dots — one tiny rectangle per note, faint so the
-            // hand-anchor bands stay readable on top.
-            ctx.fillStyle = 'rgba(148,163,184,0.55)';
-            for (const n of this.notes) {
-                const sec = n.tick / this.ticksPerSec;
-                const x = sec * xPerSec;
-                const y = H - ((n.note - ext.lo) / pitchRange) * H;
-                ctx.fillRect(x, y - 0.5, Math.max(1, xPerSec * (n.duration || 0) / this.ticksPerSec), 1.5);
-            }
-
-            // Hand-position bands — one translucent stripe per hand
-            // showing where the hand sits at every moment of the
-            // ENTIRE file. Stable spans render as filled rectangles
-            // (anchor → anchor + span); moving spans (= simulator
-            // shift events) render as parallelograms whose slope
-            // matches the configured max hand-move speed. Source data
-            // comes from `_handAnchorTimeline` — the same simulation
-            // the piano-roll lanes use, so the minimap and the roll
-            // agree by construction.
-            const yOfPitch = (p) => H - ((p - ext.lo) / pitchRange) * H;
-            for (const hand of (this._hands || [])) {
-                const samples = this._minimapSamplesFor(hand);
-                if (samples.length < 2) continue;
-                const fill = _bandFill(hand.color);
-                const infeasibleFill = 'rgba(220, 38, 38, 0.35)';
-                for (let i = 0; i < samples.length - 1; i++) {
-                    const cur = samples[i];
-                    const next = samples[i + 1];
-                    // Stable rectangle from cur.sec to the start of
-                    // the next slide (or to next.sec when next isn't
-                    // a shift). Width is the hand's span in pitch
-                    // units → covers the whole reachable window.
-                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
-                    if (stableEndSec > cur.sec) {
-                        const x0 = cur.sec * xPerSec;
-                        const x1 = stableEndSec * xPerSec;
-                        const yTop = yOfPitch(cur.anchor + hand.span);
-                        const yBot = yOfPitch(cur.anchor);
-                        ctx.fillStyle = fill;
-                        ctx.fillRect(x0, yTop, Math.max(1, x1 - x0), yBot - yTop);
-                    }
-                    // Slide parallelogram — only when next is a
-                    // shift carrying explicit fromSec / fromAnchor.
-                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
-                            && next.fromSec < next.sec) {
-                        const xA = next.fromSec * xPerSec;
-                        const xB = next.sec * xPerSec;
-                        const yA1 = yOfPitch(next.fromAnchor + hand.span);
-                        const yA2 = yOfPitch(next.fromAnchor);
-                        const yB1 = yOfPitch(next.anchor + hand.span);
-                        const yB2 = yOfPitch(next.anchor);
-                        ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
-                        ctx.beginPath();
-                        ctx.moveTo(xA, yA1);
-                        ctx.lineTo(xB, yB1);
-                        ctx.lineTo(xB, yB2);
-                        ctx.lineTo(xA, yA2);
-                        ctx.closePath();
-                        ctx.fill();
-                        // Outline the slide leg so it stands out from
-                        // surrounding stable spans. Dashed red when
-                        // infeasible.
-                        ctx.save();
-                        if (next.feasible === false) {
-                            ctx.strokeStyle = '#dc2626';
-                            ctx.setLineDash([3, 2]);
-                            ctx.lineWidth = 1;
-                        } else {
-                            ctx.strokeStyle = hand.color;
-                            ctx.lineWidth = 0.75;
-                        }
-                        ctx.beginPath();
-                        ctx.moveTo(xA, yA1);
-                        ctx.lineTo(xB, yB1);
-                        ctx.lineTo(xB, yB2);
-                        ctx.lineTo(xA, yA2);
-                        ctx.closePath();
-                        ctx.stroke();
-                        ctx.restore();
-                    }
+        _mountMinimapRenderer() {
+            if (!this.minimapCanvas || !this.minimapHost) return;
+            if (typeof window === 'undefined' || !window.KeyboardMinimapRenderer) return;
+            this.minimapRenderer = new window.KeyboardMinimapRenderer(
+                this.minimapCanvas, this.minimapHost,
+                {
+                    ticksPerSec: this.ticksPerSec,
+                    totalSec: this._totalSec,
+                    onSeek: (sec) => this._seekTo(sec),
+                    getDisplayedAnchor: (handId) => this.state.getDisplayedAnchor(handId)
                 }
-                // Centerline through the band's anchor — the visual
-                // continuity of the trajectory at a glance.
-                ctx.strokeStyle = hand.color;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                for (let i = 0; i < samples.length; i++) {
-                    const s = samples[i];
-                    if (Number.isFinite(s.fromSec) && Number.isFinite(s.fromAnchor)) {
-                        const xF = s.fromSec * xPerSec;
-                        const yF = yOfPitch(s.fromAnchor + hand.span / 2);
-                        ctx.lineTo(xF, yF);
-                    }
-                    const x = s.sec * xPerSec;
-                    const y = yOfPitch(s.anchor + hand.span / 2);
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-
-            // Problem markers — red triangle for unplayable chords,
-            // amber for too-fast shifts. Drawn before the viewport rect
-            // so the rect translucent fill desaturates them slightly
-            // when they fall inside the current view (still readable).
-            for (const p of (this._problems || [])) {
-                const x = p.sec * xPerSec;
-                ctx.fillStyle = p.kind === 'speed' ? '#f59e0b' : '#dc2626';
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x - 3, 6);
-                ctx.lineTo(x + 3, 6);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Lookahead viewport rectangle (= the slice currently shown
-            // in the piano-roll above).
-            const vpX = this._currentSec * xPerSec;
-            const vpW = Math.max(2, this._lookaheadSec * xPerSec);
-            ctx.fillStyle = 'rgba(248,250,252,0.08)';
-            ctx.fillRect(vpX, 0, vpW, H);
-            ctx.strokeStyle = 'rgba(248,250,252,0.45)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(vpX + 0.5, 0.5, vpW - 1, H - 1);
-
-            // Playhead.
-            ctx.strokeStyle = 'rgba(248,113,113,0.95)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(vpX + 0.5, 0);
-            ctx.lineTo(vpX + 0.5, H);
-            ctx.stroke();
+            );
         }
 
-        /**
-         * Build the per-hand sample list used by the minimap to
-         * render hand-position bands across the WHOLE file. Pulls
-         * straight from the simulator's `_handAnchorTimeline` (which
-         * already includes every shift's fromSec/fromAnchor and
-         * feasibility flag) so the minimap and the piano-roll lanes
-         * agree by construction. Falls back to override-derived
-         * samples when the simulation hasn't run yet (e.g. before
-         * the first `_rebuildProblems()`).
-         * @private
-         */
-        _minimapSamplesFor(hand) {
-            const series = this._handAnchorTimeline?.get(hand.id);
-            const total = this._totalSec || 0;
-            if (Array.isArray(series) && series.length > 0) {
-                const out = [];
-                // Seed the first sample at sec=0 with the earliest
-                // anchor — either the slide's fromAnchor (so the
-                // pre-slide rectangle matches the initial anchor) or
-                // the first chord's anchor when the timeline starts
-                // with a chord event.
-                const first = series[0];
-                const seedAnchor = Number.isFinite(first.fromAnchor)
-                    ? first.fromAnchor : first.anchor;
-                out.push({ sec: 0, anchor: seedAnchor });
-                for (const s of series) out.push(s);
-                if (out[out.length - 1].sec < total) {
-                    out.push({ sec: total, anchor: out[out.length - 1].anchor });
-                }
-                return out;
-            }
-            // No simulation data — fall back to user-pinned overrides
-            // around the seed anchor. Same shape as the simulator
-            // output so the minimap renderer doesn't need a branch.
-            return this._anchorSamplesForHand(hand);
+        /** Push every minimap-relevant input from the state and ask
+         *  for a redraw. Same single-point-of-push contract as the
+         *  fingers and roll renderers. */
+        _pushMinimapState() {
+            const m = this.minimapRenderer;
+            if (!m) return;
+            m.setNotes(this.notes);
+            m.setHands(this.state.hands);
+            m.setHandsTimeline(this.state.simulationTimeline);
+            m.setOverrideAnchors(this.overrides && this.overrides.hand_anchors);
+            m.setProblems(this.state.problems);
+            m.setRange(this._pitchExtent());
+            m.setPlayhead(this._currentSec);
+            m.setLookahead(this._lookaheadSec);
+            m.setTotalSec(this._totalSec);
+            m.draw();
         }
 
-        /**
-         * Build a sorted list of `{sec, anchor}` samples for one hand by
-         * walking the `hand_anchors` override entries (latest-wins per
-         * tick). The current in-memory anchor seeds the start and end so
-         * the trajectory has at least two points and renders as a flat
-         * line when no override exists yet.
-         * @private
-         */
-        _anchorSamplesForHand(hand) {
-            const list = (this.overrides?.hand_anchors || [])
-                .filter(a => a && a.handId === hand.id && Number.isFinite(a.tick) && Number.isFinite(a.anchor))
-                .sort((a, b) => a.tick - b.tick);
-            const out = [{ sec: 0, anchor: hand.anchor }];
-            for (const a of list) {
-                out.push({ sec: a.tick / this.ticksPerSec, anchor: a.anchor });
-            }
-            out.push({ sec: this._totalSec, anchor: list.length ? list[list.length - 1].anchor : hand.anchor });
-            return out;
-        }
+        /** Back-compat alias — many call sites still call
+         *  `_drawMinimap()` directly. Routes through
+         *  `_pushMinimapState`. */
+        _drawMinimap() { this._pushMinimapState(); }
 
         // ----------------------------------------------------------------
         //  Piano-roll widget — `KeyboardRollRenderer` owns the canvas,
