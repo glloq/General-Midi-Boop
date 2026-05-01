@@ -1104,15 +1104,39 @@
          *  an active note — the position is fixed on the hand.
          *  The active flag lights up when the slot's nearest
          *  semitone matches a sounding pitch (purely a colour
-         *  change). v2 will introduce realistic anatomy (left vs
-         *  right thumb position, finger-to-key snapping, variable
-         *  finger heights). @private */
+         *  change).
+         *
+         *  Finger count differs by keyboard layout:
+         *
+         *  - **piano** — one finger per chromatic position in the
+         *    window (`span + 1` fingers). The bunch alternates
+         *    naturally between white-key and black-key positions
+         *    because each slot lands on a unique semitone (60, 61,
+         *    62, …). The schema's `num_fingers` is used by the
+         *    simulator and the v2 anatomy work, but for the v1
+         *    overlay the user wants every key in the window to
+         *    show its finger.
+         *  - **chromatic** — `num_fingers` from the instrument
+         *    config (1..10). One mallet per striker on a marimba,
+         *    xylophone, etc. The slot count matches the configured
+         *    mallet count regardless of the window's span.
+         *
+         *  v2 will introduce realistic anatomy (left vs right thumb
+         *  position, finger-to-key snapping, variable finger
+         *  heights). @private */
         _fingerLayout(hand, _handIndex, active) {
-            const numFingers = Math.max(1, hand.numFingers);
+            const layout = this._keyboardLayoutType();
+            const span = hand.span;
+            // Piano shows one finger per chromatic position in the
+            // window so adjacent fingers naturally alternate over
+            // white and black keys. Chromatic keyboards keep the
+            // configured mallet count.
+            const numFingers = layout === 'piano'
+                ? Math.max(1, Math.round(span) + 1)
+                : Math.max(1, hand.numFingers);
             let a = this._displayedAnchor.has(hand.id)
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
             if (!Number.isFinite(a)) a = hand.anchor;
-            const span = hand.span;
             if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
             const fingers = new Array(numFingers);
             for (let i = 0; i < numFingers; i++) {
