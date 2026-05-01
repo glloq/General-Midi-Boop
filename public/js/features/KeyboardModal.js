@@ -778,3 +778,6 @@ if (typeof KeyboardEventsMixin !== 'undefined') {
 if (typeof KeyboardControlsMixin !== 'undefined') {
     Object.assign(KeyboardModalNew.prototype, KeyboardControlsMixin);
 }
+if (typeof KeyboardChordsMixin !== 'undefined') {
+    Object.assign(KeyboardModalNew.prototype, KeyboardChordsMixin);
+}

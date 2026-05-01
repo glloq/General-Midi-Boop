@@ -1138,6 +1138,216 @@
 }
 
 /* ============================================================================
+   FRETBOARD STRINGS AREA (wrapper introduced for chord-bar layout)
+   ============================================================================ */
+
+.fretboard-strings-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ============================================================================
+   CHORD BUTTONS BAR  (fretboard view — string instruments only)
+   ============================================================================ */
+
+.chord-buttons-bar {
+    flex-shrink: 0;
+    padding: 7px 10px 8px;
+    background: rgba(0, 0, 0, 0.40);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0 0 6px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    user-select: none;
+}
+
+/* ── Root note selector ── */
+
+.chord-root-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.chord-root-label {
+    color: rgba(255, 255, 255, 0.50);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    flex-shrink: 0;
+}
+
+.chord-root-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.chord-root-btn {
+    padding: 2px 5px;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.5;
+    min-width: 26px;
+    text-align: center;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.chord-root-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.chord-root-btn.active {
+    background: #059669;
+    border-color: #34d399;
+    color: white;
+    box-shadow: 0 0 7px rgba(16, 185, 129, 0.55);
+}
+
+/* ── Chord type buttons ── */
+
+.chord-type-row {
+    display: flex;
+    gap: 5px;
+}
+
+.chord-type-btn {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+    height: 46px;
+    background: linear-gradient(to bottom, rgba(55, 55, 78, 0.92), rgba(35, 35, 55, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px;
+    color: white;
+    cursor: pointer;
+    overflow: hidden;
+    touch-action: none;
+    transition: background 0.12s, transform 0.07s, box-shadow 0.12s, border-color 0.12s;
+}
+
+/* Subtle green tint on left half (down strum) */
+.chord-type-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 50%;
+    background: rgba(16, 185, 129, 0.06);
+    pointer-events: none;
+    border-radius: 6px 0 0 6px;
+}
+
+/* Subtle blue tint on right half (up strum) */
+.chord-type-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    left: 50%;
+    background: rgba(59, 130, 246, 0.06);
+    pointer-events: none;
+    border-radius: 0 6px 6px 0;
+}
+
+.chord-type-btn:hover {
+    background: linear-gradient(to bottom, rgba(70, 70, 98, 0.95), rgba(50, 50, 75, 0.98));
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.chord-type-btn:hover .chord-strum-l,
+.chord-type-btn:hover .chord-strum-r {
+    opacity: 0.75;
+}
+
+/* Active (strum playing) */
+.chord-type-btn.strum-active {
+    background: linear-gradient(135deg, #065f46, #10b981, #065f46);
+    border-color: #34d399;
+    transform: translateY(1px);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.75);
+}
+
+.chord-type-btn.strum-active .chord-strum-l,
+.chord-type-btn.strum-active .chord-strum-r {
+    opacity: 1;
+}
+
+/* Strum direction arrows */
+.chord-strum-l,
+.chord-strum-r {
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.38;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.1s;
+    z-index: 1;
+}
+
+/* Chord name label stack */
+.chord-type-label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.chord-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+    letter-spacing: 0.2px;
+}
+
+.chord-alt-name {
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.38);
+    line-height: 1;
+    letter-spacing: 0.4px;
+}
+
+.chord-type-btn.strum-active .chord-alt-name {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* Dark-mode fine-tuning */
+body.dark-mode .chord-buttons-bar {
+    background: rgba(0, 0, 0, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .chord-type-btn {
+    background: linear-gradient(to bottom, rgba(35, 35, 55, 0.96), rgba(20, 20, 38, 0.98));
+}
+
+body.dark-mode .chord-type-btn:hover {
+    background: linear-gradient(to bottom, rgba(50, 50, 75, 0.98), rgba(35, 35, 58, 0.99));
+}
+
+/* ============================================================================
    DRUM PAD VIEW
    ============================================================================ */
 
