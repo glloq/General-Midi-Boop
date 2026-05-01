@@ -229,6 +229,11 @@ class KeyboardModalNew {
                 key.classList.remove('active');
             }
         });
+
+        // In fretboard mode, color the string line to the right of the active fret.
+        if (this.viewMode === 'fretboard' && typeof this._updateFretboardStringColors === 'function') {
+            this._updateFretboardStringColors();
+        }
     }
 
     /**
