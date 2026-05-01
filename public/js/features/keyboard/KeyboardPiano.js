@@ -383,9 +383,8 @@
         const validModes = ['piano', 'fretboard', 'drumpad'];
         if (!validModes.includes(mode)) mode = 'piano';
 
-        // Cleanup note slider and string slide mode when leaving fretboard
+        // Cleanup string slide mode when leaving fretboard
         if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
-            if (typeof this.destroyNoteSlider === 'function') this.destroyNoteSlider();
             if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
         }
 
@@ -559,20 +558,6 @@
         stringsArea.appendChild(header);
 
         container.appendChild(stringsArea);
-
-        // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
-        if (typeof this.renderChordButtons === 'function') {
-            this.renderChordButtons();
-        }
-
-        // Note slider zone — Mode A "Root Control"
-        const sliderArea = document.createElement('div');
-        sliderArea.id = 'note-slider-area';
-        container.appendChild(sliderArea);
-
-        if (typeof this.initNoteSliderModeA === 'function') {
-            this.initNoteSliderModeA();
-        }
 
         if (typeof this.initStringSliderMode === 'function') {
             this.initStringSliderMode();

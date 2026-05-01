@@ -6,69 +6,6 @@
 
     const KeyboardSliderMixin = {};
 
-    // ── Mode A : Root Control (slider → chordRoot) ────────────────────────────
-
-    KeyboardSliderMixin.initNoteSliderModeA = function () {
-        if (typeof NoteEngine === 'undefined' || typeof NoteSlider === 'undefined') {
-            this.logger && this.logger.warn('[KeyboardSlider] NoteEngine ou NoteSlider non disponibles');
-            return;
-        }
-
-        const container = document.getElementById('note-slider-area');
-        if (!container) return;
-
-        this.destroyNoteSlider();
-
-        const engine = new NoteEngine();
-        engine.setScale(0, 'chromatic');
-        engine.setRange(48, 59);
-
-        const cfg        = this.stringInstrumentConfig || {};
-        const numStrings = Math.max(1, cfg.num_strings || 6);
-        let tuning       = null;
-        if (Array.isArray(cfg.tuning) && cfg.tuning.length === numStrings) {
-            tuning = cfg.tuning;
-        } else if (Array.isArray(cfg.tuning_midi) && cfg.tuning_midi.length === numStrings) {
-            tuning = cfg.tuning_midi;
-        }
-        if (typeof VoicingEngine !== 'undefined') {
-            this._voicingEngine = new VoicingEngine(tuning, numStrings);
-        }
-
-        const slider = new NoteSlider(container, engine, {
-            minNote: 48,
-            maxNote: 59,
-            mode: 'discrete',
-            height: 52,
-            labelFormat: this.noteLabelFormat || 'english',
-        });
-
-        slider.on('notechange', (note) => {
-            const rootClass = note % 12;
-            if (typeof this._setChordRootFromSlider === 'function') {
-                this._setChordRootFromSlider(rootClass);
-            }
-        });
-
-        this._noteSlider = slider;
-        this._noteEngine = engine;
-    };
-
-    KeyboardSliderMixin.destroyNoteSlider = function () {
-        if (this._noteSlider) {
-            this._noteSlider.destroy();
-            this._noteSlider = null;
-        }
-        this._noteEngine    = null;
-        this._voicingEngine = null;
-    };
-
-    KeyboardSliderMixin.syncSliderLabelFormat = function () {
-        if (this._noteSlider && typeof this._noteSlider.setLabelFormat === 'function') {
-            this._noteSlider.setLabelFormat(this.noteLabelFormat || 'english');
-        }
-    };
-
     // ── Slide mode visibility ─────────────────────────────────────────────────
 
     KeyboardSliderMixin._updateSlideModeGroupVisibility = function () {
