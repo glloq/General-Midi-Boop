@@ -1,0 +1,200 @@
+/**
+ * Keyboard hand-position editor — modal styling.
+ *
+ * Loaded once globally via index.html. Replaces the inline
+ * <style id="khpe-modal-styles"> block that the modal used to
+ * inject from `_injectStyles()`.
+ *
+ * Class prefix: `.khpe-` (Keyboard Hand-Position Editor) for any
+ * selector scoped to this modal.
+ */
+
+/* Routing summary modal sits at 10005; stay above so the editor
+   isn't covered when opened from there. */
+.modal-overlay.khpe-modal-overlay {
+    z-index: 10010 !important;
+}
+
+/* Almost full-page width but leaves a sliver of the overlay
+   visible on the sides so the operator still feels they are
+   "inside" a dialog rather than on a brand-new page. */
+.khpe-modal .modal-dialog {
+    width: 98vw !important;
+    height: 96vh !important;
+    max-width: 98vw !important;
+    max-height: 96vh !important;
+    margin: 2vh auto !important;
+    border-radius: 6px !important;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    overflow: hidden;
+}
+
+.khpe-modal .modal-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    min-height: 0;
+}
+
+.khpe-modal .modal-footer { display: none; }
+
+/* Header IS the toolbar — no h2/title here. */
+.khpe-modal .khpe-header {
+    padding: 0;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.khpe-toolbar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+}
+
+.khpe-toolbar button[data-action] {
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.khpe-toolbar button[data-action]:hover:not([disabled]) {
+    background: #f3f4f6;
+}
+
+.khpe-toolbar button[data-action][disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.khpe-toolbar button[data-action="save"] {
+    font-size: 16px;
+    padding: 4px 10px;
+}
+
+.khpe-toolbar button.modal-close {
+    margin-left: 4px;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.khpe-toolbar button.modal-close:hover { color: #111827; }
+
+.khpe-toolbar .khpe-sep {
+    display: inline-block;
+    width: 1px;
+    height: 18px;
+    background: #d1d5db;
+}
+
+.khpe-toolbar .khpe-spacer { flex: 1; }
+
+.khpe-toolbar .khpe-status {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.khpe-toolbar .khpe-group-label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.khpe-toolbar .khpe-problem-count {
+    font-size: 12px;
+    color: #b91c1c;
+    font-weight: 600;
+    min-width: 20px;
+}
+
+.khpe-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.khpe-minimap-host {
+    position: relative;
+    height: 54px;
+    flex: none;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+}
+
+.khpe-minimap-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    cursor: pointer;
+}
+
+.khpe-roll-host {
+    position: relative;
+    flex: 1;
+    background: #0f172a;
+    overflow: hidden;
+    min-height: 200px;
+}
+
+.khpe-roll-host.is-panning { cursor: grabbing; }
+
+.khpe-roll-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+
+.khpe-kb-mini-host {
+    position: relative;
+    background: #0f172a;
+    height: 18px;
+    flex: none;
+    border-top: 1px solid #334155;
+    cursor: pointer;
+}
+
+.khpe-kb-mini-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Keyboard preview area — purely informational, no interaction
+   (every edit happens on the roll above). Tall enough to show
+   keys, fingers and active-key tinting clearly. */
+.khpe-keyboard-host {
+    position: relative;
+    background: #1e293b;
+    padding: 4px;
+    height: 120px;
+    flex: none;
+    pointer-events: none;
+}
+
+.khpe-keyboard-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.khpe-fingers-overlay {
+    position: absolute;
+    inset: 4px;
+    pointer-events: none;
+}

@@ -5286,6 +5286,7 @@
     <link rel="stylesheet" href="styles/playlist.css">
     <link rel="stylesheet" href="styles/modal-playlist.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
+    <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
 </head>
 <body>
     <!-- Skip Navigation Link (Accessibility) -->
@@ -5912,6 +5913,16 @@
     <script src="js/features/auto-assign/HandEditorMinimap.js"></script>
     <script src="js/features/auto-assign/HandEditorShared.js"></script>
     <script src="js/features/auto-assign/HandPositionEditorModal.js"></script>
+    <!-- Keyboard hand-position editor stack. The state container and
+         renderer widgets must be loaded BEFORE the modal so its
+         constructor / `onOpen` find them on `window`. Today the
+         fingers overlay and the central state are split out; the
+         roll and minimap renderers follow in later phases. -->
+    <script src="js/features/auto-assign/KeyboardHandPositionState.js"></script>
+    <script src="js/features/auto-assign/KeyboardChromaticPreview.js"></script>
+    <script src="js/features/auto-assign/KeyboardFingersRenderer.js"></script>
+    <script src="js/features/auto-assign/KeyboardRollRenderer.js"></script>
+    <script src="js/features/auto-assign/KeyboardMinimapRenderer.js"></script>
     <script src="js/features/auto-assign/KeyboardHandPositionEditorModal.js"></script>
     <script src="js/features/auto-assign/HandsPreviewPanel.js"></script>
     <script src="js/features/auto-assign/RoutingSummaryRenderers.js"></script>

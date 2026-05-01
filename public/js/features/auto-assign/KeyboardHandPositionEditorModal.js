@@ -98,51 +98,61 @@
                 ? Math.max(...this.notes.map(n => n.tick + (n.duration || 0))) : 0;
             this._totalSec = this._totalTicks / this.ticksPerSec;
 
-            const Shared = window.HandEditorShared;
-            this.overrides = Shared.cloneOverrides(opts.initialOverrides) || Shared.emptyOverrides();
-            // Linear undo/redo stack with a saved-index marker; dirty
-            // = (live index !== savedIndex). Refreshes the toolbar
-            // buttons + the save button title on every change.
-            this._history = new Shared.HistoryManager(this.overrides, {
-                maxHistory: 50,
-                onChange: () => this._refreshHistoryButtons()
+            // Central state container. Owns hands, overrides,
+            // displayed anchors, simulation timeline, problem list,
+            // history. The modal stays in charge of the orchestration
+            // (RAF loop, transport, view zoom) and reads the state
+            // through `this.state`. Legacy field aliases below
+            // (`overrides`, `_hands`, `_history`, `_displayedAnchor`,
+            // `_handAnchorTimeline`, `_problems`, `_unplayableSet`)
+            // are getters that delegate to the state, kept so the
+            // editor's many read sites continue to work without
+            // sweeping renames.
+            this.state = new window.KeyboardHandPositionState({
+                instrument: this.instrument,
+                notes: this.notes,
+                ticksPerSec: this.ticksPerSec,
+                initialOverrides: opts.initialOverrides,
+                onHistoryChange: () => this._refreshHistoryButtons()
             });
 
-            // Pixels per second on the falling-note axis. Larger = notes
-            // span more vertical space (zoom-in).
-            // Lookahead window (seconds) shown above the keyboard. We only
-            // draw notes whose start time is within `[currentSec, currentSec + lookaheadSec]`.
+            // View / lookahead — the falling-note window above the
+            // keyboard. The state isn't responsible for view zoom,
+            // it only deals with hand positions.
             this._lookaheadSec = 4;
             this._currentSec = 0;
-            this._noteHits = [];
             this._notePopover = null;
             this._mutedBeforePlay = null;
 
-            // Problem tracking — populated by `_rebuildProblems()` whenever
-            // the overrides or the hand state change.
-            this._problems = [];          // [{sec, kind:'chord'|'speed', message}]
-            this._unplayableSet = new Set(); // "tick:note"
+            // Trailing-edge debounce timer for `_rebuildProblems`.
             this._problemRebuildTimer = null;
 
-            // Animated band positions. `_displayedAnchor[handId]` lerps
-            // toward `_targetAnchorAt(currentSec)` so the bands glide
-            // smoothly toward their next position rather than snapping.
-            // `_handAnchorTimeline[handId] = [{sec, anchor}]` is the
-            // per-hand trajectory derived from the simulation timeline.
-            this._handAnchorTimeline = new Map();
-            this._displayedAnchor = new Map();
+            // Animation loop handle.
             this._animRaf = null;
 
             // Keyboard zoom: `_kbView` is the [lo, hi] pitch range
             // currently shown by the bottom keyboard + the roll axis.
             // Initialised to the full instrument range on open, then
-            // narrowed by Ctrl+wheel or the mini-strip drag. The
-            // mini-strip itself always shows the full range with a
-            // viewport rectangle marking the live `_kbView`.
+            // narrowed by Ctrl+wheel or the mini-strip drag.
             this._kbView = null;
         }
 
-        get isDirty() { return this._history.isDirty; }
+        // ----------------------------------------------------------------
+        //  Legacy field aliases — getter-only delegations to `this.state`
+        //  so the modal's many read sites continue to work without
+        //  changes. Writes go through state methods (`previewAnchor`,
+        //  `commitAnchor`, `setNoteAssignment`, `undo` …).
+        // ----------------------------------------------------------------
+
+        get overrides()             { return this.state.overrides; }
+        get _hands()                { return this.state.hands; }
+        get _history()              { return this.state._history; }
+        get _displayedAnchor()      { return this.state._displayedAnchors; }
+        get _handAnchorTimeline()   { return this.state.simulationTimeline; }
+        get _problems()             { return this.state.problems; }
+        get _unplayableSet()        { return this.state.unplayableSet; }
+
+        get isDirty() { return this.state.isDirty; }
 
         /** Override BaseModal's header so the modal's title bar IS
          *  the toolbar. We keep BaseModal's standard `data-action="close"`
@@ -205,8 +215,11 @@
         renderFooter() { return ''; }
 
         onOpen() {
+            // CSS lives in `public/styles/keyboard-hand-position-editor.css`
+            // (loaded once globally). The overlay class hook is kept
+            // so the stylesheet can hoist the editor above its caller
+            // (the routing-summary modal).
             this.container?.classList.add('khpe-modal-overlay');
-            this._injectStyles();
             this.rollCanvas = this.$('.khpe-roll-canvas');
             this.rollHost = this.$('.khpe-roll-host');
             this.keyboardCanvas = this.$('.khpe-keyboard-canvas');
@@ -216,9 +229,10 @@
             this.minimapCanvas = this.$('.khpe-minimap-canvas');
             this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
+            this._mountFingersRenderer();
+            this._mountRollRenderer();
+            this._mountMinimapRenderer();
             this._wireToolbar();
-            this._wireRollCanvas();
-            this._wireMinimap();
             this._wireKbMini();
             this._wireResizeObserver();
             // Defer first draw so the layout has settled (clientWidth/Height
@@ -229,7 +243,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
-                this._drawFingers();
+                this._pushFingersState();
             });
             this._refreshTransport();
         }
@@ -263,12 +277,14 @@
             }, 80);
         }
 
+        /** Run the simulator on the current overrides + hand state and
+         *  hand the raw event timeline to the state container. The
+         *  state breaks it into per-hand trajectories, the unplayable
+         *  set, and the problem list — the modal then refreshes the
+         *  problem-counter UI from `state.problems`. */
         _runFeasibility() {
             const Feas = window.HandPositionFeasibility;
             if (!Feas || typeof Feas.simulateHandWindows !== 'function') return;
-            // Reflect the current operator-tweaked anchors so the
-            // simulator's per-tick window logic agrees with the bands
-            // the user sees on the keyboard.
             const Shared = window.HandEditorShared;
             const overridesForSim = Shared.cloneOverrides(this.overrides) || Shared.emptyOverrides();
             let timeline;
@@ -282,159 +298,21 @@
                 console.warn('[KeyboardHandPositionEditor] simulate failed:', e);
                 timeline = [];
             }
-            const problems = [];
-            const unplayable = new Set();
-            const tps = this.ticksPerSec;
-            for (const ev of timeline) {
-                if (ev.type === 'chord' && Array.isArray(ev.unplayable) && ev.unplayable.length > 0) {
-                    problems.push({ sec: ev.tick / tps, kind: 'chord' });
-                    for (const u of ev.unplayable) {
-                        if (Number.isFinite(u.note)) unplayable.add(`${ev.tick}:${u.note}`);
-                    }
-                } else if (ev.type === 'shift' && ev.motion && ev.motion.feasible === false) {
-                    problems.push({ sec: ev.tick / tps, kind: 'speed' });
-                }
-            }
-            problems.sort((a, b) => a.sec - b.sec);
-            this._problems = problems;
-            this._unplayableSet = unplayable;
-            this._buildHandAnchorTimeline(timeline);
+            this.state.setSimulationResult(timeline);
         }
 
-        /** Per-hand `[{sec, anchor, fromSec?, fromAnchor?}]` series.
-         *  `fromSec` and `fromAnchor` are populated for `shift` events:
-         *  they describe the moving leg of the trajectory — the hand
-         *  travelled from `fromAnchor` at `fromSec` to `anchor` at
-         *  `sec`. Without them we'd only know the destination and the
-         *  background lane would render as a step instead of the
-         *  diagonal slide a real hand performs. */
-        _buildHandAnchorTimeline(timeline) {
-            const tps = this.ticksPerSec;
-            const seriesBy = new Map();
-            const ensure = (id) => {
-                if (!seriesBy.has(id)) seriesBy.set(id, []);
-                return seriesBy.get(id);
-            };
-            for (const ev of timeline || []) {
-                if (ev.type === 'shift' && ev.handId && Number.isFinite(ev.toAnchor)) {
-                    // The slide duration represents the REAL hand
-                    // travel time at the configured max speed:
-                    //   requiredSec = |toAnchor − fromAnchor| / hand_move_speed
-                    // Visually this draws a parallelogram whose slope
-                    // matches the maximum mechanical speed of the
-                    // hand. When the gap before the new chord is
-                    // larger than requiredSec, the hand moves "just-
-                    // in-time" — the parallelogram ends at the chord
-                    // and the band stays stable for the rest of the
-                    // gap. When it is shorter (infeasible shift),
-                    // requiredSec still wins so the slope stays at
-                    // max speed — the parallelogram visibly overlaps
-                    // the previous chord, signalling the impossible
-                    // transition. Falls back to a sensible default
-                    // when no tempo info is available.
-                    const sec = ev.tick / tps;
-                    let dur = Number.NaN;
-                    if (ev.motion && Number.isFinite(ev.motion.requiredSec)
-                            && ev.motion.requiredSec > 0) {
-                        dur = ev.motion.requiredSec;
-                    } else if (ev.motion && Number.isFinite(ev.motion.availableSec)
-                            && ev.motion.availableSec > 0
-                            && ev.motion.availableSec !== Infinity) {
-                        dur = ev.motion.availableSec;
-                    }
-                    if (!Number.isFinite(dur) || dur <= 0) dur = 0.15; // sensible fallback
-                    ensure(ev.handId).push({
-                        sec,
-                        anchor: ev.toAnchor,
-                        fromSec: Math.max(0, sec - dur),
-                        fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor,
-                        feasible: ev.motion ? ev.motion.feasible !== false : true
-                    });
-                } else if (ev.type === 'chord') {
-                    // Chord event carries the post-shift anchor of
-                    // every hand active at this chord. Reading
-                    // `anchorByHand` directly preserves the
-                    // simulator's min-move target — earlier code
-                    // inferred the anchor from the chord's lowest
-                    // note per hand, which produced phantom shifts
-                    // whenever the simulator picked an upward
-                    // min-move anchor (= hi − span). The fallback
-                    // (lowest note per hand) survives only for
-                    // legacy chord events that didn't carry the
-                    // field.
-                    const anchorByHand = ev.anchorByHand;
-                    if (anchorByHand && typeof anchorByHand === 'object') {
-                        for (const id of Object.keys(anchorByHand)) {
-                            const a = anchorByHand[id];
-                            if (Number.isFinite(a)) {
-                                ensure(id).push({ sec: ev.tick / tps, anchor: a });
-                            }
-                        }
-                    } else if (Array.isArray(ev.notes)) {
-                        const lowestByHand = new Map();
-                        for (const n of ev.notes) {
-                            if (!n.handId || !Number.isFinite(n.note)) continue;
-                            const cur = lowestByHand.get(n.handId);
-                            if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
-                        }
-                        for (const [id, lo] of lowestByHand) {
-                            ensure(id).push({ sec: ev.tick / tps, anchor: lo });
-                        }
-                    }
-                }
-            }
-            for (const arr of seriesBy.values()) arr.sort((a, b) => a.sec - b.sec);
-            this._handAnchorTimeline = seriesBy;
-        }
-
-        /** Step lookup: latest `{sec, anchor}` whose sec ≤ `atSec`. */
+        /** Step lookup delegated to `state` — kept as a thin wrapper
+         *  so the minimap (and any future renderer that needs the
+         *  simulator-target anchor) keeps a stable call shape. */
         _targetAnchorAt(handId, atSec) {
-            const series = this._handAnchorTimeline?.get(handId);
-            if (!series || series.length === 0) {
-                const hand = (this._hands || []).find(h => h.id === handId);
-                return hand ? hand.anchor : null;
-            }
-            // Binary-ish scan — series is small (one entry per chord/shift).
-            let best = series[0].anchor;
-            for (const s of series) {
-                if (s.sec > atSec) break;
-                best = s.anchor;
-            }
-            return best;
+            return this.state.targetAnchorAt(handId, atSec);
         }
 
-        /** Interpolation step: pull `_displayedAnchor[id]` toward the
-         *  target anchor at the current playhead. Decay is computed from
-         *  the wall-clock delta so the animation stays cross-monitor
-         *  consistent (a 144 Hz screen does not run 2× faster than 60 Hz).
-         *  Returns true when at least one band is still moving so the
-         *  caller can keep the RAF loop running. */
+        /** Animation step delegated to `state.step`. The modal still
+         *  owns `_lookaheadSec` and `_currentSec` (view concerns) so
+         *  it passes them in. */
         _stepAnchorAnimation(dtSec) {
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return false;
-            // Look slightly AHEAD of the playhead so the hands anticipate
-            // upcoming notes (matches a real player who looks ahead at the
-            // score) — half the lookahead window is a good visual default.
-            const lookSec = this._currentSec + (this._lookaheadSec || 4) * 0.5;
-            // Critically-damped exponential ease. `1 - e^(-k·dt)` produces
-            // a half-life of ln(2)/k seconds (here ~85 ms) regardless of
-            // the frame rate.
-            const k = 8;
-            const blend = 1 - Math.exp(-k * Math.max(0, dtSec));
-            let stillMoving = false;
-            for (const hand of this._hands) {
-                const target = this._targetAnchorAt(hand.id, lookSec);
-                if (!Number.isFinite(target)) continue;
-                const cur = this._displayedAnchor.get(hand.id);
-                const start = Number.isFinite(cur) ? cur : hand.anchor;
-                const gap = target - start;
-                if (Math.abs(gap) < 0.05) {
-                    this._displayedAnchor.set(hand.id, target);
-                    continue;
-                }
-                this._displayedAnchor.set(hand.id, start + gap * blend);
-                stillMoving = true;
-            }
-            return stillMoving;
+            return this.state.step(dtSec, this._lookaheadSec, this._currentSec);
         }
 
         /**
@@ -471,7 +349,7 @@
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
-                this._drawFingers();
+                this._pushFingersState();
 
                 const playing = this._audioPlayingSec != null;
                 if (moving || playing) this._animRaf = requestAnimationFrame(tick);
@@ -510,109 +388,6 @@
             this._drawMinimap();
         }
 
-        _injectStyles() {
-            if (document.getElementById('khpe-modal-styles')) return;
-            const style = document.createElement('style');
-            style.id = 'khpe-modal-styles';
-            style.textContent = `
-                .modal-overlay.khpe-modal-overlay {
-                    /* Routing summary modal sits at 10005; stay above so
-                       the editor isn't covered when opened from there. */
-                    z-index: 10010 !important;
-                }
-                .khpe-modal .modal-dialog {
-                    /* Almost full-page width but leaves a sliver of the
-                       overlay visible on the sides so the operator
-                       still feels they are "inside" a dialog rather
-                       than on a brand-new page. */
-                    width: 98vw !important;
-                    height: 96vh !important;
-                    max-width: 98vw !important;
-                    max-height: 96vh !important;
-                    margin: 2vh auto !important;
-                    border-radius: 6px !important;
-                    display: flex; flex-direction: column;
-                    background: #fff;
-                    overflow: hidden;
-                }
-                .khpe-modal .modal-body {
-                    flex: 1; display: flex; flex-direction: column;
-                    overflow: hidden; padding: 0; min-height: 0;
-                }
-                .khpe-modal .modal-footer { display: none; }
-                /* Header IS the toolbar — no h2/title here. */
-                .khpe-modal .khpe-header {
-                    padding: 0; background: #f9fafb;
-                    border-bottom: 1px solid #e5e7eb;
-                }
-                .khpe-toolbar {
-                    display: flex; gap: 6px; align-items: center;
-                    padding: 8px 10px; flex-wrap: wrap;
-                }
-                .khpe-toolbar button[data-action] {
-                    padding: 4px 10px; border: 1px solid #d1d5db;
-                    background: #fff; border-radius: 4px; cursor: pointer;
-                    font-size: 14px; line-height: 1;
-                }
-                .khpe-toolbar button[data-action]:hover:not([disabled]) { background: #f3f4f6; }
-                .khpe-toolbar button[data-action][disabled] { opacity: 0.45; cursor: not-allowed; }
-                .khpe-toolbar button[data-action="save"] { font-size: 16px; padding: 4px 10px; }
-                .khpe-toolbar button.modal-close {
-                    margin-left: 4px; font-size: 18px; line-height: 1;
-                    padding: 2px 10px; background: transparent; border: none;
-                    cursor: pointer; color: #6b7280;
-                }
-                .khpe-toolbar button.modal-close:hover { color: #111827; }
-                .khpe-toolbar .khpe-sep {
-                    display: inline-block; width: 1px; height: 18px; background: #d1d5db;
-                }
-                .khpe-toolbar .khpe-spacer { flex: 1; }
-                .khpe-toolbar .khpe-status { color: #6b7280; font-size: 12px; }
-                .khpe-toolbar .khpe-group-label {
-                    font-size: 11px; color: #6b7280; text-transform: uppercase;
-                    letter-spacing: 0.04em;
-                }
-                .khpe-toolbar .khpe-problem-count {
-                    font-size: 12px; color: #b91c1c; font-weight: 600; min-width: 20px;
-                }
-                .khpe-main {
-                    display: flex; flex-direction: column; flex: 1; min-height: 0;
-                }
-                .khpe-minimap-host {
-                    position: relative; height: 54px; flex: none;
-                    background: #1e293b; border-bottom: 1px solid #334155;
-                }
-                .khpe-minimap-canvas {
-                    position: absolute; inset: 0; display: block; cursor: pointer;
-                }
-                .khpe-roll-host {
-                    position: relative; flex: 1; background: #0f172a;
-                    overflow: hidden; min-height: 200px;
-                }
-                .khpe-roll-host.is-panning { cursor: grabbing; }
-                .khpe-roll-canvas { position: absolute; inset: 0; display: block; }
-                .khpe-kb-mini-host {
-                    background: #0f172a; height: 18px; flex: none;
-                    border-top: 1px solid #334155; cursor: pointer; position: relative;
-                }
-                .khpe-kb-mini-canvas { display: block; width: 100%; height: 100%; }
-                /* Keyboard preview area — purely informational, no
-                   interaction (every edit happens on the roll above).
-                   Tall enough to show keys, fingers and active-key
-                   tinting clearly. */
-                .khpe-keyboard-host {
-                    position: relative; background: #1e293b; padding: 4px;
-                    height: 120px; flex: none;
-                    pointer-events: none;
-                }
-                .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
-                .khpe-fingers-overlay {
-                    position: absolute; inset: 4px; pointer-events: none;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
         /** BaseModal's default `update()` re-renders body + footer
          *  HTML on every locale change, which would tear down our
          *  canvases and dangling-reference every cached widget. We
@@ -644,6 +419,12 @@
             this._closeNotePopover();
             this.keyboard?.destroy?.();
             this.keyboard = null;
+            this.fingersRenderer?.destroy?.();
+            this.fingersRenderer = null;
+            this.rollRenderer?.destroy?.();
+            this.rollRenderer = null;
+            this.minimapRenderer?.destroy?.();
+            this.minimapRenderer = null;
         }
 
         close() {
@@ -684,54 +465,12 @@
 
         _mountKeyboard() {
             if (!this.keyboardCanvas) return;
-            const ext = this._pitchExtent();
-            // Per-hand state: anchor (lowest playable note) is the
-            // operator-controlled value; span is read from hands_config.
-            // Anchors initialise from `hand_anchors` overrides at the
-            // current playhead, falling back to a deterministic seed
-            // (low pitch, mid pitch, ...) so 1- and 4-hand keyboards
-            // both render with non-overlapping bands at startup.
-            const cfg = _parseHandsCfg(this.instrument);
-            this._hands = (cfg?.hands || []).map((h, i) => {
-                let span;
-                if (Number.isFinite(h.hand_span_semitones)) {
-                    span = h.hand_span_semitones;
-                } else if (Number.isFinite(h.num_fingers)) {
-                    span = Math.max(1, h.num_fingers - 1);
-                } else {
-                    span = 4;
-                }
-                // Number of fingers comes straight from the
-                // instrument's hands_config. `num_fingers` is the
-                // schema's authoritative field (see
-                // InstrumentCapabilitiesValidator: chromatic keyboards
-                // use `span = num_fingers - 1`, piano keyboards keep
-                // span and num_fingers independent). Range 1..16 per
-                // hand. Falls back to `span + 1` when the config
-                // didn't set the field (= one finger per chromatic
-                // position, the chromatic-instrument convention) so
-                // legacy configs without `num_fingers` still draw
-                // sensibly.
-                const numFingers = Number.isFinite(h.num_fingers) && h.num_fingers > 0
-                    ? h.num_fingers : (span + 1);
-                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
-                    * (ext.hi - ext.lo - span));
-                const id = h.id || `h${i + 1}`;
-                const overrideAnchor = this._latestAnchorOverride(id);
-                let initialAnchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
-                // Clamp into the playable range so an old override
-                // saved before the drag-clamp fix can't initialise a
-                // hand off-screen (which would skip its fingers in
-                // the overlay).
-                initialAnchor = Math.max(ext.lo, Math.min(ext.hi - span, initialAnchor));
-                return {
-                    id,
-                    span,
-                    numFingers,
-                    anchor: initialAnchor,
-                    color: _handColor(id)
-                };
-            });
+            // The hand list (id, span, numFingers, color, initial
+            // anchor) was built once by `KeyboardHandPositionState`
+            // at construction. `_mountKeyboard` just picks the right
+            // canvas widget for the layout and drives its band
+            // setter — it never owns the hand definitions.
+            const ext = this.state.range;
             // Pick the renderer based on the instrument's declared
             // layout. Piano-style instruments use the existing
             // KeyboardPreview (black + white keys); chromatic
@@ -745,8 +484,9 @@
             } else if (window.KeyboardPreview) {
                 // Read-only widget: no `onBandDrag`, no `onKeyClick`.
                 // Every position edit happens on the piano-roll above
-                // (see `_wireRollCanvas`). The keyboard exists purely
-                // to show where the hand currently sits and which keys
+                // (see `KeyboardRollRenderer`). The keyboard exists
+                // purely to show where the hand currently sits and
+                // which keys
                 // are pressed at the playhead.
                 this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
                     rangeMin: ext.lo,
@@ -772,133 +512,20 @@
             this.keyboard = null;
         }
 
-        /**
-         * Build a minimal chromatic-line widget that mimics enough of
-         * the KeyboardPreview public API (`setRange`, `setHandBands`,
-         * `draw`, `destroy`) for the editor to drive it the same way.
-         * Visual: every semitone is rendered as an identical rectangle
-         * with a 1 px gap, tinted by hand-band overlay underneath. No
-         * black/white distinction since chromatic instruments don't
-         * have one (xylophone, hangdrum…).
-         */
+        /** Instantiate the chromatic preview widget for the bottom
+         *  strip. The widget exposes the same surface as
+         *  `KeyboardPreview` (setRange, setHandBands, setActiveNotes,
+         *  keyXAt, keyWidth, draw, destroy) so the rest of the modal
+         *  drives it without branching on instrument type. */
         _buildChromaticKeyboard(ext) {
-            const canvas = this.keyboardCanvas;
-            let rangeMin = ext.lo;
-            let rangeMax = ext.hi;
-            let bands = [];
-            // midi → handId | null. Populated by setActiveNotes so
-            // the chromatic widget can tint keys currently sounding
-            // at the playhead, the same way KeyboardPreview does for
-            // piano-style instruments.
-            const activeNotes = new Map();
-
-            const draw = () => {
-                const dpr = window.devicePixelRatio || 1;
-                const W = canvas.clientWidth;
-                const H = canvas.clientHeight;
-                if (W <= 0 || H <= 0) return;
-                const wantW = W * dpr;
-                const wantH = H * dpr;
-                if (canvas.width !== wantW || canvas.height !== wantH) {
-                    canvas.width = wantW;
-                    canvas.height = wantH;
-                }
-                const ctx = canvas.getContext('2d');
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.fillStyle = '#0f172a';
-                ctx.fillRect(0, 0, W, H);
-                const bandH = 22;
-                const keysH = H - bandH;
-                const range = Math.max(1, rangeMax - rangeMin + 1);
-                const pxPerNote = W / range;
-                // Build a quick id → colour map so active keys can be
-                // tinted with their assigned hand's colour (matches
-                // KeyboardPreview's behaviour).
-                const bandColorById = new Map();
-                for (const b of bands) bandColorById.set(b.id, b.color);
-                // Notes as identical cells. C of every octave gets a
-                // brighter tint so the operator finds the octave
-                // boundaries quickly. Active notes override the base
-                // tint with the assigned hand's colour (or a generic
-                // blue when no hand covers them).
-                for (let m = rangeMin; m <= rangeMax; m++) {
-                    const x = (m - rangeMin) * pxPerNote;
-                    let fill;
-                    if (activeNotes.has(m)) {
-                        const hid = activeNotes.get(m);
-                        fill = (hid && bandColorById.get(hid)) || '#3b82f6';
-                    } else {
-                        fill = (m % 12 === 0) ? '#f8fafc' : '#cbd5e1';
-                    }
-                    ctx.fillStyle = fill;
-                    ctx.fillRect(x + 0.5, 0, Math.max(1, pxPerNote - 1), keysH);
-                    if (m % 12 === 0 && pxPerNote > 18) {
-                        ctx.fillStyle = activeNotes.has(m) ? '#f8fafc' : '#0f172a';
-                        ctx.font = '10px sans-serif';
-                        ctx.textBaseline = 'bottom';
-                        ctx.fillText(`C${(m / 12) - 1}`, x + 3, keysH - 2);
-                    }
-                }
-                // Hand bands flush against the bottom of the strip,
-                // single row to match KeyboardPreview's bandsOnSingleRow.
-                for (const b of bands) {
-                    if (!Number.isFinite(b.low) || !Number.isFinite(b.high)) continue;
-                    const lo = Math.max(rangeMin, b.low);
-                    const hi = Math.min(rangeMax, b.high);
-                    if (hi < lo) continue;
-                    const x1 = (lo - rangeMin) * pxPerNote;
-                    const x2 = (hi - rangeMin + 1) * pxPerNote;
-                    ctx.fillStyle = _bandFill(b.color);
-                    ctx.fillRect(x1, keysH, x2 - x1, bandH);
-                    ctx.strokeStyle = b.color;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x1 + 0.5, keysH + 0.5, x2 - x1 - 1, bandH - 1);
-                }
-            };
-
-            // The chromatic widget is purely informational — every
-            // edit happens on the piano-roll above. Drag handlers are
-            // therefore omitted; the canvas reacts only to the public
-            // setters below.
-
-            // Public x-mapping helpers — same shape as KeyboardPreview's
-            // public counterparts so the fingers overlay can query
-            // either widget without branching on instrument type. The
-            // chromatic widget uses uniform key widths, so xOf is just
-            // the proportional offset.
-            const pxPerNote = () => {
-                const W = canvas.clientWidth || 0;
-                const range = Math.max(1, rangeMax - rangeMin + 1);
-                return W / range;
-            };
-            return {
-                setRange(min, max) { rangeMin = min; rangeMax = max; draw(); },
-                setHandBands(b) { bands = Array.isArray(b) ? b : []; draw(); },
-                /** Accept either `[midi, midi, …]` or `[{midi, handId}, …]`,
-                 *  same shape as KeyboardPreview.setActiveNotes. */
-                setActiveNotes(notes) {
-                    activeNotes.clear();
-                    if (Array.isArray(notes)) {
-                        for (const e of notes) {
-                            if (Number.isFinite(e)) activeNotes.set(e, null);
-                            else if (e && Number.isFinite(e.midi)) {
-                                activeNotes.set(e.midi, e.handId || null);
-                            }
-                        }
-                    }
-                    draw();
-                },
-                draw,
-                /** Pixel x of the LEFT edge of `midi`'s key. Accepts
-                 *  fractional MIDI values for smooth animation. */
-                keyXAt(midi) {
-                    if (!Number.isFinite(midi)) return 0;
-                    return (midi - rangeMin) * pxPerNote();
-                },
-                /** Pixel width of the key at `midi` (uniform here). */
-                keyWidth(/*midi*/) { return pxPerNote(); },
-                destroy() { bands = []; activeNotes.clear(); }
-            };
+            if (typeof window === 'undefined' || !window.KeyboardChromaticPreview) {
+                return null;
+            }
+            return new window.KeyboardChromaticPreview(this.keyboardCanvas, {
+                rangeMin: ext.lo,
+                rangeMax: ext.hi,
+                bandHeight: 22
+            });
         }
 
         /** Resize the keyboard canvas backing store to match its CSS
@@ -953,34 +580,13 @@
          *  itself keeps the floating-point value for sub-semitone
          *  precision in the lane background. */
         _currentHandBands() {
-            return (this._hands || []).map(h => {
-                const a = this._displayedAnchor.has(h.id)
-                    ? this._displayedAnchor.get(h.id)
-                    : h.anchor;
-                const aInt = Math.round(a);
-                return { id: h.id, low: aInt, high: aInt + h.span, color: h.color };
-            });
-        }
-
-        /** Look up the most recent hand_anchors override for `handId`
-         *  (the entry with the largest tick ≤ current playhead). */
-        _latestAnchorOverride(handId) {
-            const list = this.overrides?.hand_anchors;
-            if (!Array.isArray(list)) return null;
-            let best = null;
-            const currentTick = this._currentSec * this.ticksPerSec;
-            for (const a of list) {
-                if (a?.handId !== handId || !Number.isFinite(a.tick)) continue;
-                if (a.tick > currentTick) continue;
-                if (!best || a.tick > best.tick) best = a;
-            }
-            return best ? best.anchor : null;
+            return this.state.currentBands();
         }
 
         // Hand-band repositioning lives on the piano-roll now: the
-        // mousedown handler in `_wireRollCanvas` routes a drag inside
-        // a band's reachable window to `_onHandBandDragLive` (live
-        // visual update, no history) and `_commitHandBandDrag`
+        // `KeyboardRollRenderer` mousedown handler routes a drag
+        // inside a band's reachable window to `_onHandBandDragLive`
+        // (live visual update, no history) and `_commitHandBandDrag`
         // (persist + history) on mouseup.
 
         // ----------------------------------------------------------------
@@ -1051,7 +657,7 @@
             this.keyboard?.draw();
             this._draw();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** Pan the keyboard view so its centre lands on `centerPitch`,
@@ -1070,7 +676,7 @@
             this.keyboard?.draw();
             this._draw();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         _wireResizeObserver() {
@@ -1088,7 +694,7 @@
                     this._drawKbMini();
                     this._fitKeyboardCanvas();
                     this.keyboard?.draw();
-                    this._drawFingers();
+                    this._pushFingersState();
                 });
             });
             this._resizeObserver.observe(this.rollHost);
@@ -1099,363 +705,79 @@
         }
 
         // ----------------------------------------------------------------
-        //  Fingers overlay — vertical bars from the hand band up to
-        //  the keys, with a hand-coloured knuckle bar that anchors
-        //  the bunch to the band so the fingers visually belong to
-        //  the hand. Grey while lifted, blue when pressing a
-        //  sounding note. Real minimap rendering lives further down.
+        //  Fingers overlay — delegated to KeyboardFingersRenderer.
+        //  The modal owns no rendering logic for the bunch; it only
+        //  pushes the renderer-relevant state through `_pushFingersState`
+        //  on every change (RAF tick, drag, undo/redo, zoom, resize…).
         // ----------------------------------------------------------------
 
         /** Whether this instrument's hands_config explicitly sets the
-         *  piano layout. Used to decide whether to drop a finger on
-         *  every semitone (chromatic) or one per key (piano = white +
-         *  black). Defaults to chromatic when absent so legacy rows
-         *  keep their semantics. */
+         *  piano layout. Used both by `_mountKeyboard` (to pick
+         *  KeyboardPreview vs the chromatic in-line widget) and by
+         *  `_pushFingersState` (to pick the renderer's W/B-alternating
+         *  vs uniform layout). Defaults to chromatic when absent so
+         *  legacy rows keep their semantics. */
         _keyboardLayoutType() {
             const cfg = _parseHandsCfg(this.instrument);
             return cfg?.keyboard_type === 'piano' ? 'piano' : 'chromatic';
         }
 
         /** Set of MIDI notes currently sounding at `_currentSec` —
-         *  rebuilt every frame because the playhead moves. We keep it
-         *  cheap by short-circuiting the duration check on negative
-         *  results. */
+         *  delegated to `state.activeNotesAt`. Fed to the keyboard
+         *  widget (key tinting) and to the fingers renderer
+         *  (finger highlight). */
         _activeNotesAtPlayhead() {
-            const out = new Set();
-            const t = this._currentSec * this.ticksPerSec;
-            for (const n of this.notes) {
-                if (n.tick > t) continue;
-                const dur = Number.isFinite(n.duration) ? n.duration : 0;
-                if (n.tick + dur > t) out.add(n.note);
+            return this.state.activeNotesAt(this._currentSec);
+        }
+
+        /** Mount the fingers-overlay widget once on `onOpen`. Subsequent
+         *  changes (keyboard widget swap, layout type change) are
+         *  pushed through the widget's setters in `_pushFingersState`.
+         *  No-op when `KeyboardFingersRenderer` isn't loaded so a
+         *  partial deploy fails gracefully (the editor stays usable;
+         *  only the overlay disappears).
+         *  @private */
+        _mountFingersRenderer() {
+            if (!this.fingersCanvas) return;
+            if (typeof window === 'undefined' || !window.KeyboardFingersRenderer) return;
+            this.fingersRenderer = new window.KeyboardFingersRenderer(this.fingersCanvas, {
+                bandHeight: 22
+            });
+        }
+
+        /** Snapshot of the per-hand displayed anchor in a fresh Map,
+         *  ready to hand to the fingers widget. Falls back to each
+         *  hand's static anchor when the animation loop hasn't
+         *  produced a value yet (early frames or hands the simulator
+         *  never visited).
+         *  @private */
+        _displayedAnchorMapForRender() {
+            const out = new Map();
+            for (const hand of (this._hands || [])) {
+                const a = this._displayedAnchor.has(hand.id)
+                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
+                if (Number.isFinite(a)) out.set(hand.id, a);
             }
             return out;
         }
 
-        /** Per-hand finger layout — fixed positions on the hand,
-         *  one finger per chromatic position inside the
-         *  `[anchor, anchor + span]` window. The slot count is
-         *  always `span + 1` so the bunch alternates naturally
-         *  between white-key and black-key fingers wherever the
-         *  chromatic layout has a black key (C#, D#, F#, G#, A#),
-         *  and stays adjacent at the E–F / B–C transitions where
-         *  no black key sits between two white keys.
-         *
-         *  This holds for both layouts the editor supports:
-         *    - piano (KeyboardPreview): span+1 fingers spread on
-         *      every semitone, the keyboard widget's keyXAt /
-         *      keyWidth places each on the actual key the renderer
-         *      drew (white wide, black narrow).
-         *    - chromatic (xylophone-style): span+1 == num_fingers
-         *      because the schema enforces span = num_fingers − 1
-         *      for chromatic instruments. Keeping a single formula
-         *      avoids a layout branch.
-         *
-         *  Slots glide with the animated `_displayedAnchor`; their
-         *  position never moves to chase an active note (v2 will
-         *  add anatomy-aware snapping). The active flag lights up
-         *  when the slot's nearest semitone matches a sounding
-         *  pitch — purely a colour change. @private */
-        _fingerLayout(hand, _handIndex, active) {
-            const span = hand.span;
-            let a = this._displayedAnchor.has(hand.id)
-                ? this._displayedAnchor.get(hand.id) : hand.anchor;
-            if (!Number.isFinite(a)) a = hand.anchor;
-            if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
-            // Honor the configured `num_fingers` from hands_config.
-            // Falls back to `span + 1` (the chromatic convention: one
-            // finger per semitone) when num_fingers wasn't set, so
-            // legacy configs keep their old shape.
-            const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
-                ? Math.round(hand.numFingers) : Math.round(span) + 1);
-            const fingers = new Array(numFingers);
-            // Slot → semitone mapping: even when num_fingers exceeds
-            // `span + 1` (e.g. 10 fingers on a 9-semitone piano span),
-            // the rounded slot keeps `active.has(slot)` looking up an
-            // integer MIDI value. The drawing pass uses the slot
-            // INDEX, not the semitone, for visual placement so the
-            // alternating white/black look stays uniform across the
-            // whole hand (see `_drawFingers`).
-            for (let i = 0; i < numFingers; i++) {
-                const slot = numFingers === 1 ? a
-                    : a + Math.round((i * span) / (numFingers - 1));
-                fingers[i] = {
-                    slotIndex: i,
-                    semitone: slot,
-                    isActive: active.has(slot)
-                };
-            }
-            return fingers;
+        /** Push every renderer input the fingers widget needs, then
+         *  redraw. The widget reads ONLY what we hand it; we never
+         *  expose `this._hands` or `this._displayedAnchor` directly,
+         *  which keeps the renderer free of any modal coupling and
+         *  trivially testable in isolation. */
+        _pushFingersState() {
+            const r = this.fingersRenderer;
+            if (!r) return;
+            r.setKeyboardWidget(this.keyboard || null);
+            r.setLayout(this._keyboardLayoutType());
+            r.setHands(this._hands || []);
+            r.setAnchors(this._displayedAnchorMapForRender());
+            r.setActiveNotes(this._activeNotesAtPlayhead());
+            r.setVisibleExtent(this._visibleExtent());
+            r.draw();
         }
 
-        /** Paint the fingers overlay. The placement model differs by
-         *  keyboard layout:
-         *    - Chromatic instruments (xylophone, marimba, hangdrum…)
-         *      → fingers are spaced uniformly across the hand's
-         *        pixel span and share the SAME height. There's no
-         *        white/black distinction on these instruments so we
-         *        don't fake one.
-         *    - Piano keyboards
-         *      → fingers alternate "on a white key" (centered on the
-         *        white-key body) and "between two adjacent whites"
-         *        (= over a black key, real or virtual). White-key
-         *        fingers are short and stop at the bottom of the
-         *        black-key zone; black-key fingers reach much
-         *        further forward, all the way up through the black
-         *        keys themselves. */
-        _drawFingers() {
-            const c = this.fingersCanvas;
-            const host = c?.parentElement;
-            if (!c || !host) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = c.clientWidth;
-            const H = c.clientHeight;
-            if (W <= 0 || H <= 0) return;
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (c.width !== wantW || c.height !== wantH) {
-                c.width = wantW;
-                c.height = wantH;
-            }
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, W, H);
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
-
-            const layout = this._keyboardLayoutType();
-            if (layout === 'piano') {
-                this._drawPianoFingers(ctx, W, H);
-            } else {
-                this._drawChromaticFingers(ctx, W, H);
-            }
-        }
-
-        /** Chromatic-instrument finger overlay — uniform spacing and
-         *  uniform height. Every slot is the same finger (same tip
-         *  Y, same body length); only the active flag changes the
-         *  fill colour. The hand's pixel span comes straight from
-         *  the keyboard widget's keyXAt / keyWidth so the bunch
-         *  starts and ends exactly at the band edges. */
-        _drawChromaticFingers(ctx, W, H) {
-            const view = this._visibleExtent();
-            const active = this._activeNotesAtPlayhead();
-            const kb = this.keyboard;
-            const fallbackPxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
-            const keyLeftX = (midi) => {
-                if (kb && typeof kb.keyXAt === 'function') {
-                    const v = kb.keyXAt(midi);
-                    if (Number.isFinite(v)) return v;
-                }
-                return (midi - view.lo) * fallbackPxPerPitch;
-            };
-            const keyRightX = (midi) => {
-                if (kb && typeof kb.keyXAt === 'function'
-                        && typeof kb.keyWidth === 'function') {
-                    const x = kb.keyXAt(midi);
-                    const w = kb.keyWidth(midi);
-                    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) return x + w;
-                }
-                return (midi - view.lo + 1) * fallbackPxPerPitch;
-            };
-
-            // Fingers start FROM the hand (band top) and extend
-            // upward into the keys. Knuckle bar sits inside the
-            // band's top edge so the bunch reads as one unit
-            // attached to the hand. Same uniform height for every
-            // slot — chromatic instruments don't have a white/black
-            // distinction to encode here.
-            const bandH = 22;
-            const handY = Math.max(0, H - bandH);
-            const knuckleH = 2;
-            const knuckleTop = handY;
-            const tipY = handY * 0.55;          // uniform tip
-            const fingerH = Math.max(2, handY - tipY);
-
-            for (let h = 0; h < this._hands.length; h++) {
-                const hand = this._hands[h];
-                const fingers = this._fingerLayout(hand, h, active);
-                if (fingers.length === 0) continue;
-                const a = this._displayedAnchor.has(hand.id)
-                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
-                if (!Number.isFinite(a)) continue;
-                const handLeftX  = keyLeftX(Math.floor(a));
-                const handRightX = keyRightX(Math.floor(a) + Math.round(hand.span));
-                if (!(handRightX > handLeftX)) continue;
-                const handPixelW = handRightX - handLeftX;
-                const slotW = handPixelW / fingers.length;
-                const fingerW = Math.max(3, slotW * 0.7);
-
-                ctx.fillStyle = hand.color;
-                ctx.fillRect(handLeftX, knuckleTop, handPixelW, knuckleH);
-
-                for (let i = 0; i < fingers.length; i++) {
-                    const xCenter = handLeftX + (i + 0.5) * slotW;
-                    if (xCenter < -fingerW || xCenter > W + fingerW) continue;
-                    const fx = xCenter - fingerW / 2;
-                    ctx.fillStyle = fingers[i].isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tipY, fingerW, fingerH);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.65)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tipY + 0.5,
-                                    Math.max(1, fingerW - 1),
-                                    Math.max(1, fingerH - 1));
-                }
-            }
-        }
-
-        /** Piano-keyboard finger overlay — fingers strictly aligned
-         *  with the underlying white keys, with one finger BETWEEN
-         *  each pair of adjacent whites (= over the black key,
-         *  whether it actually exists or not — E–F and B–C still
-         *  get a "virtual" finger so the hand reads as a uniform
-         *  W/B/W/B/W/B…/W/B bunch).
-         *
-         *  Slot 0 sits on the first white key at or below the
-         *  hand's anchor. Each subsequent slot is half a white-key
-         *  width to the right, alternating between a white-key
-         *  centre (even slots) and a between-whites position (odd
-         *  slots). Heights mirror the keyboard widget's own black-
-         *  key zone (keysH·0.6) so:
-         *    - white fingers stop at the bottom of the black-key
-         *      zone (= the front edge of the white key);
-         *    - black fingers reach all the way through the black-
-         *      key zone, visually overlaying the black key.
-         *  Black fingers are painted FIRST so the white fingers
-         *  cap their bottoms — same logical layering as a real
-         *  keyboard where whites hide the lower part of blacks.
-         *
-         *  Active-state lookup walks real semitones: white slot N
-         *  → MIDI of the Nth white above the anchor; black slot N
-         *  → MIDI of the real black between the surrounding whites
-         *  (or null when no real black exists, in which case the
-         *  finger is a "virtual" placeholder that never lights up).
-         */
-        _drawPianoFingers(ctx, W, H) {
-            const kb = this.keyboard;
-            if (!kb || typeof kb.keyXAt !== 'function' || typeof kb.keyWidth !== 'function') {
-                // Defensive: fall back to chromatic layout when the
-                // keyboard widget hasn't wired its public API yet.
-                this._drawChromaticFingers(ctx, W, H);
-                return;
-            }
-            const active = this._activeNotesAtPlayhead();
-
-            // Geometry. Fingers START at the top of the hand band
-            // (Y = handY) and extend UPWARD onto the keys; their tip
-            // Y is given as fractions of the white-key / black-key
-            // heights:
-            //   - WHITE finger: tip at 1/2 of the white-key height
-            //     (Y = keysH / 2). Centered on a white key, it lands
-            //     halfway up the visible white-key body.
-            //   - BLACK finger: tip at 1/3 of the black-key height,
-            //     measured from the bottom of the black key going up
-            //     (Y = blackH × 2/3). Centered between two adjacent
-            //     whites, it visually pokes 1/3 of the way into the
-            //     black key.
-            //
-            // The knuckle bar is kept thin (2 px) and FLUSH with the
-            // band's top so the bunch reads as a single unit
-            // emerging from the hand without a gap.
-            const bandH = 22;
-            const handY = Math.max(0, H - bandH);  // top of the band
-            const keysH = handY;                   // mirrors widget's keysH
-            const blackH = keysH * 0.6;            // mirrors widget's blackH
-            const knuckleH = 2;
-            const knuckleTop = handY;              // flush with band top
-            const whiteTipY = Math.max(0, keysH * 0.5);
-            const blackTipY = Math.max(0, blackH * (2 / 3));
-            const whiteFingerH = Math.max(2, handY - whiteTipY);
-            const blackFingerH = Math.max(2, handY - blackTipY);
-
-            const view = this._visibleExtent();
-            for (let h = 0; h < this._hands.length; h++) {
-                const hand = this._hands[h];
-                const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
-                    ? Math.round(hand.numFingers)
-                    : Math.round(hand.span) + 1);
-                const a = this._displayedAnchor.has(hand.id)
-                    ? this._displayedAnchor.get(hand.id) : hand.anchor;
-                if (!Number.isFinite(a)) continue;
-
-                // The hand's reachable window covers [anchor, anchor+span]
-                // in MIDI semitones. We render the fingers across the
-                // FULL pixel width of that window, so each hand always
-                // gets all its fingers regardless of where it sits and
-                // however many fingers it has.
-                const lowMidi  = Math.round(a);
-                const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                // MIDI-based off-screen check first. KeyboardPreview's
-                // keyXAt clamps to its rangeMin/rangeMax, so a hand
-                // entirely beyond the visible range would otherwise
-                // resolve to a finite x near the keyboard edge and
-                // render fingers in the wrong place. The chromatic
-                // widget extrapolates instead, but the same MIDI
-                // check works for both.
-                if (highMidi < view.lo || lowMidi > view.hi) continue;
-
-                const handLeftX  = kb.keyXAt(lowMidi);
-                const rightWidth = kb.keyWidth(highMidi);
-                const handRightX = kb.keyXAt(highMidi)
-                    + (Number.isFinite(rightWidth) && rightWidth > 0 ? rightWidth : 0);
-                if (!Number.isFinite(handLeftX) || !Number.isFinite(handRightX)) continue;
-                if (handRightX <= 0 || handLeftX >= W) continue;     // off-screen
-                const bandPxW = Math.max(1, handRightX - handLeftX);
-
-                // Even slots = white-finger style (short, low tip),
-                // odd slots = black-finger style (tall, reaching up
-                // through the black-key zone). Spacing fills the
-                // full band so every finger lands inside it, even
-                // for a 14-semitone hand with only 10 fingers.
-                const slotW = bandPxW / numFingers;
-                const slotCenterX = (i) => handLeftX + (i + 0.5) * slotW;
-                const fingerW = Math.max(3, slotW * 0.7);
-
-                // Active-state lookup: each slot's centre maps to
-                // the nearest MIDI semitone (= roughly anchor +
-                // i*span/numFingers). We use the same chromatic
-                // mapping the chromatic renderer uses so a sounding
-                // note still lights its closest finger.
-                const slotMidi = (i) => {
-                    if (numFingers === 1) return Math.round(a);
-                    return Math.round(a + (i * (hand.span || 0)) / (numFingers - 1));
-                };
-
-                // Knuckle bar — full hand pixel width, hand colour,
-                // sits inside the band's top edge. Clipped so a
-                // partially off-screen hand still draws cleanly.
-                const kx0 = Math.max(0, handLeftX);
-                const kx1 = Math.min(W, handRightX);
-                if (kx1 > kx0) {
-                    ctx.fillStyle = hand.color;
-                    ctx.fillRect(kx0, knuckleTop, kx1 - kx0, knuckleH);
-                }
-
-                const drawBar = (xCenter, tip, height, isActive) => {
-                    if (xCenter < -fingerW || xCenter > W + fingerW) return;
-                    const fx = xCenter - fingerW / 2;
-                    ctx.fillStyle = isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tip, fingerW, height);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.65)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(fx + 0.5, tip + 0.5,
-                                    Math.max(1, fingerW - 1),
-                                    Math.max(1, height - 1));
-                };
-
-                // Pass 1 — black fingers (odd slot indices). Drawn
-                // first so the white fingers can cap their bottom.
-                for (let i = 1; i < numFingers; i += 2) {
-                    const midi = slotMidi(i);
-                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
-                    drawBar(slotCenterX(i), blackTipY, blackFingerH, isActiveSlot);
-                }
-                // Pass 2 — white fingers (even slot indices) on top.
-                for (let i = 0; i < numFingers; i += 2) {
-                    const midi = slotMidi(i);
-                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
-                    drawBar(slotCenterX(i), whiteTipY, whiteFingerH, isActiveSlot);
-                }
-            }
-        }
 
         // ----------------------------------------------------------------
         //  Keyboard mini-strip — full instrument range with viewport rect
@@ -1555,778 +877,122 @@
             }
         }
 
-        /** Mousedown + drag on the minimap scrubs the timeline. The
-         *  initial mousedown moves the playhead immediately (so a
-         *  plain click still seeks), and any subsequent mousemove
-         *  while the button is held keeps the playhead under the
-         *  cursor. The piano-roll redraws on every step so the
-         *  operator sees the whole frame slide in real time. */
-        _wireMinimap() {
-            if (!this.minimapCanvas) return;
-            const seekFromEvent = (e) => {
-                if (!this._totalSec) return;
-                const rect = this.minimapCanvas.getBoundingClientRect();
-                const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-                const sec = (x / rect.width) * this._totalSec;
-                const next = Math.max(0, Math.min(this._totalSec, sec));
-                if (next === this._currentSec) return;
-                this._currentSec = next;
-                this._ensureAnimLoop();
-                this._draw();
-                this._drawMinimap();
-            };
-            this.minimapCanvas.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                e.preventDefault();
-                seekFromEvent(e);
-                const onMove = (ev) => seekFromEvent(ev);
-                const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                };
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-            });
-        }
+        // ----------------------------------------------------------------
+        //  Minimap widget — `KeyboardMinimapRenderer` owns the canvas
+        //  and the scrub interaction; the modal mounts it once on
+        //  `onOpen` and pushes inputs through `_pushMinimapState` on
+        //  every state change (problems, simulation timeline, hands,
+        //  playhead, lookahead).
+        // ----------------------------------------------------------------
 
-        _drawMinimap() {
-            const c = this.minimapCanvas;
-            const host = this.minimapHost;
-            if (!c || !host) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = host.clientWidth;
-            const H = host.clientHeight;
-            if (W <= 0 || H <= 0) return;
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (c.width !== wantW || c.height !== wantH) {
-                c.width = wantW;
-                c.height = wantH;
-                c.style.width = W + 'px';
-                c.style.height = H + 'px';
-            }
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, W, H);
-            if (!this._totalSec) return;
-
-            const ext = this._pitchExtent();
-            const pitchRange = Math.max(1, ext.hi - ext.lo);
-            const xPerSec = W / this._totalSec;
-
-            // Note dots — one tiny rectangle per note, faint so the
-            // hand-anchor bands stay readable on top.
-            ctx.fillStyle = 'rgba(148,163,184,0.55)';
-            for (const n of this.notes) {
-                const sec = n.tick / this.ticksPerSec;
-                const x = sec * xPerSec;
-                const y = H - ((n.note - ext.lo) / pitchRange) * H;
-                ctx.fillRect(x, y - 0.5, Math.max(1, xPerSec * (n.duration || 0) / this.ticksPerSec), 1.5);
-            }
-
-            // Hand-position bands — one translucent stripe per hand
-            // showing where the hand sits at every moment of the
-            // ENTIRE file. Stable spans render as filled rectangles
-            // (anchor → anchor + span); moving spans (= simulator
-            // shift events) render as parallelograms whose slope
-            // matches the configured max hand-move speed. Source data
-            // comes from `_handAnchorTimeline` — the same simulation
-            // the piano-roll lanes use, so the minimap and the roll
-            // agree by construction.
-            const yOfPitch = (p) => H - ((p - ext.lo) / pitchRange) * H;
-            for (const hand of (this._hands || [])) {
-                const samples = this._minimapSamplesFor(hand);
-                if (samples.length < 2) continue;
-                const fill = _bandFill(hand.color);
-                const infeasibleFill = 'rgba(220, 38, 38, 0.35)';
-                for (let i = 0; i < samples.length - 1; i++) {
-                    const cur = samples[i];
-                    const next = samples[i + 1];
-                    // Stable rectangle from cur.sec to the start of
-                    // the next slide (or to next.sec when next isn't
-                    // a shift). Width is the hand's span in pitch
-                    // units → covers the whole reachable window.
-                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
-                    if (stableEndSec > cur.sec) {
-                        const x0 = cur.sec * xPerSec;
-                        const x1 = stableEndSec * xPerSec;
-                        const yTop = yOfPitch(cur.anchor + hand.span);
-                        const yBot = yOfPitch(cur.anchor);
-                        ctx.fillStyle = fill;
-                        ctx.fillRect(x0, yTop, Math.max(1, x1 - x0), yBot - yTop);
-                    }
-                    // Slide parallelogram — only when next is a
-                    // shift carrying explicit fromSec / fromAnchor.
-                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
-                            && next.fromSec < next.sec) {
-                        const xA = next.fromSec * xPerSec;
-                        const xB = next.sec * xPerSec;
-                        const yA1 = yOfPitch(next.fromAnchor + hand.span);
-                        const yA2 = yOfPitch(next.fromAnchor);
-                        const yB1 = yOfPitch(next.anchor + hand.span);
-                        const yB2 = yOfPitch(next.anchor);
-                        ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
-                        ctx.beginPath();
-                        ctx.moveTo(xA, yA1);
-                        ctx.lineTo(xB, yB1);
-                        ctx.lineTo(xB, yB2);
-                        ctx.lineTo(xA, yA2);
-                        ctx.closePath();
-                        ctx.fill();
-                        // Outline the slide leg so it stands out from
-                        // surrounding stable spans. Dashed red when
-                        // infeasible.
-                        ctx.save();
-                        if (next.feasible === false) {
-                            ctx.strokeStyle = '#dc2626';
-                            ctx.setLineDash([3, 2]);
-                            ctx.lineWidth = 1;
-                        } else {
-                            ctx.strokeStyle = hand.color;
-                            ctx.lineWidth = 0.75;
-                        }
-                        ctx.beginPath();
-                        ctx.moveTo(xA, yA1);
-                        ctx.lineTo(xB, yB1);
-                        ctx.lineTo(xB, yB2);
-                        ctx.lineTo(xA, yA2);
-                        ctx.closePath();
-                        ctx.stroke();
-                        ctx.restore();
-                    }
+        _mountMinimapRenderer() {
+            if (!this.minimapCanvas || !this.minimapHost) return;
+            if (typeof window === 'undefined' || !window.KeyboardMinimapRenderer) return;
+            this.minimapRenderer = new window.KeyboardMinimapRenderer(
+                this.minimapCanvas, this.minimapHost,
+                {
+                    ticksPerSec: this.ticksPerSec,
+                    totalSec: this._totalSec,
+                    onSeek: (sec) => this._seekTo(sec),
+                    getDisplayedAnchor: (handId) => this.state.getDisplayedAnchor(handId)
                 }
-                // Centerline through the band's anchor — the visual
-                // continuity of the trajectory at a glance.
-                ctx.strokeStyle = hand.color;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                for (let i = 0; i < samples.length; i++) {
-                    const s = samples[i];
-                    if (Number.isFinite(s.fromSec) && Number.isFinite(s.fromAnchor)) {
-                        const xF = s.fromSec * xPerSec;
-                        const yF = yOfPitch(s.fromAnchor + hand.span / 2);
-                        ctx.lineTo(xF, yF);
-                    }
-                    const x = s.sec * xPerSec;
-                    const y = yOfPitch(s.anchor + hand.span / 2);
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-
-            // Problem markers — red triangle for unplayable chords,
-            // amber for too-fast shifts. Drawn before the viewport rect
-            // so the rect translucent fill desaturates them slightly
-            // when they fall inside the current view (still readable).
-            for (const p of (this._problems || [])) {
-                const x = p.sec * xPerSec;
-                ctx.fillStyle = p.kind === 'speed' ? '#f59e0b' : '#dc2626';
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x - 3, 6);
-                ctx.lineTo(x + 3, 6);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Lookahead viewport rectangle (= the slice currently shown
-            // in the piano-roll above).
-            const vpX = this._currentSec * xPerSec;
-            const vpW = Math.max(2, this._lookaheadSec * xPerSec);
-            ctx.fillStyle = 'rgba(248,250,252,0.08)';
-            ctx.fillRect(vpX, 0, vpW, H);
-            ctx.strokeStyle = 'rgba(248,250,252,0.45)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(vpX + 0.5, 0.5, vpW - 1, H - 1);
-
-            // Playhead.
-            ctx.strokeStyle = 'rgba(248,113,113,0.95)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(vpX + 0.5, 0);
-            ctx.lineTo(vpX + 0.5, H);
-            ctx.stroke();
+            );
         }
 
-        /**
-         * Build the per-hand sample list used by the minimap to
-         * render hand-position bands across the WHOLE file. Pulls
-         * straight from the simulator's `_handAnchorTimeline` (which
-         * already includes every shift's fromSec/fromAnchor and
-         * feasibility flag) so the minimap and the piano-roll lanes
-         * agree by construction. Falls back to override-derived
-         * samples when the simulation hasn't run yet (e.g. before
-         * the first `_rebuildProblems()`).
-         * @private
-         */
-        _minimapSamplesFor(hand) {
-            const series = this._handAnchorTimeline?.get(hand.id);
-            const total = this._totalSec || 0;
-            if (Array.isArray(series) && series.length > 0) {
-                const out = [];
-                // Seed the first sample at sec=0 with the earliest
-                // anchor — either the slide's fromAnchor (so the
-                // pre-slide rectangle matches the initial anchor) or
-                // the first chord's anchor when the timeline starts
-                // with a chord event.
-                const first = series[0];
-                const seedAnchor = Number.isFinite(first.fromAnchor)
-                    ? first.fromAnchor : first.anchor;
-                out.push({ sec: 0, anchor: seedAnchor });
-                for (const s of series) out.push(s);
-                if (out[out.length - 1].sec < total) {
-                    out.push({ sec: total, anchor: out[out.length - 1].anchor });
-                }
-                return out;
-            }
-            // No simulation data — fall back to user-pinned overrides
-            // around the seed anchor. Same shape as the simulator
-            // output so the minimap renderer doesn't need a branch.
-            return this._anchorSamplesForHand(hand);
+        /** Push every minimap-relevant input from the state and ask
+         *  for a redraw. Same single-point-of-push contract as the
+         *  fingers and roll renderers. */
+        _pushMinimapState() {
+            const m = this.minimapRenderer;
+            if (!m) return;
+            m.setNotes(this.notes);
+            m.setHands(this.state.hands);
+            m.setHandsTimeline(this.state.simulationTimeline);
+            m.setOverrideAnchors(this.overrides && this.overrides.hand_anchors);
+            m.setProblems(this.state.problems);
+            m.setRange(this._pitchExtent());
+            m.setPlayhead(this._currentSec);
+            m.setLookahead(this._lookaheadSec);
+            m.setTotalSec(this._totalSec);
+            m.draw();
         }
 
-        /**
-         * Build a sorted list of `{sec, anchor}` samples for one hand by
-         * walking the `hand_anchors` override entries (latest-wins per
-         * tick). The current in-memory anchor seeds the start and end so
-         * the trajectory has at least two points and renders as a flat
-         * line when no override exists yet.
-         * @private
-         */
-        _anchorSamplesForHand(hand) {
-            const list = (this.overrides?.hand_anchors || [])
-                .filter(a => a && a.handId === hand.id && Number.isFinite(a.tick) && Number.isFinite(a.anchor))
-                .sort((a, b) => a.tick - b.tick);
-            const out = [{ sec: 0, anchor: hand.anchor }];
-            for (const a of list) {
-                out.push({ sec: a.tick / this.ticksPerSec, anchor: a.anchor });
-            }
-            out.push({ sec: this._totalSec, anchor: list.length ? list[list.length - 1].anchor : hand.anchor });
-            return out;
-        }
+        /** Back-compat alias — many call sites still call
+         *  `_drawMinimap()` directly. Routes through
+         *  `_pushMinimapState`. */
+        _drawMinimap() { this._pushMinimapState(); }
 
-        /**
-         * Paint each hand's playable window across the visible time
-         * slice as a translucent vertical lane in the roll background.
-         * For every hand we walk the anchor timeline (`shift` and
-         * `chord` events) — between two consecutive samples the anchor
-         * is constant, so each segment is a coloured rectangle with
-         * X = [hand.anchor, hand.anchor + span] and
-         * Y = [seg.startSec, seg.endSec] mapped onto the lookahead
-         * window. The current displayed anchor is used for the
-         * boundary samples (start of view + extrapolation past the
-         * last simulator event) so the lane visibly leaves from where
-         * the live band sits.
-         */
-        _drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H) {
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
-            const endSec = startSec + lookaheadSec;
-            const yOf = (sec) => H - ((sec - startSec) / lookaheadSec) * H;
-            for (const hand of this._hands) {
-                const samples = this._laneSamplesFor(hand, startSec, endSec);
-                if (samples.length === 0) continue;
-                const fill = _bandFill(hand.color);
-                const infeasibleFill = 'rgba(220, 38, 38, 0.28)';
-                const w = hand.span * pxPerPitch;
-                for (let i = 0; i < samples.length - 1; i++) {
-                    const cur = samples[i];
-                    const next = samples[i + 1];
-                    if (next.sec <= startSec || cur.sec >= endSec) continue;
-                    // Stable segment between this sample and the start
-                    // of the next shift (or the next sample if that
-                    // sample isn't a shift). Drawn as a vertical
-                    // rectangle — the anchor stays put while the hand
-                    // plays the chords sitting on it.
-                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
-                    if (stableEndSec > cur.sec) {
-                        const a = Math.max(cur.sec, startSec);
-                        const b = Math.min(stableEndSec, endSec);
-                        if (b > a) {
-                            ctx.fillStyle = fill;
-                            const x = (cur.anchor - ext.lo) * pxPerPitch;
-                            ctx.fillRect(x, yOf(b), w, yOf(a) - yOf(b));
-                        }
-                    }
-                    // Sliding segment — only present when the next
-                    // sample is a shift and carries explicit fromSec /
-                    // fromAnchor. Drawn as a parallelogram interpolating
-                    // both edges between (fromSec, fromAnchor) and
-                    // (sec, toAnchor): the 4 vertices are
-                    //   (fromSec, fromAnchor), (fromSec, fromAnchor+span),
-                    //   (sec,     anchor+span), (sec,     anchor).
-                    // The parallelogram's slope (Δanchor / Δsec) matches
-                    // the configured max hand-move speed when the shift
-                    // is feasible, or is steeper when infeasible — the
-                    // operator can read the speed limit straight off
-                    // the lane geometry.
-                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
-                            && next.fromSec < next.sec) {
-                        const a = Math.max(next.fromSec, startSec);
-                        const b = Math.min(next.sec, endSec);
-                        if (b > a) {
-                            // Linear interpolation of the anchor at the
-                            // clipped boundaries so a slide partially
-                            // outside the viewport is rendered correctly.
-                            const slope = (next.anchor - next.fromAnchor) / (next.sec - next.fromSec);
-                            const aAnchor = next.fromAnchor + slope * (a - next.fromSec);
-                            const bAnchor = next.fromAnchor + slope * (b - next.fromSec);
-                            const xA = (aAnchor - ext.lo) * pxPerPitch;
-                            const xB = (bAnchor - ext.lo) * pxPerPitch;
-                            const yA = yOf(a);
-                            const yB = yOf(b);
-                            ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
-                            ctx.beginPath();
-                            ctx.moveTo(xA, yA);
-                            ctx.lineTo(xA + w, yA);
-                            ctx.lineTo(xB + w, yB);
-                            ctx.lineTo(xB, yB);
-                            ctx.closePath();
-                            ctx.fill();
-                            // Outline the parallelogram in the hand's
-                            // color so the slide leg pops against the
-                            // surrounding stable rectangles. Heavier
-                            // stroke + dashed pattern when infeasible
-                            // so it reads as a warning at a glance.
-                            if (next.feasible === false) {
-                                ctx.save();
-                                ctx.strokeStyle = '#dc2626';
-                                ctx.setLineDash([4, 3]);
-                                ctx.lineWidth = 1.5;
-                            } else {
-                                ctx.strokeStyle = hand.color;
-                                ctx.lineWidth = 1;
-                            }
-                            ctx.beginPath();
-                            ctx.moveTo(xA, yA);
-                            ctx.lineTo(xA + w, yA);
-                            ctx.lineTo(xB + w, yB);
-                            ctx.lineTo(xB, yB);
-                            ctx.closePath();
-                            ctx.stroke();
-                            if (next.feasible === false) ctx.restore();
-                        }
-                    }
-                }
-            }
-        }
+        // ----------------------------------------------------------------
+        //  Piano-roll widget — `KeyboardRollRenderer` owns the canvas,
+        //  the hit-test, the drag/pan/wheel pipeline, and the lane
+        //  geometry. The modal mounts it once on `onOpen`, bridges the
+        //  user gestures back through callbacks, and pushes inputs on
+        //  every state change via `_pushRollState`.
+        // ----------------------------------------------------------------
 
-        /** Build `[{sec, anchor}]` samples covering [startSec, endSec]
-         *  from the simulation's per-hand timeline. The first sample
-         *  is clamped to startSec carrying the most recent anchor,
-         *  the last is clamped to endSec for the segment-pair walk. */
-        _laneSamplesFor(hand, startSec, endSec) {
-            const series = this._handAnchorTimeline?.get(hand.id) || [];
-            const out = [];
-            // Initial anchor at the start of the view: use the displayed
-            // value if known so the lane visibly meets the live band.
-            const first = this._displayedAnchor.has(hand.id)
-                ? this._displayedAnchor.get(hand.id)
-                : (this._targetAnchorAt(hand.id, startSec) ?? hand.anchor);
-            out.push({ sec: startSec, anchor: first });
-            for (const s of series) {
-                // Slide may overlap the visible window even when the
-                // shift's `sec` (= chord tick) falls past `endSec` —
-                // include the entry whenever its slide leg crosses the
-                // window, so a long shift drawn from `fromSec` inside
-                // the view to `sec` outside still renders.
-                const slideStart = Number.isFinite(s.fromSec) ? s.fromSec : s.sec;
-                if (s.sec <= startSec) continue;
-                if (slideStart >= endSec) break;
-                out.push({
-                    sec: s.sec,
-                    anchor: s.anchor,
-                    fromSec: s.fromSec,
-                    fromAnchor: s.fromAnchor,
-                    feasible: s.feasible !== false
-                });
-            }
-            out.push({ sec: endSec, anchor: out[out.length - 1].anchor });
-            return out;
-        }
-
-        _draw() {
+        /** Instantiate the piano-roll widget. No-op when the renderer
+         *  script failed to load — the editor still opens with an
+         *  empty roll area, the rest of the modal stays usable. */
+        _mountRollRenderer() {
             if (!this.rollCanvas || !this.rollHost) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = this.rollHost.clientWidth;
-            const H = this.rollHost.clientHeight;
-            if (W <= 0 || H <= 0) return;
-
-            // Reallocating canvas.width/height invalidates the backing
-            // store (forces a fresh GPU buffer + resets the context),
-            // so only do it when the size actually changes. Without this
-            // guard a 60 Hz redraw triggers ~120 buffer reallocs/second.
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (this.rollCanvas.width !== wantW || this.rollCanvas.height !== wantH) {
-                this.rollCanvas.width = wantW;
-                this.rollCanvas.height = wantH;
-                this.rollCanvas.style.width = W + 'px';
-                this.rollCanvas.style.height = H + 'px';
-            }
-            const ctx = this.rollCanvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, W, H);
-
-            // Roll axis follows the live keyboard view so zooming the
-            // keyboard also zooms the falling-note column on the same
-            // X mapping — operator never has to mentally remap.
-            const ext = this._visibleExtent();
-            // Same X-mapping as a piano: white-key uniform width, black
-            // keys narrower. We reuse a simple linear pitch→x mapping
-            // here (proportional to semitones) since the on-screen
-            // keyboard is a separate widget below — the alignment is
-            // close enough for a visualisation.
-            const semitoneCount = ext.hi - ext.lo + 1;
-            const pxPerPitch = W / semitoneCount;
-
-            // Vertical layout: present is at y = H (just above the keyboard),
-            // future is at y = 0 (top of the roll).
-            const lookaheadSec = this._lookaheadSec;
-            const startSec = this._currentSec;
-            const endSec = startSec + lookaheadSec;
-
-            // Light pitch grid lines (octaves).
-            ctx.strokeStyle = 'rgba(148,163,184,0.15)';
-            ctx.lineWidth = 1;
-            for (let p = ext.lo; p <= ext.hi; p++) {
-                if (p % 12 === 0) {
-                    const x = (p - ext.lo) * pxPerPitch + 0.5;
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, H);
-                    ctx.stroke();
+            if (typeof window === 'undefined' || !window.KeyboardRollRenderer) return;
+            this.rollRenderer = new window.KeyboardRollRenderer(
+                this.rollCanvas, this.rollHost,
+                {
+                    ticksPerSec: this.ticksPerSec,
+                    totalSec: this._totalSec,
+                    onNoteClick: (note, evt) => this._openNotePopover({ note }, evt),
+                    onBandDragMove: (handId, anchor) => this._onHandBandDragLive(handId, anchor),
+                    onBandDragEnd: (handId) => this._commitHandBandDrag(handId),
+                    onSeek: (sec) => this._seekTo(sec),
+                    onZoom: (factor) => this._zoomLookahead(factor),
+                    getAnchorAt: (handId, sec) => this.state.targetAnchorAt(handId, sec),
+                    getDisplayedAnchor: (handId) => this.state.getDisplayedAnchor(handId)
                 }
-            }
-
-            // Hand position lanes — one translucent stripe per hand
-            // showing where the hand will be at every moment of the
-            // visible window. Drawn under the notes (background) so the
-            // operator can see at a glance which note is "covered" by
-            // which hand and which falls outside any window. Anchor
-            // segments come straight from the simulation timeline so a
-            // shift event produces a visible step in the lane.
-            this._drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H);
-
-            // Playhead line at the bottom of the roll (= present moment).
-            ctx.strokeStyle = 'rgba(248,113,113,0.7)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, H - 1);
-            ctx.lineTo(W, H - 1);
-            ctx.stroke();
-
-            const assignments = this._currentAssignments();
-            const hits = [];
-            for (const n of this.notes) {
-                const noteSec = n.tick / this.ticksPerSec;
-                const dur = (n.duration || 0) / this.ticksPerSec;
-                if (noteSec + dur < startSec) continue; // already past
-                if (noteSec > endSec) continue;          // too far in future
-                // Note rectangle: top = future side (smaller noteSec → higher y),
-                // bottom = present side. We map [startSec, endSec] → [H, 0].
-                const yBottom = H - ((noteSec - startSec) / lookaheadSec) * H;
-                const yTop = H - ((noteSec + dur - startSec) / lookaheadSec) * H;
-                const y = Math.max(0, yTop);
-                const h = Math.min(H, yBottom) - y;
-                if (h <= 0) continue;
-                const x = (n.note - ext.lo) * pxPerPitch;
-                const w = Math.max(2, pxPerPitch - 1);
-                const handId = assignments.get(`${n.tick}:${n.note}`) || null;
-                const isUnplayable = this._unplayableSet.has(`${n.tick}:${n.note}`);
-                if (isUnplayable) {
-                    // Red fill + thicker red border so unplayable notes
-                    // pop visually even when assigned to a hand colour.
-                    ctx.fillStyle = '#dc2626';
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = '#fecaca';
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                    ctx.lineWidth = 1;
-                } else {
-                    ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.6)';
-                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                }
-                hits.push({ x, y, w, h, note: n });
-            }
-            this._noteHits = hits;
+            );
         }
 
-        /** Map<"tick:note", handId> from current overrides. */
-        _currentAssignments() {
-            const out = new Map();
-            const list = this.overrides?.note_assignments || [];
-            for (const a of list) {
-                if (a && a.handId) out.set(`${a.tick}:${a.note}`, a.handId);
-            }
-            return out;
+        /** Push every roll-relevant input the renderer needs and
+         *  redraw. The renderer reads only what we hand it; it never
+         *  reaches into the modal or the state for any field. */
+        _pushRollState() {
+            const r = this.rollRenderer;
+            if (!r) return;
+            r.setNotes(this.notes);
+            r.setHands(this.state.hands);
+            r.setHandsTimeline(this.state.simulationTimeline);
+            r.setNoteAssignments(this.state.currentAssignments());
+            r.setUnplayable(this.state.unplayableSet);
+            r.setVisibleExtent(this._visibleExtent());
+            r.setLookahead(this._lookaheadSec);
+            r.setPlayhead(this._currentSec);
+            r.setTotalSec(this._totalSec);
+            r.draw();
         }
 
-        // ----------------------------------------------------------------
-        //  Interaction — note-click popover, wheel zoom
-        // ----------------------------------------------------------------
+        /** Back-compat alias — many call sites still call `_draw()`
+         *  directly. Routes through `_pushRollState` which actually
+         *  drives the renderer. */
+        _draw() { this._pushRollState(); }
 
-        /**
-         * Wire every gesture on the piano-roll:
-         *
-         * - `mousedown` → decide between three drags based on where the
-         *   click landed:
-         *     a. on a hand band → horizontal drag repins the hand
-         *        anchor (X = pitch). The drag updates the live anchor
-         *        every move and only commits / pushes history once on
-         *        mouseup so the undo stack gets one entry per drag, not
-         *        one per pixel.
-         *     b. on a note      → preserved click-popover behaviour
-         *        (see `_openNotePopover`).
-         *     c. anywhere else  → vertical drag pans `_currentSec`
-         *        (Y maps to time). Inverted: dragging upward moves the
-         *        timeline forward (= the future approaches the
-         *        keyboard).
-         *
-         * - `wheel`             → without modifier scrolls the timeline
-         *                         (deltaY > 0 = forward); with `ctrlKey`
-         *                         zooms the lookahead window.
-         *
-         * Click-vs-drag is disambiguated by a small movement threshold
-         * (3 px). Below the threshold a mouseup on a note still opens
-         * the popover, mirroring legacy behaviour.
-         */
-        _wireRollCanvas() {
-            const HIT_BAND = 'band';
-            const HIT_NOTE = 'note';
-            const HIT_PAN  = 'pan';
-
-            const localXY = (e) => {
-                const rect = this.rollCanvas.getBoundingClientRect();
-                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-            };
-
-            const hitTest = (x, y) => {
-                const note = this._hitNote(x, y);
-                if (note) return { kind: HIT_NOTE, note };
-                const band = this._hitHandBand(x, y);
-                if (band) return { kind: HIT_BAND, ...band };
-                return { kind: HIT_PAN };
-            };
-
-            this.rollCanvas.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                const { x, y } = localXY(e);
-                const hit = hitTest(x, y);
-
-                if (hit.kind === HIT_NOTE) {
-                    // Defer to mouseup → click so a drag started ON a
-                    // note doesn't open the popover. We track the
-                    // initial pointer position and cancel the pending
-                    // click if movement exceeds the threshold.
-                    this._armPendingNoteClick(hit.note, e);
-                    return;
-                }
-
-                e.preventDefault();
-                this._closeNotePopover();
-
-                if (hit.kind === HIT_BAND) this._startBandDrag(hit, x);
-                else                       this._startTimePan(y);
-            });
-
-            // Click handler kept only for the deferred note popover.
-            this.rollCanvas.addEventListener('click', (e) => {
-                const pending = this._pendingNoteClick;
-                this._pendingNoteClick = null;
-                if (!pending) return;
-                this._openNotePopover(pending.hit, e);
-            });
-
-            this.rollHost.addEventListener('wheel', (e) => {
-                // Horizontal-only wheel events (touchpad sideways
-                // scroll) carry deltaY === 0 and would otherwise be
-                // consumed for nothing. Skip them so the browser can
-                // fall back to its own behaviour.
-                if (e.deltaY === 0) return;
-                e.preventDefault();
-                if (e.ctrlKey) {
-                    const factor = e.deltaY < 0 ? 1.25 : 0.8;
-                    this._lookaheadSec = Math.max(1, Math.min(30, this._lookaheadSec / factor));
-                    this._redrawAll();
-                    return;
-                }
-                // Wheel scrubs the timeline — one notch ≈ 10 % of the
-                // visible window so a single scroll always moves the
-                // playhead by a noticeable but predictable amount no
-                // matter the zoom level.
-                const step = (this._lookaheadSec || 4) * 0.1;
-                this._currentSec = Math.max(0,
-                    Math.min(this._totalSec || 0,
-                        this._currentSec + Math.sign(e.deltaY) * step));
-                this._ensureAnimLoop();
-                this._draw();
-                this._drawMinimap();
-            }, { passive: false });
+        /** Wheel / pan target. The renderer hands us a pre-clamped
+         *  value; we re-clamp + restart the anim loop defensively. */
+        _seekTo(sec) {
+            const next = Math.max(0, Math.min(this._totalSec || 0, sec));
+            if (next === this._currentSec) return;
+            this._currentSec = next;
+            this._ensureAnimLoop();
+            this._draw();
+            this._drawMinimap();
         }
 
-        /** Drag-vs-click threshold (CSS pixels). Movement under this
-         *  number of pixels still counts as a stationary click; above
-         *  it cancels the pending note-popover and confirms the drag. */
-        get _DRAG_THRESHOLD_PX() { return 3; }
-
-        /** Arm a deferred note popover. Mouseup with movement under the
-         *  threshold opens the popover; mouseup past the threshold (or
-         *  any further mousedown) cancels it. Without this guard a
-         *  user dragging across a note still got a popover on release. */
-        _armPendingNoteClick(noteHit, downEvt) {
-            this._pendingNoteClick = { hit: noteHit, evt: downEvt };
-            const startX = downEvt.clientX;
-            const startY = downEvt.clientY;
-            const onMove = (ev) => {
-                const dx = ev.clientX - startX;
-                const dy = ev.clientY - startY;
-                if (dx * dx + dy * dy >= this._DRAG_THRESHOLD_PX * this._DRAG_THRESHOLD_PX) {
-                    this._pendingNoteClick = null;
-                    cleanup();
-                }
-            };
-            const cleanup = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', cleanup);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', cleanup);
-        }
-
-        /** Hit-test the hand-position lanes drawn on the roll. Returns
-         *  `{handId, anchorAtClick}` when the (x, y) point lies inside
-         *  the band's reachable window at the corresponding time, or
-         *  null otherwise. We use the EXACT same X mapping the renderer
-         *  uses (`_visibleExtent` + uniform pxPerPitch) so what the
-         *  operator sees == what they grab. The Y matters only for the
-         *  drag's seed time; the click is "valid" anywhere inside the
-         *  vertical lane.
-         *  @private */
-        _hitHandBand(x, y) {
-            if (!this.rollHost || !Array.isArray(this._hands) || this._hands.length === 0) {
-                return null;
-            }
-            const W = this.rollHost.clientWidth;
-            const H = this.rollHost.clientHeight;
-            if (W <= 0 || H <= 0) return null;
-            const ext = this._visibleExtent();
-            const pxPerPitch = W / Math.max(1, ext.hi - ext.lo + 1);
-            // Y → time so we look up the right anchor for the row the
-            // operator clicked on. Top of the roll = future, bottom = now.
-            const tFromBottom = (H - y) / H;
-            const seedSec = this._currentSec + tFromBottom * (this._lookaheadSec || 0);
-            for (const hand of this._hands) {
-                const anchor = this._anchorAtSec(hand, seedSec);
-                if (!Number.isFinite(anchor)) continue;
-                const xLeft  = (anchor - ext.lo) * pxPerPitch;
-                const xRight = (anchor + hand.span - ext.lo + 1) * pxPerPitch;
-                if (x >= xLeft && x <= xRight) {
-                    // Pixel offset between the click and the band's
-                    // left edge so the drag keeps the band visually
-                    // pinned under the cursor.
-                    const offsetPx = x - xLeft;
-                    return { handId: hand.id, anchor, offsetPx, pxPerPitch, ext };
-                }
-            }
-            return null;
-        }
-
-        /** Anchor of `hand` at time `sec`, prefering the simulator
-         *  timeline (so a slide reflects in the lane), then falling
-         *  back to the live in-memory anchor.
-         *  @private */
-        _anchorAtSec(hand, sec) {
-            const t = this._targetAnchorAt(hand.id, sec);
-            return Number.isFinite(t) ? t : hand.anchor;
-        }
-
-        _startBandDrag(hit, startX) {
-            const threshold = this._DRAG_THRESHOLD_PX;
-            const drag = {
-                kind: 'band',
-                handId: hit.handId,
-                offsetPx: hit.offsetPx,
-                pxPerPitch: hit.pxPerPitch,
-                ext: hit.ext,
-                started: false,
-                startX
-            };
-            this._rollDrag = drag;
-            const onMove = (ev) => {
-                // Re-fetch the canvas rect every move: a window resize
-                // or page scroll during the drag would otherwise leave
-                // the band stuck to the old viewport position.
-                const rect = this.rollCanvas.getBoundingClientRect();
-                const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
-                if (!drag.started) {
-                    if (Math.abs(x - drag.startX) < threshold) return;
-                    drag.started = true;
-                }
-                const pitchAtLeftEdge = drag.ext.lo + (x - drag.offsetPx) / drag.pxPerPitch;
-                this._onHandBandDragLive(drag.handId, Math.round(pitchAtLeftEdge));
-            };
-            const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                this._rollDrag = null;
-                if (drag.started) {
-                    // One history entry per completed drag — the live
-                    // moves mutated `hand.anchor` in place; commit
-                    // pushes the override + snapshot once.
-                    this._commitHandBandDrag(drag.handId);
-                }
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        }
-
-        _startTimePan(startY) {
-            const threshold = this._DRAG_THRESHOLD_PX;
-            const drag = {
-                kind: 'pan',
-                startY,
-                startSec: this._currentSec,
-                H: this.rollHost.clientHeight,
-                lookahead: this._lookaheadSec || 4,
-                started: false
-            };
-            this._rollDrag = drag;
-            const onMove = (ev) => {
-                // Re-fetch the rect every move (window resize / scroll
-                // during the drag would otherwise stale the geometry).
-                const rect = this.rollCanvas.getBoundingClientRect();
-                const y = ev.clientY - rect.top;
-                if (!drag.started) {
-                    if (Math.abs(y - drag.startY) < threshold) return;
-                    drag.started = true;
-                    this.rollHost?.classList.add('is-panning');
-                }
-                // Drag DOWN = travel back in time (the strip slides
-                // toward you), drag UP = travel forward — feels like
-                // grabbing the timeline strip itself.
-                const deltaSec = ((y - drag.startY) / drag.H) * drag.lookahead * -1;
-                const newSec = Math.max(0,
-                    Math.min(this._totalSec || 0, drag.startSec + deltaSec));
-                if (newSec !== this._currentSec) {
-                    this._currentSec = newSec;
-                    this._ensureAnimLoop();
-                    this._draw();
-                    this._drawMinimap();
-                }
-            };
-            const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                this.rollHost?.classList.remove('is-panning');
-                this._rollDrag = null;
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
+        /** Ctrl+wheel zoom factor on the lookahead window. Larger
+         *  factor = zoom in (smaller window, denser notes). */
+        _zoomLookahead(factor) {
+            const next = Math.max(1, Math.min(30, this._lookaheadSec / factor));
+            if (next === this._lookaheadSec) return;
+            this._lookaheadSec = next;
+            this._redrawAll();
         }
 
         /** Single redraw helper used by every "view-affecting" toolbar
@@ -2337,7 +1003,7 @@
             this._draw();
             this._drawMinimap();
             this._drawKbMini();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** Live update during a band drag — clamps against neighbours
@@ -2347,55 +1013,29 @@
          *  which let the rightmost hand glide off the visible
          *  keyboard (e.g. anchor 113 + span 14 = 127 on an 88-key
          *  piano whose `note_range_max` is 108). When that happened
-         *  the fingers overlay's MIDI off-screen check (in
-         *  `_drawPianoFingers`) skipped the hand and the user saw
-         *  the band slip away with no fingers attached. Updates
+         *  the fingers overlay's MIDI off-screen check (now in
+         *  `KeyboardFingersRenderer`) skipped the hand and the user
+         *  saw the band slip away with no fingers attached. Updates
          *  `_displayedAnchor` for an immediate visual effect; does
          *  NOT push history (commit handles that). */
         _onHandBandDragLive(handId, newAnchor) {
-            const idx = (this._hands || []).findIndex(h => h.id === handId);
-            if (idx < 0) return;
-            const hand = this._hands[idx];
-            const prev = idx > 0 ? this._hands[idx - 1] : null;
-            const next = idx < this._hands.length - 1 ? this._hands[idx + 1] : null;
-            const ext = this._pitchExtent();
-            const minAnchor = prev ? prev.anchor + prev.span : ext.lo;
-            const maxAnchor = next ? next.anchor - hand.span : ext.hi - hand.span;
-            const clamped = Math.max(minAnchor, Math.min(maxAnchor, newAnchor));
-            hand.anchor = clamped;
-            this._displayedAnchor.set(handId, clamped);
+            const clamped = this.state.previewAnchor(handId, newAnchor);
+            if (!Number.isFinite(clamped)) return;
             this.keyboard?.setHandBands(this._currentHandBands());
             this._draw();
-            this._drawFingers();
+            this._pushFingersState();
         }
 
         /** End-of-drag: persist the new anchor as a `hand_anchors`
-         *  override entry at the current playhead, push one history
-         *  snapshot, and rebuild problems. */
+         *  override entry at the current playhead via the state
+         *  container, then refresh the problem list and redraw. */
         _commitHandBandDrag(handId) {
-            const hand = (this._hands || []).find(h => h.id === handId);
-            if (!hand) return;
-            if (!Array.isArray(this.overrides.hand_anchors)) {
-                this.overrides.hand_anchors = [];
-            }
             const tick = Math.round(this._currentSec * this.ticksPerSec);
-            const list = this.overrides.hand_anchors;
-            const i = list.findIndex(a => a?.handId === handId && a?.tick === tick);
-            const entry = { tick, handId, anchor: hand.anchor };
-            if (i >= 0) list[i] = entry; else list.push(entry);
-            this._pushHistory();
+            const stored = this.state.commitAnchor(handId, tick);
+            if (!Number.isFinite(stored)) return;
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
-        }
-
-        _hitNote(x, y) {
-            const hits = this._noteHits || [];
-            for (let i = hits.length - 1; i >= 0; i--) {
-                const h = hits[i];
-                if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h;
-            }
-            return null;
         }
 
         _openNotePopover(hit, evt) {
@@ -2471,27 +1111,14 @@
         }
 
         _pinNoteAssignment(tick, note, handId) {
-            if (!Array.isArray(this.overrides.note_assignments)) {
-                this.overrides.note_assignments = [];
-            }
-            const list = this.overrides.note_assignments;
-            const idx = list.findIndex(a => a.tick === tick && a.note === note);
-            const entry = { tick, note, handId };
-            if (idx >= 0) list[idx] = entry;
-            else list.push(entry);
-            this._pushHistory();
+            this.state.setNoteAssignment(tick, note, handId);
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
         }
 
         _clearNoteAssignment(tick, note) {
-            const list = this.overrides?.note_assignments;
-            if (!Array.isArray(list)) return;
-            const idx = list.findIndex(a => a.tick === tick && a.note === note);
-            if (idx < 0) return;
-            list.splice(idx, 1);
-            this._pushHistory();
+            this.state.clearNoteAssignment(tick, note);
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
@@ -2512,14 +1139,12 @@
                 this._redrawAll();
             };
             const reset = () => {
-                this.overrides = window.HandEditorShared.emptyOverrides();
-                // Bring `_hands[*].anchor` and `_displayedAnchor` back
-                // in line with the now-empty override set so the
-                // bands and finger overlay snap to their seed
-                // positions instead of staying on the pre-reset
-                // anchors until the next anim tick lerps them back.
-                this._reseedAnchorsFromOverrides();
-                this._pushHistory();
+                // State drops every override, re-seeds the bands,
+                // and pushes one history entry so the user can undo
+                // the reset itself. The modal then refreshes the
+                // dependent views.
+                this.state.reset();
+                this.keyboard?.setHandBands(this._currentHandBands());
                 this._rebuildProblems();
                 this._redrawAll();
             };
@@ -2646,59 +1271,32 @@
         //  History + save — delegates to HandEditorShared.HistoryManager
         // ----------------------------------------------------------------
 
-        _pushHistory() { this._history.push(this.overrides); }
+        _pushHistory() { this.state.pushHistory(); }
 
         _undo() {
-            const snap = this._history.undo();
-            if (!snap) return;
-            this.overrides = snap;
-            this._afterHistoryStep();
+            if (this.state.undo()) this._afterHistoryStep();
         }
 
         _redo() {
-            const snap = this._history.redo();
-            if (!snap) return;
-            this.overrides = snap;
-            this._afterHistoryStep();
+            if (this.state.redo()) this._afterHistoryStep();
         }
 
         _afterHistoryStep() {
-            // The override set just changed under us. Re-seed the
-            // live band positions BEFORE the redraw so the visual
-            // jumps with the data instead of lagging behind until
-            // the lerp animation catches up.
-            this._reseedAnchorsFromOverrides();
+            // The state already re-seeded the band anchors and the
+            // displayed values; the modal just needs to refresh the
+            // dependent views (problems, keyboard bands, fingers,
+            // roll, minimap) for the new override snapshot.
+            this.keyboard?.setHandBands(this._currentHandBands());
             this._rebuildProblems();
             this._redrawAll();
         }
 
-        /** Rewrite each hand's `anchor` (and the matching displayed
-         *  position) from the latest `hand_anchors` override at the
-         *  current playhead, falling back to the deterministic seed
-         *  used at mount when no override is set for that hand.
-         *  Called after any external mutation of `this.overrides`
-         *  (undo, redo, reset) so the live state stays in sync.
-         *  @private */
+        /** Re-seed all hand anchors + displayed positions from the
+         *  current override set. Thin wrapper kept for back-compat
+         *  with internal call sites; the actual logic lives in
+         *  `KeyboardHandPositionState.reseedAnchors`. */
         _reseedAnchorsFromOverrides() {
-            if (!Array.isArray(this._hands)) return;
-            const ext = this._pitchExtent();
-            const cfg = _parseHandsCfg(this.instrument);
-            const total = cfg?.hands?.length || this._hands.length;
-            for (let i = 0; i < this._hands.length; i++) {
-                const h = this._hands[i];
-                const overrideAnchor = this._latestAnchorOverride(h.id);
-                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, total))
-                    * (ext.hi - ext.lo - h.span));
-                let anchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
-                // Clamp into the instrument's playable window. Old
-                // overrides saved before the drag-clamp fix could be
-                // outside [ext.lo, ext.hi - span]; loading them as-is
-                // would push the band off-screen and skip its
-                // fingers in the overlay.
-                anchor = Math.max(ext.lo, Math.min(ext.hi - h.span, anchor));
-                h.anchor = anchor;
-                this._displayedAnchor.set(h.id, anchor);
-            }
+            this.state.reseedAnchors();
             this.keyboard?.setHandBands(this._currentHandBands());
         }
 
@@ -2721,7 +1319,7 @@
                     fileId: this.fileId, channel: this.channel,
                     deviceId: this.deviceId, overrides: this.overrides
                 });
-                this._history.markSaved();
+                this.state.markSaved();
                 this._setStatus(_t('keyboardHandEditor.saved','Enregistré.'));
             } catch (err) {
                 console.error('[KeyboardHandPositionEditor] save failed:', err);
