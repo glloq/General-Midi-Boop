@@ -213,10 +213,8 @@
         // -----------------------------------------------------------------
 
         _drawPiano(ctx, W, H) {
-            // Without the keyboard widget we can't compute the per-key
-            // pixel positions accurately, so fall back to the
-            // chromatic uniform-spacing renderer. Same visual hands,
-            // no W/B alternation.
+            // Without the keyboard widget we can't compute per-key
+            // pixel positions accurately; fall back to chromatic.
             if (!this._kb) {
                 this._drawChromatic(ctx, W, H);
                 return;
@@ -232,7 +230,6 @@
             const blackTipY = Math.max(0, blackH * opts.blackTipFraction);
             const whiteFingerH = Math.max(2, handY - whiteTipY);
             const blackFingerH = Math.max(2, handY - blackTipY);
-            const view = this._extent;
             const kb = this._kb;
 
             for (const hand of this._hands) {
@@ -244,32 +241,100 @@
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
                 if (this._isOffScreen(lowMidi, highMidi)) continue;
 
-                const handLeftX  = kb.keyXAt(lowMidi);
-                const rightWidth = kb.keyWidth(highMidi);
-                const handRightX = kb.keyXAt(highMidi)
-                    + (Number.isFinite(rightWidth) && rightWidth > 0 ? rightWidth : 0);
-                if (!Number.isFinite(handLeftX) || !Number.isFinite(handRightX)) continue;
-                if (handRightX <= 0 || handLeftX >= W) continue;
-                const bandPxW = Math.max(1, handRightX - handLeftX);
+                // Strict white-key alignment: even slot i lands on
+                // the actual centre of the (i/2)-th white key above
+                // the anchor; odd slot i lands at the midpoint
+                // between two adjacent whites — exactly where a
+                // black key (real or virtual) sits.
+                //
+                // For numFingers = N, we need
+                //   floor(N/2) + 1 white keys
+                // (one per even slot, plus one extra so the last
+                // odd slot has a "next white" to be between).
+                const numWhites = Math.floor(numFingers / 2) + 1;
+                const whites = this._whiteKeysFromAnchor(lowMidi, numWhites);
+                if (whites.length < 2) continue;
 
-                const slotW = bandPxW / numFingers;
-                const fingerW = Math.max(3, slotW * opts.fingerWidthRatio);
-                const slotCenterX = (i) => handLeftX + (i + 0.5) * slotW;
-                const slotMidi = (i) => this._slotMidi(a, hand.span, numFingers, i);
+                // Resolve each white's pixel centre from the
+                // keyboard widget. We tolerate the rightmost
+                // entries falling off the keyboard's range — the
+                // slot loop below short-circuits when it runs past
+                // `whiteCenters.length`. Also stop on duplicate
+                // positions: `KeyboardPreview.keyXAt` clamps its
+                // input to its own `rangeMax`, so two whites past
+                // the keyboard's right edge would resolve to the
+                // same pixel and stack the fingers on top of one
+                // another.
+                const whiteCenters = [];
+                for (const m of whites) {
+                    const x = kb.keyXAt(m);
+                    const w = kb.keyWidth(m);
+                    if (!Number.isFinite(x) || !Number.isFinite(w)) break;
+                    const centre = x + w / 2;
+                    const last = whiteCenters[whiteCenters.length - 1];
+                    if (last != null && Math.abs(centre - last) < 1) break;
+                    whiteCenters.push(centre);
+                }
+                if (whiteCenters.length < 2) continue;
 
-                this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
+                const slotCenterX = (i) => {
+                    if ((i & 1) === 0) return whiteCenters[i >> 1];
+                    return (whiteCenters[i >> 1] + whiteCenters[(i >> 1) + 1]) / 2;
+                };
+
+                // Slot → MIDI for the active-note lookup. Odd slots
+                // map to the real black between the surrounding
+                // whites; null when no black exists (E–F, B–C) — the
+                // finger still draws but never lights up.
+                const slotMidi = (i) => {
+                    if ((i & 1) === 0) return whites[i >> 1];
+                    const wLo = whites[i >> 1];
+                    const wHi = whites[(i >> 1) + 1];
+                    return (Number.isFinite(wLo) && Number.isFinite(wHi)
+                            && wHi - wLo === 2) ? wLo + 1 : null;
+                };
+
+                // Finger body width = a fraction of a white-key
+                // width so W and B fingers stay visually balanced.
+                const refWw = kb.keyWidth(whites[0]);
+                const wwSafe = Number.isFinite(refWw) && refWw > 0 ? refWw : 14;
+                const fingerW = Math.max(3, wwSafe * 0.32);
+
+                // Knuckle bar: from the leftmost slot's left edge to
+                // the rightmost actually-drawable slot's right edge.
+                // We compute the highest slot index whose pixel
+                // centre is computable (= every white before it has
+                // been resolved) so partially off-screen hands still
+                // render their visible portion.
+                let lastDrawableSlot = numFingers - 1;
+                while (lastDrawableSlot >= 0
+                        && (lastDrawableSlot & 1) === 1
+                        && (lastDrawableSlot >> 1) + 1 >= whiteCenters.length) {
+                    lastDrawableSlot--;
+                }
+                while (lastDrawableSlot >= 0
+                        && (lastDrawableSlot & 1) === 0
+                        && (lastDrawableSlot >> 1) >= whiteCenters.length) {
+                    lastDrawableSlot--;
+                }
+                if (lastDrawableSlot < 0) continue;
+                const leftX = slotCenterX(0) - fingerW / 2;
+                const rightX = slotCenterX(lastDrawableSlot) + fingerW / 2;
+                this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
                 // Pass 1 — black fingers (odd slot indices). Drawn
                 // first so the white fingers cap their bottom.
-                for (let i = 1; i < numFingers; i += 2) {
+                for (let i = 1; i <= lastDrawableSlot; i += 2) {
+                    if ((i >> 1) + 1 >= whiteCenters.length) break;
                     const m = slotMidi(i);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
                     this._drawFingerBar(ctx, slotCenterX(i), blackTipY, blackFingerH,
                                          fingerW, isActive, W);
                 }
                 // Pass 2 — white fingers (even slot indices) on top.
-                for (let i = 0; i < numFingers; i += 2) {
+                for (let i = 0; i <= lastDrawableSlot; i += 2) {
+                    if ((i >> 1) >= whiteCenters.length) break;
                     const m = slotMidi(i);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
                     this._drawFingerBar(ctx, slotCenterX(i), whiteTipY, whiteFingerH,
@@ -348,12 +413,18 @@
         //  Internals
         // -----------------------------------------------------------------
 
-        /** Animated anchor for a hand, falling back to no value when
-         *  the editor hasn't pushed an entry yet. The renderer then
-         *  skips the hand for this frame instead of guessing. */
+        /** Animated anchor for a hand. Prefers the value the editor
+         *  pushed via `setAnchors` (Map keyed by handId), falling
+         *  back to the hand's own static `anchor` field when no
+         *  animated value has been pushed yet — that mirrors the
+         *  modal's `_displayedAnchorMapForRender` fallback so the
+         *  hand still renders during the first frames after mount
+         *  (or any time the animation map briefly drops an entry). */
         _anchorFor(hand) {
-            const v = this._anchors.get(hand.id);
-            return Number.isFinite(v) ? v : NaN;
+            const animated = this._anchors.get(hand.id);
+            if (Number.isFinite(animated)) return animated;
+            if (hand && Number.isFinite(hand.anchor)) return hand.anchor;
+            return NaN;
         }
 
         /** Honour the configured `numFingers`, falling back to
@@ -383,6 +454,30 @@
          *  and immune to `KeyboardPreview.keyXAt`'s clamping. */
         _isOffScreen(lowMidi, highMidi) {
             return highMidi < this._extent.lo || lowMidi > this._extent.hi;
+        }
+
+        /** True when MIDI `m` is a black-key pitch class (C#, D#,
+         *  F#, G#, A#). Used by `_whiteKeysFromAnchor` to skip
+         *  blacks while building the alternation sequence. */
+        _isBlackKey(midi) {
+            const v = ((midi % 12) + 12) % 12;
+            return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
+        }
+
+        /** Walk MIDI from `startMidi` upward, collecting `count`
+         *  consecutive white keys. If `startMidi` happens to be on
+         *  a black key (rare anchor position) we skip up to the
+         *  next white. Returns fewer than `count` only when we run
+         *  out of MIDI space (>127). */
+        _whiteKeysFromAnchor(startMidi, count) {
+            const out = [];
+            let m = Math.max(0, Math.round(startMidi));
+            if (this._isBlackKey(m)) m++;
+            while (out.length < count && m <= 127) {
+                if (!this._isBlackKey(m)) out.push(m);
+                m++;
+            }
+            return out;
         }
 
         /** Draw the hand-coloured knuckle bar inside the band's top
