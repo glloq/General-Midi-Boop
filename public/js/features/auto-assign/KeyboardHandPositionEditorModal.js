@@ -599,10 +599,12 @@
                 }
                 .khpe-kb-mini-canvas { display: block; width: 100%; height: 100%; }
                 /* Reduced keyboard area — purely informational, no
-                   interaction. The roll above hosts every edit action. */
+                   interaction. The roll above hosts every edit action.
+                   Compact height so the piano-roll keeps as much
+                   vertical real estate as possible. */
                 .khpe-keyboard-host {
                     position: relative; background: #1e293b; padding: 4px;
-                    height: 90px; flex: none;
+                    height: 70px; flex: none;
                     pointer-events: none;
                 }
                 .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
@@ -1196,12 +1198,18 @@
                 return (midi - view.lo + 1) * fallbackPxPerPitch;
             };
 
+            // Fingers start FROM the hand (band top) and extend
+            // upward into the keys. Knuckle bar sits inside the
+            // band's top edge so the bunch reads as one unit
+            // attached to the hand. Same uniform height for every
+            // slot — chromatic instruments don't have a white/black
+            // distinction to encode here.
             const bandH = 22;
             const handY = Math.max(0, H - bandH);
-            const knuckleH = 5;
-            const knuckleTop = handY - 1;
+            const knuckleH = 2;
+            const knuckleTop = handY;
             const tipY = handY * 0.55;          // uniform tip
-            const fingerH = Math.max(4, knuckleTop - tipY);
+            const fingerH = Math.max(2, handY - tipY);
 
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
@@ -1276,16 +1284,32 @@
                 return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
             };
 
+            // Geometry. Fingers START at the top of the hand band
+            // (Y = handY) and extend UPWARD onto the keys; their tip
+            // Y is given as fractions of the white-key / black-key
+            // heights:
+            //   - WHITE finger: tip at 1/2 of the white-key height
+            //     (Y = keysH / 2). Centered on a white key, it lands
+            //     halfway up the visible white-key body.
+            //   - BLACK finger: tip at 1/3 of the black-key height,
+            //     measured from the bottom of the black key going up
+            //     (Y = blackH × 2/3). Centered between two adjacent
+            //     whites, it visually pokes 1/3 of the way into the
+            //     black key.
+            //
+            // The knuckle bar is kept thin (2 px) and FLUSH with the
+            // band's top so the bunch reads as a single unit
+            // emerging from the hand without a gap.
             const bandH = 22;
-            const handY = Math.max(0, H - bandH);
-            const keysH = handY;
-            const blackH = keysH * 0.6;
-            const knuckleH = 5;
-            const knuckleTop = handY - 1;
-            const whiteTipY = Math.min(blackH + 4, knuckleTop - 4);
-            const blackTipY = 3;
-            const whiteFingerH = Math.max(4, knuckleTop - whiteTipY);
-            const blackFingerH = Math.max(4, knuckleTop - blackTipY);
+            const handY = Math.max(0, H - bandH);  // top of the band
+            const keysH = handY;                   // mirrors widget's keysH
+            const blackH = keysH * 0.6;            // mirrors widget's blackH
+            const knuckleH = 2;
+            const knuckleTop = handY;              // flush with band top
+            const whiteTipY = Math.max(0, keysH * 0.5);
+            const blackTipY = Math.max(0, blackH * (2 / 3));
+            const whiteFingerH = Math.max(2, handY - whiteTipY);
+            const blackFingerH = Math.max(2, handY - blackTipY);
 
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
