@@ -98,51 +98,62 @@
                 ? Math.max(...this.notes.map(n => n.tick + (n.duration || 0))) : 0;
             this._totalSec = this._totalTicks / this.ticksPerSec;
 
-            const Shared = window.HandEditorShared;
-            this.overrides = Shared.cloneOverrides(opts.initialOverrides) || Shared.emptyOverrides();
-            // Linear undo/redo stack with a saved-index marker; dirty
-            // = (live index !== savedIndex). Refreshes the toolbar
-            // buttons + the save button title on every change.
-            this._history = new Shared.HistoryManager(this.overrides, {
-                maxHistory: 50,
-                onChange: () => this._refreshHistoryButtons()
+            // Central state container. Owns hands, overrides,
+            // displayed anchors, simulation timeline, problem list,
+            // history. The modal stays in charge of the orchestration
+            // (RAF loop, transport, view zoom) and reads the state
+            // through `this.state`. Legacy field aliases below
+            // (`overrides`, `_hands`, `_history`, `_displayedAnchor`,
+            // `_handAnchorTimeline`, `_problems`, `_unplayableSet`)
+            // are getters that delegate to the state, kept so the
+            // editor's many read sites continue to work without
+            // sweeping renames.
+            this.state = new window.KeyboardHandPositionState({
+                instrument: this.instrument,
+                notes: this.notes,
+                ticksPerSec: this.ticksPerSec,
+                initialOverrides: opts.initialOverrides,
+                onHistoryChange: () => this._refreshHistoryButtons()
             });
 
-            // Pixels per second on the falling-note axis. Larger = notes
-            // span more vertical space (zoom-in).
-            // Lookahead window (seconds) shown above the keyboard. We only
-            // draw notes whose start time is within `[currentSec, currentSec + lookaheadSec]`.
+            // View / lookahead — the falling-note window above the
+            // keyboard. The state isn't responsible for view zoom,
+            // it only deals with hand positions.
             this._lookaheadSec = 4;
             this._currentSec = 0;
             this._noteHits = [];
             this._notePopover = null;
             this._mutedBeforePlay = null;
 
-            // Problem tracking — populated by `_rebuildProblems()` whenever
-            // the overrides or the hand state change.
-            this._problems = [];          // [{sec, kind:'chord'|'speed', message}]
-            this._unplayableSet = new Set(); // "tick:note"
+            // Trailing-edge debounce timer for `_rebuildProblems`.
             this._problemRebuildTimer = null;
 
-            // Animated band positions. `_displayedAnchor[handId]` lerps
-            // toward `_targetAnchorAt(currentSec)` so the bands glide
-            // smoothly toward their next position rather than snapping.
-            // `_handAnchorTimeline[handId] = [{sec, anchor}]` is the
-            // per-hand trajectory derived from the simulation timeline.
-            this._handAnchorTimeline = new Map();
-            this._displayedAnchor = new Map();
+            // Animation loop handle.
             this._animRaf = null;
 
             // Keyboard zoom: `_kbView` is the [lo, hi] pitch range
             // currently shown by the bottom keyboard + the roll axis.
             // Initialised to the full instrument range on open, then
-            // narrowed by Ctrl+wheel or the mini-strip drag. The
-            // mini-strip itself always shows the full range with a
-            // viewport rectangle marking the live `_kbView`.
+            // narrowed by Ctrl+wheel or the mini-strip drag.
             this._kbView = null;
         }
 
-        get isDirty() { return this._history.isDirty; }
+        // ----------------------------------------------------------------
+        //  Legacy field aliases — getter-only delegations to `this.state`
+        //  so the modal's many read sites continue to work without
+        //  changes. Writes go through state methods (`previewAnchor`,
+        //  `commitAnchor`, `setNoteAssignment`, `undo` …).
+        // ----------------------------------------------------------------
+
+        get overrides()             { return this.state.overrides; }
+        get _hands()                { return this.state.hands; }
+        get _history()              { return this.state._history; }
+        get _displayedAnchor()      { return this.state._displayedAnchors; }
+        get _handAnchorTimeline()   { return this.state.simulationTimeline; }
+        get _problems()             { return this.state.problems; }
+        get _unplayableSet()        { return this.state.unplayableSet; }
+
+        get isDirty() { return this.state.isDirty; }
 
         /** Override BaseModal's header so the modal's title bar IS
          *  the toolbar. We keep BaseModal's standard `data-action="close"`
@@ -264,12 +275,14 @@
             }, 80);
         }
 
+        /** Run the simulator on the current overrides + hand state and
+         *  hand the raw event timeline to the state container. The
+         *  state breaks it into per-hand trajectories, the unplayable
+         *  set, and the problem list — the modal then refreshes the
+         *  problem-counter UI from `state.problems`. */
         _runFeasibility() {
             const Feas = window.HandPositionFeasibility;
             if (!Feas || typeof Feas.simulateHandWindows !== 'function') return;
-            // Reflect the current operator-tweaked anchors so the
-            // simulator's per-tick window logic agrees with the bands
-            // the user sees on the keyboard.
             const Shared = window.HandEditorShared;
             const overridesForSim = Shared.cloneOverrides(this.overrides) || Shared.emptyOverrides();
             let timeline;
@@ -283,159 +296,21 @@
                 console.warn('[KeyboardHandPositionEditor] simulate failed:', e);
                 timeline = [];
             }
-            const problems = [];
-            const unplayable = new Set();
-            const tps = this.ticksPerSec;
-            for (const ev of timeline) {
-                if (ev.type === 'chord' && Array.isArray(ev.unplayable) && ev.unplayable.length > 0) {
-                    problems.push({ sec: ev.tick / tps, kind: 'chord' });
-                    for (const u of ev.unplayable) {
-                        if (Number.isFinite(u.note)) unplayable.add(`${ev.tick}:${u.note}`);
-                    }
-                } else if (ev.type === 'shift' && ev.motion && ev.motion.feasible === false) {
-                    problems.push({ sec: ev.tick / tps, kind: 'speed' });
-                }
-            }
-            problems.sort((a, b) => a.sec - b.sec);
-            this._problems = problems;
-            this._unplayableSet = unplayable;
-            this._buildHandAnchorTimeline(timeline);
+            this.state.setSimulationResult(timeline);
         }
 
-        /** Per-hand `[{sec, anchor, fromSec?, fromAnchor?}]` series.
-         *  `fromSec` and `fromAnchor` are populated for `shift` events:
-         *  they describe the moving leg of the trajectory — the hand
-         *  travelled from `fromAnchor` at `fromSec` to `anchor` at
-         *  `sec`. Without them we'd only know the destination and the
-         *  background lane would render as a step instead of the
-         *  diagonal slide a real hand performs. */
-        _buildHandAnchorTimeline(timeline) {
-            const tps = this.ticksPerSec;
-            const seriesBy = new Map();
-            const ensure = (id) => {
-                if (!seriesBy.has(id)) seriesBy.set(id, []);
-                return seriesBy.get(id);
-            };
-            for (const ev of timeline || []) {
-                if (ev.type === 'shift' && ev.handId && Number.isFinite(ev.toAnchor)) {
-                    // The slide duration represents the REAL hand
-                    // travel time at the configured max speed:
-                    //   requiredSec = |toAnchor − fromAnchor| / hand_move_speed
-                    // Visually this draws a parallelogram whose slope
-                    // matches the maximum mechanical speed of the
-                    // hand. When the gap before the new chord is
-                    // larger than requiredSec, the hand moves "just-
-                    // in-time" — the parallelogram ends at the chord
-                    // and the band stays stable for the rest of the
-                    // gap. When it is shorter (infeasible shift),
-                    // requiredSec still wins so the slope stays at
-                    // max speed — the parallelogram visibly overlaps
-                    // the previous chord, signalling the impossible
-                    // transition. Falls back to a sensible default
-                    // when no tempo info is available.
-                    const sec = ev.tick / tps;
-                    let dur = Number.NaN;
-                    if (ev.motion && Number.isFinite(ev.motion.requiredSec)
-                            && ev.motion.requiredSec > 0) {
-                        dur = ev.motion.requiredSec;
-                    } else if (ev.motion && Number.isFinite(ev.motion.availableSec)
-                            && ev.motion.availableSec > 0
-                            && ev.motion.availableSec !== Infinity) {
-                        dur = ev.motion.availableSec;
-                    }
-                    if (!Number.isFinite(dur) || dur <= 0) dur = 0.15; // sensible fallback
-                    ensure(ev.handId).push({
-                        sec,
-                        anchor: ev.toAnchor,
-                        fromSec: Math.max(0, sec - dur),
-                        fromAnchor: Number.isFinite(ev.fromAnchor) ? ev.fromAnchor : ev.toAnchor,
-                        feasible: ev.motion ? ev.motion.feasible !== false : true
-                    });
-                } else if (ev.type === 'chord') {
-                    // Chord event carries the post-shift anchor of
-                    // every hand active at this chord. Reading
-                    // `anchorByHand` directly preserves the
-                    // simulator's min-move target — earlier code
-                    // inferred the anchor from the chord's lowest
-                    // note per hand, which produced phantom shifts
-                    // whenever the simulator picked an upward
-                    // min-move anchor (= hi − span). The fallback
-                    // (lowest note per hand) survives only for
-                    // legacy chord events that didn't carry the
-                    // field.
-                    const anchorByHand = ev.anchorByHand;
-                    if (anchorByHand && typeof anchorByHand === 'object') {
-                        for (const id of Object.keys(anchorByHand)) {
-                            const a = anchorByHand[id];
-                            if (Number.isFinite(a)) {
-                                ensure(id).push({ sec: ev.tick / tps, anchor: a });
-                            }
-                        }
-                    } else if (Array.isArray(ev.notes)) {
-                        const lowestByHand = new Map();
-                        for (const n of ev.notes) {
-                            if (!n.handId || !Number.isFinite(n.note)) continue;
-                            const cur = lowestByHand.get(n.handId);
-                            if (cur == null || n.note < cur) lowestByHand.set(n.handId, n.note);
-                        }
-                        for (const [id, lo] of lowestByHand) {
-                            ensure(id).push({ sec: ev.tick / tps, anchor: lo });
-                        }
-                    }
-                }
-            }
-            for (const arr of seriesBy.values()) arr.sort((a, b) => a.sec - b.sec);
-            this._handAnchorTimeline = seriesBy;
-        }
-
-        /** Step lookup: latest `{sec, anchor}` whose sec ≤ `atSec`. */
+        /** Step lookup delegated to `state` — kept as a thin wrapper
+         *  so the existing `_minimapSamplesFor` / `_laneSamplesFor`
+         *  call sites continue to work without renames. */
         _targetAnchorAt(handId, atSec) {
-            const series = this._handAnchorTimeline?.get(handId);
-            if (!series || series.length === 0) {
-                const hand = (this._hands || []).find(h => h.id === handId);
-                return hand ? hand.anchor : null;
-            }
-            // Binary-ish scan — series is small (one entry per chord/shift).
-            let best = series[0].anchor;
-            for (const s of series) {
-                if (s.sec > atSec) break;
-                best = s.anchor;
-            }
-            return best;
+            return this.state.targetAnchorAt(handId, atSec);
         }
 
-        /** Interpolation step: pull `_displayedAnchor[id]` toward the
-         *  target anchor at the current playhead. Decay is computed from
-         *  the wall-clock delta so the animation stays cross-monitor
-         *  consistent (a 144 Hz screen does not run 2× faster than 60 Hz).
-         *  Returns true when at least one band is still moving so the
-         *  caller can keep the RAF loop running. */
+        /** Animation step delegated to `state.step`. The modal still
+         *  owns `_lookaheadSec` and `_currentSec` (view concerns) so
+         *  it passes them in. */
         _stepAnchorAnimation(dtSec) {
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return false;
-            // Look slightly AHEAD of the playhead so the hands anticipate
-            // upcoming notes (matches a real player who looks ahead at the
-            // score) — half the lookahead window is a good visual default.
-            const lookSec = this._currentSec + (this._lookaheadSec || 4) * 0.5;
-            // Critically-damped exponential ease. `1 - e^(-k·dt)` produces
-            // a half-life of ln(2)/k seconds (here ~85 ms) regardless of
-            // the frame rate.
-            const k = 8;
-            const blend = 1 - Math.exp(-k * Math.max(0, dtSec));
-            let stillMoving = false;
-            for (const hand of this._hands) {
-                const target = this._targetAnchorAt(hand.id, lookSec);
-                if (!Number.isFinite(target)) continue;
-                const cur = this._displayedAnchor.get(hand.id);
-                const start = Number.isFinite(cur) ? cur : hand.anchor;
-                const gap = target - start;
-                if (Math.abs(gap) < 0.05) {
-                    this._displayedAnchor.set(hand.id, target);
-                    continue;
-                }
-                this._displayedAnchor.set(hand.id, start + gap * blend);
-                stillMoving = true;
-            }
-            return stillMoving;
+            return this.state.step(dtSec, this._lookaheadSec, this._currentSec);
         }
 
         /**
@@ -687,54 +562,12 @@
 
         _mountKeyboard() {
             if (!this.keyboardCanvas) return;
-            const ext = this._pitchExtent();
-            // Per-hand state: anchor (lowest playable note) is the
-            // operator-controlled value; span is read from hands_config.
-            // Anchors initialise from `hand_anchors` overrides at the
-            // current playhead, falling back to a deterministic seed
-            // (low pitch, mid pitch, ...) so 1- and 4-hand keyboards
-            // both render with non-overlapping bands at startup.
-            const cfg = _parseHandsCfg(this.instrument);
-            this._hands = (cfg?.hands || []).map((h, i) => {
-                let span;
-                if (Number.isFinite(h.hand_span_semitones)) {
-                    span = h.hand_span_semitones;
-                } else if (Number.isFinite(h.num_fingers)) {
-                    span = Math.max(1, h.num_fingers - 1);
-                } else {
-                    span = 4;
-                }
-                // Number of fingers comes straight from the
-                // instrument's hands_config. `num_fingers` is the
-                // schema's authoritative field (see
-                // InstrumentCapabilitiesValidator: chromatic keyboards
-                // use `span = num_fingers - 1`, piano keyboards keep
-                // span and num_fingers independent). Range 1..16 per
-                // hand. Falls back to `span + 1` when the config
-                // didn't set the field (= one finger per chromatic
-                // position, the chromatic-instrument convention) so
-                // legacy configs without `num_fingers` still draw
-                // sensibly.
-                const numFingers = Number.isFinite(h.num_fingers) && h.num_fingers > 0
-                    ? h.num_fingers : (span + 1);
-                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
-                    * (ext.hi - ext.lo - span));
-                const id = h.id || `h${i + 1}`;
-                const overrideAnchor = this._latestAnchorOverride(id);
-                let initialAnchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
-                // Clamp into the playable range so an old override
-                // saved before the drag-clamp fix can't initialise a
-                // hand off-screen (which would skip its fingers in
-                // the overlay).
-                initialAnchor = Math.max(ext.lo, Math.min(ext.hi - span, initialAnchor));
-                return {
-                    id,
-                    span,
-                    numFingers,
-                    anchor: initialAnchor,
-                    color: _handColor(id)
-                };
-            });
+            // The hand list (id, span, numFingers, color, initial
+            // anchor) was built once by `KeyboardHandPositionState`
+            // at construction. `_mountKeyboard` just picks the right
+            // canvas widget for the layout and drives its band
+            // setter — it never owns the hand definitions.
+            const ext = this.state.range;
             // Pick the renderer based on the instrument's declared
             // layout. Piano-style instruments use the existing
             // KeyboardPreview (black + white keys); chromatic
@@ -956,28 +789,7 @@
          *  itself keeps the floating-point value for sub-semitone
          *  precision in the lane background. */
         _currentHandBands() {
-            return (this._hands || []).map(h => {
-                const a = this._displayedAnchor.has(h.id)
-                    ? this._displayedAnchor.get(h.id)
-                    : h.anchor;
-                const aInt = Math.round(a);
-                return { id: h.id, low: aInt, high: aInt + h.span, color: h.color };
-            });
-        }
-
-        /** Look up the most recent hand_anchors override for `handId`
-         *  (the entry with the largest tick ≤ current playhead). */
-        _latestAnchorOverride(handId) {
-            const list = this.overrides?.hand_anchors;
-            if (!Array.isArray(list)) return null;
-            let best = null;
-            const currentTick = this._currentSec * this.ticksPerSec;
-            for (const a of list) {
-                if (a?.handId !== handId || !Number.isFinite(a.tick)) continue;
-                if (a.tick > currentTick) continue;
-                if (!best || a.tick > best.tick) best = a;
-            }
-            return best ? best.anchor : null;
+            return this.state.currentBands();
         }
 
         // Hand-band repositioning lives on the piano-roll now: the
@@ -1120,19 +932,11 @@
         }
 
         /** Set of MIDI notes currently sounding at `_currentSec` —
-         *  rebuilt every frame because the playhead moves. We keep it
-         *  cheap by short-circuiting the duration check on negative
-         *  results. Fed to the keyboard widget (key tinting) and to
-         *  the fingers renderer (finger highlight). */
+         *  delegated to `state.activeNotesAt`. Fed to the keyboard
+         *  widget (key tinting) and to the fingers renderer
+         *  (finger highlight). */
         _activeNotesAtPlayhead() {
-            const out = new Set();
-            const t = this._currentSec * this.ticksPerSec;
-            for (const n of this.notes) {
-                if (n.tick > t) continue;
-                const dur = Number.isFinite(n.duration) ? n.duration : 0;
-                if (n.tick + dur > t) out.add(n.note);
-            }
-            return out;
+            return this.state.activeNotesAt(this._currentSec);
         }
 
         /** Mount the fingers-overlay widget once on `onOpen`. Subsequent
@@ -1783,15 +1587,8 @@
             this._noteHits = hits;
         }
 
-        /** Map<"tick:note", handId> from current overrides. */
-        _currentAssignments() {
-            const out = new Map();
-            const list = this.overrides?.note_assignments || [];
-            for (const a of list) {
-                if (a && a.handId) out.set(`${a.tick}:${a.note}`, a.handId);
-            }
-            return out;
-        }
+        /** Map<"tick:note", handId> — delegated to state. */
+        _currentAssignments() { return this.state.currentAssignments(); }
 
         // ----------------------------------------------------------------
         //  Interaction — note-click popover, wheel zoom
@@ -2080,37 +1877,20 @@
          *  `_displayedAnchor` for an immediate visual effect; does
          *  NOT push history (commit handles that). */
         _onHandBandDragLive(handId, newAnchor) {
-            const idx = (this._hands || []).findIndex(h => h.id === handId);
-            if (idx < 0) return;
-            const hand = this._hands[idx];
-            const prev = idx > 0 ? this._hands[idx - 1] : null;
-            const next = idx < this._hands.length - 1 ? this._hands[idx + 1] : null;
-            const ext = this._pitchExtent();
-            const minAnchor = prev ? prev.anchor + prev.span : ext.lo;
-            const maxAnchor = next ? next.anchor - hand.span : ext.hi - hand.span;
-            const clamped = Math.max(minAnchor, Math.min(maxAnchor, newAnchor));
-            hand.anchor = clamped;
-            this._displayedAnchor.set(handId, clamped);
+            const clamped = this.state.previewAnchor(handId, newAnchor);
+            if (!Number.isFinite(clamped)) return;
             this.keyboard?.setHandBands(this._currentHandBands());
             this._draw();
             this._pushFingersState();
         }
 
         /** End-of-drag: persist the new anchor as a `hand_anchors`
-         *  override entry at the current playhead, push one history
-         *  snapshot, and rebuild problems. */
+         *  override entry at the current playhead via the state
+         *  container, then refresh the problem list and redraw. */
         _commitHandBandDrag(handId) {
-            const hand = (this._hands || []).find(h => h.id === handId);
-            if (!hand) return;
-            if (!Array.isArray(this.overrides.hand_anchors)) {
-                this.overrides.hand_anchors = [];
-            }
             const tick = Math.round(this._currentSec * this.ticksPerSec);
-            const list = this.overrides.hand_anchors;
-            const i = list.findIndex(a => a?.handId === handId && a?.tick === tick);
-            const entry = { tick, handId, anchor: hand.anchor };
-            if (i >= 0) list[i] = entry; else list.push(entry);
-            this._pushHistory();
+            const stored = this.state.commitAnchor(handId, tick);
+            if (!Number.isFinite(stored)) return;
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
@@ -2198,27 +1978,14 @@
         }
 
         _pinNoteAssignment(tick, note, handId) {
-            if (!Array.isArray(this.overrides.note_assignments)) {
-                this.overrides.note_assignments = [];
-            }
-            const list = this.overrides.note_assignments;
-            const idx = list.findIndex(a => a.tick === tick && a.note === note);
-            const entry = { tick, note, handId };
-            if (idx >= 0) list[idx] = entry;
-            else list.push(entry);
-            this._pushHistory();
+            this.state.setNoteAssignment(tick, note, handId);
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
         }
 
         _clearNoteAssignment(tick, note) {
-            const list = this.overrides?.note_assignments;
-            if (!Array.isArray(list)) return;
-            const idx = list.findIndex(a => a.tick === tick && a.note === note);
-            if (idx < 0) return;
-            list.splice(idx, 1);
-            this._pushHistory();
+            this.state.clearNoteAssignment(tick, note);
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
@@ -2239,14 +2006,12 @@
                 this._redrawAll();
             };
             const reset = () => {
-                this.overrides = window.HandEditorShared.emptyOverrides();
-                // Bring `_hands[*].anchor` and `_displayedAnchor` back
-                // in line with the now-empty override set so the
-                // bands and finger overlay snap to their seed
-                // positions instead of staying on the pre-reset
-                // anchors until the next anim tick lerps them back.
-                this._reseedAnchorsFromOverrides();
-                this._pushHistory();
+                // State drops every override, re-seeds the bands,
+                // and pushes one history entry so the user can undo
+                // the reset itself. The modal then refreshes the
+                // dependent views.
+                this.state.reset();
+                this.keyboard?.setHandBands(this._currentHandBands());
                 this._rebuildProblems();
                 this._redrawAll();
             };
@@ -2373,59 +2138,32 @@
         //  History + save — delegates to HandEditorShared.HistoryManager
         // ----------------------------------------------------------------
 
-        _pushHistory() { this._history.push(this.overrides); }
+        _pushHistory() { this.state.pushHistory(); }
 
         _undo() {
-            const snap = this._history.undo();
-            if (!snap) return;
-            this.overrides = snap;
-            this._afterHistoryStep();
+            if (this.state.undo()) this._afterHistoryStep();
         }
 
         _redo() {
-            const snap = this._history.redo();
-            if (!snap) return;
-            this.overrides = snap;
-            this._afterHistoryStep();
+            if (this.state.redo()) this._afterHistoryStep();
         }
 
         _afterHistoryStep() {
-            // The override set just changed under us. Re-seed the
-            // live band positions BEFORE the redraw so the visual
-            // jumps with the data instead of lagging behind until
-            // the lerp animation catches up.
-            this._reseedAnchorsFromOverrides();
+            // The state already re-seeded the band anchors and the
+            // displayed values; the modal just needs to refresh the
+            // dependent views (problems, keyboard bands, fingers,
+            // roll, minimap) for the new override snapshot.
+            this.keyboard?.setHandBands(this._currentHandBands());
             this._rebuildProblems();
             this._redrawAll();
         }
 
-        /** Rewrite each hand's `anchor` (and the matching displayed
-         *  position) from the latest `hand_anchors` override at the
-         *  current playhead, falling back to the deterministic seed
-         *  used at mount when no override is set for that hand.
-         *  Called after any external mutation of `this.overrides`
-         *  (undo, redo, reset) so the live state stays in sync.
-         *  @private */
+        /** Re-seed all hand anchors + displayed positions from the
+         *  current override set. Thin wrapper kept for back-compat
+         *  with internal call sites; the actual logic lives in
+         *  `KeyboardHandPositionState.reseedAnchors`. */
         _reseedAnchorsFromOverrides() {
-            if (!Array.isArray(this._hands)) return;
-            const ext = this._pitchExtent();
-            const cfg = _parseHandsCfg(this.instrument);
-            const total = cfg?.hands?.length || this._hands.length;
-            for (let i = 0; i < this._hands.length; i++) {
-                const h = this._hands[i];
-                const overrideAnchor = this._latestAnchorOverride(h.id);
-                const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, total))
-                    * (ext.hi - ext.lo - h.span));
-                let anchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
-                // Clamp into the instrument's playable window. Old
-                // overrides saved before the drag-clamp fix could be
-                // outside [ext.lo, ext.hi - span]; loading them as-is
-                // would push the band off-screen and skip its
-                // fingers in the overlay.
-                anchor = Math.max(ext.lo, Math.min(ext.hi - h.span, anchor));
-                h.anchor = anchor;
-                this._displayedAnchor.set(h.id, anchor);
-            }
+            this.state.reseedAnchors();
             this.keyboard?.setHandBands(this._currentHandBands());
         }
 
@@ -2448,7 +2186,7 @@
                     fileId: this.fileId, channel: this.channel,
                     deviceId: this.deviceId, overrides: this.overrides
                 });
-                this._history.markSaved();
+                this.state.markSaved();
                 this._setStatus(_t('keyboardHandEditor.saved','Enregistré.'));
             } catch (err) {
                 console.error('[KeyboardHandPositionEditor] save failed:', err);
