@@ -694,23 +694,38 @@
     color: white;
 }
 
-/* ---- Note colors on the piano keyboard ---- */
-/* Uses CSS variables --note-bg / --note-text set inline by generatePianoKeys().
-   Three-class specificity beats the two-class !important active rules above. */
-.piano-key.note-colored {
-    background: var(--note-bg) !important;
+/* ---- Pastilles de couleur sur les touches du piano ---- */
+.note-color-dot {
+    display: none;
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    border: 1.5px solid rgba(0, 0, 0, 0.18);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-.piano-key.note-colored .key-label {
-    color: var(--note-text) !important;
+.white-key .note-color-dot {
+    width: 14px;
+    height: 14px;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
 }
-.piano-key.note-colored:not(.disabled):hover {
-    filter: brightness(1.12);
+.black-key .note-color-dot {
+    width: 9px;
+    height: 9px;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: rgba(255, 255, 255, 0.25);
 }
-.piano-key.note-colored.active {
-    background: var(--note-bg) !important;
-    filter: brightness(1.35) saturate(1.15);
-    border-color: rgba(255, 255, 255, 0.85) !important;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 14px var(--note-bg) !important;
+/* Quand la touche est active, la pastille se met en valeur avec un contour blanc */
+.white-key.active .note-color-dot {
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+.black-key.active .note-color-dot {
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
 /* Old canvas styles (kept for backward compatibility) */
