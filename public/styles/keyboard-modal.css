@@ -1222,12 +1222,41 @@
    CHORD BUTTONS BAR  (fretboard view — string instruments only)
    ============================================================================ */
 
+/* ── Note Slider Area (Mode A — Root Control) ── */
+
+#note-slider-area {
+    flex-shrink: 0;
+    padding: 6px 10px 8px;
+    background: rgba(0, 0, 0, 0.50);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0 0 6px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#note-slider-area::before {
+    content: 'ROOT';
+    display: block;
+    color: rgba(255, 255, 255, 0.40);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+#note-slider-area .note-slider-canvas {
+    border-radius: 5px;
+    display: block;
+}
+
 .chord-buttons-bar {
     flex-shrink: 0;
     padding: 7px 10px 8px;
     background: rgba(0, 0, 0, 0.40);
     border-top: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 0 0 6px 6px;
+    border-radius: 0 0 6px 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
