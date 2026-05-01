@@ -169,37 +169,52 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-top: none;
     border-radius: 0 0 8px 8px;
-    min-width: 240px;
-    max-height: 320px;
+    min-width: 320px;
+    max-height: 380px;
     overflow-y: auto;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .instrument-dropdown.open {
-    display: block;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 2px;
+    padding: 8px;
+}
+
+/* Override legacy keyboard-polish.css .instrument-dropdown:hover that makes the container white */
+.keyboard-modal .instrument-dropdown,
+.keyboard-modal .instrument-dropdown:hover,
+.keyboard-modal .instrument-dropdown:focus {
+    background: #16271f !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    transform: none !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    color: inherit !important;
+    padding: 0 !important;
 }
 
 .instrument-dropdown::-webkit-scrollbar { width: 6px; }
 .instrument-dropdown::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
 .instrument-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
 
+/* Base item: icon on top, name below */
 .instrument-option {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 8px 6px 7px;
     background: none;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
     color: rgba(255, 255, 255, 0.85);
     cursor: pointer;
-    width: 100%;
-    text-align: left;
-    font-size: 13px;
+    text-align: center;
+    font-size: 11px;
     transition: background 0.1s;
 }
-
-.instrument-option:last-child { border-bottom: none; }
 
 .instrument-option:hover {
     background: rgba(255, 255, 255, 0.08);
@@ -209,15 +224,35 @@
 .instrument-option.selected {
     background: rgba(16, 185, 129, 0.25);
     color: white;
+    outline: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+/* "— Select —" row spans full width, horizontal layout */
+.instrument-option.option-none {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    text-align: left;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 4px;
+    gap: 8px;
 }
 
 .option-icon {
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+/* none-row icon smaller */
+.instrument-option.option-none .option-icon {
+    width: 24px;
+    height: 24px;
 }
 
 .option-svg {
@@ -227,21 +262,29 @@
 }
 
 .option-emoji {
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1;
 }
 
+.instrument-option.option-none .option-emoji {
+    font-size: 16px;
+}
+
 .option-name {
-    flex: 1;
+    width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+.instrument-option.option-none .option-name {
+    flex: 1;
+}
+
 .option-ch {
-    opacity: 0.6;
-    font-size: 11px;
-    margin-left: 4px;
+    opacity: 0.55;
+    font-size: 10px;
+    display: block;
 }
 
 .keyboard-header-row {

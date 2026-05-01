@@ -749,10 +749,10 @@ class KeyboardModalNew {
 
         dropdown.innerHTML = '';
 
-        // "No selection" entry
+        // "No selection" entry — spans full grid width
         const noneBtn = document.createElement('button');
         noneBtn.type = 'button';
-        noneBtn.className = 'instrument-option' + (!this.selectedDevice ? ' selected' : '');
+        noneBtn.className = 'instrument-option option-none' + (!this.selectedDevice ? ' selected' : '');
         noneBtn.dataset.deviceId = '';
         noneBtn.innerHTML = `
             <div class="option-icon"><span class="option-emoji">🎵</span></div>
