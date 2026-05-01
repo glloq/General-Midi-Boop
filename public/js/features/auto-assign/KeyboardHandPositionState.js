@@ -148,6 +148,15 @@
                 ? opts.ticksPerSec : 480;
             this.lerpHalfLifeMs = Number.isFinite(opts.lerpHalfLifeMs)
                 && opts.lerpHalfLifeMs > 0 ? opts.lerpHalfLifeMs : 85;
+            // Layout type ('piano' | 'chromatic') drives the visual
+            // band width: piano hands cover only the white-key range
+            // their fingers actually reach (= a tighter band that
+            // lets two hands play consecutive notes without visual
+            // collision), while chromatic hands stay at one slot per
+            // semitone. Fall back to the instrument's hands_config
+            // entry; chromatic by default for safety.
+            const cfg = _parseHandsCfg(this.instrument);
+            this.layout = (cfg && cfg.keyboard_type === 'piano') ? 'piano' : 'chromatic';
 
             this.range = _pitchExtent(this.instrument, this.notes);
             this.overrides = Shared.cloneOverrides(opts.initialOverrides) || Shared.emptyOverrides();
@@ -207,8 +216,58 @@
             return this.hands.map(h => {
                 const a = this._displayedAnchors.get(h.id);
                 const aInt = Math.round(Number.isFinite(a) ? a : h.anchor);
-                return { id: h.id, low: aInt, high: aInt + h.span, color: h.color };
+                const visualSpan = this._displaySpanFor(h, aInt);
+                return { id: h.id, low: aInt, high: aInt + visualSpan, color: h.color };
             });
+        }
+
+        /** Visual span in semitones for hand `h` at `anchor`. The
+         *  configured `hand.span` (= physical reach) drives the
+         *  simulator's reachability checks but the BAND drawn on
+         *  the keyboard widget should match what the fingers
+         *  actually cover, so two hands can play consecutive notes
+         *  without their bands visually colliding.
+         *
+         *    - piano: walk the white-key sequence the fingers
+         *      overlay draws and return `lastWhite − firstWhite`.
+         *    - chromatic: numFingers slots, one per semitone, so
+         *      span = `numFingers − 1`.
+         *
+         *  Falls back to the configured span when the white
+         *  walk runs short (anchor near the top of the MIDI range
+         *  with too few whites available — exotic instrument).
+         *  @private */
+        _displaySpanFor(hand, anchor) {
+            const numFingers = Number.isFinite(hand.numFingers) && hand.numFingers > 0
+                ? Math.round(hand.numFingers)
+                : Math.max(1, Math.round(hand.span) + 1);
+            if (this.layout === 'piano') {
+                const numWhites = Math.floor(numFingers / 2) + 1;
+                const whites = this._whiteKeysFromAnchor(anchor, numWhites);
+                if (whites.length >= 2) {
+                    return whites[whites.length - 1] - whites[0];
+                }
+                return Math.max(1, numFingers - 1);
+            }
+            return Math.max(1, numFingers - 1);
+        }
+
+        /** Walk MIDI from `startMidi` upward, picking `count` whites
+         *  in a row. Used by `_displaySpanFor` (and the fingers
+         *  renderer mirror). @private */
+        _whiteKeysFromAnchor(startMidi, count) {
+            const out = [];
+            const isBlack = (m) => {
+                const v = ((m % 12) + 12) % 12;
+                return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
+            };
+            let m = Math.max(0, Math.round(startMidi));
+            if (isBlack(m)) m++;
+            while (out.length < count && m <= 127) {
+                if (!isBlack(m)) out.push(m);
+                m++;
+            }
+            return out;
         }
 
         /** Set of MIDI notes sounding at `currentSec` — short-circuits
@@ -555,8 +614,15 @@
             const prev = idx > 0 ? this.hands[idx - 1] : null;
             const next = idx < this.hands.length - 1 ? this.hands[idx + 1] : null;
             const ext = this.range;
-            const minAnchor = prev ? prev.anchor + prev.span : ext.lo;
-            const maxAnchor = next ? next.anchor - hand.span : ext.hi - hand.span;
+            // Use the VISUAL span (= what the fingers cover on the
+            // keyboard widget) for the neighbour clamp so two hands
+            // can sit side-by-side at consecutive white keys without
+            // their bands visually colliding. Falls back to the
+            // configured span at the keyboard's edges.
+            const prevSpan = prev ? this._displaySpanFor(prev, prev.anchor) : 0;
+            const handSpan = this._displaySpanFor(hand, newAnchor);
+            const minAnchor = prev ? prev.anchor + prevSpan : ext.lo;
+            const maxAnchor = next ? next.anchor - handSpan : ext.hi - handSpan;
             return Math.max(minAnchor, Math.min(maxAnchor, newAnchor));
         }
     }
