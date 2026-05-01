@@ -194,7 +194,17 @@
 }
 
 .khpe-fingers-overlay {
+    /* Canvas is a replaced element with an HTML-default intrinsic
+       size of 300×150 — `inset: 4px` alone doesn't force it to
+       fill the host on every browser (Firefox keeps the intrinsic
+       300 px width). The explicit `width`/`height` calc()s bypass
+       the intrinsic size and stretch the overlay across the full
+       keyboard host so the fingers align with the keyboard widget
+       beneath. */
     position: absolute;
-    inset: 4px;
+    top: 4px;
+    left: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
     pointer-events: none;
 }
