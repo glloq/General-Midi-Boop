@@ -1095,15 +1095,21 @@
     );
 }
 
-/* String-vibe overlay: spans full row width, 4px tall */
+/* String-vibe overlay: right of the active fret, 6px with shimmer animation */
+@keyframes string-shimmer {
+    0%   { opacity: 1;    }
+    40%  { opacity: 0.70; }
+    100% { opacity: 1;    }
+}
 .fretboard-container .string-vibe {
     display: none;
     position: absolute;
-    top: calc(50% - 2px);
-    height: 4px;
+    top: calc(50% - 3px);
+    height: 6px;
     pointer-events: none;
     z-index: 2;
-    border-radius: 2px;
+    border-radius: 3px;
+    animation: string-shimmer 0.45s ease-in-out infinite;
 }
 
 /* ============================================================================

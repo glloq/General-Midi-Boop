@@ -391,6 +391,8 @@
 
         if (mode === 'fretboard') this.renderFretboard();
         if (mode === 'drumpad') this.renderDrumPad();
+        // Regenerate piano keys so colors/state are always in sync when returning to piano view.
+        if (mode === 'piano') this.regeneratePianoKeys();
     }
 
     /**
@@ -558,11 +560,9 @@
      * Update the string-vibration overlay for each fretboard row.
      * Called by updatePianoDisplay() when viewMode === 'fretboard'.
      *
-     * Visual metaphor:
-     *   • Left of the pressed fret  → corde étouffée (dim)
-     *   • Right of the pressed fret → corde vibrante (bright)
-     * The overlay spans the full row width; a CSS gradient marks the transition
-     * at the exact fret position.
+     * Only the RIGHT portion of the string (from pressed fret to bridge) is
+     * colored — the left (nut → fret) is left untouched.
+     * The vibrating segment is highly exaggerated: bright, wide glow + shimmer.
      */
     KeyboardPianoMixin._updateFretboardStringColors = function() {
         const rows = document.querySelectorAll('.fretboard-container .fret-string');
@@ -574,46 +574,30 @@
             if (!activeDot) {
                 vibe.style.display = 'none';
                 row.classList.remove('string-active');
-                row.style.removeProperty('--string-color');
                 return;
             }
 
             const cell = activeDot.closest('.fret-cell');
             if (!cell) { vibe.style.display = 'none'; return; }
 
-            // Percentage position of the active fret within the row.
-            const rowWidth = row.offsetWidth || 1;
-            const fretCenterPx = cell.offsetLeft + cell.offsetWidth / 2;
-            const pct = Math.max(0, Math.min(100, (fretCenterPx / rowWidth) * 100)).toFixed(2);
+            // Start at the center of the active fret dot, span to the right edge.
+            const startPx = cell.offsetLeft + cell.offsetWidth / 2;
+            vibe.style.left  = startPx + 'px';
+            vibe.style.right = '0';
 
             const note = parseInt(activeDot.dataset.note, 10);
-            let color, dimColor;
-            if (this.showNoteColors) {
-                color    = FRET_NOTE_COLORS[note % 12].bg;
-                dimColor = color + '55'; // 33% opacity for the stopped segment
-            } else {
-                color    = '#f59e0b';
-                dimColor = 'rgba(245,158,11,0.28)';
-            }
+            const color = this.showNoteColors ? FRET_NOTE_COLORS[note % 12].bg : '#f59e0b';
 
-            // Full-string gradient: dim → sharp transition → bright → fade out.
-            vibe.style.left = '0';
-            vibe.style.right = '0';
-            vibe.style.background = [
-                `linear-gradient(to right,`,
-                `  ${dimColor} 0%,`,
-                `  ${dimColor} calc(${pct}% - 2px),`,
-                `  ${color}    calc(${pct}% - 2px),`,
-                `  ${color}    ${pct}%,`,
-                `  ${color}cc  calc(${pct}% + 30px),`,
-                `  ${color}44  calc(${pct}% + 80px),`,
-                `  ${color}11  100%`,
-                `)`,
-            ].join(' ');
+            // Bright at the fret, fading toward the bridge — exaggerated glow.
+            vibe.style.background = `linear-gradient(to right,
+                ${color}       0%,
+                ${color}ee    15%,
+                ${color}99    40%,
+                ${color}44    70%,
+                ${color}11   100%)`;
+            vibe.style.boxShadow = `0 0 8px 2px ${color}cc, 0 0 18px 4px ${color}66`;
+
             vibe.style.display = 'block';
-
-            // Row background tint so the active string stands out from its neighbors.
-            row.style.setProperty('--string-color', color);
             row.classList.add('string-active');
         });
     }
