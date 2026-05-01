@@ -492,7 +492,10 @@
             if (f === 12 || f === 24) cell.classList.add('inlay-double');
             header.appendChild(cell);
         }
-        stringsArea.appendChild(header);
+        // Hand-position widget (rendered by KeyboardChordsMixin if loaded)
+        if (typeof this.renderHandWidget === 'function') {
+            this.renderHandWidget(stringsArea, { maxFretCount, isFretless, gridCols });
+        }
 
         // Strings — `stringsTopDown` is reversed so the highest pitch is at the
         // top. The 1-indexed string number used by the project's CC convention
@@ -528,6 +531,9 @@
             }
             stringsArea.appendChild(row);
         }
+
+        // Fret-number header below the strings (moved from top for readability)
+        stringsArea.appendChild(header);
 
         container.appendChild(stringsArea);
 

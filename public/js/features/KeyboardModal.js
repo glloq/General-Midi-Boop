@@ -406,6 +406,11 @@ class KeyboardModalNew {
             this.activeFretPositions.add(`${key.dataset.string}:${key.dataset.fret}`);
         }
 
+        // Auto-move hand if the clicked fret is outside the current hand window.
+        if (key.dataset.fret !== undefined && typeof this._maybeAutoMoveHand === 'function') {
+            this._maybeAutoMoveHand(parseInt(key.dataset.fret, 10));
+        }
+
         if (!this.activeNotes.has(note)) {
             this.mouseActiveNotes.add(note);
             // Fretboard cells carry data-string + data-fret so the receiving
