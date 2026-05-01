@@ -214,6 +214,7 @@
             // it to surface any hand that was silently skipped.
             this._renderedHands = new Set();
             this._skipReasons = [];
+            this._handPixelDigest = [];
             if (this._layout === 'piano') {
                 this._drawPiano(ctx, W, H);
             } else {
@@ -232,7 +233,8 @@
                           skips: this._skipReasons });
                 } else {
                     console.info('[KeyboardFingersRenderer] all hands rendered',
-                        { layout: this._layout, count: this._hands.length });
+                        { layout: this._layout, count: this._hands.length,
+                          pixelDigest: this._handPixelDigest });
                 }
             }
         }
@@ -380,6 +382,20 @@
                 this._renderedHands.add(hand.id);
                 const leftX = slotCenterX(0) - fingerW / 2;
                 const rightX = slotCenterX(lastDrawableSlot) + fingerW / 2;
+                // Per-hand pixel digest for the once-per-cycle log so
+                // we can see at a glance where each hand's bunch
+                // actually lands on the canvas (not just whether it
+                // was rendered).
+                if (Array.isArray(this._handPixelDigest)) {
+                    this._handPixelDigest.push({
+                        id: hand.id, anchor: a, numFingers,
+                        whites, leftX: Math.round(leftX),
+                        rightX: Math.round(rightX),
+                        canvasW: W,
+                        firstSlotX: Math.round(slotCenterX(0)),
+                        lastSlotX: Math.round(slotCenterX(lastDrawableSlot))
+                    });
+                }
                 this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
