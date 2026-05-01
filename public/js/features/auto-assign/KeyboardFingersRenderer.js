@@ -274,6 +274,43 @@
             const blackFingerH = Math.max(2, handY - blackTipY);
             const kb = this._kb;
 
+            // White-key geometry computed FROM THE FINGERS CANVAS
+            // WIDTH, not from `kb.keyXAt`. Reason: `KeyboardPreview`
+            // caches its geometry off its own canvas's clientWidth,
+            // and the keyboard canvas can momentarily have a
+            // different width than the fingers overlay during
+            // layout / open animations. The fingers would then
+            // render at positions calibrated to the keyboard
+            // canvas's stale width — a hand whose pixel range fell
+            // past the fingers canvas's right edge looked completely
+            // missing on screen even though the renderer reported
+            // it as drawn. Computing positions directly here against
+            // `W` keeps the fingers ALWAYS aligned with whatever
+            // the fingers canvas actually displays, regardless of
+            // the keyboard widget's internal cache.
+            //
+            // We still read `kb.rangeMin`/`rangeMax` (which don't
+            // depend on canvas width) so the white-key indexing
+            // matches the range the keyboard widget renders. When
+            // `_kbView` is null those equal the full instrument
+            // range, so the fingers and the keyboard's keys still
+            // line up on the X axis.
+            const rangeMin = Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
+            const rangeMax = Number.isFinite(kb.rangeMax) ? kb.rangeMax : this._extent.hi;
+            const whiteIdxArr = new Int16Array(128);
+            let idx = 0;
+            for (let m = rangeMin; m <= rangeMax; m++) {
+                whiteIdxArr[m] = idx;
+                if (!this._isBlackKey(m)) idx++;
+            }
+            const numWhitesInRange = idx;
+            if (numWhitesInRange <= 0) return;
+            const ww = W / numWhitesInRange;
+            const whiteCenter = (midi) => {
+                const m = Math.max(rangeMin, Math.min(rangeMax, Math.round(midi)));
+                return whiteIdxArr[m] * ww + ww / 2;
+            };
+
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
                 const a = this._anchorFor(hand);
@@ -290,16 +327,9 @@
                     continue;
                 }
 
-                // Strict white-key alignment: even slot i lands on
-                // the actual centre of the (i/2)-th white key above
-                // the anchor; odd slot i lands at the midpoint
-                // between two adjacent whites — exactly where a
-                // black key (real or virtual) sits.
-                //
-                // For numFingers = N, we need
-                //   floor(N/2) + 1 white keys
-                // (one per even slot, plus one extra so the last
-                // odd slot has a "next white" to be between).
+                // Build the white-key sequence for this hand. Slots
+                // alternate: even = white, odd = between adjacent
+                // whites. Need floor(N/2) + 1 whites total.
                 const numWhites = Math.floor(numFingers / 2) + 1;
                 const whites = this._whiteKeysFromAnchor(lowMidi, numWhites);
                 if (whites.length < 2) {
@@ -309,31 +339,9 @@
                     continue;
                 }
 
-                // Resolve each white's pixel centre from the
-                // keyboard widget. We tolerate the rightmost
-                // entries falling off the keyboard's range — the
-                // slot loop below short-circuits when it runs past
-                // `whiteCenters.length`. Also stop on duplicate
-                // positions: `KeyboardPreview.keyXAt` clamps its
-                // input to its own `rangeMax`, so two whites past
-                // the keyboard's right edge would resolve to the
-                // same pixel and stack the fingers on top of one
-                // another.
-                const whiteCenters = [];
-                for (const m of whites) {
-                    const x = kb.keyXAt(m);
-                    const w = kb.keyWidth(m);
-                    if (!Number.isFinite(x) || !Number.isFinite(w)) break;
-                    const centre = x + w / 2;
-                    const last = whiteCenters[whiteCenters.length - 1];
-                    if (last != null && Math.abs(centre - last) < 1) break;
-                    whiteCenters.push(centre);
-                }
-                if (whiteCenters.length < 2) {
-                    this._noteSkip(hand.id, 'centers-too-few',
-                        { whitesFound: whites.length, centersFound: whiteCenters.length });
-                    continue;
-                }
+                // Pixel centres computed against the fingers canvas
+                // width (see comment above).
+                const whiteCenters = whites.map(m => whiteCenter(m));
 
                 const slotCenterX = (i) => {
                     if ((i & 1) === 0) return whiteCenters[i >> 1];
@@ -352,40 +360,13 @@
                             && wHi - wLo === 2) ? wLo + 1 : null;
                 };
 
-                // Finger body width = a fraction of a white-key
-                // width so W and B fingers stay visually balanced.
-                const refWw = kb.keyWidth(whites[0]);
-                const wwSafe = Number.isFinite(refWw) && refWw > 0 ? refWw : 14;
-                const fingerW = Math.max(3, wwSafe * 0.32);
+                // Finger body width = ~32 % of a white-key width so
+                // W and B fingers stay visually balanced.
+                const fingerW = Math.max(3, ww * 0.32);
 
-                // Knuckle bar: from the leftmost slot's left edge to
-                // the rightmost actually-drawable slot's right edge.
-                // We compute the highest slot index whose pixel
-                // centre is computable (= every white before it has
-                // been resolved) so partially off-screen hands still
-                // render their visible portion.
-                let lastDrawableSlot = numFingers - 1;
-                while (lastDrawableSlot >= 0
-                        && (lastDrawableSlot & 1) === 1
-                        && (lastDrawableSlot >> 1) + 1 >= whiteCenters.length) {
-                    lastDrawableSlot--;
-                }
-                while (lastDrawableSlot >= 0
-                        && (lastDrawableSlot & 1) === 0
-                        && (lastDrawableSlot >> 1) >= whiteCenters.length) {
-                    lastDrawableSlot--;
-                }
-                if (lastDrawableSlot < 0) {
-                    this._noteSkip(hand.id, 'no-drawable-slot');
-                    continue;
-                }
                 this._renderedHands.add(hand.id);
                 const leftX = slotCenterX(0) - fingerW / 2;
-                const rightX = slotCenterX(lastDrawableSlot) + fingerW / 2;
-                // Per-hand pixel digest for the once-per-cycle log so
-                // we can see at a glance where each hand's bunch
-                // actually lands on the canvas (not just whether it
-                // was rendered).
+                const rightX = slotCenterX(numFingers - 1) + fingerW / 2;
                 if (Array.isArray(this._handPixelDigest)) {
                     this._handPixelDigest.push({
                         id: hand.id, anchor: a, numFingers,
@@ -393,7 +374,7 @@
                         rightX: Math.round(rightX),
                         canvasW: W,
                         firstSlotX: Math.round(slotCenterX(0)),
-                        lastSlotX: Math.round(slotCenterX(lastDrawableSlot))
+                        lastSlotX: Math.round(slotCenterX(numFingers - 1))
                     });
                 }
                 this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
@@ -401,16 +382,14 @@
 
                 // Pass 1 — black fingers (odd slot indices). Drawn
                 // first so the white fingers cap their bottom.
-                for (let i = 1; i <= lastDrawableSlot; i += 2) {
-                    if ((i >> 1) + 1 >= whiteCenters.length) break;
+                for (let i = 1; i < numFingers; i += 2) {
                     const m = slotMidi(i);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
                     this._drawFingerBar(ctx, slotCenterX(i), blackTipY, blackFingerH,
                                          fingerW, isActive, W);
                 }
                 // Pass 2 — white fingers (even slot indices) on top.
-                for (let i = 0; i <= lastDrawableSlot; i += 2) {
-                    if ((i >> 1) >= whiteCenters.length) break;
+                for (let i = 0; i < numFingers; i += 2) {
                     const m = slotMidi(i);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
                     this._drawFingerBar(ctx, slotCenterX(i), whiteTipY, whiteFingerH,
@@ -425,29 +404,19 @@
 
         _drawChromatic(ctx, W, H) {
             const opts = this.options;
-            const view = this._extent;
-            const fallbackPxPerPitch = W / Math.max(1, view.hi - view.lo + 1);
             const kb = this._kb;
 
-            // Same `keyLeftX` / `keyRightX` lookups as the piano
-            // renderer, but with a linear fallback when the keyboard
-            // widget isn't wired yet so the overlay still renders
-            // sensibly during the first few frames after mount.
-            const keyLeftX = (midi) => {
-                if (kb) {
-                    const v = kb.keyXAt(midi);
-                    if (Number.isFinite(v)) return v;
-                }
-                return (midi - view.lo) * fallbackPxPerPitch;
-            };
-            const keyRightX = (midi) => {
-                if (kb) {
-                    const x = kb.keyXAt(midi);
-                    const w = kb.keyWidth(midi);
-                    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) return x + w;
-                }
-                return (midi - view.lo + 1) * fallbackPxPerPitch;
-            };
+            // Pixel-per-semitone computed against the fingers canvas
+            // width (NOT via `kb.keyXAt`). See the same rationale in
+            // `_drawPiano`: the keyboard canvas can have a stale
+            // size cached, while the fingers canvas reports the
+            // accurate live clientWidth.
+            const rangeMin = (kb && Number.isFinite(kb.rangeMin)) ? kb.rangeMin : this._extent.lo;
+            const rangeMax = (kb && Number.isFinite(kb.rangeMax)) ? kb.rangeMax : this._extent.hi;
+            const semitoneCount = Math.max(1, rangeMax - rangeMin + 1);
+            const pxPerPitch = W / semitoneCount;
+            const xLeftOf = (midi) => (midi - rangeMin) * pxPerPitch;
+            const xRightOf = (midi) => (midi - rangeMin + 1) * pxPerPitch;
 
             const bandH = opts.bandHeight;
             const handY = Math.max(0, H - bandH);
@@ -471,16 +440,11 @@
                     continue;
                 }
 
-                const handLeftX  = keyLeftX(Math.floor(a));
-                const handRightX = keyRightX(Math.floor(a) + Math.round(hand.span));
+                const handLeftX  = xLeftOf(Math.floor(a));
+                const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
                 if (!(handRightX > handLeftX)) {
                     this._noteSkip(hand.id, 'right-le-left',
                         { handLeftX, handRightX });
-                    continue;
-                }
-                if (handRightX <= 0 || handLeftX >= W) {
-                    this._noteSkip(hand.id, 'pixel-off-screen',
-                        { handLeftX, handRightX, W });
                     continue;
                 }
                 const handPxW = handRightX - handLeftX;
@@ -488,6 +452,14 @@
                 const fingerW = Math.max(3, slotW * opts.fingerWidthRatio);
 
                 this._renderedHands.add(hand.id);
+                if (Array.isArray(this._handPixelDigest)) {
+                    this._handPixelDigest.push({
+                        id: hand.id, anchor: a, numFingers,
+                        leftX: Math.round(handLeftX),
+                        rightX: Math.round(handRightX),
+                        canvasW: W
+                    });
+                }
                 this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
