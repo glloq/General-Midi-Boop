@@ -780,6 +780,11 @@
             let rangeMin = ext.lo;
             let rangeMax = ext.hi;
             let bands = [];
+            // midi → handId | null. Populated by setActiveNotes so
+            // the chromatic widget can tint keys currently sounding
+            // at the playhead, the same way KeyboardPreview does for
+            // piano-style instruments.
+            const activeNotes = new Map();
 
             const draw = () => {
                 const dpr = window.devicePixelRatio || 1;
@@ -800,15 +805,29 @@
                 const keysH = H - bandH;
                 const range = Math.max(1, rangeMax - rangeMin + 1);
                 const pxPerNote = W / range;
+                // Build a quick id → colour map so active keys can be
+                // tinted with their assigned hand's colour (matches
+                // KeyboardPreview's behaviour).
+                const bandColorById = new Map();
+                for (const b of bands) bandColorById.set(b.id, b.color);
                 // Notes as identical cells. C of every octave gets a
                 // brighter tint so the operator finds the octave
-                // boundaries quickly.
+                // boundaries quickly. Active notes override the base
+                // tint with the assigned hand's colour (or a generic
+                // blue when no hand covers them).
                 for (let m = rangeMin; m <= rangeMax; m++) {
                     const x = (m - rangeMin) * pxPerNote;
-                    ctx.fillStyle = (m % 12 === 0) ? '#f8fafc' : '#cbd5e1';
+                    let fill;
+                    if (activeNotes.has(m)) {
+                        const hid = activeNotes.get(m);
+                        fill = (hid && bandColorById.get(hid)) || '#3b82f6';
+                    } else {
+                        fill = (m % 12 === 0) ? '#f8fafc' : '#cbd5e1';
+                    }
+                    ctx.fillStyle = fill;
                     ctx.fillRect(x + 0.5, 0, Math.max(1, pxPerNote - 1), keysH);
                     if (m % 12 === 0 && pxPerNote > 18) {
-                        ctx.fillStyle = '#0f172a';
+                        ctx.fillStyle = activeNotes.has(m) ? '#f8fafc' : '#0f172a';
                         ctx.font = '10px sans-serif';
                         ctx.textBaseline = 'bottom';
                         ctx.fillText(`C${(m / 12) - 1}`, x + 3, keysH - 2);
@@ -849,6 +868,20 @@
             return {
                 setRange(min, max) { rangeMin = min; rangeMax = max; draw(); },
                 setHandBands(b) { bands = Array.isArray(b) ? b : []; draw(); },
+                /** Accept either `[midi, midi, …]` or `[{midi, handId}, …]`,
+                 *  same shape as KeyboardPreview.setActiveNotes. */
+                setActiveNotes(notes) {
+                    activeNotes.clear();
+                    if (Array.isArray(notes)) {
+                        for (const e of notes) {
+                            if (Number.isFinite(e)) activeNotes.set(e, null);
+                            else if (e && Number.isFinite(e.midi)) {
+                                activeNotes.set(e.midi, e.handId || null);
+                            }
+                        }
+                    }
+                    draw();
+                },
                 draw,
                 /** Pixel x of the LEFT edge of `midi`'s key. Accepts
                  *  fractional MIDI values for smooth animation. */
@@ -858,7 +891,7 @@
                 },
                 /** Pixel width of the key at `midi` (uniform here). */
                 keyWidth(/*midi*/) { return pxPerNote(); },
-                destroy() { bands = []; }
+                destroy() { bands = []; activeNotes.clear(); }
             };
         }
 
@@ -1299,10 +1332,6 @@
                 return;
             }
             const active = this._activeNotesAtPlayhead();
-            const isBlack = (m) => {
-                const v = ((m % 12) + 12) % 12;
-                return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
-            };
 
             // Geometry. Fingers START at the top of the hand band
             // (Y = handY) and extend UPWARD onto the keys; their tip
@@ -1331,6 +1360,7 @@
             const whiteFingerH = Math.max(2, handY - whiteTipY);
             const blackFingerH = Math.max(2, handY - blackTipY);
 
+            const view = this._visibleExtent();
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
                 const numFingers = Math.max(1, Number.isFinite(hand.numFingers)
@@ -1347,6 +1377,15 @@
                 // however many fingers it has.
                 const lowMidi  = Math.round(a);
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
+                // MIDI-based off-screen check first. KeyboardPreview's
+                // keyXAt clamps to its rangeMin/rangeMax, so a hand
+                // entirely beyond the visible range would otherwise
+                // resolve to a finite x near the keyboard edge and
+                // render fingers in the wrong place. The chromatic
+                // widget extrapolates instead, but the same MIDI
+                // check works for both.
+                if (highMidi < view.lo || lowMidi > view.hi) continue;
+
                 const handLeftX  = kb.keyXAt(lowMidi);
                 const rightWidth = kb.keyWidth(highMidi);
                 const handRightX = kb.keyXAt(highMidi)
