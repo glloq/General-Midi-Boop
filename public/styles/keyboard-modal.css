@@ -208,6 +208,27 @@
 .keyboard-header-controls .btn-view-toggle:hover {
     background: rgba(255, 255, 255, 0.35);
 }
+
+/* Note-color toggle button (fretboard/tablature mode only) */
+.keyboard-header-controls .btn-note-colors {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+.keyboard-header-controls .btn-note-colors:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.keyboard-header-controls .btn-note-colors.active {
+    background: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
 .hidden { display: none !important; }
 
 .keyboard-header-controls .octaves-count-select {
@@ -990,6 +1011,17 @@
     background: linear-gradient(to bottom, #34d399, #059669);
     border-color: #047857;
     box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+}
+/* When note colors are enabled, preserve the note color and show a bright ring instead */
+.fretboard-container .fret-dot.note-colored.active {
+    background: inherit;
+    filter: brightness(1.35) saturate(1.2);
+    border: 2px solid #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 0 0 4px rgba(0, 0, 0, 0.5);
+}
+.fretboard-container .fret-dot.note-colored:hover {
+    filter: brightness(1.15);
+    background: inherit;
 }
 .fretboard-container .fret-dot.disabled {
     opacity: 0.35;

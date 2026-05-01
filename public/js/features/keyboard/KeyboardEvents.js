@@ -133,6 +133,14 @@
             });
         }
 
+        // Note-color toggle (fretboard/tablature mode only)
+        document.getElementById('keyboard-note-colors-toggle')?.addEventListener('click', () => {
+            this.showNoteColors = !this.showNoteColors;
+            const btn = document.getElementById('keyboard-note-colors-toggle');
+            if (btn) btn.classList.toggle('active', this.showNoteColors);
+            this.renderFretboard();
+        });
+
         // View mode toggle (piano <-> fretboard / drumpad)
         document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
             const info = this.getInstrumentViewInfo();

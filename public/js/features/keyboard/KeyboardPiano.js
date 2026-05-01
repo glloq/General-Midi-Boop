@@ -3,6 +3,23 @@
     'use strict';
     const KeyboardPianoMixin = {};
 
+    // 12 chromatic note colors (C to B). Evenly spread across the color wheel
+    // so every semitone is visually distinct across strings in tablature mode.
+    const FRET_NOTE_COLORS = [
+        { bg: '#e63333', text: '#fff' }, // C  - red
+        { bg: '#e66600', text: '#fff' }, // C# - orange
+        { bg: '#cc9900', text: '#1a1a1a' }, // D  - amber
+        { bg: '#88bb00', text: '#1a1a1a' }, // D# - yellow-green
+        { bg: '#22aa22', text: '#fff' }, // E  - green
+        { bg: '#00aa88', text: '#fff' }, // F  - teal
+        { bg: '#0099cc', text: '#fff' }, // F# - cyan-blue
+        { bg: '#1155dd', text: '#fff' }, // G  - blue
+        { bg: '#6633cc', text: '#fff' }, // G# - blue-violet
+        { bg: '#9922aa', text: '#fff' }, // A  - violet
+        { bg: '#cc1177', text: '#fff' }, // A# - magenta
+        { bg: '#dd2244', text: '#fff' }, // B  - rose
+    ];
+
 
     KeyboardPianoMixin.createModal = function() {
         const endNote = this.startNote + this.visibleNoteCount - 1;
@@ -30,6 +47,11 @@
                             <div class="control-group view-mode-group hidden" id="keyboard-view-mode-group">
                                 <label>${this.t('keyboard.view') || 'View'}</label>
                                 <button class="btn-view-toggle" id="keyboard-view-toggle" title="${this.t('keyboard.toggleView') || 'Toggle view'}">🎹</button>
+                            </div>
+
+                            <div class="control-group note-color-group hidden" id="keyboard-note-color-group">
+                                <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
+                                <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
                             </div>
 
                             <div class="control-group notation-group">
@@ -342,6 +364,10 @@
         if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano');
         if (minimap) minimap.classList.toggle('hidden', mode !== 'piano');
 
+        // Note-color toggle is only relevant in fretboard (tablature) mode.
+        const noteColorGroup = document.getElementById('keyboard-note-color-group');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode !== 'fretboard');
+
         // Update toggle button label
         const btn = document.getElementById('keyboard-view-toggle');
         if (btn) {
@@ -466,10 +492,26 @@
             if (stringNumber !== undefined) dot.dataset.string = String(stringNumber);
             if (fret !== undefined) dot.dataset.fret = String(fret);
             if (!this.isNotePlayable(midi)) dot.classList.add('disabled');
-            const label = document.createElement('span');
-            label.className = 'fret-label';
-            label.textContent = this.getNoteLabel(midi);
-            dot.appendChild(label);
+
+            // Apply chromatic note color when enabled (one color per semitone,
+            // identical across octaves — makes same-pitch notes obvious on all strings).
+            if (this.showNoteColors) {
+                const color = FRET_NOTE_COLORS[midi % 12];
+                dot.style.background = color.bg;
+                dot.style.borderColor = 'rgba(0,0,0,0.3)';
+                dot.classList.add('note-colored');
+                const label = document.createElement('span');
+                label.className = 'fret-label';
+                label.style.color = color.text;
+                label.textContent = this.getNoteLabel(midi);
+                dot.appendChild(label);
+            } else {
+                const label = document.createElement('span');
+                label.className = 'fret-label';
+                label.textContent = this.getNoteLabel(midi);
+                dot.appendChild(label);
+            }
+
             cell.appendChild(dot);
         }
         return cell;
