@@ -225,6 +225,7 @@
             // would otherwise read 0 inside the BaseModal mount handler).
             requestAnimationFrame(() => {
                 this._rebuildProblems();
+                this._pushActiveNotesToKeyboard();
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
@@ -466,6 +467,7 @@
 
                 const moving = this._stepAnchorAnimation(dt);
                 this.keyboard?.setHandBands(this._currentHandBands());
+                this._pushActiveNotesToKeyboard();
                 this._draw();
                 this._drawMinimap();
                 this._drawKbMini();
@@ -594,13 +596,13 @@
                     border-top: 1px solid #334155; cursor: pointer; position: relative;
                 }
                 .khpe-kb-mini-canvas { display: block; width: 100%; height: 100%; }
-                /* Reduced keyboard area — purely informational, no
-                   interaction. The roll above hosts every edit action.
-                   Compact height so the piano-roll keeps as much
-                   vertical real estate as possible. */
+                /* Keyboard preview area — purely informational, no
+                   interaction (every edit happens on the roll above).
+                   Tall enough to show keys, fingers and active-key
+                   tinting clearly. */
                 .khpe-keyboard-host {
                     position: relative; background: #1e293b; padding: 4px;
-                    height: 70px; flex: none;
+                    height: 120px; flex: none;
                     pointer-events: none;
                 }
                 .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
@@ -876,6 +878,32 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             // KeyboardPreview rebuilds its geo cache lazily — invalidate.
             if (this.keyboard) this.keyboard._geoCache = null;
+        }
+
+        /** Push the set of currently sounding semitones (= notes
+         *  whose tick window contains the playhead) to the keyboard
+         *  widget so its active-key tinting matches what the
+         *  piano-roll's playhead is showing. KeyboardPreview honours
+         *  per-key hand colouring when the entry carries `handId`. */
+        _pushActiveNotesToKeyboard() {
+            if (!this.keyboard || typeof this.keyboard.setActiveNotes !== 'function') return;
+            const active = this._activeNotesAtPlayhead();
+            if (active.size === 0) { this.keyboard.setActiveNotes([]); return; }
+            // Tag each active midi with the hand whose [low, high]
+            // window currently covers it so the keyboard widget can
+            // tint the key in that hand's colour. Falls back to no
+            // tag (=> generic active fill) when no hand covers the
+            // note.
+            const bands = this._currentHandBands();
+            const out = [];
+            for (const midi of active) {
+                let handId = null;
+                for (const b of bands) {
+                    if (midi >= b.low && midi <= b.high) { handId = b.id; break; }
+                }
+                out.push({ midi, handId });
+            }
+            this.keyboard.setActiveNotes(out);
         }
 
         /** Bands rendered on the keyboard. Anchors are quantized to the
@@ -1312,58 +1340,49 @@
                     ? this._displayedAnchor.get(hand.id) : hand.anchor;
                 if (!Number.isFinite(a)) continue;
 
-                // First white at or below the live anchor. Black
-                // anchors snap to the white immediately to their
-                // left (every black has a white at midi - 1).
-                let firstWhite = Math.round(a);
-                if (isBlack(firstWhite)) firstWhite -= 1;
+                // The hand's reachable window covers [anchor, anchor+span]
+                // in MIDI semitones. We render the fingers across the
+                // FULL pixel width of that window, so each hand always
+                // gets all its fingers regardless of where it sits and
+                // however many fingers it has.
+                const lowMidi  = Math.round(a);
+                const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
+                const handLeftX  = kb.keyXAt(lowMidi);
+                const rightWidth = kb.keyWidth(highMidi);
+                const handRightX = kb.keyXAt(highMidi)
+                    + (Number.isFinite(rightWidth) && rightWidth > 0 ? rightWidth : 0);
+                if (!Number.isFinite(handLeftX) || !Number.isFinite(handRightX)) continue;
+                if (handRightX <= 0 || handLeftX >= W) continue;     // off-screen
+                const bandPxW = Math.max(1, handRightX - handLeftX);
 
-                const ww = kb.keyWidth(firstWhite);
-                if (!Number.isFinite(ww) || ww <= 0) continue;
-                const x0 = kb.keyXAt(firstWhite);
-                if (!Number.isFinite(x0)) continue;
+                // Even slots = white-finger style (short, low tip),
+                // odd slots = black-finger style (tall, reaching up
+                // through the black-key zone). Spacing fills the
+                // full band so every finger lands inside it, even
+                // for a 14-semitone hand with only 10 fingers.
+                const slotW = bandPxW / numFingers;
+                const slotCenterX = (i) => handLeftX + (i + 0.5) * slotW;
+                const fingerW = Math.max(3, slotW * 0.7);
 
-                // Build the slot → MIDI table. Even slots map to
-                // successive whites; odd slots to the black sitting
-                // between (null when none = E–F / B–C).
-                const whites = [];
-                {
-                    let m = firstWhite;
-                    while (whites.length < Math.ceil(numFingers / 2) + 1) {
-                        if (!isBlack(m)) whites.push(m);
-                        m++;
-                        if (m > 127) break;
-                    }
+                // Active-state lookup: each slot's centre maps to
+                // the nearest MIDI semitone (= roughly anchor +
+                // i*span/numFingers). We use the same chromatic
+                // mapping the chromatic renderer uses so a sounding
+                // note still lights its closest finger.
+                const slotMidi = (i) => {
+                    if (numFingers === 1) return Math.round(a);
+                    return Math.round(a + (i * (hand.span || 0)) / (numFingers - 1));
+                };
+
+                // Knuckle bar — full hand pixel width, hand colour,
+                // sits inside the band's top edge. Clipped so a
+                // partially off-screen hand still draws cleanly.
+                const kx0 = Math.max(0, handLeftX);
+                const kx1 = Math.min(W, handRightX);
+                if (kx1 > kx0) {
+                    ctx.fillStyle = hand.color;
+                    ctx.fillRect(kx0, knuckleTop, kx1 - kx0, knuckleH);
                 }
-                const slotMidi = new Array(numFingers);
-                for (let i = 0; i < numFingers; i++) {
-                    if ((i & 1) === 0) {
-                        // White slot.
-                        slotMidi[i] = whites[i >> 1];
-                    } else {
-                        // Black slot — exists iff next white is two
-                        // semitones up (chromatic gap exists).
-                        const wLow = whites[i >> 1];
-                        const wHigh = whites[(i >> 1) + 1];
-                        slotMidi[i] = (Number.isFinite(wLow) && Number.isFinite(wHigh)
-                                && wHigh - wLow === 2)
-                            ? wLow + 1 : null;
-                    }
-                }
-
-                // Pixel positions: spacing = ww/2, each slot one
-                // half-step further than the last. The hand's
-                // visible "frame" extends from the centre of the
-                // first slot minus half a finger width, to the
-                // centre of the last slot plus the same.
-                const slotCenterX = (i) => x0 + ww * 0.5 + i * ww * 0.5;
-                const fingerW = Math.max(3, ww * 0.32);
-                const knuckleX0 = slotCenterX(0) - fingerW * 0.6;
-                const knuckleX1 = slotCenterX(numFingers - 1) + fingerW * 0.6;
-
-                ctx.fillStyle = hand.color;
-                ctx.fillRect(knuckleX0, knuckleTop,
-                              Math.max(1, knuckleX1 - knuckleX0), knuckleH);
 
                 const drawBar = (xCenter, tip, height, isActive) => {
                     if (xCenter < -fingerW || xCenter > W + fingerW) return;
@@ -1380,14 +1399,14 @@
                 // Pass 1 — black fingers (odd slot indices). Drawn
                 // first so the white fingers can cap their bottom.
                 for (let i = 1; i < numFingers; i += 2) {
-                    const midi = slotMidi[i];
-                    const isActiveSlot = midi != null && active.has(midi);
+                    const midi = slotMidi(i);
+                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
                     drawBar(slotCenterX(i), blackTipY, blackFingerH, isActiveSlot);
                 }
                 // Pass 2 — white fingers (even slot indices) on top.
                 for (let i = 0; i < numFingers; i += 2) {
-                    const midi = slotMidi[i];
-                    const isActiveSlot = midi != null && active.has(midi);
+                    const midi = slotMidi(i);
+                    const isActiveSlot = Number.isFinite(midi) && active.has(midi);
                     drawBar(slotCenterX(i), whiteTipY, whiteFingerH, isActiveSlot);
                 }
             }
