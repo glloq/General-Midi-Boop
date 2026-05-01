@@ -237,7 +237,7 @@
 }
 
 .keyboard-header-controls .octaves-count-group,
-.keyboard-header-controls .notation-group {
+.keyboard-header-controls .note-color-group {
     margin-left: auto;
 }
 
@@ -704,11 +704,14 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 .white-key .note-color-dot {
-    width: 14px;
-    height: 14px;
-    bottom: 28px;
+    width: 20px;
+    height: 20px;
+    bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
 }
 .black-key .note-color-dot {
     width: 9px;
@@ -726,6 +729,13 @@
 .black-key.active .note-color-dot {
     border: 1.5px solid rgba(255, 255, 255, 0.85);
     box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
+.note-dot-label {
+    font-size: 7px;
+    font-weight: 700;
+    pointer-events: none;
+    line-height: 1;
+    user-select: none;
 }
 
 /* Old canvas styles (kept for backward compatibility) */
