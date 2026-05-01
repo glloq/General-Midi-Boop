@@ -559,6 +559,11 @@
 
         container.appendChild(stringsArea);
 
+        // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
+        if (typeof this.renderChordButtons === 'function') {
+            this.renderChordButtons();
+        }
+
         if (typeof this.initStringSliderMode === 'function') {
             this.initStringSliderMode();
         }
