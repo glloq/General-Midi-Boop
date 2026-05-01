@@ -90,13 +90,15 @@
                 ? Math.max(...this.notes.map(n => n.tick + (n.duration || 0))) : 0;
             this._totalSec = this._totalTicks / this.ticksPerSec;
 
-            this.overrides = this._cloneOverrides(opts.initialOverrides) || {
-                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
-            };
-            this._history = [this._cloneOverrides(this.overrides)];
-            this._historyIndex = 0;
-            this._savedIndex = 0;
-            this._maxHistory = 50;
+            const Shared = window.HandEditorShared;
+            this.overrides = Shared.cloneOverrides(opts.initialOverrides) || Shared.emptyOverrides();
+            // Linear undo/redo stack with a saved-index marker; dirty
+            // = (live index !== savedIndex). Refreshes the toolbar
+            // buttons + the save button title on every change.
+            this._history = new Shared.HistoryManager(this.overrides, {
+                maxHistory: 50,
+                onChange: () => this._refreshHistoryButtons()
+            });
 
             // Pixels per second on the falling-note axis. Larger = notes
             // span more vertical space (zoom-in).
@@ -132,45 +134,45 @@
             this._kbView = null;
         }
 
-        get isDirty() { return this._historyIndex !== this._savedIndex; }
+        get isDirty() { return this._history.isDirty; }
 
         renderBody() {
             return `
-                <div class="khpe-toolbar" style="display:flex;gap:6px;align-items:center;padding:8px;border-bottom:1px solid #e5e7eb;background:#fff;">
+                <div class="khpe-toolbar">
                     <button type="button" data-action="play" title="${_t('keyboardHandEditor.play','Lecture')}">▶</button>
                     <button type="button" data-action="pause" disabled title="${_t('keyboardHandEditor.pause','Pause')}">⏸</button>
                     <button type="button" data-action="stop" disabled title="${_t('keyboardHandEditor.stop','Stop')}">⏹</button>
                     <button type="button" data-action="mute" title="${_t('keyboardHandEditor.mute','Couper le son')}" data-muted="0">🔊</button>
-                    <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
+                    <span class="khpe-sep"></span>
                     <button type="button" data-action="zoom-out" title="${_t('keyboardHandEditor.zoomOut','Dézoom')}">−</button>
                     <button type="button" data-action="zoom-in" title="${_t('keyboardHandEditor.zoomIn','Zoom')}">+</button>
-                    <span style="display:inline-block;width:1px;height:18px;background:#d1d5db;"></span>
+                    <span class="khpe-sep"></span>
                     <button type="button" data-action="prev-problem" disabled title="${_t('keyboardHandEditor.prevProblem','Problème précédent')}">◄!</button>
                     <button type="button" data-action="next-problem" disabled title="${_t('keyboardHandEditor.nextProblem','Problème suivant')}">!►</button>
-                    <span class="khpe-problem-count" data-role="problem-count" style="font-size:12px;color:#b91c1c;font-weight:600;min-width:20px;"></span>
-                    <span style="flex:1"></span>
-                    <span class="khpe-status" data-role="status" style="color:#6b7280;font-size:12px;"></span>
+                    <span class="khpe-problem-count" data-role="problem-count"></span>
+                    <span class="khpe-spacer"></span>
+                    <span class="khpe-status" data-role="status"></span>
                     <button type="button" data-action="undo" disabled>↶</button>
                     <button type="button" data-action="redo" disabled>↷</button>
                     <button type="button" data-action="reset-overrides">⟲</button>
                     <button type="button" data-action="save" disabled>${_t('keyboardHandEditor.save','Enregistrer')}</button>
                 </div>
-                <div class="khpe-main" style="display:flex;flex-direction:column;flex:1;min-height:0;">
-                    <div class="khpe-minimap-host" style="position:relative;height:54px;flex:none;background:#1e293b;border-bottom:1px solid #334155;">
-                        <canvas class="khpe-minimap-canvas" style="position:absolute;inset:0;display:block;cursor:crosshair;"></canvas>
+                <div class="khpe-main">
+                    <div class="khpe-minimap-host">
+                        <canvas class="khpe-minimap-canvas"></canvas>
                     </div>
-                    <div class="khpe-roll-host" style="position:relative;flex:1;background:#0f172a;overflow:hidden;">
-                        <canvas class="khpe-roll-canvas" style="position:absolute;inset:0;display:block;"></canvas>
+                    <div class="khpe-roll-host">
+                        <canvas class="khpe-roll-canvas"></canvas>
                     </div>
-                    <div class="khpe-kb-mini-host" style="background:#0f172a;height:22px;flex:none;border-top:1px solid #334155;cursor:pointer;position:relative;">
-                        <canvas class="khpe-kb-mini-canvas" style="display:block;width:100%;height:100%;"></canvas>
+                    <div class="khpe-kb-mini-host">
+                        <canvas class="khpe-kb-mini-canvas"></canvas>
                     </div>
-                    <div class="khpe-keyboard-host" style="position:relative;background:#1e293b;padding:6px;height:140px;flex:none;">
-                        <canvas class="khpe-keyboard-canvas" style="display:block;width:100%;height:100%;"></canvas>
-                        <canvas class="khpe-fingers-overlay" style="position:absolute;inset:6px;pointer-events:none;"></canvas>
+                    <div class="khpe-keyboard-host">
+                        <canvas class="khpe-keyboard-canvas"></canvas>
+                        <canvas class="khpe-fingers-overlay"></canvas>
                     </div>
                 </div>
-                <div class="khpe-hint" style="padding:6px 10px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;background:#fff;">
+                <div class="khpe-hint">
                     ${_t('keyboardHandEditor.hint',
                          'Les notes descendent vers le clavier. Cliquez sur une note pour la réaffecter à une main différente.')}
                 </div>
@@ -245,9 +247,8 @@
             // Reflect the current operator-tweaked anchors so the
             // simulator's per-tick window logic agrees with the bands
             // the user sees on the keyboard.
-            const overridesForSim = this._cloneOverrides(this.overrides) || {
-                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
-            };
+            const Shared = window.HandEditorShared;
+            const overridesForSim = Shared.cloneOverrides(this.overrides) || Shared.emptyOverrides();
             let timeline;
             try {
                 timeline = Feas.simulateHandWindows(this.notes, this.instrument, {
@@ -493,6 +494,11 @@
                     flex: 1; display: flex; flex-direction: column;
                     overflow: hidden; padding: 0; min-height: 0;
                 }
+                .khpe-toolbar {
+                    display: flex; gap: 6px; align-items: center;
+                    padding: 8px; border-bottom: 1px solid #e5e7eb;
+                    background: #fff;
+                }
                 .khpe-toolbar button[data-action] {
                     padding: 4px 10px; border: 1px solid #d1d5db;
                     background: #fff; border-radius: 4px; cursor: pointer;
@@ -500,7 +506,46 @@
                 }
                 .khpe-toolbar button[data-action]:hover:not([disabled]) { background: #f3f4f6; }
                 .khpe-toolbar button[data-action][disabled] { opacity: 0.45; cursor: not-allowed; }
-                .khpe-roll-host { min-height: 200px; }
+                .khpe-toolbar .khpe-sep {
+                    display: inline-block; width: 1px; height: 18px; background: #d1d5db;
+                }
+                .khpe-toolbar .khpe-spacer { flex: 1; }
+                .khpe-toolbar .khpe-status { color: #6b7280; font-size: 12px; }
+                .khpe-toolbar .khpe-problem-count {
+                    font-size: 12px; color: #b91c1c; font-weight: 600; min-width: 20px;
+                }
+                .khpe-main {
+                    display: flex; flex-direction: column; flex: 1; min-height: 0;
+                }
+                .khpe-minimap-host {
+                    position: relative; height: 54px; flex: none;
+                    background: #1e293b; border-bottom: 1px solid #334155;
+                }
+                .khpe-minimap-canvas {
+                    position: absolute; inset: 0; display: block; cursor: crosshair;
+                }
+                .khpe-roll-host {
+                    position: relative; flex: 1; background: #0f172a;
+                    overflow: hidden; min-height: 200px;
+                }
+                .khpe-roll-canvas { position: absolute; inset: 0; display: block; }
+                .khpe-kb-mini-host {
+                    background: #0f172a; height: 22px; flex: none;
+                    border-top: 1px solid #334155; cursor: pointer; position: relative;
+                }
+                .khpe-kb-mini-canvas { display: block; width: 100%; height: 100%; }
+                .khpe-keyboard-host {
+                    position: relative; background: #1e293b; padding: 6px;
+                    height: 140px; flex: none;
+                }
+                .khpe-keyboard-canvas { display: block; width: 100%; height: 100%; }
+                .khpe-fingers-overlay {
+                    position: absolute; inset: 6px; pointer-events: none;
+                }
+                .khpe-hint {
+                    padding: 6px 10px; color: #6b7280; font-size: 12px;
+                    border-top: 1px solid #e5e7eb; background: #fff;
+                }
             `;
             document.head.appendChild(style);
         }
@@ -548,66 +593,15 @@
             });
         }
 
-        /** Project-styled confirmation modal (mirrors the strings editor
-         *  pattern). Reuses `.confirm-modal-overlay` CSS from editor.css
-         *  so the look matches the rest of the app. Resolves to true
-         *  when the operator confirms the discard, false otherwise.
-         *  Esc cancels, Enter confirms. */
         _showDiscardConfirm() {
-            return new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'confirm-modal-overlay khpe-discard-confirm';
-                overlay.innerHTML = `
-                    <div class="confirm-modal" role="dialog" aria-modal="true">
-                        <div class="confirm-modal-header">
-                            <span class="confirm-modal-icon">⚠️</span>
-                            <h3 class="confirm-modal-title">${
-                                _t('keyboardHandEditor.confirmDiscardTitle',
-                                   'Modifications non enregistrées')}</h3>
-                        </div>
-                        <div class="confirm-modal-body">
-                            <p class="confirm-modal-message">${
-                                _t('keyboardHandEditor.confirmDiscard',
-                                   'Voulez-vous quitter sans sauvegarder ?')}</p>
-                        </div>
-                        <div class="confirm-modal-footer">
-                            <button class="confirm-modal-btn cancel" data-action="cancel">${
-                                _t('common.cancel', 'Annuler')}</button>
-                            <button class="confirm-modal-btn danger" data-action="confirm">${
-                                _t('keyboardHandEditor.discardConfirmBtn',
-                                   'Quitter sans sauvegarder')}</button>
-                        </div>
-                    </div>
-                `;
-                // Editor sits at 10010; confirm dialog must beat it.
-                overlay.style.zIndex = '10025';
-                document.body.appendChild(overlay);
-
-                const close = (result) => {
-                    overlay.removeEventListener('click', onClick);
-                    document.removeEventListener('keydown', onKey);
-                    overlay.classList.remove('visible');
-                    setTimeout(() => {
-                        if (overlay.parentNode) overlay.remove();
-                        resolve(result);
-                    }, 200);
-                };
-                const onClick = (e) => {
-                    if (e.target === overlay) { close(false); return; }
-                    const btn = e.target.closest('.confirm-modal-btn');
-                    if (!btn) return;
-                    close(btn.dataset.action === 'confirm');
-                };
-                const onKey = (e) => {
-                    if (e.key === 'Escape') close(false);
-                    else if (e.key === 'Enter') close(true);
-                };
-                overlay.addEventListener('click', onClick);
-                document.addEventListener('keydown', onKey);
-                requestAnimationFrame(() => overlay.classList.add('visible'));
-                setTimeout(() => {
-                    overlay.querySelector('.confirm-modal-btn.cancel')?.focus();
-                }, 50);
+            return window.HandEditorShared.showUnsavedChangesConfirm({
+                titleKey: 'keyboardHandEditor.confirmDiscardTitle',
+                titleFallback: 'Modifications non enregistrées',
+                messageKey: 'keyboardHandEditor.confirmDiscard',
+                messageFallback: 'Voulez-vous quitter sans sauvegarder ?',
+                confirmKey: 'keyboardHandEditor.discardConfirmBtn',
+                confirmFallback: 'Quitter sans sauvegarder',
+                extraClass: 'khpe-discard-confirm'
             });
         }
 
@@ -1977,32 +1971,39 @@
         _wireToolbar() {
             const root = this.dialog;
             if (!root) return;
+            // Table-driven dispatch: each entry maps a button's
+            // data-action attribute to the handler. Adding a new
+            // toolbar button is now a one-line change in this map.
+            const zoom = (factor) => {
+                this._lookaheadSec = Math.min(30, Math.max(1, this._lookaheadSec * factor));
+                this._draw(); this._drawMinimap();
+            };
+            const reset = () => {
+                this.overrides = window.HandEditorShared.emptyOverrides();
+                this._pushHistory();
+                this._rebuildProblems();
+                this._draw(); this._drawMinimap();
+            };
+            const actions = {
+                'close':            () => this.close(),
+                'play':             () => this._play(),
+                'pause':            () => this._pause(),
+                'stop':             () => this._stop(),
+                'mute':             (btn) => this._toggleMute(btn),
+                'zoom-in':          () => zoom(1 / 1.25),
+                'zoom-out':         () => zoom(1.25),
+                'undo':             () => this._undo(),
+                'redo':             () => this._redo(),
+                'reset-overrides':  () => reset(),
+                'prev-problem':     () => this._jumpToProblem(-1),
+                'next-problem':     () => this._jumpToProblem(+1),
+                'save':             () => this._save()
+            };
             root.addEventListener('click', (e) => {
                 const btn = e.target.closest('[data-action]');
                 if (!btn || btn.disabled) return;
-                switch (btn.dataset.action) {
-                    case 'close': this.close(); return;
-                    case 'play': this._play(); return;
-                    case 'pause': this._pause(); return;
-                    case 'stop': this._stop(); return;
-                    case 'mute': this._toggleMute(btn); return;
-                    case 'zoom-in':
-                        this._lookaheadSec = Math.max(1, this._lookaheadSec / 1.25);
-                        this._draw(); this._drawMinimap(); return;
-                    case 'zoom-out':
-                        this._lookaheadSec = Math.min(30, this._lookaheadSec * 1.25);
-                        this._draw(); this._drawMinimap(); return;
-                    case 'undo': this._undo(); return;
-                    case 'redo': this._redo(); return;
-                    case 'reset-overrides':
-                        this.overrides = { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
-                        this._pushHistory();
-                        this._rebuildProblems();
-                        this._draw(); this._drawMinimap(); return;
-                    case 'prev-problem': this._jumpToProblem(-1); return;
-                    case 'next-problem': this._jumpToProblem(+1); return;
-                    case 'save': this._save(); return;
-                }
+                const handler = actions[btn.dataset.action];
+                if (handler) handler(btn);
             });
         }
 
@@ -2092,49 +2093,37 @@
         }
 
         // ----------------------------------------------------------------
-        //  History + save
+        //  History + save — delegates to HandEditorShared.HistoryManager
         // ----------------------------------------------------------------
 
-        _cloneOverrides(o) { return o ? JSON.parse(JSON.stringify(o)) : null; }
-
-        _pushHistory() {
-            this._history = this._history.slice(0, this._historyIndex + 1);
-            this._history.push(this._cloneOverrides(this.overrides));
-            if (this._history.length > this._maxHistory) {
-                this._history.shift();
-                this._savedIndex = Math.max(0, this._savedIndex - 1);
-            } else {
-                this._historyIndex++;
-            }
-            this._refreshButtons();
-        }
+        _pushHistory() { this._history.push(this.overrides); }
 
         _undo() {
-            if (this._historyIndex <= 0) return;
-            this._historyIndex--;
-            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
-            this._rebuildProblems();
-            this._draw();
-            this._drawMinimap();
-            this._refreshButtons();
+            const snap = this._history.undo();
+            if (!snap) return;
+            this.overrides = snap;
+            this._afterHistoryStep();
         }
 
         _redo() {
-            if (this._historyIndex >= this._history.length - 1) return;
-            this._historyIndex++;
-            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            const snap = this._history.redo();
+            if (!snap) return;
+            this.overrides = snap;
+            this._afterHistoryStep();
+        }
+
+        _afterHistoryStep() {
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
-            this._refreshButtons();
         }
 
-        _refreshButtons() {
+        _refreshHistoryButtons() {
             const undoBtn = this.$('[data-action="undo"]');
             const redoBtn = this.$('[data-action="redo"]');
             const saveBtn = this.$('[data-action="save"]');
-            if (undoBtn) undoBtn.disabled = this._historyIndex <= 0;
-            if (redoBtn) redoBtn.disabled = this._historyIndex >= this._history.length - 1;
+            if (undoBtn) undoBtn.disabled = !this._history.canUndo;
+            if (redoBtn) redoBtn.disabled = !this._history.canRedo;
             if (saveBtn) saveBtn.disabled = !this.isDirty;
         }
 
@@ -2148,8 +2137,7 @@
                     fileId: this.fileId, channel: this.channel,
                     deviceId: this.deviceId, overrides: this.overrides
                 });
-                this._savedIndex = this._historyIndex;
-                this._refreshButtons();
+                this._history.markSaved();
                 this._setStatus(_t('keyboardHandEditor.saved','Enregistré.'));
             } catch (err) {
                 console.error('[KeyboardHandPositionEditor] save failed:', err);

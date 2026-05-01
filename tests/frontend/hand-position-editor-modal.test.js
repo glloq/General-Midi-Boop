@@ -88,6 +88,13 @@ beforeAll(() => {
   }
   window.HandSimulationEngine = NoopEngine;
 
+  // Load HandEditorShared first — the modal references it for
+  // history management and the discard-confirm dialog.
+  new Function(readFileSync(
+    resolve(__dirname, '../../public/js/features/auto-assign/HandEditorShared.js'),
+    'utf8'
+  ))();
+
   const src = readFileSync(
     resolve(__dirname, '../../public/js/features/auto-assign/HandPositionEditorModal.js'),
     'utf8'
@@ -112,8 +119,9 @@ function makeModal(overrides = null) {
 describe('HandPositionEditorModal — history layer', () => {
   it('starts with a single snapshot and disables undo/redo', () => {
     const m = makeModal();
-    expect(m._history.length).toBe(1);
-    expect(m._historyIndex).toBe(0);
+    expect(m._history.canUndo).toBe(false);
+    expect(m._history.canRedo).toBe(false);
+    expect(m.isDirty).toBe(false);
   });
 
   it('deep-clones the caller initialOverrides so mutations stay scoped', () => {
@@ -125,11 +133,10 @@ describe('HandPositionEditorModal — history layer', () => {
 
   it('pushHistory snapshots the current overrides', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
-    expect(m._history.length).toBe(1);
+    expect(m._history.canUndo).toBe(false);
     m.overrides.hand_anchors.push({ tick: 0, handId: 'fretting', anchor: 5 });
     m._pushHistory();
-    expect(m._history.length).toBe(2);
-    expect(m._historyIndex).toBe(1);
+    expect(m._history.canUndo).toBe(true);
     expect(m.isDirty).toBe(true);
   });
 
@@ -141,7 +148,7 @@ describe('HandPositionEditorModal — history layer', () => {
     m._refreshHistoryButtons = () => {};
     m._undo();
     expect(m.overrides.hand_anchors).toEqual([]);
-    expect(m._historyIndex).toBe(0);
+    expect(m._history.canUndo).toBe(false);
   });
 
   it('redo replays the next snapshot', () => {
@@ -155,7 +162,8 @@ describe('HandPositionEditorModal — history layer', () => {
     expect(m.overrides.hand_anchors).toEqual([
       { tick: 0, handId: 'fretting', anchor: 5 }
     ]);
-    expect(m._historyIndex).toBe(1);
+    expect(m._history.canRedo).toBe(false);
+    expect(m._history.canUndo).toBe(true);
   });
 
   it('save records _savedIndex so subsequent undo re-dirties', async () => {

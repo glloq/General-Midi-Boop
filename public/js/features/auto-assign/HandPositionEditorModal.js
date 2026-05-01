@@ -83,21 +83,20 @@
             // Deep-clone so mutations stay scoped to the modal — the
             // caller's overrides object stays pristine until _save()
             // succeeds and the host gets the response.
-            this.overrides = this._cloneOverrides(opts.initialOverrides) || {
-                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
-            };
+            const Shared = window.HandEditorShared;
+            this.overrides = Shared.cloneOverrides(opts.initialOverrides) || Shared.emptyOverrides();
             this._followPlayhead = true;
-            this._history = [this._cloneOverrides(this.overrides)];
-            this._historyIndex = 0;
-            // Save bookkeeping: dirty when the live index differs from
-            // the index that was persisted last. Avoids the latent bug
-            // where _save followed by undo silently re-dirties.
-            this._savedIndex = 0;
-            this._maxHistory = 50;
+            // Linear undo/redo stack with saved-index marker. dirty
+            // = (live index !== savedIndex) so undo-after-save
+            // correctly clears dirty even though the stack moved.
+            this._history = new Shared.HistoryManager(this.overrides, {
+                maxHistory: 50,
+                onChange: () => this._refreshHistoryButtons()
+            });
             this._rebuildTimer = null;
         }
 
-        get isDirty() { return this._historyIndex !== this._savedIndex; }
+        get isDirty() { return this._history.isDirty; }
 
         /**
          * Veto the close when there are unsaved changes — confirm with
@@ -127,62 +126,14 @@
         }
 
         _showDiscardConfirm() {
-            return new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'confirm-modal-overlay hpe-discard-confirm';
-                overlay.innerHTML = `
-                    <div class="confirm-modal" role="dialog" aria-modal="true">
-                        <div class="confirm-modal-header">
-                            <span class="confirm-modal-icon">⚠️</span>
-                            <h3 class="confirm-modal-title">${
-                                _t('handPositionEditor.confirmDiscardTitle',
-                                   'Modifications non enregistrées')}</h3>
-                        </div>
-                        <div class="confirm-modal-body">
-                            <p class="confirm-modal-message">${
-                                _t('handPositionEditor.confirmDiscard',
-                                   'Voulez-vous quitter sans sauvegarder ?')}</p>
-                        </div>
-                        <div class="confirm-modal-footer">
-                            <button class="confirm-modal-btn cancel" data-action="cancel">${
-                                _t('common.cancel', 'Annuler')}</button>
-                            <button class="confirm-modal-btn danger" data-action="confirm">${
-                                _t('handPositionEditor.discardConfirmBtn',
-                                   'Quitter sans sauvegarder')}</button>
-                        </div>
-                    </div>
-                `;
-                // The base modal sits at z-index 10010; the confirm
-                // dialog must beat it. editor.css's stock 10003 isn't
-                // enough — bump per-instance.
-                overlay.style.zIndex = '10025';
-                document.body.appendChild(overlay);
-
-                const close = (result) => {
-                    overlay.removeEventListener('click', onClick);
-                    document.removeEventListener('keydown', onKey);
-                    overlay.classList.remove('visible');
-                    setTimeout(() => {
-                        if (overlay.parentNode) overlay.remove();
-                        resolve(result);
-                    }, 200);
-                };
-                const onClick = (e) => {
-                    if (e.target === overlay) { close(false); return; }
-                    const btn = e.target.closest('.confirm-modal-btn');
-                    if (!btn) return;
-                    close(btn.dataset.action === 'confirm');
-                };
-                const onKey = (e) => {
-                    if (e.key === 'Escape') close(false);
-                    else if (e.key === 'Enter') close(true);
-                };
-                overlay.addEventListener('click', onClick);
-                document.addEventListener('keydown', onKey);
-                requestAnimationFrame(() => overlay.classList.add('visible'));
-                setTimeout(() => {
-                    overlay.querySelector('.confirm-modal-btn.cancel')?.focus();
-                }, 50);
+            return window.HandEditorShared.showUnsavedChangesConfirm({
+                titleKey: 'handPositionEditor.confirmDiscardTitle',
+                titleFallback: 'Modifications non enregistrées',
+                messageKey: 'handPositionEditor.confirmDiscard',
+                messageFallback: 'Voulez-vous quitter sans sauvegarder ?',
+                confirmKey: 'handPositionEditor.discardConfirmBtn',
+                confirmFallback: 'Quitter sans sauvegarder',
+                extraClass: 'hpe-discard-confirm'
             });
         }
 
@@ -501,8 +452,7 @@
         }
 
         _pinNoteAssignment(tick, note, string, fret) {
-            this.overrides = this.overrides
-                || { hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1 };
+            this.overrides = this.overrides || window.HandEditorShared.emptyOverrides();
             if (!Array.isArray(this.overrides.note_assignments)) {
                 this.overrides.note_assignments = [];
             }
@@ -528,32 +478,29 @@
         _wireToolbar() {
             const root = this.dialog;
             if (!root) return;
+            // Table-driven dispatch — adding a toolbar button is a
+            // one-line entry in this map.
+            const zoom = (factor) => this.timeline?.setPxPerSec(this.timeline.pxPerSec * factor);
+            const actions = {
+                'close':            () => this.close(),
+                'zoom-in':          () => zoom(1.25),
+                'zoom-out':         () => zoom(1 / 1.25),
+                'reset-scroll':     () => { this.timeline?.setScrollSec(0); this._seekToSec(0); },
+                'play':             () => this._play(),
+                'pause':            () => this._pause(),
+                'stop':             () => this._stop(),
+                'undo':             () => this._undo(),
+                'redo':             () => this._redo(),
+                'reset-overrides':  () => this._resetOverrides(),
+                'save':             () => this._save(),
+                'prev-problem':     () => this._jumpToProblem(-1),
+                'next-problem':     () => this._jumpToProblem(+1)
+            };
             root.addEventListener('click', (e) => {
                 const btn = e.target.closest('[data-action]');
                 if (!btn || btn.disabled) return;
-                const action = btn.dataset.action;
-                switch (action) {
-                    case 'close': this.close(); return;
-                    case 'zoom-in':
-                        this.timeline?.setPxPerSec(this.timeline.pxPerSec * 1.25);
-                        return;
-                    case 'zoom-out':
-                        this.timeline?.setPxPerSec(this.timeline.pxPerSec / 1.25);
-                        return;
-                    case 'reset-scroll':
-                        this.timeline?.setScrollSec(0);
-                        this._seekToSec(0);
-                        return;
-                    case 'play': this._play(); return;
-                    case 'pause': this._pause(); return;
-                    case 'stop': this._stop(); return;
-                    case 'undo': this._undo(); return;
-                    case 'redo': this._redo(); return;
-                    case 'reset-overrides': this._resetOverrides(); return;
-                    case 'save': this._save(); return;
-                    case 'prev-problem': this._jumpToProblem(-1); return;
-                    case 'next-problem': this._jumpToProblem(+1); return;
-                }
+                const handler = actions[btn.dataset.action];
+                if (handler) handler(btn);
             });
             root.addEventListener('change', (e) => {
                 const role = e.target?.dataset?.role;
@@ -674,47 +621,29 @@
         }
 
         // ----------------------------------------------------------------
-        //  History (undo / redo) + save
+        //  History (undo / redo) + save — delegates to HandEditorShared.HistoryManager
         // ----------------------------------------------------------------
 
-        _cloneOverrides(o) {
-            return o ? JSON.parse(JSON.stringify(o)) : null;
-        }
-
         _pushHistory() {
-            this._history = this._history.slice(0, this._historyIndex + 1);
-            this._history.push(this._cloneOverrides(this.overrides));
-            if (this._history.length > this._maxHistory) {
-                this._history.shift();
-                // Saved snapshot fell off the bottom — anything goes
-                // forward of here is dirty.
-                this._savedIndex = Math.max(0, this._savedIndex - 1);
-            } else {
-                this._historyIndex++;
-            }
-            this._refreshHistoryButtons();
+            this._history.push(this.overrides);
         }
 
         _undo() {
-            if (this._historyIndex <= 0) return;
-            this._historyIndex--;
-            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            const snap = this._history.undo();
+            if (!snap) return;
+            this.overrides = snap;
             this._scheduleEngineRebuild();
-            this._refreshHistoryButtons();
         }
 
         _redo() {
-            if (this._historyIndex >= this._history.length - 1) return;
-            this._historyIndex++;
-            this.overrides = this._cloneOverrides(this._history[this._historyIndex]);
+            const snap = this._history.redo();
+            if (!snap) return;
+            this.overrides = snap;
             this._scheduleEngineRebuild();
-            this._refreshHistoryButtons();
         }
 
         _resetOverrides() {
-            this.overrides = {
-                hand_anchors: [], disabled_notes: [], note_assignments: [], version: 1
-            };
+            this.overrides = window.HandEditorShared.emptyOverrides();
             this._pushHistory();
             this._scheduleEngineRebuild();
         }
@@ -802,10 +731,9 @@
                     overrides: this.overrides
                 });
                 // The persisted state matches our current snapshot. A
-                // subsequent undo correctly re-dirties because the index
-                // moves away from _savedIndex.
-                this._savedIndex = this._historyIndex;
-                this._refreshHistoryButtons();
+                // subsequent undo correctly re-dirties because the
+                // saved-index marker moves away from the live index.
+                this._history.markSaved();
                 this._setStatus(_t('handPositionEditor.saved', 'Modifications enregistrées.'), 'ok');
             } catch (err) {
                 console.error('[HandPositionEditor] save failed:', err);
@@ -817,8 +745,8 @@
             const undoBtn = this.$('[data-action="undo"]');
             const redoBtn = this.$('[data-action="redo"]');
             const saveBtn = this.$('[data-action="save"]');
-            if (undoBtn) undoBtn.disabled = this._historyIndex <= 0;
-            if (redoBtn) redoBtn.disabled = this._historyIndex >= this._history.length - 1;
+            if (undoBtn) undoBtn.disabled = !this._history.canUndo;
+            if (redoBtn) redoBtn.disabled = !this._history.canRedo;
             if (saveBtn) {
                 const dirty = this.isDirty;
                 saveBtn.disabled = !dirty;
@@ -1002,8 +930,7 @@
             // uses: append a {tick, handId, anchor} entry at the current
             // playhead and rebuild the engine so the trajectory follows.
             if (!this.engine) return;
-            this.overrides = this.overrides
-                || { hand_anchors: [], disabled_notes: [], version: 1 };
+            this.overrides = this.overrides || window.HandEditorShared.emptyOverrides();
             if (!Array.isArray(this.overrides.hand_anchors)) {
                 this.overrides.hand_anchors = [];
             }

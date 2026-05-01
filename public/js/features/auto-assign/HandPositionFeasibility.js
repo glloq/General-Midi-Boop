@@ -160,9 +160,8 @@
 
         const mode = hands.mode === 'frets' ? 'frets' : 'semitones';
         const overrides = options.overrides || null;
-        const overrideAnchors = _indexOverrideAnchors(overrides);
-        const disabledNotes = _indexDisabledNotes(overrides);
-        const noteAssignments = _indexNoteAssignments(overrides);
+        const { overrideAnchors, disabledNotes, noteAssignments, handAssignments }
+            = _indexOverrides(overrides);
 
         // Tempo info — required to convert tick distances into seconds
         // for the speed-limit feasibility check on shift events. When
@@ -183,12 +182,11 @@
         if (mode === 'frets') {
             return _simulateFrets(groups, hands, instrument, overrideAnchors, disabledNotes, ticksPerSec, noteAssignments);
         }
-        const handAssignments = _indexHandAssignments(overrides);
-        // The optimised low/high partition only handles 1 or 2 hands. For
-        // 3- and 4-hand keyboards we fall back to a simpler per-hand bucket
-        // simulator that picks the closest hand by current anchor — good
-        // enough for the preview panel, and avoids a large rewrite of the
-        // 2-hand path.
+        // 1- and 2-hand keyboards go through the optimised low/high
+        // partition with K-chord look-ahead. 3+ hand keyboards use a
+        // generalised N-way partition simulator: same minimum-move
+        // guarantee per hand, slices kept contiguous in pitch-sorted
+        // order so the no-overlap invariant is automatic.
         if (Array.isArray(hands.hands) && hands.hands.length >= 3) {
             return _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments);
         }
@@ -196,13 +194,32 @@
     }
 
     /**
-     * N‑hand fallback simulator (N ≥ 3). Each hand keeps its own anchor;
-     * notes in a chord are sorted by pitch and partitioned across hands by
-     * even buckets (one slice per hand). Each hand then plays its slice
-     * independently with the same window/shift logic as the single-hand
-     * branch of `_simulateSemitones`. This is intentionally simpler than
-     * the 2-hand cost-based partition — multi-hand keyboards are rare and
-     * the operator can refine via the editor's pinned anchors.
+     * N-hand semitones simulator (N ≥ 3). Each chord is partitioned
+     * into K contiguous slices (one per hand, in pitch-sorted order)
+     * by brute-force enumeration of the C(N+K−1, K−1) possible
+     * sliceSize tuples. The per-partition cost mirrors the 2-hand
+     * `_bestPartition`:
+     *
+     *   total = overflow×1e6 + movement + sliceSpan×1e-3
+     *
+     * - overflow dominates so any feasible partition (every slice
+     *   fits its hand's span) wins over every unfeasible one.
+     * - movement = Σ |anchor_h − prev_h| using the bidirectional
+     *   `_minMoveAnchor` clamp, identical to the 2-hand path.
+     * - sliceSpan tie-breaks toward compact distributions, so the
+     *   initial chord spreads across all hands instead of piling on
+     *   the first one.
+     *
+     * Operator-pinned hand assignments (`note_assignments` carrying
+     * `handId`) restrict the partitions we consider — any partition
+     * placing a pinned note in the wrong bucket is skipped.
+     *
+     * The no-overlap invariant (anchor_h + span_h < anchor_{h+1})
+     * is checked per partition; partitions that produce a collision
+     * are rejected unless every option collides (rare; in that case
+     * we fall back to ignoring the invariant and the resulting
+     * collision surfaces as `outside_window` in the chord's
+     * unplayable list).
      * @private
      */
     function _simulateSemitonesNHands(groups, hands, overrideAnchors, disabledNotes, ticksPerSec, handAssignments = new Map()) {
@@ -229,10 +246,13 @@
             state.get(id).anchor = toAnchor;
         }
 
+        const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
+
         for (const g of groups) {
             const liveNotes = g.notes.filter(n => !disabledNotes.has(`${g.tick}:${n.note}`));
             const sortedNotes = liveNotes.slice().sort((a, b) => a.note - b.note);
             const N = handIds.length;
+            const Nnotes = sortedNotes.length;
 
             // Apply pinned anchor overrides first so subsequent picks see
             // the operator's intent in the prev-anchor slot.
@@ -243,77 +263,160 @@
                 }
             }
 
-            // Greedy "no-move-first" assignment:
-            // 1. Pinned notes → their target bucket (skipped if it would
-            //    violate the lowest-used-so-far rule, which would cross
-            //    hands).
-            // 2. For the rest (note list is already pitch-ascending),
-            //    walk the hands from `lastHandUsed` upward and pick the
-            //    first whose CURRENT anchor already covers the note —
-            //    no shift needed, the most common case in long held
-            //    sections of a piece.
-            // 3. If no hand covers the note without moving, pick the
-            //    closest-by-anchor hand that still respects ordering
-            //    (lowest cumulative shift for this chord).
-            // This replaces the previous even-bucket partition which
-            // re-balanced on every chord regardless of where the hands
-            // already sat, producing visible back-and-forth shifts in
-            // multi-hand keyboards.
-            const buckets = handIds.map(() => []);
-            const handIdToIdx = new Map(handIds.map((id, i) => [id, i]));
-            let lastHandUsed = 0;
-            for (const n of sortedNotes) {
-                const pinned = handAssignments.get(`${g.tick}:${n.note}`);
-                const pinnedIdx = pinned != null ? handIdToIdx.get(pinned) : undefined;
-                if (pinnedIdx !== undefined && pinnedIdx >= lastHandUsed) {
-                    buckets[pinnedIdx].push(n);
-                    lastHandUsed = pinnedIdx;
-                    continue;
+            // Build pin index: note position in sortedNotes -> hand index.
+            // A note carrying `handId` (semitones-shape `note_assignments`
+            // override) must land in that hand's bucket; partitions that
+            // violate this are skipped during enumeration. Foreign hand
+            // ids (e.g. 'h5' on a 3-hand keyboard) are silently dropped
+            // so a stale override can't crash the simulator.
+            const pinByIdx = new Map();
+            for (let i = 0; i < Nnotes; i++) {
+                const pinned = handAssignments.get(`${g.tick}:${sortedNotes[i].note}`);
+                if (pinned != null) {
+                    const idx = handIdToIdx.get(pinned);
+                    if (idx !== undefined) pinByIdx.set(i, idx);
                 }
-                // Pass 1: hand whose current window already covers the note.
-                let chosen = -1;
-                for (let h = lastHandUsed; h < N; h++) {
-                    const st = state.get(handIds[h]);
-                    if (!st || st.anchor == null) continue;
-                    if (n.note >= st.anchor && n.note <= st.anchor + st.span) {
-                        chosen = h;
-                        break;
+            }
+
+            // Generalised N-way partition — same shape as the 2-hand
+            // _bestPartition but extended to K hands. Slices are
+            // contiguous in pitch-sorted order so hand i always covers
+            // lower notes than hand i+1 (the lastHandUsed gymnastics
+            // the previous greedy did to maintain ordering disappear).
+            //
+            // Cost composition (highest weight wins → it dominates):
+            //   1. overflow  × 1e6   — slice wider than its hand's span
+            //                          (= unplayable notes outside the
+            //                          window). Any partition that fits
+            //                          beats every overflow partition.
+            //   2. movement  × 1     — Σ |anchor_h − prev_h|, the same
+            //                          metric the 2-hand path minimises.
+            //   3. tiebreak  × 1e-3  — Σ slice pitch span, prefers
+            //                          compact slices so the initial
+            //                          chord gets distributed across all
+            //                          hands instead of piling on one.
+            // For K hands and N notes the partition count is
+            // C(N+K−1, K−1); for typical chords (N ≤ 10, K ≤ 4) that's
+            // a few hundred — well within budget for a per-chord pass.
+            let best = null;
+            const partitions = _enumeratePartitions(Nnotes, N);
+            for (const sizes of partitions) {
+                const boundaries = new Array(N + 1);
+                boundaries[0] = 0;
+                for (let h = 0; h < N; h++) boundaries[h + 1] = boundaries[h] + sizes[h];
+
+                // Reject partitions that violate any pin.
+                let pinOk = true;
+                for (const [noteIdx, handIdx] of pinByIdx) {
+                    if (noteIdx < boundaries[handIdx] || noteIdx >= boundaries[handIdx + 1]) {
+                        pinOk = false; break;
                     }
                 }
-                // Pass 2: closest-by-anchor (will shift, but respects ordering).
-                if (chosen < 0) {
-                    let bestDist = Infinity;
-                    for (let h = lastHandUsed; h < N; h++) {
-                        const st = state.get(handIds[h]);
-                        // Anchor we'd target so the note sits at the
-                        // bottom of this hand's window — minimises the
-                        // travel for the hand at hand[h] vs the next.
-                        const target = Math.max(0, n.note - st.span);
-                        const cur = st.anchor != null ? st.anchor : target;
-                        const d = Math.abs(cur - target);
-                        if (d < bestDist) { bestDist = d; chosen = h; }
+                if (!pinOk) continue;
+
+                let movement = 0;
+                let overflow = 0;
+                let tiebreak = 0;
+                const anchors = new Array(N);
+                let bandsOk = true;
+                let lastTopReach = -Infinity;
+                for (let h = 0; h < N; h++) {
+                    const start = boundaries[h];
+                    const end   = boundaries[h + 1];
+                    if (start === end) {
+                        anchors[h] = state.get(handIds[h]).anchor;
+                        // Idle hand keeps its position; doesn't contribute
+                        // to movement / overflow / tiebreak.
+                        if (Number.isFinite(anchors[h]) && anchors[h] <= lastTopReach) {
+                            // The idle hand sits below the previous
+                            // hand's top reach — collision invariant
+                            // broken. Reject; another partition will
+                            // assign the slice differently.
+                            bandsOk = false; break;
+                        }
+                        if (Number.isFinite(anchors[h])) {
+                            lastTopReach = anchors[h] + state.get(handIds[h]).span;
+                        }
+                        continue;
+                    }
+                    const lo = sortedNotes[start].note;
+                    const hi = sortedNotes[end - 1].note;
+                    const span = state.get(handIds[h]).span;
+                    const prev = state.get(handIds[h]).anchor;
+                    const anchor = _minMoveAnchor(prev, lo, hi, span);
+                    anchors[h] = anchor;
+                    if (prev != null) movement += Math.abs(anchor - prev);
+                    if (hi - lo > span) overflow += (hi - lo - span);
+                    tiebreak += (hi - lo);
+                    // No-overlap with any hand below: this hand's anchor
+                    // must sit strictly above the previous hand's top
+                    // reach. Reject otherwise — another partition is
+                    // free to place the slice on a different hand.
+                    if (anchor <= lastTopReach) { bandsOk = false; break; }
+                    lastTopReach = anchor + span;
+                }
+                if (!bandsOk) continue;
+
+                const cost = overflow * 1e6 + movement + tiebreak * 1e-3;
+                if (best == null || cost < best.cost) {
+                    best = { boundaries, anchors, cost, overflow };
+                }
+            }
+
+            // Fallback when every partition collides (rare — happens
+            // only when hands are pinned so close together that no
+            // assignment of the chord respects the no-overlap
+            // invariant). Re-enumerate without the band-collision
+            // check and accept the cheapest. The collision will
+            // surface in the resulting unplayable list.
+            if (best == null) {
+                for (const sizes of partitions) {
+                    const boundaries = new Array(N + 1);
+                    boundaries[0] = 0;
+                    for (let h = 0; h < N; h++) boundaries[h + 1] = boundaries[h] + sizes[h];
+                    let movement = 0;
+                    let overflow = 0;
+                    let tiebreak = 0;
+                    const anchors = new Array(N);
+                    for (let h = 0; h < N; h++) {
+                        const start = boundaries[h];
+                        const end   = boundaries[h + 1];
+                        if (start === end) {
+                            anchors[h] = state.get(handIds[h]).anchor;
+                            continue;
+                        }
+                        const lo = sortedNotes[start].note;
+                        const hi = sortedNotes[end - 1].note;
+                        const span = state.get(handIds[h]).span;
+                        const prev = state.get(handIds[h]).anchor;
+                        const anchor = _minMoveAnchor(prev, lo, hi, span);
+                        anchors[h] = anchor;
+                        if (prev != null) movement += Math.abs(anchor - prev);
+                        if (hi - lo > span) overflow += (hi - lo - span);
+                        tiebreak += (hi - lo);
+                    }
+                    const cost = overflow * 1e6 + movement + tiebreak * 1e-3;
+                    if (best == null || cost < best.cost) {
+                        best = { boundaries, anchors, cost, overflow };
                     }
                 }
-                if (chosen < 0) chosen = Math.min(N - 1, lastHandUsed);
-                buckets[chosen].push(n);
-                lastHandUsed = chosen;
             }
 
             const taggedNotes = [];
             const unplayable = [];
             for (let h = 0; h < N; h++) {
                 const id = handIds[h];
-                const slice = buckets[h];
-                if (slice.length === 0) continue;
-                const lo = slice[0].note;
-                const hi = slice[slice.length - 1].note;
+                const start = best.boundaries[h];
+                const end   = best.boundaries[h + 1];
+                if (start === end) continue;
                 const span = state.get(id).span;
-                let anchor = state.get(id).anchor;
-                if (anchor == null || lo < anchor || hi > anchor + span) {
-                    _emitShift(g, id, anchor, lo, 'auto');
-                    anchor = lo;
+                const prev = state.get(id).anchor;
+                const anchor = best.anchors[h];
+                if (prev == null || anchor !== prev) {
+                    _emitShift(g, id, prev, anchor, 'auto');
                 }
-                for (const n of slice) {
+                for (let i = start; i < end; i++) {
+                    const n = sortedNotes[i];
                     if (n.note < anchor || n.note > anchor + span) {
                         unplayable.push({ note: n.note, reason: 'outside_window', handId: id });
                     }
@@ -331,6 +434,34 @@
             });
             _updatePrevRelease(prevReleaseByHand, releaseByHand);
         }
+        return out;
+    }
+
+    /**
+     * Enumerate every K-tuple `(s_0, s_1, …, s_{K−1})` of non-negative
+     * integers summing to N. Returns an array of arrays. Used by the
+     * N-hand semitones simulator to consider every contiguous slice
+     * partition of a chord across the available hands.
+     *
+     * Count is C(N+K−1, K−1). For K=4 hands and N=10 notes that's
+     * 286 partitions — comfortably small for a per-chord enumeration.
+     * @private
+     */
+    function _enumeratePartitions(N, K) {
+        const out = [];
+        const cur = new Array(K);
+        function recurse(h, remaining) {
+            if (h === K - 1) {
+                cur[h] = remaining;
+                out.push(cur.slice());
+                return;
+            }
+            for (let s = 0; s <= remaining; s++) {
+                cur[h] = s;
+                recurse(h + 1, remaining - s);
+            }
+        }
+        recurse(0, N);
         return out;
     }
 
@@ -366,65 +497,56 @@
         return groups;
     }
 
-    function _indexOverrideAnchors(overrides) {
-        const map = new Map(); // key: `${handId}:${tick}` → anchor
-        if (!overrides || !Array.isArray(overrides.hand_anchors)) return map;
-        for (const a of overrides.hand_anchors) {
-            if (a && Number.isFinite(a.tick) && a.handId && Number.isFinite(a.anchor)) {
-                map.set(`${a.handId}:${a.tick}`, a.anchor);
-            }
-        }
-        return map;
-    }
-
-    function _indexDisabledNotes(overrides) {
-        const map = new Map(); // key: `${tick}:${note}` → reason
-        if (!overrides || !Array.isArray(overrides.disabled_notes)) return map;
-        for (const n of overrides.disabled_notes) {
-            if (n && Number.isFinite(n.tick) && Number.isFinite(n.note)) {
-                map.set(`${n.tick}:${n.note}`, n.reason || 'user');
-            }
-        }
-        return map;
-    }
-
     /**
-     * Index operator-pinned (string, fret) assignments by
-     * `(tick, midi)`. Lookups happen for every note inside
-     * `_simulateFrets` BEFORE the auto-resolver runs so the operator's
-     * choice always wins (and can be undone via the editor's history).
+     * Index every override list in a single pass and return all four
+     * lookup maps the simulators need:
+     *
+     *   - overrideAnchors  Map<`${handId}:${tick}`, anchor>           — hand_anchors
+     *   - disabledNotes    Map<`${tick}:${note}`, reason>             — disabled_notes
+     *   - noteAssignments  Map<`${tick}:${note}`, {string, fret}>     — frets-mode entries
+     *   - handAssignments  Map<`${tick}:${note}`, handId>             — semitones-mode entries
+     *
+     * The frets and semitones note-assignment shapes are mutually
+     * exclusive (an entry carries either {string, fret} or {handId},
+     * never both), so iterating the same list twice was dead weight.
+     * Every map starts empty when `overrides` is null/missing the
+     * relevant array, so callers never have to null-check.
      * @private
      */
-    function _indexNoteAssignments(overrides) {
-        const map = new Map(); // key: `${tick}:${note}` → {string, fret}
-        if (!overrides || !Array.isArray(overrides.note_assignments)) return map;
-        for (const a of overrides.note_assignments) {
-            if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
-                && Number.isFinite(a.string) && Number.isFinite(a.fret)) {
-                map.set(`${a.tick}:${a.note}`, { string: a.string, fret: a.fret });
+    function _indexOverrides(overrides) {
+        const overrideAnchors  = new Map();
+        const disabledNotes    = new Map();
+        const noteAssignments  = new Map();
+        const handAssignments  = new Map();
+        if (!overrides) {
+            return { overrideAnchors, disabledNotes, noteAssignments, handAssignments };
+        }
+        if (Array.isArray(overrides.hand_anchors)) {
+            for (const a of overrides.hand_anchors) {
+                if (a && Number.isFinite(a.tick) && a.handId && Number.isFinite(a.anchor)) {
+                    overrideAnchors.set(`${a.handId}:${a.tick}`, a.anchor);
+                }
             }
         }
-        return map;
-    }
-
-    /**
-     * Index operator-pinned hand assignments by `(tick, midi)` for
-     * keyboard-family instruments. Looks for the semitones-shape entry
-     * `{tick, note, handId}` in `overrides.note_assignments`; the
-     * mutually-exclusive `{string, fret}` shape is ignored here so the
-     * frets and semitones override paths stay independent.
-     * @private
-     */
-    function _indexHandAssignments(overrides) {
-        const map = new Map(); // key: `${tick}:${note}` → handId
-        if (!overrides || !Array.isArray(overrides.note_assignments)) return map;
-        for (const a of overrides.note_assignments) {
-            if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
-                && typeof a.handId === 'string' && a.handId.length > 0) {
-                map.set(`${a.tick}:${a.note}`, a.handId);
+        if (Array.isArray(overrides.disabled_notes)) {
+            for (const n of overrides.disabled_notes) {
+                if (n && Number.isFinite(n.tick) && Number.isFinite(n.note)) {
+                    disabledNotes.set(`${n.tick}:${n.note}`, n.reason || 'user');
+                }
             }
         }
-        return map;
+        if (Array.isArray(overrides.note_assignments)) {
+            for (const a of overrides.note_assignments) {
+                if (!a || !Number.isFinite(a.tick) || !Number.isFinite(a.note)) continue;
+                const key = `${a.tick}:${a.note}`;
+                if (Number.isFinite(a.string) && Number.isFinite(a.fret)) {
+                    noteAssignments.set(key, { string: a.string, fret: a.fret });
+                } else if (typeof a.handId === 'string' && a.handId.length > 0) {
+                    handAssignments.set(key, a.handId);
+                }
+            }
+        }
+        return { overrideAnchors, disabledNotes, noteAssignments, handAssignments };
     }
 
     /**
@@ -584,10 +706,15 @@
                     const lo = plan.sortedNotes[0].note;
                     const hi = plan.sortedNotes[plan.sortedNotes.length - 1].note;
                     const span = state.get(lowId).span;
-                    let newAnchor = state.get(lowId).anchor;
-                    if (newAnchor == null || lo < newAnchor || hi > newAnchor + span) {
-                        _emitShift(g, lowId, newAnchor, lo, 'auto');
-                        newAnchor = lo;
+                    const prevAnchor = state.get(lowId).anchor;
+                    // Minimum-displacement anchor — same clamp the
+                    // 2-hand path uses via _bestPartition. Sets
+                    // anchor = hi − span on upward shifts (instead
+                    // of overshooting to lo) and stays put when the
+                    // chord already fits in the window.
+                    const newAnchor = _minMoveAnchor(prevAnchor, lo, hi, span);
+                    if (prevAnchor == null || newAnchor !== prevAnchor) {
+                        _emitShift(g, lowId, prevAnchor, newAnchor, 'auto');
                     }
                     for (const n of plan.sortedNotes) {
                         if (n.note < newAnchor || n.note > newAnchor + span) {
@@ -621,10 +748,10 @@
 
             const lowAnchor = plan.lowOv != null
                 ? plan.lowOv
-                : _pickAnchorWithLookahead(lowPrev, plan.lowRange, futureLow, plan.lowDefault);
+                : _pickAnchorWithLookahead(lowPrev, plan.lowRange, futureLow, { fallback: plan.lowDefault });
             const highAnchor = plan.highOv != null
                 ? plan.highOv
-                : _pickAnchorWithLookahead(highPrev, plan.highRange, futureHigh, plan.highDefault);
+                : _pickAnchorWithLookahead(highPrev, plan.highRange, futureHigh, { fallback: plan.highDefault });
 
             if (lowAnchor  != null && lowAnchor  !== state.get(lowId).anchor) {
                 _emitShift(g, lowId,  state.get(lowId).anchor,  lowAnchor,  'auto');
@@ -781,18 +908,47 @@
      * pick the one with the lowest decayed cost.
      * @private
      */
-    function _pickAnchorWithLookahead(prev, range, futureRanges, fallback) {
+    /**
+     * Generic lookahead anchor picker shared by the semitones and
+     * frets simulators. Given the previous anchor, the current
+     * chord's valid range, and the next K chords' ranges, pick the
+     * in-range anchor that minimises the cumulative shift cost over
+     * the next K chords (with exponential decay).
+     *
+     * @param {number|null} prev          - previous anchor (null on first chord)
+     * @param {number[]|null} range       - [lo, hi] valid range; null = idle chord
+     * @param {Array<number[]|null>} futureRanges
+     * @param {object} [opts]
+     * @param {number|null} [opts.fallback]   - tie-break preference; null → use range[1]
+     * @param {number} [opts.initialWeight=0.7]   - weight of the first future chord;
+     *                                              frets uses 1.0 to react faster
+     * @param {number} [opts.decay=0.7]
+     * @param {number|null} [opts.idleFallback=null] - returned when range is null;
+     *                                              null defers to prev (semitones
+     *                                              behaviour). Frets passes prev directly.
+     * @returns {number}
+     * @private
+     */
+    function _pickAnchorWithLookahead(prev, range, futureRanges, opts = {}) {
+        const initialWeight = Number.isFinite(opts.initialWeight) ? opts.initialWeight : 0.7;
+        const decay = Number.isFinite(opts.decay) ? opts.decay : 0.7;
         if (range == null) {
             // Idle this chord: keep current position.
-            return prev != null ? prev : (fallback != null ? fallback : null);
+            if (Object.prototype.hasOwnProperty.call(opts, 'idleFallback')) {
+                return opts.idleFallback;
+            }
+            return prev != null ? prev : (opts.fallback != null ? opts.fallback : null);
         }
         const [lo, hi] = range;
-        const fb = fallback != null ? Math.max(lo, Math.min(hi, fallback)) : lo;
+        if (lo > hi) return hi; // empty range (chord wider than hand)
+        const tieBreak = opts.fallback != null
+            ? Math.max(lo, Math.min(hi, opts.fallback))
+            : hi;
 
         const candidates = new Set();
         candidates.add(lo);
         candidates.add(hi);
-        candidates.add(fb);
+        candidates.add(tieBreak);
         if (prev != null) candidates.add(Math.max(lo, Math.min(hi, prev)));
         for (const r of futureRanges || []) {
             if (!r) continue;
@@ -804,32 +960,26 @@
         for (const a of candidates) {
             // Immediate shift cost.
             let cost = prev != null ? Math.abs(a - prev) : 0;
-
             // Decayed cost of propagating `a` through the future
             // chords — at each step the hand moves the smallest
             // amount that lands in the next range.
             let cur = a;
-            let weight = 0.7;
+            let weight = initialWeight;
             for (const r of futureRanges || []) {
-                if (!r) { weight *= 0.7; continue; }
+                if (!r) { weight *= decay; continue; }
                 const next = Math.max(r[0], Math.min(cur, r[1]));
                 cost += weight * Math.abs(next - cur);
                 cur = next;
-                weight *= 0.7;
+                weight *= decay;
             }
-
-            // Tie-break: prefer the fallback (= partition's natural
-            // anchor — usually the lo of the assigned set) so the
-            // band's visual position stays predictable when no
-            // movement constraint differentiates candidates.
-            const tie = Math.abs(a - fb) * 1e-6;
-            cost += tie;
-
-            if (!best || cost < best.cost) {
-                best = { a, cost };
-            }
+            // Tie-break: prefer the supplied fallback (or the range
+            // upper bound when none) so the band's visual position
+            // stays predictable when no movement constraint
+            // differentiates candidates.
+            cost += Math.abs(a - tieBreak) * 1e-6;
+            if (!best || cost < best.cost) best = { a, cost };
         }
-        return best ? best.a : fb;
+        return best ? best.a : tieBreak;
     }
 
     /**
@@ -999,6 +1149,35 @@
     }
 
     /**
+     * Bidirectional minimum-displacement anchor for a hand of width
+     * `span` that must cover a chord whose extremes are `lo` and
+     * `hi`. The valid anchor range is `[hi − span, lo]` (anchor at
+     * `lo` puts the bass at the bottom of the window; anchor at
+     * `hi − span` puts the treble at the top). The minimum-move
+     * anchor is `prev` clamped into that range — keep `prev` if
+     * already in range, otherwise jump to the nearest bound.
+     *
+     * Without this, callers that simply set `anchor = lo` overshoot
+     * upward shifts by `(hi − lo)` semitones because they always
+     * place the chord at the bottom of the window even when the
+     * hand was approaching from below.
+     *
+     * Special cases:
+     *   - chord wider than `span` → return `lo` (best-effort,
+     *     overflow is reported as `outside_window` by the caller).
+     *   - `prev` null (first chord) → return `lo` so the band
+     *     starts at the music's natural floor.
+     * @private
+     */
+    function _minMoveAnchor(prev, lo, hi, span) {
+        if (hi - lo > span) return lo;
+        if (prev == null) return lo;
+        const minA = hi - span;
+        const maxA = lo;
+        return Math.max(minA, Math.min(maxA, prev));
+    }
+
+    /**
      * Push the idle hand away when the moving hand's new window would
      * collide with it. Returns null when no adjustment is needed.
      * @private
@@ -1126,7 +1305,7 @@
         // Precompute an estimated [minA, maxA] anchor range for each
         // upcoming chord. The estimate uses the LOWEST-fret-per-
         // string heuristic on the raw MIDI notes (= same idea as
-        // `_resolveStringFret` without context). It's intentionally
+        // best-fret-per-string heuristic). It's intentionally
         // anchor-independent so we can use it as a lookahead hint
         // when picking the current chord's anchor — without
         // creating circular "anchor depends on resolution depends on
@@ -1163,55 +1342,18 @@
         });
 
         /**
-         * Lookahead-aware anchor picker. Given the prev anchor, the
-         * CURRENT chord's valid anchor range, and a list of future
-         * anchor ranges, pick the in-range anchor that minimises the
-         * cumulative shift cost over the next K chords (with
-         * exponential decay). Tie-break: lower fret wins.
+         * Frets-mode anchor pick — shares the generic
+         * `_pickAnchorWithLookahead` with two tweaks: an initial
+         * weight of 1.0 (so the next chord's forced shift is
+         * weighted as heavily as the immediate move) and `idleFallback
+         * = prev` so an open-string-only chord doesn't move the hand.
          * @private
          */
         function pickAnchorWithLookahead(prev, range, futureRanges) {
-            if (!range) return prev;
-            const [minA, maxA] = range;
-            if (minA > maxA) return maxA; // empty range (chord wider than hand)
-
-            const candidates = new Set();
-            candidates.add(minA);
-            candidates.add(maxA);
-            if (prev != null) candidates.add(Math.max(minA, Math.min(maxA, prev)));
-            for (const r of futureRanges) {
-                if (!r) continue;
-                candidates.add(Math.max(minA, Math.min(maxA, r[0])));
-                candidates.add(Math.max(minA, Math.min(maxA, r[1])));
-            }
-
-            let best = null;
-            for (const c of candidates) {
-                let cost = (prev != null) ? Math.abs(c - prev) : 0;
-                let cur = c;
-                // Weight starts at 1.0 — the IMMEDIATE next chord's
-                // shift cost matters as much as the move we're about
-                // to make. Without that, the picker is too lazy and
-                // never trades a small proactive shift for a much
-                // bigger forced shift one chord later.
-                let weight = 1.0;
-                for (const r of futureRanges) {
-                    if (!r) { weight *= 0.7; continue; }
-                    const next = Math.max(r[0], Math.min(cur, r[1]));
-                    cost += weight * Math.abs(next - cur);
-                    cur = next;
-                    weight *= 0.7;
-                }
-                // Tie-break: prefer the natural-floor anchor (maxA =
-                // lo of the chord's fretted notes). Matches the
-                // legacy behaviour and feels natural when the music
-                // sits at a stable position.
-                cost += Math.abs(c - maxA) * 1e-6;
-                if (!best || cost < best.cost) {
-                    best = { anchor: c, cost };
-                }
-            }
-            return best ? best.anchor : maxA;
+            return _pickAnchorWithLookahead(prev, range, futureRanges, {
+                initialWeight: 1.0,
+                idleFallback: prev
+            });
         }
 
         for (let i = 0; i < groups.length; i++) {
@@ -1399,76 +1541,6 @@
      * @returns {{string:number, fret:number}|null}
      * @private
      */
-    function _resolveStringFret(midi, tuning, numFrets) {
-        if (!Array.isArray(tuning) || tuning.length === 0) return null;
-        if (!Number.isFinite(midi)) return null;
-        let best = null;
-        for (let i = 0; i < tuning.length; i++) {
-            const fret = midi - tuning[i];
-            if (fret < 0 || fret > numFrets) continue;
-            if (!best || fret < best.fret) {
-                best = { string: i + 1, fret };
-            }
-        }
-        return best;
-    }
-
-    /**
-     * Hand-aware variant of `_resolveStringFret`. When the simulator
-     * already knows where the hand sits, the resolver prefers a
-     * fret INSIDE the hand's reach `[anchor, anchor + spanFrets]`
-     * over open strings or out-of-window options — keeping the
-     * hand actually following the music instead of drifting on a
-     * long string of open notes and then making a huge jump.
-     *
-     * Score order (highest wins):
-     *   1. In-window fretted (1000 − distance-from-anchor)
-     *   2. Open string                                    (500)
-     *   3. Out-of-window fretted (100 − distance-to-window)
-     *
-     * Tie-break: lower fret wins. Falls back to the lowest-fret
-     * heuristic when `anchor` is null (= first chord).
-     * @private
-     */
-    function _resolveStringFretWithContext(midi, tuning, numFrets,
-                                              anchor, spanFrets) {
-        if (!Array.isArray(tuning) || tuning.length === 0) return null;
-        if (!Number.isFinite(midi)) return null;
-        const useContext = Number.isFinite(anchor) && Number.isFinite(spanFrets) && spanFrets > 0;
-        let best = null;
-        let bestScore = -Infinity;
-        for (let i = 0; i < tuning.length; i++) {
-            const fret = midi - tuning[i];
-            if (fret < 0 || fret > numFrets) continue;
-            let score;
-            if (useContext && fret > 0 && fret >= anchor && fret <= anchor + spanFrets) {
-                // In-window fretted — top priority. Closer to anchor
-                // = lower-numbered finger = preferred.
-                score = 1000 - (fret - anchor);
-            } else if (fret === 0) {
-                // Open string — cheap (no finger) but only when no
-                // in-window option beat it.
-                score = 500;
-            } else if (useContext) {
-                // Outside the current window — penalty proportional
-                // to how far we'd have to shift the hand.
-                const dist = Math.min(
-                    Math.abs(fret - anchor),
-                    Math.abs(fret - (anchor + spanFrets))
-                );
-                score = 100 - dist;
-            } else {
-                // No anchor yet — prefer lowest fret (open position).
-                score = 100 - fret;
-            }
-            if (score > bestScore || (score === bestScore && (!best || fret < best.fret))) {
-                bestScore = score;
-                best = { string: i + 1, fret };
-            }
-        }
-        return best;
-    }
-
     /**
      * Chord-level MIDI → (string, fret) resolver. Guarantees that
      * every assignment uses a UNIQUE string — physically a single
@@ -1479,9 +1551,9 @@
      * The unresolved notes are walked from LOW pitch to HIGH so the
      * bass naturally lands on the lower strings (= the open chord
      * convention). For each note, we score the remaining viable
-     * (string, fret) options with the same priority order as
-     * `_resolveStringFretWithContext` (in-window > open > out-of-
-     * window) and pick the best.
+     * (string, fret) options with priority open > in-window-fretted
+     * > out-of-window-fretted, plus a cluster bias to keep the chord
+     * compact, and pick the best.
      *
      * Returns an array of `{string, fret} | null` aligned with
      * `notes`; `null` means no string was available (= the chord
