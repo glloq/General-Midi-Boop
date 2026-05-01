@@ -65,7 +65,16 @@
 
     const DEFAULT_OPTIONS = {
         bandHeight: 22,
-        whiteTipFraction: 0.5,
+        // White fingers are short stubs that hug the band — they
+        // mark "this finger lands on the white key in front of the
+        // hand" without obscuring the key body. tipY = keysH × 0.75
+        // makes the finger occupy the bottom quarter of the keys
+        // area; half the height of the older 0.5 layout.
+        whiteTipFraction: 0.75,
+        // Black fingers reach much further forward, into the black-
+        // key zone (which spans the top 60 % of the keys area).
+        // tipY = blackH × 2/3 lands the tip 1/3 of the way into the
+        // black key, leaving its top two thirds visible above.
         blackTipFraction: 2 / 3,
         blackHeightRatio: 0.6,
         chromaticTipFraction: 0.55,
@@ -96,12 +105,6 @@
             this._anchors = new Map();        // handId → anchor (animated)
             this._activeNotes = new Set();    // Set<midi>
             this._extent = { lo: 0, hi: 127 };
-            // Diagnostics: per-cycle log gates and per-frame skip
-            // tracking. Re-armed on every `setHands` call.
-            this._didLogFilter = false;
-            this._didLogRender = false;
-            this._renderedHands = new Set();
-            this._skipReasons = [];
         }
 
         // -----------------------------------------------------------------
@@ -128,24 +131,11 @@
         /** `[{ id, span, numFingers, color }, …]`. Hands without an id
          *  or with a non-finite span are silently dropped. */
         setHands(hands) {
-            const incoming = Array.isArray(hands) ? hands : [];
-            const filtered = incoming.filter(h => h && h.id
-                && Number.isFinite(h.span)
-                && typeof h.color === 'string');
-            // Diagnostic: if any hand fails the filter, the editor
-            // will see one less hand on the overlay than configured.
-            // Surface the reason once per `setHands` cycle so an
-            // operator can paste it into a bug report.
-            if (filtered.length < incoming.length && !this._didLogFilter) {
-                this._didLogFilter = true;
-                const dropped = incoming.filter(h => !filtered.includes(h));
-                console.warn('[KeyboardFingersRenderer] dropped hands at filter',
-                    dropped.map(h => ({
-                        id: h && h.id, span: h && h.span,
-                        color: h && h.color, colorType: typeof (h && h.color)
-                    })));
-            }
-            this._hands = filtered;
+            this._hands = Array.isArray(hands)
+                ? hands.filter(h => h && h.id
+                    && Number.isFinite(h.span)
+                    && typeof h.color === 'string')
+                : [];
         }
 
         /** Map from `handId` to the (live, animated) anchor in MIDI
@@ -209,33 +199,10 @@
 
             if (this._hands.length === 0) return;
 
-            // Reset the per-frame "rendered hands" tracker. Diagnostic
-            // logs at the end of `_drawPiano` / `_drawChromatic` use
-            // it to surface any hand that was silently skipped.
-            this._renderedHands = new Set();
-            this._skipReasons = [];
-            this._handPixelDigest = [];
             if (this._layout === 'piano') {
                 this._drawPiano(ctx, W, H);
             } else {
                 this._drawChromatic(ctx, W, H);
-            }
-            // Log once per `setHands` cycle so the operator can see
-            // why a hand might be missing from the overlay.
-            if (!this._didLogRender && this._hands.length > 0) {
-                this._didLogRender = true;
-                if (this._renderedHands.size < this._hands.length) {
-                    const rendered = Array.from(this._renderedHands);
-                    console.info('[KeyboardFingersRenderer] some hands not rendered',
-                        { layout: this._layout,
-                          rendered,
-                          totalHands: this._hands.length,
-                          skips: this._skipReasons });
-                } else {
-                    console.info('[KeyboardFingersRenderer] all hands rendered',
-                        { layout: this._layout, count: this._hands.length,
-                          pixelDigest: this._handPixelDigest });
-                }
             }
         }
 
@@ -314,30 +281,18 @@
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
                 const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) {
-                    this._noteSkip(hand.id, 'no-anchor');
-                    continue;
-                }
+                if (!Number.isFinite(a)) continue;
 
                 const lowMidi  = Math.round(a);
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) {
-                    this._noteSkip(hand.id, 'off-screen',
-                        { lowMidi, highMidi, view: this._extent });
-                    continue;
-                }
+                if (this._isOffScreen(lowMidi, highMidi)) continue;
 
                 // Build the white-key sequence for this hand. Slots
                 // alternate: even = white, odd = between adjacent
                 // whites. Need floor(N/2) + 1 whites total.
                 const numWhites = Math.floor(numFingers / 2) + 1;
                 const whites = this._whiteKeysFromAnchor(lowMidi, numWhites);
-                if (whites.length < 2) {
-                    this._noteSkip(hand.id, 'whites-too-few',
-                        { lowMidi, numWhitesRequested: numWhites,
-                          whitesFound: whites.length });
-                    continue;
-                }
+                if (whites.length < 2) continue;
 
                 // Pixel centres computed against the fingers canvas
                 // width (see comment above).
@@ -364,19 +319,8 @@
                 // W and B fingers stay visually balanced.
                 const fingerW = Math.max(3, ww * 0.32);
 
-                this._renderedHands.add(hand.id);
                 const leftX = slotCenterX(0) - fingerW / 2;
                 const rightX = slotCenterX(numFingers - 1) + fingerW / 2;
-                if (Array.isArray(this._handPixelDigest)) {
-                    this._handPixelDigest.push({
-                        id: hand.id, anchor: a, numFingers,
-                        whites, leftX: Math.round(leftX),
-                        rightX: Math.round(rightX),
-                        canvasW: W,
-                        firstSlotX: Math.round(slotCenterX(0)),
-                        lastSlotX: Math.round(slotCenterX(numFingers - 1))
-                    });
-                }
                 this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
@@ -427,39 +371,19 @@
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
                 const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) {
-                    this._noteSkip(hand.id, 'no-anchor');
-                    continue;
-                }
+                if (!Number.isFinite(a)) continue;
 
                 const lowMidi  = Math.round(a);
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) {
-                    this._noteSkip(hand.id, 'off-screen',
-                        { lowMidi, highMidi, view: this._extent });
-                    continue;
-                }
+                if (this._isOffScreen(lowMidi, highMidi)) continue;
 
                 const handLeftX  = xLeftOf(Math.floor(a));
                 const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
-                if (!(handRightX > handLeftX)) {
-                    this._noteSkip(hand.id, 'right-le-left',
-                        { handLeftX, handRightX });
-                    continue;
-                }
+                if (!(handRightX > handLeftX)) continue;
                 const handPxW = handRightX - handLeftX;
                 const slotW = handPxW / numFingers;
                 const fingerW = Math.max(3, slotW * opts.fingerWidthRatio);
 
-                this._renderedHands.add(hand.id);
-                if (Array.isArray(this._handPixelDigest)) {
-                    this._handPixelDigest.push({
-                        id: hand.id, anchor: a, numFingers,
-                        leftX: Math.round(handLeftX),
-                        rightX: Math.round(handRightX),
-                        canvasW: W
-                    });
-                }
                 this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
@@ -471,17 +395,6 @@
                                          fingerW, isActive, W);
                 }
             }
-        }
-
-        /** Record a hand-skip reason for the once-per-cycle log in
-         *  `draw()`. Keeps a small array of `{handId, reason, ...}`
-         *  entries so the operator can see exactly which hand was
-         *  dropped and why. */
-        _noteSkip(handId, reason, extra) {
-            if (!Array.isArray(this._skipReasons)) return;
-            const entry = { handId, reason };
-            if (extra) Object.assign(entry, extra);
-            this._skipReasons.push(entry);
         }
 
         // -----------------------------------------------------------------
