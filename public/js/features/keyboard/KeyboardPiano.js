@@ -3,21 +3,20 @@
     'use strict';
     const KeyboardPianoMixin = {};
 
-    // 12 chromatic note colors (C to B). Evenly spread across the color wheel
-    // so every semitone is visually distinct across strings in tablature mode.
+    // 12 chromatic note colors (C to B) — roue chromatique complète.
     const FRET_NOTE_COLORS = [
-        { bg: '#e63333', text: '#fff' }, // C  - red
-        { bg: '#e66600', text: '#fff' }, // C# - orange
-        { bg: '#cc9900', text: '#1a1a1a' }, // D  - amber
-        { bg: '#88bb00', text: '#1a1a1a' }, // D# - yellow-green
-        { bg: '#22aa22', text: '#fff' }, // E  - green
-        { bg: '#00aa88', text: '#fff' }, // F  - teal
-        { bg: '#0099cc', text: '#fff' }, // F# - cyan-blue
-        { bg: '#1155dd', text: '#fff' }, // G  - blue
-        { bg: '#6633cc', text: '#fff' }, // G# - blue-violet
-        { bg: '#9922aa', text: '#fff' }, // A  - violet
-        { bg: '#cc1177', text: '#fff' }, // A# - magenta
-        { bg: '#dd2244', text: '#fff' }, // B  - rose
+        { bg: '#EF4444', text: '#fff' }, // C  - Rouge
+        { bg: '#F4622A', text: '#fff' }, // C# - Rouge-orangé
+        { bg: '#F97316', text: '#fff' }, // D  - Orange
+        { bg: '#FBBF24', text: '#1a1a1a' }, // D# - Jaune-orangé
+        { bg: '#EAB308', text: '#1a1a1a' }, // E  - Jaune
+        { bg: '#84CC16', text: '#1a1a1a' }, // F  - Jaune-vert
+        { bg: '#22C55E', text: '#fff' }, // F# - Vert
+        { bg: '#14B8A6', text: '#fff' }, // G  - Vert-cyan
+        { bg: '#06B6D4', text: '#fff' }, // G# - Cyan
+        { bg: '#3B82F6', text: '#fff' }, // A  - Bleu
+        { bg: '#7C3AED', text: '#fff' }, // A# - Bleu-violet
+        { bg: '#A855F7', text: '#fff' }, // B  - Violet
     ];
 
 
