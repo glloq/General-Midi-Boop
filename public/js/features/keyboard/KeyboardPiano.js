@@ -55,6 +55,11 @@
                                 <button class="btn-view-toggle" id="keyboard-view-toggle" title="${this.t('keyboard.toggleView') || 'Toggle view'}">🎹</button>
                             </div>
 
+                            <div class="control-group slide-mode-group hidden" id="keyboard-slide-mode-group">
+                                <label>${this.t('keyboard.slideMode') || 'Glissement'}</label>
+                                <button class="btn-slide-toggle" id="keyboard-slide-toggle" title="${this.t('keyboard.slideToggle') || 'Mode glissement par corde'}">〜</button>
+                            </div>
+
                             <div class="control-group note-color-group" id="keyboard-note-color-group">
                                 <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
                                 <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
@@ -378,9 +383,10 @@
         const validModes = ['piano', 'fretboard', 'drumpad'];
         if (!validModes.includes(mode)) mode = 'piano';
 
-        // Cleanup note slider when leaving fretboard
+        // Cleanup note slider and string slide mode when leaving fretboard
         if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
             if (typeof this.destroyNoteSlider === 'function') this.destroyNoteSlider();
+            if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
         }
 
         this.viewMode = mode;
@@ -410,6 +416,10 @@
             if (mode === 'fretboard') btn.textContent = '🎸';
             else if (mode === 'drumpad') btn.textContent = '🥁';
             else btn.textContent = '🎹';
+        }
+
+        if (typeof this._updateSlideModeGroupVisibility === 'function') {
+            this._updateSlideModeGroupVisibility();
         }
 
         if (mode === 'fretboard') this.renderFretboard();
@@ -562,6 +572,10 @@
 
         if (typeof this.initNoteSliderModeA === 'function') {
             this.initNoteSliderModeA();
+        }
+
+        if (typeof this.initStringSliderMode === 'function') {
+            this.initStringSliderMode();
         }
     }
 

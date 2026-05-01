@@ -1952,3 +1952,54 @@ body.dark-mode .keyboard-modal-info .info-text {
 body.dark-mode .keyboard-modal-info .info-text strong {
     color: var(--text-primary);
 }
+
+/* ============================================================================
+   STRING SLIDE MODE
+   ============================================================================ */
+
+.keyboard-header-controls .btn-slide-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-slide-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-slide-toggle.active {
+    background: rgba(251, 191, 36, 0.3);
+    border-color: #fbbf24;
+    color: #fbbf24;
+}
+
+/* String row in slide mode */
+.fret-string.slide-mode {
+    cursor: crosshair;
+    user-select: none;
+}
+
+.fret-string.slide-mode .fret-dot {
+    pointer-events: none;
+}
+
+/* Position indicator (gold circle) */
+.string-slide-indicator {
+    position: absolute;
+    top: calc(50% - 8px);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 8px #fbbf24;
+    pointer-events: none;
+    z-index: 10;
+    transform: translateX(-50%);
+    transition: left 0.02s linear;
+    display: none;
+}
