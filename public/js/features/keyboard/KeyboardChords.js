@@ -46,10 +46,11 @@
     const NOTE_NAMES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
 
     // ── Per-instance state (patched onto KeyboardModalNew.prototype) ─────────
-    KeyboardChordsMixin.chordRoot = 0;       // semitone class 0–11 (0 = C)
-    KeyboardChordsMixin._strumTimeouts = []; // pending timeout handles
-    KeyboardChordsMixin.handAnchorFret = 0;  // leftmost fret of the hand window
-    KeyboardChordsMixin._handSpanFrets = 4;  // frets covered by the hand
+    KeyboardChordsMixin.chordRoot = 0;          // semitone class 0–11 (0 = C)
+    KeyboardChordsMixin._activeChordType = 'Maj'; // last chord type used (for voicing refresh)
+    KeyboardChordsMixin._strumTimeouts = [];    // pending timeout handles
+    KeyboardChordsMixin.handAnchorFret = 0;     // leftmost fret of the hand window
+    KeyboardChordsMixin._handSpanFrets = 4;     // frets covered by the hand
     KeyboardChordsMixin._cachedMaxFrets = 22;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -153,6 +154,7 @@
             if (!btn) return;
             e.preventDefault();
             e.stopPropagation();
+            this._activeChordType = btn.dataset.chordType;
             this._triggerStrum(btn, e.clientX, e.shiftKey);
         });
 
@@ -162,6 +164,7 @@
             if (!btn) return;
             e.preventDefault();
             e.stopPropagation();
+            this._activeChordType = btn.dataset.chordType;
             this._triggerStrum(btn, e.touches[0].clientX, false);
         }, { passive: false });
     };
@@ -567,6 +570,69 @@
         this.handAnchorFret = newAnchor;
         this._updateHandWidgetPosition();
         this._sendHandPositionCC(newAnchor);
+    };
+
+    // ── Mode A : Slider → Root Control ───────────────────────────────────────
+
+    /**
+     * Update chordRoot from the note slider (Mode A) and refresh the fretboard
+     * voicing display without triggering a strum.
+     *
+     * @param {number} rootClass  Pitch class 0–11
+     */
+    KeyboardChordsMixin._setChordRootFromSlider = function (rootClass) {
+        this.chordRoot = rootClass;
+
+        const bar = document.querySelector('.chord-buttons-bar');
+        if (bar) {
+            bar.querySelectorAll('.chord-root-btn').forEach(b =>
+                b.classList.toggle('active', parseInt(b.dataset.noteClass, 10) === rootClass)
+            );
+            bar.querySelectorAll('.chord-type-btn').forEach(b => {
+                const t = b.dataset.chordType;
+                b.title = `${this._chordRootName(rootClass)} ${t} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[t]}`;
+            });
+        }
+
+        this._refreshVoicingDisplay();
+    };
+
+    /**
+     * Re-display the voicing for the current chordRoot + _activeChordType on
+     * the fretboard, without playing any note.
+     * Uses VoicingEngine (window.VoicingEngine) if available; falls back to
+     * the local _mapChordToStrings().
+     */
+    KeyboardChordsMixin._refreshVoicingDisplay = function () {
+        const type = this._activeChordType;
+        if (!type) return;
+        const intervals = CHORD_INTERVALS[type];
+        if (!intervals) return;
+
+        const cfg        = this.stringInstrumentConfig || {};
+        const numStrings = Math.max(1, cfg.num_strings || 6);
+        const caps       = this.selectedDeviceCapabilities;
+        const gmProgram  = (caps && caps.gm_program != null ? caps.gm_program : null)
+                        ?? (this.selectedDevice && this.selectedDevice.gm_program != null
+                               ? this.selectedDevice.gm_program : null);
+        const maxPoly    = this._chordMaxPolyphony(gmProgram, numStrings);
+
+        let voicing;
+        if (this._voicingEngine && typeof this._voicingEngine.mapChordToStrings === 'function') {
+            voicing = this._voicingEngine.mapChordToStrings(this.chordRoot, intervals, maxPoly);
+        } else {
+            const DEFAULT_TUNINGS = {
+                3: [50, 57, 62], 4: [28, 33, 38, 43], 5: [28, 33, 38, 43, 47],
+                6: [40, 45, 50, 55, 59, 64], 7: [35, 40, 45, 50, 55, 59, 64],
+            };
+            let tuning;
+            if (Array.isArray(cfg.tuning) && cfg.tuning.length === numStrings) tuning = cfg.tuning;
+            else if (Array.isArray(cfg.tuning_midi) && cfg.tuning_midi.length === numStrings) tuning = cfg.tuning_midi;
+            else tuning = DEFAULT_TUNINGS[numStrings] || Array.from({ length: numStrings }, (_, i) => 40 + i * 5);
+            voicing = this._mapChordToStrings(this.chordRoot, intervals, tuning, maxPoly);
+        }
+
+        this._showChordVoicing(voicing);
     };
 
     if (typeof window !== 'undefined') window.KeyboardChordsMixin = KeyboardChordsMixin;

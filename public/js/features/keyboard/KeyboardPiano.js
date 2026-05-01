@@ -370,6 +370,12 @@
     KeyboardPianoMixin.setViewMode = function(mode) {
         const validModes = ['piano', 'fretboard', 'drumpad'];
         if (!validModes.includes(mode)) mode = 'piano';
+
+        // Cleanup note slider when leaving fretboard
+        if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
+            if (typeof this.destroyNoteSlider === 'function') this.destroyNoteSlider();
+        }
+
         this.viewMode = mode;
 
         const piano = document.getElementById('piano-container');
@@ -540,6 +546,15 @@
         // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
         if (typeof this.renderChordButtons === 'function') {
             this.renderChordButtons();
+        }
+
+        // Note slider zone — Mode A "Root Control"
+        const sliderArea = document.createElement('div');
+        sliderArea.id = 'note-slider-area';
+        container.appendChild(sliderArea);
+
+        if (typeof this.initNoteSliderModeA === 'function') {
+            this.initNoteSliderModeA();
         }
     }
 
