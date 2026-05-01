@@ -718,11 +718,17 @@
                     * (ext.hi - ext.lo - span));
                 const id = h.id || `h${i + 1}`;
                 const overrideAnchor = this._latestAnchorOverride(id);
+                let initialAnchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
+                // Clamp into the playable range so an old override
+                // saved before the drag-clamp fix can't initialise a
+                // hand off-screen (which would skip its fingers in
+                // the overlay).
+                initialAnchor = Math.max(ext.lo, Math.min(ext.hi - span, initialAnchor));
                 return {
                     id,
                     span,
                     numFingers,
-                    anchor: Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor,
+                    anchor: initialAnchor,
                     color: _handColor(id)
                 };
             });
@@ -2334,17 +2340,27 @@
             this._drawFingers();
         }
 
-        /** Live update during a band drag — clamps against neighbours,
-         *  updates `_displayedAnchor` for an immediate visual effect,
-         *  and redraws. Does NOT push history (commit handles that). */
+        /** Live update during a band drag — clamps against neighbours
+         *  AND against the instrument's playable range so a hand
+         *  cannot be dragged beyond `note_range_min/max`. The
+         *  previous version used the absolute MIDI bounds [0, 127],
+         *  which let the rightmost hand glide off the visible
+         *  keyboard (e.g. anchor 113 + span 14 = 127 on an 88-key
+         *  piano whose `note_range_max` is 108). When that happened
+         *  the fingers overlay's MIDI off-screen check (in
+         *  `_drawPianoFingers`) skipped the hand and the user saw
+         *  the band slip away with no fingers attached. Updates
+         *  `_displayedAnchor` for an immediate visual effect; does
+         *  NOT push history (commit handles that). */
         _onHandBandDragLive(handId, newAnchor) {
             const idx = (this._hands || []).findIndex(h => h.id === handId);
             if (idx < 0) return;
             const hand = this._hands[idx];
             const prev = idx > 0 ? this._hands[idx - 1] : null;
             const next = idx < this._hands.length - 1 ? this._hands[idx + 1] : null;
-            const minAnchor = prev ? prev.anchor + prev.span : 0;
-            const maxAnchor = next ? next.anchor - hand.span : 127 - hand.span;
+            const ext = this._pitchExtent();
+            const minAnchor = prev ? prev.anchor + prev.span : ext.lo;
+            const maxAnchor = next ? next.anchor - hand.span : ext.hi - hand.span;
             const clamped = Math.max(minAnchor, Math.min(maxAnchor, newAnchor));
             hand.anchor = clamped;
             this._displayedAnchor.set(handId, clamped);
@@ -2673,8 +2689,15 @@
                 const overrideAnchor = this._latestAnchorOverride(h.id);
                 const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, total))
                     * (ext.hi - ext.lo - h.span));
-                h.anchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
-                this._displayedAnchor.set(h.id, h.anchor);
+                let anchor = Number.isFinite(overrideAnchor) ? overrideAnchor : seedAnchor;
+                // Clamp into the instrument's playable window. Old
+                // overrides saved before the drag-clamp fix could be
+                // outside [ext.lo, ext.hi - span]; loading them as-is
+                // would push the band off-screen and skip its
+                // fingers in the overlay.
+                anchor = Math.max(ext.lo, Math.min(ext.hi - h.span, anchor));
+                h.anchor = anchor;
+                this._displayedAnchor.set(h.id, anchor);
             }
             this.keyboard?.setHandBands(this._currentHandBands());
         }
