@@ -19,6 +19,9 @@ class KeyboardModalNew {
         this.selectedDeviceCapabilities = null; // Selected instrument capabilities
         this.activeNotes = new Set();
         this.mouseActiveNotes = new Set(); // Notes triggered by the mouse (for cleanup on global mouseup)
+        // In fretboard mode, tracks which specific string:fret positions are pressed
+        // (same MIDI note can exist on several strings — only the pressed one should highlight).
+        this.activeFretPositions = new Set();
         this.velocity = 80;
         this.modulation = 64; // CC#1 modulation wheel value (center)
         this._modWheelDragging = false;
@@ -206,6 +209,7 @@ class KeyboardModalNew {
         // Reset state
         this.isMouseDown = false;
         this.mouseActiveNotes.clear();
+        this.activeFretPositions.clear();
         this.selectedDevice = null;
 
         if (this.container) {
@@ -218,19 +222,23 @@ class KeyboardModalNew {
     }
 
     updatePianoDisplay() {
-        const allKeys = document.querySelectorAll('.piano-key');
-        allKeys.forEach(key => {
-            const note = parseInt(key.dataset.note);
+        if (this.viewMode === 'fretboard') {
+            // In fretboard mode, highlight only the specific string:fret that was pressed.
+            // The same MIDI note can appear on several strings — activeFretPositions
+            // tracks exactly which dot was touched, so other strings stay unlit.
+            document.querySelectorAll('.fretboard-container .fret-dot.piano-key').forEach(dot => {
+                const pos = (dot.dataset.string !== undefined && dot.dataset.fret !== undefined)
+                    ? `${dot.dataset.string}:${dot.dataset.fret}`
+                    : null;
+                dot.classList.toggle('active', pos !== null && this.activeFretPositions.has(pos));
+            });
+        } else {
+            document.querySelectorAll('.piano-key').forEach(key => {
+                key.classList.toggle('active', this.activeNotes.has(parseInt(key.dataset.note)));
+            });
+        }
 
-            // Highlight if active
-            if (this.activeNotes.has(note)) {
-                key.classList.add('active');
-            } else {
-                key.classList.remove('active');
-            }
-        });
-
-        // In fretboard mode, color the string line to the right of the active fret.
+        // Color the string line to the right of the active fret.
         if (this.viewMode === 'fretboard' && typeof this._updateFretboardStringColors === 'function') {
             this._updateFretboardStringColors();
         }
@@ -380,6 +388,7 @@ class KeyboardModalNew {
             }
             this.mouseActiveNotes.clear();
         }
+        this.activeFretPositions.clear();
     }
 
     handlePianoKeyDown(e) {
@@ -390,6 +399,11 @@ class KeyboardModalNew {
         // Don't play if the key is disabled
         if (key.classList.contains('disabled')) {
             return;
+        }
+
+        // Track specific fretboard position BEFORE playNote triggers updatePianoDisplay.
+        if (key.dataset.string !== undefined && key.dataset.fret !== undefined) {
+            this.activeFretPositions.add(`${key.dataset.string}:${key.dataset.fret}`);
         }
 
         if (!this.activeNotes.has(note)) {
@@ -406,6 +420,11 @@ class KeyboardModalNew {
     handlePianoKeyUp(e) {
         const key = e.currentTarget;
         const note = parseInt(key.dataset.note);
+
+        // Release specific fretboard position.
+        if (key.dataset.string !== undefined && key.dataset.fret !== undefined) {
+            this.activeFretPositions.delete(`${key.dataset.string}:${key.dataset.fret}`);
+        }
 
         this.mouseActiveNotes.delete(note);
 
@@ -425,6 +444,11 @@ class KeyboardModalNew {
         // Don't play if the key is disabled
         if (key.classList.contains('disabled')) {
             return;
+        }
+
+        // Track specific fretboard position BEFORE playNote triggers updatePianoDisplay.
+        if (key.dataset.string !== undefined && key.dataset.fret !== undefined) {
+            this.activeFretPositions.add(`${key.dataset.string}:${key.dataset.fret}`);
         }
 
         if (!this.activeNotes.has(note)) {
