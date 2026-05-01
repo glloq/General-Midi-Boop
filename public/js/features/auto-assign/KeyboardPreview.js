@@ -205,6 +205,41 @@
             return g.xOf[m];
         }
 
+        /** Public — pixel x of the centre of the key at `midi`. Accepts
+         *  fractional MIDI values: integer parts pick the nearest key,
+         *  fractional parts interpolate linearly between two adjacent
+         *  keys' centres. Used by the modal's fingers overlay so each
+         *  finger lands on the same physical key the keyboard widget
+         *  draws (white keys are wide, black keys are narrow → uniform
+         *  semitone spacing would drift visibly across an 88-key span). */
+        keyCenterAt(midi) {
+            if (!Number.isFinite(midi)) return 0;
+            const lo = Math.floor(midi);
+            const hi = lo + 1;
+            const t  = midi - lo;
+            const xLo = this._xOf(lo) + this.keyWidth(lo) / 2;
+            if (t <= 0 || hi > this.rangeMax) return xLo;
+            const xHi = this._xOf(hi) + this.keyWidth(hi) / 2;
+            return xLo + (xHi - xLo) * t;
+        }
+
+        /** Public — pixel x of the LEFT edge of the key at `midi`.
+         *  Mirrors the chromatic widget's `keyXAt` so the fingers
+         *  overlay queries the same shape regardless of instrument. */
+        keyXAt(midi) {
+            if (!Number.isFinite(midi)) return 0;
+            return this._xOf(midi);
+        }
+
+        /** Public — pixel width of the key at `midi`. White keys get
+         *  the full white-key width; black keys get a narrower band
+         *  matching the visual key. */
+        keyWidth(midi) {
+            const ww = this._whiteKeyWidth();
+            if (!Number.isFinite(midi)) return ww;
+            return isBlackKey(midi) ? ww * 0.6 : ww;
+        }
+
         _midiAtX(x) {
             const ww = this._whiteKeyWidth();
             if (ww <= 0) return null;
