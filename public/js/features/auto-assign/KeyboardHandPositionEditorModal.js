@@ -649,14 +649,19 @@
                 } else {
                     span = 4;
                 }
-                // Default to 5 fingers per hand — that's what real
-                // human hands have. The previous fallback `span + 1`
-                // produced 15 fingers for a typical 14-semitone piano
-                // hand (one rectangle per chromatic position), which
-                // didn't read as a hand at all. Instrument configs
-                // can still override via `num_fingers`.
+                // Number of fingers comes straight from the
+                // instrument's hands_config. `num_fingers` is the
+                // schema's authoritative field (see
+                // InstrumentCapabilitiesValidator: chromatic keyboards
+                // use `span = num_fingers - 1`, piano keyboards keep
+                // span and num_fingers independent). Range 1..10 per
+                // hand. Falls back to `span + 1` when the config
+                // didn't set the field (= one finger per chromatic
+                // position, the chromatic-instrument convention) so
+                // legacy configs without `num_fingers` still draw
+                // sensibly.
                 const numFingers = Number.isFinite(h.num_fingers) && h.num_fingers > 0
-                    ? h.num_fingers : 5;
+                    ? h.num_fingers : (span + 1);
                 const seedAnchor = ext.lo + Math.round(((i + 0.5) / Math.max(1, cfg.hands.length))
                     * (ext.hi - ext.lo - span));
                 const id = h.id || `h${i + 1}`;
@@ -1112,7 +1117,11 @@
          *  per finger. `semitone` may be a fractional number (smooth
          *  animation between rest and snapped positions). @private */
         _fingerLayout(hand, _handIndex, active) {
-            const numFingers = Math.max(1, hand.numFingers || 5);
+            // numFingers comes straight from the hand's config (1..10).
+            // `_mountKeyboard` already validated and stored it; we
+            // clamp to ≥ 1 defensively so a malformed config can't
+            // produce a zero-finger hand.
+            const numFingers = Math.max(1, hand.numFingers);
             const a = this._displayedAnchor.has(hand.id)
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
             const span = hand.span;
