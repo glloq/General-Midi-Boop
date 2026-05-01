@@ -790,12 +790,19 @@
                 const anchorMap = this._displayedAnchorMapForRender();
                 const anchorEntries = Array.from(anchorMap.entries());
                 const view = this._visibleExtent();
+                const kbCanvas = this.keyboardCanvas;
+                const fingersCanvas = this.fingersCanvas;
                 console.info('[KeyboardHandPositionEditor] fingers inputs',
                     { layout: this._keyboardLayoutType(),
                       hands: handsDigest,
                       anchors: anchorEntries,
                       visibleExtent: view,
-                      keyboard: this.keyboard ? 'wired' : 'missing' });
+                      keyboard: this.keyboard ? 'wired' : 'missing',
+                      kbRange: this.keyboard
+                          ? { lo: this.keyboard.rangeMin, hi: this.keyboard.rangeMax }
+                          : null,
+                      kbCanvasW: kbCanvas ? kbCanvas.clientWidth : null,
+                      fingersCanvasW: fingersCanvas ? fingersCanvas.clientWidth : null });
             }
             r.draw();
         }
