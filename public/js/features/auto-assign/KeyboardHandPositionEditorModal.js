@@ -1093,58 +1093,46 @@
             return out;
         }
 
-        /** Per-hand finger layout — fixed positions on the hand.
-         *  Each finger sits at a permanent slot inside the
-         *  `[anchor, anchor + span]` window:
+        /** Per-hand finger layout — fixed positions on the hand,
+         *  one finger per chromatic position inside the
+         *  `[anchor, anchor + span]` window. The slot count is
+         *  always `span + 1` so the bunch alternates naturally
+         *  between white-key and black-key fingers wherever the
+         *  chromatic layout has a black key (C#, D#, F#, G#, A#),
+         *  and stays adjacent at the E–F / B–C transitions where
+         *  no black key sits between two white keys.
          *
-         *      slot_i = anchor + (i / (numFingers − 1)) · span
+         *  This holds for both layouts the editor supports:
+         *    - piano (KeyboardPreview): span+1 fingers spread on
+         *      every semitone, the keyboard widget's keyXAt /
+         *      keyWidth places each on the actual key the renderer
+         *      drew (white wide, black narrow).
+         *    - chromatic (xylophone-style): span+1 == num_fingers
+         *      because the schema enforces span = num_fingers − 1
+         *      for chromatic instruments. Keeping a single formula
+         *      avoids a layout branch.
          *
-         *  The slots glide with the animated `_displayedAnchor` so
-         *  the bunch tracks the band, but they never move to chase
-         *  an active note — the position is fixed on the hand.
-         *  The active flag lights up when the slot's nearest
-         *  semitone matches a sounding pitch (purely a colour
-         *  change).
-         *
-         *  Finger count differs by keyboard layout:
-         *
-         *  - **piano** — one finger per chromatic position in the
-         *    window (`span + 1` fingers). The bunch alternates
-         *    naturally between white-key and black-key positions
-         *    because each slot lands on a unique semitone (60, 61,
-         *    62, …). The schema's `num_fingers` is used by the
-         *    simulator and the v2 anatomy work, but for the v1
-         *    overlay the user wants every key in the window to
-         *    show its finger.
-         *  - **chromatic** — `num_fingers` from the instrument
-         *    config (1..10). One mallet per striker on a marimba,
-         *    xylophone, etc. The slot count matches the configured
-         *    mallet count regardless of the window's span.
-         *
-         *  v2 will introduce realistic anatomy (left vs right thumb
-         *  position, finger-to-key snapping, variable finger
-         *  heights). @private */
+         *  Slots glide with the animated `_displayedAnchor`; their
+         *  position never moves to chase an active note (v2 will
+         *  add anatomy-aware snapping). The active flag lights up
+         *  when the slot's nearest semitone matches a sounding
+         *  pitch — purely a colour change. @private */
         _fingerLayout(hand, _handIndex, active) {
-            const layout = this._keyboardLayoutType();
             const span = hand.span;
-            // Piano shows one finger per chromatic position in the
-            // window so adjacent fingers naturally alternate over
-            // white and black keys. Chromatic keyboards keep the
-            // configured mallet count.
-            const numFingers = layout === 'piano'
-                ? Math.max(1, Math.round(span) + 1)
-                : Math.max(1, hand.numFingers);
             let a = this._displayedAnchor.has(hand.id)
                 ? this._displayedAnchor.get(hand.id) : hand.anchor;
             if (!Number.isFinite(a)) a = hand.anchor;
             if (!Number.isFinite(a) || !Number.isFinite(span)) return [];
+            // One finger per chromatic position in the window.
+            const numFingers = Math.max(1, Math.round(span) + 1);
             const fingers = new Array(numFingers);
             for (let i = 0; i < numFingers; i++) {
-                const t = numFingers === 1 ? 0.5 : i / (numFingers - 1);
-                const slot = a + t * span;
+                const slot = a + i; // step = 1 semitone, so slots are
+                                    // 60, 61, 62, … — every key in the
+                                    // window gets its own finger.
                 fingers[i] = {
                     semitone: slot,
-                    isActive: active.has(Math.round(slot))
+                    isActive: active.has(slot)
                 };
             }
             return fingers;
@@ -1201,12 +1189,6 @@
                 }
                 return (midi - view.lo + 0.5) * fallbackPxPerPitch;
             };
-            // Per-key width — used to scale the finger rectangle so
-            // it roughly fits inside whatever key it lands on.
-            const widthOf = (midi) => {
-                if (kb && typeof kb.keyWidth === 'function') return kb.keyWidth(midi);
-                return fallbackPxPerPitch;
-            };
 
             // Geometry: bands sit at the bottom of the keyboard widget
             // (single-row layout, height ~22px per the constructor).
@@ -1226,6 +1208,18 @@
             const tipY = handY * 0.6;
             const fingerH = handY - tipY;
 
+            // UNIFORM finger width across every slot — black-key and
+            // white-key fingers visually match. The reference is the
+            // current white-key width (= the wider of the two on a
+            // piano, the only width on a chromatic widget). Picking
+            // 30 % of that produces a comfortably narrow rectangle
+            // that fits inside a black key while remaining clearly
+            // visible on a white key.
+            const refKeyW = (kb && typeof kb.keyWidth === 'function')
+                ? kb.keyWidth(60) // 60 = C, always a white key on piano
+                : fallbackPxPerPitch;
+            const uniformFingerW = Math.max(3, refKeyW * 0.3);
+
             for (let h = 0; h < this._hands.length; h++) {
                 const hand = this._hands[h];
                 const fingers = this._fingerLayout(hand, h, active);
@@ -1234,26 +1228,21 @@
                     if (!Number.isFinite(f.semitone)) continue;
                     if (f.semitone < view.lo - 0.5 || f.semitone > view.hi + 0.5) continue;
                     const xCenter = xCentreOf(f.semitone);
-                    // Narrow rectangle (~30 % of the underlying key
-                    // width) so a 5- or 10-finger bunch reads as
-                    // distinct fingers rather than a solid bar.
-                    const keyW = widthOf(f.semitone);
-                    const fingerW = Math.max(2, keyW * 0.3);
-                    const fx = xCenter - fingerW / 2;
+                    const fx = xCenter - uniformFingerW / 2;
                     // Finger body: blue when pressing, grey when lifted.
                     ctx.fillStyle = f.isActive ? '#3b82f6' : '#94a3b8';
-                    ctx.fillRect(fx, tipY, fingerW, fingerH);
+                    ctx.fillRect(fx, tipY, uniformFingerW, fingerH);
                     // Subtle outline so two adjacent fingers stay
                     // distinguishable at narrow widths.
                     ctx.strokeStyle = 'rgba(15,23,42,0.65)';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(fx + 0.5, tipY + 0.5,
-                                    Math.max(1, fingerW - 1),
+                                    Math.max(1, uniformFingerW - 1),
                                     Math.max(1, fingerH - 1));
                     // Hand-coloured cap at the top — anchors the
                     // finger to its hand visually.
                     ctx.fillStyle = hand.color;
-                    ctx.fillRect(fx, handY - 4, fingerW, 4);
+                    ctx.fillRect(fx, handY - 4, uniformFingerW, 4);
                 }
             }
         }
