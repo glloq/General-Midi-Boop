@@ -182,6 +182,18 @@
     padding: 8px;
 }
 
+/* Override legacy keyboard-polish.css .instrument-dropdown:hover that makes the container white */
+.keyboard-modal .instrument-dropdown,
+.keyboard-modal .instrument-dropdown:hover,
+.keyboard-modal .instrument-dropdown:focus {
+    background: #16271f !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    transform: none !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    color: inherit !important;
+    padding: 0 !important;
+}
+
 .instrument-dropdown::-webkit-scrollbar { width: 6px; }
 .instrument-dropdown::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
 .instrument-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
